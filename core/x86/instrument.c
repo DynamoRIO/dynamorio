@@ -4162,9 +4162,10 @@ dr_client_thread_set_suspendable(bool suspendable)
 
 DR_API
 bool
-dr_suspend_all_other_threads(OUT void ***drcontexts,
-                             OUT uint *num_suspended,
-                             OUT uint *num_unsuspended)
+dr_suspend_all_other_threads_ex(OUT void ***drcontexts,
+                                OUT uint *num_suspended,
+                                OUT uint *num_unsuspended,
+                                dr_suspend_flags_t flags)
 {
     uint out_suspended = 0, out_unsuspended = 0;
     thread_record_t **threads;
@@ -4212,7 +4213,8 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
                 /* must translate BEFORE freeing any memory! */
                 if (!thread_synch_successful(threads[i])) {
                     out_unsuspended++;
-                } else if (is_thread_currently_native(threads[i])) {
+                } else if (is_thread_currently_native(threads[i]) &&
+                           !TEST(DR_SUSPEND_NATIVE, flags)) {
                     out_unsuspended++;
                 } else if (thread_synch_state_no_xfer(dcontext)) {
                     /* FIXME: for all other synchall callers, the app
@@ -4256,6 +4258,16 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
     return true;
 }
 
+DR_API
+bool
+dr_suspend_all_other_threads(OUT void ***drcontexts,
+                             OUT uint *num_suspended,
+                             OUT uint *num_unsuspended)
+{
+    return dr_suspend_all_other_threads_ex(drcontexts, num_unsuspended,
+                                           num_unsuspended, 0);
+}
+
 bool
 dr_resume_all_other_threads(IN void **drcontexts,
                             IN uint num_suspended)
@@ -4283,6 +4295,31 @@ dr_resume_all_other_threads(IN void **drcontexts,
                      HEAPACCT(ACCT_THREAD_MGT));
     end_synch_with_all_threads(threads, num_threads, true/*resume*/);
     return true;
+}
+
+DR_API
+bool
+dr_is_thread_native(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "invalid param");
+    return is_thread_currently_native(dcontext->thread_record);
+}
+
+DR_API
+bool
+dr_retakeover_suspended_native_thread(void *drcontext)
+{
+    bool res;
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "invalid param");
+    /* XXX: I don't quite see why I need to pop these 2 when I'm doing
+     * what a regular retakeover would do
+     */
+    KSTOP_NOT_MATCHING_DC(dcontext, fcache_default);
+    KSTOP_NOT_MATCHING_DC(dcontext, dispatch_num_exits);
+    res = os_thread_take_over_suspended_native(dcontext);
+    return res;
 }
 
 # ifdef LINUX

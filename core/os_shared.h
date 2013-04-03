@@ -148,6 +148,10 @@ void thread_set_self_context(void *cxt);
 /* Only sets the priv_mcontext_t state.  Does not return. */
 void thread_set_self_mcontext(priv_mcontext_t *mc);
 
+/* Assumes target thread is suspended */
+bool
+os_thread_take_over_suspended_native(dcontext_t *dcontext);
+
 dcontext_t *get_thread_private_dcontext(void);
 void set_thread_private_dcontext(dcontext_t *dcontext);
 

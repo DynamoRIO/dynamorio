@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -117,6 +117,8 @@ typedef struct _os_thread_data_t {
      * thread(s). See i#96/PR 295561.
      */
     volatile int terminated;
+
+    volatile bool retakeover; /* for re-attach */
 
     /* PR 450670: for re-entrant suspend signals */
     int processing_signal;

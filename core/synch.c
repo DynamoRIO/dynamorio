@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -259,6 +259,14 @@ is_native_thread_state_valid(dcontext_t *dcontext, app_pc pc, byte *esp)
      * itself case. */
     ASSERT(esp != NULL);
     ASSERT(is_thread_currently_native(dcontext->thread_record));
+#ifdef WINDOWS
+    if (pc == (app_pc) thread_attach_takeover) {
+        /* We are trying to take over this thread but it has not yet been
+         * scheduled.  It was native, and can't hold any DR locks.
+         */
+        return true;
+    }
+#endif
     return (!is_in_dynamo_dll(pc) &&
             IF_WINDOWS(!is_part_of_interception(pc) &&)
             (!in_generated_routine(dcontext, pc) ||
@@ -320,6 +328,14 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
 #endif
         if (is_native_thread_state_valid(trec->dcontext, (app_pc)mcontext->xip, 
                                          (byte *)mcontext->xsp)) {
+#ifdef WINDOWS
+            if ((app_pc)mcontext->xip == (app_pc) thread_attach_takeover) {
+                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d at "
+                    "takeover point\n", trec->id);
+                thread_attach_translate(mcontext);
+                return true;
+            }
+#endif
             if (is_at_do_syscall(trec->dcontext, (app_pc)mcontext->xip,
                                  (byte *)mcontext->xsp)) {
                 LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d running "
@@ -479,6 +495,15 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
         if (is_native_thread_state_valid(trec->dcontext, mc->pc, 
                                          (byte *)mc->xsp)) {
             safe = true;
+#ifdef WINDOWS
+            if (mc->pc == (app_pc) thread_attach_takeover &&
+                THREAD_SYNCH_IS_CLEANED(desired_state)) {
+                /* The takeover data will be freed at process exit, but we might
+                 * clean up a thread mid-run, so make sure we free the data.
+                 */
+                thread_attach_exit(mc);
+            }
+#endif
             /* we should always be able to translate a valid native state */
             ASSERT(translate_mcontext(trec, mc, false/*just querying*/, NULL));
         }   

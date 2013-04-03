@@ -5829,6 +5829,12 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ostd->resumed = 1;
     futex_wake_all(&ostd->resumed);
 
+    if (ostd->retakeover) {
+        ostd->retakeover = false;
+        sig_take_over(sc);  /* no return */
+        ASSERT_NOT_REACHED();
+    }
+
     return false; /* do not pass to app */
 }
 

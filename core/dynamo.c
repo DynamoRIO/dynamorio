@@ -1945,6 +1945,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
 # endif
     LOG(GLOBAL, LOG_THREADS, 1, "Thread %d our handle rights: "PFX"\n",
         tid, nt_get_handle_access_rights(tr->handle));
+    tr->retakeover = false;
 #else
     tr->pid = pid;
     tr->execve = false;

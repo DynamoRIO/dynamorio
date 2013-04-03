@@ -3799,6 +3799,19 @@ DR_API
 void
 dr_thread_yield(void);
 
+/* DR_API EXPORT BEGIN */
+/** Flags controlling the behavior of dr_suspend_all_other_threads_ex(). */
+typedef enum {
+    /**
+     * By default, native threads are not suspended by
+     * dr_suspend_all_other_threads_ex().  This flag requests that native
+     * threads (including those temporarily-native due to actions such as
+     * #DR_EMIT_GO_NATIVE) be suspended as well.
+     */
+    DR_SUSPEND_NATIVE = 0x0001,
+} dr_suspend_flags_t;
+/* DR_API EXPORT END */
+
 /* FIXME - xref PR 227619 - some other event handler are safe (image_load/unload for*
  * example) which we could note here. */
 DR_API
@@ -3809,6 +3822,9 @@ DR_API
  * or dr_get_mcontext().  However, the contexts may not be modified:
  * dr_set_mcontext() is not supported.  dr_get_mcontext() can be called on
  * the caller of this routine, unless in a Windows nudge callback.
+ *
+ * The \p flags argument controls which threads are suspended and may
+ * add further options in the future.
  *
  * The number of successfully suspended threads, which is also the length
  * of the \p drcontexts array, is returned in \p num_suspended, which is a
@@ -3836,6 +3852,14 @@ DR_API
  * nudge callback.
  */
 bool
+dr_suspend_all_other_threads_ex(OUT void ***drcontexts,
+                                OUT uint *num_suspended,
+                                OUT uint *num_unsuspended,
+                                dr_suspend_flags_t flags);
+
+DR_API
+/** Identical to dr_suspend_all_other_threads_ex() with \p flags set to 0. */
+bool
 dr_suspend_all_other_threads(OUT void ***drcontexts,
                              OUT uint *num_suspended,
                              OUT uint *num_unsuspended);
@@ -3853,6 +3877,26 @@ DR_API
 bool
 dr_resume_all_other_threads(IN void **drcontexts,
                             IN uint num_suspended);
+
+DR_API
+/**
+ * Returns whether the thread represented by \p drcontext is currently
+ * executing natively (typically due to an earlier #DR_EMIT_GO_NATIVE
+ * return value).
+ */
+bool
+dr_is_thread_native(void *drcontext);
+
+DR_API
+/**
+ * Causes the thread owning \p drcontext to begin executing in the
+ * code cache again once it is resumed.  The thread must currently be
+ * suspended (typically by dr_suspend_all_other_threads_ex() with
+ * #DR_SUSPEND_NATIVE) and must be currently native (typically from
+ * #DR_EMIT_GO_NATIVE).  \return whether successful.
+ */
+bool
+dr_retakeover_suspended_native_thread(void *drcontext);
 
 /* We do not translate the context to avoid lock issues (PR 205795).
  * We do not delay until a safe point (via regular delayable signal path)

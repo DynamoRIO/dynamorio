@@ -157,6 +157,9 @@ DECLARE_CXTSWPROT_VAR(static mutex_t exception_stack_lock,
                       INIT_LOCK_FREE(exception_stack_lock));
 #endif
 
+DECLARE_CXTSWPROT_VAR(static mutex_t intercept_hook_lock,
+                      INIT_LOCK_FREE(intercept_hook_lock));
+
 /* Only used for Vista, new threads start directly here instead of going 
  * through KiUserApcDispatcher first. Isn't in our lib (though is exported
  * on 2k, xp and vista at least) so we get it dynamically. */
@@ -6624,14 +6627,28 @@ void
 retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
 {
     ASSERT(IS_UNDER_DYN_HACK(tr->under_dynamo_control) || 
+           tr->retakeover ||
            dr_injected_secondary_thread);
     tr->under_dynamo_control = true;
+
+    /* Only one thread needs to do the rest of this, and we don't need to
+     * block the rest as A) a thread hitting the hook before we remove it should
+     * be a nop and B) the hook removal itself should be thread-safe.
+     */
+    if (!mutex_trylock(&intercept_hook_lock))
+        return;
+    /* Check whether another thread already did this and already unlocked the lock */
+    if (interception_point == INTERCEPT_SYSCALL) {
+        ASSERT(image_entry_trampoline == NULL);
+        mutex_unlock(&intercept_hook_lock);
+        return;
+    }
+
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
     interception_point = where;
 
-    if (INTERNAL_OPTION(hook_image_entry)) {
+    if (INTERNAL_OPTION(hook_image_entry) && image_entry_trampoline != NULL) {
         /* remove the image entry trampoline */
-        ASSERT(image_entry_trampoline != NULL);
         /* ensure we didn't take over and forget to call this routine -- we shouldn't
          * get here via interpreting, only natively, so no fragment should exist
          */
@@ -6642,7 +6659,9 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
     }
 
     STATS_INC(num_retakeover_after_native);
+#ifndef CLIENT_INTERFACE
     ASSERT_CURIOSITY(GLOBAL_STAT(num_retakeover_after_native) == 1);
+#endif
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
     LOG(GLOBAL, LOG_VMAREAS, 1, "\n*** re-taking-over @%s after losing control ***\n",
@@ -6714,14 +6733,16 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
         LOG(GLOBAL, LOG_VMAREAS, 1, "after re-walking, executable regions are:\n");
         DOLOG(1, LOG_VMAREAS, { print_executable_areas(GLOBAL); });
     }
+    mutex_unlock(&intercept_hook_lock);
 }
 
 void
 remove_image_entry_trampoline()
 {
-    ASSERT(image_entry_trampoline != NULL);
+    /* we don't assert it's non-NULL b/c we want to support partial native exec modes */
     if (image_entry_trampoline != NULL)
         remove_trampoline(image_entry_trampoline, image_entry_pc);
+    image_entry_trampoline = NULL;
     /* FIXME: should set image_entry_trampoline unless we have multiple calls */
 }
 
@@ -8110,6 +8131,7 @@ callback_exit()
 #ifdef STACK_GUARD_PAGE
     DELETE_LOCK(exception_stack_lock);
 #endif
+    DELETE_LOCK(intercept_hook_lock);
 }
 
 dr_marker_t*

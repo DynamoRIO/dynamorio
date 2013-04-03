@@ -496,6 +496,7 @@ enum {
     LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
     LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */
     LOCK_RANK(map_intercept_pc_lock), /* < global_alloc_lock */
+    LOCK_RANK(intercept_hook_lock), /* < global_alloc_lock */
     LOCK_RANK(global_alloc_lock),/* < heap_unit_lock */
     LOCK_RANK(heap_unit_lock),   /* recursive */
     LOCK_RANK(vmh_lock),        /* lowest level */

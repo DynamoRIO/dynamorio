@@ -1581,6 +1581,8 @@ typedef struct _takeover_data_t {
     app_pc continuation_pc;
     byte *dstack;
     bool in_progress;
+    bool new_dstack; /* else, using existing dstack for re-take-over */
+    thread_id_t tid;
     priv_mcontext_t mc;
 } takeover_data_t;
 
@@ -1616,7 +1618,7 @@ takeover_table_entry_free(void *e)
     takeover_data_t *data = (takeover_data_t *) e;
     if (e == INVALID_PAYLOAD)
         return;
-   if (data->dstack != NULL)
+    if (data->dstack != NULL && data->new_dstack)
         stack_free(data->dstack, DYNAMORIO_STACK_SIZE);
     global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
 }
@@ -1728,13 +1730,21 @@ os_list_threads(uint *num_threads_out)
 
 /* Removes the entry for the executing thread from the table and frees data */
 static void
-thread_attach_remove_from_table(takeover_data_t *data)
+thread_attach_remove_from_table(takeover_data_t *data, bool free_stack)
 {
     TABLE_RWLOCK(takeover_table, write, lock);
     /* this will free data */
-    data->dstack = NULL; /* don't free this */
-    generic_hash_remove(GLOBAL_DCONTEXT, takeover_table, (ptr_uint_t)get_thread_id());
+    if (!free_stack)
+        data->dstack = NULL; /* don't free this */
+    generic_hash_remove(GLOBAL_DCONTEXT, takeover_table, data->tid);
     TABLE_RWLOCK(takeover_table, write, unlock);
+}
+
+void
+thread_attach_translate(priv_mcontext_t *mc INOUT)
+{
+    takeover_data_t *data = (takeover_data_t *) mc->xbx;
+    *mc = data->mc;
 }
 
 void
@@ -1743,18 +1753,26 @@ thread_attach_context_revert(CONTEXT *cxt INOUT)
     takeover_data_t *data = (takeover_data_t *) cxt->CXT_XBX;
     mcontext_to_context(cxt, &data->mc, false /*! set cur_seg*/);
     cxt->CXT_XIP = (ptr_uint_t) data->continuation_pc;;
-    thread_attach_remove_from_table(data);
+    thread_attach_remove_from_table(data, true/*free stack*/);
+}
+
+void
+thread_attach_exit(priv_mcontext_t *mc)
+{
+    takeover_data_t *data = (takeover_data_t *) mc->xbx;
+    ASSERT(mc->pc == (app_pc) thread_attach_takeover);
+    thread_attach_remove_from_table(data, true/*free stack*/);
 }
 
 /* On success, returns true and leaves thread suspended. */
 static bool
-os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid)
+os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool suspended)
 {
     bool success = true;
     char buf[MAX_CONTEXT_SIZE];
     CONTEXT *cxt = nt_initialize_context(buf, CONTEXT_DR_STATE);
     ASSERT(tid == thread_id_from_handle(hthread));
-    if (nt_thread_suspend(hthread, NULL) &&
+    if ((suspended || nt_thread_suspend(hthread, NULL)) &&
         NT_SUCCESS(nt_get_context(hthread, cxt))) {
         /* Rather than try to emulate clone handling by putting this
          * on the stack and thus risking transparency violations, we
@@ -1797,12 +1815,20 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid)
             } else
                 return true;
         } else {
+            thread_record_t *tr = thread_lookup(tid);
             data = (takeover_data_t *)
                 global_heap_alloc(sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
-            data->dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+            if (tr != NULL && tr->dcontext != NULL) {
+                data->new_dstack = false;
+                data->dstack = tr->dcontext->dstack;
+            } else {
+                data->new_dstack = true;
+                data->dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
+            }
         }
         context_to_mcontext(&data->mc, cxt);
         data->in_progress = false;
+        data->tid = tid;
         data->continuation_pc = (app_pc) cxt->CXT_XIP;
         cxt->CXT_XIP = (ptr_uint_t) thread_attach_takeover;
         /* XXX: xax, xcx, and xdx get clobbered (b/c of wow64 syscall return
@@ -1838,6 +1864,21 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid)
         success = false;
     }
     return success;
+}
+
+bool
+os_thread_take_over_suspended_native(dcontext_t *dcontext)
+{
+    thread_record_t *tr = dcontext->thread_record;
+    if (!is_thread_currently_native(tr))
+        return false;
+    /* In case of failure (xref all the issues with setting the context), we
+     * use this to signal syscall_while_native() to take this thread
+     * over if it makes it to one of our syscall hooks.
+     * The thread will still be considered is_thread_currently_native().
+     */
+    tr->retakeover = true;
+    return os_take_over_thread(dcontext, tr->handle, tr->id, true/*suspended*/);
 }
 
 bool
@@ -1899,7 +1940,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: taking over thread %d\n",
                         threads[i].tid);
                     if (os_take_over_thread(dcontext, threads[i].handle,
-                                            threads[i].tid)) {
+                                            threads[i].tid, false/*!suspended*/)) {
                         threads[i].user_data = (void *)(ptr_uint_t) TAKEOVER_SUCCESS;
                     } else
                         took_over_all = false;
@@ -1968,23 +2009,29 @@ thread_attach_setup(takeover_data_t *data)
     data->in_progress = true;
 
     rc = dynamo_thread_init(data->dstack, &data->mc _IF_CLIENT_INTERFACE(false));
-    ASSERT(rc != -1); /* -1 indicates an already initialized thread */
+    /* We don't assert that rc!=-1 b/c we are used to take over a
+     * native_exec thread, which is already initialized.
+     */
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
     dynamo_thread_under_dynamo(dcontext);
+    /* clear retakeover field, if we came from os_thread_take_over_suspended_native() */
+    dcontext->thread_record->retakeover = false;
 
     LOG(GLOBAL, LOG_THREADS, 1,
         "TAKEOVER: thread %d, dstack "PFX", start pc "PFX"\n",
         get_thread_id(), data->dstack, data->continuation_pc);
 
+    ASSERT(os_using_app_state(dcontext));
+    ASSERT(data->dstack == dcontext->dstack);
+
     dcontext->next_tag = data->continuation_pc;
     *get_mcontext(dcontext) = data->mc;
 
-    thread_attach_remove_from_table(data);
+    thread_attach_remove_from_table(data, false/*don't free stack*/);
     data = NULL;
 
-    call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+    transfer_to_dispatch(dcontext, get_mcontext(dcontext), false/*!full_DR_state*/);
     ASSERT_NOT_REACHED();
 }
 

@@ -190,6 +190,15 @@ thread_get_context(thread_record_t *tr, CONTEXT *context);
 bool
 thread_set_context(thread_record_t *tr, CONTEXT *context);
 
+void
+thread_attach_translate(priv_mcontext_t *mc INOUT);
+
+/* Should be passed the full current context, including pc, of a thread
+ * set up for takeover but not yet scheduled.
+ */
+void
+thread_attach_exit(priv_mcontext_t *mc);
+
 /* To move a var into one of our special self-protected sections, in
  * addition to declaring a var between START_DATA_SECTION and
  * END_DATA_SECTION you must initialize it to something!

@@ -301,6 +301,7 @@ typedef struct _thread_record_t {
     thread_id_t id;   /* thread id */
 #ifdef WINDOWS
     HANDLE handle;    /* win32 thread handle */
+    bool retakeover;
 #else
     process_id_t pid; /* thread group id */
     bool execve;      /* exiting due to execve (i#237/PR 498284) */

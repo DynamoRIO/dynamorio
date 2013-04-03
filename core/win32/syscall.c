@@ -391,7 +391,8 @@ syscall_while_native(app_state_at_intercept_t *state)
     if (dcontext == NULL) {
         /* unknown thread */
         return AFTER_INTERCEPT_LET_GO; /* do syscall natively */
-    } else if (IS_UNDER_DYN_HACK(dcontext->thread_record->under_dynamo_control)) {
+    } else if (IS_UNDER_DYN_HACK(dcontext->thread_record->under_dynamo_control) ||
+               dcontext->thread_record->retakeover) {
         /* this trampoline is our ticket to taking control again prior
          * to the image entry point
          * we often hit this on NtAllocateVirtualMemory from HeapCreate for
@@ -402,6 +403,7 @@ syscall_while_native(app_state_at_intercept_t *state)
             "syscall_while_native: retakeover in %s after native cb return lost control\n",
             syscall_names[sysnum]);
         retakeover_after_native(dcontext->thread_record, INTERCEPT_SYSCALL);
+        dcontext->thread_record->retakeover = false;
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */ 
     } else if (!dcontext->thread_record->under_dynamo_control
                /* xref PR 230836 */
