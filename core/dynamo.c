@@ -2610,31 +2610,19 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-#ifdef LINUX
-    /* FIXME : on windows this only matters when using the app_start app_stop 
-     * interface, and it screws up the thread lookup and synch routines
-     * undefining for windows for SAV alpha, revisit later with better model
-     */
-
     if (dcontext == NULL)
         return;
-    /* FIXME: mark !under_dynamo_control?
-     * conflict with use in callback, also use at exit to decide what threads to kill
-     * FIXME: when does thread_exit get called?  if thread says "dr_app_stop"
-     * and we mark it no longer under our control when do we exit it?
-     */
     os_thread_not_under_dynamo(dcontext);
-# ifdef SIDELINE
+#ifdef SIDELINE
     /* FIXME: if # active threads is 0, then put sideline thread to sleep! */
     if (dynamo_options.sideline) {
         /* put sideline thread to sleep */
         sideline_stop();
     }
-# endif
-# ifdef DEBUG
+#endif
+#ifdef DEBUG
     os_flush(dcontext->logfile);
-# endif
-#endif /* LINUX */
+#endif
 }
 
 #define MAX_TAKE_OVER_ATTEMPTS 4

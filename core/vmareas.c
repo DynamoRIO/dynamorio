@@ -7014,7 +7014,7 @@ check_thread_vm_area_cleanup(dcontext_t *dcontext, bool abort, bool clean_bb,
         }
         if (clean_bb) {
             /* clean up bb_building_lock and IR */
-            bb_build_abort(dcontext, false/*don't call back*/);
+            bb_build_abort(dcontext, false/*don't call back*/, true/*unlock*/);
         }
     }
 }

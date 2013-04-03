@@ -4844,7 +4844,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
                  * ret_after_call_check does decoding (case 9396) */
                 if (dcontext->bb_build_info != NULL) {
                     /* must have been building a bb at the time */
-                    bb_build_abort(dcontext, true/*clean vm area*/);
+                    bb_build_abort(dcontext, true/*clean vm area*/, true/*unlock*/);
                 }
                 /* FIXME: if necessary, have a separate dump core mask for
                  * in_page_error */

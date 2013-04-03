@@ -1015,7 +1015,10 @@ os_fast_exit(void)
      */
     ASSERT_CURIOSITY(reached_image_entry_yet() ||
                      RUNNING_WITHOUT_CODE_CACHE()
-                     IF_APP_EXPORTS( || dr_api_entry));
+                     IF_APP_EXPORTS( || dr_api_entry)
+                     /* Clients can go native.  XXX: add var for whether client did? */
+                     IF_CLIENT_INTERFACE
+                     (|| !IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)));
 
     DOLOG(1, LOG_TOP, { print_mem_quota(); });
     DOLOG(1, LOG_TOP, {

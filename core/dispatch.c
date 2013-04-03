@@ -192,8 +192,7 @@ dispatch(dcontext_t *dcontext)
                                                _IF_CLIENT(NULL));
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
             }
-            ASSERT(targetf != NULL);
-            if (TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
+            if (targetf != NULL && TEST(FRAG_COARSE_GRAIN, targetf->flags)) {
                 /* targetf is a static temp fragment protected by bb_building_lock,
                  * so we must make a local copy to use before releasing the lock.
                  * FIXME: best to pass local wrapper to build_basic_block_fragment
@@ -206,14 +205,18 @@ dispatch(dcontext_t *dcontext)
                 targetf = &coarse_f;
             }
             SHARED_BB_UNLOCK();
+            if (targetf == NULL)
+                break;
             /* loop around and re-do monitor check */
         } while (true);
 
-        if (dispatch_enter_fcache(dcontext, targetf)) {
-            /* won't reach here: will re-enter dispatch() with a clean stack */
-            ASSERT_NOT_REACHED();
-        } else
-            targetf = NULL; /* targetf was flushed */
+        if (targetf != NULL) {
+            if (dispatch_enter_fcache(dcontext, targetf)) {
+                /* won't reach here: will re-enter dispatch() with a clean stack */
+                ASSERT_NOT_REACHED();
+            } else
+                targetf = NULL; /* targetf was flushed */
+        }
     } while (true);
     ASSERT_NOT_REACHED();
 }
@@ -615,8 +618,9 @@ dispatch_enter_native(dcontext_t *dcontext)
                          early_inject_load_helper_dcontext ==
                          get_thread_private_dcontext()) ||)
                IF_HOTP(dcontext->nudge_thread ||)
+               /* clients requesting native execution come here */
+               IF_CLIENT_INTERFACE(dr_bb_hook_exists() ||)
                RUNNING_WITHOUT_CODE_CACHE());
-
         ASSERT(dcontext->native_exec_postsyscall != NULL);
         LOG(THREAD, LOG_ASYNCH, 1, "Returning to native "PFX" after a syscall\n",
             dcontext->native_exec_postsyscall);

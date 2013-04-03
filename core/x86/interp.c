@@ -795,7 +795,7 @@ bb_process_invalid_instr(dcontext_t *dcontext, build_bb_t *bb)
         /* FIXME case 10672: provide a runtime option to specify new
          * instruction formats to avoid this app exception */
         ASSERT(dcontext->bb_build_info == bb);
-        bb_build_abort(dcontext, true/*clean vm area*/);
+        bb_build_abort(dcontext, true/*clean vm area*/, true/*unlock*/);
         /* FIXME : we use illegal instruction here, even though we 
          * know windows uses different exception codes for different
          * types of invalid instructions (for ex. STATUS_INVALID_LOCK
@@ -2449,8 +2449,9 @@ client_check_syscall(instrlist_t *ilist, instr_t *inst,
 
 /* Pass bb to client, and afterward check for criteria we require and rescan for
  * eflags and other flags that might have changed.
+ * Returns true normally; returns false to indicate "go native".
  */
-static void
+static bool
 client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 {
     dr_emit_flags_t emitflags = DR_EMIT_DEFAULT;
@@ -2468,7 +2469,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      *        does predicating on bb->app_interp take care of this issue?
      */
     if (!bb->pass_to_client)
-        return;
+        return true;
 
     /* i#995: DR may build a bb with one invalid instruction, which won't be
      * passed to cliennt.
@@ -2476,7 +2477,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      * i#1000-c#1: the bb->ilist could be empty.
      */
     if (instrlist_first(bb->ilist) == NULL)
-        return;
+        return true;
     if (!instr_opcode_valid(instrlist_first(bb->ilist)) &&
         /* For -fast_client_decode we can have level 0 instrs so check
          * to ensure this is a single-instr bb that was built just to
@@ -2485,13 +2486,22 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
          * invalid instr properly though.
          */
         instrlist_first(bb->ilist) == instrlist_last(bb->ilist)) {
-        return;
+        return true;
     }
 
     /* Call the bb creation callback(s) */
     if (!instrument_basic_block(dcontext, (app_pc) bb->start_pc, bb->ilist,
                                 bb->for_trace, !bb->app_interp, &emitflags)) {
         /* although no callback was called we must process syscalls/ints (PR 307284) */
+    }
+    if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {
+        LOG(THREAD, LOG_INTERP, 2, "client requested that we go native\n");
+        SYSLOG_INTERNAL_INFO("going native at client request");//NOCHECKIN
+        /* we leverage the existing native_exec mechanism */
+        dcontext->native_exec_postsyscall = bb->start_pc;
+        dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
+        dynamo_thread_not_under_dynamo(dcontext);
+        return false;
     }
 
     bb->post_client = true;
@@ -2756,6 +2766,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         /* i#848: let client terminate traces */
         bb->flags |= FRAG_MUST_END_TRACE;
     }
+    return true;
 }
 #endif /* CLIENT_INTERFACE */
 
@@ -3509,7 +3520,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif
 
 #ifdef CLIENT_INTERFACE
-    client_process_bb(dcontext, bb);
+    if (!client_process_bb(dcontext, bb)) {
+        bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
+        return;
+    }
     /* i#620: provide API to set fall-through and retaddr targets at end of bb */
     if (instrlist_get_return_target(bb->ilist) != NULL ||
         instrlist_get_fall_through_target(bb->ilist) != NULL) {
@@ -3767,7 +3781,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
  * middle of bb building, in order to free resources
  */
 void
-bb_build_abort(dcontext_t *dcontext, bool clean_vmarea)
+bb_build_abort(dcontext_t *dcontext, bool clean_vmarea, bool unlock)
 {
     ASSERT(dcontext->bb_build_info != NULL); /* caller should check */
     if (dcontext->bb_build_info != NULL) {
@@ -3788,16 +3802,18 @@ bb_build_abort(dcontext_t *dcontext, bool clean_vmarea)
              */
             check_thread_vm_area_abort(dcontext, &bb->vmlist, bb->flags);
         } /* else we were presumably called from vmarea so caller does cleanup */
-        /* Assumption: bb building lock is held iff bb->for_cache,
-         * and on a nested app bb build where !bb->for_cache we do keep the
-         * original bb info in dcontext (see build_bb_ilist()).
-         */
-        if (bb->has_bb_building_lock) {
-            ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
-            SHARED_BB_UNLOCK();
-            KSTOP_REWIND(bb_building);
-        } else
-            ASSERT_DO_NOT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
+        if (unlock) {
+            /* Assumption: bb building lock is held iff bb->for_cache,
+             * and on a nested app bb build where !bb->for_cache we do keep the
+             * original bb info in dcontext (see build_bb_ilist()).
+             */
+            if (bb->has_bb_building_lock) {
+                ASSERT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
+                SHARED_BB_UNLOCK();
+                KSTOP_REWIND(bb_building);
+            } else
+                ASSERT_DO_NOT_OWN_MUTEX(USE_BB_BUILDING_LOCK(), &bb_building_lock);
+        }
         dcontext->bb_build_info = NULL;
     }
 }
@@ -4451,6 +4467,10 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         build_native_exec_bb(dcontext, &bb);
     } else {
         build_bb_ilist(dcontext, &bb);
+        if (dcontext->bb_build_info == NULL) { /* going native */
+            f = NULL;
+            goto build_basic_block_fragment_done;
+        }
         if (bb.native_exec) {
             /* change bb to be a native_exec gateway */
             bool is_call = bb.native_call;
@@ -4519,7 +4539,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 #endif
 
     exit_interp_build_bb(dcontext, &bb);
-
+ build_basic_block_fragment_done:
     dcontext->whereami = wherewasi;
     KSTOP(bb_building);
     return f;

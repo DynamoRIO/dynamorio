@@ -1443,6 +1443,12 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
             get_num_threads());
         KSTOP(pre_syscall);
         KSTOP(num_exits_dir_syscall);
+        if (is_thread_currently_native(dcontext->thread_record)) {
+            /* Avoid hooks on syscalls made while cleaning up: such as
+             * private libraries making system lib calls
+             */
+            dynamo_thread_under_dynamo(dcontext);
+        }
         /* FIXME: what if syscall returns w/ STATUS_PROCESS_IS_TERMINATING? */
         os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],

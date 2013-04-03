@@ -4220,7 +4220,7 @@ master_signal_handler_C(byte *xsp)
                      * ret_after_call_check does decoding (case 9396) */
                     if (dcontext->bb_build_info != NULL) {
                         /* must have been building a bb at the time */
-                        bb_build_abort(dcontext, true/*clean vm area*/);
+                        bb_build_abort(dcontext, true/*clean vm area*/, true/*unlock*/);
                     }
                     /* Since we have no sigreturn we have to restore the mask manually */
                     unblock_all_signals();

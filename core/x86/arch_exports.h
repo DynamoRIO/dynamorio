@@ -1352,7 +1352,7 @@ typedef struct {
 instrlist_t * build_app_bb_ilist(dcontext_t *dcontext, byte *start_pc, file_t outf);
 
 void
-bb_build_abort(dcontext_t *dcontext, bool clean_vmarea);
+bb_build_abort(dcontext_t *dcontext, bool clean_vmarea, bool unlock);
 
 bool
 expand_should_set_translation(dcontext_t *dcontext);

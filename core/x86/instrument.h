@@ -139,6 +139,18 @@ typedef enum {
      * flag need not be set for that scenario.
      */
     DR_EMIT_MUST_END_TRACE       = 0x04,
+    /**
+     * Requests that DR relinquish control of the current thread and
+     * let it run natively until the client indicates that DR should
+     * take over again.  While native, on Windows, currently only the
+     * thread init event (dr_register_thread_init_event()) will be
+     * raised, and nothing on Linux: no events will occur in the
+     * native thread.  On Windows, DR tries to monitor any actions a
+     * native thread might take that affect correct execution from the
+     * code cache, but running natively carries risks.  Consider this
+     * feature experimental, particularly on Linux.
+     */
+    DR_EMIT_GO_NATIVE           = 0x08,
 } dr_emit_flags_t;
 /* DR_API EXPORT END */
 
