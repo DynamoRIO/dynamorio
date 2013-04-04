@@ -90,6 +90,13 @@
 # define ASSERT(x, msg) /* nothing */
 #endif
 
+static uint verbose;
+
+#define NOTIFY(level, fmt, ...) do {          \
+    if (verbose >= (level))                   \
+        dr_fprintf(STDERR, fmt, __VA_ARGS__); \
+} while (0)
+
 typedef struct _bbcov_option_t {
     bool dump_text;
     bool dump_binary;
@@ -100,6 +107,7 @@ typedef struct _bbcov_option_t {
     bool nudge_kills;
 #endif
     char *logdir;
+    int native_until_thread;
 #ifdef CBR_COVERAGE
     bool check;
     bool summary;
@@ -147,6 +155,8 @@ static per_thread_t *global_data;
 static bool bbcov_per_thread = false;
 static module_table_t *module_table;
 static client_id_t client_id;
+
+static volatile bool go_native;
 
 /****************************************************************************
  * Utility Functions
@@ -926,7 +936,10 @@ event_basic_block(void *drcontext, void *tag,
 #endif
                        (uint)(end_pc - start_pc));
 
-    return DR_EMIT_DEFAULT;
+    if (go_native)
+        return DR_EMIT_GO_NATIVE;
+    else
+        return DR_EMIT_DEFAULT;
 }
 
 static void
@@ -971,7 +984,39 @@ static void
 event_thread_init(void *drcontext)
 {
     per_thread_t *data;
+    static volatile int thread_count;
 
+    if (options.native_until_thread > 0) {
+        int local_count = dr_atomic_add32_return_sum(&thread_count, 1);
+        NOTIFY(1, "@@@@@@@@@@@@@ new thread #%d %d\n",
+               local_count, dr_get_thread_id(drcontext));
+        if (go_native && local_count == options.native_until_thread) {
+            void **drcontexts = NULL;
+            uint num_threads, i;
+            go_native = false;
+            NOTIFY(1, "thread %d suspending all threads\n", dr_get_thread_id(drcontext));
+            if (dr_suspend_all_other_threads_ex(&drcontexts, &num_threads, NULL,
+                                                DR_SUSPEND_NATIVE)) {
+                NOTIFY(1, "suspended %d threads\n", num_threads);
+                for (i = 0; i < num_threads; i++) {
+                    if (dr_is_thread_native(drcontexts[i])) {
+                        NOTIFY(2, "\txxx taking over thread #%d %d\n",
+                               i, dr_get_thread_id(drcontexts[i]));
+                        dr_retakeover_suspended_native_thread(drcontexts[i]);
+                    } else {
+                        NOTIFY(2, "\tthread #%d %d under DR\n",
+                               i, dr_get_thread_id(drcontexts[i]));
+                    }
+                }
+                if (!dr_resume_all_other_threads(drcontexts, num_threads)) {
+                    ASSERT(false, "failed to resume threads");
+                }
+            } else {
+                ASSERT(false, "failed to suspend threads");
+            }
+        }
+
+    }
     /* allocate thread private data for per-thread cache */
     if (bbcov_per_thread)
         data = thread_data_create(drcontext);
@@ -1021,6 +1066,7 @@ static void
 options_init(client_id_t id)
 {
     const char *opstr = dr_get_options(id);
+    const char *s;
     /* i#1049: DR should provide a utility routine to split the string
      * into an array of tokens.
      */
@@ -1044,6 +1090,16 @@ options_init(client_id_t id)
         ASSERT(options.logdir[0] != ' '  &&
                options.logdir[0] != '\0' && dr_directory_exists(options.logdir),
                "invalid logdir");
+    }
+    s = strstr(opstr, "-native_until_thread ");
+    if (s != NULL) {
+        int res = dr_sscanf(s + strlen("-native_until_thread "),
+                            "%d", &options.native_until_thread);
+        if (res == 1 && options.native_until_thread > 0)
+            go_native = true;
+        else
+            options.native_until_thread = 0;
+        ASSERT(res == 1, "invalid option");
     }
 #ifdef CBR_COVERAGE
     if (strstr(opstr, "-check_cbr") != NULL) {
