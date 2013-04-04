@@ -2099,7 +2099,7 @@ wait_for_outstanding_nudges()
         if (num_client_nudge_threads > 0) {
             LOG(GLOBAL, LOG_TOP, 1,
                 "Waiting for %d nudges to finish - app is about to kill all threads "
-                "except the current one./n", num_client_nudge_threads);
+                "except the current one.\n", num_client_nudge_threads);
         }
     });
 

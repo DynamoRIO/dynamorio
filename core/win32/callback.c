@@ -2339,6 +2339,7 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
             instr_t *tmp = instrlist_last(ilist);
             instrlist_remove(ilist, tmp);
             instr_destroy(dcontext, tmp);
+            instr_destroy(dcontext, instr);
             ASSERT(syscall_uses_wow64_index()); /* else handled above */
             ASSERT(wow64_index != NULL);
             if (wow64_index[sys_enum] == 0) {
