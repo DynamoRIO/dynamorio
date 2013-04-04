@@ -4264,7 +4264,7 @@ dr_suspend_all_other_threads(OUT void ***drcontexts,
                              OUT uint *num_suspended,
                              OUT uint *num_unsuspended)
 {
-    return dr_suspend_all_other_threads_ex(drcontexts, num_unsuspended,
+    return dr_suspend_all_other_threads_ex(drcontexts, num_suspended,
                                            num_unsuspended, 0);
 }
 
