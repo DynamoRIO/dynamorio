@@ -3613,6 +3613,30 @@ DR_API
 int
 dr_sscanf(const char *str, const char *fmt, ...);
 
+DR_API
+/**
+ * Utility function that aids in tokenizing a string, such as a client
+ * options string from dr_get_options().  The function scans \p str
+ * until a non-whitespace character is found.  It then starts copying
+ * into \p buf until a whitespace character is found denoting the end
+ * of the token.  If the token begins with a quote, the token
+ * continues (including across whitespace) until the matching end
+ * quote is found.  Characters considered whitespace are ' ', '\\t',
+ * '\\r', and '\\n'; characters considered quotes are '\\'', '\\"', and
+ * '`'.
+ *
+ * @param[in]  str     The start of the string containing the next token.
+ * @param[out] buf     A buffer to store a null-terminated copy of the next token.
+ * @param[in]  buflen  The capacity of the buffer, in characters.  If the token
+ *                     is too large to fit, it will be truncated and null-terminated.
+ *
+ * \return a pointer to the end of the token in \p str.  Thus, to retrieve
+ * the subsequent token, call this routine again with the prior return value
+ * as the new value of \p str.  Returns NULL when the end of \p str is reached.
+ */
+const char *
+dr_get_token(const char *str, char *buf, size_t buflen);
+
 DR_API 
 /** Prints \p msg followed by the instruction \p instr to file \p f. */
 void 

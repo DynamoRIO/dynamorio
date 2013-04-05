@@ -166,6 +166,7 @@ Further non-compatibility-affecting changes include:
  - Added #DR_EMIT_GO_NATIVE, dr_suspend_all_other_threads_ex(),
    dr_retakeover_suspended_native_thread(), and dr_is_thread_native() for
    temporarily-native support.
+ - Added dr_get_token()
 
 **************************************************
 <hr>

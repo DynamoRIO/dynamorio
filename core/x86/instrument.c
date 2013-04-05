@@ -4021,6 +4021,20 @@ dr_sscanf(const char *str, const char *fmt, ...)
     return res;
 }
 
+DR_API const char *
+dr_get_token(const char *str, char *buf, size_t buflen)
+{
+    /* We don't indicate whether any truncation happened.  The
+     * reasoning is that this is meant to be used on a string of known
+     * size ahead of time, so the max size for any one token is known.
+     */
+    const char *pos = str;
+    if (parse_word(str, &pos, buf, buflen) == NULL)
+        return NULL;
+    else
+        return pos;
+}
+
 DR_API void 
 dr_print_instr(void *drcontext, file_t f, instr_t *instr, const char *msg)
 {

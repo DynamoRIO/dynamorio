@@ -108,6 +108,10 @@ else (WIN32)
   set(OPT_CFLAGS "-O2")
 endif (WIN32)
 
+if (DEBUG)
+  set(OPT_CFLAGS "-DDEBUG")
+endif (DEBUG)
+
 if (NOT DEFINED DynamoRIO_DIR)
   set(DynamoRIO_DIR "${PROJECT_SOURCE_DIR}/../cmake" CACHE PATH
     "DynamoRIO installation's cmake directory")

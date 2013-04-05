@@ -47,7 +47,7 @@
  * -nudge_kills   Windows only. Uses nudge to notify the process for termination
  *                so that the exit event will be called.
  * -logdir <dir>  Sets log directory, which by default is at the same directory
- *                as the client library. It must be the last option.
+ *                as the client library.
  *
  * The two options below can only be used when the client is compiled with
  * CBR_COVERAGE being defined.
@@ -90,12 +90,17 @@
 # define ASSERT(x, msg) /* nothing */
 #endif
 
+/* Checks for both debug and release builds: */
+#define USAGE_CHECK(x, msg) DR_ASSERT_MSG(x, msg)
+
 static uint verbose;
 
 #define NOTIFY(level, fmt, ...) do {          \
     if (verbose >= (level))                   \
         dr_fprintf(STDERR, fmt, __VA_ARGS__); \
 } while (0)
+
+#define OPTION_MAX_LENGTH MAXIMUM_PATH
 
 typedef struct _bbcov_option_t {
     bool dump_text;
@@ -106,7 +111,7 @@ typedef struct _bbcov_option_t {
      */
     bool nudge_kills;
 #endif
-    char *logdir;
+    char logdir[MAXIMUM_PATH];
     int native_until_thread;
 #ifdef CBR_COVERAGE
     bool check;
@@ -175,6 +180,7 @@ log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
         log = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
         if (log != INVALID_FILE) {
             dr_log(drcontext, LOG_ALL, 1, "bbcov: log file is %s\n", buf);
+            NOTIFY(1, "<created log file %s>\n", buf);
             return log;
         }
     }
@@ -193,19 +199,19 @@ log_file_create(void *drcontext, per_thread_t *data)
      * We could also pass in a path and retrieve with dr_get_options().
      */
     len = dr_snprintf(logname, BUFFER_SIZE_ELEMENTS(logname), "%s",
-                      options.logdir != NULL ?
+                      options.logdir[0] != '\0' ?
                       options.logdir : dr_get_client_path(client_id));
     ASSERT(len > 0, "dr_snprintf failed");
     NULL_TERMINATE_BUFFER(logname);
     dirsep = logname + len - 1;
-    if (options.logdir == NULL /* removing client lib */ ||
+    if (options.logdir[0] == '\0' /* removing client lib */ ||
         /* path does not have a trailing / and is too large to add it */
         (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\') &&
          len == BUFFER_SIZE_ELEMENTS(logname) - 1)) {
         for (dirsep = logname + len;
              *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\');
              dirsep--)
-            ASSERT(dirsep > logname, "fail to find tailing /");
+            ASSERT(dirsep > logname, "fail to find trailing /");
     }
     /* add trailing / if necessary */
     if (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\')) {
@@ -1067,56 +1073,64 @@ options_init(client_id_t id)
 {
     const char *opstr = dr_get_options(id);
     const char *s;
-    /* i#1049: DR should provide a utility routine to split the string
-     * into an array of tokens.
-     */
-    if (strstr(opstr, "-dump_text") != NULL)
-        options.dump_text = true;
-    if (strstr(opstr, "-dump_binary") != NULL)
-        options.dump_binary = true;
-    /* If both or neither specified, we honor the binary. */
+
+    char token[OPTION_MAX_LENGTH];
+    for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
+         s != NULL;
+         s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
+        if (strcmp(token, "-dump_text") == 0)
+            options.dump_text = true;
+        else if (strcmp(token, "-dump_binary") == 0)
+            options.dump_binary = true;
+#ifdef WINDOWS
+        else if (strcmp(token, "-nudge_kills") == 0)
+            options.nudge_kills = true;
+#endif
+        else if (strcmp(token, "-logdir") == 0) {
+            s = dr_get_token(s, options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir));
+            USAGE_CHECK(s != NULL, "missing logdir path");
+        }
+        else if (strcmp(token, "-native_until_thread") == 0) {
+            s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
+            USAGE_CHECK(s != NULL, "missing -native_until_thread number");
+            if (s != NULL) {
+                int res = dr_sscanf(token, "%d", &options.native_until_thread);
+                if (res == 1 && options.native_until_thread > 0)
+                    go_native = true;
+                else {
+                    options.native_until_thread = 0;
+                    USAGE_CHECK(false, "invalid -native_until_thread number");
+                }
+            }
+        }
+        else if (strcmp(token, "-verbose") == 0) {
+            s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
+            USAGE_CHECK(s != NULL, "missing -verbose number");
+            if (s != NULL) {
+                int res = dr_sscanf(token, "%u", &verbose);
+                USAGE_CHECK(res == 1, "invalid -verbose number");
+            }
+        }
+#ifdef CBR_COVERAGE
+        else if (strcmp(token, "-check_cbr") == 0) {
+            options.check = true;
+        }
+        else if (strcmp(token, "-summary_only") == 0) {
+            USAGE_CHECK(options.check, "check_cbr is not set");
+            options.summary = true;
+        }
+#endif
+        else {
+            NOTIFY(0, "UNRECOGNIZED OPTION: \"%s\"\n", token);
+            USAGE_CHECK(false, "invalid option");
+        }
+    }
+    /* If both or neither specified, we honor the text. */
     if ((options.dump_text && options.dump_binary) ||
         (!options.dump_text && !options.dump_binary)) {
         options.dump_text   = true;
         options.dump_binary = false;
     }
-#ifdef WINDOWS
-    if (strstr(opstr, "-nudge_kills") != NULL)
-        options.nudge_kills = true;
-#endif
-    options.logdir = strstr(opstr, "-logdir ");
-    if (options.logdir != NULL) {
-        options.logdir += strlen("-logdir ");
-        ASSERT(options.logdir[0] != ' '  &&
-               options.logdir[0] != '\0' && dr_directory_exists(options.logdir),
-               "invalid logdir");
-    }
-    s = strstr(opstr, "-native_until_thread ");
-    if (s != NULL) {
-        int res = dr_sscanf(s + strlen("-native_until_thread "),
-                            "%d", &options.native_until_thread);
-        if (res == 1 && options.native_until_thread > 0)
-            go_native = true;
-        else
-            options.native_until_thread = 0;
-        ASSERT(res == 1, "invalid option");
-    }
-#ifdef CBR_COVERAGE
-    if (strstr(opstr, "-check_cbr") != NULL) {
-        options.check = true;
-    }
-    if (strstr(opstr, "-summary_only") != NULL) {
-        ASSERT(options.check, "check_cbr is not set");
-        options.summary = true;
-    }
-    if (!options.dump_text && !options.dump_binary &&
-        !options.check && !options.summary) {
-        /* default: dump_text */
-        options.dump_text = true;
-    }
-    ASSERT(options.dump_text || options.dump_binary ||
-           options.check || options.summary, "invalid options");
-#endif
 }
 
 DR_EXPORT void 

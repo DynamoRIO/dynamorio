@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -295,6 +295,9 @@ get_pcache_dynamo_options_string(options_t *options, char *opstr, int len,
 
 bool
 has_pcache_dynamo_options(options_t *options, op_pcache_t pcache_effect);
+
+char *
+parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen);
 
 /****************************************************************************/
 #ifdef NOT_DYNAMORIO_CORE

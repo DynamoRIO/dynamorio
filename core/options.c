@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -216,7 +216,8 @@ set_dynamo_options_defaults(options_t *options)
      the copied word from the original string, since it assumes it cannot modify it
  */
 static char*
-getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
+getword_common(const char *str, const char **strpos, char *wordbuf, uint wordbuflen,
+               bool external/*whether called from outside the option parser*/)
 {
     uint i = 0;
     const char *pos = *strpos;
@@ -229,7 +230,8 @@ getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
         return NULL; /* no more words */
 
     /* eat leading spaces */
-    while (*pos == ' ' || *pos == '\t') {
+    while (*pos == ' ' || *pos == '\t' ||
+           *pos == '\n' || *pos == '\r') {
         pos++;
     }
 
@@ -255,9 +257,11 @@ getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
             wordbuf[i++] = *pos;
             pos++;
         } else {
-            OPTION_PARSE_ERROR(ERROR_OPTION_TOO_LONG_TO_PARSE, 4, 
-                               get_application_name(), get_application_pid(), 
-                               strpos, IF_DEBUG_ELSE("Terminating", "Continuing"));
+            if (!external) {
+                OPTION_PARSE_ERROR(ERROR_OPTION_TOO_LONG_TO_PARSE, 4,
+                                   get_application_name(), get_application_pid(),
+                                   strpos, IF_DEBUG_ELSE("Terminating", "Continuing"));
+            }
             /* just return truncated form */
             break;
         }
@@ -270,6 +274,20 @@ getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
     *strpos = pos;
 
     return wordbuf;
+}
+
+/* internal version */
+static char *
+getword(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
+{
+    return getword_common(str, strpos, wordbuf, wordbuflen, false/*internal*/);
+}
+
+/* exported version */
+char *
+parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
+{
+    return getword_common(str, strpos, wordbuf, wordbuflen, true/*external*/);
 }
 
 #define ISBOOL_bool 1
