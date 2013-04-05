@@ -565,6 +565,10 @@ drsym_free_resources(const char *modpath);
  * Line information returned by drsym_enumerate_lines().
  * This information should not be relied upon to be accessible
  * beyond the return of the callback routine to which it is passed.
+ *
+ * \note On Windows, we have observed abnormally large values for
+ * \p line and \p line_addr (e.g., 0xfeefee or 0xe0b80000) in some
+ * symbol files.  Be prepared for such values.
  */
 typedef struct _drsym_line_info_t {
     /** Compilation unit (object file) name */
