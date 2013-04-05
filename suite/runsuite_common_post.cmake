@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -127,12 +127,23 @@ foreach (xml ${all_xml})
         warn_failures "${string}")
       foreach (failure ${failures} ${warn_failures})
         string(REGEX REPLACE "^.*<Text>([^<]+)<" "\\1" text "${failure}")
+        string(REGEX REPLACE "/Text>$" "" text "${text}") # warn_failures has this
         # replace escaped chars for weird quote with simple quote
         string(REGEX REPLACE "&lt:-30&gt:&lt:-128&gt:&lt:-10[34]&gt:" "'" text "${text}")
         string(STRIP "${text}" text)
         file(APPEND ${outf} "\t${text}\n")
       endforeach (failure)
     else (build_errors)
+      # Check whether the max warning limit is hiding build failures (i#1137):
+      string(REGEX MATCHALL "The maximum number of reported" build_errors "${string}")
+      if (build_errors)
+        file(APPEND ${outf} "WARNING: maximum warning/error limit hit for ${build}!"
+          "\n  Manually verify whether it succeeded.\n")
+        set(build_status "status **UNKNOWN**")
+      else (build_errors)
+        set(build_status "successful")
+      endif (build_errors)     
+
       string(REGEX REPLACE "Build.xml$" "Test.xml" xml "${xml}")
       if (EXISTS ${xml})
         file(READ ${xml} string)
@@ -192,7 +203,8 @@ foreach (xml ${all_xml})
         if (passed)
           file(APPEND ${outf} "${build}: all ${num_passed} tests passed\n")
         else (passed)
-          file(APPEND ${outf} "${build}: build successful; no tests for this build\n")
+          file(APPEND ${outf}
+            "${build}: build ${build_status}; no tests for this build\n")
         endif (passed)
       endif (test_errors)
     endif (build_errors)

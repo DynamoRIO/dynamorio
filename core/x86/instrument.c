@@ -4029,7 +4029,8 @@ dr_get_token(const char *str, char *buf, size_t buflen)
      * size ahead of time, so the max size for any one token is known.
      */
     const char *pos = str;
-    if (parse_word(str, &pos, buf, buflen) == NULL)
+    CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint(buflen), "buflen too large");
+    if (parse_word(str, &pos, buf, (uint)buflen) == NULL)
         return NULL;
     else
         return pos;

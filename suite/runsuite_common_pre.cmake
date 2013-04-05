@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -259,6 +259,11 @@ math(EXPR PROCESSOR_COUNT "${PROCESSOR_COUNT} + 2")
 set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
 # outer file should set CTEST_PROJECT_NAME
 set(CTEST_COMMAND "${CTEST_EXECUTABLE_NAME}")
+
+# Raise the default of 50 to avoid warnings blocking the detection of
+# build failures (i#1137):
+set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_ERRORS 200)
+set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS 200)
 
 # Detect if the kernel is ia32 or x64.  If the kernel is ia32, there's no sense
 # in trying to run any x64 code.  On Windows, the x64 toolchain is built as x64
