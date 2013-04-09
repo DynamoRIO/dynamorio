@@ -42,12 +42,13 @@
  * The information can be used in cases like code coverage.
  *
  * The runtime options for this client include:
- * -dump_text     Dumps the log file in text format
- * -dump_binary   Dumps the log file in binary format
- * -nudge_kills   Windows only. Uses nudge to notify the process for termination
- *                so that the exit event will be called.
- * -logdir <dir>  Sets log directory, which by default is at the same directory
- *                as the client library.
+ * -dump_text       Dumps the log file in text format
+ * -dump_binary     Dumps the log file in binary format
+ * -no_nudge_kills  Windows only. By default, we use nudge to notify the process
+ *                  for termination so that the exit event will be called.
+ *                  This option disables the nudge notification.
+ * -logdir <dir>    Sets log directory, which by default is at the same
+ *                  directory as the client library.
  *
  * The two options below can only be used when the client is compiled with
  * CBR_COVERAGE being defined.
@@ -61,28 +62,17 @@
  */
 
 #include "dr_api.h"
+#include "bbcov.h"
 #include "drvector.h"
 #include "hashtable.h"
 #include "drtable.h"
 #include "limits.h"
 #include <string.h>
 
-#define BBCOV_VERSION 1
-
 #ifdef WINDOWS
 # define  STATIC_DRMGR_ONLY 1 /* for drmgr_decode_sysnum_from_wrapper only */
 # include "drmgr.h"
-# define IF_WINDOWS(x) x
-# define IF_LINUX_ELSE(x,y) y
-#else
-# define IF_WINDOWS(x) /* nothing */
-# define IF_LINUX_ELSE(x,y) x
 #endif
-
-#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
-#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
-#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
-#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
@@ -134,17 +124,6 @@ typedef struct _module_table_t {
     /* for quick query without lock, assuming pointer-aligned */
     module_entry_t *cache[NUM_GLOBAL_MODULE_CACHE];
 } module_table_t;
-
-typedef struct _bb_entry_t {
-    uint   start;   /* offset of bb start from the image base */
-    ushort size;
-    ushort mod_id;
-#ifdef CBR_COVERAGE
-    bool   trace;
-    ushort num_instrs;
-    uint   cbr_tgt; /* offset of cbr target from the image base */
-#endif
-} bb_entry_t;
 
 typedef struct _per_thread_t {
     void *bb_table;
@@ -1075,6 +1054,10 @@ options_init(client_id_t id)
     const char *s;
 
     char token[OPTION_MAX_LENGTH];
+#ifdef WINDOWS
+    /* enable nudge_kills by default */
+    options.nudge_kills = true;
+#endif
     for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
          s != NULL;
          s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
@@ -1083,8 +1066,8 @@ options_init(client_id_t id)
         else if (strcmp(token, "-dump_binary") == 0)
             options.dump_binary = true;
 #ifdef WINDOWS
-        else if (strcmp(token, "-nudge_kills") == 0)
-            options.nudge_kills = true;
+        else if (strcmp(token, "-no_nudge_kills") == 0)
+            options.nudge_kills = false;
 #endif
         else if (strcmp(token, "-logdir") == 0) {
             s = dr_get_token(s, options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir));
@@ -1125,11 +1108,11 @@ options_init(client_id_t id)
             USAGE_CHECK(false, "invalid option");
         }
     }
-    /* If both or neither specified, we honor the text. */
+    /* If both or neither specified, we honor the binary. */
     if ((options.dump_text && options.dump_binary) ||
         (!options.dump_text && !options.dump_binary)) {
-        options.dump_text   = true;
-        options.dump_binary = false;
+        options.dump_text   = false;
+        options.dump_binary = true;
     }
 }
 

@@ -1065,12 +1065,15 @@ if (VMSAFE)
   set(BUILD_DOCS OFF)
 endif (VMSAFE)
 
+option(BUILD_CLIENTS "build client tools" ON)
+
 # should we disallow selecting samples when core is not built?
 # right now the samples build will just fail
 option(BUILD_SAMPLES "build client samples" ON)
 if (NOT CLIENT_INTERFACE)
   set(BUILD_SAMPLES OFF)
   set(BUILD_EXT OFF)
+  set(BUILD_CLIENTS OFF)
 endif (NOT CLIENT_INTERFACE)
 
 # We include all tests and build them at configure time if requested.
@@ -1346,13 +1349,13 @@ if (BUILD_EXT)
   add_subdirectory(ext)
 endif (BUILD_EXT)
 
-if (BUILD_SAMPLES OR BUILD_TESTS)
+if (BUILD_SAMPLES OR BUILD_TESTS OR BUILD_CLIENTS)
   # api/samples is set up to function both as a separate project for
   # building samples vs a DynamoRIO installation, and to allow
   # building as a component of the whole source tree
   set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
   set(DynamoRIO_DIR ${PROJECT_BINARY_DIR}/cmake)
-endif (BUILD_SAMPLES OR BUILD_TESTS)
+endif (BUILD_SAMPLES OR BUILD_TESTS OR BUILD_CLIENTS)
 
 if (BUILD_SAMPLES)
   add_subdirectory(api/samples)
@@ -1361,6 +1364,10 @@ endif (BUILD_SAMPLES)
 if (BUILD_TESTS)
   add_subdirectory(suite/tests)
 endif (BUILD_TESTS)
+
+if (BUILD_CLIENTS)
+  add_subdirectory(clients)
+endif (BUILD_CLIENTS)
 
 # We must append to this file to avoid cmake_install.cmake's diff from thinking
 # the exports have changed and thus clobbering the other config's files.

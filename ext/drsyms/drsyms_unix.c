@@ -90,7 +90,7 @@ load_module(const char *modpath)
     dbg_module_t *mod, *newmod = NULL;
     bool ok;
     const char *debuglink;
-    uint64_t file_size;
+    uint64 file_size;
 
     /* static depth count to prevent stack overflow from circular .gnu_debuglink
      * sections.  We're protected by symbol_lock.
@@ -598,7 +598,8 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
          */
 
         /* libelftc code use fp ops so we have to save fp state (i#756) */
-        byte fp_raw[512 + 16]; /* 512 and 16 are specified by DR but not named consts */
+        /* 512 and 16 are specified by DR but not named consts */
+        byte fp_raw[512 + 16];
         byte *fp_align = (byte *) ALIGN_FORWARD(fp_raw, 16);
 
         proc_save_fpstate(fp_align);

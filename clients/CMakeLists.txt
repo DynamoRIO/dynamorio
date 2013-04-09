@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -29,8 +29,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-# i#277/PR 540817: DynamoRIO Extensions support
-
 cmake_minimum_required(VERSION 2.6)
 
 set(DynamoRIO_INTERNAL ON) # do not import dynamorio lib target
@@ -40,32 +38,39 @@ if (NOT DynamoRIO_FOUND)
   message(FATAL_ERROR "DynamoRIO package required to build")
 endif(NOT DynamoRIO_FOUND)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/${INSTALL_LIB}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-# we have no exe's yet, and we want our dll's in the lib dir
+# we want both our dll's and exe in the lib dir
 # (could use MODULE instead of SHARED if it would let us link)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/${INSTALL_LIB}")
 set_per_config_ouput_to_match_single_config()
 
-set(INSTALL_EXT_BASE ext)
-set(INSTALL_EXT_BIN ${INSTALL_EXT_BASE}/${INSTALL_BIN})
-set(INSTALL_EXT_LIB ${INSTALL_EXT_BASE}/${INSTALL_LIB})
-set(INSTALL_EXT_INCLUDE ${INSTALL_EXT_BASE}/include)
-set(INSTALL_EXT_CMAKE ${INSTALL_EXT_BASE}/cmake)
+# For end-user tools build on top of DR
+# We use clients/ in the build dir where we already have tools/ for utilities
+# used by DR. In our install/package, however, we use tools/ instead because
+# we want to distinguish from the sample clients.
+set(INSTALL_CLIENTS_BASE tools)
+set(INSTALL_CLIENTS_BIN ${INSTALL_CLIENTS_BASE}/${INSTALL_BIN})
+set(INSTALL_CLIENTS_LIB ${INSTALL_CLIENTS_BASE}/${INSTALL_LIB})
+set(INSTALL_CLIENTS_CONFIG ${INSTALL_CLIENTS_BASE})
+set(INSTALL_CLIENTS_CMAKE ${INSTALL_CLIENTS_BASE}/cmake)
 
 disable_compiler_warnings()
-# Extensions don't include configure.h so they don't get DR defines
+# Clients don't include configure.h so they don't get DR defines
 add_dr_defines()
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
-  add_subdirectory(${dir})
+  string(FIND "${dir}" "standalone" pos)
+  if ("${pos}" STREQUAL "-1")
+    # exclude standalone/
+    add_subdirectory(${dir})
+  endif ("${pos}" STREQUAL "-1")
 endforeach (dir)
 
-# documentation is put into main DR docs/ dir
-
-install_subdirs(${INSTALL_EXT_LIB} ${INSTALL_EXT_BIN})
+# install subdirs
+install_subdirs(${INSTALL_CLIENTS_LIB} ${INSTALL_CLIENTS_BIN})
 
 # propagate to parent dir
 set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)

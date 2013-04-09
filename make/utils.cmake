@@ -104,3 +104,62 @@ function (check_if_linker_is_gnu_gold var_out)
   endif ()
   set(${var_out} ${is_gold} PARENT_SCOPE)
 endfunction (check_if_linker_is_gnu_gold)
+
+# disable known warnings
+function (disable_compiler_warnings)
+  if (WIN32)
+    # disable stack protection: "unresolved external symbol ___security_cookie"
+    # disable the warning "unreferenced formal parameter" #4100
+    # disable the warning "conditional expression is constant" #4127
+    # disable the warning "cast from function pointer to data pointer" #4054
+    set(CL_CFLAGS "/GS- /wd4100 /wd4127 /wd4054")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CL_CFLAGS}" PARENT_SCOPE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CL_CFLAGS}" PARENT_SCOPE)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+  endif (WIN32)
+endfunction (disable_compiler_warnings)
+
+# clients/extensions don't include configure.h so they don't get DR defines
+function (add_dr_defines)
+  foreach (config "" ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+    if ("${config}" STREQUAL "")
+      set(config_upper "")
+    else ("${config}" STREQUAL "")
+      string(TOUPPER "_${config}" config_upper)
+    endif ("${config}" STREQUAL "")
+    foreach (var CMAKE_C_FLAGS${config_upper};CMAKE_CXX_FLAGS${config_upper})
+      if (DEBUG)
+        set(${var} "${${var}} -DDEBUG" PARENT_SCOPE)
+      endif (DEBUG)
+      # we're used to X64 instead of X86_64
+      if (X64)
+        set(${var} "${${var}} -DX64" PARENT_SCOPE)
+      endif (X64)
+    endforeach (var)
+  endforeach (config)
+endfunction (add_dr_defines)
+
+function (install_subdirs tgt_lib tgt_bin)
+  # These cover all subdirs.
+  # Subdirs just need to install their targets.
+  DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
+    DESTINATION ${tgt_lib}
+    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
+    FILES_MATCHING
+    PATTERN "*.debug"
+    PATTERN "*.pdb"
+    )
+  file(GLOB bin_files "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/*")
+  if (bin_files)
+    DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
+      DESTINATION ${tgt_bin}
+      FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+      WORLD_READ WORLD_EXECUTE
+      FILES_MATCHING
+      PATTERN "*.debug"
+      PATTERN "*.pdb"
+      )
+  endif (bin_files)
+endfunction (install_subdirs)
+
