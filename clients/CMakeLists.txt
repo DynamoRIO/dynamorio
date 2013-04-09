@@ -62,11 +62,10 @@ add_dr_defines()
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})
   get_filename_component(dir ${dir} PATH)
-  string(FIND "${dir}" "standalone" pos)
-  if ("${pos}" STREQUAL "-1")
+  if (NOT ${dir} MATCHES "standalone")
     # exclude standalone/
     add_subdirectory(${dir})
-  endif ("${pos}" STREQUAL "-1")
+  endif ()
 endforeach (dir)
 
 # install subdirs
