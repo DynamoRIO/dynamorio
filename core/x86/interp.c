@@ -3128,6 +3128,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(bb->instr_start - non_cti_start_pc)));
             instr_set_raw_bits(non_cti, non_cti_start_pc,
                                (uint)(bb->instr_start - non_cti_start_pc));
+            if (bb->record_translation)
+                instr_set_translation(non_cti, non_cti_start_pc);
             /* add non-cti instructions to instruction list */
             instrlist_append(bb->ilist, non_cti);
         }
