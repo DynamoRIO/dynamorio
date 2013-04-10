@@ -112,6 +112,12 @@ static byte * image_entry_trampoline = NULL;
 static byte * syscall_trampolines_start = NULL;
 static byte * syscall_trampolines_end = NULL;
 
+/* generated routine for taking over native threads */
+byte *thread_attach_takeover;
+
+static byte *
+emit_takeover_code(byte *pc);
+
 /* For detach */
 bool init_apc_go_native = false;
 bool init_apc_go_native_pause = false;
@@ -287,7 +293,8 @@ assume_xsp (they still do for now since we haven't tested enough to
 convince ourselves we never get them while on the dstack)
 
 Unfortunately there's no easy way to check w/o modifying flags, so for
-now we assume eflags whenever we do not assume xsp.
+now we assume eflags whenever we do not assume xsp, unless we assume
+we're not on the dstack.
 Assumption should be ok for Ki*, also for Ldr*.
 
 Alternatives: check later when we're in exception handler, only paths
@@ -843,9 +850,8 @@ copy_app_code(dcontext_t *dcontext, const byte *start_pc,
     return buf_nxt;
 }
 
-/* N.B.: !assume_xsp implies eflags assumptions!
- * Could add another choice of assuming not on dstack, in which case the
- * eflags assumption is not required.
+/* N.B.: !assume_xsp && !assume_not_on_dstack implies eflags assumptions!
+ * !assume_xsp && assume_not_on_dstack does not assume eflags.
  * Could optimize by having a bool indicating whether to have a callee arg or not,
  * but then the intercept_function_t typedef must be void, or must have two, so we
  * just make every callee take an arg.
@@ -857,7 +863,7 @@ copy_app_code(dcontext_t *dcontext, const byte *start_pc,
  */
 static byte *
 emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
-                    void *callee_arg, bool assume_xsp,
+                    void *callee_arg, bool assume_xsp, bool assume_not_on_dstack,
                     after_intercept_action_t action_after, byte *alternate_after,
                     byte **alt_after_tgt_p OUT)
 {
@@ -866,7 +872,6 @@ emit_intercept_code(dcontext_t *dcontext, byte *pc, intercept_function_t callee,
     instr_t *decision = NULL, *alt_decision = NULL, *alt_after = NULL;
     uint len;
     byte *start_pc, *push_pc, *push_pc2 = NULL;
-    bool assume_not_on_dstack = assume_xsp;
     app_pc no_cleanup;
     uint stack_offs = 0;
     IF_DEBUG(bool direct;)
@@ -1686,7 +1691,7 @@ intercept_call(byte *our_pc, byte *tgt_pc, intercept_function_t prof_func,
                                     size, &displaced_app_pc, &changed_prot);
 
     pc = emit_intercept_code(dcontext, pc, prof_func, callee_arg,
-                             assume_xsp, action_after, 
+                             assume_xsp, assume_xsp, action_after,
                              (action_after ==
                               AFTER_INTERCEPT_TAKE_OVER_SINGLE_SHOT) ?
                                  tgt_pc : 
@@ -2525,7 +2530,9 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     instrlist_clear(dcontext, &ilist);
 
     pc = emit_intercept_code(dcontext, pc, prof_func, callee_arg,
-                             false /*do not assume xsp*/, action_after,
+                             false /*do not assume xsp*/,
+                             false /*not known to not be on dstack: ok to clobber flags*/,
+                             action_after,
                              ret_pc /* alternate target to skip syscall */, NULL);
 
     /* Map interception buffer PCs to original app PCs */
@@ -7311,6 +7318,8 @@ callback_interception_init_finish(void)
         }
     }
 
+    pc = emit_takeover_code(pc);
+
     ASSERT(pc - interception_code < INTERCEPTION_CODE_SIZE);
     interception_cur_pc = pc; /* set global pc for future trampoline insertions */
 
@@ -8230,3 +8239,26 @@ get_app_segment_base(uint seg)
 }
 #endif
 
+static after_intercept_action_t  /* note return value will be ignored */
+thread_attach_takeover_callee(app_state_at_intercept_t *state)
+{
+    /* transfer_to_dispatch() will swap from initstack to dstack and clear
+     * the initstack_mutex.
+     */
+    thread_attach_setup(&state->mc);
+    ASSERT_NOT_REACHED();
+    return AFTER_INTERCEPT_LET_GO;
+}
+
+static byte *
+emit_takeover_code(byte *pc)
+{
+    thread_attach_takeover = pc;
+    pc = emit_intercept_code(GLOBAL_DCONTEXT, pc,
+                             thread_attach_takeover_callee, 0, /* no arg */
+                             false /* do not assume esp */,
+                             true /* assume not on dstack, and don't clobber flags */,
+                             AFTER_INTERCEPT_LET_GO /* won't return anyway */,
+                             NULL, NULL);
+    return pc;
+}

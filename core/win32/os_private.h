@@ -143,6 +143,9 @@ os_terminate_wow64_write_args(bool exit_process, HANDLE proc_or_thread_handle,
                               int exit_status);
 
 void
+thread_attach_setup(priv_mcontext_t *mc);
+
+void
 thread_attach_context_revert(CONTEXT *cxt INOUT);
 
 /* in syscall.c *********************************************************/

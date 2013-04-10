@@ -332,7 +332,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
             if ((app_pc)mcontext->xip == (app_pc) thread_attach_takeover) {
                 LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d at "
                     "takeover point\n", trec->id);
-                thread_attach_translate(mcontext);
+                thread_attach_translate(trec->dcontext, mcontext);
                 return true;
             }
 #endif
@@ -501,7 +501,7 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                 /* The takeover data will be freed at process exit, but we might
                  * clean up a thread mid-run, so make sure we free the data.
                  */
-                thread_attach_exit(mc);
+                thread_attach_exit(trec->dcontext, mc);
             }
 #endif
             /* we should always be able to translate a valid native state */
