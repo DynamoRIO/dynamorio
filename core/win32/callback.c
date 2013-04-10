@@ -6645,9 +6645,10 @@ retakeover_after_native(thread_record_t *tr, retakeover_point_t where)
      */
     if (!mutex_trylock(&intercept_hook_lock))
         return;
-    /* Check whether another thread already did this and already unlocked the lock */
-    if (interception_point == INTERCEPT_SYSCALL) {
-        ASSERT(image_entry_trampoline == NULL);
+    /* Check whether another thread already did this and already unlocked the lock.
+     * We can also later re-insert the image entry hook if we lose control on cbret.
+     */
+    if (image_entry_trampoline == NULL) {
         mutex_unlock(&intercept_hook_lock);
         return;
     }

@@ -439,6 +439,7 @@ enum {
     LOCK_RANK(callback_registration_lock), /* > dr_client_mutex */
     LOCK_RANK(client_tls_lock), /* > dr_client_mutex */
 #endif
+    LOCK_RANK(intercept_hook_lock), /* < table_rwlock */
     LOCK_RANK(privload_lock), /* < modlist_areas, < table_rwlock */
     LOCK_RANK(table_rwlock), /* > dr_client_mutex */
     LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */
@@ -496,7 +497,6 @@ enum {
     LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
     LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */
     LOCK_RANK(map_intercept_pc_lock), /* < global_alloc_lock */
-    LOCK_RANK(intercept_hook_lock), /* < global_alloc_lock */
     LOCK_RANK(global_alloc_lock),/* < heap_unit_lock */
     LOCK_RANK(heap_unit_lock),   /* recursive */
     LOCK_RANK(vmh_lock),        /* lowest level */

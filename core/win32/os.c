@@ -1613,6 +1613,9 @@ enum {
  * a thread that never gets scheduled.
  * A final use is for cases where our set context doesn't seem to take
  * effect except for eip.
+ * We do not hold the table lock while accessing table payloads because
+ * we rely on an invariant that only the owning thread can free its own
+ * data, or another thread during synchall.
  */
 static generic_table_t *takeover_table;
 #define INIT_HTABLE_SIZE_TAKEOVER 6 /* should remain small */
@@ -1910,7 +1913,9 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
         global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
-    ASSERT_CURIOSITY(is_in_ntdll(data->continuation_pc));
+    /* Could be in ntdll or user32 or anywhere a syscall is made, so we don't
+     * assert is_in_ntdll, but we do check that it's the wow64 syscall call*:
+     */
     ASSERT_CURIOSITY(memcmp(data->continuation_pc - sizeof(WOW64_SYSCALL_CALL),
                             WOW64_SYSCALL_CALL, sizeof(WOW64_SYSCALL_CALL)) == 0);
 
@@ -2246,6 +2251,10 @@ thread_attach_setup(priv_mcontext_t *mc)
     dynamo_thread_under_dynamo(dcontext);
     /* clear retakeover field, if we came from os_thread_take_over_suspended_native() */
     dcontext->thread_record->retakeover = false;
+    /* A native_exec_syscalls hook on NtCallbackReturn could have left the
+     * at_syscall flag set, so make sure to clear it.
+     */
+    set_at_syscall(dcontext, false);
 
     LOG(GLOBAL, LOG_THREADS, 1,
         "TAKEOVER: thread %d, start pc "PFX"\n", get_thread_id(), data->continuation_pc);
