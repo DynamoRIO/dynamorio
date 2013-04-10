@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -190,6 +190,8 @@ entering_native(dcontext_t *dcontext)
         trace_abort(dcontext);
     }
     set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
+    /* we need to match dr_app_stop() so we pop the kstack */
+    KSTOP_NOT_MATCHING(dispatch_num_exits);
     /* now we're in app! */
     dcontext->whereami = WHERE_APP;
     SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively");

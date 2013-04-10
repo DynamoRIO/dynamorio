@@ -763,7 +763,12 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         }
 
         dispatch_exit_fcache_stats(dcontext);
-        KSTOP_NOT_MATCHING(dispatch_num_exits);
+        /* Maybe-permanent native transitions (dr_app_stop()) have to pop kstack,
+         * and thus so do temporary native_exec transitions.  Thus, for neither
+         * is there anything to pop here.
+         */
+        if (dcontext->last_exit != get_native_exec_linkstub())
+            KSTOP_NOT_MATCHING(dispatch_num_exits);
     }
     /* KSWITCHed next time around for a better explanation */
     KSTART_DC(dcontext, dispatch_num_exits);
