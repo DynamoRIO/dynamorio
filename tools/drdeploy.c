@@ -118,6 +118,7 @@ const char *usage_str =
     "usage: "TOOLNAME" [options] <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
+    "   or: "TOOLNAME" [options] [DR options] -t <tool> [tool options]"
     " -- <app and args to run>\n"
     "\n"
 #endif
