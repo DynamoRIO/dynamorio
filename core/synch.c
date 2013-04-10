@@ -332,7 +332,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
             if ((app_pc)mcontext->xip == (app_pc) thread_attach_takeover) {
                 LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d at "
                     "takeover point\n", trec->id);
-                thread_attach_translate(trec->dcontext, mcontext);
+                thread_attach_translate(trec->dcontext, mcontext, restore_memory);
                 return true;
             }
 #endif
@@ -495,6 +495,10 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
         if (is_native_thread_state_valid(trec->dcontext, mc->pc, 
                                          (byte *)mc->xsp)) {
             safe = true;
+            /* We should always be able to translate a valid native state, but be
+             * sure to check before thread_attach_exit().
+             */
+            ASSERT(translate_mcontext(trec, mc, false/*just querying*/, NULL));
 #ifdef WINDOWS
             if (mc->pc == (app_pc) thread_attach_takeover &&
                 THREAD_SYNCH_IS_CLEANED(desired_state)) {
@@ -504,8 +508,6 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
                 thread_attach_exit(trec->dcontext, mc);
             }
 #endif
-            /* we should always be able to translate a valid native state */
-            ASSERT(translate_mcontext(trec, mc, false/*just querying*/, NULL));
         }   
     } else if ((!WRITE_LOCK_HELD(&fcache_unit_areas->lock) &&
                 /* even though we only need the read lock, if our target holds it

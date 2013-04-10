@@ -1581,6 +1581,15 @@ typedef struct _takeover_data_t {
     app_pc continuation_pc;
     bool in_progress;
     thread_id_t tid;
+#ifndef X64
+    /* For WOW64 we sometimes need to modify the x64 state: */
+    HANDLE thread_handle;
+    CONTEXT_64 *cxt64;
+    byte *cxt64_alloc;
+    /* We assume these will never be 0 and use that as a sentinel */
+    ptr_uint_t memval_stack;
+    ptr_uint_t memval_r14;
+#endif
 } takeover_data_t;
 
 /* List of threads */
@@ -1615,6 +1624,14 @@ takeover_table_entry_free(void *e)
     takeover_data_t *data = (takeover_data_t *) e;
     if (e == INVALID_PAYLOAD)
         return;
+#ifndef X64
+    if (data->thread_handle != NULL)
+        close_handle(data->thread_handle);
+    if (data->cxt64_alloc != NULL) {
+        global_heap_free(data->cxt64_alloc, MAX_CONTEXT_64_SIZE
+                         HEAPACCT(ACCT_THREAD_MGT));
+    }
+#endif
     global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
 }
 
@@ -1733,8 +1750,38 @@ thread_attach_remove_from_table(takeover_data_t *data)
     TABLE_RWLOCK(takeover_table, write, unlock);
 }
 
+/* Restores memory and the x64 context */
+static void
+thread_attach_restore_full_state(takeover_data_t *data)
+{
+#ifndef X64
+    if (data->cxt64 != NULL) {
+        if (data->memval_stack != 0) {
+            if (!safe_write((void *)(ptr_uint_t)data->cxt64->Rsp,
+                            sizeof(data->memval_stack), &data->memval_stack)) {
+                LOG(GLOBAL, LOG_THREADS, 1,
+                    "%s: failed to restore *Rsp "PFX"\n", __FUNCTION__,
+                    data->cxt64->Rsp);
+            }
+        }
+        if (data->memval_r14 != 0) {
+            if (!safe_write((void *)(ptr_uint_t)data->cxt64->R14,
+                            sizeof(data->memval_r14), &data->memval_r14)) {
+                LOG(GLOBAL, LOG_THREADS, 1,
+                    "%s: failed to restore *R14 "PFX"\n", __FUNCTION__,
+                    data->cxt64->R14);
+            }
+        }
+        if (!thread_set_context_64(data->thread_handle, data->cxt64)) {
+            LOG(GLOBAL, LOG_THREADS, 1, "%s: failed to set x64 context\n", __FUNCTION__);
+        }
+    }
+#endif
+}
+
 void
-thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT)
+thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
+                        bool restore_memory)
 {
     takeover_data_t *data;
     TABLE_RWLOCK(takeover_table, read, lock);
@@ -1742,9 +1789,11 @@ thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT)
         generic_hash_lookup(GLOBAL_DCONTEXT, takeover_table,
                             (ptr_uint_t)dcontext->owning_thread);
     TABLE_RWLOCK(takeover_table, read, unlock);
-    if (data != NULL && data != INVALID_PAYLOAD)
+    if (data != NULL && data != INVALID_PAYLOAD) {
         mc->pc = data->continuation_pc;
-    else
+        if (restore_memory)
+            thread_attach_restore_full_state(data);
+    } else
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
 }
 
@@ -1758,6 +1807,7 @@ thread_attach_context_revert(CONTEXT *cxt INOUT)
     TABLE_RWLOCK(takeover_table, read, unlock);
     if (data != NULL && data != INVALID_PAYLOAD) {
         cxt->CXT_XIP = (ptr_uint_t) data->continuation_pc;
+        thread_attach_restore_full_state(data);
         thread_attach_remove_from_table(data);
     } else
         ASSERT_NOT_REACHED(); /* translating a non-native thread! */
@@ -1772,6 +1822,180 @@ thread_attach_exit(dcontext_t *dcontext, priv_mcontext_t *mc)
                         (ptr_uint_t) dcontext->owning_thread);
     TABLE_RWLOCK(takeover_table, write, unlock);
 }
+
+#ifndef X64
+/* i#1141: problems with NtGetContextThread and NtSetContextThread on WOW64
+ *
+ * For wow64, when a thread is in the wow64 layer, 32-bit NtGetContextThread
+ * goes and reads from the CONTEXT32 (aka WOW64_CONTEXT) stored in userspace
+ * (TEB64->TlsSlots[1]) by the wow64 layer and returns that.  Similary,
+ * NtSetContextThread goes and writes that stored CONTEXT32.
+ * 
+ * If a target suspended thread is in the process of saving (on entry to wow64
+ * layer 64-bit mode), NtGetContextThread will return an incorrect context;
+ * and if the thread is in the process of restoring (on exit back to 32-bit
+ * mode), NtSetContextThread will have some of its values overwritten once the
+ * thread resumes.
+ * 
+ * My solution is to get the x64 CONTEXT64, pattern-match the entry and exit,
+ * and set the appropriate registers or memory.  Unfortunately this is fragile
+ * with respect to the exact code sequences in
+ * wow64cpu!CpupReturnFromSimulatedCode and wow64cpu!CpuSimulate changing in
+ * the future.
+ * 
+ * As part of this I also changed the takeover to not store the context at
+ * suspend time and instead only change Eip then, capturing the context when
+ * the thread resumes.  This requires an assume-nothing routine, which
+ * requires initstack: but these takeover points shouldn't be perf-critical.
+ * This really simplifies the wow64 entry/exit corner cases.
+ */
+static void
+os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
+                         CONTEXT *cxt32)
+{
+    CONTEXT_64 *cxt64;
+    bool changed_x64_cxt = false;
+    app_pc takeover = thread_attach_takeover;
+    byte * buf;
+# ifdef DEBUG
+    /* Match the wow64 syscall call*:
+     *   7d8513eb 64ff15c0000000   call    dword ptr fs:[000000c0]
+     */
+    static const byte WOW64_SYSCALL_CALL[] = {0x64, 0xff, 0x15, 0xc0, 0x00, 0x00, 0x00};
+# endif
+    /* The WOW64_CONTEXT.Eip won't be correct in two spots: right before it's
+     * saved, and right after it's restored.
+     * It's saved here:
+     *  wow64cpu!CpupReturnFromSimulatedCode:
+     *   00000000`78b83c2c 67448b0424      mov     r8d,dword ptr [esp]
+     *   00000000`78b83c31 458985bc000000  mov     dword ptr [r13+0BCh],r8d
+     *   00000000`78b83c38 83c404          add     esp,4
+     *   00000000`78b83c3b 4189a5c8000000  mov     dword ptr [r13+0C8h],esp
+     * And restored here:
+     *  wow64cpu!CpuSimulate+0x161:
+     *   00000000`74ff2711 458b8dbc000000  mov     r9d,dword ptr [r13+0BCh]
+     *   00000000`74ff2718 45890e          mov     dword ptr [r14],r9d
+     *   00000000`74ff271b 41ff2e          jmp     fword ptr [r14]
+     * We have to change either [esp], r8d, r9d, or [r14].
+     */
+    /* We include the subsequent instr for 12 to avoid matching elsewhere in wow64 code */
+    static const byte WOW64_ENTER_INST12[] = {0x67, 0x44, 0x8b, 0x04, 0x24,
+                                              0x45, 0x89, 0x85, 0xbc, 0x00, 0x00, 0x00};
+    static const byte WOW64_ENTER_INST2[] = {0x45, 0x89, 0x85, 0xbc, 0x00, 0x00, 0x00};
+    static const byte WOW64_EXIT_INST12[] = {0x45, 0x89, 0x0e, 0x41, 0xff, 0x2e};
+    static const byte WOW64_EXIT_INST2[] = {0x41, 0xff, 0x2e};
+
+    if (!is_wow64_process(NT_CURRENT_PROCESS))
+        return;
+
+    /* WOW64 context setting is fragile: we need the raw x64 context as well.
+     * We can't easily use nt_initialize_context so we manually set the flags.
+     */
+    buf = (byte *) global_heap_alloc(MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+    cxt64 = (CONTEXT_64 *) ALIGN_FORWARD(buf, 0x10);
+    cxt64->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+    if (!thread_get_context_64(hthread, cxt64)) {
+        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to get x64 cxt for thread %d\n", tid);
+        ASSERT_NOT_REACHED();
+        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        return;
+    }
+    LOG(GLOBAL, LOG_THREADS, 2,
+        "x64 context for thread %d: xip is "HEX64_FORMAT_STRING
+        ", xsp="HEX64_FORMAT_STRING, tid, cxt64->Rip, cxt64->Rsp);
+    if (cxt64->SegCs == CS32_SELECTOR) {
+        /* In x86 mode, so not inside the wow64 layer.  Context setting should
+         * work fine.
+         */
+        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+        return;
+    }
+    ASSERT_CURIOSITY(is_in_ntdll(data->continuation_pc));
+    ASSERT_CURIOSITY(memcmp(data->continuation_pc - sizeof(WOW64_SYSCALL_CALL),
+                            WOW64_SYSCALL_CALL, sizeof(WOW64_SYSCALL_CALL)) == 0);
+
+    /* Corner case #1: 1st instr on entry where retaddr is in [esp] */
+    if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST12,
+               sizeof(WOW64_ENTER_INST12)) == 0) {
+        if (safe_read((void *)(ptr_uint_t)cxt64->Rsp, sizeof(data->memval_stack),
+                      &data->memval_stack) &&
+            safe_write((void *)(ptr_uint_t)cxt64->Rsp, sizeof(takeover), &takeover)) {
+            changed_x64_cxt = true;
+            LOG(GLOBAL, LOG_THREADS, 2,
+                "\ttid %d @ wow64 enter1 => changed [esp]\n", tid);
+        } else {
+            data->memval_stack = 0;
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\ttid %d @ wow64 enter1, but FAILED to change [esp]\n", tid);
+            ASSERT_NOT_REACHED();
+        }
+    }
+    /* Corner case #2: 2nd instr in entry where retaddr is in r8d */
+    else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_ENTER_INST2,
+                    sizeof(WOW64_ENTER_INST2)) == 0) {
+        uint64 orig_r8 = cxt64->R8;
+        cxt64->R8 = (DWORD64)(ptr_uint_t) takeover;
+        if (thread_set_context_64(hthread, cxt64)) {
+            changed_x64_cxt = true;
+            LOG(GLOBAL, LOG_THREADS, 2,
+                "\ttid %d @ wow64 enter2 => changed r8d\n", tid);
+        } else {
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\ttid %d @ wow64 enter2, but FAILED to change r8d\n", tid);
+            ASSERT_NOT_REACHED();
+        }
+        /* Restore so we can use cxt64 to revert if necessary */
+        cxt64->R8 = orig_r8;
+    }
+    /* Corner case #3: 2nd-to-last instr in exit where retaddr is in r9d */
+    else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT_INST12,
+                    sizeof(WOW64_EXIT_INST12)) == 0) {
+        uint64 orig_r9 = cxt64->R9;
+        cxt64->R9 = (DWORD64)(ptr_uint_t) takeover;
+        if (thread_set_context_64(hthread, cxt64)) {
+            changed_x64_cxt = true;
+            LOG(GLOBAL, LOG_THREADS, 2,
+                "\ttid %d @ wow64 exit1 => changed r9d\n", tid);
+        } else {
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\ttid %d @ wow64 exit1, but FAILED to change r9d\n", tid);
+            ASSERT_NOT_REACHED();
+        }
+        /* Restore so we can use cxt64 to revert if necessary */
+        cxt64->R9 = orig_r9;
+    }
+    /* Corner case #4: last instr in exit where we already copied retaddr to [r14] */
+    else if (memcmp((byte *)(ptr_uint_t)cxt64->Rip, WOW64_EXIT_INST2,
+                    sizeof(WOW64_EXIT_INST2)) == 0) {
+        if (safe_read((void *)(ptr_uint_t)cxt64->R14, sizeof(data->memval_r14),
+                      &data->memval_r14) &&
+            safe_write((void *)(ptr_uint_t)cxt64->R14, sizeof(takeover), &takeover)) {
+            changed_x64_cxt = true;
+            LOG(GLOBAL, LOG_THREADS, 2,
+                "\ttid %d @ wow64 exit2 => changed [r14]\n", tid);
+        } else {
+            data->memval_r14 = 0;
+            LOG(GLOBAL, LOG_THREADS, 1,
+                "\ttid %d @ wow64 exit2, but FAILED to change *r14\n", tid);
+            ASSERT_NOT_REACHED();
+        }
+    }
+
+    if (changed_x64_cxt) {
+        /* We'll need the handle in case we have to revert/restore the x64 context.
+         * We shouldn't have to undo any of these changes on a successful
+         * takeover.
+         */
+        duplicate_handle(NT_CURRENT_PROCESS, hthread, NT_CURRENT_PROCESS,
+                         &data->thread_handle, 0, 0,
+                         DUPLICATE_SAME_ACCESS|DUPLICATE_SAME_ATTRIBUTES);
+        data->cxt64 = cxt64;
+        data->cxt64_alloc = buf;
+    } else {
+        global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
+    }
+}
+#endif
 
 /* On success, returns true and leaves thread suspended. */
 static bool
@@ -1828,6 +2052,10 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                  */
                 data = (takeover_data_t *) already_taken_over;
                 LOG(GLOBAL, LOG_THREADS, 1, "\tthread %d reverted!", tid);
+                /* Now that i#1141 is fixed this shouldn't happen: we'd like to
+                 * know if it does.
+                 */
+                ASSERT_CURIOSITY(false && "thread takeover context reverted!");
             } else
                 return true;
         } else {
@@ -1836,10 +2064,13 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                 global_heap_alloc(sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
         }
         LOG(GLOBAL, LOG_THREADS, 1, "thread %d context:\n", tid);
-        data->in_progress = false;
+        memset(data, 0, sizeof(*data));
         data->tid = tid;
         data->continuation_pc = (app_pc) cxt->CXT_XIP;
         cxt->CXT_XIP = (ptr_uint_t) thread_attach_takeover;
+#ifndef X64
+        os_take_over_wow64_extra(data, hthread, tid, cxt);
+#endif
         /* See comments above: not safe to change any other regs here */
         ASSERT(TESTALL(CONTEXT_DR_STATE, cxt->ContextFlags));
         res = nt_set_context(hthread, cxt);
@@ -1946,8 +2177,13 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                     if (os_take_over_thread(dcontext, threads[i].handle,
                                             threads[i].tid, false/*!suspended*/)) {
                         threads[i].user_data = (void *)(ptr_uint_t) TAKEOVER_SUCCESS;
-                    } else
+                    } else {
                         took_over_all = false;
+                        /* We want to know when this happens.  We might expect
+                         * it with injected logon/logoff threads: let's see.
+                         */
+                        ASSERT_CURIOSITY(false && "failed to take over a thread!");
+                    }
                 }
             }
             if ((ptr_uint_t)threads[i].user_data != TAKEOVER_SUCCESS)

@@ -194,7 +194,8 @@ thread_set_context(thread_record_t *tr, CONTEXT *context);
 extern byte *thread_attach_takeover;
 
 void
-thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT);
+thread_attach_translate(dcontext_t *dcontext, priv_mcontext_t *mc INOUT,
+                        bool restore_memory);
 
 /* Should be passed the full current context, including pc, of a thread
  * set up for takeover but not yet scheduled.

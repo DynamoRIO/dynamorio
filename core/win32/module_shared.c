@@ -637,8 +637,12 @@ extern int
 switch_modes_and_load(void *ntdll64_LdrLoadDll, UNICODE_STRING_64 *lib, HANDLE *result);
 
 /* in x86/x86.asm */
+/* Switches from 32-bit mode to 64-bit mode and invokes func, passing
+ * arg1, arg2, and arg3.  Works fine when func takes fewer than 3 args
+ * as well.
+ */
 extern int
-switch_modes_and_call(void_func_t func, void *arg);
+switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3);
 
 /* Here and not in ntdll.c b/c libutil targets link to this file but not
  * ntdll.c
@@ -837,9 +841,40 @@ free_library_64(HANDLE lib)
         return false;
     ntdll64_LdrUnloadDll = (void_func_t)
         convert_data_to_function(get_proc_address_64(ntdll64, "LdrUnloadDll"));
-    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib);
+    res = switch_modes_and_call(ntdll64_LdrUnloadDll, (void *)lib, NULL, NULL);
     return (res >= 0);
 }
+
+#  ifndef NOT_DYNAMORIO_CORE_PROPER
+bool
+thread_get_context_64(HANDLE thread, CONTEXT_64 *cxt64)
+{
+    void_func_t ntdll64_GetContextThread;
+    NTSTATUS res;
+    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == NULL)
+        return false;
+    ntdll64_GetContextThread = (void_func_t)
+        convert_data_to_function(get_proc_address_64(ntdll64, "NtGetContextThread"));
+    res = switch_modes_and_call(ntdll64_GetContextThread, thread, cxt64, NULL);
+    return NT_SUCCESS(res);
+}
+
+bool
+thread_set_context_64(HANDLE thread, CONTEXT_64 *cxt64)
+{
+    void_func_t ntdll64_SetContextThread;
+    NTSTATUS res;
+    HANDLE ntdll64= get_module_handle_64(L"ntdll.dll");
+    if (ntdll64 == NULL)
+        return false;
+    ntdll64_SetContextThread = (void_func_t)
+        convert_data_to_function(get_proc_address_64(ntdll64, "NtSetContextThread"));
+    res = switch_modes_and_call(ntdll64_SetContextThread, thread, cxt64, NULL);
+    return NT_SUCCESS(res);
+}
+#  endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
 # endif /* !NOT_DYNAMORIO_CORE */
 
 #endif /* !X64 */

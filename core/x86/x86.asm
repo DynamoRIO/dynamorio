@@ -2513,7 +2513,7 @@ sml_return_to_32:
         END_FUNC(FUNCNAME)
 
 /*
- * int switch_modes_and_call(void_func_t func, void *arg)
+ * int switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3)
  */
 # undef FUNCNAME
 # define FUNCNAME switch_modes_and_call
@@ -2521,8 +2521,10 @@ sml_return_to_32:
 GLOBAL_LABEL(FUNCNAME:)
         mov      eax, ARG1
         mov      ecx, ARG2
+        mov      edx, ARG3
         /* save callee-saved registers */
         push     ebx
+        mov      ebx, ARG4
         /* far jmp to next instr w/ 64-bit switch: jmp 0033:<smc_transfer_to_64> */
         RAW(ea)
         DD offset smc_transfer_to_64
@@ -2537,11 +2539,12 @@ smc_transfer_to_64:
         RAW(41) push     ebp /* push r13 */
         RAW(41) push     esi /* push r14 */
         RAW(41) push     edi /* push r15 */
+        RAW(44) mov      eax, ebx /* mov ARG4 in ebx to r8d (3rd arg slot) */
         /* align the stack pointer */
         mov      ebx, esp        /* save esp in callee-preserved reg */
         sub      esp, 32         /* call conv */
         and      esp, HEX(fffffff0) /* align to 16-byte boundary */
-        call     eax             /* arg is already in rcx */
+        call     eax             /* arg1 is already in rcx and arg2 in rdx */
         mov      esp, ebx        /* restore esp */
         /* restore WOW64 state */
         RAW(41) pop      edi /* pop r15 */

@@ -199,14 +199,8 @@ int main(void)
         WaitForSingleObject((HANDLE)thread[i], INFINITE);
 #endif
         if (!took_over_thread[i]) {
-            /* FIXME i#725: Windows attach is not yet reliable enough:
-             * the setcontext gets reverted.  So not yet ready to enable
-             * as a criterion for test success.
-             */
-#ifdef LINUX
             print("failed to take over thread %d==%d!\n", i,
                   IF_WINDOWS_ELSE(tid[i],pt[i]));
-#endif
         }
     }
 #ifdef USE_DYNAMO

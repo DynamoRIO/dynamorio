@@ -1831,7 +1831,7 @@ get_module_handle_64(wchar_t *name);
 
 void *
 get_proc_address_64(HANDLE lib, const char *name);
-#endif
+#endif /* !X64 */
 
 IMAGE_EXPORT_DIRECTORY*
 get_module_exports_directory(app_pc base_addr, size_t *exports_size /* OPTIONAL OUT */);
