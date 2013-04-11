@@ -900,38 +900,49 @@ option_init(int argc, char *argv[])
     if (argc == 1)
         return false;
     for (i = 1; i < argc; i++) {
-        if (strstr(argv[i], "--help") != NULL)
+        if (strcmp(argv[i], "--help") == 0)
             return false;
-        if (strstr(argv[i], "--list") != NULL) {
-            input_list  = argv[++i];
-        } else if (strstr(argv[i], "--dir") != NULL)
-            input_dir   = argv[++i];
-        else if (strstr(argv[i], "--output") != NULL)
-            output_file = argv[++i];
-        else if (strstr(argv[i], "--src_filter") != NULL)
-            src_filter  = argv[++i];
-        else if (strstr(argv[i], "--mod_filter") != NULL)
-            mod_filter  = argv[++i];
-        else if (strstr(argv[i], "--verbose") != NULL) {
+        if (strcmp(argv[i], "--list") == 0) {
+            if (++i >= argc)
+                return false;
+            input_list = argv[i];
+        } else if (strcmp(argv[i], "--dir") == 0) {
+            if (++i >= argc)
+                return false;
+            input_dir = argv[i];
+        } else if (strcmp(argv[i], "--output") == 0) {
+            if (++i >= argc)
+                return false;
+            output_file = argv[i];
+        } else if (strcmp(argv[i], "--src_filter") == 0) {
+            if (++i >= argc)
+                return false;
+            src_filter = argv[i];
+        } else if (strcmp(argv[i], "--mod_filter") == 0) {
+            if (++i >= argc)
+                return false;
+            mod_filter = argv[i];
+        } else if (strcmp(argv[i], "--verbose") == 0) {
             char *end;
             long int res;
-            res = strtol(argv[++i], &end, 10);
+            if (++i >= argc)
+                return false;
+            res = strtol(argv[i], &end, 10);
             if (res == LONG_MAX || res < 0)
                 WARN(1, "Wrong verbose level, use %d instead\n", verbose);
             else
                 verbose = res;
-        } else if (strstr(argv[i], "--warning") != NULL) {
+        } else if (strcmp(argv[i], "--warning") == 0) {
             char *end;
             long int res;
-            res = strtol(argv[++i], &end, 10);
+            if (++i >= argc)
+                return false;
+            res = strtol(argv[i], &end, 10);
             if (res == LONG_MAX || res < 0)
                 WARN(1, "Wrong warning level, use %d instead\n", warning);
             else
                 warning = res;
         }
-        /* check if any argv[++i] causing overflow */
-        if (i >= argc)
-            return false;
     }
 
     if (input_list != NULL) {
