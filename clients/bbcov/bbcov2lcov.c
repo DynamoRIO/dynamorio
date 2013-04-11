@@ -524,12 +524,13 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
     PRINT(4, "Reading Module Lists\n");
     *tables = calloc(*num_mods, sizeof(*tables));
     for (i = 0; i < *num_mods; i++) {
-        uint  mod_id;
-        long long unsigned int mod_size; /* for %llu on sscanf */
-        void *bb_table;
+        uint   mod_id;
+        uint64 mod_size;
+        void  *bb_table;
         /* assuming the string is something like:  "0, 2207744, /bin/ls" */
-        /* XXX: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %llu, %[^\n\r]", &mod_id, &mod_size, path) != 3)
+        /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
+        if (sscanf(buf, " %u, %"INT64_FORMAT"u, %[^\n\r]",
+                   &mod_id, &mod_size, path) != 3)
             ASSERT(false, "Failed to read module table");
         buf = move_to_next_line(buf);
         PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
