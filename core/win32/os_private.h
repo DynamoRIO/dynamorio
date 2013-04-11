@@ -441,7 +441,39 @@ enum {
 
 #ifndef X64
 /* x64 CONTEXT, for use from WOW64 32-bit code */
+
+/* XXX: is there a better way to identify VS2005 SDK?  It has XSAVE_FORMAT
+ * under _AMD64_ so we have to supply it here.  To identify, it doesn't
+ * have XSAVE_ALIGN.
+ */
+# ifndef XSAVE_ALIGN
+typedef struct DECLSPEC_ALIGN(16) _M128A {
+    ULONGLONG Low;
+    LONGLONG High;
+} M128A, *PM128A;
+
+typedef struct _XMM_SAVE_AREA32 {
+    WORD   ControlWord;
+    WORD   StatusWord;
+    BYTE  TagWord;
+    BYTE  Reserved1;
+    WORD   ErrorOpcode;
+    DWORD ErrorOffset;
+    WORD   ErrorSelector;
+    WORD   Reserved2;
+    DWORD DataOffset;
+    WORD   DataSelector;
+    WORD   Reserved3;
+    DWORD MxCsr;
+    DWORD MxCsr_Mask;
+    M128A FloatRegisters[8];
+    M128A XmmRegisters[16];
+    BYTE  Reserved4[96];
+} XMM_SAVE_AREA32, *PXMM_SAVE_AREA32;
+# else
 typedef XSAVE_FORMAT XMM_SAVE_AREA32, *PXMM_SAVE_AREA32;
+# endif
+
 typedef struct DECLSPEC_ALIGN(16) _CONTEXT_64 {
 
     //
