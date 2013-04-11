@@ -42,13 +42,13 @@
  * The information can be used in cases like code coverage.
  *
  * The runtime options for this client include:
- * -dump_text       Dumps the log file in text format
- * -dump_binary     Dumps the log file in binary format
- * -no_nudge_kills  Windows only. By default, we use nudge to notify the process
- *                  for termination so that the exit event will be called.
- *                  This option disables the nudge notification.
- * -logdir <dir>    Sets log directory, which by default is at the same
- *                  directory as the client library.
+ * -dump_text         Dumps the log file in text format
+ * -dump_binary       Dumps the log file in binary format
+ * -[no_]nudge_kills  Windows only. On by default.
+ *                    Uses nudge to notify the process for termination
+ *                    so that the exit event will be called.
+ * -logdir <dir>      Sets log directory, which by default is at the same
+ *                    directory as the client library.
  *
  * The two options below can only be used when the client is compiled with
  * CBR_COVERAGE being defined.
@@ -1068,9 +1068,12 @@ options_init(client_id_t id)
 #ifdef WINDOWS
         else if (strcmp(token, "-no_nudge_kills") == 0)
             options.nudge_kills = false;
+        else if (strcmp(token, "-nudge_kills") == 0)
+            options.nudge_kills = true;
 #endif
         else if (strcmp(token, "-logdir") == 0) {
-            s = dr_get_token(s, options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir));
+            s = dr_get_token(s, options.logdir,
+                             BUFFER_SIZE_ELEMENTS(options.logdir));
             USAGE_CHECK(s != NULL, "missing logdir path");
         }
         else if (strcmp(token, "-native_until_thread") == 0) {
