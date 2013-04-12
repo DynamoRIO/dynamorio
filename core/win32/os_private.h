@@ -442,11 +442,12 @@ enum {
 #ifndef X64
 /* x64 CONTEXT, for use from WOW64 32-bit code */
 
-/* XXX: is there a better way to identify VS2005 SDK?  It has XSAVE_FORMAT
+/* XXX: is there a better way to identify pre-7.0 SDK?  It has XSAVE_FORMAT
  * under _AMD64_ so we have to supply it here.  To identify, it doesn't
- * have XSAVE_ALIGN.
+ * have XSAVE_ALIGN.  Neither does 8.0 SDK, but we rule that out via
+ * XSTATE_AVX, which is only defined in 8.0.
  */
-# ifndef XSAVE_ALIGN
+# if !defined(XSAVE_ALIGN) && !defined(XSTATE_AVX)
 typedef struct DECLSPEC_ALIGN(16) _M128A {
     ULONGLONG Low;
     LONGLONG High;
