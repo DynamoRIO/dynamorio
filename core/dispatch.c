@@ -767,7 +767,8 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
          * and thus so do temporary native_exec transitions.  Thus, for neither
          * is there anything to pop here.
          */
-        if (dcontext->last_exit != get_native_exec_linkstub())
+        if (dcontext->last_exit != get_native_exec_linkstub() &&
+            dcontext->last_exit != get_native_exec_syscall_linkstub())
             KSTOP_NOT_MATCHING(dispatch_num_exits);
     }
     /* KSWITCHed next time around for a better explanation */
