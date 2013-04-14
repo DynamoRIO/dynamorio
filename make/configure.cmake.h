@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,10 @@
 #cmakedefine LINUX
 #cmakedefine VMKERNEL
 #cmakedefine MACOS
+#ifdef MACOS
+/* simplest to share LINUX and distinguish via MACOS or not */
+# define LINUX
+#endif
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
 #cmakedefine PROGRAM_SHEPHERDING
@@ -232,8 +236,9 @@
 #    define HAVE_TLS
 #  else
 #    ifdef MACOS
-       /* FIXME NYI */
 #      define MACOS
+#      define HAVE_TLS
+#      define HAVE_SIGALTSTACK
 #    else
        /* Linux */
        /* FIXME: use cmake to discover whether these are available */

@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -91,7 +91,13 @@ function (check_if_linker_is_gnu_gold var_out)
     # We don't support gold on Windows.  We only support the MSVC toolchain.
     set(is_gold OFF)
   else ()
-    execute_process(COMMAND ${CMAKE_C_COMPILER} -Wl,--version
+    if (APPLE)
+      # Running through gcc results in failing exit code so run ld directly:
+      set(linkver ${CMAKE_LINKER};-v)
+    else (APPLE)
+      set(linkver ${CMAKE_C_COMPILER};-Wl,--version)
+    endif (APPLE)
+    execute_process(COMMAND ${linkver}
       RESULT_VARIABLE ld_result
       ERROR_QUIET  # gcc's collect2 always writes to stderr, so ignore it.
       OUTPUT_VARIABLE ld_out)

@@ -1015,8 +1015,11 @@ int our_snprintf(char *s, size_t max, const char *fmt, ...);
 int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
 int our_snprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, ...);
 int our_vsnprintf_wide(wchar_t *s, size_t max, const wchar_t *fmt, va_list ap);
+#undef snprintf /* defined on macos */
 #define snprintf our_snprintf
+#undef _snprintf
 #define _snprintf our_snprintf
+#undef vsnprintf
 #define vsnprintf our_vsnprintf
 #define snwprintf  our_snprintf_wide
 #define _snwprintf our_snprintf_wide
@@ -1040,8 +1043,10 @@ int tolower(int c);
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
 #  define printf   printf_forbidden_function
+#  undef sprintf /* defined on macos */
 #  define sprintf  sprintf_forbidden_function
 #  define swprintf swprintf_forbidden_function
+#  undef vsprintf /* defined on macos */
 #  define vsprintf vsprintf_forbidden_function
 #  define __try    __try_forbidden_construct /* see case 4461 */
 

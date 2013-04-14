@@ -170,9 +170,11 @@ if ("${INTERNAL}" STREQUAL "")
 endif()
 
 # target
-if (UNIX)
+if (APPLE)
+  set(MACOS 1)
+elseif (UNIX)
   set(LINUX 1)
-endif (UNIX)
+endif (APPLE)
 if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
@@ -192,7 +194,6 @@ else(CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 endif (CMAKE_C_SIZEOF_DATA_PTR EQUAL 8)
 
 option(VMKERNEL "target VMkernel (not officially supported yet)")
-option(MACOS "target MacOS (not officially supported yet)")
 
 # high-level configurations
 option(VMAP "client support" ON)
@@ -301,7 +302,6 @@ endif (VMKERNEL)
 # we do not support most users choosing these
 mark_as_advanced(
   VMKERNEL
-  MACOS
   VMAP
   VMSAFE
   VPS
@@ -706,15 +706,18 @@ if (UNIX)
   CHECK_C_COMPILER_FLAG("-fvisibility=internal" HAVE_FVISIBILITY_INTERNAL)
   CHECK_C_COMPILER_FLAG("-fvisibility=hidden" HAVE_FVISIBILITY_HIDDEN)
 
-  if (HAVE_FVISIBILITY_INTERNAL)
+  # XXX: on macos w/ gcc 4.2.1, the internal flag is accepted with just a
+  # warning, so the CHECK_C_COMPILER_FLAG passes above.  For now we just go to
+  # hidden for macos instead of a manual test for the warning.
+  if (HAVE_FVISIBILITY_INTERNAL AND NOT APPLE)
     set(VISIBILITY "internal")
   elseif (HAVE_FVISIBILITY_HIDDEN)
     set(VISIBILITY "hidden")
-  else (HAVE_FVISIBILITY_INTERNAL)
+  else ()
     message("${CMAKE_C_COMPILER} missing flag -fvisibility, using linker "
             "script instead")
     set(VISIBILITY " ")
-  endif (HAVE_FVISIBILITY_INTERNAL)
+  endif ()
 
   if (VISIBILITY)
     set(BASE_CFLAGS "${BASE_CFLAGS} -fvisibility=${VISIBILITY}")
@@ -722,7 +725,10 @@ if (UNIX)
     set(HAVE_FVISIBILITY ON)
   endif (VISIBILITY)
 
-  if (NOT LINKER_IS_GNU_GOLD)
+  if (APPLE OR LINKER_IS_GNU_GOLD)
+    # XXX: for macos, currently assuming using xcode toolchain.
+    set(ld_script_option "")
+  else ()
     # Better to use -dT when passing linker options through gcc, but ld
     # prior to 2.18 only supports -T
     # FIXME: should we duplicate this in DynamoRIOConfig.cmake?
@@ -741,7 +747,7 @@ if (UNIX)
     else (NOT flag_present)
       set(ld_script_option "-dT")
     endif (NOT flag_present)
-  endif (NOT LINKER_IS_GNU_GOLD)
+  endif ()
 
   # In the past, there have been tools on Linux that don't know how to follow
   # .gnu_debuglink.  While we aren't aware of any major tools with this bug

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -132,9 +132,16 @@ int our_unsetenv(const char *name);
  * section goes -- for cl, order linked seems to do it, but for linux 
  * will need a linker script (see linux/os.c for the nspdata problem)
  */
-#define DECLARE_DATA_SECTION(name, wx) \
+#ifdef MACOS
+/* XXX: currently assuming all custom sections are writable and non-executable! */
+# define DECLARE_DATA_SECTION(name, wx) \
+     asm(".section __DATA,"name); \
+     asm(".align 12"); /* 2^12 */
+#else
+# define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
+#endif
 
 /* XXX i#465: It's unclear what section we should switch to after our section
  * declarations.  gcc 4.3 seems to switch back to text at the start of every
@@ -142,10 +149,17 @@ int our_unsetenv(const char *name);
  * section switches.  Since earlier versions of gcc do their own switching and
  * the latest versions expect .text, we choose to switch to the text section.
  */
-#define END_DATA_SECTION_DECLARATIONS() \
+#ifdef MACOS
+# define END_DATA_SECTION_DECLARATIONS() \
+     asm(".section __DATA,.data"); \
+     asm(".align 12"); \
+     asm(".text");
+#else
+# define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
      asm(".align 0x1000"); \
      asm(".text");
+#endif
 
 /* the VAR_IN_SECTION macro change where each var goes */
 #define START_DATA_SECTION(name, wx) /* nothing */
@@ -155,7 +169,11 @@ int our_unsetenv(const char *name);
  * but for gcc we need to explicitly declare which section.  We still need
  * the .section asm above to give section attributes and alignment.
  */
-#define VAR_IN_SECTION(name) __attribute__ ((section (name)))
+#ifdef MACOS
+# define VAR_IN_SECTION(name) __attribute__ ((section ("__DATA,"name)))
+#else
+# define VAR_IN_SECTION(name) __attribute__ ((section (name)))
+#endif
 
 /* location of vsyscall "vdso" page */
 extern app_pc vsyscall_page_start;

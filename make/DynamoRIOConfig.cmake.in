@@ -550,10 +550,14 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       execute_process(COMMAND
         ${CMAKE_C_COMPILER} -v --help
         RESULT_VARIABLE gcc_result
-        ERROR_QUIET
+        ERROR_VARIABLE gcc_err
         OUTPUT_VARIABLE gcc_out)
       if (gcc_result)
-        message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed to run ***\n")
+	if (APPLE AND gcc_err MATCHES "_main\", referenced from")
+	  # not an error: "-v --help" tries to build w/ no src file for some reason
+	else ()
+          message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed to run: ${gcc_out}\n${gcc_err} ***\n")
+	endif ()
       endif (gcc_result)
       string(REGEX MATCH "fstack-protector" flag_present "${gcc_out}")
       if (flag_present)
@@ -686,7 +690,9 @@ function (configure_DynamoRIO_client target)
     if (NOT DEFINED PREFERRED_BASE)
       set(PREFERRED_BASE 0x72000000)
     endif ()
-    if (UNIX)
+    if (APPLE)
+      set(LD_FLAGS "-arch x86_64 -image_base ${PREFERRED_BASE}")
+    elseif (UNIX)
       if (LINKER_IS_GNU_GOLD)
         # Gold doesn't have a default version script for us to edit.  However,
         # it has a handy command line flag that does exactly what we want.  Note
@@ -729,9 +735,9 @@ function (configure_DynamoRIO_client target)
         set(LD_SCRIPT_OPTION "-T")
         set(PREFERRED_BASE_FLAGS "-Xlinker ${LD_SCRIPT_OPTION} -Xlinker \"${LD_SCRIPT}\"")
       endif (LINKER_IS_GNU_GOLD)
-    else (UNIX)
+    else (APPLE)
       set(PREFERRED_BASE_FLAGS "/base:${PREFERRED_BASE} /dynamicbase:no")
-    endif (UNIX)
+    endif (APPLE)
     append_property_string(TARGET ${target} LINK_FLAGS "${PREFERRED_BASE_FLAGS}")
   endif (tgt_x64 OR DynamoRIO_SET_PREFERRED_BASE)
 

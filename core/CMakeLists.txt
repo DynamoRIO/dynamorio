@@ -283,7 +283,9 @@ if (UNIX)
     ADDITIONAL_MAKE_CLEAN_FILES "${ld_script}")
 
   function (set_preferred_base_start_and_end target)
-    if (NOT LINKER_IS_GNU_GOLD)
+    if (APPLE)
+      set(ldflags "-image_base ${preferred_base}")
+    elseif (NOT LINKER_IS_GNU_GOLD)
       set(ldflags "-Wl,${ld_script_option},\"${ld_script}\"")
       add_custom_command(TARGET ${target}
         PRE_LINK
@@ -495,11 +497,17 @@ if (UNIX)
   # in the next clean build if we modify the script.
   # readelf is a binutils app just like ld
   get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
-  find_program(READELF_EXECUTABLE readelf HINTS "${binutils_path}" DOC "path to readelf")
+  if (APPLE)
+    set(readelf_name "greadelf")
+  else (APPLE)
+    set(readelf_name "readelf")
+  endif (APPLE)
+  find_program(READELF_EXECUTABLE ${readelf_name} HINTS "${binutils_path}"
+    DOC "path to readelf")
   if (STATIC_LIBRARY)
     # Skipping readelf check for STATIC_LIBRARY.
   elseif (NOT READELF_EXECUTABLE)
-    message("readelf not found: not checking SElinux or execstack")
+    message("${readelf_name} not found: not checking SElinux or execstack")
   else ()
     get_target_property(lib_to_check dynamorio LOCATION)
     add_custom_command(TARGET dynamorio

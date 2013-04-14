@@ -59,7 +59,11 @@
 #include <string.h>
 #include <unistd.h> /* for write and usleep and _exit */
 #include <limits.h>
-#include <sys/sysinfo.h>        /* for get_nprocs_conf */
+
+#ifdef MACOS
+# include <sys/sysctl.h>         /* for sysctlbyname */
+#endif
+
 #include <sys/vfs.h> /* for statfs */
 #include <dirent.h>
 
@@ -3479,6 +3483,14 @@ get_num_processors(void)
 {
     static uint num_cpu = 0;         /* cached value */
     if (!num_cpu) {
+#ifdef MACOS
+        /* FIXME i#58: use raw syscalls (and remove #include above).
+         * Initially could use libSystem's mach interface (host_info())
+         * which should be lower-level than sysctlbyname(), and replace
+         * that w/ its straightforward raw syscall underneath later.
+         */
+        num_cpu = sysctlbyname("hw.ncpu");
+#else
         /* We used to use get_nprocs_conf, but that's in libc, so now we just
          * look at the /sys filesystem ourselves, which is what glibc does.
          */
@@ -3494,6 +3506,7 @@ get_num_processors(void)
         }
         os_close(cpu_dir);
         num_cpu = local_num_cpus;
+#endif
         ASSERT(num_cpu);
     }
     return num_cpu;

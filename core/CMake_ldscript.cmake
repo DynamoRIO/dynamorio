@@ -1,4 +1,5 @@
 # **********************************************************
+# Copyright (c) 2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -28,9 +29,9 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-if (NOT CMAKE_COMPILER_IS_GNUCC)
+if (APPLE OR NOT CMAKE_COMPILER_IS_GNUCC)
   message(FATAL_ERROR "this script is only for gnu ld")
-endif (NOT CMAKE_COMPILER_IS_GNUCC)
+endif (APPLE OR NOT CMAKE_COMPILER_IS_GNUCC)
 
 # In order to just tweak the default linker script we start with exactly that.
 execute_process(COMMAND

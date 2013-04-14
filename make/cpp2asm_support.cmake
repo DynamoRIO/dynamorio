@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -191,7 +191,12 @@ else (UNIX)
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
 endif (UNIX)
 
-if (UNIX)
+if (APPLE)
+  # XXX: xcode assembler doesn't seem to take any kind of --help or --version
+  # so for now we assume it supports Intel
+  set(CMAKE_ASM_SUPPORTS_INTEL_SYNTAX ON)
+endif (APPLE)
+if (UNIX AND NOT APPLE)
   # We require gas >= 2.18.50 for --32, --64, and the new -msyntax=intel, etc.
   execute_process(COMMAND
     ${CMAKE_ASM_COMPILER} --help
@@ -220,7 +225,7 @@ if (UNIX)
   else (NOT flag_present)
     set(CMAKE_ASM_SUPPORTS_INTEL_SYNTAX ON)
   endif (NOT flag_present)
-endif (UNIX)
+endif (UNIX AND NOT APPLE)
 
 ##################################################
 # Assembler build rule for Makefile generators
