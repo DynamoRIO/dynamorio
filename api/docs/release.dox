@@ -78,15 +78,14 @@ The following are part of the DynamoRIO release distribution:
    \c drrun.exe, and \c drinject.exe.  On Linux, the tools are named \c
    drconfig, \c drrun, and \c drinject.
  - A utility \c drview.exe for viewing which processes
-   are running under DynamoRIO control.
-   \if linux Windows package only. \endif
+   are running under DynamoRIO control (Windows package only).
  - Header files for the DynamoRIO APIs.
  - This documentation.
  - \ref API_samples "Sample clients".
 \ifnot vmsafe
  - A graphical statistics viewer \c DRgui.exe that displays internal
    DynamoRIO statistics as well as custom statistics defined
-   by a client (see \ref sec_ex7). \if linux Windows package only. \endif
+   by a client (see \ref sec_ex7) (Windows package only).
    DynamoRIO exports a large number of statistics in its debug build, and
    a handful in release builds.
 \endif
@@ -948,7 +947,6 @@ not supported.
   - UTF-8 support is not yet present in drinjectlib, drconfiglib,
     drrun.exe, drconfig.exe, or drdeploy.exe.  It is present in the
     core DR API.
-\if linux
   - This release of DynamoRIO has support for most 32-bit and
     64-bit Linux
     distributions running on Intel-compatible hardware, including
@@ -959,7 +957,6 @@ not supported.
   - Cross-architecture execve (e.g., a 32-bit process performing execve of
     a 64-bit executable) may stop working if the paths to the
     libdynamorio.so and libdrpreload.so libraries are renamed.
-\endif
 
 \subsection sec_limit_perf Performance Limitations
 
@@ -1048,7 +1045,6 @@ not supported.
     install) which seems to be associated with a likely obfuscation
     method involving kernel side components that this release has no
     other workaround for.
-\if linux
 \anchor limits_linux_preload
   - On Linux, the only provided deployment method in this release (aside
     from the \ref sec_startstop "app_start() app_stop()" interface, which
@@ -1065,7 +1061,6 @@ not supported.
     control.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
-\endif
 
 \ifnot vmsafe 
 ***************************************************************************

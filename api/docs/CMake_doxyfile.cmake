@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -104,6 +104,9 @@ string(REGEX REPLACE
   "DR_VERSION=X.Y.Z"
   "DR_VERSION=${version_number}" string "${string}")
 
+# We discourage "\if linux" as we prefer to have the same documentation
+# cover both platforms, rather than two different version.
+# I'm leaving "linux" enabled though in case we do find a need for it.
 string(REGEX REPLACE
   "(ENABLED_SECTIONS[ \t]*=)"
   "\\1 linux" string "${string}")

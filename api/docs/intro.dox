@@ -75,7 +75,7 @@ interface for building dynamic tools for a wide variety of uses: program
 analysis and understanding, profiling, instrumentation, optimization,
 translation, etc. DynamoRIO provides efficient, transparent, and
 comprehensive manipulation of an unmodified application running on a stock
-operating system (Windows\if linux or Linux\endif) and commodity IA-32 and
+operating system (Windows or Linux) and commodity IA-32 and
 AMD64 hardware.  See \ref sec_limit_platforms for supported platforms.
 
 This document describes the DynamoRIO system and the various API's that it
@@ -287,12 +287,12 @@ permissions.
 
 Once the DynamoRIO distribution contents are unpacked (see \ref
 sec_package), configuration and execution of applications under DynamoRIO
-is handled by a set of libraries and tools.  \if linux On Windows, the
+is handled by a set of libraries and tools.  On Windows, the
 tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
 drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 \c dr_inject.h.  On Linux, the tools are named \c drconfig, \c drrun, and \c
-drinject. \endif
+drinject.
 
 \ifnot vmsafe 
 When using DynamoRIO as a third-party disassembly library (see \ref
@@ -300,9 +300,7 @@ page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
 \endif
 
-\if linux
 \section win_deploy Windows Deployment
-\endif
 
 There are two methods for running a process under DynamoRIO: the one-time
 configure-and-run, and the two-step separate configuration and execution.
@@ -423,7 +421,6 @@ Windows Vista or higher, if UAC is enabled, use an elevated (runas admin)
 process. When using \c drconfig.exe and \c drrun.exe in these scenarios, be
 sure that the cmd shell being used was started with elevated permissions.
 
-\if linux
 \section lin_deploy Linux Deployment
 
 Once DynamoRIO has been unpacked, the same set of helper binaries as on
@@ -490,7 +487,6 @@ uniquely identifies the target client (see dr_deploy.h for details).
 If you used the -c argument to drrun or drconfig to register the client, the
 client's id defaults to 0.
 
-\endif
 \endif
 
 \section client_ops Passing Options to Clients
@@ -709,11 +705,9 @@ set of event callbacks.  These events include the following:
     (dr_init(), dr_register_exit_event())
   - Thread initialization and exit
     (dr_register_thread_init_event(), dr_register_thread_exit_event())
-\if linux
   - Fork child initialization (Linux-only); meant to be used for
     re-initialization of data structures and creation of new log files
     (dr_register_fork_init_event())
-\endif
   - Application library load and unload
     (dr_register_module_load_event(), dr_register_module_unload_event())
 \ifnot NYI_kernel_mediated_transfer_events
@@ -814,7 +808,7 @@ routines for decoding, encoding, and manipulating IA-32 and
 AMD64 instructions. These are described in \ref sec_IR.
 
 \anchor subsec_forwards
-In addition\if linux, on Windows,\endif DynamoRIO provides a number
+In addition, on Windows, DynamoRIO provides a number
 of utility functions that it fowards to a core Windows system library
 that we believe to be safe for clients to use:
 
@@ -1216,7 +1210,6 @@ locations of their choosing.
 **************************************************
 \subsection subsec_no_loader When Private Loader is Disabled
 
-\if linux
 On Linux, if the private loader is deliberately disabled, ld provides the -wrap
 option, which allows us to override the C library's memory heap allocation
 routines with our own.  For convenience, DynamoRIO exports
@@ -1228,7 +1221,6 @@ the libc routines with DynamoRIO's _wrap routines, e.g.,
 \code
   gcc -Xlinker -wrap=malloc -Xlinker -wrap=realloc -Xlinker -wrap=free ...
 \endcode
-\endif
 
 The ability to override the memory allocation routines makes it
 convenient to develop C++ clients that use the \em new and \em delete
@@ -1573,7 +1565,7 @@ Options aiding in debugging:
     will still be hidden.  We provide a windbg script that can locate
     DynamoRIO, the client library, and all of its dependences, so this
     option should no longer be necessary (see \ref sec_debugging).
-   \if linux This option is for Windows only. \endif
+    This option is for Windows only.
 \endif
 
 Options available only in the debug build of DynamoRIO:
@@ -1586,8 +1578,8 @@ Options available only in the debug build of DynamoRIO:
     no log written.  All log files are kept in a log directory.  There is
     one directory per address space per run.  The directories are named \e
     app.NNN, where \e app is the application name and \e NNN is a number
-    that is incremented with each directory created.  \if Linux On
-    Windows the \else The \endif directories are located by default in
+    that is incremented with each directory created.  On
+    Windows the directories are located by default in
     a subdirectory \e logs of the DynamoRIO home directory as
     specified in the dr_register_process(), \c drconfig, or \c drrun
     configuration for the target application.

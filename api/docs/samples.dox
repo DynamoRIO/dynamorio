@@ -279,8 +279,8 @@ address of each dynamic instance of a call or return.  For our example,
 we simply dump the data in text format to a separate file for each
 thread.  Since FILE cannot be exported from a DLL on Windows, we use the
 DynamoRIO-provided file_t type that hides the distinction between FILE and
-HANDLE \if linux to allow the same code to work on Linux and Windows
-\endif.  We make use of the thread initialization and exit routines to
+HANDLE to allow the same code to work on Linux and Windows.
+We make use of the thread initialization and exit routines to
 open and close the file.  We store the file for a thread in the user
 slot in the drcontext.
 
