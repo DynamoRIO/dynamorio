@@ -51,7 +51,7 @@
 #include <limits.h> /* UINT_MAX */
 #include "perscache.h"
 #include "synch.h"
-#ifdef LINUX
+#ifdef UNIX
 # include "nudge.h"
 #endif
 
@@ -168,7 +168,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t client_flush_request_lock,
 DECLARE_CXTSWPROT_VAR(client_flush_req_t *client_flush_requests, NULL);
 #endif
 
-#if defined(RCT_IND_BRANCH) && defined(LINUX)
+#if defined(RCT_IND_BRANCH) && defined(UNIX)
 /* On Win32 we use per-module tables; on Linux we use a single global table,
  * until we have a module list.
  */
@@ -780,7 +780,7 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
     if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
         ASSERT(!dynamo_initialized);
         hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *) hashlookup_null_handler;
         byte *page_start = (byte *) PAGE_START(pc);
@@ -1631,7 +1631,7 @@ fragment_exit()
     DELETE_LOCK(after_call_lock);
 #endif
 
-#if defined(RCT_IND_BRANCH) && defined(LINUX)
+#if defined(RCT_IND_BRANCH) && defined(UNIX)
     /* we do not free these tables in fragment_reset_free() b/c we
      * would just have to build them all back up again in order to
      * continue execution
@@ -2222,7 +2222,7 @@ fragment_thread_exit(dcontext_t *dcontext)
     dcontext->fragment_field = NULL;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 void
 fragment_fork_init(dcontext_t *dcontext)
 {
@@ -3103,7 +3103,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         (!TEST(FRAGDEL_NO_HEAP, actions) || !TEST(FRAGDEL_NO_FCACHE, actions)))
         instrument_fragment_deleted(dcontext, f->tag, f->flags);
 #endif
-#ifdef LINUX
+#ifdef UNIX
     if (INTERNAL_OPTION(profile_pcs))
         pcprofile_fragment_deleted(dcontext, f);
 #endif
@@ -4511,7 +4511,7 @@ static inline bool
 rct_is_global_table(rct_module_table_t *permod)
 {
     return (permod == &rac_non_module_table ||
-            IF_LINUX_ELSE(permod == &rct_global_table, false));
+            IF_UNIX_ELSE(permod == &rct_global_table, false));
 }
 
 static inline rct_module_table_t *
@@ -5383,7 +5383,7 @@ study_all_hashtables(dcontext_t *dcontext)
                                0/*table consistent*/);
     }
 # endif
-# if defined(RCT_IND_BRANCH) && defined(LINUX)
+# if defined(RCT_IND_BRANCH) && defined(UNIX)
     if ((TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
          TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
         rct_global_table.live_table != NULL) {
@@ -5753,7 +5753,7 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
             fcache_flush_pending_units(dcontext, was_I_flushed);
     }
 
-#ifdef LINUX
+#ifdef UNIX
     /* i#61/PR 211530: nudges on Linux do not use separate threads */
     while (dcontext->nudge_pending != NULL) {
         /* handle_nudge may not return, so we can't call it w/ inconsistent state */

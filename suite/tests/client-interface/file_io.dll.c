@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -188,7 +188,7 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "ERROR : can't find dummy_func mem region\n");
     dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
-#if LINUX
+#ifdef UNIX
 	      /* Linux sometimes (probably depends on version and hardware NX
 	       * support) lists all readable regions as also exectuable in the
 	       * maps file.  We just skip checking here for Linux to make

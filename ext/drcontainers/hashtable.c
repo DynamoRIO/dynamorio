@@ -39,7 +39,7 @@
 #include "dr_api.h"
 #include "hashtable.h"
 #include "containers_private.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
@@ -48,7 +48,7 @@
  * UTILITIES
  */
 
-#ifdef LINUX
+#ifdef UNIX
 /* FIXME: i#30: provide safe libc routines like we do on Windows */
 static int
 tolower(int c)

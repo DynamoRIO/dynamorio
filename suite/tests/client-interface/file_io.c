@@ -31,13 +31,13 @@
  * DAMAGE.
  */
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 #endif
 
 int main()
 {
-#ifdef LINUX
+#ifdef UNIX
     /* test i#357 by trying to close the client's file */
     int i;
     for (i = 0; i < 2048; i++) {

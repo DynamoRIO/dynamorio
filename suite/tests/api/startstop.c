@@ -121,7 +121,7 @@ int main(void)
     double res = 0.;
     int i,j;
     void *stack = NULL;
-#ifdef LINUX
+#ifdef UNIX
     pthread_t pt[10];  /* On Linux, the tid. */
 #else
     uintptr_t thread[10];  /* _beginthreadex doesn't return HANDLE? */
@@ -129,7 +129,7 @@ int main(void)
 #endif
 
     /* Create spinning sideline threads. */
-#ifdef LINUX
+#ifdef UNIX
     pthread_create(&pt[0], NULL, sideline_spinner, (void*)func_0);
     pthread_create(&pt[1], NULL, sideline_spinner, (void*)func_1);
     pthread_create(&pt[2], NULL, sideline_spinner, (void*)func_2);
@@ -193,7 +193,7 @@ int main(void)
 #endif
     should_spin = false;  /* Break the loops. */
     for (i = 0; i < 10; i++) {
-#ifdef LINUX
+#ifdef UNIX
         pthread_join(pt[i], NULL);
 #else
         WaitForSingleObject((HANDLE)thread[i], INFINITE);

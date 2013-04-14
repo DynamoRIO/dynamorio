@@ -24,7 +24,7 @@ in postonly
 in skipme
 in postonly
 in runlots 1024
-#ifdef LINUX
+#ifdef UNIX
   <pre-long0>
 long0 A
   <pre-long1>

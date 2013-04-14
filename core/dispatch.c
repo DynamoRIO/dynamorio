@@ -132,7 +132,7 @@ dispatch(dcontext_t *dcontext)
 #ifdef HAVE_TLS
     ASSERT(dcontext == get_thread_private_dcontext());
 #else
-# ifdef LINUX
+# ifdef UNIX
     /* CAUTION: for !HAVE_TLS, upon a fork, the child's 
      * get_thread_private_dcontext() will return NULL because its thread 
      * id is different and tls_table hasn't been updated yet (will be 
@@ -241,7 +241,7 @@ is_stopping_point(dcontext_t *dcontext, app_pc pc)
 #endif
 #ifdef WINDOWS
         /* we go all the way to NtTerminateThread/NtTerminateProcess */
-#else /* LINUX */
+#else /* UNIX */
         /* we go all the way to SYS_exit or SYS_{,t,tg}kill(SIGABRT) */
 #endif
         )
@@ -425,7 +425,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     }
 #endif
 
-#if defined(LINUX) && defined(DEBUG)
+#if defined(UNIX) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed.  It's
      * not worth actually saving+restoring since to we'd also need to
      * preserve on clean calls, a perf hit.  Better to catch all libc
@@ -442,7 +442,7 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
                         get_short_name(get_application_name())));
 #endif
 
-#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
+#if defined(UNIX) && !defined(DGC_DIAGNOSTICS)
     /* i#107: handle segment register usage conflicts between app and dr:
      * if the target fragment has an instr that updates the segment selector,
      * update the corresponding information maintained by DR. 
@@ -530,7 +530,7 @@ handle_special_tag(dcontext_t *dcontext)
     }
 }
 
-#if defined(DR_APP_EXPORTS) || defined(LINUX)
+#if defined(DR_APP_EXPORTS) || defined(UNIX)
 static void
 dispatch_at_stopping_point(dcontext_t *dcontext)
 {
@@ -609,7 +609,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         enter_nolinking(dcontext, NULL, true);
     } 
     else {
-#if defined(DR_APP_EXPORTS) || defined(LINUX)
+#if defined(DR_APP_EXPORTS) || defined(UNIX)
         dispatch_at_stopping_point(dcontext);
         enter_nolinking(dcontext, NULL, false);
 #else
@@ -631,7 +631,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      * for this thread!
      */
     where_am_i_t wherewasi = dcontext->whereami;
-#ifdef LINUX
+#ifdef UNIX
     if (!(wherewasi == WHERE_FCACHE || wherewasi == WHERE_TRAMPOLINE ||
           wherewasi == WHERE_APP)) {
         /* This is probably our own syscalls hitting our own sysenter
@@ -661,7 +661,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      */
     ASSERT_OWN_NO_LOCKS();
 
-#if defined(LINUX) && defined(DEBUG)
+#if defined(UNIX) && defined(DEBUG)
     /* i#238/PR 499179: check that libc errno hasn't changed */
     /* w/ private loader, our errno is disjoint from app's */
     if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true))
@@ -963,7 +963,7 @@ dispatch_exit_fcache(dcontext_t *dcontext)
     }
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     if (dcontext->signals_pending) {
         /* FIXME: can overflow app stack if stack up too many signals
          * by interrupting prev handlers -- exacerbated by RAC lack of
@@ -1134,7 +1134,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         KSWITCH_STOP_NOT_PROPAGATED(fcache_default);
         return;
     }
-# ifdef LINUX
+# ifdef UNIX
     else if (dcontext->last_exit == get_sigreturn_linkstub()) {
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from sigreturn, or os_forge_exception\n");
         STATS_INC(num_exits_sigreturn);
@@ -1507,7 +1507,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
                 last_f->id, next_f->id);
             STATS_INC(num_exits_dir_self_replacement);
         }
-#  ifdef LINUX
+#  ifdef UNIX
         else if (dcontext->signals_pending) {
             /* this may not always be the reason...the interrupted fragment
              * field is modularly hidden in unix/signal.c though
@@ -1554,7 +1554,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
  * SYSTEM CALLS
  */
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 adjust_syscall_continuation(dcontext_t *dcontext)
 {
@@ -1762,7 +1762,7 @@ handle_system_call(dcontext_t *dcontext)
     /* first do the pre-system-call */
     if (IF_CLIENT_INTERFACE(execute_syscall &&) pre_system_call(dcontext)) {
         /* now do the actual syscall instruction */
-#ifdef LINUX
+#ifdef UNIX
         /* FIXME: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
@@ -1858,7 +1858,7 @@ handle_post_system_call(dcontext_t *dcontext)
     /* some syscalls require modifying local memory */
     SELF_PROTECT_LOCAL(dcontext, WRITABLE);
 
-#ifdef LINUX
+#ifdef UNIX
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
         /* restore app xax */

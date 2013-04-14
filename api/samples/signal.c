@@ -50,14 +50,14 @@
 static int num_signals;
 
 static void event_exit(void);
-#ifdef LINUX
+#ifdef UNIX
 static dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info);
 #endif
 
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
-#ifdef LINUX
+#ifdef UNIX
     dr_register_signal_event(event_signal);
 #endif
     dr_register_exit_event(event_exit);
@@ -89,7 +89,7 @@ event_exit(void)
 #endif /* SHOW_RESULTS */
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static
 dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info)
 {

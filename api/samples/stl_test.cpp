@@ -44,14 +44,14 @@
 #include <map>
 #include <iostream>
 
-#ifdef LINUX
+#ifdef UNIX
 /* included as a test of i#34 */
 # include <signal.h>
 #endif
 
 using namespace std;
 
-#ifdef LINUX
+#ifdef UNIX
 __thread int tls_var;
 #endif
 
@@ -59,7 +59,7 @@ static void
 event_exit(void)
 {
 #ifdef SHOW_RESULTS
-# ifdef LINUX
+# ifdef UNIX
     cout << "value of tls_var on exit: " << tls_var << endl;
 # endif
     cout << "Exit..." << endl;
@@ -77,7 +77,7 @@ dr_init(client_id_t client_id)
     cout << "Start..." << endl;
 #endif
     dr_register_exit_event(event_exit);
-#if defined(LINUX) && defined(SHOW_RESULTS)
+#if defined(UNIX) && defined(SHOW_RESULTS)
     cout << "input a tls value" << endl;
     cin >> tls_var;
     cout << "Set tls var to " << tls_var << endl;

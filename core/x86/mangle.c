@@ -59,7 +59,7 @@
 # include "../rct.h" /* rct_add_rip_rel_addr */
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 #include <sys/syscall.h>
 #endif
 
@@ -1977,7 +1977,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 
 
-#ifdef LINUX
+#ifdef UNIX
 /***************************************************************************
  * Mangle the memory reference operand that uses fs/gs semgents,
  * get the segment base of fs/gs into reg, and 
@@ -2034,7 +2034,7 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     }
     return newop;
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 /***************************************************************************
  * INDIRECT CALL
@@ -2189,7 +2189,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         reg_target = mangle_far_indirect_helper(dcontext, ilist, instr,
                                                 next_instr, flags, &target);
     }
-#ifdef LINUX
+#ifdef UNIX
     /* i#107, mangle the memory reference opnd that uses segment register. */
     if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
         /* FIXME: we use REG_XCX to store the segment base, which might be used
@@ -2479,7 +2479,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         reg_target = mangle_far_indirect_helper(dcontext, ilist, instr,
                                                 next_instr, flags, &target);
     }
-#ifdef LINUX
+#ifdef UNIX
     /* i#107, mangle the memory reference opnd that uses segment register. */
     if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
         /* FIXME: we use REG_XCX to store segment base, which might be used 
@@ -2589,7 +2589,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     return syscall;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* Inserts code to handle clone into ilist.
  * instr is the syscall instr itself.
  * Assumes that instructions exist beyond instr in ilist.
@@ -2670,7 +2670,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                                      opnd_create_reg(REG_XCX)));
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef WINDOWS
 /* Note that ignore syscalls processing for XP and 2003 is a two-phase operation.
@@ -2682,7 +2682,7 @@ static void
 mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                instr_t *instr, instr_t *next_instr)
 {
-#ifdef LINUX
+#ifdef UNIX
     if (get_syscall_method() != SYSCALL_METHOD_INT &&
         get_syscall_method() != SYSCALL_METHOD_SYSCALL &&
         get_syscall_method() != SYSCALL_METHOD_SYSENTER) {
@@ -2895,7 +2895,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 #endif /* WINDOWS */
 }
 
-#ifdef LINUX
+#ifdef UNIX
 
 /* Makes sure the jmp immediately after the syscall instruction
  * either skips or doesn't skip the clone code following it,
@@ -3037,7 +3037,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
     instr_free(dcontext, &instr);
     return true;
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 /***************************************************************************
  * NON-SYSCALL INTERRUPT
@@ -3343,7 +3343,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /***************************************************************************
  * Reference with segment register (fs/gs)
  */
-#ifdef LINUX
+#ifdef UNIX
 static int
 instr_get_seg_ref_dst_idx(instr_t *instr)
 {
@@ -3584,7 +3584,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                           tls_slots[scratch_reg - REG_XAX]));
     }
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
@@ -3613,7 +3613,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
      * -- convert indirect calls as a combination of direct call and
      *    indirect branch conversion;
      * -- ifdef STEAL_REGISTER, steal edi for our own use. 
-     * -- ifdef LINUX, mangle seg ref and mov_seg
+     * -- ifdef UNIX, mangle seg ref and mov_seg
      */
 
     KSTART(mangling);
@@ -3643,7 +3643,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             translate_x86_to_x64(dcontext, ilist, &instr);
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
         if (INTERNAL_OPTION(mangle_app_seg) && instr_ok_to_mangle(instr)) {
             /* The instr might be changed by client, and we cannot rely on 
              * PREFIX_SEG_FS/GS. So we simply call mangle_seg_ref on every

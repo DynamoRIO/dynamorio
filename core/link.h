@@ -116,7 +116,7 @@ enum {
     /* WARNING: flags field is a ushort, so max flag is 0x8000! */
 };
 
-#ifdef LINUX
+#ifdef UNIX
 # define LINK_NI_SYSCALL_ALL (LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT)
 #else
 # define LINK_NI_SYSCALL_ALL LINK_NI_SYSCALL
@@ -485,7 +485,7 @@ const linkstub_t * get_reset_linkstub(void);
 const linkstub_t * get_syscall_linkstub(void);
 const linkstub_t * get_selfmod_linkstub(void);
 const linkstub_t * get_ibl_deleted_linkstub(void);
-#ifdef LINUX
+#ifdef UNIX
 const linkstub_t * get_sigreturn_linkstub(void);
 #else /* WINDOWS */
 const linkstub_t * get_asynch_linkstub(void);

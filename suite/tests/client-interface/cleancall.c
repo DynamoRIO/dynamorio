@@ -38,7 +38,7 @@
 
 #include "tools.h" /* for print() */
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -50,7 +50,7 @@
 
 #ifdef WINDOWS
 # define NOP __nop()
-#else /* LINUX */
+#else /* UNIX */
 # define NOP asm("nop")
 #endif
 
@@ -61,7 +61,7 @@ SIGJMP_BUF mark;
 
 static int count;
 
-#ifdef LINUX
+#ifdef UNIX
 
 static void
 signal_handler(int sig)
@@ -102,7 +102,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 int main(int argc, char *argv[])
 {
     int i, j;
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t)signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

@@ -81,7 +81,7 @@ generated_code_t *shared_code_x86_to_x64 = NULL;
 
 static int syscall_method = SYSCALL_METHOD_UNINITIALIZED;
 byte *app_sysenter_instr_addr = NULL;
-#ifdef LINUX
+#ifdef UNIX
 static bool sysenter_hook_failed = false;
 #endif
 
@@ -168,7 +168,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "do_vmkuw_syscall:\n");
 #  endif
 # endif
-# ifdef LINUX
+# ifdef UNIX
             else if (last_pc == code->new_thread_dynamo_start)
                 print_file(file, "new_thread_dynamo_start:\n");
 # endif
@@ -408,7 +408,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     }
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     /* must create before emit_do_clone_syscall() in emit_syscall_routines() */
     pc = check_size_and_cache_line(gencode, pc);
     gencode->new_thread_dynamo_start = pc;
@@ -439,7 +439,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     pc += insert_exit_stub_other_flags
         (GLOBAL_DCONTEXT, fragment,
          (linkstub_t *) get_reset_linkstub(), pc, LINK_DIRECT);
-#elif defined(LINUX) && defined(HAVE_TLS)
+#elif defined(UNIX) && defined(HAVE_TLS)
     /* PR 212570: we need a thread-shared do_syscall for our vsyscall hook */
     /* PR 361894: we don't support sysenter if no TLS */
     ASSERT(gencode->do_syscall == NULL);
@@ -926,7 +926,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                          false, &code->do_syscall_offs);
-#else /* LINUX */
+#else /* UNIX */
     pc = check_size_and_cache_line(code, pc);
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
@@ -945,7 +945,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     pc = emit_do_vmkuw_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
                                &code->do_vmkuw_syscall_offs);
 # endif
-#endif /* LINUX */
+#endif /* UNIX */
     
     return pc;
 }
@@ -1059,7 +1059,7 @@ arch_thread_init(dcontext_t *dcontext)
     code->ibl_routines_end = pc;
 #endif
 
-#if defined(LINUX) && !defined(HAVE_TLS)
+#if defined(UNIX) && !defined(HAVE_TLS)
     /* for HAVE_TLS we use the shared version; w/o TLS we don't
      * make any shared routines (PR 361894)
      */
@@ -2252,7 +2252,7 @@ is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc)
 #endif
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* PR 212290: can't be static code in x86.asm since it can't be PIC */
 cache_pc
 get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
@@ -2504,7 +2504,7 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
         ;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static inline bool
 instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 {
@@ -2654,7 +2654,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
         else if (instr_is_trace_cmp(tdcontext, inst)) {
             /* nothing to do */
         }
-#ifdef LINUX
+#ifdef UNIX
         else if (instr_is_seg_ref_load(tdcontext, inst)) {
             /* nothing to do */
         }
@@ -3988,7 +3988,7 @@ get_global_do_syscall_entry()
 # endif
 #endif
     } else {
-#ifdef LINUX
+#ifdef UNIX
         /* PR 205310: we sometimes have to execute syscalls before we
          * see an app syscall: for a signal default action, e.g.
          */
@@ -4024,7 +4024,7 @@ get_cleanup_and_terminate_global_do_syscall_entry()
         return get_global_do_syscall_entry();
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* PR 212570: for sysenter support we need to regain control after the
  * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
  * The vsyscall code layout is as follows:
@@ -4260,7 +4260,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                 }
             });
             /* For linux, we should have found "[vdso]" in the maps file */
-            IF_LINUX(ASSERT(vsyscall_page_start != NULL &&
+            IF_UNIX(ASSERT(vsyscall_page_start != NULL &&
                             vsyscall_page_start ==
                             (app_pc) PAGE_START(instr_get_raw_bits(instr))));
             LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
@@ -4305,7 +4305,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
 #endif
     }
 
-#ifdef LINUX
+#ifdef UNIX
     if (new_method != get_syscall_method() &&
         /* PR 286922: for linux, vsyscall method trumps occasional use of int.  We
          * update do_syscall for the vsyscall method, and use do_int_syscall for any
@@ -4370,11 +4370,11 @@ void
 set_syscall_method(int method)
 {
     ASSERT(syscall_method == SYSCALL_METHOD_UNINITIALIZED
-           IF_LINUX(|| syscall_method == SYSCALL_METHOD_INT/*PR 286922*/));
+           IF_UNIX(|| syscall_method == SYSCALL_METHOD_INT/*PR 286922*/));
     syscall_method = method;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* PR 313715: If we fail to hook the vsyscall page (xref PR 212570, PR 288330)
  * we fall back on int, but we have to tweak syscall param #5 (ebp)
  */
@@ -4540,7 +4540,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 
 #ifdef PROFILE_RDTSC
 /* This only works on Pentium I or later */
-#ifdef LINUX
+#ifdef UNIX
 __inline__ uint64 get_time()
 {
     uint64 x;

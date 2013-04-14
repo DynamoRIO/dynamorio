@@ -37,7 +37,7 @@
 
 #include "tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/types.h>
 # include <unistd.h>
 # include <sys/types.h> /* for wait */
@@ -54,7 +54,7 @@
 int
 main(int argc, char** argv)
 {
-#ifdef LINUX
+#ifdef UNIX
     pid_t child = fork();
     if (child < 0) {
 	perror("ERROR on fork");

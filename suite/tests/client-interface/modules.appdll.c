@@ -39,7 +39,7 @@
  */
 #ifdef WINDOWS
 # define EXPORT __declspec(dllexport)
-#else /* LINUX */
+#else /* UNIX */
 # define EXPORT __attribute__((visibility("default")))
 #endif
 

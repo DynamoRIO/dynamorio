@@ -5,7 +5,7 @@ got correct overflow
 #endif
 got correct overflow
 finished unmangling.
-#ifdef LINUX
+#ifdef UNIX
 (found|couldn.t find) glibc malloc (and|or) __GI___libc_malloc.
 #endif
 enumerating with DRSYM_LEAVE_MANGLED

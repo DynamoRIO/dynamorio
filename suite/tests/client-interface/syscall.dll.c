@@ -91,7 +91,7 @@ bb_event(void* drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 # define TEST_NAME "client.syscall"
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
@@ -149,7 +149,7 @@ dr_init(client_id_t id)
 
     /* Register the BB hook */
     dr_register_bb_event(bb_event);
-#ifdef LINUX  /* With early injection, libc won't be loaded until later. */
+#ifdef UNIX  /* With early injection, libc won't be loaded until later. */
     dr_register_module_load_event(event_module_load);
 #endif
 }

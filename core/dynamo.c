@@ -114,7 +114,7 @@ bool    dr_api_exit  = false;
 #ifdef RETURN_AFTER_CALL
 bool    dr_preinjected = false;
 #endif /* RETURN_AFTER_CALL */
-#ifdef LINUX
+#ifdef UNIX
 static bool dynamo_exiting = false;
 #endif
 bool    dynamo_exited = false;
@@ -130,7 +130,7 @@ bool    dynamo_resetting = false;
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 bool    standalone_library = false;
 #endif
-#ifdef LINUX
+#ifdef UNIX
 bool    post_execve = false;
 #endif
 /* initial stack so we don't have to use app's */
@@ -218,7 +218,7 @@ static void data_section_exit(void);
 /* FIXME: not all dynamo_options references are #ifdef DEBUG
  * are we trying to hardcode the options for a release build?
  */
-# ifdef LINUX
+# ifdef UNIX
    /* linux include files for mmap stuff*/
 #  include <sys/ipc.h>
 #  include <sys/types.h>
@@ -234,7 +234,7 @@ file_t main_logfile = INVALID_FILE;
 dr_statistics_t *stats = NULL;
 
 DECLARE_FREQPROT_VAR(static int num_known_threads, 0);
-#ifdef LINUX
+#ifdef UNIX
 /* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
 DECLARE_FREQPROT_VAR(int num_execve_threads, 0);
 #endif
@@ -369,7 +369,7 @@ dynamorio_app_init(void)
         /* avoid time() for libc independence */
         DODEBUG(starttime = query_time_seconds(););
 
-#ifdef LINUX
+#ifdef UNIX
         if (getenv(DYNAMORIO_VAR_EXECVE) != NULL) {
             post_execve = true;
 # ifdef VMX86_SERVER
@@ -599,7 +599,7 @@ dynamorio_app_init(void)
          * require changing start/stop API
          */
         dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false));
-#ifdef LINUX
+#ifdef UNIX
         /* i#27: we need to special-case the 1st thread */
         signal_thread_inherit(get_thread_private_dcontext(), NULL);
 #endif
@@ -700,7 +700,7 @@ dynamorio_app_init(void)
     return SUCCESS;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 void
 dynamorio_fork_init(dcontext_t *dcontext)
 {
@@ -807,7 +807,7 @@ dynamorio_fork_init(dcontext_t *dcontext)
     }
 # endif
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 #if defined(CLIENT_INTERFACE) || defined(STANDALONE_UNIT_TEST)
 /* To make DynamoRIO useful as a library for a standalone client
@@ -1124,7 +1124,7 @@ synch_with_threads_at_exit(thread_synch_state_t synch_res)
      * could have the suspended thread move from the sigstack-reliant
      * loop to a stack-free loop (xref i#95).
      */
-    IF_LINUX(dynamo_exiting = true;) /* include execve-exited vfork threads */
+    IF_UNIX(dynamo_exiting = true;) /* include execve-exited vfork threads */
     DEBUG_DECLARE(ok =)
         synch_with_all_threads(synch_res,
                                &threads, &num_threads, 
@@ -1220,9 +1220,9 @@ dynamo_process_exit_cleanup(void)
             IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(private_loader))) {
             callback_interception_unintercept();
         }
-#else /* LINUX */
+#else /* UNIX */
         unhook_vsyscall();
-#endif /* LINUX */
+#endif /* UNIX */
 
         return dynamo_shared_exit(IF_WINDOWS_(NULL) /* not detaching */
                                   IF_WINDOWS(false /* not detaching */));
@@ -1302,7 +1302,7 @@ dynamo_process_exit(void)
      * FIXME: should combine that thread walk with this one
      */
     each_thread = TRACEDUMP_ENABLED();
-# ifdef LINUX
+# ifdef UNIX
     each_thread = each_thread || INTERNAL_OPTION(profile_pcs);
 # endif
 # ifdef KSTATS
@@ -1349,7 +1349,7 @@ dynamo_process_exit(void)
                  * dr_fragment_deleted() callbacks.
                  */
                 fragment_thread_exit(threads[i]->dcontext);
-# ifdef LINUX
+# ifdef UNIX
             if (INTERNAL_OPTION(profile_pcs))
                 pcprofile_thread_exit(threads[i]->dcontext);
 # endif
@@ -1473,7 +1473,7 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
 
     DODEBUG({dcontext->logfile = INVALID_FILE;});
     dcontext->owning_thread = get_thread_id();
-#ifdef LINUX
+#ifdef UNIX
     dcontext->owning_process = get_process_id();
 #endif
     /* thread_record is set in add_thread */
@@ -1558,7 +1558,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->sys_param2 = 0;
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     dcontext->signals_pending = false;
 #endif
 
@@ -1603,7 +1603,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     /* initialize sse2 index with 0
      * go ahead and use eax, it's dead (about to return)
      */
-# ifdef LINUX
+# ifdef UNIX
     asm("movl $0, %eax");
     asm("pinsrw $7,%eax,%xmm7");
 # else
@@ -1624,7 +1624,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     new_dcontext->valid = false;
     /* all of these fields are shared among all dcontexts of a thread: */
     new_dcontext->owning_thread = old_dcontext->owning_thread;
-#ifdef LINUX
+#ifdef UNIX
     new_dcontext->owning_process = old_dcontext->owning_process;
 #endif
     new_dcontext->thread_record = old_dcontext->thread_record;
@@ -1657,7 +1657,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     IF_X64(new_dcontext->app_stack_limit = old_dcontext->app_stack_limit);
     new_dcontext->teb_base = old_dcontext->teb_base;
 #endif
-#ifdef LINUX
+#ifdef UNIX
     new_dcontext->signal_field = old_dcontext->signal_field;
     new_dcontext->pcprofile_field = old_dcontext->pcprofile_field;
 #endif
@@ -1716,7 +1716,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
 bool
 is_thread_initialized(void)
 {
-#if defined(LINUX) && defined(HAVE_TLS)
+#if defined(UNIX) && defined(HAVE_TLS)
     /* We don't want to pay the get_thread_id() cost on every
      * get_thread_private_dcontext() when we only really need the
      * check for this call here, so we explicitly check.
@@ -1734,7 +1734,7 @@ is_thread_known(thread_id_t tid)
     return (thread_lookup(tid) != NULL);
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* i#237/PR 498284: a thread about to execute SYS_execve should be considered
  * exited, but we can't easily clean up it for real immediately
  */
@@ -1756,12 +1756,12 @@ mark_thread_execve(thread_record_t *tr, bool execve)
     }
     mutex_unlock(&all_threads_lock);
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 int
 get_num_threads(void)
 {
-    return num_known_threads IF_LINUX(- num_execve_threads);
+    return num_known_threads IF_UNIX(- num_execve_threads);
 }
 
 bool
@@ -1782,7 +1782,7 @@ is_last_app_thread(void)
  */
 static void
 get_list_of_threads_common(thread_record_t ***list, int *num
-                           _IF_LINUX(bool include_execve))
+                           _IF_UNIX(bool include_execve))
 {
     int i, cur = 0, max_num;
     thread_record_t *tr;
@@ -1798,7 +1798,7 @@ get_list_of_threads_common(thread_record_t ***list, int *num
 
     mutex_lock(&all_threads_lock);
     /* Do not include vfork threads that exited via execve, unless we're exiting */
-    max_num = IF_LINUX_ELSE((include_execve || dynamo_exiting) ?
+    max_num = IF_UNIX_ELSE((include_execve || dynamo_exiting) ?
                             num_known_threads : get_num_threads(),
                             get_num_threads());
     mylist = (thread_record_t **) global_heap_alloc(max_num*sizeof(thread_record_t*)
@@ -1809,7 +1809,7 @@ get_list_of_threads_common(thread_record_t ***list, int *num
             /* don't include those that exited for execve.  there should be
              * no race b/c vfork suspends the parent.  xref i#237/PR 498284.
              */
-            if (IF_LINUX_ELSE(!tr->execve || include_execve || dynamo_exiting, true)) {
+            if (IF_UNIX_ELSE(!tr->execve || include_execve || dynamo_exiting, true)) {
                 mylist[cur] = tr;
                 cur++;
             }
@@ -1832,10 +1832,10 @@ get_list_of_threads_common(thread_record_t ***list, int *num
 void
 get_list_of_threads(thread_record_t ***list, int *num)
 {
-    get_list_of_threads_common(list, num _IF_LINUX(false));
+    get_list_of_threads_common(list, num _IF_UNIX(false));
 }
 
-#ifdef LINUX
+#ifdef UNIX
 void
 get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_execve)
 {
@@ -1966,7 +1966,7 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
                 all_threads[hindex] = tr->next;
             /* must be inside all_threads_lock to avoid race w/ get_list_of_threads */
             RSTATS_DEC(num_threads);
-#ifdef LINUX
+#ifdef UNIX
             if (tr->execve) {
                 ASSERT(num_execve_threads > 0);
                 num_execve_threads--;
@@ -2416,11 +2416,11 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
     }
     LOG(GLOBAL, LOG_STATS|LOG_THREADS, 1, "\tdynamo contexts used: %d\n",
         num_dcontext);
-#else /* LINUX */
+#else /* UNIX */
     if (!other_thread)
         set_thread_private_dcontext(NULL);
     delete_dynamo_context(dcontext_tmp, !on_dstack/*do not free own stack*/);
-#endif /* LINUX */
+#endif /* UNIX */
     os_tls_exit(local_state, other_thread);
 
 #ifdef SIDELINE
@@ -3003,7 +3003,7 @@ get_data_section_bounds(uint sec)
 #endif
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* We get into problems if we keep a .section open across string literals, etc.
  * (such as when wrapping a function to get its local-scope statics in that section),
  * but the VAR_IN_SECTION does the real work for us, just so long as we have one

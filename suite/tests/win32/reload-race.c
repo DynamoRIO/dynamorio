@@ -283,7 +283,7 @@ int main(int argc, char** argv)
     dynamorio_app_start();
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     /* though win32/ */
     intercept_signal(SIGSEGV, signal_handler);
 #else

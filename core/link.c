@@ -153,7 +153,7 @@ static const linkstub_t linkstub_reset       = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_syscall     = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_selfmod     = { LINK_FAKE, 0 };
 static const linkstub_t linkstub_ibl_deleted = { LINK_FAKE, 0 };
-#ifdef LINUX
+#ifdef UNIX
 static const linkstub_t linkstub_sigreturn   = { LINK_FAKE, 0 };
 #else /* WINDOWS */
 static const linkstub_t linkstub_asynch      = { LINK_FAKE, 0 };
@@ -739,7 +739,7 @@ get_ibl_deleted_linkstub()
     return &linkstub_ibl_deleted;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 const linkstub_t *
 get_sigreturn_linkstub()
 {
@@ -1104,7 +1104,7 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragme
     /* rarely set so we test it last */
     if (INTERNAL_OPTION(nolink))
         return false;
-#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
+#if defined(UNIX) && !defined(DGC_DIAGNOSTICS)
     /* i#107, fragment having a OP_mov_seg instr cannot be linked. */
     if (TEST(FRAG_HAS_MOV_SEG, to_f->flags))
         return false;

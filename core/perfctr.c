@@ -86,7 +86,7 @@ void hardware_perfctr_init()
 
     ASSERT(NUM_EVENTS==(sizeof(papi_events)/8));
 
-#ifdef LINUX
+#ifdef UNIX
     ASSERT(!INTERNAL_OPTION(profile_pcs)); 
 #endif
 

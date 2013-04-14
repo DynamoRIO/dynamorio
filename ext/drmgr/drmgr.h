@@ -858,7 +858,7 @@ bool
 drmgr_unregister_module_unload_event(void (*func)
                                      (void *drcontext, const module_data_t *info));
 
-#ifdef LINUX
+#ifdef UNIX
 DR_EXPORT
 /**
  * Registers a callback function for the signal event, which
@@ -894,7 +894,7 @@ DR_EXPORT
 bool
 drmgr_unregister_signal_event(dr_signal_action_t (*func)
                               (void *drcontext, dr_siginfo_t *siginfo));
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef WINDOWS
 DR_EXPORT

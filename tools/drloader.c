@@ -44,7 +44,7 @@
  * implementation for Linux.
  */
 
-#include "configure.h"  /* for LINUX */
+#include "configure.h"  /* for UNIX */
 #include "globals_shared.h"  /* for DYNAMORIO_VAR_EXE_PATH */
 
 #include <errno.h>

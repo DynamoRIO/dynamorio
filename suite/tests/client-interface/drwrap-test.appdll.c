@@ -257,7 +257,7 @@ so_init(void)
 #include "asm_defines.asm"
 START_FILE
 
-# if defined(LINUX) && defined(X64)
+# if defined(UNIX) && defined(X64)
 /* to work on x64 w/o ld reloc problems we use a stored address
  * so we're not testing tailcall on x64 linux.
  * (if we use indirect jump, drwrap misses the post-makes_tailcall:
@@ -271,7 +271,7 @@ DECL_EXTERN(level2)
 #define FUNCNAME makes_tailcall
         DECLARE_EXPORTED_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-# if defined(LINUX) && defined(X64)
+# if defined(UNIX) && defined(X64)
         push     REG_XBP  /* Needed only to maintain 16-byte alignment. */
         call     PTRSZ SYMREF(level2_ptr)
         pop      REG_XBP

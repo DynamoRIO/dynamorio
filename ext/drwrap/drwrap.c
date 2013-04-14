@@ -573,7 +573,7 @@ drwrap_arg_addr(drwrap_context_t *wrapcxt, int arg)
 #ifdef X64
     /* ensure we have the info we need. note that we always have xsp. */
     drwrap_get_mcontext_internal(wrapcxt, DR_MC_INTEGER);
-# ifdef LINUX
+# ifdef UNIX
     switch (arg) {
     case 0: return &wrapcxt->mc->rdi;
     case 1: return &wrapcxt->mc->rsi;

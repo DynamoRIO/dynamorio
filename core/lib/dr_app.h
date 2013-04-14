@@ -45,7 +45,7 @@
 #  else
 #    define DR_APP_API __declspec(dllimport)
 #  endif
-#else /* LINUX */
+#else /* UNIX */
 #  if defined(DR_APP_EXPORTS) && defined(USE_VISIBILITY_ATTRIBUTES)
 #    define DR_APP_API __attribute__ ((visibility ("default")))
 #  else

@@ -40,7 +40,7 @@
 #include "tools.h"
 #include <setjmp.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -83,7 +83,7 @@ twofoo()
 }
 
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig)
 {
@@ -136,7 +136,7 @@ main()
 {
     INIT();
 
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

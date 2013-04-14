@@ -39,7 +39,7 @@
 #include "dr_api.h"
 #include "client_tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <signal.h>
 #endif
 
@@ -215,7 +215,7 @@ void thread_exit_event2(void *drcontext)
         dr_fprintf(STDERR, "unregister failed!\n");
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static
 void fork_init_event1(void *drcontext)
 {
@@ -626,7 +626,7 @@ void dr_init(client_id_t id)
     dr_register_thread_init_event(thread_init_event2);
     dr_register_thread_exit_event(thread_exit_event1);
     dr_register_thread_exit_event(thread_exit_event2);
-#ifdef LINUX
+#ifdef UNIX
     dr_register_fork_init_event(fork_init_event1);
     dr_register_fork_init_event(fork_init_event2);
 #endif

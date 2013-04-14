@@ -243,15 +243,15 @@ else (WIN32)
   # avoid violating selinux policies.  On Ubuntu, chcon is part of coreutils
   # package too, so it will be there even if selinux isn't enabled, so check for
   # for selinux.
-  find_program(SELINUXENABLED selinuxenabled DOC "path to selinuxenabled")
-  if (SELINUXENABLED)
+  find_program(SEUNIXENABLED selinuxenabled DOC "path to selinuxenabled")
+  if (SEUNIXENABLED)
     find_program(CHCON chcon DOC "path to chcon")
     if (CHCON)
       message(STATUS "Detected selinux: will chcon binaries with text relocations.")
-      set(SELINUXFOUND "yes")
+      set(SEUNIXFOUND "yes")
     endif (CHCON)
     mark_as_advanced(CHCON)
-  endif (SELINUXENABLED)
+  endif (SEUNIXENABLED)
 endif (WIN32)
 
 # put libs in same dir for tests that need to load them
@@ -792,7 +792,7 @@ endfunction(tobind)
 # for the type.
 # If both are needed, "wine_exec_t" seems to do the trick.
 function(tochcon target type)
-  if (UNIX AND SELINUXFOUND)
+  if (UNIX AND SEUNIXFOUND)
     get_target_property(binary ${target} LOCATION${location_suffix})
     add_custom_command(TARGET ${target}
       POST_BUILD
@@ -800,7 +800,7 @@ function(tochcon target type)
       ARGS -t ${type} ${binary}
       VERBATIM # recommended: p260
       )
-  endif (UNIX AND SELINUXFOUND)
+  endif (UNIX AND SEUNIXFOUND)
 endfunction(tochcon)
 
 function(mark_execstack target)
@@ -1378,7 +1378,7 @@ if (CLIENT_INTERFACE)
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
   # we add custom option to flush test based on dr ops in torun_ci()
   tobuild_ci(client.flush client-interface/flush.c "" "" "")
-  # FIXME: PR 199115 to re-enable fragdel, get some more of the LINUX tests working
+  # FIXME: PR 199115 to re-enable fragdel, get some more of the UNIX tests working
   #tobuild_ci(client.fragdel client-interface/fragdel.c "" "" "")
   if (PROGRAM_SHEPHERDING)
     tobuild_ci(client.security client-interface/security.c "" "-security_api" "")

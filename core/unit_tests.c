@@ -36,7 +36,7 @@
 #include "globals.h"
 
 void unit_test_io(void);
-#ifdef LINUX
+#ifdef UNIX
 void unit_test_string(void);
 void unit_test_os(void);
 #endif
@@ -57,7 +57,7 @@ main(int argc, char **argv, char **envp)
      * might be worth looking into gtest, which already does this.
      */
     unit_test_io();
-#ifdef LINUX
+#ifdef UNIX
     unit_test_string();
     unit_test_os();
 #endif

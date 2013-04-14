@@ -37,7 +37,7 @@
 
 #include "tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -68,7 +68,7 @@ static const char * const datasec_names[] = {
 
 typedef unsigned char byte;
 
-#ifdef LINUX
+#ifdef UNIX
 # error NYI
 #else
 bool
@@ -120,7 +120,7 @@ get_DR_base()
 jmp_buf mark;
 int where; /* 0 = normal, 1 = segfault longjmp */
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig)
 {
@@ -167,7 +167,7 @@ main()
     dynamorio_app_start();
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

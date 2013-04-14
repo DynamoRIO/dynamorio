@@ -426,7 +426,7 @@ check_return_too_deep(dcontext_t *dcontext,
 
     /* move from registers into memory where we can work with it */
     /* FIXME: align xmm so can use movdqa! */
-#ifdef LINUX
+#ifdef UNIX
     asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
     asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
     asm("movdqu %%xmm2, %0" : "=m"(xmm[2]));
@@ -471,7 +471,7 @@ check_return_too_deep(dcontext_t *dcontext,
     memcpy(xmm[0], xmm[4], 64);
 
     /* move back into registers */
-#ifdef LINUX
+#ifdef UNIX
     asm("movdqu %0, %%xmm0" : : "m"(xmm[0][0]));
     asm("movdqu %0, %%xmm1" : : "m"(xmm[1][0]));
     asm("movdqu %0, %%xmm2" : : "m"(xmm[2][0]));
@@ -513,7 +513,7 @@ check_return_too_shallow(dcontext_t *dcontext,
          * clean-call-cleanup at bottom...instead we have a hack where we put
          * in a ret addr that will match, namely the real ret addr, sitting in edx
          */
-#ifdef LINUX
+#ifdef UNIX
         asm("movl %0, %%eax" : : "m"(reg_edx));
         asm("pinsrw $0,%eax,%xmm0");
 #else
@@ -525,7 +525,7 @@ check_return_too_shallow(dcontext_t *dcontext,
         call_stack_32_t *stack = dcontext->call_stack;
         ASSERT(stack != NULL);
         /* move back into registers */
-#ifdef LINUX
+#ifdef UNIX
         asm("movl %0, %%eax" : : "m"(stack->retaddr));
         asm("movdqu (%eax),     %xmm0");
         asm("movdqu 0x10(%eax), %xmm1");
@@ -582,7 +582,7 @@ check_return_ra_mangled(dcontext_t *dcontext,
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ALL) != 0) {
         int idx;
-# ifdef LINUX
+# ifdef UNIX
         asm("pextrw $7,%xmm7,%eax");
         asm("movl %%eax, %0" : "=m"(idx));
 # else
@@ -723,7 +723,7 @@ check_debug(dcontext_t *dcontext,
         int i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
         /* move from registers into memory where we can work with it */
-#ifdef LINUX
+#ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
         asm("movdqu %%xmm2, %0" : "=m"(xmm[2]));
@@ -932,7 +932,7 @@ check_return_too_deep(dcontext_t *dcontext,
 
     /* move from registers into memory where we can work with it */
     /* FIXME: align xmm so can use movdqa! */
-#ifdef LINUX
+#ifdef UNIX
     asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
     asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
     asm("movdqu %%xmm2, %0" : "=m"(xmm[2]));
@@ -975,7 +975,7 @@ check_return_too_deep(dcontext_t *dcontext,
 
 #if !DISABLE_FOR_ANALYSIS
     /* move back into registers */
-#ifdef LINUX
+#ifdef UNIX
     asm("movdqu %0, %%xmm0" : : "m"(xmm[0][0]));
     asm("movdqu %0, %%xmm1" : : "m"(xmm[1][0]));
     asm("movdqu %0, %%xmm2" : : "m"(xmm[2][0]));
@@ -1016,7 +1016,7 @@ check_return_too_shallow(dcontext_t *dcontext,
     LOG(THREAD, LOG_ALL, 3, "check_return_too_shallow\n");
     if (dcontext->call_depth == 0) {
         LOG(THREAD, LOG_ALL, 3, "\tbottomed out of dynamo, ignoring\n");
-#ifdef LINUX
+#ifdef UNIX
         asm("movl $0, %eax");
         asm("pinsrw $7,%eax,%xmm7");
 #else
@@ -1033,7 +1033,7 @@ check_return_too_shallow(dcontext_t *dcontext,
         LOG(THREAD, LOG_ALL, 3, "\tsetting reg_ebx to stored retaddr "PFX"\n", reg_ebx);
 
         /* move back into registers */
-#ifdef LINUX
+#ifdef UNIX
         /* gcc 4.0 doesn't like:  "m"(stack->retaddr) */
         void *retaddr = stack->retaddr;
         asm("movl %0, %%eax" : : "m"(retaddr));
@@ -1097,7 +1097,7 @@ check_return_ra_mangled(dcontext_t *dcontext,
         int idx, i, j;
         byte xmm[8][16]; /* each sse2 is 128 bits = 16 bytes */
         /* move from registers into memory where we can work with it */
-#ifdef LINUX
+#ifdef UNIX
         asm("movdqu %%xmm0, %0" : "=m"(xmm[0]));
         asm("movdqu %%xmm1, %0" : "=m"(xmm[1]));
         asm("movdqu %%xmm2, %0" : "=m"(xmm[2]));
@@ -1119,7 +1119,7 @@ check_return_ra_mangled(dcontext_t *dcontext,
             }
         }
 
-# ifdef LINUX
+# ifdef UNIX
         asm("pextrw $7,%xmm7,%eax");
         asm("movl %%eax, %0" : "=m"(idx));
 # else

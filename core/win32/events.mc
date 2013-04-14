@@ -540,7 +540,7 @@ Max number of modules with tls variables exceeded.
 .
 ;#endif
 
-;#if defined(LINUX) && defined(CLIENT_INTERFACE)
+;#if defined(UNIX) && defined(CLIENT_INTERFACE)
 MessageId = 
 Severity = Warning
 Facility = DRCore

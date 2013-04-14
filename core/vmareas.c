@@ -726,10 +726,10 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
 #ifdef DEBUG
     print_file(outf, " %s", area->comment);
     DOLOG(1, LOG_VMAREAS, {
-        IF_LINUX(extern vm_area_vector_t *all_memory_areas;)
+        IF_UNIX(extern vm_area_vector_t *all_memory_areas;)
         app_pc modbase = 
             /* avoid rank order violation */
-            IF_LINUX(v == all_memory_areas ? NULL :)
+            IF_UNIX(v == all_memory_areas ? NULL :)
             get_module_base(area->start);
         if (modbase != NULL &&
             /* avoid rank order violations */
@@ -4751,7 +4751,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
     ASSERT_NOT_IMPLEMENTED();
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     /* is this a sigreturn pattern placed by kernel on the stack or vsyscall page? */
     if (is_signal_restorer_code(addr, &len)) {
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2,
@@ -7964,7 +7964,7 @@ set_thread_decode_page_start(dcontext_t *dcontext, app_pc page_pc)
     thread_data_t *data;
     /* Regardless of the dcontext that's passed in, we want to track the
      * page_pc for the thread so get a real dcontext. */
-#ifdef LINUX
+#ifdef UNIX
     /* FIXME On Linux, fetching a context requires a syscall, which is a
      * relatively costly operation, so we don't even try. Note that this can
      * be misleading when the dcontext that's passed in isn't the one for

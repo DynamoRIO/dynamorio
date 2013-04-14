@@ -44,7 +44,7 @@
 #include <string.h>
 #include <stdarg.h> /* for varargs */
 
-#ifdef LINUX
+#ifdef UNIX
 # include <wchar.h>
 #endif
 
@@ -59,7 +59,7 @@
 #define VA_ARG_CHAR2INT
 #define BUF_SIZE 64
 
-#ifdef LINUX
+#ifdef UNIX
 const static double pos_inf = 1.0/0.0;
 const static double neg_inf = -1.0/0.0;
 #else
@@ -782,7 +782,7 @@ test_sscanf_all_specs(void)
  * memcpy() and memset() tests
  */
 
-# ifdef LINUX
+# ifdef UNIX
 #  include <errno.h>
 #  include <dlfcn.h>  /* for dlsym for libc routines */
 
@@ -913,7 +913,7 @@ our_memcpy_vs_libc(void)
      * flaky failures when the suite is run on shared VMs or in parallel.
      */
 }
-# endif /* LINUX */
+# endif /* UNIX */
 
 void
 unit_test_io(void)
@@ -1016,14 +1016,14 @@ unit_test_io(void)
     test_sscanf_maps_x64();
     test_sscanf_all_specs();
 
-#ifdef LINUX
+#ifdef UNIX
     /* memcpy tests */
     test_our_memcpy();
     our_memcpy_vs_libc();
 
     /* memset tests */
     test_our_memset();
-#endif /* LINUX */
+#endif /* UNIX */
 
     /* XXX: add more tests */
 

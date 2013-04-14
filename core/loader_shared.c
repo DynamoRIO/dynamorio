@@ -370,7 +370,7 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     /* i#489 DT_SONAME is optional and name passed in could be NULL.
      * If so, we get libname from path instead.
      */
-    if (IF_LINUX_ELSE(mod->name == NULL, false)) {
+    if (IF_UNIX_ELSE(mod->name == NULL, false)) {
         mod->name = double_strrchr(mod->path, DIRSEP, ALT_DIRSEP);
         if (mod->name == NULL)
             mod->name = mod->path;
@@ -407,7 +407,7 @@ privload_search_path_exists(const char *path, size_t len)
     uint i;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     for (i = 0; i < search_paths_idx; i++) {
-        if (IF_LINUX_ELSE(strncmp,strncasecmp)(search_paths[i], path, len) == 0)
+        if (IF_UNIX_ELSE(strncmp,strncasecmp)(search_paths[i], path, len) == 0)
             return true;
     }
     return false;
@@ -656,7 +656,7 @@ privload_load_finalize(privmod_t *privmod)
 static bool
 privload_has_thread_entry(void)
 {
-    return IF_LINUX_ELSE(false, true);
+    return IF_UNIX_ELSE(false, true);
 }
 
 static bool

@@ -570,7 +570,7 @@ fragment_thread_reset_init(dcontext_t *dcontext);
 void
 fragment_thread_reset_free(dcontext_t *dcontext);
 
-#ifdef LINUX
+#ifdef UNIX
 void
 fragment_fork_init(dcontext_t *dcontext);
 #endif
@@ -733,7 +733,7 @@ struct _rct_module_table_t {
     app_pc live_max;
 };
 
-# ifdef LINUX
+# ifdef UNIX
 extern rct_module_table_t rct_global_table;
 # endif
 

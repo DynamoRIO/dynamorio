@@ -643,7 +643,7 @@ extend_trace_pad_bytes(fragment_t *add_frag)
      * any nops from fragments added to traces since there shouldn't be any if
      * we only add bbs (nop_pad_ilist has an assert that verifies we don't add
      * any nops to bbs when -pad_jmps_shift_bb without marking as CANNOT_BE_TRACE,
-     * so here we also verify that we only add bbs) - Xref PR 215179, LINUX syscall
+     * so here we also verify that we only add bbs) - Xref PR 215179, UNIX syscall
      * fence exits and CLIENT_INTERFACE added/moved exits can lead to bbs with
      * additional hot_patchable locations.  We mark such bb fragments as CANNOT_BE_TRACE
      * in nop_pad_ilist() if -pad_jmps_mark_no_trace is set or assert otherwise to avoid
@@ -763,7 +763,7 @@ nop_pad_ilist(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist, bool emit
                         }
 #endif
                         /* We expect bbs to never need this if
-                         * -pad_jmps_shift_bb except on LINUX (signal fence exit) and
+                         * -pad_jmps_shift_bb except on UNIX (signal fence exit) and
                          * CLIENT_INTERFACE (client can re-arrange fragment) where we
                          * -pad_jmps_mark_no_trace.  We rely on having not
                          * inserted any nops into traceable bbs in interp (so that we
@@ -7326,11 +7326,11 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 {
     instrlist_t ilist;
     instr_t *syscall;
-#ifdef LINUX
+#ifdef UNIX
     instr_t *post_syscall;
 #endif
 
-#if defined(LINUX) && !defined(X64)
+#if defined(UNIX) && !defined(X64)
     /* PR 286922: 32-bit clone syscall cannot use vsyscall: must be int */
     if (handle_clone)
         force_int = true;
@@ -7356,7 +7356,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 
     /* system call itself -- using same method we've observed OS using */
     APP(&ilist, syscall);
-#ifdef LINUX
+#ifdef UNIX
     if (get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED) {
         /* Since we lazily find out the method, but emit these routines
          * up front, we have to leave room for the longest syscall method.
@@ -7388,7 +7388,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
          OPND_CREATE_INTPTR((ptr_int_t)get_syscall_linkstub())));
     APP(&ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(fcache_return_pc)));
 
-#ifdef LINUX
+#ifdef UNIX
     if (handle_clone) {
         /* put in clone code, and make sure to target it.
          * do it here since it assumes an instr after the syscall exists.
@@ -7401,7 +7401,7 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 
     /* now encode the instructions */
     pc = instrlist_encode(dcontext, &ilist, pc,
-#ifdef LINUX
+#ifdef UNIX
                           handle_clone /* instr targets */
 #else
                           false /* no instr targets */
@@ -7459,7 +7459,7 @@ emit_do_callback_return(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc,
 
     return pc;
 }
-#else /* !WINDOWS => LINUX */
+#else /* !WINDOWS => UNIX */
 byte * 
 emit_do_clone_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                       byte *fcache_return_pc, bool thread_shared,
@@ -7480,7 +7480,7 @@ emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                                   false, thread_shared, false, gateway, syscall_offs);
 }
 # endif
-#endif /* LINUX */
+#endif /* UNIX */
 
 byte * 
 emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
@@ -7640,7 +7640,7 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */)
     return false;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* PR 212290: can't be static code in x86.asm since it can't be PIC */
 /*
  * new_thread_dynamo_start - for initializing a new thread created
@@ -7721,7 +7721,7 @@ emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc)
 
     return pc;
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef TRACE_HEAD_CACHE_INCR
 /* trace_t heads come here instead of back to dynamo to have their counters

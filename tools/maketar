@@ -71,7 +71,7 @@ cp ../include/* $base/dynamorio/include
 
 # linuxgui, now that header files are there
 cd ../linuxgui
-CPPFLAGS="-I$DYNAMORIO_HOME/include -DLINUX" ./autogen.sh
+CPPFLAGS="-I$DYNAMORIO_HOME/include -DUNIX" ./autogen.sh
 make
 cp src/linuxgui $base/dynamorio/bin/dynamorio-gui
 cd ../src

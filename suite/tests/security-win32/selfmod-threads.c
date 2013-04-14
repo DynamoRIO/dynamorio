@@ -56,7 +56,7 @@ foo(int iters)
     int total;
     while (!go_threads)
         Sleep(1);
-#ifdef LINUX
+#ifdef UNIX
     asm("  movl %0, %%ecx" : : "r" (iters));
     asm("  call next_inst");
     asm("next_inst:");

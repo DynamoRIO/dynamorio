@@ -84,7 +84,7 @@ int
 dr_inject_process_create(const char *app_name, const char **app_cmdline,
                          void **data);
 
-#ifdef LINUX
+#ifdef UNIX
 
 DR_EXPORT
 /**
@@ -154,7 +154,7 @@ dr_inject_prepare_to_ptrace(void *data);
 bool
 dr_inject_prepare_new_process_group(void *data);
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 DR_EXPORT
 /**

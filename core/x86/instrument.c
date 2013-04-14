@@ -58,7 +58,7 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/time.h> /* ITIMER_* */
 # include "../unix/module.h" /* redirect_* functions */
 # include <sys/mman.h> /* MAP_32BIT */
@@ -196,7 +196,7 @@ typedef struct _callback_list_t {
 static callback_list_t exit_callbacks = {0,};
 static callback_list_t thread_init_callbacks = {0,};
 static callback_list_t thread_exit_callbacks = {0,};
-#ifdef LINUX
+#ifdef UNIX
 static callback_list_t fork_init_callbacks = {0,};
 #endif
 static callback_list_t bb_callbacks = {0,};
@@ -432,7 +432,7 @@ add_client_lib(char *path, char *id_str, char *options)
          * they may happen at customer sites with a third party
          * client.
          */
-#ifdef LINUX
+#ifdef UNIX
         /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
          * in debug build across execve chains
          */
@@ -623,7 +623,7 @@ void free_all_callback_lists()
     free_callback_list(&exit_callbacks);
     free_callback_list(&thread_init_callbacks);
     free_callback_list(&thread_exit_callbacks);
-#ifdef LINUX
+#ifdef UNIX
     free_callback_list(&fork_init_callbacks);
 #endif
     free_callback_list(&bb_callbacks);
@@ -910,7 +910,7 @@ dr_unregister_thread_exit_event(void (*func)(void *drcontext))
     return remove_callback(&thread_exit_callbacks, (void (*)(void))func, true);
 }
 
-#ifdef LINUX
+#ifdef UNIX
 void
 dr_register_fork_init_event(void (*func)(void *drcontext))
 {
@@ -1174,7 +1174,7 @@ instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc)
 #endif
 }
 
-#ifdef LINUX
+#ifdef UNIX
 void
 instrument_fork_init(dcontext_t *dcontext)
 {
@@ -1642,7 +1642,7 @@ copy_module_area_to_module_data(const module_area_t *area)
     if (area == NULL)
         return NULL;
 
-#ifdef LINUX
+#ifdef UNIX
     ASSERT(sizeof(module_segment_data_t) == sizeof(module_segment_t));
 #endif
     return create_and_initialize_module_data(area->start, area->end, area->entry_point,
@@ -1703,7 +1703,7 @@ dr_free_module_data(module_data_t *data)
         return;
     }
 
-#ifdef LINUX
+#ifdef UNIX
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, data->segments, module_segment_data_t,
                     data->num_segments, ACCT_VMAREAS, PROTECTED);
 #endif
@@ -2064,7 +2064,7 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
     call_all(client_libs[i].nudge_callbacks, int (*)(void *, uint64), 
              (void *)dcontext, arg);
 
-#ifdef LINUX
+#ifdef UNIX
     dcontext->client_data->mcontext_in_dcontext = false;
 #else
     dcontext->thread_record->under_dynamo_control = true;
@@ -2269,7 +2269,7 @@ dr_get_client_base(client_id_t id)
 DR_API const char *
 dr_get_application_name(void)
 {
-#ifdef LINUX
+#ifdef UNIX
     return get_application_short_name();
 #else
     return get_application_short_unqualified_name();
@@ -2282,7 +2282,7 @@ dr_get_process_id(void)
     return (process_id_t) get_process_id();
 }
 
-#ifdef LINUX
+#ifdef UNIX
 DR_API 
 process_id_t
 dr_get_parent_id(void)
@@ -2482,7 +2482,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
              * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
              */
             p = os_raw_mem_alloc(addr, size, prot,
-                                 IF_LINUX_ELSE(TEST(DR_ALLOC_LOW_2GB, flags) ?
+                                 IF_UNIX_ELSE(TEST(DR_ALLOC_LOW_2GB, flags) ?
                                                MAP_32BIT : 0, 0),
                                  &error_code);
         }
@@ -2633,7 +2633,7 @@ dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
     custom_memory_shared(false, drcontext, flags, size, 0, addr);
 }
 
-#ifdef LINUX
+#ifdef UNIX
 DR_API
 /* With ld's -wrap option, we can supply a replacement for malloc.
  * This routine allocates memory from DR's global memory pool.  Unlike
@@ -2733,7 +2733,7 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
     uint real_prot;
     bool res;
-#if defined(LINUX) && defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && defined(HAVE_PROC_MAPS)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
      * os version instead (even though it's slower, and only if we have
@@ -2762,7 +2762,7 @@ bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
     bool res;
-#if defined(LINUX) && defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && defined(HAVE_PROC_MAPS)
     /* PR 246897: all_memory_areas not ready for prime time */
     res = query_memory_ex_from_os(pc, info);
 #else
@@ -3654,7 +3654,7 @@ DR_API
 file_t
 dr_dup_file_handle(file_t f)
 {
-#ifdef LINUX
+#ifdef UNIX
     /* returns -1 on failure == INVALID_FILE */
     return dup_syscall(f);
 #else
@@ -3684,7 +3684,7 @@ dr_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
         map_file(f, size, offs, addr, prot,
                  (TEST(DR_MAP_PRIVATE, flags) ? MAP_FILE_COPY_ON_WRITE : 0) |
                  IF_WINDOWS((TEST(DR_MAP_IMAGE, flags) ? MAP_FILE_IMAGE : 0) |)
-                 IF_LINUX((TEST(DR_MAP_FIXED, flags) ? MAP_FILE_FIXED : 0) |)
+                 IF_UNIX((TEST(DR_MAP_FIXED, flags) ? MAP_FILE_FIXED : 0) |)
                  (TEST(DR_MAP_CACHE_REACHABLE, flags) ? MAP_FILE_REACHABLE : 0));
 }
 
@@ -4337,7 +4337,7 @@ dr_retakeover_suspended_native_thread(void *drcontext)
     return res;
 }
 
-# ifdef LINUX
+# ifdef UNIX
 DR_API
 bool
 dr_set_itimer(int which, uint millisec,
@@ -4358,7 +4358,7 @@ dr_get_itimer(int which)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     return get_itimer_frequency(dcontext, which);
 }
-# endif /* LINUX */
+# endif /* UNIX */
 
 #endif /* CLIENT_INTERFACE */
 
@@ -4607,7 +4607,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
 #ifdef X64
         if (TEST(DR_CLEANCALL_NOSAVE_XMM_NONPARAM, save_flags)) {
             /* xmm0-3 (-7 for linux) are used for params */
-# ifdef LINUX
+# ifdef UNIX
             for (i=0; i<7; i++)
 # else
             for (i=0; i<3; i++)
@@ -4619,7 +4619,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
             /* xmm0 (and xmm1 for linux) are used for retvals */
             cci.xmm_skip[0] = false;
             cci.num_xmms_skip--;
-# ifdef LINUX
+# ifdef UNIX
             cci.xmm_skip[1] = false;
             cci.num_xmms_skip--;
 # endif
@@ -6306,7 +6306,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                   "dr_insert_get_seg_base: reg has wrong size\n");
     CLIENT_ASSERT(reg_is_segment(seg),
                   "dr_insert_get_seg_base: seg is not a segment register");
-#ifdef LINUX
+#ifdef UNIX
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
                   "dr_insert_get_seg_base is supported"
                   "with -mangle_app_seg only");
@@ -6349,7 +6349,7 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                   OPND_CREATE_INTPTR(0)));
     } else
         return false;
-#endif /* LINUX */
+#endif /* UNIX */
     return true;
 }
 

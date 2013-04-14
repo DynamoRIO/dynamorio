@@ -212,7 +212,7 @@ typedef struct {
     app_pc checked_end;       /* end of current vmarea checked */
     cache_pc exit_target;     /* fall-through target of final instr */
     uint exit_type;           /* indirect branch type  */
-#ifdef LINUX
+#ifdef UNIX
     bool invalid_instr_hack;
 #endif
     instr_t *instr;             /* the current instr */
@@ -411,7 +411,7 @@ must_not_be_elided(app_pc pc)
              * hack for is_syscall_trampoline() in the use here!
              */
             || (is_in_interception_buffer(pc))
-#else /* LINUX */
+#else /* UNIX */
 #endif
             );
 }
@@ -1498,7 +1498,7 @@ bb_process_fs_ref(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* win32 */
 
-#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
+#if defined(UNIX) && !defined(DGC_DIAGNOSTICS)
 /* The basic strategy for mangling mov_seg instruction is:
  * For mov fs/gs => reg/[mem], simply mangle it to write
  * the app's fs/gs selector value into dst. 
@@ -1561,7 +1561,7 @@ bb_process_mov_seg(dcontext_t *dcontext, build_bb_t *bb)
     bb->flags |= FRAG_MUST_END_TRACE;
     return false; /* stop bb here */
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 /* Returns true to indicate that ignorable syscall processing is completed
  * with *continue_bb indicating if the bb should be continued or not.
@@ -1688,7 +1688,7 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     LOG(THREAD, LOG_INTERP, 3,
         "ending bb at syscall & removing the interrupt itself\n");
     /* Indicate that this is a non-ignorable syscall so mangle will remove */
-#ifdef LINUX
+#ifdef UNIX
     if (instr_get_opcode(bb->instr) == OP_int) {
         bb->exit_type |= LINK_NI_SYSCALL_INT;
         bb->instr->flags |= INSTR_NI_SYSCALL_INT;
@@ -1753,7 +1753,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
          * for now on very simple sysenter handling where dispatch uses asynch_target
          * to know where to go next.
          */
-        IF_LINUX(&& instr_get_opcode(bb->instr) != OP_sysenter)) {
+        IF_UNIX(&& instr_get_opcode(bb->instr) != OP_sysenter)) {
 
         bool continue_bb;
 
@@ -2426,7 +2426,7 @@ client_check_syscall(instrlist_t *ilist, instr_t *inst,
          * we assert on ignorable also?  Probably we'd have to have
          * an exception for the middle of a trace?
          */
-        if (IF_LINUX(TEST(INSTR_NI_SYSCALL, inst->flags))
+        if (IF_UNIX(TEST(INSTR_NI_SYSCALL, inst->flags))
             /* PR 243391: only block-ending interrupt 2b matters */
             IF_WINDOWS(instr_is_syscall(inst) ||
                        ((instr_get_opcode(inst) == OP_int &&
@@ -3031,7 +3031,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
-#ifdef LINUX
+#ifdef UNIX
             if (INTERNAL_OPTION(mangle_app_seg) && 
                 instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS | PREFIX_SEG_GS)) {
                 /* These segment prefix flags are not persistent and are 
@@ -3185,7 +3185,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         if (instr_get_prefix_flag(bb->instr,
                                   (SEG_TLS == SEG_GS) ? PREFIX_SEG_GS : PREFIX_SEG_FS)
             /* __errno_location is interpreted when global, though it's hidden in TOT */
-            IF_LINUX(&& !is_in_dynamo_dll(bb->instr_start)) &&
+            IF_UNIX(&& !is_in_dynamo_dll(bb->instr_start)) &&
             /* i#107 allows DR/APP using the same segment register. */
             !INTERNAL_OPTION(mangle_app_seg)) {
             /* On linux we use a segment register and do not yet
@@ -3367,7 +3367,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                               get_application_name(), get_application_pid());
         }
 #endif
-#if defined(LINUX) && !defined(DGC_DIAGNOSTICS)
+#if defined(UNIX) && !defined(DGC_DIAGNOSTICS)
         else if (instr_get_opcode(bb->instr) == OP_mov_seg) {
             if (!bb_process_mov_seg(dcontext, bb))
                 break;
@@ -3447,7 +3447,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     STATS_TRACK_MAX(max_instrs_in_a_bb, total_instrs);
 
-#ifdef LINUX
+#ifdef UNIX
     if (bb->invalid_instr_hack) {
         /* turn off selfmod -- we assume bb will hit exception right away */
         if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags))
@@ -4245,7 +4245,7 @@ at_native_exec_gateway(dcontext_t *dcontext, app_pc start, bool *is_call
                 *is_call = false;
             }
         }
-#ifdef LINUX
+#ifdef UNIX
         /* Is this the entry point of a native ELF executable?  The entry point
          * (usually _start) cannot return as there is no retaddr.
          */
@@ -6208,7 +6208,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         CLIENT_ASSERT((!found_syscall && !found_int)
                       /* On linux we allow ignorable syscalls in middle.
                        * FIXME PR 307284: see notes above. */
-                      IF_LINUX(|| !TEST(LINK_NI_SYSCALL, md->final_exit_flags)),
+                      IF_UNIX(|| !TEST(LINK_NI_SYSCALL, md->final_exit_flags)),
                       "client changed exit target where unsupported\n"
                       "check if trace ends in a syscall or int");
     }

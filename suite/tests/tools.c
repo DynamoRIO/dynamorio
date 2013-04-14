@@ -34,7 +34,7 @@
 #ifndef ASM_CODE_ONLY /* C code */
 #include "tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <sys/syscall.h> /* for SYS_* numbers */
 #endif
@@ -149,7 +149,7 @@ thread_yield()
 int
 get_os_prot_word(int prot)
 {
-#ifdef LINUX
+#ifdef UNIX
     return ((TEST(ALLOW_READ, prot)  ? PROT_READ  : 0) |
             (TEST(ALLOW_WRITE, prot) ? PROT_WRITE : 0) |
             (TEST(ALLOW_EXEC, prot)  ? PROT_EXEC  : 0));
@@ -181,7 +181,7 @@ get_os_prot_word(int prot)
 char *
 allocate_mem(int size, int prot)
 {
-#ifdef LINUX
+#ifdef UNIX
     return (char *) mmap((void *)0, size, get_os_prot_word(prot),
                          MAP_PRIVATE|MAP_ANON, 0, 0);
 #else
@@ -192,7 +192,7 @@ allocate_mem(int size, int prot)
 void
 protect_mem(void *start, size_t len, int prot)
 {
-#ifdef LINUX
+#ifdef UNIX
     void *page_start = (void *)(((ptr_int_t)start) & ~(PAGE_SIZE -1));
     int page_len = (len + ((ptr_int_t)start - (ptr_int_t)page_start) + PAGE_SIZE - 1)
         & ~(PAGE_SIZE - 1);
@@ -210,7 +210,7 @@ protect_mem(void *start, size_t len, int prot)
 void
 protect_mem_check(void *start, size_t len, int prot, int expected)
 {
-#ifdef LINUX
+#ifdef UNIX
     /* FIXME : add check */
     protect_mem(start, len, prot);
 #else
@@ -227,7 +227,7 @@ protect_mem_check(void *start, size_t len, int prot, int expected)
 void *
 reserve_memory(int size)
 {
-#ifdef LINUX
+#ifdef UNIX
     void *p = mmap(0, size, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE, -1, 0);
     if (p == MAP_FAILED)
         return NULL;
@@ -275,7 +275,7 @@ get_cache_line_size()
     int cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
 #endif
     /* first verify on Intel processor */
-#ifdef LINUX
+#ifdef UNIX
 # ifdef X64
     assert(false); /* no pusha! */
 # else
@@ -309,7 +309,7 @@ get_cache_line_size()
     }
 
     /* now get processor info */
-#ifdef LINUX
+#ifdef UNIX
     /* GOT pointer is kept in ebx, go ahead and save all the registers */
 # ifdef X64
     assert(false); /* no pusha! */
@@ -367,7 +367,7 @@ print(const char *fmt, ...)
     va_end(ap);
 }
 
-#ifdef LINUX
+#ifdef UNIX
 
 /***************************************************************************/
 /* a hopefuly portable /proc/@self/maps reader */
@@ -549,7 +549,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     ASSERT_NOERR(rc);
 }
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 #else /* asm code *************************************************************/
 /*
@@ -611,7 +611,7 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
         END_FUNC(FUNCNAME)
 
-#ifdef LINUX
+#ifdef UNIX
 /* Raw system call adapter for Linux.  Useful for threading and clone tests that
  * need to avoid using libc routines.  Using libc routines can enter the loader
  * and/or touch global state and TLS state.  Our tests use CLONE_VM and don't
@@ -695,7 +695,7 @@ syscall_0args:
         /* return val is in eax for us */
         ret
         END_FUNC(FUNCNAME)
-#endif /* LINUX */
+#endif /* UNIX */
 
 #undef FUNCNAME
 #define FUNCNAME call_with_retaddr

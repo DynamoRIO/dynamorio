@@ -1275,7 +1275,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (pc + 1);
     }
 
-#ifdef LINUX
+#ifdef UNIX
     /* mov_seg instruction detection for i#107: mangling seg update/query. */
     if (INTERNAL_OPTION(mangle_app_seg) && (byte0 == 0x8c || byte0 == 0x8e)) {
         instr_set_opcode(instr, OP_mov_seg);

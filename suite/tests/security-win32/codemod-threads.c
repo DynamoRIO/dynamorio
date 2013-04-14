@@ -53,7 +53,7 @@ run_func(void * arg)
     char *foo = buf;
     int i;
     for (i=0; i<ITERS; i++) {
-#ifdef LINUX
+#ifdef UNIX
         asm("mov  %0,%%eax" : : "r"(foo));
         asm("call *%eax");
 #else

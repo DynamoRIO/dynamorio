@@ -307,7 +307,7 @@
     OPTION_DEFAULT_INTERNAL(bool, heap_accounting_assert, true, "enable heap accounting assert")
 #endif
 
-#if defined(LINUX)
+#if defined(UNIX)
     OPTION_NAME_INTERNAL(bool, profile_pcs, "prof_pcs", "pc-sampling profiling")
 #else
 # ifdef WINDOWS_PC_SAMPLE
@@ -339,7 +339,7 @@
      */
     OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
                             "use private loader for clients and dependents")
-# ifdef LINUX
+# ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
      * so use the runtime option to control the tls size.
      */
@@ -563,7 +563,7 @@
      */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_mask, 0,
                            "indicate events to dump core on")
-    IF_LINUX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
+    IF_UNIX(OPTION_ALIAS(pause_on_error, dumpcore_mask, DUMPCORE_OPTION_PAUSE,
                           STATIC, OP_PCACHE_NOP))
     /* Note that you also won't get more then -report_max violation core dumps */
     DYNAMIC_OPTION_DEFAULT(uint, dumpcore_violation_threshold, 3, "maximum number of violations to core dump on")
@@ -580,7 +580,7 @@
     /* WARNING: on win32 GUI programs can cause problems */
     OPTION_DEFAULT(uint, stderr_mask,
                    /* Enable for client linux debug so ASSERTS are visible (PR 232783) */
-                   IF_CLIENT_INTERFACE_ELSE(IF_LINUX_ELSE(IF_DEBUG_ELSE(
+                   IF_CLIENT_INTERFACE_ELSE(IF_UNIX_ELSE(IF_DEBUG_ELSE(
                        SYSLOG_ALL, SYSLOG_CRITICAL|SYSLOG_ERROR|SYSLOG_WARNING),
                        SYSLOG_NONE), SYSLOG_NONE),
                    "show messages onto stderr")
@@ -589,7 +589,7 @@
                    (IF_DEBUG_ELSE(APPFAULT_CRASH, 0), 0),
                    "report diagnostic information on application faults")
 
-#ifdef LINUX
+#ifdef UNIX
     /* Xref PR 258731 - options to duplicate stdout/stderr for our or client logging if
      * application tries to close them. */
     OPTION_DEFAULT(bool, dup_stdout_on_close, true, "Duplicate stdout for DynamoRIO "
@@ -618,7 +618,7 @@
      */
     OPTION_DEFAULT(bool, use_all_memory_areas, true, "Use all_memory_areas "
                    "address space cache to query page protections.")
-#endif /* LINUX */
+#endif /* UNIX */
 
     /* Disable diagnostics by default. -security turns it on */
     DYNAMIC_OPTION_DEFAULT(bool, diagnostics, false, "enable diagnostic reporting")
@@ -661,7 +661,7 @@
      * on Linux.
      * FIXME PR 403008: stack_shares_gencode fails on vmkernel
      */
-    OPTION_DEFAULT(bool, stack_shares_gencode, IF_LINUX_ELSE(false, true),
+    OPTION_DEFAULT(bool, stack_shares_gencode, IF_UNIX_ELSE(false, true),
         "stack and thread-private generated code share an allocation region")
 
     OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")
@@ -1437,7 +1437,7 @@
     /* Whether we inline ignoreable syscalls inside of bbs (xref PR 307284) */
     OPTION_DEFAULT(bool, inline_ignored_syscalls, true,
                    "inline ignored system calls in the middle of bbs")
-#ifdef LINUX
+#ifdef UNIX /* XXX i#58: not sure how MacOS uses sysenter, if at all: Linux-specific? */
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
@@ -2006,7 +2006,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     PC_OPTION_DEFAULT(bool, coarse_split_riprel, false,
         "make all rip-relative references fine-grained and in own bbs")
 #endif
-#ifdef LINUX
+#ifdef UNIX
     OPTION_DEFAULT(bool, persist_trust_textrel, true,
         "if textrel flag is not set, assume module has no text relocs")
 #endif
@@ -2025,7 +2025,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->coarse_freeze_at_unload = true;
             options->use_persisted = true;
             /* these two are for correctness */
-            IF_LINUX(options->coarse_split_calls = true;)
+            IF_UNIX(options->coarse_split_calls = true;)
             IF_X64(options->coarse_split_riprel = true;)
             /* FIXME: i#660: not compatible w/ Probe API */
             IF_CLIENT_INTERFACE(DISABLE_PROBE_API(options);)
@@ -2531,7 +2531,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, pad_jmps, true, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #endif
     /* FIXME PR 215179 on getting rid of this tracing restriction. */
-#if defined(LINUX)
+#if defined(UNIX)
     OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, true, "mark bbs that require added nops "
                    "for multiple hot patchable exits with CANNOT_BE_TRACE, since tracing "
                    "through fragments with inserted nops isn't well supported (see PR "

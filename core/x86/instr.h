@@ -3834,7 +3834,7 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
 #ifdef X64
-# ifdef LINUX
+# ifdef UNIX
     /* SysV ABI calling convention */
     NUM_REGPARM          = 6,
     REGPARM_0            = REG_RDI,

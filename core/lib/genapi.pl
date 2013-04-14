@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -247,7 +247,8 @@ if ($header) {
 sub keep_define($)
 {
     my ($def) = @_;
-    return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "X64" ||
+    return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
+            $def eq "MACOS" || $def eq "X64" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR");
 }
@@ -401,7 +402,7 @@ sub process_header_line($)
     # assumption: only those defines passed to us count,
     # and they're only used in simple "#ifdef" statements
     # (can't use cpp b/c it also removes #if's around entire .h file,
-    # plus we want to keep #ifdef LINUX and #ifdef WINDOWS stuff)
+    # plus we want to keep #ifdef UNIX and #ifdef WINDOWS stuff)
     if ($prev_define && ($output_routine || $output_directly)) {
         $in_undefined = 1;
         if ($debug) {
@@ -443,7 +444,7 @@ sub process_header_line($)
         }
     }
     if ($l =~ /^\#\s*ifdef (\S+)/ || $l =~ /^\#\s*if defined\((\S+)\)/) {
-        # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
+        # we want to keep all WINDOWS, UNIX, and X64 defines, so ignore those.
         if (&keep_define($1)) {
             $in_define_keep = 1;
         } else {
@@ -458,7 +459,7 @@ sub process_header_line($)
             $skip = 1;
         }
     } elsif ($l =~ /^\#\s*ifndef (\S+)/) {
-        # we want to keep all WINDOWS, LINUX, and X64 defines, so ignore those.
+        # we want to keep all WINDOWS, UNIX, and X64 defines, so ignore those.
         if (&keep_define($1)) {
             $in_define_keep = 1;
         } else {

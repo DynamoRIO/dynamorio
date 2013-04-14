@@ -214,7 +214,7 @@ native_get_retstack_idx(priv_mcontext_t *mc)
 }
 
 /****************************************************************************/
-#ifdef LINUX
+#ifdef UNIX
 
 /* Called by new_thread_dynamo_start to initialize the dcontext
  * structure for the current thread and start executing at the
@@ -273,7 +273,7 @@ new_thread_setup(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef WINDOWS
 

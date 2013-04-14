@@ -148,7 +148,7 @@ memmove(void *dst, const void *src, size_t n)
     return dst;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* gcc emits calls to these *_chk variants in release builds when the size of
  * dst is known at compile time.  In C, the caller is responsible for cleaning
  * up arguments on the stack, so we alias these *_chk routines to the non-chk

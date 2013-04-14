@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -75,7 +75,7 @@ void (*func_ptr)(void);
 
 static int a[ITERS];
 
-#ifdef LINUX
+#ifdef UNIX
 # define ALT_STACK_SIZE  (SIGSTKSZ*3)
 
 int
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
     int j;
 #endif
     char *buf;
-#ifdef LINUX
+#ifdef UNIX
     stack_t sigstack;
 #endif
 
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     dynamorio_app_start();
 #endif
   
-#ifdef LINUX
+#ifdef UNIX
     /* our modrm16 tests clobber esp so we need an alternate stack */
     sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
     sigstack.ss_size = ALT_STACK_SIZE;
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
         int mod = ((j >> 6) & 0x3); /* top 2 bits */
         int reg = ((j >> 3) & 0x7); /* middle 3 bits */
         int rm  = (j & 0x7);        /* bottom 3 bits */
-# if defined(LINUX) || defined(X64)
+# if defined(UNIX) || defined(X64)
         buf[j*7 + 0] = 0x65; /* gs: */
 # else
         buf[j*7 + 0] = 0x64; /* fs: */
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
         test_SSE2();
     }
 
-#ifdef LINUX
+#ifdef UNIX
     free(sigstack.ss_sp);
 #endif
 

@@ -692,7 +692,7 @@
     STATS_DEF("Fcache exits, system call executions", num_exits_syscalls)
     STATS_DEF("Fcache exits, flushed due to code mod", num_exits_code_mod_flush)
     STATS_DEF("Fcache exits, deleted but hit in ibl", num_exits_ibl_deleted)
-#ifdef LINUX
+#ifdef UNIX
     STATS_DEF("Fcache exits, sigreturn", num_exits_sigreturn)
 #else /* WINDOWS */
     STATS_DEF("Fcache exits, asynch", num_exits_asynch)
@@ -756,7 +756,7 @@
     STATS_DEF("Fcache exits, no link shared <-> private", num_exits_dir_nolink_sharing)
     STATS_DEF("Fcache exits, presumed link race condition", num_exits_dir_race)
     STATS_DEF("Fcache exits, self-replacement", num_exits_dir_self_replacement)
-#ifdef LINUX
+#ifdef UNIX
     STATS_DEF("Fcache exits, signal delivery", num_exits_dir_signal)
 #endif
     STATS_DEF("Fcache exits needing cbr disambiguation", cbr_disambiguations)

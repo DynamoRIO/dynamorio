@@ -2133,7 +2133,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         DYNAMO_OPTION(vm_reserve) &&
         dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
         stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2;
-#if defined(LINUX) && !defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && !defined(HAVE_PROC_MAPS)
         prot = 0; /* avoid compiler warning: should only need inside if */
         if (!dynamo_initialized) {
             /* memory info is not yet set up.  since so early we only support
@@ -2146,7 +2146,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
             } else
                 known_stack = false;
         } else
-#elif defined(LINUX)
+#elif defined(UNIX)
             /* the all_memory_areas list doesn't keep details inside vmheap */
             known_stack = get_memory_info_from_os(stack_reserve_end, NULL,
                                                   &available, &prot);

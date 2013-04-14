@@ -40,7 +40,7 @@
 
 #define DRTABLE_MAGIC 0x42545244  /* "DRTB" */
 #define MAX_ENTRY_SIZE  PAGE_SIZE
-#ifdef LINUX
+#ifdef UNIX
 # define ALLOC_UNIT_SIZE PAGE_SIZE
 #else
 # define ALLOC_UNIT_SIZE (16*PAGE_SIZE) /* 64KB */

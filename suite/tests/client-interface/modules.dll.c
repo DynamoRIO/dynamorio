@@ -135,7 +135,7 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
         }
         dr_module_import_iterator_stop(mod_iter);
     }
-#else /* LINUX */
+#else /* UNIX */
     /* Linux has no module import iterator, just symbols. */
     sym_iter = dr_symbol_import_iterator_start(data->handle, NULL);
     while (dr_symbol_import_iterator_hasnext(sym_iter)) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,13 +40,11 @@
  *
  */
 
-/* FIXME: dynamorio references should be removed throughout */
-
 #ifndef _GLOBALS_SHARED_H_
 #define _GLOBALS_SHARED_H_
 
-/* if not Linux, we assume Windows */
-#ifndef LINUX
+/* if not Unix, we assume Windows */
+#ifndef UNIX
 #  ifndef WINDOWS
 #    define WINDOWS
 #  endif
@@ -65,7 +63,7 @@
 
 #ifdef API_EXPORT_ONLY
 /* A client's target operating system and architecture must be specified. */
-#if (!defined(LINUX) && !defined(WINDOWS)) || (defined(LINUX) && defined(WINDOWS))
+#if (!defined(LINUX) && !defined(WINDOWS)) || (defined(LINXX) && defined(WINDOWS))
 # error Target operating system unspecified: must define either WINDOWS xor LINUX
 #endif
 #endif
@@ -78,6 +76,10 @@
 
 #if defined(X86_64) && !defined(X64)
 # define X64
+#endif
+
+#if defined(LINUX) && !defined(UNIX)
+# define UNIX
 #endif
 
 #ifdef API_EXPORT_ONLY
@@ -93,7 +95,7 @@
 #endif
 /* DR_API EXPORT END */
 #include <limits.h>  /* for USHRT_MAX */
-#ifdef LINUX
+#ifdef UNIX
 #  include <sys/types.h>        /* Fix for case 5341. */
 #  include <signal.h>
 #endif
@@ -283,7 +285,7 @@ typedef HANDLE file_t;
 #endif
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 typedef int file_t;
 /** The sentinel value for an invalid file_t. */
 #  define INVALID_FILE -1
@@ -428,10 +430,10 @@ typedef struct _instr_t instr_t;
 # define IF_WINDOWS_ELSE_0(x) (x)
 # define IF_WINDOWS_ELSE(x,y) (x)
 # define IF_WINDOWS_ELSE_NP(x,y) x
-# define IF_LINUX(x)
-# define IF_LINUX_ELSE(x,y) y
-# define IF_LINUX_(x)
-# define _IF_LINUX(x)
+# define IF_UNIX(x)
+# define IF_UNIX_ELSE(x,y) y
+# define IF_UNIX_(x)
+# define _IF_UNIX(x)
 #else
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_(x)
@@ -439,10 +441,20 @@ typedef struct _instr_t instr_t;
 # define IF_WINDOWS_ELSE_0(x) (0)
 # define IF_WINDOWS_ELSE(x,y) (y)
 # define IF_WINDOWS_ELSE_NP(x,y) y
+# define IF_UNIX(x) x
+# define IF_UNIX_ELSE(x,y) x
+# define IF_UNIX_(x) x,
+# define _IF_UNIX(x) , x
+#endif
+
+#ifdef LINUX
 # define IF_LINUX(x) x
 # define IF_LINUX_ELSE(x,y) x
 # define IF_LINUX_(x) x,
-# define _IF_LINUX(x) , x
+#else
+# define IF_LINUX(x)
+# define IF_LINUX_ELSE(x,y) y
+# define IF_LINUX_(x)
 #endif
 
 #ifdef VMX86_SERVER
@@ -457,7 +469,7 @@ typedef struct _instr_t instr_t;
 # define IF_NOT_VMX86(x) x
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 # ifdef HAVE_TLS
 #  define IF_HAVE_TLS_ELSE(x, y) x
 #  define IF_NOT_HAVE_TLS(x)
@@ -612,7 +624,7 @@ typedef enum {
 # define INTERNAL_OPTION(opt) DEFAULT_INTERNAL_OPTION_VALUE(opt)
 #endif /* EXPOSE_INTERNAL_OPTIONS */
 
-#ifdef LINUX
+#ifdef UNIX
 #ifndef DR_DO_NOT_DEFINE_uint32
  typedef unsigned int uint32;
 #endif
@@ -927,7 +939,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
     STRINGIFY(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST_ID)
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 
 #  define DYNAMORIO_VAR_EXE_PATH        "DYNAMORIO_EXE_PATH"
 #  define DYNAMORIO_VAR_EXECVE          "DYNAMORIO_POST_EXECVE"
@@ -1237,7 +1249,7 @@ enum {
 };
 
 typedef struct {
-#ifdef LINUX
+#ifdef UNIX
     /* We only have room for 16 bytes that we control, 24 bytes total.
      * Note that the kernel does NOT copy the huge amount of padding
      * at the tail end of siginfo_t so we cannot use that.
@@ -1265,7 +1277,7 @@ typedef struct {
 #endif
 } nudge_arg_t;
 
-#ifdef LINUX
+#ifdef UNIX
 /* i#61/PR 211530: Linux nudges.
  * We pick a signal that is very unlikely to be sent asynchronously by
  * the app, and for which we can distinguish synch from asynch by

@@ -820,14 +820,14 @@ codegen_opnd_arg1(void)
     /* FIXME: Perhaps DR should expose this.  It currently tracks this in
      * core/instr.h. */
 #ifdef X64
-# ifdef LINUX
+# ifdef UNIX
     int reg = DR_REG_RDI;
 # else /* WINDOWS */
     int reg = DR_REG_RCX;
 # endif
     return opnd_create_reg(reg);
 #else /* X86 */
-# ifdef LINUX
+# ifdef UNIX
     int arg_offset = 1;
 # else /* WINDOWS */
     int arg_offset = 5;

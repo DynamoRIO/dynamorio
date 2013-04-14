@@ -38,7 +38,7 @@
 
 #include "tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -64,7 +64,7 @@ void evil_copy(void *start, int count, ptr_int_t value);
 #define DSTACK_SIZE (8*1024)
 
 /* N.B.: dependent on exact DR offsets here! */
-#ifdef LINUX
+#ifdef UNIX
 /* this used to be 44 prior to 1/24/06 commit, and 20 prior to Mar 11 2006 */
 # define DCONTEXT_TLS_OFFSET IF_X64_ELSE(32, 16)
 # define DSTACK_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x2e8,0x168)
@@ -98,7 +98,7 @@ unsigned int dcontext_tls_offset;
 SIGJMP_BUF mark;
 int where; /* 0 = normal, 1 = segfault SIGLONGJMP, 2 = evil takeover */
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig)
 {
@@ -171,7 +171,7 @@ main()
     dynamorio_app_start();
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

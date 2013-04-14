@@ -33,7 +33,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/personality.h>
 #endif
 #include <limits.h>
@@ -366,7 +366,7 @@ void custom_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 calloc_test(void)
 {
@@ -408,7 +408,7 @@ void inline_alloc_test(void)
     global_test();
     nonheap_test();
     raw_alloc_test();
-#ifdef LINUX
+#ifdef UNIX
     calloc_test();
 #endif
 #ifdef X64
@@ -484,7 +484,7 @@ void dr_init(client_id_t id)
 
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
 
-#ifdef LINUX
+#ifdef UNIX
     /* i#262: check if READ_IMPLIES_EXEC in personality. If true,
      * we expect the readable memory also has exec right.
      */

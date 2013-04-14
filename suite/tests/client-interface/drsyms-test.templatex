@@ -10,7 +10,7 @@ compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
       arg 0 is type 1 and size 4
 found all overloads
 #endif
-#ifdef LINUX
+#ifdef UNIX
 Failed to unmangle xmlRelaxNGParseImportRefs
 Failed to unmangle xmlRelaxNGParseImportRefs
 #endif
@@ -20,13 +20,13 @@ got correct overflow
 #endif
 got correct overflow
 finished unmangling.
-#ifdef LINUX
+#ifdef UNIX
 (found|couldn.t find) glibc malloc (and|or) __GI___libc_malloc.
 #endif
 enumerating with DRSYM_LEAVE_MANGLED
 enumerating with DRSYM_DEMANGLE
 enumerating with DRSYM_DEMANGLE_FULL
-#ifdef LINUX
+#ifdef UNIX
 found tools.h
 #endif
 found drsyms-test.appdll.cpp

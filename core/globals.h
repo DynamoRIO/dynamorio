@@ -165,7 +165,7 @@ typedef HANDLE file_t;
 #define DIRSEP '\\'
 #define ALT_DIRSEP '/'
 
-#else /* LINUX */
+#else /* UNIX */
 /* uint, ushort, and ulong are in types.h */
 #include <sys/types.h> /* for wait */
 #define DIRSEP '/'
@@ -411,7 +411,7 @@ typedef struct _client_data_t {
 # define IS_CLIENT_THREAD(dcontext) false
 #endif /* CLIENT_INTERFACE */
 
-#ifdef LINUX
+#ifdef UNIX
 /* i#61/PR 211530: nudges on Linux do not use separate threads */
 typedef struct _pending_nudge_t {
     nudge_arg_t arg;
@@ -442,7 +442,7 @@ extern bool standalone_library;  /* used as standalone library */
 /* avoid complex ifdefs everywhere */
 # define standalone_library false
 #endif
-#ifdef LINUX
+#ifdef UNIX
 extern bool post_execve;         /* have we performed an execve? */
 /* i#237/PR 498284: vfork threads that execve need to be separately delay-freed */
 extern int num_execve_threads;
@@ -517,7 +517,7 @@ int get_num_threads(void);
 bool is_last_app_thread(void);
 void get_list_of_threads(thread_record_t ***list, int *num);
 bool is_thread_known(thread_id_t tid);
-#ifdef LINUX
+#ifdef UNIX
 void get_list_of_threads_ex(thread_record_t ***list, int *num, bool include_execve);
 void mark_thread_execve(thread_record_t *tr, bool execve);
 #endif
@@ -537,7 +537,7 @@ void initialize_dynamo_context(dcontext_t *dcontext);
 dcontext_t * create_callback_dcontext(dcontext_t *old_dcontext);
 int dynamo_nullcalls_exit(void);
 int dynamo_process_exit(void);
-#ifdef LINUX
+#ifdef UNIX
 void dynamorio_fork_init(dcontext_t *dcontext);
 #endif
 void dynamorio_take_over_threads(dcontext_t *dcontext);
@@ -643,7 +643,7 @@ typedef struct {
      * you must also change the offsets in <arch>/<arch.s> 
      */
     priv_mcontext_t mcontext;        /* real machine context (in arch_exports.h) */
-#ifdef LINUX
+#ifdef UNIX
     int            errno;           /* errno used for DR (no longer used for app) */
 #endif
     bool at_syscall;                /* for shared deletion syscalls_synch_flush,
@@ -751,7 +751,7 @@ struct _dcontext_t {
      */
     bool           initialized;     /* has this context been used yet? */
     thread_id_t      owning_thread;
-#ifdef LINUX
+#ifdef UNIX
     process_id_t     owning_process; /* handle shared address space w/o shared pid */
 #endif
     thread_record_t   *thread_record;  /* so don't have to do a thread_lookup */
@@ -763,13 +763,13 @@ struct _dcontext_t {
 #ifdef WINDOWS
     reg_t *        sys_param_base;  /* used for post_system_call */
 #endif
-#if defined(LINUX) || defined(X64)
+#if defined(UNIX) || defined(X64)
     reg_t          sys_param0;      /* used for post_system_call */
     reg_t          sys_param1;      /* used for post_system_call */
     reg_t          sys_param2;      /* used for post_system_call */
     reg_t          sys_param3;      /* used for post_system_call */
 #endif
-#ifdef LINUX
+#ifdef UNIX
     reg_t          sys_param4;      /* used for post_system_call i#173 */
     bool           sys_was_int;     /* was the last system call via do_int_syscall? */
     bool           sys_xbp;         /* PR 313715: store orig xbp */
@@ -796,7 +796,7 @@ struct _dcontext_t {
     void *         vm_areas_field;
     void *         os_field;
     void *         synch_field;
-#ifdef LINUX
+#ifdef UNIX
     void *         signal_field;
     void *         pcprofile_field;
     bool           signals_pending;
@@ -952,7 +952,7 @@ struct _dcontext_t {
     /* Used to abort bb building on decode faults.  Not persistent across cache. */
     void *bb_build_info;
 
-#ifdef LINUX
+#ifdef UNIX
     pending_nudge_t *nudge_pending;
     /* frag we unlinked to expedite nudge delivery */
     fragment_t *interrupted_for_nudge;

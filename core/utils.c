@@ -50,7 +50,7 @@
 # include "moduledb.h"   /* for process control macros */
 #endif 
 
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/types.h>
 # include <sys/stat.h>
 # include <fcntl.h>
@@ -663,12 +663,12 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
                 /* thread_initexit_lock and all_threads_synch_lock
                  * are unlocked after tearing down thread structures 
                  */
-# if defined(LINUX) && !defined(HAVE_TLS)
+# if defined(UNIX) && !defined(HAVE_TLS)
                 extern mutex_t tls_lock;
 # endif
                 bool null_ok = (lock == &thread_initexit_lock ||
                                 lock == &all_threads_synch_lock
-# if defined(LINUX) && !defined(HAVE_TLS)
+# if defined(UNIX) && !defined(HAVE_TLS)
                                 || lock == &tls_lock
 # endif
                                 );
@@ -698,7 +698,7 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 #  define DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable) /* do nothing */
 #endif /* DEADLOCK_AVOIDANCE */
 
-#ifdef LINUX
+#ifdef UNIX
 void
 mutex_fork_reset(mutex_t *mutex)
 {
@@ -744,7 +744,7 @@ utils_init()
     ASSERT(sizeof(uint) == 4);
     ASSERT(sizeof(reg_t) == sizeof(void *));
 
-#ifdef LINUX /* after options_init(), before we open logfile or call instrument_init() */
+#ifdef UNIX /* after options_init(), before we open logfile or call instrument_init() */
     os_file_init();
 #endif
 }
@@ -2584,14 +2584,14 @@ enable_new_log_dir()
 void
 create_log_dir(int dir_type)
 {
-#ifdef LINUX
+#ifdef UNIX
     char *pre_execve = getenv(DYNAMORIO_VAR_EXECVE_LOGDIR);
     bool sharing_logdir = false;
 #endif
     /* synchronize */
     acquire_recursive_lock(&logdir_mutex);
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-#ifdef LINUX
+#ifdef UNIX
     if (dir_type == PROCESS_DIR && pre_execve != NULL) {
         /* if this app has a logdir option or config, that should trump sharing
          * the pre-execve logdir.  a logdir env var should not.
@@ -2700,7 +2700,7 @@ create_log_dir(int dir_type)
         stats->logdir[sizeof(stats->logdir)-1]  = '\0'; /* if max no null */
     }
     if (dir_type == PROCESS_DIR
-# ifdef LINUX
+# ifdef UNIX
         && !sharing_logdir
 # endif
         )
@@ -2748,7 +2748,7 @@ get_log_dir(log_dir_t dir_type, char *buffer, uint *buffer_length)
     return target_initialized;
 }
 
-/*#ifdef LINUX
+/*#ifdef UNIX
  *  N.B.: if you create a log file, you'll probably want to create a new one
  *  upon a fork.  Should we require a callback passed in to this routine?
  *  For clients we have a dynamorio_fork_init routine.  For internal modules,
@@ -2781,7 +2781,7 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
              "%c%s.%d."IDFMT".html", DIRSEP, basename, 
              get_thread_num(get_thread_id()), get_thread_id());
     NULL_TERMINATE_BUFFER(name);
-#ifdef LINUX
+#ifdef UNIX
     if (post_execve) /* reuse same log file */
         file = os_open_protected(name, flags|OS_OPEN_APPEND);
     else
@@ -2793,7 +2793,7 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
          * write since invalid handle */
     }
     /* full path is often too long, so just print final dir and file name */
-#ifdef LINUX
+#ifdef UNIX
     if (!post_execve) 
 #endif
         {

@@ -35,7 +35,7 @@
 
 #ifdef WINDOWS
 # define NOP_NOP_NOP       __nop(); __nop(); __nop()
-#else /* LINUX */
+#else /* UNIX */
 # define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
 #endif
 

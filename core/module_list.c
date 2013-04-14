@@ -116,14 +116,14 @@ os_get_module_info_write_locked(void)
 
 static module_area_t *
 module_area_create(app_pc base, size_t view_size, bool at_map, const char *filepath
-                   _IF_LINUX(uint64 inode))
+                   _IF_UNIX(uint64 inode))
 {
     module_area_t *ma =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_area_t, ACCT_VMAREAS, PROTECTED);
     memset(ma, 0, sizeof(*ma));
     ma->start = base;
     ma->end = base + view_size;
-    os_module_area_init(ma, base, view_size, at_map, filepath _IF_LINUX(inode)
+    os_module_area_init(ma, base, view_size, at_map, filepath _IF_UNIX(inode)
                         HEAPACCT(ACCT_VMAREAS));
     return ma;
 }
@@ -239,7 +239,7 @@ module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end)
 
 void
 module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
-                _IF_LINUX(uint64 inode))
+                _IF_UNIX(uint64 inode))
 {
     ASSERT(loaded_module_areas != NULL);
     ASSERT(!vmvector_overlap(loaded_module_areas, base, base+view_size));
@@ -252,7 +252,7 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
          * modules (i#160/PR 562667)
          */
         module_area_t *ma =
-            module_area_create(base, view_size, at_map, filepath _IF_LINUX(inode));
+            module_area_create(base, view_size, at_map, filepath _IF_UNIX(inode));
         ASSERT(ma != NULL);
         
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s ["PFX","PFX"] added\n",

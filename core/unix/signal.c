@@ -2508,7 +2508,7 @@ translate_sigcontext(dcontext_t *dcontext,  struct sigcontext *sc, bool avoid_fa
         success = true;
     } else {
         if (avoid_failure) {
-            ASSERT_NOT_REACHED(); /* is ok to break things, is LINUX :) */
+            ASSERT_NOT_REACHED(); /* is ok to break things, is UNIX :) */
             /* FIXME : what to do? reg state might be wrong at least get pc */
             if (safe_is_in_fcache(dcontext, (cache_pc)sc->SC_XIP, (app_pc)sc->SC_XSP)) {
                 sc->SC_XIP = (ptr_uint_t)recreate_app_pc(dcontext, mcontext.pc, f);
@@ -5243,7 +5243,7 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
     }
 
     if (known_exception == 0) {
-        /* It works for the LINUX loader hack in  _dl_runtime_resolve */
+        /* It works for the UNIX loader hack in  _dl_runtime_resolve */
         /* The offending sequence in ld-linux.so is
            <_dl_runtime_resolve>:
            c270: 5a                      pop    %edx

@@ -55,7 +55,7 @@
 #endif
 
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -66,7 +66,7 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
     else if (sig == SIGURG)
 	print("Got SIGURG\n");
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 int
 main(int argc, char** argv)
@@ -95,7 +95,7 @@ main(int argc, char** argv)
     FreeLibrary(hmod);
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
     void *hmod;
     char buf[1000];
     size_t len = 0;
@@ -139,7 +139,7 @@ main(int argc, char** argv)
     else {
         wait(NULL);
     }
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef WINDOWS
     /* 

@@ -1,4 +1,4 @@
-#ifdef LINUX
+#ifdef UNIX
 found libc
 starting syscall monitoring
 # ifdef X64

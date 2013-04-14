@@ -68,7 +68,7 @@
 #include "asm_defines.asm"
 START_FILE
 
-#ifdef LINUX
+#ifdef UNIX
 # include "../unix/include/syscall.h"
 #endif
         
@@ -79,7 +79,7 @@ START_FILE
 #if defined(WINDOWS) && !defined(X64)
 # define UPCXT_BEFORE_INLINE_SLOTS 4  /* at_syscall + padding */
 #else
-# define UPCXT_BEFORE_INLINE_SLOTS 8  /* IF_LINUX(errno +) at_syscall + padding */
+# define UPCXT_BEFORE_INLINE_SLOTS 8  /* IF_UNIX(errno +) at_syscall + padding */
 #endif
 
 /* Count the slots for client clean call inlining. */
@@ -230,16 +230,16 @@ DECL_EXTERN(internal_error)
 DECL_EXTERN(internal_exception_info)
 DECL_EXTERN(is_currently_on_dstack)
 DECL_EXTERN(nt_continue_setup)
-#if defined(LINUX)
+#if defined(UNIX)
 DECL_EXTERN(master_signal_handler_C)
 #endif
 DECL_EXTERN(hashlookup_null_target)
-#if defined(LINUX) && !defined(HAVE_SIGALTSTACK)
+#if defined(UNIX) && !defined(HAVE_SIGALTSTACK)
 DECL_EXTERN(sig_should_swap_stack)
 DECL_EXTERN(fixup_rtframe_pointers)
 # define CLONE_AND_SWAP_STRUCT_SIZE 2*ARG_SZ
 #endif
-#ifdef LINUX
+#ifdef UNIX
 DECL_EXTERN(dr_setjmp_sigmask)
 DECL_EXTERN(privload_early_inject)
 DECL_EXTERN(dynamorio_dl_fixup)
@@ -290,7 +290,7 @@ GLOBAL_LABEL(dynamo_auto_start:)
         END_FUNC(dynamo_auto_start)
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 /* We avoid performance problems with messing up the RSB by using
  * a separate routine.  The caller needs to use a plain call
  * with _GLOBAL_OFFSET_TABLE_ on the exact return address instruction.
@@ -354,7 +354,7 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      REG_XSP, [2*ARG_SZ + REG_XAX] /* stack */
         cmp      BYTE [4*ARG_SZ + REG_XAX], 0 /* free_initstack */
         je       call_dispatch_alt_stack_no_free
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PR 212290: avoid text relocations: get PIC base into xax
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
@@ -532,7 +532,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 #endif
         /* increment exiting_thread_count so that we don't get killed after 
          * thread_exit removes us from the all_threads list */
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PR 212290: avoid text relocations: get PIC base into callee-saved xdi.
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
@@ -575,12 +575,12 @@ cat_no_thread:
          * could use initstack for whole thing but that's too long 
          * of a time to hold global initstack_mutex */
         mov      ecx, 1
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
 	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, initstack_mutex)
 #endif
 cat_spin:       
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         xchg     DWORD [REG_XAX], ecx
 #else
         xchg     DWORD SYMREF(initstack_mutex), ecx /* rip-relative on x64 */
@@ -607,7 +607,7 @@ cat_have_lock:
         mov      REG_XBX, [3*ARG_SZ + REG_XBP] /* sys_arg1 */
         mov      REG_XDX, [4*ARG_SZ + REG_XBP] /* sys_arg2 */
         /* swap stacks */
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack)
         mov      REG_XSP, PTRSZ [REG_XBP]
@@ -629,7 +629,7 @@ cat_have_lock:
 #ifdef X64
         /* We assume we're doing "syscall" on Windows & Linux, where r10 is dead */
         pop      r10       /* syscall, in reg dead at syscall */
-# ifdef LINUX
+# ifdef UNIX
         pop      REG_XDI   /* sys_arg1 */
         pop      REG_XSI   /* sys_arg2 */
 # else
@@ -638,7 +638,7 @@ cat_have_lock:
 # endif
 #else
         pop      REG_XSI   /* syscall */
-# ifdef LINUX
+# ifdef UNIX
         pop      REG_XBX   /* sys_arg1 */
         pop      REG_XCX   /* sys_arg2 */
 # else
@@ -652,7 +652,7 @@ cat_have_lock:
         /* give up initstack mutex -- potential problem here with a thread getting 
          *   an asynch event that then uses initstack, but syscall should only care 
          *   about ebx and edx */
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
         mov      DWORD [REG_XBP], 0
@@ -661,7 +661,7 @@ cat_have_lock:
 #endif
         /* we are finished with all shared resources, decrement the  
          * exiting_thread_count (allows another thread to kill us) */
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, exiting_thread_count)
         lock dec DWORD [REG_XBP]
@@ -693,7 +693,7 @@ GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef DEBUG
         jmp      debug_infinite_loop
 #endif
-#ifdef LINUX
+#ifdef UNIX
         /* we do come here for SYS_kill which can fail: try again via exit_group */
         jmp      dynamorio_sys_exit_group
 #endif
@@ -778,7 +778,7 @@ GLOBAL_LABEL(global_do_syscall_syscall:)
 #   ifdef DEBUG
         jmp      debug_infinite_loop
 #   endif
-#   ifdef LINUX
+#   ifdef UNIX
         /* we do come here for SYS_kill which can fail: try again via exit_group */
         jmp      dynamorio_sys_exit_group
 #   endif
@@ -1054,7 +1054,7 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 /* we share dynamorio_syscall w/ preload */
-#ifdef LINUX
+#ifdef UNIX
 /* to avoid libc wrappers we roll our own syscall here
  * hardcoded to use int 0x80 for 32-bit -- FIXME: use something like do_syscall
  * and syscall for 64-bit.
@@ -1146,9 +1146,9 @@ GLOBAL_LABEL(client_int_syscall:)
         int      HEX(80)
         ret
         END_FUNC(client_int_syscall)
-#endif /* LINUX */
+#endif /* UNIX */
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-#ifdef LINUX
+#ifdef UNIX
 
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* i#47: Early injection _start routine.  The kernel sets all registers to zero
@@ -1444,7 +1444,7 @@ dynamorio_clone_parent:
         ret
         END_FUNC(dynamorio_clone)
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 
 #ifdef WINDOWS    
@@ -1544,7 +1544,7 @@ Lback_from_native:
         jmp      unexpected_return
         END_FUNC(back_from_native)
 
-#ifdef LINUX
+#ifdef UNIX
 /* Like back_from_native, except we're calling from a native module into a
  * module that should execute from the code cache.  We transfer here from PLT
  * stubs generated by create_plt_stub() in core/unix/native_elf.c.  See also
@@ -1572,7 +1572,7 @@ GLOBAL_LABEL(native_plt_call:)
         ret             /* next_pc was on stack */
 # endif
         END_FUNC(native_plt_call)
-#endif /* LINUX */
+#endif /* UNIX */
 
 
 /* Our version of setjmp & long jmp.  We don't want to modify app state like
@@ -1598,7 +1598,7 @@ GLOBAL_LABEL(dr_try_start:)
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-#ifdef LINUX
+#ifdef UNIX
         /* PR 206278: for try/except we need to save the signal mask */
         mov      REG_XDX, ARG1
         push     REG_XDX /* preserve */
@@ -1857,7 +1857,7 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
  * Using XCX on Win64 is fine, but on Lin64 it clobbers ARG4 so we use XDI as
  * the free reg instead.
  */
-#if defined(LINUX) && defined(X64)
+#if defined(UNIX) && defined(X64)
 # define FREE_REG rdi
 #else
 # define FREE_REG REG_XCX
@@ -1957,11 +1957,11 @@ GLOBAL_LABEL(get_xmm_caller_saved:)
         movups   [REG_XAX + 3*XMM_SAVED_REG_SIZE], xmm3
         movups   [REG_XAX + 4*XMM_SAVED_REG_SIZE], xmm4
         movups   [REG_XAX + 5*XMM_SAVED_REG_SIZE], xmm5
-#ifdef LINUX
+#ifdef UNIX
         movups   [REG_XAX + 6*XMM_SAVED_REG_SIZE], xmm6
         movups   [REG_XAX + 7*XMM_SAVED_REG_SIZE], xmm7
 #endif
-#if defined(LINUX) && defined(X64)
+#if defined(UNIX) && defined(X64)
         movups   [REG_XAX + 8*XMM_SAVED_REG_SIZE], xmm8
         movups   [REG_XAX + 9*XMM_SAVED_REG_SIZE], xmm9
         movups   [REG_XAX + 10*XMM_SAVED_REG_SIZE], xmm10
@@ -1999,7 +1999,7 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
         RAW(c5) RAW(fe) RAW(7f) RAW(58) RAW(60)
         RAW(c5) RAW(fe) RAW(7f) RAW(a0) RAW(80) RAW(00) RAW(00) RAW(00)
         RAW(c5) RAW(fe) RAW(7f) RAW(a8) RAW(a0) RAW(00) RAW(00) RAW(00)
-#ifdef LINUX
+#ifdef UNIX
        /*
         * c5 fe 7f b0 c0 00 00 00   vmovdqu %ymm6,0xc0(%xax)
         * c5 fe 7f b8 e0 00 00 00   vmovdqu %ymm7,0xe0(%xax)
@@ -2036,7 +2036,7 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
  */
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
-#if !defined(X64) && defined(LINUX)
+#if !defined(X64) && defined(UNIX)
         /* We don't have any free registers to make this PIC so we patch
          * this up.  It would be better to generate than patch .text,
          * but we need a static address to reference in null_fragment
@@ -2052,7 +2052,7 @@ GLOBAL_LABEL(hashlookup_null_handler:)
 #ifdef X64
 # define PTRSZ_SHIFT_BITS 3
 # define PTRSZ_SUFFIXED(string_op) string_op##q
-# ifdef LINUX
+# ifdef UNIX
 #  define ARGS_TO_XDI_XSI_XDX()         /* ABI handles this. */
 #  define RESTORE_XDI_XSI()             /* Not needed. */
 # else /* WINDOWS */
@@ -2155,7 +2155,7 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
         ret
         END_FUNC(safe_read_asm)
 
-#ifdef LINUX
+#ifdef UNIX
 /* i#46: Implement private memcpy and memset for libc isolation.  If we import
  * memcpy and memset from libc in the normal way, the application can override
  * those definitions and intercept them.  In particular, this occurs when
@@ -2266,7 +2266,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 # endif /* !X64 */
         END_FUNC(_dynamorio_runtime_resolve)
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 /*#############################################################################
  *#############################################################################

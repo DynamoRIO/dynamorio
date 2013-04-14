@@ -49,7 +49,7 @@
 #include <stdio.h>
 #include <limits.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <dirent.h> /* opendir, readdir */
 # include <unistd.h> /* getcwd */
 #else
@@ -133,7 +133,7 @@ null_terminate_path(char *path)
     }
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* XXX: i#1079, the code is copied from drdeploy.c, we should share them
  * via a front-end lib.
  * Simply concatenates the cwd with the given relative path.  Previously we
@@ -660,7 +660,7 @@ is_bbcov_log_file(const char *fname)
     return false;
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static bool
 read_bbcov_dir(void)
 {

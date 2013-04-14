@@ -39,7 +39,7 @@ foo_export(void)
     /* For client.modules test. */
 }
 
-#ifdef LINUX
+#ifdef UNIX
 
 void __attribute__((constructor))
 my_init(void)

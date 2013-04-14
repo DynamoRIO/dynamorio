@@ -819,7 +819,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     priv_mcontext_t mc;
     thread_synch_result_t res = THREAD_SYNCH_RESULT_NOT_SAFE;
     bool first_loop = true;
-    IF_LINUX(bool actually_suspended = true;)
+    IF_UNIX(bool actually_suspended = true;)
     const uint max_loops = TEST(THREAD_SYNCH_SMALL_LOOP_MAX, flags) ?
         (SYNCH_MAXIMUM_LOOPS/10) : SYNCH_MAXIMUM_LOOPS;
 
@@ -879,7 +879,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 STATS_INC(synch_yields_for_exiting_thread);
             }
         });
-#ifdef LINUX
+#ifdef UNIX
         if (trec != NULL && trec->execve) {
             /* i#237/PR 498284: clean up vfork "threads" that invoked execve.
              * There should be no race since vfork suspends the parent.
@@ -901,7 +901,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                                       " thread, case 2096?");
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
-                IF_LINUX(actually_suspended = false);
+                IF_UNIX(actually_suspended = false);
                 break;
             }
             if (!thread_get_mcontext(trec, &mc)) {
@@ -997,9 +997,9 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
         LOG(THREAD, LOG_SYNCH, 2, 
             "Success synching with thread "IDFMT" performing cleanup\n", id);
         if (THREAD_SYNCH_IS_TERMINATED(desired_state)) {
-            if (IF_LINUX_ELSE(!trec->execve, true))
+            if (IF_UNIX_ELSE(!trec->execve, true))
                 thread_terminate(trec);
-#ifdef LINUX
+#ifdef UNIX
             /* We need to ensure the target thread has received the
              * signal and is no longer using its sigstack or ostd struct
              * before we clean those up.

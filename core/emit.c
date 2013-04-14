@@ -538,7 +538,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     ASSERT_CURIOSITY(TEST(FRAG_IS_TRACE, flags) ||
                      (num_indirect_stubs == 1 && num_direct_stubs == 0) ||
                      (num_indirect_stubs == 0 && num_direct_stubs <= 2) ||
-                     IF_LINUX((num_indirect_stubs == 0 && num_direct_stubs >= 2 &&
+                     IF_UNIX((num_indirect_stubs == 0 && num_direct_stubs >= 2 &&
                                TEST(FRAG_HAS_SYSCALL, flags)) ||)
                      (num_indirect_stubs <= 1 && num_direct_stubs >= 1 &&
                       TEST(FRAG_SELFMOD_SANDBOXED, flags)));
@@ -611,8 +611,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      * these ASSERTS. We need some way to mark that exit always unlinked so
      * we don't need to pad for it or figure out a better way to remove nops
      * for tracing. Xref PR 215179, we allow additional pads for CLIENT_INTERFACE
-     * and LINUX by marking the bb untraceable and inserting nops. */
-#if !defined(LINUX) && !defined(CLIENT_INTERFACE)
+     * and UNIX by marking the bb untraceable and inserting nops. */
+#if !defined(UNIX) && !defined(CLIENT_INTERFACE)
 # if !defined(PROFILE_LINKCOUNT) && !defined(TRACE_HEAD_CACHE_INCR)
     /* bbs shouldn't need more than a single pad */
     ASSERT((PAD_FRAGMENT_JMPS(flags) && TEST(FRAG_IS_TRACE, flags)) ||

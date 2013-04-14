@@ -199,7 +199,7 @@ coarse_unit_create(app_pc base_pc, app_pc end_pc, module_digest_t *digest,
         /* For linux we can't do module segment walking at initial mmap time
          * b/c the segments are not set up: we hit SIGBUS!
          */
-        IF_LINUX(ASSERT_BUG_NUM(215036, true));
+        IF_UNIX(ASSERT_BUG_NUM(215036, true));
         if (os_get_module_info(modbase, NULL, NULL, &modsize,
                                NULL, NULL, NULL)) {
             os_get_module_info_unlock();
@@ -3959,7 +3959,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 
     /* modinfo cmp checks all but base, which is separate for reloc support */
     if (modbase != pers->modinfo.base) {
-#ifdef LINUX
+#ifdef UNIX
         /* for linux, we can trust lack of textrel flag as guaranteeing no text relocs */
         if (DYNAMO_OPTION(persist_trust_textrel) &&
             /* XXX: may not be at_map if re-add coarse post-load (e.g., IAT or other
@@ -3981,7 +3981,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 #endif
             STATS_INC(perscache_base_mismatch);
             goto coarse_unit_load_exit;
-#ifdef LINUX
+#ifdef UNIX
         }
 #endif
     }

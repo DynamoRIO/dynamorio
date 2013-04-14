@@ -36,7 +36,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <string.h>
 #endif
 #include <stddef.h> /* offsetof */
@@ -120,7 +120,7 @@ typedef struct _generic_event_entry_t {
         void (*postsys_cb)(void *, int);
         void (*modload_cb)(void *, const module_data_t *, bool);
         void (*modunload_cb)(void *, const module_data_t *);
-#ifdef LINUX
+#ifdef UNIX
         dr_signal_action_t (*signal_cb)(void *, dr_siginfo_t *);
 #endif
 #ifdef WINDOWS
@@ -216,7 +216,7 @@ static void *modload_event_lock;
 static generic_event_entry_t *cblist_modunload;
 static void *modunload_event_lock;
 
-#ifdef LINUX
+#ifdef UNIX
 static generic_event_entry_t *cblist_signal;
 static void *signal_event_lock;
 #endif
@@ -264,7 +264,7 @@ drmgr_modload_event(void *drcontext, const module_data_t *info,
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info);
 
-#ifdef LINUX
+#ifdef UNIX
 static dr_signal_action_t
 drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo);
 #endif
@@ -307,7 +307,7 @@ drmgr_init(void)
     postsys_event_lock = dr_rwlock_create();
     modload_event_lock = dr_rwlock_create();
     modunload_event_lock = dr_rwlock_create();
-#ifdef LINUX
+#ifdef UNIX
     signal_event_lock = dr_rwlock_create();
 #endif
 #ifdef WINDOWS
@@ -321,7 +321,7 @@ drmgr_init(void)
     dr_register_post_syscall_event(drmgr_postsyscall_event);
     dr_register_module_load_event(drmgr_modload_event);
     dr_register_module_unload_event(drmgr_modunload_event);
-#ifdef LINUX
+#ifdef UNIX
     dr_register_signal_event(drmgr_signal_event);
 #endif
 #ifdef WINDOWS
@@ -348,7 +348,7 @@ drmgr_exit(void)
     drmgr_event_exit();
 
     dr_rwlock_destroy(fault_event_lock);
-#ifdef LINUX
+#ifdef UNIX
     dr_rwlock_destroy(signal_event_lock);
 #endif
 #ifdef WINDOWS
@@ -897,7 +897,7 @@ drmgr_event_exit(void)
     drmgr_generic_event_exit(cblist_postsys, postsys_event_lock);
     drmgr_generic_event_exit(cblist_modload, modload_event_lock);
     drmgr_generic_event_exit(cblist_modunload, modunload_event_lock);
-#ifdef LINUX
+#ifdef UNIX
     drmgr_generic_event_exit(cblist_signal, signal_event_lock);
 #endif
 #ifdef WINDOWS
@@ -1100,7 +1100,7 @@ drmgr_modunload_event(void *drcontext, const module_data_t *info)
  * WRAPPED FAULT EVENTS
  */
 
-#ifdef LINUX
+#ifdef UNIX
 DR_EXPORT
 bool
 drmgr_register_signal_event(dr_signal_action_t (*func)
@@ -1144,7 +1144,7 @@ drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
     dr_rwlock_read_unlock(signal_event_lock);
     return res;
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 #ifdef WINDOWS
 DR_EXPORT

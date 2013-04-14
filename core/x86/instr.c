@@ -757,7 +757,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
 const reg_id_t regparms[] = {
 #ifdef X64
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3, 
-# ifdef LINUX
+# ifdef UNIX
     REGPARM_4, REGPARM_5,
 # endif
 #endif

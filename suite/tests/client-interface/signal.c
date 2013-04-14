@@ -48,7 +48,7 @@
 
 #ifdef WINDOWS
 # define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
-#else /* LINUX */
+#else /* UNIX */
 # define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
 #endif
 
@@ -56,7 +56,7 @@ static SIGJMP_BUF mark;
 static int bar;
 
 static void
-#ifdef LINUX
+#ifdef UNIX
 __attribute__((used))  /* Prevents deletion as unreachable. */
 #endif
 foo(void)

@@ -61,7 +61,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # define EXPORT
 #else
 # define EXPORT __declspec(dllexport)

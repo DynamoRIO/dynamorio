@@ -33,7 +33,7 @@
 
 #include "dr_api.h"
 #include "client_tools.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/time.h>
 #endif
 
@@ -72,7 +72,7 @@ static bool child_alive;
 static bool child_continue;
 static bool child_dead;
 
-#ifdef LINUX
+#ifdef UNIX
 /* test PR 368737: add client timer support */
 static void
 event_timer(void *drcontext, dr_mcontext_t *mcontext)
@@ -92,7 +92,7 @@ thread_func(void *arg)
     ASSERT(arg == THREAD_ARG);
     child_alive = true;
     dr_fprintf(STDERR, "client thread is alive\n");
-#ifdef LINUX
+#ifdef UNIX
     if (!dr_set_itimer(ITIMER_REAL, 10, event_timer))
         dr_fprintf(STDERR, "unable to set timer callback\n");
     dr_sleep(30);
@@ -253,7 +253,7 @@ void dr_init(client_id_t id)
     /* PR 219381: dr_get_application_name() and dr_get_process_id() */
 #ifdef WINDOWS
     dr_fprintf(STDERR, "inside app %s\n", dr_get_application_name());
-#else /* LINUX - append .exe so can use same expect file. */
+#else /* UNIX - append .exe so can use same expect file. */
     dr_fprintf(STDERR, "inside app %s.exe\n", dr_get_application_name());
 #endif
     dr_set_tls_field(dr_get_current_drcontext(),

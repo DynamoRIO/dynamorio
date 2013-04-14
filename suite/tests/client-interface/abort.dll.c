@@ -41,7 +41,7 @@ static void
 my_abort(
 #ifdef X64
          int ignore0, int ignore1, int ignore2, int ignore3,
-# ifdef LINUX
+# ifdef UNIX
          int ignore4, int ignore5,
 # endif
 #endif
@@ -57,10 +57,10 @@ my_abort(
 }
 
 #define MINSERT instrlist_meta_preinsert
-#ifdef LINUX
-# define IF_LINUX_ELSE(x,y) x
+#ifdef UNIX
+# define IF_UNIX_ELSE(x,y) x
 #else
-# define IF_LINUX_ELSE(x,y) y
+# define IF_UNIX_ELSE(x,y) y
 #endif
 
 static dr_emit_flags_t

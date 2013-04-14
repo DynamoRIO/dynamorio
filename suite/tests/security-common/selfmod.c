@@ -35,7 +35,7 @@
 
 #include "tools.h"
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -62,7 +62,7 @@ print_fault_code(unsigned char *pc)
           *pc, *(pc+1), *(pc-4), *(pc-3), *(pc-2), *(pc-1));
 }
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
@@ -254,7 +254,7 @@ main(void)
 {
     INIT();
 
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGSEGV, signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

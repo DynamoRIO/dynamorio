@@ -872,10 +872,10 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
-#if defined(LINUX) || defined(CLIENT_INTERFACE)
+#if defined(UNIX) || defined(CLIENT_INTERFACE)
     if (DYNAMO_OPTION(pad_jmps) && !DYNAMO_OPTION(pad_jmps_mark_no_trace)
         && DYNAMO_OPTION(enable_traces)
-# ifndef LINUX
+# ifndef UNIX
         && INTERNAL_OPTION(code_api)
 # endif
         ) {
@@ -895,9 +895,9 @@ check_option_compatibility_helper(int recurse_count)
      * warn of unfinished and untested self-protection options 
      * FIXME: update once these features are complete
      */
-#ifdef LINUX
+#ifdef UNIX
     if (dynamo_options.protect_mask != 0) {
-        USAGE_ERROR("selfprot not supported on linux: case 8023");
+        USAGE_ERROR("selfprot not supported on unix: case 8023");
         dynamo_options.protect_mask = 0;
         changed_options = true;
     }
@@ -987,7 +987,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif 
 
-#ifdef LINUX
+#ifdef UNIX
 # ifndef HAVE_TLS
     if (SHARED_FRAGMENTS_ENABLED()) {
         USAGE_ERROR("shared fragments not supported on this OS");
@@ -1374,10 +1374,10 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.trace_ibt_groom = 0;
         changed_options = true;
     }
-#if defined(LINUX) && defined(HAVE_TLS)
+#if defined(UNIX) && defined(HAVE_TLS)
     if (!DYNAMO_OPTION(ibl_table_in_tls)) {
         /* xref PR 211147 */
-        SYSLOG_INTERNAL_INFO("-no_ibl_table_in_tls invalid on Linux, disabling");
+        SYSLOG_INTERNAL_INFO("-no_ibl_table_in_tls invalid on unix, disabling");
         dynamo_options.ibl_table_in_tls = true;
         changed_options = true;
     }
@@ -1561,7 +1561,7 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.use_persisted = false;
         changed_options = true;
     }
-# ifdef LINUX
+# ifdef UNIX
     /* PR 304708: we intercept all signals for a better client interface */
     if (DYNAMO_OPTION(code_api) && !DYNAMO_OPTION(intercept_all_signals)) {
         USAGE_ERROR("-code_api requires -intercept_all_signals");
@@ -1592,13 +1592,13 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
-#if defined(LINUX) && defined(CLIENT_INTERFACE)
+#if defined(UNIX) && defined(CLIENT_INTERFACE)
     if (DYNAMO_OPTION(early_inject) && !DYNAMO_OPTION(private_loader)) {
         USAGE_ERROR("-early_inject requires -private_loader, turning on -private_loader");
         dynamo_options.private_loader = true;
         changed_options = true;
     }
-#endif /* LINUX && CLIENT_INTERFACE */
+#endif /* UNIX && CLIENT_INTERFACE */
 
 #ifdef WINDOWS
     if (DYNAMO_OPTION(inject_at_create_process) && !DYNAMO_OPTION(early_inject)) {
@@ -1857,7 +1857,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
-#if defined(LINUX) && defined(CLIENT_INTERFACE)
+#if defined(UNIX) && defined(CLIENT_INTERFACE)
     if (INTERNAL_OPTION(private_loader)) {
         if (!INTERNAL_OPTION(mangle_app_seg)) {
             USAGE_ERROR("-private_loader requires -mangle_app_seg");

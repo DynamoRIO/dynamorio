@@ -196,7 +196,7 @@ log_file_create(void *drcontext, per_thread_t *data)
     if (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\')) {
         dirsep++;
         /* append a dirsep at the end if missing */
-        *dirsep = IF_LINUX_ELSE('/', '\\');
+        *dirsep = IF_UNIX_ELSE('/', '\\');
     }
     app_name = dr_get_application_name();
     if (app_name == NULL)

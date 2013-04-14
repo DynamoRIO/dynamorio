@@ -598,7 +598,7 @@ typedef struct _generated_code_t {
     uint do_vmkuw_syscall_offs; /* offs of pc after actual syscall instr */
 # endif
 #endif
-#ifdef LINUX
+#ifdef UNIX
     /* PR 212290: can't be static code in x86.asm since it can't be PIC */
     byte *new_thread_dynamo_start;
 #endif
@@ -724,7 +724,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
  * if we have TLS and support sysenter (PR 361894) 
  */
 #define USE_SHARED_GENCODE()                                         \
-    (USE_SHARED_GENCODE_ALWAYS() || IF_LINUX(IF_HAVE_TLS_ELSE(true, false) ||) \
+    (USE_SHARED_GENCODE_ALWAYS() || IF_UNIX(IF_HAVE_TLS_ELSE(true, false) ||) \
      SHARED_FRAGMENTS_ENABLED() || DYNAMO_OPTION(shared_trace_ibl_routine))
 
 #define USE_SHARED_BB_IBL() \
@@ -839,7 +839,7 @@ byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte 
 # endif
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 byte * 
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc);
 
@@ -905,7 +905,7 @@ void check_return_ra_mangled(dcontext_t *dcontext,
                              volatile reg_t reg_ecx, volatile reg_t reg_eax);
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 void new_thread_setup(priv_mcontext_t *mc);
 #endif
 

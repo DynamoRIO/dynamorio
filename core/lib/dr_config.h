@@ -35,7 +35,7 @@
 #define _DR_CONFIG_H_ 1
 
 /* Internally we mark routines with export linkage. */
-#include "configure.h"  /* for WINDOWS/LINUX */
+#include "configure.h"  /* for WINDOWS/UNIX */
 #include "globals_shared.h"  /* for DR_EXPORT */
 
 /* DR_API EXPORT TOFILE dr_config.h */

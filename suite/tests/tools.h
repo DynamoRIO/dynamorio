@@ -40,7 +40,7 @@
 #include <string.h> /* memcpy */
 #include <assert.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/mman.h>
 # include <stdlib.h> /* abort */
 # include <errno.h>
@@ -82,7 +82,7 @@ extern "C" {
 #ifndef __cplusplus
 typedef unsigned int bool;
 #endif
-# ifdef LINUX
+# ifdef UNIX
 typedef unsigned int uint;
 typedef unsigned long long int uint64;
 typedef long long int int64;
@@ -113,7 +113,7 @@ typedef __int64 int64;
 # define EXPORT __declspec(dllexport)
 # define IMPORT __declspec(dllimport)
 # define NOINLINE __declspec(noinline)
-#else /* LINUX */
+#else /* UNIX */
 # define EXPORT __attribute__((visibility("default")))
 # define IMPORT extern
 # define NOINLINE __attribute__((noinline))
@@ -213,7 +213,7 @@ static void VERBOSE_PRINT(const char *fmt, ...) {}
 # endif
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 # ifdef X64
 #  define SC_XIP rip
 # else
@@ -237,7 +237,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 #endif
 
 /* for cross-plaform siglongjmp */
-#ifdef LINUX
+#ifdef UNIX
 # define SIGJMP_BUF sigjmp_buf
 # define SIGSETJMP(buf) sigsetjmp(buf, 1)
 # define SIGLONGJMP(buf, count) siglongjmp(buf, count)
@@ -413,7 +413,7 @@ copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
     return buf;
 }
 
-#ifndef LINUX 
+#ifndef UNIX 
 /****************************************************************************
  * ntdll.dll interface 
  * cleaner to use ntdll.lib but too lazy to add to build process
@@ -549,7 +549,7 @@ test_print(void *buf, int n)
     print("%d\n", test(buf, n));
 }
 
-#ifdef LINUX
+#ifdef UNIX
 # define USE_USER32()
 # ifdef NEED_HANDLER
 #  define INIT() intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false)
@@ -606,9 +606,9 @@ set_global_filter()
     SetUnhandledExceptionFilter(our_exception_filter);
 }
 
-#endif /* LINUX */
+#endif /* UNIX */
 
-#ifdef LINUX
+#ifdef UNIX
 typedef int thread_handle;
 typedef unsigned int (*fptr)(void *);
 #else
@@ -684,7 +684,7 @@ __asm {             \
 }
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 /* Forward decl for nanosleep. */
 struct timespec;
 

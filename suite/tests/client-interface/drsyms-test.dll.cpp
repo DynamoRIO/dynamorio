@@ -53,7 +53,7 @@ static void lookup_exe_syms(void);
 static void lookup_dll_syms(void *dc, const module_data_t *dll_data,
                             bool loaded);
 static void check_enumerate_dll_syms(const char *dll_path);
-#ifdef LINUX
+#ifdef UNIX
 static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
 #endif
 static void test_demangle(void);
@@ -481,7 +481,7 @@ lookup_dll_syms(void *dc, const module_data_t *dll_data, bool loaded)
     dll_path = dll_data->full_path;
     dll_base = dll_data->start;
 
-#ifdef LINUX
+#ifdef UNIX
     if (strstr(dll_path, "/libc-")) {
         lookup_glibc_syms(dc, dll_data);
         return;
@@ -779,7 +779,7 @@ check_enumerate_dll_syms(const char *dll_path)
                          dll_syms_full,    (DRSYM_DEMANGLE|DRSYM_DEMANGLE_FULL));
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* Test if we can look up glibc symbols.  This only works if the user is using
  * glibc (and not some other libc) and is has debug info installed for it, so we
  * avoid making assertions if we can't find the symbols.  The purpose of this
@@ -833,7 +833,7 @@ lookup_glibc_syms(void *dc, const module_data_t *dll_data)
         dr_fprintf(STDERR, "couldn't find glibc malloc or __GI___libc_malloc.\n");
     }
 }
-#endif /* LINUX */
+#endif /* UNIX */
 
 typedef struct {
     const char *mangled;

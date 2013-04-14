@@ -50,7 +50,7 @@
 #    include <windows.h>
 #    include <ntdll.h>
 #    define RUN_SIG WINAPI
-#else /* LINUX */
+#else /* UNIX */
 #    include <sys/types.h> /* for wait */
 #    include <sys/wait.h>  /* for wait */
 #    include <linux/sched.h>     /* for clone */
@@ -178,7 +178,7 @@ static int num_opt_with_no_synch;
 static thread_id_t child_tid;
 #ifdef WINDOWS
 static HANDLE child_handle;
-#else /* LINUX */
+#else /* UNIX */
 static thread_t child;
 static void *stack;
 #endif
@@ -206,7 +206,7 @@ static void add_remember_entry(dcontext_t *dcontext, fragment_t *f
                                , fragment_t *new_f
 #endif
                                );
-#ifdef LINUX
+#ifdef UNIX
 static thread_t create_thread(int (*fcn)(void *), void *arg, void **stack);
 static void delete_thread(thread_t thread, void *stack);
 #endif
@@ -269,12 +269,12 @@ sideline_init()
     ASSERT_NOT_IMPLEMENTED(false);
 # endif
 
-#else /* LINUX */
+#else /* UNIX */
     child = create_thread(sideline_run, NULL, &stack);
     child_tid = child;
 
     /* priority of child can only be set by child itself, in sideline_run() */
-#endif /* LINUX */
+#endif /* UNIX */
 
     /* tell dynamo core about new thread so it won't be treated as app thread */
     /* we created without CLONE_THREAD so its own thread group */
@@ -325,7 +325,7 @@ sideline_exit()
 #ifdef WINDOWS
     /* wait for child to die */
     nt_wait_event_with_timeout(child_handle, INFINITE_WAIT);
-#else /* LINUX */
+#else /* UNIX */
     delete_thread(child, stack);
 #endif
     LOG(logfile, LOG_SIDELINE, 1, "Sideline thread destroyed\n");
@@ -448,7 +448,7 @@ sideline_run(void *arg)
     logfile = open_log_file("sideline", NULL, 0);
     LOG(logfile, LOG_SIDELINE, VERB_3, "SIDELINE: in sideline_run()\n");
 
-#ifdef LINUX
+#ifdef UNIX
     /* priority can only be set by thread itself, so do it here */
     nice(10);
 #endif
@@ -961,7 +961,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f
     mutex_unlock(&remember_lock);
 }
 
-#ifdef LINUX /***************************************************************/
+#ifdef UNIX /***************************************************************/
 /* Create a new thread. It should be passed "fcn", a function which
  * takes two arguments, (the second one is a dummy, always 4). The
  * first argument is passed in "arg". Returns the PID of the new
@@ -1010,7 +1010,7 @@ delete_thread(thread_t thread, void *stack)
         ASSERT_NOT_REACHED();
     }
 }
-#endif /* LINUX ***************************************************************/
+#endif /* UNIX ***************************************************************/
 
 
 #endif /* SIDELINE -- around whole file */

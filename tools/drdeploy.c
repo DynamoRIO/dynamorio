@@ -43,7 +43,7 @@
 # include "share.h"
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 # include <errno.h>
 # include <fcntl.h>
 # include <unistd.h>
@@ -230,7 +230,7 @@ const char *usage_str =
     "                          specified number of minutes.\n"
     "       -h <hours>         Kill the application if it runs longer than the\n"
     "                          specified number of hours.\n"
-#ifdef LINUX
+#ifdef UNIX
     "       -killpg            Create a new process group for the app.  If the app\n"
     "                          times out, kill the entire process group.  This forces\n"
     "                          the child to be a new process with a new pid, rather\n"
@@ -240,7 +240,7 @@ const char *usage_str =
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
     "       -no_inject         Run the application natively.\n"
-# ifdef LINUX  /* FIXME i#725: Windows attach NYI */
+# ifdef UNIX  /* FIXME i#725: Windows attach NYI */
     "       -early             Whether to use early injection.\n"
     "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
     "                          for pid to launch and inject into a new process.\n"
@@ -261,7 +261,7 @@ const char *usage_str =
     die();                                                      \
 } while (0)
 
-#ifdef LINUX
+#ifdef UNIX
 /* Minimal Windows compatibility layer.
  */
 
@@ -353,7 +353,7 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
     abs[abs_len-1] = '\0';
 }
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 /* Unregister a process */
 bool unregister_proc(const char *process, process_id_t pid,
@@ -391,7 +391,7 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64\\drpreinject.dll",
         "lib64\\release\\dynamorio.dll",
         "lib64\\debug\\dynamorio.dll"
-#else /* LINUX */
+#else /* UNIX */
         "lib32/debug/libdrpreload.so",
         "lib32/debug/libdynamorio.so",
         "lib32/release/libdrpreload.so",
@@ -922,7 +922,7 @@ int main(int argc, char *argv[])
             limit = -1;
             continue;
         }
-# ifdef LINUX
+# ifdef UNIX
         else if (strcmp(argv[i], "-use_ptrace") == 0) {
             /* Undocumented option for using ptrace on a fresh process. */
             use_ptrace = true;
@@ -947,7 +947,7 @@ int main(int argc, char *argv[])
                              &extra_ops_sofar, "-early_inject");
             continue;
         }
-# endif /* LINUX */
+# endif /* UNIX */
         else if (strcmp(argv[i], "-exit0") == 0) {
             exit0 = true;
             continue;
@@ -1100,7 +1100,7 @@ int main(int argc, char *argv[])
             if (limit <= 0)
                 usage("invalid time");
 	}
-# ifdef LINUX
+# ifdef UNIX
         else if (strcmp(argv[i], "-killpg") == 0) {
             kill_group = true;
         }
@@ -1335,7 +1335,7 @@ int main(int argc, char *argv[])
         /* i#939: attempt to work w/o any HOME/USERPROFILE by using a temp dir */
         dr_get_config_dir(global, true/*use temp*/, buf, BUFFER_SIZE_ELEMENTS(buf));
     }
-# ifdef LINUX
+# ifdef UNIX
     /* On Linux, we use exec by default to create the app process.  This matches
      * our drrun shell script and makes scripting easier for the user.
      */
@@ -1343,13 +1343,13 @@ int main(int argc, char *argv[])
         info("will exec %s", app_name);
         errcode = dr_inject_prepare_to_exec(app_name, app_argv, &inject_data);
     } else
-# endif /* LINUX */
+# endif /* UNIX */
     {
         errcode = dr_inject_process_create(app_name, app_argv, &inject_data);
         info("created child with pid %d for %s",
              dr_inject_get_process_id(inject_data), app_name);
     }
-# ifdef LINUX
+# ifdef UNIX
     if (limit != 0 && kill_group) {
         /* Move the child to its own process group. */
         process_id_t child_pid = dr_inject_get_process_id(inject_data);
@@ -1404,7 +1404,7 @@ int main(int argc, char *argv[])
     }
 # endif
 
-# ifdef LINUX
+# ifdef UNIX
     if (use_ptrace) {
         if (!dr_inject_prepare_to_ptrace(inject_data)) {
             error("unable to use ptrace");

@@ -439,7 +439,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 #endif
 }
 
-#ifdef LINUX
+#ifdef UNIX
 /* Only touches thread-private data and acquires no lock */
 void
 nudge_add_pending(dcontext_t *dcontext, nudge_arg_t *nudge_arg)
@@ -560,5 +560,5 @@ nudge_internal(process_id_t pid, uint nudge_action_mask,
         else
             return DR_FAILURE;
     }
-#endif /* WINDOWS -> LINUX */
+#endif /* WINDOWS -> UNIX */
 }

@@ -255,7 +255,7 @@ enum {
 #endif
     DUMPCORE_OUT_OF_MEM         = 0x0200,
     DUMPCORE_OUT_OF_MEM_SILENT  = 0x0400, /* not on by default in DEBUG */
-#ifdef LINUX
+#ifdef UNIX
     DUMPCORE_INCLUDE_STACKDUMP  = 0x0800,
     DUMPCORE_WAIT_FOR_DEBUGGER  = 0x1000, /* not on by default in DEBUG */
 #endif
@@ -279,7 +279,7 @@ enum {
     DUMPCORE_TRY_EXCEPT         = 0x80000, /* even when we do have a handler */
     DUMPCORE_UNSUPPORTED_APP    = 0x100000,
 
-#ifdef LINUX
+#ifdef UNIX
     DUMPCORE_OPTION_PAUSE       = DUMPCORE_WAIT_FOR_DEBUGGER  |
                                   DUMPCORE_INTERNAL_EXCEPTION |
                                   DUMPCORE_SECURITY_VIOLATION |
@@ -417,7 +417,7 @@ typedef struct _dr_mem_info_t {
 #endif
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
-#ifdef LINUX
+#ifdef UNIX
 bool get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);
 #endif

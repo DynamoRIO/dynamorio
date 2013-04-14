@@ -37,7 +37,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -55,7 +55,7 @@ void jumpto(unsigned char *buf);
 
 static int a[ITERS];
 
-#ifdef LINUX
+#ifdef UNIX
 static void
 signal_handler(int sig)
 {
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     dynamorio_app_start();
 #endif
   
-#ifdef LINUX
+#ifdef UNIX
     intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);

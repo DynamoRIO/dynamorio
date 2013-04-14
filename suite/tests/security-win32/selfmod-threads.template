@@ -1,5 +1,5 @@
 starting up
-#if (defined(PROGRAM_SHEPHERDING) && defined(WINDOWS) && defined(security) && !defined(executable_heap) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(executable_if_x) && !defined(X)) || (defined(PROGRAM_SHEPHERDING) && defined(LINUX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X))
+#if (defined(PROGRAM_SHEPHERDING) && defined(WINDOWS) && defined(security) && !defined(executable_heap) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(executable_if_x) && !defined(X)) || (defined(PROGRAM_SHEPHERDING) && defined(UNIX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X))
 # if !defined(detect_mode)
 #  if defined(throw_exception)
 // The exception handler is bad, so we loop to -throw_exception_max_per_thread

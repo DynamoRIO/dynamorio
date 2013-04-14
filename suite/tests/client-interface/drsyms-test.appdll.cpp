@@ -31,7 +31,7 @@
  */
 
 #include "configure.h"
-#if defined(LINUX) || defined(_MSC_VER)
+#if defined(UNIX) || defined(_MSC_VER)
 # include "tools.h"
 #else /* cygwin/mingw */
 # include <windows.h>

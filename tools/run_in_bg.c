@@ -226,7 +226,7 @@ main(int argc, char *argv[])
             return usage(argv[0]);
     }
 
-#ifdef LINUX
+#ifdef UNIX
     child = fork();
     if (child < 0) {
         perror("ERROR on fork");

@@ -1,6 +1,6 @@
 in pre_sys_B
 in pre_sys_A
-#ifdef LINUX
+#ifdef UNIX
 B
 #endif
 in post_sys_B

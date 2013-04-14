@@ -109,7 +109,7 @@ typedef struct _module_names_t {
     const char *rsrc_name; /**< The internal name given to the module in its resource
                             * section. Will be NULL if the module has no resource section
                             * or doesn't set this field within it. */
-#else /* LINUX */
+#else /* UNIX */
     uint64 inode; /**< The inode of the module file mapped in. */
 #endif
 } module_names_t;
@@ -208,7 +208,7 @@ void modules_reset_list(void);
 
 /**************** module_list updating routines *****************/
 void module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
-                     _IF_LINUX(uint64 inode));
+                     _IF_UNIX(uint64 inode));
 void module_list_remove(app_pc base, size_t view_size);
 void module_list_add_mapping(module_area_t *ma, app_pc map_start, app_pc map_end);
 void module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end);
@@ -270,11 +270,11 @@ void os_modules_init(void);
 void os_modules_exit(void);
 void os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                          bool at_map, const char *filepath
-                         _IF_LINUX(uint64 inode) HEAPACCT(which_heap_t which));
+                         _IF_UNIX(uint64 inode) HEAPACCT(which_heap_t which));
 void os_module_area_reset(module_area_t *ma HEAPACCT(which_heap_t which));
 void free_module_names(module_names_t *mod_names HEAPACCT(which_heap_t which));
 
-#ifdef LINUX
+#ifdef UNIX
 /* returns true if the module is marked as having text relocations */
 bool module_has_text_relocs(app_pc base, bool at_map);
 #endif
@@ -302,7 +302,7 @@ typedef void *module_base_t;
 generic_func_t
 get_proc_address(module_base_t lib, const char *name);
 
-#ifdef LINUX
+#ifdef UNIX
 /* if we add any more values, switch to a globally-defined dr_export_info_t 
  * and use it here
  */

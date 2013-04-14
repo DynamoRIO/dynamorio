@@ -47,7 +47,7 @@
 #include "drmgr.h"
 #include <string.h> /* memset */
 
-#ifdef LINUX
+#ifdef UNIX
 # include <syscall.h>
 #endif
 
@@ -188,7 +188,7 @@ event_pre_syscall(void *drcontext, int sysnum)
 {
     bool modify_write = (sysnum == write_sysnum);
     ATOMIC_INC(num_syscalls);
-#ifdef LINUX
+#ifdef UNIX
     if (sysnum == SYS_execve) {
         /* our stats will be re-set post-execve so display now */
         show_results();
@@ -237,7 +237,7 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
             ) {
             /* pretend it succeeded */
-#ifdef LINUX
+#ifdef UNIX
             /* return the #bytes == 3rd param */
             dr_syscall_set_result(drcontext, dr_syscall_get_param(drcontext, 2));
 #else
@@ -309,7 +309,7 @@ event_post_syscall(void *drcontext, int sysnum)
 static int
 get_write_sysnum(void)
 {
-#ifdef LINUX
+#ifdef UNIX
     return SYS_write;
 #else
     byte *entry;

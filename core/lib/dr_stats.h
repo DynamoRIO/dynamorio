@@ -44,7 +44,7 @@
    * total number of DR instances.
    */
 # define DR_SHMEM_KEY "DynamoRIOStatistics" 
-#elif defined(LINUX)
+#elif defined(UNIX)
 # define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
 # define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
 #endif
@@ -68,7 +68,7 @@ typedef struct _single_stat_t {
  */
 #define NUM_EVENTS 27
 typedef struct _dr_statistics_t {
-#ifdef LINUX
+#ifdef UNIX
     char magicstring[DYNAMORIO_MAGIC_STRING_LEN];
 #endif
     process_id_t process_id;    /* process id */

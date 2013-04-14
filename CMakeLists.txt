@@ -36,7 +36,6 @@
 # i#74: create source tarball via 'make package_source' 
 # i#68: replace perl with cmake scripts and CTest
 # i#70: symbol store support in core/Makefile and tools/Makefile
-# i#75: convert clients/standalone/Makefile to CMake 
 # i#72: RHEL3 linker script has no __executable_start
 # i#60: re-add libutil/ unit tests 
 #

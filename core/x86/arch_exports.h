@@ -343,7 +343,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 # endif
 # define atomic_add_exchange atomic_add_exchange_int
 
-#else /* LINUX */
+#else /* UNIX */
 # define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
     ASSERT(sizeof(value) == 4);                                      \
     /* test that we aren't crossing a cache line boundary */         \
@@ -536,7 +536,7 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value)
 # undef ATOMIC_ADD_EXCHANGE_int64
 
 
-#endif /* LINUX */
+#endif /* UNIX */
 
 #define atomic_compare_exchange atomic_compare_exchange_int
 #ifdef X64
@@ -598,7 +598,7 @@ insert_relative_jump(byte *pc, cache_pc target, bool hot_patch);
 /* in arch.c */
 
 #ifdef PROFILE_RDTSC
-#ifdef LINUX
+#ifdef UNIX
 /* This only works on Pentium I or later */
 __inline__ uint64 get_time();
 #else /* WINDOWS */
@@ -777,7 +777,7 @@ enum {
     SYSCALL_METHOD_WOW64,
 #endif
 };
-#ifdef LINUX
+#ifdef UNIX
 enum { SYSCALL_METHOD_LONGEST_INSTR = 2 }; /* to ensure safe patching */
 #endif
 void check_syscall_method(dcontext_t *dcontext, instr_t *instr);
@@ -785,7 +785,7 @@ int get_syscall_method(void);
 /* Does the syscall instruction always return to the invocation point? */
 bool does_syscall_ret_to_callsite(void);
 void set_syscall_method(int method);
-#ifdef LINUX
+#ifdef UNIX
 bool should_syscall_method_be_sysenter(void);
 #endif
 /* returns the address of the first app syscall instruction we saw (see hack
@@ -832,7 +832,7 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
                                CONTEXT *cxt, byte *stack);
 # endif
 void dynamorio_earliest_init_takeover(void);
-#else /* LINUX */
+#else /* UNIX */
 void client_int_syscall(void);
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 void dynamorio_sigreturn(void);
@@ -850,7 +850,7 @@ void back_from_native_retstubs(void);
 void back_from_native_retstubs_end(void);
 /* Each stub should be 4 bytes: push imm8 + jmp rel8 */
 enum { BACK_FROM_NATIVE_RETSTUB_SIZE = 4 };
-#ifdef LINUX
+#ifdef UNIX
 void native_plt_call(void);
 #endif
 DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)
@@ -1513,7 +1513,7 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
                        instrlist_t *ilist, instr_t *instr,
                        instr_t **first, instr_t **second);
 
-#ifdef LINUX
+#ifdef UNIX
 void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
@@ -1616,7 +1616,7 @@ typedef struct dr_jmp_buf_t {
     /* optimization: can we trust callee-saved regs r8,r9,r10,r11 and not save them? */
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
 #endif
-#if defined(LINUX) && defined(DEBUG)
+#if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
      * build to verify our assumptions
@@ -1636,13 +1636,13 @@ bool safe_read_fast(const void *base, size_t size, void *out_buf, size_t *bytes_
 bool is_safe_read_pc(app_pc pc);
 app_pc safe_read_resume_pc(void);
 
-#ifdef LINUX
+#ifdef UNIX
 /* i#46: Private string routines for libc isolation. */
 void *memcpy(void *dst, const void *src, size_t n);
 void *memset(void *dst, int val, size_t n);
-#endif /* LINUX */
+#endif /* UNIX */
 
-#ifdef LINUX
+#ifdef UNIX
 /* Private replacement for _dl_runtime_resolve() for native_exec. */
 void *_dynamorio_runtime_resolve(void);
 #endif

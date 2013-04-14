@@ -40,7 +40,7 @@
 #include "../globals.h"
 #include "instr.h"
 
-#ifdef LINUX
+#ifdef UNIX
 #  include <unistd.h>
 #endif
 
@@ -48,7 +48,7 @@
 options_t dynamo_options;
 
 /* support use of STD* macros so user doesn't have to use "stdout->_fileno" */
-#ifdef LINUX
+#ifdef UNIX
 file_t our_stdout = STDOUT_FILENO;
 file_t our_stderr = STDERR_FILENO;
 file_t our_stdin = STDIN_FILENO;
@@ -187,7 +187,7 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
     len = vsnprintf(buf + *sofar, bufsz - *sofar, fmt, ap);
     va_end(ap);
     ok = (len > 0 && len < (ssize_t)(bufsz - *sofar));
-#ifdef LINUX
+#ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
      * or our_vsnprintf
      */
@@ -216,7 +216,7 @@ print_file(file_t f, const char *fmt, ...)
     len = vsnprintf(buf, BUFFER_SIZE_ELEMENTS(buf), fmt, ap);
     va_end(ap);
 
-#ifdef LINUX
+#ifdef UNIX
     /* Linux vsnprintf returns what would have been written, unlike Windows
      * or our_vsnprintf
      */
@@ -232,7 +232,7 @@ print_file(file_t f, const char *fmt, ...)
 ssize_t
 os_write(file_t f, const void *buf, size_t count)
 {
-# ifdef LINUX
+# ifdef UNIX
     return write(f, buf, count);
 # else
     /* file_t is HANDLE opened with CreateFile */

@@ -827,7 +827,7 @@ DR_API
 void
 dr_set_process_exit_behavior(dr_exit_flags_t flags);
 
-#ifdef LINUX
+#ifdef UNIX
 DR_API
 /**
  * Registers a callback function for the fork event.  DR calls \p func
@@ -1097,7 +1097,7 @@ dr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum));
 
 /* DR_API EXPORT BEGIN */
 
-#ifdef LINUX
+#ifdef UNIX
 /* DR_API EXPORT END */
 
 /* FIXME: for PR 304708 I originally included siginfo_t in
@@ -1265,7 +1265,7 @@ bool
 dr_unregister_signal_event(dr_signal_action_t (*func)
                            (void *drcontext, dr_siginfo_t *siginfo));
 /* DR_API EXPORT BEGIN */
-#endif /* LINUX */
+#endif /* UNIX */
 /* DR_API EXPORT END */
 
 
@@ -1459,7 +1459,7 @@ void instrument_client_thread_init(dcontext_t *dcontext, bool client_thread);
 void instrument_thread_init(dcontext_t *dcontext, bool client_thread, bool valid_mc);
 void instrument_thread_exit_event(dcontext_t *dcontext);
 void instrument_thread_exit(dcontext_t *dcontext);
-#ifdef LINUX
+#ifdef UNIX
 void instrument_fork_init(dcontext_t *dcontext);
 #endif
 bool instrument_basic_block(dcontext_t *dcontext, app_pc tag, instrlist_t *bb,
@@ -1661,7 +1661,7 @@ DR_API
 process_id_t
 dr_get_process_id(void);
 
-#ifdef LINUX
+#ifdef UNIX
 DR_API 
 /**
  * Returns the process id of the parent of the current process. 
@@ -1974,7 +1974,7 @@ void
 dr_raw_mem_free(void *addr, size_t size);
 
 
-#ifdef LINUX
+#ifdef UNIX
 DR_API
 /** 
  * Allocates memory from DR's global memory pool, but mimics the
@@ -2551,7 +2551,7 @@ typedef void * dr_module_iterator_t;
  * it we go ahead and store info on each segment whether contiguous or not.
  */
 #endif
-#ifdef LINUX
+#ifdef UNIX
 /** Holds information on a segment of a loaded module. */
 typedef struct _module_segment_data_t {
     app_pc start; /**< Start address of the segment, page-aligned backward. */
@@ -3229,7 +3229,7 @@ enum {
      * to the file itself.
      */
     DR_MAP_PRIVATE             = 0x0001,
-#ifdef LINUX
+#ifdef UNIX
     /**
      * If set, indicates that the passed-in start address is required rather than a
      * hint.  On Linux, this has the same semantics as mmap with MAP_FIXED: i.e.,
@@ -3927,7 +3927,7 @@ dr_retakeover_suspended_native_thread(void *drcontext);
  * since some clients may want the interrupted context: for a general
  * timer clients should create a separate thread.
  */
-#ifdef LINUX
+#ifdef UNIX
 DR_API
 /**
  * Installs an interval timer in the itimer sharing group that
@@ -3982,7 +3982,7 @@ DR_API
  */
 uint
 dr_get_itimer(int which);
-#endif /* LINUX */
+#endif /* UNIX */
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */

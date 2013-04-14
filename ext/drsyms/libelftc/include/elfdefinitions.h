@@ -541,7 +541,7 @@ enum {
 	ELFOSABI__LAST__
 };
 
-#define	ELFOSABI_LINUX			ELFOSABI_GNU
+#define	ELFOSABI_UNIX			ELFOSABI_GNU
 
 /*
  * ELF Machine types: (EM_*).

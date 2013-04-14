@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef LINUX
+#ifdef UNIX
 # include <unistd.h>
 # include <signal.h>
 # include <ucontext.h>
@@ -61,7 +61,7 @@ void
 vbpop()
 {
     print("in vbpop\n");
-#ifdef LINUX
+#ifdef UNIX
     __asm__ volatile ( 
             "push    $bad_target\n"
             "jmp     some_func\n"
@@ -91,7 +91,7 @@ vbpop()
 void
 vbjmp()
 {
-#ifdef LINUX
+#ifdef UNIX
     __asm__ volatile ( 
             "mov     $0x38,%eax\n"
             "cmp     $0xc033,%ax\n"

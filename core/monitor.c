@@ -203,7 +203,7 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     KSTOP(temp_private_bb);
     /* FIXME - PR 215179, with current hack pad_jmps sometimes marks fragments as
      * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
-     * inserted nops during tracing). This can happen for LINUX syscall fence exits and
+     * inserted nops during tracing). This can happen for UNIX syscall fence exits and
      * CLIENT_INTERFACE added exits.  However, it depends on the starting alignment of
      * the fragment! So it's possible to have a fragment that is ok turn into a 
      * fragment that isn't when re-emitted here.  We could keep the ilist around and

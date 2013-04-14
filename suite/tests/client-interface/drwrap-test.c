@@ -31,7 +31,7 @@
  */
 
 #include "tools.h"
-#ifdef LINUX
+#ifdef UNIX
 # include "dlfcn.h"
 #endif
 

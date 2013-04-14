@@ -160,7 +160,7 @@ void external_error(const char *file, int line, const char *msg);
 #define CHECK_TRUNCATE_TYPE_ushort(val) ((val) >= 0 && (val) <= USHRT_MAX)
 #define CHECK_TRUNCATE_TYPE_short(val) ((val) <= SHRT_MAX && ((int64)(val)) >= SHRT_MIN)
 #define CHECK_TRUNCATE_TYPE_uint(val) ((val) >= 0 && (val) <= UINT_MAX)
-#ifdef LINUX
+#ifdef UNIX
 /* We can't do the proper int check on Linux because it generates a warning if val has
  * type uint that I can't seem to cast around and is impossible to ignore -
  * "comparison is always true due to limited range of data type".
@@ -466,7 +466,7 @@ enum {
     LOCK_RANK(coarse_stub_areas), /* < global_alloc_lock */
     LOCK_RANK(moduledb_lock), /* < global heap allocation */
     LOCK_RANK(pcache_dir_check_lock),
-#ifdef LINUX
+#ifdef UNIX
     LOCK_RANK(suspend_lock),
     LOCK_RANK(shared_lock),
 #endif
@@ -491,9 +491,8 @@ enum {
     LOCK_RANK(allunits_lock),  /* < global_alloc_lock */
     LOCK_RANK(fcache_unit_areas), /* > allunits_lock, 
                                      < dynamo_areas, < global_alloc_lock */
-    IF_LINUX_(IF_DEBUG(LOCK_RANK(elf_areas))) /* < all_memory_areas */
     IF_LINUX_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
-    IF_LINUX_(LOCK_RANK(set_thread_area_lock)) /* no constraints */
+    IF_UNIX_(LOCK_RANK(set_thread_area_lock)) /* no constraints */
     LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
     LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */
     LOCK_RANK(map_intercept_pc_lock), /* < global_alloc_lock */
@@ -503,7 +502,7 @@ enum {
     LOCK_RANK(last_deallocated_lock),
     /*---- no one below here can be held at a memory allocation site ----*/
 
-#ifdef LINUX
+#ifdef UNIX
     LOCK_RANK(tls_lock), /* if used for get_thread_private_dcontext() may
                           * need to be even lower: as it is, only used for set */
 #endif
@@ -562,7 +561,7 @@ enum {
     LOCK_RANK(eventlog_mutex), /* < datasec_selfprot_lock only for hello_message */
     LOCK_RANK(datasec_selfprot_lock),
     LOCK_RANK(thread_stats_lock),
-#ifdef LINUX
+#ifdef UNIX
     /* shared_itimer_lock is used in timer signal handling, which could happen at
      * anytime, so we put it at the innermost.
      */
@@ -678,7 +677,7 @@ void mutex_delete(mutex_t *lock);
 void mutex_lock(mutex_t *mutex);
 bool mutex_trylock(mutex_t *mutex);
 void mutex_unlock(mutex_t *mutex);
-#ifdef LINUX
+#ifdef UNIX
 void mutex_fork_reset(mutex_t *mutex);
 #endif
 #ifdef CLIENT_INTERFACE
@@ -2084,7 +2083,7 @@ bool isdigit(int c);
 #define isprint_fast(c) (((c) >= 0x20) && ((c) < 0x7f))
 #define isdigit_fast(c) (((c) >= '0') && ((c) <= '9'))
 
-#ifdef LINUX
+#ifdef UNIX
 /* PR 251709 / PR 257565: avoid __ctype_b linking issues for standalone
  * and start/stop clients.  We simply avoid linking with the locale code
  * altogether.

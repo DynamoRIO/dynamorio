@@ -49,9 +49,8 @@
 #cmakedefine LINUX
 #cmakedefine VMKERNEL
 #cmakedefine MACOS
-#ifdef MACOS
-/* simplest to share LINUX and distinguish via MACOS or not */
-# define LINUX
+#if defined(MACOS) || defined (LINUX) || defined(VMKERNEL)
+# define UNIX
 #endif
 
 /* set by high-level VMAP/VMSAFE/VPS configurations */
@@ -192,8 +191,8 @@
 
 # target platforms
 #    $(D)WINDOWS (avoid using _WIN32 used by cl)
-#    $(D)LINUX 
-#    note that in many cases we use the else of WINDOWS to mean LINUX and vice versa
+#    $(D)UNIX 
+#    note that in many cases we use the else of WINDOWS to mean UNIX and vice versa
 #    we're just starting to add VMKERNEL and MACOS support
 #    $(D)X86
 #    $(D)X64
@@ -220,14 +219,14 @@
 #  define NOLIBC
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 #  define ASSEMBLE_WITH_GAS
 #else
 #  define ASSEMBLE_WITH_MASM
 #endif
 
 /* operating system */
-#ifdef LINUX
+#ifdef UNIX
 
 #  ifdef VMKERNEL
 #    define VMX86_SERVER

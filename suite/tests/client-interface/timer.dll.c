@@ -31,7 +31,7 @@
  */
 
 #include "dr_api.h"
-#ifdef LINUX
+#ifdef UNIX
 # include <sys/time.h>
 #else
 # error NYI
