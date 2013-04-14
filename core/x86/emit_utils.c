@@ -556,9 +556,6 @@ is_patchable_exit_stub_helper(dcontext_t *dcontext, cache_pc ltarget,
         /*indirect */
         if (!DYNAMO_OPTION(indirect_stubs))
             return false;
-#ifdef NATIVE_RETURN
-        ASSERT_NOT_IMPLEMENTED(false); /* don't bother */
-#endif
         if (
 #ifdef WINDOWS
             !is_shared_syscall_routine(dcontext, ltarget) && 
@@ -1287,9 +1284,6 @@ is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)
     ASSERT(instr_is_exit_cti(inst));
     target = instr_get_branch_target_pc(inst);
     if (is_indirect_branch_lookup_routine(dcontext, target)) {
-#ifdef NATIVE_RETURN
-        ASSERT_NOT_IMPLEMENTED(false); /* not going to bother */
-#endif
         /* whether has an inline stub or not, cti is always
          * patched if -no_indirect_stubs
          */
@@ -1516,45 +1510,6 @@ link_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, bool hot_
     }
     STATS_INC(num_indirect_links);
 
-#ifdef NATIVE_RETURN
-    if (l->ret_pc != 0 && *(l->ret_pc) == 0x90) {
-        /* if ind branch is a ret, need to re-instate it over the nops */
-        /* assume either 0xc2 or 0xc3, i.e., no far rets! */
-        /* see if ret has immed
-         * ASSUMPTION: no nop right after ret -- shouldn't be, that's
-         * where we put our "save xdx, save eflags, pop xdx" code
-         */
-        if (*(l->ret_pc+1) == 0x90) {
-            /* yes, this ret has an immed.
-             * we can restore the ret's immed value (if any) by looking at the
-             * add instr, which is always right before the jmp
-             * => ASSUMPTION: client doesn't add stuff bet. add and jmp to ibl!
-             *   0x4224c3da   83 c4 04             add    $0x04 %esp -> %esp 
-             * if 2-byte immed, add will be something like "81 c4 i1 i2"
-             */
-            byte op;
-            *(l->ret_pc) = 0xc2; /* ret */
-            LOG(THREAD, LOG_LINKS, 4, "re-instating ret imm over nop\n");
-            op = *(EXIT_CTI_PC(f, l) - 3);
-            /* 3 back: either 0x83 or 0xc4 */
-            if (op == 0xc4) {
-                /* copy 2-byte immed */
-                *((unsigned short *)(l->ret_pc+1)) =
-                    *((unsigned short *)(EXIT_CTI_PC(f, l) - 2));
-            } else {
-                ASSERT(op == 0x83);
-                /* copy 1-byte immed, extend to 2-byte */
-                *(l->ret_pc+1) = *(EXIT_CTI_PC(f, l) - 1);
-                *(l->ret_pc+2) = (byte) 0;
-            }
-        } else {
-            /* 1 byte ret */
-            *(l->ret_pc) = 0xc3; /* ret */
-            LOG(THREAD, LOG_LINKS, 4, "re-instating ret over nop\n");
-        }
-    }
-#endif
-
 # ifdef WINDOWS
     if (!is_shared_syscall_routine(dcontext, target_tag))
 # endif
@@ -1730,7 +1685,8 @@ cbr_fallthrough_exit_cti(cache_pc prev_cti_pc)
 }
 
 /* This is an atomic operation with respect to a thread executing in the
- * cache (barring ifdef NATIVE_RETURN), for inlined indirect exits the
+ * cache (barring ifdef NATIVE_RETURN, which is now removed), for
+ * inlined indirect exits the
  * unlinked path of the ibl routine detects the race condition between the
  * two patching writes and handles it appropriately unless using the
  * atomic_inlined_linking option in which case there is only one patching
@@ -1758,31 +1714,6 @@ unlink_indirect_exit(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     /* target is always the same, so if it's already unlinked, this is a nop */
     if (!TEST(LINK_LINKED, l->flags))
         return;
-
-#ifdef NATIVE_RETURN
-    if (l->ret_pc != 0) {
-        /* if ind branch is a ret, need to overwrite the ret itself w/ a nop
-         * hard to find the ret (would have to decode backwards!)
-         * so we store ret_pc in the linkstub.
-         */
-        byte op;
-        /* ret may be 1 or 3 bytes */
-        op = *(l->ret_pc);
-        /* assume either 0xc2 or 0xc3, i.e., no far rets! */
-        if (op == 0xc2) {
-            /* 3 bytes */
-            *(l->ret_pc) = 0x90; /* nop */
-            *(l->ret_pc+1) = 0x90; /* nop */
-            *(l->ret_pc+2) = 0x90; /* nop */
-            LOG(THREAD, LOG_LINKS, 4, "overwriting ret immed w/ nops\n");
-        } else {
-            ASSERT(op == 0xc3);
-            /* 1 byte */
-            *(l->ret_pc) = 0x90; /* nop */
-            LOG(THREAD, LOG_LINKS, 4, "overwriting ret w/ nop\n");
-        }
-    }
-#endif
 
 # ifdef WINDOWS
     if (!is_shared_syscall_routine(dcontext, target_tag))

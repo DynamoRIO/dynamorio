@@ -1569,13 +1569,6 @@ initialize_dynamo_context(dcontext_t *dcontext)
 
     set_last_exit(dcontext, (linkstub_t *) get_starting_linkstub());
 
-#ifdef NATIVE_RETURN
-# ifdef NATIVE_RETURN_CALLDEPTH
-    dcontext->call_depth = 0;
-# endif
-    dcontext->last_retaddr = NULL;
-    dcontext->num_calls_in_trace = 0;
-#endif
 #ifdef PROFILE_RDTSC
     dcontext->start_time = (uint64) 0;
     dcontext->prev_fragment = NULL;

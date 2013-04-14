@@ -792,19 +792,6 @@ bool should_syscall_method_be_sysenter(void);
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void); 
 
-#ifdef NATIVE_RETURN
-/* HACK for NATIVE_RETURN and ib-opt.c, to translate cache ret targets
- * to app targets for cmp,je pairs
- *
- * pc is really a cache_pc!  But we don't export that type for
- * CLIENT_INTERFACE
- *
- * case 10543: Removed this from the API for the DR community release.
- */
-app_pc
-ret_tgt_cache_to_app(dcontext_t *dcontext, app_pc pc);
-#endif
-
 /* in x86.asm */
 void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
                        bool free_initstack, bool return_on_return);
@@ -1260,7 +1247,7 @@ is_jmp_rel8(byte *code_buf, app_pc app_loc, app_pc *jmp_target /* OUT */);
 
 /* An upper bound on instructions added to a bb when added to a trace,
  * which is of course highest for the case of indirect branch mangling.
- * Normal lea, jecxz, lea is 14, NATIVE_RETURN can get above 20,
+ * Normal lea, jecxz, lea is 14, NATIVE_RETURN (now removed) could get above 20,
  * but this should cover everything, fine to be well above, this is
  * only used to keep below the maximum trace size for the next bb,
  * we calculate the exact size in fixup_last_cti().

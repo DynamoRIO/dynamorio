@@ -138,10 +138,6 @@ mixed_mode_enabled(void)
 # define TRACE_HEAD_PC_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, trace_head_pc))
 #endif
 
-#ifdef NATIVE_RETURN_CALLDEPTH
-# define CALL_DEPTH_OFFSET     ((PROT_OFFS)+offsetof(dcontext_t, call_depth))
-#endif
-
 #ifdef WINDOWS
 # define SYSENTER_STORAGE_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, sysenter_storage))
 # define IGNORE_ENTEREXIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, ignore_enterexit))

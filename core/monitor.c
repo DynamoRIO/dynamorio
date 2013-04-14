@@ -614,10 +614,6 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     dcontext->call_depth = 0;
 #endif
-#ifdef NATIVE_RETURN
-    dcontext->last_retaddr = NULL;
-    dcontext->num_calls_in_trace = 0;
-#endif
 }
 
 bool 
@@ -1509,12 +1505,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
          */
         if (trace_head_f == dcontext->last_fragment)
             last_exit_deleted(dcontext);
-#ifdef NATIVE_RETURN
-        /* just remove from hashtable, can't delete from fcache b/c could ret there */
-        fragment_delete(dcontext, trace_head_f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_FCACHE |
-                        FRAGDEL_NO_VMAREA | FRAGDEL_NO_HEAP | FRAGDEL_NO_MONITOR);
-#else
-# ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
         /* If the trace is private, don't delete the head: the trace will simply
          * shadow it.  If the trace is shared, we have to delete it.  We'll re-create
          * the head as a shared bb if we ever do build a custom trace through it.
@@ -1525,12 +1516,11 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
             CLIENT_ASSERT(!DYNAMO_OPTION(shared_bbs), "invalid private trace head and "
                           "private traces but -shared_bbs for CUSTOM_TRACES");
         } else {
-# endif
+#endif
             fragment_delete(dcontext, trace_head_f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR);
-# ifdef CUSTOM_TRACES
+#ifdef CUSTOM_TRACES
         }
-# endif
 #endif
         if (!replace_trace_head) {
             trace_head_f = NULL;

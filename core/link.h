@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -251,10 +251,6 @@ typedef struct _cbr_fallthrough_linkstub_t {
 /* linkage info for each indirect fragment exit (slit for case 6468) */
 typedef struct _indirect_linkstub_t {
     linkstub_t       l;
-
-#ifdef NATIVE_RETURN
-    cache_pc       ret_pc;         /* if this exit is a ret, cache pc of the ret */
-#endif
 } indirect_linkstub_t;
 
 

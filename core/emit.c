@@ -198,10 +198,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     frag_offs_at_end = linkstub_frag_offs_at_end(f->flags, num_direct_stubs,
                                                  num_indirect_stubs);
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-#ifdef NATIVE_RETURN
-        if (instr_opcode_valid(inst) && instr_is_return(inst))
-            prev_ret = pc;
-#endif
         if (instr_is_exit_cti(inst)) {
             /* l is currently zeroed out but otherwise uninitialized 
              * stub starts out as unlinked and never-been-linked 
@@ -247,17 +243,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 ASSERT(!LINKSTUB_NORMAL_DIRECT(l->flags));
                 ASSERT(!LINKSTUB_CBR_FALLTHROUGH(l->flags));
                 ASSERT(LINKSTUB_INDIRECT(l->flags));
-#ifdef NATIVE_RETURN
-                /* to unlink we have to nop-out the ret, but it's hard to find,
-                 * so we store its pc
-                 */
-                if (prev_ret != NULL) {
-                    indirect_linkstub_t *il = (indirect_linkstub_t *) l;
-                    ASSERT_NOT_TESTED();
-                    il->ret_pc = prev_ret;
-                    prev_ret = NULL;
-                }
-#endif
             }
             else {
                 DOSTATS({
@@ -310,9 +295,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                     ASSERT(!LINKSTUB_INDIRECT(l->flags));
                     dl->target_tag = target;
                 }
-#ifdef NATIVE_RETURN
-                ASSERT(prev_ret == NULL);
-#endif
             }
 
             if (should_separate_stub(dcontext, target, f->flags)
@@ -423,9 +405,6 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     uint      stub_size_total = 0; /* those in fcache w/ fragment */
 #ifdef CUSTOM_EXIT_STUBS
     bool      custom_stubs_present = false;
-#endif
-#ifdef NATIVE_RETURN
-    cache_pc  prev_ret = 0;
 #endif
     bool      final_cbr_single_stub = false;
     byte      *prev_stub_pc = NULL;

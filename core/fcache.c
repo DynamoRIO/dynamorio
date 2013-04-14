@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,11 +64,6 @@
  * To save memory, we don't make units larger than 64KB.  Not much advantage
  * to have huge units.
  */
-
-#ifdef NATIVE_RETURN
-/* cannot handle resizing of cache, separate units only */
-# define DISALLOW_CACHE_RESIZING
-#endif
 
 /* to make it easy to switch to INTERNAL_OPTION */
 #define FCACHE_OPTION(o) dynamo_options.o
@@ -2758,11 +2753,6 @@ replace_fragments(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
     ASSERT(!DYNAMO_OPTION(cache_shared_free_list) || !cache->is_shared);
     ASSERT(USE_FIFO_FOR_CACHE(cache));
 
-#ifdef NATIVE_RETURN
-    LOG(THREAD, 3, LOG_CACHE, "NATIVE_RETURN cannot handle deleting fragments\n");
-    return false;
-#endif
-
     DODEBUG({ cache->consistent = false; });
     /* first walk: make sure this is possible (look for un-deletable frags) */
     slot_so_far = 0;
@@ -4339,9 +4329,6 @@ fcache_reset_cache(dcontext_t *dcontext, fcache_t *cache)
     uint num_units = 0;
     uint sz;
 
-#ifdef NATIVE_RETURN
-    ASSERT_NOT_REACHED(); /* NATIVE_RETURN requires no fragment deletions */
-#endif
     /* FIXME: this is called when low on memory: safe to grab lock? */
     PROTECT_CACHE(cache, lock);
 

@@ -5310,139 +5310,44 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     }
 #endif /* CUSTOM_TRACES_RET_REMOVAL */
 
-#ifdef NATIVE_RETURN
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    if (
-# ifdef NATIVE_RETURN_RET_IN_TRACES
-        /* disable inlining ret: keep it as ret, actually gets better
-         * performance, most noticeably on eon, vortex
-         */
-        false && 
-# endif
-        prev_l != NULL && prev_l->ret_pc != 0) {
-        /* we came here through a ret
-         * it was like this:
-         *     ret
-         *     save ecx
-         *     pop ecx
-         *     <add 4,esp>
-         *     jmp ibl
-         * we turn it into:
-         *     save ecx
-         *     pop ecx
-         *     <add 4,esp>
-         *     cmp ecx, code_cache_retaddr
-         *     jne ibl
-         *     restore ecx
-         * with custom stub code for jne ibl:
-         *     push ecx
-         *     restore ecx
-         *     ret <with NO IMMED>
-         * we get code_cache_retaddr by saving it in dispatch each time
-         * that we have to translate a next_tag from cache to app.
-         */
-        instrlist_t *stub_code = instrlist_create(dcontext);
-        /* remove ret (will be added to custom exit stub code) */
-        instr_t *ret = targeter;
-        LOG(THREAD, LOG_MONITOR, 4, "\tprev_l was a ret with last addr "PFX"\n",
-            dcontext->last_retaddr);
-        while (ret != NULL) {
-            ret = instr_get_prev(ret);
-            if (instr_opcode_valid(ret) && instr_is_return(ret))
-                break;
+#ifdef X64
+    if (X64_CACHE_MODE_DC(dcontext)) {
+        added_size +=
+            mangle_x64_ib_in_trace(dcontext, trace, targeter, next_tag);
+    } else {
+#endif
+        if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
+            /* if equal follow to the next instruction after the exit CTI */
+            added_size +=
+                insert_transparent_comparison(dcontext, trace, targeter,
+                                              next_tag);
+            /* leave jmp as it is, a jmp to exit stub (thence to ind br
+             * lookup) */
         }
-        ASSERT(ret != NULL);
-        instrlist_remove(trace, ret);
-        instr_destroy(dcontext, ret);
-        /* can this ret go away, assuming the calling convention? */
-        if (dcontext->num_calls_in_trace > 0) {
-            /* BIG ASSUMPTION: this ret can go away, the corresponding
-             * call is earlier in this trace!
-             * Just need to pop retaddr off stack by adding 4 to esp.
+        else {
+            /* assume eflags don't need to be saved across ind branches,
+             * so go ahead and use cmp, jne
              */
-            ret = instr_get_prev(targeter);
-            ASSERT(ret != NULL);
-            instrlist_remove(trace, ret);
-            instr_destroy(dcontext, ret);
+            /* FIXME: no way to cmp w/ 64-bit immed */
+            IF_X64(ASSERT_NOT_IMPLEMENTED(!X64_MODE_DC(dcontext)));
             added_size += tracelist_add
                 (dcontext, trace, targeter,
-                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_ESP),
-                                  opnd_create_base_disp(REG_ESP, REG_NULL, 0,
-                                                        (int)4, OPSZ_lea)));
-            instrlist_remove(trace, targeter);
-            instr_destroy(dcontext, targeter);
-            LOG(THREAD, LOG_MONITOR, 4, "\tjust removed ret (#calls %d)\n",
-                dcontext->num_calls_in_trace);
-            dcontext->num_calls_in_trace--;
-            goto fixup_last_cti_finished;
+                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_ECX),
+                                  OPND_CREATE_INT32((int)(ptr_int_t)next_tag)));
+
+            /* Change jmp into jne indirect_branch_lookup */
+            /* CHECK: is that also going to exit stub */
+            instr_set_opcode(targeter, OP_jnz);
+            added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
         }
-        /* add cmp to cache addr */
-        added_size += tracelist_add
-            (dcontext, trace, targeter,
-             INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_ECX),
-                              OPND_CREATE_INT32((int)dcontext->last_retaddr)));
-        /* change jmp into jne indirect_branch_lookup */
-        instr_set_opcode(targeter, OP_jnz);
-        /* add custom exit stub code */
-        added_size += tracelist_add(dcontext, stub_code, NULL,
-                                    INSTR_CREATE_push(dcontext, opnd_create_reg(REG_ECX)));
-        /* FIXME: When using -unsafe_ignore_eflags, does jmp after call go to
-         * ib prefix of target? need to fix up eflags issues w/ mangle.c */
-        ASSERT_NOT_IMPLEMENTED(!INTERNAL_OPTION(unsafe_ignore_eflags));
-        added_size += tracelist_add
-            (dcontext, stub_code, NULL,
-             instr_create_restore_from_dcontext(dcontext, REG_ECX, XCX_OFFSET));
-        /* can't re-use ret instr, b/c need a ret w/ NO IMMED */
-        added_size += tracelist_add(dcontext, stub_code, NULL,
-                                    INSTR_CREATE_ret(dcontext));
-        instr_set_exit_stub_code(targeter, stub_code);
-            
-        /* now let normal restore-if-on-trace code get added */
-    } else {
-#endif /* NATIVE_RETURN */
-
 #ifdef X64
-        if (X64_CACHE_MODE_DC(dcontext)) {
-            added_size +=
-                mangle_x64_ib_in_trace(dcontext, trace, targeter, next_tag);
-        } else {
-#endif
-            if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
-                /* if equal follow to the next instruction after the exit CTI */
-                added_size +=
-                    insert_transparent_comparison(dcontext, trace, targeter,
-                                                  next_tag);
-                /* leave jmp as it is, a jmp to exit stub (thence to ind br
-                 * lookup) */
-            }
-            else {
-                /* assume eflags don't need to be saved across ind branches,
-                 * so go ahead and use cmp, jne
-                 */
-                /* FIXME: no way to cmp w/ 64-bit immed */
-                IF_X64(ASSERT_NOT_IMPLEMENTED(!X64_MODE_DC(dcontext)));
-                added_size += tracelist_add
-                    (dcontext, trace, targeter,
-                     INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_ECX),
-                                      OPND_CREATE_INT32((int)(ptr_int_t)next_tag)));
-
-                /* Change jmp into jne indirect_branch_lookup */
-                /* CHECK: is that also going to exit stub */
-                instr_set_opcode(targeter, OP_jnz);
-                added_size++; /* jcc is 6 bytes, jmp is 5 bytes */
-            }
-#ifdef X64
-        }
-#endif /* X64 */
-        /* PR 214962: our spill restoration needs this whole sequence marked mangle */
-        instr_set_our_mangling(targeter, true);
-
-        LOG(THREAD, LOG_MONITOR, 3,
-            "fixup_last_cti: added cmp vs. "PFX" for ind br\n", next_tag);
-
-#ifdef NATIVE_RETURN
     }
-#endif
+#endif /* X64 */
+    /* PR 214962: our spill restoration needs this whole sequence marked mangle */
+    instr_set_our_mangling(targeter, true);
+
+    LOG(THREAD, LOG_MONITOR, 3,
+        "fixup_last_cti: added cmp vs. "PFX" for ind br\n", next_tag);
 
 #ifdef HASHTABLE_STATISTICS
     /* If we do stay on the trace, increment a counter using dead XCX */
@@ -5708,9 +5613,6 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
     if (num_exits_deleted != NULL)
         *num_exits_deleted = exits_deleted;
 
-#ifdef NATIVE_RETURN
- fixup_last_cti_finished:
-#endif
     if (record_translation)
         instrlist_set_translation_target(trace, NULL);
     instrlist_set_our_mangling(trace, false); /* PR 267260 */
@@ -6764,11 +6666,6 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     } else if (instr_is_return(instr) ||
                                !opnd_is_near_pc(instr_get_target(instr))) {
                         /* just leave it undecoded */
-#ifdef NATIVE_RETURN
-                        /* need to be able to find ret for fixup_last_cti */
-                        if (instr_is_return(instr))
-                            separate_cti = true;
-#endif
                         intra_target = false;
                     } else if (instr_is_cti_short_rewrite(instr, prev_pc)) {
                         /* Cti-short should only occur as exit ctis, which are
@@ -6803,12 +6700,6 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                         DOLOG(DF_LOGLEVEL(dcontext), LOG_MONITOR, {
                             loginst(dcontext, 4, instr, "\tcti has intra-fragment target");
                         });
-#ifdef NATIVE_RETURN
-                        if (instr_is_call(instr)) {
-                            /* assume it's an application call! */
-                            dcontext->num_calls_in_trace++;
-                        }
-#endif
                         /* since the resulting instrlist could be manipulated,
                          * we need to change the target operand from pc to instr_t.
                          * that requires having this instr separated out now so

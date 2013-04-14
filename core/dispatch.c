@@ -302,10 +302,6 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
             dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
         DOLOG(6, LOG_DISPATCH, { dump_mcontext_callstack(dcontext); });
         DOKSTATS({ DOLOG(6, LOG_DISPATCH, { kstats_dump_stack(dcontext); }); });
-# ifdef NATIVE_RETURN_CALLDEPTH
-        LOG(THREAD, LOG_DISPATCH, 3, "\tCall depth is %d\n",
-            dcontext->call_depth);
-# endif
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into F%d("PFX")."PFX" %s%s%s", 
             targetf->id,
             targetf->tag,
@@ -558,28 +554,12 @@ dispatch_at_stopping_point(dcontext_t *dcontext)
     else if (dcontext->next_tag == (app_pc)dynamorio_app_exit)
         LOG(THREAD, LOG_INTERP, 1, "\t==dynamorio_app_exit\n");
     else if (dcontext->next_tag == (app_pc)dr_app_stop) {
-#   ifdef NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK
-        /* FIXME: restore app ret pc before we give control back */
-        *((int *)(get_mcontext(dcontext)->xsp)) = 
-#   endif
         LOG(THREAD, LOG_INTERP, 1, "\t==dr_app_stop\n");
     }
 #  endif
 # endif
     
-# ifdef NATIVE_RETURN
-    /* HACK: end now and avoid having to get app return pc
-     * assumes single thread, entire-app run
-     */
-    {
-        byte *app_esp = get_mcontext(dcontext)->xsp;
-        asm("movl %0, %%esp" : : "m"(app_esp));
-        dynamorio_app_exit();
-        exit(0);
-    }
-# else
     dynamo_thread_not_under_dynamo(dcontext);
-# endif
 }
 #endif
 
@@ -876,25 +856,6 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                   IS_CLIENT_THREAD(dcontext)));
     ASSERT(dcontext->app_nls_cache == NULL ||
            dcontext->app_nls_cache != dcontext->priv_nls_cache);
-#endif
-
-#ifdef NATIVE_RETURN
-    if (in_fcache(dcontext->next_tag)) {
-        /* when we unlink a ret, it ends up coming back here
-         * with the code cache target as next_tag.
-         * we translate that to an app pc here.
-         */
-        app_pc tgt_app_pc = ret_tgt_cache_to_app(dcontext,
-                                                 (cache_pc)dcontext->next_tag);
-        LOG(THREAD, LOG_DISPATCH, 3, "next_tag is in cache: "PFX"\n",
-            dcontext->next_tag);
-        LOG(THREAD, LOG_DISPATCH, 3, "next_tag "PFX" -> app ret addr "PFX"\n",
-            dcontext->next_tag, tgt_app_pc);
-        /* set last_retaddr for fixup_last_cti, if building trace */
-        dcontext->last_retaddr = dcontext->next_tag;
-        dcontext->next_tag = tgt_app_pc;
-        ASSERT(dcontext->last_exit->ret_pc != NULL);
-    }
 #endif
 
     if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
@@ -1555,11 +1516,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
             STATS_INC(num_exits_dir_signal);
         }
 #  endif
-#  ifdef NATIVE_RETURN
-        else if (TEST(FRAG_IS_TRACE_HEAD, next_f->flags)) {
-            LOG(THREAD, LOG_DISPATCH, 2, " (returned to old trace head)");
-        }
-#  endif
         else if (TEST(FRAG_COARSE_GRAIN, next_f->flags) &&
                  !TEST(FRAG_COARSE_GRAIN, last_f->flags)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (fine fragment targeting coarse trace head)");
@@ -1590,10 +1546,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
     DOLOG(6, LOG_DISPATCH, { dump_mcontext_callstack(dcontext); });
     DOKSTATS({ DOLOG(6, LOG_DISPATCH, { kstats_dump_stack(dcontext); }); });
-# ifdef NATIVE_RETURN_CALLDEPTH
-    LOG(THREAD, LOG_DISPATCH, 3, "\tCall depth is %d\n",
-        dcontext->call_depth);
-# endif
 #endif /* defined(DEBUG) || defined(KSTATS) */
 }
 

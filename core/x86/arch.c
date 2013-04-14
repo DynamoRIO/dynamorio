@@ -4395,50 +4395,6 @@ get_app_sysenter_addr()
     return app_sysenter_instr_addr;
 }
 
-#ifdef NATIVE_RETURN
-app_pc
-ret_tgt_cache_to_app(dcontext_t *dcontext, cache_pc pc)
-{
-    fragment_t wrapper;
-    fragment_t *tgt;
-    linkstub_t *tgt_l;
-    if (!in_fcache(pc)) {
-        return NULL;
-    }
-    LOG(THREAD, LOG_DISPATCH, 3, "ret_tgt_cache_to_app: cache pc "PFX"\n", pc);
-    /* expects pc to point to the jmp after a call
-     * the jmp is an exit cti that targets the fragment for the
-     * app return address
-     */
-    tgt = fragment_pclookup(dcontext, pc, &wrapper);
-    if (tgt == NULL) {
-        /* HACK: fragment may have been "deleted" by removing from htable
-         * find what is pointed to -- must be exit stub
-         */
-        uint offs = *((uint*)(pc+1));
-        /* +5+offs = stub, +6 = &linkstub_t */
-        cache_pc lpc = pc + 5 + offs + 6;
-        /* assumption: it's unlinked...else we'll be off at top of tgt frag! */
-        ASSERT(*(lpc-1) == 0xb8);
-        tgt_l = *((linkstub_t **) lpc);
-        LOG(THREAD, LOG_DISPATCH, 3,
-            "\ttgt is NULL, got intra-stub pc "PFX" (pc+0x%x+11)-> l = "PFX"\n",
-            lpc, offs, tgt_l);
-    } else {
-        tgt_l = FRAGMENT_EXIT_STUBS(tgt);
-        ASSERT(tgt_l != NULL);
-        while (EXIT_CTI_PC(tgt, tgt_l) != pc) {
-            tgt_l = LINKSTUB_NEXT_EXIT(tgt_l);
-            ASSERT(tgt_l != NULL);
-        }
-    }
-    ASSERT(tgt_l != NULL);
-    LOG(THREAD, LOG_DISPATCH, 3, "\tcache pc "PFX" -> app ret addr "PFX"\n",
-        pc, EXIT_TARGET_TAG(dcontext, tgt, tgt_l));
-    return EXIT_TARGET_TAG(dcontext, tgt, tgt_l);
-}
-#endif
-
 void
 copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst)
 {

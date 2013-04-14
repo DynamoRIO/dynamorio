@@ -459,9 +459,6 @@ typedef struct _per_thread_t {
     fragment_table_t bb;
     fragment_table_t trace;
     fragment_table_t future;
-#ifdef NATIVE_RETURN
-    fragment_table_t deleted;
-#endif
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     mutex_t fragment_delete_mutex;
 #endif
@@ -780,11 +777,6 @@ app_pc_table_t *
 rct_table_resurrect(dcontext_t *dcontext, byte *mapped_table, rct_type_t which);
 
 #endif /* RETURN_AFTER_CALL || RCT_IND_BRANCH */
-
-#ifdef NATIVE_RETURN
-void
-fragment_add_deleted(dcontext_t *dcontext, fragment_t *f);
-#endif
 
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
 /* synchronization routine for sideline thread */

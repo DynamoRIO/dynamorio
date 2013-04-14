@@ -2596,7 +2596,6 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->unsafe_ignore_eflags_trace = options->unsafe_ignore_eflags;
             options->unsafe_ignore_eflags_prefix = options->unsafe_ignore_eflags;
             options->unsafe_ignore_eflags_ibl = options->unsafe_ignore_eflags;
-            /* this also covers NATIVE_RETURN which doesn't have a separate option */
         }
      }, "do not preserve EFLAGS on any part of ind br handling, unsafe", STATIC,
     OP_PCACHE_NOP)

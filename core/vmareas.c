@@ -9412,9 +9412,6 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
                 entry, FRAG_MULTI(entry) ? " multi": "", FRAG_ID(entry), FRAG_PC(entry));
             if (FRAG_FRAG(entry) == was_I_flushed)
                 ASSERT(!not_flushed); /* should have been caught up top */
-#ifdef NATIVE_RETURN
-            fragment_add_deleted(GLOBAL_DCONTEXT, FRAG_FRAG(entry));
-#endif
             /* vm_area_unlink_fragments should have removed all multis/alsos */
             ASSERT(!FRAG_MULTI(entry));
             /* FRAG_ALSO is used by lazy list so it may not be NULL */
@@ -9506,9 +9503,6 @@ vm_area_flush_fragments(dcontext_t *dcontext, fragment_t *was_I_flushed)
                     if (was_I_flushed == dcontext->last_fragment)
                         last_exit_deleted(dcontext);
                 }
-#ifdef NATIVE_RETURN
-                fragment_add_deleted(dcontext, FRAG_FRAG(entry));
-#endif
                 ASSERT(TEST(FRAG_WAS_DELETED, FRAG_FRAG(entry)->flags));
                 ASSERT(FRAG_ALSO_DEL_OK(entry) == NULL);
                 fragment_delete(dcontext, FRAG_FRAG(entry),
@@ -9772,9 +9766,6 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
                             "\tremoving "PFX"%s F%d("PFX")\n",
                             entry, FRAG_MULTI(entry) ? " multi": "", FRAG_ID(entry),
                             FRAG_PC(entry));
-#ifdef NATIVE_RETURN
-                        fragment_add_deleted(dcontext, FRAG_FRAG(entry));
-#endif
                         if (SHARED_IBT_TABLES_ENABLED()) {
                             /* fragment_remove() won't remove from shared ibt tables,
                              * b/c assuming we didn't do the synch for it, so we

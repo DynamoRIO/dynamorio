@@ -215,13 +215,6 @@ typedef byte * cache_pc;  /* fragment cache pc */
 # endif
 #endif
 
-#ifdef NATIVE_RETURN
-# ifndef CUSTOM_EXIT_STUBS
-#  error NATIVE_RETURN requires CUSTOM_EXIT_STUBS
-# endif
-/* NOTE NATIVE_RETURN requires -unsafe_ignore_eflags */
-#endif
-
 #ifdef DGC_DIAGNOSTICS
 # ifndef PROGRAM_SHEPHERDING
 #  error DGC_DIAGNOSTICS requires PROGRAM_SHEPHERDING
@@ -855,13 +848,6 @@ struct _dcontext_t {
     int num_calls;
     int num_rets;
     int call_depth;
-#endif
-#ifdef NATIVE_RETURN
-# ifdef NATIVE_RETURN_CALLDEPTH
-    uint           call_depth;
-# endif
-    cache_pc       last_retaddr; /* used by fixup_last_cti */
-    int            num_calls_in_trace;
 #endif
 
 #ifdef CHECK_RETURNS_SSE2

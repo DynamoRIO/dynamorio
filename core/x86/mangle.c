@@ -72,10 +72,6 @@
 #define POST instrlist_meta_postinsert
 #define PRE  instrlist_meta_preinsert
 
-#if defined(NATIVE_RETURN) && !defined(DEBUG)
-extern int num_fragments;
-#endif
-
 #ifndef STANDALONE_DECODER
 /****************************************************************************
  * clean call callee info table for i#42 and i#43
@@ -1471,305 +1467,6 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
  *   M A N G L I N G   R O U T I N E S
  */
 
-/*###########################################################################*/
-#ifdef NATIVE_RETURN
-
-/* ENORMOUS HACK: written by mangle_direct_call, read by
- * native_ret_mangle_return
- */
-static app_pc static_retaddr;
-
-static instr_t *
-native_ret_mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                              instr_t *next_instr, uint retaddr)
-{
-# ifdef NATIVE_RETURN_CALLDEPTH
-    uint flags = 0;
-# endif
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    /* ENORMOUS HACK -- READ BY MANGLE_RETURN */
-    static_retaddr = (app_pc) retaddr;
-
-    /* HACKS to deal with places where ret addr is taken inside a real callee:
-         0x40170199   e8 32 fa ff ff       call   $0x4016fbd0 
-             continuing in callee at 0x4016fbd0
-         0x4016fbd0   8b 1c 24             mov    (%esp) -> %ebx 
-         0x4016fbd3   c3                   ret    %esp (%esp) -> %esp 
-     * also this:
-         0x400a9bab   e8 00 00 00 00       call   $0x400a9bb0 
-             continuing in callee at 0x400a9bb0
-         0x400a9bb0   8d 04 c0             lea    (%eax,%eax,8) -> %eax 
-         0x400a9bb3   03 04 24             add    (%esp) %eax -> %eax 
-         0x400a9bb6   05 0d 00 00 00       add    $0x0000000d %eax -> %eax 
-         0x400a9bbb   83 c4 04             add    $0x04 %esp -> %esp 
-         0x400a9bbe   ff e0                jmp    %eax 
-     */
-    if (instr_raw_bits_valid(next_instr) &&
-        instr_length(dcontext, next_instr) == 3) {
-        byte *b = instr_get_raw_bits(next_instr);
-        if (*b==0x8b && *(b+1)==0x1c && *(b+2)==0x24) {
-            LOG(THREAD, LOG_INTERP, 3, "mangling load of return address!\n");
-            /* we can't delete next_instr (in local var in mangle()) */
-            /* cannot call instr_reset, it will kill prev & next ptrs */
-            instr_free(dcontext, next_instr);
-            instr_set_opcode(next_instr, OP_mov_imm);
-            instr_set_num_opnds(dcontext, next_instr, 1, 1);
-            instr_set_dst(next_instr, 0, opnd_create_reg(REG_EBX));
-            instr_set_src(next_instr, 0, OPND_CREATE_INT32(retaddr));
-        }
-    } else if (instr_raw_bits_valid(next_instr) &&
-               instr_length(dcontext, next_instr) == 14) {
-        byte *b = instr_get_raw_bits(next_instr);
-        if (*b==0x8d && *(b+1)==0x04 && *(b+2)==0xc0 &&
-            *(b+3)==0x03 && *(b+4)==0x04 && *(b+5)==0x24) {
-            LOG(THREAD, LOG_INTERP, 3, "mangling load of return address!\n");
-            instrlist_preinsert(ilist, next_instr,
-                                instr_create_raw_3bytes(dcontext, 0x8d, 0x04, 0xc0));
-            instrlist_preinsert(ilist, next_instr,
-                                INSTR_CREATE_add(dcontext, opnd_create_reg(REG_EAX),
-                                                 OPND_CREATE_INT32(retaddr)));
-            instr_set_raw_bits(next_instr, b+6, 8);
-            next_instr = instr_get_next(instr);
-        }
-    }
-
-    /*********************************************************/
-    /* NEW CALL HANDLING: NATIVE RETURN
-          save flags
-          inc call_depth
-          restore flags
-          call skip
-FIXME: coordinate this w/ ret site:       restore flags
-          jmp app_ret_addr
-        skip:
-          continue in callee
-     */
-# ifdef NATIVE_RETURN_CALLDEPTH
-    if (!TEST(FRAG_WRITES_EFLAGS_6, flags)) {
-        /* save app's eax */
-        instrlist_preinsert(ilist, instr,
-                         instr_create_save_to_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-        /* save flags */
-        instrlist_preinsert(ilist, instr, INSTR_CREATE_lahf(dcontext));
-    }
-    if (!TEST(FRAG_WRITES_EFLAGS_OF, flags)) {
-        /* must have saved eax */
-        ASSERT(!TEST(FRAG_WRITES_EFLAGS_6, flags));
-        /* seto al */
-        instrlist_preinsert(ilist, instr,
-                INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
-    }
-
-    /* inc call_depth */
-    instrlist_preinsert(ilist, instr,
-                        INSTR_CREATE_inc(dcontext, opnd_create_dcontext_field(dcontext,
-                                                                              CALL_DEPTH_OFFSET)));
-
-    if ((flags & FRAG_WRITES_EFLAGS_OF) == 0) {
-        /* now do an add such that OF will be set only if seto set al to 1 */
-        instrlist_preinsert(ilist, instr,
-         INSTR_CREATE_add(dcontext,
-                          opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
-    }
-    if ((flags & FRAG_WRITES_EFLAGS_6) == 0) {
-        instrlist_preinsert(ilist, instr, INSTR_CREATE_sahf(dcontext));
-        instrlist_preinsert(ilist, instr,
-                 instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-    }
-# endif
-
-    /* tell call to target next instr */
-    instr_set_target(instr, opnd_create_instr(next_instr));
-
-# ifdef NATIVE_RETURN_CALLDEPTH
-    /* FIXME: these flags should be based on retaddr */
-    if ((flags & FRAG_WRITES_EFLAGS_OF) == 0) {
-        /* now do an add such that OF will be set only if seto set al to 1 */
-        instrlist_preinsert(ilist, instr,
-         INSTR_CREATE_add(dcontext,
-                          opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
-    }
-    if ((flags & FRAG_WRITES_EFLAGS_6) == 0) {
-        instrlist_preinsert(ilist, next_instr, INSTR_CREATE_sahf(dcontext));
-        instrlist_preinsert(ilist, next_instr,
-                 instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-    }
-# endif
-
-    /* exit cit, so no reachability concerns */
-    instrlist_preinsert(ilist, next_instr, INSTR_CREATE_jmp(dcontext,
-                                                opnd_create_pc((app_pc)retaddr)));
-    return next_instr;
-}
-
-static void
-native_ret_mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                         instr_t *next_instr)
-{
-    bool code_cache_ret = true;
-    /*
-        cmp call_depth, 0
-        je normal_ret
-        dec call_depth
-FIXME: currently restoring flags at call's return site too
-plus need to move the flag saving up above here, now it's after
-save edx
-        restore eflags
-        ret
-     normal_ret:
-        save edx
-        pop edx
-        <add ret_imm, esp>
-        jmp ind_br_lookup (via stub)
-    */
-    uint flags = (FRAG_WRITES_EFLAGS_OF | FRAG_WRITES_EFLAGS_6);
-    instr_t *addinstr = NULL;
-    
-    /* do normal_ret first */
-    instr_t *nxt = instr_get_next(instr); /* next_instr is after flag saving! */
-
-    /* save away ecx so that we can use it */
-    /* (it's restored in x86.s (indirect_branch_lookup) */
-    instr_t *save_ecx = instr_create_save_to_dcontext(dcontext, REG_ECX, XCX_OFFSET);
-    instrlist_preinsert(ilist, nxt, save_ecx);
-
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-
-    /* see if ret has an immed int operand, assumed to be 1st src */
-            
-    if (instr_num_srcs(instr) > 0 && opnd_is_immed_int(instr_get_src(instr, 0))) {
-        /* if has an operand, return removes some stack space,
-         * AFTER the return address is popped
-         */
-        ptr_int_t val = opnd_get_immed_int(instr_get_src(instr, 0));
-        opnd_t add;
-        if (val >= -128 && val <= 127)
-            add = opnd_create_immed_int(val, OPSZ_1);
-        else
-            add = opnd_create_immed_int(val, OPSZ_4);
-        /* addl sizeof_param_area, %esp */
-        /* insert this add AFTER the flags have been saved! */
-         if (!INTERNAL_OPTION(unsafe_ignore_eflags)) {
-             instrlist_preinsert(ilist, next_instr,
-                                 INSTR_CREATE_add(dcontext,
-                                                  opnd_create_reg(REG_ESP), add));
-         }
-         else {
-             addinstr = INSTR_CREATE_add(dcontext, opnd_create_reg(REG_ESP), add);
-         }
-    }
-            
-    if (instr_raw_bits_valid(instr)) {
-        app_pc pc = (app_pc) instr_get_raw_bits(instr);
-        LOG(THREAD, LOG_INTERP, 3, "checking ret at address "PFX"\n", pc);
-        if (is_dynamo_address(pc)) {
-            LOG(THREAD, LOG_INTERP, 3, "found a ret at dynamo address "PFX"\n", pc);
-        }
-        /* 0x4000d090 on cagfarm* and atari, 0x4000d080 on kobold */
-        if (pc == (app_pc) 0x4000d090 || pc == (app_pc) 0x4000d080 ||
-            (is_dynamo_address(pc) &&
-# ifdef DEBUG
-             ((automatic_startup && GLOBAL_STAT(num_fragments) < 32) ||
-              (!automatic_startup && GLOBAL_STAT(num_fragments) < 5))
-# else
-             /* could use GLOBAL_STAT but only if option is on */
-             ((automatic_startup && num_fragments < 32) ||
-              (!automatic_startup && num_fragments < 5))
-# endif
-             )) {
-            code_cache_ret = false;
-        }
-    }
-
-    /* change RET into a POP */
-    instrlist_preinsert(ilist, nxt, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_ECX)));
-
-    if (INTERNAL_OPTION(unsafe_ignore_eflags) && addinstr != NULL)
-        instrlist_preinsert(ilist, nxt, addinstr);
-    /* now do first part, before normal_ret */
-    if (!code_cache_ret) { /*dcontext->call_depth == 0) {*/
-        /* ASSUMPTION: no calls in this basic block preceding the ret,
-         * no other places in program where return below dynamorio start stack
-         * frame
-         */
-        LOG(THREAD, LOG_INTERP, 3, "found a non-code-cache ret\n");
-        /* remove the ret */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
-    } else {
-        instr_t *prev;
-
-# ifdef NATIVE_RETURN_CALLDEPTH
-        /* cmp call_depth, 0 */
-        instrlist_preinsert(ilist, instr,
-                            INSTR_CREATE_cmp(dcontext,
-                                             opnd_create_dcontext_field(dcontext, CALL_DEPTH_OFFSET),
-                                             OPND_CREATE_INT32(0)));
-        /* je normal_ret */
-        instrlist_preinsert(ilist, instr, INSTR_CREATE_jcc(dcontext, OP_je,
-                                                           opnd_create_instr(save_ecx)));
-        /* dec call_depth */
-        instrlist_preinsert(ilist, instr,
-                            INSTR_CREATE_dec(dcontext, opnd_create_dcontext_field(dcontext,
-                                                                                  CALL_DEPTH_OFFSET)));
-
-        if ((flags & FRAG_WRITES_EFLAGS_OF) == 0) {
-            /* now do an add such that OF will be set only if seto set al to 1 */
-            instrlist_preinsert(ilist, instr,
-                                INSTR_CREATE_add(dcontext,
-                                                 opnd_create_reg(REG_AL),
-                                                 OPND_CREATE_INT8(0x7f)));
-        }
-        if ((flags & FRAG_WRITES_EFLAGS_6) == 0) {
-            instrlist_preinsert(ilist, instr, INSTR_CREATE_sahf(dcontext));
-            instrlist_preinsert(ilist, instr,
-                                instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
-        }
-# endif
-
-        /* leave ret instr where it is */
-
-        /* HACKS to deal with places where ret addr is taken inside a real callee:
-         0x400864b6   8b 4c 24 00          mov    (%esp) -> %ecx 
-         0x400864ba   89 4a 14             mov    %ecx -> 0x14(%edx) 
-         0x400864bd   89 6a 0c             mov    %ebp -> 0xc(%edx) 
-         0x400864c0   89 42 18             mov    %eax -> 0x18(%edx) 
-         0x400864c3   c3                   ret    %esp (%esp) -> %esp 
-         */
-        prev = instr_get_prev(instr);
-        if (prev != NULL && instr_raw_bits_valid(prev) &&
-            instr_length(dcontext, prev) > 4) {
-            uint len = instr_length(dcontext, prev);
-            byte *b = instr_get_raw_bits(prev) + len - 1;
-            if (len > 13 &&
-                       *b==0x18 && *(b-1)==0x42 && *(b-2)==0x89 &&
-                       *(b-3)==0x0c && *(b-4)==0x6a && *(b-5)==0x89 && 
-                       *(b-6)==0x14 && *(b-7)==0x4a && *(b-8)==0x89 && 
-                       *(b-9)==0x00 && *(b-10)==0x24 && *(b-11)==0x4c && *(b-12)==0x8b) {
-                instr_t *raw;
-                LOG(THREAD, LOG_INTERP, 3, "mangling load of return address!\n");
-                instr_set_raw_bits(prev, instr_get_raw_bits(prev), len-13);
-                /* PROBLEM: don't know app retaddr!
-                 * ENORMOUS HACK: assume no calls or threads in between, 
-                 * use statically stored one from last call
-                 * Also assumes only a single caller
-                 */
-                IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-                instrlist_preinsert(ilist, instr,
-                                    INSTR_CREATE_mov_imm(dcontext,
-                                                         opnd_create_reg(REG_ECX),
-                                                         OPND_CREATE_INT32((uint)static_retaddr)));
-                raw = instr_build_bits(dcontext, OP_UNDECODED, 9);
-                instr_set_raw_bytes(raw, b-8, 9);               
-                instrlist_preinsert(ilist, instr, raw);
-            }
-        }
-    }
-}
-#endif /* NATIVE_RETURN */
-
-/*###########################################################################*/
-
 /* If src_inst != NULL, uses it (and assumes it will be encoded at
  * encode_estimate to determine whether > 32 bits or not: so if unsure where
  * it will be encoded, pass a high address) as the immediate; else
@@ -2241,57 +1938,42 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     retaddr = get_call_return_address(dcontext, ilist, instr);
 
-#ifdef NATIVE_RETURN
-    /* ASSUMPTION: a call to the next instr is not going to ever have a matching ret!
-     * FIXME: have a flag to turn this off...aggressiveness level?
-     */
+#ifdef CHECK_RETURNS_SSE2
+    /* ASSUMPTION: a call to the next instr is not going to ever have a
+     * matching ret! */
     if (target == (app_pc)retaddr) {
         LOG(THREAD, LOG_INTERP, 3, "found call to next instruction "PFX"\n", target);
-#endif
-
-#ifdef CHECK_RETURNS_SSE2
-        /* ASSUMPTION: a call to the next instr is not going to ever have a
-         * matching ret! */
-        if (target == (app_pc)retaddr) {
-            LOG(THREAD, LOG_INTERP, 3, "found call to next instruction "PFX"\n", target);
-        } else {
-            check_return_handle_call(dcontext, ilist, next_instr);
-        }
-        /* now do the normal thing for a call */
-#endif
-
-        if (instr_get_opcode(instr) == OP_call_far) {
-            /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
-             * if the app wants to change segments, we won't actually issue
-             * a segment change, and so will only work properly if the new segment
-             * is also 0-based.  To properly issue new segments, we'd need a special
-             * ibl that ends in a far cti, and all prior address manipulations would
-             * need to be relative to the new segment, w/o messing up current segment.
-             * FIXME: can we do better without too much work?
-             * XXX: yes, for wow64: i#823: TODO mangle this like a far direct jmp
-             */
-            SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
-            STATS_INC(num_far_dir_calls);
-
-            mangle_far_direct_helper(dcontext, ilist, instr, next_instr, flags);
-
-            insert_push_cs(dcontext, ilist, instr, 0, pushsz);
-        }
-
-        /* convert a direct call to a push of the return address */
-        insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
-        
-        /* remove the call */
-        instrlist_remove(ilist, instr);
-        instr_destroy(dcontext, instr);
-        return next_instr;
-
-#ifdef NATIVE_RETURN
+    } else {
+        check_return_handle_call(dcontext, ilist, next_instr);
     }
-    /* "real" call (not to next instr) */
-    return native_ret_mangle_direct_call(dcontext, ilist, instr,
-                                         next_instr, retaddr);
+    /* now do the normal thing for a call */
 #endif
+
+    if (instr_get_opcode(instr) == OP_call_far) {
+        /* N.B.: we do not support other than flat 0-based CS, DS, SS, and ES.
+         * if the app wants to change segments, we won't actually issue
+         * a segment change, and so will only work properly if the new segment
+         * is also 0-based.  To properly issue new segments, we'd need a special
+         * ibl that ends in a far cti, and all prior address manipulations would
+         * need to be relative to the new segment, w/o messing up current segment.
+         * FIXME: can we do better without too much work?
+         * XXX: yes, for wow64: i#823: TODO mangle this like a far direct jmp
+         */
+        SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
+        STATS_INC(num_far_dir_calls);
+        
+        mangle_far_direct_helper(dcontext, ilist, instr, next_instr, flags);
+
+        insert_push_cs(dcontext, ilist, instr, 0, pushsz);
+    }
+
+    /* convert a direct call to a push of the return address */
+    insert_push_retaddr(dcontext, ilist, instr, retaddr, pushsz);
+
+    /* remove the call */
+    instrlist_remove(ilist, instr);
+    instr_destroy(dcontext, instr);
+    return next_instr;
 }
 
 
@@ -2466,7 +2148,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         return;
     }
 
-#ifndef NATIVE_RETURN
     /* put the push AFTER the instruction that calculates
      * the target, b/c if target depends on xsp we must use
      * the value of xsp prior to this call instruction!
@@ -2480,8 +2161,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
     }
     insert_push_retaddr(dcontext, ilist, next_instr, retaddr, pushsz);
-#endif
-    
+
     /* save away xcx so that we can use it */
     /* (it's restored in x86.s (indirect_branch_lookup) */
     PRE(ilist, instr,
@@ -2534,29 +2214,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef CHECK_RETURNS_SSE2
     check_return_handle_call(dcontext, ilist, next_instr);
 #endif
-
-#ifdef NATIVE_RETURN
-    /*********************************************************/
-    /* NEW CALL HANDLING: NATIVE RETURN
-          <save flags already here>
-          inc call_depth
-          call skip
-          jmp app_ret_addr
-        skip:
-          jmp exit_stub (already added (==next_instr))
-     */
-    /* inc call_depth */
-# ifdef NATIVE_RETURN_CALLDEPTH
-    instrlist_preinsert(ilist, next_instr,
-                        INSTR_CREATE_inc(dcontext, opnd_create_dcontext_field(dcontext,
-                                                                              CALL_DEPTH_OFFSET)));
-# endif
-    instrlist_preinsert(ilist, next_instr,
-                       INSTR_CREATE_call(dcontext, opnd_create_instr(next_instr)));
-    /* exit cti, so no reachability concerns */
-    instrlist_preinsert(ilist, next_instr, INSTR_CREATE_jmp(dcontext,
-                                                opnd_create_pc((app_pc)retaddr)));
-#endif
 }
 
 /***************************************************************************
@@ -2596,11 +2253,6 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     instr_t *pop;
     opnd_t retaddr;
     opnd_size_t retsz;
-
-#ifdef NATIVE_RETURN
-    native_ret_mangle_return(dcontext, ilist, instr, next_instr);
-    return;
-#endif
 
 #ifdef CHECK_RETURNS_SSE2
     check_return_handle_return(dcontext, ilist, next_instr);

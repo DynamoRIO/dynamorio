@@ -90,21 +90,10 @@
 #define INIT_HTABLE_SIZE_TRACE     (DYNAMO_OPTION(shared_traces) ? 6 : 9)
 /* for small table sizes resize is not an expensive operation and we start smaller */
 
-#ifdef NATIVE_RETURN
-#  define INIT_HTABLE_SIZE_DELETED    9
-#endif
-
 /* Current flusher, protected by thread_initexit_lock. */
 DECLARE_FREQPROT_VAR(static dcontext_t *flusher, NULL);
 /* Current allsynch-flusher, protected by thread_initexit_lock. */
 DECLARE_FREQPROT_VAR(static dcontext_t *allsynch_flusher, NULL);
-
-#if defined(NATIVE_RETURN) && !defined(DEBUG)
-/* for release build, we use this to identify early code that is
- * full of returns that we didn't see the call for
- */
-int num_fragments;
-#endif
 
 /* These global tables are kept on the heap for selfprot (case 7957) */
 
@@ -1029,30 +1018,6 @@ hashtable_ibl_resized_custom(dcontext_t *dcontext, ibl_table_t *table,
             "\tIBL target table resizing: updating bb fragments\n");
         update_indirect_exit_stubs_from_table(dcontext, &pt->bb);
     }
-#ifdef NATIVE_RETURN
-    if (DYNAMO_OPTION(inline_bb_ibl) ||
-        DYNAMO_OPTION(inline_trace_ibl)) {
-        uint i;
-        /* deleted table too */
-        for (i = 0; i < pt->deleted.capacity; i++) {
-            f = pt->deleted.table[i];
-            if (!REAL_FRAGMENT(f))
-                continue;
-            for (l = FRAGMENT_EXIT_STUBS(f); l != NULL; l = LINKSTUB_NEXT_EXIT(l)) {
-                if (LINKSTUB_INDIRECT(l->flags)
-                    ((TEST(FRAG_IS_TRACE, f->flags) &&
-                      DYNAMO_OPTION(inline_trace_ibl)) ||
-                     (!TEST(FRAG_IS_TRACE, f->flags) &&
-                      DYNAMO_OPTION(inline_bb_ibl)))) {
-                    update_indirect_exit_stub(dcontext, f, l);
-                    LOG(THREAD, LOG_FRAGMENT, 5,
-                        "\ttrace table resizing: updating deleted F%d\n",
-                        f->id);
-                }
-            }
-        }
-    }
-#endif
     
     /* don't need to update any inlined lookups in shared fragments */
 
@@ -2034,11 +1999,6 @@ fragment_thread_reset_init(dcontext_t *dcontext)
     }
     ASSERT(IBL_BRANCH_TYPE_END == 3);
 
-#ifdef NATIVE_RETURN
-    hashtable_fragment_init(dcontext, &pt->deleted, INIT_HTABLE_SIZE_DELETED, 75, 
-                            (hash_function_t)INTERNAL_OPTION(alt_hash_func), 
-                            0 /* hash_mask_offset */, 0 _IF_DEBUG("deleted"));
-#endif
     update_generated_hashtable_access(dcontext);
 }
 
@@ -2091,18 +2051,6 @@ fragment_thread_init(dcontext_t *dcontext)
     pt->tracedump_count_below_threshold = (linkcount_type_t) 0;
 #endif
 }
-
-#if defined(DEBUG) && defined(NATIVE_RETURN)
-static void
-study_and_free_hashtable(dcontext_t *dcontext, fragment_table_t *table)
-{
-    DOLOG(1, LOG_FRAGMENT|LOG_STATS, {
-        hashtable_fragment_load_statistics(dcontext, table);
-    });
-    hashtable_fragment_reset(dcontext, table);
-    hashtable_fragment_free(dcontext, table);
-}
-#endif
 
 static bool
 check_flush_queue(dcontext_t *dcontext, fragment_t *was_I_flushed);
@@ -2216,10 +2164,6 @@ fragment_thread_reset_free(dcontext_t *dcontext)
         hashtable_fragment_free(dcontext, &pt->trace);
     hashtable_fragment_free(dcontext, &pt->bb);
     hashtable_fragment_free(dcontext, &pt->future);
-
-# ifdef NATIVE_RETURN
-    study_and_free_hashtable(dcontext, &pt->deleted);
-# endif
 
     SELF_PROTECT_CACHE(dcontext, NULL, READONLY);
 
@@ -2451,9 +2395,6 @@ fragment_create(dcontext_t *dcontext, app_pc tag, int body_size,
             IF_X64(if (FRAG_IS_32(f->flags)) STATS_INC(num_32bit_bbs);)
         }
     });
-#if defined(NATIVE_RETURN) && !defined(DEBUG)
-    num_fragments++;
-#endif
     DOSTATS({
         /* avoid double-counting for adaptive working set */
         if (!fragment_lookup_deleted(dcontext, tag) && !TEST(FRAG_COARSE_GRAIN, flags))
@@ -2925,12 +2866,6 @@ fragment_pclookup_by_htable(dcontext_t *dcontext, cache_pc pc, fragment_t *wrapp
         f = hashtable_pclookup(dcontext, &pt->bb, pc);
         if (f != NULL)
             return f;
-#ifdef NATIVE_RETURN
-        /* look at deleted fragments too */
-        f = hashtable_pclookup(dcontext, &pt->deleted, pc);
-        if (f != NULL)
-            return f;
-#endif
     }
     if (DYNAMO_OPTION(coarse_units)) {
         coarse_info_t *info = get_executable_area_coarse_info(pc);
@@ -3156,15 +3091,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         vm_area_remove_fragment(dcontext, f);
 
     if (!TEST(FRAGDEL_NO_FCACHE, actions)) {
-#ifdef NATIVE_RETURN
-        LOG(GLOBAL, LOG_FRAGMENT, 3,
-            "someone tried to delete F%d from the cache!\n", f->id);
-        /* HACK: just don't delete it!  count on removing it from the hashtable
-         * to be enough
-         */
-#else
         fcache_remove_fragment(dcontext, f);
-#endif
     }
 
 #ifdef SIDELINE
@@ -3181,11 +3108,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
         pcprofile_fragment_deleted(dcontext, f);
 #endif
     if (!TEST(FRAGDEL_NO_HEAP, actions)) {
-#ifdef NATIVE_RETURN
-        /* only free future frags */
-        if ((f->flags & FRAG_IS_FUTURE) != 0)
-#endif
-            fragment_free(dcontext, f);
+        fragment_free(dcontext, f);
     }
 #if defined(CLIENT_INTERFACE) && defined(CLIENT_SIDELINE)
     if (acquired_fragdel_lock)
@@ -3997,10 +3920,6 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
         f->id, shift);
 
     ASSERT(!TEST(FRAG_IS_FUTURE, f->flags)); /* only in-cache frags */
-#ifdef NATIVE_RETURN
-    /* should never get here, we disable resizing of fcache */
-    ASSERT_NOT_REACHED();
-#endif
 
     f->start_pc += shift;
 
@@ -5332,22 +5251,6 @@ invalidate_ind_branch_target_range(dcontext_t *dcontext,
 }
 #endif /* RCT_IND_BRANCH */
 
-
-#ifdef NATIVE_RETURN
-/* add f to the deleted table
- * we call this in non-sideline-safe manners!  FIXME
- */
-void
-fragment_add_deleted(dcontext_t *dcontext, fragment_t *f)
-{
-    per_thread_t *pt = (per_thread_t *) dcontext->fragment_field;
-    fragment_table_t *deltable = &pt->deleted;
-    /* adding is a write operation */
-    TABLE_RWLOCK(deltable, write, lock);
-    fragment_add_to_hashtable(dcontext, f, deltable);
-    TABLE_RWLOCK(deltable, write, unlock);
-}
-#endif
 
 /****************************************************************************/
 /* CACHE CONSISTENCY */
