@@ -34,7 +34,7 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 
 /*
- * os_shared.h - shared declarations for os facilities from linux/win32 
+ * os_shared.h - shared declarations for os facilities from unix/win32 
  */
 
 #ifndef OS_SHARED_H

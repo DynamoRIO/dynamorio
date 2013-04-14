@@ -75,7 +75,7 @@
 
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
  * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
- * conflicts.  Instead, we include linux/sched.h which comes from the Linux
+ * conflicts.  Instead, we include unix/sched.h which comes from the Linux
  * kernel headers.
  */
 #include <linux/sched.h>

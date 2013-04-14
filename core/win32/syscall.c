@@ -1092,7 +1092,7 @@ presys_CreateWorkerFactory(dcontext_t *dcontext, reg_t *param_base)
  * ENV VAR PROPAGATION
  */
 
-/* There is some overlap w/ handle_execve() in linux/os.c but not
+/* There is some overlap w/ handle_execve() in unix/os.c but not
  * quite enough to easily share this.
  */
 static const char * const env_to_propagate[] = {

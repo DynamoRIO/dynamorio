@@ -60,7 +60,7 @@
 #include "../synch.h"
 #ifdef LINUX
 # include <sys/time.h> /* ITIMER_* */
-# include "../linux/module.h" /* redirect_* functions */
+# include "../unix/module.h" /* redirect_* functions */
 # include <sys/mman.h> /* MAP_32BIT */
 #endif
 

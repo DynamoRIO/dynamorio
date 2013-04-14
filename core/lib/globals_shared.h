@@ -1534,7 +1534,7 @@ enum {
  *   - clean call layout of dr_mcontext_t on the stack in x86/mangle.c
  *   - interception layout of dr_mcontext_t on the stack in win32/callback.c
  *   - context_to_mcontext (and vice versa) in win32/ntdll.c
- *   - sigcontext_to_mcontext (and vice versa) in linux/signal.c
+ *   - sigcontext_to_mcontext (and vice versa) in unix/signal.c
  *   - dump_mcontext in x86/arch.c
  *   - inject_into_thread in win32/inject.c
  * Also, hotp_context_t exposes the dr_mcontext_t struct to hot patches,

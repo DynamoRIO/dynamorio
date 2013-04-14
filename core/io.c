@@ -641,7 +641,7 @@ our_sscanf(const char *str, const char *fmt, ...)
  * sscanf() tests
  */
 
-/* Copied from core/linux/os.c and modified so that they work when run
+/* Copied from core/unix/os.c and modified so that they work when run
  * cross-arch.  We need %ll to parse 64-bit ints on 32-bit and drop the %l to
  * parse 32-bit ints on x64.
  */

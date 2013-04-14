@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1789,7 +1789,7 @@ ret_after_call_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         }
 
         /* additional handling for known OS specific exceptions is in 
-           linux/signal.c (for ld) and 
+           unix/signal.c (for ld) and 
            win32/callback.c (for exempt modules, Win2003 fibers, and SEH)
         */
         if (at_known_exception(dcontext, target_addr, src_addr)) {

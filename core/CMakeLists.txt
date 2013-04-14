@@ -152,17 +152,17 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endif ()
 
 if (UNIX)
-  set(OSNAME linux)
+  set(OSNAME unix)
   set(OS_SRCS
-    linux/os.c
-    linux/signal.c
-    linux/module.c
-    linux/pcprofile.c
-    linux/stackdump.c
-    linux/diagnost.c
-    linux/loader.c
-    linux/nudgesig.c
-    linux/native_elf.c
+    unix/os.c
+    unix/signal.c
+    unix/module.c
+    unix/pcprofile.c
+    unix/stackdump.c
+    unix/diagnost.c
+    unix/loader.c
+    unix/nudgesig.c
+    unix/native_elf.c
     )
   if (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
@@ -171,16 +171,16 @@ if (UNIX)
   endif (VMKERNEL)
   set(PRELOAD_NAME drpreload)
   set(PRELOAD_SRCS
-    linux/preload.c
+    unix/preload.c
     config.c
-    linux/os.c
+    unix/os.c
     ${x86_noncore_asm_src}
     )
   set(INJECTOR_SRCS
-    linux/injector.c
+    unix/injector.c
     config.c    # to read config
-    linux/os.c  # for file_t interface
-    linux/module.c
+    unix/os.c  # for file_t interface
+    unix/module.c
     string.c
     io.c
     ${x86_noncore_asm_src}  # for dynamorio_syscall

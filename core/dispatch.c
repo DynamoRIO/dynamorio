@@ -1510,7 +1510,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
 #  ifdef LINUX
         else if (dcontext->signals_pending) {
             /* this may not always be the reason...the interrupted fragment
-             * field is modularly hidden in linux/signal.c though
+             * field is modularly hidden in unix/signal.c though
              */
             LOG(THREAD, LOG_DISPATCH, 2, " (interrupted by delayable signal)");
             STATS_INC(num_exits_dir_signal);
@@ -1763,7 +1763,7 @@ handle_system_call(dcontext_t *dcontext)
     if (IF_CLIENT_INTERFACE(execute_syscall &&) pre_system_call(dcontext)) {
         /* now do the actual syscall instruction */
 #ifdef LINUX
-        /* FIXME: move into some routine inside linux/?
+        /* FIXME: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
         if (is_clone_thread_syscall(dcontext)) {

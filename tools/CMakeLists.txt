@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -33,7 +33,7 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
-  add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/linux/nudgesig.c)
+  add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
   add_executable(drloader drloader.c)
 
   include_directories(

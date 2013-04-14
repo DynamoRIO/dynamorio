@@ -211,7 +211,7 @@ void
 handle_post_getitimer(dcontext_t *dcontext, bool success,
                       int which, struct itimerval *cur_timer);
 
-/* not exported beyond linux/ unlike rest of clone record routines */
+/* not exported beyond unix/ unlike rest of clone record routines */
 void
 set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_pc,
                         uint clone_sysnum, uint clone_flags);

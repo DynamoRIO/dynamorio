@@ -1015,7 +1015,7 @@ uint hashtable_num_bits(uint size);
 typedef uint bitmap_element_t;
 typedef bitmap_element_t bitmap_t[];
 
-/* Note that we have some bitmap operations in linux/signal.c for
+/* Note that we have some bitmap operations in unix/signal.c for
  *  kernel version of sigset_t as well as in
  *  win32/ntdll.c:tls_{alloc,free} which could use some of these
  *  facilities, but for now we leave those as more OS specific

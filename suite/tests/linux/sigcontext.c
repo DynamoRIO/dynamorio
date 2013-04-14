@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,7 +33,7 @@
 /* Tests a signal handler accessing sigcontext */
 
 /* we want the latest defs so we can get at ymm state */
-#include "../../../core/linux/include/sigcontext.h"
+#include "../../../core/unix/include/sigcontext.h"
 
 #include "tools.h"
 #include <assert.h>

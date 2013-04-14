@@ -130,7 +130,7 @@ int our_unsetenv(const char *name);
  */
 /* FIXME: also want control over where in rw region or ro region this
  * section goes -- for cl, order linked seems to do it, but for linux 
- * will need a linker script (see linux/os.c for the nspdata problem)
+ * will need a linker script (see unix/os.c for the nspdata problem)
  */
 #ifdef MACOS
 /* XXX: currently assuming all custom sections are writable and non-executable! */
