@@ -3312,27 +3312,6 @@ print_version_and_app_info(file_t file)
 #endif
 }
 
-#ifdef RETURN_STACK
-void
-print_return_stack(dcontext_t *dcontext)
-{
-    byte *rsp = dcontext->top_of_rstack;
-    if (rsp < dcontext->rstack) {
-        int pairs = ((byte *)dcontext->rstack - rsp) / 8;
-        LOG(THREAD, LOG_ALL, 0,
-            "Return stack contents (top="PFX", base="PFX"): %d pairs\n",
-            rsp, dcontext->rstack, pairs);
-        if (stats->loglevel > 2) {
-            while (rsp < dcontext->rstack) {
-                LOG(THREAD, LOG_ALL, 0, "\tapp: "PFX", us: "PFX"\n",
-                    *(((int *)rsp)+1), *((int *)rsp));
-                rsp += 8;
-            }
-        }
-    }
-}
-#endif
-
 void
 utils_exit()
 {

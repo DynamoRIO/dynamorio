@@ -2045,10 +2045,6 @@ bool md5_digests_equal(const byte digest1[MD5_RAW_BYTES],
 void
 print_version_and_app_info(file_t file);
 
-#ifdef RETURN_STACK
-void print_return_stack(dcontext_t *dcontext);
-#endif
-
 /* returns a pseudo random number in [0, max_offset)
  * Not crypto strong, and not thread safe!
  */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -113,12 +113,6 @@
 #ifdef X64
 /* this fragment contains 32-bit code */
 # define FRAG_32_BIT                0x400000
-# ifdef RETURN_STACK
-#  error RETURN_STACK not compatible with X64
-# endif
-#elif defined(RETURN_STACK)
-/* used for RETURN_STACK */
-# define FRAG_ENDS_WITH_RETURN      0x400000
 #endif
 
 #define FRAG_MUST_END_TRACE         0x800000
@@ -660,11 +654,6 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f);
 
 void
 fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f);
-
-#ifdef RETURN_STACK
-void
-fragment_delete_from_return_stack(dcontext_t *dcontext, fragment_t *f);
-#endif
 
 fragment_t *
 fragment_lookup(dcontext_t *dcontext, app_pc tag);

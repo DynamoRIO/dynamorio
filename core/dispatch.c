@@ -302,9 +302,6 @@ dispatch_enter_fcache_stats(dcontext_t *dcontext, fragment_t *targetf)
             dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
         DOLOG(6, LOG_DISPATCH, { dump_mcontext_callstack(dcontext); });
         DOKSTATS({ DOLOG(6, LOG_DISPATCH, { kstats_dump_stack(dcontext); }); });
-# ifdef RETURN_STACK
-        DOLOG(3, LOG_DISPATCH, { print_return_stack(dcontext); });
-# endif
 # ifdef NATIVE_RETURN_CALLDEPTH
         LOG(THREAD, LOG_DISPATCH, 3, "\tCall depth is %d\n",
             dcontext->call_depth);
@@ -1593,10 +1590,6 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         dump_mcontext(get_mcontext(dcontext), THREAD, DUMP_NOT_XML); });
     DOLOG(6, LOG_DISPATCH, { dump_mcontext_callstack(dcontext); });
     DOKSTATS({ DOLOG(6, LOG_DISPATCH, { kstats_dump_stack(dcontext); }); });
-# ifdef RETURN_STACK
-    if (stats->loglevel > 2 && (stats->logmask & LOG_DISPATCH) != 0)
-        print_return_stack(dcontext);
-# endif
 # ifdef NATIVE_RETURN_CALLDEPTH
     LOG(THREAD, LOG_DISPATCH, 3, "\tCall depth is %d\n",
         dcontext->call_depth);

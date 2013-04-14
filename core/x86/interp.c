@@ -3743,10 +3743,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             });
         }
     }
-#ifdef RETURN_STACK
-    if (bb->exit_target == return_lookup_routine(dcontext))
-        bb->flags |= FRAG_ENDS_WITH_RETURN;
-#endif
 
     /* can only have proactive translation info if flag was set from the beginning */
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags) &&
@@ -5499,24 +5495,6 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
     }
 #endif
 
-#ifdef RETURN_STACK
-    if (instr_is_return) {
-        /* if we stay on the trace, still need to clear pair from
-         * return stack
-         */
-        opnd_t top = opnd_create_dcontext_field(dcontext,
-                                                TOP_OF_RSTACK_OFFSET);
-        /* insert prior to restoring flags (add clobbers them)! */
-        added_size += tracelist_add(dcontext, trace, next,
-                                    INSTR_CREATE_add(dcontext, top, OPND_CREATE_INT8(8)));
-        
-        /* FIXME: we need to execute a ret instruction in order to
-         * clear the hardware's return stack!  And if we do that there
-         * is no way to avoid a ret misprediction...
-         */
-        ASSERT_NOT_IMPLEMENTED(false);
-    }
-#endif
     return added_size;
 }
 
@@ -5552,9 +5530,6 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
     /* at end of routine we will delete all instrs after this one: */
     instr_t *delete_after = NULL;
     bool is_indirect = false;
-#ifdef RETURN_STACK
-    bool instr_is_return;
-#endif
     /* Added size for transformations done here.
      * Use tracelist_add to automate adding inserted instr sizes.
      */
@@ -5619,9 +5594,6 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
                 if (is_indirect) {
                     /* this should be a trace exit stub therefore it cannot be IBL_BB* */
                     ASSERT(IS_IBL_TRACE(ibl_type.source_fragment_type));
-#ifdef RETURN_STACK
-                    instr_is_return = ibl_type.branch_type == IBL_RETURN;
-#endif
                     targeter = inst;
                     break;
                 } else {

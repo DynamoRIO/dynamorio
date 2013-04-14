@@ -132,7 +132,7 @@
 # profiling
 #    $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS 
 #    $(D)PROFILE_RDTSC 
-#    $(D)PAPI - now deprecated
+#    ($(D)PAPI - now deprecated)
 #    $(D)WINDOWS_PC_SAMPLE - on for all Windows builds
 #    $(D)KSTATS - on for INTERNAL, DEBUG, and PROFILE builds, use KSTATS=1 for
 # release builds
@@ -154,7 +154,7 @@
 
 # optimization of dynamo
 #    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags) (defines ASSUME_NORMAL_EFLAGS)
-#    $(D)RETURN_STACK
+#    ($(D)RETURN_STACK: deprecated and now removed)
 #    $(D)TRACE_HEAD_CACHE_INCR   (incompatible with security FIXME:?)
 #    $(D)DISALLOW_CACHE_RESIZING (use as temporary hack when developing)
 # transparency

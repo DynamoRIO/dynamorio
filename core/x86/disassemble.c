@@ -340,12 +340,6 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         gencode_routine = "x86_trace_head_return_coarse";
 # endif
                 }
-#ifdef RETURN_STACK
-                else if (target == return_lookup_routine(dcontext))
-                    gencode_routine = "return_lookup";
-                else if (target == unlinked_return_routine(dcontext))
-                    gencode_routine = "unlinked_return";
-#endif
 #ifdef PROFILE_RDTSC
                 else if ((void *)target == profile_fragment_enter)
                     gencode_routine = "profile_fragment_enter";

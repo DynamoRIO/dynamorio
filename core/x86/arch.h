@@ -116,10 +116,6 @@ mixed_mode_enabled(void)
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))
 #define DSTACK_OFFSET          ((PROT_OFFS)+offsetof(dcontext_t, dstack))
-#ifdef RETURN_STACK
-# define RSTACK_OFFSET         ((PROT_OFFS)+offsetof(dcontext_t, rstack))
-# define TOP_OF_RSTACK_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, top_of_rstack))
-#endif
 
 #define FRAGMENT_FIELD_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, fragment_field))
 #define PRIVATE_CODE_OFFSET    ((PROT_OFFS)+offsetof(dcontext_t, private_code))
@@ -330,10 +326,6 @@ const char *get_target_delete_entry_name(dcontext_t *dcontext,
      offsetof(per_thread_t, bb_ibt[(branch_type)]))
 
 
-#ifdef RETURN_STACK
-cache_pc return_lookup_routine(dcontext_t *dcontext);
-cache_pc unlinked_return_routine(dcontext_t *dcontext);
-#endif
 #ifdef WINDOWS
 /* PR 282576: These separate routines are ugly, but less ugly than adding param to
  * after_shared_syscall_code(), which is called in many places and usually passed a
@@ -577,10 +569,6 @@ typedef struct _generated_code_t {
     byte *ibl_routines_end;
 #endif
 
-#ifdef RETURN_STACK
-    byte *return_lookup;
-    byte *unlinked_return;
-#endif
 #ifdef WINDOWS
     /* for the shared_syscalls option */
     ibl_code_t shared_syscall_code;
@@ -792,13 +780,6 @@ void update_indirect_branch_lookup(dcontext_t *dcontext);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
                    _IF_X64(far_ref_t *far_jmp_opnd));
-
-#ifdef RETURN_STACK
-byte * emit_return_lookup(dcontext_t *dcontext, byte *pc,
-                          byte *indirect_branch_lookup_pc,
-                          byte *unlinked_ib_lookup_pc,
-                          byte **return_lookup_pc);
-#endif
 
 #ifndef WINDOWS
 void update_syscalls(dcontext_t *dcontext);

@@ -1769,45 +1769,6 @@ save edx
 #endif /* NATIVE_RETURN */
 
 /*###########################################################################*/
-#ifdef RETURN_STACK
-static instr_t *
-return_stack_mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist,
-                                instr_t *instr, instr_t *next_instr, uint retaddr)
-{
-    instr_t *cleanup;
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    /*********************************************************/
-    /* NEW CALL HANDLING: RETURN STACK! */
-    /* (optional: build basic block for after call
-     * Then change call to this:
-     *   push app ret addr
-     *   swap to return stack
-     *   push app ret addr
-     *   call cleanup_stack
-     *   jmp after_call_fragment
-     * cleanup_stack:
-     *   swap to app stack
-     */
-    cleanup = instr_create_save_dynamo_return_stack(dcontext);
-    PRE(ilist, instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(retaddr)));
-    PRE(ilist, instr,
-        instr_create_save_to_dcontext(dcontext, REG_ESP, XSP_OFFSET));
-    PRE(ilist, instr,
-        instr_create_restore_dynamo_return_stack(dcontext));
-    PRE(ilist, instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(retaddr)));
-    instr_set_target(instr, opnd_create_instr(cleanup));
-    /* an exit cti, not a meta instr */
-    instrlist_preinsert
-        (ilist, next_instr, INSTR_CREATE_jmp(dcontext,
-                                             opnd_create_pc(retaddr)));
-    PRE(ilist, next_instr, cleanup);
-    PRE(ilist, next_instr,
-        instr_create_restore_from_dcontext(dcontext, REG_ESP, XSP_OFFSET));
-    return next_instr;
-}
-#endif /* RETURN_STACK */
 
 /* If src_inst != NULL, uses it (and assumes it will be encoded at
  * encode_estimate to determine whether > 32 bits or not: so if unsure where
@@ -2280,7 +2241,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     retaddr = get_call_return_address(dcontext, ilist, instr);
 
-#if defined(RETURN_STACK) || defined(NATIVE_RETURN)
+#ifdef NATIVE_RETURN
     /* ASSUMPTION: a call to the next instr is not going to ever have a matching ret!
      * FIXME: have a flag to turn this off...aggressiveness level?
      */
@@ -2325,16 +2286,11 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_destroy(dcontext, instr);
         return next_instr;
 
-#if defined(RETURN_STACK) || defined(NATIVE_RETURN)
+#ifdef NATIVE_RETURN
     }
     /* "real" call (not to next instr) */
-# ifdef NATIVE_RETURN
     return native_ret_mangle_direct_call(dcontext, ilist, instr,
                                          next_instr, retaddr);
-# else /* RETURN_STACK */
-    return return_stack_mangle_direct_call(dcontext, ilist, instr,
-                                           next_instr, retaddr);
-# endif
 #endif
 }
 
@@ -2483,9 +2439,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     opnd_t target;
     ptr_uint_t retaddr;
-#ifdef RETURN_STACK
-    instr_t *cleanup;
-#endif
     opnd_t pushop = instr_get_dst(instr, 1);
     opnd_size_t pushsz = stack_entry_size(instr, opnd_get_size(pushop));
     reg_id_t reg_target = REG_XCX;
@@ -2513,7 +2466,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         return;
     }
 
-#if !defined(RETURN_STACK) && !defined(NATIVE_RETURN)
+#ifndef NATIVE_RETURN
     /* put the push AFTER the instruction that calculates
      * the target, b/c if target depends on xsp we must use
      * the value of xsp prior to this call instruction!
@@ -2578,39 +2531,6 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     }
     instr_set_our_mangling(instr, true);
     
-#ifdef RETURN_STACK
-    /* NEW CALL HANDLING: RETURN STACK! */
-    /* Change call to this:
-     *   push app ret addr
-     *   swap to return stack
-     *   push app ret addr
-     *   call cleanup_stack
-     *   jmp after_call_fragment
-     * cleanup_stack:
-     *   swap to app stack
-     *   jmp exit_stub (already added (==next_instr))
-     */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    cleanup = instr_create_save_dynamo_return_stack(dcontext);
-    PRE(ilist, next_instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(retaddr)));
-    PRE(ilist, next_instr,
-        instr_create_save_to_dcontext(dcontext, REG_ESP, XSP_OFFSET));
-    PRE(ilist, next_instr,
-        instr_create_restore_dynamo_return_stack(dcontext));
-    PRE(ilist, next_instr,
-        INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(retaddr)));
-    PRE(ilist, next_instr,
-        INSTR_CREATE_call(dcontext, opnd_create_instr(cleanup)));
-    /* an exit cti, not a meta instr */
-    instrlist_preinsert
-        (ilist, next_instr,
-         INSTR_CREATE_jmp(dcontext, opnd_create_pc(retaddr))); 
-    PRE(ilist, next_instr, cleanup);
-    PRE(ilist, next_instr,
-        instr_create_restore_from_dcontext(dcontext, REG_ESP, XSP_OFFSET));
-#endif /* RETURN_STACK */
-
 #ifdef CHECK_RETURNS_SSE2
     check_return_handle_call(dcontext, ilist, next_instr);
 #endif

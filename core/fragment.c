@@ -3058,26 +3058,6 @@ fragment_add(dcontext_t *dcontext, fragment_t *f)
 #endif
 }
 
-#ifdef RETURN_STACK
-void 
-fragment_delete_from_return_stack(dcontext_t *dcontext, fragment_t *f)
-{
-    byte *rsp = dcontext->top_of_rstack;
-    app_pc ret_pc;
-    while (rsp < dcontext->rstack) {
-        /* get return pc in code cache */
-        ret_pc = *((app_pc *)rsp);
-        if (ret_pc >= f->start_pc && ret_pc < f->start_pc + f->size) {
-            /* clear both the app pc and our pc, easier to catch bugs */
-            *((int *)rsp) = 0;
-            *(((int *)rsp)+1) = 0;
-            LOG(THREAD, LOG_FRAGMENT, 4, "Clearing return stack entry for F%d\n", f->id);
-        }
-        rsp += 8;
-    }
-}
-#endif
-
 /* Many options, use macros in fragment.h for readability
  * If output:
  *   dumps f to trace file
@@ -3187,9 +3167,6 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
 #endif
     }
 
-#ifdef RETURN_STACK
-    fragment_delete_from_return_stack(dcontext, f);
-#endif
 #ifdef SIDELINE
     if (dynamo_options.sideline)
         sideline_fragment_delete(f);

@@ -111,13 +111,6 @@
 #define PRE  instrlist_meta_preinsert
 #define APP  instrlist_meta_append
 
-/* in x86.asm */
-#ifdef RETURN_STACK
-void return_lookup(void);
-void unlinked_return(void);
-void end_return_lookup(void);
-#endif
-
 /* we are sharing bbs w/o ibs -- we assume that a bb
  * w/ a direct branch cannot have an ib and thus is shared
  */
@@ -1132,7 +1125,7 @@ exit_cti_disp_pc(cache_pc branch_pc)
         length += CBR_LONG_LENGTH;
     } else {
         /* 1-byte opcode, 5-byte instruction */
-#if (defined(RETURN_STACK) || defined(HOT_PATCHING_INTERFACE))
+#ifdef HOT_PATCHING_INTERFACE
         ASSERT(opcode == RAW_OPCODE_jmp || opcode == RAW_OPCODE_call);
 #else
         ASSERT(opcode == RAW_OPCODE_jmp);
@@ -6257,97 +6250,6 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
     return pc;
 }
 
-
-#ifdef RETURN_STACK /********************************************************/
-
-byte *
-emit_return_lookup(dcontext_t *dcontext, byte *pc,
-                   byte *indirect_branch_lookup_pc,
-                   byte *unlinked_ib_lookup_pc,
-                   byte **unlinked_return_pc)
-{
-    instr_t instr;
-    byte *prev_pc;
-    uint len;
-    byte *end_pc;
-    int past_ret = 0;
-    instr_init(dcontext, &instr);
-
-    /* PR 248210: unsupported feature on x64 */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-
-    /* first copy the assembly-code version */
-    ASSERT_TRUNCATE(len, uint,
-                    (ptr_uint_t)end_return_lookup - (ptr_uint_t)return_lookup);
-    len = (uint) ((ptr_uint_t)end_return_lookup - (ptr_uint_t)return_lookup);
-    memcpy((void *)pc, (void *)return_lookup, len);
-    end_pc = pc + len;
-
-    /* set unlinked entry point */
-    ASSERT_TRUNCATE(len, uint,
-                    (ptr_uint_t)unlinked_return - (ptr_uint_t)return_lookup);
-    len = (uint) ((ptr_uint_t)unlinked_return - (ptr_uint_t)return_lookup);
-    *unlinked_return_pc = pc + len;
-
-    /* now touch up addresses & offsets
-     */
-    do {
-        prev_pc = pc;
-        instr_reset(dcontext, &instr);
-        pc = decode(dcontext, pc, &instr);
-        ASSERT(instr_valid(&instr)); /* our own code! */
-        /* note we cannot look for pc targets, we'd have to decode the
-         * static code for that, so we assume the final jmps (past the
-         * ret) go to unlinked_ib_lookup and indirect_branch_lookup
-         */
-        if (past_ret == 1 && instr_is_ubr(&instr)) {
-            instr_set_target(&instr, opnd_create_pc(unlinked_ib_lookup_pc));
-            past_ret = 2;
-        }
-        else if (past_ret == 2 && instr_is_ubr(&instr)) {
-            instr_set_target(&instr, opnd_create_pc(indirect_branch_lookup_pc));
-        }
-        else if (instr_get_opcode(&instr) == OP_mov_ld &&
-                 opnd_is_near_base_disp(instr_get_src(&instr, 0)) &&
-                 opnd_get_base(instr_get_src(&instr, 0)) == REG_NULL &&
-                 opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL) {
-            /* if not really dcontext value, update_ will return old value */
-            instr_set_src(&instr, 0, 
-                          update_dcontext_address(instr_get_src(&instr, 0),
-                                                  &shared_dcontext, dcontext));
-        }
-        else if (instr_get_opcode(&instr) == OP_mov_st &&
-                 opnd_is_near_base_disp(instr_get_dst(&instr, 0)) &&
-                 opnd_get_base(instr_get_dst(&instr, 0)) == REG_NULL &&
-                 opnd_get_index(instr_get_dst(&instr, 0)) == REG_NULL) {
-            /* if not really dcontext value, update_ will return old value */
-            instr_set_dst(&instr, 0, 
-                          update_dcontext_address(instr_get_dst(&instr, 0),
-                                                  &shared_dcontext, dcontext));
-        }
-        else if (instr_get_opcode(&instr) == OP_cmp &&
-                 opnd_is_near_base_disp(instr_get_src(&instr, 0)) &&
-                 opnd_get_base(instr_get_src(&instr, 0)) == REG_NULL &&
-                 opnd_get_index(instr_get_src(&instr, 0)) == REG_NULL) {
-            /* if not really dcontext value, update_ will return old value */
-            instr_set_src(&instr, 0, 
-                          update_dcontext_address(instr_get_src(&instr, 0),
-                                                  &shared_dcontext, dcontext));
-        } else if (instr_is_return(&instr))
-            past_ret = 1;
-        if (!instr_raw_bits_valid(&instr)) {
-            byte *nxt_pc = instr_encode(dcontext, &instr, prev_pc);
-            /* instructions must not change size! */
-            ASSERT(nxt_pc != NULL && nxt_pc == pc);
-        }
-    } while (pc < end_pc);
-
-    instr_free(dcontext, &instr);
-
-    return end_pc;
-}
-
-#endif /* RETURN_STACK */ /*************************************************/
 
 static instr_t *
 create_int_syscall_instr(dcontext_t *dcontext)

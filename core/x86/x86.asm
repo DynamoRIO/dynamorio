@@ -1575,27 +1575,6 @@ GLOBAL_LABEL(native_plt_call:)
 #endif /* LINUX */
 
 
-#ifdef RETURN_STACK
-/*#############################################################################
- *#############################################################################
- *
- * FIXME: this is the final routine that uses the old method of
- * having a statically specified templace of assembly code that
- * is copied and patched to produce thread-private versions.
- * All the rest use exclusively generated code using our
- * IR.  This needs to be changed as well, or else the macros
- * need to handle dynamically changing offsets.
- * UPDATE: this code has been removed.  We can pull it out of the
- * attic and fix it up if necessary.
- * We used to have unlinked_return, end_return_lookup, and return_lookup
- * entry points defined here.
- */
-.error RETURN_STACK needs generated routine not asm template
-/*#############################################################################
- *#############################################################################
- */
-#endif /* RETURN_STACK */
-
 /* Our version of setjmp & long jmp.  We don't want to modify app state like
  * SEH or do unwinding which is done by standard versions.
  */

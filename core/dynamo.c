@@ -1456,11 +1456,6 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
         /* dstack may be pre-allocated only at thread init, not at callback */
         ASSERT(dstack_in == NULL);
     }
-#ifdef RETURN_STACK
-    dcontext->rstack = (byte *) stack_alloc(DYNAMORIO_STACK_SIZE);
-    /* Cannot have RETURN_STACK with inlined IBLs */
-    ASSERT_NOT_IMPLEMENTED(false == DYNAMO_OPTION(inline_trace_ibl));
-#endif
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         dcontext->upcontext.separate_upcontext =
             global_unprotected_heap_alloc(sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
@@ -1504,12 +1499,6 @@ delete_dynamo_context(dcontext_t *dcontext, bool free_stack)
 
     ASSERT(dcontext->try_except.try_except_state == NULL);
 
-#ifdef RETURN_STACK
-    LOG(THREAD, LOG_TOP, 1, "Return stack still has %d pair(s) on it\n",
-        (dcontext->rstack - dcontext->top_of_rstack) / 8);
-    stack_free(dcontext->rstack, DYNAMORIO_STACK_SIZE);
-#endif
-
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         global_unprotected_heap_free(dcontext->upcontext.separate_upcontext,
                                      sizeof(unprotected_context_t) HEAPACCT(ACCT_OTHER));
@@ -1544,9 +1533,6 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->native_exec_postsyscall = NULL;
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
-#ifdef RETURN_STACK
-    dcontext->top_of_rstack = dcontext->rstack;
-#endif
 #ifdef X64
     dcontext->x86_mode = false;
 #endif

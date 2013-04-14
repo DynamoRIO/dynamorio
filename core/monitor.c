@@ -2016,12 +2016,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* should have restored last fragment on cache exit */
         ASSERT(md->last_fragment == NULL ||
                TEST(FRAG_TEMP_PRIVATE, md->last_fragment->flags));
-#ifdef RETURN_STACK
-        if (md->num_blks > 0) {
-            if (TEST(FRAG_ENDS_WITH_RETURN, dcontext->last_fragment->flags))
-                end_trace = true;
-        }
-#endif
 
         /* check for trace ending conditions that can be overridden by client */
         end_trace = (end_trace ||
@@ -2426,14 +2420,6 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             return f;
         }
         f = internal_extend_trace(dcontext, f, NULL, add_size);
-        
-#ifdef RETURN_STACK
-        if (TEST(FRAG_ENDS_WITH_RETURN, f->flags) != 0 &&
-            !TEST(FRAG_IS_TRACE, f->flags)) {
-            f = end_and_emit_trace(dcontext, f);
-            LOG(THREAD, LOG_MONITOR, 3, "Returning to search mode\n");
-        }
-#endif /* RETURN_STACK */
         
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);

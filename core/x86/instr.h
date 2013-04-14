@@ -3666,12 +3666,8 @@ instr_t * instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t ba
 instr_t * instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs);
 instr_t * instr_create_save_dynamo_stack(dcontext_t *dcontext);
 instr_t * instr_create_restore_dynamo_stack(dcontext_t *dcontext);
-#ifdef RETURN_STACK
-instr_t * instr_create_restore_dynamo_return_stack(dcontext_t *dcontext);
-instr_t * instr_create_save_dynamo_return_stack(dcontext_t *dcontext);
-#endif
 opnd_t update_dcontext_address(opnd_t op, dcontext_t *old_dcontext,
-                             dcontext_t *new_dcontext);
+                               dcontext_t *new_dcontext);
 opnd_t opnd_create_tls_slot(int offs);
 /* For size, use a OPSZ_ value from decode.h, typically OPSZ_1 or OPSZ_4 */
 opnd_t opnd_create_sized_tls_slot(int offs, opnd_size_t size);

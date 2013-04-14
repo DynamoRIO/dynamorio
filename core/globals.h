@@ -713,10 +713,6 @@ struct _dcontext_t {
     linkstub_t *     last_exit;       /* last exit from cache */
     byte *         dstack;          /* thread-private dynamo stack */
 
-#ifdef RETURN_STACK
-    byte *         rstack;          /* bottom of return stack */
-    byte *         top_of_rstack;   /* top of return stack */
-#endif
     bool           is_exiting;      /* flag for exiting thread */
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE

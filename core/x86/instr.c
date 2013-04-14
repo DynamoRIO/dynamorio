@@ -5400,22 +5400,6 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
     return instr_create_restore_from_dcontext(dcontext, REG_ESP, DSTACK_OFFSET);
 }
 
-#ifdef RETURN_STACK
-instr_t *
-instr_create_restore_dynamo_return_stack(dcontext_t *dcontext)
-{
-    return instr_create_restore_from_dcontext(dcontext, REG_ESP,
-                                              TOP_OF_RSTACK_OFFSET);
-}
-
-instr_t *
-instr_create_save_dynamo_return_stack(dcontext_t *dcontext)
-{
-    return instr_create_save_to_dcontext(dcontext, REG_ESP,
-                                         TOP_OF_RSTACK_OFFSET);
-}
-#endif
-
 opnd_t
 update_dcontext_address(opnd_t op, dcontext_t *old_dcontext,
                         dcontext_t *new_dcontext)

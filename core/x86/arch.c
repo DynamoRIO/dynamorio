@@ -58,12 +58,6 @@
 # include "disassemble.h"
 #endif
 
-/* in x86.asm */
-#ifdef RETURN_STACK
-void return_lookup(void);
-void unlinked_return(void);
-#endif
-
 /* in interp.c */
 void interp_init(void);
 void interp_exit(void);
@@ -157,12 +151,6 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "fcache_enter:\n");
             else if (last_pc == code->fcache_return)
                 print_file(file, "fcache_return:\n");
-# ifdef RETURN_STACK
-            else if (last_pc == code->return_lookup)
-                print_file(file, "return_lookup:\n");
-            else if (last_pc == code->unlinked_return)
-                print_file(file, "unlinked_return:\n");
-# endif
             else if (last_pc == code->do_syscall)
                 print_file(file, "do_syscall:\n");
 # ifdef WINDOWS
@@ -1081,15 +1069,6 @@ arch_thread_init(dcontext_t *dcontext)
     pc = emit_new_thread_dynamo_start(dcontext, pc);
 #endif
 
-#ifdef RETURN_STACK
-    /* unlinked_return comes first */
-    pc = check_size_and_cache_line(code, pc);
-    code->return_lookup = pc;
-    pc = emit_return_lookup(dcontext, pc,
-                            code->indirect_branch_lookup,
-                            code->unlinked_ib_lookup,
-                            &code->unlinked_return);
-#endif
 #ifdef WINDOWS
     pc = check_size_and_cache_line(code, pc);
     code->fcache_enter_indirect = pc;
@@ -1295,13 +1274,6 @@ is_shared_syscall_routine(dcontext_t *dcontext, cache_pc pc)
 bool 
 is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc)
 {
-#ifdef RETURN_STACK
-    generated_code_t *code = THREAD_GENCODE(dcontext);
-    if (pc == (cache_pc) code->return_lookup
-        || pc == (cache_pc) code->unlinked_return)
-        return true;
-#endif /* RETURN_STACK */
-    
 #ifdef WINDOWS
     if (is_shared_syscall_routine(dcontext, pc))
         return true;
@@ -2107,22 +2079,6 @@ get_ibl_routine_code(dcontext_t *dcontext, ibl_branch_type_t branch_type,
                                            FRAGMENT_GENCODE_MODE(fragment_flags) :
                                            GENCODE_FROM_DCONTEXT));
 }
-
-#ifdef RETURN_STACK
-cache_pc
-return_lookup_routine(dcontext_t *dcontext)
-{
-    generated_code_t *code = THREAD_GENCODE(dcontext);
-    return (cache_pc) code->return_lookup;
-}
-
-cache_pc
-unlinked_return_routine(dcontext_t *dcontext)
-{
-    generated_code_t *code = THREAD_GENCODE(dcontext);
-    return (cache_pc) code->unlinked_return;
-}
-#endif /* RETURN_STACK */
 
 
 #ifdef WINDOWS
