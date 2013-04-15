@@ -2507,7 +2507,11 @@ try_for_more_space(dcontext_t *dcontext, fcache_t *cache, fcache_unit_t *unit,
             fcache_unit_t *newunit;
             size_t newsize;
             ASSERT(!USE_FIFO_FOR_CACHE(cache) ||
-                   cache->fifo != NULL); /* shouldn't be empty! */
+                   cache->fifo != NULL ||
+                   /* i#1129: we can get here for initial 4KB unit whose initial
+                    * fragment is >4KB!  We'll have set wset_check though.
+                    */
+                   cache->wset_check > 0); /* shouldn't be empty! */
             /* fill out to end first -- turn remaining room into empty slot */
             extend_unit_end(dcontext, cache, unit, 0, true);
             ASSERT(unit->full);
