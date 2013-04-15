@@ -45,6 +45,10 @@
 #include <stdarg.h> /* for varargs */
 
 #ifdef UNIX
+# ifdef MACOS
+/* request extern functions to avoid conflicts with our own tolower() */
+#  define _EXTERNALIZE_CTYPE_INLINES_TOP_
+# endif
 # include <wchar.h>
 #endif
 

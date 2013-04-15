@@ -44,6 +44,10 @@
 
 #include <stdarg.h>
 #include "../os_shared.h"
+#ifdef MACOS
+# define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
+# include <ucontext.h>
+#endif
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 # define getpid getpid_forbidden_use_get_process_id
@@ -230,32 +234,52 @@ typedef struct _kernel_sigset_t {
 void receive_pending_signal(dcontext_t *dcontext);
 bool is_signal_restorer_code(byte *pc, size_t *len);
 
-#define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
-#define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(struct sigcontext))
-
-/* struct sigcontext field name changes */
-#ifdef X64
-# define SC_XIP rip
-# define SC_XAX rax
-# define SC_XCX rcx
-# define SC_XDX rdx
-# define SC_XBX rbx
-# define SC_XSP rsp
-# define SC_XBP rbp
-# define SC_XSI rsi
-# define SC_XDI rdi
-# define SC_XFLAGS eflags
+#ifdef MACOS
+/* mcontext_t is a pointer and we want the real thing */
+# ifdef X64
+#  define SIGCXT_TYPE _STRUCT_MCONTEXT64
+# else
+#  define SIGCXT_TYPE _STRUCT_MCONTEXT
+# endif
 #else
-# define SC_XIP eip
-# define SC_XAX eax
-# define SC_XCX ecx
-# define SC_XDX edx
-# define SC_XBX ebx
-# define SC_XSP esp
-# define SC_XBP ebp
-# define SC_XSI esi
-# define SC_XDI edi
-# define SC_XFLAGS eflags
+# define SIGCXT_TYPE struct sigcontext
+#endif
+#define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
+#define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(SIGCXT_TYPE))
+
+/* SIGCXT_TYPE field name changes */
+#ifdef MACOS
+/* We're using _XOPEN_SOURCE >= 600 so we have __DARWIN_UNIX03 and thus leading __: */
+# define SC_FIELD(name) __ss.__##name
+#else
+# define SC_FIELD(name) name
+#endif
+#ifdef X64
+# define SC_XIP SC_FIELD(rip)
+# define SC_XAX SC_FIELD(rax)
+# define SC_XCX SC_FIELD(rcx)
+# define SC_XDX SC_FIELD(rdx)
+# define SC_XBX SC_FIELD(rbx)
+# define SC_XSP SC_FIELD(rsp)
+# define SC_XBP SC_FIELD(rbp)
+# define SC_XSI SC_FIELD(rsi)
+# define SC_XDI SC_FIELD(rdi)
+# ifdef MACOS
+#  define SC_XFLAGS SC_FIELD(rflags)
+# else
+#  define SC_XFLAGS SC_FIELD(eflags)
+# endif
+#else
+# define SC_XIP SC_FIELD(eip)
+# define SC_XAX SC_FIELD(eax)
+# define SC_XCX SC_FIELD(ecx)
+# define SC_XDX SC_FIELD(edx)
+# define SC_XBX SC_FIELD(ebx)
+# define SC_XSP SC_FIELD(esp)
+# define SC_XBP SC_FIELD(ebp)
+# define SC_XSI SC_FIELD(esi)
+# define SC_XDI SC_FIELD(edi)
+# define SC_XFLAGS SC_FIELD(eflags)
 #endif
 
 void *

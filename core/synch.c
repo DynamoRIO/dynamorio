@@ -712,7 +712,7 @@ set_synched_thread_context(thread_record_t *trec,
             "set_synched_thread_context %d to pc "PFX"\n", trec->id,
             (mc != NULL) ? mc->pc : (app_pc)
             IF_WINDOWS_ELSE(((CONTEXT*)cxt)->CXT_XIP,
-                            ((struct sigcontext *)cxt)->SC_XIP));
+                            ((SIGCXT_TYPE *)cxt)->SC_XIP));
         if (mc != NULL)
             tsd->set_mcontext = mc;
         else {

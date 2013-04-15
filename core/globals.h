@@ -167,6 +167,9 @@ typedef HANDLE file_t;
 
 #else /* UNIX */
 /* uint, ushort, and ulong are in types.h */
+# ifdef MACOS
+typedef unsigned long ulong;
+# endif
 #include <sys/types.h> /* for wait */
 #define DIRSEP '/'
 #define ALT_DIRSEP DIRSEP

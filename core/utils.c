@@ -58,11 +58,6 @@
 # include <stdlib.h>
 # include <unistd.h>
 # include <errno.h>
-# include <sys/time.h>          /* gettimeofday */
-# include "syscall.h"           /* SYS_gettimeofday */
-# ifdef VMX86_SERVER
-#  include "vmkuw.h"
-# endif
 #else
 # include <errno.h>
 /* FIXME : remove when syslog macros fixed */

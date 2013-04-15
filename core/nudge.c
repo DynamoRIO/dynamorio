@@ -41,7 +41,6 @@
 # include "drmarker.h"
 #else
 # include <string.h>
-# include "syscall.h"
 #endif /* WINDOWS */
 
 #ifdef HOT_PATCHING_INTERFACE
