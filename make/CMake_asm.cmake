@@ -34,4 +34,11 @@ string(REGEX REPLACE
   "\@N\@"
   "\n"
   string "${string}")
+# MacOS "cpp -E" on macros with token pasting leaves ## in place!
+# And while "gcc -E" does not, it has the linker warning, so we just
+# remove them here.
+string(REGEX REPLACE
+  "##"
+  ""
+  string "${string}")
 file(WRITE ${file} "${string}")

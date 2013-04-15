@@ -439,7 +439,7 @@ GLOBAL_LABEL(dr_app_start:)
         sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT([FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
+        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
                         PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
@@ -472,7 +472,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT([FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
+        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
                         PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
@@ -2208,6 +2208,8 @@ make_val_word_size:
         jmp     do_memset
         END_FUNC(memset)
 
+
+# ifndef MACOS /* XXX: attribute alias issue, plus using nasm */
 /* gcc emits calls to these *_chk variants in release builds when the size of
  * dst is known at compile time.  In C, the caller is responsible for cleaning
  * up arguments on the stack, so we alias these *_chk routines to the non-chk
@@ -2220,6 +2222,7 @@ make_val_word_size:
 .global __memset_chk
 .hidden __memset_chk
 .set __memset_chk,memset
+# endif
 
 
 /* Replacement for _dl_runtime_resolve() used for catching module transitions

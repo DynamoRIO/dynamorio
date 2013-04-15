@@ -219,7 +219,9 @@
 #  define NOLIBC
 #endif
 
-#ifdef UNIX
+#ifdef MACOS
+#  define ASSEMBLE_WITH_NASM
+#elif defined(UNIX)
 #  define ASSEMBLE_WITH_GAS
 #else
 #  define ASSEMBLE_WITH_MASM

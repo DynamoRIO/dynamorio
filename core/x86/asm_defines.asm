@@ -148,15 +148,20 @@ ASSUME fs:_DATA @N@\
 # define END_FUNC(symbol) /* nothing */
 # define DECLARE_GLOBAL(symbol) global symbol
 # define GLOBAL_LABEL(label) label
+# define ADDRTAKEN_LABEL(label) label
 # define BYTE byte
 # define WORD word
 # define DWORD dword
 # define QWORD qword
-# define SYMREF(sym) [sym]
+# ifdef X64
+#  define SYMREF(sym) [rel sym]
+# else
+#  define SYMREF(sym) [sym]
+# endif
 # define HEX(n) 0x##n
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) EXTERN symbol
-# define RAW(n) error_not_implemented
+# define RAW(n) DB HEX(n) @N@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg
 # define PUSH_NONCALLEE_SEH(reg) push reg

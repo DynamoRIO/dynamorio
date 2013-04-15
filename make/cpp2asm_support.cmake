@@ -162,7 +162,22 @@ if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   enable_language(ASM)
 endif ()
 
-if (UNIX)
+if (APPLE)
+  # See above: we can't use CMAKE_ASM_COMPILER and require nasm.
+  find_program(NASM nasm DOC "path to nasm assembler")
+  if (NOT NASM)
+    message(FATAL_ERROR "nasm assembler not found: required to build")
+  endif (NOT NASM)
+  message(STATUS "Found nasm: ${NASM}")
+  if (X64)
+    set(ASM_FLAGS "${ASM_FLAGS} -fmacho64")
+  else (X64)
+    set(ASM_FLAGS "${ASM_FLAGS} -fmacho32")
+  endif (X64)
+  if (DEBUG)
+    set(ASM_FLAGS "${ASM_FLAGS} -g")
+  endif (DEBUG)
+elseif (UNIX)
   set(ASM_FLAGS "-mmnemonic=intel -msyntax=intel -mnaked-reg --noexecstack")
   if (X64)
     set(ASM_FLAGS "${ASM_FLAGS} --64")
@@ -173,7 +188,7 @@ if (UNIX)
   if (DEBUG)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
   endif (DEBUG)
-else (UNIX)
+else ()
   if (X64)
     find_program(CMAKE_ASM_COMPILER ml64.exe HINTS "${cl_path}" DOC "path to assembler")
   else (X64)
@@ -189,11 +204,11 @@ else (UNIX)
     set(ASM_DBG "")
   endif ()
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
-endif (UNIX)
+endif ()
 
 if (APPLE)
-  # XXX: xcode assembler doesn't seem to take any kind of --help or --version
-  # so for now we assume it supports Intel
+  # XXX: xcode assembler uses Intel mnemonics but opposite src,dst order!
+  # We rely on having nasm installed as a workaround.
   set(CMAKE_ASM_SUPPORTS_INTEL_SYNTAX ON)
 endif (APPLE)
 if (UNIX AND NOT APPLE)
@@ -230,7 +245,14 @@ endif (UNIX AND NOT APPLE)
 ##################################################
 # Assembler build rule for Makefile generators
 
-if (UNIX)
+if (APPLE)
+  # Despite the docs, -o does not work: cpp prints to stdout.
+  set(CMAKE_ASM_COMPILE_OBJECT
+    "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> > <OBJECT>.s"
+    "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
+    "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
+    )
+elseif (UNIX)
   # we used to have ".ifdef FOO" and to not have it turn into ".ifdef 1" we'd say
   # "-DFOO=FOO", but we now use exclusively preprocessor defines, which is good
   # since our defines are mostly in configure.h where we can't as easily tweak them
@@ -253,7 +275,7 @@ if (UNIX)
     # comes up empty for me.
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
     )
-else (UNIX)
+else ()
   # Even if we didn't preprocess we'd need our own rule since cmake doesn't
   # support ml.
   set(CMAKE_ASM_COMPILE_OBJECT
@@ -269,7 +291,7 @@ else (UNIX)
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<CMAKE_ASM_COMPILER> ${ASM_FLAGS} /c /Fo<OBJECT> <OBJECT>.s"
     )
-endif (UNIX)
+endif ()
 
 ##################################################
 # Assembler build commands for Visual Studio generators and
