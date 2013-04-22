@@ -357,6 +357,17 @@ void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               _IF_X64(gencode_mode_t mode));
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);
+/* the stack size of a full context switch for clean call */
+int
+get_clean_call_switch_stack_size(void);
+/* extra temporarily-used stack usage beyond
+ * get_clean_call_switch_stack_size()
+ */
+int
+get_clean_call_temp_stack_size(void);
+void
+insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
+                    instrlist_t *ilist, instr_t *instr);
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
@@ -630,6 +641,9 @@ typedef struct _generated_code_t {
     byte *client_ibl_xfer;
     uint client_ibl_unlink_offs;
 #endif
+    /* i#171: out-of-line clean call context switch */
+    byte *clean_call_save;
+    byte *clean_call_restore;
 
     bool thread_shared;
     bool writable;
@@ -668,6 +682,10 @@ byte * emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *cod
                                      byte *pc);
 cache_pc fcache_return_coarse_routine(IF_X64(gencode_mode_t mode));
 cache_pc trace_head_return_coarse_routine(IF_X64(gencode_mode_t mode));
+
+/* shared clean call context switch */
+cache_pc get_clean_call_save(IF_X64(gencode_mode_t mode));
+cache_pc get_clean_call_restore(IF_X64(gencode_mode_t mode));
 
 void protect_generated_code(generated_code_t *code, bool writable);
 
@@ -856,6 +874,12 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 #ifdef CLIENT_INTERFACE
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+
+byte *
+emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+
+byte *
+emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
 void

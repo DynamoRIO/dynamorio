@@ -492,6 +492,69 @@ remangle_short_rewrite(dcontext_t *dcontext,
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)
 
+/* the stack size of a full context switch for clean call */
+int
+get_clean_call_switch_stack_size(void)
+{
+    return sizeof(priv_mcontext_t);
+}
+
+/* extra temporarily-used stack usage beyond
+ * get_clean_call_switch_stack_size()
+ */
+int
+get_clean_call_temp_stack_size(void)
+{
+    return XSP_SZ; /* for eflags clear code: push 0; popf */
+}
+
+static int
+insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
+                                  instr_t *instr, bool save)
+{
+    if (save) {
+        /* We adjust the stack so the return address will not be clobbered,
+         * so we can have call/return pair to take advantage of hardware
+         * call return stack for better performance.
+         * xref emit_clean_call_save @ x86/emit_utils.c
+         */
+        PRE(ilist, instr,
+            INSTR_CREATE_lea
+            (dcontext,
+             opnd_create_reg(DR_REG_XSP),
+             opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                                   -(int)(get_clean_call_switch_stack_size() +
+                                          get_clean_call_temp_stack_size()),
+                                   OPSZ_lea)));
+    }
+    PRE(ilist, instr,
+        INSTR_CREATE_call
+        (dcontext, save ?
+         opnd_create_pc(get_clean_call_save(IF_X64(GENCODE_X64))) :
+         opnd_create_pc(get_clean_call_restore(IF_X64(GENCODE_X64)))));
+    return get_clean_call_switch_stack_size();
+}
+
+void
+insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
+                    instrlist_t *ilist, instr_t *instr)
+{
+    /* clear eflags for callee's usage */
+    if (cci == NULL || !cci->skip_clear_eflags) {
+        if (dynamo_options.cleancall_ignore_eflags) {
+            /* we still clear DF since some compiler assumes
+             * DF is cleared at each function.
+             */
+            PRE(ilist, instr, INSTR_CREATE_cld(dcontext));
+        } else {
+            /* on x64 a push immed is sign-extended to 64-bit */
+            PRE(ilist, instr,
+                INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
+            PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+        }
+    }
+}
+
 /* Pushes not only the GPRs but also xmm/ymm, xip, and xflags, in
  * priv_mcontext_t order.
  * The current stack pointer alignment should be passed.  Use 1 if
@@ -537,7 +600,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
          * currently have 32-byte alignment for clean calls.
          */
-        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 32), ALIGNED(alignment, 16));
+        uint opcode = move_mm_reg_opcode(ALIGNED(alignment, 16), ALIGNED(alignment, 32));
         ASSERT(proc_has_feature(FEATURE_SSE));
         for (i=0; i<NUM_XMM_SAVED; i++) {
             if (!cci->xmm_skip[i]) {
@@ -606,6 +669,10 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
     PRE(ilist, instr, INSTR_CREATE_pusha(dcontext));
     dstack_offs += 8 * XSP_SZ;
 #endif
+    ASSERT(cci->skip_save_aflags   ||
+           cci->num_xmms_skip != 0 ||
+           cci->num_regs_skip != 0 ||
+           dstack_offs == (uint)get_clean_call_switch_stack_size());
     return dstack_offs;
 }
 
@@ -835,21 +902,24 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * We're at base of dstack so should be nicely aligned.
      */
     ASSERT(ALIGNED(dcontext->dstack, PAGE_SIZE));
-    dstack_offs +=
-        insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
-                                  INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
+
     /* Note that we do NOT bother to put the correct pre-push app xsp value on the
      * stack here, as an optimization for callees who never ask for it: instead we
      * rely on dr_[gs]et_mcontext() to fix it up if asked for.  We can get away w/
      * this while hotpatching cannot (hotp_inject_gateway_call() fixes it up every
      * time) b/c the callee has to ask for the priv_mcontext_t.
      */
-
-    /* clear eflags for callee's usage */
-    if (!cci->skip_clear_eflags) {
-        PRE(ilist, instr,
-            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT32(0)));
-        PRE(ilist, instr, INSTR_CREATE_popf(dcontext));
+    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
+        cci->num_regs_skip == 0 /* save all regs */ &&
+        !cci->skip_save_aflags) {
+        dstack_offs +=
+            insert_out_of_line_context_switch(dcontext, ilist, instr, true);
+    } else {
+        dstack_offs +=
+            insert_push_all_registers(dcontext, cci, ilist, instr, PAGE_SIZE,
+                                      INSTR_CREATE_push_imm
+                                      (dcontext, OPND_CREATE_INT32(0)));
+        insert_clear_eflags(dcontext, cci, ilist, instr);
     }
 
     /* We no longer need to preserve the app's errno on Windows except
@@ -910,9 +980,15 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
 
     /* now restore everything */
-    insert_pop_all_registers(dcontext, cci, ilist, instr,
-                             /* see notes in prepare_for_clean_call() */
-                             PAGE_SIZE);
+    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
+        cci->num_regs_skip == 0 /* save all regs */ &&
+        !cci->skip_save_aflags) {
+        insert_out_of_line_context_switch(dcontext, ilist, instr, false);
+    } else {
+        insert_pop_all_registers(dcontext, cci, ilist, instr,
+                                 /* see notes in prepare_for_clean_call() */
+                                 PAGE_SIZE);
+    }
 
     /* Swap stacks back.  For thread-shared, we need to get the dcontext
      * dynamically.  Save xax in TLS so we can use it as scratch.

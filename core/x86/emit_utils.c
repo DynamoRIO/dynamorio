@@ -3862,6 +3862,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
      * messing up our ENTER_DR_HOOK
      */
     /* on x64 a push immed is sign-extended to 64-bit */
+    /* XXX i#1147: can we clear DF and IF only? */
     APP(ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT8(0)));
     APP(ilist, INSTR_CREATE_RAW_popf(dcontext));
 
@@ -7969,4 +7970,92 @@ unlink_client_ibl_xfer(dcontext_t *dcontext)
 {
     relink_client_ibl_xfer(dcontext, IBL_UNLINKED);
 }
+
+/* i#171: out-of-line clean call */
+byte *
+emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+{
+    instrlist_t ilist;
+
+    instrlist_init(&ilist);
+    /* xref insert_out_of_line_context_switch @ x86/mangle.c,
+     * stack was adjusted beyond what we place there to get retaddr
+     * in right spot, adjust the stack back to save context
+     */
+    /* XXX: this LEA can be optimized away by using the LEA
+     * in insert_push_all_registers
+     */
+    APP(&ilist, INSTR_CREATE_lea
+        (dcontext,
+         opnd_create_reg(DR_REG_XSP),
+         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                               (int)(get_clean_call_switch_stack_size() +
+                                     get_clean_call_temp_stack_size() +
+                                     XSP_SZ /* return addr */),
+                               OPSZ_lea)));
+    /* save all registers */
+    insert_push_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE,
+                              INSTR_CREATE_push_imm(dcontext,
+                                                    OPND_CREATE_INT32(0)));
+    /* clear eflags */
+    insert_clear_eflags(dcontext, NULL, &ilist, NULL);
+    /* clear eflags for callee's usage */
+    if (dynamo_options.cleancall_ignore_eflags) {
+        /* clear DF only to avoid stalling the pipeline */
+        APP(&ilist, INSTR_CREATE_cld(dcontext));
+    } else {
+        APP(&ilist,
+            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT8(0)));
+        APP(&ilist, INSTR_CREATE_popf(dcontext));
+    }
+    /* return back */
+    APP(&ilist, INSTR_CREATE_lea
+        (dcontext, opnd_create_reg(DR_REG_XSP),
+         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                               -(get_clean_call_temp_stack_size() +
+                                 (int)XSP_SZ /* return stack */),
+                               OPSZ_lea)));
+    APP(&ilist, INSTR_CREATE_ret_imm
+        (dcontext, OPND_CREATE_INT16(get_clean_call_temp_stack_size())));
+    /* emti code */
+    pc = instrlist_encode(dcontext, &ilist, pc, false);
+    ASSERT(pc != NULL);
+    instrlist_clear(dcontext, &ilist);
+    return pc;
+}
+
+byte *
+emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+{
+    instrlist_t ilist;
+
+    instrlist_init(&ilist);
+
+    /* adjust the stack for the return target */
+    APP(&ilist, INSTR_CREATE_lea
+        (dcontext,
+         opnd_create_reg(DR_REG_XSP),
+         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                               (int)XSP_SZ, OPSZ_lea)));
+    /* restore all registers */
+    insert_pop_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE);
+    /* return back */
+    /* we adjust lea + ret_imm instead of ind jmp to take advantage of RSB */
+    APP(&ilist, INSTR_CREATE_lea
+        (dcontext,
+         opnd_create_reg(DR_REG_XSP),
+         opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0,
+                               -(get_clean_call_switch_stack_size() +
+                                 (int)XSP_SZ /* return address */),
+                               OPSZ_lea)));
+    APP(&ilist, INSTR_CREATE_ret_imm
+        (dcontext,
+         OPND_CREATE_INT16(get_clean_call_switch_stack_size())));
+    /* emit code */
+    pc = instrlist_encode(dcontext, &ilist, pc, false);
+    ASSERT(pc != NULL);
+    instrlist_clear(dcontext, &ilist);
+    return pc;
+}
+
 #endif

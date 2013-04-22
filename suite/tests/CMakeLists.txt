@@ -1527,6 +1527,11 @@ if (CLIENT_INTERFACE)
     get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
     foreach (sample ${sample_list})
       torunonly_ci(sample.${sample} common.eflags ${sample} common/eflags.c "" "" "")
+      if (sample STREQUAL "inscount")
+        # test out-of-line clean call
+        torunonly_ci(sample.${sample}.cleancall common.eflags ${sample}
+          common/eflags.c "" "-opt_cleancall 0" "")
+      endif ()
     endforeach ()
   endif (BUILD_SAMPLES)
 

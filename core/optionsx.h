@@ -512,6 +512,13 @@
      */
     OPTION_DEFAULT_INTERNAL(uint, opt_cleancall, 2,
                             "optimization level on optimizing clean call sequences")
+    /* Assuming the client's clean call does not rely on the cleared eflags,
+     * i.e., initialize the eflags before using it, we can skip the eflags
+     * clear code.
+     * Note: we still clear DF for string instructions.
+     */
+    OPTION_DEFAULT_INTERNAL(bool, cleancall_ignore_eflags, true,
+                            "skip eflags clear code with assumption that clean call does not rely on cleared eflags")
     /* i#107: To handle app using same segment register that DR uses, we should
      * mangle the app's segment usage. 
      * It cannot be used with DGC_DIAGNOSTICS.

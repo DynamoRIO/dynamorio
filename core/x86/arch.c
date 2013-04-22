@@ -185,6 +185,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 # ifdef CLIENT_INTERFACE
             else if (last_pc == code->client_ibl_xfer)
                 print_file(file, "client_ibl_xfer:\n");
+            else if (last_pc == code->clean_call_save)
+                print_file(file, "clean_call_save:\n");
+            else if (last_pc == code->clean_call_restore)
+                print_file(file, "clean_call_restore:\n");
 # endif
             last_pc = disassemble_with_bytes(dcontext, last_pc, file);
         } while (last_pc < emitted_pc);
@@ -460,6 +464,12 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
         gencode->client_ibl_xfer = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
     }
+    pc = check_size_and_cache_line(gencode, pc);
+    gencode->clean_call_save = pc;
+    pc = emit_clean_call_save(GLOBAL_DCONTEXT, pc, gencode);
+    pc = check_size_and_cache_line(gencode, pc);
+    gencode->clean_call_restore = pc;
+    pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
 #endif
 
     ASSERT(pc < gencode->commit_end_pc);
@@ -1608,6 +1618,22 @@ trace_head_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
         return NULL;
     else
         return (cache_pc) code->trace_head_return_coarse;
+}
+
+cache_pc
+get_clean_call_save(IF_X64_ELSE(gencode_mode_t mode, void))
+{
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    ASSERT(code != NULL);
+    return (cache_pc) code->clean_call_save;
+}
+
+cache_pc
+get_clean_call_restore(IF_X64_ELSE(gencode_mode_t mode, void))
+{
+    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    ASSERT(code != NULL);
+    return (cache_pc) code->clean_call_restore;
 }
 
 #ifdef CLIENT_INTERFACE
