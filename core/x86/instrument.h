@@ -1996,6 +1996,28 @@ DR_API
 void
 dr_raw_mem_free(void *addr, size_t size);
 
+#ifdef UNIX
+DR_API
+/**
+ * Calls mremap with the specified parameters and returns the result.
+ * The old memory must be non-DR memory, and the new memory is also
+ * considered to be non-DR memory (see #DR_ALLOC_NON_DR).
+ */
+void *
+dr_raw_mremap(void *old_address, size_t old_size, size_t new_size,
+              int flags, void *new_address);
+
+DR_API
+/**
+ * Sets the program break to the specified value.  Invokes the SYS_brk
+ * system call and returns the result.  This is the application's
+ * program break, so use this system call only when deliberately
+ * changing the application's behavior.
+ */
+void *
+dr_raw_brk(void *new_address);
+#endif
+
 
 #ifdef UNIX
 DR_API

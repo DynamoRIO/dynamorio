@@ -31,10 +31,13 @@
  * DAMAGE.
  */
 
+#define _GNU_SOURCE /* MREMAP_MAYMOVE */
+
 #include "dr_api.h"
 #include "client_tools.h"
 #ifdef UNIX
 # include <sys/personality.h>
+# include <sys/mman.h>
 #endif
 #include <limits.h>
 
@@ -428,6 +431,35 @@ void custom_windows_test(void)
 #endif
 
 #ifdef UNIX
+static
+void custom_unix_test(void)
+{
+    void *array;
+
+    /* "linux" is replaced by "1" in .template so we use "Linux" */
+    dr_fprintf(STDERR, "  testing custom Linux alloc....");
+
+    array = dr_raw_mem_alloc(PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, NULL);
+    if (array == NULL)
+        dr_fprintf(STDERR, "error: unable to mmap\n");
+    write_array(array);
+
+    array = dr_raw_mremap(array, PAGE_SIZE, PAGE_SIZE*2, MREMAP_MAYMOVE, NULL);
+    if ((ptr_int_t)array <= 0 && (ptr_int_t)array >= -PAGE_SIZE)
+        dr_fprintf(STDERR, "error: unable to mremap\n");
+    write_array(array);
+
+    dr_raw_mem_free(array, PAGE_SIZE*2);
+
+    array = dr_raw_brk(0);
+    if (array == NULL)
+        dr_fprintf(STDERR, "error: unable to query brk\n");
+
+    dr_fprintf(STDERR, "success\n");
+}
+#endif
+
+#ifdef UNIX
 static void
 calloc_test(void)
 {
@@ -561,6 +593,8 @@ void dr_init(client_id_t id)
     custom_test();
 #ifdef WINDOWS
     custom_windows_test();
+#else
+    custom_unix_test();
 #endif
 
     dr_register_bb_event(bb_event);

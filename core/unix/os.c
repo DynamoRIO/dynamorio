@@ -260,6 +260,10 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 static void handle_execve_post(dcontext_t *dcontext);
 static bool os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app);
+static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
+                              byte *old_base, size_t old_size,
+                              uint old_prot, uint old_type);
+static void handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk);
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
@@ -2879,6 +2883,56 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
         size, p);
     return p;
 }
+
+#ifdef CLIENT_INTERFACE
+DR_API
+/* XXX: could add dr_raw_mem_realloc() instead of dr_raw_mremap() -- though there
+ * is no realloc for Windows: supposed to reserve yourself and then commit in
+ * pieces.
+ */
+void *
+dr_raw_mremap(void *old_address, size_t old_size, size_t new_size,
+              int flags, void *new_address)
+{
+    byte *res;
+    dr_mem_info_t info;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    /* i#173: we need prot + type from prior to mremap */
+    DEBUG_DECLARE(bool ok =)
+        query_memory_ex(old_address, &info);
+    /* XXX: this could be a large region w/ multiple protection regions
+     * inside.  For now we assume our handling of it doesn't care.
+     */
+    ASSERT(ok);
+    if (is_pretend_or_executable_writable(old_address))
+        info.prot |= DR_MEMPROT_WRITE;
+    /* we just unconditionally send the 5th param */
+    res = (byte *) dynamorio_syscall(SYS_mremap, 5, old_address, old_size, new_size,
+                                     flags, new_address);
+    handle_app_mremap(dcontext, res, new_size, old_address, old_size,
+                      info.prot, info.size);
+    return res;
+}
+
+DR_API
+void *
+dr_raw_brk(void *new_address)
+{
+    /* We pay the cost of 2 syscalls.  This should be infrequent enough that
+     * it doesn't mater.
+     */
+    if (new_address == NULL) {
+        /* Just a query */
+        return (void *) dynamorio_syscall(SYS_brk, 1, new_address);
+    } else {
+        byte *old_brk = (byte *) dynamorio_syscall(SYS_brk, 1, 0);
+        byte *res = (byte *) dynamorio_syscall(SYS_brk, 1, new_address);
+        dcontext_t *dcontext = get_thread_private_dcontext();
+        handle_app_brk(dcontext, old_brk, res);
+        return res;
+    }
+}
+#endif
 
 /* caller is required to handle thread synchronization and to update dynamo vm areas */
 void
@@ -5562,7 +5616,6 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
     return (res >= 0);
 }
 
-
 /* System call interception: put any special handling here
  * Arguments come from the pusha right before the call
  */
@@ -6762,6 +6815,92 @@ handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
 }
 #endif /* X64 */
 
+/* Call right after the system call.
+ * i#173: old_prot and old_type should be from before the system call
+ */
+static bool
+handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
+                  byte *old_base, size_t old_size, uint old_prot, uint old_type)
+{
+    if (!mmap_syscall_succeeded(base))
+        return false;
+    if (base != old_base || size < old_size) { /* take action only if
+                                                * there was a change */
+        DEBUG_DECLARE(bool ok;)
+        /* fragments were shifted...don't try to fix them, just flush */
+        app_memory_deallocation(dcontext, (app_pc)old_base, old_size,
+                                false /* don't own thread_initexit_lock */,
+                                false /* not image, FIXME: somewhat arbitrary */);
+        DOCHECK(1, {
+            /* we don't expect to see remappings of modules */
+            os_get_module_info_lock();
+            ASSERT_CURIOSITY(!module_overlaps(base, size));
+            os_get_module_info_unlock();
+        });
+        /* Verify that the current prot on the new region (according to
+         * the os) is the same as what the prot used to be for the old
+         * region.
+         */
+        DOCHECK(1, {
+            uint memprot;
+            ok = get_memory_info_from_os(base, NULL, NULL, &memprot);
+            ASSERT(ok && memprot == old_prot);
+        });
+        app_memory_allocation(dcontext, base, size, old_prot,
+                              old_type == DR_MEMTYPE_IMAGE
+                              _IF_DEBUG("mremap"));
+        /* Now modify the all-mems list. */
+        /* We don't expect an existing entry for the new region. */
+        all_memory_areas_lock();
+
+        /* i#175: overlap w/ existing regions is not an error */
+        DEBUG_DECLARE(ok =)
+            remove_from_all_memory_areas(old_base, old_base+old_size);
+        ASSERT(ok);
+        update_all_memory_areas(base, base + size, old_prot, old_type);
+        all_memory_areas_unlock();
+    }
+    return true;
+}
+
+static void
+handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
+{
+    DEBUG_DECLARE(bool ok;)
+    /* i#851: the brk might not be page aligned */
+    old_brk = (app_pc) ALIGN_FORWARD(old_brk, PAGE_SIZE);
+    new_brk = (app_pc) ALIGN_FORWARD(new_brk, PAGE_SIZE);
+    if (new_brk < old_brk) {
+        /* Usually the heap is writable, so we don't really need to call
+         * this here: but seems safest to do so, esp if someone made part of
+         * the heap read-only and then put code there.
+         */
+        app_memory_deallocation(dcontext, new_brk, old_brk - new_brk,
+                                false /* don't own thread_initexit_lock */,
+                                false /* not image */);
+        all_memory_areas_lock();
+        DEBUG_DECLARE(ok =)
+            remove_from_all_memory_areas(new_brk, old_brk);
+        ASSERT(ok);
+        all_memory_areas_unlock();
+    } else if (new_brk > old_brk) {
+        allmem_info_t *info;
+        uint prot;
+        /* No need to call app_memory_allocation() as doesn't interact
+         * w/ security policies.
+         */
+        all_memory_areas_lock();
+        sync_all_memory_areas();
+        info = vmvector_lookup(all_memory_areas, old_brk - 1);
+        /* If the heap hasn't been created yet (no brk syscalls), then info
+         * will be NULL.  We assume the heap is RW- on creation.
+         */
+        prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
+        update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
+        all_memory_areas_unlock();
+    }
+}
+
 /* Returns false if system call should NOT be executed
  * Returns true if system call should go ahead
  */
@@ -6952,10 +7091,12 @@ post_system_call(dcontext_t *dcontext)
         /* even if no shift, count as munmap plus mmap */
         RSTATS_INC(num_app_munmaps);
         RSTATS_INC(num_app_mmaps);
-        success = !(result == -EINVAL ||
-                    result == -EAGAIN ||
-                    result == -ENOMEM ||
-                    result == -EFAULT);
+        success = handle_app_mremap(dcontext, base, size, old_base, old_size,
+                                    /* i#173: use memory prot and type
+                                     * obtained from pre_system_call
+                                     */
+                                    (uint) dcontext->sys_param3,
+                                    (uint) dcontext->sys_param4);
         /* The syscall either failed OR the retcode is less than the
          * largest uint value of any errno and the addr returned is
          * is page-aligned.
@@ -6965,48 +7106,6 @@ post_system_call(dcontext_t *dcontext)
                           ALIGNED(base, PAGE_SIZE)));
         if (!success)
              goto exit_post_system_call;
-
-        if (base != old_base || size < old_size) { /* take action only if
-                                                    * there was a change */
-            dr_mem_info_t info;
-            /* fragments were shifted...don't try to fix them, just flush */
-            app_memory_deallocation(dcontext, (app_pc)old_base, old_size,
-                                    false /* don't own thread_initexit_lock */,
-                                    false /* not image, FIXME: somewhat arbitrary */);
-            /* i#173
-             * use memory prot and type obtained from pre_system_call
-             */
-            info.prot = dcontext->sys_param3;
-            info.type = dcontext->sys_param4;
-            DOCHECK(1, {
-                /* we don't expect to see remappings of modules */
-                os_get_module_info_lock();
-                ASSERT_CURIOSITY(!module_overlaps(base, size));
-                os_get_module_info_unlock();
-            });
-            /* Verify that the current prot on the new region (according to
-             * the os) is the same as what the prot used to be for the old
-             * region.
-             */
-            DOCHECK(1, {
-                uint memprot;
-                ok = get_memory_info_from_os(base, NULL, NULL, &memprot);
-                ASSERT(memprot == info.prot);
-            });
-            app_memory_allocation(dcontext, base, size, info.prot,
-                                  info.type == DR_MEMTYPE_IMAGE
-                                  _IF_DEBUG("mremap"));
-            /* Now modify the all-mems list. */
-            /* We don't expect an existing entry for the new region. */
-            all_memory_areas_lock();
-            
-            /* i#175: overlap w/ existing regions is not an error */
-            DEBUG_DECLARE(ok =)
-                remove_from_all_memory_areas(old_base, old_base+old_size);
-            ASSERT(ok);
-            update_all_memory_areas(base, base + size, info.prot, info.type);
-            all_memory_areas_unlock();
-        }
         break;
     }
     case SYS_mprotect: {
@@ -7097,28 +7196,7 @@ post_system_call(dcontext_t *dcontext)
             });
         }
 #endif
-        /* i#851: the brk might not be page aligned */
-        old_brk = (app_pc) ALIGN_FORWARD(old_brk, PAGE_SIZE);
-        new_brk = (app_pc) ALIGN_FORWARD(new_brk, PAGE_SIZE);
-        if (new_brk < old_brk) {
-            all_memory_areas_lock();
-            DEBUG_DECLARE(ok =)
-                remove_from_all_memory_areas(new_brk, old_brk);
-            ASSERT(ok);
-            all_memory_areas_unlock();
-        } else if (new_brk > old_brk) {
-            allmem_info_t *info;
-            uint prot;
-            all_memory_areas_lock();
-            sync_all_memory_areas();
-            info = vmvector_lookup(all_memory_areas, old_brk - 1);
-            /* If the heap hasn't been created yet (no brk syscalls), then info
-             * will be NULL.  We assume the heap is RW- on creation.
-             */
-            prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
-            update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
-            all_memory_areas_unlock();
-        }
+        handle_app_brk(dcontext, old_brk, new_brk);
         break;
     }
 

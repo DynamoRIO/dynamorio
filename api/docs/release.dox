@@ -162,6 +162,7 @@ Further non-compatibility-affecting changes include:
    operands to each other for more flexible 64-bit encoding.
  - Added opnd_create_instr_ex() and opnd_get_shift()
  - Added dr_custom_alloc()
+ - Added dr_raw_mremap() and dr_raw_brk()
  - Added #DR_EMIT_GO_NATIVE, dr_suspend_all_other_threads_ex(),
    dr_retakeover_suspended_native_thread(), and dr_is_thread_native() for
    temporarily-native support.
