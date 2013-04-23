@@ -406,8 +406,10 @@ void custom_windows_test(void)
 
     write_array(array);
 
-    dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
-                   DR_ALLOC_COMMIT_ONLY, array, PAGE_SIZE);
+    ok = dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                        DR_ALLOC_COMMIT_ONLY, array, PAGE_SIZE);
+    if (!ok)
+        dr_fprintf(STDERR, "error: failed to de-commit\n");
     if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
         dr_fprintf(STDERR, "error: unable to query prot\n");
     /* 0 is sometimes returned (see VirtualQuery docs) */
@@ -416,8 +418,10 @@ void custom_windows_test(void)
     if (mbi.State != MEM_RESERVE)
         dr_fprintf(STDERR, "error: memory wasn't de-committed %x\n", mbi.State);
 
-    dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
-                   DR_ALLOC_RESERVE_ONLY, array, PAGE_SIZE*2);
+    ok = dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                        DR_ALLOC_RESERVE_ONLY, array, PAGE_SIZE*2);
+    if (!ok)
+        dr_fprintf(STDERR, "error: failed to un-reserve\n");
     if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
         dr_fprintf(STDERR, "error: unable to query prot\n");
     /* 0 is sometimes returned (see VirtualQuery docs) */
@@ -435,6 +439,7 @@ static
 void custom_unix_test(void)
 {
     void *array;
+    bool ok;
 
     /* "linux" is replaced by "1" in .template so we use "Linux" */
     dr_fprintf(STDERR, "  testing custom Linux alloc....");
@@ -449,7 +454,9 @@ void custom_unix_test(void)
         dr_fprintf(STDERR, "error: unable to mremap\n");
     write_array(array);
 
-    dr_raw_mem_free(array, PAGE_SIZE*2);
+    ok = dr_raw_mem_free(array, PAGE_SIZE*2);
+    if (!ok)
+        dr_fprintf(STDERR, "error: failed to munmap\n");
 
     array = dr_raw_brk(0);
     if (array == NULL)

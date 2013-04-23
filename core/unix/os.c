@@ -2834,7 +2834,7 @@ munmap_syscall(byte *addr, size_t len)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 /* free memory allocated from os_raw_mem_alloc */
-void
+bool
 os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
 {
     long rc;
@@ -2847,7 +2847,7 @@ os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
     } else {
         *error_code = HEAP_ERROR_SUCCESS;
     }
-    ASSERT(rc == 0);
+    return (rc == 0);
 }
 
 /* try to alloc memory at preferred from os directly,

@@ -1932,6 +1932,8 @@ DR_API
  * to be reachable from the code cache (by not passing
  * #DR_ALLOC_CACHE_REACHABLE).  This frees up space in the reachable
  * region.
+ *
+ * Returns NULL on failure.
  */
 void *
 dr_custom_alloc(void *drcontext, dr_alloc_flags_t flags, size_t size,
@@ -1942,7 +1944,7 @@ DR_API
  * Frees memory allocated by dr_custom_alloc().  The same \p flags
  * and \p size must be passed here as were passed to dr_custom_alloc().
  */
-void
+bool
 dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size);
 
 DR_API 
@@ -1993,7 +1995,7 @@ DR_API
  * \p addr and \p size must be the same as that passed to dr_raw_mem_alloc()
  * on Windows.
  */
-void
+bool
 dr_raw_mem_free(void *addr, size_t size);
 
 #ifdef UNIX

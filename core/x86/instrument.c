@@ -2508,9 +2508,10 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     return p;
 }
 
-static void
+static bool
 raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
 {
+    bool res;
     heap_error_code_t error_code;
     byte *p = addr;
 #ifdef UNIX
@@ -2529,7 +2530,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
         /* memory alloc/dealloc and updating DR list must be atomic */
         dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     }
-    os_raw_mem_free(p, size, os_flags, &error_code);
+    res = os_raw_mem_free(p, size, os_flags, &error_code);
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         remove_from_all_memory_areas(p, p + size);
         all_memory_areas_unlock();
@@ -2539,6 +2540,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     }
     if (!TEST(DR_ALLOC_NON_DR, flags))
         dynamo_vm_areas_unlock();
+    return res;
 }
 
 DR_API
@@ -2549,16 +2551,17 @@ dr_raw_mem_alloc(size_t size, uint prot, void *addr)
 }
 
 DR_API
-void
+bool
 dr_raw_mem_free(void *addr, size_t size)
 {
-    raw_mem_free(addr, size, DR_ALLOC_NON_DR);
+    return raw_mem_free(addr, size, DR_ALLOC_NON_DR);
 }
 
 static void *
 custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t size,
-                     uint prot, void *addr)
+                     uint prot, void *addr, bool *free_res)
 {
+    CLIENT_ASSERT(alloc || free_res != NULL, "must ask for free_res on free");
     CLIENT_ASSERT(alloc || addr != NULL, "cannot free NULL");
     CLIENT_ASSERT(!TESTALL(DR_ALLOC_NON_DR|DR_ALLOC_CACHE_REACHABLE, flags),
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
@@ -2594,13 +2597,13 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
             if (alloc)
                 return raw_mem_alloc(size, prot, addr, flags);
             else
-                raw_mem_free(addr, size, flags);
+                *free_res = raw_mem_free(addr, size, flags);
         } else if (TEST(DR_ALLOC_NON_DR, flags)) {
             /* ok for addr to be NULL */
             if (alloc)
                 return raw_mem_alloc(size, prot, addr, flags);
             else
-                raw_mem_free(addr, size, flags);
+                *free_res = raw_mem_free(addr, size, flags);
         } else { /* including DR_ALLOC_CACHE_REACHABLE */
             CLIENT_ASSERT(!alloc || !TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
                           addr == NULL,
@@ -2612,15 +2615,19 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                 if (alloc)
                     return raw_mem_alloc(size, prot, addr, 0);
                 else
-                    raw_mem_free(addr, size, 0);
+                    *free_res = raw_mem_free(addr, size, 0);
             } else {
                 if (alloc)
                     return dr_nonheap_alloc(size, prot);
-                else
+                else {
+                    *free_res = true;
                     dr_nonheap_free(addr, size);
+                }
             }
         }
     } else {
+        if (!alloc)
+            *free_res = true;
         CLIENT_ASSERT(!alloc || addr == NULL,
                       "dr_custom_alloc: cannot pass an addr for heap memory");
         CLIENT_ASSERT(drcontext == NULL || TEST(DR_ALLOC_THREAD_PRIVATE, flags),
@@ -2650,14 +2657,16 @@ void *
 dr_custom_alloc(void *drcontext, dr_alloc_flags_t flags, size_t size,
                 uint prot, void *addr)
 {
-    return custom_memory_shared(true, drcontext, flags, size, prot, addr);
+    return custom_memory_shared(true, drcontext, flags, size, prot, addr, NULL);
 }
 
 DR_API
-void
+bool
 dr_custom_free(void *drcontext, dr_alloc_flags_t flags, void *addr, size_t size)
 {
-    custom_memory_shared(false, drcontext, flags, size, 0, addr);
+    bool res;
+    custom_memory_shared(false, drcontext, flags, size, 0, addr, &res);
+    return res;
 }
 
 #ifdef UNIX

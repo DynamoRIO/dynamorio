@@ -103,7 +103,7 @@ enum {
 void *os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
                        heap_error_code_t *error_code);
 /* For dr_raw_mem_free, free memory allocated from os_raw_mem_alloc */
-void os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code);
+bool os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code);
 
 /* Reserve size bytes of virtual address space in one piece without committing swap
  * space for it.  If preferred is non-NULL then memory will be reserved at that address

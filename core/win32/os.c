@@ -4139,7 +4139,7 @@ reset_profile(profile_t *profile)
 #endif
 
 /* free memory allocated from os_raw_mem_alloc */
-void
+bool
 os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
 {
     ASSERT(error_code != NULL);
@@ -4154,7 +4154,7 @@ os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
         *error_code = nt_free_virtual_memory(p);
     LOG(GLOBAL, LOG_HEAP, 2, "os_raw_mem_free: "SZFMT" bytes @ "PFX"\n",
         size, p);
-    ASSERT(NT_SUCCESS(*error_code));
+    return NT_SUCCESS(*error_code);
 }
 
 void *
