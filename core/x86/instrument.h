@@ -1863,6 +1863,29 @@ typedef enum {
      * #DR_ALLOC_CACHE_REACHABLE.
      */
     DR_ALLOC_NON_DR               = 0x0020,
+#ifdef WINDOWS
+    /**
+     * This flag only applies to non-heap, non-DR memory (i.e., when
+     * both #DR_ALLOC_NON_HEAP and #DR_ALLOC_NON_DR are specified) on
+     * Windows.  When this flag is specified, the allocated memory is
+     * reserved but not committed, just like the MEM_RESERVE Windows API
+     * flag (the default is MEM_RESERVE|MEM_COMMIT).
+     */
+    DR_ALLOC_RESERVE_ONLY         = 0x0040,
+    /**
+     * This flag only applies to non-heap, non-DR memory (i.e., when both
+     * #DR_ALLOC_NON_HEAP and #DR_ALLOC_NON_DR are specified) on Windows.
+     * This flag must be combined with DR_ALLOC_FIXED_LOCATION.  When this
+     * flag is specified, previously allocated memory is committed, just
+     * like the MEM_COMMIT Windows API flag (when this flag is not passed,
+     * the effect is MEM_RESERVE|MEM_COMMIT).  When passed to
+     * dr_custom_free(), this flag causes a de-commit, just like the
+     * MEM_DECOMMIT Windows API flag.  This flag cannot be combined with
+     * #DR_ALLOC_LOW_2GB and must include a non-NULL requested location (\p
+     * addr parameter).
+     */
+    DR_ALLOC_COMMIT_ONLY          = 0x0080,
+#endif
 } dr_alloc_flags_t;
 /* DR_API EXPORT END */
 

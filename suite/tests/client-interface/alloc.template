@@ -2,6 +2,9 @@ thank you for testing the client interface
   testing global memory alloc...success
   testing nonheap memory alloc...success
   testing custom memory alloc....success
+#ifdef WINDOWS
+  testing custom windows alloc....success
+#endif
 thread initialization:
   testing local memory alloc....success
   testing global memory alloc...success

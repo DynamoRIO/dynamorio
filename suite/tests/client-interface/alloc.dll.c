@@ -366,6 +366,67 @@ void custom_test(void)
     dr_fprintf(STDERR, "success\n");
 }
 
+#ifdef WINDOWS
+static
+void custom_windows_test(void)
+{
+    void *array;
+    MEMORY_BASIC_INFORMATION mbi;
+    bool ok;
+
+    dr_fprintf(STDERR, "  testing custom windows alloc....");
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                            DR_ALLOC_RESERVE_ONLY, PAGE_SIZE*2,
+                            DR_MEMPROT_NONE, NULL);
+    if (array == NULL)
+        dr_fprintf(STDERR, "error: unable to reserve\n");
+    if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
+        dr_fprintf(STDERR, "error: unable to query prot\n");
+    /* 0 is sometimes returned (see VirtualQuery docs) */
+    if (mbi.Protect != PAGE_NOACCESS && mbi.Protect != 0)
+        dr_fprintf(STDERR, "error: wrong reserve prot %x\n", mbi.Protect);
+    if (mbi.State != MEM_RESERVE)
+        dr_fprintf(STDERR, "error: memory wasn't reserved\n");
+
+    array = dr_custom_alloc(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                            DR_ALLOC_COMMIT_ONLY | DR_ALLOC_FIXED_LOCATION,
+                            PAGE_SIZE, DR_MEMPROT_READ | DR_MEMPROT_WRITE, array);
+    if (array == NULL)
+        dr_fprintf(STDERR, "error: unable to commit\n");
+    if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
+        dr_fprintf(STDERR, "error: unable to query prot\n");
+    if (mbi.Protect != PAGE_READWRITE)
+        dr_fprintf(STDERR, "error: wrong commit prot %x\n", mbi.Protect);
+    if (mbi.State != MEM_COMMIT || mbi.RegionSize != PAGE_SIZE)
+        dr_fprintf(STDERR, "error: memory wasn't committed\n");
+
+    write_array(array);
+
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                   DR_ALLOC_COMMIT_ONLY, array, PAGE_SIZE);
+    if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
+        dr_fprintf(STDERR, "error: unable to query prot\n");
+    /* 0 is sometimes returned (see VirtualQuery docs) */
+    if (mbi.Protect != PAGE_NOACCESS && mbi.Protect != 0)
+        dr_fprintf(STDERR, "error: wrong decommit prot %x\n", mbi.Protect);
+    if (mbi.State != MEM_RESERVE)
+        dr_fprintf(STDERR, "error: memory wasn't de-committed %x\n", mbi.State);
+
+    dr_custom_free(NULL, DR_ALLOC_NON_HEAP | DR_ALLOC_NON_DR |
+                   DR_ALLOC_RESERVE_ONLY, array, PAGE_SIZE*2);
+    if (dr_virtual_query(array, &mbi, sizeof(mbi)) != sizeof(mbi))
+        dr_fprintf(STDERR, "error: unable to query prot\n");
+    /* 0 is sometimes returned (see VirtualQuery docs) */
+    if (mbi.Protect != PAGE_NOACCESS && mbi.Protect != 0)
+        dr_fprintf(STDERR, "error: wrong unreserve prot %x\n", mbi.Protect);
+    if (mbi.State != MEM_FREE)
+        dr_fprintf(STDERR, "error: memory wasn't un-reserved\n");
+
+    dr_fprintf(STDERR, "success\n");
+}
+#endif
+
 #ifdef UNIX
 static void
 calloc_test(void)
@@ -498,6 +559,9 @@ void dr_init(client_id_t id)
     global_test();
     nonheap_test();
     custom_test();
+#ifdef WINDOWS
+    custom_windows_test();
+#endif
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);

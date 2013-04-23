@@ -4140,21 +4140,25 @@ reset_profile(profile_t *profile)
 
 /* free memory allocated from os_raw_mem_alloc */
 void
-os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code)
+os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
 {
     ASSERT(error_code != NULL);
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
 
-    *error_code = nt_decommit_virtual_memory(p, size);
-    ASSERT(NT_SUCCESS(*error_code));
-    *error_code = nt_free_virtual_memory(p);
+    if (!TEST(RAW_ALLOC_RESERVE_ONLY, flags)) {
+        *error_code = nt_decommit_virtual_memory(p, size);
+        if (!NT_SUCCESS(*error_code))
+            return false;
+    }
+    if (!TEST(RAW_ALLOC_COMMIT_ONLY, flags))
+        *error_code = nt_free_virtual_memory(p);
     LOG(GLOBAL, LOG_HEAP, 2, "os_raw_mem_free: "SZFMT" bytes @ "PFX"\n",
         size, p);
     ASSERT(NT_SUCCESS(*error_code));
 }
 
 void *
-os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags/*unused*/,
+os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
                  heap_error_code_t *error_code)
 {
     void *p = preferred;
@@ -4164,7 +4168,11 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags/*unused*/,
     /* should only be used on aligned pieces */
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
 
-    *error_code = nt_allocate_virtual_memory(&p, size, os_prot, MEMORY_COMMIT);
+    *error_code = nt_allocate_virtual_memory(&p, size, os_prot,
+                                             TEST(RAW_ALLOC_RESERVE_ONLY, flags) ?
+                                             MEMORY_RESERVE_ONLY :
+                                             (TEST(RAW_ALLOC_COMMIT_ONLY, flags) ?
+                                              MEM_COMMIT : MEMORY_COMMIT));
     if (!NT_SUCCESS(*error_code)) {
         LOG(GLOBAL, LOG_HEAP, 3,
             "os_raw_mem_alloc %d bytes failed"PFX"\n", size, p);

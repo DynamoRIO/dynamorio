@@ -2831,7 +2831,7 @@ munmap_syscall(byte *addr, size_t len)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 /* free memory allocated from os_raw_mem_alloc */
 void
-os_raw_mem_free(void *p, size_t size, heap_error_code_t *error_code)
+os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_code)
 {
     long rc;
     ASSERT(error_code != NULL);
@@ -2870,7 +2870,7 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     }
     if (preferred != NULL && p != preferred) {
         *error_code = HEAP_ERROR_NOT_AT_PREFERRED;
-        os_raw_mem_free(p, size, error_code);
+        os_raw_mem_free(p, size, flags, error_code);
         LOG(GLOBAL, LOG_HEAP, 3,
             "os_raw_mem_alloc %d bytes failed"PFX"\n", size, p);
         return NULL;

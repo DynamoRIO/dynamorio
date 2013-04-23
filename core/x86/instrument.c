@@ -2467,9 +2467,11 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
     size = ALIGN_FORWARD(size, PAGE_SIZE);
 #ifdef WINDOWS
     if (TEST(DR_ALLOC_LOW_2GB, flags)) {
+        CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
+                      "cannot combine commit-only and low-2GB");
         p = os_heap_reserve_in_region(NULL, (byte *)(ptr_uint_t)0x80000000, size,
                                       &error_code, TEST(DR_MEMPROT_EXEC, flags));
-        if (p != NULL) {
+        if (p != NULL && !TEST(DR_ALLOC_RESERVE_ONLY, flags)) {
             if (!os_heap_commit(p, size, prot, &error_code)) {
                 os_heap_free(p, size, &error_code);
                 p = NULL;
@@ -2481,10 +2483,13 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
             /* We specify that DR_ALLOC_LOW_2GB only applies to x64, so it's
              * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
              */
-            p = os_raw_mem_alloc(addr, size, prot,
-                                 IF_UNIX_ELSE(TEST(DR_ALLOC_LOW_2GB, flags) ?
-                                               MAP_32BIT : 0, 0),
-                                 &error_code);
+#ifdef UNIX
+            uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? MAP_32BIT : 0;
+#else
+            uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
+                (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
+#endif
+            p = os_raw_mem_alloc(addr, size, prot, os_flags, &error_code);
         }
 
     if (p != NULL) {
@@ -2508,6 +2513,12 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
 {
     heap_error_code_t error_code;
     byte *p = addr;
+#ifdef UNIX
+    uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? MAP_32BIT : 0;
+#else
+    uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
+        (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
+#endif
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         /* use lock to avoid racy update on parallel memory allocation,
          * e.g. allocation from another thread at p happens after os_heap_free
@@ -2518,7 +2529,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
         /* memory alloc/dealloc and updating DR list must be atomic */
         dynamo_vm_areas_lock(); /* if already hold lock this is a nop */
     }
-    os_raw_mem_free(p, size, &error_code);
+    os_raw_mem_free(p, size, os_flags, &error_code);
     if (TEST(DR_ALLOC_NON_DR, flags)) {
         remove_from_all_memory_areas(p, p + size);
         all_memory_areas_unlock();
@@ -2553,6 +2564,14 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                   "dr_custom_alloc: cannot combine non-DR and cache-reachable");
     CLIENT_ASSERT(!alloc || TEST(DR_ALLOC_FIXED_LOCATION, flags) || addr == NULL,
                   "dr_custom_alloc: address only honored for fixed location");
+#ifdef WINDOWS
+    CLIENT_ASSERT(!TESTANY(DR_ALLOC_RESERVE_ONLY | DR_ALLOC_COMMIT_ONLY, flags) ||
+                  TESTALL(DR_ALLOC_NON_HEAP|DR_ALLOC_NON_DR, flags),
+                  "dr_custom_alloc: reserve/commit-only are only for non-DR non-heap");
+    CLIENT_ASSERT(!TEST(DR_ALLOC_RESERVE_ONLY, flags) ||
+                  !TEST(DR_ALLOC_COMMIT_ONLY, flags),
+                  "dr_custom_alloc: cannot combine reserve-only + commit-only");
+#endif
     if (TEST(DR_ALLOC_NON_HEAP, flags)) {
         CLIENT_ASSERT(drcontext == NULL,
                       "dr_custom_alloc: drcontext must be NULL for non-heap");
@@ -2560,7 +2579,15 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
                       "dr_custom_alloc: non-heap cannot be thread-private");
         CLIENT_ASSERT(!TESTALL(DR_ALLOC_CACHE_REACHABLE|DR_ALLOC_LOW_2GB, flags),
                       "dr_custom_alloc: cannot combine low-2GB and cache-reachable");
+#ifdef WINDOWS
+        CLIENT_ASSERT(addr != NULL || !TEST(DR_ALLOC_COMMIT_ONLY, flags),
+                      "dr_custom_alloc: commit-only requires non-NULL addr");
+#endif
         if (TEST(DR_ALLOC_LOW_2GB, flags)) {
+#ifdef WINDOWS
+            CLIENT_ASSERT(!TEST(DR_ALLOC_COMMIT_ONLY, flags),
+                          "dr_custom_alloc: cannot combine commit-only and low-2GB");
+#endif
             CLIENT_ASSERT(!alloc || addr == NULL,
                           "dr_custom_alloc: cannot pass an addr with low-2GB");
             /* Even if not non-DR, easier to allocate via raw */
@@ -2571,9 +2598,9 @@ custom_memory_shared(bool alloc, void *drcontext, dr_alloc_flags_t flags, size_t
         } else if (TEST(DR_ALLOC_NON_DR, flags)) {
             /* ok for addr to be NULL */
             if (alloc)
-                return dr_raw_mem_alloc(size, prot, addr);
+                return raw_mem_alloc(size, prot, addr, flags);
             else
-                dr_raw_mem_free(addr, size);
+                raw_mem_free(addr, size, flags);
         } else { /* including DR_ALLOC_CACHE_REACHABLE */
             CLIENT_ASSERT(!alloc || !TEST(DR_ALLOC_CACHE_REACHABLE, flags) ||
                           addr == NULL,
