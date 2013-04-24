@@ -7971,7 +7971,20 @@ unlink_client_ibl_xfer(dcontext_t *dcontext)
     relink_client_ibl_xfer(dcontext, IBL_UNLINKED);
 }
 
+#endif /* CLIENT_INTERFACE */
+
 /* i#171: out-of-line clean call */
+/* XXX: i#1149 the clean call context switch should be shared among all threads */
+bool
+client_clean_call_is_thread_private(void)
+{
+#ifdef X64
+    return false; /* all gencode is shared */
+#else
+    return !USE_SHARED_GENCODE();
+#endif
+}
+
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
@@ -8057,5 +8070,3 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     instrlist_clear(dcontext, &ilist);
     return pc;
 }
-
-#endif

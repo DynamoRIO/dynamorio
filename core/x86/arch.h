@@ -365,9 +365,11 @@ get_clean_call_switch_stack_size(void);
  */
 int
 get_clean_call_temp_stack_size(void);
+
 void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr);
+
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
@@ -684,8 +686,9 @@ cache_pc fcache_return_coarse_routine(IF_X64(gencode_mode_t mode));
 cache_pc trace_head_return_coarse_routine(IF_X64(gencode_mode_t mode));
 
 /* shared clean call context switch */
-cache_pc get_clean_call_save(IF_X64(gencode_mode_t mode));
-cache_pc get_clean_call_restore(IF_X64(gencode_mode_t mode));
+bool client_clean_call_is_thread_private();
+cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
 
 void protect_generated_code(generated_code_t *code, bool writable);
 
@@ -874,13 +877,14 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 #ifdef CLIENT_INTERFACE
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+#endif
 
+/* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */
 byte *
 emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 byte *
 emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
-#endif
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,

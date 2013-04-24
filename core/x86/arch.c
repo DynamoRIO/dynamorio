@@ -185,11 +185,11 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 # ifdef CLIENT_INTERFACE
             else if (last_pc == code->client_ibl_xfer)
                 print_file(file, "client_ibl_xfer:\n");
+# endif
             else if (last_pc == code->clean_call_save)
                 print_file(file, "clean_call_save:\n");
             else if (last_pc == code->clean_call_restore)
                 print_file(file, "clean_call_restore:\n");
-# endif
             last_pc = disassemble_with_bytes(dcontext, last_pc, file);
         } while (last_pc < emitted_pc);
         print_file(file, "%s routines size: "SSZFMT" / "SSZFMT"\n\n", 
@@ -464,13 +464,15 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
         gencode->client_ibl_xfer = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
     }
-    pc = check_size_and_cache_line(gencode, pc);
-    gencode->clean_call_save = pc;
-    pc = emit_clean_call_save(GLOBAL_DCONTEXT, pc, gencode);
-    pc = check_size_and_cache_line(gencode, pc);
-    gencode->clean_call_restore = pc;
-    pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
 #endif
+    if (!client_clean_call_is_thread_private()) {
+        pc = check_size_and_cache_line(gencode, pc);
+        gencode->clean_call_save = pc;
+        pc = emit_clean_call_save(GLOBAL_DCONTEXT, pc, gencode);
+        pc = check_size_and_cache_line(gencode, pc);
+        gencode->clean_call_restore = pc;
+        pc = emit_clean_call_restore(GLOBAL_DCONTEXT, pc, gencode);
+    }
 
     ASSERT(pc < gencode->commit_end_pc);
     gencode->gen_end_pc = pc;
@@ -1115,6 +1117,15 @@ arch_thread_init(dcontext_t *dcontext)
         pc = emit_client_ibl_xfer(dcontext, pc, code);
     }
 #endif
+    /* XXX: i#1149: we should always use thread shared gencode */
+    if (client_clean_call_is_thread_private()) {
+        pc = check_size_and_cache_line(code, pc);
+        code->clean_call_save = pc;
+        pc = emit_clean_call_save(dcontext, pc, code);
+        pc = check_size_and_cache_line(code, pc);
+        code->clean_call_restore = pc;
+        pc = emit_clean_call_restore(dcontext, pc, code);
+    }
 
     ASSERT(pc < code->commit_end_pc);
     code->gen_end_pc = pc;
@@ -1621,17 +1632,25 @@ trace_head_return_coarse_routine(IF_X64_ELSE(gencode_mode_t mode, void))
 }
 
 cache_pc
-get_clean_call_save(IF_X64_ELSE(gencode_mode_t mode, void))
+get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code;
+    if (client_clean_call_is_thread_private())
+        code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    else
+        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
     return (cache_pc) code->clean_call_save;
 }
 
 cache_pc
-get_clean_call_restore(IF_X64_ELSE(gencode_mode_t mode, void))
+get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 {
-    generated_code_t *code = get_shared_gencode(GLOBAL_DCONTEXT _IF_X64(mode));
+    generated_code_t *code;
+    if (client_clean_call_is_thread_private())
+        code = get_emitted_routines_code(dcontext _IF_X64(mode));
+    else
+        code = get_emitted_routines_code(GLOBAL_DCONTEXT _IF_X64(mode));
     ASSERT(code != NULL);
     return (cache_pc) code->clean_call_restore;
 }

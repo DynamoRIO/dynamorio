@@ -530,8 +530,8 @@ insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
     PRE(ilist, instr,
         INSTR_CREATE_call
         (dcontext, save ?
-         opnd_create_pc(get_clean_call_save(IF_X64(GENCODE_X64))) :
-         opnd_create_pc(get_clean_call_restore(IF_X64(GENCODE_X64)))));
+         opnd_create_pc(get_clean_call_save(dcontext _IF_X64(GENCODE_X64))) :
+         opnd_create_pc(get_clean_call_restore(dcontext _IF_X64(GENCODE_X64)))));
     return get_clean_call_switch_stack_size();
 }
 

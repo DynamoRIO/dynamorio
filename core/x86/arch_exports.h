@@ -1192,6 +1192,7 @@ patch_coarse_exit_prefix(dcontext_t *dcontext, coarse_info_t *info);
 #ifdef CLIENT_INTERFACE
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext);
+#endif
 
 bool
 client_ibl_xfer_is_thread_private(void);
@@ -1201,7 +1202,6 @@ link_client_ibl_xfer(dcontext_t *dcontext);
 
 void
 unlink_client_ibl_xfer(dcontext_t *dcontext);
-#endif
 
 enum {
     MAX_INSTR_LENGTH = 17,
