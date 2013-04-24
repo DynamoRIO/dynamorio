@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -247,6 +247,12 @@ static const linkstub_t linkstub_ibl_bb_jmp =
     { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 };
 static const linkstub_t linkstub_ibl_bb_call =
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 };
+#  ifdef CLIENT_INTERFACE
+static const linkstub_t linkstub_ibl_trace_ret_client =
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
+static const linkstub_t linkstub_ibl_bb_ret_client =
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
+#  endif
 # endif
 
 static inline bool
@@ -666,7 +672,17 @@ void
 set_coarse_ibl_exit(dcontext_t *dcontext)
 {
     thread_link_data_t *ldata = (thread_link_data_t *) dcontext->link_field;
-    app_pc src_tag = dcontext->coarse_exit.src_tag;
+    app_pc src_tag;
+
+#ifdef CLIENT_INTERFACE
+    /* Client ibl is incompatible with knowing the source tag (so can't use
+     * dr_redirect_native_target() with PROGRAM_SHEPHERDING).
+     */
+    if (is_client_ibl_linkstub((const linkstub_t*)dcontext->last_exit))
+        return;
+#endif
+
+    src_tag = dcontext->coarse_exit.src_tag;
     ASSERT(src_tag != NULL);
 
     if (!DYNAMO_OPTION(coarse_units) ||
@@ -809,7 +825,13 @@ is_ibl_sourceless_linkstub(const linkstub_t *l)
             l == &linkstub_ibl_trace_call ||
             l == &linkstub_ibl_bb_ret ||
             l == &linkstub_ibl_bb_jmp ||
-            l == &linkstub_ibl_bb_call);
+            l == &linkstub_ibl_bb_call
+#ifdef CLIENT_INTERFACE
+            ||
+            l == &linkstub_ibl_trace_ret_client ||
+            l == &linkstub_ibl_bb_ret_client
+#endif
+            );
 }
 
 const linkstub_t *
@@ -833,6 +855,25 @@ get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags)
     ASSERT_NOT_REACHED();
     return NULL;
 }
+
+#ifdef CLIENT_INTERFACE
+bool
+is_client_ibl_linkstub(const linkstub_t *l)
+{
+    return (l == &linkstub_ibl_trace_ret_client ||
+            l == &linkstub_ibl_bb_ret_client);
+}
+
+const linkstub_t *
+get_client_ibl_linkstub(uint link_flags, uint frag_flags)
+{
+    ASSERT(TEST(LINK_RETURN, link_flags)); /* only ret supported */
+    if (TEST(FRAG_IS_TRACE, frag_flags))
+        return &linkstub_ibl_trace_ret_client;
+    else
+        return &linkstub_ibl_bb_ret_client;
+}
+#endif
 
 /* Direct exit not targeting a trace head */
 const linkstub_t *

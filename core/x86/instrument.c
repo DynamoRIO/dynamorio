@@ -5677,7 +5677,9 @@ byte *
 dr_redirect_native_target(void *drcontext)
 {
 #ifdef PROGRAM_SHEPHERDING
-    /* This feature is unavail for prog shep b/c of the cross-ib-type pollution. */
+    /* This feature is unavail for prog shep b/c of the cross-ib-type pollution,
+     * as well as the lack of source tag info when exiting the ibl (i#1150).
+     */
     return NULL;
 #else
     dcontext_t *dcontext = (dcontext_t *) drcontext;

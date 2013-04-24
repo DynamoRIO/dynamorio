@@ -7874,6 +7874,15 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     instrlist_init(&ilist);
     init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_FS);
 
+    if (DYNAMO_OPTION(indirect_stubs)) {
+        const linkstub_t *linkstub =
+            get_client_ibl_linkstub(ibltype_to_linktype(IBL_RETURN),
+                                    DYNAMO_OPTION(disable_traces) ? 0 : FRAG_IS_TRACE);
+        APP(&ilist, SAVE_TO_TLS(dcontext, REG_XBX, TLS_XBX_SLOT));
+        APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX),
+                                         OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
+    }
+
     if (code->thread_shared || DYNAMO_OPTION(private_ib_in_tls)) {
 #ifdef X64
         if (GENCODE_IS_X86_TO_X64(code->gencode_mode))
