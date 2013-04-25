@@ -234,6 +234,12 @@ DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_jmp,
     { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 });
 DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_call,
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 });
+#  ifdef CLIENT_INTERFACE
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_trace_ret_client,
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_ret_client,
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
+#  endif
 # else /* !PROFILE_LINKCOUNT */
 static const linkstub_t linkstub_ibl_trace_ret =
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
