@@ -8021,15 +8021,6 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
                                                     OPND_CREATE_INT32(0)));
     /* clear eflags */
     insert_clear_eflags(dcontext, NULL, &ilist, NULL);
-    /* clear eflags for callee's usage */
-    if (dynamo_options.cleancall_ignore_eflags) {
-        /* clear DF only to avoid stalling the pipeline */
-        APP(&ilist, INSTR_CREATE_cld(dcontext));
-    } else {
-        APP(&ilist,
-            INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT8(0)));
-        APP(&ilist, INSTR_CREATE_popf(dcontext));
-    }
     /* return back */
     APP(&ilist, INSTR_CREATE_lea
         (dcontext, opnd_create_reg(DR_REG_XSP),
