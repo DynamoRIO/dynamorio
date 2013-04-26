@@ -86,23 +86,27 @@ static int warning = 1;
 const char *usage_str = 
     "bbcov2lcov: covert bbcov file format to lcov file format\n"
     "usage: bbcov2lcov [options]\n"
-    "      --help                        Print this message.\n"
-    "      --verbose <int>               Verbose level.\n"
-    "      --warning <int>               Warning level.\n"
-    "      --list <input list file>      The file with a list of bbcov files to be processed.\n"
-    "      --dir <input directory>       The directory with all bbcov.*.log files to be processed.\n"
-    "      --output <output file>        The output file.\n"
-    "      --mod_filter <module filter>  Only process the module whose path contains the filter string.\n"
-    "      --src_filter <source filter>  Only process the source file whose path contains the filter string.\n";
+    "      --help                          Print this message.\n"
+    "      --verbose <int>                 Verbose level.\n"
+    "      --warning <int>                 Warning level.\n"
+    "      --list <input list file>        The file with a list of bbcov files to be processed.\n"
+    "      --dir <input directory>         The directory with all bbcov.*.log files to be processed.\n"
+    "      --output <output file>          The output file.\n"
+    "      --mod_filter <module filter>    Only process the module whose path contains the filter string.\n"
+    "      --src_filter <source filter>    Only process the source file whose path contains the filter string.\n"
+    "      --reduce_set <reduce_set file>  Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
 
 static char input_dir_buf[MAXIMUM_PATH];
 static char input_list_buf[MAXIMUM_PATH];
 static char output_file_buf[MAXIMUM_PATH];
+static char set_file_buf[MAXIMUM_PATH];
 static char *input_list;
 static char *input_dir;
 static char *output_file;
 static char *src_filter;
 static char *mod_filter;
+static char *set_file;
+static file_t set_log = INVALID_FILE;
 
 /****************************************************************************
  * Utility Functions
@@ -140,7 +144,7 @@ null_terminate_path(char *path)
  * called realpath, but this requires the path to exist and expands symlinks,
  * which is inconsistent with Windows GetFullPathName().
  */
-static void
+static int
 GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
 {
     size_t len = 0;
@@ -162,6 +166,7 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
     }
     strncpy(abs + len, rel, abs_len - len);
     abs[abs_len-1] = '\0';
+    return strlen(abs);
 }
 #endif
 
@@ -452,29 +457,29 @@ bb_table_lookup(bb_table_t *table, uint addr)
     return BB_TABLE_ENTRY_CLEAR;
 }
 
-static inline void
+static inline bool
 bb_table_add(bb_table_t *table, bb_entry_t *entry)
 {
     byte *bm;
     uint idx, offs, addr_end, idx_end, offs_end, i;
     if (table == BB_TABLE_IGNORE)
-        return;
+        return false;
     if (table->size <= entry->start + entry->size) {
         WARN(3, "Wrong range "PFX"-"PFX" or table size "PFX" for table "PFX"\n",
              (ptr_uint_t)entry->start,
              (ptr_uint_t)entry->start + entry->size,
              (ptr_uint_t)table->size,
              (ptr_uint_t)table);
-        return;
+        return false;
     }
     bm  = table->bm;
     idx = BITMAP_INDEX(entry->start);
     /* we assume that the whole bb is seen if its start addr is seen */
     if (bm[idx] == BB_TABLE_RANGE_SET)
-        return;
+        return false;
     offs = BITMAP_OFFSET(entry->start);
     if (TEST(BITMAP_MASK(offs), bm[idx]))
-        return;
+        return false;
     /* now we add a new bb */
     PRINT(6, "Add "PFX"-"PFX" in table "PFX"\n",
           (ptr_uint_t)entry->start,
@@ -493,6 +498,7 @@ bb_table_add(bb_table_t *table, bb_entry_t *entry)
         offs_end = BITMAP_OFFSET(addr_end);
         bm[idx_end] |= bitmap_set[0][offs_end];
     }
+    return true;
 }
 
 static char *
@@ -554,11 +560,12 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
     return buf;
 }
 
-static void
+static bool
 read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
 {
     uint i;
     bb_entry_t *entry;
+    bool add_new_bb = false;
 
     PRINT(4, "Reading %u basic blocks\n", num_bbs);
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
@@ -566,9 +573,10 @@ read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
               (ptr_uint_t)entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
-            bb_table_add(tables[entry->mod_id], entry);
+            add_new_bb = bb_table_add(tables[entry->mod_id], entry) || add_new_bb;
     }
     free(tables);
+    return add_new_bb;
 }
 
 static file_t
@@ -623,6 +631,7 @@ read_bbcov_file(char *input)
     size_t map_size;
     void **tables;
     uint   num_mods, num_bbs;
+    bool   res;
 
     PRINT(2, "Reading bbcov log file: %s\n", input);
     log = open_input_file(input, &map, &map_size, NULL);
@@ -644,7 +653,9 @@ read_bbcov_file(char *input)
         close_input_file(log, map, map_size);
         return false;
     }
-    read_bb_list(ptr, tables, num_mods, num_bbs);
+    res = read_bb_list(ptr, tables, num_mods, num_bbs);
+    if (res && set_log != INVALID_FILE)
+        dr_fprintf(set_log, "%s\n", input);
     close_input_file(log, map, map_size);
     return true;
 }
@@ -672,8 +683,12 @@ read_bbcov_dir(void)
     if ((dir = opendir(input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_bbcov_log_file(ent->d_name)) {
-                GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL);
-                read_bbcov_file(path);
+                if (GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL) == 0) {
+                    WARN(2, "Fail to get full path of log file %s\n", ent->d_name);
+                } else {
+                    NULL_TERMINATE_BUFFER(path);
+                    read_bbcov_file(path);
+                }
             }
         }
         closedir (dir);
@@ -925,6 +940,10 @@ option_init(int argc, char *argv[])
             if (++i >= argc)
                 return false;
             mod_filter = argv[i];
+        } else if (strcmp(argv[i], "--reduce_set") == 0) {
+            if (++i >= argc)
+                return false;
+            set_file = argv[i];
         } else if (strcmp(argv[i], "--verbose") == 0) {
             char *end;
             long int res;
@@ -949,28 +968,56 @@ option_init(int argc, char *argv[])
     }
 
     if (input_list != NULL) {
-        GetFullPathName(input_list,
-                        BUFFER_SIZE_ELEMENTS(input_list_buf),
-                        input_list_buf, NULL);
+        if (GetFullPathName(input_list,
+                            BUFFER_SIZE_ELEMENTS(input_list_buf),
+                            input_list_buf, NULL) == 0) {
+            WARN(1, "Failed to get full path of input list\n");
+            return false;
+        }
+        NULL_TERMINATE_BUFFER(input_list_buf);
         input_list = input_list_buf;
         PRINT(2, "Input list: %s\n", input_list);
     } else {
         if (input_dir == NULL)
             WARN(0, "Missing input, use current directory instead\n");
-        GetFullPathName(input_dir == NULL ? "./" : input_dir,
-                        BUFFER_SIZE_ELEMENTS(input_dir_buf),
-                        input_dir_buf, NULL);
+        if (GetFullPathName(input_dir == NULL ? "./" : input_dir,
+                            BUFFER_SIZE_ELEMENTS(input_dir_buf),
+                            input_dir_buf, NULL) == 0) {
+            WARN(1, "Failed to get full path of input dir\n");
+            return false;
+        }
+        NULL_TERMINATE_BUFFER(input_dir_buf);
         input_dir = input_dir_buf;
         PRINT(2, "Input dir: %s\n", input_dir);
     }
 
     if (output_file == NULL)
         WARN(1, "Missing output, use coverage.info instead\n");
-    GetFullPathName(output_file == NULL ? "coverage.info" : output_file,
-                    BUFFER_SIZE_ELEMENTS(output_file_buf),
-                    output_file_buf, NULL);
+    if (GetFullPathName(output_file == NULL ? "coverage.info" : output_file,
+                        BUFFER_SIZE_ELEMENTS(output_file_buf),
+                        output_file_buf, NULL) == 0) {
+        WARN(1, "Failed to get full path of output file");
+        return false;
+    }
+    NULL_TERMINATE_BUFFER(output_file_buf);
     output_file = output_file_buf;
     PRINT(2, "Output file: %s\n", output_file);
+    if (set_file != NULL) {
+        if (GetFullPathName(set_file,
+                            BUFFER_SIZE_ELEMENTS(set_file_buf),
+                            set_file_buf, NULL) == 0) {
+            WARN(1, "Failed to get full path of reduce_set file\n");
+            return false;
+        }
+        NULL_TERMINATE_BUFFER(set_file_buf);
+        set_file = set_file_buf;
+        PRINT(2, "Reduced set file: %s\n", set_file);
+        set_log = dr_open_file(set_file, DR_FILE_WRITE_REQUIRE_NEW);
+        if (set_log == INVALID_FILE) {
+            ASSERT(false, "Failed to open reduce set output file %s\n", set_file);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -1024,5 +1071,7 @@ main(int argc, char *argv[])
         ASSERT(false, "Failed to clean up symbol library\n");
         return 1;
     }
+    if (set_log != INVALID_FILE)
+        dr_close_file(set_log);
     return 0;
 }
