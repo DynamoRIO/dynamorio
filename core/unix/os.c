@@ -6844,7 +6844,11 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
         DOCHECK(1, {
             uint memprot;
             ok = get_memory_info_from_os(base, NULL, NULL, &memprot);
-            ASSERT(ok && memprot == old_prot);
+            /* allow maps to have +x,
+             * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
+             */
+            ASSERT(ok && (memprot == old_prot ||
+                          (memprot & (~MEMPROT_EXEC)) == old_prot));
         });
         app_memory_allocation(dcontext, base, size, old_prot,
                               old_type == DR_MEMTYPE_IMAGE
@@ -8632,7 +8636,9 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
              * DR's various data segments, etc., so that mismatch is ok.
              */
             if ((from_os_prot == info->prot ||
-                 /* allow maps to have +x (PR 213256) */
+                 /* allow maps to have +x (PR 213256)
+                  * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
+                  */
                  (from_os_prot & (~MEMPROT_EXEC)) == info->prot) &&
                 ((info->type == DR_MEMTYPE_IMAGE &&
                   from_os_base_pc >= start &&

@@ -58,6 +58,15 @@ void write_array(char *array)
         array[i] = VAL;
 }
 
+/* i#262 add exec if READ_IMPLIES_EXEC is set in personality */
+static uint
+get_os_mem_prot(uint prot)
+{
+    if (add_exec && TEST(DR_MEMPROT_READ, prot))
+        return (prot | DR_MEMPROT_EXEC);
+    return prot;
+}
+
 /* WARNING i#262: if you use the cmake binary package, ctest is built
  * without a GNU_STACK section, which causes the linux kernel to set
  * the READ_IMPLIES_EXEC personality flag, which is propagated to
@@ -68,15 +77,12 @@ static
 void global_test(void)
 {
     char *array;
-    uint prot, expect;
+    uint prot;
     dr_fprintf(STDERR, "  testing global memory alloc...");
     array = dr_global_alloc(SIZE);
     write_array(array);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    expect = DR_MEMPROT_READ|DR_MEMPROT_WRITE;
-    if (add_exec)
-        expect |= DR_MEMPROT_EXEC;
-    if (prot != expect)
+    if (prot != get_os_mem_prot(DR_MEMPROT_READ|DR_MEMPROT_WRITE))
         dr_fprintf(STDERR, "[error: prot %d doesn't match rw] ", prot);
     dr_global_free(array, SIZE);
     dr_fprintf(STDERR, "success\n");
@@ -233,7 +239,7 @@ reachability_test(void)
 static
 void raw_alloc_test(void)
 {
-    uint prot, expect;
+    uint prot;
     char *array = PREFERRED_ADDR;
     dr_mem_info_t info;
     bool res;
@@ -246,10 +252,7 @@ void raw_alloc_test(void)
     }
     write_array(array);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    expect = DR_MEMPROT_READ|DR_MEMPROT_WRITE;
-    if (add_exec)
-        expect |= DR_MEMPROT_EXEC;
-    if (prot != expect)
+    if (prot != get_os_mem_prot(DR_MEMPROT_READ|DR_MEMPROT_WRITE))
         dr_fprintf(STDERR, "[error: prot %d doesn't match rw]\n", prot);
     dr_raw_mem_free(array, PAGE_SIZE);
     dr_query_memory_ex((const byte *)array, &info);
@@ -261,24 +264,21 @@ void raw_alloc_test(void)
 static
 void nonheap_test(void)
 {
-    uint prot, expect;
+    uint prot;
     char *array =
         dr_nonheap_alloc(SIZE, DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC);
     dr_fprintf(STDERR, "  testing nonheap memory alloc...");
     write_array(array);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    if (prot != (DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC))
+    if (prot != get_os_mem_prot((DR_MEMPROT_READ|DR_MEMPROT_WRITE|DR_MEMPROT_EXEC)))
         dr_fprintf(STDERR, "[error: prot %d doesn't match rwx] ", prot);
     dr_memory_protect(array, SIZE, DR_MEMPROT_NONE);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    if (prot != DR_MEMPROT_NONE)
+    if (prot != get_os_mem_prot(DR_MEMPROT_NONE))
         dr_fprintf(STDERR, "[error: prot %d doesn't match none] ", prot);
     dr_memory_protect(array, SIZE, DR_MEMPROT_READ);
     dr_query_memory((const byte *)array, NULL, NULL, &prot);
-    expect = DR_MEMPROT_READ;
-    if (add_exec)
-        expect |= DR_MEMPROT_EXEC;
-    if (prot != expect)
+    if (prot != get_os_mem_prot(DR_MEMPROT_READ))
         dr_fprintf(STDERR, "[error: prot %d doesn't match r] ", prot);
     if (dr_safe_write(array, 1, (const void *) &prot, NULL))
         dr_fprintf(STDERR, "[error: should not be writable] ");

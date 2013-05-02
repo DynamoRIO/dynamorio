@@ -5960,7 +5960,12 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         add_executable_vm_area(base, base + size, image ? VM_UNMOD_IMAGE : 0, frag_flags,
                                false/*no lock*/ _IF_DEBUG(comment));
         return true;
-    } else if (dcontext==NULL || !is_on_stack(dcontext, base, NULL)) {
+    } else if (dcontext==NULL ||
+               /* i#626: we skip is_no_stack because of no mcontext at init time,
+                * we also assume that no alloc overlaps w/ stack at init time.
+                */
+               (IF_CLIENT_INTERFACE(dynamo_initialized &&)
+                !is_on_stack(dcontext, base, NULL))) {
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "WARNING: "PFX"-"PFX" is writable, NOT adding to executable list\n",
             base, base+size);
