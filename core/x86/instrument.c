@@ -1106,6 +1106,17 @@ dr_nudge_client(client_id_t client_id, uint64 argument)
     return dr_nudge_client_ex(get_process_id(), client_id, argument, 0) == DR_SUCCESS;
 }
 
+#ifdef WINDOWS
+DR_API
+bool
+dr_is_nudge_thread(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "invalid parameter to dr_is_nudge_thread");
+    return dcontext->nudge_target != NULL;
+}
+#endif
+
 void
 instrument_client_thread_init(dcontext_t *dcontext, bool client_thread)
 {

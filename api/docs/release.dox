@@ -168,6 +168,7 @@ Further non-compatibility-affecting changes include:
    temporarily-native support.
  - Added dr_get_token()
  - Added dr_switch_to_app_state_ex() and dr_switch_to_dr_state_ex()
+ - Added dr_is_nudge_thread()
 
 **************************************************
 <hr>

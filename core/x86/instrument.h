@@ -1446,6 +1446,16 @@ dr_config_status_t
 dr_nudge_client_ex(process_id_t process_id, client_id_t client_id,
                    uint64 argument, uint timeout_ms);
 
+#ifdef WINDOWS
+DR_API
+/**
+ * On Windows, nudges are implemented via remotely injected threads.
+ * This routine returns whether or not the thread indicated by
+ * \p drcontext is such a nudge thread.
+ */
+bool
+dr_is_nudge_thread(void *drcontext);
+#endif
 
 void instrument_load_client_libs(void);
 void instrument_init(void);
