@@ -6132,16 +6132,30 @@ DR_API
 void
 dr_switch_to_app_state(void *drcontext)
 {
+    dr_switch_to_app_state_ex(drcontext, DR_STATE_ALL);
+}
+
+DR_API
+void
+dr_switch_to_app_state_ex(void *drcontext, dr_state_flags_t flags)
+{
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    os_swap_context(dcontext, true/*to app*/);
+    os_swap_context(dcontext, true/*to app*/, flags);
 }
 
 DR_API
 void
 dr_switch_to_dr_state(void *drcontext)
 {
+    dr_switch_to_dr_state_ex(drcontext, DR_STATE_ALL);
+}
+
+DR_API
+void
+dr_switch_to_dr_state_ex(void *drcontext, dr_state_flags_t flags)
+{
     dcontext_t *dcontext = (dcontext_t *) drcontext;
-    os_swap_context(dcontext, false/*to dr*/);
+    os_swap_context(dcontext, false/*to dr*/, flags);
 }
 
 /***************************************************************************

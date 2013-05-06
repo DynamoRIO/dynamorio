@@ -2516,7 +2516,7 @@ os_using_app_state(dcontext_t *dcontext)
  * installed.
  */
 void
-os_swap_context(dcontext_t *dcontext, bool to_app)
+os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags)
 {
     if (os_should_swap_state())
         os_switch_seg_to_context(dcontext, LIB_SEG_TLS, to_app);
@@ -2525,7 +2525,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app)
 void
 os_thread_under_dynamo(dcontext_t *dcontext)
 {
-    os_swap_context(dcontext, false/*to dr*/);
+    os_swap_context(dcontext, false/*to dr*/, DR_STATE_ALL);
     start_itimer(dcontext);
 }
 
@@ -2533,7 +2533,7 @@ void
 os_thread_not_under_dynamo(dcontext_t *dcontext)
 {
     stop_itimer(dcontext);
-    os_swap_context(dcontext, true/*to app*/);
+    os_swap_context(dcontext, true/*to app*/, DR_STATE_ALL);
 }
 
 static pid_t

@@ -167,6 +167,7 @@ Further non-compatibility-affecting changes include:
    dr_retakeover_suspended_native_thread(), and dr_is_thread_native() for
    temporarily-native support.
  - Added dr_get_token()
+ - Added dr_switch_to_app_state_ex() and dr_switch_to_dr_state_ex()
 
 **************************************************
 <hr>

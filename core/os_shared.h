@@ -192,12 +192,35 @@ bool
 os_tls_cfree(uint offset, uint num_slots);
 #endif
 
+/* DR_API EXPORT TOFILE dr_tools.h */
+/* DR_API EXPORT BEGIN */
+/**************************************************
+ * STATE SWAPPING TYPES
+ */
+
+/**
+ * Flags that control the behavior of dr_switch_to_app_state_ex()
+ * and dr_switch_to_dr_state_ex().
+ */
+typedef enum {
+#ifdef WINDOWS
+    DR_STATE_PEB              = 0x0001, /**< Switch the PEB pointer. */
+    DR_STATE_TEB_MISC         = 0x0002, /**< Switch miscellaneous TEB fields. */
+    DR_STATE_STACK_BOUNDS     = 0x0004, /**< Switch the TEB stack bounds fields. */
+#endif
+    DR_STATE_ALL              =     ~0, /**< Switch all state. */
+} dr_state_flags_t;
+
+/* DR_API EXPORT END */
+
 bool
 os_should_swap_state(void);
+
 bool
 os_using_app_state(dcontext_t *dcontext);
+
 void
-os_swap_context(dcontext_t *dcontext, bool to_app);
+os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags);
 
 bool pre_system_call(dcontext_t *dcontext);
 void post_system_call(dcontext_t *dcontext);

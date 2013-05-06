@@ -4551,7 +4551,7 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where);
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to restore into
- * esp the value saved by dr_swap_to_dr_stack().
+ * esp the value saved by dr_swap_to_clean_stack().
  */
 void
 dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where);
@@ -5053,26 +5053,40 @@ bool
 dr_using_app_state(void *drcontext);
 
 DR_API
+/** Equivalent to dr_switch_to_app_state_ex(drcontext, DR_STATE_ALL). */
+void
+dr_switch_to_app_state(void *drcontext);
+
+DR_API
 /**
  * Swaps to the application version of any system state for the given
  * thread.  This is meant to be used prior to examining application
  * memory, when private libraries are in use and there are two
  * versions of system state.  Invoking non-DR library routines while
  * the application state is in place can lead to unpredictable
- * results: call dr_switch_to_dr_state() before doing so.
+ * results: call dr_switch_to_dr_state() (or the _ex version) before
+ * doing so.
  *
  * This function does not affect whether the current machine context
  * (registers) contains application state or not.
+ *
+ * The \p flags argument allows selecting a subset of the state to swap.
  */
 void
-dr_switch_to_app_state(void *drcontext);
+dr_switch_to_app_state_ex(void *drcontext, dr_state_flags_t flags);
+
+DR_API
+/** Equivalent to dr_switch_to_dr_state_ex(drcontext, DR_STATE_ALL). */
+void
+dr_switch_to_dr_state(void *drcontext);
 
 DR_API
 /**
- * Should only be called after calling dr_switch_to_app_state(), or in
- * certain cases where a client is running its own code in an
- * application state.  Swaps from the application version of system
- * state for the given thread back to the DR and client version.
+ * Should only be called after calling dr_switch_to_app_state() (or
+ * the _ex version), or in certain cases where a client is running its
+ * own code in an application state.  Swaps from the application
+ * version of system state for the given thread back to the DR and
+ * client version.
  *
  * This function does not affect whether the current machine context
  * (registers) contains application state or not.
@@ -5089,9 +5103,12 @@ DR_API
  * client-invoked code will examine a segment selector or descriptor
  * does the state need to be swapped.  A state swap is much more
  * expensive on Linux (it requires a system call) than on Windows.
+ *
+ * The same flags that were passed to dr_switch_to_app_state_ex() should
+ * be passed here.
  */
 void
-dr_switch_to_dr_state(void *drcontext);
+dr_switch_to_dr_state_ex(void *drcontext, dr_state_flags_t flags);
 
 #ifdef CUSTOM_TRACES
 /* DR_API EXPORT BEGIN */
