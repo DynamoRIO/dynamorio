@@ -1889,9 +1889,8 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     kernel_sigaction_t *save;
     kernel_sigaction_t *non_const_act = (kernel_sigaction_t *) act;
-    ASSERT(sig <= MAX_SIGNUM);
-
-    if (act != NULL) {
+    /* i#1035: app may pass invalid signum to find MAX_SIGNUM */
+    if (sig <= MAX_SIGNUM && act != NULL) {
         /* app is installing a new action */
         
         while (info->num_unstarted_children > 0) {
@@ -1972,7 +1971,8 @@ handle_post_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *a
                       kernel_sigaction_t *oact, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    ASSERT(sig <= MAX_SIGNUM);
+    /* this is only called on success, so sig must be in the valid range */
+    ASSERT(sig <= MAX_SIGNUM && sig > 0);
     if (oact != NULL) {
         /* FIXME: hold lock across the syscall?!?
          * else could be modified and get wrong old action?
