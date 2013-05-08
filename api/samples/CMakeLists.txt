@@ -213,6 +213,7 @@ add_sample_client(signal      "signal.c"        "")
 add_sample_client(stl_test    "stl_test.cpp"    "")
 add_sample_client(strace      "strace.c"        "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
+add_sample_client(modxfer     "modxfer.c"       "")
 
 if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
   # required for using drsyms built as a static library
