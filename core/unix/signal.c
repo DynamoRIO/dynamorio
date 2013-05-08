@@ -611,6 +611,10 @@ typedef struct _clone_record_t {
 /* i#350: set up signal handler for safe_read/faults during init */
 static thread_sig_info_t init_info;
 
+#ifdef DEBUG
+static bool removed_sig_handler;
+#endif
+
 /**** function prototypes ***********************************************/
 
 /* in x86.asm */
@@ -730,6 +734,7 @@ set_default_signal_action(int sig)
     act.handler = (handler_t) SIG_DFL;
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, NULL);
+    DODEBUG({ removed_sig_handler = true; });
     return (rc == 0);
 }
 
@@ -1599,7 +1604,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
 
     /* i#1012: DR's signal handler should always be installed before this point.
      */
-    ASSERT(sigsegv_handler_is_ours());
+    ASSERT(sigsegv_handler_is_ours() || removed_sig_handler);
 
     while (info->num_unstarted_children > 0) {
         /* must wait for children to start and copy our state
