@@ -4584,6 +4584,10 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
  * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
  * dr_prepare_for_call(). We guarantee to clients that all other slots
  * (except the XAX mcontext slot) will remain untouched.
+ *
+ * NOTE : dr_insert_cbr_instrumentation has assumption about the clean call
+ * instrumentation layout, changes to the clean call instrumentation may break
+ * dr_insert_cbr_instrumentation.
  */
 void 
 dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -5317,7 +5321,11 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
  * dr_insert_clean_call(). We guarantee to clients that all other slots
- * (except the XAX mcontext slot) will remain untouched. */
+ * (except the XAX mcontext slot) will remain untouched.
+ *
+ * NOTE : this routine has assumption about the layout of the clean call,
+ * so any change to clean call instrumentation layout may break this routine.
+ */
 DR_API void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee)
@@ -5326,6 +5334,7 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     ptr_uint_t address, target;
     int opc;
     instr_t *app_flags_ok;
+    bool out_of_line_switch = false;;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_insert_cbr_instrumentation: drcontext cannot be NULL");
     address = (ptr_uint_t) instr_get_translation(instr);
@@ -5383,24 +5392,48 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
      */
     if (app_flags_ok == NULL)
         app_flags_ok = instrlist_first(ilist);
+    /* r2065 added out-of-line clean call context switch, so we need to check
+     * how the context switch code is inserted.
+     */
     while (!instr_opcode_valid(app_flags_ok) ||
            instr_get_opcode(app_flags_ok) != OP_call) {
         app_flags_ok = instr_get_next(app_flags_ok);
-        CLIENT_ASSERT(app_flags_ok != NULL, 
+        CLIENT_ASSERT(app_flags_ok != NULL,
                       "dr_insert_cbr_instrumentation: cannot find call instr");
         if (instr_get_opcode(app_flags_ok) == OP_popf)
             break;
     }
-    /* move a few instrs back till right before push xbx or mov rbx => r3 */
     if (instr_get_opcode(app_flags_ok) == OP_call) {
-        while (app_flags_ok != NULL) {
-            if (instr_reg_in_src(app_flags_ok, DR_REG_XBX))
-                break;
-            app_flags_ok = instr_get_prev(app_flags_ok);
+        if (opnd_get_pc(instr_get_target(app_flags_ok)) == (app_pc)callee) {
+            /* call to clean callee
+             * move a few instrs back till right before push xbx, or mov rbx => r3
+             */
+            while (app_flags_ok != NULL) {
+                if (instr_reg_in_src(app_flags_ok, DR_REG_XBX))
+                    break;
+                app_flags_ok = instr_get_prev(app_flags_ok);
+            }
+        } else {
+            /* call to clean call context save */
+            ASSERT(opnd_get_pc(instr_get_target(app_flags_ok)) ==
+                   get_clean_call_save(dcontext _IF_X64(GENCODE_X64)));
+            out_of_line_switch = true;
         }
         ASSERT(app_flags_ok != NULL);
     }
-
+    /* i#1155: for out-of-line context switch
+     * we insert two parts of code to setup "taken" arg for clean call:
+     * - compute "taken" and put it onto the stack right before call to context
+     *   save, where DR already swapped stack and adjusted xsp to point beyond
+     *   mcontext plus temp stack size.
+     *   It is 2 slots away b/c 1st is retaddr.
+     * - move the "taken" from stack to ebx to compatible with existing code
+     *   right after context save returns and before arg setup, where xsp
+     *   points beyond mcontext (xref emit_clean_call_save).
+     *   It is 2 slots + temp stack size away.
+     * XXX: we could optimize the code by computing "taken" after clean call
+     * save if the eflags are not cleared.
+     */
     /* put our code before the popf or use of xbx */
     opc = instr_get_opcode(instr);
     if (opc == OP_jecxz || opc == OP_loop || opc == OP_loope || opc == OP_loopne) {
@@ -5414,12 +5447,16 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
          *    taken:     mov 1, ebx
          *    done:
          */
+        opnd_t opnd_taken = out_of_line_switch ?
+            /* 2 slow away from xsp, xref comment above for i#1155 */
+            OPND_CREATE_MEM32(REG_XSP, -2*(int)XSP_SZ /* ret+taken */) :
+            opnd_create_reg(REG_EBX);
         instr_t *branch = instr_clone(dcontext, instr);
         instr_t *not_taken =
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
+            INSTR_CREATE_mov_imm(dcontext, opnd_taken,
                                  OPND_CREATE_INT32(0));
         instr_t *taken =
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX),
+            INSTR_CREATE_mov_imm(dcontext, opnd_taken,
                                  OPND_CREATE_INT32(1));
         instr_set_target(branch, opnd_create_instr(taken));
         /* client-added meta instrs should not have translation set */
@@ -5429,10 +5466,26 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         MINSERT(ilist, app_flags_ok,
                 INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(app_flags_ok)));
         MINSERT(ilist, app_flags_ok, taken);
+        if (out_of_line_switch) {
+            ASSERT(instr_get_opcode(app_flags_ok) == OP_call);
+            /* 2 slow + temp_stack_size away from xsp,
+             * xref comment above for i#1155
+             */
+            opnd_taken = OPND_CREATE_MEM32
+                (REG_XSP, -2*(int)XSP_SZ-get_clean_call_temp_stack_size());
+            MINSERT(ilist, instr_get_next(app_flags_ok),
+                    INSTR_CREATE_mov_ld(dcontext,
+                                        opnd_create_reg(REG_EBX),
+                                        opnd_taken));
+        }
     } else {
         /* build a setcc equivalent of instr's jcc operation
          * WARNING: this relies on order of OP_ enum!
          */
+        opnd_t opnd_taken = out_of_line_switch ?
+            /* 2 slow away from xsp, xref comment above for i#1155 */
+            OPND_CREATE_MEM8(REG_XSP, -2*(int)XSP_SZ /* ret+taken */) :
+            opnd_create_reg(REG_BL);
         opc = instr_get_opcode(instr);
         if (opc <= OP_jnle_short)
             opc += (OP_jo - OP_jo_short);
@@ -5440,13 +5493,20 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                       "dr_insert_cbr_instrumentation: unknown opcode");
         opc = opc - OP_jo + OP_seto;
         MINSERT(ilist, app_flags_ok,
-                INSTR_CREATE_setcc(dcontext, opc, opnd_create_reg(REG_BL)));
+                INSTR_CREATE_setcc(dcontext, opc, opnd_taken));
+        if (out_of_line_switch) {
+            app_flags_ok = instr_get_next(app_flags_ok);
+            /* 2 slow + temp_stack_size away from xsp,
+             * xref comment above for i#1155
+             */
+            opnd_taken = OPND_CREATE_MEM8
+                (REG_XSP, -2*(int)XSP_SZ-get_clean_call_temp_stack_size());
+        }
         /* movzx ebx <- bl */
         MINSERT(ilist, app_flags_ok,
                 INSTR_CREATE_movzx(dcontext, opnd_create_reg(REG_EBX),
-                                   opnd_create_reg(REG_BL)));
+                                   opnd_taken));
     }
-
     /* now branch dir is in ebx and will be passed to clean call */
 }
 
