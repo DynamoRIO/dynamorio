@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1357,12 +1357,17 @@ drwrap_replace_native_fini(void *drcontext)
      * then do a continuation to our gencode which will run in the code
      * cache and duplicate the stdcall + retaddr teardown.
      */
-    app_pc app_retaddr;
+    volatile app_pc app_retaddr;
     byte *xsp = (byte *) dr_read_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT);
     ASSERT(xsp != NULL, "did client clobber TLS slot?");
     app_retaddr = *(app_pc *)xsp;
     /* Store data for replace_native_xfer_helper */
     dr_write_saved_reg(drcontext, DRWRAP_REPLACE_NATIVE_SP_SLOT, (reg_t)app_retaddr);
+
+    /* DrMem i#1217: zero out this retaddr to avoid messing up high-performance
+     * callstack stack scans.
+     */
+    app_retaddr = 0;
 
     /* Redirect */
     *(app_pc *)xsp = (app_pc) replace_native_xfer;

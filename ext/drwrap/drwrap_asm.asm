@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * ********************************************************** */
 
 /*
@@ -71,6 +71,12 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      ecx, eax
         pop      REG_XDX
         pop      REG_XAX
+        /* DrMem i#1217: zero out these slots as they can contain retaddrs, which
+         * messes up high-performance callstack stack scans.  This is beyond TOS,
+         * but these are writes so it's signal-safe.
+         */
+        mov      PTRSZ [-2 * ARG_SZ + REG_XSP], 0
+        mov      PTRSZ [-1 * ARG_SZ + REG_XSP], 0
 
         /* ok, now we have stack back to what it was.  undo the stdcall stack adjust. */
         sub      REG_XSP, REG_XCX
@@ -88,6 +94,12 @@ GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XCX, REG_XAX
         pop      REG_XDX
         pop      REG_XAX
+        /* DrMem i#1217: zero out these slots as they can contain retaddrs, which
+         * messes up high-performance callstack stack scans.  This is beyond TOS,
+         * but these are writes so it's signal-safe.
+         */
+        mov      PTRSZ [-2 * ARG_SZ + REG_XSP], 0
+        mov      PTRSZ [-1 * ARG_SZ + REG_XSP], 0
         jmp      REG_XCX
         /* never reached */
         ret
