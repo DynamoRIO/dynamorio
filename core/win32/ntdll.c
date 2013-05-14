@@ -1605,10 +1605,16 @@ tls_free_helper(int synch, uint teb_offs, int num)
          * with respect to permissions).  Note that in the wine srcs at least
          * this syscall will only accept NT_CURRENT_THREAD as the handle. Xref
          * case 8143 for why we need to zero the tls slot for all threads. */
-        res = nt_raw_SetInformationThread(NT_CURRENT_THREAD,
-                                          ThreadZeroTlsCell,
-                                          &i, sizeof(i));
-        ASSERT(NT_SUCCESS(res));
+        /* XXX i#1156: we can't zero on win8 where we write the
+         * termination syscall args into our TLS slots (i#565, r1630).
+         * We always synch there though.
+         */
+        if (!synch || doing_detach) {
+            res = nt_raw_SetInformationThread(NT_CURRENT_THREAD,
+                                              ThreadZeroTlsCell,
+                                              &i, sizeof(i));
+            ASSERT(NT_SUCCESS(res));
+        }
         p[i/32] &= ~(1 << (i % 32));
     }
 

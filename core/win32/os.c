@@ -1141,6 +1141,9 @@ os_terminate_wow64_stack(HANDLE thread_handle)
          * XXX: it would be cleaner to not write to this until we're done
          * cleaning up private libraries, which examine the TEB.
          * Then we could use any part of the TEB.
+         *
+         * XXX: we rely here on os_slow_exit()'s tls_cfree() not zeroing out
+         * our TLS slots during cleanup (i#1156).
          */
         return (byte *)teb + os_tls_offset(TLS_XBX_SLOT);
     }
@@ -7604,6 +7607,10 @@ detach_helper(int detach_type)
     /* call dynamo exit routines */
     exit_res = dynamo_shared_exit(toexit, detach_stacked_callbacks);
     ASSERT(exit_res == SUCCESS);
+#ifndef DEBUG
+    /* for debug, os_slow_exit() will zero the slots for us; else we must do it */
+    tls_cfree(true/*need to synch*/, (uint) tls_local_state_offs, TLS_NUM_SLOTS);
+#endif
 
     /* we can free the initstack, it can't be our stack, we are specially created thread */
     stack_free(initstack, DYNAMORIO_STACK_SIZE);
