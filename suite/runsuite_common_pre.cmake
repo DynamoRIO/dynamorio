@@ -78,6 +78,7 @@ set(arg_generator "") # specify precise cmake generator (minus any "Win64")
 set(arg_long OFF)     # whether to run the long suite
 set(arg_already_built OFF) # for testing w/ already-built suite
 set(arg_exclude "")   # regex of tests to exclude
+set(arg_verbose OFF)  # extra output
 
 foreach (arg ${CTEST_SCRIPT_ARG})
   if (${arg} STREQUAL "nightly")
@@ -109,6 +110,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
   if (${arg} STREQUAL "use_ninja")
     set(arg_use_ninja ON)
+  endif ()
+  if (${arg} STREQUAL "verbose")
+    set(arg_verbose ON)
   endif ()
   if (${arg} MATCHES "^generator=")
     string(REGEX REPLACE "^generator=" "" arg_generator "${arg}")
@@ -465,6 +469,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
           string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64" 
             newpath "${newpath}")
+          if (arg_verbose)
+            message("Env setup: setting PATH to ${newpath}")
+          endif ()
           set(ENV{PATH} "${newpath}")
           string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
             newlib "$ENV{LIB}")
@@ -472,9 +479,19 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64" 
             newlib "${newlib}")
+          # Win8 SDK uses um/x86 and um/x64
+          string(REGEX REPLACE
+            "([Ll][Ii][Bb])[/\\\\]amd64([/\\\\][Ww][Ii][Nn]8[/\\\\]um[/\\\\])x86"
+            "\\1\\2x64" newlib "${newlib}")
+          if (arg_verbose)
+            message("Env setup: setting LIB to ${newlib}")
+          endif ()
           set(ENV{LIB} "${newlib}")
           string(REGEX REPLACE "([/\\\\])([Ll][Ii][Bb])" "\\1\\2\\1amd64"
             newlibpath "$ENV{LIBPATH}")
+          if (arg_verbose)
+            message("Env setup: setting LIBPATH to ${newlibpath}")
+          endif ()
           set(ENV{LIBPATH} "${newlibpath}")
         endif (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
       else (is64)
@@ -482,14 +499,25 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
           string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])[Aa][Mm][Dd]64" "\\1"
             newpath "$ENV{PATH}")
+          if (arg_verbose)
+            message("Env setup: setting PATH to ${newpath}")
+          endif ()
           set(ENV{PATH} "${newpath}")
           string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
             newlib "$ENV{LIB}")
           string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Xx]64" "\\1"
             newlib "${newlib}")
+          # Win8 SDK uses um/x86 and um/x64
+          string(REGEX REPLACE "([/\\\\]um[/\\\\])x64" "\\1x86" newlib "${newlib}")
+          if (arg_verbose)
+            message("Env setup: setting LIB to ${newlib}")
+          endif ()
           set(ENV{LIB} "${newlib}")
           string(REGEX REPLACE "([Ll][Ii][Bb])[/\\\\][Aa][Mm][Dd]64" "\\1"
             newlibpath "$ENV{LIBPATH}")
+          if (arg_verbose)
+            message("Env setup: setting LIBPATH to ${newlibpath}")
+          endif ()
           set(ENV{LIBPATH} "${newlibpath}")
         endif ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
       endif (is64)
