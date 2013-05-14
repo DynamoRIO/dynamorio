@@ -7130,6 +7130,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     char buf[MAXIMUM_PATH];
 #endif
     stats_int_t trace_num;
+    bool locked_vmareas = false;
     IF_X64(bool old_mode;)
     ASSERT(SHOULD_OUTPUT_FRAGMENT(f->flags));
     ASSERT(TEST(FRAG_IS_TRACE, f->flags));
@@ -7158,8 +7159,11 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     /* xref 8131/8202 if dynamo_resetting we don't need to grab the tracedump
      * mutex to ensure we're the only writer and grabbing here on reset path
      * can lead to a rank-order violation. */
-    if (!dynamo_resetting)
+    if (!dynamo_resetting) {
+        /* We must grab shared_vm_areas lock first to avoid rank order (i#1157) */
+        locked_vmareas = acquire_vm_areas_lock_if_not_already(dcontext, FRAG_SHARED);
         mutex_lock(&tracedump_mutex);
+    }
     trace_num = tcount;
     tcount++;
     if (!TEST(FRAG_SHARED, f->flags)) {
@@ -7167,8 +7171,13 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
          * If dumping traces for a different thread (dynamo_other_thread_exit
          * for ex.) caller is responsible for the necessary synchronization. */
         ASSERT(pt != shared_pt);
-        if (!dynamo_resetting)
+        if (!dynamo_resetting) {
             mutex_unlock(&tracedump_mutex);
+            if (locked_vmareas) {
+                locked_vmareas = false;
+                release_vm_areas_lock(dcontext, FRAG_SHARED);
+            }
+        }
     } else {
         ASSERT(pt == shared_pt);
     }
@@ -7340,6 +7349,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     if (TEST(FRAG_SHARED, f->flags) && !dynamo_resetting) {
         ASSERT_OWN_MUTEX(true, &tracedump_mutex);
         mutex_unlock(&tracedump_mutex);
+        if (locked_vmareas)
+            release_vm_areas_lock(dcontext, FRAG_SHARED);
     } else {
         ASSERT_DO_NOT_OWN_MUTEX(true, &tracedump_mutex);
     }

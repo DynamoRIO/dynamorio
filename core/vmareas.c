@@ -8232,6 +8232,13 @@ acquire_vm_areas_lock(dcontext_t *dcontext, uint flags)
     SHARED_VECTOR_RWLOCK(&data->areas, write, lock);
 }
 
+bool
+acquire_vm_areas_lock_if_not_already(dcontext_t *dcontext, uint flags)
+{
+    thread_data_t *data = GET_DATA(dcontext, flags);
+    return writelock_if_not_already(&data->areas);
+}
+
 void
 release_vm_areas_lock(dcontext_t *dcontext, uint flags)
 {

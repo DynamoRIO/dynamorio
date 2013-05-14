@@ -659,6 +659,9 @@ vm_area_add_fragment(dcontext_t *dcontext, fragment_t *f, void *vmlist);
 void
 acquire_vm_areas_lock(dcontext_t *dcontext, uint fragment_flags);
 
+bool
+acquire_vm_areas_lock_if_not_already(dcontext_t *dcontext, uint flags);
+
 void
 release_vm_areas_lock(dcontext_t *dcontext, uint fragment_flags);
 
