@@ -4702,7 +4702,8 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 if (!from_dispatch)
                     KSTOP_NOT_MATCHING_NOT_PROPAGATED(fcache_default);
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
-                enter_nolinking(dcontext, NULL, false);
+                if (is_couldbelinking(dcontext)) /* won't be for SYS_kill (i#1159) */
+                    enter_nolinking(dcontext, NULL, false);
                 GET_STACK_PTR(cur_esp);
                 if (cur_esp >= (byte *)info->sigstack.ss_sp &&
                     cur_esp <  (byte *)info->sigstack.ss_sp + info->sigstack.ss_size) {
