@@ -4603,6 +4603,25 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     return true;
 }
 
+/* The arg to SYS_kill, i.e., the signal number, should be in dcontext->sys_param0 */
+static void
+terminate_via_kill(dcontext_t *dcontext)
+{
+    ASSERT(dcontext == get_thread_private_dcontext());
+    /* FIXME PR 541760: there can be multiple thread groups and thus
+     * this may not exit all threads in the address space
+     */
+    cleanup_and_terminate(dcontext, SYS_kill,
+                          /* Pass -pid in case main thread has exited
+                           * in which case will get -ESRCH
+                           */
+                          IF_VMX86(os_in_vmkernel_userworld() ?
+                                   -(int)get_process_id() :)
+                          get_process_id(),
+                          dcontext->sys_param0, true);
+    ASSERT_NOT_REACHED();
+}
+
 static bool
 execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                        struct sigcontext *sc_orig, bool from_dispatch)
@@ -4679,19 +4698,23 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * FIXME: should have app make the syscall to get a more
                  * transparent core dump!
                  */
+                byte *cur_esp;
+                if (!from_dispatch)
+                    KSTOP_NOT_MATCHING_NOT_PROPAGATED(fcache_default);
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
                 enter_nolinking(dcontext, NULL, false);
-                /* FIXME PR 541760: there can be multiple thread groups and thus
-                 * this may not exit all threads in the address space
-                 */
-                cleanup_and_terminate(dcontext, SYS_kill,
-                                      /* Pass -pid in case main thread has exited
-                                       * in which case will get -ESRCH
-                                       */
-                                      IF_VMX86(os_in_vmkernel_userworld() ?
-                                               -(int)get_process_id() :)
-                                      get_process_id(),
-                                      sig, true);
+                GET_STACK_PTR(cur_esp);
+                if (cur_esp >= (byte *)info->sigstack.ss_sp &&
+                    cur_esp <  (byte *)info->sigstack.ss_sp + info->sigstack.ss_size) {
+                    /* We can't clean up our sigstack properly when we're on it
+                     * (i#1160) so we terminate on the dstack.
+                     */
+                    dcontext->sys_param0 = sig; /* store arg to SYS_kill */
+                    call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
+                                      false /*!initstack */, false/*no return */);
+                } else {
+                    terminate_via_kill(dcontext);
+                }
                 ASSERT_NOT_REACHED();
             } else {
                 /* We assume that re-executing the interrupted instr will
