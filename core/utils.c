@@ -2160,8 +2160,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 #endif
 
     /* SYSLOG_INTERNAL and diagnostics expect no trailing newline */
-    ASSERT(*(curbuf-1) == '\n');
-    curbuf--;
+    if (*(curbuf-1) == '\n') /* won't be if we truncated something */
+        curbuf--;
     /* now we for sure have room for \0 */
     *curbuf = '\0';
     /* now done with reportbuf */
