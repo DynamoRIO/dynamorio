@@ -284,6 +284,10 @@ typedef struct _heap_t {
 /* no synch needed since only written once */
 static bool heap_exiting = false;
 
+#ifdef DEBUG
+DECLARE_NEVERPROT_VAR(static bool ever_beyond_vmm, false);
+#endif
+
 /* Lock used only for managing heap units, not for normal thread-local alloc.
  * Must be recursive due to circular dependencies between vmareas and global heap.
  * Furthermore, always grab dynamo_vm_areas_lock() before grabbing this lock,
@@ -1075,6 +1079,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
                 /* FIXME - for our testing would be nice to have some release build
                  * notification of this ... */
             });     
+            DODEBUG(ever_beyond_vmm = true;);
 #ifdef X64
             /* PR 215395, make sure allocation satisfies heap reachability contraints */
             p = os_heap_reserve_in_region
@@ -1141,6 +1146,7 @@ vmm_heap_reserve(size_t size, heap_error_code_t *error_code, bool executable)
         });
     }
     /* if we fail to allocate from our reservation we fall back to the OS */
+    DODEBUG(ever_beyond_vmm = true;);
 #ifdef X64
     /* PR 215395, make sure allocation satisfies heap reachability contraints */
     p = os_heap_reserve_in_region
@@ -1374,21 +1380,29 @@ vmm_heap_exit()
         /* FIXME: we have three regions that are not explicitly
          * deallocated current stack, init stack, global_do_syscall
          */
-        DEBUG_DECLARE(uint perstack =
-                      ALIGN_FORWARD_UINT(dynamo_options.stack_size +
-                                         (dynamo_options.guard_pages ? (2*PAGE_SIZE) : 0),
-                                         VMM_BLOCK_SIZE) /
-                      VMM_BLOCK_SIZE;)
-        /* FIXME: on detach arch_thread_exit should explicitly mark as
-           left behind all TPCs needed so then we can assert even for
-           detach
-         */
+        DOCHECK(1, {
+            uint perstack =
+                ALIGN_FORWARD_UINT(dynamo_options.stack_size +
+                                   (dynamo_options.guard_pages ? (2*PAGE_SIZE) : 0),
+                                   VMM_BLOCK_SIZE) /
+                VMM_BLOCK_SIZE;
+            uint unfreed_blocks = perstack * 1 /* initstack */ +
+                /* current stack */
+                perstack * ((IF_WINDOWS_ELSE(doing_detach, false)
+                             IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1);
+            /* FIXME: on detach arch_thread_exit should explicitly mark as
+               left behind all TPCs needed so then we can assert even for
+               detach
+            */
             ASSERT(IF_WINDOWS(doing_detach || )  /* not deterministic when detaching */
-               heapmgt->vmheap.num_free_blocks == heapmgt->vmheap.num_blocks 
-               - perstack * 1 /* initstack */
-               /* current stack */
-                   - perstack * ((IF_WINDOWS_ELSE(doing_detach, false)
-                                  IF_APP_EXPORTS(|| dr_api_exit)) ? 0 : 1));
+                   heapmgt->vmheap.num_free_blocks == heapmgt->vmheap.num_blocks 
+                   - unfreed_blocks ||
+                   /* >=, not ==, b/c if we hit the vmm limit the cur dstack
+                    * could be outside of vmm (i#1164)
+                    */
+                   (ever_beyond_vmm && heapmgt->vmheap.num_free_blocks >=
+                    heapmgt->vmheap.num_blocks - unfreed_blocks));
+        });
 
         /* FIXME: On process exit we are currently executing off a
          *  stack in this region so we cannot free the whole allocation.
