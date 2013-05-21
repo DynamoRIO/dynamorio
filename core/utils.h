@@ -481,6 +481,9 @@ enum {
     LOCK_RANK(client_aux_lib64_lock),
 # endif
 #endif
+#ifdef WINDOWS
+    LOCK_RANK(alt_tls_lock),
+#endif
     /* ADD HERE a lock around section that may allocate memory */
 
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on

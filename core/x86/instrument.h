@@ -3758,6 +3758,7 @@ DR_API
 /**
  * Allocates \p num_slots contiguous thread-local storage slots that
  * can be directly accessed via an offset from \p segment_register.
+ * If \p alignment is non-zero, the slots will be aligned to \p alignment.
  * These slots will be initialized to 0 for each new thread.
  * The slot offsets are [\p offset .. \p offset + (num_slots - 1)].
  * These slots are disjoint from the #dr_spill_slot_t register spill slots

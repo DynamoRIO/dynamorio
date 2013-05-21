@@ -499,11 +499,13 @@ typedef struct _TEB {                               /* offset: 32bit / 64bit */
     PVOID /* kernel32 data */ SystemReserved1[54];          /* 0x0cc / 0x110 */
     LONG                      ExceptionCode;                /* 0x1a4 / 0x2c0 */
     PVOID                     ActivationContextStackPointer;/* 0x1a8 / 0x2c8 */
+    /* Pre-Vista has no TxFsContext with its 4 bytes in SpareBytes1[] */
 #ifdef X64
-    byte                      SpareBytes1[28];              /* 0x1ac / 0x2d0 */
+    byte                      SpareBytes1[24];              /* 0x1ac / 0x2d0 */
 #else
-    byte                      SpareBytes1[40];              /* 0x1ac / 0x2d0 */
+    byte                      SpareBytes1[36];              /* 0x1ac / 0x2d0 */
 #endif
+    DWORD                     TxFsContext;                  /* 0x1d0 / 0x2e8 */
     GDI_TEB_BATCH             GdiTebBatch;                  /* 0x1d4 / 0x2f0 */
     CLIENT_ID                 RealClientId;                 /* 0x6b4 / 0x7d8 */
     PVOID                     GdiCachedProcessHandle;       /* 0x6bc / 0x7e8 */

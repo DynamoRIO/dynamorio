@@ -205,6 +205,8 @@ static enum {
                            *(unsigned char*)(pc) == CALL_REL32_OPCODE)
 /* FIXME: we'll evaluate pc multiple times in the above macro */
 
+static void tls_exit(void);
+
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 /****************************************************************************
@@ -623,8 +625,11 @@ ntdll_init()
  * as much of us as possible
  */
 void
-ntdll_exit()
+ntdll_exit(void)
 {
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+    tls_exit();
+#endif
 }
 
 
@@ -1207,6 +1212,146 @@ get_own_context(CONTEXT *cxt)
                            == 0);
 }
 
+/***************************************************************************
+ * TLS
+ */
+
+/* Lock that protects the tls_*_taken arrays */
+DECLARE_CXTSWPROT_VAR(static mutex_t alt_tls_lock, INIT_LOCK_FREE(alt_tls_lock));
+#define TLS_SPAREBYTES_SLOTS \
+    ((offsetof(TEB, TxFsContext) - offsetof(TEB, SpareBytes1))/sizeof(void*))
+static bool alt_tls_spare_taken[TLS_SPAREBYTES_SLOTS];
+#ifdef X64
+# define TLS_POSTTEB_SLOTS 64
+static bool alt_tls_post_taken[TLS_POSTTEB_SLOTS];
+/* Use the slots at the end of the 2nd page */
+# define TLS_POSTTEB_BASE_OFFS (PAGE_SIZE*2 - TLS_POSTTEB_SLOTS*sizeof(void*))
+#endif
+
+static void
+tls_exit(void)
+{
+#ifdef DEBUG
+    DELETE_LOCK(alt_tls_lock);
+#endif
+}
+
+/* Caller must synchronize */
+static bool
+alt_tls_acquire_helper(bool *taken, size_t taken_sz, size_t base_offs,
+                       uint *teb_offs /* OUT */, int num_slots, uint alignment)
+{
+    bool res = false;
+    uint i, start = 0;
+    int slots_found = 0;
+    for (i = 0; i < taken_sz; i++) {
+        size_t offs = base_offs + i*sizeof(void*);
+        if (slots_found == 0 && !taken[i] &&
+            (alignment == 0 || ALIGNED(offs, alignment))) {
+            start = i;
+            slots_found++;
+        } else if (slots_found > 0) {
+            if (!taken[i])
+                slots_found++;
+            else
+                slots_found = 0; /* start over */
+        }
+        if (slots_found >= num_slots)
+            break;
+    }
+    if (slots_found >= num_slots) {
+        ASSERT_TRUNCATE(uint, uint, base_offs + start*sizeof(void*));
+        *teb_offs = (uint)(base_offs + start*sizeof(void*));
+        for (i = start; i < start + num_slots; i++) {
+            ASSERT(!taken[i]);
+            taken[i] = true;
+            DOCHECK(1, {
+                /* Try to check for anyone else using these slots.  The TEB pages
+                 * are zeroed before use.  This is only a curiosity, as we don't
+                 * zero on a release and thus a release-and-re-alloc can hit this.
+                 */
+                TEB *teb = get_own_teb();
+                ASSERT_CURIOSITY(is_region_memset_to_char((byte *)teb + *teb_offs,
+                                                          num_slots * sizeof(void*), 0));
+            });
+        }
+        res = true;
+    }
+    return res;
+}
+
+static bool
+alt_tls_acquire(uint *teb_offs /* OUT */, int num_slots, uint alignment)
+{
+    bool res = false;
+    ASSERT(DYNAMO_OPTION(alt_teb_tls));
+    /* Strategy: first, use TEB->SpareBytes1.  The only known user of that field
+     * is WINE, although Vista stole some of the space there for the TxFsContext
+     * slot, and maybe now that Win8 has just about used up the TEB single page
+     * for 32-bit future versions will take more?
+     *
+     * Second, on 64-bit, use space beyond the TEB on the 2nd TEB page.
+     */
+    mutex_lock(&alt_tls_lock);
+    res = alt_tls_acquire_helper(alt_tls_spare_taken, TLS_SPAREBYTES_SLOTS,
+                                 offsetof(TEB, SpareBytes1), teb_offs, num_slots,
+                                 alignment);
+#ifdef X64
+    if (!res) {
+        ASSERT_NOT_TESTED();
+        ASSERT(TLS_POSTTEB_BASE_OFFS > sizeof(TEB));
+        res = alt_tls_acquire_helper(alt_tls_post_taken, TLS_POSTTEB_SLOTS,
+                                     TLS_POSTTEB_BASE_OFFS, teb_offs, num_slots,
+                                     alignment);
+    }
+#endif
+    mutex_unlock(&alt_tls_lock);
+    return res;
+}
+
+/* Caller must synchronize */
+static bool
+alt_tls_release_helper(bool *taken, uint base_offs, uint teb_offs, int num_slots)
+{
+    uint i;
+    uint start = (teb_offs - base_offs) / sizeof(void*);
+    for (i = start; i < start + num_slots; i++) {
+        ASSERT(taken[i]);
+        taken[i] = false;
+        /* XXX: I'd like to zero the slots out for all threads but there's
+         * no simple way to do that
+         */
+    }
+    return true;
+}
+
+static bool
+alt_tls_release(uint teb_offs, int num_slots)
+{
+    bool res = false;
+    size_t base_offs = offsetof(TEB, SpareBytes1);
+    ASSERT(DYNAMO_OPTION(alt_teb_tls));
+    if (teb_offs >= base_offs &&
+        teb_offs < base_offs + TLS_SPAREBYTES_SLOTS*sizeof(void*)) {
+        mutex_lock(&alt_tls_lock);
+        res = alt_tls_release_helper(alt_tls_spare_taken, (uint) base_offs, teb_offs,
+                                     num_slots);
+        mutex_unlock(&alt_tls_lock);
+    }
+#ifdef X64
+    if (!res) {
+        if (teb_offs >= TLS_POSTTEB_BASE_OFFS &&
+            teb_offs < TLS_POSTTEB_BASE_OFFS + TLS_POSTTEB_SLOTS*sizeof(void*)) {
+            mutex_lock(&alt_tls_lock);
+            res = alt_tls_release_helper(alt_tls_post_taken, TLS_POSTTEB_BASE_OFFS,
+                                         teb_offs, num_slots);
+            mutex_unlock(&alt_tls_lock);
+        }
+    }
+#endif
+    return res;
+}
+
 static inline uint
 tls_segment_offs(int slot)
 {
@@ -1323,7 +1468,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
                  uint alignment, uint tls_flags)
 {
     PEB *peb = get_own_peb();
-    uint start;
+    int start;
     RTL_BITMAP local_bitmap;
     bool using_local_bitmap = false;
 
@@ -1393,11 +1538,11 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      * beyond index 63 in either request.
      */
     if (TEST(TLS_FLAG_BITMAP_FILL, tls_flags)) {
-        uint first_to_fill = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer, 
-                                                          peb->TlsBitmap->SizeOfBitMap,
-                                                          1, /* single */
-                                                          false, /* bottom up */
-                                                          0, 0 /* no alignment */);
+        int first_to_fill = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer, 
+                                                         peb->TlsBitmap->SizeOfBitMap,
+                                                         1, /* single */
+                                                         false, /* bottom up */
+                                                         0, 0 /* no alignment */);
         ASSERT_NOT_TESTED();
         /* we only fill from the front - and taking all up to the top isn't nice */
         ASSERT(!TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags));
@@ -1453,7 +1598,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
 
     if (!TEST(TLS_FLAG_CACHE_LINE_START, tls_flags)) {
         /* try either way, worthwhile only if we fit into an alignment unit */
-        uint end_aligned = 
+        int end_aligned = 
             tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer, 
                                          peb->TlsBitmap->SizeOfBitMap,
                                          num_slots,
@@ -1481,7 +1626,6 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     }
 
     if (start < 0) {
-        ASSERT_NOT_TESTED();
         NTPRINT("Failed to find %d slots aligned at %d\n", num_slots, alignment);
         goto tls_alloc_exit;
     }
@@ -1508,7 +1652,7 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
                                          1, /* single */
                                          false, /* bottom up */
                                          0, 0 /* no alignment */);
-        ASSERT(first_available >= 0);
+        ASSERT_CURIOSITY(first_available >= 0);
 
         /* SQL2005 assumes that first available slot means start of a
          * sequence of 38 blanks that fit in TLS64.  Unfortunately
@@ -1536,7 +1680,12 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      * bottom up, FIXME: if hit change interface, since 0 is returned
      * on error 
      */
-    ASSERT(start > 0);
+    ASSERT_CURIOSITY(start != 0);
+
+    if (start <= 0 && DYNAMO_OPTION(alt_teb_tls)) {
+        /* i#1163: fall back on other space in TEB */
+        return alt_tls_acquire(teb_offs, num_slots, alignment);
+    }
 
     return (start > 0);
 }
@@ -1569,6 +1718,10 @@ tls_free_helper(int synch, uint teb_offs, int num)
 
     NTSTATUS res;
     GET_NTDLL(RtlTryEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
+
+    if (DYNAMO_OPTION(alt_teb_tls) &&
+        alt_tls_release(teb_offs, num))
+        return true;
 
     if (synch) {
         /* TlsFree calls RtlAcquirePebLock which calls RtlEnterCriticalSection

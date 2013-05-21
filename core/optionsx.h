@@ -1490,7 +1490,9 @@
     /* We mark as pcache-affecting though we have other explicit checks */
     PC_OPTION_DEFAULT(uint, tls_flags, 1|2 /* TLS_FLAG_BITMAP_TOP_DOWN | 
                                           * TLS_FLAG_CACHE_LINE_START */, 
-         "TLS allocation choices")
+        "TLS allocation choices")
+    PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
+        "Use other parts of the TEB for TLS once out of real TLS slots")
 #endif /* WINDOWS */
     OPTION_DEFAULT(bool, guard_pages, true, "add guard pages to our heap units")
 
