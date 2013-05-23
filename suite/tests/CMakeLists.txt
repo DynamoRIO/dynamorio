@@ -57,7 +57,6 @@ set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
 # FIXME: i#65: add command to run natively
 # FIXME: i#111: get .runall tests to run in parallel
 #   and use latest cmake for "ctest -j" (and "ctest -W 60")
-# FIXME: i#119: add support for 64-bit nudges   	
 
 ###########################################################################
 # RUNTIME OPTIONS TO TEST

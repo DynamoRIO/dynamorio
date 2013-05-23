@@ -169,6 +169,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_get_token()
  - Added dr_switch_to_app_state_ex() and dr_switch_to_dr_state_ex()
  - Added dr_is_nudge_thread()
+ - Added support for nudging 64-bit Windows applications
 
 **************************************************
 <hr>
@@ -1033,7 +1034,6 @@ not supported.
   - This release does not support running some Windows services under
     control of DynamoRIO: System, smss.exe, csrss.exe, and protected
     processes on Windows Vista.
-  - This release does not support nudging 64-bit processes.
 \anchor limits_vista_service_messagebox
   - On Windows Vista most services are run in a separate session as a
     security feature.  This means that neither DynamoRIO nor its

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -840,8 +840,6 @@ DR_EXPORT
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
  *
- * \note Nudging 64-bit processes is not yet supported.
- *
  * \note Not yet available on Linux.
  */
 dr_config_status_t
@@ -884,8 +882,6 @@ DR_EXPORT
  * return information back to the nudge originator.  To communicate
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
- *
- * \note Nudging 64-bit processes is not yet supported.
  *
  * \note Not yet available on Linux.
  */
@@ -930,8 +926,6 @@ DR_EXPORT
  * return information back to the nudge originator.  To communicate
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
- *
- * \note Nudging 64-bit processes is not yet supported.
  *
  * \note Not yet available on Linux.
  */

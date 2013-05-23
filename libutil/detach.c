@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -99,10 +99,13 @@ typedef uint ptr_uint_t;
     ((dr_xmm_t*)&((cxt)->ExtendedRegisters[FXSAVE_XMM0_OFFSET + (idx)*16]))
 #endif
 
-#ifndef X64
-DWORD WINAPI dummy_func(LPVOID dummy_arg)
+#define THREAD_START_ADDR IF_X64_ELSE(CXT_XCX, CXT_XAX)
+#define THREAD_START_ARG  IF_X64_ELSE(CXT_XDX, CXT_XBX)
+
+PVOID WINAPI
+dummy_func(LPVOID dummy_arg)
 {
-    return (DWORD)dummy_arg;
+    return dummy_arg;
 }
 
 /* Gets kernel32!BaseThreadStartThunk which, unfortunately, isn't exported. */
@@ -134,7 +137,7 @@ get_kernel_thread_start_thunk()
                  * in utils.c that really do need synchronization so if we
                  * ever add some synchronization mechanisms to share module
                  * might as well use here as well. */
-                start_address = (void *)cxt.Eip;
+                start_address = (void *)cxt.CXT_XIP;
 #ifdef DEBUG
                 {
                     TCHAR buf[MAX_PATH];
@@ -166,7 +169,6 @@ get_kernel_thread_start_thunk()
     DO_ASSERT(start_address != NULL);
     return start_address;
 }
-#endif /* !X64 */
 
 /* returns NULL on error */
 /* FIXME - is similar to core create_thread, but uses API routines where
@@ -204,9 +206,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     void *thread_arg = arg;
     BOOL wow64 = is_wow64(hProcess);
 
-#ifdef X64
-    DO_ASSERT(!target_api); /* NYI */
-#else
+#ifndef X64
     DO_ASSERT(!target_64bit); /* Not supported. */
 #endif
 
@@ -349,7 +349,6 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     }
 
     /* set eip and argument */
-#ifndef X64
     if (target_api) {
         if (platform >= PLATFORM_VISTA) {
             context.CXT_XIP = (ptr_uint_t)GetProcAddress(GetModuleHandle(L"ntdll.dll"),
@@ -359,11 +358,9 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
         }
         /* For kernel32!BaseThreadStartThunk and ntdll!RltUserThreadStartThunk
          * Eax contains the address of the thread routine and Ebx the arg */
-        context.Eax = (ptr_uint_t)start_addr;
-        context.Ebx = (ptr_uint_t)thread_arg;
-    } else
-#endif /* !X64 */
-       {
+        context.THREAD_START_ADDR = (ptr_uint_t)start_addr;
+        context.THREAD_START_ARG = (ptr_uint_t)thread_arg;
+    } else {
         void *buf[2];
         BOOL res;
         SIZE_T written;

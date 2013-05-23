@@ -274,8 +274,7 @@ The guest agent can also send update messages to processes currently
 initialized with DynamoRIO and a client using dr_nudge_process().
 For example, this can be used by the guest agent when it has obtained new
 information (data, libraries, etc.), from a management server or over the
-internet from a security vendor, to let clients know about them. Note
-that nudging 64-bit processes is not yet supported.
+internet from a security vendor, to let clients know about them.
 
 Process registration, unregistration, and nudging require administrative
 privileges.  On Windows Vista or higher, if UAC is enabled, process registration must be
@@ -387,8 +386,7 @@ This will result in a nudge event with argument=5 delivered to the
 client callback registered with dr_register_nudge_event() in all
 \c calc.exe processes running under DynamoRIO.  The third argument,
 0, is an ID supplied at registration which uniquely identifies the
-target client (see dr_deploy.h for details).  Note that nudging
-64-bit applications is not yet supported on Windows.
+target client (see dr_deploy.h for details).
 
 To view 32-bit or WOW64 processes running under DynamoRIO the
 \c drview.exe tool can be used.  The bin64 version will display both 32-bit
