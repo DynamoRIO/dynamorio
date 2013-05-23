@@ -5448,7 +5448,7 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
          *    done:
          */
         opnd_t opnd_taken = out_of_line_switch ?
-            /* 2 slow away from xsp, xref comment above for i#1155 */
+            /* 2 slots away from xsp, xref comment above for i#1155 */
             OPND_CREATE_MEM32(REG_XSP, -2*(int)XSP_SZ /* ret+taken */) :
             opnd_create_reg(REG_EBX);
         instr_t *branch = instr_clone(dcontext, instr);
@@ -5458,17 +5458,29 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
         instr_t *taken =
             INSTR_CREATE_mov_imm(dcontext, opnd_taken,
                                  OPND_CREATE_INT32(1));
+        instr_t *done = INSTR_CREATE_label(dcontext);
         instr_set_target(branch, opnd_create_instr(taken));
         /* client-added meta instrs should not have translation set */
         instr_set_translation(branch, NULL);
         MINSERT(ilist, app_flags_ok, branch);
         MINSERT(ilist, app_flags_ok, not_taken);
         MINSERT(ilist, app_flags_ok,
-                INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(app_flags_ok)));
+                INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(done)));
         MINSERT(ilist, app_flags_ok, taken);
+        MINSERT(ilist, app_flags_ok, done);
         if (out_of_line_switch) {
+            if (opc == OP_loop || opc == OP_loope || opc == OP_loopne) {
+                /* We executed OP_loop* before we saved xcx, so we must restore
+                 * it.  We should be able to use OP_lea b/c OP_loop* uses
+                 * addr prefix to shrink pointer-sized xcx, not data prefix.
+                 */
+                reg_id_t xcx = opnd_get_reg(instr_get_dst(instr, 0));
+                MINSERT(ilist, app_flags_ok, INSTR_CREATE_lea
+                        (dcontext, opnd_create_reg(xcx),
+                         opnd_create_base_disp(xcx, DR_REG_NULL, 0, 1, OPSZ_lea)));
+            }
             ASSERT(instr_get_opcode(app_flags_ok) == OP_call);
-            /* 2 slow + temp_stack_size away from xsp,
+            /* 2 slots + temp_stack_size away from xsp,
              * xref comment above for i#1155
              */
             opnd_taken = OPND_CREATE_MEM32
@@ -5483,7 +5495,7 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
          * WARNING: this relies on order of OP_ enum!
          */
         opnd_t opnd_taken = out_of_line_switch ?
-            /* 2 slow away from xsp, xref comment above for i#1155 */
+            /* 2 slots away from xsp, xref comment above for i#1155 */
             OPND_CREATE_MEM8(REG_XSP, -2*(int)XSP_SZ /* ret+taken */) :
             opnd_create_reg(REG_BL);
         opc = instr_get_opcode(instr);
@@ -5496,7 +5508,7 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                 INSTR_CREATE_setcc(dcontext, opc, opnd_taken));
         if (out_of_line_switch) {
             app_flags_ok = instr_get_next(app_flags_ok);
-            /* 2 slow + temp_stack_size away from xsp,
+            /* 2 slots + temp_stack_size away from xsp,
              * xref comment above for i#1155
              */
             opnd_taken = OPND_CREATE_MEM8
