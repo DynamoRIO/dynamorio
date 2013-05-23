@@ -734,6 +734,7 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
         if (modbase != NULL &&
             /* avoid rank order violations */
             v != dynamo_areas &&
+            v != written_areas &&
             /* we free module list before vmareas */
             !dynamo_exited_and_cleaned &&
             is_mapped_as_image(modbase)/*avoid asserts in getting name */) {
