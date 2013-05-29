@@ -296,6 +296,19 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
     return true;
 }
 
+static size_t
+module_image_size(void *modbase)
+{
+    IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) modbase;
+    IMAGE_NT_HEADERS *nt;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE)
+        return 0;
+    nt = (IMAGE_NT_HEADERS *) (((ptr_uint_t)dos) + dos->e_lfanew);
+    if (nt == NULL || nt->Signature != IMAGE_NT_SIGNATURE)
+        return 0;
+    return nt->OptionalHeader.SizeOfImage;
+}
+
 static DWORD64
 load_module(HANDLE proc, const char *path)
 {
@@ -303,7 +316,11 @@ load_module(HANDLE proc, const char *path)
     DWORD64 size;
     wchar_t wpath[MAX_PATH];
     int err;
-    HANDLE f;
+    file_t f;
+    uint64 map_size;
+    size_t actual_size = 0;
+    bool ok;
+    void *map = NULL;
 
     /* UTF-8 to wide string. */
     dr_snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%S", path);
@@ -317,18 +334,35 @@ load_module(HANDLE proc, const char *path)
      * base and fall back to 0 if that fails (b/c we don't want to bother
      * parsing the headers looking for the base and /dynamicbase).
      */
-    /* Any base will do, but we need the size */
-    f = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ,
-                    NULL, OPEN_EXISTING, 0, NULL);
-    if (f == INVALID_HANDLE_VALUE)
+    /* Any base will do, but we need the image size (not the file size: i#1171) */
+    /* XXX: should we try with 0 base first to avoid this overhead?
+     * Though in some tests I don't see any perf hit from this map, prob b/c
+     * we only read one word from the first page and then unmap.
+     */
+    f = dr_open_file(path, DR_FILE_READ);
+    if (f == INVALID_FILE)
         return 0;
+    ok = dr_file_size(f, &map_size);
+    if (ok) {
+        actual_size = (size_t) map_size;
+        if (actual_size != map_size) { /* overflow check */
+            NOTIFY("Overflow on module %s size", path);
+            return 0;
+        }
+        map = dr_map_file(f, &actual_size, 0, NULL, DR_MEMPROT_READ, 0);
+    }
+    if (!ok || map == NULL || actual_size < map_size) {
+        if (map != NULL)
+            dr_unmap_file(map, actual_size);
+        NOTIFY("Failed to map module %s to find image size", path);
+        return 0;
+    }
+    size = module_image_size(map);
+    dr_unmap_file(map, actual_size);
+    dr_close_file(f);
+
     base = next_load;
-    size = GetFileSize(f, NULL);
-    CloseHandle(f);
-    if (size == INVALID_FILE_SIZE)
-        return 0;
-    next_load += ALIGN_FORWARD(size, 64*1024);
-    
+
     /* XXX i#449: if we decide to perform GC and unload older modules we
      * should avoid doing it for recursive_context == true to avoid
      * removing resources needed for finishing an iteration
@@ -366,6 +400,8 @@ load_module(HANDLE proc, const char *path)
             }
         }
     } while (false);
+
+    next_load += ALIGN_FORWARD(size, 64*1024);
 
     if (verbose) {
         NOTIFY("loaded %s at 0x%I64x\n", path, base);
