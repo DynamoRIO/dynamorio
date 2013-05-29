@@ -170,6 +170,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_switch_to_app_state_ex() and dr_switch_to_dr_state_ex()
  - Added dr_is_nudge_thread()
  - Added support for nudging 64-bit Windows applications
+ - Added dr_get_dr_thread_handle()
 
 **************************************************
 <hr>

@@ -4131,6 +4131,19 @@ dr_get_thread_id(void *drcontext)
     return dcontext->owning_thread;
 }
 
+#ifdef WINDOWS
+/* Added for DrMem i#1254 */
+DR_API HANDLE
+dr_get_dr_thread_handle(void *drcontext)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(drcontext != NULL, "dr_get_thread_id: drcontext cannot be NULL");
+    CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
+                  "dr_get_thread_id: drcontext is invalid");
+    return dcontext->thread_record->handle;
+}
+#endif
+
 DR_API void *
 dr_get_tls_field(void *drcontext)
 {

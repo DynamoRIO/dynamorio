@@ -3723,6 +3723,25 @@ DR_API
 thread_id_t 
 dr_get_thread_id(void *drcontext);
 
+/* DR_API EXPORT BEGIN */
+#ifdef WINDOWS
+/* DR_API EXPORT END */
+DR_API 
+/**
+ * Returns a Windows handle to the thread with drcontext \p drcontext.
+ * This handle is DR's handle to this thread (it is not a separate
+ * copy) and as such it should not be closed by the caller; nor should
+ * it be used beyond the thread's exit, as DR's handle will be closed
+ * at that point.
+ *
+ * The handle should have THREAD_ALL_ACCESS privileges.
+ */
+HANDLE
+dr_get_dr_thread_handle(void *drcontext);
+/* DR_API EXPORT BEGIN */
+#endif
+/* DR_API EXPORT END */
+
 DR_API 
 /**
  * Returns the user-controlled thread-local-storage field.  To
