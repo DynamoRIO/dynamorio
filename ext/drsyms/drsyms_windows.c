@@ -299,57 +299,79 @@ query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
 static DWORD64
 load_module(HANDLE proc, const char *path)
 {
-    DWORD64 base;
+    DWORD64 base, loaded_base;
     DWORD64 size;
-    char *ext = strrchr(path, '.');
     wchar_t wpath[MAX_PATH];
+    int err;
+    HANDLE f;
 
     /* UTF-8 to wide string. */
     dr_snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%S", path);
     NULL_TERMINATE_BUFFER(wpath);
 
     /* We specify bases and try to pack the address space, except for
-     * the .exe which is not relocatable.
+     * the .exe which is not relocatable (although with later dbghelp
+     * it seems to accept a preferred base for non-ALSR executables too?).
+     * However, for a preferred base of 0 (and /dynamicbase) executable,
+     * dbghelp doesn't work well (i#1169): thus we always try a specified
+     * base and fall back to 0 if that fails (b/c we don't want to bother
+     * parsing the headers looking for the base and /dynamicbase).
      */
-    if (!stri_eq(ext, ".exe")) {
-        /* Any base will do, but we need the size */
-        HANDLE f = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ,
-                               NULL, OPEN_EXISTING, 0, NULL);
-        if (f == INVALID_HANDLE_VALUE)
-            return 0;
-        base = next_load;
-        size = GetFileSize(f, NULL);
-        CloseHandle(f);
-        if (size == INVALID_FILE_SIZE)
-            return 0;
-        next_load += ALIGN_FORWARD(size, 64*1024);
-    } else {
-        /* Can pass 0 to SymLoadModuleExW */
-        base = 0;
-        size = 0;
-    }
-
+    /* Any base will do, but we need the size */
+    f = CreateFileW(wpath, GENERIC_READ, FILE_SHARE_READ,
+                    NULL, OPEN_EXISTING, 0, NULL);
+    if (f == INVALID_HANDLE_VALUE)
+        return 0;
+    base = next_load;
+    size = GetFileSize(f, NULL);
+    CloseHandle(f);
+    if (size == INVALID_FILE_SIZE)
+        return 0;
+    next_load += ALIGN_FORWARD(size, 64*1024);
+    
     /* XXX i#449: if we decide to perform GC and unload older modules we
      * should avoid doing it for recursive_context == true to avoid
      * removing resources needed for finishing an iteration
      */
 
-    base = SymLoadModuleExW(GetCurrentProcess(), NULL, wpath, NULL, base,
-                            (DWORD)size/*should check trunc*/, NULL, 0);
-    if (base == 0) {
-        /* FIXME PR 463897: for !single_target, we should handle load
-         * failure by trying a different address, informed by some
-         * memory queries.  For now we assume only one .exe and that
-         * it's below our start load address and that we won't fail.
+    do {
+        loaded_base = SymLoadModuleExW(GetCurrentProcess(), NULL, wpath, NULL, base,
+                                       (DWORD)size/*should check trunc*/, NULL, 0);
+        err = GetLastError();
+        /* dbghelp will return 0 on already-loaded (documented behavior) or
+         * if passed-in base is 0 and module has preferred base of 0 -- though
+         * the latter case is a fatal situation as the other dbghelp routines won't
+         * accept a 0 base!  Xref i#1169..
          */
-        NOTIFY("SymLoadModuleExW error %d\n", GetLastError());
-        return 0;
-    }
+        if (loaded_base == 0) {
+            if (err == ERROR_SUCCESS && base != 0/*else can't recover: see above*/) {
+                /* We can't unload (gives ERROR_INVALID_PARAMETER) so we load again */
+#ifdef DEBUG
+                char *ext = strrchr(path, '.');
+                if (ext != NULL && !stri_eq(ext, ".exe"))
+                    NOTIFY("Failed to load %s at our chosen base\n", path);
+#endif
+                /* Can pass 0 to SymLoadModuleExW */
+                base = 0;
+                size = 0;
+                continue;
+            } else {
+                /* FIXME PR 463897: for !single_target, we should handle load
+                 * failure by trying a different address, informed by some
+                 * memory queries.  For now we assume only one .exe and that
+                 * it's below our start load address and that we won't fail.
+                 */
+                NOTIFY("SymLoadModuleExW error %d\n", err);
+                return 0;
+            }
+        }
+    } while (false);
+
     if (verbose) {
         NOTIFY("loaded %s at 0x%I64x\n", path, base);
         query_available(GetCurrentProcess(), base, NULL);
     }
-    return base;
+    return loaded_base;
 }
 
 static void
