@@ -1172,7 +1172,9 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
         return DRSYM_SUCCESS;
     }
 
-    if (!get_type_info(query->base, type_idx, TI_GET_SYMTAG, &tag)) {
+    if (!get_type_info(query->base, type_idx, TI_GET_SYMTAG, &tag) ||
+        /* DrMem i#1255: this means "no type info" so let's turn it into an error */
+        tag == SymTagNull) {
         return DRSYM_ERROR;
     }
     if (verbose) {
