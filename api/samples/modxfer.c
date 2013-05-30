@@ -35,77 +35,135 @@
 /* Code Manipulation API Sample:
  * modxfer.c
  *
- * - Reports the dynamic count of total number of instructions executed in
- *   application executable and other libraries, and the number of transfers
- *   between them.
- * - Illustrates how to perform performant clean calls.
- * - Demonstrates effect of clean call optimization and auto-inlining with
- *   different -opt_cleancall values.
- * - Illustrates how to perform different instrumentation on different modules.
+ * - Reports the dynamic count of total number of instructions executed
+ *   and the number of transfers between modules via indirect branches.
+ * - This is different from modxfer.c as it counts all transfers between any
+ *   modules while modxfer.c only counts transfers between app and other
+ *   modules, i.e., not counting transfers between two libraries.
+ * - modxfer and modxfer2 is to demonstrate how we can simplify the client
+ *   and improve the performance if we collect less information (modxfer).
+ * - We assume that most of cross module transfers happen via indirect branches,
+ *   and most of them are paired, so we only instrument indrect branches
+ *   but not returns for better performance.
+ * - It is possible a direct branch with DGC or self-mod jumps between modules,
+ *   they are ignored for now. They can be handled differently from indirect
+ *   branch since the src and target are known at instrumentation time.
  */
 
-#include "dr_api.h"
+#include "utils.h"
+#include <string.h>
 
+#define MAX_NUM_MODULES    0x1000
+#define UNKNOW_MODULE_IDX  (MAX_NUM_MODULES-1)
+
+typedef struct _module_array_t {
+    app_pc base;
+    app_pc end;
+    bool   loaded;
+    module_data_t *info;
+} module_array_t;
+/* the last slot is where all non-module address go */
+static module_array_t mod_array[MAX_NUM_MODULES];
+
+static uint64 ins_count;   /* number of instructions executed in total */
+static void  *mod_lock;
+static int    num_mods;
+static uint   xfer_cnt[MAX_NUM_MODULES][MAX_NUM_MODULES];
+static file_t logfile;
+
+static bool
+module_data_same(const module_data_t *d1, const module_data_t *d2)
+{
+    if (d1->start == d2->start &&
+        d1->end   == d2->end   &&
+        d1->entry_point == d2->entry_point &&
 #ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-#else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
+        d1->checksum  == d2->checksum  &&
+        d1->timestamp == d2->timestamp &&
 #endif
-
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
-
-static uint64 app_count;   /* number of instructions executed in app */
-static uint64 lib_count;   /* number of instructions executed in libs */
-static uint   app2lib;     /* number of transfers (calls/jmps) from app to lib */
-static uint   lib2app;     /* number of transfers (calls/jmps )from lib to app */
-static app_pc app_base;
-static app_pc app_end;
+        /* treat two modules w/ no name (there are some) as different */
+        dr_module_preferred_name(d1) != NULL &&
+        dr_module_preferred_name(d2) != NULL &&
+        strcmp(dr_module_preferred_name(d1),
+               dr_module_preferred_name(d2)) == 0)
+        return true;
+    return false;
+}
 
 /* Simple clean calls that will each be automatically inlined because it has only
  * one argument and contains no calls to other functions.
  */
-static void app_update(uint num_instrs) { app_count += num_instrs; }
-static void lib_update(uint num_instrs) { lib_count += num_instrs; }
+static void ins_update(uint num_instrs) { ins_count += num_instrs; }
 
 /* Simple clean calls with two arguments will not be inlined, but the context
  * switch can be optimized for better performance.
  */
 static void
-app_mbr(app_pc instr_addr, app_pc target_addr)
+mbr_update(app_pc instr_addr, app_pc target_addr)
 {
-    /* update count if target is not in app */
-    if (target_addr >= app_end || target_addr < app_base)
-        app2lib++;
+    int i, j;
+    /* XXX: this can be optimized by walking a tree instead */
+    /* find the source module */
+    for (i = 0; i < num_mods; i++) {
+        if (mod_array[i].loaded &&
+            mod_array[i].base <= instr_addr &&
+            mod_array[i].end  >  instr_addr)
+            break;
+    }
+    /* if cannot find a module, put it to the last */
+    if (i == num_mods)
+        i = UNKNOW_MODULE_IDX;
+    /* find the target module */
+    /* quick check if it is the same module */
+    if (i < UNKNOW_MODULE_IDX &&
+        mod_array[i].base <= target_addr &&
+        mod_array[i].end  >  target_addr) {
+        j = i;
+    } else {
+        for (j = 0; j < num_mods; j++) {
+            if (mod_array[j].loaded &&
+                mod_array[j].base <= target_addr &&
+                mod_array[j].end  >  target_addr)
+                break;
+        }
+        /* if cannot find a module, put it to the last */
+        if (j == num_mods)
+            j = UNKNOW_MODULE_IDX;
+    }
+    /* this is a racy update, but should be ok to be a few number off */
+    xfer_cnt[i][j]++;
 }
 
 static void
-lib_mbr(app_pc instr_addr, app_pc target_addr)
-{
-    /* update count if target is in app */
-    if (target_addr >= app_base && target_addr < app_end)
-        lib2app++;
-}
+event_exit(void);
 
-static void event_exit(void);
-static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
-                                         bool for_trace, bool translating);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+
+static void
+event_module_load(void *drcontext, const module_data_t *info, bool loaded);
+
+static void
+event_module_unload(void *drcontext, const module_data_t *info);
 
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
-    module_data_t *appmod  = dr_get_main_module();
-    
-    DR_ASSERT(appmod != NULL);
-    app_base = appmod->start;
-    app_end  = appmod->end;
-    dr_free_module_data(appmod);
-
     /* register events */
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);
+    dr_register_module_load_event(event_module_load);
+    dr_register_module_unload_event(event_module_unload);
 
+    mod_lock = dr_mutex_create();
+
+    logfile = log_file_open(id, NULL /* drcontext */,
+                            NULL/* path */, "modxfer2.log",
+                            DR_FILE_WRITE_APPEND);
+    DR_ASSERT(logfile != INVALID_FILE);
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer' initializing\n");
+    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer2' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
@@ -113,7 +171,7 @@ dr_init(client_id_t id)
         /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
         dr_enable_console_printing();
 # endif
-        dr_fprintf(STDERR, "Client modxfer is running\n");
+        dr_fprintf(STDERR, "Client modxfer2 is running\n");
     }
 #endif
 }
@@ -121,31 +179,51 @@ dr_init(client_id_t id)
 static void 
 event_exit(void)
 {
-#ifdef SHOW_RESULTS
+    int i;
     char msg[512];
     int len;
-    uint64 total_count = app_count + lib_count;
-    /* We only instrument indirect calls/jmps, and assume that
-     * there would be a return paired with indirect calls/jmps.
-     */
-    uint64 total_xfer  = (app2lib + lib2app) * 2;
+    int j;
+    uint64 xmod_xfer = 0;
+    uint64 self_xfer = 0;
+    for (i = 0; i < num_mods; i++) {
+        dr_fprintf(logfile, "module %3d: %s\n", i,
+                   dr_module_preferred_name(mod_array[i].info) == NULL ?
+                   "<unknown>" : dr_module_preferred_name(mod_array[i].info));
+    }
+    for (i = 0; i < MAX_NUM_MODULES; i++) {
+        for (j = 0; j < num_mods; j++) {
+            if (xfer_cnt[i][j] != 0) {
+                dr_fprintf(logfile, "mod %3d => mod %3d: %8u\n",
+                           i, j, xfer_cnt[i][j]);
+                if (i == j)
+                    self_xfer += xfer_cnt[i][j];
+                else
+                    xmod_xfer += xfer_cnt[i][j];
+            }
+        }
+    }
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Instrumentation results:\n"
                       "\t%10llu instructions executed\n"
-                      "\t%10llu (%2.3f%%) in app\n"
-                      "\t%10llu (%2.3f%%) in lib,\n"
-                      "\t%10llu (%2.3f%%) transfers between app and lib\n"
-                      "\t%10u app call/jmp to lib\n"
-                      "\t%10u lib call/jmp to app\n",
-                      total_count,
-                      app_count,  100*(float)app_count/total_count,
-                      lib_count,  100*(float)lib_count/total_count,
-                      total_xfer, 100*(float)total_xfer/total_count,
-                      app2lib, lib2app);
+                      "\t%10llu (%2.3f%%) cross module indirect branches\n"
+                      "\t%10llu (%2.3f%%) intra-module indirect branches\n",
+                      ins_count,
+                      xmod_xfer, 100*(float)xmod_xfer/ins_count,
+                      self_xfer, 100*(float)self_xfer/ins_count);
     DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
+    NULL_TERMINATE_BUFFER(msg);
+#ifdef SHOW_RESULTS
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
+    dr_fprintf(logfile, "%s\n", msg);
+    dr_mutex_lock(mod_lock);
+    for (i = 0; i < num_mods; i++) {
+        DR_ASSERT(mod_array[i].info != NULL);
+        dr_free_module_data(mod_array[i].info);
+    }
+    dr_mutex_unlock(mod_lock);
+    dr_mutex_destroy(mod_lock);
+    log_file_close(logfile);
 }
 
 static dr_emit_flags_t
@@ -154,7 +232,6 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *instr, *mbr = NULL;
     uint num_instrs;
-    bool bb_in_app;
     
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
@@ -170,26 +247,23 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         if (!instr_ok_to_mangle(instr))
             continue;
         num_instrs++;
-        /* Assuming most of the transfers between app and lib are paired, we
+        /* Assuming most of the transfers between modules are paired, we
          * instrument indirect branches but not returns for better performance.
+         * We assume that most cross module transfers happens via indirect
+         * branches.
+         * Direct branch with DGC or self-modify may also cross modules, but
+         * it should be ok to ignore, and we can handle them more efficiently.
          */
         if (instr_is_mbr(instr) && !instr_is_return(instr))
             mbr = instr;
     }
 
-    if (dr_fragment_app_pc(tag) >= app_base &&
-        dr_fragment_app_pc(tag) <  app_end)
-        bb_in_app = true;
-    else
-        bb_in_app = false;
     dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         (void *)(bb_in_app ? app_update : lib_update),
-                         false /* save fpstate */, 1,
+                         (void *)ins_update, false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
     if (mbr != NULL) {
         dr_insert_mbr_instrumentation(drcontext, bb, mbr,
-                                      (void *)(bb_in_app ? app_mbr : lib_mbr),
-                                      SPILL_SLOT_1);
+                                      (void *)mbr_update, SPILL_SLOT_1);
     }
 
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
@@ -197,4 +271,47 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 #endif
     return DR_EMIT_DEFAULT;
+}
+
+static void
+event_module_load(void *drcontext, const module_data_t *info, bool loaded)
+{
+    int i;
+    dr_mutex_lock(mod_lock);
+    for (i = 0; i < num_mods; i++) {
+        /* check if it is the same as any unloaded module */
+        if (!mod_array[i].loaded && module_data_same(mod_array[i].info, info)) {
+            mod_array[i].loaded = true;
+            break;
+        }
+    }
+    if (i == num_mods) {
+        /* new module */
+        mod_array[i].base   = info->start;
+        mod_array[i].end    = info->end;
+        mod_array[i].loaded = true;
+        mod_array[i].info   = dr_copy_module_data(info);
+        num_mods++;
+    }
+    DR_ASSERT(num_mods < UNKNOW_MODULE_IDX);
+    dr_mutex_unlock(mod_lock);
+}
+
+static void
+event_module_unload(void *drcontext, const module_data_t *info)
+{
+    int i;
+    dr_mutex_lock(mod_lock);
+    for (i = 0; i < num_mods; i++) {
+        if (mod_array[i].loaded && module_data_same(mod_array[i].info, info)) {
+            /* Some module might be repeatedly loaded and unloaded, so instead
+             * of clearing out the array entry, we keep the data for possible
+             * reuse.
+             */
+            mod_array[i].loaded = false;
+            break;
+        }
+    }
+    DR_ASSERT(i < num_mods);
+    dr_mutex_unlock(mod_lock);
 }
