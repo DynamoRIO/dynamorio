@@ -77,6 +77,7 @@ typedef struct _pe_module_import_iterator_t {
     dr_module_import_t module_import;  /* module import returned by next() */
 
     byte *mod_base;
+    size_t mod_size;
     /* Points into an array of IMAGE_IMPORT_DESCRIPTOR structs.  The last
      * element of the array is zeroed.
      */
@@ -6307,7 +6308,11 @@ safe_read_cur_module(pe_module_import_iterator_t *iter)
     /* Modules with no imports, such as ntdll, hit this check and not the
      * OriginalFirstThunk sentinel check below.
      */
-    if ((byte *)(iter->cur_module + 1) > iter->imports_end)
+    if ((byte *)(iter->cur_module + 1) > iter->imports_end ||
+        /* Look out for partial maps -- although we now exclude them from the
+         * module list (i#1172), better safe than sorry.
+         */
+        (byte *)(iter->cur_module + 1) >= iter->mod_base + iter->mod_size)
         return false;
     if (!SAFE_READ_VAL(iter->safe_module, iter->cur_module)) {
         memset(&iter->safe_module, 0, sizeof(iter->safe_module));
@@ -6336,6 +6341,7 @@ dr_module_import_iterator_start(module_handle_t handle)
     nt = NT_HEADER(base);
     dir = OPT_HDR(nt, DataDirectory) + IMAGE_DIRECTORY_ENTRY_IMPORT;
     iter->mod_base = (byte *) base;
+    iter->mod_size = OPT_HDR(nt, SizeOfImage);
     iter->cur_module = (IMAGE_IMPORT_DESCRIPTOR *)
         RVA_TO_VA(base, dir->VirtualAddress);
     iter->imports_end = (byte *) RVA_TO_VA(base, dir->VirtualAddress) + dir->Size;

@@ -3387,15 +3387,17 @@ mem_stats_snapshot()
 
 /* update our data structures that record info on PE modules */
 /* rewalking is set when walking existing memory mappings, and is
- * unset if called when processing a system call for (un)map 
+ * unset if called when processing a system call for (un)map.
+ * Returns true if this mapped image is a library.
  */
-static void
+static bool
 process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
               const char *filepath)
 {
     const char *name = NULL;
     bool module_is_native_exec = false;
     bool already_added_native_exec = false;
+    size_t image_size;
     /* ensure header is readable */
     ASSERT(prot_is_readable(prot));
     ASSERT(!rewalking || add);  /* when rewalking can only add */
@@ -3419,7 +3421,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
             if (!NT_SUCCESS(res) || wcsstr(buf, L"apisetschema") == NULL)
                 SYSLOG_INTERNAL_WARNING_ONCE("image but non-PE mapping found");
         });
-        return;
+        return false;
     }
     /* Our WOW64 design for 32-bit DR involves ignoring all 64-bit dlls
      * (several are visible: wow64cpu.dll, wow64win.dll, wow64.dll, and ntdll.dll)
@@ -3445,9 +3447,26 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
             "image "PFX"-"PFX" is 64-bit dll (wow64 process?): ignoring it!\n", 
             base, base+size);
         ASSERT(is_wow64_process(NT_CURRENT_PROCESS));
-        return;
+        return false;
     }
 #endif
+
+    /* i#1172: do not treat partially-mapped images as "modules" as they are
+     * not normal libraries loaded by the system loader but instead are
+     * usually mapped in to read resources or other data from the file.
+     * If code is executed from a partial map, DR will still perform proper
+     * cache consistency as that's done in the caller.
+     * Having native_exec not apply seems ok: we'll err on the side of executing
+     * it, which is the conservative side.  Hot patches and
+     * patch-proof list should only apply to system-loaded libs.
+     */
+    if (!get_module_info_pe(base, NULL, NULL, &image_size, NULL, NULL) ||
+        size < image_size) {
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "not treating partially-mapped ("PIFX" < "PIFX") image @"PFX"as module\n",
+            size, image_size, base);
+        return false;
+    }
 
     /* Track loaded module list.  Needs to be done before
      * hotp_process_image() and any caller of get_module_short_name()
@@ -3682,6 +3701,7 @@ process_image(app_pc base, size_t size, uint prot, bool add, bool rewalking,
 
     if (name != NULL)
         dr_strfree(name HEAPACCT(ACCT_VMAREAS));
+    return true;
 }
 
 /* Image processing that must be done after vmarea processing (mainly
@@ -3800,6 +3820,7 @@ find_executable_vm_areas()
             !is_in_dynamo_dll(pb) /* our own text section is ok */
             /* client lib text section is ok (xref i#487) */
             IF_CLIENT_INTERFACE(&& !is_in_client_lib(pb));
+        bool full_image = true;
         ASSERT(pb == mbi.BaseAddress);
         DOLOG(2, LOG_VMAREAS, {
             if (skip) {
@@ -3828,8 +3849,8 @@ find_executable_vm_areas()
                 pb_image += mbi_image.RegionSize;
             }
             view_size = pb_image - pb;
-            process_image(image_base, view_size, image_prot,
-                          true /* add */, true /* rewalking */, NULL);
+            full_image = process_image(image_base, view_size, image_prot,
+                                       true /* add */, true /* rewalking */, NULL);
         }
         if (!skip && process_memory_region(NULL, &mbi, true/*init*/, true/*add*/))
             num_executable++;
@@ -3838,8 +3859,10 @@ find_executable_vm_areas()
         pb += mbi.RegionSize;
         if (!skip && image_base != NULL && pb >= image_base + view_size) {
             ASSERT(pb == image_base + view_size);
-            process_image_post_vmarea(image_base, view_size, image_prot, 
-                                      true /* add */, true /* rewalking */);
+            if (full_image) {
+                process_image_post_vmarea(image_base, view_size, image_prot, 
+                                          true /* add */, true /* rewalking */);
+            }
             image_base = NULL;
         }
     }
@@ -3882,9 +3905,8 @@ process_mmap(dcontext_t *dcontext, app_pc pc, size_t size, bool add, const char 
         return num_executable;
     region_base = (app_pc) mbi.AllocationBase;
     if (mbi.Type == MEM_IMAGE) {
-        process_image(region_base, size, mbi.Protect, add, false /* not rewalking */,
-                      filepath);
-        image = true;
+        image = process_image(region_base, size, mbi.Protect, add,
+                              false /* not rewalking */, filepath);
         image_prot = mbi.Protect;
     }
     /* Now update our vm areas executable region lists.
