@@ -171,6 +171,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_is_nudge_thread()
  - Added support for nudging 64-bit Windows applications
  - Added dr_get_dr_thread_handle()
+ - Added #DR_MEMTYPE_RESERVED to #dr_mem_info_t
 
 **************************************************
 <hr>

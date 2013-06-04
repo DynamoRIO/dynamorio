@@ -422,6 +422,7 @@ typedef enum {
     DR_MEMTYPE_FREE,  /**< No memory is allocated here */
     DR_MEMTYPE_IMAGE, /**< An executable file is mapped here */
     DR_MEMTYPE_DATA,  /**< Some other data is allocated here */
+    DR_MEMTYPE_RESERVED,  /**< Reserved address space with no physical storage */
 } dr_mem_type_t;
 
 /**

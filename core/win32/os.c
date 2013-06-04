@@ -4924,11 +4924,17 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
                 ASSERT(pc >= (byte *)mbi.BaseAddress);
                 info->base_pc = mbi.BaseAddress;
                 info->size = mbi.RegionSize;
-                info->prot = osprot_to_memprot(mbi.Protect);
-                if (mbi.Type == MEM_IMAGE)
-                    info->type = DR_MEMTYPE_IMAGE;
-                else
-                    info->type = DR_MEMTYPE_DATA;
+                if (mbi.State == MEM_RESERVE) {
+                    /* We don't distinguish reserved-{image,mapped,private) (i#1177) */
+                    info->type = DR_MEMTYPE_RESERVED;
+                    info->prot = DR_MEMPROT_NONE; /* mbi.Protect is undefined */
+                } else {
+                    info->prot = osprot_to_memprot(mbi.Protect);
+                    if (mbi.Type == MEM_IMAGE)
+                        info->type = DR_MEMTYPE_IMAGE;
+                    else
+                        info->type = DR_MEMTYPE_DATA;
+                }
                 return true;
             }
             if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
