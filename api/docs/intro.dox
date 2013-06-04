@@ -1206,6 +1206,16 @@ allows clients a cross-platform mechanism to use third-party libraries in
 locations of their choosing.
 
 **************************************************
+\subsection subsec_avoid_redir Deliberately Invoking Application Routines
+
+Sometimes, a client wishes to invoke system library routines with the
+application context, rather than having them redirected and isolated by
+DynamoRIO.  This can be accomplished using dynamic binding rather than
+static: dynamically looking up each desired library routine via DR's own
+routines (such as dr_get_proc_addr()).  (Using \p GetProcAddress will not
+work for this purpose as the result will be redirected.)
+
+**************************************************
 \subsection subsec_no_loader When Private Loader is Disabled
 
 On Linux, if the private loader is deliberately disabled, ld provides the -wrap
