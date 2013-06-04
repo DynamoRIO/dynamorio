@@ -5907,8 +5907,51 @@ dyngen_diagnostics(dcontext_t *dcontext, app_pc pc, app_pc base_pc, size_t size,
  * APPLICATION MEMORY STATE TRACKING
  */
 
+/* Checks whether a requested allocation at a particular base will change
+ * the protection bits of any code.  Returns whether or not to allow
+ * the operation to go through.
+ */
+bool
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot)
+{
+    byte *pb = base;
+    dr_mem_info_t info;
+    while (pb < base + size &&
+           query_memory_ex(pb, &info)) {
+        if (info.type != DR_MEMTYPE_FREE &&
+            info.type != DR_MEMTYPE_RESERVED &&
+            info.prot != prot) {
+            size_t change_sz = MIN(info.base_pc + info.size - pb,  base + size - pb);
+            uint subset_memprot;
+            uint res = app_memory_protection_change(dcontext, pb, change_sz, prot,
+                                                    &subset_memprot, NULL);
+            if (res != DO_APP_MEM_PROT_CHANGE) {
+                if (res == FAIL_APP_MEM_PROT_CHANGE) {
+                    return false;
+                } else if (res == PRETEND_APP_MEM_PROT_CHANGE ||
+                           res == SUBSET_APP_MEM_PROT_CHANGE) {
+                    /* This gets complicated to handle.  If the syscall is
+                     * changing a few existing pages and then allocating new
+                     * pages beyond them, we could adjust the base: but there
+                     * are many corner cases.  For now we just fail.
+                     */
+                    ASSERT_CURIOSITY(false && "pretend/subset => fail app alloc");
+                    return false;
+                }
+            }
+        }
+        if (POINTER_OVERFLOW_ON_ADD(info.base_pc, info.size))
+            break;
+        pb = info.base_pc + info.size;
+    }
+    return true;
+}
+
 /* newly allocated or mapped in memory region, returns true if added to exec list 
  * ok to pass in NULL for dcontext -- in fact, assumes dcontext is NULL at initialization
+ *
+ * It's up to the caller to handle any changes in protection in a new alloc that
+ * overlaps an existing alloc, by calling app_memory_protection_change().
  */
 bool
 app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
@@ -7277,6 +7320,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                       own_execareas_writelock
                       IF_HOTP(&& (!DYNAMO_OPTION(hot_patching) ||
                                   self_owns_write_lock(hotp_get_lock())))));
+        ASSERT(!ok || area != NULL);
         if (!ok) {
             /* we no longer allow execution from arbitrary dr mem, our dll is
              * on the executable list and we specifically add the callback
@@ -7558,6 +7602,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
              * thread can use a pattern region for non-pattern code.
              */
             area = NULL; /* clear to force a re-verify */
+            /* Ensure we have prot */
+            get_memory_info(pc, &base_pc, &size, &prot);
             /* satisfy lock asumptions when area == NULL */
             if (!own_execareas_writelock) {
 # ifdef HOT_PATCHING_INTERFACE
@@ -7571,6 +7617,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 #endif
     }
 
+    /* Ensure we looked up the mem attributes, if a new area */
+    ASSERT(area != NULL || size > 0);
     /* FIXME: fits nicely down below as alternative to marking read-only,
      * but must be here for vm==NULL so will stop bb at cti -- although
      * here it gets executed multiple times until actually switch to sandboxing

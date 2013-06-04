@@ -1750,9 +1750,8 @@ check_for_stack_free(dcontext_t *dcontext, byte *base, size_t size)
     }
 }
 
-#ifdef PROGRAM_SHEPHERDING
 /* NtAllocateVirtualMemory */
-static void
+static bool
 presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -1763,9 +1762,22 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
      * out: maybe a future service pack or win9 will use it.
      */
     int arg_shift = (sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64] ? 1 : 0);
+    size_t *psize = (size_t *) sys_param(dcontext, param_base, 3 + arg_shift);
     uint type = (uint) sys_param(dcontext, param_base, 4 + arg_shift);
     uint prot = (uint) sys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
+    if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type)) {
+        /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
+        size_t size;
+        if (safe_read(pbase, sizeof(base), &base) &&
+            safe_read(psize, sizeof(size), &size) &&
+            base != NULL &&
+            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot))) {
+            SET_RETURN_VAL(dcontext, STATUS_CONFLICTING_ADDRESSES);
+            return false; /* do not execute system call */
+        }
+    }
+#ifdef PROGRAM_SHEPHERDING
     if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
         TESTALL(PAGE_EXECUTE_READWRITE, prot)) {
         /* executable_if_alloc policy says we only add a region to the future
@@ -1822,8 +1834,9 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
             }
         }
     }
-}
 #endif /* PROGRAM_SHEPHERDING */
+    return true;
+}
 
 /* NtFreeVirtualMemory */
 static void
@@ -2476,13 +2489,11 @@ pre_system_call(dcontext_t *dcontext)
     else if (sysnum == syscalls[SYS_TerminateThread]) {
         presys_TerminateThread(dcontext, param_base);
     }
-#ifdef PROGRAM_SHEPHERDING
     else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
              /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
              sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {
-        presys_AllocateVirtualMemory(dcontext, param_base, sysnum);
+        execute_syscall = presys_AllocateVirtualMemory(dcontext, param_base, sysnum);
     }
-#endif
     else if (sysnum == syscalls[SYS_FreeVirtualMemory]) {
         KSTART(pre_syscall_free);
         presys_FreeVirtualMemory(dcontext, param_base);
@@ -3004,8 +3015,12 @@ postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool succ
     uint prot = (uint) postsys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
     size_t size;
-    if (!success)
+    if (!success) {
+        /* FIXME i#148: should try to recover from any prot change -- though today we
+         * don't even do so on NtProtectVirtualMemory failing.
+         */
         return;
+    }
     if (!safe_read(pbase, sizeof(base), &base) || !safe_read(psize, sizeof(size), &size)) {
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "syscall: NtAllocateVirtualMemory: failed to read params "PFX" "PFX"\n",
@@ -3808,7 +3823,7 @@ void post_system_call(dcontext_t *dcontext)
         if (dcontext->expect_last_syscall_to_fail) {
             ASSERT(!success);
         } else { 
-            /* FIXME : try to recover if the syscall fails, could re-walk this
+            /* FIXME i#148: try to recover if the syscall fails, could re-walk this
              * region but that gets us in trouble with the stateful policies */
             ASSERT_CURIOSITY_ONCE(success || !is_phandle_me(process_handle));;
         }

@@ -37,6 +37,7 @@
 #include "ntdll_redir.h"
 #include "../ntdll.h"
 #include "drwinapi_private.h"
+#include "../os_private.h"
 
 /* Value used to encrypt pointers.  Xor with a per-process magic value
  * seems plenty secure enough for private libs (this isn't affecting
@@ -583,6 +584,26 @@ redirect_VirtualProtect(
     __out PDWORD lpflOldProtect
     )
 {
+#ifndef STANDALONE_UNIT_TEST
+    if (!dynamo_vm_area_overlap((byte *)lpAddress, ((byte *)lpAddress) + dwSize)) {
+        uint new_prot = osprot_to_memprot(flNewProtect);
+        uint mod_prot = osprot_to_memprot(new_prot);
+        uint old_prot;
+        uint res = app_memory_protection_change(get_thread_private_dcontext(),
+                                                lpAddress, dwSize, new_prot,
+                                                &mod_prot, &old_prot);
+        if (res == PRETEND_APP_MEM_PROT_CHANGE) {
+            if (lpflOldProtect != NULL)
+                *lpflOldProtect = memprot_to_osprot(old_prot);
+            return TRUE;
+        } else if (res == FAIL_APP_MEM_PROT_CHANGE)
+            return FALSE;
+        else if (res == SUBSET_APP_MEM_PROT_CHANGE)
+            flNewProtect = memprot_to_osprot(mod_prot);
+        else
+            ASSERT(res == DO_APP_MEM_PROT_CHANGE);
+    }
+#endif
     return (BOOL)
         protect_virtual_memory(lpAddress, dwSize, flNewProtect, (uint *)lpflOldProtect);
 }

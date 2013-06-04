@@ -616,6 +616,9 @@ enum {
     DR_MODIFY_OFF   = 4, /* we don't even check for attempts -- WARNING: use at own risk */
 };
 
+bool
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot);
+
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size, 
                              uint prot, /* platform independent MEMPROT_ */

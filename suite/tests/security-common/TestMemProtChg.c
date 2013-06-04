@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -83,6 +84,30 @@ do_test(char *buf, size_t len)
     }
 }
 
+static void
+test_alloc_overlap(void)
+{
+    /* Test i#1175: create some +rx DGC.  Then change it to +rw via mmap
+     * instead of mprotect and ensure DR catches a subsequent code modification.
+     * We allocate two pages and put the code one page in so that our
+     * modifying mmap can have its prot match the region base's prot to
+     * make it harder for DR to detect.
+     */
+    char *buf = allocate_mem(PAGE_SIZE*2, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    char *code = copy_to_buf(buf + PAGE_SIZE, PAGE_SIZE, NULL, CODE_INC, COPY_NORMAL);
+    protect_mem(code, PAGE_SIZE, ALLOW_READ|ALLOW_EXEC);
+    test_print(code, 42);
+#ifdef UNIX
+    code = mmap(buf, PAGE_SIZE*2, PROT_READ|PROT_WRITE|PROT_EXEC,
+                MAP_PRIVATE|MAP_ANON|MAP_FIXED, 0, 0);
+#else
+    code = VirtualAlloc(buf, PAGE_SIZE*2, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#endif
+    code = copy_to_buf(code, PAGE_SIZE, NULL, CODE_DEC, COPY_NORMAL);
+    test_print(code, 42);
+    /* Hmm, there is no free_mem()... */
+}
+
 int
 main()
 {
@@ -102,6 +127,10 @@ main()
     do_test(buf, 2*PAGE_SIZE);
     print("starting stack tests\n");
     do_test(buf_stack, 2*PAGE_SIZE);
+
+    print("starting overlap tests\n");
+    test_alloc_overlap();
+
     print("about to exit\n");
 
 #if USE_DYNAMO

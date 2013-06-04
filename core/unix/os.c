@@ -5703,18 +5703,29 @@ pre_system_call(dcontext_t *dcontext)
            asmlinkage int old_mmap(struct mmap_arg_struct_t *arg)
          */
         mmap_arg_struct_t *arg = (mmap_arg_struct_t *) sys_param(dcontext, 0);
-        DOLOG(2, LOG_SYSCALLS, {
-            mmap_arg_struct_t arg_buf;
-            if (safe_read(arg, sizeof(mmap_arg_struct_t), &arg_buf)) {
-                void *addr = (void *) arg->addr;
-                size_t len = (size_t) arg->len;
-                uint prot = (uint) arg->prot;
-                LOG(THREAD, LOG_SYSCALLS, 2,
-                    "syscall: mmap addr="PFX" size="PIFX" prot=0x%x"
-                    " flags="PIFX" offset="PIFX" fd=%d\n",
-                    addr, len, prot, arg->flags, arg->offset, arg->fd);
+        mmap_arg_struct_t arg_buf;
+        if (safe_read(arg, sizeof(mmap_arg_struct_t), &arg_buf)) {
+            void *addr = (void *) arg->addr;
+            size_t len = (size_t) arg->len;
+            uint prot = (uint) arg->prot;
+            LOG(THREAD, LOG_SYSCALLS, 2,
+                "syscall: mmap addr="PFX" size="PIFX" prot=0x%x"
+                " flags="PIFX" offset="PIFX" fd=%d\n",
+                addr, len, prot, arg->flags, arg->offset, arg->fd);
+            /* Check for overlap with existing code or patch-proof regions */
+            if (addr != NULL &&
+                !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot))) {
+                /* Rather than failing or skipping the syscall we'd like to just
+                 * remove the hint -- but we don't want to write to app memory, so
+                 * we do fail.  We could set up our own mmap_arg_struct_t but
+                 * we'd need dedicate per-thread storage, and SYS_mmap is obsolete.
+                 */
+                execute_syscall = false;
+                SET_RETURN_VAL(dcontext, -ENOMEM);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                break;
             }
-        });
+        }
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t) arg;
         break;
@@ -5735,6 +5746,21 @@ pre_system_call(dcontext_t *dcontext)
             " flags="PIFX" offset="PIFX" fd=%d\n",
             addr, len, prot, flags,
             sys_param(dcontext, 5), sys_param(dcontext, 4));
+        /* Check for overlap with existing code or patch-proof regions */
+        if (addr != NULL &&
+            !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot))) {
+            if (!TEST(MAP_FIXED, flags)) {
+                /* Rather than failing or skipping the syscall we just remove
+                 * the hint which should eliminate any overlap.
+                 */
+                *sys_param_addr(dcontext, 0) = 0;
+            } else {
+                execute_syscall = false;
+                SET_RETURN_VAL(dcontext, -ENOMEM);
+                DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
+                break;
+            }
+        }
         /* post_system_call does the work */
         dcontext->sys_param0 = (reg_t) addr;
         dcontext->sys_param1 = len;
@@ -6712,6 +6738,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         /* can't hold lock across call to app_memory_protection_change */
         all_memory_areas_unlock();
         if (info->prot != memprot) {
+            /* We detect some alloc-based prot changes here.  app_memory_pre_alloc()
+             * should have already processed these (i#1175) but no harm calling
+             * app_memory_protection_change() again just in case.
+             */
             DEBUG_DECLARE(uint res =)
                 app_memory_protection_change(dcontext, base, size, memprot, 
                                              &new_memprot, NULL);
@@ -6726,8 +6756,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     all_memory_areas_unlock();
 
     /* app_memory_allocation() expects to not see an overlap -- exec areas
-     * doesn't expect one. We have yet to see a +x mmap into a previously
-     * mapped +x region so this may not be an issue.
+     * doesn't expect one.  We have yet to see a +x mmap into a previously
+     * mapped +x region, but we do check and handle in pre-syscall (i#1175).
      */
     LOG(THREAD, LOG_SYSCALLS, 4, "\t try app_mem_alloc\n");
     if (app_memory_allocation(dcontext, base, size, memprot, image _IF_DEBUG(map_type)))
