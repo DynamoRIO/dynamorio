@@ -1361,14 +1361,16 @@ int main(int argc, char *argv[])
         }
     }
 # endif
-# ifdef WINDOWS
-    if (errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
+    if (errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
+        /* check if -32/64 is specified */
+        IF_UNIX(&& dr_platform != IF_X64_ELSE(DR_PLATFORM_32BIT,
+                                              DR_PLATFORM_64BIT))) {
         /* Better error message than the FormatMessage */
         error("Target process %s is for the wrong architecture", app_name);
         die(); /* no process created, so don't "goto error" */
     }
-# endif
-    if (errcode != 0) {
+    if (errcode != 0
+        IF_UNIX(&& errcode != ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE)) {
         IF_WINDOWS(int sofar =)
             _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
                       "Failed to create process for \"%s\": ", app_name);

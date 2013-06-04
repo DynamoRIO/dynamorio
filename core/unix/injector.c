@@ -48,6 +48,7 @@
 #include "disassemble.h"
 #include "os_private.h"
 #include "module.h"
+#include "dr_inject.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -328,6 +329,40 @@ create_inject_info(const char *exe, const char **argv)
     return info;
 }
 
+static bool
+get_elf_platform_path(const char *exe_path, dr_platform_t *platform)
+{
+    file_t fd = os_open(exe_path, OS_OPEN_READ);
+    bool res = false;
+    if (fd != INVALID_FILE) {
+        res = get_elf_platform(fd, platform);
+        os_close(fd);
+    }
+    return res;
+}
+
+static bool
+exe_is_right_bitwidth(const char *exe, int *errcode)
+{
+    dr_platform_t platform;
+    if (!get_elf_platform_path(exe, &platform)) {
+        *errcode = errno;
+        return false;
+    }
+    /* Check if the executable is the right bitwidth and set errcode to be
+     * special code WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE if not.
+     * The caller may decide what to do, e.g., terminate with error or
+     * continue with cross arch executable.
+     * XXX: i#1176 and DrM-i#1037, we need a long term solution to
+     * support cross-arch injection.
+     */
+    if (platform != IF_X64_ELSE(DR_PLATFORM_64BIT, DR_PLATFORM_32BIT)) {
+        *errcode = WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
+        return false;
+    }
+    return true;
+}
+
 /* Returns 0 on success.
  */
 DR_EXPORT
@@ -337,7 +372,15 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     int r;
     int fds[2];
     dr_inject_info_t *info = create_inject_info(exe, argv);
-
+    int errcode = 0;
+    if (!exe_is_right_bitwidth(exe, &errcode) &&
+        /* WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE is just a warning on Unix,
+         * so we carry on but be sure to return the code.
+         */
+        errcode != WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
+        /* return here if couldn't find app */
+        goto error;
+    }
     /* Create a pipe to a forked child and have it block on the pipe. */
     r = pipe(fds);
     if (r != 0)
@@ -351,7 +394,7 @@ dr_inject_process_create(const char *exe, const char **argv, void **data OUT)
     if (info->pid == -1)
         goto error;
     *data = info;
-    return 0;
+    return errcode;
 
 error:
     free(info);
@@ -363,6 +406,12 @@ int
 dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 {
     dr_inject_info_t *info = create_inject_info(exe, argv);
+    int errcode = 0;
+    if (!exe_is_right_bitwidth(exe, &errcode) &&
+        errcode != WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
+        free(info);
+        return errcode;
+    }
     info->pid = getpid();
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
@@ -371,7 +420,7 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 #ifdef STATIC_LIBRARY
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
 #endif
-    return 0;
+    return errcode;
 }
 
 DR_EXPORT
@@ -432,18 +481,6 @@ option_present(const char *dr_ops, const char *op)
     return (cur != NULL &&
             (cur[oplen] == '\0' || isspace(cur[oplen])) &&
             (cur == dr_ops || isspace(cur[-1])));
-}
-
-static bool
-get_elf_platform_path(const char *exe_path, dr_platform_t *platform)
-{
-    file_t fd = os_open(exe_path, OS_OPEN_READ);
-    bool res = false;
-    if (fd != INVALID_FILE) {
-        res = get_elf_platform(fd, platform);
-        os_close(fd);
-    }
-    return res;
 }
 
 DR_EXPORT

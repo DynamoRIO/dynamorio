@@ -45,10 +45,19 @@
  * control of DynamoRIO.
  */
 
-#ifdef WINDOWS
-# ifndef ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE /* in VS2008+ */
-#  define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
-# endif
+#ifndef ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE /* in VS2008+ */
+/**
+ * Special error code might be returned by \p dr_inject_prepare_to_exec
+ * or \p dr_inject_process_create.
+ * We use ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE in both Windows and Unix
+ * assuming no error code conflict on Unix.
+ */
+# define ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE 720L
+/**
+ * Alias of ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE to indicate it is not
+ * a fatal error on Unix.
+ */
+# define WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
 #endif
 
 DR_EXPORT
@@ -75,8 +84,11 @@ DR_EXPORT
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.
  * \return  Returns 0 on success.  On failure, returns a system error code.
- *          For a mismatched bitwidth on Windows, the code is
+ *          For a mismatched bitwidth, the code is
  *          ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE.
+ *          On returning ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE on Unix, \p data
+ *          will be initialized and child process created: i.e., it is merely a
+ *          warning, and the caller may continue with cross arch injection.
  *          Regardless of success, caller must call dr_inject_process_exit()
  *          when finished to clean up internally-allocated resources.
  */
@@ -107,6 +119,11 @@ DR_EXPORT
  *                             subsequent dr_inject_* routines to refer to
  *                             this process.
  * \return  Returns 0 on success.  On failure, returns a system error code.
+ *          For a mismatched bitwidth, the code is
+ *          ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE.
+ *          On returning ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE on Unix, \p data
+ *          will be initialized: i.e., it is merely a warning, and the caller
+ *          may continue with cross arch injection.
  *          Regardless of success, caller must call dr_inject_process_exit()
  *          when finished to clean up internally-allocated resources.
  */
