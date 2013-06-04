@@ -541,8 +541,21 @@ redirect_VirtualAlloc(
 {
     /* XXX: are MEM_* values beyond MEM_RESERVE and MEM_COMMIT passed to the kernel? */
     PVOID base = lpAddress;
-    NTSTATUS res =
-        nt_allocate_virtual_memory(&base, dwSize, flProtect, flAllocationType);
+    NTSTATUS res;
+    if (TEST(MEM_COMMIT, flAllocationType) &&
+        /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
+         * will fail anyway, so we only have to worry about overlap on plain MEM_COMMIT
+         */
+        !TEST(MEM_RESERVE, flAllocationType) &&
+        lpAddress != NULL) {
+        /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
+        if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
+                                  osprot_to_memprot(flProtect))) {
+            set_last_error(ERROR_INVALID_ADDRESS);
+            return NULL;
+        }
+    }
+    res = nt_allocate_virtual_memory(&base, dwSize, flProtect, flAllocationType);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return NULL;

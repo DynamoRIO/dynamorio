@@ -1766,7 +1766,11 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
     uint type = (uint) sys_param(dcontext, param_base, 4 + arg_shift);
     uint prot = (uint) sys_param(dcontext, param_base, 5 + arg_shift);
     app_pc base;
-    if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type)) {
+    if (is_phandle_me(process_handle) && TEST(MEM_COMMIT, type) &&
+        /* Any overlap when asking for MEM_RESERVE (even when combined w/ MEM_COMMIT)
+         * will fail anyway, so we only have to worry about overlap on plain MEM_COMMIT
+         */
+        !TEST(MEM_RESERVE, type)) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         size_t size;
         if (safe_read(pbase, sizeof(base), &base) &&
