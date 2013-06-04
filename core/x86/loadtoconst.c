@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -89,7 +89,7 @@ analyze_memrefs(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     traces_analyzed++;
 #endif
 
-    memset(regs_modified,sizeof(bool)*8,0);
+    memset(regs_modified,0,sizeof(bool)*8);
 
 
     /* first walk through to find which registers are constant */
