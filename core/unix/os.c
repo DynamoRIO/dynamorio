@@ -4373,8 +4373,10 @@ is_readable_without_exception_internal(const byte *pc, size_t size, bool query_o
             get_memory_info(check_pc, NULL, NULL, &prot);
         if (!rc || !TESTANY(MEMPROT_READ|MEMPROT_EXEC, prot))
             return false;
+        if (POINTER_OVERFLOW_ON_ADD(check_pc, PAGE_SIZE))
+            break;
         check_pc += PAGE_SIZE;
-    } while (check_pc != 0/*overflow*/ && check_pc < pc+size);
+    } while (check_pc < pc+size);
     return true;
 }
 
@@ -6463,6 +6465,11 @@ update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
          */
         app_pc pc, sub_start, sub_end, next_add = start;
         pc = start;
+        /* XXX i#704: pointer overflow is not guaranteed to behave like
+         * arithmetic overflow: need better handling here, though most problems
+         * we've seen have been on "pc + x < pc" checks where the addition is
+         * built into the comparison and the compiler can say "won't happen".
+         */
         while (pc < end && pc >= start/*overflow*/ &&
                vmvector_lookup_data(all_memory_areas, pc, &sub_start, &sub_end,
                                     (void **) &info)) {
