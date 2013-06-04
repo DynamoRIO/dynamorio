@@ -5933,9 +5933,11 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot)
                     /* This gets complicated to handle.  If the syscall is
                      * changing a few existing pages and then allocating new
                      * pages beyond them, we could adjust the base: but there
-                     * are many corner cases.  For now we just fail.
+                     * are many corner cases.  Thus we fail the syscall, which
+                     * is the right thing for cases we've seen like i#1178
+                     * where the app tries to commit to a random address!
                      */
-                    ASSERT_CURIOSITY(false && "pretend/subset => fail app alloc");
+                    SYSLOG_INTERNAL_WARNING_ONCE("Failing app alloc w/ suspect overlap");
                     return false;
                 }
             }
