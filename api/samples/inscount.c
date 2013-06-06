@@ -34,7 +34,7 @@
 /* Code Manipulation API Sample:
  * inscount.c
  *
- * Reports the dynamic count of total number of instructions executed.
+ * Reports the dynamic count of the total number of instructions executed.
  * Illustrates how to perform performant clean calls.
  * Demonstrates effect of clean call optimization and auto-inlining with
  * different -opt_cleancall values.

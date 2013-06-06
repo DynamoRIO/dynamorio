@@ -34,8 +34,81 @@
 /**
 \page API_samples Sample Use Cases
 
-We provide several examples to illustrate how the DynamoRIO API is used to
+We provide several examples in <a href="../../samples">../../samples/</a>
+to illustrate how the DynamoRIO API is used to
 build a DynamoRIO client.
+
+********************
+\section sample_list List of Samples
+
+The sample <a href="../../samples/bbbuf.c">bbbuf.c</a>
+demonstrates how to use a TLS field for per-thread basic block profiling.
+
+The sample <a href="../../samples/bbcount.c">bbcount.c</a>
+illustrates how to perform performant instrumentation
+for reporting the dynamic execution count of all basic blocks.
+
+The sample <a href="../../samples/bbsize.c">bbsize.c</a>
+collects statistics on the sizes of all basic blocks in the target application.
+
+The sample <a href="../../samples/cbr.c">cbr.c</a> collects conditional branch
+execution information and shows how to dynamically
+update or replace instrumented code after it executes.
+
+The sample <a href="../../samples/countcalls.c">countcalls.c</a>
+reports the dynamic execution count for direct calls, indirect calls, and
+returns in the target application. It illustrates how to perform
+performant inline increments and use per-thread data structures.
+
+The sample <a href="../../samples/div.c">div.c</a> demonstrates
+profiling the types of values fed to a particular opcode.
+
+The sample <a href="../../samples/empty.c">empty.c</a> is provided
+as an example client that does nothing.
+
+The sample <a href="../../samples/inc2add.c">inc2add.c</a>
+performs a dynamic optimization: it converts the "inc" instruction to
+"add 1" without perturbing the target application's behavior.
+
+The sample <a href="../../samples/inline.c">inline.c</a>
+performs an optimization that uses the custom trace API to inline
+entire callees into traces.
+
+The sample <a href="../../samples/inscount.c">inscount.c</a>
+reports the dynamic count of the total number of instructions executed via
+inserting performant clean calls which are auto-inlined by DynamoRIO.
+
+The sample <a href="../../samples/instrcall.c">instrcall.c</a>
+demonstrates how to instrument direct calls, indirect calls and returns.
+
+The sample <a href="../../samples/memtrace.c">memtrace.c</a>
+is provided as an example client that illustrates how to create a private
+code cache and perform lean procedure calls.
+
+The sample <a href="../../samples/modxfer.c">modxfer.c</a>
+reports the control flow transfers between modules.
+
+The sample <a href="../../samples/modxfer.c">modxfer_app2lib.c</a>
+reports the control flow transfers between the application executable and
+other dynamic libraries and modules.
+It illustrates how to perform performant clean calls on different modules.
+
+The sample <a href="../../samples/prefetch.c">prefetch.c</a> demonstrates
+modifying the dynamic code stream for compatibility between different
+processor types.
+
+The sample <a href="../../samples/signal.c">signal.c</a> demonstrates how to
+use the signal event.
+
+The sample <a href="../../samples/stl_test.c">stl_test.c</a> is provided
+as an example client that uses C++ STL containers.
+
+The sample <a href="../../samples/strace.c">strace.c</a> displays how to
+use the system call events and API routines.
+
+The sample <a href="../../samples/tracedump.c">tracedump.c</a> is provided
+as a standalone application that disassembles a trace dump in binary format
+produced by the -tracedump_binary option.
 
 \if vmsafe
 \section probe_samples Probe API Examples
@@ -78,8 +151,7 @@ configuration file.
 
 \endif
 
-\section bt_examples Code Manipulation API Examples
-
+\section bt_examples Discussion of Selected Samples
 
 ********************
 \subsection sec_ex1 Instruction Counting
@@ -497,24 +569,5 @@ The binary tracedump reader also functions as an example of
 \ref page_standalone : <a href="../../samples/tracedump.c">../../samples/tracedump.c</a>.
 
 \endif
-
-********************
-\subsection sec_ex9 Other examples
-
-The sample <a href="../../samples/strace.c">../../samples/strace.c</a> displays how to
-use the system call events and API routines.
-
-The sample <a href="../../samples/signal.c">../../samples/signal.c</a> demonstrates how to
-use the signal event.
-
-The sample <a href="../../samples/prefetch.c">../../samples/prefetch.c</a> demonstrates
-modifying the dynamic code stream for compatibilty between different
-processor types. 
-
-The sample <a href="../../samples/div.c">../../samples/div.c</a> demonstrates
-profiling the types of values fed to a particular opcode.
-
-The sample <a href="../../samples/empty.c">../../samples/empty.c</a> is provided
-as an example client that does nothing.
 
  */
