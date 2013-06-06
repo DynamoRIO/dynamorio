@@ -65,9 +65,6 @@
 /* check if a single bit is set in var */
 #define TEST TESTANY
 
-/* drsym_info_t.name has 1 char in the struct */
-#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
-
 /* Memory pool that uses externally allocated memory.
  */
 typedef struct _mempool_t {

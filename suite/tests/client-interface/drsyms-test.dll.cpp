@@ -142,14 +142,17 @@ pre_stack_trace(void *wrapcxt, void **user_data)
     while (frame != NULL) {
         drsym_error_t r;
         module_data_t *mod;
-        drsym_info_t *sym_info;
-        char sbuf[sizeof(*sym_info) + MAX_FUNC_LEN];
+        drsym_info_t sym_info;
+        char name[MAX_FUNC_LEN];
+        char file[MAXIMUM_PATH];
         size_t modoffs;
         const char *basename;
 
-        sym_info = (drsym_info_t *)sbuf;
-        sym_info->struct_size = sizeof(*sym_info);
-        sym_info->name_size = MAX_FUNC_LEN;
+        sym_info.struct_size = sizeof(sym_info);
+        sym_info.name = name;
+        sym_info.name_size = MAX_FUNC_LEN;
+        sym_info.file = file;
+        sym_info.file_size = MAXIMUM_PATH;
 
         mod = dr_lookup_module(frame->ret_addr);
         modoffs = frame->ret_addr - mod->start;
@@ -157,30 +160,30 @@ pre_stack_trace(void *wrapcxt, void **user_data)
          * get the line that the call was on.
          */
         modoffs--;
-        r = drsym_lookup_address(mod->full_path, modoffs, sym_info,
+        r = drsym_lookup_address(mod->full_path, modoffs, &sym_info,
                                  DRSYM_DEMANGLE);
         dr_free_module_data(mod);
         ASSERT(r == DRSYM_SUCCESS);
-        if (!debug_kind_is_full(sym_info->debug_kind)) {
+        if (!debug_kind_is_full(sym_info.debug_kind)) {
             dr_fprintf(STDERR, "unexpected debug_kind: %x\n",
-                       sym_info->debug_kind);
+                       sym_info.debug_kind);
         }
-        if (sym_info->file == NULL)
+        if (sym_info.file_available_size == 0)
             basename = "/<unknown>";
         else {
-            basename = strrchr(sym_info->file, IF_WINDOWS_ELSE('\\', '/'));
+            basename = strrchr(sym_info.file, IF_WINDOWS_ELSE('\\', '/'));
 #ifdef WINDOWS
             if (basename == NULL)
-                basename = strrchr(sym_info->file, '/');
+                basename = strrchr(sym_info.file, '/');
 #endif
         }
         ASSERT(basename != NULL);
         basename++;
         dr_fprintf(STDERR, "%s:%d!%s\n",
-                   basename, (int)sym_info->line, sym_info->name);
+                   basename, (int)sym_info.line, sym_info.name);
 
         /* Stop after main. */
-        if (strstr(sym_info->name, "main"))
+        if (strstr(sym_info.name, "main"))
             break;
 
         frame = frame->parent;
@@ -640,42 +643,39 @@ enum_sym_cb(const char *name, size_t modoffs, void *data)
 static bool
 enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
 {
+    dll_syms_found_t *syms_found = (dll_syms_found_t *) data;
+    uint i;
+
     ASSERT(status == DRSYM_ERROR_LINE_NOT_AVAILABLE);
-    if (data == NULL) {
-        drsym_info_legacy_t *leg = (drsym_info_legacy_t *) out;
-        ASSERT(strlen(leg->name) == leg->name_available_size);
-    } else {
-        dll_syms_found_t *syms_found = (dll_syms_found_t *) data;
-        uint i;
+    ASSERT(strlen(out->name) == out->name_available_size);
+    ASSERT((out->file == NULL && out->file_available_size == 0) ||
+           (strlen(out->file) == out->file_available_size));
 
-        ASSERT(strlen(out->name) == out->name_available_size);
+    for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found->syms_found); i++) {
+        if (syms_found->syms_found[i])
+            continue;
+        if (strstr(out->name, dll_syms[i]) != NULL)
+            syms_found->syms_found[i] = true;
+    }
 
-        for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found->syms_found); i++) {
-            if (syms_found->syms_found[i])
-                continue;
-            if (strstr(out->name, dll_syms[i]) != NULL)
-                syms_found->syms_found[i] = true;
-        }
-
-        if (TEST(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
-            static char buf[4096];
-            drsym_type_t *type;
-            drsym_error_t r = drsym_get_type(syms_found->dll_path, out->start_offs, 1,
-                                             buf, sizeof(buf), &type);
-            if (r == DRSYM_SUCCESS) {
-                /* XXX: I'm seeing error 126 (ERROR_MOD_NOT_FOUND) from
-                 * SymFromAddr for some symbols that the enum finds: strange.
-                 * On another machine I saw mismatches in type id:
-                 *   error for __initiallocinfo: 481 != 483, kind = 5
-                 * Grrr!  Do we really have to go and compare all the properties
-                 * of the type to ensure it's the same?!?
-                 */
-                ASSERT(type->id == out->type_id ||
-                       /* Unknown type has id cleared to 0 */
-                       (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
-                       /* Some __ types seem to have varying id's */
-                       strstr(out->name, "__") == out->name);
-            }
+    if (TEST(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
+        static char buf[4096];
+        drsym_type_t *type;
+        drsym_error_t r = drsym_get_type(syms_found->dll_path, out->start_offs, 1,
+                                         buf, sizeof(buf), &type);
+        if (r == DRSYM_SUCCESS) {
+            /* XXX: I'm seeing error 126 (ERROR_MOD_NOT_FOUND) from
+             * SymFromAddr for some symbols that the enum finds: strange.
+             * On another machine I saw mismatches in type id:
+             *   error for __initiallocinfo: 481 != 483, kind = 5
+             * Grrr!  Do we really have to go and compare all the properties
+             * of the type to ensure it's the same?!?
+             */
+            ASSERT(type->id == out->type_id ||
+                   /* Unknown type has id cleared to 0 */
+                   (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
+                   /* Some __ types seem to have varying id's */
+                   strstr(out->name, "__") == out->name);
         }
     }
     return true;
@@ -702,7 +702,6 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
     }
 
     /* Test the _ex version */
-    ASSERT(sizeof(drsym_info_t) > sizeof(drsym_info_legacy_t));
     memset(&syms_found, 0, sizeof(syms_found));
     syms_found.dll_path = dll_path;
     r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
@@ -712,11 +711,6 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
         if (!syms_found.syms_found[i])
             dr_fprintf(STDERR, "_ex failed to find symbol for %s!\n", dll_syms[i]);
     }
-
-    /* Test legacy */
-    r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
-                                   sizeof(drsym_info_legacy_t), NULL, flags);
-    ASSERT(r == DRSYM_SUCCESS);
 
 #ifdef WINDOWS
     if (TEST(DRSYM_PDB, debug_kind)) {
@@ -749,10 +743,6 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
             if (!syms_found.syms_found[i])
                 dr_fprintf(STDERR, "search _ex failed to find %s!\n", dll_syms[i]);
         }
-        /* Test legacy */
-        r = drsym_search_symbols_ex(dll_path, "*!*dll_*", false, enum_sym_ex_cb,
-                                    sizeof(drsym_info_legacy_t), NULL);
-        ASSERT(r == DRSYM_SUCCESS);
     }
 #endif
 }

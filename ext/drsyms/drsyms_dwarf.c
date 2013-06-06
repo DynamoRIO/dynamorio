@@ -42,6 +42,7 @@
 #include "libdwarf.h"
 
 #include <stdlib.h> /* qsort */
+#include <string.h>
 
 /* For debugging */
 static bool verbose = false;
@@ -185,7 +186,9 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
 
     /* On failure, these should be zeroed.
      */
-    sym_info->file = NULL;
+    sym_info->file_available_size = 0;
+    if (sym_info->file != NULL)
+        sym_info->file[0] = '\0';
     sym_info->line = 0;
     sym_info->line_offs = 0;
 
@@ -296,10 +299,14 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
             dwarf_lineaddr(dw_line, &lineaddr, &de) != DW_DLV_OK) {
             NOTIFY_DWARF(de);
         } else {
-            /* We assume file comes from .debug_str and therefore lives until
-             * drsym_exit.
+            /* File comes from .debug_str and therefore lives until
+             * drsym_exit, but caller has provided space that we must copy into.
              */
-            sym_info->file = file;
+            sym_info->file_available_size = strlen(file);
+            if (sym_info->file != NULL) {
+                strncpy(sym_info->file, file, sym_info->file_size);
+                sym_info->file[sym_info->file_size - 1] = '\0';
+            }
             sym_info->line = lineno;
             sym_info->line_offs = (size_t) (pc - lineaddr);
             success = true;

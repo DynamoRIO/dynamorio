@@ -205,7 +205,7 @@ endif (DR_EXT_DRSYMS_STATIC)
 # documentation is put into main DR docs/ dir
 DR_export_target(drsyms)
 install_exported_target(drsyms ${INSTALL_EXT_LIB})
-DR_install(FILES drsyms.h drsyms_infox.h DESTINATION ${INSTALL_EXT_INCLUDE})
+DR_install(FILES drsyms.h DESTINATION ${INSTALL_EXT_INCLUDE})
 
 if (WIN32)
   # We need separate 32-bit and 64-bit versions so we put into lib dir.

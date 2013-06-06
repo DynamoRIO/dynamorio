@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -152,30 +152,33 @@ static void
 print_address(file_t f, app_pc addr, const char *prefix)
 {
     drsym_error_t symres;
-    drsym_info_t *sym;
-    char sbuf[sizeof(*sym) + MAX_SYM_RESULT];
+    drsym_info_t sym;
+    char name[MAX_SYM_RESULT];
+    char file[MAXIMUM_PATH];
     module_data_t *data;
     data = dr_lookup_module(addr);
     if (data == NULL) {
         dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);
         return;
     }
-    sym = (drsym_info_t *) sbuf;
-    sym->struct_size = sizeof(*sym);
-    sym->name_size = MAX_SYM_RESULT;
-    symres = drsym_lookup_address(data->full_path, addr - data->start, sym,
+    sym.struct_size = sizeof(sym);
+    sym.name = name;
+    sym.name_size = MAX_SYM_RESULT;
+    sym.file = file;
+    sym.file_size = MAXIMUM_PATH;
+    symres = drsym_lookup_address(data->full_path, addr - data->start, &sym,
                                   DRSYM_DEFAULT_FLAGS);
     if (symres == DRSYM_SUCCESS || symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
         const char *modname = dr_module_preferred_name(data);
         if (modname == NULL)
             modname = "<noname>";
         dr_fprintf(f, "%s "PFX" %s!%s+"PIFX, prefix, addr,
-                   modname, sym->name, addr - data->start - sym->start_offs);
+                   modname, sym.name, addr - data->start - sym.start_offs);
         if (symres == DRSYM_ERROR_LINE_NOT_AVAILABLE) {
             dr_fprintf(f, " ??:0\n");
         } else {
             dr_fprintf(f, " %s:%"UINT64_FORMAT_CODE"+"PIFX"\n",
-                       sym->file, sym->line, sym->line_offs);
+                       sym.file, sym.line, sym.line_offs);
         }
     } else
         dr_fprintf(f, "%s "PFX" ? ??:0\n", prefix, addr);

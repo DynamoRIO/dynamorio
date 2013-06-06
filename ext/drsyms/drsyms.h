@@ -118,23 +118,59 @@ typedef enum {
     DRSYM_PECOFF_SYMTAB = (1 <<  11), /**< PE COFF (Cygwin or MinGW) symbol table names.*/
 } drsym_debug_kind_t;
 
-/* Legacy version of drsym_info_t */
-typedef struct _drsym_info_legacy_t {
-#include "drsyms_infox.h"
-    /** Output: symbol name */
-    char name[1];
-} drsym_info_legacy_t;
-
 /** Data structure that holds symbol information */
 typedef struct _drsym_info_t {
-#include "drsyms_infox.h"
+    /* INPUTS */
+    /** Input: should be set by caller to sizeof(drsym_info_t) */
+    size_t struct_size;
+    /** Input: should be set by caller to the size of the name buffer, in bytes */
+    size_t name_size;
+    /** Input: should be set by caller to the size of the file buffer, in bytes */
+    size_t file_size;
+
+    /* OUTPUTS */
+    /**
+     * Output: size of data available for file (not including terminating null).
+     * Only file_size bytes will be copied to file.
+     */
+    size_t file_available_size;
+    /**
+     * Output: file name (storage allocated by caller, of size file_size).
+     * Guaranteed to be null-terminated.
+     * Optional: can be set to NULL.
+     */
+    char *file;
+    /** Output: line number */
+    uint64 line;
+    /** Output: offset from address that starts at line */
+    size_t line_offs;
+
+    /** Output: offset from module base of start of symbol */
+    size_t start_offs;
+    /**
+     * Output: offset from module base of end of symbol.
+     * \note For DRSYM_PECOFF_SYMTAB (Cygwin or MinGW) symbols, the end offset
+     * is not known precisely.
+     * The start address of the subsequent symbol will be stored here.
+     **/
+    size_t end_offs;
+
+    /** Output: type of the debug info available for this module */
+    drsym_debug_kind_t debug_kind;
     /** Output: type id for passing to drsym_expand_type() */
     uint type_id;
-#ifdef X64
-    uint padding; /* so struct_size distinguishes from legacy */
-#endif
-    /** Output: symbol name */
-    char name[1];
+
+    /**
+     * Output: size of data available for name (not including terminating null).
+     * Only name_size bytes will be copied to name.
+     */
+    size_t name_available_size;
+    /**
+     * Output: symbol name (storage allocated by caller, of size name_size).
+     * Guaranteed to be null-terminated.
+     * Optional: can be set to NULL.
+     */
+    char *name;
 } drsym_info_t;
 
 #ifdef WINDOWS

@@ -446,6 +446,9 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
     return mod;
 }
 
+/* SYMBOL_INFO.Name has 1 char in the struct */
+#define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
+
 enum {
     SYMBOL_INFO_SIZE = (sizeof(SYMBOL_INFO) + NAME_EXTRA_SZ(MAX_SYM_NAME*sizeof(TCHAR)))
 };
@@ -472,11 +475,11 @@ free_symbol_info(PSYMBOL_INFO info)
     dr_global_free(info, SYMBOL_INFO_SIZE);
 }
 
+/* File and line info is assumed to not be available and already zeroed out */
 static void
 fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
                    bool set_debug_kind)
 {
-    char *name;
     if (set_debug_kind &&
         !query_available(GetCurrentProcess(), base, &out->debug_kind)) {
         out->debug_kind = 0;
@@ -484,16 +487,10 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
     out->start_offs = (size_t) (info->Address - base);
     out->end_offs = (size_t) ((info->Address + info->Size) - base);
     out->name_available_size = info->NameLen*sizeof(char);
-    if (out->struct_size == sizeof(drsym_info_t)) {
-        out->type_id = info->TypeIndex;
-        name = out->name;
-    } else if (out->struct_size == sizeof(drsym_info_legacy_t)) {
-        name = ((drsym_info_legacy_t *)out)->name;
-    } else /* shouldn't get here, but let's be paranoid */
-        name = NULL;
-    if (name != NULL) {
-        strncpy(name, info->Name, out->name_size);
-        name[out->name_size - 1] = '\0';
+    out->type_id = info->TypeIndex;
+    if (out->name != NULL) {
+        strncpy(out->name, info->Name, out->name_size);
+        out->name[out->name_size - 1] = '\0';
     }
 }
 
@@ -511,8 +508,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     if (modpath == NULL || out == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
     /* If we add fields in the future we would dispatch on out->struct_size */
-    if (out->struct_size != sizeof(*out) &&
-        out->struct_size != sizeof(drsym_info_legacy_t))
+    if (out->struct_size != sizeof(*out))
         return DRSYM_ERROR_INVALID_SIZE;
 
     dr_recurlock_lock(symbol_lock);
@@ -551,14 +547,24 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
          * do this without breaking the ABI.  Perhaps in the future we should
          * drop the trailing variable length array so we can safely add new
          * fields to drsym_info_t.
-         * FIXME i#1085: MSDN docs imply that FileName is reused on subsequent
-         * calls.
+         *
+         * i#1085: MSDN docs imply that FileName is reused on subsequent
+         * calls: hence we must copy into a caller-provided buffer.
          */
-        out->file = line.FileName;
+        out->file_available_size = strlen(line.FileName);
+        if (out->file != NULL) {
+            strncpy(out->file, line.FileName, out->file_size);
+            out->file[out->file_size - 1] = '\0';
+        }
         out->line = line.LineNumber;
         out->line_offs = line_disp;
     } else {
         NOTIFY("SymGetLineFromAddr64 error %d\n", GetLastError());
+        out->file_available_size = 0;
+        if (out->file != NULL)
+            out->file[0] = '\0';
+        out->line = 0;
+        out->line_offs = 0;
         dr_recurlock_unlock(symbol_lock);
         return DRSYM_ERROR_LINE_NOT_AVAILABLE;
     }
@@ -674,15 +680,19 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
     info.cb = callback;
     info.cb_ex = callback_ex;
     if (info.cb_ex != NULL) {
-        if (info_size != sizeof(drsym_info_t) &&
-            info_size != sizeof(drsym_info_legacy_t))
+        if (info_size != sizeof(drsym_info_t))
             return DRSYM_ERROR_INVALID_SIZE;
-        info.out = (drsym_info_t *)
-            dr_global_alloc(info_size + NAME_EXTRA_SZ(MAX_SYM_NAME));
+        info.out = (drsym_info_t *) dr_global_alloc(info_size);
         info.out->struct_size = info_size;
+        info.out->name = (char *) dr_global_alloc(MAX_SYM_NAME);
         info.out->name_size = MAX_SYM_NAME;
         if (!query_available(GetCurrentProcess(), mod->u.load_base, &info.out->debug_kind))
             info.out->debug_kind = 0;
+        info.out->file = NULL;
+        info.out->file_size = 0;
+        info.out->file_available_size = 0;
+        info.out->line = 0;
+        info.out->line_offs = 0;
     } else
         info.out = NULL;
     info.data = data;
@@ -692,8 +702,10 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
                         (PVOID) &info)) {
         NOTIFY("SymEnumSymbols error %d\n", GetLastError());
     }
-    if (info.out != NULL)
-        dr_global_free(info.out, info_size + NAME_EXTRA_SZ(MAX_SYM_NAME));
+    if (info.out != NULL) {
+        dr_global_free(info.out->name, MAX_SYM_NAME);
+        dr_global_free(info.out, info_size);
+    }
     recursive_context = false;
 
     dr_recurlock_unlock(symbol_lock);
@@ -751,13 +763,17 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
         info.cb = callback;
         info.cb_ex = callback_ex;
         if (info.cb_ex != NULL) {
-            if (info_size != sizeof(drsym_info_t) &&
-                info_size != sizeof(drsym_info_legacy_t))
+            if (info_size != sizeof(drsym_info_t))
                 return DRSYM_ERROR_INVALID_SIZE;
-            info.out = (drsym_info_t *)
-                dr_global_alloc(info_size + NAME_EXTRA_SZ(MAX_SYM_NAME));
+            info.out = (drsym_info_t *) dr_global_alloc(info_size);
             info.out->struct_size = info_size;
+            info.out->name = (char *) dr_global_alloc(MAX_SYM_NAME);
             info.out->name_size = MAX_SYM_NAME;
+            info.out->file = NULL;
+            info.out->file_size = 0;
+            info.out->file_available_size = 0;
+            info.out->line = 0;
+            info.out->line_offs = 0;
         } else
             info.out = NULL;
         info.data = data;
@@ -768,8 +784,10 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
-        if (info.out != NULL)
-            dr_global_free(info.out, info_size + NAME_EXTRA_SZ(MAX_SYM_NAME));
+        if (info.out != NULL) {
+            dr_global_free(info.out->name, MAX_SYM_NAME);
+            dr_global_free(info.out, info_size);
+        }
         recursive_context = false;
     }
     dr_recurlock_unlock(symbol_lock);

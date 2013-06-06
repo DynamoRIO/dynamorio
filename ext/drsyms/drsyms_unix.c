@@ -285,8 +285,7 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
     int num_syms;
     int i;
     bool keep_searching = true;
-    char *symbol_buf;
-    size_t symbol_buf_size = 1024;  /* C++ symbols can be quite long. */
+    size_t name_buf_size = 1024;  /* C++ symbols can be quite long. */
     drsym_error_t res = DRSYM_SUCCESS;
     drsym_info_t *out;
 
@@ -294,7 +293,15 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
     if (num_syms == 0)
         return DRSYM_ERROR;
 
-    out = (drsym_info_t *) dr_global_alloc(info_size + NAME_EXTRA_SZ(symbol_buf_size));
+    out = (drsym_info_t *) dr_global_alloc(info_size);
+    out->name = (char *) dr_global_alloc(name_buf_size);
+    out->struct_size = info_size;
+    out->debug_kind = mod->debug_kind;
+    out->type_id = 0; /* NYI */
+    /* We don't have line info (see below) */
+    out->file = NULL;
+    out->file_size = 0;
+    out->file_available_size = 0;
 
     for (i = 0; keep_searching && i < num_syms; i++) {
         const char *mangled = drsym_obj_symbol_name(mod->obj_info, i);
@@ -313,37 +320,28 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
         if (res != DRSYM_SUCCESS)
             break;
 
-        symbol_buf = (info_size == sizeof(drsym_info_t) ? out->name :
-                      ((drsym_info_legacy_t *)out)->name);
         if (TEST(DRSYM_DEMANGLE, flags)) {
             size_t len;
             /* Resize until it's big enough. */
-            while ((len = drsym_demangle_symbol(symbol_buf, symbol_buf_size,
+            while ((len = drsym_demangle_symbol(out->name, name_buf_size,
                                                 mangled, flags))
-                   > symbol_buf_size) {
-                dr_global_free(out, info_size + NAME_EXTRA_SZ(symbol_buf_size));
-                symbol_buf_size = len;
-                out = (drsym_info_t *)
-                    dr_global_alloc(info_size + NAME_EXTRA_SZ(symbol_buf_size));
-                symbol_buf = (info_size == sizeof(drsym_info_t) ? out->name :
-                              ((drsym_info_legacy_t *)out)->name);
+                   > name_buf_size) {
+                dr_global_free(out->name, name_buf_size);
+                name_buf_size = len;
+                out->name = (char *) dr_global_alloc(name_buf_size);
             }
             if (len != 0) {
                 /* Success. */
-                unmangled = symbol_buf;
+                unmangled = out->name;
             }
         } else if (callback_ex != NULL) {
-            strncpy(symbol_buf, unmangled, symbol_buf_size);
-            symbol_buf[symbol_buf_size - 1] = '\0';
+            strncpy(out->name, unmangled, name_buf_size);
+            out->name[name_buf_size - 1] = '\0';
         }
 
         if (callback_ex != NULL) {
-            out->struct_size = info_size;
-            out->name_size = symbol_buf_size;
-            out->name_available_size = strlen(symbol_buf);
-            out->debug_kind = mod->debug_kind;
-            if (info_size == sizeof(drsym_info_t))
-                out->type_id = 0; /* NYI */
+            out->name_size = name_buf_size;
+            out->name_available_size = strlen(out->name);
             /* We can't get line information w/o doing a separate addr lookup
              * which may not be the same symbol as this one (not 1-to-1)
              */
@@ -352,7 +350,8 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
             keep_searching = callback(unmangled, modoffs, data);
     }
 
-    dr_global_free(out, info_size + NAME_EXTRA_SZ(symbol_buf_size));
+    dr_global_free(out->name, name_buf_size);
+    dr_global_free(out, info_size);
 
     return res;
 }
@@ -423,8 +422,7 @@ drsym_unix_enumerate_symbols(void *mod_in, drsym_enumerate_cb callback,
                              void *data, uint flags)
 {
     dbg_module_t *mod = (dbg_module_t *) mod_in;
-    if (info_size != sizeof(drsym_info_t) &&
-        info_size != sizeof(drsym_info_legacy_t))
+    if (info_size != sizeof(drsym_info_t))
         return DRSYM_ERROR_INVALID_SIZE;
     return symsearch_symtab(mod, callback, callback_ex, info_size, data, flags);
 }

@@ -115,9 +115,12 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 4.0.1 include a
-minor compatibility change for 64-bit reachability:
+The changes between version \DR_VERSION and 4.0.1 include the
+following compatibility changes:
 
+ - The #drsym_info_t data structure has changed.  The file name is now
+   a caller-allocated buffer, and it and the symbol name are separated out.
+   This affects code that calls drsym_lookup_address().
  - Memory allocated through system libraries (including malloc, operator
    new, and HeapAlloc) is not guaranteed to be reachable by a 32-bit
    displacement from the code cache: only memory directly allocated via
