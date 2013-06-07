@@ -513,6 +513,11 @@ syscall_while_native(app_state_at_intercept_t *state)
      * so we use our own custom wrapper rather than go through ntdll when we
      * expect going through wrapper to reach here (FIXME should do this for
      * all system calls). */
+    /* i#924: this happens at exit during os_loader_exit(), and at thread init
+     * when priv libs call routines we haven't yet redirected.  Best to disable
+     * the syslog for clients (we still have the log warning).
+     */
+#ifndef CLIENT_INTERFACE
     DODEBUG({
         /* Unfortunately we use various ntdll routines (most notably Ldr*)
          * that may be hooked (hook code could do anything including making
@@ -521,12 +526,10 @@ syscall_while_native(app_state_at_intercept_t *state)
          * of the currently used ones are problematic). Also calling
          * through Sygate hooks may reach here.
          */
-        /* i#924: this happens at exit during os_loader_exit() */
-        if (IF_CLIENT_INTERFACE_ELSE(!dynamo_exited, true)) {
-            SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
-                                         syscall_names[sysnum]);
-        }
+        SYSLOG_INTERNAL_WARNING_ONCE("syscall_while_native: using %s - maybe hooked?",
+                                     syscall_names[sysnum]);
     });
+#endif
     STATS_INC(num_syscall_trampolines_DR);
     LOG(THREAD, LOG_SYSCALLS, 1,
         "WARNING: syscall_while_native: syscall from DR %s\n",
