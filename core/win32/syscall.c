@@ -3289,10 +3289,20 @@ postsys_create_or_open_section(dcontext_t *dcontext,
                 }
             }
             if (!have_name) {
-                STATS_INC(map_unknown_Dos_name);
-                SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
+                /* i#1180: we get non-drive absolute DOS paths here which naturally
+                 * convert_NT_to_Dos_path can't handle (e.g.,
+                 * "\Windows\Globalization\Sorting\SortDefault.nls").
+                 * We expect to get an NT path at map time on XP+, so we only
+                 * warn for 2K- images.
+                 */
+                DODEBUG({
+                    if (get_os_version() <= WINDOWS_VERSION_2000 && !non_image) {
+                        STATS_INC(map_unknown_Dos_name);
+                        SYSLOG_INTERNAL_WARNING_ONCE("unknown mapfile Dos name");
+                    }
+                });
                 LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 2,
-                    "\t%s: WARNING: unable to convert NT to Dos path for \"%S\"\n",
+                    "\t%s: pre-map, unable to convert NT to Dos path for \"%S\"\n",
                     __FUNCTION__, fname);
             }
             section_to_file_add_wide(section_handle, fname);
