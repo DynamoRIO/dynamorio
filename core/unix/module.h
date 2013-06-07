@@ -359,6 +359,9 @@ elf_loader_map_file(elf_loader_t *elf, bool reachable);
  * called after reading program headers with elf_loader_read_phdrs() or the
  * elf_loader_read_headers() shortcut.  All image mappings are done via the
  * provided function pointers.
+ * 
+ * XXX: fixed is only a hint as PIEs with a base of 0 should not use MAP_FIXED,
+ * should we remove it?
  */
 app_pc
 elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,

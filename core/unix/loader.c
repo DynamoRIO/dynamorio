@@ -1191,13 +1191,14 @@ privload_setup_auxv(char **envp, app_pc map, ptr_int_t delta)
 
     /* fix up the auxv entries that refer to the executable */
     for (; auxv->a_type != AT_NULL; auxv++) {
+        /* the actual addr should be: (base + offs) or (v_addr + delta) */
         switch (auxv->a_type) {
         case AT_ENTRY:
             auxv->a_un.a_val = (ptr_int_t) elf->e_entry + delta;
             LOG(GLOBAL, LOG_LOADER, 2, "AT_ENTRY: "PFX"\n", auxv->a_un.a_val);
             break;
         case AT_PHDR:
-            auxv->a_un.a_val = (ptr_int_t) map + elf->e_phoff + delta;
+            auxv->a_un.a_val = (ptr_int_t) map + elf->e_phoff;
             LOG(GLOBAL, LOG_LOADER, 2, "AT_PHDR: "PFX"\n", auxv->a_un.a_val);
             break;
         case AT_PHENT:
@@ -1325,12 +1326,15 @@ privload_early_inject(void **sp)
     success = elf_loader_read_headers(&exe_ld, exe_path);
     apicheck(success, "Failed to read app ELF headers.  Check path and "
              "architecture.");
-    /* FIXME: PIEs with a base of 0 should not use MAP_FIXED. */
-    exe_map = elf_loader_map_phdrs(&exe_ld, true /* MAP_FIXED */, os_map_file,
+    exe_map = elf_loader_map_phdrs(&exe_ld,
+                                   /* fixed at preferred address,
+                                    * will be overwritten if preferred base is 0
+                                    */
+                                   true ,
+                                   os_map_file,
                                    os_unmap_file, os_set_protection, false/*!reachable*/);
     apicheck(exe_map != NULL, "Failed to load application.  "
              "Check path and architecture.");
-    ASSERT(exe_ld.load_delta == 0);
     ASSERT(is_elf_so_header(exe_map, 0));
 
     privload_setup_auxv(envp, exe_map, exe_ld.load_delta);

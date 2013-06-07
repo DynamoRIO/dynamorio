@@ -2157,11 +2157,15 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                            MEMPROT_WRITE | MEMPROT_READ /* prot */,
                            MAP_FILE_COPY_ON_WRITE |
                            MAP_FILE_IMAGE |
-                           (fixed ? MAP_FILE_FIXED : 0) |
+                           /* i#1001: a PIE executable may have NULL as preferred
+                            * base, in which case the map can be anywhere
+                            */
+                           ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
                            (reachable ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
     lib_end = lib_base + elf->image_size;
     elf->load_base = lib_base;
+    ASSERT(elf->load_delta == 0 || map_base == NULL);
 
     if (map_base != NULL && map_base != lib_base) {
         /* the mapped memory is not at preferred address,
