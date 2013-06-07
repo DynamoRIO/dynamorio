@@ -5084,16 +5084,14 @@ intercept_exception(app_state_at_intercept_t *state)
             /* handle our own TRY/EXCEPT */
             /* similar to hotpatch exceptions above */
 
-            /* FIXME: noisy syslog, but actually not even enough.  How
-             * should we make sure we don't have a TRY/EXCEPT that is
-             * encompassing too much?  While in release build
+            /* XXX: syslog is just too noisy for clients, esp those like
+             * Dr. Memory who routinely examine random app memory and
+             * use dr_safe_read() and other mechanisms.
+             * For non-CLIENT_INTERFACE: while in release build
              * recovering is a good thing, any unexpected faults
              * should be visible in debug builds.
              */
-# ifdef CLIENT_INTERFACE
-            SYSLOG_INTERNAL_WARNING_ONCE("Handling our fault in a TRY at "PFX,
-                                         cxt->CXT_XIP);
-# else
+# ifndef CLIENT_INTERFACE
             SYSLOG_INTERNAL_WARNING("Handling our fault in a TRY at "PFX, cxt->CXT_XIP);
 # endif
 
