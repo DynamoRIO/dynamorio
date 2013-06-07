@@ -1328,7 +1328,7 @@ privload_early_inject(void **sp)
              "architecture.");
     exe_map = elf_loader_map_phdrs(&exe_ld,
                                    /* fixed at preferred address,
-                                    * will be overwritten if preferred base is 0
+                                    * will be overridden if preferred base is 0
                                     */
                                    true ,
                                    os_map_file,
