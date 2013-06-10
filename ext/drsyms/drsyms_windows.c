@@ -501,7 +501,7 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     mod_entry_t *mod;
     DWORD64 base;
     DWORD64 disp;
-    IMAGEHLP_LINE64 line;
+    IMAGEHLP_LINEW64 line;
     DWORD line_disp;
     PSYMBOL_INFO info;
 
@@ -527,6 +527,9 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     base = mod->u.load_base;
 
     info = alloc_symbol_info();
+    /* Symbols are stored as UTF-8 in the PE and PDB files so we don't need
+     * to use SymFromAddrW or do any conversion (i#1085).
+     */
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
         fill_in_drsym_info(out, info, base, true);
         NOTIFY("Symbol 0x%I64x => %s+0x%x (0x%I64x-0x%I64x)\n", base+modoffs, out->name,
@@ -540,20 +543,16 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     free_symbol_info(info);
 
     line.SizeOfStruct = sizeof(line);
-    if (SymGetLineFromAddr64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
-        NOTIFY("%s:%u+0x%x\n", line.FileName, line.LineNumber, line_disp);
-        /* FIXME i#1085: Get wide path with SymGetLineFromAddrW64 and convert to
-         * UTF-8.  The caller doesn't give any storage for filename so we can't
-         * do this without breaking the ABI.  Perhaps in the future we should
-         * drop the trailing variable length array so we can safely add new
-         * fields to drsym_info_t.
-         *
-         * i#1085: MSDN docs imply that FileName is reused on subsequent
-         * calls: hence we must copy into a caller-provided buffer.
-         */
-        out->file_available_size = strlen(line.FileName);
+    if (SymGetLineFromAddrW64(GetCurrentProcess(), base + modoffs, &line_disp, &line)) {
+        NOTIFY("%S:%u+0x%x\n", line.FileName, line.LineNumber, line_disp);
+        out->file_available_size = wcslen(line.FileName)*sizeof(wchar_t);
         if (out->file != NULL) {
-            strncpy(out->file, line.FileName, out->file_size);
+            /* Convert the wide filename to UTF-8 (i#1085).
+             * MSDN docs imply that FileName is reused on subsequent
+             * calls: hence we must copy into a caller-provided buffer
+             * even if we didn't want to convert to UTF-8.
+             */
+            dr_snprintf(out->file, out->file_size, "%S", line.FileName);
             out->file[out->file_size - 1] = '\0';
         }
         out->line = line.LineNumber;
