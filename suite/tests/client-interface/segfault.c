@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,14 +33,72 @@
 
 #include "tools.h" /* for print() */
 
-int main(int argc, char *argv[])
+#include <assert.h>
+
+#ifdef UNIX
+# include <unistd.h>
+# include <signal.h>
+# include <ucontext.h>
+# include <errno.h>
+#endif
+
+#include <setjmp.h>
+static SIGJMP_BUF mark;
+static int count = 0;
+
+#ifdef UNIX
+static void
+signal_handler(int sig)
 {
-    double res = 0.;
+    if (sig == SIGSEGV) {
+        if (count == 0) {
+            print("Got a seg fault: recovering\n");
+            count++;
+            SIGLONGJMP(mark, 1);
+        } else
+            print("Got a seg fault: aborting\n");
+    }
+    abort();
+}
+#else
+# include <windows.h>
+/* top-level exception handler */
+static LONG
+our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+{
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        if (count == 0) {
+            print("Got a seg fault: recovering\n");
+            count++;
+            SIGLONGJMP(mark, 1);
+        } else
+            print("Got a seg fault: aborting\n");
+    }
+    return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
+}
+#endif
+
+int
+main(int argc, char *argv[])
+{
+#ifdef UNIX
+    intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
+#else
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+#endif
 
     print("Segfault about to happen\n");
+
+    /* First fault: test i#1045 where the fault overlaps a page boundary */
+    if (SIGSETJMP(mark) == 0) {
+        char *buf = allocate_mem(PAGE_SIZE*2, ALLOW_READ|ALLOW_WRITE);
+        protect_mem(buf + PAGE_SIZE, PAGE_SIZE, ALLOW_READ);
+        *((volatile int *)(buf + PAGE_SIZE - 1)) = 42;
+    }
 
     *((volatile int *)0) = 4;
 
     print("SHOULD NEVER GET HERE\n");
+
     return 0;
 }

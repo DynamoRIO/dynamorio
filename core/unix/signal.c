@@ -3680,14 +3680,16 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     byte *target = NULL;
     instr_t instr;
     priv_mcontext_t mc;
-    uint memopidx;
+    uint memopidx, memoppos, memopsize;
+    opnd_t memop;
     bool found_target = false;
     bool in_maps;
     bool use_allmem = false;
     uint prot;
 
-    LOG(THREAD, LOG_ALL, 2, "computing memory target for "PFX" causing SIGSEGV\n",
-        instr_cache_pc);
+    LOG(THREAD, LOG_ALL, 2,
+        "computing memory target for "PFX" causing SIGSEGV, kernel claims it is "PFX"\n",
+        instr_cache_pc, (byte*)si->si_addr);
 
     /* We used to do a memory query to check if instr_cache_pc is readable, but
      * now we use TRY/EXCEPT because we don't have the instr length and the OS
@@ -3722,9 +3724,18 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     if (si->si_code == SEGV_ACCERR && si->si_addr != NULL) {
         for (memopidx = 0;
              instr_compute_address_ex_priv(&instr, &mc, memopidx,
-                                           &target, write, NULL);
+                                           &target, write, &memoppos);
              memopidx++) {
-            if (si->si_addr == target) {
+            /* i#1045: check whether operand and si_addr overlap */
+            memop = write ? instr_get_dst(&instr, memoppos)
+                          : instr_get_src(&instr, memoppos);
+            memopsize = opnd_size_in_bytes(opnd_get_size(memop));
+            LOG(THREAD, LOG_ALL, 2,
+                "memory operand %u has address "PFX" and size %u\n",
+                memopidx, target, memopsize);
+            if ((byte*)si->si_addr >= target &&
+                (byte*)si->si_addr < target + memopsize) {
+                target = (byte*)si->si_addr;
                 found_target = true;
                 break;
             }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +33,32 @@
 
 #include "dr_api.h"
 
+#ifdef UNIX
+# include <signal.h>
+#endif
+
+#ifdef UNIX
+static dr_signal_action_t
+signal_event(void *dcontext, dr_siginfo_t *info)
+{
+    static int count;
+    /* Test i#1045: cross-page access address */
+    if (info->sig == SIGSEGV) {
+        if (count++ == 0 && info->access_address == NULL)
+            dr_fprintf(STDERR, "First fault is not accessing NULL!\n");
+    }
+    return DR_SIGNAL_DELIVER;
+}
+#else
+static bool
+exception_event(void *dcontext, dr_exception_t *excpt)
+{
+    if (excpt->record->ExceptionCode != STATUS_ACCESS_VIOLATION)
+        dr_fprintf(STDERR, "Unexpected fault type\n");
+    return true;
+}
+#endif
+
 static void
 exit_event(void)
 {
@@ -44,9 +70,14 @@ exit_event(void)
     dr_abort();
 }
 
-DR_EXPORT
-void dr_init(client_id_t id)
+DR_EXPORT void
+dr_init(client_id_t id)
 {
     dr_register_exit_event(exit_event);
+#ifdef WINDOWS
+    dr_register_exception_event(exception_event);
+#else
+    dr_register_signal_event(signal_event);
+#endif
 }
 
