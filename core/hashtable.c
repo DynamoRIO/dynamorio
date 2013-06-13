@@ -120,9 +120,9 @@ generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
                     uint table_flags, void (*free_payload_func)(void*)
                     _IF_DEBUG(const char *table_name))
 {
-    generic_table_t *table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, generic_table_t,
+    generic_table_t *table = HEAP_TYPE_ALLOC(dcontext, generic_table_t,
                                              ACCT_OTHER, PROTECTED);
-    hashtable_generic_init(GLOBAL_DCONTEXT, table, bits, load_factor_percent,
+    hashtable_generic_init(dcontext, table, bits, load_factor_percent,
                            (hash_function_t)INTERNAL_OPTION(alt_hash_func),
                            0 /* hash_mask_offset */, table_flags
                            _IF_DEBUG(table_name));
