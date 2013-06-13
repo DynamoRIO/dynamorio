@@ -159,6 +159,15 @@ os_files_same(const char *path1, const char *path2);
 
 extern const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS];
 
+file_t
+fd_priv_dup(file_t curfd);
+
+bool
+fd_mark_close_on_exec(file_t fd);
+
+void
+fd_table_add(file_t fd, uint flags);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;
@@ -183,6 +192,17 @@ void handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set
                              kernel_sigset_t *oset, size_t sigsetsize);
 void handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
                        size_t sigsetsize);
+
+ptr_int_t
+handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
+                    size_t sizemask, int flags);
+
+void
+signal_handle_dup(dcontext_t *dcontext, file_t src, file_t dst);
+
+void
+signal_handle_close(dcontext_t *dcontext, file_t fd);
+
 void
 sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc);
 

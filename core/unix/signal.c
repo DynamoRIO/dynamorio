@@ -40,11 +40,14 @@
  */
 
 #include <unistd.h>
+#include <errno.h>
+#undef errno
 
 /* We want to build on older toolchains so we have our own copy of signal
  * data structures
  */
 #include "include/sigcontext.h"
+#include "include/signalfd.h"
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -142,7 +145,7 @@ int default_action[] = {
     /* SIGPWR    30 */   DEFAULT_TERMINATE,
     /* SIGSYS/SIGUNUSED 31 */ DEFAULT_TERMINATE,
 
-    /* ASSUMPTION: all real-time have default of terminate...FIXME: ok? */
+    /* ASSUMPTION: all real-time have default of terminate...XXX: ok? */
     /* 32 */ DEFAULT_TERMINATE,
     /* 33 */ DEFAULT_TERMINATE,
     /* 34 */ DEFAULT_TERMINATE,
@@ -519,6 +522,9 @@ typedef struct _thread_itimer_info_t {
 /* Don't try to translate every alarm if they're piling up (PR 213040) */
 #define SKIP_ALARM_XL8_MAX 3
 
+struct _sigfd_pipe_t;
+typedef struct _sigfd_pipe_t sigfd_pipe_t;
+
 typedef struct _thread_sig_info_t {
     /* we use kernel_sigaction_t so we don't have to translate back and forth
      * between it and libc version.
@@ -572,6 +578,8 @@ typedef struct _thread_sig_info_t {
      * every nth signal since coarse translation is expensive (PR 213040)
      */
     uint skip_alarm_xl8;
+    /* signalfd array (lazily initialized) */
+    sigfd_pipe_t *signalfd[SIGARRAY_SIZE];
 
     /* to handle sigsuspend we have to save blocked set */
     bool in_sigsuspend;
@@ -679,6 +687,15 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 
 static bool
 is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info);
+
+static void
+signalfd_init(void);
+
+static void
+signalfd_exit(void);
+
+static void
+signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info);
 
 static inline int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
@@ -1049,11 +1066,14 @@ signal_init()
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGSEGV);
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGBUS);
     unblock_all_signals(&init_sigmask);
+
+    signalfd_init();
 }
 
 void
 signal_exit()
 {
+    signalfd_exit();
 #ifdef DEBUG
     if (stats->loglevel > 0 && (stats->logmask & (LOG_ASYNCH|LOG_STATS)) != 0) {
         LOG(GLOBAL, LOG_ASYNCH|LOG_STATS, 1,
@@ -1702,6 +1722,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         ASSERT(i == 0);
     }
 #endif
+    signalfd_thread_exit(dcontext, info);
     special_heap_exit(info->sigheap);
     DELETE_LOCK(info->child_lock);
 #ifdef DEBUG
@@ -2229,6 +2250,277 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
         dump_sigset(dcontext, &info->app_sigblocked);
     }
 #endif
+}
+
+/***************************************************************************
+ * SIGNALFD
+ */
+
+/* Strategy: a real signalfd is a read-only file, so we can't write to one to
+ * emulate signal delivery.  We also can't block signals we care about (and
+ * for clients we don't want to block anything).  Thus we must emulate
+ * signalfd via a pipe.  The kernel's pipe buffer should easily hold
+ * even a big queue of RT signals.  Xref i#1138.
+ *
+ * Although signals are per-thread, fds are global, and one thread
+ * could use a signalfd to see signals on another thread.
+ *
+ * Thus we have:
+ * + global data struct "sigfd_pipe_t" stores pipe write fd and refcount
+ * + global hashtable mapping read fd to sigfd_pipe_t
+ * + thread has array of pointers to sigfd_pipe_t, one per signum
+ * + on SYS_close, we decrement refcount
+ * + on SYS_dup*, we add a new hashtable entry
+ *
+ * This pipe implementation has a hole: it cannot properly handle two
+ * signalfds with different but overlapping signal masks (i#1189: see below).
+ */
+static generic_table_t *sigfd_table;
+
+struct _sigfd_pipe_t {
+    file_t write_fd;
+    file_t read_fd;
+    uint refcount;
+    dcontext_t *dcontext;
+};
+
+static void
+sigfd_pipe_free(void *ptr)
+{
+    sigfd_pipe_t *pipe = (sigfd_pipe_t *) ptr;
+    ASSERT(pipe->refcount > 0);
+    pipe->refcount--;
+    if (pipe->refcount == 0) {
+        if (pipe->dcontext != NULL) {
+            /* Update the owning thread's info.
+             * We write a NULL which is atomic.
+             * The thread on exit grabs the table lock for synch and clears dcontext.
+             */
+            thread_sig_info_t *info = (thread_sig_info_t *)
+                pipe->dcontext->signal_field;
+            int sig;
+            for (sig = 1; sig <= MAX_SIGNUM; sig++) {
+                if (info->signalfd[sig] == pipe)
+                    info->signalfd[sig] = NULL;
+            }
+        }
+        os_close_protected(pipe->write_fd);
+        os_close_protected(pipe->read_fd);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, pipe, sigfd_pipe_t, ACCT_OTHER, PROTECTED);
+    }
+}
+
+static void
+signalfd_init(void)
+{
+#   define SIGNALFD_HTABLE_INIT_SIZE 6
+    sigfd_table =
+        generic_hash_create(GLOBAL_DCONTEXT, SIGNALFD_HTABLE_INIT_SIZE,
+                            80 /* load factor: not perf-critical */,
+                            HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                            HASHTABLE_PERSISTENT | HASHTABLE_RELAX_CLUSTER_CHECKS,
+                            sigfd_pipe_free _IF_DEBUG("signalfd table"));
+    /* XXX: we need our lock rank to be higher than fd_table's so we
+     * can call os_close_protected() when freeing.  We should
+     * parametrize the generic table rank.  For now we just change it afterward
+     * (we'll have issues if we ever call _resurrect):
+     */
+    ASSIGN_INIT_READWRITE_LOCK_FREE(sigfd_table->rwlock, sigfdtable_lock);
+}
+
+static void
+signalfd_exit(void)
+{
+    generic_hash_destroy(GLOBAL_DCONTEXT, sigfd_table);
+}
+
+static void
+signalfd_thread_exit(dcontext_t *dcontext, thread_sig_info_t *info)
+{
+    /* We don't free the pipe until the app closes its fd's but we need to
+     * update the dcontext in the global data
+     */
+    int sig;
+    TABLE_RWLOCK(sigfd_table, write, lock);
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
+        if (info->signalfd[sig] != NULL)
+            info->signalfd[sig]->dcontext = NULL;
+    }
+    TABLE_RWLOCK(sigfd_table, write, unlock);
+}
+
+ptr_int_t
+handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
+                    size_t sizemask, int flags)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    int sig;
+    kernel_sigset_t local_set;
+    kernel_sigset_t *set;
+    ptr_int_t retval = -1;
+    sigfd_pipe_t *pipe = NULL;
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: fd=%d, flags=0x%x\n", __FUNCTION__, fd, flags);
+    if (sizemask == sizeof(sigset_t)) {
+        copy_sigset_to_kernel_sigset((sigset_t *)mask, &local_set);
+        set = &local_set;
+    } else {
+        ASSERT(sizemask == sizeof(kernel_sigset_t));
+        set = mask;
+    }
+    if (fd != -1) {
+        TABLE_RWLOCK(sigfd_table, read, lock);
+        pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+        TABLE_RWLOCK(sigfd_table, read, unlock);
+        if (pipe == NULL)
+            return -EINVAL;
+    } else {
+        /* FIXME i#1189: currently we do not properly handle two signalfds with
+         * different but overlapping signal masks, as we do not monitor the
+         * read/poll syscalls and thus cannot provide a set of pipes that
+         * matches the two signal sets.  For now we err on the side of sending
+         * too many signals and simply conflate such sets into a single pipe.
+         */
+        for (sig = 1; sig <= MAX_SIGNUM; sig++) {
+            if (sig == SIGKILL || sig == SIGSTOP)
+                continue;
+            if (kernel_sigismember(set, sig) && info->signalfd[sig] != NULL) {
+                pipe = info->signalfd[sig];
+                retval = dup_syscall(pipe->read_fd);
+                break;
+            }
+        }
+    }
+    if (pipe == NULL) {
+        int fds[2];
+        /* SYS_signalfd is even newer than SYS_pipe2, so pipe2 must be avail.
+         * We pass the flags through b/c the same ones (SFD_NONBLOCK ==
+         * O_NONBLOCK, SFD_CLOEXEC == O_CLOEXEC) are accepted by pipe.
+         */
+        ptr_int_t res = dynamorio_syscall(SYS_pipe2, 2, fds, flags);
+        if (res < 0)
+            return res;
+        pipe = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, sigfd_pipe_t, ACCT_OTHER, PROTECTED);
+        pipe->dcontext = dcontext;
+        pipe->refcount = 1;
+
+        /* Keep our write fd in the private fd space */
+        pipe->write_fd = fd_priv_dup(fds[1]);
+        os_close(fds[1]);
+        if (TEST(SFD_CLOEXEC, flags))
+            fd_mark_close_on_exec(pipe->write_fd);
+        fd_table_add(pipe->write_fd, 0/*keep across fork*/);
+
+        /* We need an un-closable copy of the read fd in case we need to dup it */
+        pipe->read_fd = fd_priv_dup(fds[0]);
+        if (TEST(SFD_CLOEXEC, flags))
+            fd_mark_close_on_exec(pipe->read_fd);
+        fd_table_add(pipe->read_fd, 0/*keep across fork*/);
+
+        TABLE_RWLOCK(sigfd_table, write, lock);
+        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, fds[0], (void *) pipe);
+        TABLE_RWLOCK(sigfd_table, write, unlock);
+        
+        LOG(THREAD, LOG_ASYNCH, 2, "created signalfd pipe app r=%d DR r=%d w=%d\n",
+            fds[0], pipe->read_fd, pipe->write_fd);
+        retval = fds[0];
+    }
+    for (sig = 1; sig <= MAX_SIGNUM; sig++) {
+        if (sig == SIGKILL || sig == SIGSTOP)
+            continue;
+        if (kernel_sigismember(set, sig)) {
+            if (info->signalfd[sig] == NULL)
+                info->signalfd[sig] = pipe;
+            else
+                ASSERT(info->signalfd[sig] == pipe);
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "adding signalfd pipe %d for signal %d\n", pipe->write_fd, sig);
+        } else if (info->signalfd[sig] != NULL) {
+            info->signalfd[sig] = NULL;
+            LOG(THREAD, LOG_ASYNCH, 2,
+                "removing signalfd pipe=%d for signal %d\n", pipe->write_fd, sig);
+        }
+    }
+    return retval;
+}
+
+static bool
+notify_signalfd(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                sigframe_rt_t *frame)
+{
+    sigfd_pipe_t *pipe = info->signalfd[sig];
+    if (pipe != NULL) {
+        int res;
+        struct signalfd_siginfo towrite = {0,};
+
+        /* XXX: we should limit to a single non-RT signal until it's read (by
+         * polling pipe->read_fd to see whether it has data), except we delay
+         * signals and thus do want to accumulate multiple non-RT to some extent.
+         * For now we go ahead and treat RT and non-RT the same.
+         */
+        towrite.ssi_signo = sig;
+        towrite.ssi_errno = frame->info.si_errno;
+        towrite.ssi_code = frame->info.si_code;
+        towrite.ssi_pid = frame->info.si_pid;
+        towrite.ssi_uid = frame->info.si_uid;
+        towrite.ssi_fd = frame->info.si_fd;
+        towrite.ssi_band = frame->info.si_band;
+        /* XXX: check older glibc headers */
+        towrite.ssi_tid = frame->info._sifields._timer.si_tid;
+        towrite.ssi_overrun = frame->info.si_overrun;
+        towrite.ssi_status = frame->info.si_status;
+        towrite.ssi_utime = frame->info.si_utime;
+        towrite.ssi_stime = frame->info.si_stime;
+#ifdef __ARCH_SI_TRAPNO
+        towrite.ssi_trapno = frame->info.si_trapno;
+#endif
+        towrite.ssi_addr = (ptr_int_t) frame->info.si_addr;
+
+        /* XXX: if the pipe is full, don't write to it as it could block.  We
+         * can poll to determine.  This is quite unlikely (kernel buffer is 64K
+         * since 2.6.11) so for now we do not do so.
+         */
+        res = write_syscall(pipe->write_fd, &towrite, sizeof(towrite));
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "writing to signalfd fd=%d for signal %d => %d\n", pipe->write_fd, sig, res);
+        return true; /* signal consumed */
+    }
+    return false;
+}
+
+void
+signal_handle_dup(dcontext_t *dcontext, file_t src, file_t dst)
+{
+    sigfd_pipe_t *pipe;
+    TABLE_RWLOCK(sigfd_table, read, lock);
+    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
+    TABLE_RWLOCK(sigfd_table, read, unlock);
+    if (pipe == NULL)
+        return;
+    TABLE_RWLOCK(sigfd_table, write, lock);
+    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, src);
+    if (pipe != NULL) {
+        pipe->refcount++;
+        generic_hash_add(GLOBAL_DCONTEXT, sigfd_table, dst, (void *) pipe);
+    }
+    TABLE_RWLOCK(sigfd_table, write, unlock);
+}
+
+void
+signal_handle_close(dcontext_t *dcontext, file_t fd)
+{
+    sigfd_pipe_t *pipe;
+    TABLE_RWLOCK(sigfd_table, read, lock);
+    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+    TABLE_RWLOCK(sigfd_table, read, unlock);
+    if (pipe == NULL)
+        return;
+    TABLE_RWLOCK(sigfd_table, write, lock);
+    pipe = (sigfd_pipe_t *) generic_hash_lookup(GLOBAL_DCONTEXT, sigfd_table, fd);
+    if (pipe != NULL) {
+        /* this will call sigfd_pipe_free() */
+        generic_hash_remove(GLOBAL_DCONTEXT, sigfd_table, fd);
+    }
+    TABLE_RWLOCK(sigfd_table, write, unlock);
 }
 
 /**** utility routines ***********************************************/
@@ -3367,6 +3659,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     byte *xsp = (byte*) sc->SC_XSP;
     bool receive_now = false;
     bool blocked = false;
+    bool handled = false;
     sigpending_t *pend;
     fragment_t *f = NULL;
     fragment_t wrapper;
@@ -3430,6 +3723,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             "record_pending_signal(%d at pc "PFX"): signal is currently blocked\n",
             sig, pc);
         blocked = true;
+        handled = notify_signalfd(dcontext, info, sig, frame);
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from cache pc "PFX"\n", sig, pc);
@@ -3584,7 +3878,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         execute_handler_from_cache(dcontext, sig, frame, &sc_orig, f
                                    _IF_CLIENT(access_address));
 
-    } else {
+    } else if (!handled) {
 
 #ifdef CLIENT_INTERFACE
         /* i#182/PR 449996: must let client act on blocked non-delayable signals to
@@ -4904,7 +5198,7 @@ receive_pending_signal(dcontext_t *dcontext)
         info->interrupted_pc = NULL;
     }
     /* grab first pending signal
-     * FIXME: start with real-time ones?
+     * XXX: start with real-time ones?
      */
     /* "lock" the array to prevent a new signal that interrupts this bit of
      * code from prepended or deleting from the array while we're accessing it

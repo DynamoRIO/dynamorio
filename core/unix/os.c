@@ -313,7 +313,6 @@ static struct rlimit app_rlimit_nofile;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-static void fd_table_add(file_t fd, uint flags);
 
 /* Track all memory regions seen by DR. We track these ourselves to prevent
  * repeated reads of /proc/self/maps (case 3771). An allmem_info_t struct is
@@ -3852,7 +3851,7 @@ os_close(file_t f)
 /* dups curfd to a private fd.
  * returns -1 if unsuccessful.
  */
-static file_t
+file_t
 fd_priv_dup(file_t curfd)
 {
     file_t newfd = -1;
@@ -3878,7 +3877,7 @@ fd_priv_dup(file_t curfd)
     return newfd;
 }
 
-static bool
+bool
 fd_mark_close_on_exec(file_t fd)
 {
     /* we assume FD_CLOEXEC is the only flag and don't bother w/ F_GETFD */
@@ -3889,7 +3888,7 @@ fd_mark_close_on_exec(file_t fd)
     return true;
 }
 
-static void
+void
 fd_table_add(file_t fd, uint flags)
 {
     if (fd_table != NULL) {
@@ -4642,6 +4641,8 @@ ignorable_system_call(int num)
     case SYS_rt_sigqueueinfo:
     case SYS_rt_sigsuspend:
     case SYS_sigaltstack:
+    case SYS_signalfd:
+    case SYS_signalfd4:
 #ifndef X64
     case SYS_sgetmask:
     case SYS_ssetmask:
@@ -6123,6 +6124,27 @@ pre_system_call(dcontext_t *dcontext)
                           (size_t) sys_param(dcontext, 1));
         break;
     }
+    case SYS_signalfd:         /* 282/321 */
+    case SYS_signalfd4: {      /* 289 */
+        /* int signalfd (int fd, const sigset_t *mask, size_t sizemask) */
+        /* int signalfd4(int fd, const sigset_t *mask, size_t sizemask, int flags) */
+        ptr_int_t new_result;
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        dcontext->sys_param1 = sys_param(dcontext, 1);
+        dcontext->sys_param2 = sys_param(dcontext, 2);
+        if (mc->xax == SYS_signalfd)
+            dcontext->sys_param3 = 0;
+        else
+            dcontext->sys_param3 = sys_param(dcontext, 3);
+        new_result =
+            handle_pre_signalfd(dcontext, (int) dcontext->sys_param0,
+                                (kernel_sigset_t *) dcontext->sys_param1,
+                                (size_t) dcontext->sys_param2,
+                                (int) dcontext->sys_param3);
+        execute_syscall = false;
+        SET_RETURN_VAL(dcontext, new_result);
+        break;
+    }
     case SYS_kill: {           /* 37 */
         /* in /usr/src/linux/kernel/signal.c:
          * asmlinkage long sys_kill(int pid, int sig)
@@ -6247,6 +6269,8 @@ pre_system_call(dcontext_t *dcontext)
  
     case SYS_close: {
         execute_syscall = handle_close_pre(dcontext);
+        if (execute_syscall)
+            signal_handle_close(dcontext, (file_t) sys_param(dcontext, 0));
         break;
     }
 
@@ -6277,6 +6301,9 @@ pre_system_call(dcontext_t *dcontext)
             SET_RETURN_VAL(dcontext, -EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             execute_syscall = false;
+        } else {
+            dcontext->sys_param0 = sys_param(dcontext, 0);
+            dcontext->sys_param1 = cmd;
         }
         break;
     }
@@ -7327,7 +7354,6 @@ post_system_call(dcontext_t *dcontext)
                                 (size_t) dcontext->sys_param3);
         break;
     }
-
 #ifndef X64
     case SYS_sigreturn:        /* 119 */
 #endif
@@ -7356,6 +7382,26 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
 #endif
+
+    /****************************************************************************/
+    /* FILES */
+
+    case SYS_dup2:
+    case SYS_dup3: {
+        if (success)
+            signal_handle_dup(dcontext, (file_t) sys_param(dcontext, 1), (file_t) result);
+        break;
+    }
+
+    case SYS_fcntl: {
+        if (success) {
+            file_t fd = (long) dcontext->sys_param0;
+            int cmd = (int) dcontext->sys_param1;
+            if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC))
+                signal_handle_dup(dcontext, fd, (file_t) result);
+        }
+        break;
+    }
 
     case SYS_getrlimit: {
         int resource = dcontext->sys_param0;

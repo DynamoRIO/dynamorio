@@ -1599,6 +1599,7 @@ if (UNIX)
   tobuild(linux.thread linux/thread.c)
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
+  tobuild(linux.signalfd linux/signalfd.c)
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.

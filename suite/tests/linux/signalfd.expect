@@ -1,0 +1,24 @@
+about to send signal 24
+about to read from 1st fd for signal 24
+successful read: signal = 24, source is this process
+about to send 2nd signal 24
+about to read from 2nd fd for signal 24
+successful read: signal = 24, source is this process
+about to send signal 10
+about to read from 1st fd for signal 10
+successful read: signal = 10, source is this process
+about to send 2nd signal 10
+about to read from 2nd fd for signal 10
+successful read: signal = 10, source is this process
+about to send signal 11
+about to read from 1st fd for signal 11
+successful read: signal = 11, source is this process
+about to send 2nd signal 11
+about to read from 2nd fd for signal 11
+successful read: signal = 11, source is this process
+about to send signal 44
+about to send 2nd signal 44
+about to read from 1st fd for signal 44
+successful read: signal = 44, source is this process
+about to read from 2nd fd for signal 44
+successful read: signal = 44, source is this process

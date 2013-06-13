@@ -441,6 +441,9 @@ enum {
 #endif
     LOCK_RANK(intercept_hook_lock), /* < table_rwlock */
     LOCK_RANK(privload_lock), /* < modlist_areas, < table_rwlock */
+#ifdef LINUX
+    LOCK_RANK(sigfdtable_lock), /* < table_rwlock */
+#endif
     LOCK_RANK(table_rwlock), /* > dr_client_mutex */
     LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(aslr_areas), /* < dynamo_areas < global_alloc_lock */
