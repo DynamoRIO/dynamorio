@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -313,14 +313,8 @@ issues noted above.
 ***************************************************************************
 \section sec_trans_alertable Alertable System Calls
 
-DynamoRIO does not support a client making alertable system calls.  These
-are system calls that can be interrupted for delivery of callbacks or
-asynchronous procedure calls.  At the Windows API layer, they include all
-of the Wait functions (WaitForSingleObject, WaitForMultipleObjects, etc.)
-and many Windows message queue functions (GetMessage, SendMessage,
-ReplyMessage).  In general, avoiding graphical or windowing library or
-system calls is advisable.  DynamoRIO does not guarantee correct execution
-when a callback arrives during client code execution.
+On Windows, DynamoRIO does not support a client making alertable system
+calls.  See \ref sec_alertable for more information.
 
 \if vmsafe
 ***************************************************************************

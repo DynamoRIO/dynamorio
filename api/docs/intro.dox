@@ -1156,24 +1156,26 @@ their license in their documentation.
 ***************************************************************************
 \section sec_extlibs Using External Libraries
 
-Clients are free to use external libraries as long as those libraries
-do not use any global user-mode resources that would interfere with
-the running application.  For example, native threading libraries such
-as \p libpthread.so on Linux are known to cause problems.  Furthermore,
-clients must either link statically to all libraries or load them using
-DynamoRIO's private loader separate from the application's loader in
-order to prevent re-entrancy problems (see \ref sec_trans_resource).
+Clients are free to use external libraries as long as those libraries do
+not use any global user-mode resources that would interfere with the
+running application, and as long as no alertable system calls are invoked
+on Windows (see \ref sec_alertable).  While most non-graphical
+non-alertable Windows API routines are supported, native threading libraries
+such as \p libpthread.so on Linux are known to cause problems.
 
 Currently we provide a private loader for both Windows and Linux.  
+Clients must either link statically to all libraries or load them using
+our private loader, which will happen automatically for shared libraries
+loaded in a typical manner.
 With private loading, the client
 uses a separate copy of each library from any copy used by the application.
+This helps to prevent re-entrancy problems (see \ref sec_trans_resource).
 Even with this separation, if these libraries use global resources there
 can still be conflicts.  Our private loader redirects heap
 allocation in the main process heap to instead use DynamoRIO's internal
 heap.  The loader also attempts to isolate other global resource usage and
-global callbacks.  In this release it should be considered a beta feature.
-Please file reports on any transparency problems observed when using the
-private loader.
+global callbacks.  Please file reports on any transparency problems
+observed when using the private loader.
 
 By default, a Windows C client will not link with libc and will instead
 use the libc subset of routines forwarded from the DynamoRIO library to \p
@@ -1186,6 +1188,20 @@ variable prior to invoking configure_DynamoRIO_client():
 \endcode
 
 C++ clients and standalone clients link with libc by default.
+
+**************************************************
+\subsection sec_alertable Avoid Alertable System Calls
+
+On Windows, DynamoRIO does not support a client (or a library used by a
+client) making alertable system calls.  These are system calls that can be
+interrupted for delivery of callbacks or asynchronous procedure calls.  At
+the Windows API layer, they include many graphical routines, any Wait
+function invoked with \p alertable=TRUE (e.g., WaitForSingleObjectEx or
+WaitForMultipleObjectsEx), any Windows message queue function (GetMessage,
+SendMessage, ReplyMessage), and asynchronous i/o.  In general, avoiding
+graphical, windowing, or asynchronous i/o library or system calls is
+advisable.  DynamoRIO does not guarantee correct execution when a callback
+arrives during client code execution.
 
 **************************************************
 \subsection sec_rpath DynamoRIO Library Search Paths
@@ -1395,6 +1411,8 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    By default, DynamoRIO builds both a <em>basic block</em> code cache and
    a <em>trace</em> code cache (see \ref sec_IR).  This option disables
    trace building, which can have a negative performance impact.
+   When running large, short-running applications, however, disabling
+   traces can improve performance.
    When traces are disabled, dr_register_trace_event() has no effect.
    DynamoRIO tries to keep traces transparent to a client who is
    interested in all code and not only hot code, so there is rarely a
