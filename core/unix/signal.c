@@ -612,6 +612,7 @@ typedef struct _clone_record_t {
 
 /* i#350: set up signal handler for safe_read/faults during init */
 static thread_sig_info_t init_info;
+static kernel_sigset_t init_sigmask;
 
 #ifdef DEBUG
 static bool removed_sig_handler;
@@ -719,11 +720,11 @@ sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
 }
 
 static void
-unblock_all_signals(void)
+unblock_all_signals(kernel_sigset_t *oset)
 {
     kernel_sigset_t set;
     kernel_sigemptyset(&set);
-    sigprocmask_syscall(SIG_SETMASK, &set, NULL, sizeof(set));
+    sigprocmask_syscall(SIG_SETMASK, &set, oset, sizeof(set));
 }
 
 /* exported for stackdump.c */
@@ -1047,6 +1048,7 @@ signal_init()
     signal_info_init_sigaction(GLOBAL_DCONTEXT, &init_info);
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGSEGV);
     intercept_signal(GLOBAL_DCONTEXT, &init_info, SIGBUS);
+    unblock_all_signals(&init_sigmask);
 }
 
 void
@@ -1394,6 +1396,8 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             /* Undo the early-init handler */
             signal_info_exit_sigaction(GLOBAL_DCONTEXT, &init_info,
                                        false/*!other_thread*/);
+            /* Undo the unblock-all */
+            sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
         }
 
         if (APP_HAS_SIGSTACK(info)) {
@@ -1484,6 +1488,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         /* FIXME: any way to recover if not 1st thread? */
         res = NULL;
     }
+
+    unblock_all_signals(&info->app_sigblocked);
+    LOG(THREAD, LOG_ASYNCH, 2, "thread's initial app sigmask is 0x%08x 0x%08x\n",
+        *(int*)&info->app_sigblocked, *(((int*)&info->app_sigblocked)+1));
 
     /* only when SIGVTALRM handler is in place should we start itimer (PR 537743) */
     if (INTERNAL_OPTION(profile_pcs)) {
@@ -4272,7 +4280,7 @@ master_signal_handler_C(byte *xsp)
                         bb_build_abort(dcontext, true/*clean vm area*/, true/*unlock*/);
                     }
                     /* Since we have no sigreturn we have to restore the mask manually */
-                    unblock_all_signals();
+                    unblock_all_signals(NULL);
                     /* Let's pass it back to the application - memory is unreadable */
                     if (TEST(DUMPCORE_FORGE_UNREAD_EXEC, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("Warning: Racy app execution (decode unreadable)");
