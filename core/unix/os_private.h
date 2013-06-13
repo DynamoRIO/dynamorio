@@ -177,7 +177,7 @@ void handle_post_sigaction(dcontext_t *dcontext, int sig,
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 bool handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,
                         stack_t *old_stack);
-void handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
+bool handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                         kernel_sigset_t *oset, size_t sigsetsize);
 void handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
                              kernel_sigset_t *oset, size_t sigsetsize);

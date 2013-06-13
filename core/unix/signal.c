@@ -566,6 +566,8 @@ typedef struct _thread_sig_info_t {
     kernel_sigset_t app_sigblocked;
     /* for returning the old mask (xref PR 523394) */
     kernel_sigset_t pre_syscall_app_sigblocked;
+    /* for preserving the app memory (xref i#1187) */
+    kernel_sigset_t pre_syscall_app_sigprocmask;
     /* for alarm signals arriving in coarse units we only attempt to xl8
      * every nth signal since coarse translation is expensive (PR 213040)
      */
@@ -2086,24 +2088,43 @@ check_signals_pending(dcontext_t *dcontext, thread_sig_info_t *info)
     }
 }
 
-void
-handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
+/* Returns whether to execute the syscall */
+bool
+handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                    kernel_sigset_t *oset, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
+    kernel_sigset_t safe_set;
+    /* If we're intercepting all, we emulate the whole thing */
+    bool execute_syscall = !DYNAMO_OPTION(intercept_all_signals);
     LOG(THREAD, LOG_ASYNCH, 2, "handle_sigprocmask\n");
     if (oset != NULL)
         info->pre_syscall_app_sigblocked = info->app_sigblocked;
-    if (set != NULL) {
+    if (app_set != NULL && safe_read(app_set, sizeof(safe_set), &safe_set)) {
+        if (execute_syscall) {
+            /* The syscall will execute, so remove from the set passed
+             * to it.   We restore post-syscall.
+             * XXX i#1187: we could crash here touching app memory -- could
+             * use TRY, but the app could pass read-only memory and it
+             * would work natively!  Better to swap in our own
+             * allocated data struct.  There's a transparency issue w/
+             * races too if another thread looks at this memory.  This
+             * won't happen by default b/c -intercept_all_signals is
+             * on by default so we don't try to solve all these
+             * issues.
+             */
+            info->pre_syscall_app_sigprocmask = safe_set;
+        }
         if (how == SIG_BLOCK) {
             /* The set of blocked signals is the union of the current
              * set and the set argument.
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(set, i)) {
+                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
-                    kernel_sigdelset(set, i);
+                    if (execute_syscall)
+                        kernel_sigdelset(app_set, i);
                 }
             }
         } else if (how == SIG_UNBLOCK) {
@@ -2111,18 +2132,20 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
              *  blocked signals.
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(set, i)) {
+                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
                     kernel_sigdelset(&info->app_sigblocked, i);
-                    kernel_sigdelset(set, i);
+                    if (execute_syscall)
+                        kernel_sigdelset(app_set, i);
                 }
             }
         } else if (how == SIG_SETMASK) {
             /* The set of blocked signals is set to the argument set. */
             kernel_sigemptyset(&info->app_sigblocked);
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(set, i)) {
+                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
-                    kernel_sigdelset(set, i);
+                    if (execute_syscall)
+                        kernel_sigdelset(app_set, i);
                 }
             }
         }
@@ -2143,15 +2166,25 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
          */
         check_signals_pending(dcontext, info);
     }
+    if (!execute_syscall) {
+        handle_post_sigprocmask(dcontext, how, app_set, oset, sigsetsize);
+        return false; /* skip syscall */
+    } else
+        return true;
 }
 
 /* need to add in our signals that the app thinks are blocked */
 void
-handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,
+handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                         kernel_sigset_t *oset, size_t sigsetsize)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
+    if (!DYNAMO_OPTION(intercept_all_signals)) {
+        /* Restore app memory */
+        safe_write_ex(app_set, sizeof(*app_set), &info->pre_syscall_app_sigprocmask,
+                      NULL);
+    }
     if (oset != NULL) {
         for (i=1; i<=MAX_SIGNUM; i++) {
             if (info->we_intercept[i] &&

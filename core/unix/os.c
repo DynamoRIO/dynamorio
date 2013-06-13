@@ -6113,10 +6113,13 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param1 = sys_param(dcontext, 1);
         dcontext->sys_param2 = sys_param(dcontext, 2);
         dcontext->sys_param3 = sys_param(dcontext, 3);
-        handle_sigprocmask(dcontext, (int) sys_param(dcontext, 0),
-                           (kernel_sigset_t *) sys_param(dcontext, 1),
-                           (kernel_sigset_t *) sys_param(dcontext, 2),
-                           (size_t) sys_param(dcontext, 3));
+        execute_syscall =
+            handle_sigprocmask(dcontext, (int) sys_param(dcontext, 0),
+                               (kernel_sigset_t *) sys_param(dcontext, 1),
+                               (kernel_sigset_t *) sys_param(dcontext, 2),
+                               (size_t) sys_param(dcontext, 3));
+        if (!execute_syscall)
+            SET_RETURN_VAL(dcontext, 0);
         break;
     }
     case SYS_rt_sigsuspend: { /* 179 */
