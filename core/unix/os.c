@@ -86,14 +86,6 @@
 # define F_DUPFD_CLOEXEC 1030
 #endif
 
-#ifndef SYS_dup3
-# ifdef X64
-#  define SYS_dup3 292
-# else
-#  define SYS_dup3 330
-# endif
-#endif /* SYS_dup3 */
-
 /* Cross arch syscall nums for use with struct stat64. */
 #ifdef X64
 # define SYSNUM_STAT SYS_stat
