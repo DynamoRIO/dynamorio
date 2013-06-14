@@ -8398,20 +8398,30 @@ fragment_coarse_pclookup(dcontext_t *dcontext, coarse_info_t *info, cache_pc pc,
              * whole coarse unit will be thrown out.
              */
             TABLE_RWLOCK(pc_htable, write, lock);
-            last = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, pclookup_last_t,
-                                   ACCT_FRAG_TABLE, PROTECTED);
-            last->tag = closest;
-            last->entry = pc - closest_distance;
+            /* Check for race (i#1191) */
+            last = (pclookup_last_t *) generic_hash_lookup(GLOBAL_DCONTEXT, pc_htable,
+                                                           (ptr_uint_t)pc);
+            if (last != NULL) {
+                closest = last->tag;
+                ASSERT(pc >= last->entry);
+                closest_distance = pc - last->entry;
+            } else {
+                last = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, pclookup_last_t,
+                                       ACCT_FRAG_TABLE, PROTECTED);
+                last->tag = closest;
+                last->entry = pc - closest_distance;
 
-            if (pc_htable->entries >= PCLOOKUP_LAST_HTABLE_MAX_ENTRIES) {
-                /* See notes above: we don't want an enormous table.
-                 * We just clear rather than a fancy replacement policy.
-                 */
-                generic_hash_clear(GLOBAL_DCONTEXT, pc_htable);
+                if (pc_htable->entries >= PCLOOKUP_LAST_HTABLE_MAX_ENTRIES) {
+                    /* See notes above: we don't want an enormous table.
+                     * We just clear rather than a fancy replacement policy.
+                     */
+                    generic_hash_clear(GLOBAL_DCONTEXT, pc_htable);
+                }
+
+                generic_hash_add(GLOBAL_DCONTEXT, pc_htable, (ptr_uint_t)pc,
+                                 (void *)last);
+                STATS_INC(coarse_pclookup_cached);
             }
-
-            generic_hash_add(GLOBAL_DCONTEXT, pc_htable, (ptr_uint_t)pc, (void *)last);
-            STATS_INC(coarse_pclookup_cached);
             TABLE_RWLOCK(pc_htable, write, unlock);
         }
         TABLE_RWLOCK(htable, read, unlock);
