@@ -105,7 +105,7 @@ dr_init(client_id_t id)
     dr_register_bb_event(event_basic_block);
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer' initializing\n");
+    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer_app2lib' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
@@ -113,7 +113,7 @@ dr_init(client_id_t id)
         /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
         dr_enable_console_printing();
 # endif
-        dr_fprintf(STDERR, "Client modxfer is running\n");
+        dr_fprintf(STDERR, "Client modxfer_app2lib is running\n");
     }
 #endif
 }

@@ -37,11 +37,11 @@
  *
  * - Reports the dynamic count of total number of instructions executed
  *   and the number of transfers between modules via indirect branches.
- * - This is different from modxfer.c as it counts all transfers between any
- *   modules while modxfer.c only counts transfers between app and other
+ * - This is different from modxfer_app2lib.c as it counts all transfers between
+ *   any modules while modxfer.c only counts transfers between app and other
  *   modules, i.e., not counting transfers between two libraries.
- * - modxfer and modxfer2 is to demonstrate how we can simplify the client
- *   and improve the performance if we collect less information (modxfer).
+ * - modxfer and modxfer_app2lib are to demonstrate how we can simplify the client
+ *   and improve the performance if we collect less information (modxfer_app2lib).
  * - We assume that most of cross module transfers happen via indirect branches,
  *   and most of them are paired, so we only instrument indrect branches
  *   but not returns for better performance.
@@ -69,6 +69,7 @@ static uint64 ins_count;   /* number of instructions executed in total */
 static void  *mod_lock;
 static int    num_mods;
 static uint   xfer_cnt[MAX_NUM_MODULES][MAX_NUM_MODULES];
+static uint64 mod_cnt[MAX_NUM_MODULES];
 static file_t logfile;
 
 static bool
@@ -90,10 +91,15 @@ module_data_same(const module_data_t *d1, const module_data_t *d2)
     return false;
 }
 
-/* Simple clean calls that will each be automatically inlined because it has only
- * one argument and contains no calls to other functions.
+/* XXX i#43: the clean call has two arguments and cannot be inlined.
+ * We could either create one function for each module or
+ * one function per num_instrs to avoid taking two arguments.
  */
-static void ins_update(uint num_instrs) { ins_count += num_instrs; }
+static void ins_update(uint64 *mod_cnt, uint num_instrs)
+{
+    *mod_cnt  += num_instrs;
+    ins_count += num_instrs;
+}
 
 /* Simple clean calls with two arguments will not be inlined, but the context
  * switch can be optimized for better performance.
@@ -159,11 +165,11 @@ dr_init(client_id_t id)
     mod_lock = dr_mutex_create();
 
     logfile = log_file_open(id, NULL /* drcontext */,
-                            NULL/* path */, "modxfer2.log",
+                            NULL/* path */, "modxfer.log",
                             DR_FILE_WRITE_APPEND);
     DR_ASSERT(logfile != INVALID_FILE);
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer2' initializing\n");
+    dr_log(NULL, LOG_ALL, 1, "Client 'modxfer' initializing\n");
 #ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
@@ -171,7 +177,7 @@ dr_init(client_id_t id)
         /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
         dr_enable_console_printing();
 # endif
-        dr_fprintf(STDERR, "Client modxfer2 is running\n");
+        dr_fprintf(STDERR, "Client modxfer is running\n");
     }
 #endif
 }
@@ -189,6 +195,11 @@ event_exit(void)
         dr_fprintf(logfile, "module %3d: %s\n", i,
                    dr_module_preferred_name(mod_array[i].info) == NULL ?
                    "<unknown>" : dr_module_preferred_name(mod_array[i].info));
+        dr_fprintf(logfile, "%20llu instruction executed\n", mod_cnt[i]);
+    }
+    if (mod_cnt[UNKNOW_MODULE_IDX] != 0) {
+        dr_fprintf(logfile, "unknown modules:\n%20llu instruction executed\n",
+                   mod_cnt[UNKNOW_MODULE_IDX]);
     }
     for (i = 0; i < MAX_NUM_MODULES; i++) {
         for (j = 0; j < num_mods; j++) {
@@ -232,6 +243,8 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *instr, *mbr = NULL;
     uint num_instrs;
+    int i;
+    app_pc bb_addr = dr_fragment_app_pc(tag);
     
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
@@ -258,8 +271,17 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
             mbr = instr;
     }
 
+    for (i = 0; i < num_mods; i++) {
+        if (mod_array[i].loaded &&
+            mod_array[i].base <= bb_addr &&
+            mod_array[i].end  >  bb_addr)
+            break;
+    }
+    if (i == num_mods)
+        i = UNKNOW_MODULE_IDX;
     dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         (void *)ins_update, false /* save fpstate */, 1,
+                         (void *)ins_update, false /* save fpstate */, 2,
+                         OPND_CREATE_INTPTR(&mod_cnt[i]),
                          OPND_CREATE_INT32(num_instrs));
     if (mbr != NULL) {
         dr_insert_mbr_instrumentation(drcontext, bb, mbr,
