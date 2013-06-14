@@ -3949,6 +3949,7 @@ instr_is_cti_loop(instr_t *instr)
  * after instr.
  * Otherwise, the encoding is expected to be found in instr's allocated bits.
  * This routine does NOT decode instr to the opcode level.
+ * The caller should remangle any short-rewrite cti before calling this routine.
  */
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)

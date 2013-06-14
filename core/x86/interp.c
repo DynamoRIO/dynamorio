@@ -6640,6 +6640,15 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                          * Except that we want to support intra-fragment ctis for
                          * clients (i#665), so we use some heuristics.
                          */
+                        if (instr_is_cti_short_rewrite(instr, prev_pc)) {
+                            /* Pull in the two short jmps for a "short-rewrite" instr.
+                             * We must do this before asking whether it's an
+                             * intra-fragment so we don't just look at the
+                             * first part of the sequence.
+                             */
+                            pc = remangle_short_rewrite(dcontext, instr, prev_pc,
+                                                        0/*same target*/);
+                        }
                         if (!coarse_cti_is_intra_fragment(dcontext, info,
                                                           instr, start_pc)) {
                             /* Process this cti as an exit cti.  FIXME: we will then
@@ -6725,7 +6734,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                         instr_set_ok_to_mangle(instr, false);
                         if (re_relativize)
                             instr_set_raw_bits_valid(instr, false);
-                        else
+                        else if (!instr_is_cti_short_rewrite(instr, NULL))
                             instr_set_raw_bits(instr, cur_buf, (int)(pc - prev_pc));
                         instrlist_append(ilist, instr);
                         /* include buf for off-fragment cti, to simplify assert below */

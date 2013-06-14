@@ -1551,6 +1551,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     instr_t *instr;
     /* stored targets for fixup */
     jmp_tgt_list_t *jmp_list = NULL;
+    bool intra_fragment = false;
     /* Since mucking with caches, though if thread-private not necessary */
     ASSERT(dynamo_all_threads_synched);
     ASSERT(freeze_info->src_info->frozen);
@@ -1611,9 +1612,10 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
             if (next_pc >= stop_pc)
                 return; /* paranoid: avoid infinite loop */
             pc = next_pc;
-            if (next_pc != src_body ||
-                /* fall-through of cbr will be looked up pre-1st iter above */
-                (instr_opcode_valid(instr) && instr_is_cbr(instr))) {
+            if (!intra_fragment &&
+                (next_pc != src_body ||
+                 /* fall-through of cbr will be looked up pre-1st iter above */
+                 (instr_opcode_valid(instr) && instr_is_cbr(instr)))) {
                 /* We assume at least one instr in each fragment, to avoid ambiguity */
                 ASSERT_NOT_IMPLEMENTED(!DYNAMO_OPTION(unsafe_freeze_elide_sole_ubr));
                 if (next_pc == src_body) {
@@ -1676,9 +1678,22 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
              * Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
              * and no code beyond the last exit!
              */
-        } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) ||
-                 coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info,
-                                              instr, src_body));
+            intra_fragment = false;
+            if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
+                if (instr_is_cti_short_rewrite(instr, pc)) {
+                    /* Pull in the two short jmps for a "short-rewrite" instr.
+                     * We must do this before asking whether it's an
+                     * intra-fragment so we don't just look at the
+                     * first part of the sequence.
+                     */
+                    next_pc = remangle_short_rewrite(dcontext, instr, pc,
+                                                     0/*same target*/);
+                }
+                if (coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info,
+                                                 instr, src_body))
+                    intra_fragment = true;
+            }
+        } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) || intra_fragment);
 
         if (dst_body == NULL) { /* not a dup */
             /* copy body of fragment, including cti (if not ending @ fall-through) */
@@ -1702,16 +1717,7 @@ coarse_merge_without_dups(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
             }
         } else {
             ASSERT(instr_opcode_valid(instr) && instr_is_cti(instr));
-            /* Ensure we get proper target for short cti sequence, and copy full cti */
-            if (instr_is_cti_short_rewrite(instr, pc)) {
-                app_pc old_next_pc = next_pc;
-                next_pc = remangle_short_rewrite(dcontext, instr, pc, 0/*same target*/);
-                if (dst_body == NULL) { /* not a dup */
-                    memcpy(freeze_info->cache_cur_pc, old_next_pc,
-                           next_pc - old_next_pc);
-                    freeze_info->cache_cur_pc += (next_pc - old_next_pc);
-                }
-            }
+            /* We already remangled if a short-rewrite so no extra work here */
             tgt = opnd_get_pc(instr_get_target(instr));
             if (in_coarse_stub_prefixes(tgt)) {
                 /* We should not encounter prefix targets other than indirect while

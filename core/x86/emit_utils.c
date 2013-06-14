@@ -1921,11 +1921,6 @@ coarse_cti_is_intra_fragment(dcontext_t *dcontext, coarse_info_t *info,
     cache_pc tgt = opnd_get_pc(instr_get_target(inst));
     if (tgt < start_pc ||
         tgt >= start_pc + MAX_FRAGMENT_SIZE ||
-        /* don't treat short jmps inside short-rewrite as intra.
-         * note that we cannot pass NULL as 2nd arg b/c that assumes
-         * it was not decoded separately.
-         */
-        instr_is_cti_short_rewrite(inst, instr_get_raw_bits(inst)) ||
         /* if tgt is an entry, then it's a linked exit cti
          * XXX: this may acquire info->lock if it's never been called before
          */
