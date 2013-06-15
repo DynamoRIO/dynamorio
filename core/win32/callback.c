@@ -5030,16 +5030,6 @@ intercept_exception(app_state_at_intercept_t *state)
                 LOG(THREAD, LOG_ASYNCH, 2, "\tcxt pc is different: "PFX"\n",
                     cxt->CXT_XIP);
         });
-        DOLOG(2, LOG_ASYNCH, {
-            dump_exception_info(pExcptRec, cxt);
-            dump_exception_frames(); /* check what handlers are installed */
-        });
-        DOLOG(2, LOG_ASYNCH, {
-            /* verify attack handling assumptions on valid frames */
-            if (IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true) &&
-                dcontext != NULL)
-                exception_frame_chain_depth(dcontext);
-        });
 
 #ifdef HOT_PATCHING_INTERFACE
         /* Recover from a hot patch exception. */
@@ -5125,6 +5115,18 @@ intercept_exception(app_state_at_intercept_t *state)
             ASSERT_NOT_REACHED();
         }
         ASSERT(dcontext != NULL); /* NULL cases handled above */
+
+        /* We dump info after try/except to avoid rank order violation (i#) */
+        DOLOG(2, LOG_ASYNCH, {
+            dump_exception_info(pExcptRec, cxt);
+            dump_exception_frames(); /* check what handlers are installed */
+        });
+        DOLOG(2, LOG_ASYNCH, {
+            /* verify attack handling assumptions on valid frames */
+            if (IF_X64_ELSE(is_wow64_process(NT_CURRENT_PROCESS), true) &&
+                dcontext != NULL)
+                exception_frame_chain_depth(dcontext);
+        });
 
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
