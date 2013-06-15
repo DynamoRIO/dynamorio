@@ -61,7 +61,6 @@
 #ifdef UNIX
 # include <sys/time.h> /* ITIMER_* */
 # include "../unix/module.h" /* redirect_* functions */
-# include <sys/mman.h> /* MAP_32BIT */
 #endif
 
 #ifdef CLIENT_INTERFACE
@@ -2495,7 +2494,7 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
              * ok that the Linux kernel will ignore MAP_32BIT for 32-bit.
              */
 #ifdef UNIX
-            uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? MAP_32BIT : 0;
+            uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
 #else
             uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
                 (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);
@@ -2531,7 +2530,7 @@ raw_mem_free(void *addr, size_t size, dr_alloc_flags_t flags)
     heap_error_code_t error_code;
     byte *p = addr;
 #ifdef UNIX
-    uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? MAP_32BIT : 0;
+    uint os_flags = TEST(DR_ALLOC_LOW_2GB, flags) ? RAW_ALLOC_32BIT : 0;
 #else
     uint os_flags = TEST(DR_ALLOC_RESERVE_ONLY, flags) ? RAW_ALLOC_RESERVE_ONLY :
         (TEST(DR_ALLOC_COMMIT_ONLY, flags) ? RAW_ALLOC_COMMIT_ONLY : 0);

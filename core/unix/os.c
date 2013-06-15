@@ -51,6 +51,10 @@
 /* for mmap-related #defines */
 #include <sys/types.h>
 #include <sys/mman.h>
+/* in case MAP_32BIT is missing */
+#ifndef MAP_32BIT
+# define MAP_32BIT 0x40
+#endif
 /* for open */
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -2850,13 +2854,15 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
 {
     byte *p;
     uint os_prot = memprot_to_osprot(prot);
+    uint os_flags = MAP_PRIVATE |
+                    MAP_ANONYMOUS |
+                    (TEST(RAW_ALLOC_32BIT, flags) ? MAP_32BIT : 0);
 
     ASSERT(error_code != NULL);
     /* should only be used on aligned pieces */
     ASSERT(size > 0 && ALIGNED(size, PAGE_SIZE));
 
-    p = mmap_syscall(preferred, size, os_prot,
-                     MAP_PRIVATE|MAP_ANONYMOUS|flags, -1, 0);
+    p = mmap_syscall(preferred, size, os_prot, os_flags, -1, 0);
     if (!mmap_syscall_succeeded(p)) {
         *error_code = -(heap_error_code_t)(ptr_int_t)p;
         LOG(GLOBAL, LOG_HEAP, 3,

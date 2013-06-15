@@ -90,14 +90,18 @@ enum {
 };
 typedef uint heap_error_code_t;
 
-#ifdef WINDOWS
 /* flag values for os_raw_mem_alloc */
 enum {
+#ifdef WINDOWS
     /* default is reserve+commit */
     RAW_ALLOC_RESERVE_ONLY = 0x0001,
     RAW_ALLOC_COMMIT_ONLY  = 0x0002,
-};
 #endif
+#ifdef UNIX
+    RAW_ALLOC_32BIT        = 0x0004,
+#endif
+};
+
 
 /* For dr_raw_mem_alloc, try to allocate memory at preferred address. */
 void *os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
