@@ -1048,6 +1048,7 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
     cache_pc pc = body, next_pc = pc; /* source pcs */
     app_pc tgt;
     size_t sz;
+    bool intra_fragment = false;
     instr_t *instr;
     instr = instr_create(dcontext);
     do {
@@ -1061,8 +1062,22 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
          * Assumption: coarse-grain bbs have 1 ind exit or 2 direct,
          * and no code beyond the last exit!
          */
-    } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) ||
-             coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info, instr, body));
+        intra_fragment = false;
+        if (instr_opcode_valid(instr) && instr_is_cti(instr)) {
+            if (instr_is_cti_short_rewrite(instr, pc)) {
+                /* Pull in the two short jmps for a "short-rewrite" instr.
+                 * We must do this before asking whether it's an
+                 * intra-fragment so we don't just look at the
+                 * first part of the sequence.
+                 */
+                next_pc = remangle_short_rewrite(dcontext, instr, pc,
+                                                 0/*same target*/);
+            }
+            if (coarse_cti_is_intra_fragment(dcontext, freeze_info->src_info,
+                                             instr, body))
+                intra_fragment = true;
+        }
+    } while (!instr_opcode_valid(instr) || !instr_is_cti(instr) || intra_fragment);
 
     /* copy body of fragment, up to start of cti */
     sz = pc - body;
@@ -1072,7 +1087,7 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
 
     /* Ensure we get proper target for short cti sequence */
     if (instr_is_cti_short_rewrite(instr, pc)) {
-        next_pc = remangle_short_rewrite(dcontext, instr, pc, 0/*same target*/);
+        /* We already remangled if a short-rewrite */
         DODEBUG({
             /* We mangled 2-byte jecxz/loop* into 9-byte sequence */
             freeze_info->app_code_size -= 7; 
