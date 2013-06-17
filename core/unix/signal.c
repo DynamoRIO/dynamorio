@@ -100,7 +100,7 @@
 /**** data structures ***************************************************/
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
+typedef void (*handler_t)(int, siginfo_t *, void *);
 
 /* default actions */
 enum {
@@ -417,17 +417,17 @@ typedef struct rt_sigframe {
     char *pretcode;
 #ifdef X64
 # ifdef VMX86_SERVER
-    struct siginfo info;
+    siginfo_t info;
     kernel_ucontext_t uc;
 # else
     kernel_ucontext_t uc;
-    struct siginfo info;
+    siginfo_t info;
 # endif
 #else
     int sig;
-    struct siginfo *pinfo;
+    siginfo_t *pinfo;
     void *puc;
-    struct siginfo info;
+    siginfo_t info;
     kernel_ucontext_t uc;
     /* Prior to 2.6.28, "struct _fpstate fpstate" was here.  Rather than
      * try to reproduce that exact layout and detect the underlying kernel
@@ -686,7 +686,7 @@ dump_sigset(dcontext_t *dcontext, kernel_sigset_t *set);
 #endif
 
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info);
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info);
 
 static void
 signalfd_init(void);
@@ -3991,7 +3991,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
  * used in handle_nudge_signal()).
  */
 static bool
-is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, struct siginfo *info)
+is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 {
 #ifndef VMX86_SERVER /* does not properly set si_code */
     /* i#133: use si_code to distinguish user-sent signals.

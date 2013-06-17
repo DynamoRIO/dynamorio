@@ -52,13 +52,14 @@
 #include <stdlib.h> /* getenv */
 #include <string.h> /* strstr */
 #include <signal.h> /* killpg */
+#include <sys/resource.h> /* struct rusage */
 
 static int verbose;
 static int memstats;
 
 /* just use single-arg handlers */
 typedef void (*handler_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, void *);
+typedef void (*handler_3_t)(int, siginfo_t *, void *);
 
 typedef struct {
     unsigned long VmSize;
