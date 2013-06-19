@@ -334,7 +334,7 @@ get_config_sfx(dr_platform_t dr_platform)
     else if (dr_platform == DR_PLATFORM_32BIT)
         return CFG_SFX_32;
     else if (dr_platform == DR_PLATFORM_64BIT)
-        return CFG_SFX_32;
+        return CFG_SFX_64;
     else
         DO_ASSERT(false);
     return "";
