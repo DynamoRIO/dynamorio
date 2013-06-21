@@ -537,7 +537,7 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack)
     int rc;
     struct sigaction act;
 
-    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) handler;
     rc = sigfillset(&act.sa_mask); /* block all signals within handler */
     ASSERT_NOERR(rc);
     act.sa_flags = SA_SIGINFO;

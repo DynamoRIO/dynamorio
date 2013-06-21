@@ -90,7 +90,7 @@ unintercept_signal(int sig)
 {
     int rc;
     struct sigaction act;
-    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) SIG_DFL;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) SIG_DFL;
     /* disarm the signal */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);

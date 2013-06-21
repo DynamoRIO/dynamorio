@@ -53,7 +53,7 @@
 #include <string.h> /*  memset */
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
-typedef void (*handler_t)(int, struct siginfo *, void *);
+typedef void (*handler_t)(int, siginfo_t *, void *);
 
 #ifdef USE_DYNAMO
 #include "dynamorio.h"

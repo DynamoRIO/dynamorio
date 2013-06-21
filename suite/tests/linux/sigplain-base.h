@@ -104,7 +104,7 @@ custom_intercept_signal(int sig, handler_1_t handler)
     int rc;
     struct sigaction act;
 
-    act.sa_sigaction = (void (*)(int, struct siginfo *, void *)) handler;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) handler;
 #if BLOCK_IN_HANDLER
     rc = sigfillset(&act.sa_mask); /* block all signals within handler */
 #else

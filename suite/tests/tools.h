@@ -229,7 +229,7 @@ static void VERBOSE_PRINT(const char *fmt, ...) {}
 } while (0);
 
 typedef void (*handler_1_t)(int);
-typedef void (*handler_3_t)(int, struct siginfo *, ucontext_t *);
+typedef void (*handler_3_t)(int, siginfo_t *, ucontext_t *);
 
 /* set up signal_handler as the handler for signal "sig" */
 void
