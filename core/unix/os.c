@@ -3798,11 +3798,13 @@ fcntl_syscall(int fd, int cmd, long arg)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 /* not easily accessible in header files */
-#ifdef X64
+#ifndef O_LARGEFILE
+#  ifdef X64
 /* not needed */
-# define O_LARGEFILE    0
-#else
-# define O_LARGEFILE    0100000
+#    define O_LARGEFILE    0
+#  else
+#    define O_LARGEFILE    0100000
+#  endif
 #endif
 
 /* we assume that opening for writing wants to create file.
