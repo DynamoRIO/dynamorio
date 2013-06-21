@@ -138,6 +138,14 @@ static bool swapped_to_app_peb;
 /* FIXME i#875: we do not have ntdll!RtlpFlsLock isolated.  Living w/ it for now. */
 #endif
 
+/* NtTickCount: not really a syscall, just reads KUSER_SHARED_DATA.
+ * Redirects to RtlGetTickCount on Win2003+.
+ * But, it's not present on XP (i#1195), so we have to dynamically
+ * look it up.
+ */
+typedef ULONG_PTR (NTAPI *ntdll_NtTickCount_t)(void);
+static ntdll_NtTickCount_t ntdll_NtTickCount;
+
 /***************************************************************************/
 
 HANDLE WINAPI RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
@@ -270,6 +278,14 @@ os_loader_init_prologue(void)
                               "user32.dll", modpath);
         mod->externally_loaded = true;
     }
+
+    /* i#1195: NtTickCount is only on 2K3+.  If we can't find it we use
+     * the old KUSER_SHARED_DATA so make sure we're on an old OS.
+     */
+    ntdll_NtTickCount = (ntdll_NtTickCount_t)
+        get_proc_address(get_ntdll_base(), "NtGetTickCount");
+    ASSERT(ntdll_NtTickCount != NULL ||
+           get_os_version() <= WINDOWS_VERSION_XP);
 }
 
 void
@@ -1617,6 +1633,21 @@ private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
 #endif
 #define SECURITY_COOKIE_16BIT_INITIAL 0xBB40
 
+static ULONG_PTR
+get_tick_count(void)
+{
+    if (ntdll_NtTickCount != NULL) {
+        return (*ntdll_NtTickCount)();
+    } else {
+        /* Pre-win2k3, there is no ntdll!NtTickCount, and kernel32!GetTickCount
+         * does a simple computation from KUSER_SHARED_DATA.
+         */
+        KUSER_SHARED_DATA *kud = (KUSER_SHARED_DATA *) KUSER_SHARED_DATA_ADDRESS;
+        ULONG64 val = (ULONG64)kud->TickCountLowDeprecated * kud->TickCountMultiplier;
+        return (ULONG_PTR)(val >> 18);
+    }
+}
+
 static bool
 privload_set_security_cookie(privmod_t *mod)
 {
@@ -1670,7 +1701,7 @@ privload_set_security_cookie(privmod_t *mod)
     cookie = (ptr_int_t)(time100ns >> 32) ^ (ptr_int_t)time100ns;
     cookie ^= get_process_id();
     cookie ^= get_thread_id();
-    cookie ^= NtGetTickCount();
+    cookie ^= get_tick_count();
     nt_query_performance_counter(&perfctr, NULL);
 #ifdef X64
     cookie ^= perfctr.QuadPart;

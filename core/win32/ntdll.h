@@ -75,9 +75,14 @@
   NTSYSAPI NTSTATUS NTAPI NtFunction signature
 
 /***************************************************************************
- * structs and defines
- * mostly from either Windows NT/2000 Native API Reference's ntdll.h
- * or from the ddk's header files
+ * Structs and defines.
+ * Mostly from either Windows NT/2000 Native API Reference's ntdll.h
+ * or from the ddk's header files.
+ * These were generated from such headers to make
+ * information necessary for userspace to call into the Windows
+ * kernel available to DynamoRIO.  They include only constants,
+ * structures, and macros generated from the original headers, and
+ * thus, contain no copyrightable information.
  */
 
 #define NT_CURRENT_PROCESS ( (HANDLE) PTR_UINT_MINUS_1 )
@@ -952,6 +957,237 @@ typedef struct _FILE_BOTH_DIR_INFORMATION {
     WCHAR ShortName[12];
     WCHAR FileName[1];
 } FILE_BOTH_DIR_INFORMATION, *PFILE_BOTH_DIR_INFORMATION;
+
+/* from ntdef.h */
+typedef enum _NT_PRODUCT_TYPE {
+    NtProductWinNt = 1,
+    NtProductLanManNt,
+    NtProductServer
+} NT_PRODUCT_TYPE, *PNT_PRODUCT_TYPE;
+
+/* from ntdkk.h */
+typedef enum _ALTERNATIVE_ARCHITECTURE_TYPE {
+    StandardDesign,                 // None == 0 == standard design
+    NEC98x86,                       // NEC PC98xx series on X86
+    EndAlternatives                 // past end of known alternatives
+} ALTERNATIVE_ARCHITECTURE_TYPE;
+
+typedef struct _KSYSTEM_TIME {
+    ULONG LowPart;
+    LONG High1Time;
+    LONG High2Time;
+} KSYSTEM_TIME, *PKSYSTEM_TIME;
+
+#define PROCESSOR_FEATURE_MAX 64
+
+typedef struct _KUSER_SHARED_DATA {
+
+    //
+    // Current low 32-bit of tick count and tick count multiplier.
+    //
+    // N.B. The tick count is updated each time the clock ticks.
+    //
+
+    ULONG TickCountLowDeprecated;
+    ULONG TickCountMultiplier;
+
+    //
+    // Current 64-bit interrupt time in 100ns units.
+    //
+
+    volatile KSYSTEM_TIME InterruptTime;
+
+    //
+    // Current 64-bit system time in 100ns units.
+    //
+
+    volatile KSYSTEM_TIME SystemTime;
+
+    //
+    // Current 64-bit time zone bias.
+    //
+
+    volatile KSYSTEM_TIME TimeZoneBias;
+
+    //
+    // Support image magic number range for the host system.
+    //
+    // N.B. This is an inclusive range.
+    //
+
+    USHORT ImageNumberLow;
+    USHORT ImageNumberHigh;
+
+    //
+    // Copy of system root in Unicode
+    //
+
+    WCHAR NtSystemRoot[ 260 ];
+
+    //
+    // Maximum stack trace depth if tracing enabled.
+    //
+
+    ULONG MaxStackTraceDepth;
+
+    //
+    // Crypto Exponent
+    //
+
+    ULONG CryptoExponent;
+
+    //
+    // TimeZoneId
+    //
+
+    ULONG TimeZoneId;
+
+    ULONG LargePageMinimum;
+    ULONG Reserved2[ 7 ];
+
+    //
+    // product type
+    //
+
+    NT_PRODUCT_TYPE NtProductType;
+    BOOLEAN ProductTypeIsValid;
+
+    //
+    // NT Version. Note that each process sees a version from its PEB, but
+    // if the process is running with an altered view of the system version,
+    // the following two fields are used to correctly identify the version
+    //
+
+    ULONG NtMajorVersion;
+    ULONG NtMinorVersion;
+
+    //
+    // Processor Feature Bits
+    //
+
+    BOOLEAN ProcessorFeatures[PROCESSOR_FEATURE_MAX];
+
+    //
+    // Reserved fields - do not use
+    //
+    ULONG Reserved1;
+    ULONG Reserved3;
+
+    //
+    // Time slippage while in debugger
+    //
+
+    volatile ULONG TimeSlip;
+
+    //
+    // Alternative system architecture.  Example: NEC PC98xx on x86
+    //
+
+    ALTERNATIVE_ARCHITECTURE_TYPE AlternativeArchitecture;
+
+    //
+    // If the system is an evaluation unit, the following field contains the
+    // date and time that the evaluation unit expires. A value of 0 indicates
+    // that there is no expiration. A non-zero value is the UTC absolute time
+    // that the system expires.
+    //
+
+    LARGE_INTEGER SystemExpirationDate;
+
+    //
+    // Suite Support
+    //
+
+    ULONG SuiteMask;
+
+    //
+    // TRUE if a kernel debugger is connected/enabled
+    //
+
+    BOOLEAN KdDebuggerEnabled;
+
+
+    //
+    // Current console session Id. Always zero on non-TS systems
+    //
+    volatile ULONG ActiveConsoleId;
+
+    //
+    // Force-dismounts cause handles to become invalid. Rather than
+    // always probe handles, we maintain a serial number of
+    // dismounts that clients can use to see if they need to probe
+    // handles.
+    //
+
+    volatile ULONG DismountCount;
+
+    //
+    // This field indicates the status of the 64-bit COM+ package on the system.
+    // It indicates whether the Itermediate Language (IL) COM+ images need to
+    // use the 64-bit COM+ runtime or the 32-bit COM+ runtime.
+    //
+
+    ULONG ComPlusPackage;
+
+    //
+    // Time in tick count for system-wide last user input across all
+    // terminal sessions. For MP performance, it is not updated all
+    // the time (e.g. once a minute per session). It is used for idle
+    // detection.
+    //
+
+    ULONG LastSystemRITEventTickCount;
+
+    //
+    // Number of physical pages in the system.  This can dynamically
+    // change as physical memory can be added or removed from a running
+    // system.
+    //
+
+    ULONG NumberOfPhysicalPages;
+
+    //
+    // True if the system was booted in safe boot mode.
+    //
+
+    BOOLEAN SafeBootMode;
+
+    //
+    // The following field is used for Heap  and  CritSec Tracing
+    // The last bit is set for Critical Sec Collision tracing and
+    // second Last bit is for Heap Tracing
+    // Also the first 16 bits are used as counter.
+    //
+
+    ULONG TraceLogging;
+
+    //
+    // Depending on the processor, the code for fast system call
+    // will differ, the following buffer is filled with the appropriate
+    // code sequence and user mode code will branch through it.
+    //
+    // (32 bytes, using ULONGLONG for alignment).
+    //
+    // N.B. The following two fields are only used on 32-bit systems.
+    //
+
+    ULONGLONG   Fill0;          // alignment
+    ULONGLONG   SystemCall[4];
+
+    //
+    // The 64-bit tick count.
+    //
+
+    union {
+        volatile KSYSTEM_TIME TickCount;
+        volatile ULONG64 TickCountQuad;
+    };
+
+    /* XXX: Vista+ have added more fields */
+} KUSER_SHARED_DATA;
+
+/* We only rely on this up through Windows XP */
+#define KUSER_SHARED_DATA_ADDRESS ((ULONG_PTR)0x7ffe0000)
 
 /***************************************************************************
  * convenience enums
@@ -2080,11 +2316,6 @@ GET_NTDLL(NtWriteFile, (IN HANDLE FileHandle,
                         IN ULONG Length,
                         IN PLARGE_INTEGER ByteOffset OPTIONAL,
                         IN PULONG Key OPTIONAL));
-
-/* Not really a syscall: reads KUSER_SHARED_DATA.
- * Redirects to RtlGetTickCount on Win2003+.
- */
-NTSYSAPI ULONG_PTR NTAPI NtGetTickCount(void);
 
 /***************************************************************************
  * RAW WRAPPERS

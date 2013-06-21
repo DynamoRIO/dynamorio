@@ -122,7 +122,6 @@ EXPORTS
         NtDeviceIoControlFile
         NtQueryDirectoryFile
         NtFlushVirtualMemory
-        NtGetTickCount
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection

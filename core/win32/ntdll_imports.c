@@ -905,12 +905,6 @@ NtFlushVirtualMemory(IN HANDLE ProcessHandle,
     return STATUS_SUCCESS;
 }
 
-NTEXPORT ULONG_PTR NTAPI
-NtGetTickCount(void)
-{
-    return 0;
-}
-
 /***************************************************************************
  * RTL
  */
