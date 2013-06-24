@@ -247,35 +247,38 @@ static bool
 query_available(HANDLE proc, DWORD64 base, drsym_debug_kind_t *kind_p)
 {
     drsym_debug_kind_t kind;
-    IMAGEHLP_MODULE64 info; 
-    memset(&info, 0, sizeof(info)); 
-    info.SizeOfStruct = sizeof(info); 
-    if (SymGetModuleInfo64(GetCurrentProcess(), base, &info)) {
+    IMAGEHLP_MODULEW64 info;
+    memset(&info, 0, sizeof(info));
+    info.SizeOfStruct = sizeof(info);
+    /* i#1197: SymGetModuleInfo64 fails on internal wide-to-ascii conversion,
+     * so we use wchar version SymGetModuleInfoW64 instead.
+     */
+    if (SymGetModuleInfoW64(GetCurrentProcess(), base, &info)) {
         kind = 0;
         switch(info.SymType) {
-        case SymNone: 
+        case SymNone:
             NOTIFY("No symbols found\n");
-            break; 
-        case SymExport: 
-            NOTIFY("Only export symbols found\n"); 
-            break; 
-        case SymPdb: 
-            NOTIFY("Loaded pdb symbols from %s\n", info.LoadedPdbName);
+            break;
+        case SymExport:
+            NOTIFY("Only export symbols found\n");
+            break;
+        case SymPdb:
+            NOTIFY("Loaded pdb symbols from %S\n", info.LoadedPdbName);
             kind |= DRSYM_SYMBOLS | DRSYM_PDB;
             break;
-        case SymDeferred: 
+        case SymDeferred:
             NOTIFY("Symbol load deferred\n");
-            break; 
-        case SymCoff: 
-        case SymCv: 
-        case SymSym: 
-        case SymVirtual: 
-        case SymDia: 
-            NOTIFY("Symbols in image file loaded\n"); 
-            break; 
-        default: 
+            break;
+        case SymCoff:
+        case SymCv:
+        case SymSym:
+        case SymVirtual:
+        case SymDia:
+            NOTIFY("Symbols in image file loaded\n");
+            break;
+        default:
             NOTIFY("Symbols in unknown format.\n");
-            break; 
+            break;
         }
 
         if (info.LineNumbers) {
