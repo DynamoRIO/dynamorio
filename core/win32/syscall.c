@@ -546,6 +546,7 @@ intercept_syscall_for_thin_client(int SYSnum)
         SYSnum == SYS_CreateProcessEx ||
         SYSnum == SYS_CreateUserProcess ||
         SYSnum == SYS_TerminateThread ||    /* Case 9079. */
+        SYSnum == SYS_ResumeThread || /* i#1198: for env var propagation */
         /* case 8866: for -early_inject we must intercept NtMapViewOfSection */
         (DYNAMO_OPTION(early_inject) && SYSnum == SYS_MapViewOfSection)) {
         return true;

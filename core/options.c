@@ -1982,10 +1982,13 @@ synchronize_dynamic_options()
      * if we already have the lock, we must be in the middle of an update,
      * so this becomes a nop.
      */
-    if (self_owns_write_lock(&options_lock)) {
+    if (self_owns_write_lock(&options_lock) ||
+        /* avoid hangs reporting errors or warnings by using a trylock (xref i#1198) */
+        (!dynamo_initialized && options_lock.num_readers > 0)) {
         STATS_INC(option_synchronizations_nop);
         return 0;
     }
+
     write_lock(&options_lock);
 
     /* check again now that we hold write lock in case was modified */
