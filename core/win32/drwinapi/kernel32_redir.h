@@ -160,6 +160,10 @@ typedef struct _KNONVOLATILE_CONTEXT_POINTERS {
 } KNONVOLATILE_CONTEXT_POINTERS, *PKNONVOLATILE_CONTEXT_POINTERS;
 #endif
 
+#ifndef RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO
+# define RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO         0x01000000
+#endif
+
 /***************************************************************************/
 
 void

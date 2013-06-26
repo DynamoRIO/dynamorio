@@ -30,53 +30,22 @@
  * DAMAGE.
  */
 
-#include <windows.h>
-#define _IMAGEHLP_SOURCE_ /* export, not import */
-#include <dbghelp.h>
-#include "dbghelp_imports.h"
+#ifndef _DBGHELP_IMPORTS_H_
+#define _DBGHELP_IMPORTS_H_ 1
 
-BOOL
-IMAGEAPI
-SymInitializeW(
-    __in HANDLE hProcess,
-    __in_opt PCWSTR UserSearchPath,
-    __in BOOL fInvadeProcess
-    )
-{
-    return FALSE;
-}
 
-BOOL
-IMAGEAPI
-SymSetSearchPathW(
-    __in HANDLE hProcess,
-    __in_opt PCWSTR SearchPath
-    )
-{
-    return FALSE;
-}
+#if _MSC_VER <= 1400 /* VS2005- */
+/* Not present in VS2005 DbgHelp.h.  Our own dbghelp_imports.lib lets us link.
+ * This is present in dbghelp.dll 6.0+ which we already say we require.
+ */
+typedef struct _IMAGEHLP_LINEW64 {
+    DWORD    SizeOfStruct;           // set to sizeof(IMAGEHLP_LINE64)
+    PVOID    Key;                    // internal
+    DWORD    LineNumber;             // line number in file
+    PWSTR    FileName;               // full filename
+    DWORD64  Address;                // first instruction of line
+} IMAGEHLP_LINEW64, *PIMAGEHLP_LINEW64;
+#endif
 
-DWORD64
-IMAGEAPI
-SymLoadModuleExW(
-    __in HANDLE hProcess,
-    __in_opt HANDLE hFile,
-    __in_opt PCWSTR ImageName,
-    __in_opt PCWSTR ModuleName,
-    __in DWORD64 BaseOfDll,
-    __in DWORD DllSize,
-    __in_opt PMODLOAD_DATA Data,
-    __in_opt DWORD Flags
-    )
-{
-    return 0;
-}
 
-BOOL IMAGEAPI
-SymGetLineFromAddrW64(__in HANDLE hProcess,
-                      __in DWORD64 dwAddr,
-                      __out PDWORD pdwDisplacement,
-                      __out PIMAGEHLP_LINEW64 Line)
-{
-    return FALSE;
-}
+#endif /* _DBGHELP_IMPORTS_H_ */

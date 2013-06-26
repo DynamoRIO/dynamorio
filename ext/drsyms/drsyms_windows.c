@@ -78,6 +78,8 @@
 #include "drsyms.h"
 #include "wininc/dia2.h"  /* for BasicType and SymTagEnum */
 
+#include "dbghelp_imports.h"
+
 #if _MSC_VER <= 1400 /* VS2005- */
 /* Not present in VS2005 DbgHelp.h.  Our own dbghelp_imports.lib lets us link.
  * This is present in dbghelp.dll 6.0+ which we already say we require.
@@ -91,6 +93,12 @@ SymLoadModuleExW(__in HANDLE hProcess,
                  __in DWORD DllSize,
                  __in_opt PMODLOAD_DATA Data,
                  __in_opt DWORD Flags);
+
+BOOL IMAGEAPI
+SymGetLineFromAddrW64(__in HANDLE hProcess,
+                      __in DWORD64 dwAddr,
+                      __out PDWORD pdwDisplacement,
+                      __out PIMAGEHLP_LINEW64 Line);
 #endif
 
 /* SymSearch is not present in VS2005sp1 headers */

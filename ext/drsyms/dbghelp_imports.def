@@ -35,3 +35,4 @@ EXPORTS
         SymSetSearchPathW
         SymInitializeW
         SymLoadModuleExW
+        SymGetLineFromAddrW64
