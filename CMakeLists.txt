@@ -1159,7 +1159,8 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
             ${header_files}
     COMMAND ${PERL_EXECUTABLE}
     ARGS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
-         -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
+        -core ${PROJECT_SOURCE_DIR}/core
+        -header ${BUILD_INCLUDE} "${defines} -DAPI_EXPORT_ONLY"
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/core
     VERBATIM # recommended: p260
     )
