@@ -1137,6 +1137,8 @@ redirect_CreatePipe(
     ACCESS_MASK access = SYNCHRONIZE | GENERIC_READ | FILE_WRITE_ATTRIBUTES;
     DWORD size = (nSize != 0) ? nSize : PAGE_SIZE; /* default size */
     LARGE_INTEGER timeout;
+    wchar_t wbuf[MAX_PATH];
+    static uint pipe_counter;
     GET_NTDLL(NtCreateNamedPipeFile,
               (OUT PHANDLE FileHandle,
                IN ACCESS_MASK DesiredAccess,
@@ -1159,7 +1161,22 @@ redirect_CreatePipe(
 
     timeout.QuadPart = -1200000000; /* 120s */
 
-    /* We leave us with 0 length and NULL buffer b/c we don't want a name. */
+    if (get_os_version() < WINDOWS_VERSION_VISTA) {
+        /* These kernels require a name (else STATUS_OBJECT_NAME_INVALID),
+         * which we build using the PID and a global counter.
+         */
+        uint counter = atomic_add_exchange_int((volatile int *)&pipe_counter, 1);
+        int len = _snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), L"Win32Pipes.%08x.%08x",
+                             get_process_id(), counter);
+        res = wchar_to_unicode(&us, wbuf);
+        if (!NT_SUCCESS(res)) {
+            set_last_error(ERROR_INVALID_NAME); /* XXX: what else to use? */
+            return FALSE;
+        }
+    } else {
+        /* We leave us with 0 length and NULL buffer b/c we don't want a name. */
+    }
+
     init_object_attr_for_files(&oa, &us, lpPipeAttributes, NULL);
     oa.RootDirectory = base_named_pipe_dir;
     res = NtCreateNamedPipeFile(hReadPipe, access, &oa, &iob,
@@ -1175,9 +1192,13 @@ redirect_CreatePipe(
         return FALSE;
     }
     /* open the write handle */
+    if (get_os_version() > WINDOWS_VERSION_XP) {
+        /* XP requires the same name, while later versions just want RootDir */
+        memset(&us, 0, sizeof(us));
+    }
     oa.RootDirectory = *hReadPipe;
     res = nt_raw_OpenFile(hWritePipe, SYNCHRONIZE | FILE_GENERIC_WRITE,
-                          &oa, &iob, FILE_SHARE_READ,
+                          &oa, &iob, FILE_SHARE_READ | FILE_SHARE_WRITE,
                           FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
     if (!NT_SUCCESS(res)) {
         close_handle(*hReadPipe);
