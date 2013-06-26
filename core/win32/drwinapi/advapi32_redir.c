@@ -396,7 +396,8 @@ unit_test_drwinapi_advapi32(void)
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, &type, (LPBYTE) buf, &size);
     EXPECT(res == ERROR_SUCCESS, true);
     EXPECT(type == REG_SZ, true);
-    EXPECT(strstr(buf, "Windows") != NULL, true);
+    EXPECT(strstr(buf, "Windows") != NULL ||
+           strstr(buf, "WINDOWS") != NULL, true);
 
     size = 0;
     res = redirect_RegQueryValueExA(key, "SystemRoot", 0, NULL, NULL, &size);
@@ -419,15 +420,19 @@ unit_test_drwinapi_advapi32(void)
     {
         char *s;
         bool found_dhcp = false, found_DNS = false;
+        uint count = 0;
         s = buf;
         while (strlen(s) > 0) {
+            count++;
             if (strcmp(s, "DHCP") == 0)
                 found_dhcp = true;
-            else if (strstr(s, "DNS") != NULL)
+            else if (strstr(s, "DNS") != NULL ||
+                     strstr(s, "DnsCache") != NULL)
                 found_DNS = true;
             s += strlen(s) + 1/*null*/;
         }
-        EXPECT(found_dhcp && found_DNS, true);
+        EXPECT ((count == 1 /*seen on XP*/ && found_DNS) ||
+                (found_dhcp && found_DNS), true);
     }
     res = redirect_RegCloseKey(key);
     EXPECT(res == ERROR_SUCCESS, true);
