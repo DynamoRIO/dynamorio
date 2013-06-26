@@ -2025,7 +2025,8 @@ test_files(void)
                              GENERIC_READ, FILE_SHARE_READ, NULL,
                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     EXPECT(h == INVALID_HANDLE_VALUE, true);
-    EXPECT(get_last_error(), ERROR_FILE_NOT_FOUND);
+    EXPECT(get_last_error() == ERROR_FILE_NOT_FOUND ||
+           get_last_error() == ERROR_PATH_NOT_FOUND, true);
 
     res = _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
                     "%s\\_kernel32_file_test_temp.txt", env);
@@ -2094,7 +2095,9 @@ test_files(void)
     EXPECT(e != NULL, true);
     overlap.hEvent = e;
     ok = redirect_WriteFile(h, &h2, sizeof(h2), (LPDWORD) &dw, &overlap);
-    EXPECT(!ok && get_last_error() == ERROR_IO_PENDING, true);
+    EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
+           /* On XP and 2K3 this returns TRUE (i#1196) */
+           (get_os_version() < WINDOWS_VERSION_VISTA && ok), true);
     ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
@@ -2102,7 +2105,8 @@ test_files(void)
     dw = SetFilePointer(h, 0, NULL, FILE_BEGIN);
     EXPECT(dw == 0, true);
     ok = redirect_ReadFile(h, &p, sizeof(p), (LPDWORD) &dw, &overlap);
-    EXPECT(!ok && get_last_error() == ERROR_IO_PENDING, true);
+    EXPECT((!ok && get_last_error() == ERROR_IO_PENDING) ||
+           (get_os_version() < WINDOWS_VERSION_VISTA && ok), true);
     ok = GetOverlappedResult(h, &overlap, &dw, TRUE/*wait*/);
     EXPECT(ok, true);
     EXPECT(dw == sizeof(h2), true);
