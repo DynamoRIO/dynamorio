@@ -4084,9 +4084,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     /* can only test for equality w/o modifying flags, so save them 
      * if (addr < end_pc && addr+opndsize > start_pc) => self-write
      *   <write memory>
-     *   save flags and xax
      *   save xbx
      *   lea memory,xbx
+     *   save flags and xax # after lea of memory in case memory includes xax
      * if x64 && (start_pc > 4GB || end_pc > 4GB): save xcx
      * if x64 && end_pc > 4GB: mov end_pc, xcx
      *   cmp xbx, IF_X64_>4GB_ELSE(xcx, end_pc)
@@ -4147,9 +4147,6 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         after_write = end_pc;
     }
 
-    insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
-                       _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                               !X64_MODE_DC(dcontext)));
     PRE(ilist, next,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
@@ -4175,6 +4172,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX),
                                  OPND_CREATE_INTPTR(abs_addr)));
     }
+    insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
+                       _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
+                               !X64_MODE_DC(dcontext)));
 #ifdef X64
     if ((ptr_uint_t)start_pc > UINT_MAX || (ptr_uint_t)end_pc > UINT_MAX) {
         PRE(ilist, next,
@@ -4317,7 +4317,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
      *   else
      *     cmp xsi, start_pc
      *   endif
-     *     mov copy_size-1, xcx
+     *     mov copy_size-1, xcx # -1 b/c we already checked 1st byte
      *     jge forward
      *     mov copy_end_pc, xdi
      *         # => patch point 2

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,6 +71,9 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
         print_fault_code((unsigned char *)sc->SC_XIP);
         SIGLONGJMP(mark, count++);
     }
+    if (sig == SIGILL) {
+        print("Illegal instruction\n");
+    }
     exit(-1);
 }
 #else
@@ -83,6 +86,10 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         print_fault_code((unsigned char *)
                          pExceptionInfo->ExceptionRecord->ExceptionAddress);
         SIGLONGJMP(mark, count++);
+    }
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        print("Illegal instruction\n");
+        fflush(stderr);
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
@@ -103,6 +110,9 @@ make_last_byte_selfmod(void);
 
 void
 sandbox_fault(int i);
+
+void
+sandbox_cti_tgt(void);
 
 /* These *_no_ilt variants of the prototypes avoid indirection through the
  * Incremental Linking Table (ILT).  With inremental linking on Windows, all
@@ -249,6 +259,14 @@ test_sandbox_fault(void)
     print("end fault test\n");
 }
 
+static void
+test_sandbox_cti_tgt(void)
+{
+    protect_mem(sandbox_cti_tgt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    sandbox_cti_tgt();
+    print("end selfmod loop test\n");
+}
+
 int
 main(void)
 {
@@ -256,6 +274,7 @@ main(void)
 
 #ifdef UNIX
     intercept_signal(SIGSEGV, signal_handler, false);
+    intercept_signal(SIGILL, signal_handler, false);
 #else
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
 #endif
@@ -272,6 +291,7 @@ main(void)
 
     test_sandbox_fault();
 
+    test_sandbox_cti_tgt();
     return 0;
 }
 
@@ -430,6 +450,23 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+#define FUNCNAME sandbox_cti_tgt
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        /* modify OP_loop target via eax (so eflags save conflict) */
+        lea      REG_XAX, SYMREF(loop_target_end - 1)
+        mov      BYTE [REG_XAX], HEX(4)     /* selfmod write: skip both ud2a */
+        mov      REG_XCX, 4
+        loop     loop_orig_target
+ADDRTAKEN_LABEL(loop_target_end:)
+        ud2
+loop_orig_target:
+        ud2
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 
 END_FILE
 

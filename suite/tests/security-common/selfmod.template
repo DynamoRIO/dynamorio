@@ -44,3 +44,4 @@ start fault test
 int is 42
 fault bytes are 89 01 preceded by 07 00 00 00
 end fault test
+end selfmod loop test
