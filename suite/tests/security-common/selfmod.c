@@ -451,6 +451,7 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+
 #define FUNCNAME sandbox_cti_tgt
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -463,6 +464,20 @@ ADDRTAKEN_LABEL(loop_target_end:)
         ud2
 loop_orig_target:
         ud2
+
+        /* modify OP_loop target via OP_stosb which modifies its addr reg */
+        push     REG_XDI
+        lea      REG_XDI, SYMREF(loop_target_end2 - 1)
+        mov      al, 4
+        stosb    /* selfmod write: skip both ud2a */
+        mov      REG_XCX, 4
+        loop     loop_orig_target2
+ADDRTAKEN_LABEL(loop_target_end2:)
+        ud2
+loop_orig_target2:
+        ud2
+        pop      REG_XDI
+
         ret
         END_FUNC(FUNCNAME)
 #undef FUNCNAME

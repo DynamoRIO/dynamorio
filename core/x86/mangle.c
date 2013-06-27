@@ -4111,6 +4111,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
     instr_t *next_app = next;
+    instr_t *get_addr_at = next;
+    int opcode = instr_get_opcode(instr);
     DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
@@ -4147,7 +4149,14 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         after_write = end_pc;
     }
 
-    PRE(ilist, next,
+    if (opcode == OP_ins || opcode == OP_movs || opcode == OP_stos) {
+        /* These instrs modify their own addressing register so we must
+         * get the address pre-write.  None of them touch xbx.
+         */
+        get_addr_at = instr;
+    }
+
+    PRE(ilist, get_addr_at,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
     /* FIXME: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
@@ -4157,7 +4166,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     if (opnd_is_base_disp(op)) {
         /* change to OPSZ_lea for lea */
         opnd_set_size(&op, OPSZ_lea);
-        PRE(ilist, next,
+        PRE(ilist, get_addr_at,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX), op));
     } else {
         /* handle abs addr pointing within fragment */
@@ -4168,7 +4177,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         app_pc abs_addr;
         ASSERT(opnd_is_abs_addr(op) IF_X64( || opnd_is_rel_addr(op)));
         abs_addr = opnd_get_addr(op);
-        PRE(ilist, next,
+        PRE(ilist, get_addr_at,
             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX),
                                  OPND_CREATE_INTPTR(abs_addr)));
     }
