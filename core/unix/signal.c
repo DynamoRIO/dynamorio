@@ -6022,6 +6022,7 @@ stop_itimer(dcontext_t *dcontext)
 }
 
 /* handle app itimer syscalls */
+/* handle_pre_alarm also calls this function and passes NULL as prev_timer */
 void
 handle_pre_setitimer(dcontext_t *dcontext,
                      int which, const struct itimerval *new_timer,
@@ -6107,6 +6108,27 @@ handle_post_getitimer(dcontext_t *dcontext, bool success,
         if (info->shared_itimer)
             release_recursive_lock(info->shared_itimer_lock);
     }
+}
+
+/* handle app alarm syscall */
+/* alarm uses the same itimer and could be defined in terms of setitimer */
+void
+handle_pre_alarm(dcontext_t *dcontext, unsigned int sec)
+{
+    struct itimerval val;
+    val.it_interval.tv_usec = 0;
+    val.it_interval.tv_sec = 0;
+    val.it_value.tv_usec = 0;
+    val.it_value.tv_sec = sec;
+    handle_pre_setitimer(dcontext, ITIMER_REAL, &val, NULL);
+}
+
+void
+handle_post_alarm(dcontext_t *dcontext, bool success, unsigned int sec)
+{
+    /* alarm is always successful, so do nothing in post */
+    ASSERT(success);
+    return;
 }
 
 /***************************************************************************/

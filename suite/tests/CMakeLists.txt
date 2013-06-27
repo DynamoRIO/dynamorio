@@ -1600,6 +1600,8 @@ if (UNIX)
   tobuild(linux.threadexit linux/threadexit.c)
   tobuild(linux.threadexit2 linux/threadexit2.c)
   tobuild(linux.signalfd linux/signalfd.c)
+  # i#784: test app behavior on alarm
+  tobuild(linux.alarm linux/alarm.c)
 
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.

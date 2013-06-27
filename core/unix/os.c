@@ -4663,6 +4663,8 @@ ignorable_system_call(int num)
     case SYS_fcntl:
     case SYS_getrlimit:
     case SYS_setrlimit:
+    /* i#784: app may have behavior relying on SIGALRM */
+    case SYS_alarm:
     /* i#107: syscall might change/query app's seg memory 
      * need stop app from clobbering our GDT slot.
      */
@@ -6212,7 +6214,10 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
-
+    case SYS_alarm: /* 27 on x86 and 37 on x64 */
+        dcontext->sys_param0 = sys_param(dcontext, 0);
+        handle_pre_alarm(dcontext, (unsigned int) dcontext->sys_param0);
+        break;
 #if 0
 # ifndef X64
     case SYS_signal: {         /* 48 */
@@ -7381,10 +7386,13 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
+    case SYS_alarm: /* 27 on x86 and 37 on x64 */
+        handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
+        break;
 #ifdef X64
     case SYS_arch_prctl: {
         if (success && INTERNAL_OPTION(mangle_app_seg))
-            handle_post_arch_prctl(dcontext, 
+            handle_post_arch_prctl(dcontext,
                                    dcontext->sys_param0, 
                                    dcontext->sys_param1);
         break;
