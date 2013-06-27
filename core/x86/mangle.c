@@ -4154,6 +4154,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
          * get the address pre-write.  None of them touch xbx.
          */
         get_addr_at = instr;
+        ASSERT(!instr_writes_to_reg(instr, REG_XBX) &&
+               !instr_reads_from_reg(instr, REG_XBX));
     }
 
     PRE(ilist, get_addr_at,
@@ -4168,6 +4170,24 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         opnd_set_size(&op, OPSZ_lea);
         PRE(ilist, get_addr_at,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX), op));
+        if ((opcode == OP_push && opnd_is_base_disp(op) &&
+             opnd_get_index(op) == DR_REG_NULL &&
+             reg_to_pointer_sized(opnd_get_base(op)) == DR_REG_XSP) ||
+            opcode == OP_push_imm || opcode == OP_pushf || opcode == OP_pusha ||
+            opcode == OP_pop /* pop into stack slot */ ||
+            opcode == OP_call || opcode == OP_call_ind || opcode == OP_call_far ||
+            opcode == OP_call_far_ind) {
+            /* Undo xsp adjustment made by the instruction itself.
+             * We could use get_addr_at to acquire the address pre-instruction
+             * for some of these, but some can read or write ebx.
+             */
+            LOG(THREAD, LOG_INTERP, 1, "YYY selfmod push\n");//NOCHECKIN
+            
+            PRE(ilist, next,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX),
+                                 opnd_create_base_disp(REG_NULL, REG_XBX,
+                                                       1, -opnd_get_disp(op), OPSZ_lea)));
+        }
     } else {
         /* handle abs addr pointing within fragment */
         /* XXX: Can optimize this by doing address comparison at translation

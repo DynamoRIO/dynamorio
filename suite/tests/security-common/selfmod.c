@@ -89,7 +89,6 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
     }
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
         print("Illegal instruction\n");
-        fflush(stderr);
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
@@ -477,6 +476,21 @@ ADDRTAKEN_LABEL(loop_target_end2:)
 loop_orig_target2:
         ud2
         pop      REG_XDI
+
+#ifndef X64 /* to make the push immed easier */
+        /* modify OP_loop target via OP_push */
+        mov      REG_XAX, REG_XSP
+        /* we clobber the 2 with 4 and overwrite the 2 ud2a with themselves */
+        lea      REG_XSP, SYMREF(loop_target_end3 + 3)
+        push     HEX(0b0f0b04)    /* selfmod write: skip both ud2a */
+        mov      REG_XCX, 4
+        loop     loop_orig_target3
+ADDRTAKEN_LABEL(loop_target_end3:)
+        ud2
+loop_orig_target3:
+        ud2
+        mov      REG_XSP, REG_XAX
+#endif
 
         ret
         END_FUNC(FUNCNAME)
