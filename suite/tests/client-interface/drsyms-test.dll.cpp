@@ -61,6 +61,10 @@ static void test_demangle(void);
 static void lookup_overloads(const char *exe_path);
 #endif
 
+#ifdef WINDOWS
+static dr_os_version_info_t os_version = {sizeof(os_version),};
+#endif
+
 extern "C" DR_EXPORT void
 dr_init(client_id_t id)
 {
@@ -72,6 +76,11 @@ dr_init(client_id_t id)
     lookup_exe_syms();
     dr_register_module_load_event(lookup_dll_syms);
     test_demangle();
+
+#ifdef WINDOWS
+    if (!dr_get_os_version(&os_version))
+        ASSERT(false);
+#endif
 }
 
 /* Count intercepted calls. */
@@ -647,6 +656,9 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
     uint i;
 
     ASSERT(status == DRSYM_ERROR_LINE_NOT_AVAILABLE);
+    /* XXX: heads up that dbghelp that comes with DTFW 6.3 has the
+     * available size as one larger!  We assume nobody is using that.
+     */
     ASSERT(strlen(out->name) == out->name_available_size);
     ASSERT((out->file == NULL && out->file_available_size == 0) ||
            (strlen(out->file) == out->file_available_size));
@@ -670,8 +682,13 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
              *   error for __initiallocinfo: 481 != 483, kind = 5
              * Grrr!  Do we really have to go and compare all the properties
              * of the type to ensure it's the same?!?
+             *
+             * Plus, with VS2008 dbghelp we get a lot of even worse mismatches
+             * here (part of i#1196).  We only use it on XP so we relax this
+             * check there.
              */
-            ASSERT(type->id == out->type_id ||
+            ASSERT(IF_WINDOWS(os_version.version <= DR_WINDOWS_VERSION_XP ||)
+                   type->id == out->type_id ||
                    /* Unknown type has id cleared to 0 */
                    (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
                    /* Some __ types seem to have varying id's */

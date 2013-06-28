@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,14 +36,6 @@
 #include "client_tools.h"
 
 #include <string.h>
-
-#ifdef WINDOWS
-# define IF_WINDOWS_ELSE(x, y) x
-# define IF_WINDOWS(x) x
-#else
-# define IF_WINDOWS_ELSE(x, y) y
-# define IF_WINDOWS(x) 
-#endif
 
 static bool verbose = false;
 

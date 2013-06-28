@@ -1,4 +1,5 @@
 /* *******************************************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -72,5 +73,13 @@
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 /* check if a single bit is set in var */
 #define TEST TESTANY
+
+#ifdef WINDOWS
+# define IF_WINDOWS_ELSE(x, y) x
+# define IF_WINDOWS(x) x
+#else
+# define IF_WINDOWS_ELSE(x, y) y
+# define IF_WINDOWS(x) 
+#endif
 
 #endif /* DR_CLIENT_TOOLS_H */
