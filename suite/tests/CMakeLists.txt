@@ -848,8 +848,21 @@ function(template2expect outexpect template runops)
     "(-D[^ ]+) +([^-][^ ]*)"
     "\\1___\\2" rundefs "${rundefs}")
   
-  # FIXME i#65 NOT YET COMPLETED: RUNREGRESSION_winversion like
-  # gen_expect.pl does
+  if ("${CMAKE_SYSTEM_VERSION}" STRLESS "5.0")
+    set(rundefs "${rundefs} -DRUNREGRESSION_NT")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "5.1")
+    set(rundefs "${rundefs} -DRUNREGRESSION_2000")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "5.2")
+    set(rundefs "${rundefs} -DRUNREGRESSION_XP")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
+    set(rundefs "${rundefs} -DRUNREGRESSION_2003")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.1")
+    set(rundefs "${rundefs} -DRUNREGRESSION_VISTA")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.2")
+    set(rundefs "${rundefs} -DRUNREGRESSION_WIN7")
+  elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
+    set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
+  endif ()
 
   string(STRIP "${rundefs}" rundefs)
 

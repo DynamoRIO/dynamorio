@@ -18,8 +18,11 @@ trace event 2 is called 1 time(s)
 # endif
 delete event 1 is called 1 time(s)
 delete event 2 is called 1 time(s)
+# if !defined(RUNREGRESSION_XP)
+/* no filter event on xp sp2+ */
 filter syscall event 1 is called 1 time(s)
 filter syscall event 2 is called 1 time(s)
+# endif
 pre syscall event 1 is called 1 time(s)
 pre syscall event 2 is called 1 time(s)
 post syscall event 1 is called 1 time(s)
