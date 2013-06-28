@@ -144,13 +144,19 @@ event_resurrect_ro(void *drcontext, void *perscxt, byte **map INOUT)
     for (i = 0; i < HASHTABLE_SIZE(sample_pointer_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = sample_pointer_table.table[i]; he != NULL; he = he->next) {
-            ASSERT(*((app_pc)he->key) == *((app_pc)he->payload));
+            ASSERT(*((app_pc)he->key) == *((app_pc)he->payload) ||
+                   /* XXX: we relax our assert to handle a syscall hook, which
+                    * isn't in place yet at load time (i#1196).
+                    */
+                   *((app_pc)he->payload) == 0xe9);
         }
     }
     for (i = 0; i < HASHTABLE_SIZE(sample_inlined_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = sample_inlined_table.table[i]; he != NULL; he = he->next) {
-            ASSERT(*((app_pc)he->key) == (byte)(ptr_uint_t)he->payload);
+            ASSERT(*((app_pc)he->key) == (byte)(ptr_uint_t)he->payload ||
+                   /* see above */
+                   (byte)(ptr_uint_t)he->payload == 0xe9);
         }
     }
 
