@@ -1001,7 +1001,8 @@ context_ymmh_saved_area(CONTEXT *cxt)
      * Should we use kernel32!LocateXStateFeature() or 
      * ntdll!RtlLocateExtendedFeature() to locate,
      * or cpuid to find Ext_Save_Area_2?
-     * Currently, use hardcode XSTATE_HEADER_SIZE. 
+     * Currently, use hardcode XSTATE_HEADER_SIZE.
+     * mcontext_to_context() also uses this to get back to the header.
      */
     p = p + sizeof(*cxt) + cxt_ex->xstate.offset + XSTATE_HEADER_SIZE;
     return (byte *)p;
@@ -1117,6 +1118,8 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
 #ifdef X64
         ASSERT(sizeof(cxt->FltSave) == written);
         memcpy(&cxt->FltSave, fpstate, written);
+        /* We also have to set the x64-only duplicate top-level MxCsr field (i#1081) */
+        cxt->MxCsr = cxt->FltSave.MxCsr;
 #else
         ASSERT(MAXIMUM_SUPPORTED_EXTENSION == written);
         memcpy(&cxt->ExtendedRegisters, fpstate, written);
@@ -1128,6 +1131,8 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
     if (CONTEXT_PRESERVE_YMM && TESTALL(CONTEXT_XSTATE, cxt->ContextFlags)) {
         byte *ymmh_area = context_ymmh_saved_area(cxt);
         if (ymmh_area != NULL) {
+            uint64 *header_bv = (uint64 *) (ymmh_area - XSTATE_HEADER_SIZE);
+            uint bv_high, bv_low;
             int i;
 #ifndef X64
             /* In 32-bit Windows mcontext, we do not preserve xmm/ymm 6 and 7, 
@@ -1155,6 +1160,11 @@ mcontext_to_context(CONTEXT *cxt, priv_mcontext_t *mcontext, bool set_cur_seg)
                        &mcontext->ymm[i].u32[4],
                        YMMH_REG_SIZE);
             }
+            /* The only un-reserved part of the AVX header saved by OP_xsave is
+             * the XSTATE_BV byte.
+             */
+            dr_xgetbv(&bv_high, &bv_low);
+            *header_bv = (((uint64)bv_high)<<32) | bv_low;
         }
     }
     /* CONTEXT_CONTROL without the segments */

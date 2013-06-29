@@ -4574,6 +4574,14 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
             print_file(f, dump_xml ? "\"\n" : "\n");
         }
+        DOLOG(2, LOG_INTERP, {
+            /* Not part of mcontext but useful for tracking app behavior */
+            if (!dump_xml) {
+                uint mxcsr;
+                dr_stmxcsr(&mxcsr);
+                print_file(f, "\tmxcsr=0x%08x\n", mxcsr);
+            }
+        });
     }
     print_file(f, dump_xml ? 
                "\n\t\teflags=\""PFX"\"\n\t\tpc=\""PFX"\" />\n"

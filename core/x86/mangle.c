@@ -4181,8 +4181,6 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
              * We could use get_addr_at to acquire the address pre-instruction
              * for some of these, but some can read or write ebx.
              */
-            LOG(THREAD, LOG_INTERP, 1, "YYY selfmod push\n");//NOCHECKIN
-            
             PRE(ilist, next,
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XBX),
                                  opnd_create_base_disp(REG_NULL, REG_XBX,

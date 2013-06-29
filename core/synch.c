@@ -709,10 +709,11 @@ set_synched_thread_context(thread_record_t *trec,
             synch_thread_free_setcontext(tsd);
         }
         LOG(THREAD_GET, LOG_SYNCH, 2, 
-            "set_synched_thread_context %d to pc "PFX"\n", trec->id,
+            "set_synched_thread_context %d to pc "PFX" via %s\n", trec->id,
             (mc != NULL) ? mc->pc : (app_pc)
             IF_WINDOWS_ELSE(((CONTEXT*)cxt)->CXT_XIP,
-                            ((SIGCXT_TYPE *)cxt)->SC_XIP));
+                            ((SIGCXT_TYPE *)cxt)->SC_XIP),
+            (mc != NULL) ? "mc" : "CONTEXT");
         if (mc != NULL)
             tsd->set_mcontext = mc;
         else {

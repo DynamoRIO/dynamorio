@@ -855,6 +855,8 @@ void native_plt_call(void);
 #endif
 DEBUG_DECLARE(void debug_infinite_loop(void); /* handy cpu eating infinite loop */)
 void hashlookup_null_handler(void);
+void dr_stmxcsr(uint *val);
+void dr_xgetbv(uint *high, uint *low);
 
 /* Keep in synch with x86.asm.  This is the difference between the SP saved in
  * the mcontext and the SP of the caller of dr_app_start() and

@@ -1719,6 +1719,35 @@ GLOBAL_LABEL(our_cpuid:)
         ret
         END_FUNC(our_cpuid)
 
+/* We could use inline asm on Linux but it's cleaner to share the same code: */
+/* void dr_stmxcsr(uint *val) */
+#define FUNCNAME dr_stmxcsr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        stmxcsr  [REG_XAX]
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* void dr_xgetbv(uint *high, uint *low) */
+#define FUNCNAME dr_xgetbv
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        mov      REG_XDX, ARG2
+        push     REG_XAX               /* high */
+        push     REG_XDX               /* low */
+        mov      ecx, 0
+        xgetbv
+        pop      REG_XCX
+        mov      DWORD [REG_XCX], eax  /* low */
+        pop      REG_XCX
+        mov      DWORD [REG_XCX], edx  /* high */
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 #ifdef WINDOWS /* on linux we use inline asm versions */
 
 /* byte *get_frame_ptr(void)
