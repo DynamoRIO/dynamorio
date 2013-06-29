@@ -525,6 +525,14 @@ typedef struct _thread_itimer_info_t {
 struct _sigfd_pipe_t;
 typedef struct _sigfd_pipe_t sigfd_pipe_t;
 
+/* If we only intercept a few signals, we leave whether un-intercepted signals
+ * are blocked unchanged and stored in the kernel.  If we intercept all (not
+ * quite yet: PR 297033, hence the need for this macro) we emulate the mask for
+ * all.
+ */
+#define EMULATE_SIGMASK(info, sig) \
+    (DYNAMO_OPTION(intercept_all_signals) || (info)->we_intercept[(sig)])
+
 typedef struct _thread_sig_info_t {
     /* we use kernel_sigaction_t so we don't have to translate back and forth
      * between it and libc version.
@@ -1418,6 +1426,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
                                        false/*!other_thread*/);
             /* Undo the unblock-all */
             sigprocmask_syscall(SIG_SETMASK, &init_sigmask, NULL, sizeof(init_sigmask));
+            DOLOG(2, LOG_ASYNCH, {
+                LOG(THREAD, LOG_ASYNCH, 2, "initial app signal mask:\n");
+                dump_sigset(dcontext, &init_sigmask);
+            });
         }
 
         if (APP_HAS_SIGSTACK(info)) {
@@ -1510,8 +1522,10 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
     }
 
     unblock_all_signals(&info->app_sigblocked);
-    LOG(THREAD, LOG_ASYNCH, 2, "thread's initial app sigmask is 0x%08x 0x%08x\n",
-        *(int*)&info->app_sigblocked, *(((int*)&info->app_sigblocked)+1));
+    DOLOG(2, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 2, "thread's initial app signal mask:\n");
+        dump_sigset(dcontext, &info->app_sigblocked);
+    });
 
     /* only when SIGVTALRM handler is in place should we start itimer (PR 537743) */
     if (INTERNAL_OPTION(profile_pcs)) {
@@ -1958,6 +1972,10 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             LOG(THREAD, LOG_ASYNCH, 2,
                 "app installed "PFX" as sigaction for signal %d\n",
                 act->handler, sig);
+            DOLOG(2, LOG_ASYNCH, {
+                LOG(THREAD, LOG_ASYNCH, 2, "signal mask for handler:\n");
+                dump_sigset(dcontext, (kernel_sigset_t *) &act->mask);
+            });
         }
 
         /* save app's entire sigaction struct */
@@ -2080,7 +2098,7 @@ set_blocked(dcontext_t *dcontext, kernel_sigset_t *set, bool absolute)
         kernel_sigemptyset(&info->app_sigblocked);
     } /* else, OR in the new set */
     for (i=1; i<=MAX_SIGNUM; i++) {
-        if (info->we_intercept[i] && kernel_sigismember(set, i)) {
+        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(set, i)) {
             kernel_sigaddset(&info->app_sigblocked, i);
         }
     }
@@ -2150,7 +2168,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              * set and the set argument.
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
+                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2161,7 +2179,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
              *  blocked signals.
              */
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
+                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
                     kernel_sigdelset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2171,7 +2189,7 @@ handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
             /* The set of blocked signals is set to the argument set. */
             kernel_sigemptyset(&info->app_sigblocked);
             for (i=1; i<=MAX_SIGNUM; i++) {
-                if (info->we_intercept[i] && kernel_sigismember(&safe_set, i)) {
+                if (EMULATE_SIGMASK(info, i) && kernel_sigismember(&safe_set, i)) {
                     kernel_sigaddset(&info->app_sigblocked, i);
                     if (execute_syscall)
                         kernel_sigdelset(app_set, i);
@@ -2215,13 +2233,18 @@ handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *app_set,
                       NULL);
     }
     if (oset != NULL) {
-        for (i=1; i<=MAX_SIGNUM; i++) {
-            if (info->we_intercept[i] &&
-                /* use the pre-syscall value: do not take into account changes
-                 * from this syscall itself! (PR 523394)
-                 */
-                kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
-                kernel_sigaddset(oset, i);
+        if (DYNAMO_OPTION(intercept_all_signals))
+            safe_write_ex(oset, sizeof(*oset), &info->pre_syscall_app_sigblocked, NULL);
+        else {
+            /* the syscall wrote to oset already, so just add any additional */
+            for (i=1; i<=MAX_SIGNUM; i++) {
+                if (EMULATE_SIGMASK(info, i) &&
+                    /* use the pre-syscall value: do not take into account changes
+                     * from this syscall itself! (PR 523394)
+                     */
+                    kernel_sigismember(&info->pre_syscall_app_sigblocked, i)) {
+                    kernel_sigaddset(oset, i);
+                }
             }
         }
     }
@@ -2239,7 +2262,7 @@ handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
     info->app_sigblocked_save = info->app_sigblocked;
     kernel_sigemptyset(&info->app_sigblocked);
     for (i=1; i<=MAX_SIGNUM; i++) {
-        if (info->we_intercept[i] && kernel_sigismember(set, i)) {
+        if (EMULATE_SIGMASK(info, i) && kernel_sigismember(set, i)) {
             kernel_sigaddset(&info->app_sigblocked, i);
             kernel_sigdelset(set, i);
         }
