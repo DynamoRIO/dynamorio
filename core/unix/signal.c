@@ -4085,8 +4085,8 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
                                            &target, write, &memoppos);
              memopidx++) {
             /* i#1045: check whether operand and si_addr overlap */
-            memop = write ? instr_get_dst(&instr, memoppos)
-                          : instr_get_src(&instr, memoppos);
+            memop = *write ? instr_get_dst(&instr, memoppos) :
+                instr_get_src(&instr, memoppos);
             memopsize = opnd_size_in_bytes(opnd_get_size(memop));
             LOG(THREAD, LOG_ALL, 2,
                 "memory operand %u has address "PFX" and size %u\n",
