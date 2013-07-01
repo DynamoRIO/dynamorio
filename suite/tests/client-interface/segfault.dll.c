@@ -32,29 +32,48 @@
  */
 
 #include "dr_api.h"
+#include "client_tools.h"
 
-#ifdef UNIX
+static void **expected_fault_address;
+
+#if defined(UNIX)
 # include <signal.h>
-#endif
 
-#ifdef UNIX
 static dr_signal_action_t
 signal_event(void *dcontext, dr_siginfo_t *info)
 {
-    static int count;
-    /* Test i#1045: cross-page access address */
-    if (info->sig == SIGSEGV) {
-        if (count++ == 0 && info->access_address == NULL)
-            dr_fprintf(STDERR, "First fault is not accessing NULL!\n");
+    if (info->sig == SIGABRT) {
+        /* do nothing */
+    } else if (info->sig == SIGSEGV &&
+               info->access_address == *expected_fault_address) {
+        dr_fprintf(STDERR, "dr handler ok\n");
+    } else {
+        dr_fprintf(STDERR,
+                   "dr handler got signal %d with addr "PFX
+                   ", but expected signal %d with addr "PFX"\n",
+                   info->sig, (ptr_uint_t)info->access_address,
+                   SIGSEGV, (ptr_uint_t)*expected_fault_address);
     }
     return DR_SIGNAL_DELIVER;
 }
-#else
+#elif defined(WINDOWS)
+
 static bool
 exception_event(void *dcontext, dr_exception_t *excpt)
 {
-    if (excpt->record->ExceptionCode != STATUS_ACCESS_VIOLATION)
-        dr_fprintf(STDERR, "Unexpected fault type\n");
+    void *fault_address = (void *)excpt->record->ExceptionInformation[1];
+    if (excpt->record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+        fault_address == *expected_fault_address) {
+        dr_fprintf(STDERR, "dr handler ok\n");
+    } else {
+        dr_fprintf(STDERR,
+                   "dr handler got exception %x with addr "PFX
+                   ", but expected exception %x with addr "PFX"\n",
+                   excpt->record->ExceptionCode,
+                   (ptr_uint_t)excpt->record->ExceptionInformation[1],
+                   EXCEPTION_ACCESS_VIOLATION,
+                   (ptr_uint_t)*expected_fault_address);
+    }
     return true;
 }
 #endif
@@ -62,8 +81,8 @@ exception_event(void *dcontext, dr_exception_t *excpt)
 static void
 exit_event(void)
 {
-    dr_fprintf(STDERR, "Aborting in client exit event\n");
-    /* we want to also test end-to-end w/ core dump being generated but 
+    dr_fprintf(STDERR, "dr exit handler aborting\n");
+    /* we want to also test end-to-end w/ core dump being generated but
      * that's hard to do in a test suite so we abort here: but that can
      * mask errors.
      */
@@ -73,11 +92,19 @@ exit_event(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    dr_register_exit_event(exit_event);
-#ifdef WINDOWS
-    dr_register_exception_event(exception_event);
-#else
-    dr_register_signal_event(signal_event);
-#endif
-}
+    module_data_t *module;
 
+    dr_register_exit_event(exit_event);
+#if defined(UNIX)
+    dr_register_signal_event(signal_event);
+#elif defined(WINDOWS)
+    dr_register_exception_event(exception_event);
+#endif
+
+    module = dr_get_main_module();
+    ASSERT(module != NULL);
+    expected_fault_address =
+        (void **)dr_get_proc_address(module->handle, "expected_fault_address");
+    ASSERT(expected_fault_address != NULL);
+    dr_free_module_data(module);
+}

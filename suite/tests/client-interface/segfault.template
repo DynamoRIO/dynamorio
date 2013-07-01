@@ -1,0 +1,127 @@
+#ifdef X64
+accessing the first page
+app handler was not called
+app handler was not called
+accessing both pages
+i=1
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=2
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=3
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=4
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=5
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=6
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=7
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+accessing the second page
+i=8
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=9
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=10
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=11
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=12
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=13
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=14
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=15
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+#else
+accessing the first page
+app handler was not called
+app handler was not called
+accessing both pages
+i=1
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=2
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=3
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+accessing the second page
+i=4
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=5
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=6
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+i=7
+dr handler ok
+app handler ok
+dr handler ok
+app handler ok
+#endif
+accessing NULL
+dr handler ok
+app handler aborting
+dr exit handler aborting
