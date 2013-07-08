@@ -47,6 +47,8 @@
 # 4) Define the build_package boolean and include the post script:
 #      set(build_package ON)
 #      include("${PATH_TO_DR_EXPORTS}/cmake/runsuite_common_post.cmake")
+#    Also define build_source_package to build the package_source
+#    CPack target (only for non-Visual Studio generators).
 
 # Unfinished features in i#66 (now under i#121):
 # * have a list of known failures and label w/ " (known: i#XX)"

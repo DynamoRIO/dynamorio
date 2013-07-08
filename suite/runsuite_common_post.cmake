@@ -59,7 +59,11 @@ if (build_package)
         "${CTEST_BUILD_COMMAND}")
     endif (arg_use_msbuild)
   else ()
-    set(CTEST_BUILD_FLAGS "package")
+    if (build_source_package)
+      set(CTEST_BUILD_FLAGS "package package_source")
+    else ()
+      set(CTEST_BUILD_FLAGS "package")
+    endif ()
   endif ()
 
   # Remove results from prior build (else ctest_submit() will copy as
