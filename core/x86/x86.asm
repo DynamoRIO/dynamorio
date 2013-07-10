@@ -1739,7 +1739,8 @@ GLOBAL_LABEL(FUNCNAME:)
         push     REG_XAX               /* high */
         push     REG_XDX               /* low */
         mov      ecx, 0
-        xgetbv
+        /* VS2005 assembler doesn't know xgetbv */
+        RAW(0f) RAW(01) RAW(d0)    /* xgetbv */
         pop      REG_XCX
         mov      DWORD [REG_XCX], eax  /* low */
         pop      REG_XCX

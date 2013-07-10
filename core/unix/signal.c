@@ -925,8 +925,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
          * in xstate is the xgetbv.
          */
         uint bv_high, bv_low;
-        asm volatile("mov $0, %%ecx; xgetbv; mov %%edx, %0; mov %%eax, %1"
-                     : "=m" (bv_high), "=m" (bv_low) : : "eax","edx","ecx");
+        dr_xgetbv(&bv_high, &bv_low);
         xstate->xstate_hdr.xstate_bv = (((uint64)bv_high)<<32) | bv_low;
     }
     for (i=0; i<NUM_XMM_SAVED; i++) {
