@@ -1138,8 +1138,8 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragme
     if (TEST(LINK_CALLBACK_RETURN, from_l->flags))
         return false;
 #endif
-    /* never link a selfmod exit branch */
-    if (TEST(LINK_SELFMOD_EXIT, from_l->flags))
+    /* never link a selfmod or any other unlinkable exit branch */
+    if (TEST(LINK_SPECIAL_EXIT, from_l->flags))
         return false;
     /* don't link from a non-outgoing-linked fragment, or to a
      * non-incoming-linked fragment, except for self-loops
@@ -1843,7 +1843,7 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                         ((g->flags & FRAG_IS_TRACE_HEAD)!=0)?
                         " (trace head)":"",
                         ((l->flags & LINK_LINKED) != 0)?" (linked)":"",
-                        ((l->flags & LINK_SELFMOD_EXIT) != 0)?" (selfmod)":"");
+                        ((l->flags & LINK_SPECIAL_EXIT) != 0)?" (special)":"");
                 }
             } else {
                 if (new_fragment)

@@ -2253,24 +2253,23 @@ instr_branch_set_prefix_target(instr_t *instr, bool val)
 }
 #endif /* UNSUPPORTED_API */
 
-/* Returns true iff instr has been marked as a selfmod check failure exit
- */
+/* Returns true iff instr has been marked as a special exit cti */
 bool
-instr_branch_selfmod_exit(instr_t *instr)
+instr_branch_special_exit(instr_t *instr)
 {
-    return ((instr->flags & INSTR_BRANCH_SELFMOD_EXIT) != 0);
+    return TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
 }
 
-/* If val is true, indicates that instr is a selfmod check failure exit
+/* If val is true, indicates that instr is a special exit cti.
  * If val is false, indicates otherwise
  */
 void
-instr_branch_set_selfmod_exit(instr_t *instr, bool val)
+instr_branch_set_special_exit(instr_t *instr, bool val)
 {
     if (val)
-        instr->flags |= INSTR_BRANCH_SELFMOD_EXIT;
+        instr->flags |= INSTR_BRANCH_SPECIAL_EXIT;
     else
-        instr->flags &= ~INSTR_BRANCH_SELFMOD_EXIT;
+        instr->flags &= ~INSTR_BRANCH_SPECIAL_EXIT;
 }
 
 /* Returns the type of the original indirect branch of an exit

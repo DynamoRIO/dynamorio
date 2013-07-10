@@ -320,9 +320,9 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
 
             DOCHECK(1, {
                 /* ensure LINK_ flags were transferred via instr_exit_branch_type */
-                if (instr_branch_selfmod_exit(inst)) {
+                if (instr_branch_special_exit(inst)) {
                     ASSERT(!LINKSTUB_INDIRECT(l->flags) &&
-                           TEST(LINK_SELFMOD_EXIT, l->flags));
+                           TEST(LINK_SPECIAL_EXIT, l->flags));
                 }
             });
 #ifdef UNSUPPORTED_API

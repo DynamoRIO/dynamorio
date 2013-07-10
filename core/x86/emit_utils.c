@@ -1310,7 +1310,7 @@ is_exit_cti_patchable(dcontext_t *dcontext, instr_t *inst, uint frag_flags)
 # endif
         }
 #endif
-        if (instr_branch_selfmod_exit(inst))
+        if (instr_branch_special_exit(inst))
             return false;
         return true;
     }

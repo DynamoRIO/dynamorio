@@ -3949,7 +3949,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
      *   restore xbx
      *   jecxz ok2  # if xbx was 1 we'll fall through and exit
      *   mov $0,xcx
-     *   jmp <instr after write, flag as INSTR_BRANCH_SELFMOD_EXIT>
+     *   jmp <instr after write, flag as INSTR_BRANCH_SPECIAL_EXIT>
      * ok2:
      *   <label> # ok2 can't == next, b/c next may be ind br -> mangled w/ instrs
      *           # inserted before it, so jecxz would target too far
@@ -4071,7 +4071,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
                              OPND_CREATE_INT32(0))); /* on x64 top 32 bits zeroed */
     jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(after_write));
-    instr_branch_set_selfmod_exit(jmp, true);
+    instr_branch_set_special_exit(jmp, true);
     /* an exit cti, not a meta instr */
     instrlist_preinsert(ilist, next, jmp);
     PRE(ilist, next, ok2);
@@ -4098,7 +4098,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
      *   restore flags (using xbx) and xax
      *   restore xbx
      * if x64 && (start_pc > 4GB || end_pc > 4GB): restore xcx
-     *   jmp <instr after write, flag as INSTR_BRANCH_SELFMOD_EXIT>
+     *   jmp <instr after write, flag as INSTR_BRANCH_SPECIAL_EXIT>
      * ok:
      *   restore flags and xax
      *   restore xbx
@@ -4258,7 +4258,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     }
 #endif
     jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(after_write));
-    instr_branch_set_selfmod_exit(jmp, true);
+    instr_branch_set_special_exit(jmp, true);
     /* an exit cti, not a meta instr */
     instrlist_preinsert(ilist, next, jmp);
     PRE(ilist, next, ok);
@@ -4424,7 +4424,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
 #endif
         if (TEST(FRAG_WRITES_EFLAGS_6, flags) IF_X64(&& false)) {
             jmp = INSTR_CREATE_jcc(dcontext, OP_jge, opnd_create_pc(start_pc));
-            instr_branch_set_selfmod_exit(jmp, true);
+            instr_branch_set_special_exit(jmp, true);
             /* an exit cti, not a meta instr */
             instrlist_preinsert(ilist, instr, jmp);
         } else {
@@ -4445,7 +4445,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
 #ifdef X64
             else {
                 jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(start_pc));
-                instr_branch_set_selfmod_exit(jmp, true);
+                instr_branch_set_special_exit(jmp, true);
                 /* an exit cti, not a meta instr */
                 instrlist_preinsert(ilist, instr, jmp);
             }
@@ -4549,13 +4549,13 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
                               _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
                                       !X64_MODE_DC(dcontext)));
         jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(start_pc));
-        instr_branch_set_selfmod_exit(jmp, true);
+        instr_branch_set_special_exit(jmp, true);
         /* an exit cti, not a meta instr */
         instrlist_preinsert(ilist, instr, jmp);
         PRE(ilist, instr, start_bb);
     } else {
         jmp = INSTR_CREATE_jcc(dcontext, OP_jne, opnd_create_pc(start_pc));
-        instr_branch_set_selfmod_exit(jmp, true);
+        instr_branch_set_special_exit(jmp, true);
         /* an exit cti, not a meta instr */
         instrlist_preinsert(ilist, instr, jmp);
     }

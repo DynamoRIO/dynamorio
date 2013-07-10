@@ -771,20 +771,30 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
         }
 #endif
 
-        /* Case 8177: If we have a flushed fragment hit a self-write, we cannot
-         * delete it in our self-write handler (b/c of case 3559's incoming links
-         * union).  But, our self-write handler needs to be nolinking and needs to
-         * check sandbox2ro_threshold.  So, we do our self-write check first, but we
-         * don't actually delete there for FRAG_WAS_DELETED fragments.
-         */
-        if (TEST(LINK_SELFMOD_EXIT, dcontext->last_exit->flags)) {
-            SELF_PROTECT_LOCAL(dcontext, WRITABLE);
-            /* this fragment overwrote its original memory image */
-            fragment_self_write(dcontext);
-            /* FIXME: optimize this to stay writable if we're going to
-             * be exiting dispatch as well -- no very quick check though
-             */
-            SELF_PROTECT_LOCAL(dcontext, READONLY);
+        if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
+            if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_SELFMOD) {
+                /* Case 8177: If we have a flushed fragment hit a self-write, we
+                 * cannot delete it in our self-write handler (b/c of case 3559's
+                 * incoming links union).  But, our self-write handler needs to be
+                 * nolinking and needs to check sandbox2ro_threshold.  So, we do our
+                 * self-write check first, but we don't actually delete there for
+                 * FRAG_WAS_DELETED fragments.
+                 */
+                SELF_PROTECT_LOCAL(dcontext, WRITABLE);
+                /* this fragment overwrote its original memory image */
+                fragment_self_write(dcontext);
+                /* FIXME: optimize this to stay writable if we're going to
+                 * be exiting dispatch as well -- no very quick check though
+                 */
+                SELF_PROTECT_LOCAL(dcontext, READONLY);
+            } else {
+                /* When adding any new reason, be sure to clear exit_reason,
+                 * as selfmod exits do not bother to set the reason field to
+                 * 0 for performance reasons (they are assumed to be more common
+                 * than any other "special exit").
+                 */
+                ASSERT_NOT_REACHED();
+            }
         }
     }
 

@@ -112,6 +112,7 @@ mixed_mode_enabled(void)
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
+#define EXIT_REASON_OFFSET (offsetof(unprotected_context_t, exit_reason))
 
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))

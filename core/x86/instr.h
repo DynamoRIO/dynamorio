@@ -1688,7 +1688,7 @@ enum {
     INSTR_JMP_EXIT              = LINK_JMP,
     INSTR_IND_JMP_PLT_EXIT      = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT              = LINK_FAR,
-    INSTR_BRANCH_SELFMOD_EXIT   = LINK_SELFMOD_EXIT,
+    INSTR_BRANCH_SPECIAL_EXIT   = LINK_SPECIAL_EXIT,
 #ifdef UNSUPPORTED_API
     INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
 #endif
@@ -1710,7 +1710,7 @@ enum {
                                    INSTR_RETURN_EXIT | INSTR_CALL_EXIT |     
                                    INSTR_JMP_EXIT |
                                    INSTR_FAR_EXIT |
-                                   INSTR_BRANCH_SELFMOD_EXIT |
+                                   INSTR_BRANCH_SPECIAL_EXIT |
 #ifdef UNSUPPORTED_API
                                    INSTR_BRANCH_TARGETS_PREFIX |
 #endif
@@ -2029,21 +2029,17 @@ void
 instr_branch_set_prefix_target(instr_t *instr, bool val);
 #endif /* UNSUPPORTED_API */
 
-DR_UNS_API
-/**
- * Returns true iff \p instr has been marked as a selfmod check failure
- * exit.
+/* Returns true iff \p instr has been marked as a special fragment
+ * exit cti.
  */
 bool
-instr_branch_selfmod_exit(instr_t *instr);
+instr_branch_special_exit(instr_t *instr);
 
-DR_UNS_API
-/**
- * If \p val is true, indicates that \p instr is a selfmod check failure exit.
+/* If \p val is true, indicates that \p instr is a special exit cti.
  * If \p val is false, indicates otherwise.
  */
 void
-instr_branch_set_selfmod_exit(instr_t *instr, bool val);
+instr_branch_set_special_exit(instr_t *instr, bool val);
 
 DR_API
 INSTR_INLINE

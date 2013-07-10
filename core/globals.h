@@ -604,6 +604,11 @@ enum {
     WRITABLE=true
 };
 
+/* Values for unprotected_context_t.exit_reason */
+enum {
+    EXIT_REASON_SELFMOD = 0, /* Default.  All other reasons must clear after setting. */
+};
+
 /* Number of nested calls into native modules that we support.  This number
  * needs to equal the number of stubs in x86.asm:back_from_native_retstubs,
  * which is checked at startup in native_exec.c.
@@ -653,6 +658,7 @@ typedef struct {
                                      * as well as syscalls handled from dispatch,
                                      * and for reset to identify when at syscalls
                                      */
+    ushort exit_reason;             /* Allows multiplexing LINK_SPECIAL_EXIT */
     /* Above fields are padded to 8 bytes on all archs except Win x86-32. */
 
 #ifdef CLIENT_INTERFACE

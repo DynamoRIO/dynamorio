@@ -81,16 +81,20 @@ enum {
     /* Indicates a far cti which uses a separate ibl entry */
     LINK_FAR             = 0x0020,
 
-    LINK_SELFMOD_EXIT    = 0x0040,
 #ifdef UNSUPPORTED_API
-    LINK_TARGET_PREFIX   = 0x0080,
+    LINK_TARGET_PREFIX   = 0x0040,
 #endif
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
      */
-    LINK_TRACE_CMP       = 0x0100,
+    LINK_TRACE_CMP       = 0x0080,
 #endif
+    /* Flags that tell DR to take some action upon returning to dispatch.
+     * This first one is multiplexed via .
+     * All uses are assumed to be unlinkable.
+     */
+    LINK_SPECIAL_EXIT    = 0x0100,
 #ifdef WINDOWS
     LINK_CALLBACK_RETURN = 0x0200,
 #else
