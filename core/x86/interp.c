@@ -4089,7 +4089,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
     instrlist_set_our_mangling(bb->ilist, true);
 
-    append_shared_get_dcontext(dcontext, bb->ilist, true/*save xdi*/);
+    insert_shared_get_dcontext(dcontext, bb->ilist, NULL, true/*save xdi*/);
     instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
                      (dcontext, REG_NULL/*default*/, REG_XAX, XAX_OFFSET));
 
@@ -4130,7 +4130,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
 
     instrlist_append(bb->ilist, instr_create_restore_from_dc_via_reg
                      (dcontext, REG_NULL/*default*/, REG_XAX, XAX_OFFSET));
-    append_shared_restore_dcontext_reg(dcontext, bb->ilist);
+    insert_shared_restore_dcontext_reg(dcontext, bb->ilist, NULL);
 
     /* this is the jump to native code */
     instrlist_append(bb->ilist, instr_create_0dst_1src

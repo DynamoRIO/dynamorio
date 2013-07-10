@@ -3544,13 +3544,14 @@ emit_fcache_enter(dcontext_t *dcontext, generated_code_t *code, byte *pc)
   endif
 */
 void
-append_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, bool save_xdi)
+insert_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                           bool save_xdi)
 {
     /* needed to support grabbing the dcontext w/ shared cache */
     if (save_xdi) {
-        APP(ilist, SAVE_TO_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
+        PRE(ilist, where, SAVE_TO_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
     }
-    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
+    PRE(ilist, where, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         bool absolute = false;
         /* PR 224798: we could avoid extra indirection by storing
@@ -3562,20 +3563,21 @@ append_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, bool save_x
          * (we could add base reg info to RESTORE_FROM_DC/SAVE_TO_DC and go
          * straight through esi to begin w/ and subtract one instr (xchg)
          */
-        APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, PROT_OFFS));
-        APP(ilist, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XSI),
+        PRE(ilist, where, RESTORE_FROM_DC(dcontext, REG_XDI, PROT_OFFS));
+        PRE(ilist, where, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XSI),
                                      opnd_create_reg(REG_XDI)));
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XSI_OFFSET));
-        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
+        PRE(ilist, where, SAVE_TO_DC(dcontext, REG_XDI, XSI_OFFSET));
+        PRE(ilist, where, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
     }
 }
 
 
 /* restore XDI through TLS */
 void
-append_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist)
+insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                                   instr_t *where)
 {
-    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
+    PRE(ilist, where, RESTORE_FROM_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
 }
 
 /*
@@ -4336,7 +4338,7 @@ append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
         opnd_t counter_opnd;
         
         /* get dcontext in register (xdi) */
-        append_shared_get_dcontext(dcontext, ilist, false /* dead register */);
+        insert_shared_get_dcontext(dcontext, ilist, NULL, false/* dead register */);
         /* XDI now has dcontext */
         APP(ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XDI),
                                        OPND_DC_FIELD(absolute, dcontext, OPSZ_PTR, 
@@ -4531,7 +4533,7 @@ append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
     if (only_spill_state_in_tls) {
         /* If TLS doesn't hold table info, XDI was used for indirection.
          * Restore XDI through DCONTEXT_BASE_SPILL_SLOT */
-        append_shared_restore_dcontext_reg(dcontext, ilist);
+        insert_shared_restore_dcontext_reg(dcontext, ilist, NULL);
     }
 
     if (target_prefix) {
@@ -4693,7 +4695,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
      */
     if (only_spill_state_in_tls) {
         /* grab dcontext in XDI for thread shared routine */
-        append_shared_get_dcontext(dcontext, ilist, true /* save xdi to scratch */);
+        insert_shared_get_dcontext(dcontext, ilist, NULL, true/* save xdi to scratch */);
     }
 #endif
     if (!INTERNAL_OPTION(unsafe_ignore_eflags_ibl)) {
@@ -4713,7 +4715,7 @@ append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
     /* See comments above */
     if (only_spill_state_in_tls) {
         /* grab dcontext in XDI for thread shared routine */
-        append_shared_get_dcontext(dcontext, ilist, true /* save xdi to scratch */);
+        insert_shared_get_dcontext(dcontext, ilist, NULL, true/* save xdi to scratch */);
     }
 #endif
     if (IF_X64_ELSE(x86_to_x64, false)) {
@@ -5416,7 +5418,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
             if (INTERNAL_OPTION(hashtable_ibl_stats)) {
                 /* The hash stats inc routine clobbers XDI so we need to reload
                  * it and then reload per_thread_t* and then the table*. */
-                append_shared_get_dcontext(dcontext, &ilist, false);
+                insert_shared_get_dcontext(dcontext, &ilist, NULL, false);
                 APP(&ilist,
                     INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XDI),
                                         OPND_DC_FIELD(absolute, dcontext, OPSZ_PTR, 
@@ -5519,12 +5521,13 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                  IF_X64_ELSE(opnd_create_reg(REG_XBX),
                              OPND_CREATE_INTPTR((ptr_int_t)get_ibl_deleted_linkstub()))));
         } else {
-            append_shared_get_dcontext(dcontext, &ilist, true); /* doesn't touch xbx */
+            /* doesn't touch xbx */
+            insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
             APP(&ilist, INSTR_CREATE_mov_st
                 (dcontext, OPND_DC_FIELD(absolute, dcontext, OPSZ_PTR, XDI_OFFSET),
                  IF_X64_ELSE(opnd_create_reg(REG_XBX),
                              OPND_CREATE_INTPTR((ptr_int_t)get_ibl_deleted_linkstub()))));
-            append_shared_restore_dcontext_reg(dcontext, &ilist);
+            insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
         }
     } /* else later will fill in fake linkstub anyway.
        * FIXME: for -no_indirect_stubs, is this source of add_ibl curiosities on IIS?
@@ -5591,7 +5594,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
 #endif
     if (only_spill_state_in_tls) {
         /* get dcontext in register (xdi) */
-        append_shared_get_dcontext(dcontext, &ilist, false /* xdi is dead */);
+        insert_shared_get_dcontext(dcontext, &ilist, NULL, false /* xdi is dead */);
     }
 
     /* for inlining we must restore flags prior to xbx restore: but when not
@@ -5626,7 +5629,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     }
 
     if (only_spill_state_in_tls) {
-        append_shared_restore_dcontext_reg(dcontext, &ilist);
+        insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     }
 
     if (!inline_ibl_head) {
@@ -5651,7 +5654,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
     }
 
     if (!absolute) {
-        append_shared_get_dcontext(dcontext, &ilist, true /* save register */);
+        insert_shared_get_dcontext(dcontext, &ilist, NULL, true /* save register */);
     }
     /* note we are now saving XAX to the dcontext - no matter where it
      * was saved before for saving and restoring eflags.  FIXME: in
@@ -5755,7 +5758,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
         if (!absolute) {
             /* restore from scratch the XDI register even if fcache_return will
              * save it again */
-            append_shared_restore_dcontext_reg(dcontext, &ilist);
+            insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
         }
         /* pretending we came from a direct exit stub - linkstub in XAX, all
          * other app registers restored */
@@ -5830,7 +5833,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                     RESTORE_FROM_TLS(dcontext, REG_XDI, HTABLE_STATS_SPILL_SLOT));
             }
             else if (only_spill_state_in_tls) /* restore app %xdi */
-                append_shared_restore_dcontext_reg(dcontext, &ilist);
+                insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
         }
 #endif
         if (absolute) {
@@ -5855,7 +5858,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
              * and not from top of ibl, so we must save xdi.  Is this true
              * for all cases of only_spill_state_in_tls with !save_xdi?
              * Maybe should be saved in append_increment_counter's call to
-             * append_shared_get_dcontext() instead.
+             * insert_shared_get_dcontext() instead.
              */
             if (IF_X64_ELSE(true, save_xdi)) {
                 APP(&ilist,
@@ -5880,7 +5883,7 @@ emit_indirect_branch_lookup(dcontext_t *dcontext, generated_code_t *code, byte *
                  * at the entry point into the IBL routine but we do need to
                  * restore app state now.
                  */
-                append_shared_restore_dcontext_reg(dcontext, &ilist);
+                insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
             }
             /* In a PROFILE_LINKCOUNT LINKCOUNT_64_BITS build with
              * -prof_counts on, this jmp is too far for a jmp_short on a shared
@@ -6480,7 +6483,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     if (all_shared) {
         /* load %xdi w/ dcontext */
-        append_shared_get_dcontext(dcontext, &ilist, true/*save xdi*/);
+        insert_shared_get_dcontext(dcontext, &ilist, NULL, true/*save xdi*/);
     }
 
     /* for all-shared we move next tag from tls down below once xbx is dead */
@@ -6494,7 +6497,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                 instr_create_save_to_dcontext(dcontext, REG_XDI, XSI_OFFSET));
         }
         /* restore app %xdi */
-        append_shared_restore_dcontext_reg(dcontext, &ilist);
+        insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     }
 
     /* put linkstub ptr in slot such that when inlined it will be
@@ -6582,7 +6585,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                                                    AT_SYSCALL_OFFSET, OPSZ_4),
              OPND_CREATE_INT32(1)));
         /* restore app %xdi */
-        append_shared_restore_dcontext_reg(dcontext, &ilist);
+        insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     } else
         APP(&ilist, instr_create_save_immed_to_dcontext(dcontext, 1, AT_SYSCALL_OFFSET));
 
@@ -6674,7 +6677,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* even if !DYNAMO_OPTION(syscalls_synch_flush) must clear for cbret */
     if (all_shared) {
         /* readers of at_syscall are ok w/ us spilling xdi first */
-        append_shared_get_dcontext(dcontext, &ilist, true/*save xdi*/);
+        insert_shared_get_dcontext(dcontext, &ilist, NULL, true/*save xdi*/);
         APP(&ilist, INSTR_CREATE_mov_st
             (dcontext, 
              opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
@@ -6809,7 +6812,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         APP(&ilist, instr_create_restore_from_dc_via_reg
             (dcontext, REG_NULL/*default*/, REG_XCX, XSI_OFFSET));
         /* restore app %xdi */
-        append_shared_restore_dcontext_reg(dcontext, &ilist);
+        insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     } else
         APP(&ilist, instr_create_restore_from_dcontext(dcontext, REG_XCX, XSI_OFFSET));
 
@@ -6855,7 +6858,7 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     /* unlink path (there can be no fall-through) */
     APP(&ilist, unlink);
     if (all_shared) {
-        append_shared_restore_dcontext_reg(dcontext, &ilist);
+        insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     }
     /* When traversing the unlinked entry path, since IBL is bypassed
      * control reaches dispatch, and the target is (usually) added to the IBT
@@ -6940,7 +6943,7 @@ emit_dispatch_template(dcontext_t *dcontext, byte *pc, uint offset)
     instrlist_init(&ilist);
 
     /* load %edi w/the dcontext */
-    append_shared_get_dcontext(dcontext, &ilist, true);
+    insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
 
     /* load the generated_code_t address */
     APP(&ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_EDI),

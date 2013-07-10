@@ -897,10 +897,12 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 
 void
-append_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, bool save_xdi);
+insert_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                           bool save_xdi);
 
 void
-append_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist);
+insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                                   instr_t *where);
 
 /* in optimize.c */
 instr_t *find_next_self_loop(dcontext_t *dcontext, app_pc tag, instr_t *instr);
