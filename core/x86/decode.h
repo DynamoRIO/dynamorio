@@ -182,7 +182,7 @@ typedef struct instr_info_t {
      *                       that byte is stored as the byte 0
      *                       if REQUIRES_VEX then this bit instead means that
      *                       this instruction must have vex.L set.
-     *                     FIXME: so we do not support an instr that has an opcode
+     *                     XXX: so we do not support an instr that has an opcode
      *                     dependent on both a prefix and the entire modrm or suffix!
      *   2nd nibble (ls) = bits 1-3 hold /n for OPCODE_REG
      *                     if bit 4 (OPCODE_THREEBYTES) is set, the opcode has
@@ -241,8 +241,10 @@ enum {
     ESCAPE_3BYTE_38,
     /* 3-byte opcodes beginning 0x0f 0x3a (SSE4) */
     ESCAPE_3BYTE_3a,
-    /* instructions differing if a rex prefix is present */
-    REX_EXT,
+    /* instructions differing if a rex.b prefix is present */
+    REX_B_EXT,
+    /* instructions differing if a rex.w prefix is present */
+    REX_W_EXT,
     /* instructions differing based on whether part of a vex prefix */
     VEX_PREFIX_EXT,
     /* instructions differing based on whether vex-encoded */
@@ -270,6 +272,11 @@ enum {
  * is invalid if encoded using vex.
  */
 #define REQUIRES_VEX          0x40
+/* Instr must be encoded using a rex.w prefix.  We could expand this to
+ * include other rex flags by combining with OPCODE_* flags, like REQUIRES_VEX
+ * does today.
+ */
+#define REQUIRES_REX          0x80
 
 /* instr_info_t is used for table entries, it holds info that is constant
  * for all instances of an instruction.
@@ -786,7 +793,8 @@ extern const instr_info_t prefix_extensions[][8];
 extern const instr_info_t mod_extensions[][2];
 extern const instr_info_t rm_extensions[][8];
 extern const instr_info_t x64_extensions[][2];
-extern const instr_info_t rex_extensions[][2];
+extern const instr_info_t rex_b_extensions[][2];
+extern const instr_info_t rex_w_extensions[][2];
 extern const instr_info_t vex_prefix_extensions[][2];
 extern const instr_info_t vex_extensions[][2];
 extern const instr_info_t vex_L_extensions[][3];

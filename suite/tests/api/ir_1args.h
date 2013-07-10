@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,8 @@ OPCODE(lgdt, lgdt, lgdt, 0, MEMARG(OPSZ_lgdt))
 OPCODE(lidt, lidt, lidt, 0, MEMARG(OPSZ_lidt))
 OPCODE(lmsw, lmsw, lmsw, 0, MEMARG(OPSZ_2))
 OPCODE(invlpg, invlpg, invlpg, 0, MEMARG(OPSZ_lea))
-OPCODE(fxrstor, fxrstor, fxrstor, 0, MEMARG(OPSZ_fxrstor))
+OPCODE(fxrstor32, fxrstor32, fxrstor32, 0, MEMARG(OPSZ_fxrstor))
+OPCODE(fxrstor64, fxrstor64, fxrstor64, X64_ONLY, MEMARG(OPSZ_fxrstor))
 OPCODE(ldmxcsr, ldmxcsr, ldmxcsr, 0, MEMARG(OPSZ_4))
 OPCODE(nop_modrm, nop_modrm, nop_modrm, 0, MEMARG(OPSZ_4))
 OPCODE(prefetchnta, prefetchnta, prefetchnta, 0, MEMARG(OPSZ_prefetch))
@@ -62,7 +63,8 @@ OPCODE(str, str, str, 0, MEMARG(OPSZ_2))
 OPCODE(sgdt, sgdt, sgdt, 0, MEMARG(OPSZ_sgdt))
 OPCODE(sidt, sidt, sidt, 0, MEMARG(OPSZ_sidt))
 OPCODE(smsw, smsw, smsw, 0, MEMARG(OPSZ_2))
-OPCODE(fxsave, fxsave, fxsave, 0, MEMARG(OPSZ_fxsave))
+OPCODE(fxsave32, fxsave32, fxsave32, 0, MEMARG(OPSZ_fxsave))
+OPCODE(fxsave64, fxsave64, fxsave64, X64_ONLY, MEMARG(OPSZ_fxsave))
 OPCODE(stmxcsr, stmxcsr, stmxcsr, 0, MEMARG(OPSZ_4))
 OPCODE(fnstenv, fnstenv, fnstenv, 0, MEMARG(OPSZ_fnstenv))
 OPCODE(fnstcw, fnstcw, fnstcw, 0, MEMARG(OPSZ_2))
@@ -106,9 +108,12 @@ OPCODE(vmptrst, vmptrst, vmptrst, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmptrld, vmptrld, vmptrld, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmxon, vmxon, vmxon, X64_ONLY, MEMARG(OPSZ_8))
 OPCODE(vmclear, vmclear, vmclear, X64_ONLY, MEMARG(OPSZ_8))
-OPCODE(xsave, xsave, xsave, 0, MEMARG(OPSZ_xsave))
-OPCODE(xrstor, xrstor, xrstor, 0, MEMARG(OPSZ_xsave))
-OPCODE(xsaveopt, xsaveopt, xsaveopt, 0, MEMARG(OPSZ_xsave))
+OPCODE(xsave32, xsave32, xsave32, 0, MEMARG(OPSZ_xsave))
+OPCODE(xsave64, xsave64, xsave64, X64_ONLY, MEMARG(OPSZ_xsave))
+OPCODE(xrstor32, xrstor32, xrstor32, 0, MEMARG(OPSZ_xsave))
+OPCODE(xrstor64, xrstor64, xrstor64, X64_ONLY, MEMARG(OPSZ_xsave))
+OPCODE(xsaveopt32, xsaveopt32, xsaveopt32, 0, MEMARG(OPSZ_xsave))
+OPCODE(xsaveopt64, xsaveopt64, xsaveopt64, X64_ONLY, MEMARG(OPSZ_xsave))
 
 /****************************************************************************/
 /* single immed argument */

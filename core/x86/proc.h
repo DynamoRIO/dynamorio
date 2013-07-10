@@ -208,7 +208,7 @@ typedef enum {
     FEATURE_MOVBE =     22 + 32,        /**< OP_movbe supported */
     FEATURE_POPCNT =    23 + 32,        /**< OP_popcnt supported */
     FEATURE_AES =       25 + 32,        /**< AES instructions supported */
-    FEATURE_XSAVE =     26 + 32,        /**< OP_xsave supported */
+    FEATURE_XSAVE =     26 + 32,        /**< OP_xsave* supported */
     FEATURE_OSXSAVE =   27 + 32,        /**< OP_xgetbv supported in user mode */
     FEATURE_AVX =       28 + 32,        /**< AVX instructions supported */
     /* extended features returned in edx */
@@ -374,6 +374,9 @@ DR_API
  * 108 bytes for those without (where this routine does not support
  * 16-bit operand sizing).  \note proc_fpstate_save_size() can be used
  * to determine the particular size needed.
+ *
+ * When the FXSR feature is present, the fxsave format matches the bitwidth
+ * of the x86 mode of the current thread (see get_x86_mode()).
  * 
  * DR does NOT save the application's floating-point, MMX, or SSE state
  * on context switches!  Thus if a client performs any floating-point 
@@ -393,6 +396,9 @@ DR_API
  * and 108 bytes for those without (where this routine does not
  * support 16-bit operand sizing).  \note proc_fpstate_save_size() can
  * be used to determine the particular size needed.
+ *
+ * When the FXSR feature is present, the fxsave format matches the bitwidth
+ * of the x86 mode of the current thread (see get_x86_mode()).
  */
 void 
 proc_restore_fpstate(byte *buf);

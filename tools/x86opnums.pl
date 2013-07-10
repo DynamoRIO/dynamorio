@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # **********************************************************
+# Copyright (c) 2013 Google, Inc.  All rights reserved.
 # Copyright (c) 2004-2008 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -44,7 +45,14 @@ while (<>) {
     $l = $_;
     if ($l =~ /OP_/) {
 	$l =~ /^\s*\/\*\s*OP_([a-zA-Z0-9_]*)(\s*)\*\/\s*(.*)$/;
-	printf "/* %3d */     OP_$1,$2 /* $3 */ /**< $1 opcode */\n", $num;
+        $op = $1;
+        $space = $2;
+        $table = $3;
+        $name = $op;
+        $name =~ s/xsave32/xsave/;
+        $name =~ s/xrstor32/xrstor/;
+        $name =~ s/xsaveopt32/xsaveopt/;
+	printf "/* %3d */     OP_$op,$space /* $table */ /**< $name opcode */\n", $num;
 	$num++;
     } else {
 	print "$l\n";

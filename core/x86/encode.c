@@ -2488,6 +2488,14 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             field_ptr++;
         }
 
+        if (TEST(REQUIRES_REX, info->flags)) {
+            /* We could add other rex flags by overloading OPCODE_SUFFIX or
+             * possibly OPCODE_MODRM (but the latter only for instrs that
+             * aren't in mod_ext).  For now this flag implies rex.w.
+             */
+            di.prefixes |= PREFIX_REX_W;
+        }
+
         /* NOTE - the rex prefix must be the last prefix (even if the other prefix is
          * part of the opcode). Xref PR 271878. */
         if (TESTANY(PREFIX_REX_ALL, di.prefixes)) {

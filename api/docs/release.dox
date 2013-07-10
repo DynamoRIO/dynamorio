@@ -126,6 +126,14 @@ following compatibility changes:
    displacement from the code cache: only memory directly allocated via
    DR's API.  The \ref op_reachable_heap "-reachable_heap runtime option"
    can be used to guarantee that all memory is reachable.
+ - The opcode constants OP_fxsave, OP_fxrstor, OP_xsave, OP_xrstor, and
+   OP_xsaveopt have all been removed and replaced with two versions:
+   one with a "32" suffix and one with a "64" suffix.  E.g., OP_fxsave
+   is split into #OP_fxsave32 and #OP_fxsave64.  The 32 version corresponds
+   to the no-suffix assembler mnemonic while the 64 version coresponds
+   to the assembler mnemonic of the same name.  Previously, the 64-bit
+   versions of these instrutions could not be distinguished nor encoded
+   from scratch.
 
 Further non-compatibility-affecting changes include:
 
@@ -175,6 +183,9 @@ Further non-compatibility-affecting changes include:
  - Added support for nudging 64-bit Windows applications
  - Added dr_get_dr_thread_handle()
  - Added #DR_MEMTYPE_RESERVED to #dr_mem_info_t
+ - proc_save_fpstate(), proc_restore_fpstate(), dr_insert_save_fpstate(),
+   and dr_insert_restore_fpstate() now use the current thread's x86 mode
+   to determine which fxsave state format to use.
 
 **************************************************
 <hr>

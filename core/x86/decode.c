@@ -886,12 +886,11 @@ read_instruction(byte *pc, byte *orig_pc,
              */
             (info->opcode >> 24) == PREFIX_DATA)
             di->data_prefix = false;
-        if (info->type == REX_EXT) {
+        if (info->type == REX_B_EXT) {
             /* discard old info, get new one */
             int code = (int) info->code;
-            /* currently indexed by rex.b only */
             int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
-            info = &rex_extensions[code][idx];
+            info = &rex_b_extensions[code][idx];
         }
     }
     else if (info->type == VEX_EXT) {
@@ -917,6 +916,14 @@ read_instruction(byte *pc, byte *orig_pc,
         int idx = (di->vex_encoded) ?
             (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
         info = &vex_L_extensions[code][idx];
+    }
+
+    /* can occur AFTER above checks (MOD_EXT, in particular) */
+    if (info->type == REX_W_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        info = &rex_w_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {

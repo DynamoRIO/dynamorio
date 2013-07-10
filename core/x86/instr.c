@@ -4128,13 +4128,16 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     int opc = instr_get_opcode(instr);
 
     switch (opc) {
-    case OP_fxsave:          case OP_fxrstor:
+    case OP_fxsave32:        case OP_fxrstor32:
+    case OP_fxsave64:        case OP_fxrstor64:
     case OP_ldmxcsr:         case OP_stmxcsr:
     case OP_fldenv:          case OP_fldcw:
     case OP_fnstenv:         case OP_fnstcw:
     case OP_frstor:          case OP_fnsave:
-    case OP_fnstsw:          case OP_xsave:
-    case OP_xrstor:          case OP_xsaveopt:
+    case OP_fnstsw:          case OP_xsave32:
+    case OP_xrstor32:        case OP_xsaveopt32:
+    case OP_xsave64:
+    case OP_xrstor64:        case OP_xsaveopt64:
     case OP_vldmxcsr:        case OP_vstmxcsr:
     {
         if (type != NULL)
@@ -4377,7 +4380,8 @@ opcode_is_mmx(int op)
             (op >= OP_pinsrw && op <= OP_pmulhw && op != OP_bswap) || /* both */
             (op >= OP_psubsb && op <= OP_psadbw) || /* both */
             (op >= OP_psubb && op <= OP_paddd) || /* both */
-            op == OP_fxsave || op == OP_fxrstor); /* both */
+            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
+            op == OP_fxsave64 || op == OP_fxrstor64); /* both */
 }
 
 bool 
@@ -4398,7 +4402,8 @@ opcode_is_sse_or_sse2(int op)
             op == OP_maskmovdqu || /* sse */
             (op >= OP_psubb && op <= OP_paddd) || /* both */
             (op >= OP_psrldq && op <= OP_pslldq) || /* sse */
-            op == OP_fxsave || op == OP_fxrstor || /* both */
+            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
+            op == OP_fxsave64 || op == OP_fxrstor64 || /* both */
             (op >= OP_ldmxcsr && op <= OP_prefetcht2) || /* sse */
             (op >= OP_movups && op <= OP_cvtpd2dq) || /* sse */
             op == OP_pause); /* sse2 */

@@ -5226,6 +5226,9 @@ DR_API
  * OPSZ_512; this routine will automatically adjust it to OPSZ_108 if
  * necessary.  \note proc_fpstate_save_size() can be used to determine
  * the particular size needed.
+ *
+ * When the FXSR feature is present, the fxsave format matches the bitwidth
+ * of the x86 mode of the current thread (see get_x86_mode()).
  */
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -5241,6 +5244,9 @@ DR_API
  * OPSZ_512; this routine will automatically adjust it to OPSZ_108 if
  * necessary.  \note proc_fpstate_save_size() can be used to determine
  * the particular size needed.
+ *
+ * When the FXSR feature is present, the fxsave format matches the bitwidth
+ * of the x86 mode of the current thread (see get_x86_mode()).
  */
 void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,

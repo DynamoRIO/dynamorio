@@ -1764,13 +1764,17 @@ GLOBAL_LABEL(get_frame_ptr:)
         DECLARE_FUNC(dr_fxsave)
 GLOBAL_LABEL(dr_fxsave:)
         mov      REG_XAX, ARG1
+#ifdef X64
+        fxsave64 [REG_XAX]
+#else
         fxsave   [REG_XAX]
+#endif
         fnclex
         finit
         ret
         END_FUNC(dr_fxsave)
 
-/* void fnsave(byte *buf_aligned) */
+/* void dr_fnsave(byte *buf_aligned) */
         DECLARE_FUNC(dr_fnsave)
 GLOBAL_LABEL(dr_fnsave:)
         mov      REG_XAX, ARG1
@@ -1780,21 +1784,45 @@ GLOBAL_LABEL(dr_fnsave:)
         ret
         END_FUNC(dr_fnsave)
 
-/* void fxrstor(byte *buf_aligned) */
+/* void dr_fxrstor(byte *buf_aligned) */
         DECLARE_FUNC(dr_fxrstor)
 GLOBAL_LABEL(dr_fxrstor:)
         mov      REG_XAX, ARG1
+#ifdef X64
+        fxrstor64 [REG_XAX]
+#else
         fxrstor  [REG_XAX]
+#endif
         ret
         END_FUNC(dr_fxrstor)
 
-/* void frstor(byte *buf_aligned) */
+/* void dr_frstor(byte *buf_aligned) */
         DECLARE_FUNC(dr_frstor)
 GLOBAL_LABEL(dr_frstor:)
         mov      REG_XAX, ARG1
         frstor   [REG_XAX]
         ret
         END_FUNC(dr_frstor)
+
+#ifdef X64
+/* void dr_fxsave32(byte *buf_aligned) */
+        DECLARE_FUNC(dr_fxsave32)
+GLOBAL_LABEL(dr_fxsave32:)
+        mov      REG_XAX, ARG1
+        fxsave   [REG_XAX]
+        fnclex
+        finit
+        ret
+        END_FUNC(dr_fxsave32)
+
+/* void dr_fxrstor32(byte *buf_aligned) */
+        DECLARE_FUNC(dr_fxrstor32)
+GLOBAL_LABEL(dr_fxrstor:)
+        mov      REG_XAX, ARG1
+        fxrstor  [REG_XAX]
+        ret
+        END_FUNC(dr_fxrstor32)
+#endif
 
 /*
  * void call_modcode_alt_stack(dcontext_t *dcontext,

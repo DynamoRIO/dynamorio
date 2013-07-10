@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -616,9 +616,21 @@ proc_save_fpstate(byte *buf)
                   "proc_save_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
 #ifdef WINDOWS
+# ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            dr_fxsave(buf);
+        else
+            dr_fxsave32(buf);
+# else
         dr_fxsave(buf);
+# endif
 #else
-        asm volatile("fxsave %0 ; fnclex ; finit"  : "=m" ((*buf)));
+# ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            asm volatile("fxsave64 %0 ; fnclex ; finit"  : "=m" ((*buf)));
+        else
+# endif
+            asm volatile("fxsave %0 ; fnclex ; finit"  : "=m" ((*buf)));
 #endif
     } else {
 #ifdef WINDOWS
@@ -644,9 +656,21 @@ proc_restore_fpstate(byte *buf)
                   "proc_restore_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
 #ifdef WINDOWS
+# ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            dr_fxrstor(buf);
+        else
+            dr_fxrstor32(buf);
+# else
         dr_fxrstor(buf);
+# endif
 #else
-        asm volatile("fxrstor %0" : : "m" ((*buf)));
+# ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            asm volatile("fxrstor64 %0" : : "m" ((*buf)));
+        else
+# endif
+            asm volatile("fxrstor %0" : : "m" ((*buf)));
 #endif
     } else {
 #ifdef WINDOWS
@@ -666,7 +690,10 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* we want "fxsave, fnclex, finit" */
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");
-        instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave(dcontext, buf));
+        if (X64_MODE_DC(dcontext))
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave64(dcontext, buf));
+        else
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave32(dcontext, buf));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fnclex(dcontext));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fwait(dcontext));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fninit(dcontext));
@@ -688,7 +715,10 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (proc_has_feature(FEATURE_FXSR)) {
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");
-        instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor(dcontext, buf));
+        if (X64_MODE_DC(dcontext))
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor64(dcontext, buf));
+        else
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor32(dcontext, buf));
     } else {
         /* auto-adjust opnd size so it will encode */
         if (opnd_get_size(buf) == OPSZ_512)

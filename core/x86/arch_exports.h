@@ -824,6 +824,10 @@ void dr_fxsave(byte *buf_aligned);
 void dr_fnsave(byte *buf_aligned);
 void dr_fxrstor(byte *buf_aligned);
 void dr_frstor(byte *buf_aligned);
+# ifdef X64
+void dr_fxsave32(byte *buf_aligned);
+void dr_fxrstor32(byte *buf_aligned);
+# endif
 # ifdef STACK_GUARD_PAGE
 /* PR203701: If the dstack is exhausted we'll use this function to
  * call internal_exception_info() with a separate exception stack.
