@@ -615,22 +615,17 @@ proc_save_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_save_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-#ifdef WINDOWS
-# ifdef X64
+        /* Not using inline asm as gcc 4.4.3 doesn't know fxsave64.  An
+         * extra function call won't hurt per here so we simplify our code
+         * by always using our separate asm routines.
+         */
+#ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))
             dr_fxsave(buf);
         else
             dr_fxsave32(buf);
-# else
-        dr_fxsave(buf);
-# endif
 #else
-# ifdef X64
-        if (X64_MODE_DC(get_thread_private_dcontext()))
-            asm volatile("fxsave64 %0 ; fnclex ; finit"  : "=m" ((*buf)));
-        else
-# endif
-            asm volatile("fxsave %0 ; fnclex ; finit"  : "=m" ((*buf)));
+        dr_fxsave(buf);
 #endif
     } else {
 #ifdef WINDOWS
@@ -655,22 +650,17 @@ proc_restore_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_restore_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-#ifdef WINDOWS
-# ifdef X64
+        /* Not using inline asm as gcc 4.4.3 doesn't know fxrstor64.  An
+         * extra function call won't hurt per here so we simplify our code
+         * by always using our separate asm routines.
+         */
+#ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))
             dr_fxrstor(buf);
         else
             dr_fxrstor32(buf);
-# else
-        dr_fxrstor(buf);
-# endif
 #else
-# ifdef X64
-        if (X64_MODE_DC(get_thread_private_dcontext()))
-            asm volatile("fxrstor64 %0" : : "m" ((*buf)));
-        else
-# endif
-            asm volatile("fxrstor %0" : : "m" ((*buf)));
+        dr_fxrstor(buf);
 #endif
     } else {
 #ifdef WINDOWS

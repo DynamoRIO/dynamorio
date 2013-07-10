@@ -4981,6 +4981,13 @@ enum {
 #define OP_cmovne  OP_cmovnz  /**< Alternative opcode name. */
 #define OP_cmovge  OP_cmovnl  /**< Alternative opcode name. */
 #define OP_cmovg   OP_cmovnle /**< Alternative opcode name. */
+#ifndef X64
+# define OP_fxsave   OP_fxsave32   /**< Alternative opcode name. */
+# define OP_fxrstor  OP_fxrstor32  /**< Alternative opcode name. */
+# define OP_xsave    OP_xsave32    /**< Alternative opcode name. */
+# define OP_xrstor   OP_xrstor32   /**< Alternative opcode name. */
+# define OP_xsaveopt OP_xsaveopt32 /**< Alternative opcode name. */
+#endif
 /* undocumented opcodes */
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc

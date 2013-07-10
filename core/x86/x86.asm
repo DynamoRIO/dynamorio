@@ -1749,6 +1749,84 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+/* void dr_fxsave(byte *buf_aligned) */
+#define FUNCNAME dr_fxsave
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+#ifdef X64
+        /* gcc 4.4.3 doesn't know "fxsave64" */
+        RAW(48) RAW(0f) RAW(ae) RAW(00) /* fxsave64 [REG_XAX] */
+#else
+        fxsave   [REG_XAX]
+#endif
+        fnclex
+        finit
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* void dr_fnsave(byte *buf_aligned) */
+#define FUNCNAME dr_fnsave
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        /* FIXME: do we need an fwait prior to the fnsave? */
+        fnsave   [REG_XAX]
+        fwait
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* void dr_fxrstor(byte *buf_aligned) */
+#define FUNCNAME dr_fxrstor
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+#ifdef X64
+        /* gcc 4.4.3 doesn't know "fxrstor64" */
+        RAW(48) RAW(0f) RAW(ae) RAW(08) /* fxrstor64 [REG_XAX] */
+#else
+        fxrstor  [REG_XAX]
+#endif
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* void dr_frstor(byte *buf_aligned) */
+#define FUNCNAME dr_frstor
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        frstor   [REG_XAX]
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+#ifdef X64
+/* void dr_fxsave32(byte *buf_aligned) */
+#define FUNCNAME dr_fxsave32
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        fxsave   [REG_XAX]
+        fnclex
+        finit
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+/* void dr_fxrstor32(byte *buf_aligned) */
+#define FUNCNAME dr_fxrstor32
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        fxrstor  [REG_XAX]
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+#endif
+
 #ifdef WINDOWS /* on linux we use inline asm versions */
 
 /* byte *get_frame_ptr(void)
@@ -1759,70 +1837,6 @@ GLOBAL_LABEL(get_frame_ptr:)
         mov      REG_XAX, REG_XBP
         ret
         END_FUNC(get_frame_ptr)
-
-/* void dr_fxsave(byte *buf_aligned) */
-        DECLARE_FUNC(dr_fxsave)
-GLOBAL_LABEL(dr_fxsave:)
-        mov      REG_XAX, ARG1
-#ifdef X64
-        fxsave64 [REG_XAX]
-#else
-        fxsave   [REG_XAX]
-#endif
-        fnclex
-        finit
-        ret
-        END_FUNC(dr_fxsave)
-
-/* void dr_fnsave(byte *buf_aligned) */
-        DECLARE_FUNC(dr_fnsave)
-GLOBAL_LABEL(dr_fnsave:)
-        mov      REG_XAX, ARG1
-        /* FIXME: do we need an fwait prior to the fnsave? */
-        fnsave   [REG_XAX]
-        fwait
-        ret
-        END_FUNC(dr_fnsave)
-
-/* void dr_fxrstor(byte *buf_aligned) */
-        DECLARE_FUNC(dr_fxrstor)
-GLOBAL_LABEL(dr_fxrstor:)
-        mov      REG_XAX, ARG1
-#ifdef X64
-        fxrstor64 [REG_XAX]
-#else
-        fxrstor  [REG_XAX]
-#endif
-        ret
-        END_FUNC(dr_fxrstor)
-
-/* void dr_frstor(byte *buf_aligned) */
-        DECLARE_FUNC(dr_frstor)
-GLOBAL_LABEL(dr_frstor:)
-        mov      REG_XAX, ARG1
-        frstor   [REG_XAX]
-        ret
-        END_FUNC(dr_frstor)
-
-#ifdef X64
-/* void dr_fxsave32(byte *buf_aligned) */
-        DECLARE_FUNC(dr_fxsave32)
-GLOBAL_LABEL(dr_fxsave32:)
-        mov      REG_XAX, ARG1
-        fxsave   [REG_XAX]
-        fnclex
-        finit
-        ret
-        END_FUNC(dr_fxsave32)
-
-/* void dr_fxrstor32(byte *buf_aligned) */
-        DECLARE_FUNC(dr_fxrstor32)
-GLOBAL_LABEL(dr_fxrstor:)
-        mov      REG_XAX, ARG1
-        fxrstor  [REG_XAX]
-        ret
-        END_FUNC(dr_fxrstor32)
-#endif
 
 /*
  * void call_modcode_alt_stack(dcontext_t *dcontext,
