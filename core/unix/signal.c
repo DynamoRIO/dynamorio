@@ -3199,6 +3199,13 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         ASSERT(tgt - frame_end <= XSTATE_FRAME_EXTRA);
         memcpy(tgt, f_old->uc.uc_mcontext.fpstate, sizeof(struct _fpstate));
         f_new->uc.uc_mcontext.fpstate = (struct _fpstate *) tgt;
+        if (YMM_ENABLED()) {
+            struct _xstate *xstate_new = (struct _xstate *) tgt;
+            struct _xstate *xstate_old = (struct _xstate *) f_old->uc.uc_mcontext.fpstate;
+            memcpy(&xstate_new->xstate_hdr, &xstate_old->xstate_hdr,
+                   sizeof(xstate_new->xstate_hdr));
+            memcpy(&xstate_new->ymmh, &xstate_old->ymmh, sizeof(xstate_new->ymmh));
+        }
         LOG(THREAD, LOG_ASYNCH, level+1, "\tfpstate old="PFX" new="PFX"\n",
             f_old->uc.uc_mcontext.fpstate, f_new->uc.uc_mcontext.fpstate);
     } else {
