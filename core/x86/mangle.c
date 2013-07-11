@@ -3140,6 +3140,199 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #endif /* WINDOWS */
 }
 
+/***************************************************************************
+ * FLOATING POINT PC
+ */
+
+/* The offset of the last floating point PC in the saved state */
+#define FNSAVE_PC_OFFS  12
+#define FXSAVE_PC_OFFS   8
+#define FXSAVE_SIZE    512
+#define XCR0_FP          1
+
+void
+float_pc_update(dcontext_t *dcontext)
+{
+    byte *state = *(byte **)(((byte *)dcontext->local_state) + FLOAT_PC_STATE_SLOT);
+    app_pc orig_pc, xl8_pc;
+    uint offs = 0;
+    LOG(THREAD, LOG_INTERP, 2, "%s: fp state "PFX"\n", __FUNCTION__, state);
+    if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE ||
+        dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE64) {
+        /* Check whether the FPU state was saved */
+        uint64 header_bv = *(uint64 *)(state + FXSAVE_SIZE);
+        if (!TEST(XCR0_FP, header_bv)) {
+            LOG(THREAD, LOG_INTERP, 2, "%s: xsave did not save FP state => nop\n",
+                __FUNCTION__);
+        }
+        return;
+    }
+
+    if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_FNSAVE) {
+        offs = FNSAVE_PC_OFFS;
+    } else {
+        offs = FXSAVE_PC_OFFS;
+    }
+    if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_FXSAVE64 ||
+        dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE64)
+        orig_pc = *(app_pc *)(state + offs);
+    else /* just bottom 32 bits of pc */
+        orig_pc = (app_pc)(ptr_uint_t) *(uint *)(state + offs);
+    if (orig_pc == NULL) {
+        /* no fp instr yet */
+        LOG(THREAD, LOG_INTERP, 2, "%s: pc is NULL\n", __FUNCTION__);
+        return;
+    }
+
+    /* We must either grab thread_initexit_lock or be couldbelinking to translate */
+    mutex_lock(&thread_initexit_lock);
+    xl8_pc = recreate_app_pc(dcontext, orig_pc, NULL);
+    mutex_unlock(&thread_initexit_lock);
+    LOG(THREAD, LOG_INTERP, 2, "%s: translated "PFX" to "PFX"\n", __FUNCTION__,
+        orig_pc, xl8_pc);
+
+    if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_FXSAVE64 ||
+        dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_FLOAT_PC_XSAVE64)
+        *(app_pc *)(state + offs) = xl8_pc;
+    else /* just bottom 32 bits of pc */
+        *(uint *)(state + offs) = (uint)(ptr_uint_t) xl8_pc;
+}
+
+static void
+mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
+                instr_t *instr, instr_t *next_instr, uint flags)
+{
+    /* If there is a prior non-control float instr, we can inline the pc update.
+     * Otherwise, we go back to dispatch.  In the latter case we do not support
+     * building traces across the float pc save: we assume it's rare.
+     */
+    app_pc prior_float = NULL;
+    int op = instr_get_opcode(instr);
+    opnd_t memop = instr_get_dst(instr, 0);
+    ASSERT(opnd_is_memory_reference(memop));
+
+    /* To simplify the code here we don't support rip-rel for local handling.
+     * We also don't support xsave, as it optionally writes the fpstate.
+     */
+    if (opnd_is_base_disp(memop) && op != OP_xsave32 && op != OP_xsaveopt32 &&
+        op != OP_xsave64 && op != OP_xsaveopt64) {
+        instr_t *prev;
+        for (prev = instr_get_prev_expanded(dcontext, ilist, instr);
+             prev != NULL;
+             prev = instr_get_prev_expanded(dcontext, ilist, prev)) {
+            dr_fp_type_t type;
+            if (instr_ok_to_mangle(prev) &&
+                instr_is_floating_ex(prev, &type)) {
+                bool control_instr = false;
+                if (type == DR_FP_STATE /* quick check */ &&
+                    /* Check the list from Intel Vol 1 8.1.8 */
+                    (op == OP_fnclex || op == OP_fldcw || op == OP_fnstcw ||
+                     op == OP_fnstsw || op == OP_fnstenv || op == OP_fldenv ||
+                     op == OP_fwait))
+                    control_instr = true;
+                if (!control_instr) {
+                    prior_float = instr_get_translation(prev);
+                    if (prior_float == NULL && instr_raw_bits_valid(prev))
+                        prior_float = instr_get_raw_bits(prev);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (prior_float != NULL) {
+        /* We can link this */
+        instr_t *exit_jmp = next_instr;
+        while (exit_jmp != NULL && !instr_is_exit_cti(exit_jmp))
+            exit_jmp = instr_get_next(next_instr);
+        ASSERT(exit_jmp != NULL);
+        ASSERT(instr_branch_special_exit(exit_jmp));
+        instr_branch_set_special_exit(exit_jmp, false);
+        STATS_INC(float_pc_from_cache);
+
+        /* Replace the stored code cache pc with the original app pc.
+         * If the app memory is unwritable, instr  would have already crashed.
+         */
+        if (op == OP_fnsave || op == OP_fnstenv) {
+            opnd_set_disp(&memop, opnd_get_disp(memop) + FNSAVE_PC_OFFS);
+            opnd_set_size(&memop, OPSZ_4);
+            PRE(ilist, next_instr,
+                INSTR_CREATE_mov_st(dcontext, memop,
+                                    OPND_CREATE_INT32((int)(ptr_int_t)prior_float)));
+        } else if (op == OP_fxsave32) {
+            opnd_set_disp(&memop, opnd_get_disp(memop) + FXSAVE_PC_OFFS);
+            opnd_set_size(&memop, OPSZ_4);
+            PRE(ilist, next_instr,
+                INSTR_CREATE_mov_st(dcontext, memop,
+                                    OPND_CREATE_INT32((int)(ptr_int_t)prior_float)));
+        } else if (op == OP_fxsave64) {
+            opnd_set_disp(&memop, opnd_get_disp(memop) + FXSAVE_PC_OFFS);
+            opnd_set_size(&memop, OPSZ_8);
+            insert_mov_immed_ptrsz(dcontext, (ptr_int_t)prior_float, memop,
+                                   ilist, next_instr, NULL, NULL);
+        } else
+            ASSERT_NOT_REACHED();
+    } else {
+        int reason = 0;
+        CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, flags),
+                      "removing an FPU instr in a trace with an FPU state save "
+                      "is not supported");
+        switch (op) {
+        case OP_fnsave:
+        case OP_fnstenv:    reason = EXIT_REASON_FLOAT_PC_FNSAVE;  break;
+        case OP_fxsave32:   reason = EXIT_REASON_FLOAT_PC_FXSAVE;  break;
+        case OP_fxsave64:   reason = EXIT_REASON_FLOAT_PC_FXSAVE64;break;
+        case OP_xsave32:
+        case OP_xsaveopt32: reason = EXIT_REASON_FLOAT_PC_XSAVE;   break;
+        case OP_xsave64:
+        case OP_xsaveopt64: reason = EXIT_REASON_FLOAT_PC_XSAVE64; break;
+        default: ASSERT_NOT_REACHED();
+        }
+        if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+            insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
+            PRE(ilist, instr, INSTR_CREATE_mov_st
+                (dcontext,
+                 opnd_create_dcontext_field_via_reg_sz(dcontext, REG_NULL/*default*/,
+                                                       EXIT_REASON_OFFSET, OPSZ_4),
+                 OPND_CREATE_INT32(reason)));
+        } else {
+            PRE(ilist, instr,
+                instr_create_save_immed_to_dcontext(dcontext, reason,
+                                                    EXIT_REASON_OFFSET));
+            PRE(ilist, instr,
+                instr_create_save_to_tls(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
+        }
+        /* At this point, xdi is spilled into DCONTEXT_BASE_SPILL_SLOT */
+
+        /* We pass the address in the xbx tls slot, which is untouched by fcache_return.
+         *
+         * XXX: handle far refs!  Xref drutil_insert_get_mem_addr(), and sandbox_write()
+         * hitting this same issue.
+         */
+        ASSERT_CURIOSITY(!opnd_is_far_memory_reference(memop));
+        if (opnd_is_base_disp(memop)) {
+            opnd_set_size(&memop, OPSZ_lea);
+            PRE(ilist, instr,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XDI), memop));
+        } else {
+            ASSERT(opnd_is_abs_addr(memop) IF_X64( || opnd_is_rel_addr(memop)));
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XDI),
+                                     OPND_CREATE_INTPTR(opnd_get_addr(memop))));
+        }
+        PRE(ilist, instr,
+            instr_create_save_to_tls(dcontext, REG_XDI, FLOAT_PC_STATE_SLOT));
+
+        /* Restore app %xdi */
+        if (TEST(FRAG_SHARED, flags))
+            insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
+        else {
+            PRE(ilist, instr,
+                instr_create_restore_from_tls(dcontext, REG_XDI,
+                                              DCONTEXT_BASE_SPILL_SLOT));
+        }
+    }
+}
 
 /***************************************************************************
  * CPUID FOOLING
@@ -3731,6 +3924,10 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         }
 #endif
 
+        if (instr_saves_float_pc(instr) && instr_ok_to_mangle(instr)) {
+            mangle_float_pc(dcontext, ilist, instr, next_instr, flags);
+        }
+
 #ifdef X64
         /* i#393: mangle_rel_addr might destroy the instr if it is a LEA,
          * which makes instr point to freed memory.
@@ -4164,7 +4361,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     /* FIXME: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
      * segments for its x86 sandbox, although they are 0 based with a limit.
      */
-    ASSERT_CURIOSITY(!opnd_is_far_memory_reference(op));
+    ASSERT_CURIOSITY(!opnd_is_far_memory_reference(op) ||
+                     /* Standard far refs */
+                     opcode == OP_ins || opcode == OP_movs || opcode == OP_stos);
     if (opnd_is_base_disp(op)) {
         /* change to OPSZ_lea for lea */
         opnd_set_size(&op, OPSZ_lea);

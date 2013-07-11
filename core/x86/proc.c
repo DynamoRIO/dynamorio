@@ -607,6 +607,9 @@ DR_API
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
  * return number of bytes written 
+ *
+ * XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
+ * we can try to support it in the future.
  */
 size_t
 proc_save_fpstate(byte *buf)
@@ -671,6 +674,9 @@ proc_restore_fpstate(byte *buf)
     }
 }
 
+/* XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
+ * we can try to support it in the future.
+ */
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                        opnd_t buf)

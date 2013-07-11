@@ -1,0 +1,11 @@
+#ifdef X64
+FXSAVE64 intra is correctly handled
+FXSAVE64 inter is correctly handled
+FXSAVE intra is correctly handled
+FXSAVE inter is correctly handled
+#else
+FNSTENV intra is correctly handled
+FNSTENV inter is correctly handled
+FXSAVE intra is correctly handled
+FXSAVE inter is correctly handled
+#endif

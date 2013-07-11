@@ -377,6 +377,9 @@ DR_API
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the x86 mode of the current thread (see get_x86_mode()).
+ *
+ * The last floating-point instruction address is left in an
+ * untranslated state (i.e., it may point into the code cache).
  * 
  * DR does NOT save the application's floating-point, MMX, or SSE state
  * on context switches!  Thus if a client performs any floating-point 

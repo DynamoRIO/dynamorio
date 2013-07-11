@@ -185,6 +185,9 @@ Further non-compatibility-affecting changes include:
  - proc_save_fpstate(), proc_restore_fpstate(), dr_insert_save_fpstate(),
    and dr_insert_restore_fpstate() now use the current thread's x86 mode
    to determine which fxsave state format to use.
+ - Added support for presenting the proper floating point program counter
+   when floating point state is saved.
+ - Various bug fixes
 
 **************************************************
 <hr>

@@ -3198,6 +3198,9 @@ DR_API
 bool 
 instr_is_floating(instr_t *instr);
 
+bool
+instr_saves_float_pc(instr_t *instr);
+
 /* DR_API EXPORT BEGIN */
 /**
  * Indicates which type of floating-point operation and instruction performs.

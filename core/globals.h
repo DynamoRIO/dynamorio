@@ -604,9 +604,16 @@ enum {
     WRITABLE=true
 };
 
-/* Values for unprotected_context_t.exit_reason */
+/* Values for unprotected_context_t.exit_reason, stored in a ushort. */
 enum {
-    EXIT_REASON_SELFMOD = 0, /* Default.  All other reasons must clear after setting. */
+    /* Default.  All other reasons must clear after setting. */
+    EXIT_REASON_SELFMOD = 0,
+    /* Floating-point state PC needs updating (i#698). */
+    EXIT_REASON_FLOAT_PC_FNSAVE,
+    EXIT_REASON_FLOAT_PC_FXSAVE,
+    EXIT_REASON_FLOAT_PC_FXSAVE64,
+    EXIT_REASON_FLOAT_PC_XSAVE,
+    EXIT_REASON_FLOAT_PC_XSAVE64,
 };
 
 /* Number of nested calls into native modules that we support.  This number

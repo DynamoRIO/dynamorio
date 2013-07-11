@@ -4128,6 +4128,7 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     int opc = instr_get_opcode(instr);
 
     switch (opc) {
+    case OP_fnclex:          case OP_fninit:
     case OP_fxsave32:        case OP_fxrstor32:
     case OP_fxsave64:        case OP_fxrstor64:
     case OP_ldmxcsr:         case OP_stmxcsr:
@@ -4139,6 +4140,7 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_xsave64:
     case OP_xrstor64:        case OP_xsaveopt64:
     case OP_vldmxcsr:        case OP_vstmxcsr:
+    case OP_fwait:
     {
         if (type != NULL)
             *type = DR_FP_STATE;
@@ -4263,7 +4265,6 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_fcmovu:          case OP_fucompp:
     case OP_fcmovnb:         case OP_fcmovne:
     case OP_fcmovnbe:        case OP_fcmovnu:
-    case OP_fnclex:          case OP_fninit:
     case OP_fucomi:          case OP_fcomi:
     case OP_ffree:           case OP_fucom:
     case OP_fucomp:          case OP_faddp:
@@ -4366,6 +4367,15 @@ bool
 instr_is_floating(instr_t *instr)
 {
     return instr_is_floating_ex(instr, NULL);
+}
+
+bool
+instr_saves_float_pc(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    return (op == OP_fnsave || op == OP_fnstenv ||
+            op == OP_fxsave32 || op == OP_xsave32 || op == OP_xsaveopt32 ||
+            op == OP_fxsave64 || op == OP_xsave64 || op == OP_xsaveopt64);
 }
 
 bool

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -755,25 +755,25 @@ sizeof_fp_op(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_
  * extension is present in the modrm byte.
  */
 static const byte interesting[256] = {
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,2, /* 0 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 1 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 2 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 3 */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, /* jcc_short */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 4 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 5 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* 6 */
+    1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, /* 7 */ /* jcc_short */
 
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,1,0, /* mov_seg */
-    0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, /* call_far */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,1,0, /* 8 */ /* mov_seg */
+    0,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0, /* 9 */ /* call_far */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* A */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, /* B */
 
-    0,0,1,1, 0,0,0,0, 0,0,1,1, 1,1,1,1, /* ret*, int* */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-    1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, /* loop*, call, jmp* */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,3,
+    0,0,1,1, 0,0,0,0, 0,0,1,1, 1,1,1,1, /* C */ /* ret*, int* */
+    0,0,0,0, 0,0,0,0, 0,3,0,0, 0,3,0,0, /* D */ /* fnstenv, fnsave */
+    1,1,1,1, 0,0,0,0, 1,1,1,1, 0,0,0,0, /* E */ /* loop*, call, jmp* */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,3, /* F */
 };
 
 
@@ -1032,6 +1032,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (start_pc + sz);
     }
 
+
     /* FIXME: would further "interesting" table produce any noticeable
      * performance improvement?
      */
@@ -1284,6 +1285,29 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (start_pc + sz);
     }
 #endif
+
+    /* i#698: we must intercept floating point instruction pointer saves.
+     * Rare enough that we do a full decode on an opcode match.
+     */
+    if ((byte0 == 0xdd && ((byte1 >> 3) & 0x7) == 6) /* dd /6 == OP_fnsave */ ||
+        (byte0 == 0xd9 && ((byte1 >> 3) & 0x7) == 6) /* d9 /6 == OP_fnstenv */) {
+        if (decode(dcontext, start_pc, instr) == NULL)
+            return NULL;
+        else
+            return (start_pc + sz);
+    } else if (byte0 == 0x0f && byte1 == 0xae) {
+        int opc_ext;
+        byte byte3 = *(pc + 2);
+        opc_ext = (byte3 >> 3) & 0x7;
+        if (opc_ext == 0 ||  /* 0f ae /0 == OP_fxsave */
+            opc_ext == 4 ||  /* 0f ae /4 == OP_xsave */
+            opc_ext == 6) {  /* 0f ae /6 == OP_xsaveopt */
+        }
+        if (decode(dcontext, start_pc, instr) == NULL)
+            return NULL;
+        else
+            return (start_pc + sz);
+    }
 
     /* all non-pc-relative instructions */
     /* assumption: opcode already OP_UNDECODED */

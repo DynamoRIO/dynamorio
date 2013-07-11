@@ -1301,6 +1301,7 @@ endif (WIN32)
 tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
+tobuild(common.floatpc common/floatpc.c)
 
 tobuild_appdll(common.nativeexec common/nativeexec.c)
 get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})

@@ -3717,6 +3717,8 @@ insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
  * - if coarse_info:
  *   - app xcx is in MANGLE_XCX_SPILL_SLOT
  *   - source coarse info is in %xcx
+ *
+ * We assume this routine does not use TLS slot FLOAT_PC_STATE_SLOT (TLS_XBX_SLOT).
  */
 static bool
 append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,

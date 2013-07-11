@@ -2392,6 +2392,22 @@ bb_process_IAT_convertible_indcall(dcontext_t *dcontext, build_bb_t *bb,
     return true;                /* converted indirect to direct */
 }
 
+/* Called on instructions that save the FPU state */
+static void
+bb_process_float_pc(dcontext_t *dcontext, build_bb_t *bb)
+{
+    /* i#698: for instructions that save the floating-point state
+     * (e.g., fxsave), we go back to dispatch to translate the fp pc.
+     * We rule out being in a trace (and thus a potential alternative
+     * would be to use a FRAG_ flag).  These are rare instructions so that
+     * shouldn't have a significant perf impact.
+     */
+    bb->exit_type |= LINK_SPECIAL_EXIT;
+    bb->flags |= FRAG_CANNOT_BE_TRACE;
+    /* If we inline the pc update, we can't persist.  Simplest to keep fine-grained. */
+    bb->flags &= ~FRAG_COARSE_GRAIN;
+}
+
 static bool
 instr_will_be_exit_cti(instr_t *inst)
 {
@@ -3373,6 +3389,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
         }
 #endif
+        else if (instr_saves_float_pc(bb->instr)) {
+            bb_process_float_pc(dcontext, bb);
+            break;
+        }
 
         if (total_instrs > DYNAMO_OPTION(max_bb_instrs)) {
             /* this could be an enormous basic block, or it could

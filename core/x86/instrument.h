@@ -416,6 +416,10 @@ DR_API
  * - The parameter to a system call, normally kept in the eax register, 
  *   cannot be changed.
  * - A system call or interrupt instruction cannot be added.
+ * - If both a floating-point state save instruction (fnstenv, fnsave,
+ *   fxsave, xsave, or xsaveopt) and a prior regular floating-point
+ *   instruction are present, the regular instruction cannot be
+ *   removed.
  *
  * If hitting a size limit due to extensive instrumentation, reduce
  * the -max_trace_bbs option to start with a smaller trace.
@@ -5229,6 +5233,9 @@ DR_API
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the x86 mode of the current thread (see get_x86_mode()).
+
+ * The last floating-point instruction address is left in an
+ * untranslated state (i.e., it may point into the code cache).
  */
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,

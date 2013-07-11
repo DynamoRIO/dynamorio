@@ -424,6 +424,10 @@ enum {
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
     INDIRECT_STUB_SPILL_SLOT    = TLS_XBX_SLOT,
     MANGLE_FAR_SPILL_SLOT       = TLS_XBX_SLOT,
+    /* i#698: float_pc handling stores the mem addr of the float state here.  We
+     * assume this slot is not touched on the fcache_return path.
+     */
+    FLOAT_PC_STATE_SLOT         = TLS_XBX_SLOT,
     MANGLE_XCX_SPILL_SLOT       = TLS_XCX_SLOT,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?

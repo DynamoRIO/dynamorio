@@ -787,6 +787,14 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
                  * be exiting dispatch as well -- no very quick check though
                  */
                 SELF_PROTECT_LOCAL(dcontext, READONLY);
+            } else if (dcontext->upcontext.upcontext.exit_reason >=
+                       EXIT_REASON_FLOAT_PC_FNSAVE &&
+                       dcontext->upcontext.upcontext.exit_reason <=
+                       EXIT_REASON_FLOAT_PC_XSAVE64) {
+                float_pc_update(dcontext);
+                STATS_INC(float_pc_from_dispatch);
+                /* Restore */
+                dcontext->upcontext.upcontext.exit_reason = EXIT_REASON_SELFMOD;
             } else {
                 /* When adding any new reason, be sure to clear exit_reason,
                  * as selfmod exits do not bother to set the reason field to

@@ -1525,6 +1525,9 @@ bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool ski
 #endif
 void finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
 
+void
+float_pc_update(dcontext_t *dcontext);
+
 /* in retcheck.c */
 #ifdef CHECK_RETURNS_SSE2
 void finalize_return_check(dcontext_t *dcontext, fragment_t *f);
