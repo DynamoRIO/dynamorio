@@ -5080,12 +5080,12 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 if (is_couldbelinking(dcontext)) /* won't be for SYS_kill (i#1159) */
                     enter_nolinking(dcontext, NULL, false);
                 GET_STACK_PTR(cur_esp);
+                dcontext->sys_param0 = sig; /* store arg to SYS_kill */
                 if (cur_esp >= (byte *)info->sigstack.ss_sp &&
                     cur_esp <  (byte *)info->sigstack.ss_sp + info->sigstack.ss_size) {
                     /* We can't clean up our sigstack properly when we're on it
                      * (i#1160) so we terminate on the dstack.
                      */
-                    dcontext->sys_param0 = sig; /* store arg to SYS_kill */
                     call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
                                       false /*!initstack */, false/*no return */);
                 } else {
