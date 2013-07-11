@@ -1653,6 +1653,11 @@ if (UNIX)
   # i#784: test app behavior on alarm
   tobuild(linux.alarm linux/alarm.c)
 
+  # i#1145: test re-starting syscalls, both inlined and from dispatch
+  tobuild(linux.eintr linux/eintr.c)
+  target_link_libraries(linux.eintr ${libpthread})
+  torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
+
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")

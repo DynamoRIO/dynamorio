@@ -69,6 +69,7 @@
 #include "decode_fast.h" /* to handle self-mod code */
 #include "../synch.h"
 #include "../nudge.h"
+#include "disassemble.h"
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -480,6 +481,8 @@ typedef struct _sigpending_t {
     /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
     byte *access_address;
 #endif
+    /* use the sigcontext, not the mcontext (used to restart syscalls for i#1145) */
+    bool use_sigcontext;
     struct _sigpending_t *next;
 } sigpending_t;
 
@@ -650,7 +653,7 @@ static void
 signal_info_exit_sigaction(dcontext_t *dcontext, thread_sig_info_t *info,
                            bool other_thread);
 
-static void
+static bool
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
                            struct sigcontext *sc_orig, fragment_t *f
                            _IF_CLIENT(byte *access_address));
@@ -3394,6 +3397,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 #ifdef CLIENT_INTERFACE
     info->sigpending[sig]->access_address = access_address;
 #endif
+    info->sigpending[sig]->use_sigcontext = false;
 }
 
 /**** real work ***********************************************/
@@ -3524,6 +3528,9 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
              * on request.
              */
             our_frame->uc.uc_mcontext = *sc_orig;
+            LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xsp="PFX", xip="PFX"\n",
+                __FUNCTION__, our_frame->uc.uc_mcontext.SC_XSP,
+                our_frame->uc.uc_mcontext.SC_XIP);
         }
         return false;
     }
@@ -3675,6 +3682,146 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
     return pre_or_post_syscall;
 }
 
+static bool
+sysnum_is_not_restartable(int sysnum)
+{
+    /* Check the list of non-restartable syscalls.
+     * We're missing:
+     * + SYS_read from an inotify file descriptor.
+     * We're overly aggressive on:
+     * + Socket interfaces: supposed to restart if no timeout has been set
+     *   but we never restart for simplicity for now.
+     */
+    return (sysnum == SYS_pause || sysnum == SYS_rt_sigsuspend ||
+            sysnum == SYS_rt_sigtimedwait || IF_X64(sysnum == SYS_epoll_wait_old ||)
+            sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
+            sysnum == SYS_poll || sysnum == SYS_ppoll ||
+            sysnum == SYS_select || sysnum == SYS_pselect6 ||
+#ifdef X64
+            sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
+            sysnum == SYS_semtimedop ||
+            /* XXX: these should be restarted if there's no timeout */
+            sysnum == SYS_accept || sysnum == SYS_accept4 ||
+            sysnum == SYS_recvfrom || sysnum == SYS_recvmmsg ||
+            sysnum == SYS_connect || sysnum == SYS_sendto ||
+            sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
+#else
+            /* XXX: some should be restarted if there's no timeout */
+            sysnum == SYS_ipc ||
+#endif
+            sysnum == SYS_clock_nanosleep || sysnum == SYS_nanosleep ||
+            sysnum == SYS_io_getevents);
+}
+
+/* i#1145: auto-restart syscalls interrupted by signals */
+static bool
+adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
+                           struct sigcontext *sc, fragment_t *f)
+{
+    byte *pc = (byte *) sc->SC_XIP;
+    instr_t instr;
+
+    if (sc->SC_XAX != -EINTR) {
+        /* The syscall succeeded, so no reason to interrupt.
+         * Some syscalls succeed on a signal coming in.
+         * E.g., SYS_wait4 on SIGCHLD, or reading from a slow device.
+         */
+        return false;
+    }
+    /* Don't restart if the app's handler says not to */
+    if (info->app_sigaction[sig] != NULL &&
+        !TEST(SA_RESTART, info->app_sigaction[sig]->flags)) {
+        return false;
+    }
+    /* XXX i#1145: some syscalls are never restarted when interrupted by a signal.
+     * We check those that are simple to distinguish below, but not all are.  We have
+     * this under an option so it can be disabled if necessary.
+     */
+    if (!DYNAMO_OPTION(restart_syscalls))
+        return false;
+
+    /* The kernel has already put -EINTR into eax, so we must
+     * restore the syscall number.  We assume no other register or
+     * memory values have been clobbered from their pre-syscall
+     * values.
+     */
+    int sysnum = -1;
+    if (f != NULL) {
+        /* Inlined syscall.  I'd use find_syscall_num() but we'd need to call
+         * decode_fragment() and tweak find_syscall_num() to handle the skip-syscall
+         * jumps, or grab locks and call recreate_fragment_ilist() -- both are
+         * heavyweight, so we do our own decode loop.
+         * We assume we'll find a mov-imm b/c otherwise we wouldn't have inlined this.
+         */
+        LOG(THREAD, LOG_ASYNCH, 3, "%s: decoding to find syscall #\n", __FUNCTION__);
+        instr_init(dcontext, &instr);
+        pc = FCACHE_ENTRY_PC(f);
+        do {
+            DOLOG(3, LOG_ASYNCH, {
+                disassemble_with_bytes(dcontext, pc, THREAD);
+            });
+            instr_reset(dcontext, &instr);
+            pc = decode(dcontext, pc, &instr);
+            if (instr_get_opcode(&instr) == OP_mov_imm &&
+                opnd_is_reg(instr_get_dst(&instr, 0)) &&
+                opnd_get_reg(instr_get_dst(&instr, 0)) == REG_EAX &&
+                opnd_is_immed_int(instr_get_src(&instr, 0))) {
+                sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
+                /* don't break: find last one before syscall */
+            }
+        } while (pc != NULL && instr_valid(&instr) && !instr_is_syscall(&instr) &&
+                 pc < FCACHE_ENTRY_PC(f) + f->size);
+        instr_free(dcontext, &instr);
+        ASSERT(DYNAMO_OPTION(ignore_syscalls));
+        ASSERT(sysnum > -1);
+   } else {
+        /* do_syscall => eax should be in mcontext */
+        sysnum = (int) get_mcontext(dcontext)->xax;
+    }
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall # is %d\n", __FUNCTION__, sysnum);
+    if (sysnum_is_not_restartable(sysnum)) {
+        LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall is non-restartable\n", __FUNCTION__);
+        return false;
+    }
+    sc->SC_XAX = sysnum;
+
+    /* Now adjust the pc to point at the syscall instruction instead of after it,
+     * so when we resume we'll go back to the syscall.
+     *
+     * XXX: this is a transparency issue: the app might expect a pc after the
+     * syscall.  We live with it for now.
+     */
+    ASSERT(INT_LENGTH == SYSCALL_LENGTH &&
+           INT_LENGTH == SYSENTER_LENGTH);
+    if (pc == vsyscall_sysenter_return_pc) {
+        sc->SC_XIP = (ptr_uint_t) (vsyscall_syscall_end_pc - SYSENTER_LENGTH);
+        /* To restart sysenter we must re-copy xsp into xbp, as xbp is
+         * clobbered by the kernel.
+         */
+        sc->SC_XBP = sc->SC_XSP;
+    } else if (is_after_syscall_address(dcontext, pc)) {
+        /* We're at do_syscall: point at app syscall instr */
+        sc->SC_XIP = (ptr_uint_t) (dcontext->asynch_target - INT_LENGTH);
+        DODEBUG({
+            instr_init(dcontext, &instr);
+            ASSERT(decode(dcontext, (app_pc) sc->SC_XIP, &instr) != NULL &&
+                   instr_is_syscall(&instr));
+            instr_free(dcontext, &instr);
+        });
+    } else {
+        instr_init(dcontext, &instr);
+        pc = decode(dcontext, pc - INT_LENGTH, &instr);
+        if (instr_is_syscall(&instr))
+            sc->SC_XIP -= INT_LENGTH;
+        else
+            ASSERT_NOT_REACHED();
+        instr_free(dcontext, &instr);
+    }
+    LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now "PFX"\n", __FUNCTION__,
+        sc->SC_XIP);
+    return true;
+}
+
 static void
 record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                       sigframe_rt_t *frame, bool forged
@@ -3689,6 +3836,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     bool receive_now = false;
     bool blocked = false;
     bool handled = false;
+    bool at_syscall = false;
     sigpending_t *pend;
     fragment_t *f = NULL;
     fragment_t wrapper;
@@ -3760,8 +3908,6 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             /* to make translation easier, want to delay if can until dispatch
              * unlink cur frag, wait for dispatch
              */
-            fragment_t wrapper;
-            fragment_t *f = NULL;
             /* check for coarse first to avoid cost of coarse pclookup */
             if (get_fcache_coarse_info(pc) != NULL) {
                 /* PR 213040: we can't unlink coarse.  If we fail to translate
@@ -3798,6 +3944,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     receive_now = true;
                     LOG(THREAD, LOG_ASYNCH, 2,
                         "signal interrupted pre/post syscall itself so delivering now\n");
+                    at_syscall = true;
                 } else {
                     /* could get another signal but should be in same fragment */
                     ASSERT(info->interrupted == NULL || info->interrupted == f);
@@ -3833,6 +3980,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d) from gen routine or stub "PFX"\n", sig, pc);
+        /* i#1206: the syscall was interrupted, so we can go back to dispatch
+         * and don't need to receive it now (which complicates post-syscall handling)
+         * w/o any extra delay.
+         */
+        at_syscall = is_after_syscall_address(dcontext, pc);
         /* This could come from another thread's SYS_kill (via our gen do_syscall) */
         DOLOG(1, LOG_ASYNCH, {
             if (!is_after_syscall_address(dcontext, pc) &&
@@ -3841,6 +3993,13 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                     "WARNING: signal %d in gen routine: may cause problems!\n", sig);
             }
         });
+    } else if (pc == vsyscall_sysenter_return_pc) {
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "record_pending_signal(%d) from vsyscall "PFX"\n", sig, pc);
+        /* i#1206: the syscall was interrupted, so we can go back to dispatch
+         * and don't need to receive it now (which complicates post-syscall handling)
+         */
+        at_syscall = true;
     } else {
         /* the signal interrupted dynamo => do not run handler now! */
         LOG(THREAD, LOG_ASYNCH, 2,
@@ -3867,6 +4026,13 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
          * suppress, so we need a backup copy
          */
         bool xl8_success;
+
+        /* i#1145: update the context for an auto-restart syscall
+         * before we make the sc_orig copy or translate.
+         */
+        if (at_syscall)
+            adjust_syscall_for_restart(dcontext, info, sig, sc, f);
+
         sc_orig = *sc;
         ASSERT(!forged);
         /* cache the fragment since pclookup is expensive for coarse (i#658) */
@@ -3993,7 +4159,28 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              *  construct our own frame...kind of a pain.  
              */
             copy_frame_to_pending(dcontext, sig, frame _IF_CLIENT(access_address));
-        } else {
+
+            /* i#1145: check whether we should auto-restart an interrupted syscall */
+            if (at_syscall) {
+                /* Adjust the pending frame to restart the syscall, if applicable */
+                sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
+                struct sigcontext *sc_pend = get_sigcontext_from_rt_frame(frame);
+                if (adjust_syscall_for_restart(dcontext, info, sig, sc_pend, f)) {
+                    /* We're going to re-start this syscall after we go
+                     * back to dispatch, run the post-syscall handler (for -EINTR),
+                     * and deliver the signal.  We've adjusted the sigcontext
+                     * for re-start on the sigreturn, but we need to tell
+                     * execute_handler_from_dispatch() to use our sigcontext
+                     * and not the mcontext.
+                     * A client will see a second set of pre + post handlers for
+                     * the restart, which seems reasonable, given the signal in
+                     * between.
+                     */
+                    info->sigpending[sig]->use_sigcontext = true;
+                }
+            }
+
+       } else {
             /* For clients, we document that we do not pass to them
              * unless we're prepared to deliver to app.  We would have
              * to change our model to pass them non-final-translated
@@ -4696,7 +4883,7 @@ master_signal_handler_C(byte *xsp)
     EXITING_DR();
 }
 
-static void
+static bool
 execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_frame,
                            struct sigcontext *sc_orig, fragment_t *f
                            _IF_CLIENT(byte *access_address))
@@ -4719,7 +4906,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
                               false/*not blocked*/, f);
     if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
                                          false/*!blocked*/))
-        return;
+        return false;
 #else
     if (info->app_sigaction[sig] == NULL ||
         info->app_sigaction[sig]->handler == (handler_t)SIG_DFL) {
@@ -4730,7 +4917,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
              */
             our_frame->uc.uc_mcontext = *sc_orig;
         }
-        return;
+        return false;
     }
     ASSERT(info->app_sigaction[sig] != NULL &&
            info->app_sigaction[sig]->handler != (handler_t)SIG_IGN &&
@@ -4804,6 +4991,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset next_tag to handler "PFX", xsp to "PFX"\n",
         info->app_sigaction[sig]->handler, xsp);
+    return true;
 }
 
 static bool
@@ -4852,10 +5040,15 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
         dump_sigcontext(dcontext, sc);
     }
 #endif
-    /* copy currently-interrupted-context to frame's context, so we can
-     * abandon the currently-interrupted context.
-     */
-    mcontext_to_sigcontext(sc, mcontext);
+    if (info->sigpending[sig]->use_sigcontext) {
+        LOG(THREAD, LOG_ASYNCH, 2,
+            "%s: using sigcontext, not mcontext (syscall restart)\n", __FUNCTION__);
+    } else {
+        /* copy currently-interrupted-context to frame's context, so we can
+         * abandon the currently-interrupted context.
+         */
+        mcontext_to_sigcontext(sc, mcontext);
+    }
     /* mcontext does not contain fp or mmx or xmm state, which may have
      * changed since the frame was created (while finishing up interrupted
      * fragment prior to returning to dispatch).  Since DR does not touch
@@ -4885,9 +5078,11 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * receive in pre_system_call or something? what if ignorable?  FIXME!
      */
 
-    /* for the pc we want the app pc not the cache pc */
-    sc->SC_XIP = (ptr_uint_t) dcontext->next_tag;
-    LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to "PFX"\n", sc->SC_XIP);
+    if (!info->sigpending[sig]->use_sigcontext) {
+        /* for the pc we want the app pc not the cache pc */
+        sc->SC_XIP = (ptr_uint_t) dcontext->next_tag;
+        LOG(THREAD, LOG_ASYNCH, 3, "\tset frame's eip to "PFX"\n", sc->SC_XIP);
+    }
 
 #ifdef CLIENT_INTERFACE
     action = send_signal_to_client(dcontext, sig, frame, NULL,
@@ -4922,6 +5117,11 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
             (action == DR_SIGNAL_BYPASS) ?
             "client forcing default" :
             "app signal handler is SIG_DFL");
+        if (info->sigpending[sig]->use_sigcontext) {
+            /* after the default action we want to go to the sigcontext */
+            dcontext->next_tag = (app_pc) sc->SC_XIP;
+            sigcontext_to_mcontext(get_mcontext(dcontext), sc);
+        }
         execute_default_from_dispatch(dcontext, sig, frame);
         return true;
     }
@@ -4983,6 +5183,7 @@ static void
 terminate_via_kill(dcontext_t *dcontext)
 {
     ASSERT(dcontext == get_thread_private_dcontext());
+
     /* FIXME PR 541760: there can be multiple thread groups and thus
      * this may not exit all threads in the address space
      */
@@ -5037,9 +5238,16 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      * the signal ourselves.
      */
     if (default_action[sig] != DEFAULT_IGNORE) {
+        kernel_sigset_t set;
         DEBUG_DECLARE(bool ok =)
             set_default_signal_action(sig);
         ASSERT(ok);
+
+        /* If we're in our handler now, we have to unblock */
+        kernel_sigemptyset(&set);
+        kernel_sigaddset(&set, sig);
+        sigprocmask_syscall(SIG_UNBLOCK, &set, NULL, sizeof(set));
+
         /* FIXME: to avoid races w/ shared handlers should set a flag to
          * prevent another thread from re-enabling.
          * Perhaps worse: what if this signal arrives for another thread
@@ -5371,6 +5579,14 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         dump_sigcontext(dcontext, sc);
     }
 #endif
+
+    /* XXX i#1206: if we interrupted a non-ignorable syscall to run the app's
+     * handler, and we set up to restart the syscall, we'll come here with the
+     * translated syscall pc -- thus we can't distinguish from a signal interrupting
+     * the prior app instr.  So we can't simply point at do_syscall and call
+     * set_at_syscall -- we have to re-interpret the syscall and re-run the
+     * pre-syscall handler.  Hopefully all our pre-syscall handlers can handle that.
+     */
 
     /* set up for dispatch */
     /* we have to use a different slot since next_tag ends up holding the do_syscall

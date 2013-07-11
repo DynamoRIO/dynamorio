@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -499,11 +499,12 @@ static
 dr_signal_action_t signal_event1(void *dcontext, dr_siginfo_t *info)
 {
     inc_count_first(EVENT_SIGNAL_1, EVENT_SIGNAL_2);
-    if (info->sig == SIGUSR2) 
+    if (info->sig == SIGUSR2)
         return DR_SIGNAL_SUPPRESS;
     else if (info->sig == SIGURG) {
         if (!dr_unregister_signal_event(signal_event1))
             dr_fprintf(STDERR, "unregister failed!\n");
+        dr_register_signal_event(signal_event_redirect);
         return DR_SIGNAL_BYPASS;
     }
     return DR_SIGNAL_DELIVER;
@@ -514,8 +515,6 @@ dr_signal_action_t signal_event2(void *dcontext, dr_siginfo_t *info)
 {    
     inc_count_second(EVENT_SIGNAL_2);
 
-    dr_register_signal_event(signal_event_redirect);
-    
     if (!dr_unregister_signal_event(signal_event2))
         dr_fprintf(STDERR, "unregister failed!\n");
 

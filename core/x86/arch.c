@@ -2551,6 +2551,18 @@ instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
 
 #ifdef UNIX
 static inline bool
+instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
+{
+    if (!instr_is_our_mangling(inst))
+        return false;
+    /* Not bothering to check whether there's a nearby syscall instr:
+     * any label-targeting short jump should be fine to ignore.
+     */
+    return (instr_get_opcode(inst) == OP_jmp_short &&
+            opnd_is_instr(instr_get_target(inst)));
+}
+
+static inline bool
 instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 {
     /* This won't fault but we don't want "unsupported mangle instr" message. */
@@ -2700,6 +2712,9 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
 #ifdef UNIX
+        else if (instr_is_inline_syscall_jmp(tdcontext, inst)) {
+            /* nothing to do */
+        }
         else if (instr_is_seg_ref_load(tdcontext, inst)) {
             /* nothing to do */
         }
@@ -3254,13 +3269,19 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          * has to be do_syscall since DR's own syscalls are ints.
          */
         (mcontext->pc == vsyscall_sysenter_return_pc ||
-         is_after_main_do_syscall_addr(tdcontext, mcontext->pc))) {
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc) ||
+         /* Check for pointing right at sysenter, for i#1145 */
+         mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
+         is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
         LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
             "recreate_app no translation needed (at syscall)\n");
         return res;
     }
 #endif
-    else if (is_after_syscall_that_rets(tdcontext, mcontext->pc)) {
+    else if (is_after_syscall_that_rets(tdcontext, mcontext->pc)
+             /* Check for pointing right at sysenter, for i#1145 */
+             IF_UNIX(|| is_after_syscall_that_rets(tdcontext,
+                                                   mcontext->pc + INT_LENGTH))) {
             /* suspended inside kernel at syscall
              * all registers have app values for syscall */
             LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
@@ -3291,8 +3312,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                     mcontext->xsp += XSP_SZ; /* pop the stack */
                 }
             }
+#else
+            if (is_after_syscall_that_rets(tdcontext, mcontext->pc + INT_LENGTH)) {
+                /* i#1145: preserve syscall re-start point */
+                mcontext->pc = POST_SYSCALL_PC(tdcontext) - INT_LENGTH;
+            } else
 #endif
-            mcontext->pc = POST_SYSCALL_PC(tdcontext);
+                mcontext->pc = POST_SYSCALL_PC(tdcontext);
             return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
         LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 

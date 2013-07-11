@@ -189,6 +189,7 @@ Further non-compatibility-affecting changes include:
    when floating point state is saved.
  - Added \p drx Extension: the DynamoRIO Instrumentation Utility
    Extension with BSD license
+ - Added automatic restarting of appropriate system calls interrupted by signals.
  - Various bug fixes
 
 **************************************************

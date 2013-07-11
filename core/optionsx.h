@@ -1448,6 +1448,8 @@
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
+    OPTION_DEFAULT(bool, restart_syscalls, true,
+                   "restart appropriate syscalls when interrupted by a signal")
 #endif
 
     /* These should be made internal when sufficiently tested */
