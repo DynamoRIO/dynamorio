@@ -51,6 +51,7 @@
  */
 
 #include "utils.h"
+#include "drx.h"
 #include <string.h>
 
 #define MAX_NUM_MODULES    0x1000
@@ -89,16 +90,6 @@ module_data_same(const module_data_t *d1, const module_data_t *d2)
                dr_module_preferred_name(d2)) == 0)
         return true;
     return false;
-}
-
-/* XXX i#43: the clean call has two arguments and cannot be inlined.
- * We could either create one function for each module or
- * one function per num_instrs to avoid taking two arguments.
- */
-static void ins_update(uint64 *mod_cnt, uint num_instrs)
-{
-    *mod_cnt  += num_instrs;
-    ins_count += num_instrs;
 }
 
 /* Simple clean calls with two arguments will not be inlined, but the context
@@ -156,6 +147,7 @@ event_module_unload(void *drcontext, const module_data_t *info);
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
+    drx_init();
     /* register events */
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);
@@ -235,13 +227,14 @@ event_exit(void)
     dr_mutex_unlock(mod_lock);
     dr_mutex_destroy(mod_lock);
     log_file_close(logfile);
+    drx_exit();
 }
 
 static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
-    instr_t *instr, *mbr = NULL;
+    instr_t *instr, *mbr = NULL, *first;
     uint num_instrs;
     int i;
     app_pc bb_addr = dr_fragment_app_pc(tag);
@@ -279,10 +272,11 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     }
     if (i == num_mods)
         i = UNKNOW_MODULE_IDX;
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
-                         (void *)ins_update, false /* save fpstate */, 2,
-                         OPND_CREATE_INTPTR(&mod_cnt[i]),
-                         OPND_CREATE_INT32(num_instrs));
+    first = instrlist_first(bb);
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
+                              (void *)&mod_cnt[i], num_instrs, DRX_COUNTER_64BIT);
+    drx_insert_counter_update(drcontext, bb, first, SPILL_SLOT_1,
+                              (void *)&ins_count, num_instrs, DRX_COUNTER_64BIT);
     if (mbr != NULL) {
         dr_insert_mbr_instrumentation(drcontext, bb, mbr,
                                       (void *)mbr_update, SPILL_SLOT_1);

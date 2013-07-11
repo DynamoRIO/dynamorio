@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2013 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -30,46 +30,42 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-# DynamoRIO Multi-Instrumentation Manager: a mediator for combining
-# and coordinating multiple instrumentation passes.
+# DynamoRIO eXtension utilities
 
-# Must be shared to ensure only one copy, since can be used by
-# the client and by multiple other libraries, some of which may
-# be shared: the whole point is to have one master drmgr.
-option(DR_EXT_DRMGR_STATIC "create drmgr as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drmgr before enabling as a static library)")
-if (DR_EXT_DRMGR_STATIC OR STATIC_LIBRARY)
+option(DR_EXT_DRX_STATIC "create drx as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drx before enabling as a static library)")
+if (DR_EXT_DRX_STATIC OR STATIC_LIBRARY)
   set(libtype STATIC)
 else()
   set(libtype SHARED)
 endif ()
-add_library(drmgr ${libtype}
-  drmgr.c
+add_library(drx ${libtype}
+  drx.c
   # add more here
   )
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
-set(PREFERRED_BASE 0x73000000)
-configure_DynamoRIO_client(drmgr)
-use_DynamoRIO_extension(drmgr drx)
+set(PREFERRED_BASE 0x77000000)
+configure_DynamoRIO_client(drx)
+
 # ensure we rebuild if includes change
-add_dependencies(drmgr api_headers)
+add_dependencies(drx api_headers)
 if (UNIX)
   # static libs must be PIC to be linked into clients: else requires
   # relocations that run afoul of security policies, etc.
-  append_property_string(TARGET drmgr COMPILE_FLAGS "-fPIC")
+  append_property_string(TARGET drx COMPILE_FLAGS "-fPIC")
 endif (UNIX)
 
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  append_property_string(TARGET drmgr LINK_FLAGS "/debug")
+  append_property_string(TARGET drx LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
 # documentation is put into main DR docs/ dir
 
-DR_export_target(drmgr)
-install_exported_target(drmgr ${INSTALL_EXT_LIB})
+DR_export_target(drx)
+install_exported_target(drx ${INSTALL_EXT_LIB})
 DR_install(FILES
-  drmgr.h
+  drx.h
   # add more here
   DESTINATION ${INSTALL_EXT_INCLUDE})

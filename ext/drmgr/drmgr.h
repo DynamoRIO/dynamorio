@@ -655,7 +655,7 @@ drmgr_get_parent_cls_field(void *drcontext, int idx);
  */
 
 enum {
-    DRMGR_NOTE_NONE,
+    DRMGR_NOTE_NONE = 0, /* == DRX_NOTE_NONE */
 };
 
 DR_EXPORT

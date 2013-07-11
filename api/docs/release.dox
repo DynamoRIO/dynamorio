@@ -187,6 +187,8 @@ Further non-compatibility-affecting changes include:
    to determine which fxsave state format to use.
  - Added support for presenting the proper floating point program counter
    when floating point state is saved.
+ - Added \p drx Extension: the DynamoRIO Instrumentation Utility
+   Extension with BSD license
  - Various bug fixes
 
 **************************************************

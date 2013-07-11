@@ -36,6 +36,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drx.h"
 #ifdef UNIX
 # include <string.h>
 #endif
@@ -192,8 +193,6 @@ static bool tls_taken[MAX_NUM_TLS];
 static bool cls_taken[MAX_NUM_TLS];
 static void *tls_lock;
 
-static void *note_lock;
-
 /* Thread event cbs and rwlock */
 static generic_event_entry_t *cblist_thread_init;
 static generic_event_entry_t *cblist_thread_exit;
@@ -287,6 +286,8 @@ drmgr_cls_presys_event(void *drcontext, int sysnum);
  */
 
 static int drmgr_init_count;
+#define NUM_DRMGR_NOTE 5
+static ptr_uint_t drmgr_note;
 
 DR_EXPORT
 bool
@@ -297,7 +298,10 @@ drmgr_init(void)
     if (count > 1)
         return true;
 
-    note_lock = dr_mutex_create();
+    drx_init();
+    /* reserve some values in case we want them in the future */
+    drmgr_note = drx_reserve_note_range(NUM_DRMGR_NOTE);
+    ASSERT(drmgr_note != DRX_NOTE_NONE, "fail to reserve note");
 
     bb_cb_lock = dr_rwlock_create();
     thread_event_lock = dr_rwlock_create();
@@ -362,7 +366,8 @@ drmgr_exit(void)
     dr_mutex_destroy(tls_lock);
     dr_rwlock_destroy(thread_event_lock);
     dr_rwlock_destroy(bb_cb_lock);
-    dr_mutex_destroy(note_lock);
+
+    drx_exit();
 }
 
 /***************************************************************************
@@ -1805,33 +1810,10 @@ drmgr_pop_cls(void *drcontext)
  * INSTRUCTION NOTE FIELD
  */
 
-enum {
-    /* reserve some values in case we want them in the future */
-    DRMGR_NOTE_RESERVED_1 = DRMGR_NOTE_NONE + 1,
-    DRMGR_NOTE_RESERVED_2,
-    DRMGR_NOTE_RESERVED_3,
-    DRMGR_NOTE_RESERVED_4,
-    DRMGR_NOTE_RESERVED_5,
-    DRMGR_NOTE_FIRST_FREE,
-};
-
-static ptr_uint_t note_next = DRMGR_NOTE_FIRST_FREE;
-
-/* un-reserving is not supported (would require interval tree to impl) */
+/* forward call to drx_reserve_note_range */
 DR_EXPORT
 ptr_uint_t
 drmgr_reserve_note_range(size_t size)
 {
-    ptr_uint_t res;
-    if (size == 0)
-        return DRMGR_NOTE_NONE;
-    dr_mutex_lock(note_lock);
-    if (note_next + size < note_next)
-        res = DRMGR_NOTE_NONE;
-    else {
-        res = note_next;
-        note_next += size;
-    }
-    dr_mutex_unlock(note_lock);
-    return res;
+    return drx_reserve_note_range(size);
 }
