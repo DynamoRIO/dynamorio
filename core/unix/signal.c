@@ -53,7 +53,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <ucontext.h>
-#include <sys/syscall.h>
 #include <linux/sched.h>
 #include <string.h> /* for memcpy and memset */
 #include "../globals.h"
@@ -70,6 +69,8 @@
 #include "../synch.h"
 #include "../nudge.h"
 #include "disassemble.h"
+
+#include "include/syscall.h"
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -3702,7 +3703,7 @@ sysnum_is_not_restartable(int sysnum)
             sysnum == SYS_semtimedop ||
             /* XXX: these should be restarted if there's no timeout */
             sysnum == SYS_accept || sysnum == SYS_accept4 ||
-            sysnum == SYS_recvfrom || sysnum == SYS_recvmmsg ||
+            sysnum == SYS_recvfrom || sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg ||
             sysnum == SYS_connect || sysnum == SYS_sendto ||
             sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
 #else
