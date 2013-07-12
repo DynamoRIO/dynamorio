@@ -2603,6 +2603,29 @@ mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 /***************************************************************************
  * SYSCALL
  */
+#ifdef CLIENT_INTERFACE
+static bool
+cti_is_normal_elision(instr_t *instr)
+{
+    instr_t *next;
+    opnd_t   tgt;
+    app_pc   next_pc;
+    if (instr == NULL || !instr_ok_to_mangle(instr))
+        return false;
+    if (!instr_is_ubr(instr) && !instr_is_call_direct(instr))
+        return false;
+    next = instr_get_next(instr);
+    if (next == NULL || !instr_ok_to_mangle(next))
+        return false;
+    tgt = instr_get_target(instr);
+    next_pc = instr_get_translation(next);
+    if (next_pc == NULL && instr_raw_bits_valid(next))
+        next_pc = instr_get_raw_bits(next);
+    if (opnd_is_pc(tgt) && next_pc != NULL && opnd_get_pc(tgt) == next_pc)
+        return true;
+    return false;
+}
+#endif
 
 /* Tries to statically find the syscall number for the
  * syscall instruction instr.
@@ -2628,7 +2651,10 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
                opnd_get_reg(instr_get_dst(prev, 0)) != REG_EAX) {
 #ifdef CLIENT_INTERFACE
             /* if client added cti in between, bail and assume non-ignorable */
-            if (instr_is_cti(prev))
+            if (instr_is_cti(prev) &&
+                !(cti_is_normal_elision(prev)
+                  IF_WINDOWS(|| instr_is_call_sysenter_pattern
+                             (prev, instr_get_next(prev), instr))))
                 return -1;
 #endif
             prev = instr_get_prev_expanded(dcontext, ilist, prev);

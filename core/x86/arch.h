@@ -402,6 +402,10 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);
+#ifdef WINDOWS
+bool
+instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
+#endif
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                             app_pc start_pc, app_pc end_pc, /* end is open */

@@ -1059,36 +1059,43 @@ bb_process_call_direct(dcontext_t *dcontext, build_bb_t *bb)
 }
 
 #ifdef WINDOWS
-/* Walk up from the bb->instr and verify that the preceding instructions
- * match the pattern that we expect to precede a sysenter. */
-static instr_t *
-bb_verify_sysenter_pattern(dcontext_t *dcontext, build_bb_t *bb)
+
+/* We check if the instrs call, mov, and sysenter are
+ * "call (%xdx); mov %xsp -> %xdx" or "call %xdx; mov %xsp -> %xdx"
+ * and "sysenter".
+ */
+bool
+instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter)
 {
-    /* Walk back up 2 instructions and verify that there's a
-     * "call (%xdx); mov %xsp -> %xdx" or "call %xdx; mov %xsp -> %xdx"
-     * just prior to the sysenter.
-     * We use "xsp" and "xdx" to be ready for x64 sysenter though we don't
-     * expect to see it.
-     */
-    instr_t *instr = instr_get_prev_expanded(dcontext, bb->ilist, bb->instr);
+    instr_t *instr;
+    if (call == NULL || mov == NULL || sysenter == NULL)
+        return false;
+    if (!instr_ok_to_mangle(call) || !instr_ok_to_mangle(mov) ||
+        !instr_ok_to_mangle(sysenter))
+        return false;
+    if (instr_get_next(call) != mov || instr_get_next(mov) != sysenter)
+        return false;
+    /* check sysenter */
+    if (instr_get_opcode(sysenter) != OP_sysenter)
+        return false;
 
     /* FIXME Relax the pattern matching on the "mov; call" pair so that small
      * changes in the register dataflow and call construct are tolerated. */
 
     /* Did we find a "mov %xsp -> %xdx"? */
+    instr = mov;
     if (!(instr != NULL && instr_get_opcode(instr) == OP_mov_ld &&
           instr_num_srcs(instr) == 1 && instr_num_dsts(instr) == 1 &&
           opnd_is_reg(instr_get_dst(instr, 0)) &&
           opnd_get_reg(instr_get_dst(instr, 0)) == REG_XDX &&
           opnd_is_reg(instr_get_src(instr, 0)) &&
           opnd_get_reg(instr_get_src(instr, 0)) == REG_XSP)) {
-        BBPRINT(bb, 3, "bb_verify_sysenter_pattern -- mov didn't match\n");
-        return NULL;
+        return false;
     }
-    instr = instr_get_prev_expanded(dcontext, bb->ilist, instr);
 
     /* Did we find a "call (%xdx) or "call %xdx" that's already marked
      * for ind->direct call conversion? */
+    instr = call;
     if (!(instr != NULL && TEST(INSTR_IND_CALL_DIRECT, instr->flags) &&
           instr_is_call_indirect(instr) &&
           /* The 2nd src operand should always be %xsp. */
@@ -1101,11 +1108,37 @@ bb_verify_sysenter_pattern(dcontext_t *dcontext, build_bb_t *bb)
            /* Match 'call %xdx' for pre-SP2. */
            (opnd_is_reg(instr_get_src(instr, 0)) &&
             opnd_get_reg(instr_get_src(instr, 0)) == REG_XDX)))) {
-        BBPRINT(bb, 3, "bb_verify_sysenter_pattern -- call didn't match\n");
-        return NULL;
+        return false;
     }
 
-    return instr;
+    return true;
+}
+
+/* Walk up from the bb->instr and verify that the preceding instructions
+ * match the pattern that we expect to precede a sysenter. */
+static instr_t *
+bb_verify_sysenter_pattern(dcontext_t *dcontext, build_bb_t *bb)
+{
+    /* Walk back up 2 instructions and verify that there's a
+     * "call (%xdx); mov %xsp -> %xdx" or "call %xdx; mov %xsp -> %xdx"
+     * just prior to the sysenter.
+     * We use "xsp" and "xdx" to be ready for x64 sysenter though we don't
+     * expect to see it.
+     */
+    instr_t *mov, *call;
+    mov = instr_get_prev_expanded(dcontext, bb->ilist, bb->instr);
+    if (mov == NULL)
+        return NULL;
+    call = instr_get_prev_expanded(dcontext, bb->ilist, mov);
+    if (call == NULL)
+        return NULL;
+    if (!instr_is_call_sysenter_pattern(call, mov, bb->instr)) {
+        BBPRINT(bb, 3, "bb_verify_sysenter_pattern -- pattern didn't match\n");
+        return NULL;
+    }
+    return call;
+
+
 }
 
 /* Only used for the Borland SEH exemption. */
