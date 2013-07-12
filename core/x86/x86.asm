@@ -1755,7 +1755,7 @@ GLOBAL_LABEL(FUNCNAME:)
 GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
 #ifdef X64
-        /* gcc 4.4.3 doesn't know "fxsave64" */
+        /* VS2005 doesn't know "fxsave64" (and it's "fxsaveq" for gcc 4.4) */
         RAW(48) RAW(0f) RAW(ae) RAW(00) /* fxsave64 [REG_XAX] */
 #else
         fxsave   [REG_XAX]
@@ -1784,7 +1784,7 @@ GLOBAL_LABEL(FUNCNAME:)
 GLOBAL_LABEL(FUNCNAME:)
         mov      REG_XAX, ARG1
 #ifdef X64
-        /* gcc 4.4.3 doesn't know "fxrstor64" */
+        /* VS2005 doesn't know "fxrstor64" */
         RAW(48) RAW(0f) RAW(ae) RAW(08) /* fxrstor64 [REG_XAX] */
 #else
         fxrstor  [REG_XAX]

@@ -551,6 +551,16 @@ struct _opnd_t {
 };
 #endif /* DR_FAST_IR */
 /* DR_API EXPORT END */
+#ifndef DR_FAST_IR
+struct _opnd_t {
+# ifdef X64
+    uint black_box_uint;
+    uint64 black_box_uint64;
+# else
+    uint black_box_uint[3];
+# endif
+};
+#endif
 
 /* We assert that our fields are packed properly in arch_init().
  * We could use #pragma pack to shrink x64 back down to 12 bytes (it's at 16

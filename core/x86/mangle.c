@@ -3148,7 +3148,6 @@ mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #define FNSAVE_PC_OFFS  12
 #define FXSAVE_PC_OFFS   8
 #define FXSAVE_SIZE    512
-#define XCR0_FP          1
 
 void
 float_pc_update(dcontext_t *dcontext)

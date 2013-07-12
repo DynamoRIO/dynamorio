@@ -618,9 +618,8 @@ proc_save_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_save_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-        /* Not using inline asm as gcc 4.4.3 doesn't know fxsave64.  An
-         * extra function call won't hurt per here so we simplify our code
-         * by always using our separate asm routines.
+        /* Not using inline asm for identical cross-platform code
+         * here.  An extra function call won't hurt here.
          */
 #ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))
@@ -653,9 +652,8 @@ proc_restore_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_restore_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-        /* Not using inline asm as gcc 4.4.3 doesn't know fxrstor64.  An
-         * extra function call won't hurt per here so we simplify our code
-         * by always using our separate asm routines.
+        /* Not using inline asm for identical cross-platform code
+         * here.  An extra function call won't hurt here.
          */
 #ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))

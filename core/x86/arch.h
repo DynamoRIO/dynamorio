@@ -407,6 +407,23 @@ bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags
                             app_pc start_pc, app_pc end_pc, /* end is open */
                             bool record_translation, bool for_cache);
 
+void
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first OUT, instr_t **second OUT);
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first OUT, instr_t **second OUT);
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
+
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */

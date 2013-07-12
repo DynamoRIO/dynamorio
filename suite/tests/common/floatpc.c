@@ -151,7 +151,8 @@ ADDRTAKEN_LABEL(fldz_addr:)
         mov      REG_XDX, REG_XSP
         sub      REG_XSP, 512+16 /* make space for fxsave + align */
         and      REG_XSP, -16    /* align to 16 */
-        fxsave64 [REG_XSP]
+        /* VS2005 doesn't know "fxsave64" */
+        RAW(48) RAW(0f) RAW(ae) RAW(04) RAW(24) /* fxsave64 [REG_XSP] */
         mov      REG_XAX, PTRSZ [REG_XSP + FXSAVE_PC_OFFS]
         mov      REG_XSP, REG_XDX
         ret
@@ -174,7 +175,8 @@ ADDRTAKEN_LABEL(fldz_addr1:)
         mov      REG_XDX, REG_XSP
         sub      REG_XSP, 512+16 /* make space for fxsave + align */
         and      REG_XSP, -16    /* align to 16 */
-        fxsave64 [REG_XSP]
+        /* VS2005 doesn't know "fxsave64" */
+        RAW(48) RAW(0f) RAW(ae) RAW(04) RAW(24) /* fxsave64 [REG_XSP] */
         mov      REG_XAX, PTRSZ [REG_XSP + FXSAVE_PC_OFFS]
         mov      REG_XSP, REG_XDX
 skip:
