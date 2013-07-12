@@ -74,10 +74,10 @@
 #if VERBOSE
 # define DO_VERBOSE(x) x
 # undef printf
-# define VERBOSE_PRINT(x) printf x
+# define VERBOSE_PRINT printf
 #else
 # define DO_VERBOSE(x) 
-# define VERBOSE_PRINT(x)
+# define VERBOSE_PRINT(...)
 #endif
 #define FP stderr
 
@@ -639,6 +639,85 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
     return false;
 }
 
+static void
+append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg)
+{
+    size_t len = strlen(arg);
+    /* CreateProcess requires a single command-line string, so we must
+     * combine the separate args in such a way that the tokenizer on the
+     * other side produces the same array again.
+     * We assume MS C++, which will split on space or tab (but not [\n\r\v]).
+     * It requires quotes to include a space (cannot escape a space).
+     * We do not want to blindly quote all args, as although the argv[]
+     * array (or the result of CommandLineToArgvW()) will strip the outer quotes,
+     * some processes directly parse the command line (note that WinMain is not
+     * passed argv[]) and can't handle quotes (of course they have to handle
+     * quotes on args with spaces).
+     * 
+     * XXX: by taking argv[], we're already losing transparency: most front-ends
+     * will pass us their main() argv[], which has already lost quotes.  Thus
+     * the child process will not see the same quotes in the cmdline.
+     * But escaped quotes will still be there.
+     * This should be good enough.
+     *
+     * Here's my test case:
+     * % bin32/drrun -debug -- e:/derek/dr/test/args.exe foo"""bar wo\"xof"\ -woah_\"man -choc-o-dile\'in*\\\"fact -logdir "c:\program files\some path\or other" '-even_num_quote\\\\"there' "" x\\\\
+     * orig command line is [E:\derek\dr\git\build_x86_dbg\bin32\drrun.exe -debug -- e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man" "-choc-o-dile'in*\\\"fact" -logdir "c:\program files\some path\or other" "-even_num_quote\\\\\\\\\"there" "" x\\]
+     * appending [e:/derek/dr/test/args.exe]
+     * appending [foobar wo"xof -woah_"man]
+     * appending [-choc-o-dile'in*\"fact]
+     * appending [-logdir]
+     * appending [c:\program files\some path\or other]
+     * appending [-even_num_quote\\\\"there]
+     * appending []
+     * appending [x\\]
+     *         arg 0: [e:/derek/dr/test/args.exe]
+     *         arg 1: [foobar wo"xof -woah_"man]
+     *         arg 2: [-choc-o-dile'in*\"fact]
+     *         arg 3: [-logdir]
+     *         arg 4: [c:\program files\some path\or other]
+     *         arg 5: [-even_num_quote\\\\"there]
+     *         arg 6: []
+     *         arg 7: [x\\]
+     * command line is [e:/derek/dr/test/args.exe "foobar wo\"xof -woah_\"man" "-choc-o-dile'in*\\\"fact" -logdir "c:\program files\some path\or other" "-even_num_quote\\\\\\\\\"there" "" x\\]
+     */
+    size_t span = strcspn(arg, " \t\"");
+    VERBOSE_PRINT("appending [%s]\n", arg);
+    if (len > 0 && span == len)
+        print_to_buffer(buf, bufsz, sofar, "%s ", arg);
+    else {
+        const char *a;
+        print_to_buffer(buf, bufsz, sofar, "\"");
+        for (a = arg; *a != '\0'; a++) {
+            /* MS C++ collapses sequences of backslashes before a quote, so we
+             * have to walk any sequence and see what's after it.
+             */
+            uint i, backslashes = 0;
+            while (*a == '\\') {
+                a++;
+                backslashes++;
+            }
+            if (*a == '\"' || *a == '\0') {
+                /* MS C++ collapses backslashes before a quote, so we need to
+                 * escape them if the arg already has a quote or if it ends in
+                 * backslashes (and will end in a quote once we add it).
+                 */
+                for (i = 0; i < backslashes * 2; i++)
+                    print_to_buffer(buf, bufsz, sofar, "\\");
+                /* Escape any literal double-quotes */
+                if (*a != '\0')
+                    print_to_buffer(buf, bufsz, sofar, "\\\"");
+            } else {
+                /* No need to escape as these will be treated as literals already */
+                for (i = 0; i < backslashes; i++)
+                    print_to_buffer(buf, bufsz, sofar, "\\");
+                print_to_buffer(buf, bufsz, sofar, "%c", *a);
+            }
+        }
+        print_to_buffer(buf, bufsz, sofar, "\" ");
+    }
+}
+
 /* Returns 0 on success.
  * On failure, returns a Windows API error code.
  */
@@ -667,9 +746,9 @@ dr_inject_process_create(const char *app_name, const char **argv,
     app_cmdline = malloc(MAX_CMDLINE);
     if (!app_cmdline)
         return GetLastError();
-    /* FIXME: Need to escape quotes in args. */
+    VERBOSE_PRINT("orig command line is [%s]\n", GetCommandLine());
     for (i = 0; argv[i] != NULL; i++) {
-        print_to_buffer(app_cmdline, MAX_CMDLINE, &sofar, "\"%s\" ", argv[i]);
+        append_app_arg_and_space(app_cmdline, MAX_CMDLINE, &sofar, argv[i]);
     }
     app_cmdline[sofar-1] = '\0'; /* Trim the trailing space. */
 
