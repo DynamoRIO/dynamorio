@@ -1,6 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
- * Copyright (c) 2010 VMware, Inc.  All rights reserved.
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -14,14 +13,14 @@
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
  * 
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
@@ -34,11 +33,17 @@
 /**
 ***************************************************************************
 ***************************************************************************
-\page page_ext DynamoRIO Extensions
+\page page_tool DynamoRIO-Based Tools
 
-DynamoRIO provides additional optional capabilities via DynamoRIO
-Extensions, separate libraries that a client can link to.  The Extensions
-that are provided with the DynamoRIO distribution are:
+DynamoRIO-Based tools are provided for direct use.
+A tool can be invoked using the option \p -t with the tool name.
+For example:
+\code
+bin64/drrun -t bbcov -- app
+\endcode
+
+Those interested in how the -t option works should see
+the section \ref tool_frontend.
 
 REPLACE_WITH_GENDOX_SUBPAGES
 */

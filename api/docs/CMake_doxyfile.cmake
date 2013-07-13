@@ -59,6 +59,17 @@ foreach (dir ${ext_dirs})
   set(ext_input_dirs "${ext_input_dirs} \"${dir}\"")
 endforeach (dir)
 
+file(GLOB dirs "${proj_srcdir}/clients/*/CMakeLists.txt")
+foreach (dir ${dirs})
+  get_filename_component(dir ${dir} PATH)
+  set(tool_dirs ${tool_dirs} ${dir})
+endforeach (dir)
+
+foreach (dir ${tool_dirs})
+  doxygen_path_xform(${DOXYGEN_EXECUTABLE} dir)
+  set(tool_input_dirs "${tool_input_dirs} \"${dir}\"")
+endforeach (dir)
+
 configure_file(${srcdir_orig}/API.doxy ${outfile} COPY_ONLY)
 process_doxyfile(${outfile} ${DOXYGEN_EXECUTABLE} ${doxygen_ver})
 
@@ -74,7 +85,7 @@ file(READ "${outfile}" string)
 string(REGEX REPLACE
   "(INPUT[ \t]*=) *\\."
   # We no longer need ${proj_srcdir}/libutil on here, right?
-  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs}"
+  "\\1 \"${srcdir}\" \"${header_dir}\" \"${gendox_dir}\" ${ext_input_dirs} ${tool_input_dirs}"
   string "${string}")
 string(REGEX REPLACE
   "([^a-z])images"

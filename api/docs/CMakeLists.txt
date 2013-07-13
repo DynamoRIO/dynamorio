@@ -105,21 +105,26 @@ foreach (fig ${figures_fig})
   set(figures_eps ${figures_eps} ${genimg_dirname}/${base}.eps)
 endforeach (fig)
 
+function (gendox_to_dox gendox_in gendox_out path)
+  file(GLOB dox_files "${path}/*.dox")
+  foreach (dox_file ${dox_files})
+    file(READ "${dox_file}" dox_string)
+    string(REGEX MATCHALL "\n\\\\page [^ ]+" page "${dox_string}")
+    set(dox_pages ${dox_pages} ${page})
+  endforeach (dox_file)
+  foreach (page ${dox_pages})
+    string(REGEX REPLACE "\n\\\\page " "" pgname "${page}")
+    set(dox_gen_toc "${dox_gen_toc}- \\\\subpage ${pgname}\n")
+  endforeach (page)
+  file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${gendox_in}.gendox" gendox)
+  string(REGEX REPLACE REPLACE_WITH_GENDOX_SUBPAGES "${dox_gen_toc}" gendox "${gendox}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${gendox_out}.dox" "${gendox}")
+endfunction (gendox_to_dox)
+
 # we want docs for Extensions (i#277/PR 540817) to be subpages but we
 # don't want to edit a top-level page to add new ones so we generate it
-file(GLOB ext_dox_files "${PROJECT_SOURCE_DIR}/ext/*/*.dox")
-foreach (ext_dox ${ext_dox_files})
-  file(READ "${ext_dox}" string)
-  string(REGEX MATCHALL "\n\\\\page [^ ]+" page "${string}")
-  set(ext_pages ${ext_pages} ${page})
-endforeach (ext_dox)
-foreach (page ${ext_pages})
-  string(REGEX REPLACE "\n\\\\page " "" pgname "${page}")
-  set(gen_toc "${gen_toc}- \\\\subpage ${pgname}\n")
-endforeach (page)
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/ext.gendox" gendox)
-string(REGEX REPLACE "REPLACE_WITH_EXTENSION_SUBPAGES" "${gen_toc}" gendox "${gendox}")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/gendox.dox" "${gendox}")
+gendox_to_dox("ext" "ext_gendox" "${PROJECT_SOURCE_DIR}/ext/*/")
+gendox_to_dox("tool" "tool_gendox" "${PROJECT_SOURCE_DIR}/client/*/")
 
 # determine doxygen version
 include(CMake_doxyutils.cmake)
@@ -153,6 +158,7 @@ add_custom_command(
   OUTPUT ${docsgen} # among other files
   DEPENDS ${dox_files}
           ${ext_dox_files}
+          ${tool_dox_files}
           ${header_files}
           ${doxyfile}
           ${figures_eps}
