@@ -1,7 +1,8 @@
 ===========================================================================
 ACKNOWLEDGEMENTS / AUTHORS OF DYNAMORIO
 
-The bulk of the current DynamoRIO code base was written by:
+The bulk of the DynamoRIO code base, at the point of open-sourcing in 2009,
+was written by:
 
   * Derek Bruening
   * Vladimir Kiriansky
@@ -12,6 +13,12 @@ from:
 
   * Samuel Larsen
   * Bharath Chandramohan
+
+After open-sourcing, the majority of new code was written by:
+
+  * Derek Bruening
+  * Reid Kleckner
+  * Qin Zhao
 
 --------------------------------------------------
 
