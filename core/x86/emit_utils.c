@@ -6233,6 +6233,42 @@ create_syscall_instr(dcontext_t *dcontext)
 
 #ifdef WINDOWS
 
+/* Insert instructions after the syscall instruction (e.g., sysenter) to
+ * restore the next tag target from dcontext XSI slot to %xcx register
+ * for continue execution.
+ * See the comment below for emit_shared_syscall about shared syscall
+ * handling.
+ */
+static void
+insert_restore_target_from_dc(dcontext_t *dcontext,
+                              instrlist_t *ilist,
+                              bool all_shared)
+{
+    ASSERT(IF_X64_ELSE(all_shared, true)); /* PR 244737 */
+    if (all_shared) {
+        APP(ilist,
+            instr_create_restore_from_dc_via_reg
+            (dcontext, REG_NULL/*default*/, REG_XCX, XSI_OFFSET));
+    } else {
+        APP(ilist,
+            instr_create_restore_from_dcontext(dcontext, REG_XCX, XSI_OFFSET));
+    }
+# ifdef CLIENT_INTERFACE
+    /* i#537: we push KiFastSystemCallRet on to the stack and adjust the
+     * next code to be executed at KiFastSystemCallRet.
+     */
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
+        KiFastSystemCallRet_address != NULL) {
+        /* push adjusted ecx onto stack */
+        APP(ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XCX)));
+        APP(ilist, INSTR_CREATE_mov_imm(dcontext,
+                                        opnd_create_reg(REG_XCX),
+                                        OPND_CREATE_INT32
+                                        (KiFastSystemCallRet_address)));
+    }
+# endif /* CLIENT_INTERFACE */   
+}
+
 /* All system call instructions turn into a jump to an exit stub that
  * jumps here, with the xsi slot in dcontext (or the mangle-next-tag tls slot
  * for -shared_fragment_shared_syscalls) containing the return address
@@ -6750,13 +6786,8 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     }
 
     /* get link flag */
+    unlink = INSTR_CREATE_label(dcontext);
     if (all_shared) {
-        /* we duplicate the restore from dc and restore of xdi on the link
-         * and unlink paths, rather than putting next_tag back into tls here
-         * (can't rely on that tls slot persisting over syscall w/ callbacks)
-         */
-        unlink = instr_create_restore_from_dc_via_reg
-            (dcontext, REG_NULL/*default*/, REG_XCX, XSI_OFFSET);
         /* we stored 4 bytes so get 4 bytes back; save app xcx at same time */
 # ifdef X64
         if (x86_to_x64) {
@@ -6774,7 +6805,6 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 # endif
         /* app xdi is restored later after we've restored next_tag from xsi slot */
     } else {
-        unlink = instr_create_restore_from_dcontext(dcontext, REG_XCX, XSI_OFFSET);
         APP(&ilist, instr_create_restore_from_dcontext(dcontext, REG_XCX, XAX_OFFSET));
     }
     jecxz = INSTR_CREATE_jecxz(dcontext, opnd_create_instr(unlink));
@@ -6808,15 +6838,15 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     /* put return address in xcx (was put in xsi slot by mangle.c, or in tls
      * by mangle.c and into xsi slot before syscall for all_shared) */
+    /* we duplicate the restore from dc and restore of xdi on the link
+     * and unlink paths, rather than putting next_tag back into tls here
+     * (can't rely on that tls slot persisting over syscall w/ callbacks)
+     */
+    insert_restore_target_from_dc(dcontext, &ilist, all_shared);
     if (all_shared) {
-        /* we duplicate the restore from dc and restore of xdi on the link
-         * and unlink paths: see note above */
-        APP(&ilist, instr_create_restore_from_dc_via_reg
-            (dcontext, REG_NULL/*default*/, REG_XCX, XSI_OFFSET));
         /* restore app %xdi */
         insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
-    } else
-        APP(&ilist, instr_create_restore_from_dcontext(dcontext, REG_XCX, XSI_OFFSET));
+    }
 
     /* FIXME As noted in the routine's header comments, shared syscall targets
      * the trace [IBT] table when both traces and BBs could be using it (when
@@ -6859,7 +6889,11 @@ emit_shared_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
     /* unlink path (there can be no fall-through) */
     APP(&ilist, unlink);
+    /* we duplicate the restore from dc and restore of xdi on the link
+     * and unlink paths: see note above */
+    insert_restore_target_from_dc(dcontext, &ilist, all_shared);
     if (all_shared) {
+        /* restore app %xdi */
         insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
     }
     /* When traversing the unlinked entry path, since IBL is bypassed

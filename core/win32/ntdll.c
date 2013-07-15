@@ -524,6 +524,13 @@ syscalls_init()
         IF_X64(ASSERT_NOT_IMPLEMENTED(false));
         ASSERT(*((uint *)(int_target-3)) == (uint)(ptr_uint_t)VSYSCALL_BOOTSTRAP_ADDR);
         sysenter_ret_address = (app_pc)int_target+3; /* save addr of ret */
+#ifdef CLIENT_INTERFACE
+        /* i#537: we do not support XPSP{0,1} wrt showing the skipped ret,
+         * which requires looking at the vsyscall code.
+         */
+        KiFastSystemCallRet_address = (app_pc)
+            get_proc_address(ntdllh, "KiFastSystemCallRet");
+#endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
     } else {
@@ -533,6 +540,10 @@ syscalls_init()
         /* kernel returns control to KiFastSystemCallRet, not local sysenter, of course */
         sysenter_ret_address = (app_pc) get_proc_address(ntdllh, "KiFastSystemCallRet");
         ASSERT(sysenter_ret_address != NULL);
+#ifdef CLIENT_INTERFACE
+        KiFastSystemCallRet_address = (app_pc)
+            get_proc_address(ntdllh, "KiFastSystemCallRet");
+#endif
         set_syscall_method(SYSCALL_METHOD_SYSENTER);
         dr_which_syscall_t = DR_SYSCALL_SYSENTER;
     }

@@ -63,6 +63,8 @@ app_pc int_syscall_address = NULL;
  * purposes, a function pointer that will be set only once early during app
  * init, so we keep it here with the options to leverage their protection. */
 app_pc sysenter_ret_address = NULL;
+/* i#537: sysenter returns to KiFastSystemCallRet from kernel */
+app_pc KiFastSystemCallRet_address = NULL;
 
 /* Snapshots are relatively heavyweight, so we do not take them on every memory
  * system call.  On the other hand, if we only did them when we dumped
@@ -3667,6 +3669,24 @@ postsys_DuplicateObject(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
+#ifdef CLIENT_INTERFACE
+/* i#537: sysenter returns to KiFastSystemCallRet from kernel, and returns to DR
+ * from there. We restore the correct app return target and re-execute
+ * KiFastSystemCallRet to make sure client see the code at KiFastSystemCallRet.
+ */
+static void
+restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
+{
+    reg_t adjust_esp;
+    ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
+           KiFastSystemCallRet_address != NULL);
+    adjust_esp = get_mcontext(dcontext)->xsp - XSP_SZ;
+    *(app_pc *)adjust_esp = dcontext->asynch_target;
+    get_mcontext(dcontext)->xsp = adjust_esp;
+    dcontext->asynch_target = KiFastSystemCallRet_address;
+}
+#endif
+
 /* NOTE : no locks can be grabbed on the path to SuspendThread handling code */
 void post_system_call(dcontext_t *dcontext)
 {
@@ -3879,6 +3899,14 @@ void post_system_call(dcontext_t *dcontext)
     /* i#202: ignore native syscalls in early_inject_init() */
     if (dynamo_initialized)
         instrument_post_syscall(dcontext, sysnum);
+
+    /* i#537 restore app stack for KiFastSystemCallRet
+     * this could be in handle_post_system_call@dispatch.c, but seems better
+     * here since it is windows specific.
+     */
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
+        KiFastSystemCallRet_address != NULL)
+        restore_for_KiFastSystemCallRet(dcontext);
 #endif
 
     /* stats lock grabbing ok here, any synch with suspended threads taken

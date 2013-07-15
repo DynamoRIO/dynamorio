@@ -262,6 +262,12 @@ extern app_pc int_syscall_address;
  * system calls needs to be in ntdll.dll for some platforms.  This will point
  * to a ret 0 in ntdll (NtYieldExecution). */
 extern app_pc sysenter_ret_address;
+#ifdef CLIENT_INTERFACE
+/* i#537: sysenter returns to KiFastSystemCallRet from KiFastSystemCall.
+ * We do not support XPSP{0,1} wrt showing the skipped ret.
+ */
+extern app_pc KiFastSystemCallRet_address;
+#endif
 
 bool ignorable_system_call(int num);
 bool optimizable_system_call(int num);
