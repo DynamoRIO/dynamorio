@@ -124,7 +124,7 @@ endfunction (gendox_to_dox)
 # we want docs for Extensions (i#277/PR 540817) to be subpages but we
 # don't want to edit a top-level page to add new ones so we generate it
 gendox_to_dox("ext" "ext_gendox" "${PROJECT_SOURCE_DIR}/ext/*/")
-gendox_to_dox("tool" "tool_gendox" "${PROJECT_SOURCE_DIR}/client/*/")
+gendox_to_dox("tool" "tool_gendox" "${PROJECT_SOURCE_DIR}/clients/*/")
 
 # determine doxygen version
 include(CMake_doxyutils.cmake)
