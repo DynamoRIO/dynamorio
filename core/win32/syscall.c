@@ -3680,6 +3680,13 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     reg_t adjust_esp;
     ASSERT(get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
            KiFastSystemCallRet_address != NULL);
+#ifdef CLIENT_INTERFACE
+    /* We don't want to do this adjustment until after the final syscall
+     * in any invoke-another sequence (i#1210)
+     */
+    if (instrument_invoke_another_syscall(dcontext))
+        return;
+#endif
     adjust_esp = get_mcontext(dcontext)->xsp - XSP_SZ;
     *(app_pc *)adjust_esp = dcontext->asynch_target;
     get_mcontext(dcontext)->xsp = adjust_esp;
@@ -4001,6 +4008,9 @@ dr_syscall_invoke_another(void *drcontext)
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "dr_syscall_invoke_another() can only be called from post-syscall event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
+    /* Dispatch checks this flag immediately upon return from handle_post_system_call()
+     * and if set it invokes handle_system_call().
+     */
     dcontext->client_data->invoke_another_syscall = true;
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         /* Since we're not regaining control immediately after sysenter,
