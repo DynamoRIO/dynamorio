@@ -147,6 +147,8 @@ event_module_unload(void *drcontext, const module_data_t *info);
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
+    char logname[64];
+    int len;
     drx_init();
     /* register events */
     dr_register_exit_event(event_exit);
@@ -156,9 +158,13 @@ dr_init(client_id_t id)
 
     mod_lock = dr_mutex_create();
 
+    len = dr_snprintf(logname, BUFFER_SIZE_ELEMENTS(logname),
+                      "modxfer.%d.log", dr_get_process_id());
+    DR_ASSERT(len > 0);
+    NULL_TERMINATE_BUFFER(logname);
     logfile = log_file_open(id, NULL /* drcontext */,
-                            NULL/* path */, "modxfer.log",
-                            DR_FILE_WRITE_APPEND);
+                            NULL/* path */, logname,
+                            DR_FILE_WRITE_OVERWRITE);
     DR_ASSERT(logfile != INVALID_FILE);
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'modxfer' initializing\n");
