@@ -102,13 +102,15 @@ install_exported_target(bbcov2lcov ${INSTALL_CLIENTS_BIN})
 DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
   DESTINATION "${INSTALL_CLIENTS_BIN}"
   FILES_MATCHING
-  PATTERN "*dynamorio*")
+  PATTERN "dynamorio.dll" PATTERN "libdynamorio.so*"
+  PATTERN "lib*.debug" EXCLUDE)
 if (NOT DR_EXT_DRSYMS_STATIC)
   DR_install(DIRECTORY
     "${DR_LIBRARY_OUTPUT_DIRECTORY}/../../ext/${INSTALL_LIB}/"
     DESTINATION "${INSTALL_CLIENTS_BIN}"
     FILES_MATCHING
-    PATTERN "*drsyms*")
+    PATTERN "drsyms.dll" PATTERN "libdrsyms.so*"
+    PATTERN "lib*.debug" EXCLUDE)
 endif (NOT DR_EXT_DRSYMS_STATIC)
 
 set(INSTALL_BBCOV_CONFIG ${INSTALL_CLIENTS_BASE})
