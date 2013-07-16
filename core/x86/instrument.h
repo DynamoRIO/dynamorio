@@ -4365,6 +4365,8 @@ DR_API
  * Note that it is relatively expensive to save this state (on the
  * order of 200 cycles) and that it typically takes 512 bytes to store
  * it (see proc_fpstate_save_size()).
+ * The last floating-point instruction address in the saved state is left in
+ * an untranslated state (i.e., it may point into the code cache).
  *
  * DR does support translating a fault in an argument (e.g., an
  * argument that references application memory); such a fault will be
@@ -4422,7 +4424,11 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
  * as well as other call options.
  */
 typedef enum {
-    /** Save floating-point state. */
+    /**
+     * Save floating-point state.
+     * The last floating-point instruction address in the saved state is left in
+     * an untranslated state (i.e., it may point into the code cache).
+     */
     DR_CLEANCALL_SAVE_FLOAT             = 0x0001,
     /**
      * Skip saving the flags and skip clearing the flags (including
@@ -5233,7 +5239,7 @@ DR_API
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
  * of the x86 mode of the current thread (see get_x86_mode()).
-
+ *
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
  */
