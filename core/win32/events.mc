@@ -476,6 +476,14 @@ Application %1!s! (%2!s!). Unable to load client library: %3!s!%4!s!.
 MessageId =
 Severity = Error
 Facility = DRCore
+SymbolicName = MSG_CLIENT_LIBRARY_WRONG_BITWIDTH
+Language=English
+Application %1!s! (%2!s!). Library has wrong bitwidth: %3!s!.
+.
+
+MessageId =
+Severity = Error
+Facility = DRCore
 SymbolicName = MSG_WIN8_PRIVATE_KERNELBASE_NYI
 Language=English
 Application %1!s! (%2!s!). Private kernelbase.dll not fully supported on Windows 8.

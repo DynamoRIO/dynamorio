@@ -433,7 +433,9 @@ add_client_lib(char *path, char *id_str, char *options)
          */
 #ifdef UNIX
         /* PR 408318: 32-vs-64 errors should NOT be fatal to continue
-         * in debug build across execve chains
+         * in debug build across execve chains.  Xref i#147.
+         * XXX: w/ -private_loader, err always equals "error in private loader"
+         * and so we never match here!
          */
         if (strstr(err, "wrong ELF class") == NULL)
 #endif

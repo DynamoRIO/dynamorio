@@ -144,7 +144,9 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
         (elf_header.e_type == ET_DYN || elf_header.e_type == ET_EXEC)) {
 #ifdef CLIENT_INTERFACE
         /* i#157, we do more check to make sure we load the right modules,
-         * i.e. 32/64-bit libraries. 
+         * i.e. 32/64-bit libraries.
+         * We check again in privload_map_and_relocate() in loader for nice
+         * error message.
          */
         if (INTERNAL_OPTION(private_loader) &&
             ((elf_header.e_version != 1) || 

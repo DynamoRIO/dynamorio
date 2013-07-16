@@ -768,6 +768,15 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
                       MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC,
                       MAP_FILE_COPY_ON_WRITE/*writes should not change file*/ |
                       MAP_FILE_IMAGE/*image*/);
+    if (map != NULL &&
+        IF_X64_ELSE(module_is_32bit(map),  module_is_64bit(map))) {
+        /* XXX i#828: we may eventually support mixed-mode clients.
+         * Xref dr_load_aux_x64_library() and load_library_64().
+         */
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3,
+               get_application_name(), get_application_pid(), filename);
+        return NULL;
+    }
 #ifdef X64
     if (reachable) {
         bool reloc = module_file_relocatable(map);

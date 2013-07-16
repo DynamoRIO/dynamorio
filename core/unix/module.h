@@ -40,6 +40,7 @@
  * windows WOW?  What if anything should we do to accommodate that? */
 #ifdef X64
 # define ELF_HEADER_TYPE Elf64_Ehdr
+# define ELF_ALTARCH_HEADER_TYPE Elf32_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf64_Phdr
 # define ELF_SECTION_HEADER_TYPE Elf64_Shdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf64_Dyn
@@ -56,6 +57,7 @@
 # define ELF_AUXV_TYPE Elf64_auxv_t
 #else
 # define ELF_HEADER_TYPE Elf32_Ehdr
+# define ELF_ALTARCH_HEADER_TYPE Elf64_Ehdr
 # define ELF_PROGRAM_HEADER_TYPE Elf32_Phdr
 # define ELF_SECTION_HEADER_TYPE Elf32_Shdr
 # define ELF_DYNAMIC_ENTRY_TYPE Elf32_Dyn

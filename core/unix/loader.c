@@ -357,8 +357,21 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
         prot_func  = os_set_protection;
     }
 
-    if (!elf_loader_read_headers(&loader, filename))
+    if (!elf_loader_read_headers(&loader, filename)) {
+        /* We may want to move the bitwidth check out if is_elf_so_header_common()
+         * but for now we keep that there and do another check here.
+         * If loader.buf was not read into it will be all zeroes.
+         */
+        ELF_HEADER_TYPE *elf_header = (ELF_HEADER_TYPE *) loader.buf;
+        ELF_ALTARCH_HEADER_TYPE *altarch = (ELF_ALTARCH_HEADER_TYPE *) elf_header;
+        if (elf_header->e_version == 1 &&
+            altarch->e_ehsize == sizeof(ELF_ALTARCH_HEADER_TYPE) &&
+            altarch->e_machine == IF_X64_ELSE(EM_386, EM_X86_64)) {
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_WRONG_BITWIDTH, 3,
+                   get_application_name(), get_application_pid(), filename);
+        }
         return NULL;
+    }
 
     base = elf_loader_map_phdrs(&loader, false /* fixed */, map_func,
                                 unmap_func, prot_func, reachable);
