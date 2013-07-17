@@ -104,6 +104,11 @@ event_exit(void)
     dr_close_file(file);
     dr_fprintf(STDERR, "file separation check\n");
 
+    /* i#1213: test float i/o.
+     * Technically we should save fpstate (for detach) but we're not bothering.
+     */
+    dr_fprintf(STDERR, "float i/o test: %6.5g\n", 3.1415916);
+
     dr_fprintf(STDERR, "done\n");
 }
 

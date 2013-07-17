@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +33,8 @@
 
 #ifdef UNIX
 # include <unistd.h>
+#else
+# include <float.h>
 #endif
 
 int main()
@@ -44,6 +46,18 @@ int main()
         dup2(0, i);
         close(i);
     }
+#endif
+    /* Now test any floating-point printing at exit time in DR or a
+     * client by unmasking div-by-zero, which our_vsnprintf_float()
+     * relies on being masked (i#1213).
+     * On Linux the our_vsnprintf_float() code currently doesn't do a
+     * divide but we check there nonetheless.
+     */
+#ifdef WINDOWS
+    _control87(_MCW_EM & (~_EM_ZERODIVIDE), _MCW_EM);
+#else
+    int cw = 0x033; /* finit sets to 0x037 and we remove divide=0x4 */
+    __asm("fldcw %0" : : "m"(cw));
 #endif
     return 0;
 }

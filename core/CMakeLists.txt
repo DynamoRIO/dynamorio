@@ -358,12 +358,17 @@ add_library(drdecode
   x86/decode_fast.c
   x86/mangle.c
   x86/decodelib.c
+  ${x86_noncore_asm_src}
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
 if (UNIX)
   append_property_string(TARGET drdecode COMPILE_FLAGS "-fPIC")
 endif (UNIX)
+if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drinjectlib ${x86_noncore_asm_tgt})
+endif ()
 add_gen_events_deps(drdecode)
 
 ###########################################################################

@@ -1766,12 +1766,16 @@ enum {LONGJMP_EXCEPTION = 1};
 /* keep in mind that each use of PRESERVE_FLOATING_POINT_STATE takes
  * 512 bytes - avoid nesting uses
  */
+/* We call dr_fpu_exception_init() to avoid the app clearing float and xmm
+ * exception flags and messing up our code (i#1213).
+ */
 
 #define PRESERVE_FLOATING_POINT_STATE_START()                   \
     {                                                           \
     byte  fpstate_buf[MAX_FP_STATE_SIZE];                       \
     byte *fpstate = (byte*)ALIGN_FORWARD(fpstate_buf, 16);      \
-    size_t fpstate_junk = proc_save_fpstate(fpstate)
+    size_t fpstate_junk = proc_save_fpstate(fpstate);           \
+    dr_fpu_exception_init()
 
 #define PRESERVE_FLOATING_POINT_STATE_END()                     \
     proc_restore_fpstate(fpstate);                              \

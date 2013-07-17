@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -203,6 +203,11 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
     double d = val;
     int exp = 0;
     bool is_g = (*c == _T('g') || *c == _T('G')); 
+    /* i#1213: we must mask all fpu exceptions prior to running this code,
+     * as it assumes div-by-zero won't raise an exception.
+     * The caller must have already saved the app's full fpu state.
+     */
+    dr_fpu_exception_init();
     /* check for NaN */
     if (val != val) {
         if (caps)

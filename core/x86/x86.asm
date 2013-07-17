@@ -2354,6 +2354,21 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
 /****************************************************************************
  * routines shared with NOT_DYNAMORIO_CORE_PROPER
  */
+
+/* void dr_fpu_exception_init(void)
+ * sets the exception mask flags for both regular float and xmm packed float
+ */
+#define FUNCNAME dr_fpu_exception_init
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        fninit
+        push     HEX(1f80)
+        ldmxcsr  DWORD [REG_XSP]
+        pop      REG_XAX
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 #ifdef WINDOWS
 
 /* byte *get_stack_ptr(void)

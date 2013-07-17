@@ -2897,13 +2897,13 @@ print_statistics(int *data, int size)
 {
     int i;
     int min, max;
+    double mean, stddev, sum;
+    uint top, bottom;
+    const char *sign;
     /* our context switch does not save & restore floating point state,
      * so we have to do it here!
      */
     PRESERVE_FLOATING_POINT_STATE_START();
-    double mean, stddev, sum;
-    uint top, bottom;
-    const char *sign;
 
     sum = 0.;
     min = max = data[0];
