@@ -1483,7 +1483,8 @@ int main(int argc, char *argv[])
     /* we created the process suspended so if we later had an error be sure
      * to kill it instead of leaving it hanging
      */
-    dr_inject_process_exit(inject_data, true/*kill process*/);
+    if (inject_data != NULL)
+        dr_inject_process_exit(inject_data, true/*kill process*/);
     return 1;
 #endif /* !DRCONFIG */
 }
