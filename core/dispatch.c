@@ -1032,7 +1032,9 @@ dispatch_exit_fcache(dcontext_t *dcontext)
                         vm_area_add_to_list(dcontext, f->tag, &vmlist, orig_flags, f,
                                             false/*no locks*/);
                     ASSERT(ok); /* should never fail for private fragments */
-                    mangle(dcontext, todo->ilist, f->flags, true, true);
+                    mangle(dcontext, todo->ilist, &f->flags, true, true);
+                    /* mangle shouldn't change the flags here */
+                    ASSERT(f->flags == (orig_flags | FRAG_CANNOT_DELETE));
                     new_f = emit_invisible_fragment(dcontext, todo->tag, todo->ilist,
                                                     orig_flags, vmlist);
                     f->flags = orig_flags; /* FIXME: ditto about change_linking_lock */

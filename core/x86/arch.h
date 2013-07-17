@@ -461,7 +461,7 @@ enum {
 #endif
 };
 
-void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             bool mangle_calls, bool record_translation);
 
 /* in interp.c but not exported to non-x86 files */

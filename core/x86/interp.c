@@ -2433,10 +2433,14 @@ bb_process_float_pc(dcontext_t *dcontext, build_bb_t *bb)
      * (e.g., fxsave), we go back to dispatch to translate the fp pc.
      * We rule out being in a trace (and thus a potential alternative
      * would be to use a FRAG_ flag).  These are rare instructions so that
-     * shouldn't have a significant perf impact.
+     * shouldn't have a significant perf impact: except we've been hitting
+     * libm code that uses fnstenv and is not rare, so we have non-inlined
+     * translation under an option for now.
      */
-    bb->exit_type |= LINK_SPECIAL_EXIT;
-    bb->flags |= FRAG_CANNOT_BE_TRACE;
+    if (DYNAMO_OPTION(translate_fpu_pc)) {
+        bb->exit_type |= LINK_SPECIAL_EXIT;
+        bb->flags |= FRAG_CANNOT_BE_TRACE;
+    }
     /* If we inline the pc update, we can't persist.  Simplest to keep fine-grained. */
     bb->flags &= ~FRAG_COARSE_GRAIN;
 }
@@ -3940,7 +3944,7 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
     });
-    mangle(dcontext, bb->ilist, bb->flags, true, bb->record_translation);
+    mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
@@ -6277,7 +6281,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         instrlist_disassemble(dcontext, md->trace_tag, ilist, THREAD);
     });
     /* We do not need to remove nops since we never emitted */
-    mangle(dcontext, ilist, md->trace_flags, true/*mangle calls*/,
+    mangle(dcontext, ilist, &md->trace_flags, true/*mangle calls*/,
            /* we're post-client so we don't need translations unless storing */
            TEST(FRAG_HAS_TRANSLATION_INFO, md->trace_flags));
     DOLOG(4, LOG_INTERP, {

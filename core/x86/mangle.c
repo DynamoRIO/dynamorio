@@ -3225,13 +3225,14 @@ float_pc_update(dcontext_t *dcontext)
 
 static void
 mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
-                instr_t *instr, instr_t *next_instr, uint flags)
+                instr_t *instr, instr_t *next_instr, uint *flags INOUT)
 {
     /* If there is a prior non-control float instr, we can inline the pc update.
      * Otherwise, we go back to dispatch.  In the latter case we do not support
      * building traces across the float pc save: we assume it's rare.
      */
     app_pc prior_float = NULL;
+    bool exit_is_normal = false;
     int op = instr_get_opcode(instr);
     opnd_t memop = instr_get_dst(instr, 0);
     ASSERT(opnd_is_memory_reference(memop));
@@ -3267,12 +3268,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
 
     if (prior_float != NULL) {
         /* We can link this */
-        instr_t *exit_jmp = next_instr;
-        while (exit_jmp != NULL && !instr_is_exit_cti(exit_jmp))
-            exit_jmp = instr_get_next(next_instr);
-        ASSERT(exit_jmp != NULL);
-        ASSERT(instr_branch_special_exit(exit_jmp));
-        instr_branch_set_special_exit(exit_jmp, false);
+        exit_is_normal = true;
         STATS_INC(float_pc_from_cache);
 
         /* Replace the stored code cache pc with the original app pc.
@@ -3297,9 +3293,15 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
                                    ilist, next_instr, NULL, NULL);
         } else
             ASSERT_NOT_REACHED();
+    } else if (!DYNAMO_OPTION(translate_fpu_pc)) {
+        /* We only support translating when inlined.
+         * XXX: we can't recover the loss of coarse-grained: we live with that.
+         */
+        exit_is_normal = true;
+        ASSERT(!TEST(FRAG_CANNOT_BE_TRACE, *flags));
     } else {
         int reason = 0;
-        CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, flags),
+        CLIENT_ASSERT(!TEST(FRAG_IS_TRACE, *flags),
                       "removing an FPU instr in a trace with an FPU state save "
                       "is not supported");
         switch (op) {
@@ -3313,7 +3315,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
         case OP_xsaveopt64: reason = EXIT_REASON_FLOAT_PC_XSAVE64; break;
         default: ASSERT_NOT_REACHED();
         }
-        if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, flags)) {
+        if (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, *flags)) {
             insert_shared_get_dcontext(dcontext, ilist, instr, true/*save_xdi*/);
             PRE(ilist, instr, INSTR_CREATE_mov_st
                 (dcontext,
@@ -3349,13 +3351,27 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
             instr_create_save_to_tls(dcontext, REG_XDI, FLOAT_PC_STATE_SLOT));
 
         /* Restore app %xdi */
-        if (TEST(FRAG_SHARED, flags))
+        if (TEST(FRAG_SHARED, *flags))
             insert_shared_restore_dcontext_reg(dcontext, ilist, instr);
         else {
             PRE(ilist, instr,
                 instr_create_restore_from_tls(dcontext, REG_XDI,
                                               DCONTEXT_BASE_SPILL_SLOT));
         }
+    }
+
+    if (exit_is_normal && DYNAMO_OPTION(translate_fpu_pc)) {
+        instr_t *exit_jmp = next_instr;
+        while (exit_jmp != NULL && !instr_is_exit_cti(exit_jmp))
+            exit_jmp = instr_get_next(next_instr);
+        ASSERT(exit_jmp != NULL);
+        ASSERT(instr_branch_special_exit(exit_jmp));
+        instr_branch_set_special_exit(exit_jmp, false);
+        /* XXX: there could be some other reason this was marked
+         * cannot-be-trace that we're undoing here...
+         */
+        if (TEST(FRAG_CANNOT_BE_TRACE, *flags))
+            *flags &= ~FRAG_CANNOT_BE_TRACE;
     }
 }
 
@@ -3888,7 +3904,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
  * inserted instr -- but this slows down encoding in current implementation
  */
 void
-mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
        bool mangle_calls, bool record_translation)
 {
     instr_t *instr, *next_instr;
@@ -3896,7 +3912,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     bool ignorable_sysenter = DYNAMO_OPTION(ignore_syscalls) &&
         DYNAMO_OPTION(ignore_syscalls_follow_sysenter) &&
         (get_syscall_method() == SYSCALL_METHOD_SYSENTER) &&
-        TEST(FRAG_HAS_SYSCALL, flags);
+        TEST(FRAG_HAS_SYSCALL, *flags);
 #endif
 
     /* Walk through instr list:
@@ -3992,7 +4008,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
              */
             if (!ignorable_sysenter)
 #endif
-                mangle_syscall(dcontext, ilist, flags, instr, next_instr);
+                mangle_syscall(dcontext, ilist, *flags, instr, next_instr);
             continue;
         }
         else if (instr_is_interrupt(instr)) { /* non-syscall interrupt */
@@ -4048,15 +4064,16 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             /* mangle_direct_call may inline a call and remove next_instr, so
              * it passes us the updated next instr */
             next_instr = mangle_direct_call(dcontext, ilist, instr, next_instr,
-                                            mangle_calls, flags);
+                                            mangle_calls, *flags);
         } else if (instr_is_call_indirect(instr)) {
-            mangle_indirect_call(dcontext, ilist, instr, next_instr, mangle_calls, flags);
+            mangle_indirect_call(dcontext, ilist, instr, next_instr, mangle_calls,
+                                 *flags);
         } else if (instr_is_return(instr)) {
-            mangle_return(dcontext, ilist, instr, next_instr, flags);
+            mangle_return(dcontext, ilist, instr, next_instr, *flags);
         } else if (instr_is_mbr(instr)) {
-            mangle_indirect_jump(dcontext, ilist, instr, next_instr, flags);
+            mangle_indirect_jump(dcontext, ilist, instr, next_instr, *flags);
         } else if (instr_get_opcode(instr) == OP_jmp_far) {
-            mangle_far_direct_jump(dcontext, ilist, instr, next_instr, flags);
+            mangle_far_direct_jump(dcontext, ilist, instr, next_instr, *flags);
         }
         /* else nothing to do, e.g. direct branches */
     }
@@ -4070,7 +4087,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
              instr = next_instr) {
             next_instr = instr_get_next(instr);
             if (instr_opcode_valid(instr) && instr_is_syscall(instr))
-                mangle_syscall(dcontext, ilist, flags, instr, next_instr);
+                mangle_syscall(dcontext, ilist, *flags, instr, next_instr);
         }
     }
 #endif

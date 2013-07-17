@@ -1302,6 +1302,7 @@ tobuild(common.eflags common/eflags.c)
 tobuild(common.fib common/fib.c)
 tobuild(common.getretaddr common/getretaddr.c)
 tobuild(common.floatpc common/floatpc.c)
+torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_pc" "")
 
 tobuild_appdll(common.nativeexec common/nativeexec.c)
 get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})

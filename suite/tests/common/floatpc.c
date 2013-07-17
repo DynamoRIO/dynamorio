@@ -55,36 +55,36 @@ main(void)
     if (fpc == rpc)
         print("FNSTENV intra is correctly handled\n");
     else
-        print("FNSTENV intra is incorrectly handled: "PFX" vs "PFX"\n", fpc, rpc);
+        print("FNSTENV intra is **incorrectly** handled\n");
     fpc = test_fnstenv_inter(&rpc);
     if (fpc == rpc)
         print("FNSTENV inter is correctly handled\n");
     else
-        print("FNSTENV inter is incorrectly handled: "PFX" vs "PFX"\n", fpc, rpc);
+        print("FNSTENV inter is **incorrectly** handled\n");
 # else
     fpc = test_fxsave64_intra(&rpc);
     if (fpc == rpc)
         print("FXSAVE64 intra is correctly handled\n");
     else
-        print("FXSAVE64 intra is incorrectly handled: "PFX" vs "PFX"\n", fpc, rpc);
+        print("FXSAVE64 intra is **incorrectly** handled\n");
     fpc = test_fxsave64_inter(&rpc);
     if (fpc == rpc)
         print("FXSAVE64 inter is correctly handled\n");
     else
-        print("FXSAVE64 inter is incorrectly handled: "PFX" vs "PFX"\n", fpc, rpc);
+        print("FXSAVE64 inter is **incorrectly** handled\n");
 # endif
 
     fpc = test_fxsave_intra(&rpc);
     if ((int)fpc == (int)rpc)
         print("FXSAVE intra is correctly handled\n");
     else
-        print("FXSAVE intra is incorrectly handled: 0x%x vs 0x%x\n", (int)fpc, (int)rpc);
+        print("FXSAVE intra is **incorrectly** handled\n");
 
     fpc = test_fxsave_inter(&rpc);
     if ((int)fpc == (int)rpc)
         print("FXSAVE inter is correctly handled\n");
     else
-        print("FXSAVE inter is incorrectly handled: 0x%x vs 0x%x\n", (int)fpc, (int)rpc);
+        print("FXSAVE inter is **incorrectly** handled\n");
 
     return 0;
 }

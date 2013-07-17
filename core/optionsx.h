@@ -1868,6 +1868,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "store info at flush time for safe post-flush translation")
     PC_OPTION_INTERNAL(bool, store_translations,
         "store info at emit time for fragment translation")
+    /* i#698: our fpu state xl8 is a perf hit for some apps */
+    PC_OPTION(bool, translate_fpu_pc,
+        "translate the saved last floating-point pc when FPU state is saved")
 
      /* case 8812 - owner validation possible only on Win32 */
      /* Note that we expect correct ACLs to prevent anyone other than
