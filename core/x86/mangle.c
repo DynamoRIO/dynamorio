@@ -50,6 +50,7 @@
 #include "decode_fast.h"
 #include "disassemble.h"
 #include "../hashtable.h"
+#include "../fcache.h"  /* for in_fcache */
 #ifdef STEAL_REGISTER
 #include "steal_reg.h"
 #endif
@@ -3208,7 +3209,16 @@ float_pc_update(dcontext_t *dcontext)
         LOG(THREAD, LOG_INTERP, 2, "%s: pc is NULL\n", __FUNCTION__);
         return;
     }
-
+    /* i#1211-c#1: the orig_pc might be an app pc restored from fldenv */
+    if (!in_fcache(orig_pc) &&
+        /* XXX: i#698: there might be fp instr neither in fcache nor in app */
+        !(in_generated_routine(dcontext, orig_pc) ||
+          is_dynamo_address(orig_pc) ||
+          is_in_dynamo_dll(orig_pc)
+          IF_CLIENT_INTERFACE(|| is_in_client_lib(orig_pc)))) {
+        LOG(THREAD, LOG_INTERP, 2, "%s: pc is translated already\n", __FUNCTION__);
+        return;
+    }
     /* We must either grab thread_initexit_lock or be couldbelinking to translate */
     mutex_lock(&thread_initexit_lock);
     xl8_pc = recreate_app_pc(dcontext, orig_pc, NULL);
