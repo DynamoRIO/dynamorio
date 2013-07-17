@@ -63,7 +63,7 @@
 
 #ifdef API_EXPORT_ONLY
 /* A client's target operating system and architecture must be specified. */
-#if (!defined(LINUX) && !defined(WINDOWS)) || (defined(LINXX) && defined(WINDOWS))
+#if (!defined(LINUX) && !defined(WINDOWS)) || (defined(LINUX) && defined(WINDOWS))
 # error Target operating system unspecified: must define either WINDOWS xor LINUX
 #endif
 #endif
