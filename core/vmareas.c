@@ -5806,8 +5806,9 @@ prepend_entry_to_fraglist(vm_area_t *area, fragment_t *entry)
      * moves all also entries onto the area fraglist that's being flushed.
      */
     LOG(THREAD_GET, LOG_VMAREAS, 4,
-        "%s: putting F%d ("PFX") (%s) on vmarea "PFX"-"PFX"\n",
-        __FUNCTION__, FRAG_ID(entry), FRAG_PC(entry),
+        "%s: putting fragment @"PFX" (%s) on vmarea "PFX"-"PFX"\n",
+        /* i#1215: FRAG_ID(entry) can crash if entry->f hold tag temporarily */
+        __FUNCTION__, FRAG_PC(entry),
         TEST(FRAG_SHARED, entry->flags) ? "shared" : "private",
         area->start, area->end);
     FRAG_NEXT_ASSIGN(entry, area->custom.frags);
