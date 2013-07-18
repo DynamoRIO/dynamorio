@@ -588,6 +588,9 @@ if (UNIX)
   else (X64)
     set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
     set(BASE_CXXFLAGS "-m32")
+    # i#847 keep stack boundary 4-byte aligned
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
+    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
     set(LD_FLAGS "-melf_i386")
   endif (X64)
   # there's no cmake warning control so we hardcode it

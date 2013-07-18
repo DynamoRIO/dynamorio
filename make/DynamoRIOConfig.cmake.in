@@ -438,6 +438,14 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
     set(extra_cflags "${extra_cflags} -DX86_64")
   else (tgt_x64)
     set(extra_cflags "${extra_cflags} -DX86_32")
+    if (UNIX)
+      # i#847 keep stack boundary 4-byte aligned for compatibility.
+      # The new gcc may use different stack alignment for using SSE
+      # instructions. We make both DynamoRIO and clients use 4-byte
+      # stack alignment to avoid any back compatibility issue without
+      # using extra stack space or changing performance.
+      set(extra_cflags "${extra_cflags} -mpreferred-stack-boundary=2")
+    endif (UNIX)
   endif (tgt_x64)
 
   if (UNIX)
