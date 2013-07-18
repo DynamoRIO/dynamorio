@@ -367,7 +367,7 @@ if (UNIX)
 endif (UNIX)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(drinjectlib ${x86_noncore_asm_tgt})
+  add_dependencies(drdecode ${x86_noncore_asm_tgt})
 endif ()
 add_gen_events_deps(drdecode)
 
