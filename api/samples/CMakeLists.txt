@@ -214,6 +214,8 @@ add_sample_client(stl_test    "stl_test.cpp"    "")
 add_sample_client(strace      "strace.c"        "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
+# add utils.h for installation  # NON-PUBLIC
+set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
 
 if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
