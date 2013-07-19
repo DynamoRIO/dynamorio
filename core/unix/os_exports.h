@@ -303,6 +303,9 @@ set_itimer_callback(dcontext_t *dcontext, int which, uint millisec,
 uint
 get_itimer_frequency(dcontext_t *dcontext, int which);
 
+bool
+sysnum_is_not_restartable(int sysnum);
+
 /***************************************************************************/
 
 /* in pcprofile.c */

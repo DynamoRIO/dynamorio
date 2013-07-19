@@ -3683,7 +3683,7 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
     return pre_or_post_syscall;
 }
 
-static bool
+bool
 sysnum_is_not_restartable(int sysnum)
 {
     /* Check the list of non-restartable syscalls.

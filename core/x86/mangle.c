@@ -2773,6 +2773,26 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                                      opnd_create_reg(REG_XCX)));
 }
+
+/* find the system call number in instrlist for an inlined system call
+ * by simpling walking the ilist backward and finding "mov immed => %eax"
+ * without checking cti or expanding instr
+ */
+int
+ilist_find_sysnum(instrlist_t *ilist, instr_t *instr)
+{
+    for (; instr != NULL; instr = instr_get_prev(instr)) {
+        if (instr_ok_to_mangle(instr) &&
+            instr_get_opcode(instr) == OP_mov_imm &&
+            opnd_is_reg(instr_get_dst(instr, 0)) &&
+            opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX &&
+            opnd_is_immed_int(instr_get_src(instr, 0)))
+            return (int) opnd_get_immed_int(instr_get_src(instr, 0));
+    }
+    ASSERT_NOT_REACHED();
+    return -1;
+}
+
 #endif /* UNIX */
 
 #ifdef WINDOWS
@@ -2826,6 +2846,22 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                         (dcontext, opnd_create_pc(instr_get_raw_bits(instr))));
     PRE(ilist, instr, skip_exit);
 
+    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER &&
+        sysnum_is_not_restartable(ilist_find_sysnum(ilist, instr))) {
+        /* i#1216: we insert a nop instr right after inlined non-auto-restart
+         * syscall to make it a safe point for suspending.
+         * XXX-i#1216-c#2: we still need handle auto-restart syscall
+         */
+        instr_t *nop = INSTR_CREATE_nop(dcontext);
+        /* We make a fake app nop instr for easy handling in recreate_app_state.
+         * XXX: it is cleaner to mark our-mangling and handle it, but it seems
+         * ok to use a fake app nop instr, since the client won't see it.
+         */
+        INSTR_XL8(nop, (instr_get_translation(instr) +
+                        instr_length(dcontext, instr)));
+        instr_set_ok_to_mangle(instr, true);
+        instrlist_postinsert(ilist, instr, nop);
+    }
 # ifdef STEAL_REGISTER
     /* in linux, system calls get their parameters via registers.
      * edi is the last one used, but there are system calls that
