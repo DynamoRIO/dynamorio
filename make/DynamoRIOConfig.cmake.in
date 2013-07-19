@@ -432,20 +432,14 @@ function (configure_DynamoRIO_global is_cxx change_flags)
   endif (NOT DEFINED already_configured_listdir)
 endfunction (configure_DynamoRIO_global)
 
+# get_DynamoRIO_defines assumes that only defines are added by
+# DynamoRIO_extra_cflags
 function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   get_size(${tgt_cxx} tgt_x64)
   if (tgt_x64)
     set(extra_cflags "${extra_cflags} -DX86_64")
   else (tgt_x64)
     set(extra_cflags "${extra_cflags} -DX86_32")
-    if (UNIX)
-      # i#847 keep stack boundary 4-byte aligned for compatibility.
-      # The new gcc may use different stack alignment for using SSE
-      # instructions. We make both DynamoRIO and clients use 4-byte
-      # stack alignment to avoid any back compatibility issue without
-      # using extra stack space or changing performance.
-      set(extra_cflags "${extra_cflags} -mpreferred-stack-boundary=2")
-    endif (UNIX)
   endif (tgt_x64)
 
   if (UNIX)
@@ -573,6 +567,16 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       endif (flag_present)
 
     endif (is_client)
+
+    # i#847 keep stack boundary 4-byte aligned for compatibility.
+    # The new gcc may use different stack alignment for using SSE
+    # instructions. We make both DynamoRIO and clients use 4-byte
+    # stack alignment to avoid any back compatibility issue without
+    # using extra stack space or changing performance.
+    if (NOT tgt_x64)
+      set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
+    endif (NOT tgt_x64)
+
     # gcc is invoked for the link step so we have to repeat cflags as well
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")
   else (UNIX)
@@ -806,6 +810,9 @@ endfunction (configure_DynamoRIO_decoder)
 
 
 function (get_DynamoRIO_defines outvar is_cxx)
+  # We assume that only defines are added by DynamoRIO_extra_cflags,
+  # otherwise, we need construct a new list and extract defines from
+  # extra_cflags.
   DynamoRIO_extra_cflags(extra_cflags "" ${is_cxx})
   set(${outvar} "${extra_cflags}" PARENT_SCOPE)
 endfunction (get_DynamoRIO_defines)
