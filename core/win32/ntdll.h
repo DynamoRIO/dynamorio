@@ -783,6 +783,7 @@ typedef enum _KWAIT_REASON {
 } KWAIT_REASON;
 
 typedef struct _SYSTEM_THREADS {
+    /* XXX: are Create and Kernel swapped? */
     LARGE_INTEGER CreateTime;
     LARGE_INTEGER UserTime;
     LARGE_INTEGER KernelTime;
@@ -794,12 +795,16 @@ typedef struct _SYSTEM_THREADS {
     ULONG   ContextSwitchCount;
     THREAD_STATE ThreadState;
     KWAIT_REASON WaitReason;
+    ULONG Padding;
 } SYSTEM_THREADS, *PSYSTEM_THREADS;
 
 typedef struct _SYSTEM_PROCESSES { 
     ULONG NextEntryDelta;
     ULONG ThreadCount;
-    ULONG Reserved1[6];
+    LARGE_INTEGER WorkingSetPrivateSize; /* Vista+ */
+    ULONG HardFaultCount;                /* Win7+ */
+    ULONG NumberOfThreadsHighWatermark;  /* Win7+ */
+    ULONGLONG CycleTime;                 /* Win7+ */
     LARGE_INTEGER CreateTime;
     LARGE_INTEGER UserTime;
     LARGE_INTEGER KernelTime;
@@ -809,8 +814,9 @@ typedef struct _SYSTEM_PROCESSES {
     HANDLE InheritedFromProcessId;
     ULONG HandleCount;
     ULONG SessionId;
-    ULONG PageDirectoryFrame;
+    ULONG_PTR PageDirectoryFrame;
     VM_COUNTERS VmCounters;
+    SIZE_T PrivatePageCount;   /* Windows 2000+: end of VM_COUNTERS_EX */
     IO_COUNTERSEX IoCounters;  /* Windows 2000+ only */
     SYSTEM_THREADS Threads[1]; /* Variable size */
 } SYSTEM_PROCESSES, *PSYSTEM_PROCESSES;

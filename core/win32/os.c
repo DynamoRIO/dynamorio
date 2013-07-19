@@ -1728,9 +1728,13 @@ os_list_threads(uint *num_threads_out)
                                             HEAPACCT(ACCT_THREAD_MGT));
                 for (i = 0; i < sp->ThreadCount; i++) {
                     thread_id_t tid = (thread_id_t) sp->Threads[i].ClientId.UniqueThread;
+                    /* sanity checks (xref i#1220) */
+                    ASSERT(get_process_id() == (process_id_t)
+                           sp->Threads[i].ClientId.UniqueProcess);
                     LOG(GLOBAL, LOG_THREADS, 1,
                         "%s: thread %d UniqueThread="PFX"\n", __FUNCTION__, i, tid);
                     threads[i].handle = thread_handle_from_id(tid);
+                    ASSERT(threads[i].handle != INVALID_HANDLE_VALUE);
                     threads[i].tid = tid;
                     threads[i].user_data = NULL;
                 }
