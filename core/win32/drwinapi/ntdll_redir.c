@@ -658,16 +658,21 @@ redirect_NtMapViewOfSection(HANDLE section_handle,
                             ULONG allocation_type,
                             ULONG win32_protect)
 {
-    return nt_raw_MapViewOfSection(section_handle,
-                                   process_handle,
-                                   base_address,
-                                   zero_bits,
-                                   commit_size,
-                                   section_offset,
-                                   view_size,
-                                   inherit_disposition,
-                                   allocation_type,
-                                   win32_protect);
+    NTSTATUS res = nt_raw_MapViewOfSection(section_handle,
+                                           process_handle,
+                                           base_address,
+                                           zero_bits,
+                                           commit_size,
+                                           section_offset,
+                                           view_size,
+                                           inherit_disposition,
+                                           allocation_type,
+                                           win32_protect);
+    if (NT_SUCCESS(res)) {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s => "PFX"-"PFX"\n", __FUNCTION__,
+            *(byte**)base_address, *view_size);
+    }
+    return res;
 }
 
 NTSTATUS WINAPI

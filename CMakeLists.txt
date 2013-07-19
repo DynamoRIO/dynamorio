@@ -1065,14 +1065,30 @@ set(dbghelp_paths
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
 if (NOT X64)
-  set(dbghelp_paths "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
-    ${dbghelp_paths})
+  set(dbghelp_paths ${dbghelp_paths}
+    "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll")
 endif (NOT X64)
 file(GLOB dbghelp_loc ${dbghelp_paths})
+message(STATUS "Found ${dbghelp_loc}")
 if (dbghelp_loc)
+  # i#1219: exclude VS2005 x64 dbghelp as it is buggy
+  list(LENGTH dbghelp_loc dbghelp_len)
+  set(dbghelp_index 0)
   list(GET dbghelp_loc 0 dbghelp_path)
-  # DR_install requires all forward slashes
-  string(REPLACE "\\" "/" dbghelp_path ${dbghelp_path})
+  while (X64 AND dbghelp_path MATCHES "Visual Studio 8" AND
+         ${dbghelp_index} LESS ${dbghelp_len})
+    math(EXPR dbghelp_index "${dbghelp_index} + 1")
+    list(GET dbghelp_loc ${dbghelp_index} dbghelp_path)
+  endwhile()
+  if (X64 AND dbghelp_path MATCHES "Visual Studio 8")
+    # Not fatal: just nothing to put in package, and some tests may fail
+    message(STATUS "Unable to find non-VS2005 dbghelp.dll")
+    set(dbghelp_path dbghelp_path-NOTFOUND)
+  else ()
+    # DR_install requires all forward slashes
+    string(REPLACE "\\" "/" dbghelp_path ${dbghelp_path})
+    message(STATUS "Found ${dbghelp_len} ${dbghelp_path}")
+  endif ()
 else ()
   set(dbghelp_path dbghelp_path-NOTFOUND)
 endif ()

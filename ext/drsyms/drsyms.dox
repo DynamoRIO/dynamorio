@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -62,6 +62,10 @@ or as your client library.  Version 6.0 or higher of \p dbghelp.dll is
 required, and 6.3 or higher is recommended.  Recent versions of Windows do
 have these versions of \p dbghelp.dll in their system directories, but be
 aware that those versions are not redistributable.
+
+The 64-bit version 6.5.0003.7 of \p dbghelp.dll (the one included with
+Visual Studio 2005) has a bug that can cause crashes.  We recommend
+avoiding this version.
 
 More recent versions of \p dbghelp.dll on Windows can use significant
 amounts of stack space.  We have observed usage of 36KB.  This is within

@@ -560,6 +560,10 @@ redirect_VirtualAlloc(
         set_last_error(ntstatus_to_last_error(res));
         return NULL;
     }
+    if (NT_SUCCESS(res)) {
+        LOG(GLOBAL, LOG_LOADER, 2, "%s => "PFX"-"PFX"\n", __FUNCTION__,
+            *(byte**)lpAddress, dwSize);
+    }
     return base;
 }
 
