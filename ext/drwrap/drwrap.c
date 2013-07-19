@@ -2187,7 +2187,8 @@ bool
 drwrap_event_exception(void *drcontext, dr_exception_t *excpt)
 {
     per_thread_t *pt = (per_thread_t *) drmgr_get_tls_field(drcontext, tls_idx);
-    if (pt->wrap_level >= 0) {
+    /* pt can be NULL for a crash at process init before any thread init (i#1219) */
+    if (pt != NULL && pt->wrap_level >= 0) {
         int idx;
         /* record whether we should check all the levels in the next hook
          * if using heuristics
