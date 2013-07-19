@@ -1047,6 +1047,36 @@ SET_PROPERTY(TARGET ${ARGV} PROPERTY MAP_IMPORTED_CONFIG_RELMINSIZE Release)
   set(exported_targets_append "${exported_targets_append}" PARENT_SCOPE)
 endmacro(DR_export_target)
 
+# We rely on dbghelp >= 6.0 for any use of drsyms: some sample clients and some
+# tests in our suite.
+# The system dbghelp pre-Vista is too old, so we copy one from VS.
+# We locate it here for use in both subdirs.
+if (X64)
+  set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
+  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(ARCH_SFX "x64")
+else (X64)
+  set(PROGFILES "$ENV{PROGRAMFILES}")
+  set(PROGFILES32 "$ENV{PROGRAMFILES}")
+  set(ARCH_SFX "x86")
+endif (X64)
+set(dbghelp_paths
+  "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
+  "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll"
+  "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
+if (NOT X64)
+  set(dbghelp_paths "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
+    ${dbghelp_paths})
+endif (NOT X64)
+file(GLOB dbghelp_loc ${dbghelp_paths})
+if (dbghelp_loc)
+  list(GET dbghelp_loc 0 dbghelp_path)
+  # DR_install requires all forward slashes
+  string(REPLACE "\\" "/" dbghelp_path ${dbghelp_path})
+else ()
+  set(dbghelp_path dbghelp_path-NOTFOUND)
+endif ()
+
 ###########################################################################
 
 # Let user pick which components to build.  This is especially

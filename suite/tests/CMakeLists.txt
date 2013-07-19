@@ -1440,26 +1440,7 @@ if (CLIENT_INTERFACE)
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
   if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
-    if (X64)
-      set(PROGFILES "$ENV{PROGRAMW6432}") # cmake is 32-bit
-      set(PROGFILES32 "$ENV{PROGRAMFILES}")
-      set(ARCH_SFX "x64")
-    else (X64)
-      set(PROGFILES "$ENV{PROGRAMFILES}")
-      set(PROGFILES32 "$ENV{PROGRAMFILES}")
-      set(ARCH_SFX "x86")
-    endif (X64)
-    set(dbghelp_paths
-      "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
-      "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll"
-      "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
-    if (NOT X64)
-      set(dbghelp_paths "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll"
-        ${dbghelp_paths})
-    endif (NOT X64)
-    file(GLOB dbghelp_loc ${dbghelp_paths})
-    if (dbghelp_loc)
-      list(GET dbghelp_loc 0 dbghelp_path)
+    if (dbghelp_path) # set at top level
       configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
         COPYONLY)
       if (BUILD_SAMPLES)
@@ -1470,7 +1451,7 @@ if (CLIENT_INTERFACE)
         configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
       endif (BUILD_SAMPLES)
       message(STATUS "Using ${dbghelp_path} for drsyms tests")
-    endif (dbghelp_loc)
+    endif (dbghelp_path)
   endif ()
 
   if (DR_EXT_DRSYMS_STATIC)

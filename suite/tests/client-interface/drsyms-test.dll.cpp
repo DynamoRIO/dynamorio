@@ -684,10 +684,10 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
              * of the type to ensure it's the same?!?
              *
              * Plus, with VS2008 dbghelp we get a lot of even worse mismatches
-             * here (part of i#1196).  We only use it on XP so we relax this
+             * here (part of i#1196).  We only use it on pre-Vista so we relax this
              * check there.
              */
-            ASSERT(IF_WINDOWS(os_version.version <= DR_WINDOWS_VERSION_XP ||)
+            ASSERT(IF_WINDOWS(os_version.version < DR_WINDOWS_VERSION_VISTA ||)
                    type->id == out->type_id ||
                    /* Unknown type has id cleared to 0 */
                    (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||

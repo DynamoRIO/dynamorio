@@ -292,3 +292,9 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   PATTERN "*.debug"
   PATTERN "*.pdb"
   )
+
+# Include a copy of a recent (> 6.0) redistributable version of dbghelp, if
+# we found one, so our drsyms-using samples work pre-Vista.
+if (dbghelp_path)
+  DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_SAMPLES_BIN})
+endif ()
