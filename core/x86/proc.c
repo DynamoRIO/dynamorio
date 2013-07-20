@@ -417,6 +417,10 @@ proc_init(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE2\n");
         if (proc_has_feature(FEATURE_SSE3))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
+        if (proc_has_feature(FEATURE_AVX))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
+        if (proc_has_feature(FEATURE_OSXSAVE))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
 #endif
     /* PR 264138: for 32-bit CONTEXT we assume fxsave layout */

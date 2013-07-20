@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -243,6 +243,8 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
              * for 32-bit we don't use them (PR 306394).
              */
             int i, j;
+            /* For x86, ensure we have ExtendedRegisters space (i#1223) */
+            IF_NOT_X64(ASSERT(TEST(CONTEXT_XMM_FLAG, cxt->ContextFlags)));
             for (i = 0; i < NUM_XMM_SLOTS; i++) {
                 for (j = 0; j < IF_X64_ELSE(2,4); j++) {
                     *bufptr++ = CXT_XMM(cxt, i)->reg[j];

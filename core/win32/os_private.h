@@ -429,6 +429,7 @@ extern bool avx_supported;
 #else
 # define MAX_CONTEXT_SIZE       0x480 /* 0x463 from win-7 sp1 */
 #endif
+#define CONTEXT_DYNAMICALLY_LAID_OUT(flags) (TESTALL(CONTEXT_XSTATE, flags))
 
 enum {
       EXCEPTION_INFORMATION_READ_EXECUTE_FAULT = 0,

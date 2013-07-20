@@ -4319,7 +4319,11 @@ dump_context_info(CONTEXT *context, file_t file, bool all)
     }
 
     /* For PR 264138 */
-    if (all || TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
+    /* Even if all, we have to ensure we have the ExtendedRegister fields,
+     * which for a dynamically-laid-out context may not exist (i#1223).
+     */
+    if ((all && !CONTEXT_DYNAMICALLY_LAID_OUT(context->ContextFlags)) ||
+        TESTALL(CONTEXT_XMM_FLAG, context->ContextFlags)) {
         int i, j;
         byte *ymmh_area;
         for (i=0; i<NUM_XMM_SAVED; i++) {

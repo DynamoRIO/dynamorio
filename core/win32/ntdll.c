@@ -5222,13 +5222,18 @@ nt_initialize_context(char *buf, DWORD flags)
         cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
         ASSERT(cxt_ex->all.offset    == -(LONG)sizeof(*cxt) &&
                cxt_ex->legacy.offset == -(LONG)sizeof(*cxt) &&
-               cxt_ex->legacy.length == (DWORD)sizeof(*cxt));
+               (cxt_ex->legacy.length == (DWORD)sizeof(*cxt)
+                /* We won't allocate space for ExtendedRegisters if not saving xmm */
+                IF_NOT_X64(|| (!TESTALL(CONTEXT_XMM_FLAG, flags) &&
+                               cxt_ex->legacy.length ==
+                               (DWORD)offsetof(CONTEXT, ExtendedRegisters)))));
         ASSERT(cxt != NULL && 
                (char *)cxt >= buf && 
                (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
     } else {
         /* make it 16-byte aligned */
         cxt = (CONTEXT *)(ALIGN_FORWARD(buf, 0x10));
+        ASSERT(!CONTEXT_DYNAMICALLY_LAID_OUT(flags)); /* ensure in synch */
     }
     cxt->ContextFlags = flags;
     return cxt;
