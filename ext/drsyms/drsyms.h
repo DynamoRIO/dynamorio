@@ -424,7 +424,7 @@ typedef bool (*drsym_enumerate_ex_cb)(drsym_info_t *info, drsym_error_t status,
 
 DR_EXPORT
 /**
- * Enumerates all symbol information for a given module.
+ * Enumerates all symbol information for a given module, including exports.
  * Calls the given callback function for each symbol.
  * If the callback returns false, the enumeration will end.
  *
@@ -439,7 +439,7 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
 
 DR_EXPORT
 /**
- * Enumerates all symbol information for a given module.
+ * Enumerates all symbol information for a given module, including exports.
  * Calls the given callback function for each symbol, returning full information
  * about the symbol (as opposed to selected information returned by
  * drsym_enumerate_symbols()).
@@ -513,7 +513,8 @@ drsym_module_has_symbols(const char *modpath);
 #ifdef WINDOWS
 DR_EXPORT
 /**
- * Enumerates all symbol information matching a pattern for a given module.
+ * Enumerates all symbol information (including exports) matching a
+ * pattern for a given module.
  * Calls the given callback function for each matching symbol.
  * If the callback returns false, the enumeration will end.
  *
@@ -544,7 +545,8 @@ drsym_search_symbols(const char *modpath, const char *match, bool full,
 
 DR_EXPORT
 /**
- * Enumerates all symbol information matching a pattern for a given module.
+ * Enumerates all symbol information (including exports) matching a
+ * pattern for a given module.
  * Calls the given callback function for each symbol, returning full information
  * about the symbol (as opposed to selected information returned by
  * drsym_search_symbols()).

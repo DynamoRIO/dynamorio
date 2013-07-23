@@ -2894,6 +2894,8 @@ DR_API
  *
  * \note On Windows, symbols imported from delay-loaded DLLs are not included
  * yet.
+ *
+ * \note To iterate over symbols exported by a module, use the \ref page_drsyms.
  */
 dr_symbol_import_iterator_t *
 dr_symbol_import_iterator_start(module_handle_t handle,

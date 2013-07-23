@@ -85,10 +85,10 @@ requires no setup.
 
 \section sec_drsyms_exports Exported Functions
 
-For clients interested only in functions exported from a library, it is not
-necessary to use \p drsyms as the core DynamoRIO API provides functions for
-iterating modules and looking up module exports.  The following core
-DynamoRIO API functions are relevant:
+For clients interested only in locating specific functions exported from a
+library, it is not necessary to use \p drsyms as the core DynamoRIO API
+provides functions for iterating modules and looking up module exports.
+The following core DynamoRIO API functions are relevant:
 
  - dr_get_proc_address()
  - dr_get_application_name()
@@ -97,11 +97,12 @@ DynamoRIO API functions are relevant:
  - dr_lookup_module_by_name()
  - dr_module_iterator_start()
 
-These core API routines are more efficient to use than the \p drsyms
+These core API routines can be more efficient to use than the \p drsyms
 routines, as the latter must locate, load, and parse debug information.
-Furthermore, the core API routines operate regardless of whether debug
-information is available.  However, for internal non-exported symbols, \p
-drsyms must be used.
+However, the core API provides no mechanism for iterating over all exported
+functions: for that, \p drsyms must be used.  The \p drsyms API will
+operate even when no debug information is available, in which case only
+exported functions will be considered.
 
 On Linux, \p drsyms searches both \p .dynsym and \p .symtab, while
 dr_get_proc_address() only searches \p .dynsym.  Global symbols in an

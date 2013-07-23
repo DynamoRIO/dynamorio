@@ -1235,7 +1235,7 @@ Sometimes, a client wishes to invoke system library routines with the
 application context, rather than having them redirected and isolated by
 DynamoRIO.  This can be accomplished using dynamic binding rather than
 static: dynamically looking up each desired library routine via DR's own
-routines (such as dr_get_proc_addr()).  (Using \p GetProcAddress will not
+routines (such as dr_get_proc_address()).  (Using \p GetProcAddress will not
 work for this purpose as the result will be redirected.)
 
 **************************************************
