@@ -739,8 +739,15 @@ dr_inject_process_create(const char *app_name, const char **argv,
 
     if (!exe_is_right_bitwidth(app_name, &errcode) &&
         /* don't return here if couldn't find app: get appropriate errcode below */
-        errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE)
-        return ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE;
+        errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
+        /* Rather than return ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE, we give the
+         * caller the decision over what to do.  We go ahead and create the
+         * process, which the caller can destroy if it wants a fatal error here.
+         * This gives flexibility for corner cases like i#1224 where a PE32
+         * image is turned into a PE32+ image by the kernel!
+         * If there's no other error below, this errcode will remain on return.
+         */
+    }
 
     /* Quote and concatenate the array of strings to pass to CreateProcess. */
     app_cmdline = malloc(MAX_CMDLINE);

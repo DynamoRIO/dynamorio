@@ -126,7 +126,7 @@ const char *usage_str =
     "       -v                 Display version information\n"
     "       -verbose           Display additional information\n"
     "       -quiet             Do not display warnings\n"
-    "       -nocheck           Do not fail due to invalid DynamoRIO installation\n"
+    "       -nocheck           Do not fail due to invalid DynamoRIO installation or app\n"
 #ifdef DRCONFIG
     "       -reg <process>     Register <process> to run under DR\n"
     "       -unreg <process>   Unregister <process> from running under DR\n"
@@ -231,12 +231,12 @@ const char *usage_str =
     "                          specified number of minutes.\n"
     "       -h <hours>         Kill the application if it runs longer than the\n"
     "                          specified number of hours.\n"
-#ifdef UNIX
+# ifdef UNIX
     "       -killpg            Create a new process group for the app.  If the app\n"
     "                          times out, kill the entire process group.  This forces\n"
     "                          the child to be a new process with a new pid, rather\n"
     "                          than reusing the parent's pid.\n"
-#endif
+# endif
     "       -stats             Print /usr/bin/time-style elapsed time and memory used.\n"
     "       -mem               Print memory usage statistics.\n"
     "       -pidfile <file>    Print the pid of the child process to the given file.\n"
@@ -1362,12 +1362,21 @@ int main(int argc, char *argv[])
     }
 # endif
     if (errcode == ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE
-        /* check if -32/64 is specified */
+        /* Check whether -32/64 is specified, but only for Linux as we do
+         * not support cross-arch on Windows yet (i#803).
+         */
         IF_UNIX(&& dr_platform != IF_X64_ELSE(DR_PLATFORM_32BIT,
                                               DR_PLATFORM_64BIT))) {
-        /* Better error message than the FormatMessage */
-        error("Target process %s is for the wrong architecture", app_name);
-        die(); /* no process created, so don't "goto error" */
+        if (nocheck) {
+            /* Allow override for cases like i#1224 */
+            warn("Target process %s appears to be for the wrong architecture.", app_name);
+            warn("Attempting to run anyway, but it may run natively if injection fails.");
+            errcode = 0;
+        } else {
+            /* For Windows, better error message than the FormatMessage */
+            error("Target process %s is for the wrong architecture", app_name);
+            goto error; /* the process was still created */
+        }
     }
     if (errcode != 0
         IF_UNIX(&& errcode != ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE)) {

@@ -47,8 +47,13 @@
 
 #ifndef ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE /* in VS2008+ */
 /**
- * Special error code might be returned by \p dr_inject_prepare_to_exec
- * or \p dr_inject_process_create.
+ * Special error code that is returned by \p dr_inject_prepare_to_exec
+ * or \p dr_inject_process_create when the target application image
+ * does not match the bitwidth of the injection front-end.
+ * The target process is still created: it is up to the caller to decide
+ * whether to abort (and if so, it should call dr_inject_process_exit()),
+ * although on Windows this is generally a fatal error with the current
+ * implementation.
  * We use ERROR_IMAGE_MACHINE_TYPE_MISMATCH_EXE in both Windows and Unix
  * assuming no error code conflict on Unix.
  */
