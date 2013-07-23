@@ -933,20 +933,20 @@ not supported.
 \endif
 
 \subsection sec_limit_platforms Platform Limitations
-  - This version of DynamoRIO has preliminary support for Windows 8.
-    However, clients that require kernelbase.dll are not supported.
-    Additionally, systemwide injection (-syswide_on) is not supported
+  - This version of DynamoRIO supports Windows 8.
+    However, systemwide injection (-syswide_on) is not yet supported on
+    Windows 8.
   - DynamoRIO currently supports the following NT-based 32-bit
     Windows systems : NT (all service packs), 2000 (all service
     packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
-    packs 0-2), Vista (32-bit, service packs 0-1), and Windows 7 (32-bit,
-    service packs 0-1). It does not support Windows 95, 98, or ME.
+    packs 0-2), Vista (32-bit, service packs 0-1), Windows 7 (32-bit,
+    service packs 0-1), and Windows 8. It does not support Windows 95, 98, or ME.
     Windows Server 2008 is likely to work but has not been tested.
   - This release of DynamoRIO supports running 32-bit
     Windows applications on the following 64-bit Windows operating
-    systems : Windows XP Professional x64 (service pack 2), Windows 2003
-    x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7
-    (service packs 0-1).  Windows Server 2008 is likely to work but has not
+    systems: Windows XP Professional x64 (service pack 2), Windows 2003
+    x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7
+    (service packs 0-1), and Windows 8.  Windows Server 2008 is likely to work but has not
     been tested.  Only the 32-bit
     code will be seen, and child processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
@@ -958,8 +958,8 @@ not supported.
     64-bit Windows applications, using the 64-bit DynamoRIO build, on
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
-    x64 (service pack 2), Vista x64 (service packs 0-1), and Windows 7 x64
-    (service packs 0-1). Windows Server 2008 is likely to work but has not
+    x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7 x64
+    (service packs 0-1), and Windows 8. Windows Server 2008 is likely to work but has not
     been tested.
   - DynamoRIO does not support any Itanium based Windows systems.
   - This release does not fully support applications that mix 32-bit and
@@ -1071,10 +1071,11 @@ not supported.
     method involving kernel side components that this release has no
     other workaround for.
 \anchor limits_linux_preload
-  - On Linux, the only provided deployment method in this release (aside
+  - On Linux, the official deployment method in this release (aside
     from the \ref sec_startstop "app_start() app_stop()" interface, which
-    requires soure code modification) is LD_PRELOAD.  This means that
-    static binaries cannot be injected into.  Also, binaries with the suid
+    requires soure code modification) is LD_PRELOAD.  This method does not
+    support static binaries, but an experimental injection method which can
+    be enabled with the \p -early flag does.  Binaries with the suid
     or sgid permission bits set
     disallow absolute paths in LD_PRELOAD and ignore LD_LIBRARY_PATH, so
     alternate methods of specifying the path are needed there.  One method
