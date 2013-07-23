@@ -116,11 +116,14 @@ const char *usage_str =
     "usage: "TOOLNAME" [options]\n"
 #elif defined(DRRUN) || defined (DRINJECT)
     "usage: "TOOLNAME" [options] <app and args to run>\n"
+    "usage: "TOOLNAME" [options] -- <app and args to run>\n"
+# if defined(DRRUN)
     "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
     " -- <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -t <tool> [tool options]"
     " -- <app and args to run>\n"
+# endif
     "\n"
 #endif
     "       -v                 Display version information\n"
@@ -1169,6 +1172,11 @@ int main(int argc, char *argv[])
                 goto done_with_options;
             }
 	}
+#else /* DRINJECT */
+        else if (strcmp(argv[i], "--") == 0) {
+            i++;
+            goto done_with_options;
+        }
 #endif
         else {
 #ifdef DRCONFIG
@@ -1180,7 +1188,7 @@ int main(int argc, char *argv[])
         }
     }
 
-#if defined(DRCONFIG) || defined(DRRUN)
+#if defined(DRCONFIG) || defined(DRRUN) || defined(DRINJECT)
  done_with_options:
 #endif
 
