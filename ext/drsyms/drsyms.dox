@@ -41,6 +41,7 @@ supports reading symbol information from Windows PDB files and Linux ELF or
 Windows PECOFF files with DWARF2 line information.
 
  - \ref sec_drsyms_setup
+ - \ref sec_drsyms_paths
  - \ref sec_drsyms_exports
  - \ref sec_drsyms_api
  - \ref sec_drsyms_mem
@@ -82,6 +83,16 @@ The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the
 <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
 requires no setup.
+
+\section sec_drsyms_paths Search Paths
+
+On Linux, \p drsyms will look in the default debug directories for symbols
+for a library: a <tt>.debug</tt> subdirectory of the library's directory or
+in <tt>/usr/lib/debug</tt>.
+
+On Windows, the <tt>_NT_SYMBOL_PATH</tt> environment variable is honored by
+\p drsyms as a local cache of \p pdb files.  However, \p drsyms does not
+support symbol store paths (those that contain \p srv).
 
 \section sec_drsyms_exports Exported Functions
 
