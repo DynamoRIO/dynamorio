@@ -745,6 +745,10 @@ if (BUILD_TESTS)
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
+    # i#1228 make sure entry point of the elf binary pointing to _start.
+    # Otherwise, the entry point will point to the start of .text section,
+    # which might not be _start.
+    append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
     target_link_libraries(unit_tests c dl m)
     set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
