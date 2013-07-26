@@ -2152,6 +2152,17 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     map_base = module_vaddr_from_prog_header((app_pc)elf->phdrs,
                                              elf->ehdr->e_phnum, &map_end);
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    if (fixed && (get_dynamorio_dll_start() < map_end &&
+                  get_dynamorio_dll_end() > map_base)) {
+        FATAL_USAGE_ERROR(FIXED_MAP_OVERLAPS_DR, 3,
+                          get_application_name(), get_application_pid(),
+                          elf->filename);
+        ASSERT_NOT_REACHED();
+    }
+#endif
+
     elf->image_size = map_end - map_base;
 
     /* reserve the memory from os for library */

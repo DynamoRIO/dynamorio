@@ -565,4 +565,14 @@ ERROR: using undefined symbol!
 .
 ;#endif
 
+;#ifdef UNIX
+MessageId = 
+Severity = Error
+Facility = DRCore
+SymbolicName = MSG_FIXED_MAP_OVERLAPS_DR
+Language=English
+Application %1!s! (%2!s!). A fixed memory map (%3!s!) overlaps with DynamoRIO libraries.
+.
+;#endif
+
 ;// ADD NEW MESSAGES HERE
