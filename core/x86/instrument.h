@@ -3103,6 +3103,30 @@ DR_API
 void
 dr_syscall_invoke_another(void *drcontext);
 
+#ifdef WINDOWS
+DR_API
+/**
+ * Must be invoked from dr_init().  Requests that the named ntoskrnl
+ * system call be intercepted even when threads are native (e.g., due
+ * to #DR_EMIT_GO_NATIVE).  Only a limited number of system calls
+ * being intercepted while native are supported.  This routine will
+ * fail once that limit is reached.
+ *
+ * @param[in] name      The system call name.  The name must match an exported
+ *   system call wrapper in \p ntdll.dll.  
+ * @param[in] sysnum    The system call number (the value placed in the eax register).
+ * @param[in] num_args  The number of arguments to the system call.
+ * @param[in] wow64_index  The value placed in the ecx register when this system
+ *   call is executed in a WOW64 process.  This value should be obtainable
+ *   by examining the system call wrapper.
+ *
+ * \note Windows-only.
+ */
+bool
+dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
+                              int wow64_index);
+#endif
+
 /* DR_API EXPORT BEGIN */
 /**************************************************
  * PLATFORM-INDEPENDENT FILE SUPPORT

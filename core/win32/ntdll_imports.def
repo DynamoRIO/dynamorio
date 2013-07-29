@@ -122,6 +122,7 @@ EXPORTS
         NtDeviceIoControlFile
         NtQueryDirectoryFile
         NtFlushVirtualMemory
+        NtQueryInformationJobObject
         RtlInitializeCriticalSection
         RtlDeleteCriticalSection
         RtlEnterCriticalSection

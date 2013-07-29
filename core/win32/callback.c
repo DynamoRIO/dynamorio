@@ -2476,7 +2476,7 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
 
     tgt_pc = *ptgt_pc;
     pc = tgt_pc;
-    LOG(GLOBAL, LOG_ASYNCH, 3, "before intercepting:\n");
+    LOG(GLOBAL, LOG_ASYNCH, 3, "%s: before intercepting:\n", __FUNCTION__);
     DOLOG(3, LOG_ASYNCH, { disassemble_with_bytes(dcontext, pc, main_logfile); });
 
     pc = interception_cur_pc; /* current spot in interception buffer */

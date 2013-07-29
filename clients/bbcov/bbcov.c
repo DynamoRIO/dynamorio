@@ -832,6 +832,12 @@ event_filter_syscall(void *drcontext, int sysnum)
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
+    /* XXX: we should also watch for NtTerminateJobObject and other job
+     * termination (xref i#1229).
+     */
+    /* XXX i#1231: we should try to share Dr. Memory's code by placing it
+     * in an Extension.
+     */
     if (options.nudge_kills && sysnum == sysnum_TerminateProcess) {
         HANDLE proc = (HANDLE)dr_syscall_get_param(drcontext, 0);
         process_id_t pid = dr_convert_handle_to_pid(proc);

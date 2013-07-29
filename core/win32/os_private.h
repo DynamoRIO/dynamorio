@@ -156,28 +156,36 @@ extern int *syscalls;
 /* this points to a windows-version-specific WOW table index array */
 extern int *wow64_index;
 
-extern const int windows_8_x64_syscalls[];
-extern const int windows_8_wow64_syscalls[];
-extern const int windows_8_x86_syscalls[];
-extern const int windows_7_x64_syscalls[];
-extern const int windows_7_syscalls[];
-extern const int windows_vista_sp1_x64_syscalls[];
-extern const int windows_vista_sp1_syscalls[];
-extern const int windows_vista_sp0_x64_syscalls[];
-extern const int windows_vista_sp0_syscalls[];
-extern const int windows_2003_syscalls[];
-extern const int windows_XP_x64_syscalls[];
-extern const int windows_XP_wow64_index[]; /* for XP through Win7 */
-extern const int windows_XP_syscalls[];
-extern const int windows_2000_syscalls[];
-extern const int windows_NT_sp3_syscalls[];
-extern const int windows_NT_sp0_syscalls[];
-extern const int windows_NT_sp4_syscalls[];
+#ifdef CLIENT_INTERFACE
+/* i#1230: we support the client adding to the end of these, so they are not const
+ * (but they're still in .data, so they're read-only once past init)
+ */
+#  define SYS_CONST /* in .data */
+#else
+#  define SYS_CONST const
+#endif
+extern SYS_CONST int windows_8_x64_syscalls[];
+extern SYS_CONST int windows_8_wow64_syscalls[];
+extern SYS_CONST int windows_8_x86_syscalls[];
+extern SYS_CONST int windows_7_x64_syscalls[];
+extern SYS_CONST int windows_7_syscalls[];
+extern SYS_CONST int windows_vista_sp1_x64_syscalls[];
+extern SYS_CONST int windows_vista_sp1_syscalls[];
+extern SYS_CONST int windows_vista_sp0_x64_syscalls[];
+extern SYS_CONST int windows_vista_sp0_syscalls[];
+extern SYS_CONST int windows_2003_syscalls[];
+extern SYS_CONST int windows_XP_x64_syscalls[];
+extern SYS_CONST int windows_XP_wow64_index[]; /* for XP through Win7 */
+extern SYS_CONST int windows_XP_syscalls[];
+extern SYS_CONST int windows_2000_syscalls[];
+extern SYS_CONST int windows_NT_sp3_syscalls[];
+extern SYS_CONST int windows_NT_sp0_syscalls[];
+extern SYS_CONST int windows_NT_sp4_syscalls[];
 
 /* for x64 this is the # of args */
-extern const uint syscall_argsz[];
+extern SYS_CONST uint syscall_argsz[];
 
-extern const char * const syscall_names[];
+extern const char * SYS_CONST syscall_names[];
 
 extern bool init_apc_go_native_pause;
 extern bool init_apc_go_native;

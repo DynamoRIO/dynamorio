@@ -115,7 +115,13 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 
 The current version is \DR_VERSION.  
 
-The changes between version \DR_VERSION and 4.0.1 include the
+The changes between version \DR_VERSION and 4.1.0 include:
+
+ - Added dr_syscall_intercept_natively()
+
+**************************************************
+<hr>
+The changes between version 4.1.0 and 4.0.1 include the
 following compatibility changes:
 
  - The #drsym_info_t data structure has changed.  The file name is now

@@ -77,7 +77,19 @@ app_pc KiFastSystemCallRet_address = NULL;
 
 /*******************************************************/
 
-const char * const syscall_names[] = {
+#ifdef CLIENT_INTERFACE
+/* i#1230: we support a limited number of extra interceptions.
+ * We add extra slots to all of the arrays.
+ */
+#  define CLIENT_EXTRA_TRAMPOLINE 12
+#  define TRAMPOLINE_MAX (SYS_MAX + CLIENT_EXTRA_TRAMPOLINE)
+/* no lock needed since only supported during dr_init */
+static uint syscall_extra_idx;
+#else
+#  define TRAMPOLINE_MAX SYS_MAX
+#endif
+
+const char * SYS_CONST syscall_names[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -85,7 +97,7 @@ const char * const syscall_names[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_8_x64_syscalls[] = {
+SYS_CONST int windows_8_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -93,7 +105,7 @@ const int windows_8_x64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_8_wow64_syscalls[] = {
+SYS_CONST int windows_8_wow64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -101,7 +113,7 @@ const int windows_8_wow64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_8_x86_syscalls[] = {
+SYS_CONST int windows_8_x86_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -109,7 +121,7 @@ const int windows_8_x86_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_7_x64_syscalls[] = {
+SYS_CONST int windows_7_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -117,7 +129,7 @@ const int windows_7_x64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_7_syscalls[] = {
+SYS_CONST int windows_7_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -125,7 +137,7 @@ const int windows_7_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_vista_sp1_x64_syscalls[] = {
+SYS_CONST int windows_vista_sp1_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -133,7 +145,7 @@ const int windows_vista_sp1_x64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_vista_sp1_syscalls[] = {
+SYS_CONST int windows_vista_sp1_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -141,7 +153,7 @@ const int windows_vista_sp1_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_vista_sp0_x64_syscalls[] = {
+SYS_CONST int windows_vista_sp0_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -149,7 +161,7 @@ const int windows_vista_sp0_x64_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_vista_sp0_syscalls[] = {
+SYS_CONST int windows_vista_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -157,7 +169,7 @@ const int windows_vista_sp0_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_2003_syscalls[] = {
+SYS_CONST int windows_2003_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -165,7 +177,7 @@ const int windows_2003_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_XP_x64_syscalls[] = {
+SYS_CONST int windows_XP_x64_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -174,7 +186,7 @@ const int windows_XP_x64_syscalls[] = {
 #undef SYSCALL
 };
 /* This is the index for XP through Win7. */
-const int windows_XP_wow64_index[] = {
+SYS_CONST int windows_XP_wow64_index[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -182,7 +194,7 @@ const int windows_XP_wow64_index[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_XP_syscalls[] = {
+SYS_CONST int windows_XP_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -190,7 +202,7 @@ const int windows_XP_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_2000_syscalls[] = {
+SYS_CONST int windows_2000_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -198,7 +210,7 @@ const int windows_2000_syscalls[] = {
 #include "syscallx.h"
 #undef SYSCALL
 };
-const int windows_NT_sp4_syscalls[] = {
+SYS_CONST int windows_NT_sp4_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -207,7 +219,7 @@ const int windows_NT_sp4_syscalls[] = {
 #undef SYSCALL
 };
 /* for SP3 (and maybe SP2 or SP1 -- haven't checked those) */
-const int windows_NT_sp3_syscalls[] = {
+SYS_CONST int windows_NT_sp3_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -216,7 +228,7 @@ const int windows_NT_sp3_syscalls[] = {
 #undef SYSCALL
 };
 /* for SP0 (and maybe SP2 or SP1 -- haven't checked those) */
-const int windows_NT_sp0_syscalls[] = {
+SYS_CONST int windows_NT_sp0_syscalls[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -226,7 +238,7 @@ const int windows_NT_sp0_syscalls[] = {
 };
 
 /* for x64 this is the # of args */
-const uint syscall_argsz[] = {
+SYS_CONST uint syscall_argsz[TRAMPOLINE_MAX] = {
 #ifdef X64
 # define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                  w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
@@ -245,7 +257,7 @@ const uint syscall_argsz[] = {
 /* FIXME: currently whether a syscall needs action or not can't be
  * dynamically changed since this flag is used early on by
  * intercept_native_syscall() */
-static const int syscall_requires_action[] = {
+static SYS_CONST int syscall_requires_action[TRAMPOLINE_MAX] = {
 #define SYSCALL(name, act, nargs, arg32, ntsp0, ntsp3, ntsp4, w2k, xp, wow64, xp64,\
                 w2k3, vista0, vista0_x64, vista1, vista1_x64, w7x86, w7x64,        \
                 w8x86, w8w64, w8x64)                                               \
@@ -255,10 +267,10 @@ static const int syscall_requires_action[] = {
 };
 
 /* used to intercept syscalls while native */
-static byte *syscall_trampoline_pc[SYS_MAX];
-static app_pc syscall_trampoline_skip_pc[SYS_MAX];
-static app_pc syscall_trampoline_hook_pc[SYS_MAX];
-static app_pc syscall_trampoline_copy_pc[SYS_MAX];
+static byte *syscall_trampoline_pc[TRAMPOLINE_MAX];
+static app_pc syscall_trampoline_skip_pc[TRAMPOLINE_MAX];
+static app_pc syscall_trampoline_hook_pc[TRAMPOLINE_MAX];
+static app_pc syscall_trampoline_copy_pc[TRAMPOLINE_MAX];
 
 #ifdef GBOP
 /* GBOP stack adjustment - currently either always 0 or always 4 for
@@ -267,7 +279,7 @@ static app_pc syscall_trampoline_copy_pc[SYS_MAX];
  * FIXME: case 7127 this can be compressed further, if really only a bitmask
  * see intercept_syscall_wrapper
  */
-static byte syscall_trampoline_gbop_fpo_offset[SYS_MAX];
+static byte syscall_trampoline_gbop_fpo_offset[TRAMPOLINE_MAX];
 #endif /* GBOP */
 
 /****************************************************************************/
@@ -559,6 +571,11 @@ intercept_syscall_for_thin_client(int SYSnum)
 static inline bool
 intercept_native_syscall(int SYSnum)
 {
+    ASSERT(SYSnum < TRAMPOLINE_MAX);
+#ifdef CLIENT_INTERFACE
+    if ((uint)SYSnum >= SYS_MAX + syscall_extra_idx)
+        return false;
+#endif
     /* Don't hook all syscalls for thin_client. */
     if (DYNAMO_OPTION(thin_client) && !intercept_syscall_for_thin_client(SYSnum))
         return false;
@@ -598,7 +615,7 @@ init_syscall_trampolines(void)
     int i;
     HMODULE h = (HMODULE)get_ntdll_base();
     ASSERT(DYNAMO_OPTION(native_exec_syscalls));
-    for (i = 0; i < SYS_MAX; i++) {
+    for (i = 0; i < TRAMPOLINE_MAX; i++) {
         if (intercept_native_syscall(i)) {
             byte *fpo_adjustment = NULL;
 #ifdef GBOP
@@ -640,7 +657,7 @@ exit_syscall_trampolines(void)
 {
     int i;
     ASSERT(DYNAMO_OPTION(native_exec_syscalls));
-    for (i = 0; i < SYS_MAX; i++) {
+    for (i = 0; i < TRAMPOLINE_MAX; i++) {
         if (intercept_native_syscall(i)) {
             ASSERT(syscall_trampoline_pc[i] != NULL &&
                    syscall_trampoline_copy_pc[i] != NULL &&
@@ -4047,5 +4064,42 @@ dr_syscall_invoke_another(void *drcontext)
         mc->r10 = mc->xcx;
     }
 # endif
+}
+
+DR_API
+bool
+dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
+                              int wow64_idx)
+{
+    uint i, idx;
+    if (syscall_extra_idx >= CLIENT_EXTRA_TRAMPOLINE)
+        return false;
+    if (dynamo_initialized)
+        return false;
+    /* see whether we already intercept it */
+    for (i = 0; i < SYS_MAX + syscall_extra_idx; i++) {
+        if (intercept_native_syscall(i) && strcmp(syscall_names[i], name) == 0)
+            return true;
+    }
+    if (get_proc_address(get_ntdll_base(), name) == NULL)
+        return false;
+    /* no lock needed since only supported during dr_init */
+    idx = SYS_MAX + syscall_extra_idx;
+    syscall_names[idx] = name;
+    syscalls[idx] = sysnum;
+    syscall_argsz[idx] = num_args * 4;
+    wow64_index[idx] = wow64_idx;
+    syscall_requires_action[idx] = true;
+    syscall_extra_idx++;
+    /* some syscalls we just don't support intercepting */
+    if (!intercept_native_syscall(idx)) {
+        LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: %s is not interceptable!\n",
+            __FUNCTION__, name);
+        syscall_extra_idx--;
+        return false;
+    }
+    LOG(GLOBAL, LOG_SYSCALLS, 2, "%s: intercepting %s as index %d\n",
+        __FUNCTION__, name, idx);
+    return true;
 }
 #endif /* CLIENT_INTERFACE */

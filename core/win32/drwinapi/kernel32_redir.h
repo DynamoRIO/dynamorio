@@ -410,6 +410,14 @@ redirect_TerminateProcess(
     __in UINT uExitCode
     );
 
+/* XXX i#1229: if DR watches this syscall we should also redirect it */
+BOOL
+WINAPI
+redirect_TerminateJobObject(
+    __in HANDLE hJob,
+    __in UINT uExitCode
+    );
+
 BOOL
 WINAPI
 redirect_TerminateThread(

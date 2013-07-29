@@ -905,6 +905,16 @@ NtFlushVirtualMemory(IN HANDLE ProcessHandle,
     return STATUS_SUCCESS;
 }
 
+NTEXPORT NTSTATUS NTAPI
+NtQueryInformationJobObject(IN HANDLE JobHandle,
+                            IN JOBOBJECTINFOCLASS JobInformationClass,
+                            OUT PVOID JobInformation,
+                            IN ULONG JobInformationLength,
+                            OUT PULONG ReturnLength OPTIONAL)
+{
+    return STATUS_SUCCESS;
+}
+
 /***************************************************************************
  * RTL
  */
