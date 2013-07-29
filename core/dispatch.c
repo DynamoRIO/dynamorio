@@ -605,6 +605,7 @@ dispatch_enter_native(dcontext_t *dcontext)
         dcontext->native_exec_postsyscall = NULL;
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
+        KSTOP_NOT_MATCHING(dispatch_num_exits);
         KSTART_DC(dcontext, fcache_default);
         enter_nolinking(dcontext, NULL, true);
     } 
