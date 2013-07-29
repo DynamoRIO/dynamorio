@@ -562,7 +562,7 @@ redirect_VirtualAlloc(
     }
     if (NT_SUCCESS(res)) {
         LOG(GLOBAL, LOG_LOADER, 2, "%s => "PFX"-"PFX"\n", __FUNCTION__,
-            *(byte**)lpAddress, dwSize);
+            lpAddress, (app_pc)lpAddress + dwSize);
     }
     return base;
 }
