@@ -4129,6 +4129,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags))
         bb->flags &= ~FRAG_HAS_TRANSLATION_INFO;
     bb->native_exec = true;
+    /* i#1233: the bb cannot be added into trace */
+    bb->flags |= FRAG_CANNOT_BE_TRACE;
 
     BBPRINT(bb, IF_DGCDIAG_ELSE(1, 2), "build_native_exec_bb @"PFX"\n", bb->start_pc);
     DOLOG(2, LOG_INTERP, {
