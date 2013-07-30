@@ -4239,36 +4239,36 @@ const instr_info_t vex_extensions[][2] = {
  */
 const instr_info_t mod_extensions[][2] = {
   { /* mod extension 0 */
-    {OP_sgdt, 0x000f0170, "sgdt", Ms, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_sgdt, 0x0f0130, "sgdt", Ms, xx, xx, xx, xx, mrm, x, END_LIST},
     {RM_EXT,  0x0f0171, "(group 7 mod + rm ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
   },
   { /* mod extension 1 */
-    {OP_sidt, 0x080f0171, "sidt",  Ms, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_sidt, 0x0f0131, "sidt",  Ms, xx, xx, xx, xx, mrm, x, END_LIST},
     {RM_EXT,  0x0f0171, "(group 7 mod + rm ext 1)", xx, xx, xx, xx, xx, mrm, x, 1},
   },
   { /* mod extension 2 */
-    {OP_invlpg, 0x380f0177, "invlpg", xx, xx, Mm, xx, xx, mrm, x, END_LIST},
+    {OP_invlpg, 0x0f0137, "invlpg", xx, xx, Mm, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0177, "(group 7 mod + rm ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
   },
   { /* mod extension 3 */
-    {OP_clflush, 0x380fae77, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
+    {OP_clflush, 0x0fae37, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_sfence,  0xf80fae77, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 4 */
-    {OP_lidt, 0x180f0173, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {OP_lidt,   0x0f0133, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0173, "(group 7 mod + rm ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
   },
   { /* mod extension 5 */
-    {OP_lgdt, 0x100f0172, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {OP_lgdt,   0x0f0132, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0172, "(group 7 mod + rm ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
   },
   { /* mod extension 6 */
-    {REX_W_EXT, 0x280fae75, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
+    {REX_W_EXT, 0x0fae35, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
     /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
     {OP_lfence, 0xe80fae75, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 7 */
-    {REX_W_EXT,   0x300fae76, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
+    {REX_W_EXT,   0x0fae36, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
     {OP_mfence,   0xf00fae76, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
@@ -4482,12 +4482,12 @@ const instr_info_t rex_w_extensions[][2] = {
     {OP_xsave64,   0x0fae34, "xsave64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
   { /* rex.w extension 3 */
-    {OP_xrstor32, 0x280fae75, "xrstor",   xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
-    {OP_xrstor64, 0x280fae75, "xrstor64", xx, xx, Mxsave, edx, eax, mrm|rex, o64, END_LIST},
+    {OP_xrstor32, 0x0fae35, "xrstor",   xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
+    {OP_xrstor64, 0x0fae35, "xrstor64", xx, xx, Mxsave, edx, eax, mrm|rex, o64, END_LIST},
   },
   { /* rex.w extension 4 */
-    {OP_xsaveopt32, 0x300fae76, "xsaveopt",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
-    {OP_xsaveopt64, 0x300fae76, "xsaveopt64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+    {OP_xsaveopt32, 0x0fae36, "xsaveopt",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsaveopt64, 0x0fae36, "xsaveopt64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
 };
 
