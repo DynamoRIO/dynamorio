@@ -4152,11 +4152,11 @@ const instr_info_t vex_extensions[][2] = {
     {OP_mpsadbw,  0x663a4218, "mpsadbw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vmpsadbw, 0x663a4218, "vmpsadbw",  Vdq, xx, Hdq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 53 */
-    {OP_pcmpestrm, 0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[8]},
-    {OP_vpcmpestrm,0x663a6018, "vpcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, exop[11]},
+    {OP_pcmpestrm, 0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp|xop, fW6, exop[8]},
+    {OP_vpcmpestrm,0x663a6018, "vpcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp|xop, fW6, exop[11]},
   }, { /* vex ext 54 */
-    {OP_pcmpestri, 0x663a6118, "pcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[9]},
-    {OP_vpcmpestri,0x663a6118, "vpcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, exop[12]},
+    {OP_pcmpestri, 0x663a6118, "pcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp|xop, fW6, exop[9]},
+    {OP_vpcmpestri,0x663a6118, "vpcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|vex|reqp|xop, fW6, exop[12]},
   }, { /* vex ext 55 */
     {OP_pcmpistrm, 0x663a6218, "pcmpistrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, END_LIST},
     {OP_vpcmpistrm,0x663a6218, "vpcmpistrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, END_LIST},
@@ -4314,7 +4314,7 @@ const instr_info_t rm_extensions[][8] = {
   },
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm, x, exop[10]},/*AMD-only*/
+    {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm|xop, x, exop[10]},/*AMD-only*/
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
