@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,7 +42,7 @@
     byte *pc, *next_pc;
     byte *end;
     instrlist_t *ilist = instrlist_create(dc);
-    instr_t *instr;
+    instr_t *instr, *orig;
 
 #   define OPCODE(name, opc, icnm, ...) \
     int len_##name;
@@ -57,6 +57,7 @@
 
     instr = instr_create(dc);
     pc = buf;
+    orig = instrlist_first(ilist);
 
 #   define OPCODE(name, opc, icnm, flags, ...) do { \
     if ((flags & IF_X64_ELSE(X86_ONLY, X64_ONLY)) == 0 && len_##name != 0) { \
@@ -65,7 +66,13 @@
         ASSERT((next_pc - pc) == decode_sizeof(dc, pc, NULL _IF_X64(NULL))); \
         ASSERT((next_pc - pc) == len_##name); \
         ASSERT(instr_get_opcode(instr) == OP_##opc); \
+        /* ensure operands all came out the same (xref i#1232) */ \
+        ASSERT(instr_same(orig, instr) || \
+               instr_is_cti(orig) && opnd_is_instr(instr_get_target(orig))); \
         pc = next_pc; \
+        orig = instr_get_next(orig); \
+        if (orig != NULL && instr_is_label(orig)) \
+            orig = instr_get_next(orig); \
     } } while (0);
 #   include INCLUDE_NAME
 #   undef OPCODE
