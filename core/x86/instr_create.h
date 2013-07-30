@@ -3023,7 +3023,12 @@
 #define INSTR_CREATE_stos_4(dc) \
   instr_create_2dst_2src((dc), OP_stos, \
     opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-      OPSZ_4_rex8_short2), \
+      OPSZ_4_short2), \
+    opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI))
+#define INSTR_CREATE_stos_8(dc) \
+  instr_create_2dst_2src((dc), OP_stos, \
+    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+      OPSZ_8_short2), \
     opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XAX), opnd_create_reg(DR_REG_XDI))
 #define INSTR_CREATE_lods_1(dc) \
   instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_AL), \
@@ -3031,10 +3036,16 @@
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, OPSZ_1), \
     opnd_create_reg(DR_REG_XSI))
 #define INSTR_CREATE_lods_4(dc) \
+  instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_XSI), \
+    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+      OPSZ_4_short2), \
+    opnd_create_reg(DR_REG_XSI))
+#define INSTR_CREATE_lods_8(dc) \
   instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_XAX), \
     opnd_create_reg(DR_REG_XSI), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-      OPSZ_4_rex8_short2), \
+      OPSZ_8_short2), \
     opnd_create_reg(DR_REG_XSI)) 
 #define INSTR_CREATE_movs_1(dc) \
   instr_create_3dst_3src((dc), OP_movs, \

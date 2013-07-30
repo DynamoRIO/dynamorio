@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -147,8 +147,10 @@ OPCODE(ins, ins, ins_1, 0)
 OPCODE(ins4, ins, ins_4, 0)
 OPCODE(stos, stos, stos_1, 0)
 OPCODE(stos4, stos, stos_4, 0)
+OPCODE(stos8, stos, stos_8, X64_ONLY)
 OPCODE(lods, lods, lods_1, 0)
 OPCODE(lods4, lods, lods_4, 0)
+OPCODE(lods8, lods, lods_8, X64_ONLY)
 OPCODE(movs, movs, movs_1, 0)
 OPCODE(movs4, movs, movs_4, 0)
 OPCODE(rep_ins, rep_ins, rep_ins_1, 0)
