@@ -2145,6 +2145,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
     reg_t   pg_offs;
     uint   seg_prot, i;
     ptr_int_t delta;
+    size_t initial_map_size;
 
     ASSERT(elf->phdrs != NULL && "call elf_loader_read_phdrs() first");
     if (elf->phdrs == NULL)
@@ -2166,8 +2167,13 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
     elf->image_size = map_end - map_base;
 
     /* reserve the memory from os for library */
-    lib_base = (*map_func)(-1, &elf->image_size, 0, map_base,
-                           MEMPROT_WRITE | MEMPROT_READ /* prot */,
+    initial_map_size = elf->image_size;
+    if (DYNAMO_OPTION(separate_private_bss)) {
+        /* place an extra no-access page after .bss */
+        initial_map_size += PAGE_SIZE;
+    }
+    lib_base = (*map_func)(-1, &initial_map_size, 0, map_base,
+                           MEMPROT_NONE, /* so the separating page is no-access */
                            MAP_FILE_COPY_ON_WRITE |
                            MAP_FILE_IMAGE |
                            /* i#1001: a PIE executable may have NULL as preferred
@@ -2176,6 +2182,10 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                            ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
                            (reachable ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
+    if (DYNAMO_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
+        elf->image_size = initial_map_size - PAGE_SIZE;
+    else
+        elf->image_size = initial_map_size;
     lib_end = lib_base + elf->image_size;
     elf->load_base = lib_base;
     ASSERT(elf->load_delta == 0 || map_base == NULL);

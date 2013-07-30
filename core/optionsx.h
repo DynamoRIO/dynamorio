@@ -498,6 +498,11 @@
                     "avoid full decoding even when clients are present (risky)")
 # endif /* CLIENT_INTERFACE */
 #endif /* EXPOSE_INTERNAL_OPTIONS */
+#ifdef UNIX
+    OPTION_DEFAULT_INTERNAL(bool, separate_private_bss,
+                            IF_CLIENT_INTERFACE_ELSE(true, false),
+                            "place empty page to separate private lib .bss")
+#endif
 
     /* i#42: Optimize and shrink clean call sequences */
     /* optimization level:
