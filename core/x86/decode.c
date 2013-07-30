@@ -1525,7 +1525,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_FLOATCONST:
         CLIENT_ASSERT(opsize == OPSZ_0, "internal decode inconsistency");
         /* i#386: avoid floating-point instructions */
-        *opnd = opnd_create_immed_float_zero();
+        *opnd = opnd_create_immed_float_for_opcode(di->opcode);
         return true;
     case TYPE_J:
         if (di->seg_override == SEG_JCC_NOT_TAKEN ||
@@ -1843,6 +1843,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     IF_X64(CLIENT_ASSERT_TRUNCATE(di.len, int, next_pc - pc,
                                   "internal truncation error"));
     di.len = (int) (next_pc - pc);
+    di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
     instr->prefixes |= di.prefixes;
 

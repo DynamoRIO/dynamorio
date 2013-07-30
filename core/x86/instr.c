@@ -293,13 +293,36 @@ opnd_create_immed_float(float i)
     return opnd;
 }
 
+enum {
+    FLOAT_ZERO    = 0x00000000,
+    FLOAT_ONE     = 0x3f800000,
+    FLOAT_LOG2_10 = 0x40549a78,
+    FLOAT_LOG2_E  = 0x3fb8aa3b,
+    FLOAT_PI      = 0x40490fdb,
+    FLOAT_LOG10_2 = 0x3e9a209a,
+    FLOAT_LOGE_2  = 0x3f317218,
+};
+
 opnd_t
-opnd_create_immed_float_zero(void)
+opnd_create_immed_float_for_opcode(uint opcode)
 {
     opnd_t opnd;
+    uint float_value;
     opnd.kind = IMMED_FLOAT_kind;
     /* avoid any fp instrs (xref i#386) */
-    memset(&opnd.value.immed_float, 0, sizeof(opnd.value.immed_float));
+    switch (opcode) {
+    case OP_fldz:    float_value = FLOAT_ZERO;    break;
+    case OP_fld1:    float_value = FLOAT_ONE;     break;
+    case OP_fldl2t:  float_value = FLOAT_LOG2_10; break;
+    case OP_fldl2e:  float_value = FLOAT_LOG2_E;  break;
+    case OP_fldpi:   float_value = FLOAT_PI;      break;
+    case OP_fldlg2:  float_value = FLOAT_LOG10_2; break;
+    case OP_fldln2:  float_value = FLOAT_LOGE_2;  break;
+    case OP_ftst:    float_value = FLOAT_ZERO;    break;
+    default:         float_value = FLOAT_ZERO;
+       CLIENT_ASSERT(false, "invalid float opc");
+    }
+    *(uint*)(&opnd.value.immed_float) = float_value;
     /* currently only used for implicit constants that have no size */
     opnd.size = OPSZ_0;
     return opnd;
@@ -985,10 +1008,8 @@ bool opnd_same(opnd_t op1, opnd_t op2)
     case IMMED_INTEGER_kind:
         return op1.value.immed_int == op2.value.immed_int;
     case IMMED_FLOAT_kind:
-        /* HACK to avoid generating floating point instrs:
-         * we assume a float is 32 bit just like an int
-         */
-        return op1.value.immed_int == op2.value.immed_int;
+        /* avoid any fp instrs (xref i#386) */
+        return *(int*)(&op1.value.immed_float) == *(int*)(&op2.value.immed_float);
     case PC_kind:
         return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:

@@ -1246,6 +1246,7 @@ const instr_info_t * const op_instr[] =
 /* pop but unusual size */
 #define i_xSPoN TYPE_INDIR_VAR_XREG_OFFS_N, REG_ESP
 #define c1  TYPE_1, OPSZ_0
+/* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
 
 #ifdef IA32_ON_IA64

@@ -284,6 +284,7 @@ enum {
  * decoding and encoding.
  */
 typedef struct decode_info_t {
+    uint opcode;
     /* Holds address and data size prefixes, as well as the prefixes
      * that are shared as-is with instr_t (PREFIX_SIGNIFICANT).
      * We assume we're in the default mode (32-bit or 64-bit,

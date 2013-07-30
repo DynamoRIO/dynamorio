@@ -629,7 +629,7 @@ opnd_create_immed_float(float f);
 
 /* not exported */
 opnd_t
-opnd_create_immed_float_zero(void);
+opnd_create_immed_float_for_opcode(uint opcode);
 
 DR_API
 INSTR_INLINE
