@@ -2168,7 +2168,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 
     /* reserve the memory from os for library */
     initial_map_size = elf->image_size;
-    if (DYNAMO_OPTION(separate_private_bss)) {
+    if (INTERNAL_OPTION(separate_private_bss)) {
         /* place an extra no-access page after .bss */
         initial_map_size += PAGE_SIZE;
     }
@@ -2182,7 +2182,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
                            ((fixed && map_base != NULL) ? MAP_FILE_FIXED : 0) |
                            (reachable ? MAP_FILE_REACHABLE : 0));
     ASSERT(lib_base != NULL);
-    if (DYNAMO_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
+    if (INTERNAL_OPTION(separate_private_bss) && initial_map_size > elf->image_size)
         elf->image_size = initial_map_size - PAGE_SIZE;
     else
         elf->image_size = initial_map_size;
