@@ -4129,8 +4129,6 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (TEST(FRAG_HAS_TRANSLATION_INFO, bb->flags))
         bb->flags &= ~FRAG_HAS_TRANSLATION_INFO;
     bb->native_exec = true;
-    /* i#1233: the bb cannot be added into trace */
-    bb->flags |= FRAG_CANNOT_BE_TRACE;
 
     BBPRINT(bb, IF_DGCDIAG_ELSE(1, 2), "build_native_exec_bb @"PFX"\n", bb->start_pc);
     DOLOG(2, LOG_INTERP, {
@@ -4205,15 +4203,20 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     /* this is a jump for a dummy exit cti */
     instrlist_append(bb->ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
 
-    if (DYNAMO_OPTION(shared_bbs))
+    if (DYNAMO_OPTION(shared_bbs) && !TEST(FRAG_TEMP_PRIVATE, bb->flags))
         bb->flags |= FRAG_SHARED;
 
     /* Can't be coarse-grain since has non-exit cti */
     bb->flags &= ~FRAG_COARSE_GRAIN;
     STATS_INC(coarse_prevent_native_exec); 
 
-    /* trace barrier */
-    bb->flags |= FRAG_MUST_END_TRACE;
+    /* We exclude the bb from trace to avoid going native in the process of
+     * building a trace for simplicity.
+     * XXX i#1239: DR needs to be able to unlink native exec gateway bbs for
+     * proper cache consistency and signal handling, in which case we could
+     * use FRAG_MUST_END_TRACE here instead.
+     */
+    bb->flags |= FRAG_CANNOT_BE_TRACE;
 
     /* We support mangling here, though currently we don't need it as we don't
      * include any app code (although we mark this bb as belonging to the start

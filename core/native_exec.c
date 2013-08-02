@@ -184,11 +184,7 @@ entering_native(dcontext_t *dcontext)
     /* FIXME: setting same var that set_asynch_interception is! */
     dcontext->thread_record->under_dynamo_control = false;
 
-    /* if we were building a trace, kill it */
-    if (is_building_trace(dcontext)) {
-        LOG(THREAD, LOG_ASYNCH, 2, "entering_native: squashing old trace\n");
-        trace_abort(dcontext);
-    }
+    ASSERT(!is_building_trace(dcontext));
     set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub());
     /* we need to match dr_app_stop() so we pop the kstack */
     KSTOP_NOT_MATCHING(dispatch_num_exits);
