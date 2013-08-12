@@ -13,4 +13,5 @@ calling indirect ret_imm
  -> 40
 calling tail caller
 nativeexec.exe:print_int(35)
+calling loop_test
 all done

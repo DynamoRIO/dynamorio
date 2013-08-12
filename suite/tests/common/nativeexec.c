@@ -94,6 +94,23 @@ unwind_longjmp(int x)
     longjmp(jump_buf, 1);
 }
 
+#define NUM_ITERS 10
+#define MALLOC_SIZE 8
+void
+loop_test(void)
+{
+    int i, j;
+    void * volatile ptr;
+    for (i = 0; i < NUM_ITERS; i++) {
+        for (j = 0; j < NUM_ITERS; j++) {
+            ptr = malloc(MALLOC_SIZE);
+            free(ptr);
+        }
+    }
+}
+#undef NUM_ITERS
+#undef MALLOC_SIZE
+
 int
 main(int argc, char **argv)
 {
@@ -156,6 +173,9 @@ main(int argc, char **argv)
      */
     print("calling tail caller\n");
     tail_caller(print_int, 35);
+
+    print("calling loop_test\n");
+    loop_test();
 
     print("all done\n");
 
