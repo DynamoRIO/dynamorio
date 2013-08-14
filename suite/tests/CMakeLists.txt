@@ -1354,6 +1354,8 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   tobuild_appdll(client.modules client-interface/modules.c)
   if (UNIX)
+    # XXX i#1246: Make partial_module_map work for Windows as well.
+    tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
     # FIXME i#975: we can't load libc with STATIC_LIBRARY yet.
     append_property_string(TARGET client.modules.appdll LINK_FLAGS "-nodefaultlibs")
   endif ()

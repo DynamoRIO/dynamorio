@@ -170,10 +170,45 @@ is_elf_so_header_common(app_pc base, size_t size, bool memory)
     return false;
 }
 
+/* i#727: Recommend passing 0 as size if not known if the header can be safely
+ * read.
+ */
 bool
 is_elf_so_header(app_pc base, size_t size)
 {
     return is_elf_so_header_common(base, size, true);
+}
+
+/* Returns true iff the map is not for an ELF, or if it is for an ELF, but the
+ * map is not big enough to load the program segments.
+ */
+bool
+is_elf_partial_map(app_pc base, size_t size, uint memprot)
+{
+    app_pc first_seg_base = NULL;
+    app_pc last_seg_end = NULL;
+    ELF_HEADER_TYPE *elf_hdr;
+
+    if (size < sizeof(ELF_HEADER_TYPE) || !TEST(MEMPROT_READ, memprot) ||
+        !is_elf_so_header(base, 0 /*i#727: safer to ask for safe_read*/)) {
+        return true;
+    }
+
+    /* Ensure that we can read the program header table. */
+    elf_hdr = (ELF_HEADER_TYPE *) base;
+    if (size < (elf_hdr->e_phoff + (elf_hdr->e_phentsize * elf_hdr->e_phnum))) {
+        return true;
+    }
+
+    /* Check to see that the span of the module's segments fits within the
+     * map's size.
+     */
+    ASSERT(elf_hdr->e_phentsize == sizeof(ELF_PROGRAM_HEADER_TYPE));
+    first_seg_base = module_vaddr_from_prog_header(
+        base + elf_hdr->e_phoff, elf_hdr->e_phnum, &last_seg_end);
+
+    return last_seg_end == NULL ||
+           ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
 }
 
 void

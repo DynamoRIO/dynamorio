@@ -248,6 +248,7 @@ void pcprofile_fork_init(dcontext_t *dcontext);
 
 /* in module.c */
 bool is_elf_so_header(app_pc base, size_t size);
+bool is_elf_partial_map(app_pc base, size_t size, uint memprot);
 bool module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                                  app_pc *out_base, app_pc *out_end, char **out_soname,
                                  os_module_data_t *out_data);

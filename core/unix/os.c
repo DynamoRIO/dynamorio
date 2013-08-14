@@ -6690,6 +6690,13 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
+    } else if (is_elf_partial_map(base, size, memprot)) {
+        /* i#1240: App might read first page of ELF header using mmap, which
+         * might accidentally be treated as a module load. Heuristically
+         * distinguish this by saying that if this is the first mmap for an ELF
+         * (i.e., it doesn't overlap with a previous map), and if it's small,
+         * then don't treat it as a module load.
+         */
     } else if (TEST(MEMPROT_READ, memprot) &&
                /* i#727: We can still get SIGBUS on mmap'ed files that can't be
                 * read, so pass size=0 to use a safe_read.
