@@ -116,7 +116,10 @@ mixed_mode_enabled(void)
 
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))
+#define LAST_FRAG_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_fragment))
 #define DSTACK_OFFSET          ((PROT_OFFS)+offsetof(dcontext_t, dstack))
+#define THREAD_RECORD_OFFSET   ((PROT_OFFS)+offsetof(dcontext_t, thread_record))
+#define WHEREAMI_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, whereami))
 
 #define FRAGMENT_FIELD_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, fragment_field))
 #define PRIVATE_CODE_OFFSET    ((PROT_OFFS)+offsetof(dcontext_t, private_code))

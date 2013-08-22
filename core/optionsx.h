@@ -2121,6 +2121,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "if module has .pexe section (proxy for strange int 3 behavior), execute it natively")    
     OPTION_DEFAULT(bool, native_exec_retakeover, false,
         "attempt to re-takeover when a native module calls out to a non-native module")
+    /* XXX i#1238-c#1: we do not support inline optimization in Windows. */
+    OPTION_DEFAULT(bool, native_exec_opt, IF_WINDOWS_ELSE(false, true),
+        "optimize control flow transition among native and non-native module")
 
     /* vestiges from our previous life as a dynamic optimizer */
     OPTION_DEFAULT_INTERNAL(bool, inline_calls, true, "inline calls in traces")

@@ -50,6 +50,7 @@
 #include "decode_fast.h"
 #include "monitor.h"
 
+#define PRE instrlist_preinsert
 /* list of native_exec module regions 
  */
 vm_area_vector_t *native_exec_areas;
@@ -164,6 +165,9 @@ native_exec_module_unload(module_area_t *ma)
 /* Clean call called on every fcache to native transition.  Turns on and off
  * asynch handling and updates some state.  Called from native bbs built by
  * build_native_exec_bb() in x86/interp.c.
+ *
+ * N.B.: all the actions of this routine are mirrored in insert_enter_native(),
+ * so any changes here should be mirrored there.
  */
 static void
 entering_native(dcontext_t *dcontext)
@@ -234,6 +238,9 @@ call_to_native(app_pc *sp)
     EXITING_DR();
 }
 
+/* N.B.: all the actions of this routine are mirrored in insert_return_to_native(),
+ * so any changes here should be mirrored there.
+ */
 void
 return_to_native(void)
 {

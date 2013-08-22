@@ -8104,3 +8104,181 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     instrlist_clear(dcontext, &ilist);
     return pc;
 }
+
+/* mirrored inline implementation of set_last_exit() */
+void
+insert_set_last_exit(dcontext_t *dcontext, linkstub_t *l,
+                     instrlist_t *ilist, instr_t *where, reg_id_t reg_dc)
+{
+    ASSERT(l != NULL);
+
+    /* C equivalent:
+     *   dcontext->last_exit = l
+     */
+    instrlist_insert_mov_immed_ptrsz
+        (dcontext, (ptr_int_t) l,
+         opnd_create_dcontext_field_via_reg(dcontext, reg_dc, LAST_EXIT_OFFSET),
+         ilist, where, NULL, NULL);
+
+    /* C equivalent:
+     *   dcontext->last_fragment = linkstub_fragment()
+     */
+    instrlist_insert_mov_immed_ptrsz
+        (dcontext, (ptr_int_t) linkstub_fragment(dcontext, l),
+         opnd_create_dcontext_field_via_reg(dcontext, reg_dc, LAST_FRAG_OFFSET),
+         ilist, where, NULL, NULL);
+
+    /* C equivalent:
+     *   dcontext->coarse_exit.dir_exit = NULL
+     */
+    instrlist_insert_mov_immed_ptrsz
+        (dcontext, (ptr_int_t) NULL,
+         opnd_create_dcontext_field_via_reg(dcontext, reg_dc,
+                                            COARSE_DIR_EXIT_OFFSET),
+         ilist, where, NULL, NULL);
+}
+
+/* mirrored inline implementation of return_to_native() */
+static void
+insert_entering_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                       reg_id_t reg_dc, reg_id_t reg_scratch)
+{
+#ifdef WINDOWS
+    /* FIXME i#1233-c#1: we did not turn off asynch interception in windows */
+    /* skip C equivalent:
+     * set_asynch_interception(dcontext->owning_thread, false)
+     */
+    ASSERT_BUG_NUM(1233, false && "set_asynch_interception is not inlined");
+#endif
+
+    /* C equivalent:
+     *   dcontext->thread_record->under_dynamo_control = false
+     */
+    PRE(ilist, where,
+        instr_create_restore_from_dc_via_reg(dcontext, reg_dc, reg_scratch,
+                                             THREAD_RECORD_OFFSET));
+    PRE(ilist, where,
+        INSTR_CREATE_mov_st(dcontext,
+                            OPND_CREATE_MEM8(reg_scratch,
+                                             offsetof(thread_record_t,
+                                                      under_dynamo_control)),
+                            OPND_CREATE_INT8(false)));
+
+    /* C equivalent:
+     *   set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub())
+     */
+    insert_set_last_exit(dcontext,
+                         (linkstub_t *) get_native_exec_linkstub(),
+                         ilist, where, reg_dc);
+
+    /* XXX i#1238-c#4 -native_exec_opt does not support -kstats
+     * skip C equivalent:
+     *   KSTOP_NOT_MATCHING(dispatch_num_exits)
+     */
+
+    /* skip C equivalent:
+     *   SYSLOG_INTERNAL_WARNING_ONCE("entered at least one module natively")
+     */
+
+    /* C equivalent:
+     *   whereami = WHERE_APP
+     */
+    PRE(ilist, where,
+        instr_create_save_immed_to_dc_via_reg(dcontext, reg_dc, WHEREAMI_OFFSET,
+                                              (ptr_int_t) WHERE_APP, OPSZ_4));
+
+    /* skip C equivalent:
+     *   STATS_INC(num_native_module_enter)
+     */
+}
+
+/* mirrored inline implementation of return_to_native()
+ * two registers are needed:
+ * - reg_dc holds the dcontext
+ * - reg_scratch is the scratch register.
+ */
+void
+insert_return_to_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_dc, reg_id_t reg_scratch)
+{
+    /* skip C equivalent:
+     * ENTERING_DR()
+     */
+    ASSERT(dcontext != NULL);
+
+    /* C equivalent:
+     * entering_native(dcontext)
+     */
+    insert_entering_native(dcontext, ilist, where, reg_dc, reg_scratch);
+
+    /* skip C equivalent:
+     * EXITING_DR()
+     */
+}
+
+#if 0
+void
+insert_back_from_native_common()
+{
+    /* C equivlent:
+     * 
+     */
+    
+}
+
+void
+insert_native_module_callout()
+{
+    
+}
+
+void
+insert_native_plt_call_stub()
+{
+    /* r11 hold the */
+#ifdef WINDOWS
+    /* FIXME i#1233-c#1: we did not turn on asynch interception in windows */
+    /* skip C equivalent:
+     *   set_asynch_interception(dcontext->owning_thread, true)
+     */
+    ASSERT_BUG_NUM(1233, false && "set_asynch_interception is not inlined");
+#endif
+    /* XXX i#1238-c#4: because we may continue in the code cache if the target
+     * is found or back to dispatch otherwise, and we use the standard ibl
+     * routine, we may not be able to update kstats correctly.
+     */
+    ASSERT_BUG_NUM(1238,
+                   !(DYNAMO_OPTION(kstats) && DYNAMO_OPTION(native_exec_opt))
+                   && "kstat is not compate with ");
+
+    /* save away xcx for ibl lookup */
+    PRE(ilist, where,
+        SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
+
+    /* C equivalent:
+     *   dcontext->thread_record->under_dynamo_control = true;
+     */
+    insert_shared_get_dcontext(dcontext, ilist, where, true);
+    /* since this is a plt call, we assume xax can be used directly */
+    PRE(ilist, where,
+        instr_create_restore_from_dc_via_reg(dcontext, REG_NULL /* default */,
+                                             REG_XAX, THREAD_RECORD_OFFSET));
+    PRE(ilist, where,
+        INSTR_CREATE_mov_st(dcontext,
+                            OPND_CREATE_MEM8(REG_XAX,
+                                             offsetof(thread_record_t,
+                                                      under_dynamo_control)),
+                            OPND_CREATE_INT8(true)));
+    /* restore reg */
+    insert_shared_restore_dcontext_reg(dcontext, bb, NULL);
+
+    /* we go through the IBL to find the target in the code cache */
+    /* create a exit stub */
+    /* set */
+#ifdef X64
+    PRE(ilist, where,
+        INSTR_CREATE_mov_ld(dcontext, REG_XCX, REG_R11));
+#else
+#endif
+}
+#endif

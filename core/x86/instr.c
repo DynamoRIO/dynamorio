@@ -5420,6 +5420,17 @@ instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs)
 }
 
 instr_t *
+instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
+                                      int offs, ptr_int_t immed, opnd_size_t sz)
+{
+    opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
+        (dcontext, basereg, offs, sz);
+    ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
+    return INSTR_CREATE_mov_st(dcontext, memopnd,
+                               opnd_create_immed_int(immed, sz));
+}
+
+instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);

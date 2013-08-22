@@ -4146,6 +4146,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
     instrlist_set_our_mangling(bb->ilist, true);
 
+    /* get dcontext to xdi, for prot-dcontext, xsi holds upcontext too */
     insert_shared_get_dcontext(dcontext, bb->ilist, NULL, true/*save xdi*/);
     instrlist_append(bb->ilist, instr_create_save_to_dc_via_reg
                      (dcontext, REG_NULL/*default*/, REG_XAX, XAX_OFFSET));
@@ -4159,8 +4160,14 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
                              (void *)call_to_native, false/*!fp*/, 1,
                              opnd_create_reg(REG_XSP));
     } else {
-        dr_insert_clean_call(dcontext, bb->ilist, NULL,
-                             (void *) return_to_native, false/*!fp*/, 0);
+        if (DYNAMO_OPTION(native_exec_opt)) {
+            insert_return_to_native(dcontext, bb->ilist, NULL,
+                                    REG_NULL /* default */,
+                                    REG_XAX /* scratch */);
+        } else {
+            dr_insert_clean_call(dcontext, bb->ilist, NULL,
+                                 (void *) return_to_native, false/*!fp*/, 0);
+        }
     }
 
 #ifdef X64
@@ -4231,6 +4238,12 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         bb->flags &= ~FRAG_SELFMOD_SANDBOXED;
     DEBUG_DECLARE(ok = ) mangle_bb_ilist(dcontext, bb);
     ASSERT(ok);
+#ifdef DEBUG
+    DOLOG(3, LOG_INTERP, {
+        LOG(THREAD, LOG_INTERP, 3, "native_exec_bb @"PFX"\n", bb->start_pc);
+        instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
+    });
+#endif
 }
 
 static bool

@@ -35,6 +35,8 @@
 
 #include "globals.h"
 #include "module_shared.h"
+#include "instrlist.h"
+#include "instr.h"
 
 extern vm_area_vector_t *native_exec_areas;
 
@@ -58,6 +60,11 @@ call_to_native(app_pc *sp);
 /* Gets called on every return to a native module. */
 void
 return_to_native(void);
+
+/* Insert inlined return_to_native code */
+void
+insert_return_to_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                        reg_id_t reg_dc, reg_id_t reg_scratch);
 
 /* Gets called on every cross-module call out of a native module. */
 void

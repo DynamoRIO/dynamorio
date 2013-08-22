@@ -578,6 +578,9 @@ linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
 }
 #endif
 
+/* N.B.: all the actions of this routine are mirrored in insert_set_last_exit(),
+ * so any changes here should be mirrored there.
+ */
 void
 set_last_exit(dcontext_t *dcontext, linkstub_t *l)
 {

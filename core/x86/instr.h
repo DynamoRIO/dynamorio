@@ -3658,6 +3658,9 @@ opnd_t opnd_create_dcontext_field_byte(dcontext_t *dcontext, int offs);
 opnd_t opnd_create_dcontext_field_sz(dcontext_t *dcontext, int offs, opnd_size_t sz);
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
 instr_t * instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs);
+instr_t *
+instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
+                                      int offs, ptr_int_t immed, opnd_size_t sz);
 instr_t * instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
 
 /* basereg, if left as REG_NULL, is assumed to be xdi (xsi for upcontext) */
