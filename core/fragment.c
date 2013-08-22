@@ -6304,11 +6304,10 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
     if (DYNAMO_OPTION(shared_syscalls) && IS_SHARED_SYSCALL_THREAD_SHARED)
         unlink_shared_syscall(GLOBAL_DCONTEXT);
 #endif
-#ifdef CLIENT_INTERFACE
+
     /* i#849: unlink while we clear out ibt */
-    if (!client_ibl_xfer_is_thread_private())
-        unlink_client_ibl_xfer(GLOBAL_DCONTEXT);
-#endif
+    if (!special_ibl_xfer_is_thread_private())
+        unlink_special_ibl_xfer(GLOBAL_DCONTEXT);
 
     for (i=0; i<flush_num_threads; i++) {
         tgt_dcontext = flush_threads[i]->dcontext;
@@ -6384,11 +6383,9 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
         if (DYNAMO_OPTION(shared_syscalls) && !IS_SHARED_SYSCALL_THREAD_SHARED)
             unlink_shared_syscall(tgt_dcontext);
 #endif
-#ifdef CLIENT_INTERFACE
         /* i#849: unlink while we clear out ibt */
-        if (client_ibl_xfer_is_thread_private())
-            unlink_client_ibl_xfer(tgt_dcontext);
-#endif
+        if (special_ibl_xfer_is_thread_private())
+            unlink_special_ibl_xfer(tgt_dcontext);
 
         /* Optimization for shared deletion strategy: perform flush work
          * for a thread waiting at a system call on behalf of that thread
@@ -6449,16 +6446,14 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
                 }
             }
 #endif
-#ifdef CLIENT_INTERFACE
-            if (client_ibl_xfer_is_thread_private()) {
+            if (special_ibl_xfer_is_thread_private()) {
                 if (SHARED_FRAGMENTS_ENABLED()) {
                     /* see shared_syscall relink comment: we have to delay the relink */
                     tgt_pt->flush_queue_nonempty = true;
-                    STATS_INC(num_flushq_relink_client_ibl);
+                    STATS_INC(num_flushq_relink_special_ibl_xfer);
                 } else
-                    link_client_ibl_xfer(dcontext);
+                    link_special_ibl_xfer(dcontext);
             }
-#endif
             goto next_thread;
         }
 
@@ -6603,10 +6598,9 @@ flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
     if (DYNAMO_OPTION(shared_syscalls) && IS_SHARED_SYSCALL_THREAD_SHARED)
         link_shared_syscall(GLOBAL_DCONTEXT);
 #endif
-#ifdef CLIENT_INTERFACE
-    if (!client_ibl_xfer_is_thread_private())
-        link_client_ibl_xfer(GLOBAL_DCONTEXT);
-#endif
+
+    if (!special_ibl_xfer_is_thread_private())
+        link_special_ibl_xfer(GLOBAL_DCONTEXT);
 
     STATS_ADD(num_flushed_fragments, num_flushed);
     DODEBUG({

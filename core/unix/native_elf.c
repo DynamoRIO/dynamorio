@@ -84,7 +84,7 @@ enum { MAX_STUB_SIZE = 16 };
 static byte plt_stub_template[MAX_STUB_SIZE];
 static uint plt_stub_immed_offset;
 static uint plt_stub_jmp_tgt_offset;
-static size_t plt_stub_size;
+static size_t plt_stub_size = MAX_STUB_SIZE;
 static app_pc stub_heap;
 #ifdef X64
 static app_pc reachability_stub;
@@ -142,7 +142,7 @@ initialize_plt_stub_template(void)
     app_pc next_pc;
     uint mov_len, jmp_len;
 
-    ASSERT(plt_stub_size == 0 && "stub template should only be init once");
+    ASSERT(plt_stub_size == MAX_STUB_SIZE && "stub template should only be init once");
     /* %r11 is scratch on x64 and the PLT resolver uses it, so we do too.  For
      * ia32, there are scratch regs, but the loader doesn't use them.  Presumably
      * it doesn't want to break special calling conventions, so we follow suit
@@ -237,6 +237,39 @@ replace_module_resolver(module_area_t *ma, app_pc *pltgot, bool to_dr)
     }
 }
 
+static bool
+create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
+{
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    instr_t *instr;
+    byte *pc;
+    /* XXX i#1238-c#4: because we may continue in the code cache if the target
+     * is found or back to dispatch otherwise, and we use the standard ibl
+     * routine, we may not be able to update kstats correctly.
+     */
+    ASSERT_BUG_NUM(1238,
+                   !(DYNAMO_OPTION(kstats) && DYNAMO_OPTION(native_exec_opt))
+                   && "kstat is not compatible with ");
+
+    /* mov plt_tgt => XAX */
+    instr = INSTR_CREATE_mov_imm(dcontext,
+                                 opnd_create_reg(REG_XAX),
+                                 OPND_CREATE_INTPTR(plt_tgt));
+    pc = instr_encode(dcontext, instr, stub_pc);
+    instr_destroy(dcontext, instr);
+    if (pc == NULL)
+        return false;
+    /* jmp native_plt_call */
+    instr = INSTR_CREATE_jmp(dcontext,
+                             opnd_create_pc
+                             (get_native_plt_ibl_xfer_entry(dcontext)));
+    pc = instr_encode(dcontext, instr, pc);
+    instr_destroy(dcontext, instr);
+    if (pc == NULL)
+        return false;
+    return true;
+}
+
 /* Allocates and initializes a stub of code for taking control after a PLT call.
  */
 static app_pc
@@ -245,6 +278,9 @@ create_plt_stub(app_pc plt_target)
     app_pc stub_pc = special_heap_alloc(stub_heap);
     app_pc *tgt_immed;
     app_pc jmp_tgt;
+
+    if (DYNAMO_OPTION(native_exec_opt) && create_opt_plt_stub(plt_target, stub_pc))
+        return stub_pc;
 
     memcpy(stub_pc, plt_stub_template, plt_stub_size);
     tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
@@ -458,6 +494,9 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
             "%s: resolved reloc index %d to "PFX"\n",
             __FUNCTION__, reloc_arg, res);
     });
+    /* the target is in a native module, so no need to change */
+    if (is_native_pc(res))
+        return res;
     app_pc stub = create_plt_stub(res);
     rel = find_plt_reloc(l_map, reloc_arg);
     ASSERT(rel != NULL);  /* It has to be there if we're doing fixups. */

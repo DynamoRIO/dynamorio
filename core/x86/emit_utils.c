@@ -7857,12 +7857,16 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 
 #endif /* TRACE_HEAD_CACHE_INCR */
 
-#ifdef CLIENT_INTERFACE
-/* i#849: low-overhead xfer for clients */
+/***************************************************************************
+ * SPECIAL IBL XFER ROUTINES
+ */
+const int client_ibl_idx = 0;
+const int native_plt_ibl_idx = 1;
 
-static byte *
-client_xfer_ibl_tgt(dcontext_t *dcontext, generated_code_t *code,
-                    ibl_entry_point_type_t entry_type)
+static inline byte *
+special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
+                     ibl_entry_point_type_t entry_type,
+                     ibl_branch_type_t ibl_type)
 {
     /* We use the trace ibl so that the target will be a trace head,
      * avoiding a trace disruption.
@@ -7875,13 +7879,13 @@ client_xfer_ibl_tgt(dcontext_t *dcontext, generated_code_t *code,
                               DYNAMO_OPTION(disable_traces) ?
                               (code->thread_shared ? IBL_BB_SHARED : IBL_BB_PRIVATE) :
                               (code->thread_shared ? IBL_TRACE_SHARED : IBL_TRACE_PRIVATE),
-                              IBL_RETURN
+                              ibl_type
                               _IF_X64(code->gencode_mode));
 }
 
 /* We only need a thread-private version if our ibl target is thread-private */
 bool
-client_ibl_xfer_is_thread_private(void)
+special_ibl_xfer_is_thread_private(void)
 {
 #ifdef X64
     return false; /* all gencode is shared */
@@ -7891,17 +7895,25 @@ client_ibl_xfer_is_thread_private(void)
 #endif
 }
 
-byte *
-emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+/* emit the special_ibl trampoline code for transferring the control flow to
+ * ibl lookup
+ * - index: the index of special_ibl array to be emitted to
+ * - ibl_type: the branch type (IBL_RETURN or IBL_INDCALL)
+ * - custom_ilist: the custom instructions added by caller, which are added at
+ *   the end of trampoline and right before jump to the ibl routine
+ * - tgt: the opnd holding the target, which will be moved into XCX for ibl.
+ */
+static byte *
+emit_special_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code,
+                      uint index,
+                      ibl_branch_type_t ibl_type,
+                      instrlist_t *custom_ilist, opnd_t tgt)
 {
-    /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT.
-     * We need to move it to xcx and then jmp to the ibl.
-     */
     instrlist_t ilist;
     patch_list_t patch;
     instr_t *in;
     size_t len;
-    byte *ibl_tgt = client_xfer_ibl_tgt(dcontext, code, IBL_LINKED);
+    byte *ibl_tgt = special_ibl_xfer_tgt(dcontext, code, IBL_LINKED, ibl_type);
     bool absolute = !code->thread_shared;
 
     ASSERT(ibl_tgt != NULL);
@@ -7910,8 +7922,8 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     if (DYNAMO_OPTION(indirect_stubs)) {
         const linkstub_t *linkstub =
-            get_client_ibl_linkstub(ibltype_to_linktype(IBL_RETURN),
-                                    DYNAMO_OPTION(disable_traces) ? 0 : FRAG_IS_TRACE);
+            get_special_ibl_linkstub(ibl_type,
+                                     DYNAMO_OPTION(disable_traces) ? false : true);
         APP(&ilist, SAVE_TO_TLS(dcontext, REG_XBX, TLS_XBX_SLOT));
         APP(&ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XBX),
                                          OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
@@ -7928,9 +7940,19 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
         APP(&ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
     }
 
-    APP(&ilist, INSTR_CREATE_mov_ld
-        (dcontext, opnd_create_reg(REG_XCX),
-         reg_spill_slot_opnd(dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT)));
+    APP(&ilist,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX), tgt));
+
+    /* insert customized instructions right before xfer to ibl */
+    if (custom_ilist != NULL)
+        in = instrlist_first(custom_ilist);
+    else
+        in = NULL;
+    while (in != NULL) {
+        instrlist_remove(custom_ilist, in);
+        APP(&ilist, in);
+        in = instrlist_first(custom_ilist);
+    }
 
 #ifdef X64
     if (GENCODE_IS_X86(code->gencode_mode))
@@ -7963,7 +7985,7 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     add_patch_marker(&patch, instrlist_last(&ilist),
                      PATCH_UINT_SIZED /* pc relative */,
                      0 /* point at opcode of jecxz */,
-                     (ptr_uint_t*)&code->client_ibl_unlink_offs);
+                     (ptr_uint_t*)&code->special_ibl_unlink_offs[index]);
 
     /* now encode the instructions */
     pc += encode_with_patch_list(dcontext, &patch, &ilist, pc);
@@ -7971,31 +7993,34 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 
     /* free the instrlist_t elements */
     instrlist_clear(dcontext, &ilist);
-    
+
     return pc;
 }
- 
+
 static void
-relink_client_ibl_xfer(dcontext_t *dcontext, ibl_entry_point_type_t entry_type)
+relink_special_ibl_xfer(dcontext_t *dcontext, int index,
+                        ibl_entry_point_type_t entry_type,
+                        ibl_branch_type_t ibl_type)
 {
     generated_code_t *code;
     byte *pc, *ibl_tgt;
     if (dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!client_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        ASSERT(!special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
         code = SHARED_GENCODE_MATCH_THREAD(get_thread_private_dcontext());
     } else {
 #ifdef X64
         code = SHARED_GENCODE_MATCH_THREAD(dcontext);
 #else
-        ASSERT(client_ibl_xfer_is_thread_private()); /* else shouldn't be called */
+        ASSERT(special_ibl_xfer_is_thread_private()); /* else shouldn't be called */
         code = THREAD_GENCODE(dcontext);
 #endif
     }
     if (code == NULL) /* shared_code_x86, or thread private that we don't need */
         return;
-    ibl_tgt = client_xfer_ibl_tgt(dcontext, code, entry_type);
-    ASSERT(code->client_ibl_xfer != NULL);
-    pc = code->client_ibl_xfer + code->client_ibl_unlink_offs + 1/*jmp opcode*/;
+    ibl_tgt = special_ibl_xfer_tgt(dcontext, code, entry_type, ibl_type);
+    ASSERT(code->special_ibl_xfer[index] != NULL);
+    pc = (code->special_ibl_xfer[index] +
+          code->special_ibl_unlink_offs[index] + 1/*jmp opcode*/);
 
     protect_generated_code(code, WRITABLE);
     insert_relative_target(pc, ibl_tgt, code->thread_shared/*hot patch*/);
@@ -8003,15 +8028,38 @@ relink_client_ibl_xfer(dcontext_t *dcontext, ibl_entry_point_type_t entry_type)
 }
 
 void
-link_client_ibl_xfer(dcontext_t *dcontext)
+link_special_ibl_xfer(dcontext_t *dcontext)
 {
-    relink_client_ibl_xfer(dcontext, IBL_LINKED);
+    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, client_ibl_idx,
+                                                IBL_LINKED, IBL_RETURN);)
+    if (DYNAMO_OPTION(native_exec_opt)) {
+        IF_UNIX(relink_special_ibl_xfer(dcontext, native_plt_ibl_idx,
+                                        IBL_LINKED, IBL_INDCALL);)
+    }
 }
 
 void
-unlink_client_ibl_xfer(dcontext_t *dcontext)
+unlink_special_ibl_xfer(dcontext_t *dcontext)
 {
-    relink_client_ibl_xfer(dcontext, IBL_UNLINKED);
+    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, client_ibl_idx,
+                                                IBL_UNLINKED, IBL_RETURN);)
+    if (DYNAMO_OPTION(native_exec_opt)) {
+        IF_UNIX(relink_special_ibl_xfer(dcontext, native_plt_ibl_idx,
+                                        IBL_UNLINKED, IBL_INDCALL);)
+    }
+}
+
+
+#ifdef CLIENT_INTERFACE
+/* i#849: low-overhead xfer for clients */
+byte *
+emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+{
+    /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT. */
+    return emit_special_ibl_xfer(dcontext, pc, code, client_ibl_idx,
+                                 IBL_RETURN, NULL,
+                                 reg_spill_slot_opnd
+                                 (dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT));
 }
 
 #endif /* CLIENT_INTERFACE */
@@ -8115,7 +8163,7 @@ insert_set_last_exit(dcontext_t *dcontext, linkstub_t *l,
     /* C equivalent:
      *   dcontext->last_exit = l
      */
-    instrlist_insert_mov_immed_ptrsz
+    insert_mov_immed_ptrsz
         (dcontext, (ptr_int_t) l,
          opnd_create_dcontext_field_via_reg(dcontext, reg_dc, LAST_EXIT_OFFSET),
          ilist, where, NULL, NULL);
@@ -8123,7 +8171,7 @@ insert_set_last_exit(dcontext_t *dcontext, linkstub_t *l,
     /* C equivalent:
      *   dcontext->last_fragment = linkstub_fragment()
      */
-    instrlist_insert_mov_immed_ptrsz
+    insert_mov_immed_ptrsz
         (dcontext, (ptr_int_t) linkstub_fragment(dcontext, l),
          opnd_create_dcontext_field_via_reg(dcontext, reg_dc, LAST_FRAG_OFFSET),
          ilist, where, NULL, NULL);
@@ -8131,7 +8179,7 @@ insert_set_last_exit(dcontext_t *dcontext, linkstub_t *l,
     /* C equivalent:
      *   dcontext->coarse_exit.dir_exit = NULL
      */
-    instrlist_insert_mov_immed_ptrsz
+    insert_mov_immed_ptrsz
         (dcontext, (ptr_int_t) NULL,
          opnd_create_dcontext_field_via_reg(dcontext, reg_dc,
                                             COARSE_DIR_EXIT_OFFSET),
@@ -8144,11 +8192,11 @@ insert_entering_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                        reg_id_t reg_dc, reg_id_t reg_scratch)
 {
 #ifdef WINDOWS
-    /* FIXME i#1233-c#1: we did not turn off asynch interception in windows */
+    /* FIXME i#1238-c#1: we did not turn off asynch interception in windows */
     /* skip C equivalent:
      * set_asynch_interception(dcontext->owning_thread, false)
      */
-    ASSERT_BUG_NUM(1233, false && "set_asynch_interception is not inlined");
+    ASSERT_BUG_NUM(1238, false && "set_asynch_interception is not inlined");
 #endif
 
     /* C equivalent:
@@ -8216,69 +8264,67 @@ insert_return_to_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
      */
 }
 
-#if 0
-void
-insert_back_from_native_common()
+#ifdef UNIX
+static void
+insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                           reg_id_t reg_dc, reg_id_t reg_scratch)
 {
-    /* C equivlent:
-     * 
-     */
-    
-}
-
-void
-insert_native_module_callout()
-{
-    
-}
-
-void
-insert_native_plt_call_stub()
-{
-    /* r11 hold the */
-#ifdef WINDOWS
-    /* FIXME i#1233-c#1: we did not turn on asynch interception in windows */
-    /* skip C equivalent:
-     *   set_asynch_interception(dcontext->owning_thread, true)
-     */
-    ASSERT_BUG_NUM(1233, false && "set_asynch_interception is not inlined");
-#endif
-    /* XXX i#1238-c#4: because we may continue in the code cache if the target
-     * is found or back to dispatch otherwise, and we use the standard ibl
-     * routine, we may not be able to update kstats correctly.
-     */
-    ASSERT_BUG_NUM(1238,
-                   !(DYNAMO_OPTION(kstats) && DYNAMO_OPTION(native_exec_opt))
-                   && "kstat is not compate with ");
-
-    /* save away xcx for ibl lookup */
-    PRE(ilist, where,
-        SAVE_TO_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
-
     /* C equivalent:
-     *   dcontext->thread_record->under_dynamo_control = true;
+     *   dcontext->thread_record->under_dynamo_control = true
      */
-    insert_shared_get_dcontext(dcontext, ilist, where, true);
-    /* since this is a plt call, we assume xax can be used directly */
     PRE(ilist, where,
-        instr_create_restore_from_dc_via_reg(dcontext, REG_NULL /* default */,
-                                             REG_XAX, THREAD_RECORD_OFFSET));
+        instr_create_restore_from_dc_via_reg(dcontext, reg_dc, reg_scratch,
+                                             THREAD_RECORD_OFFSET));
     PRE(ilist, where,
         INSTR_CREATE_mov_st(dcontext,
-                            OPND_CREATE_MEM8(REG_XAX,
+                            OPND_CREATE_MEM8(reg_scratch,
                                              offsetof(thread_record_t,
                                                       under_dynamo_control)),
                             OPND_CREATE_INT8(true)));
-    /* restore reg */
-    insert_shared_restore_dcontext_reg(dcontext, bb, NULL);
 
-    /* we go through the IBL to find the target in the code cache */
-    /* create a exit stub */
-    /* set */
-#ifdef X64
+    /* C equivalent:
+     *   set_last_exit(dcontext, (linkstub_t *) get_native_exec_linkstub())
+     */
+    insert_set_last_exit(dcontext,
+                         (linkstub_t *) get_native_exec_linkstub(),
+                         ilist, where, reg_dc);
+
+    /* C equivalent:
+     *   whereami = WHERE_FCACHE
+     */
     PRE(ilist, where,
-        INSTR_CREATE_mov_ld(dcontext, REG_XCX, REG_R11));
-#else
-#endif
+        instr_create_save_immed_to_dc_via_reg(dcontext, reg_dc, WHEREAMI_OFFSET,
+                                              (ptr_int_t) WHERE_FCACHE, OPSZ_4));
+}
+
+byte *
+emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
+{
+    instrlist_t ilist;
+    opnd_t tgt = opnd_create_reg(REG_XAX);
+
+    ASSERT(DYNAMO_OPTION(native_exec_opt));
+    instrlist_init(&ilist);
+    insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
+    insert_entering_non_native(dcontext, &ilist, NULL, REG_NULL, REG_XAX);
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    return emit_special_ibl_xfer(dcontext, pc, code, native_plt_ibl_idx,
+                                 IBL_INDCALL, &ilist, tgt);
+}
+
+void
+link_native_plt_ibl_xfer(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(native_exec_opt))
+        return;
+    relink_special_ibl_xfer(dcontext, native_plt_ibl_idx, IBL_LINKED, IBL_INDCALL);
+}
+
+void
+unlink_native_plt_ibl_xfer(dcontext_t *dcontext)
+{
+    if (!DYNAMO_OPTION(native_exec_opt))
+        return;
+    relink_special_ibl_xfer(dcontext, native_plt_ibl_idx, IBL_UNLINKED, IBL_INDCALL);
 }
 #endif

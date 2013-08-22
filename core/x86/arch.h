@@ -584,7 +584,12 @@ typedef struct ibl_code_t {
     uint entry_stats_to_lookup_table_offset; /* offset to (entry_stats - lookup_table)  */
 #endif 
 } ibl_code_t;
-    
+
+/* special ibls */
+#define NUM_SPECIAL_IBL_XFERS 2 /* client_ibl and native_plt_ibl */
+extern const int client_ibl_idx;
+extern const int native_plt_ibl_idx;
+
 /* Each thread needs its own copy of these routines, but not all
  * routines here are created in a thread-private: we could save space
  * by splitting into two separate structs.
@@ -667,11 +672,9 @@ typedef struct _generated_code_t {
     /* FIXME: these two return routines are only needed in the global struct */
     byte *fcache_return_coarse;
     byte *trace_head_return_coarse;
-#ifdef CLIENT_INTERFACE
-    /* i#849: low-overhead xfer for clients */
-    byte *client_ibl_xfer;
-    uint client_ibl_unlink_offs;
-#endif
+    /* special ibl xfer */
+    byte *special_ibl_xfer[NUM_SPECIAL_IBL_XFERS];
+    uint  special_ibl_unlink_offs[NUM_SPECIAL_IBL_XFERS];
     /* i#171: out-of-line clean call context switch */
     byte *clean_call_save;
     byte *clean_call_restore;
@@ -906,6 +909,11 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 #ifdef CLIENT_INTERFACE
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+#endif
+
+#ifdef UNIX
+byte *
+emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
 /* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */

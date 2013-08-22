@@ -1196,19 +1196,25 @@ emit_coarse_exit_prefix(dcontext_t *dcontext, byte *pc, coarse_info_t *info);
 void
 patch_coarse_exit_prefix(dcontext_t *dcontext, coarse_info_t *info);
 
+bool
+special_ibl_xfer_is_thread_private(void);
+
+void
+link_special_ibl_xfer(dcontext_t *dcontext);
+
+void
+unlink_special_ibl_xfer(dcontext_t *dcontext);
+
 #ifdef CLIENT_INTERFACE
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext);
 #endif
 
-bool
-client_ibl_xfer_is_thread_private(void);
+#ifdef UNIX
+cache_pc
+get_native_plt_ibl_xfer_entry(dcontext_t *dcontext);
+#endif
 
-void
-link_client_ibl_xfer(dcontext_t *dcontext);
-
-void
-unlink_client_ibl_xfer(dcontext_t *dcontext);
 
 enum {
     MAX_INSTR_LENGTH = 17,

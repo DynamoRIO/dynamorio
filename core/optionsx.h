@@ -2122,8 +2122,13 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, native_exec_retakeover, false,
         "attempt to re-takeover when a native module calls out to a non-native module")
     /* XXX i#1238-c#1: we do not support inline optimization in Windows. */
-    OPTION_DEFAULT(bool, native_exec_opt, IF_WINDOWS_ELSE(false, true),
-        "optimize control flow transition among native and non-native module")
+    OPTION_COMMAND(bool, native_exec_opt, false, "native_exec_opt", {
+        if (options->native_exec_opt) {
+            IF_KSTATS(options->kstats = false); /* i#1238-c#4 */
+            DISABLE_TRACES(options);            /* i#1238-c#6 */
+        }
+    }, "optimize control flow transition between native and non-native modules",
+        STATIC, OP_PCACHE_GLOBAL)
 
     /* vestiges from our previous life as a dynamic optimizer */
     OPTION_DEFAULT_INTERNAL(bool, inline_calls, true, "inline calls in traces")

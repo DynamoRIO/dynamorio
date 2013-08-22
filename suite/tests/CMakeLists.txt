@@ -1307,19 +1307,27 @@ torunonly(common.floatpc_xl8all common.floatpc common/floatpc.c "-translate_fpu_
 tobuild_appdll(common.nativeexec common/nativeexec.c)
 get_target_property(native_dll_name common.nativeexec.appdll LOCATION${location_suffix})
 get_filename_component(native_dll_name "${native_dll_name}" NAME)
-tobuild(common.nativeexec common/nativeexec.c
-  "-native_exec_list ${native_dll_name}")
+tobuild_ops(common.nativeexec common/nativeexec.c "-native_exec_list ${native_dll_name}" "")
 target_link_libraries(common.nativeexec common.nativeexec.appdll)
 # We want rpath on Linux so we can load the appdll.
 set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
 if (UNIX)
   # FIXME i#978: Windows support NYI
-  torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
-    "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
+  # FIXME i#1247: DR lost control on native-exec, so disable the test for now
+  # torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
+  #  "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
   torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "")
   torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
+  # FIXME i#1247: DR lost control on native exec dll module, so disable the test for now
+  # torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
+  #  "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+  # No swap TLS and no kstats for optimized native_exec
+  torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
+    "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+  torunonly(common.nativeexec_bindnow_opt common.nativeexec common/nativeexec.c
+    "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "-bind_now")
 endif ()
 
 # app seg mangling makes dstack test fail so we disable such mangling

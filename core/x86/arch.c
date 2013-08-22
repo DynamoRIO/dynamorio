@@ -183,8 +183,12 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
             else if (last_pc == code->trace_head_return_coarse)
                 print_file(file, "trace_head_return_coarse:\n");
 # ifdef CLIENT_INTERFACE
-            else if (last_pc == code->client_ibl_xfer)
+            else if (last_pc == code->special_ibl_xfer[client_ibl_idx])
                 print_file(file, "client_ibl_xfer:\n");
+# endif
+# ifdef UNIX
+            else if (last_pc == code->special_ibl_xfer[native_plt_ibl_idx])
+                print_file(file, "native_plt_ibl_xfer:\n");
 # endif
             else if (last_pc == code->clean_call_save)
                 print_file(file, "clean_call_save:\n");
@@ -459,12 +463,21 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     pc = emit_trace_head_incr_shared(GLOBAL_DCONTEXT, pc, gencode->fcache_return);
 #endif
 
+    if (!special_ibl_xfer_is_thread_private()) {
 #ifdef CLIENT_INTERFACE
-    if (!client_ibl_xfer_is_thread_private()) {
-        gencode->client_ibl_xfer = pc;
+        gencode->special_ibl_xfer[client_ibl_idx] = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
-    }
 #endif
+#ifdef UNIX
+        /* i#1238: native exec optimization */
+        if (DYNAMO_OPTION(native_exec_opt)) {
+            pc = check_size_and_cache_line(gencode, pc);
+            gencode->special_ibl_xfer[native_plt_ibl_idx] = pc;
+            pc = emit_native_plt_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
+        }
+#endif
+    }
+
     if (!client_clean_call_is_thread_private()) {
         pc = check_size_and_cache_line(gencode, pc);
         gencode->clean_call_save = pc;
@@ -1111,12 +1124,22 @@ arch_thread_init(dcontext_t *dcontext)
                                                          get_reset_linkstub()),
                                        (linkstub_t *) get_reset_linkstub(),
                                        pc, LINK_DIRECT);
+
+    if (special_ibl_xfer_is_thread_private()) {
 #ifdef CLIENT_INTERFACE
-    if (client_ibl_xfer_is_thread_private()) {
-        code->client_ibl_xfer = pc;
+        code->special_ibl_xfer[client_ibl_idx] = pc;
         pc = emit_client_ibl_xfer(dcontext, pc, code);
-    }
 #endif
+#ifdef UNIX
+        /* i#1238: native exec optimization */
+        if (DYNAMO_OPTION(native_exec_opt)) {
+            pc = check_size_and_cache_line(code, pc);
+            code->special_ibl_xfer[native_plt_ibl_idx] = pc;
+            pc = emit_native_plt_ibl_xfer(dcontext, pc, code);
+        }
+#endif
+    }
+
     /* XXX: i#1149: we should always use thread shared gencode */
     if (client_clean_call_is_thread_private()) {
         pc = check_size_and_cache_line(code, pc);
@@ -1655,17 +1678,32 @@ get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
     return (cache_pc) code->clean_call_restore;
 }
 
-#ifdef CLIENT_INTERFACE
-cache_pc
-get_client_ibl_xfer_entry(dcontext_t *dcontext)
+static inline cache_pc
+get_special_ibl_xfer_entry(dcontext_t *dcontext, int index)
 {
     generated_code_t *code;
-    if (client_ibl_xfer_is_thread_private()) {
+    if (special_ibl_xfer_is_thread_private()) {
         ASSERT(dcontext != GLOBAL_DCONTEXT);
         code = THREAD_GENCODE(dcontext);
     } else
         code = SHARED_GENCODE_MATCH_THREAD(dcontext);
-    return code->client_ibl_xfer;
+    ASSERT(index >= 0 && index < NUM_SPECIAL_IBL_XFERS);
+    return code->special_ibl_xfer[index];
+}
+
+#ifdef CLIENT_INTERFACE
+cache_pc
+get_client_ibl_xfer_entry(dcontext_t *dcontext)
+{
+    return get_special_ibl_xfer_entry(dcontext, client_ibl_idx);
+}
+#endif
+
+#ifdef UNIX
+cache_pc
+get_native_plt_ibl_xfer_entry(dcontext_t *dcontext)
+{
+    return get_special_ibl_xfer_entry(dcontext, native_plt_ibl_idx);
 }
 #endif
 

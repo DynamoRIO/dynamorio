@@ -1878,22 +1878,27 @@ check_option_compatibility_helper(int recurse_count)
     }
 #endif
 
-#ifdef WINDOWS
-    /* i#1238-c#1: we do not support inline optimization in Windows */
     if (DYNAMO_OPTION(native_exec_opt)) {
-        USAGE_ERROR("-native_exec_opt does not support in Windows");
+#ifdef WINDOWS
+        /* i#1238-c#1: we do not support inline optimization in Windows */
+        USAGE_ERROR("-native_exec_opt is not supported in Windows");
         dynamo_options.native_exec_opt = false;
         changed_options = true;
-    }
 #endif
 #ifdef KSTATS
-    /* i#1238-c#4: we do not support inline optimization with kstats */
-    if (DYNAMO_OPTION(native_exec_opt) && DYNAMO_OPTION(kstats)) {
-        USAGE_ERROR("-native_exec_opt does not support -kstats");
-        dynamo_options.kstats = false;
-        changed_options = true;
-    }
+        /* i#1238-c#4: we do not support inline optimization with kstats */
+        if (DYNAMO_OPTION(kstats)) {
+            USAGE_ERROR("-native_exec_opt does not support -kstats");
+            dynamo_options.kstats = false;
+            changed_options = true;
+        }
 #endif
+        if (!DYNAMO_OPTION(disable_traces)) {
+            USAGE_ERROR("-native_exec_opt does not support traces");
+            DISABLE_TRACES((&dynamo_options));
+            changed_options = true;
+        }
+    }
     
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */

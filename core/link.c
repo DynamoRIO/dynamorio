@@ -234,12 +234,16 @@ DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_jmp,
     { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 });
 DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_call,
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 });
-#  ifdef CLIENT_INTERFACE
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_trace_ret_client,
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
-DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_ret_client,
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 });
-#  endif
+/* we only need special_*_ret and *_call for client_ibl and native_plt_ibl */
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_ret,
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 } /* client_ibl */);
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_call,
+    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 } /* native_plt_ibl */);
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_trace_ret,
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 } /* client_ibl */);
+DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_trace_call,
+    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }  /* native_plt_ibl */);
 # else /* !PROFILE_LINKCOUNT */
 static const linkstub_t linkstub_ibl_trace_ret =
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
@@ -253,12 +257,14 @@ static const linkstub_t linkstub_ibl_bb_jmp =
     { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 };
 static const linkstub_t linkstub_ibl_bb_call =
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 };
-#  ifdef CLIENT_INTERFACE
-static const linkstub_t linkstub_ibl_trace_ret_client =
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
-static const linkstub_t linkstub_ibl_bb_ret_client =
-    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 };
-#  endif
+static const linkstub_t linkstub_special_ibl_bb_ret =
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 }; /* client_ibl */
+static const linkstub_t linkstub_special_ibl_bb_call =
+    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }; /* native_plt_ibl */
+static const linkstub_t linkstub_special_ibl_trace_ret =
+    { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 }; /* client_ibl */
+static const linkstub_t linkstub_special_ibl_trace_call =
+    { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 }; /* native_plt_ibl */
 # endif
 
 static inline bool
@@ -677,19 +683,28 @@ last_exit_deleted(dcontext_t *dcontext)
     dcontext->coarse_exit.dir_exit = NULL;
 }
 
+static inline bool
+is_special_ibl_linkstub(const linkstub_t *l)
+{
+    if (l == &linkstub_special_ibl_trace_ret  ||
+        l == &linkstub_special_ibl_trace_call ||
+        l == &linkstub_special_ibl_bb_ret     ||
+        l == &linkstub_special_ibl_bb_call)
+        return true;
+    return false;
+}
+
 void
 set_coarse_ibl_exit(dcontext_t *dcontext)
 {
     thread_link_data_t *ldata = (thread_link_data_t *) dcontext->link_field;
     app_pc src_tag;
 
-#ifdef CLIENT_INTERFACE
-    /* Client ibl is incompatible with knowing the source tag (so can't use
+    /* Special ibl is incompatible with knowing the source tag (so can't use
      * dr_redirect_native_target() with PROGRAM_SHEPHERDING).
      */
-    if (is_client_ibl_linkstub((const linkstub_t*)dcontext->last_exit))
+    if (is_special_ibl_linkstub((const linkstub_t*)dcontext->last_exit))
         return;
-#endif
 
     src_tag = dcontext->coarse_exit.src_tag;
     ASSERT(src_tag != NULL);
@@ -834,13 +849,8 @@ is_ibl_sourceless_linkstub(const linkstub_t *l)
             l == &linkstub_ibl_trace_call ||
             l == &linkstub_ibl_bb_ret ||
             l == &linkstub_ibl_bb_jmp ||
-            l == &linkstub_ibl_bb_call
-#ifdef CLIENT_INTERFACE
-            ||
-            l == &linkstub_ibl_trace_ret_client ||
-            l == &linkstub_ibl_bb_ret_client
-#endif
-            );
+            l == &linkstub_ibl_bb_call ||
+            is_special_ibl_linkstub(l));
 }
 
 const linkstub_t *
@@ -865,24 +875,24 @@ get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags)
     return NULL;
 }
 
-#ifdef CLIENT_INTERFACE
-bool
-is_client_ibl_linkstub(const linkstub_t *l)
-{
-    return (l == &linkstub_ibl_trace_ret_client ||
-            l == &linkstub_ibl_bb_ret_client);
-}
-
 const linkstub_t *
-get_client_ibl_linkstub(uint link_flags, uint frag_flags)
+get_special_ibl_linkstub(ibl_branch_type_t ibl_type, bool is_trace)
 {
-    ASSERT(TEST(LINK_RETURN, link_flags)); /* only ret supported */
-    if (TEST(FRAG_IS_TRACE, frag_flags))
-        return &linkstub_ibl_trace_ret_client;
-    else
-        return &linkstub_ibl_bb_ret_client;
+    switch (ibl_type) {
+    case IBL_RETURN:
+        return (is_trace ?
+                &linkstub_special_ibl_trace_ret :
+                &linkstub_special_ibl_bb_ret);
+    case IBL_INDCALL:
+        return (is_trace ?
+                &linkstub_special_ibl_trace_call :
+                &linkstub_special_ibl_bb_call);
+    default:
+        /* we only have ret/call for client_ibl and native_plt_ibl */
+        ASSERT_NOT_REACHED();
+    }
+    return NULL;
 }
-#endif
 
 /* Direct exit not targeting a trace head */
 const linkstub_t *
