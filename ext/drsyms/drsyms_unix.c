@@ -317,6 +317,8 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
                                         &out->end_offs);
         } else
             res = drsym_obj_symbol_offs(mod->obj_info, i, &modoffs, NULL);
+        if (res == DRSYM_ERROR_SYMBOL_NOT_FOUND) /* an import, so skip */
+            continue;
         if (res != DRSYM_SUCCESS)
             break;
 

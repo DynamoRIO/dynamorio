@@ -75,6 +75,10 @@ drsym_obj_num_symbols(void *mod_in);
 const char *
 drsym_obj_symbol_name(void *mod_in, uint idx);
 
+/* For a symbol that should be skipped (e.g., it's an import symbol in
+ * the same table being indexed), returns DRSYM_ERROR_SYMBOL_NOT_FOUND
+ * and 0 for *offs_start.
+ */
 drsym_error_t
 drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
                        size_t *offs_end OUT);

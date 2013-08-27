@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -328,6 +328,13 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
     elf_info_t *mod = (elf_info_t *) mod_in;
     if (offs_start == NULL || mod == NULL || idx >= mod->num_syms || mod->syms == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
+    if (mod->syms[idx].st_value == 0) {
+        /* We're looking at .dynsym and this is an import */
+        *offs_start = 0;
+        if (offs_end != NULL)
+            *offs_end = 0;
+        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
+    }
     *offs_start = mod->syms[idx].st_value - mod->load_base;
     if (offs_end != NULL)
         *offs_end = mod->syms[idx].st_value + mod->syms[idx].st_size - mod->load_base;

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -406,7 +406,10 @@ drsym_pecoff_symbol_offs(pecoff_data_t *mod, IMAGE_SYMBOL *sym, size_t *offs OUT
              sym->SectionNumber == IMAGE_SYM_DEBUG) {
         /* No offset */
         *offs = 0;
-    } else {
+        /* XXX: still return success?  Someone might want to look it up.
+         * It's not like an import in .dynsym (i#1256).
+         */
+   } else {
         NOTIFY(1, "%s: unknown section # %d val 0x%x\n",
                __FUNCTION__, sym->SectionNumber, sym->Value);
         *offs = 0;
@@ -470,7 +473,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
         res = drsym_obj_symbol_offs(mod, i, &symoffs, NULL);
         NOTIFY(2, "\tbinary search %d => 0x%x == %s\n", i, symoffs,
                drsym_obj_symbol_name(mod_in, i));
-        if (res != DRSYM_SUCCESS)
+        if (res != DRSYM_SUCCESS && res != DRSYM_ERROR_SYMBOL_NOT_FOUND)
             return res;
         if (modoffs < symoffs) {
             max = i - 1;
