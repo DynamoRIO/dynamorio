@@ -5913,19 +5913,26 @@ dyngen_diagnostics(dcontext_t *dcontext, app_pc pc, app_pc base_pc, size_t size,
  * the operation to go through.
  */
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot)
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot,
+                     bool hint)
 {
     byte *pb = base;
     dr_mem_info_t info;
     while (pb < base + size &&
            query_memory_ex(pb, &info)) {
         if (info.type != DR_MEMTYPE_FREE &&
-            info.type != DR_MEMTYPE_RESERVED &&
-            info.prot != prot) {
+            info.type != DR_MEMTYPE_RESERVED) {
             size_t change_sz = MIN(info.base_pc + info.size - pb,  base + size - pb);
             uint subset_memprot;
-            uint res = app_memory_protection_change(dcontext, pb, change_sz, prot,
-                                                    &subset_memprot, NULL);
+            uint res;
+            if (hint) {
+                /* Just have caller remove the hint, before we go through
+                 * -handle_dr_modify handling.
+                 */
+                return false;
+            }
+            res = app_memory_protection_change(dcontext, pb, change_sz, prot,
+                                               &subset_memprot, NULL);
             if (res != DO_APP_MEM_PROT_CHANGE) {
                 if (res == FAIL_APP_MEM_PROT_CHANGE) {
                     return false;
@@ -6361,20 +6368,26 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                  * allocated regions this may be ok.  If we want to
                  * have subpage regions then it becomes an issue:
                  * we'd have to be able to emulate a write on a
-                 * page that has pretend writable regions
+                 * page that has pretend writable regions.
+                 * For now we ensure pretend_writable_areas is always page-aligned.
                  */
-                ASSERT(ALIGNED(base, PAGE_SIZE));
-                ASSERT(ALIGNED(size, PAGE_SIZE));
+                app_pc page_base;
+                size_t page_size;
+                ASSERT_CURIOSITY(ALIGNED(base, PAGE_SIZE));
+                ASSERT_CURIOSITY(ALIGNED(size, PAGE_SIZE));
+                page_base = (app_pc) PAGE_START(base);
+                page_size = ALIGN_FORWARD(base + size, PAGE_SIZE) - (size_t)page_base;
                 write_lock(&pretend_writable_areas->lock);
                 if (TEST(MEMPROT_WRITE, prot)) {
                     LOG(THREAD, LOG_VMAREAS, 2, "adding pretend-writable region "PFX"-"PFX"\n",
-                        base, base+size);
-                    add_vm_area(pretend_writable_areas, base, base+size,
+                        page_base, page_base+page_size);
+                    add_vm_area(pretend_writable_areas, page_base, page_base+page_size,
                                 true, 0, NULL _IF_DEBUG("DR_MODIFY_NOP"));
                 } else {
                     LOG(THREAD, LOG_VMAREAS, 2, "removing pretend-writable region "PFX"-"PFX"\n",
-                        base, base+size);
-                    remove_vm_area(pretend_writable_areas, base, base+size, false);
+                        page_base, page_base+page_size);
+                    remove_vm_area(pretend_writable_areas, page_base,
+                                   page_base+page_size, false);
                 }
                 write_unlock(&pretend_writable_areas->lock);
                 LOG(THREAD, LOG_VMAREAS, 2, "turning system call into a nop\n");

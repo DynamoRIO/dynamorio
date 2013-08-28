@@ -617,7 +617,8 @@ enum {
 };
 
 bool
-app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot);
+app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot,
+                     bool hint);
 
 uint
 app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size, 

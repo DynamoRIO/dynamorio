@@ -5719,7 +5719,8 @@ pre_system_call(dcontext_t *dcontext)
                 addr, len, prot, arg->flags, arg->offset, arg->fd);
             /* Check for overlap with existing code or patch-proof regions */
             if (addr != NULL &&
-                !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot))) {
+                !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
+                                      !TEST(MAP_FIXED, arg->flags))) {
                 /* Rather than failing or skipping the syscall we'd like to just
                  * remove the hint -- but we don't want to write to app memory, so
                  * we do fail.  We could set up our own mmap_arg_struct_t but
@@ -5753,7 +5754,8 @@ pre_system_call(dcontext_t *dcontext)
             sys_param(dcontext, 5), sys_param(dcontext, 4));
         /* Check for overlap with existing code or patch-proof regions */
         if (addr != NULL &&
-            !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot))) {
+            !app_memory_pre_alloc(dcontext, addr, len, osprot_to_memprot(prot),
+                                  !TEST(MAP_FIXED, flags))) {
             if (!TEST(MAP_FIXED, flags)) {
                 /* Rather than failing or skipping the syscall we just remove
                  * the hint which should eliminate any overlap.

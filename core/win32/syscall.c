@@ -1799,7 +1799,7 @@ presys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, int sysnum
         if (safe_read(pbase, sizeof(base), &base) &&
             safe_read(psize, sizeof(size), &size) &&
             base != NULL &&
-            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot))) {
+            !app_memory_pre_alloc(dcontext, base, size, osprot_to_memprot(prot), false)) {
             SET_RETURN_VAL(dcontext, STATUS_CONFLICTING_ADDRESSES);
             return false; /* do not execute system call */
         }

@@ -2503,7 +2503,8 @@ raw_mem_alloc(size_t size, uint prot, void *addr, dr_alloc_flags_t flags)
 #endif
             if (IF_WINDOWS(TEST(DR_ALLOC_COMMIT_ONLY, flags) &&)
                 addr != NULL &&
-                !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot))
+                !app_memory_pre_alloc(get_thread_private_dcontext(), addr, size, prot,
+                                      false))
                 p = NULL;
             else
                 p = os_raw_mem_alloc(addr, size, prot, os_flags, &error_code);

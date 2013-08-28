@@ -550,7 +550,7 @@ redirect_VirtualAlloc(
         lpAddress != NULL) {
         /* i#1175: NtAllocateVirtualMemory can modify prot on existing pages */
         if (!app_memory_pre_alloc(get_thread_private_dcontext(), lpAddress, dwSize,
-                                  osprot_to_memprot(flProtect))) {
+                                  osprot_to_memprot(flProtect), false)) {
             set_last_error(ERROR_INVALID_ADDRESS);
             return NULL;
         }
