@@ -98,14 +98,24 @@ drgui_main_window_t::closeEvent(QCloseEvent *event)
 }
 
 /* Private Slot
+<<<<<<< HEAD
  * Shows About page for this program
+=======
+ * Shows about page for this program
+>>>>>>> Qt DrGUI initial commit
  */
 void 
 drgui_main_window_t::about(void) 
 {
+<<<<<<< HEAD
    QMessageBox::about(this, tr("About Dr. GUI"),
                       tr("<center><b>Dr. GUI</b></center><br>"
                          "Interface for DynamoRIO and various extensions"));
+=======
+   QMessageBox::about(this, tr("About DR-GUI"),
+                      tr("<center><b>DR-GUI</b></center><br>"
+                         "Interface for Dynamorio and various extensions"));
+>>>>>>> Qt DrGUI initial commit
 }
 
 /* Slot
@@ -138,13 +148,20 @@ drgui_main_window_t::update_window_menu(void)
 
     separator_act->setVisible(tab_area->currentWidget() != NULL);
 
+<<<<<<< HEAD
     static const int MAX_SHORTCUT_KEY = 9;
+=======
+>>>>>>> Qt DrGUI initial commit
     for (int i = 0; i < tab_area->count(); ++i) {
         QWidget *tool = qobject_cast<QWidget *>(tab_area->widget(i));
 
         QString text;
+<<<<<<< HEAD
         if (i < MAX_SHORTCUT_KEY) {
             /* '&' adds 'alt' shortcut to letter that follows */
+=======
+        if (i < 9) {
+>>>>>>> Qt DrGUI initial commit
             text = tr("&%1 %2").arg(i + 1)
                                .arg(tab_area->tabText(i));
         } else {
@@ -253,6 +270,11 @@ drgui_main_window_t::create_menus(void)
     help_menu = menuBar()->addMenu(tr("&Help"));
     help_menu->addAction(about_act);
     help_menu->addAction(about_qt_act);
+<<<<<<< HEAD
+=======
+
+    
+>>>>>>> Qt DrGUI initial commit
 }
 
 /* Private
@@ -265,12 +287,17 @@ drgui_main_window_t::create_status_bar(void)
 }
 
 /* Private
+<<<<<<< HEAD
  * Loads settings for mainwindow
+=======
+ * loads settings for mainwindow
+>>>>>>> Qt DrGUI initial commit
  */
 void 
 drgui_main_window_t::read_settings(void) 
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
+<<<<<<< HEAD
     /* We avoid the usual Dr. GUI naming convention here to avoid file system
      * issues as DrGUI will become a registry key on Windows, and
      * a filename on *nix.
@@ -279,6 +306,12 @@ drgui_main_window_t::read_settings(void)
     QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
     QSize size = settings.value("size", QSize(800, 600)).toSize();
     settings.beginGroup("Tools_to_load");
+=======
+    QSettings settings("Dynamorio", "DR-GUI");
+    QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
+    QSize size = settings.value("size", QSize(800, 600)).toSize();
+    settings.beginGroup("Tool_Directories");
+>>>>>>> Qt DrGUI initial commit
     int count = settings.value("Number_of_tools", 0).toInt();
     for (int i = 0; i < count; i++) {
         tool_files << settings.value(QString::number(i), QString())
@@ -296,10 +329,17 @@ void
 drgui_main_window_t::write_settings(void) 
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
+<<<<<<< HEAD
     QSettings settings("DynamoRIO", "DrGUI");
     settings.setValue("pos", pos());
     settings.setValue("size", size());
     settings.beginGroup("Tools_to_load");
+=======
+    QSettings settings("Dynamorio", "DR-GUI");
+    settings.setValue("pos", pos());
+    settings.setValue("size", size());
+    settings.beginGroup("Tool_Directories");
+>>>>>>> Qt DrGUI initial commit
     settings.setValue("Number_of_tools", tool_files.count());
     for (int i = 0; i < tool_files.count(); i++) {
         settings.setValue(QString::number(i), tool_files.at(i));
@@ -389,7 +429,7 @@ drgui_main_window_t::activate_next_tab(void)
 }
 
 /* Private Slot
- * Movies view to previous tab in order, wraps around
+ * Moves view to previous tab in order, wraps around
  */
 void 
 drgui_main_window_t::activate_previous_tab(void) 

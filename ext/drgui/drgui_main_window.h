@@ -55,6 +55,11 @@ private slots:
     void update_window_menu(void);
 
     void switch_layout_direction(void);
+<<<<<<< HEAD
+=======
+
+    QWidget *active_tool(void);
+>>>>>>> Qt DrGUI initial commit
     
     void maybe_close_me(void);
     
@@ -79,8 +84,11 @@ private:
     
     void write_settings(void);
 
+<<<<<<< HEAD
     QWidget *active_tool(void);
 
+=======
+>>>>>>> Qt DrGUI initial commit
     /* GUI */
     QDir plugins_dir;
     QStringList plugin_names;
