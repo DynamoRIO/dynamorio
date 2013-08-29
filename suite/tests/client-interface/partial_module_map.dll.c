@@ -71,8 +71,8 @@ DR_EXPORT
 void
 dr_init(client_id_t id)
 {
-    const module_data_t *mod = dr_get_main_module();
+    module_data_t *mod = dr_get_main_module();
     strncpy(main_module, mod->full_path, MODULE_PATH_LEN);
-
+    dr_free_module_data(mod);
     dr_register_module_load_event(module_load_event);
 }
