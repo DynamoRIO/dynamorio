@@ -37,6 +37,7 @@ class QActionGroup;
 class QPluginLoader;
 
 class drgui_options_window_t;
+class drgui_tool_interface_t;
 
 class drgui_main_window_t : public QMainWindow
 {
@@ -57,11 +58,6 @@ private slots:
     void update_window_menu(void);
 
     void switch_layout_direction(void);
-<<<<<<< HEAD
-=======
-
-    QWidget *active_tool(void);
->>>>>>> Qt DrGUI initial commit
     
     void maybe_close_me(void);
     
@@ -77,6 +73,10 @@ private slots:
 
     void show_preferences_dialog(void);
 
+    void add_tab(void);
+
+    void add_tool(void);
+
 private:
     void create_actions(void);
     
@@ -88,11 +88,13 @@ private:
     
     void write_settings(void);
 
-<<<<<<< HEAD
     QWidget *active_tool(void);
 
-=======
->>>>>>> Qt DrGUI initial commit
+    void load_tools(void);
+
+    void add_tool_to_menu(QObject *plugin, const QStringList &texts,
+                          const char *member, QActionGroup *action_group);
+
     /* GUI */
     QDir plugins_dir;
     QStringList plugin_names;
@@ -118,6 +120,8 @@ private:
     QMenu *help_menu;    
     QAction *about_act;
     QAction *about_qt_act;
+
+    QVector<drgui_tool_interface_t *> plugins;
 
     QMenu *tool_menu;
     QAction *load_tools_act;

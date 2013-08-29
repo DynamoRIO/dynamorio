@@ -40,7 +40,10 @@
 #include <QCloseEvent>
 #include <QDebug>
 #include <QApplication>
- 
+
+#include <cassert>
+
+#include "drgui_tool_interface.h"
 #include "drgui_options_window.h"
 #include "drgui_main_window.h"
 
@@ -68,6 +71,7 @@ drgui_main_window_t::drgui_main_window_t(void)
 
     opt_win = new drgui_options_window_t(tool_action_group);
     read_settings();
+    load_tools();
 
     setWindowTitle(tr("DrGUI"));
     setUnifiedTitleAndToolBarOnMac(true);
@@ -79,6 +83,11 @@ drgui_main_window_t::drgui_main_window_t(void)
 drgui_main_window_t::~drgui_main_window_t(void) 
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
+    while (plugins.count() > 0) {
+        drgui_tool_interface_t *plugin = plugins.back();
+        plugins.pop_back();
+        delete plugin;
+    }
     delete opt_win;
 }
 
@@ -210,6 +219,13 @@ drgui_main_window_t::create_actions(void)
     connect(previous_act, SIGNAL(triggered()),
             this, SLOT(activate_previous_tab()));
 
+    /* Tools */
+    tool_action_group = new QActionGroup(this);
+    load_tools_act = new QAction(tr("Load tools"), this);
+    load_tools_act->setStatusTip(tr("Choose another directory to search for tools"));
+    connect(load_tools_act, SIGNAL(triggered()),
+            this, SLOT(add_tool()));
+
     /* Help */
     about_act = new QAction(tr("&About"), this);
     about_act->setStatusTip(tr("Show the application's About box"));
@@ -220,12 +236,6 @@ drgui_main_window_t::create_actions(void)
     about_qt_act->setStatusTip(tr("Show the Qt library's About box"));
     connect(about_qt_act, SIGNAL(triggered()), 
             qApp, SLOT(aboutQt()));
-
-    /* Tools */
-    tool_action_group = new QActionGroup(this);
-    load_tools_act = new QAction(tr("Load tools"), this);
-    load_tools_act->setStatusTip(tr("Choose another directory to search "
-                                    "for tools"));
 }
 
 /* Private
@@ -252,6 +262,10 @@ drgui_main_window_t::create_menus(void)
     menuBar()->addSeparator();
 
     tool_menu = menuBar()->addMenu(tr("&Tools"));
+    /* add_tool_to_menu() depends on these two actions being added for adding
+     * future tools to this menu. If a change is made here, it should be 
+     * reflected in add_tool_to_menu()
+     */
     tool_menu->addSeparator();
     tool_menu->addAction(load_tools_act);
 
@@ -414,5 +428,109 @@ drgui_main_window_t::show_preferences_dialog(void)
 {
     if (opt_win != NULL) {
         opt_win->display();
+    }
+}
+
+/* Private Slot
+ * Creates a new instance of a tool
+ * and displays it in the tab interface
+ */
+void 
+drgui_main_window_t::add_tab(void) 
+{
+    QAction *action = qobject_cast<QAction *>(sender());
+    QWidget *tool = qobject_cast<drgui_tool_interface_t *>(action->parent())
+                    ->create_instance();
+    const QString tool_name = action->text();
+
+    tab_area->setCurrentIndex(tab_area->addTab(tool, tool_name));
+}
+
+/* Private Slot
+ * Lets user choose more tools to load
+ */
+void
+drgui_main_window_t::add_tool(void)
+{
+    qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
+    QStringList test_locs;
+    test_locs = QFileDialog::getOpenFileNames(this, 
+                                              tr("Load tool"),
+                                              "",
+                                              tr("Tools (*.so *.dll)"));
+    foreach (QString test_loc, test_locs) {
+        QFile test_file(test_loc);
+        if (test_file.exists() &&
+            !tool_files.contains(test_loc)) {
+            tool_files << test_loc;
+            load_tools();
+        }
+    }
+}
+
+/* Private
+ * Loads available tools
+ */
+void 
+drgui_main_window_t::load_tools(void)
+{
+    foreach (QString tool_loc, tool_files) {
+        QFile tool_file(tool_loc);
+        QPluginLoader loader(tool_file.fileName(), 
+                             this);
+        QObject *plugin = loader.instance();
+        if (plugin != NULL) {
+            drgui_tool_interface_t *i_tool;
+            i_tool = qobject_cast<drgui_tool_interface_t *>(plugin);
+            /* Check if already loaded */
+            bool stop = false;
+            foreach (QString name, i_tool->tool_names()) {
+                if (plugin_names.contains(name)) {
+                    stop = true;
+                    break;
+                }
+            }
+            if (stop)
+                break;
+            /* Create and load */
+            if (i_tool != NULL) {
+                add_tool_to_menu(plugin, i_tool->tool_names(), 
+                                 SLOT(add_tab()), tool_action_group);
+                plugins.append(i_tool);
+                qDebug() << "INFO: Loaded Plugins" << i_tool->tool_names();
+                plugin_names << i_tool->tool_names();
+            }
+        } else {
+            qDebug() << "INFO: Denied Plugins" << loader.errorString();
+        }
+    }
+}
+
+/* Private
+ * Adds a tool to tools_menu
+ */
+void 
+drgui_main_window_t::add_tool_to_menu(QObject *plugin, const QStringList &texts,
+                                      const char *member, QActionGroup *action_group)
+{
+    foreach (QString text, texts) {
+        QAction *action = new QAction(text, plugin);
+        connect(action, SIGNAL(triggered()), 
+                this, member);
+
+        /* The -2 is to insert the tool above the separator 
+         * and 'Load tools' actions. If this is changed, then create_menus()
+         * should be changed as well
+         */
+        const QList<QAction *> &action_list = tool_menu->actions();
+        const int pos = action_list.count();
+        assert(pos >= 2);
+        tool_menu->insertAction(action_list.at(pos - 2), 
+                                action);
+
+        if (action_group != NULL) {
+            action->setCheckable(true);
+            action_group->addAction(action);
+        }
     }
 }
