@@ -139,16 +139,8 @@ static per_thread_t *global_data;
 static bool bbcov_per_thread = false;
 static module_table_t *module_table;
 static client_id_t client_id;
-#ifndef WINDOWS
-static int sysnum_execve = IF_X64_ELSE(59, 11);
-#endif
+
 static volatile bool go_native;
-
-static void
-event_exit(void);
-
-static void
-event_thread_exit(void *drcontext);
 
 /****************************************************************************
  * Utility Functions
@@ -164,11 +156,7 @@ log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
         len = dr_snprintf(buf, MAXIMUM_PATH, "%s.%04d.%s", prefix, i, suffix);
         ASSERT(len > 0, "dr_snprintf failed");
         NULL_TERMINATE_BUFFER(buf);
-        log = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE
-#ifndef WINDOWS
-                                | DR_FILE_CLOSE_ON_FORK
-#endif
-                          );
+        log = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
         if (log != INVALID_FILE) {
             dr_log(drcontext, LOG_ALL, 1, "bbcov: log file is %s\n", buf);
             NOTIFY(1, "<created log file %s>\n", buf);
@@ -755,7 +743,7 @@ thread_data_create(void *drcontext)
 {
     per_thread_t *data;
     if (drcontext == NULL) {
-        ASSERT(!bbcov_per_thread, "bbcov_per_thread should not be set");
+        ASSERT(!bbcov_per_thread, "bbcov_per_thread shoudl not be set");
         data = dr_global_alloc(sizeof(*data));
     } else {
         ASSERT(bbcov_per_thread, "bbcov_per_thread should be set");
@@ -834,27 +822,16 @@ event_nudge(void *drcontext, uint64 argument)
     ASSERT(nudge_arg == NUDGE_TERMINATE_PROCESS, "unsupported nudge");
     ASSERT(false, "should not reach"); /* should not reach */
 }
-#endif
 
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
-
-#ifdef WINDOWS
     return (options.nudge_kills && sysnum == sysnum_TerminateProcess);
-#else
-    return sysnum == sysnum_execve;
-#endif
 }
-
-/****************************************************************************
- * Event Callbacks
- */
 
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
-#ifdef WINDOWS
     /* XXX: we should also watch for NtTerminateJobObject and other job
      * termination (xref i#1229).
      */
@@ -883,15 +860,12 @@ event_pre_syscall(void *drcontext, int sysnum)
         }
     }
     return true;
-#else
-    /* We assume execve always succeeds */
-    if (sysnum == sysnum_execve) {
-        event_thread_exit(drcontext);
-        event_exit();
-    }
-    return true;
-#endif
 }
+#endif
+
+/****************************************************************************
+ * Event Callbacks
+ */
 
 /* We collect the basic block information including offset from module base,
  * size, and num of instructions, and add it into a basic block table without
@@ -1043,20 +1017,6 @@ event_thread_init(void *drcontext)
 }
 
 static void
-event_fork(void *drcontext)
-{
-    if (!bbcov_per_thread) {
-        log_file_create(NULL, global_data);
-    } else {
-        per_thread_t *data = dr_get_tls_field(drcontext);
-        if (data != NULL) {
-            thread_data_destroy(drcontext, data);
-        }
-        event_thread_init(drcontext);
-    }
-}
-
-static void
 event_exit(void)
 {
     if (!bbcov_per_thread) {
@@ -1174,10 +1134,9 @@ dr_init(client_id_t id)
     dr_register_bb_event(event_basic_block);
     dr_register_module_load_event(event_module_load);
     dr_register_module_unload_event(event_module_unload);
-    dr_register_fork_init_event(event_fork);
+#ifdef WINDOWS
     dr_register_filter_syscall_event(event_filter_syscall);
     dr_register_pre_syscall_event(event_pre_syscall);
-#ifdef WINDOWS
     sysnum_TerminateProcess = get_sysnum("NtTerminateProcess");
     dr_register_nudge_event(event_nudge, id);
 #endif
