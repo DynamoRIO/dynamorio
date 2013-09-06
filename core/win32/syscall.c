@@ -3704,6 +3704,9 @@ restore_for_KiFastSystemCallRet(dcontext_t *dcontext)
     if (instrument_invoke_another_syscall(dcontext))
         return;
 #endif
+    /* If this thread is native, don't disrupt the return-to-native */
+    if (!dcontext->thread_record->under_dynamo_control)
+        return;
     adjust_esp = get_mcontext(dcontext)->xsp - XSP_SZ;
     *(app_pc *)adjust_esp = dcontext->asynch_target;
     get_mcontext(dcontext)->xsp = adjust_esp;
@@ -4088,7 +4091,8 @@ dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
     syscall_names[idx] = name;
     syscalls[idx] = sysnum;
     syscall_argsz[idx] = num_args * 4;
-    wow64_index[idx] = wow64_idx;
+    if (wow64_index != NULL)
+        wow64_index[idx] = wow64_idx;
     syscall_requires_action[idx] = true;
     syscall_extra_idx++;
     /* some syscalls we just don't support intercepting */

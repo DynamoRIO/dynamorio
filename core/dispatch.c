@@ -1733,6 +1733,7 @@ handle_system_call(dcontext_t *dcontext)
             /* Don't expect to be here for -hotp_only */
             ASSERT_CURIOSITY(!DYNAMO_OPTION(hotp_only));
 #endif
+            ASSERT(dcontext->next_tag != BACK_TO_NATIVE_AFTER_SYSCALL);
             /* currently pc is the ret after sysenter, we need it to be the return point
              * (the ret after the call to the vsyscall sysenter)
              * we do not need to keep the old asynch_target -- if we decide not to do

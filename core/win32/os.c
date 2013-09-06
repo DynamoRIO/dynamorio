@@ -847,9 +847,18 @@ os_init(void)
         module_handle_t ntdllh = get_ntdll_base();
         app_pc return_point = (app_pc) get_proc_address(ntdllh, 
                                                         "KiFastSystemCallRet");
-        if (return_point) {
+        if (return_point != NULL) {
+            app_pc syscall_pc = (app_pc) get_proc_address(ntdllh,
+                                                          "KiFastSystemCall");
             vsyscall_after_syscall = (app_pc) return_point;
-            vsyscall_syscall_end_pc = NULL; /* wait until 1st one */
+            /* we'll re-set this once we see the 1st syscall, but we set an
+             * initial value to what it should be for go-native scenarios
+             * where we may not see the 1st syscall (DrMem i#1235).
+             */
+            if (syscall_pc != NULL)
+                vsyscall_syscall_end_pc = syscall_pc + SYSENTER_LENGTH;
+            else
+                vsyscall_syscall_end_pc = NULL; /* wait until 1st one */
         } else {
             /* FIXME : if INT syscalls are being used then this opens up a
              * security hole for the followin page */
