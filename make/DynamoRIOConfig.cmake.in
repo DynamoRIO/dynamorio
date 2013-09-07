@@ -819,6 +819,10 @@ endfunction (get_DynamoRIO_defines)
 
 ###########################################################################
 #
+# To disable linking to an executable extension via use_DynamoRIO_extension():
+# set(DynamoRIO_EXT_${extname}_NOLIB ON)
+# in your ${extname}Config.cmake file
+set(DynamoRIO_EXT_drgui_qt_NOLIB ON)
 
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)
@@ -862,7 +866,7 @@ function (use_DynamoRIO_extension target extname)
     endif ()
   endif (NOT DynamoRIO_INTERNAL)
 
-  if (DynamoRIO_RPATH)
+  if (DynamoRIO_RPATH AND NOT DynamoRIO_EXT_${extname}_NOLIB)
     add_rel_rpaths(${target} ${extname})
     if (WIN32)
       get_target_property(libpath ${extname} LOCATION${location_suffix})
@@ -885,6 +889,8 @@ function (use_DynamoRIO_extension target extname)
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
   endif ()
 
-  target_link_libraries(${target} ${extname})
+  if (NOT DynamoRIO_EXT_${extname}_NOLIB)
+    target_link_libraries(${target} ${extname})
+  endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
 endfunction (use_DynamoRIO_extension)
