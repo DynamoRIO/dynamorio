@@ -1,21 +1,37 @@
-/* **********************************************************
- * Copyright (c) 2013, Branden Clark All rights reserved.
- * **********************************************************/
+/* ***************************************************************************
+ * Copyright (c) 2013 Branden Clark  All rights reserved.
+ * ***************************************************************************/
 
-/* Dr. GUI
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the conditions outlined in
- * the BSD 2-Clause license are met.
- 
- * This software is provided by the copyright holders and contributors "AS IS"
- * and any express or implied warranties, including, but not limited to, the
- * implied warranties of merchantability and fitness for a particular purpose
- * are disclaimed. See the BSD 2-Clause license for more details.
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  */
 
 /* drgui_tool_interface.h
- * 
+ *
  * Defines the structures through which tools will interface with the
  * main window.
  * Anything needed by most or all tools should be defined here.
@@ -56,15 +72,15 @@ public:
 
     /**
      * Returns an instance of the tools options page to be displayed
-     * by drgui's preferences dialog. This is called by drgui's preferences 
+     * by drgui's preferences dialog. This is called by drgui's preferences
      * dialog the first time it disovers the tool on each run of drgui.
      */
     virtual drgui_options_interface_t *create_options_page(void) = 0;
 
     /**
-     * Used by drgui to tell a tool to open a file at a line number.
+     * Used by drgui to tell a tool to open a file at a line number
      * XXX i#1251: Currently only used as a bridge from tools to the
-     * code editor plugin. 
+     * code editor plugin.
      */
     virtual void open_file(const QString &path, int line_num) = 0;
 };

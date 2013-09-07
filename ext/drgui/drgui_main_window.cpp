@@ -1,21 +1,37 @@
-/* **********************************************************
- * Copyright (c) 2013, Branden Clark All rights reserved.
- * **********************************************************/
+/* ***************************************************************************
+ * Copyright (c) 2013 Branden Clark  All rights reserved.
+ * ***************************************************************************/
 
-/* Dr. GUI
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the conditions outlined in
- * the BSD 2-Clause license are met.
- 
- * This software is provided by the copyright holders and contributors "AS IS"
- * and any express or implied warranties, including, but not limited to, the
- * implied warranties of merchantability and fitness for a particular purpose
- * are disclaimed. See the BSD 2-Clause license for more details.
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  */
 
 /* drgui_main_window.cpp
- * 
+ *
  * Provides a main structure for users to interface with tools.
  */
 
@@ -60,7 +76,7 @@ drgui_main_window_t::drgui_main_window_t(void)
     connect(tab_area, SIGNAL(tabCloseRequested(int)),
             this, SLOT(maybe_close(int)));
     setCentralWidget(tab_area);
-    
+
     connect(tab_area, SIGNAL(currentChanged(int)),
             this, SLOT(update_menus()));
 
@@ -230,7 +246,7 @@ drgui_main_window_t::create_actions(void)
     /* Help */
     about_act = new QAction(tr("&About"), this);
     about_act->setStatusTip(tr("Show the application's About box"));
-    connect(about_act, SIGNAL(triggered()), 
+    connect(about_act, SIGNAL(triggered()),
             this, SLOT(about()));
 
     about_qt_act = new QAction(tr("About &Qt"), this);
@@ -264,7 +280,7 @@ drgui_main_window_t::create_menus(void)
 
     tool_menu = menuBar()->addMenu(tr("&Tools"));
     /* add_tool_to_menu() depends on these two actions being added for adding
-     * future tools to this menu. If a change is made here, it should be 
+     * future tools to this menu. If a change is made here, it should be
      * reflected in add_tool_to_menu()
      */
     tool_menu->addSeparator();
@@ -511,7 +527,7 @@ drgui_main_window_t::load_tools(void)
 /* Private
  * Adds a tool to tools_menu
  */
-void 
+void
 drgui_main_window_t::add_tool_to_menu(QObject *plugin, const QStringList &texts,
                                       const char *member, QActionGroup *action_group)
 {
