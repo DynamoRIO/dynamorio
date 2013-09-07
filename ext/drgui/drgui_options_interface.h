@@ -32,7 +32,6 @@
 class drgui_options_interface_t : public QWidget
 {
     Q_OBJECT
-    
 public:
     /**
      * Returns a list of the names of the tools that are supported by the

@@ -35,8 +35,9 @@
 #include <QActionGroup>
 #include <QDebug>
 
-#include "drgui_options_window.h"
+#include "drgui_tool_interface.h"
 #include "drgui_options_interface.h"
+#include "drgui_options_window.h"
 
 /* Public
  * Constructor
@@ -98,7 +99,20 @@ drgui_options_window_t::create_tool_list(void)
     list_font.setPointSize(12);
     list_font.setBold(true);
 
-    /* XXX i#1251: Get tools from plugin system */
+   drgui_tool_interface_t *i_tool;
+    foreach (QAction *action, tool_action_group->actions()) {
+        i_tool = qobject_cast<drgui_tool_interface_t *>(action->parent());
+        /* Skip if already added */
+        if (!tool_page_list->findItems(i_tool->tool_names().first(),
+                                       Qt::MatchExactly).isEmpty())
+            continue;
+        tool_page_stack->addWidget(i_tool->create_options_page());
+        QListWidgetItem *config_button = new QListWidgetItem(tool_page_list);
+        config_button->setText(i_tool->tool_names().first());
+        config_button->setFont(list_font);
+        config_button->setTextAlignment(Qt::AlignHCenter);
+        config_button->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+    }
 
     connect(tool_page_list,
             SIGNAL(currentItemChanged(QListWidgetItem*, QListWidgetItem*)),
@@ -125,7 +139,10 @@ void
 drgui_options_window_t::save(void)
 {
     for (int i = 0; i < tool_page_stack->count(); i++) {
-        /* XXX i#1251: write settings for each tool */
+        drgui_options_interface_t *i_opt;
+        i_opt = qobject_cast<drgui_options_interface_t *>
+                    (tool_page_stack->widget(i));
+        i_opt->write_settings();
     }
 }
 
@@ -147,7 +164,10 @@ void
 drgui_options_window_t::cancel(void)
 {
     for (int i = 0; i < tool_page_stack->count(); i++) {
-        /* XXX i#1251: read settings for each tool */
+        drgui_options_interface_t *i_opt;
+        i_opt = qobject_cast<drgui_options_interface_t *>
+                    (tool_page_stack->widget(i));
+        i_opt->read_settings();
     }
     if (sender() == cancel_button)
         close();

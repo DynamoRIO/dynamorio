@@ -41,7 +41,8 @@ else (NOT Qt5Widgets_FOUND)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_BIN}")
 
   # Sources and MOC
-  set(drgui_MOC_HEADERS 
+  set(drgui_MOC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_tool_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_window.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_main_window.h)
@@ -64,6 +65,11 @@ else (NOT Qt5Widgets_FOUND)
 
   # Install
   add_rel_rpaths(drgui_qt)
+  DR_install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_tool_interface.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
+    DESTINATION
+    ${INSTALL_EXT_INCLUDE})
   DR_export_target(drgui_qt)
   install_exported_target(drgui_qt ${INSTALL_EXT_BIN})
 endif (NOT Qt5Widgets_FOUND)
