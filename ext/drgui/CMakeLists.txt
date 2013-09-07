@@ -41,12 +41,15 @@ else (NOT Qt5Widgets_FOUND)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/ext/${INSTALL_BIN}")
 
   # Sources and MOC
-  set(drgui_MOC_HEADERS
+  set(drgui_MOC_HEADERS 
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_window.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_main_window.h)
 
   qt5_wrap_cpp(drgui_MOC_OUTFILES ${drgui_MOC_HEADERS})
 
   set(drgui_SOURCES 
+    ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_window.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_main_window.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 

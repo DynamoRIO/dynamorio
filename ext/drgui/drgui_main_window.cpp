@@ -41,6 +41,7 @@
 #include <QDebug>
 #include <QApplication>
 
+#include "drgui_options_window.h"
 #include "drgui_main_window.h"
 
 /* Public
@@ -65,6 +66,7 @@ drgui_main_window_t::drgui_main_window_t(void)
     create_status_bar();
     update_menus();
 
+    opt_win = new drgui_options_window_t(tool_action_group);
     read_settings();
 
     setWindowTitle(tr("DrGUI"));
@@ -77,6 +79,7 @@ drgui_main_window_t::drgui_main_window_t(void)
 drgui_main_window_t::~drgui_main_window_t(void)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
+    delete opt_win;
 }
 
 /* Protected
@@ -181,6 +184,8 @@ drgui_main_window_t::create_actions(void)
     /* Edit */
     preferences_act = new QAction(tr("&Preferences"), this);
     preferences_act->setStatusTip(tr("Edit Preferences"));
+    connect(preferences_act, SIGNAL(triggered()),
+            this, SLOT(show_preferences_dialog()));
 
     /* Window */
     close_act = new QAction(tr("Cl&ose"), this);
@@ -280,7 +285,6 @@ drgui_main_window_t::read_settings(void)
     QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
     QSize size = settings.value("size", QSize(800, 600)).toSize();
     settings.beginGroup("Tools_to_load");
-
     int count = settings.value("Number_of_tools", 0).toInt();
     for (int i = 0; i < count; i++) {
         tool_files << settings.value(QString::number(i), QString())
@@ -303,7 +307,6 @@ drgui_main_window_t::write_settings(void)
     settings.setValue("pos", pos());
     settings.setValue("size", size());
     settings.beginGroup("Tools_to_load");
-
     settings.setValue("Number_of_tools", tool_files.count());
     for (int i = 0; i < tool_files.count(); i++) {
         settings.setValue(QString::number(i), tool_files.at(i));
@@ -402,4 +405,15 @@ drgui_main_window_t::activate_previous_tab(void)
     if (index == -1)
         index = tab_area->count() - 1;
     tab_area->setCurrentIndex(index);
+}
+
+/* Private Slot
+ * Displays preferences dialog
+ */
+void
+drgui_main_window_t::show_preferences_dialog(void)
+{
+    if (opt_win != NULL) {
+        opt_win->display();
+    }
 }

@@ -36,6 +36,8 @@ class QSignalMapper;
 class QActionGroup;
 class QPluginLoader;
 
+class drgui_options_window_t;
+
 class drgui_main_window_t : public QMainWindow
 {
     Q_OBJECT
@@ -68,6 +70,8 @@ private slots:
 
     void activate_previous_tab(void);
 
+    void show_preferences_dialog(void);
+
 private:
     void create_actions(void);
 
@@ -95,6 +99,7 @@ private:
 
     QMenu *edit_menu;
     QAction *preferences_act;
+    drgui_options_window_t *opt_win;
 
     QMenu *window_menu;
     QAction *close_act;
