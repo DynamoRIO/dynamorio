@@ -45,7 +45,7 @@ endif ()
 # extensions that will be used.
 # Since a static lib is non-default it seems reasonable to require the
 # developer to set DynamoRIO_USE_LIBC.
-option(DR_EXT_DRSYMS_STATIC "create drsyms as a static, not shared, library (N.B.: because drsyms uses libc, any client using drsyms as a static library must set DynamoRIO_USE_LIBC before calling configure_DynamoRIO_client()")
+option(DR_EXT_DRSYMS_STATIC "create drsyms as a static, not shared, library (N.B.: because drsyms uses libc, any client using drsyms as a static library must set DynamoRIO_USE_LIBC before calling configure_DynamoRIO_client()" ${BUILD_EXT_STATIC})
 if (STATIC_LIBRARY)
   set(DR_EXT_DRSYMS_STATIC ON)  # Overrides any user setting.
 endif ()

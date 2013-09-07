@@ -53,6 +53,8 @@ set(INSTALL_EXT_LIB ${INSTALL_EXT_BASE}/${INSTALL_LIB})
 set(INSTALL_EXT_INCLUDE ${INSTALL_EXT_BASE}/include)
 set(INSTALL_EXT_CMAKE ${INSTALL_EXT_BASE}/cmake)
 
+option(BUILD_EXT_STATIC "build each of DynamoRIO's extensions statically" OFF)
+
 disable_compiler_warnings()
 # Extensions don't include configure.h so they don't get DR defines
 add_dr_defines()

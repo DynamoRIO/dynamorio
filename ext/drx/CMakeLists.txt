@@ -32,7 +32,7 @@ cmake_minimum_required(VERSION 2.6)
 
 # DynamoRIO eXtension utilities
 
-option(DR_EXT_DRX_STATIC "create drx as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drx before enabling as a static library)")
+option(DR_EXT_DRX_STATIC "create drx as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drx before enabling as a static library)" ${BUILD_EXT_STATIC})
 if (DR_EXT_DRX_STATIC OR STATIC_LIBRARY)
   set(libtype STATIC)
 else()
