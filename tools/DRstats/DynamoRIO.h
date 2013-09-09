@@ -73,7 +73,7 @@
 class CDynamoRIOApp : public CWinApp
 {
 public:
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     BOOL ConfigureForNewUser();
     void SetEnvVarPermanently(TCHAR *var, TCHAR *val);
     void PreExit();
@@ -84,7 +84,7 @@ public:
 
     // global function for TimerProc inside view
     static CDynamoRIOView * GetActiveView();
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     // global function for systemwide status
     static BOOL SystemwideSet();
     // global function for current library to use
@@ -111,7 +111,7 @@ public:
     //{{AFX_MSG(CDynamoRIOApp)
     afx_msg void OnAppAbout();
     afx_msg void OnAppExit();
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     afx_msg void OnEditOptions();
     afx_msg void OnLibraryRelease();
     afx_msg void OnLibraryProfile();
@@ -127,7 +127,7 @@ public:
 protected:
     BOOL CheckWindowsVersion(BOOL &windows_NT);
     CMainFrame *m_pMainFrame;
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     void DisableMissingLibraries(BOOL notify);
     void DisableSystemwideInject();
     BOOL m_bSystemwideAllowed;

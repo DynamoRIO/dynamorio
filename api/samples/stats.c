@@ -66,10 +66,10 @@
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
 
 /* We export a set of stats in shared memory.
- * drgui.exe reads and displays them.
+ * drstats.exe reads and displays them.
  */
 const char *stat_names[] = {
-    /* drgui.exe displays CLIENTSTAT_NAME_MAX_LEN chars for each name */
+    /* drstats.exe displays CLIENTSTAT_NAME_MAX_LEN chars for each name */
     "Instructions",
     "Floating point instrs",
     "System calls",

@@ -822,7 +822,7 @@ endfunction (get_DynamoRIO_defines)
 # To disable linking to an executable extension via use_DynamoRIO_extension():
 # set(DynamoRIO_EXT_${extname}_NOLIB ON)
 # in your ${extname}Config.cmake file
-set(DynamoRIO_EXT_drgui_qt_NOLIB ON)
+set(DynamoRIO_EXT_drgui_NOLIB ON)
 
 # DynamoRIO Extensions
 function (use_DynamoRIO_extension target extname)

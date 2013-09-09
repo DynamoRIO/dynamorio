@@ -83,7 +83,7 @@ The following are part of the DynamoRIO release distribution:
  - This documentation.
  - \ref API_samples "Sample clients".
 \ifnot vmsafe
- - A graphical statistics viewer \c DRgui.exe that displays internal
+ - A graphical statistics viewer \c DRstats.exe that displays internal
    DynamoRIO statistics as well as custom statistics defined
    by a client (see \ref sec_ex7) (Windows package only).
    DynamoRIO exports a large number of statistics in its debug build, and
@@ -118,6 +118,7 @@ The current version is \DR_VERSION.
 The changes between version \DR_VERSION and 4.1.0 include:
 
  - Added dr_syscall_intercept_natively()
+ - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework
 
 **************************************************
 <hr>

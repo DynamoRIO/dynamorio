@@ -31,7 +31,7 @@
 
 ###########################################################################
 # Missing features:
-# i#77: make DRgui a subproject to support with different compiler from libutil 
+# i#77: make DRstats a subproject to support with different compiler from libutil 
 # i#84: nmake adds space before 1st / in 1st arg to a command invoked with quotes
 # i#74: create source tarball via 'make package_source' 
 # i#68: replace perl with cmake scripts and CTest
@@ -140,7 +140,7 @@ include(make/utils.cmake)
 # many are core-specific
 
 # configurations that also have defines
-option(DRGUI_DEMO "build DRgui without the no-longer-supported Run, etc. controls" ON)
+option(DRSTATS_DEMO "build DRstats without the no-longer-supported Run, etc. controls" ON)
 
 # we honor CMAKE_BUILD_TYPE since many cmake users are used to it
 if ("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
@@ -311,7 +311,7 @@ mark_as_advanced(
   SET_PREFERRED_BASE
   preferred_base
   GENERATE_PDBS
-  DRGUI_DEMO
+  DRSTATS_DEMO
   )
 
 # we clear both base and build-type cflags and then use just base.
@@ -1107,7 +1107,7 @@ else (WIN32)
 endif (WIN32)
 option(BUILD_TOOLS "build tools" ON)
 if (WIN32)
-  option(BUILD_DRGUI "build DRgui statistics viewer (requires MFC)" ON)
+  option(BUILD_DRSTATS "build DRstats viewer (requires MFC)" ON)
 endif (WIN32)
 option(BUILD_EXT "build Extension libraries" ON)
 option(BUILD_DOCS "build documentation" ON)
@@ -1148,25 +1148,25 @@ if (BUILD_CORE)
   add_subdirectory(core)
 endif (BUILD_CORE)
 
-if (BUILD_TOOLS OR BUILD_DRGUI)
+if (BUILD_TOOLS OR BUILD_DRSTATS)
   add_subdirectory(libutil)
-endif (BUILD_TOOLS OR BUILD_DRGUI)
+endif (BUILD_TOOLS OR BUILD_DRSTATS)
   
 if (BUILD_TOOLS)
   add_subdirectory(tools)
 endif (BUILD_TOOLS)
 
-if (BUILD_DRGUI)
+if (BUILD_DRSTATS)
   find_package(MFC)
   if (NOT MFC_FOUND)
-    message(STATUS "MFC not found: disabling DRgui")
-    set(BUILD_DRGUI OFF)
+    message(STATUS "MFC not found: disabling DRstats")
+    set(BUILD_DRSTATS OFF)
   endif ()
 
-  if (BUILD_DRGUI)
-    add_subdirectory(tools/DRgui)
+  if (BUILD_DRSTATS)
+    add_subdirectory(tools/DRstats)
   endif ()
-endif (BUILD_DRGUI)
+endif (BUILD_DRSTATS)
 
 # create empty logs dir for running out of build dir
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/logs")

@@ -72,7 +72,7 @@ IMPLEMENT_DYNCREATE(CDynamoRIODoc, CDocument)
 
     CDynamoRIODoc::CDynamoRIODoc()
 {
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     InitPaths();
 
     CShellInterface::Initialize();
@@ -82,7 +82,7 @@ IMPLEMENT_DYNCREATE(CDynamoRIODoc, CDocument)
     SetModifiedFlag(TRUE);
 }
 
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
 void CDynamoRIODoc::InitPaths()
 {
     // limit to 200 to give room for rest of injector path
@@ -122,11 +122,11 @@ void CDynamoRIODoc::InitPaths()
 
 #endif
 }
-#endif /* !DRGUI_DEMO */
+#endif /* !DRSTATS_DEMO */
 
 CDynamoRIODoc::~CDynamoRIODoc()
 {
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     CShellInterface::Uninitialize();
 #endif
 }
@@ -156,7 +156,7 @@ BOOL CDynamoRIODoc::OnOpenDocument(LPCTSTR lpszPathName)
     return TRUE;
 }
 
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
 BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
 {
     // application name (may be different than lpszPathName, for shortcuts)
@@ -374,7 +374,7 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
     
     return TRUE;
 }
-#endif /* !DRGUI_DEMO */
+#endif /* !DRSTATS_DEMO */
 
 /////////////////////////////////////////////////////////////////////////////
 // CDynamoRIODoc serialization
@@ -409,7 +409,7 @@ void CDynamoRIODoc::Dump(CDumpContext& dc) const
 
 BOOL CDynamoRIODoc::SaveModified() 
 {
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     CDynamoRIOApp::AboutToExit();
 #endif
     return CDocument::SaveModified();

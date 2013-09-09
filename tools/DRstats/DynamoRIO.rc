@@ -269,7 +269,7 @@ BEGIN
     LTEXT           "Log dir:",IDC_STATIC,7,286,42,10
 END
 
-IDD_DRGUI_DEMO_FORM DIALOGEX 0, 0, 289, 313
+IDD_DRSTATS_DEMO_FORM DIALOGEX 0, 0, 289, 313
 STYLE WS_CHILD
 FONT 11, "Lucida Console", 400
 BEGIN
@@ -471,7 +471,7 @@ BEGIN
             VALUE "FileVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
             VALUE "InternalName", "DynamoRIO GUI\0"
             VALUE "LegalCopyright", "Copyright (C) 2002-2012\0"
-            VALUE "OriginalFilename", "DRgui.EXE\0"
+            VALUE "OriginalFilename", "DRstats.EXE\0"
             VALUE "ProductName", "DynamoRIO GUI\0"
             VALUE "ProductVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
         END

@@ -75,17 +75,16 @@ else (NOT Qt5Widgets_FOUND)
   if (WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd4127 -wd4512 -wd4189 -wd4481")
   endif (WIN32)
-  # XXX i#1252: Named drgui_qt since Windows gets it confused with tools/drgui
-  add_executable(drgui_qt ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
-  qt5_use_modules(drgui_qt Widgets)
+  add_executable(drgui ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
+  qt5_use_modules(drgui Widgets)
 
   # Install
-  add_rel_rpaths(drgui_qt)
+  add_rel_rpaths(drgui)
   DR_install(FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_tool_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
     DESTINATION
     ${INSTALL_EXT_INCLUDE})
-  DR_export_target(drgui_qt)
-  install_exported_target(drgui_qt ${INSTALL_EXT_BIN})
+  DR_export_target(drgui)
+  install_exported_target(drgui ${INSTALL_EXT_BIN})
 endif (NOT Qt5Widgets_FOUND)

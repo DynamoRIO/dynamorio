@@ -32,7 +32,7 @@ ifndef DYNAMORIO_MAKE
   DYNAMORIO_MAKE := ../../make
 endif
 
-# We would stick w/ VC60 for compatibility w/ NT, to match DRgui.exe (PR 232385),
+# We would stick w/ VC60 for compatibility w/ NT, to match DRstats.exe (PR 232385),
 # but it runs out of memory processing zipdump.h, and /Zm1000 doesn't even
 # get halfway (/Zm1500 and higher don't seem to work).
 # We go w/ 7.1 instead of 8 to avoid fixing the warnings that 8 has.

@@ -38,7 +38,7 @@
 // CmdlineDlg.cpp : implementation file
 //
 
-#ifndef DRGUI_DEMO /* around whole file */
+#ifndef DRSTATS_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -140,4 +140,4 @@ void CCmdlineDlg::OnOK()
     CDialog::OnOK();
 }
 
-#endif /* !DRGUI_DEMO */ /* around whole file */
+#endif /* !DRSTATS_DEMO */ /* around whole file */

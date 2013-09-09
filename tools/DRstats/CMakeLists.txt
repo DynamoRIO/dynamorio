@@ -30,13 +30,13 @@
 # DAMAGE.
 
 if (UNIX)
-  message(FATAL_ERROR "DRgui is Windows-only")
+  message(FATAL_ERROR "DRstats is Windows-only")
 endif (UNIX)
 
-# FIXME i#77: make DRgui a subproject to support with different compiler from libutil
-# For now, DRgui.exe just won't run on NT.
+# FIXME i#77: make DRstats a subproject to support with different compiler from libutil
+# For now, DRstats.exe just won't run on NT.
 #
-# PR 232385: for release packages we want DRgui.exe to run on NT,
+# PR 232385: for release packages we want DRstats.exe to run on NT,
 # which means we cannot build using VC71 or VC80, as their MFC
 # versions add dependencies on libraries like shlwapi.dll and ole*.dll
 # that are not present on NT.  So we build using VC60.
@@ -83,7 +83,7 @@ if (NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
     PROPERTIES GENERATED true)
 endif ()
 
-add_executable(DRgui WIN32
+add_executable(DRstats WIN32
   CmdlineDlg.cpp
   DynamoRIO.cpp
   DynamoRIODoc.cpp
@@ -112,10 +112,10 @@ if (NOT uuid_lib)
     message(FATAL_ERROR "uuid.lib not found")
   endif ()
 endif (NOT uuid_lib)
-target_link_libraries(DRgui policy_static ${uuid_lib})
+target_link_libraries(DRstats policy_static ${uuid_lib})
 # FIXME: not sure why I need these flags
 # For VC71 need nodefault of libcmt instead?!?
-set_target_properties(DRgui PROPERTIES LINK_FLAGS
+set_target_properties(DRstats PROPERTIES LINK_FLAGS
   "/NODEFAULTLIB:libc.lib /NODEFAULTLIB:msvcrt.lib /ENTRY:wWinMainCRTStartup")
 
-DR_install(TARGETS DRgui DESTINATION ${INSTALL_BIN})
+DR_install(TARGETS DRstats DESTINATION ${INSTALL_BIN})

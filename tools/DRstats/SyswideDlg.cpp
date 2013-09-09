@@ -39,7 +39,7 @@
 
 #include "configure.h"
 
-#ifndef DRGUI_DEMO /* around whole file */
+#ifndef DRSTATS_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -93,4 +93,4 @@ void CSyswideDlg::OnOK()
     CDialog::OnOK();
 }
 
-#endif /* !DRGUI_DEMO */ /* around whole file */
+#endif /* !DRSTATS_DEMO */ /* around whole file */

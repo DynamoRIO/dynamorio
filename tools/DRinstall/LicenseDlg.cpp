@@ -367,7 +367,7 @@ BOOL CLicenseDlg::OnInitDialog()
 
     /* I had a hard time setting up the scroll-to-bottom-before-can-accept
      * functionality: I tried using a separate CScrollBar widget, like I ended
-     * up doing for the DRgui stats viewer, and I got that working for scrolling
+     * up doing for the DRstats viewer, and I got that working for scrolling
      * with the mouse (had to manually scroll the license text via LineScroll(),
      * and set the scroll parameters after calculating using a RECT for the
      * CEdit dimensions),

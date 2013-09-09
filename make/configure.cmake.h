@@ -40,7 +40,7 @@
 /* exposed options */
 #cmakedefine INTERNAL
 #cmakedefine DEBUG
-#cmakedefine DRGUI_DEMO
+#cmakedefine DRSTATS_DEMO
 #cmakedefine STATIC_LIBRARY
 
 /* target */

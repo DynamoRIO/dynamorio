@@ -60,7 +60,7 @@ IMPLEMENT_DYNCREATE(CDynamoRIOView, CFormView)
 
 BEGIN_MESSAGE_MAP(CDynamoRIOView, CFormView)
     //{{AFX_MSG_MAP(CDynamoRIOView)
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     ON_BN_CLICKED(IDC_CHANGE_LOGGING, OnChangeLogging)
     ON_BN_CLICKED(IDC_LOGDIR_EXPLORE, OnLogDirExplore)
 #endif
@@ -102,7 +102,7 @@ void CDynamoRIOView::ZeroStrings()
 {
     m_Exited = _T("");
     m_ClientStats = _T("");
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     m_LogLevel = _T("0");
     m_LogMask = _T("0x0000");
     m_LogDir = _T("");
@@ -164,7 +164,7 @@ void CDynamoRIOView::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_STATS_SCROLLBAR, m_StatsSB);
     DDX_Text(pDX, IDC_CLIENTSTATS, m_ClientStats);
     DDX_Text(pDX, IDC_EXITED, m_Exited);
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     DDX_Text(pDX, IDC_LOGLEVEL_VALUE, m_LogLevel);
     DDX_Text(pDX, IDC_LOGMASK_VALUE, m_LogMask);
     DDX_Text(pDX, IDC_LOGDIR, m_LogDir);
@@ -526,7 +526,7 @@ BOOL CDynamoRIOView::Refresh()
         m_Exited = _T("  Exited"); // line right end up with Running
     else
         m_Exited = _T("Running");
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
     m_LogLevel.Format(_T("%d"), m_stats->loglevel);
     m_LogMask.Format(_T("0x%05X"), m_stats->logmask);
     m_LogDir.Format(_T("%") ASCII_PRINTF, m_stats->logdir);
@@ -544,7 +544,7 @@ BOOL CDynamoRIOView::Refresh()
     return TRUE;
 }
 
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
 void CDynamoRIOView::OnChangeLogging() 
 {
     if (m_stats == NULL) {
@@ -596,7 +596,7 @@ void CDynamoRIOView::OnLogDirExplore()
         MessageBox(msg, _T("Error"), MB_OK | MYMBFLAGS);
     }
 }
-#endif /* DRGUI_DEMO */
+#endif /* DRSTATS_DEMO */
 
 void CDynamoRIOView::OnEditCopystats() 
 {
@@ -623,7 +623,7 @@ void CDynamoRIOView::OnEditCopystats()
                              _T("\r\n"), m_stats->process_name);
             pos += _stprintf(pos, _T("Status                      = %s\r\n"),
                              m_Exited.GetBuffer(0));
-#ifndef DRGUI_DEMO
+#ifndef DRSTATS_DEMO
             pos += _stprintf(pos, _T("Log mask                    = %s\r\n"),
                              m_LogMask.GetBuffer(0));
             pos += _stprintf(pos, _T("Log level                   = %s\r\n"),

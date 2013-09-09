@@ -40,7 +40,7 @@
 
 #include "configure.h"
 
-#ifndef DRGUI_DEMO /* around whole file */
+#ifndef DRSTATS_DEMO /* around whole file */
 
 #include "stdafx.h"
 #include "DynamoRIO.h"
@@ -984,4 +984,4 @@ void COptionsDlg::OnChangeEditHotThreshold()
     }
 }
 
-#endif /* !DRGUI_DEMO */ /* around whole file */
+#endif /* !DRSTATS_DEMO */ /* around whole file */
