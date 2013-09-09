@@ -135,10 +135,24 @@ bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool trans
     return DR_EMIT_DEFAULT;
 }
 
+/* i#1263 */
+static void
+test_abs_base_disp()
+{
+    opnd_t mem = opnd_create_base_disp(REG_NULL, REG_NULL, 0, -20, OPSZ_4);
+    void *addr;
+    if (!opnd_is_abs_addr(mem))
+        dr_fprintf(STDERR, "ERROR: fail to create abs base disp opnd\n");
+    addr = opnd_get_addr(mem);
+    if ((ptr_int_t)addr != -20)
+        dr_fprintf(STDERR, "ERROR: wong address of abs_base_disp\n");
+}
+
 DR_EXPORT
 void
 dr_init(client_id_t id)
 {
     dr_register_bb_event(bb_event);
+    test_abs_base_disp();
 }
 

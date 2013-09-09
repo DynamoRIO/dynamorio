@@ -648,7 +648,7 @@ opnd_get_addr(opnd_t opnd)
 {
     /* check base-disp first since opnd_is_abs_addr() says yes for it */
     if (opnd_is_abs_base_disp(opnd))
-        return (void *)(ptr_uint_t) opnd_get_disp(opnd);
+        return (void *)(ptr_int_t) opnd_get_disp(opnd);
 #ifdef X64
     if (opnd_is_rel_addr(opnd) || opnd_is_abs_addr(opnd))
         return opnd.value.addr;
@@ -1403,24 +1403,24 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
 {
     reg_id_t base, index;
     int scale, disp;
-    ptr_uint_t seg_base = 0;
-    ptr_uint_t addr = 0;
+    app_pc seg_base = NULL;
+    app_pc addr = NULL;
     CLIENT_ASSERT(opnd_is_memory_reference(opnd),
                   "opnd_compute_address: must pass memory reference");
     if (opnd_is_far_base_disp(opnd)) {
 #ifdef X86
 # ifdef STANDALONE_DECODER
-        seg_base = 0; /* not supported */
+        seg_base = NULL; /* not supported */
 # else
-        seg_base = (ptr_uint_t) get_app_segment_base(opnd_get_segment(opnd));
-        if (seg_base == POINTER_MAX) /* failure */
-            seg_base = 0;
+        seg_base = get_app_segment_base(opnd_get_segment(opnd));
+        if (seg_base == (app_pc) POINTER_MAX) /* failure */
+            seg_base = NULL;
 # endif
 #endif
     }
 #ifdef X64
     if (opnd_is_abs_addr(opnd) || opnd_is_rel_addr(opnd)) {
-        return (app_pc) opnd_get_addr(opnd) + seg_base;
+        return (app_pc) opnd_get_addr(opnd) + (ptr_uint_t) seg_base;
     }
 #endif
     addr = seg_base;
@@ -1433,14 +1433,9 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
     LOG(THREAD_GET, LOG_ALL, 4, "\tbase => "PFX"\n", addr);
     addr += scale * reg_get_value_priv(index, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tindex,scale => "PFX"\n", addr);
-    /* FIXME PR 332730: should disp with no base or index be unsigned
-     * (only matters for x64 or seg_base != 0)?  Certainly not allowed
-     * to subtract from non-zero seg_base but not clear whether it
-     * wraps or what.
-     */
     addr += disp;
     LOG(THREAD_GET, LOG_ALL, 4, "\tdisp => "PFX"\n", addr);
-    return (app_pc) addr;
+    return addr;
 }
 
 DR_API
