@@ -63,7 +63,8 @@
 
 #include "dr_api.h"
 #include "bbcov.h"
-#include "drvector.h"
+#include "../common/modules.h"
+#include "../common/utils.h"
 #include "hashtable.h"
 #include "drtable.h"
 #include "limits.h"
@@ -74,14 +75,11 @@
 # include "drmgr.h"
 #endif
 
-#ifdef DEBUG
-# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#ifdef CBR_COVERAGE
+# define IF_CBR_COVERAGE_ELSE(x, y) x
 #else
-# define ASSERT(x, msg) /* nothing */
+# define IF_CBR_COVERAGE_ELSE(x, y) y
 #endif
-
-/* Checks for both debug and release builds: */
-#define USAGE_CHECK(x, msg) DR_ASSERT_MSG(x, msg)
 
 static uint verbose;
 
@@ -110,20 +108,8 @@ typedef struct _bbcov_option_t {
 } bbcov_option_t;
 static bbcov_option_t options;
 
-#define NUM_GLOBAL_MODULE_CACHE 8
+
 #define NUM_THREAD_MODULE_CACHE 4
-
-typedef struct _module_entry_t {
-    int  id;
-    bool unload; /* if the module is unloaded */
-    module_data_t *data;
-} module_entry_t;
-
-typedef struct _module_table_t {
-    drvector_t vector;
-    /* for quick query without lock, assuming pointer-aligned */
-    module_entry_t *cache[NUM_GLOBAL_MODULE_CACHE];
-} module_table_t;
 
 typedef struct _per_thread_t {
     void *bb_table;
@@ -236,233 +222,6 @@ log_file_create(void *drcontext, per_thread_t *data)
     } else
         data->res = INVALID_FILE;
 #endif
-}
-
-/****************************************************************************
- * Module Table Functions
- */
-
-/* we use direct map cache to avoid locking */
-static inline void
-global_module_cache_add(module_entry_t **cache, module_entry_t *entry)
-{
-    cache[entry->id % NUM_GLOBAL_MODULE_CACHE] = entry;
-}
-
-static inline void
-thread_module_cache_adjust(module_entry_t **cache,
-                           module_entry_t  *entry,
-                           uint pos)
-{
-    uint i;
-    ASSERT(pos < NUM_THREAD_MODULE_CACHE, "wrong pos");
-    for (i = pos; i > 0; i--)
-        cache[i] = cache[i-1];
-    cache[0] = entry;
-}
-
-static inline void
-thread_module_cache_add(module_entry_t **cache, module_entry_t *entry)
-{
-    thread_module_cache_adjust(cache, entry, NUM_THREAD_MODULE_CACHE - 1);
-}
-
-static void
-module_table_entry_free(void *entry)
-{
-    dr_free_module_data(((module_entry_t *)entry)->data);
-    dr_global_free(entry, sizeof(module_entry_t));
-}
-
-static void
-module_table_load(module_table_t *table, const module_data_t *data)
-{
-    module_entry_t *entry = NULL;
-    module_data_t  *mod;
-    int i;
-    /* Some apps repeatedly unload and reload the same module,
-     * so we will try to re-use the old one.
-     */
-    ASSERT(data != NULL, "data must not be NULL");
-    drvector_lock(&table->vector);
-    /* Assuming most recently loaded entries are most likely to be unloaded,
-     * we iterate the module table in a backward way for better performance.
-     */
-    for (i = table->vector.entries-1; i >= 0; i--) {
-        entry = drvector_get_entry(&table->vector, i);
-        mod   = entry->data;
-        if (entry->unload &&
-            /* If the same module is re-loaded at the same address,
-             * we will try to use the existing entry.
-             */
-            mod->start       == data->start        &&
-            mod->end         == data->end          &&
-            mod->entry_point == data->entry_point  &&
-#ifdef WINDOWS
-            mod->checksum    == data->checksum     &&
-            mod->timestamp   == data->timestamp    &&
-#endif
-            /* If a module w/ no name (there are some) is loaded, we will
-             * keep making new entries.
-             */
-            dr_module_preferred_name(data) != NULL &&
-            dr_module_preferred_name(mod)  != NULL &&
-            strcmp(dr_module_preferred_name(data),
-                   dr_module_preferred_name(mod)) == 0) {
-            entry->unload = false;
-            break;
-        }
-        entry = NULL;
-    }
-    if (entry == NULL) {
-        entry = dr_global_alloc(sizeof(*entry));
-        entry->id = table->vector.entries;
-        entry->unload = false;
-        entry->data = dr_copy_module_data(data);
-        drvector_append(&table->vector, entry);
-    }
-    drvector_unlock(&table->vector);
-    global_module_cache_add(table->cache, entry);
-}
-
-static inline bool
-pc_is_in_module(module_entry_t *entry, app_pc pc)
-{
-    if (entry != NULL && !entry->unload && entry->data != NULL) {
-        module_data_t *mod = entry->data;
-        if (pc >= mod->start && pc < mod->end)
-            return true;
-    }
-    return false;
-}
-
-static module_entry_t *
-module_table_lookup(per_thread_t *data, module_table_t *table, app_pc pc)
-{
-    module_entry_t *entry;
-    int i;
-
-    /* We assume we never change an entry's data field, even on unload,
-     * and thus it is ok to check its value without a lock.
-     */
-    /* lookup thread module cache */
-    if (data != NULL) {
-        for (i = 0; i < NUM_THREAD_MODULE_CACHE; i++) {
-            entry = data->cache[i];
-            if (pc_is_in_module(entry, pc)) {
-                if (i > 0)
-                    thread_module_cache_adjust(data->cache, entry, i);
-                return entry;
-            }
-        }
-    }
-    /* lookup global module cache */
-    /* we use a direct map cache, so it is ok to access it without lock */
-    for (i = 0; i < NUM_GLOBAL_MODULE_CACHE; i++) {
-        entry = table->cache[i];
-        if (pc_is_in_module(entry, pc))
-            return entry;
-    }
-    /* lookup module table */
-    entry = NULL;
-    drvector_lock(&table->vector);
-    for (i = table->vector.entries - 1; i >= 0; i--) {
-        entry = drvector_get_entry(&table->vector, i);
-        ASSERT(entry != NULL, "fail to get module entry");
-        if (pc_is_in_module(entry, pc)) {
-            global_module_cache_add(table->cache, entry);
-            if (data != NULL)
-                thread_module_cache_add(data->cache, entry);
-            break;
-        }
-        entry = NULL;
-    }
-    drvector_unlock(&table->vector);
-    return entry;
-}
-
-static void
-module_table_unload(module_table_t *table, const module_data_t *data)
-{
-    module_entry_t *entry = module_table_lookup(NULL, table, data->start);
-    if (entry != NULL) {
-        entry->unload = true;
-    } else {
-        ASSERT(false, "fail to find the module to be unloaded");
-    }
-}
-
-/* assuming caller holds the lock */
-static void
-module_table_entry_print(module_entry_t *entry, file_t log)
-{
-    const char *name;
-    module_data_t *data;
-    const char *full_path = "<unknown>";
-    data = entry->data;
-    name = dr_module_preferred_name(data);
-    if (data->full_path != NULL && data->full_path[0] != '\0')
-        full_path = data->full_path;
-#ifdef CBR_COVERAGE
-    dr_fprintf(log, "%3u, "PFX", "PFX", "PFX", %s, %s",
-               entry->id, data->start, data->end, data->entry_point,
-               (name == NULL || name[0] == '\0') ? "<unknown>" : name,
-               full_path);
-# ifdef WINDOWS
-    dr_fprintf(log, ", 0x%08x, 0x%08x", data->checksum, data->timestamp);
-# endif /* WINDOWS */
-    dr_fprintf(log, "\n");
-#else /* CBR_COVERAGE */
-    dr_fprintf(log, " %u, %llu, %s\n", entry->id,
-               (uint64)(data->end - data->start), full_path);
-#endif /* !CBR_COVERAGE */
-}
-
-static void
-module_table_print(module_table_t *table, file_t log)
-{
-    uint i;
-    module_entry_t *entry;
-    if (log == INVALID_FILE) {
-        /* It is possible that failure on log file creation is caused by the
-         * running process not having enough privilege, so this is not a
-         * release-build fatal error
-         */
-        ASSERT(false, "invalid log file");
-        return;
-    }
-    dr_fprintf(log, "BBCOV VERSION: %d\n", BBCOV_VERSION);
-    drvector_lock(&table->vector);
-    dr_fprintf(log, "Module Table: %u\n", table->vector.entries);
-#ifdef CBR_COVERAGE
-    dr_fprintf(log, "Module Table: id, base, end, entry, unload, name, path");
-# ifdef WINDOWS
-    dr_fprintf(log, ", checksum, timestamp");
-# endif
-    dr_fprintf(log, "\n");
-#endif
-
-    for (i = 0; i < table->vector.entries; i++) {
-        entry = drvector_get_entry(&table->vector, i);
-        module_table_entry_print(entry, log);
-    }
-    drvector_unlock(&table->vector);
-}
-
-static module_table_t *
-module_table_create()
-{
-    module_table_t *table = dr_global_alloc(sizeof(*table));
-    memset(table->cache, 0, sizeof(table->cache));
-    drvector_init(&table->vector, 16, false, module_table_entry_free);
-    return table;
-}
-
-static void
-module_table_destroy(module_table_t *table)
-{
-    drvector_delete(&table->vector);
-    dr_global_free(table, sizeof(*table));
 }
 
 /****************************************************************************
@@ -688,7 +447,10 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start,
                    uint size)
 {
     bb_entry_t *bb_entry = drtable_alloc(data->bb_table, 1, NULL);
-    module_entry_t *mod_entry = module_table_lookup(data, module_table, start);
+    module_entry_t **mod_entry_cache = data != NULL ? data->cache : NULL;
+    module_entry_t *mod_entry = module_table_lookup(mod_entry_cache,
+                                                    NUM_THREAD_MODULE_CACHE,
+                                                    module_table, start);
     /* we do not de-duplicate repeated bbs */
     ASSERT(size < USHRT_MAX, "size overflow");
     bb_entry->size = (ushort)size;
@@ -973,6 +735,20 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 }
 
 static void
+version_print(file_t log)
+{
+    if (log == INVALID_FILE) {
+        /* It is possible that failure on log file creation is caused by the
+         * running process not having enough privilege, so this is not a
+         * release-build fatal error
+         */
+        ASSERT(false, "invalid log file");
+        return;
+    }
+    dr_fprintf(log, "BBCOV VERSION: %d\n", BBCOV_VERSION);
+}
+
+static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
@@ -983,7 +759,9 @@ event_thread_exit(void *drcontext)
     if (bbcov_per_thread) {
         /* print per-thread bbcov info */
         if (options.dump_text || options.dump_binary) {
-            module_table_print(module_table, data->log);
+            version_print(data->log);
+            module_table_print(module_table, data->log,
+                               IF_CBR_COVERAGE_ELSE(true, false));
             bb_table_print(drcontext, data);
         }
 #ifdef CBR_COVERAGE
@@ -1063,7 +841,9 @@ event_exit(void)
 {
     if (!bbcov_per_thread) {
         if (options.dump_text || options.dump_binary) {
-            module_table_print(module_table, global_data->log);
+            version_print(global_data->log);
+            module_table_print(module_table, global_data->log,
+                               IF_CBR_COVERAGE_ELSE(true, false));
             bb_table_print(NULL, global_data);
         }
 #ifdef CBR_COVERAGE

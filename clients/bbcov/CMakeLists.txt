@@ -43,7 +43,11 @@ else()
   set(libtype SHARED)
 endif ()
 
-add_library(bbcov ${libtype} bbcov.c)
+add_library(bbcov ${libtype}
+  bbcov.c
+  ../common/modules.c
+  # add more here
+  )
 configure_DynamoRIO_client(bbcov)
 use_DynamoRIO_extension(bbcov drmgr)
 use_DynamoRIO_extension(bbcov drcontainers)
