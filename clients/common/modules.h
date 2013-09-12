@@ -56,7 +56,7 @@ void
 module_table_load(module_table_t *table, const module_data_t *data);
 
 module_entry_t *
-module_table_lookup(module_entry_t **cache, uint cache_size,
+module_table_lookup(module_entry_t **cache, int cache_size,
                     module_table_t *table, app_pc pc);
 
 void

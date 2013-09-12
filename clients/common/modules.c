@@ -136,7 +136,7 @@ pc_is_in_module(module_entry_t *entry, app_pc pc)
 }
 
 module_entry_t *
-module_table_lookup(module_entry_t **cache, uint cache_size,
+module_table_lookup(module_entry_t **cache, int cache_size,
                     module_table_t *table, app_pc pc)
 {
     module_entry_t *entry;
