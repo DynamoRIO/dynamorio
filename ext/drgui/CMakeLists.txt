@@ -37,10 +37,12 @@
 
 find_package(Qt5Widgets QUIET)
 if (NOT Qt5Widgets_FOUND)
-  message(STATUS "Could NOT find Qt 5: DrGUI will not be built")
+  message(STATUS "WARNING: Could not find Qt 5: DrGUI will NOT be built")
   message(STATUS
-    "Point CMake variable Qt5Widgets_DIR at the Qt5WidgetsConfig.cmake directory")
-else (NOT Qt5Widgets_FOUND)
+    "  Point CMake variable Qt5Widgets_DIR at the Qt5WidgetsConfig.cmake directory")
+elseif ("${CMAKE_VERSION}" VERSION_LESS "2.8.10")
+  message(STATUS "WARNING: CMake version is < 2.8.10: DrGUI will NOT be built")
+else () # Qt5 and CMake 2.8.10+
   # Build Qt Visualizer
   cmake_minimum_required(VERSION 2.8.10)
   message(STATUS "Found Qt 5: DrGUI will be built")
@@ -87,4 +89,4 @@ else (NOT Qt5Widgets_FOUND)
     ${INSTALL_EXT_INCLUDE})
   DR_export_target(drgui)
   install_exported_target(drgui ${INSTALL_EXT_BIN})
-endif (NOT Qt5Widgets_FOUND)
+endif () # Qt5 and CMake 2.8.10+
