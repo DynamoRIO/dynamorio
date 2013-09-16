@@ -942,6 +942,7 @@ bool opnd_same_address(opnd_t op1, opnd_t op2)
     if (op1.kind != op2.kind)
         return false;
     if (!opnd_is_memory_reference(op1) || !opnd_is_memory_reference(op2))
+        return false;
     if (opnd_get_segment(op1) != opnd_get_segment(op2))
         return false;
     if (opnd_is_base_disp(op1)) {
