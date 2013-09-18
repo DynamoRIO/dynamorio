@@ -234,7 +234,7 @@ DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_jmp,
     { LINK_FAKE | LINK_INDIRECT | LINK_JMP, 0 });
 DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_ibl_bb_call,
     { LINK_FAKE | LINK_INDIRECT | LINK_CALL, 0 });
-/* we only need special_*_ret and *_call for client_ibl and native_plt_ibl */
+/* we only need special_*_ret and *_call for client_ibl and native_plt/ret_ibl */
 DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_ret,
     { LINK_FAKE | LINK_INDIRECT | LINK_RETURN, 0 } /* client_ibl */);
 DECLARE_NEVERPROT_VAR(static const linkstub_t linkstub_special_ibl_bb_call,

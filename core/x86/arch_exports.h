@@ -1213,6 +1213,9 @@ get_client_ibl_xfer_entry(dcontext_t *dcontext);
 #ifdef UNIX
 cache_pc
 get_native_plt_ibl_xfer_entry(dcontext_t *dcontext);
+
+cache_pc
+get_native_ret_ibl_xfer_entry(dcontext_t *dcontext);
 #endif
 
 

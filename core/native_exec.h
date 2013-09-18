@@ -84,6 +84,15 @@ native_module_hook(module_area_t *ma, bool at_map);
 void
 native_module_unhook(module_area_t *ma);
 
+#ifdef UNIX
+void
+native_module_nonnative_mod_unload(module_area_t *ma);
+
+/* get (create if not exist) a ret_stub for tgt */
+app_pc
+native_module_get_ret_stub(dcontext_t *dcontext, app_pc ret_tgt);
+#endif
+
 /* Update next_tag with the real app return address. */
 void
 interpret_back_from_native(dcontext_t *dcontext);

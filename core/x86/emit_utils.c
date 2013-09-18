@@ -7860,8 +7860,6 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 /***************************************************************************
  * SPECIAL IBL XFER ROUTINES
  */
-const int client_ibl_idx = 0;
-const int native_plt_ibl_idx = 1;
 
 static inline byte *
 special_ibl_xfer_tgt(dcontext_t *dcontext, generated_code_t *code,
@@ -8030,23 +8028,31 @@ relink_special_ibl_xfer(dcontext_t *dcontext, int index,
 void
 link_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, client_ibl_idx,
+    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX,
                                                 IBL_LINKED, IBL_RETURN);)
+#ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
-        IF_UNIX(relink_special_ibl_xfer(dcontext, native_plt_ibl_idx,
-                                        IBL_LINKED, IBL_INDCALL);)
+        relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX,
+                                IBL_LINKED, IBL_INDCALL);
+        relink_special_ibl_xfer(dcontext, NATIVE_RET_IBL_IDX,
+                                IBL_LINKED, IBL_RETURN);
     }
+#endif
 }
 
 void
 unlink_special_ibl_xfer(dcontext_t *dcontext)
 {
-    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, client_ibl_idx,
+    IF_CLIENT_INTERFACE(relink_special_ibl_xfer(dcontext, CLIENT_IBL_IDX,
                                                 IBL_UNLINKED, IBL_RETURN);)
+#ifdef UNIX
     if (DYNAMO_OPTION(native_exec_opt)) {
-        IF_UNIX(relink_special_ibl_xfer(dcontext, native_plt_ibl_idx,
-                                        IBL_UNLINKED, IBL_INDCALL);)
+        relink_special_ibl_xfer(dcontext, NATIVE_PLT_IBL_IDX,
+                                IBL_UNLINKED, IBL_INDCALL);
+        relink_special_ibl_xfer(dcontext, NATIVE_RET_IBL_IDX,
+                                IBL_UNLINKED, IBL_RETURN);
     }
+#endif
 }
 
 
@@ -8056,7 +8062,7 @@ byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
     /* The client puts the target in SPILL_SLOT_REDIRECT_NATIVE_TGT. */
-    return emit_special_ibl_xfer(dcontext, pc, code, client_ibl_idx,
+    return emit_special_ibl_xfer(dcontext, pc, code, CLIENT_IBL_IDX,
                                  IBL_RETURN, NULL,
                                  reg_spill_slot_opnd
                                  (dcontext, SPILL_SLOT_REDIRECT_NATIVE_TGT));
@@ -8297,6 +8303,12 @@ insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *wh
                                               (ptr_int_t) WHERE_FCACHE, OPSZ_4));
 }
 
+/* Emit code to transfer execution from native module to code cache of non-native
+ * module via plt calls.
+ * The emitted code update some fields of dcontext like whereami and last_exit,
+ * and jump to ibl looking for target code fragment.
+ * We assume %XAX holds the target and can be clobbered.
+ */
 byte *
 emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
@@ -8308,23 +8320,31 @@ emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
     insert_entering_non_native(dcontext, &ilist, NULL, REG_NULL, REG_XAX);
     insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
-    return emit_special_ibl_xfer(dcontext, pc, code, native_plt_ibl_idx,
+    return emit_special_ibl_xfer(dcontext, pc, code, NATIVE_PLT_IBL_IDX,
                                  IBL_INDCALL, &ilist, tgt);
 }
 
-void
-link_native_plt_ibl_xfer(dcontext_t *dcontext)
+/* Emit code to transfer execution from native module to code cache of non-native
+ * module via return.
+ * The emitted code update some fields of dcontext like whereami and last_exit,
+ * and jump to ibl looking for target code fragment.
+ * We assume %XAX holds the target and must be restored from TLS_XAX_SLOT before
+ * jumpping to ibl.
+ */
+byte *
+emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
 {
-    if (!DYNAMO_OPTION(native_exec_opt))
-        return;
-    relink_special_ibl_xfer(dcontext, native_plt_ibl_idx, IBL_LINKED, IBL_INDCALL);
-}
+    instrlist_t ilist;
+    opnd_t tgt = opnd_create_reg(REG_XAX);
 
-void
-unlink_native_plt_ibl_xfer(dcontext_t *dcontext)
-{
-    if (!DYNAMO_OPTION(native_exec_opt))
-        return;
-    relink_special_ibl_xfer(dcontext, native_plt_ibl_idx, IBL_UNLINKED, IBL_INDCALL);
+    ASSERT(DYNAMO_OPTION(native_exec_opt));
+    instrlist_init(&ilist);
+    insert_shared_get_dcontext(dcontext, &ilist, NULL, true);
+    insert_entering_non_native(dcontext, &ilist, NULL, REG_NULL, REG_XAX);
+    insert_shared_restore_dcontext_reg(dcontext, &ilist, NULL);
+    /* restore xax */
+    APP(&ilist, instr_create_restore_from_tls(dcontext, REG_XAX, TLS_XAX_SLOT));
+    return emit_special_ibl_xfer(dcontext, pc, code, NATIVE_RET_IBL_IDX,
+                                 IBL_RETURN, &ilist, tgt);
 }
 #endif

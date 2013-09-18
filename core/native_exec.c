@@ -158,8 +158,14 @@ void
 native_exec_module_unload(module_area_t *ma)
 {
     bool is_native = check_and_mark_native_exec(ma, false/*!add*/);
-    if (is_native && DYNAMO_OPTION(native_exec_retakeover))
-        native_module_unhook(ma);
+    if (DYNAMO_OPTION(native_exec_retakeover)) {
+        if (is_native)
+            native_module_unhook(ma);
+#ifdef UNIX
+        else
+            native_module_nonnative_mod_unload(ma);
+#endif
+    }
 }
 
 /* Clean call called on every fcache to native transition.  Turns on and off
@@ -198,14 +204,35 @@ entering_native(dcontext_t *dcontext)
     STATS_INC(num_native_module_enter);
 }
 
-void
-call_to_native(app_pc *sp)
+/* We replace the actual return target on the app stack with a stub pc
+ * so that the control transfer back to code cache or DR after native module
+ * returns.
+ */
+static bool
+prepare_return_from_native_via_stub(dcontext_t *dcontext, app_pc *app_sp)
 {
-    dcontext_t *dcontext;
+#ifdef UNIX
+    app_pc stub_pc;
+    ASSERT(DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp));
+    /* i#1238-c#4: the inline asm stub does not support kstats, so we
+     * only support it when native_exec_opt is on, which turns kstats off.
+     */
+    if (!DYNAMO_OPTION(native_exec_opt))
+        return false;
+    stub_pc = native_module_get_ret_stub(dcontext, *app_sp);
+    if (stub_pc == NULL)
+        return false;
+    *app_sp = stub_pc;
+    return true;
+#endif
+    return false;
+}
+
+static void
+prepare_return_from_native_via_stack(dcontext_t *dcontext, app_pc *app_sp)
+{
     uint i;
-    ENTERING_DR();
-    dcontext = get_thread_private_dcontext();
-    ASSERT(dcontext != NULL);
+    ASSERT(DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp));
     /* Push the retaddr and stack location onto our stack.  The current entry
      * should be free and we should have enough space.
      * XXX: it would be nice to abort in a release build, but this can be perf
@@ -213,6 +240,25 @@ call_to_native(app_pc *sp)
      */
     i = dcontext->native_retstack_cur;
     ASSERT(i < MAX_NATIVE_RETSTACK);
+    dcontext->native_retstack[i].retaddr = *app_sp;
+    dcontext->native_retstack[i].retloc = (app_pc) app_sp;
+    dcontext->native_retstack_cur = i + 1;
+    /* i#978: We use a different return stub for every nested call to native
+     * code.  Each stub pushes a different index into the retstack.  We could
+     * use the SP at return time to try to find the app's return address, but
+     * because of ret imm8 instructions, that's not robust.
+     */
+    *app_sp = retstub_start + i * BACK_FROM_NATIVE_RETSTUB_SIZE;
+}
+
+void
+call_to_native(app_pc *app_sp)
+{
+    dcontext_t *dcontext;
+
+    ENTERING_DR();
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
     /* i#1090: If the return address is also in a native module, then leave it
      * alone.  This happens on:
      * - native call
@@ -221,19 +267,15 @@ call_to_native(app_pc *sp)
      * - native ret                     # should stay native
      * XXX: Doing a vmvector binary search on every call to native is expensive.
      */
-    if (!is_native_pc(*sp)) {
-        dcontext->native_retstack[i].retaddr = *sp;
-        dcontext->native_retstack[i].retloc = (app_pc) sp;
-        dcontext->native_retstack_cur = i + 1;
-        /* i#978: We use a different return stub for every nested call to native
-         * code.  Each stub pushes a different index into the retstack.  We could
-         * use the SP at return time to try to find the app's return address, but
-         * because of ret imm8 instructions, that's not robust.
+    if (DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp)) {
+        /* We try to use stub for fast return-from-native handling, if fails 
+         * (e.g., on Windows or optimization disabled), fall back to use the stack.
          */
-        *sp = retstub_start + i * BACK_FROM_NATIVE_RETSTUB_SIZE;
+        if (!prepare_return_from_native_via_stub(dcontext, app_sp))
+            prepare_return_from_native_via_stack(dcontext, app_sp);
     }
     LOG(THREAD, LOG_ASYNCH, 1,
-        "!!!! Entering module NATIVELY, retaddr="PFX"\n\n", *sp);
+        "!!!! Entering module NATIVELY, retaddr="PFX"\n\n", *app_sp);
     entering_native(dcontext);
     EXITING_DR();
 }

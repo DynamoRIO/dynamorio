@@ -38,10 +38,19 @@
 #include "module.h"
 #include "instr.h"
 #include "instr_create.h"
+#include "instrument.h" /* instrlist_meta_append */
 #include "decode.h"
 #include "disassemble.h"
+#include "../hashtable.h"
 
 #include <link.h>  /* for struct link_map */
+#include <stddef.h> /* offsetof */
+
+#ifndef X86
+# error X86-only!
+#endif
+
+#define APP  instrlist_meta_append
 
 /* According to the SysV amd64 psABI docs[1], there are three reserved entries
  * in the PLTGOT:
@@ -85,10 +94,27 @@ static byte plt_stub_template[MAX_STUB_SIZE];
 static uint plt_stub_immed_offset;
 static uint plt_stub_jmp_tgt_offset;
 static size_t plt_stub_size = MAX_STUB_SIZE;
-static app_pc stub_heap;
+static app_pc plt_stub_heap;
 #ifdef X64
-static app_pc reachability_stub;
+static app_pc plt_reachability_stub;
 #endif
+
+/* stub code for transfer ret from native module to DR
+ * 0x558ed060:  movabs %rax,%gs:0x0         // save xax
+ * 0x558ed06b:  movabs $0x7f22caf2d5e3,%rax // put target into xax
+ * 0x558ed075:  jmpq   0x558bfd80           // jmp to ibl_xfer
+ * 0x558ed07a:  ...
+ */
+static const size_t ret_stub_size = 0x20;
+static app_pc ret_stub_heap;
+/* hashtable for native-exec return target
+ * - key: the return target in the non-native module
+ * - payload: code stub for the return target.
+ *   The payload will not be freed until the corrsesponding module is unloaded,
+ *   so we can use it (storing it on the app stack) without holding the table lock.
+ */
+static generic_table_t *native_ret_table;
+#define INIT_HTABLE_SIZE_NERET 6 /* should remain small */
 
 static bool
 module_contains_pc(module_area_t *ma, app_pc pc)
@@ -275,7 +301,7 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
 static app_pc
 create_plt_stub(app_pc plt_target)
 {
-    app_pc stub_pc = special_heap_alloc(stub_heap);
+    app_pc stub_pc = special_heap_alloc(plt_stub_heap);
     app_pc *tgt_immed;
     app_pc jmp_tgt;
 
@@ -288,7 +314,7 @@ create_plt_stub(app_pc plt_target)
     *tgt_immed = plt_target;
 #ifdef X64
     /* This is a reladdr operand, which we patch in just the same way. */
-    insert_relative_target(jmp_tgt, reachability_stub, false/*!hotpatch*/);
+    insert_relative_target(jmp_tgt, plt_reachability_stub, false/*!hotpatch*/);
 #else
     insert_relative_target(jmp_tgt, (app_pc) native_plt_call,
                            false/*!hotpatch*/);
@@ -304,7 +330,7 @@ destroy_plt_stub(app_pc stub_pc)
     app_pc orig_tgt;
     app_pc *tgt_immed = (app_pc *) (stub_pc + plt_stub_immed_offset);
     orig_tgt = *tgt_immed;
-    special_heap_free(stub_heap, stub_pc);
+    special_heap_free(plt_stub_heap, stub_pc);
     return orig_tgt;
 }
 
@@ -323,12 +349,12 @@ plt_reloc_entry_size(ELF_WORD pltrel)
 }
 
 static bool
-is_special_stub(app_pc stub_pc)
+is_special_plt_stub(app_pc stub_pc)
 {
     special_heap_iterator_t shi;
     bool found = false;
     /* XXX: this acquires a lock in a nested loop. */
-    special_heap_iterator_start(stub_heap, &shi);
+    special_heap_iterator_start(plt_stub_heap, &shi);
     while (special_heap_iterator_hasnext(&shi)) {
         app_pc start, end;
         special_heap_iterator_next(&shi, &start, &end);
@@ -372,7 +398,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
             /* XXX: pull the ranges out of the heap up front to avoid lock
              * acquisitions.
              */
-            if (is_special_stub(gotval)) {
+            if (is_special_plt_stub(gotval)) {
                 *r_addr = destroy_plt_stub(gotval);
             }
         }
@@ -510,17 +536,27 @@ native_module_init(void)
 {
     if (!DYNAMO_OPTION(native_exec_retakeover))
         return;
-    ASSERT(stub_heap == NULL && "init should only happen once");
+    ASSERT(plt_stub_heap == NULL && "init should only happen once");
     initialize_plt_stub_template();
-    stub_heap = special_heap_init(plt_stub_size, true/*locked*/,
-                                  true/*executable*/, true/*persistent*/);
+    plt_stub_heap = special_heap_init(plt_stub_size, true/*locked*/,
+                                      true/*executable*/, true/*persistent*/);
 #ifdef X64
     /* i#719: native_plt_call may not be reachable from the stub heap, so we
      * indirect through this "stub".
      */
-    reachability_stub = special_heap_alloc(stub_heap);
-    *((app_pc*)reachability_stub) = (app_pc)native_plt_call;
+    plt_reachability_stub = special_heap_alloc(plt_stub_heap);
+    *((app_pc*)plt_reachability_stub) = (app_pc)native_plt_call;
 #endif
+
+    ASSERT(ret_stub_heap == NULL && "init should only happen once");
+    ret_stub_heap = special_heap_init(ret_stub_size,
+                                      true /* locked */,
+                                      true /* exectable */,
+                                      true /* persistent */);
+    native_ret_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NERET,
+                                           50 /* load factor: perf-critical */,
+                                           HASHTABLE_SHARED,
+                                           NULL _IF_DEBUG("neret table"));
 }
 
 void
@@ -531,6 +567,10 @@ native_module_exit(void)
      */
     module_iterator_t *mi;
     module_area_t *ma;
+    int iter;
+    void *stub_pc;
+    ptr_uint_t key;
+
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
          ma = module_iterator_next(mi);
@@ -541,15 +581,141 @@ native_module_exit(void)
     module_iterator_stop(mi);
 
 #ifdef X64
-    if (reachability_stub != NULL) {
-        special_heap_free(stub_heap, reachability_stub);
-        reachability_stub = NULL;
+    if (plt_reachability_stub != NULL) {
+        special_heap_free(plt_stub_heap, plt_reachability_stub);
+        plt_reachability_stub = NULL;
     }
 #endif
 
-    if (stub_heap != NULL) {
-        special_heap_exit(stub_heap);
-        stub_heap = NULL;
+    if (plt_stub_heap != NULL) {
+        special_heap_exit(plt_stub_heap);
+        plt_stub_heap = NULL;
+    }
+
+    /* free ret_stub_heap */
+    if (native_ret_table != NULL) {
+        TABLE_RWLOCK(native_ret_table, write, lock);
+        iter = 0;
+        do {
+            iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, native_ret_table,
+                                             iter, &key, &stub_pc);
+            if (iter < 0)
+                break;
+            /* remove from hashtable */
+            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, native_ret_table,
+                                               iter, key);
+            /* free stub from special heap */
+            special_heap_free(ret_stub_heap, stub_pc);
+        } while (true);
+        TABLE_RWLOCK(native_ret_table, write, unlock);
+        generic_hash_destroy(GLOBAL_DCONTEXT, native_ret_table);
+        native_ret_table = NULL;
+    }
+    if (ret_stub_heap != NULL) {
+        special_heap_exit(ret_stub_heap);
+        ret_stub_heap = NULL;
     }
 }
 
+/* called on unloading a non-native module */
+void
+native_module_nonnative_mod_unload(module_area_t *ma)
+{
+    int iter;
+    app_pc stub_pc, pc;
+    ASSERT(DYNAMO_OPTION(native_exec_retakeover) &&
+           DYNAMO_OPTION(native_exec_opt));
+    TABLE_RWLOCK(native_ret_table, write, lock);
+    iter = 0;
+    do {
+        bool remove = false;
+        os_module_data_t *os_data;
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, native_ret_table, iter,
+                                         (ptr_uint_t *)&pc,
+                                         (void **)&stub_pc);
+        if (iter < 0)
+            break;
+        if (pc < ma->start || pc >= ma->end)
+            continue;
+        os_data = &ma->os_data;
+        if (os_data->contiguous)
+            remove = true;
+        else {
+            int i;
+            for (i = 0; i < os_data->num_segments; i++) {
+                if (pc >= os_data->segments[i].start &&
+                    pc <  os_data->segments[i].end) {
+                    remove = true;
+                    break;
+                }
+            }
+        }
+        /* remove from hashtable */
+        if (remove) {
+            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, native_ret_table,
+                                               iter, (ptr_uint_t)pc);
+            special_heap_free(ret_stub_heap, pc);
+        }
+    } while (true);
+    TABLE_RWLOCK(native_ret_table, write, unlock);
+}
+
+/* We create a ret_stub for each return target of the call site from non-native
+ * module to native modue. The stub_pc will replace the real return target so that
+ * DR can regain the control after the native module returns.
+ */
+static app_pc
+special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
+{
+    instrlist_t ilist;
+    app_pc stub_pc, pc;
+
+    /* alloc and encode special ret stub */
+    stub_pc = special_heap_alloc(ret_stub_heap);
+
+    instrlist_init(&ilist);
+    /* we need to steal xax register, xax restore is in the ibl_xfer code from
+     * emit_native_ret_ibl_xfer.
+     */
+    APP(&ilist, instr_create_save_to_tls(dcontext, REG_XAX, TLS_XAX_SLOT));
+    /* the rest is similar to opt_plt_stub */
+    /* mov tgt => XAX */
+    APP(&ilist, INSTR_CREATE_mov_imm(dcontext,
+                                     opnd_create_reg(REG_XAX),
+                                     OPND_CREATE_INTPTR(tgt)));
+    /* jmp native_ret_ibl */
+    APP(&ilist, INSTR_CREATE_jmp(dcontext,
+                                 opnd_create_pc
+                                 (get_native_ret_ibl_xfer_entry(dcontext))));
+    pc = instrlist_encode(dcontext, &ilist, stub_pc, false);
+    instrlist_clear(dcontext, &ilist);
+
+    TABLE_RWLOCK(native_ret_table, write, lock);
+    /* lookup again */
+    pc = (app_pc) generic_hash_lookup(GLOBAL_DCONTEXT, native_ret_table, (ptr_uint_t)tgt);
+    if (pc != NULL) {
+        TABLE_RWLOCK(native_ret_table, write, unlock);
+        /* we found one, delete current one, and return the one we found */
+        special_heap_free(ret_stub_heap, stub_pc);
+        return pc;
+    }
+    generic_hash_add(GLOBAL_DCONTEXT, native_ret_table, (ptr_uint_t)tgt, (void *)stub_pc);
+    TABLE_RWLOCK(native_ret_table, write, unlock);
+    return stub_pc;
+}
+
+/* get (create if not exist) a ret_stub for the return target: tgt */
+app_pc
+native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
+{
+    app_pc stub_pc;
+
+    TABLE_RWLOCK(native_ret_table, read, lock);
+    stub_pc = (app_pc) generic_hash_lookup(GLOBAL_DCONTEXT, native_ret_table,
+                                           (ptr_uint_t)tgt);
+    TABLE_RWLOCK(native_ret_table, read, unlock);
+    if (stub_pc == NULL)
+        stub_pc = special_ret_stub_create(dcontext, tgt);
+    ASSERT(stub_pc != NULL);
+    return stub_pc;
+}

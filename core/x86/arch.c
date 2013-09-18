@@ -183,12 +183,14 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
             else if (last_pc == code->trace_head_return_coarse)
                 print_file(file, "trace_head_return_coarse:\n");
 # ifdef CLIENT_INTERFACE
-            else if (last_pc == code->special_ibl_xfer[client_ibl_idx])
+            else if (last_pc == code->special_ibl_xfer[CLIENT_IBL_IDX])
                 print_file(file, "client_ibl_xfer:\n");
 # endif
 # ifdef UNIX
-            else if (last_pc == code->special_ibl_xfer[native_plt_ibl_idx])
+            else if (last_pc == code->special_ibl_xfer[NATIVE_PLT_IBL_IDX])
                 print_file(file, "native_plt_ibl_xfer:\n");
+            else if (last_pc == code->special_ibl_xfer[NATIVE_RET_IBL_IDX])
+                print_file(file, "native_ret_ibl_xfer:\n");
 # endif
             else if (last_pc == code->clean_call_save)
                 print_file(file, "clean_call_save:\n");
@@ -465,15 +467,19 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
 
     if (!special_ibl_xfer_is_thread_private()) {
 #ifdef CLIENT_INTERFACE
-        gencode->special_ibl_xfer[client_ibl_idx] = pc;
+        gencode->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
 #endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
             pc = check_size_and_cache_line(gencode, pc);
-            gencode->special_ibl_xfer[native_plt_ibl_idx] = pc;
+            gencode->special_ibl_xfer[NATIVE_PLT_IBL_IDX] = pc;
             pc = emit_native_plt_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
+            /* native ret */
+            pc = check_size_and_cache_line(gencode, pc);
+            gencode->special_ibl_xfer[NATIVE_RET_IBL_IDX] = pc;
+            pc = emit_native_ret_ibl_xfer(GLOBAL_DCONTEXT, pc, gencode);
         }
 #endif
     }
@@ -1127,15 +1133,19 @@ arch_thread_init(dcontext_t *dcontext)
 
     if (special_ibl_xfer_is_thread_private()) {
 #ifdef CLIENT_INTERFACE
-        code->special_ibl_xfer[client_ibl_idx] = pc;
+        code->special_ibl_xfer[CLIENT_IBL_IDX] = pc;
         pc = emit_client_ibl_xfer(dcontext, pc, code);
 #endif
 #ifdef UNIX
         /* i#1238: native exec optimization */
         if (DYNAMO_OPTION(native_exec_opt)) {
             pc = check_size_and_cache_line(code, pc);
-            code->special_ibl_xfer[native_plt_ibl_idx] = pc;
+            code->special_ibl_xfer[NATIVE_PLT_IBL_IDX] = pc;
             pc = emit_native_plt_ibl_xfer(dcontext, pc, code);
+            /* native ret */
+            pc = check_size_and_cache_line(code, pc);
+            code->special_ibl_xfer[NATIVE_RET_IBL_IDX] = pc;
+            pc = emit_native_ret_ibl_xfer(dcontext, pc, code);
         }
 #endif
     }
@@ -1695,7 +1705,7 @@ get_special_ibl_xfer_entry(dcontext_t *dcontext, int index)
 cache_pc
 get_client_ibl_xfer_entry(dcontext_t *dcontext)
 {
-    return get_special_ibl_xfer_entry(dcontext, client_ibl_idx);
+    return get_special_ibl_xfer_entry(dcontext, CLIENT_IBL_IDX);
 }
 #endif
 
@@ -1703,7 +1713,13 @@ get_client_ibl_xfer_entry(dcontext_t *dcontext)
 cache_pc
 get_native_plt_ibl_xfer_entry(dcontext_t *dcontext)
 {
-    return get_special_ibl_xfer_entry(dcontext, native_plt_ibl_idx);
+    return get_special_ibl_xfer_entry(dcontext, NATIVE_PLT_IBL_IDX);
+}
+
+cache_pc
+get_native_ret_ibl_xfer_entry(dcontext_t *dcontext)
+{
+    return get_special_ibl_xfer_entry(dcontext, NATIVE_RET_IBL_IDX);
 }
 #endif
 

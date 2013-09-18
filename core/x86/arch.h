@@ -586,9 +586,10 @@ typedef struct ibl_code_t {
 } ibl_code_t;
 
 /* special ibls */
-#define NUM_SPECIAL_IBL_XFERS 2 /* client_ibl and native_plt_ibl */
-extern const int client_ibl_idx;
-extern const int native_plt_ibl_idx;
+#define NUM_SPECIAL_IBL_XFERS 3 /* client_ibl and native_plt/ret__ibl */
+#define CLIENT_IBL_IDX     0
+#define NATIVE_PLT_IBL_IDX 1
+#define NATIVE_RET_IBL_IDX 2
 
 /* Each thread needs its own copy of these routines, but not all
  * routines here are created in a thread-private: we could save space
@@ -914,6 +915,9 @@ emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #ifdef UNIX
 byte *
 emit_native_plt_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+
+byte *
+emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
 
 /* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */
