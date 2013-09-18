@@ -1531,6 +1531,8 @@ privload_disable_console_init(privmod_t *mod)
              * XXX: build full CFG.
              */
             for (pc = tgt; pc < tgt + MAX_DECODE; ) {
+                if (count++ > MAX_INSTR_COUNT)
+                    break; /* bail */
                 instr_reset(dcontext, &instr);
                 prev_pc = pc;
                 pc = decode(dcontext, pc, &instr);
@@ -1541,6 +1543,13 @@ privload_disable_console_init(privmod_t *mod)
                     tgt = opnd_get_pc(instr_get_target(&instr));
                     pc = tgt;
                     first_jcc = true;
+                    continue;
+                }
+                /* Follow direct jumps, which is required on win7x86 (i#556c#5).
+                 * MAX_INSTR_COUNT avoids infinite loop on backward jmp.
+                 */
+                if (instr_is_ubr(&instr)) {
+                    pc = opnd_get_pc(instr_get_target(&instr));
                     continue;
                 }
                 if (instr_get_opcode(&instr) == OP_lea &&
