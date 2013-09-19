@@ -144,6 +144,7 @@ char **our_environ;
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../synch.h"
+#include "memquery.h"
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -298,11 +299,6 @@ static bool fault_handling_initialized;
 uint kilo_hertz; /* cpu clock speed */
 #endif
 
-/* lock to guard reads from /proc/self/maps in get_memory_info_from_os(). */
-static mutex_t memory_info_buf_lock = INIT_LOCK_FREE(memory_info_buf_lock);
-/* lock for iterator where user needs to allocate memory */
-static mutex_t maps_iter_buf_lock = INIT_LOCK_FREE(maps_iter_buf_lock);
-
 /* Xref PR 258731, dup of STDOUT/STDERR in case app wants to close them. */
 DR_API file_t our_stdout = STDOUT_FILENO;
 DR_API file_t our_stderr = STDERR_FILENO;
@@ -354,40 +350,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 
 static char *
 read_proc_self_exe(bool ignore_cache);
-
-/* Iterator over /proc/self/maps
- * Called at arbitrary places, so cannot use fopen.
- * The whole thing is serialized, so entries cannot be referenced
- * once the iteration ends.
- */
-typedef struct _maps_iter_t {
-    app_pc vm_start;
-    app_pc vm_end;
-    uint prot;
-    size_t offset; /* offset into the file being mapped */
-    uint64 inode; /* FIXME - use ino_t?  We need to know what size code to use for the
-                   * scanf and I don't trust that we, the maps file, and any clients
-                   * will all agree on its size since it seems to be defined differently
-                   * depending on whether large file support is compiled in etc.  Just
-                   * using uint64 might be safer (see also inode in module_names_t). */
-    const char *comment; /* usually file name with path, but can also be [vsdo] for the
-                          * vsyscall page */
-    /* for internal use by the iterator.  we could make these static,
-     * since we only support one concurrent iterator, but then we have
-     * .data protection complexities.
-     */
-    bool may_alloc;
-    file_t maps;
-    char *newline;
-    int bufread;
-    int bufwant;
-    char *buf;
-    char *comment_buffer;
-} maps_iter_t;
-
-static bool maps_iterator_start(maps_iter_t *iter, bool may_alloc);
-static void maps_iterator_stop(maps_iter_t *iter);
-static bool maps_iterator_next(maps_iter_t *iter);
 
 /* Libc independent directory iterator, similar to readdir.  If we ever need
  * this on Windows we should generalize it and export it to clients.
@@ -1062,12 +1024,11 @@ void
 os_slow_exit(void)
 {
     signal_exit();
+    memquery_exit();
 
     generic_hash_destroy(GLOBAL_DCONTEXT, fd_table);
     fd_table = NULL;
 
-    DELETE_LOCK(memory_info_buf_lock);
-    DELETE_LOCK(maps_iter_buf_lock);
     DELETE_LOCK(set_thread_area_lock);
 #ifdef CLIENT_INTERFACE
     DELETE_LOCK(client_tls_lock);
@@ -2730,7 +2691,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 /* translate permission string to platform independent protection bits */
-static inline uint
+uint
 permstr_to_memprot(const char * const perm)
 {
     uint mem_prot = 0;
@@ -3024,14 +2985,14 @@ static bool
 find_free_memory_in_region(byte *start, byte *end, size_t size,
                            byte **found_start OUT, byte **found_end OUT)
 {
-    maps_iter_t iter;
+    memquery_iter_t iter;
     /* XXX: despite /proc/sys/vm/mmap_min_addr == PAGE_SIZE, mmap won't
      * give me that address if I use it as a hint.
      */
     app_pc last_end = (app_pc) (PAGE_SIZE*16);
     bool found = false;
-    maps_iterator_start(&iter, false/*won't alloc*/);
-    while (maps_iterator_next(&iter)) {
+    memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
+    while (memquery_iterator_next(&iter)) {
         if (iter.vm_start >= start &&
             MIN(iter.vm_start, end) - MAX(last_end, start) >= size) {
             if (found_start != NULL)
@@ -3045,7 +3006,7 @@ find_free_memory_in_region(byte *start, byte *end, size_t size,
             break;
         last_end = iter.vm_end;
     }
-    maps_iterator_stop(&iter);
+    memquery_iterator_stop(&iter);
     return found;
 }
 
@@ -6704,7 +6665,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                 * read, so pass size=0 to use a safe_read.
                 */
                is_elf_so_header(base, 0)) {
-        maps_iter_t iter;
+        memquery_iter_t iter;
         bool found_map = false;;
         uint64 inode = 0;
         const char *filename = "";
@@ -6736,8 +6697,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * and only notify the client after the last one (though that's still before
          * linking and relocation, but that's true on Windows too). */
         /* Get filename & inode for the list. */
-        maps_iterator_start(&iter, true /* plan to alloc a module_area_t */);
-        while (maps_iterator_next(&iter)) {
+        memquery_iterator_start(&iter, base, true /* plan to alloc a module_area_t */);
+        while (memquery_iterator_next(&iter)) {
             if (iter.vm_start == base) {
                 ASSERT_CURIOSITY(iter.inode != 0);
                 ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
@@ -6750,7 +6711,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                 break;
             }
         }
-        maps_iterator_stop(&iter);
+        memquery_iterator_stop(&iter);
 #ifdef HAVE_PROC_MAPS
         ASSERT_CURIOSITY(found_map); /* barring weird races we should find this map */
 #else /* HAVE_PROC_MAPS */
@@ -6766,7 +6727,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * Note: visor implements vsi mem maps that give file info, but, no 
          *       path, should be ok.  xref PR 401580.
          *
-         * Once PR 235433 is implemented in visor then fix maps_iterator*() to
+         * Once PR 235433 is implemented in visor then fix memquery_iterator*() to
          * use vsi to find out page protection info, file name & inode.
          */
 #endif /* HAVE_PROC_MAPS */
@@ -7484,216 +7445,6 @@ post_system_call(dcontext_t *dcontext)
     dcontext->whereami = old_whereami;
 }
 
-/***************************************************************************/
-#ifdef HAVE_PROC_MAPS
-/* Memory areas provided by kernel in /proc */
-
-/* On all supported linux kernels /proc/self/maps -> /proc/$pid/maps 
- * However, what we want is /proc/$tid/maps, so we can't use "self"
- */
-#define PROC_SELF_MAPS "/proc/self/maps"
-
-/* these are defined in /usr/src/linux/fs/proc/array.c */
-#define MAPS_LINE_LENGTH        4096
-/* for systems with sizeof(void*) == 4: */
-#define MAPS_LINE_FORMAT4         "%08lx-%08lx %s %08lx %*s "UINT64_FORMAT_STRING" %4096s"
-#define MAPS_LINE_MAX4  49 /* sum of 8  1  8  1 4 1 8 1 5 1 10 1 */
-/* for systems with sizeof(void*) == 8: */
-#define MAPS_LINE_FORMAT8         "%016lx-%016lx %s %016lx %*s "UINT64_FORMAT_STRING" %4096s"
-#define MAPS_LINE_MAX8  73 /* sum of 16  1  16  1 4 1 16 1 5 1 10 1 */
-
-#define MAPS_LINE_MAX   MAPS_LINE_MAX8
-
-/* can't use fopen -- strategy: read into buffer, look for newlines.
- * fail if single line too large for buffer -- so size it appropriately:
- */
-/* since we're called from signal handler, etc., keep our stack usage
- * low by using static bufs (it's over 4K after all).
- * FIXME: now we're using 16K right here: should we shrink?
- */
-#define BUFSIZE (MAPS_LINE_LENGTH+8)
-static char buf_scratch[BUFSIZE];
-static char comment_buf_scratch[BUFSIZE];
-/* To satisfy our two uses (inner use with memory_info_buf_lock versus
- * outer use with maps_iter_buf_lock), we have two different locks and
- * two different sets of static buffers.  This is to avoid lock
- * ordering issues: we need an inner lock for use in places like signal
- * handlers, but an outer lock when the iterator user allocates memory.
- */
-static char buf_iter[BUFSIZE];
-static char comment_buf_iter[BUFSIZE];
-#endif /* HAVE_PROC_MAPS */
-
-static bool
-maps_iterator_start(maps_iter_t *iter, bool may_alloc)
-{
-#ifdef HAVE_PROC_MAPS
-    char maps_name[24]; /* should only need 16 for 5-digit tid */
-
-    /* Don't assign the local ptrs until the lock is grabbed to make
-     * their relationship clear. */
-    if (may_alloc) {
-        mutex_lock(&maps_iter_buf_lock);
-        iter->buf = (char *) &buf_iter;
-        iter->comment_buffer = (char *) &comment_buf_iter;
-    } else {
-        mutex_lock(&memory_info_buf_lock);
-        iter->buf = (char *) &buf_scratch;
-        iter->comment_buffer = (char *) &comment_buf_scratch;
-    }
-
-    /* We need the maps for our thread id, not process id.
-     * "/proc/self/maps" uses pid which fails if primary thread in group
-     * has exited.
-     */
-    snprintf(maps_name, BUFFER_SIZE_ELEMENTS(maps_name),
-             "/proc/%d/maps", get_thread_id());
-    iter->maps = os_open(maps_name, OS_OPEN_READ);
-    ASSERT(iter->maps != INVALID_FILE);
-    iter->buf[BUFSIZE-1] = '\0'; /* permanently */
-
-    iter->may_alloc = may_alloc;
-    iter->newline = NULL;
-    iter->bufread = 0;
-    iter->vm_start = NULL;
-    iter->comment = iter->comment_buffer;
-    return true;
-#else /* HAVE_PROC_MAPS */
-    /* FIXME PR 235433: for VMX86_SERVER use VSI queries */
-    return false;
-#endif /* HAVE_PROC_MAPS */
-}
-
-static void
-maps_iterator_stop(maps_iter_t *iter)
-{
-#ifdef HAVE_PROC_MAPS
-    ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
-           (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
-    os_close(iter->maps);
-    if (iter->may_alloc)
-        mutex_unlock(&maps_iter_buf_lock);
-    else
-        mutex_unlock(&memory_info_buf_lock);
-#endif /* HAVE_PROC_MAPS */
-}
-
-static bool
-maps_iterator_next(maps_iter_t *iter)
-{
-#ifdef HAVE_PROC_MAPS
-    char perm[16];
-    char *line;
-    int len;
-    app_pc prev_start = iter->vm_start;
-    ASSERT((iter->may_alloc && OWN_MUTEX(&maps_iter_buf_lock)) ||
-           (!iter->may_alloc && OWN_MUTEX(&memory_info_buf_lock)));
-    if (iter->newline == NULL) {
-        iter->bufwant = BUFSIZE-1;
-        iter->bufread = os_read(iter->maps, iter->buf, iter->bufwant);
-        ASSERT(iter->bufread <= iter->bufwant);
-        LOG(GLOBAL, LOG_VMAREAS, 6,
-            "get_memory_info_from_os: bytes read %d/want %d\n",
-            iter->bufread, iter->bufwant);
-        if (iter->bufread <= 0)
-            return false;
-        iter->buf[iter->bufread] = '\0';
-        iter->newline = strchr(iter->buf, '\n');
-        line = iter->buf;
-    } else {
-        line = iter->newline + 1;
-        iter->newline = strchr(line, '\n');
-        if (iter->newline == NULL) {
-            /* FIXME clean up: factor out repetitive code */
-            /* shift 1st part of line to start of buf, then read in rest */
-            /* the memory for the processed part can be reused  */
-            iter->bufwant = line - iter->buf;
-            ASSERT(iter->bufwant <= iter->bufread);
-            len = iter->bufread - iter->bufwant; /* what is left from last time */
-            /* since strings may overlap, should use memmove, not strncpy */
-            /* FIXME corner case: if len == 0, nothing to move */
-            memmove(iter->buf, line, len);
-            iter->bufread = os_read(iter->maps, iter->buf+len, iter->bufwant);
-            ASSERT(iter->bufread <= iter->bufwant);
-            if (iter->bufread <= 0)
-                return false;
-            iter->bufread += len; /* bufread is total in buf */
-            iter->buf[iter->bufread] = '\0';
-            iter->newline = strchr(iter->buf, '\n');
-            line = iter->buf;
-        }
-    }
-    LOG(GLOBAL, LOG_VMAREAS, 6, 
-        "\nget_memory_info_from_os: newline=[%s]\n",
-        iter->newline ? iter->newline : "(null)");
-
-    /* buffer is big enough to hold at least one line */
-    ASSERT(iter->newline != NULL);
-    *iter->newline = '\0';
-    LOG(GLOBAL, LOG_VMAREAS, 6, 
-        "\nget_memory_info_from_os: line=[%s]\n", line);
-    iter->comment_buffer[0]='\0';
-    len = sscanf(line,
-#ifdef IA32_ON_IA64
-                 MAPS_LINE_FORMAT8, /* cross-compiling! */
-#else              
-                 sizeof(void*) == 4 ? MAPS_LINE_FORMAT4 : MAPS_LINE_FORMAT8,
-#endif
-                 (unsigned long*)&iter->vm_start, (unsigned long*)&iter->vm_end,
-                 perm, (unsigned long*)&iter->offset, &iter->inode,
-                 iter->comment_buffer);
-    if (iter->vm_start == iter->vm_end) {
-        /* i#366 & i#599: Merge an empty regions caused by stack guard pages
-         * into the stack region if the stack region is less than one page away.
-         * Otherwise skip it.  Some Linux kernels (2.6.32 has been observed)
-         * have empty entries for the stack guard page.  We drop the permissions
-         * on the guard page, because Linux always insists that it has rwxp
-         * perms, no matter how we change the protections.  The actual stack
-         * region has the perms we expect.
-         * XXX: We could get more accurate info if we looked at
-         * /proc/self/smaps, which has a Size: 4k line for these "empty"
-         * regions.
-         */
-        app_pc empty_start = iter->vm_start;
-        bool r;
-        LOG(GLOBAL, LOG_VMAREAS, 2,
-            "maps_iterator_next: skipping or merging empty region 0x%08x\n",
-            iter->vm_start);
-        /* don't trigger the maps-file-changed check.
-         * slight risk of a race where we'll pass back earlier/overlapping
-         * region: we'll live with it.
-         */
-        iter->vm_start = NULL;
-        r = maps_iterator_next(iter);
-        /* We could check to see if we're combining with the [stack] section,
-         * but that doesn't work if there are multiple stacks or the stack is
-         * split into multiple maps entries, so we merge any empty region within
-         * one page of the next region.
-         */
-        if (empty_start <= iter->vm_start &&
-            iter->vm_start <= empty_start + PAGE_SIZE) {
-            /* Merge regions if the next region was zero or one page away. */
-            iter->vm_start = empty_start;
-        }
-        return r;
-    }
-    if (iter->vm_start <= prev_start) {
-        /* the maps file has expanded underneath us (presumably due to our
-         * own committing while iterating): skip ahead */
-        LOG(GLOBAL, LOG_VMAREAS, 2, 
-            "maps_iterator_next: maps file changed: skipping 0x%08x\n", prev_start);
-        iter->vm_start = prev_start;
-        return maps_iterator_next(iter);
-    }
-    if (len<6)
-        iter->comment_buffer[0]='\0';
-    iter->prot = permstr_to_memprot(perm);
-    return true;
-#else /* HAVE_PROC_MAPS */
-    /* FIXME PR 235433: for VMX86_SERVER use VSI queries */
-    return false;
-#endif /* HAVE_PROC_MAPS */
-}
 
 #ifndef HAVE_PROC_MAPS
 /* PR 361594: os-independent alternative to /proc/maps, though this
@@ -7793,7 +7544,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
     bool found_library = false;
     char libname[MAXIMUM_PATH];
     const char *name_cmp = name;
-    maps_iter_t iter;
+    memquery_iter_t iter;
     app_pc last_base = NULL;
     app_pc last_end = NULL;
     size_t image_size = 0;
@@ -7825,9 +7576,9 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
         name == NULL ? "<null>" : name, mod_start, cur_end,
         fullpath == NULL ? "<no path requested>" : fullpath);
 #else
-    maps_iterator_start(&iter, false/*won't alloc*/);
+    memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
     libname[0] = '\0';
-    while (maps_iterator_next(&iter)) {
+    while (memquery_iterator_next(&iter)) {
         LOG(GLOBAL, LOG_VMAREAS, 5,"start="PFX" end="PFX" prot=%x comment=%s\n",
             iter.vm_start, iter.vm_end, iter.prot, iter.comment);
 
@@ -7939,7 +7690,7 @@ get_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/
          * second adjacent separate map of the same file.  Curiosity for now. */
         ASSERT_CURIOSITY(image_size == 0 || cur_end - mod_start == image_size);
     }
-    maps_iterator_stop(&iter);
+    memquery_iterator_stop(&iter);
 #endif
 
     if (start != NULL)
@@ -8070,16 +7821,16 @@ get_application_base(void)
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
-            maps_iter_t iter;
-            maps_iterator_start(&iter, false/*won't alloc*/);
-            while (maps_iterator_next(&iter)) {
+            memquery_iter_t iter;
+            memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
+            while (memquery_iterator_next(&iter)) {
                 if (strcmp(iter.comment, name) == 0) {
                     executable_start = iter.vm_start;
                     executable_end = iter.vm_end;
                     break;
                 }
             }
-            maps_iterator_stop(&iter);
+            memquery_iterator_stop(&iter);
         }
 #else
         /* We have to fail.  Should we dl_iterate this early? */
@@ -8377,13 +8128,13 @@ find_vm_areas_via_probe(void)
 
 #ifdef VMX86_SERVER
     /* We only need to probe inside allocated regions */
-    void *iter = vmk_mmaps_iter_start();
+    void *iter = vmk_mmemquery_iter_start();
     if (iter != NULL) { /* backward compatibility: support lack of iter */
         byte *start;
         size_t length;
         char name[MAXIMUM_PATH];
         LOG(GLOBAL, LOG_ALL, 1, "VSI mmaps:\n");
-        while (vmk_mmaps_iter_next(iter, &start, &length, (int *)&prot,
+        while (vmk_mmemquery_iter_next(iter, &start, &length, (int *)&prot,
                                    name, BUFFER_SIZE_ELEMENTS(name))) {
             LOG(GLOBAL, LOG_ALL, 1, "\t"PFX"-"PFX": %d %s\n",
                 start, start + length, prot, name);
@@ -8405,7 +8156,7 @@ find_vm_areas_via_probe(void)
             count += probe_add_region(&last_start, &last_prot, pc, prot, true);
             last_start = pc;
         }
-        vmk_mmaps_iter_stop(iter);
+        vmk_mmemquery_iter_stop(iter);
         return count;
     } /* else, fall back to full probing */
 #else
@@ -8463,9 +8214,9 @@ find_executable_vm_areas(void)
 #ifndef HAVE_PROC_MAPS
     count = find_vm_areas_via_probe();
 #else
-    maps_iter_t iter;
-    maps_iterator_start(&iter, true/*may alloc*/);
-    while (maps_iterator_next(&iter)) {
+    memquery_iter_t iter;
+    memquery_iterator_start(&iter, NULL, true/*may alloc*/);
+    while (memquery_iterator_next(&iter)) {
         bool image = false;
         size_t size = iter.vm_end - iter.vm_start;
         /* i#479, hide private module and match Windows's behavior */
@@ -8606,7 +8357,7 @@ find_executable_vm_areas(void)
         }
 
     }
-    maps_iterator_stop(&iter);
+    memquery_iterator_stop(&iter);
 #endif /* HAVE_PROC_MAPS */
 
     LOG(GLOBAL, LOG_VMAREAS, 4, "init: all memory areas:\n");
@@ -8909,13 +8660,13 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
         have_type = true;
     }
 #else
-    maps_iter_t iter;
+    memquery_iter_t iter;
     app_pc last_end = NULL;
     app_pc next_start = (app_pc) POINTER_MAX;
     bool found = false;
     ASSERT(info != NULL);
-    maps_iterator_start(&iter, false/*won't alloc*/);
-    while (maps_iterator_next(&iter)) {
+    memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
+    while (memquery_iterator_next(&iter)) {
         if (pc >= iter.vm_start && pc < iter.vm_end) {
             info->base_pc = iter.vm_start;
             info->size = (iter.vm_end - iter.vm_start);
@@ -8941,7 +8692,7 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
         }
         last_end = iter.vm_end;
     }
-    maps_iterator_stop(&iter);
+    memquery_iterator_stop(&iter);
     if (!found) {
         info->base_pc = last_end;
         info->size = (next_start - last_end);

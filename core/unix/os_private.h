@@ -168,6 +168,8 @@ fd_mark_close_on_exec(file_t fd);
 void
 fd_table_add(file_t fd, uint flags);
 
+uint permstr_to_memprot(const char * const perm);
+
 /* in signal.c */
 struct _kernel_sigaction_t;
 typedef struct _kernel_sigaction_t kernel_sigaction_t;

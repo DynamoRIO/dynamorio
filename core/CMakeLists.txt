@@ -164,11 +164,15 @@ if (UNIX)
     unix/nudgesig.c
     unix/native_elf.c
     )
-  if (VMKERNEL)
+  if (LINUX)
+    set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
+  elseif (APPLE)
+    # XXX i#1270: add unix/memquery_macos.c
+  elseif (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
     include_directories(${VMKUW_DIR})
     set(OS_SRCS ${OS_SRCS} ${VMKUW_DIR}/vmkuw.c)
-  endif (VMKERNEL)
+  endif ()
   set(PRELOAD_NAME drpreload)
   set(PRELOAD_SRCS
     unix/preload.c
