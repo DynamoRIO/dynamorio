@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -394,9 +394,10 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
     /* We have to specify the module via "modname!symname".
      * We must use the same modname as in full_path.
      */
+    char fullpath[MAX_PATH];
 # define MAX_SYM_WITH_MOD_LEN 256
     char sym_with_mod[MAX_SYM_WITH_MOD_LEN];
-    size_t modoffs;
+    int len;
     drsym_error_t symres;
     char *fname = NULL, *c;
     search_data_t sd;
@@ -408,6 +409,7 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
 
     if (dllname == NULL)
         return;
+    fname = dllname;
     for (c = dllname; *c != '\0'; c++) {
         if (*c == '/' || *c == '\\')
             fname = c + 1;
@@ -419,20 +421,23 @@ process_symbols(void *dcontext, char *dllname, LOADED_IMAGE *img)
     for (; c > fname && *c != '.'; c--)
         ; /* nothing */
 
+    assert(c > fname && "file has no extension");
     assert(c - fname < BUFFER_SIZE_ELEMENTS(sym_with_mod) && "sizes way off");
-    modoffs = dr_snprintf(sym_with_mod, c - fname, "%s", fname);
-    assert(modoffs > 0 && "error printing modname!symname");
-    modoffs = dr_snprintf(sym_with_mod + modoffs,
-                          BUFFER_SIZE_ELEMENTS(sym_with_mod) - modoffs,
-                          "!%s", SYM_PATTERN);
-    assert(modoffs > 0 && "error printing modname!symname");
+    len = dr_snprintf(sym_with_mod, BUFFER_SIZE_ELEMENTS(sym_with_mod), "%.*s!%s",
+                      c - fname, fname, SYM_PATTERN);
+    assert(len > 0 && "error printing modname!symname");
+    NULL_TERMINATE_BUFFER(sym_with_mod);
+
+    len = GetFullPathName(dllname, BUFFER_SIZE_ELEMENTS(fullpath), fullpath, NULL);
+    assert(len > 0);
+    NULL_TERMINATE_BUFFER(dllname);
 
     sd.dcontext = dcontext;
     sd.img = img;
-    verbose_print("Searching \"%s\" for \"%s\"\n", dllname, sym_with_mod);
-    symres = drsym_search_symbols(dllname, sym_with_mod, true, search_syms_cb, &sd);
+    verbose_print("Searching \"%s\" for \"%s\"\n", fullpath, sym_with_mod);
+    symres = drsym_search_symbols(fullpath, sym_with_mod, true, search_syms_cb, &sd);
     if (symres != DRSYM_SUCCESS)
-        print("Error %d searching \"%s\" for \"%s\"\n", dllname, sym_with_mod);
+        print("Error %d searching \"%s\" for \"%s\"\n", symres, fullpath, sym_with_mod);
     drsym_exit();
 }
 
