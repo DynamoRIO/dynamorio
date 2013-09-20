@@ -755,6 +755,9 @@ function(tobuild_api test source dr_ops exe_ops decoder)
   set(${test}_source ${source} PARENT_SCOPE)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
+  # If using drdecodelib, the app does not load DR, so no reason to use drrun
+  # to set options (plus drrun will create a never-deleted .1config file).
+  set(${test}_drinject ${decoder} PARENT_SCOPE)
 endfunction(tobuild_api)
 
 # run that uses a different build
@@ -956,7 +959,7 @@ endfunction(template2expect)
 
 ##################################################
 
-function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
+function(rundr_cmd outcmd outops native use_drinject dr_ops_aux is_runall)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(os_ops "-dumpcore_mask 0")
@@ -979,7 +982,11 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
     # Since the creation of CTestTestfile.cmake ends up replacing \ with / we
     # can't escape quotes, so we have to use a list variable
-    get_target_property(drrun_path drrun LOCATION${location_suffix})
+    if (use_drinject)
+      get_target_property(drrun_path drinject LOCATION${location_suffix})
+    else (use_drinject)
+      get_target_property(drrun_path drrun LOCATION${location_suffix})
+    endif (use_drinject)
     set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
     if (DEBUG)
       set(cmd ${cmd} -debug)
@@ -1005,8 +1012,10 @@ function(rundr_cmd outcmd outops native dr_ops_aux is_runall)
         set(cmd ${cmd} -noinject)
       endif ()
     endif (WIN32)
-    # add dr_ops last to avoid needing extra \ on ;
-    set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
+    if (NOT use_drinject)
+      # add dr_ops last to avoid needing extra \ on ;
+      set(${outcmd} ${cmd} -ops "${dr_ops}" PARENT_SCOPE)
+    endif ()
 
   elseif (UNIX AND native)
     set(cmd ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/runstats -s ${TEST_SECONDS} -killpg -silent)
@@ -1023,7 +1032,7 @@ endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
-function(torun test key source native dr_ops exe_ops added_out)
+function(torun test key source native use_drinject dr_ops exe_ops added_out)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
@@ -1062,7 +1071,7 @@ function(torun test key source native dr_ops exe_ops added_out)
 
   set(ALREADY_REGEX OFF)
 
-  rundr_cmd(rundr runops ${native} "${dr_ops}" ${is_runall})
+  rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${is_runall})
   get_target_property(exepath ${exe} LOCATION${location_suffix})
   # support running binaries that are not targets of this build
   if (NOT exepath)
@@ -1223,7 +1232,7 @@ function(torun_normal name test ops)
   if (STATIC_LIBRARY AND "${ops}" MATCHES "-early_inject")
     return()
   endif ()
-  torun("${name}" ${test} ${${test}_source} OFF "${${test}_dr_ops} ${ops}"
+  torun("${name}" ${test} ${${test}_source} OFF OFF "${${test}_dr_ops} ${ops}"
     "${${test}_exe_ops}" added)
   if (DEFINED ${test}_depends)
     ops2testprefix(prefix "${ops}")
@@ -1251,7 +1260,7 @@ function(torun_ci name test ops)
     return()
   endif ()
   # note that we cannot use double quotes as they'll be stripped out
-  torun("${name}" ${test} ${${test}_source} OFF
+  torun("${name}" ${test} ${${test}_source} OFF OFF
     " -code_api -client_lib '${${test}_client_path}\;0\;${cli_ops}' ${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
   if (added)
     if (DEFINED ${test}_depends)
@@ -1266,7 +1275,7 @@ function(torun_ci name test ops)
 endfunction(torun_ci)
 
 function(torun_api name test ops)
-  torun("${name}" ${test} ${${test}_source} ON
+  torun("${name}" ${test} ${${test}_source} ON ${${test}_drinject}
     "${${test}_dr_ops} ${ops}" "${${test}_exe_ops}" added)
 endfunction(torun_api)
 
