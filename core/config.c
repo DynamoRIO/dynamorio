@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -640,6 +640,21 @@ config_init(void)
     config.u.v = &myvals;
     config_read(&config, NULL, 0, CFG_SFX);
     config_initialized = true;
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    /* i#1271: to avoid leaving a stale 1config file behind if this process
+     * crashes w/o a clean exit, we give up on re-reading the file and delete
+     * it now.  It's an anonymous file anyway and not meant for manual updates.
+     * The user could override the dynamic_options by re-specifying in
+     * the option string, if desired, and re-create the 1config manually.
+     */
+    if (config.has_1config) {
+        INFO(2, "deleting config file %s", config.fname_app);
+        os_delete_file(config.fname_app);
+        dynamo_options.dynamic_options = false;
+    }
+    /* we ignore otherarch having 1config */
+#endif
 }
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
@@ -677,16 +692,7 @@ config_heap_exit(void)
 void
 config_exit(void)
 {
-#ifndef NOT_DYNAMORIO_CORE_PROPER
-    /* if core, then we're done with 1-time config file.
-     * we can't delete this up front b/c we want to support synch ops
-     */
-    if (config_initialized && config.has_1config) {
-        INFO(2, "deleting config file %s", config.fname_app);
-        os_delete_file(config.fname_app);
-    }
-    /* we ignore otherarch having 1config */
-#endif
+    /* nothing -- so not called on fast exit */
 }
 
 /* Our parameters (option string, logdir, etc.) can be configured

@@ -877,8 +877,6 @@ standalone_init(void)
      */
     /* options are never made read-only for standalone */
     dynamo_options.dynamic_options = false;
-    /* make sure to delete .1config */
-    config_exit();
 
     dynamo_initialized = true;
 
@@ -889,7 +887,6 @@ void
 standalone_exit(void)
 {
     /* should clean up here */
-    /* make sure to delete .1config */
     config_exit();
 }
 #endif
@@ -1412,8 +1409,6 @@ dynamo_process_exit(void)
 # endif
     /* so make sure eventlog connection is terminated (if present)  */
     os_fast_exit();
-    /* make sure to delete .1config */
-    config_exit();
 
     return SUCCESS;
 #endif /* !DEBUG */
