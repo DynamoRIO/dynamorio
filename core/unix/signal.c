@@ -5864,54 +5864,8 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
     }
 
     if (known_exception == 0) {
-        /* It works for the UNIX loader hack in  _dl_runtime_resolve */
-        /* The offending sequence in ld-linux.so is
-           <_dl_runtime_resolve>:
-           c270: 5a                      pop    %edx
-           c271: 59                      pop    %ecx
-           c272: 87 04 24                xchg   %eax,(%esp)
-           c275: c2 08 00                ret    $0x8
-        */
-        /* The same code also is in 0000c280 <_dl_runtime_profile>
-           It maybe that either one or the other is ever used. 
-           Although performancewise this pattern matching is very cheap, 
-           for stricter security we assume only one is used in a session.
-        */
-        /* FIXME: This may change with future versions of libc, tested on
-         * RH8 and RH9 only.  Also works for whatever libc was in ubuntu 7.10.
-         */
-        /* However it does not work for ubuntu 8.04 where the code sequence has
-         * changed to the still similar :
-         * 2c50:  5a                   pop    %edx 
-         * 2c51:  8b 0c 24             mov    (%esp) -> %ecx 
-         * 2c54:  89 04 24             mov    %eax -> (%esp) 
-         * 2c57:  8b 44 24 04          mov    0x04(%esp) -> %eax 
-         * 2c5b:  c2 0c 00             ret    $0xc
-         * So we check for that sequence too.
-         */
-        static const byte DL_RUNTIME_RESOLVE_MAGIC_1[8] =
-          /* pop edx, pop ecx; xchg eax, (esp) ret 8 */
-          {0x5a, 0x59, 0x87, 0x04, 0x24, 0xc2, 0x08, 0x00};
-        static const byte DL_RUNTIME_RESOLVE_MAGIC_2[14] = 
-          /* pop edx, mov (esp)->ecx, mov eax->(esp), mov 4(esp)->eax, ret 12 */
-          {0x5a, 0x8b, 0x0c, 0x24, 0x89, 0x04, 0x24, 0x8b, 0x44, 0x24,
-           0x04, 0xc2, 0x0c, 0x00};
-        byte buf[MAX(sizeof(DL_RUNTIME_RESOLVE_MAGIC_1),
-                     sizeof(DL_RUNTIME_RESOLVE_MAGIC_2))]= {0};
-
-        if ((safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf)
-             && memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1,
-                       sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) == 0) ||
-            (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf)
-             && memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_2,
-                       sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) == 0)) {
-            LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception this is "
-                "_dl_runtime_resolve --ok \n");
-            known_exception = source_fragment;
-            return true;
-        } else {
-            return false;
-        }
+        int offset;
+        return at_dl_runtime_resolve_ret(dcontext, source_fragment, &offset);
     }
     return false;
 }

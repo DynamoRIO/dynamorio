@@ -329,4 +329,8 @@ bool
 send_nudge_signal(process_id_t pid, uint action_mask,
                   client_id_t client_id, uint64 client_arg);
 
+/* module.c */
+/* source_fragment is the start pc of the fragment to be run under DR */
+bool
+at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *offset);
 #endif /* _OS_EXPORTS_H_ */

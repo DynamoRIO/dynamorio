@@ -719,3 +719,9 @@ native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
     ASSERT(stub_pc != NULL);
     return stub_pc;
 }
+
+/* clean call on dl_runtime_resolve return */
+void
+native_module_at_runtime_resolve_ret(app_pc xsp, int offset)
+{
+}

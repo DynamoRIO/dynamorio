@@ -115,4 +115,8 @@ native_exec_is_back_from_native(app_pc pc)
     return (diff < MAX_NATIVE_RETSTACK * BACK_FROM_NATIVE_RETSTUB_SIZE);
 }
 
+#ifdef UNIX
+void
+native_module_at_runtime_resolve_ret(app_pc xsp, int offset);
+#endif
 #endif /* _NATIVE_EXEC_H_ */
