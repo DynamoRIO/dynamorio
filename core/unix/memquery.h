@@ -87,6 +87,32 @@ memquery_iterator_stop(memquery_iter_t *iter);
 bool
 memquery_iterator_next(memquery_iter_t *iter);
 
-/* XXX i#1270: add query */
+/* Finds the bounds of the library with name "name".  If "name" is NULL,
+ * "start" must be non-NULL and must be an address within the library.
+ * Note that we can't just walk backward and look for is_elf_so_header() b/c
+ * some ELF files are mapped twice and it's not clear how to know if
+ * one has hit the original header or a later header: this is why we allow
+ * any address in the library.
+ * The resulting start and end are the bounds of the library.
+ * They include any .bss section.
+ * Return value is the number of distinct memory regions that comprise the library.
+ */
+int
+memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
+                        char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+
+/* XXX i#1270: ideally we could have os.c use generic memquery iterator code,
+ * but the probe + dl_iterate_phdr approach is difficult to fit into that mold
+ * without relying on allmem, so for now we have this full caller routine pulled
+ * into here.
+ */
+#ifndef HAVE_PROC_MAPS
+int
+find_vm_areas_via_probe(void);
+#endif
+
+/* This routine does not acquire locks */
+bool
+memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type);
 
 #endif /* _MEMQUERY_H_ */

@@ -172,6 +172,7 @@ if (UNIX)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
     include_directories(${VMKUW_DIR})
     set(OS_SRCS ${OS_SRCS} ${VMKUW_DIR}/vmkuw.c)
+    set(OS_SRCS ${OS_SRCS} unix/memquery_emulate.c)
   endif ()
   set(PRELOAD_NAME drpreload)
   set(PRELOAD_SRCS
