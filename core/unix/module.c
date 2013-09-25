@@ -296,7 +296,7 @@ module_add_segment_data(OUT os_module_data_t *out_data,
         ASSERT_CURIOSITY(out_data->alignment == prog_hdr->p_align);
     }
     /* Add segments to the module vector (i#160/PR 562667).
-     * For !HAVE_PROC_MAPS we should combine w/ the segment
+     * For !HAVE_MEMINFO we should combine w/ the segment
      * walk done in dl_iterate_get_areas_cb().
      */
     if (out_data->num_segments == 0) {

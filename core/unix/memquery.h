@@ -106,7 +106,7 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
  * without relying on allmem, so for now we have this full caller routine pulled
  * into here.
  */
-#ifndef HAVE_PROC_MAPS
+#ifndef HAVE_MEMINFO
 int
 find_vm_areas_via_probe(void);
 #endif

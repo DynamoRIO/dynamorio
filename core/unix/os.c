@@ -337,8 +337,10 @@ static void
 process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
              uint flags _IF_DEBUG(const char *map_type));
 
+#ifdef LINUX
 static char *
 read_proc_self_exe(bool ignore_cache);
+#endif
 
 /* Libc independent directory iterator, similar to readdir.  If we ever need
  * this on Windows we should generalize it and export it to clients.
@@ -850,9 +852,13 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             ASSERT(executable_path[0] != '\0' &&
                    "i#907: Can't read /proc/self/exe for early injection");
         } else {
+#ifdef LINUX
             /* Populate cache from /proc/self/exe link. */
             strncpy(executable_path, read_proc_self_exe(ignore_cache),
                     BUFFER_SIZE_ELEMENTS(executable_path));
+#else
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
             NULL_TERMINATE_BUFFER(executable_path);
             /* FIXME: Fall back on /proc/self/cmdline and maybe argv[0] from
              * _init().
@@ -6697,9 +6703,9 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
             }
         }
         memquery_iterator_stop(&iter);
-#ifdef HAVE_PROC_MAPS
+#ifdef HAVE_MEMINFO
         ASSERT_CURIOSITY(found_map); /* barring weird races we should find this map */
-#else /* HAVE_PROC_MAPS */
+#else /* HAVE_MEMINFO */
         /* Without /proc/maps or other memory querying interface available at 
          * library map time, there is no way to find out the name of the file 
          * that was mapped, thus its inode isn't available either.  
@@ -6715,7 +6721,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * Once PR 235433 is implemented in visor then fix memquery_iterator*() to
          * use vsi to find out page protection info, file name & inode.
          */
-#endif /* HAVE_PROC_MAPS */
+#endif /* HAVE_MEMINFO */
         /* XREF 307599 on rounding module end to the next PAGE boundary */
         module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
 #ifdef CLIENT_INTERFACE
@@ -7461,9 +7467,7 @@ get_dynamo_library_bounds(void)
     extern int dynamorio_so_start, dynamorio_so_end;
     dynamo_dll_start = (app_pc) &dynamorio_so_start;
     dynamo_dll_end = (app_pc) ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
-# ifndef HAVE_PROC_MAPS
     check_start = dynamo_dll_start;
-# endif
     dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME,DYNAMORIO_LIBRARY_NAME);
 #endif /* STATIC_LIBRARY */
     res = memquery_library_bounds(dynamorio_libname,
@@ -7511,7 +7515,7 @@ get_dynamorio_library_path(void)
     return dynamorio_library_path;
 }
 
-#ifdef HAVE_PROC_MAPS
+#ifdef LINUX
 /* Get full path+name of executable file from /proc/self/exe.  Returns an empty
  * string on error.
  * FIXME i#47: This will return DR's path when using early injection.
@@ -7542,13 +7546,13 @@ read_proc_self_exe(bool ignore_cache)
     }
     return exepath;
 }
-#endif /* HAVE_PROC_MAPS */
+#endif /* LINUX */
 
 app_pc
 get_application_base(void)
 {
     if (executable_start == NULL) {
-#ifdef HAVE_PROC_MAPS
+#ifdef HAVE_MEMINFO
         /* Haven't done find_executable_vm_areas() yet so walk maps ourselves */
         const char *name = get_application_name();
         if (name != NULL && name[0] != '\0') {
@@ -7673,7 +7677,7 @@ find_executable_vm_areas(void)
         all_memory_areas_unlock();
     }
 
-#ifndef HAVE_PROC_MAPS
+#ifndef HAVE_MEMINFO
     count = find_vm_areas_via_probe();
 #else
     memquery_iter_t iter;
@@ -7820,7 +7824,7 @@ find_executable_vm_areas(void)
 
     }
     memquery_iterator_stop(&iter);
-#endif /* HAVE_PROC_MAPS */
+#endif /* !HAVE_MEMINFO */
 
     LOG(GLOBAL, LOG_VMAREAS, 4, "init: all memory areas:\n");
     DOLOG(4, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
@@ -7940,7 +7944,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
         out_info->size = (end - start);
         out_info->prot = info->prot;
         out_info->type = info->type;
-#ifdef HAVE_PROC_MAPS
+#ifdef HAVE_MEMINFO
         DOCHECK(2, {
             byte *from_os_base_pc;
             size_t from_os_size;
@@ -8003,7 +8007,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
          * if executing from what we think is unreadable memory, so
          * best to check with the OS (xref PR 363811).
          */
-#ifdef HAVE_PROC_MAPS
+#ifdef HAVE_MEMINFO
         byte *from_os_base_pc;
         size_t from_os_size;
         uint from_os_prot;

@@ -108,9 +108,12 @@
 ###################################
 # definitions for conditional compilation
 #
-# Linux variants
-#    $(D)HAVE_PROC_MAPS - set if /proc/self/maps is available
+# Unix variants
+#    $(D)HAVE_MEMINFO - set if any memory info is available from kernel,
+#      whether from /proc/self/maps or a system call query.
 #      if not set: issues w/ mem queries from signal handler (PR 287309)
+#    $(D)HAVE_MEMINFO_MAPS   - set if /proc/self/maps is available
+#    $(D)HAVE_MEMINFO_QUERY  - set if memory query syscall is available
 #    $(D)HAVE_TLS       - set if any form of ldt or gdt entry can be claimed
 #      if not set: client reg spill slots won't work, and may hit asserts
 #      after fork.
@@ -235,18 +238,19 @@
 #    define USERLEVEL
      /* PR 361894/388563: only on ESX4.1+ */
 #    define HAVE_TLS
+#  elif defined(MACOS)
+#    define MACOS
+#    define HAVE_MEMINFO
+#    define HAVE_MEMINFO_QUERY
+#    define HAVE_TLS
+#    define HAVE_SIGALTSTACK
+#  elif defined(LINUX)
+#    define HAVE_MEMINFO
+#    define HAVE_MEMINFO_MAPS
+#    define HAVE_TLS
+#    define HAVE_SIGALTSTACK
 #  else
-#    ifdef MACOS
-#      define MACOS
-#      define HAVE_TLS
-#      define HAVE_SIGALTSTACK
-#    else
-       /* Linux */
-       /* FIXME: use cmake to discover whether these are available */
-#      define HAVE_PROC_MAPS
-#      define HAVE_TLS
-#      define HAVE_SIGALTSTACK
-#    endif
+#    error Unknown operating system
 #  endif
 
 #  ifdef HAVE_FVISIBILITY

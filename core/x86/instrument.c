@@ -2787,11 +2787,11 @@ dr_query_memory(const byte *pc, byte **base_pc, size_t *size, uint *prot)
 {
     uint real_prot;
     bool res;
-#if defined(UNIX) && defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && defined(HAVE_MEMINFO)
     /* xref PR 246897 - the cached all memory list can have problems when
      * out-of-process entities change the mapings. For now we use the from
      * os version instead (even though it's slower, and only if we have
-     * HAVE_PROC_MAPS support). FIXME
+     * HAVE_MEMINFO_MAPS support). FIXME
      * XXX i#853: We could decide allmem vs os with the use_all_memory_areas
      * option.
      */
@@ -2816,7 +2816,7 @@ bool
 dr_query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
 {
     bool res;
-#if defined(UNIX) && defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && defined(HAVE_MEMINFO)
     /* PR 246897: all_memory_areas not ready for prime time */
     res = query_memory_ex_from_os(pc, info);
 #else

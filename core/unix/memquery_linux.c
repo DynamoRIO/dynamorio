@@ -49,10 +49,6 @@
 #ifndef LINUX
 # error Linux-only
 #endif
-#ifndef HAVE_PROC_MAPS
-/* XXX: remove this capability as it is rather fundamental? */
-# error HAVE_PROC_MAPS-only
-#endif
 
 /* Iterator over /proc/self/maps
  * Called at arbitrary places, so cannot use fopen.

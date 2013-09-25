@@ -1001,7 +1001,7 @@ check_option_compatibility_helper(int recurse_count)
 #  endif
 # endif
 
-# if !defined(HAVE_PROC_MAPS) && defined(PROGRAM_SHEPHERDING)
+# if !defined(HAVE_MEMINFO) && defined(PROGRAM_SHEPHERDING)
     /* PR 235433: without +x info we cannot support code origins */
     if (DYNAMO_OPTION(code_origins)) {
         USAGE_ERROR("-code_origins not supported on this OS");

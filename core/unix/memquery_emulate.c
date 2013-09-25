@@ -45,8 +45,8 @@
 #include "os_private.h"
 #include <string.h>
 
-#ifdef HAVE_PROC_MAPS
-# error Use maps file instead of emulation
+#ifdef HAVE_MEMINFO
+# error Use kernel queries instead of emulation
 #endif
 
 /* must be prior to including dlfcn.h */
@@ -404,7 +404,7 @@ find_vm_areas_via_probe(void)
      *
      * Note that we have no good way (at least that's not racy, or
      * that'll work if there's no NX) to check for +x, and as such we
-     * require HAVE_PROC_MAPS for PROGRAM_SHEPHERDING (also xref PR
+     * require HAVE_MEMINFO for PROGRAM_SHEPHERDING (also xref PR
      * 210383: NX transparency).
      *
      * Note also that we assume a "normal" segment setup: no funny
@@ -459,7 +459,7 @@ find_vm_areas_via_probe(void)
 #else
 # ifdef X64
 /* no lazy probing support yet */
-#  error X64 requires HAVE_PROC_MAPS: PR 364552
+#  error X64 requires HAVE_MEMINFO: PR 364552
 # endif
 #endif
     ASSERT(ALIGNED(USER_MAX, PAGE_SIZE));

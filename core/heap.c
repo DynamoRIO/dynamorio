@@ -2147,7 +2147,7 @@ heap_mmap_reserve_post_stack(dcontext_t *dcontext,
         DYNAMO_OPTION(vm_reserve) &&
         dcontext != GLOBAL_DCONTEXT && dcontext != NULL) {
         stack_reserve_end = dcontext->dstack + GUARD_PAGE_ADJUSTMENT/2;
-#if defined(UNIX) && !defined(HAVE_PROC_MAPS)
+#if defined(UNIX) && !defined(HAVE_MEMINFO)
         prot = 0; /* avoid compiler warning: should only need inside if */
         if (!dynamo_initialized) {
             /* memory info is not yet set up.  since so early we only support

@@ -1788,7 +1788,7 @@ set_our_handler_sigact(kernel_sigaction_t *act, int sig)
      */
     kernel_sigdelset(&act->mask, SUSPEND_SIGNAL);
     /* i#193/PR 287309: we need to NOT suppress further SIGSEGV, for decode faults,
-     * for try/except, and for !HAVE_PROC_MAPS probes.
+     * for try/except, and for !HAVE_MEMINFO probes.
      * Just like SUSPEND_SIGNAL, if app sends repeated SEGV, could run out of 
      * alt stack: seems too corner-case to be worth increasing stack size.
      */
@@ -3161,7 +3161,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     bool has_restorer = sig_has_restorer(info, sig);
 #ifdef DEBUG
     uint level = 3;
-# ifndef HAVE_PROC_MAPS
+# if !defined(HAVE_MEMINFO)
     /* avoid logging every single TRY probe fault */
     if (!dynamo_initialized)
         level = 5;
@@ -4505,7 +4505,7 @@ master_signal_handler_C(byte *xsp)
 # ifdef INTERNAL
     struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
 # endif
-# ifndef HAVE_PROC_MAPS
+# if !defined(HAVE_MEMINFO)
     /* avoid logging every single TRY probe fault */
     if (!dynamo_initialized)
         level = 5;
@@ -4660,7 +4660,7 @@ master_signal_handler_C(byte *xsp)
             dcontext->try_except.try_except_state != NULL) {
             /* handle our own TRY/EXCEPT */
             try_except_context_t *try_cxt;
-#ifdef HAVE_PROC_MAPS
+#ifdef HAVE_MEMINFO
             /* our probe produces many of these every run */
             /* since we use for safe_*, making a _ONCE */
             SYSLOG_INTERNAL_WARNING_ONCE("(1+x) Handling our fault in a TRY at "PFX, pc);
@@ -4706,7 +4706,7 @@ master_signal_handler_C(byte *xsp)
         }
 #endif
 
-        /* For !HAVE_PROC_MAPS, we cannot compute the target until
+        /* For !HAVE_MEMINFO, we cannot compute the target until
          * after the try/except check b/c compute_memory_target()
          * calls get_memory_info_from_os() which does a probe: and the
          * try/except could be from a probe itself.  A try/except that
