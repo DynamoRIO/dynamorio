@@ -100,24 +100,20 @@ typedef struct _os_thread_data_t {
     /* We would use event_t's here except we can't use mutexes in
      * our signal handler 
      */
-    /* volatile int rather than bool since these are used as futexes.
-     * 0 is unset, 1 is set, and no other value is used.
-     * Any function that sets these flags must also notify possibly waiting
+    /* Any function that sets these flags must also notify possibly waiting
      * thread(s). See i#96/PR 295561.
      */
-    volatile int suspended;
-    volatile int wakeup;
-    volatile int resumed;
+    KSYNCH_TYPE suspended;
+    KSYNCH_TYPE wakeup;
+    KSYNCH_TYPE resumed;
     struct sigcontext *suspended_sigcxt;
 
     /* PR 297902: for thread termination */
     bool terminate;
-    /* volatile int rather than bool since this is used as a futex.
-     * 0 is unset, 1 is set, and no other value is used.
-     * Any function that sets this flag must also notify possibly waiting
+    /* Any function that sets this flag must also notify possibly waiting
      * thread(s). See i#96/PR 295561.
      */
-    volatile int terminated;
+    KSYNCH_TYPE terminated;
 
     volatile bool retakeover; /* for re-attach */
 

@@ -7714,12 +7714,17 @@ is_thread_currently_native(thread_record_t *tr)
 
 /* contended path of mutex operations */
 
+bool
+ksynch_var_initialized(HANDLE *event)
+{
+    return (*event != NULL);
+}
+
 static contention_event_t
 mutex_get_contended_event(contention_event_t *contended_event, EVENT_TYPE event_type)
 {
     contention_event_t ret = *contended_event;
-    if (ret == CONTENTION_EVENT_NOT_CREATED)
-    {
+    if (ret == NULL) {
         contention_event_t new_event;
         bool not_yet_created;
         /* not signaled */
@@ -7728,7 +7733,7 @@ mutex_get_contended_event(contention_event_t *contended_event, EVENT_TYPE event_
 
         not_yet_created =
             atomic_compare_exchange_ptr((ptr_uint_t*)contended_event, 
-                                        (ptr_uint_t)CONTENTION_EVENT_NOT_CREATED,
+                                        (ptr_uint_t)NULL,
                                         (ptr_uint_t)new_event);
         if (not_yet_created) {
             /* we were first to create it */
@@ -7739,8 +7744,14 @@ mutex_get_contended_event(contention_event_t *contended_event, EVENT_TYPE event_
             close_handle(new_event);
         }
     }
-    ASSERT(ret != CONTENTION_EVENT_NOT_CREATED);
+    ASSERT(ksynch_var_initialized(&ret));
     return ret;
+}
+
+void
+mutex_free_contended_event(mutex_t *lock)
+{
+    os_close(lock->contended_event);
 }
 
 /* common wrapper that also attempts to detect deadlocks */

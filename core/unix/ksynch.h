@@ -37,8 +37,17 @@
 #ifndef _KSYNCH_H_
 #define _KSYNCH_H_ 1
 
-/* XXX i#58: generalize for Mac support */
-extern bool kernel_futex_support;
+/* These are simply kernel wait queue variables, suitable for use in
+ * signal handlers where we can't use event_t.  They take the values 0
+ * or 1.  They should only be used in a manner such that replacing
+ * ksynch_{wait,wake,wake_all} with nops will still result in correct
+ * (if less performant) behavior.  Wrapping a mutex around them is up
+ * to the caller.
+ */
+
+/* We have to expose KSYNCH_TYPE for inlining into mutex_t, so we declare
+ * it in utils.h.
+ */
 
 void
 ksynch_init(void);
@@ -46,18 +55,45 @@ ksynch_init(void);
 void
 ksynch_exit(void);
 
-/* XXX i#58: generalize for Mac support.  For now these are simply the Linux
- * versions moved to a separate file.
- */
+bool
+ksynch_kernel_support(void);
 
-/* Helper routines for using futex(2). See i#96/PR 295561 */
-ptr_int_t 
-futex_wait(volatile int *futex, int mustbe);
+bool
+ksynch_init_var(KSYNCH_TYPE *var);
+
+bool
+ksynch_free_var(KSYNCH_TYPE *var);
+
+#ifdef LINUX
+/* avoid de-ref */
+static inline int ksynch_get_value(volatile int *futex)
+{
+    return *futex;
+}
+static inline void ksynch_set_value(volatile int *futex, int new_val)
+{
+    *futex = new_val;
+}
+#else
+ptr_int_t
+ksynch_get_value(mac_synch_t *synch);
+
+void
+ksynch_set_value(mac_synch_t *synch, int new_val);
+#endif
+
+KSYNCH_TYPE *
+mutex_get_contended_event(mutex_t *lock);
+
+/* These return 0 on success: */
 
 ptr_int_t 
-futex_wake(volatile int *futex);
+ksynch_wait(KSYNCH_TYPE *var, int mustbe);
 
 ptr_int_t 
-futex_wake_all(volatile int *futex);
+ksynch_wake(KSYNCH_TYPE *var);
+
+ptr_int_t 
+ksynch_wake_all(KSYNCH_TYPE *var);
 
 #endif /* _KSYNCH_H_ */

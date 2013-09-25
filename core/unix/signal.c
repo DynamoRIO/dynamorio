@@ -6346,7 +6346,8 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     if (ostd->terminate) {
          /* PR 297902: exit this thread, without using any stack */
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
-        if (kernel_futex_support) {
+        if (ksynch_kernel_support()) {
+#ifdef LINUX
             /* can't use stack once set terminated to 1 so in asm we do:
              *   ostd->terminated = 1;
              *   futex_wake_all(&ostd->terminated);
@@ -6355,8 +6356,12 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
             asm("mov %0, %%"ASM_XAX : : "m"(term));
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
+#else
+            /* FIXME i#1277: need MacOS version of this */
+            ASSERT_NOT_IMPLEMENTED(false);
+#endif
         } else {
-            ostd->terminated = 1;
+            ksynch_set_value(&ostd->terminated, 1);
             asm("jmp dynamorio_sys_exit");
         }
         ASSERT_NOT_REACHED();
@@ -6401,15 +6406,15 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
      * officially suspended now and is ready for thread_{get,set}_mcontext.
      */
     ASSERT(ostd->suspended == 0);
-    ostd->suspended = 1;
-    futex_wake_all(&ostd->suspended);
+    ksynch_set_value(&ostd->suspended, 1);
+    ksynch_wake_all(&ostd->suspended);
     /* i#96/PR 295561: use futex(2) if available */
-    while (ostd->wakeup == 0) {
+    while (ksynch_get_value(&ostd->wakeup) == 0) {
         /* Waits only if the wakeup flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked. 
          */
-        futex_wait(&ostd->wakeup, 0);
-        if (ostd->wakeup == 0) {
+        ksynch_wait(&ostd->wakeup, 0);
+        if (ksynch_get_value(&ostd->wakeup) == 0) {
             /* If it still has to wait, give up the cpu. */
             thread_yield();
         }
@@ -6423,9 +6428,9 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* Notify thread_resume that it can return now, which (assuming
      * suspend_count is back to 0) means it's then safe to re-suspend. 
      */
-    ostd->suspended = 0; /* reset prior to signalling thread_resume */
-    ostd->resumed = 1;
-    futex_wake_all(&ostd->resumed);
+    ksynch_set_value(&ostd->suspended, 0); /* reset prior to signalling thread_resume */
+    ksynch_set_value(&ostd->resumed, 1);
+    ksynch_wake_all(&ostd->resumed);
 
     if (ostd->retakeover) {
         ostd->retakeover = false;

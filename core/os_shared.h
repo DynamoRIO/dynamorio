@@ -839,8 +839,10 @@ bool at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fr
 #endif
 
 /* contended path of mutex operations */
+bool ksynch_var_initialized(KSYNCH_TYPE *var);
 void mutex_wait_contended_lock(mutex_t *lock);
 void mutex_notify_released_lock(mutex_t *lock);
+void mutex_free_contended_event(mutex_t *lock);
 /* contended path of rwlock operations */
 void rwlock_wait_contended_writer(read_write_lock_t *rwlock);
 void rwlock_notify_writer(read_write_lock_t *rwlock);

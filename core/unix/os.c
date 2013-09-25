@@ -2216,6 +2216,11 @@ os_thread_init(dcontext_t *dcontext)
      */
     memset(ostd, 0, sizeof(*ostd));
 
+    ksynch_init_var(&ostd->suspended);
+    ksynch_init_var(&ostd->wakeup);
+    ksynch_init_var(&ostd->resumed);
+    ksynch_init_var(&ostd->terminated);
+
 #ifdef RETURN_AFTER_CALL
     if (!dynamo_initialized) {
         /* Find the bottom of the stack of the initial (native) entry */
@@ -2263,6 +2268,11 @@ os_thread_exit(dcontext_t *dcontext, bool other_thread)
     DELETE_LOCK(ostd->suspend_lock);
 
     signal_thread_exit(dcontext, other_thread);
+
+    ksynch_free_var(&ostd->suspended);
+    ksynch_free_var(&ostd->wakeup);
+    ksynch_free_var(&ostd->resumed);
+    ksynch_free_var(&ostd->terminated);
 
     /* for non-debug we do fast exit path and don't free local heap */
     DODEBUG({
@@ -3135,7 +3145,7 @@ thread_suspend(thread_record_t *tr)
          * up to the caller to check whether it is a safe suspend point,
          * to match Windows behavior.
          */
-        ASSERT(ostd->suspended == 0);
+        ASSERT(ksynch_get_value(&ostd->suspended) == 0);
         if (!thread_signal(tr->pid, tr->id, SUSPEND_SIGNAL)) {
             ostd->suspend_count--;
             mutex_unlock(&ostd->suspend_lock);
@@ -3148,13 +3158,12 @@ thread_suspend(thread_record_t *tr)
      * suspending thread gets scheduled again.
      */
     mutex_unlock(&ostd->suspend_lock);
-    /* i#96/PR 295561: use futex(2) if available */
-    while (ostd->suspended == 0) {
-        /* Waits only if the suspended flag is not set as 1. Return value
+    while (ksynch_get_value(&ostd->suspended) == 0) {
+        /* For Linux, waits only if the suspended flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked. 
          */
-        futex_wait(&ostd->suspended, 0);
-        if (ostd->suspended == 0) {
+        ksynch_wait(&ostd->suspended, 0);
+        if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
             thread_yield();
         }
@@ -3186,21 +3195,20 @@ thread_resume(thread_record_t *tr)
         mutex_unlock(&ostd->suspend_lock);
         return true; /* still suspended */
     }
-    ostd->wakeup = 1;
-    futex_wake(&ostd->wakeup);
-    /* i#96/PR 295561: use futex(2) if available */
-    while (ostd->resumed == 0) {
-        /* Waits only if the resumed flag is not set as 1. Return value
+    ksynch_set_value(&ostd->wakeup, 1);
+    ksynch_wake(&ostd->wakeup);
+    while (ksynch_get_value(&ostd->resumed) == 0) {
+        /* For Linux, waits only if the resumed flag is not set as 1.  Return value
          * doesn't matter because the flag will be re-checked. 
          */
-        futex_wait(&ostd->resumed, 0);
-        if (ostd->resumed == 0) {
+        ksynch_wait(&ostd->resumed, 0);
+        if (ksynch_get_value(&ostd->resumed) == 0) {
             /* If it still has to wait, give up the cpu. */
             thread_yield();
         }
     }
-    ostd->wakeup = 0;
-    ostd->resumed = 0;
+    ksynch_set_value(&ostd->wakeup, 0);
+    ksynch_set_value(&ostd->resumed, 0);
     mutex_unlock(&ostd->suspend_lock);
     return true;
 }
@@ -3231,12 +3239,12 @@ os_wait_thread_terminated(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     ASSERT(ostd != NULL);
-    while (ostd->terminated == 0) {
-        /* Waits only if the terminated flag is not set as 1. Return value
+    while (ksynch_get_value(&ostd->terminated) == 0) {
+        /* On Linux, waits only if the terminated flag is not set as 1. Return value
          * doesn't matter because the flag will be re-checked. 
          */
-        futex_wait(&ostd->terminated, 0);
-        if (ostd->terminated == 0) {
+        ksynch_wait(&ostd->terminated, 0);
+        if (ksynch_get_value(&ostd->terminated) == 0) {
             /* If it still has to wait, give up the cpu. */
             thread_yield();
         }
@@ -7662,24 +7670,37 @@ mutex_wait_contended_lock(mutex_t *lock)
 #endif
     
     /* i#96/PR 295561: use futex(2) if available */
-    if (kernel_futex_support) {
+    if (ksynch_kernel_support()) {
         /* Try to get the lock.  If already held, it's fine to store any value
          * > LOCK_SET_STATE (we don't rely on paired incs/decs) so that
          * the next unlocker will call mutex_notify_released_lock().
          */
         ptr_int_t res;
+#ifndef LINUX /* we actually don't use this for Linux: see below */
+        KSYNCH_TYPE *event = mutex_get_contended_event(lock);
+        ASSERT(event != NULL && ksynch_var_initialized(event));
+#endif
         while (atomic_exchange_int(&lock->lock_requests, LOCK_CONTENDED_STATE) !=
                LOCK_FREE_STATE) {
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
 #endif
+            /* Unfortunately the synch semantics are different for Linux vs Mac.
+             * We have to use lock_requests as the futex to avoid waiting if
+             * lock_requests changes, while on Mac the underlying synch prevents
+             * a wait there.
+             */
+#ifdef LINUX
             /* We'll abort the wait if lock_requests has changed at all.
              * We can't have a series of changes that result in no apparent
              * change w/o someone acquiring the lock, b/c
              * mutex_notify_released_lock() sets lock_requests to LOCK_FREE_STATE.
              */
-            res = futex_wait(&lock->lock_requests, LOCK_CONTENDED_STATE);
+            res = ksynch_wait(&lock->lock_requests, LOCK_CONTENDED_STATE);
+#else
+            res = ksynch_wait(event, 0);
+#endif
             if (res != 0 && res != -EWOULDBLOCK)
                 thread_yield();
 #ifdef CLIENT_INTERFACE
@@ -7724,13 +7745,17 @@ void
 mutex_notify_released_lock(mutex_t *lock)
 {
     /* i#96/PR 295561: use futex(2) if available. */
-    if (kernel_futex_support) {
+    if (ksynch_kernel_support()) {
         /* Set to LOCK_FREE_STATE to avoid concurrent lock attempts from
          * resulting in a futex_wait value match w/o anyone owning the lock
          */
         lock->lock_requests = LOCK_FREE_STATE;
         /* No reason to wake multiple threads: just one */
-        futex_wake(&lock->lock_requests);
+#ifdef LINUX
+        ksynch_wake(&lock->lock_requests);
+#else
+        ksynch_wake(&lock->contended_event);
+#endif
     } /* else nothing to do */
 }
 
@@ -7766,12 +7791,10 @@ rwlock_notify_readers(read_write_lock_t *rwlock)
 
 /* events are un-signaled when successfully waited upon. */
 typedef struct linux_event_t {
-    /* volatile int rather than volatile bool since it's used as a futex.
-     * 0 is unset, 1 is set, no other value is used.
-     * Any function that sets this flag must also notify possibly waiting
+    /* Any function that sets this flag must also notify possibly waiting
      * thread(s). See i#96/PR 295561.
      */
-    volatile int signaled;
+    KSYNCH_TYPE signaled;
     mutex_t lock;
 } linux_event_t;
 
@@ -7783,7 +7806,7 @@ event_t
 create_event()
 {
     event_t e = (event_t) global_heap_alloc(sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
-    e->signaled = 0;
+    ksynch_init_var(&e->signaled);
     ASSIGN_INIT_LOCK_FREE(e->lock, event_lock); /* FIXME: we'll need to pass the event name here */
     return e;
 }
@@ -7792,6 +7815,7 @@ void
 destroy_event(event_t e)
 {
     DELETE_LOCK(e->lock);
+    ksynch_free_var(&e->signaled);
     global_heap_free(e, sizeof(linux_event_t) HEAPACCT(ACCT_OTHER));
 }
 
@@ -7799,8 +7823,8 @@ void
 signal_event(event_t e)
 {
     mutex_lock(&e->lock);
-    e->signaled = 1;
-    futex_wake(&e->signaled);
+    ksynch_set_value(&e->signaled, 1);
+    ksynch_wake(&e->signaled);
     LOG(THREAD_GET, LOG_THREADS, 3,"thread %d signalling event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
@@ -7809,13 +7833,11 @@ void
 reset_event(event_t e)
 {
     mutex_lock(&e->lock);
-    e->signaled = 0;
+    ksynch_set_value(&e->signaled, 0);
     LOG(THREAD_GET, LOG_THREADS, 3,"thread %d resetting event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
 
-/* FIXME: compare use and implementation with  man pthread_cond_wait */
-/* i#96/PR 295561: use futex(2) if available. */
 void
 wait_for_event(event_t e)
 {
@@ -7825,16 +7847,16 @@ wait_for_event(event_t e)
     /* Use a user-space event on Linux, a kernel event on Windows. */
     LOG(THREAD, LOG_THREADS, 3, "thread %d waiting for event "PFX"\n",get_thread_id(),e);
     while (true) {
-        if (e->signaled == 1) {
+        if (ksynch_get_value(&e->signaled) == 1) {
             mutex_lock(&e->lock);
-            if (e->signaled == 0) {
+            if (ksynch_get_value(&e->signaled) == 0) {
                 /* some other thread beat us to it */
                 LOG(THREAD, LOG_THREADS, 3, "thread %d was beaten to event "PFX"\n",
                     get_thread_id(),e);
                 mutex_unlock(&e->lock);
             } else {
                 /* reset the event */
-                e->signaled = 0;
+                ksynch_set_value(&e->signaled, 0);
                 mutex_unlock(&e->lock);
                 LOG(THREAD, LOG_THREADS, 3,
                     "thread %d finished waiting for event "PFX"\n", get_thread_id(),e);
@@ -7844,9 +7866,9 @@ wait_for_event(event_t e)
             /* Waits only if the signaled flag is not set as 1. Return value
              * doesn't matter because the flag will be re-checked. 
              */
-            futex_wait(&e->signaled, 0);
+            ksynch_wait(&e->signaled, 0);
         }
-        if (e->signaled == 0) {
+        if (ksynch_get_value(&e->signaled) == 0) {
             /* If it still has to wait, give up the cpu. */
             thread_yield();
         }

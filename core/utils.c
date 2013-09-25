@@ -804,7 +804,7 @@ spinmutex_unlock(spin_mutex_t *spin_lock)
 void
 spinmutex_delete(spin_mutex_t *spin_lock)
 {
-    ASSERT(spin_lock->lock.contended_event == CONTENTION_EVENT_NOT_CREATED);
+    ASSERT(!ksynch_var_initialized(&spin_lock->lock.contended_event));
     mutex_delete(&spin_lock->lock);
 }
 
@@ -943,13 +943,8 @@ mutex_delete(mutex_t *lock)
 #endif    
     ASSERT(lock->lock_requests == LOCK_FREE_STATE);
 
-    if (lock->contended_event != CONTENTION_EVENT_NOT_CREATED) {
-#ifdef WINDOWS
-        /* FIXME: better abstraction.  should be mutex_free_contended_event */
-        os_close(lock->contended_event);
-#else
-        ASSERT_NOT_IMPLEMENTED(false);
-#endif
+    if (ksynch_var_initialized(&lock->contended_event)) {
+        mutex_free_contended_event(lock);
     }
 }
 

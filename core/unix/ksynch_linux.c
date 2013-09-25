@@ -54,7 +54,7 @@
 /* Does the kernel support SYS_futex syscall? Safe to initialize assuming 
  * no futex support.
  */
-bool kernel_futex_support = false;
+static bool kernel_futex_support = false;
 
 void
 ksynch_init(void)
@@ -75,13 +75,43 @@ ksynch_exit(void)
 {
 }
 
+bool
+ksynch_kernel_support(void)
+{
+    return kernel_futex_support;
+}
+
+/* We use volatile int rather than bool since these are used as futexes.
+ * 0 is unset, 1 is set, and no other value is used.
+ */
+bool
+ksynch_init_var(volatile int *futex)
+{
+    ASSERT(ALIGNED(futex, sizeof(int)));
+    *futex = 0;
+    return true;
+}
+
+bool
+ksynch_var_initialized(volatile int *futex)
+{
+    return (*futex != -1);
+}
+
+bool
+ksynch_free_var(volatile int *futex)
+{
+    /* nothing to be done */
+    return true;
+}
+
 /* Waits on the futex until woken if the kernel supports SYS_futex syscall
  * and the futex's value has not been changed from mustbe. Does not block
  * if the kernel doesn't support SYS_futex. Returns 0 if woken by another thread, 
  * and negative value for all other cases.
  */
 ptr_int_t
-futex_wait(volatile int *futex, int mustbe)
+ksynch_wait(volatile int *futex, int mustbe)
 {
     ptr_int_t res;
     ASSERT(ALIGNED(futex, sizeof(int)));
@@ -99,7 +129,7 @@ futex_wait(volatile int *futex, int mustbe)
  * SYS_futex syscall. Does nothing if the kernel doesn't support SYS_futex.
  */
 ptr_int_t
-futex_wake(volatile int *futex)
+ksynch_wake(volatile int *futex)
 {
     ptr_int_t res;
     ASSERT(ALIGNED(futex, sizeof(int)));
@@ -115,7 +145,7 @@ futex_wake(volatile int *futex)
  * SYS_futex syscall. Does nothing if the kernel doesn't support SYS_futex.
  */
 ptr_int_t
-futex_wake_all(volatile int *futex)
+ksynch_wake_all(volatile int *futex)
 {
     ptr_int_t res;
     ASSERT(ALIGNED(futex, sizeof(int)));
@@ -129,4 +159,20 @@ futex_wake_all(volatile int *futex)
         res = -1;
     }
     return res;
+}
+
+volatile int *
+mutex_get_contended_event(mutex_t *lock)
+{
+    if (!ksynch_var_initialized(&lock->contended_event)) {
+        /* We just don't want to clobber an in-use event */
+        atomic_compare_exchange_int((int*)&lock->contended_event, -1, (int)0);
+    }
+    return &lock->contended_event;
+}
+
+void
+mutex_free_contended_event(mutex_t *lock)
+{
+    /* Nothing to do */
 }

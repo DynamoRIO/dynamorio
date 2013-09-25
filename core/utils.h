@@ -208,18 +208,31 @@ void external_error(const char *file, int line, const char *msg);
 
 #define SPINLOCK_FREE_STATE 0 /* for initstack_mutex is a spin lock with values 0 or 1 */
 
-#define CONTENTION_EVENT_NOT_CREATED ((contention_event_t)0)
-
+/* We want lazy init of the contended event (which can avoid creating
+ * dozens of kernel objects), but to initialize it atomically, we need
+ * either a pointer to separately-initialized memory or an inlined
+ * kernel handle.  We can't allocate heap for locks b/c they're used
+ * too early and late, and it seems ugly to use a static array, so we
+ * end up having to expose KSYNCH_TYPE for Mac, resulting in a
+ * non-uniform initialization of the field.
+ * We can't keep this in os_exports.h due to header ordering constraints.
+ */
 #ifdef WINDOWS
-typedef HANDLE contention_event_t;
+#  define KSYNCH_TYPE HANDLE
+#  define KSYNCH_TYPE_STATIC_INIT NULL
+#elif defined(LINUX)
+#  define KSYNCH_TYPE volatile int
+#  define KSYNCH_TYPE_STATIC_INIT -1
 #else
-typedef void * contention_event_t;
+#  error Unknown operating system
 #endif
+
+typedef KSYNCH_TYPE contention_event_t;
 
 typedef struct _mutex_t {
     volatile int lock_requests; /* number of threads requesting this lock minus 1 */
     /* a value greater than LOCK_FREE_STATE means the lock has been requested */
-    contention_event_t contended_event; /* handle to event object to wait on when contended */
+    contention_event_t contended_event; /* event object to wait on when contended */
 #ifdef DEADLOCK_AVOIDANCE
     /* These fields are initialized with the INIT_LOCK_NO_TYPE macro */
     const char *name;            /* set to variable lock name and location */
@@ -592,12 +605,12 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 /* We need the (mutex_t) type specifier for direct initialization, 
    but not when defining compound structures, hence NO_TYPE */
 #  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE,               \
-                                         CONTENTION_EVENT_NOT_CREATED,  \
+                                         KSYNCH_TYPE_STATIC_INIT,  \
                                          name, rank,                    \
                                          INVALID_THREAD_ID,}
 #else
 /* Ignore the arguments */
-#  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE, CONTENTION_EVENT_NOT_CREATED}
+#  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE, KSYNCH_TYPE_STATIC_INIT}
 #endif /* DEADLOCK_AVOIDANCE */
 
 /* Structure assignments and initialization don't work the same in gcc and cl
@@ -645,7 +658,7 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
        LOCK_RANK(lock)),                                                \
        0, INVALID_THREAD_ID,                                            \
        0,                                                               \
-       CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
+       KSYNCH_TYPE_STATIC_INIT, KSYNCH_TYPE_STATIC_INIT                 \
    }
 
 #define ASSIGN_INIT_READWRITE_LOCK_FREE(var, lock) do {                 \
@@ -655,7 +668,7 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
                                                  LOCK_RANK(lock)),      \
        0, INVALID_THREAD_ID,                                            \
        0,                                                               \
-       CONTENTION_EVENT_NOT_CREATED, CONTENTION_EVENT_NOT_CREATED       \
+       KSYNCH_TYPE_STATIC_INIT, KSYNCH_TYPE_STATIC_INIT                 \
       };                                                                \
      var = initializer_##lock;                                          \
    } while (0)
