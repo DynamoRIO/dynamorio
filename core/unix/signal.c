@@ -69,6 +69,7 @@
 #include "../synch.h"
 #include "../nudge.h"
 #include "disassemble.h"
+#include "ksynch.h"
 
 #include "include/syscall.h"
 

@@ -272,16 +272,6 @@ void os_request_live_coredump(const char *msg);
 bool file_is_elf64(file_t f);
 bool get_elf_platform(file_t f, dr_platform_t *platform);
 
-/* helper routines for using futex(2). See i#96/PR 295561. in os.c */
-ptr_int_t 
-futex_wait(volatile int *futex, int mustbe);
-ptr_int_t 
-futex_wake(volatile int *futex);
-ptr_int_t 
-futex_wake_all(volatile int *futex);
-
-extern bool kernel_futex_support;
-
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"
 #endif

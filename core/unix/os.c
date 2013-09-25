@@ -75,8 +75,6 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#include <linux/futex.h> /* for futex op code */
-
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
  * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
  * conflicts.  Instead, we include unix/sched.h which comes from the Linux
@@ -134,6 +132,7 @@ char **our_environ;
 #include "os_private.h"
 #include "../synch.h"
 #include "memquery.h"
+#include "ksynch.h"
 
 #ifndef HAVE_MEMINFO_QUERY
 # include "memcache.h"
@@ -276,11 +275,6 @@ static char *executable_basename;
 
 /* does the kernel provide tids that must be used to distinguish threads in a group? */
 static bool kernel_thread_groups;
-
-/* Does the kernel support SYS_futex syscall? Safe to initialize assuming 
- * no futex support.
- */
-bool kernel_futex_support = false;
 
 static bool kernel_64bit;
 
@@ -682,15 +676,7 @@ get_uname(void)
 void
 os_init(void)
 {
-    /* Determines whether the kernel supports SYS_futex syscall or not.
-     * From man futex(2): initial futex support was merged in 2.5.7, in current six
-     * argument format since 2.6.7.
-     */
-    volatile int futex_for_test = 0;
-    ptr_int_t res = dynamorio_syscall(SYS_futex, 6, &futex_for_test, FUTEX_WAKE, 1,
-                                      NULL, NULL, 0);
-    kernel_futex_support = (res >= 0); 
-    ASSERT_CURIOSITY(kernel_futex_support);
+    ksynch_init();
 
     get_uname();
 
@@ -990,6 +976,7 @@ os_slow_exit(void)
 {
     signal_exit();
     memquery_exit();
+    ksynch_exit();
 
     generic_hash_destroy(GLOBAL_DCONTEXT, fd_table);
     fd_table = NULL;
@@ -3074,62 +3061,6 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 {
     /* FIXME - NYI */
     return false;
-}
-
-/* Waits on the futex until woken if the kernel supports SYS_futex syscall
- * and the futex's value has not been changed from mustbe. Does not block
- * if the kernel doesn't support SYS_futex. Returns 0 if woken by another thread, 
- * and negative value for all other cases.
- */
-ptr_int_t
-futex_wait(volatile int *futex, int mustbe)
-{
-    ptr_int_t res;
-    ASSERT(ALIGNED(futex, sizeof(int)));
-    if (kernel_futex_support) {
-        /* XXX: Having debug timeout like win32 os_wait_event() would be useful */
-        res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAIT, mustbe, NULL,
-                                NULL, 0);
-    } else {
-        res = -1;
-    }
-    return res;
-}
-
-/* Wakes up at most one thread waiting on the futex if the kernel supports
- * SYS_futex syscall. Does nothing if the kernel doesn't support SYS_futex.
- */
-ptr_int_t
-futex_wake(volatile int *futex)
-{
-    ptr_int_t res;
-    ASSERT(ALIGNED(futex, sizeof(int)));
-    if (kernel_futex_support) {
-        res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAKE, 1, NULL, NULL, 0);
-    } else {
-        res = -1;
-    }
-    return res;
-}
-
-/* Wakes up all the threads waiting on the futex if the kernel supports
- * SYS_futex syscall. Does nothing if the kernel doesn't support SYS_futex.
- */
-ptr_int_t
-futex_wake_all(volatile int *futex)
-{
-    ptr_int_t res;
-    ASSERT(ALIGNED(futex, sizeof(int)));
-    if (kernel_futex_support) {
-        do {
-            res = dynamorio_syscall(SYS_futex, 6, futex, FUTEX_WAKE, INT_MAX,
-                                    NULL, NULL, 0);
-        } while (res == INT_MAX);
-        res = 0;
-    } else {
-        res = -1;
-    }
-    return res;
 }
 
 /* yield the current thread */
