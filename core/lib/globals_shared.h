@@ -457,6 +457,20 @@ typedef struct _instr_t instr_t;
 # define IF_LINUX_(x)
 #endif
 
+#ifdef HAVE_MEMINFO_QUERY
+# define IF_MEMQUERY(x) x
+# define IF_MEMQUERY_(x) x,
+# define IF_MEMQUERY_ELSE(x, y) x
+# define IF_NO_MEMQUERY(x)
+# define IF_NO_MEMQUERY_(x)
+#else
+# define IF_MEMQUERY(x)
+# define IF_MEMQUERY_(x)
+# define IF_MEMQUERY_ELSE(x, y) y
+# define IF_NO_MEMQUERY(x) x
+# define IF_NO_MEMQUERY_(x) x,
+#endif
+
 #ifdef VMX86_SERVER
 # define IF_VMX86(x) x
 # define IF_VMX86_ELSE(x,y) x

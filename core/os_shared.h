@@ -669,7 +669,7 @@ bool is_in_dynamo_dll(app_pc pc);
 int find_dynamo_library_vm_areas(void);
 int find_executable_vm_areas(void);
 
-/* all_memory_areas is linux only, dummy on win32 */
+/* all_memory_areas is !HAVE_MEMINFO-only: nop elsewhere */
 void all_memory_areas_lock(void);
 void all_memory_areas_unlock(void);
 /* pass -1 if type is unchanged */
@@ -696,7 +696,6 @@ bool remove_from_all_memory_areas(app_pc start, app_pc end);
 file_t os_open(const char *fname, int os_open_flags);
 file_t os_open_protected(const char *fname, int os_open_flags);
 file_t os_open_directory(const char *fname, int os_open_flags);
-/* FIXME : os_file_exists always returns true on linux */
 bool os_file_exists(const char *fname, bool is_dir);
 bool os_get_file_size(const char *file, uint64 *size); /* NYI on Linux */
 bool os_get_file_size_by_handle(file_t fd, uint64 *size);

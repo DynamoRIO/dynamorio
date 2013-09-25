@@ -41,6 +41,7 @@
 
 #include <signal.h> /* for stack_t */
 #include "module.h" /* for os_module_data_t */
+#include "ksynch.h" /* for KSYNCH_TYPE */
 #include "instr.h" /* for reg_id_t */
 #include <sys/time.h> /* struct itimerval */
 #include "dr_config.h" /* for dr_platform_t */

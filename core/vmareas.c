@@ -726,10 +726,10 @@ print_vm_area(vm_area_vector_t *v, vm_area_t *area, file_t outf, const char *pre
 #ifdef DEBUG
     print_file(outf, " %s", area->comment);
     DOLOG(1, LOG_VMAREAS, {
-        IF_UNIX(extern vm_area_vector_t *all_memory_areas;)
+        IF_NO_MEMQUERY(extern vm_area_vector_t *all_memory_areas;)
         app_pc modbase = 
             /* avoid rank order violation */
-            IF_UNIX(v == all_memory_areas ? NULL :)
+            IF_NO_MEMQUERY(v == all_memory_areas ? NULL :)
             get_module_base(area->start);
         if (modbase != NULL &&
             /* avoid rank order violations */

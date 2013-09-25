@@ -497,7 +497,7 @@ enum {
     LOCK_RANK(allunits_lock),  /* < global_alloc_lock */
     LOCK_RANK(fcache_unit_areas), /* > allunits_lock, 
                                      < dynamo_areas, < global_alloc_lock */
-    IF_LINUX_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
+    IF_NO_MEMQUERY_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
     IF_UNIX_(LOCK_RANK(set_thread_area_lock)) /* no constraints */
     LOCK_RANK(landing_pad_areas_lock),  /* < global_alloc_lock, < dynamo_areas */
     LOCK_RANK(dynamo_areas),    /* < global_alloc_lock */

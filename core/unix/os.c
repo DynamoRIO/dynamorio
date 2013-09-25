@@ -135,6 +135,10 @@ char **our_environ;
 #include "../synch.h"
 #include "memquery.h"
 
+#ifndef HAVE_MEMINFO_QUERY
+# include "memcache.h"
+#endif
+
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
 #endif
@@ -302,33 +306,6 @@ static struct rlimit app_rlimit_nofile;
  */
 static generic_table_t *fd_table;
 #define INIT_HTABLE_SIZE_FD 6 /* should remain small */
-
-/* Track all memory regions seen by DR. We track these ourselves to prevent
- * repeated reads of /proc/self/maps (case 3771). An allmem_info_t struct is
- * stored in the custom field.
- * all_memory_areas is updated along with dynamo_areas, due to cyclic
- * dependencies.
- */
-/* exported for debug to avoid rank order in print_vm_area() */
-IF_DEBUG_ELSE(,static) vm_area_vector_t *all_memory_areas;
-
-typedef struct _allmem_info_t {
-    uint prot;
-    dr_mem_type_t type;
-    bool shareable;
-} allmem_info_t;
-
-static void allmem_info_free(void *data);
-static void *allmem_info_dup(void *data);
-static bool allmem_should_merge(bool adjacent, void *data1, void *data2);
-static void *allmem_info_merge(void *dst_data, void *src_data);
-
-/* HACK to make all_memory_areas->lock recursive 
- * protected for both read and write by all_memory_areas->lock
- * FIXME: provide general rwlock w/ write portion recursive
- * FIXME: eliminate duplicate code (see dynamo_areas_recursion)
- */
-DECLARE_CXTSWPROT_VAR(uint all_memory_areas_recursion, 0);
 
 static bool
 is_readable_without_exception_internal(const byte *pc, size_t size, bool query_os);
@@ -747,11 +724,8 @@ os_init(void)
         LOG(GLOBAL, LOG_TOP|LOG_STATS, 1, "CPU MHz is %d\n", kilo_hertz/1000);
     }
 #endif /* PROFILE_RDTSC */
-    /* Need to be after heap_init */
-    VMVECTOR_ALLOC_VECTOR(all_memory_areas, GLOBAL_DCONTEXT,
-                          VECTOR_SHARED, all_memory_areas);
-    vmvector_set_callbacks(all_memory_areas, allmem_info_free, allmem_info_dup,
-                           allmem_should_merge, allmem_info_merge);
+    /* Needs to be after heap_init */
+    IF_NO_MEMQUERY(memcache_init());
 
     /* we didn't have heap in os_file_init() so create and add global logfile now */
     fd_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_FD,
@@ -1024,8 +998,7 @@ os_slow_exit(void)
 #ifdef CLIENT_INTERFACE
     DELETE_LOCK(client_tls_lock);
 #endif
-    vmvector_delete_vector(GLOBAL_DCONTEXT, all_memory_areas);
-    all_memory_areas = NULL;
+    IF_NO_MEMQUERY(memcache_exit());
 }
 
 /* os-specific atexit cleanup */
@@ -4177,36 +4150,6 @@ os_syslog(syslog_event_type_t priority, uint message_id,
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
-static bool
-all_memory_areas_initialized(void)
-{
-    return (all_memory_areas != NULL && !vmvector_empty(all_memory_areas) &&
-            /* not really set until vm_areas_init() */
-            dynamo_initialized);
-}
-
-#if defined(DEBUG) && defined(INTERNAL)
-static void
-print_all_memory_areas(file_t outf)
-{
-    vmvector_iterator_t vmvi;
-    if (all_memory_areas == NULL || vmvector_empty(all_memory_areas))
-        return;
-
-    vmvector_iterator_start(all_memory_areas, &vmvi);
-    while (vmvector_iterator_hasnext(&vmvi)) {
-        app_pc start, end;
-        void *nxt = vmvector_iterator_next(&vmvi, &start, &end);
-        allmem_info_t *info = (allmem_info_t *) nxt;
-        print_file(outf, PFX"-"PFX" prot=%s type=%s\n", start, end,
-                   memprot_string(info->prot),
-                   (info->type == DR_MEMTYPE_FREE ? "free" :
-                    (info->type == DR_MEMTYPE_IMAGE ? "image" : "data")));
-    }
-    vmvector_iterator_stop(&vmvi);
-}
-#endif
-
 /* This is subject to races, but should only happen at init/attach when
  * there should only be one live thread.
  */
@@ -4220,7 +4163,7 @@ safe_read_via_query(const void *base, size_t size, void *out_buf, size_t *bytes_
      * here, but we check it nevertheless to be general in case this routine is
      * ever called at some later time
      */
-    if (all_memory_areas_initialized())
+    if (IF_MEMQUERY_ELSE(false, memcache_initialized()))
         res = is_readable_without_exception_internal(base, size, false/*use allmem*/);
     else
         res = is_readable_without_exception_query_os((void *)base, size);
@@ -4338,7 +4281,7 @@ is_readable_without_exception(const byte *pc, size_t size)
      * accurate in the past.  Parsing proc maps is too slow for some apps, so we
      * use a runtime option.
      */
-    bool query_os = !DYNAMO_OPTION(use_all_memory_areas);
+    bool query_os = IF_MEMQUERY_ELSE(true, !DYNAMO_OPTION(use_all_memory_areas));
     return is_readable_without_exception_internal(pc, size, query_os);
 }
 
@@ -4413,15 +4356,8 @@ set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
 
     if (os_set_protection(pc, length, prot) == false)
         return false;
-    all_memory_areas_lock();
-    ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + num_bytes) ||
-           /* we could synch up: instead we relax the assert if DR areas not in allmem */
-           are_dynamo_vm_areas_stale());
-    LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-        start_page, start_page + num_bytes, prot);
-    update_all_memory_areas(start_page, start_page + num_bytes,
-                            prot, -1/*type unchanged*/);
-    all_memory_areas_unlock();
+    IF_NO_MEMQUERY(memcache_update_locked(start_page, start_page + num_bytes,
+                                          prot, -1/*type unchanged*/, true/*exists*/));
     return true;
 }
 
@@ -4450,7 +4386,7 @@ make_writable(byte *pc, size_t size)
          * but we can't call get_memory_info() until allmem is initialized.  Our
          * uses before then are for patching x86.asm, which is OK.
          */
-        all_memory_areas_initialized() &&
+        IF_NO_MEMQUERY(memcache_initialized() &&)
 #endif
         get_memory_info(pc, NULL, NULL, &prot))
         prot |= PROT_WRITE;
@@ -4472,18 +4408,14 @@ make_writable(byte *pc, size_t size)
     STATS_INC(protection_change_calls);
     STATS_ADD(protection_change_pages, size / PAGE_SIZE);
 
-    if (all_memory_areas_initialized()) {
-        /* update all_memory_areas list with the protection change */
-        all_memory_areas_lock();
-        ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size) ||
-               /* we could synch up: instead, relax assert if DR areas not in allmem */
-               are_dynamo_vm_areas_stale());
-        LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-            start_page, start_page + prot_size, osprot_to_memprot(prot));
-        update_all_memory_areas(start_page, start_page + prot_size,
-                                osprot_to_memprot(prot), -1/*type unchanged*/);
-        all_memory_areas_unlock();
+#ifndef HAVE_MEMINFO_QUERY
+    /* update all_memory_areas list with the protection change */
+    if (memcache_initialized()) {
+        memcache_update_locked(start_page, start_page + prot_size,
+                               osprot_to_memprot(prot),
+                               -1/*type unchanged*/, true/*exists*/);
     }
+#endif
     return true;
 }
 
@@ -4511,7 +4443,7 @@ make_unwritable(byte *pc, size_t size)
          * but we can't call get_memory_info() until allmem is initialized.  Our
          * uses before then are for patching x86.asm, which is OK.
          */
-        all_memory_areas_initialized() &&
+        IF_NO_MEMQUERY(memcache_initialized() &&)
 #endif
         get_memory_info(pc, NULL, NULL, &prot))
         prot &= ~PROT_WRITE;
@@ -4531,18 +4463,14 @@ make_unwritable(byte *pc, size_t size)
         pc, start_page, start_page + prot_size);
     ASSERT(res == 0);
 
+# ifndef HAVE_MEMINFO_QUERY
     /* update all_memory_areas list with the protection change */
-    if (all_memory_areas_initialized()) {
-        all_memory_areas_lock();
-        ASSERT(vmvector_overlap(all_memory_areas, start_page, start_page + prot_size) ||
-               /* we could synch up: instead, relax assert if DR areas not in allmem */
-               are_dynamo_vm_areas_stale());
-        LOG(GLOBAL, LOG_VMAREAS, 3, "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-            start_page, start_page + prot_size, osprot_to_memprot(prot));
-        update_all_memory_areas(start_page, start_page + prot_size,
-                                osprot_to_memprot(prot), -1/*type unchanged*/);
-        all_memory_areas_unlock();
+    if (memcache_initialized()) {
+        memcache_update_locked(start_page, start_page + prot_size,
+                               osprot_to_memprot(prot), -1/*type unchanged*/,
+                               false/*!exists*/);
     }
+# endif
 #endif
 }
 
@@ -5776,7 +5704,11 @@ pre_system_call(dcontext_t *dcontext)
                                 false /* don't own thread_initexit_lock */,
                                 true /* image, FIXME: though not necessarily */);
         /* FIXME: case 4983 use is_elf_so_header() */
-        remove_from_all_memory_areas(addr, addr + len);
+#ifndef HAVE_MEMINFO_QUERY
+        memcache_lock();
+        memcache_remove(addr, addr + len);
+        memcache_unlock();
+#endif
         break;
     }
     case SYS_mremap: {
@@ -5819,7 +5751,7 @@ pre_system_call(dcontext_t *dcontext)
            unsigned long prot)
         */
         uint res;
-        DEBUG_DECLARE(app_pc end;)
+        DEBUG_DECLARE(size_t size;)
         app_pc addr  = (void *) sys_param(dcontext, 0);
         size_t len  = (size_t) sys_param(dcontext, 1);
         uint prot = (uint) sys_param(dcontext, 2);
@@ -5848,8 +5780,7 @@ pre_system_call(dcontext_t *dcontext)
          *      to let the system call fail and recover in post_system_call(). 
          *      See PR 410921.
          */
-        if (!vmvector_lookup_data(all_memory_areas, addr, NULL, 
-                                  IF_DEBUG_ELSE(&end, NULL), NULL)) {
+        if (!get_memory_info(addr, NULL, IF_DEBUG_ELSE(&size, NULL), NULL)) {
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "\t"PFX" isn't mapped; aborting mprotect\n", addr);
             execute_syscall = false;
@@ -5861,7 +5792,7 @@ pre_system_call(dcontext_t *dcontext)
              * spans 2 or more vmareas with dissimilar protection (xref 
              * PR 410921) or has unallocated regions in between (PR 413109).
              */
-            DOCHECK(1, dcontext->mprot_multi_areas = (addr + len) > end ? true : false;);
+            DOCHECK(1, dcontext->mprot_multi_areas = len > size ? true : false;);
         }
 
         res = app_memory_protection_change(dcontext, addr, len, 
@@ -5878,17 +5809,9 @@ pre_system_call(dcontext_t *dcontext)
         }
         else {
             /* FIXME Store state for undo if the syscall fails. */
-            /* update all_memory_areas list */
-            all_memory_areas_lock();
-            ASSERT(vmvector_overlap(all_memory_areas, addr, addr + len) ||
-                   /* we could synch: instead, relax assert if DR areas not in allmem */
-                   are_dynamo_vm_areas_stale());
-            LOG(GLOBAL, LOG_VMAREAS|LOG_SYSCALLS, 3,
-                "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-                addr, addr+len, osprot_to_memprot(prot));
-            update_all_memory_areas(addr, addr+len, osprot_to_memprot(prot),
-                                    -1/*type unchanged*/);
-            all_memory_areas_unlock();
+            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len,
+                                                  osprot_to_memprot(prot),
+                                                  -1/*type unchanged*/, true/*exists*/));
         }
         break;
     }
@@ -6355,182 +6278,29 @@ pre_system_call(dcontext_t *dcontext)
     return execute_syscall;
 }
 
-/* vmvector callbacks */
-static void
-allmem_info_free(void *data)
+void
+all_memory_areas_lock(void)
 {
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
-}
-
-static void *
-allmem_info_dup(void *data)
-{
-    allmem_info_t *src = (allmem_info_t *) data;
-    allmem_info_t *dst = 
-        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
-    ASSERT(src != NULL);
-    *dst = *src;
-    return dst;
-}
-
-static bool
-allmem_should_merge(bool adjacent, void *data1, void *data2)
-{
-    allmem_info_t *i1 = (allmem_info_t *) data1;
-    allmem_info_t *i2 = (allmem_info_t *) data2;
-    /* we do want to merge identical regions, whether overlapping or
-     * adjacent, to avoid continual splitting due to mprotect
-     * fragmenting our list
-     */
-    return (i1->prot == i2->prot &&
-            i1->type == i2->type &&
-            i1->shareable == i2->shareable);
-}
-
-static void *
-allmem_info_merge(void *dst_data, void *src_data)
-{
-    DOCHECK(1, {
-      allmem_info_t *src = (allmem_info_t *) src_data;
-      allmem_info_t *dst = (allmem_info_t *) dst_data;
-      ASSERT(src->prot == dst->prot &&
-             src->type == dst->type &&
-             src->shareable == dst->shareable);
-    });
-    allmem_info_free(src_data);
-    return dst_data;
-}
-
-static void
-sync_all_memory_areas(void)
-{
-    /* The all_memory_areas list has the same circular dependence issues
-     * as the dynamo_areas list.  For allocs outside of vmheap we can
-     * be out of sync.
-     */
-    if (are_dynamo_vm_areas_stale()) {
-        /* Trigger a sync */
-        dynamo_vm_area_overlap((app_pc)NULL, (app_pc)1);
-    }
-}
-
-/* caller should call sync_all_memory_areas first */
-static void
-add_all_memory_area(app_pc start, app_pc end, uint prot, int type, bool shareable)
-{
-    allmem_info_t *info;
-    ASSERT(ALIGNED(start, PAGE_SIZE));
-    ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
-    LOG(GLOBAL, LOG_VMAREAS|LOG_SYSCALLS, 3,
-        "update_all_memory_areas: adding: "PFX"-"PFX" prot=%d type=%d share=%d\n",
-        start, end, prot, type, shareable);
-    info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
-    info->prot = prot;
-    ASSERT(type >= 0);
-    info->type = type;
-    info->shareable = shareable;
-    vmvector_add(all_memory_areas, start, end, (void *)info);
+    IF_NO_MEMQUERY(memcache_lock());
 }
 
 void
-update_all_memory_areas(app_pc start, app_pc end_in, uint prot, int type)
+all_memory_areas_unlock(void)
 {
-    allmem_info_t *info;
-    app_pc end = (app_pc) ALIGN_FORWARD(end_in, PAGE_SIZE);
-    bool removed;
-    ASSERT(ALIGNED(start, PAGE_SIZE));
-    /* all_memory_areas lock is held higher up the call chain to avoid rank
-     * order violation with heap_unit_lock */
-    ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
-    sync_all_memory_areas();
-    LOG(GLOBAL, LOG_VMAREAS, 4,
-        "update_all_memory_areas "PFX"-"PFX" %d %d\n",
-        start, end_in, prot, type);
-    DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
+    IF_NO_MEMQUERY(memcache_unlock());
+}
 
-    if (type == -1) {
-        /* to preserve existing types we must iterate b/c we cannot
-         * merge images into data
-         */
-        app_pc pc, sub_start, sub_end, next_add = start;
-        pc = start;
-        /* XXX i#704: pointer overflow is not guaranteed to behave like
-         * arithmetic overflow: need better handling here, though most problems
-         * we've seen have been on "pc + x < pc" checks where the addition is
-         * built into the comparison and the compiler can say "won't happen".
-         */
-        while (pc < end && pc >= start/*overflow*/ &&
-               vmvector_lookup_data(all_memory_areas, pc, &sub_start, &sub_end,
-                                    (void **) &info)) {
-            if (info->type == DR_MEMTYPE_IMAGE) {
-                bool shareable = false;
-                app_pc overlap_end;
-                dr_mem_type_t info_type = info->type;
-                /* process prior to image */
-                if (next_add < sub_start) {
-                    vmvector_remove(all_memory_areas, next_add, pc);
-                    add_all_memory_area(next_add, pc, prot, DR_MEMTYPE_DATA, false);
-                }
-                next_add = sub_end;
-                /* change image prot */
-                overlap_end = (sub_end > end) ? end : sub_end;
-                if (sub_start == pc && sub_end == overlap_end) {
-                    /* XXX: we should read maps to fully handle COW but for
-                     * now we do some simple checks to prevent merging
-                     * private with shareable regions
-                     */
-                    /* We assume a writable transition is accompanied by an actual
-                     * write => COW => no longer shareable (i#669)
-                     */
-                    shareable = info->shareable;
-                    if (TEST(MEMPROT_WRITE, prot) != TEST(MEMPROT_WRITE, info->prot))
-                        shareable = false;
-                    /* re-add so we can merge w/ adjacent non-shareable */
-                } else {
-                    /* assume we're here b/c was written and now marked +rx or sthg
-                     * so no sharing
-                     */
-                    shareable = false;
-                }
-                vmvector_remove(all_memory_areas, pc, overlap_end);
-                add_all_memory_area(pc, overlap_end, prot, info_type, shareable);
-            }
-            pc = sub_end;
-        }
-        /* process after last image */
-        if (next_add < end) {
-            vmvector_remove(all_memory_areas, next_add, end);
-            add_all_memory_area(next_add, end, prot, DR_MEMTYPE_DATA, false);
-        }
-    } else {
-        if (vmvector_overlap(all_memory_areas, start, end)) {
-            LOG(THREAD_GET, LOG_VMAREAS|LOG_SYSCALLS, 4,
-                "update_all_memory_areas: overlap found, removing and adding: "
-                PFX"-"PFX" prot=%d\n", start, end, prot);
-            /* New region to be added overlaps with one or more existing
-             * regions.  Split already existing region(s) accordingly and add
-             * the new region */
-            removed = vmvector_remove(all_memory_areas, start, end);
-            ASSERT(removed);
-        }
-        add_all_memory_area(start, end, prot, type, type == DR_MEMTYPE_IMAGE);
-    }
-    LOG(GLOBAL, LOG_VMAREAS, 5,
-        "update_all_memory_areas "PFX"-"PFX" %d %d: post:\n",
-        start, end_in, prot, type);
-    DOLOG(5, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
+void
+update_all_memory_areas(app_pc start, app_pc end, uint prot, int type)
+{
+    IF_NO_MEMQUERY(memcache_update(start, end, prot, type));
 }
 
 bool
 remove_from_all_memory_areas(app_pc start, app_pc end)
 {
-    bool ok;
-    DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext());
-    ok = vmvector_remove(all_memory_areas, start, end);
-    ASSERT(ok);
-    LOG(THREAD, LOG_VMAREAS|LOG_SYSCALLS, 3,
-        "remove_from_all_memory_areas: removed: "PFX"-"PFX"\n", start, end);
-    return ok;
+    IF_NO_MEMQUERY(return memcache_remove(start, end));
+    return true;
 }
 
 /* We consider a module load to happen at the first mmap, so we check on later
@@ -6602,9 +6372,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 {
     bool image = false;
     uint memprot = osprot_to_memprot(prot);
-    app_pc area_start;
-    app_pc area_end;
-    allmem_info_t *info;
 #ifdef CLIENT_INTERFACE
     bool inform_client = false;
 #endif
@@ -6731,32 +6498,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
             dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
 
-    all_memory_areas_lock();
-    sync_all_memory_areas();
-    if (vmvector_lookup_data(all_memory_areas, base, &area_start, &area_end,
-                             (void **) &info)) {
-        uint new_memprot;
-        LOG(THREAD, LOG_SYSCALLS, 4, "\tprocess overlap w/"PFX"-"PFX" prot=%d\n",
-            area_start, area_end, info->prot);
-        /* can't hold lock across call to app_memory_protection_change */
-        all_memory_areas_unlock();
-        if (info->prot != memprot) {
-            /* We detect some alloc-based prot changes here.  app_memory_pre_alloc()
-             * should have already processed these (i#1175) but no harm calling
-             * app_memory_protection_change() again just in case.
-             */
-            DEBUG_DECLARE(uint res =)
-                app_memory_protection_change(dcontext, base, size, memprot, 
-                                             &new_memprot, NULL);
-            ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
-                                   res != SUBSET_APP_MEM_PROT_CHANGE);
-                   
-        }
-        all_memory_areas_lock();
-    }
-    update_all_memory_areas(base, base + size, memprot,
-                            image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
-    all_memory_areas_unlock();
+    IF_NO_MEMQUERY(memcache_handle_mmap(dcontext, base, size, prot, image));
 
     /* app_memory_allocation() expects to not see an overlap -- exec areas
      * doesn't expect one.  We have yet to see a +x mmap into a previously
@@ -6886,16 +6628,8 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
         app_memory_allocation(dcontext, base, size, old_prot,
                               old_type == DR_MEMTYPE_IMAGE
                               _IF_DEBUG("mremap"));
-        /* Now modify the all-mems list. */
-        /* We don't expect an existing entry for the new region. */
-        all_memory_areas_lock();
-
-        /* i#175: overlap w/ existing regions is not an error */
-        DEBUG_DECLARE(ok =)
-            remove_from_all_memory_areas(old_base, old_base+old_size);
-        ASSERT(ok);
-        update_all_memory_areas(base, base + size, old_prot, old_type);
-        all_memory_areas_unlock();
+        IF_NO_MEMQUERY(memcache_handle_mremap(dcontext, base, size, old_base, old_size,
+                                              old_prot, old_type));
     }
     return true;
 }
@@ -6903,7 +6637,6 @@ handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
 static void
 handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
 {
-    DEBUG_DECLARE(bool ok;)
     /* i#851: the brk might not be page aligned */
     old_brk = (app_pc) ALIGN_FORWARD(old_brk, PAGE_SIZE);
     new_brk = (app_pc) ALIGN_FORWARD(new_brk, PAGE_SIZE);
@@ -6915,27 +6648,12 @@ handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
         app_memory_deallocation(dcontext, new_brk, old_brk - new_brk,
                                 false /* don't own thread_initexit_lock */,
                                 false /* not image */);
-        all_memory_areas_lock();
-        DEBUG_DECLARE(ok =)
-            remove_from_all_memory_areas(new_brk, old_brk);
-        ASSERT(ok);
-        all_memory_areas_unlock();
     } else if (new_brk > old_brk) {
-        allmem_info_t *info;
-        uint prot;
         /* No need to call app_memory_allocation() as doesn't interact
          * w/ security policies.
          */
-        all_memory_areas_lock();
-        sync_all_memory_areas();
-        info = vmvector_lookup(all_memory_areas, old_brk - 1);
-        /* If the heap hasn't been created yet (no brk syscalls), then info
-         * will be NULL.  We assume the heap is RW- on creation.
-         */
-        prot = ((info != NULL) ? info->prot : MEMPROT_READ|MEMPROT_WRITE);
-        update_all_memory_areas(old_brk, new_brk, prot, DR_MEMTYPE_DATA);
-        all_memory_areas_unlock();
     }
+    IF_NO_MEMQUERY(memcache_handle_app_brk(old_brk, new_brk));
 }
 
 /* Returns false if system call should NOT be executed
@@ -7111,12 +6829,8 @@ post_system_call(dcontext_t *dcontext)
             app_memory_allocation(dcontext, addr, len, info.prot,
                                   info.type == DR_MEMTYPE_IMAGE
                                   _IF_DEBUG("failed munmap"));
-            all_memory_areas_lock();
-            ASSERT(!vmvector_overlap(all_memory_areas, addr, addr + len) ||
-                   are_dynamo_vm_areas_stale());
-            /* Re-add to the all-mems list. */
-            update_all_memory_areas(addr, addr + len, info.prot, info.type);
-            all_memory_areas_unlock();
+            IF_NO_MEMQUERY(memcache_update_locked(addr, addr + len, info.prot,
+                                                  info.type, true/*exists*/));
         }
         break;
     }
@@ -7200,17 +6914,9 @@ post_system_call(dcontext_t *dcontext)
                  * each mprotect syscall to guard against a rare theoretical bug.
                  */
                 ASSERT_CURIOSITY(!dcontext->mprot_multi_areas);
-                all_memory_areas_lock();
-                ASSERT(vmvector_overlap(all_memory_areas, base, base + size) ||
-                       /* we could synch up: instead we relax the assert if 
-                        * DR areas not in allmem */
-                       are_dynamo_vm_areas_stale());
-                LOG(GLOBAL, LOG_VMAREAS, 3, 
-                    "\tupdating all_memory_areas "PFX"-"PFX" prot->%d\n",
-                    base, base + size, osprot_to_memprot(prot));
-                update_all_memory_areas(base, base + size, memprot,
-                                        -1/*type unchanged*/);
-                all_memory_areas_unlock();
+                IF_NO_MEMQUERY(memcache_update_locked(base, base + size,
+                                                      memprot, -1/*type unchanged*/,
+                                                      true/*exists*/));
             }
         }
         break;
@@ -7657,6 +7363,7 @@ find_executable_vm_areas(void)
 {
     int count = 0;
 
+#ifndef HAVE_MEMINFO_QUERY
     /* We avoid tracking the innards of vmheap for all_memory_areas by
      * adding a single no-access region for the whole vmheap.
      * Queries from heap routines use _from_os.
@@ -7671,11 +7378,10 @@ find_executable_vm_areas(void)
     byte *our_heap_start, *our_heap_end;
     get_vmm_heap_bounds(&our_heap_start, &our_heap_end);
     if (our_heap_end - our_heap_start > 0) {
-        all_memory_areas_lock();
-        update_all_memory_areas(our_heap_start, our_heap_end, MEMPROT_NONE,
-                                DR_MEMTYPE_DATA);
-        all_memory_areas_unlock();
+        memcache_update_locked(our_heap_start, our_heap_end, MEMPROT_NONE,
+                               DR_MEMTYPE_DATA, false/*!exists*/);
     }
+#endif
 
 #ifndef HAVE_MEMINFO
     count = find_vm_areas_via_probe();
@@ -7807,10 +7513,9 @@ find_executable_vm_areas(void)
         LOG(GLOBAL, LOG_VMAREAS, 4,
             "find_executable_vm_areas: adding: "PFX"-"PFX" prot=%d\n",
             iter.vm_start, iter.vm_end, iter.prot);
-        all_memory_areas_lock();
-        update_all_memory_areas(iter.vm_start, iter.vm_end, iter.prot,
-                                image ? DR_MEMTYPE_IMAGE : DR_MEMTYPE_DATA);
-        all_memory_areas_unlock();
+        IF_NO_MEMQUERY(memcache_update_locked(iter.vm_start, iter.vm_end, iter.prot,
+                                              image ? DR_MEMTYPE_IMAGE :
+                                              DR_MEMTYPE_DATA, false/*!exists*/));
     
         /* FIXME: best if we could pass every region to vmareas, but
          * it has no way of determining if this is a stack b/c we don't have
@@ -7826,8 +7531,9 @@ find_executable_vm_areas(void)
     memquery_iterator_stop(&iter);
 #endif /* !HAVE_MEMINFO */
 
-    LOG(GLOBAL, LOG_VMAREAS, 4, "init: all memory areas:\n");
-    DOLOG(4, LOG_VMAREAS, print_all_memory_areas(GLOBAL););
+#ifndef HAVE_MEMINFO_QUERY
+    DOLOG(4, LOG_VMAREAS, memcache_print(GLOBAL,"init: all memory areas:\n"););
+#endif
 
     /* now that we've walked memory print all modules */
     LOG(GLOBAL, LOG_VMAREAS, 2, "Module list after memory walk\n");
@@ -7883,7 +7589,7 @@ get_stack_bounds(dcontext_t *dcontext, byte **base, byte **top)
          /* store stack info at thread startup, since stack can get fragmented in
           * /proc/self/maps w/ later mprotects and it can be hard to piece together later
           */
-         if (DYNAMO_OPTION(use_all_memory_areas)) {
+         if (IF_MEMQUERY_ELSE(false, DYNAMO_OPTION(use_all_memory_areas))) {
              ok = get_memory_info((app_pc)get_mcontext(dcontext)->xsp,
                                   &ostd->stack_base, &size, NULL);
          } else {
@@ -7927,118 +7633,18 @@ at_initial_stack_bottom(dcontext_t *dcontext, app_pc target_pc)
 }
 #endif /* RETURN_AFTER_CALL */
 
-/* Use our cached data structures to retrieve memory info */
+/* Uses our cached data structures (if in use, else raw query) to retrieve memory info */
 bool
 query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
 {
-    allmem_info_t *info;
-    bool found;
-    app_pc start, end;
-    ASSERT(out_info != NULL);
-    all_memory_areas_lock();
-    sync_all_memory_areas();
-    if (vmvector_lookup_data(all_memory_areas, (app_pc)pc, &start, &end,
-                             (void **) &info)) {
-        ASSERT(info != NULL);
-        out_info->base_pc = start;
-        out_info->size = (end - start);
-        out_info->prot = info->prot;
-        out_info->type = info->type;
-#ifdef HAVE_MEMINFO
-        DOCHECK(2, {
-            byte *from_os_base_pc;
-            size_t from_os_size;
-            uint from_os_prot;
-            found = get_memory_info_from_os(pc, &from_os_base_pc, &from_os_size,
-                                            &from_os_prot);
-            ASSERT(found);
-            /* we merge adjacent identical-prot image sections: .bss into .data,
-             * DR's various data segments, etc., so that mismatch is ok.
-             */
-            if ((from_os_prot == info->prot ||
-                 /* allow maps to have +x (PR 213256)
-                  * +x may be caused by READ_IMPLIES_EXEC set in personality flag (i#262)
-                  */
-                 (from_os_prot & (~MEMPROT_EXEC)) == info->prot) &&
-                ((info->type == DR_MEMTYPE_IMAGE &&
-                  from_os_base_pc >= start &&
-                  from_os_size <= (end - start)) ||
-                 (from_os_base_pc == start &&
-                  from_os_size == (end - start)))) {
-                /* ok.  easier to think of forward logic. */
-            } else {
-                /* /proc/maps could break/combine regions listed so region bounds as
-                 * listed by all_memory_areas and /proc/maps won't agree.
-                 * FIXME: Have seen instances where all_memory_areas lists the region as
-                 * r--, where /proc/maps lists it as r-x.  Infact, all regions listed in
-                 * /proc/maps are executable, even guard pages --x (see case 8821)
-                 */
-                /* we add the whole client lib as a single entry */
-                if (IF_CLIENT_INTERFACE_ELSE(!is_in_client_lib(start) ||
-                                             !is_in_client_lib(end - 1), true)) {
-                    SYSLOG_INTERNAL_WARNING
-                        ("get_memory_info mismatch! "
-                         "(can happen if os combines entries in /proc/pid/maps)\n"
-                         "\tos says: "PFX"-"PFX" prot="PFX"\n"
-                         "\tcache says: "PFX"-"PFX" prot="PFX"\n",
-                         from_os_base_pc, from_os_base_pc + from_os_size,
-                         from_os_prot, start, end, info->prot);
-                }
-            }
-        });
-#endif
-    } else {
-        app_pc prev, next;
-        found = vmvector_lookup_prev_next(all_memory_areas, (app_pc)pc,
-                                          &prev, &next);
-        ASSERT(found);
-        if (prev != NULL) {
-            found = vmvector_lookup_data(all_memory_areas, prev,
-                                         NULL, &out_info->base_pc, NULL);
-            ASSERT(found);
-        } else
-            out_info->base_pc = NULL;
-        out_info->size = (next - out_info->base_pc);
-        out_info->prot = MEMPROT_NONE;
-        out_info->type = DR_MEMTYPE_FREE;
-        /* It's possible there is memory here that was, say, added by
-         * a client without our knowledge.  We can end up in an
-         * infinite loop trying to forge a SIGSEGV in that situation
-         * if executing from what we think is unreadable memory, so
-         * best to check with the OS (xref PR 363811).
-         */
-#ifdef HAVE_MEMINFO
-        byte *from_os_base_pc;
-        size_t from_os_size;
-        uint from_os_prot;
-        if (get_memory_info_from_os(pc, &from_os_base_pc, &from_os_size,
-                                    &from_os_prot) && 
-            /* maps file shows our reserved-but-not-committed regions, which
-             * are holes in all_memory_areas
-             */
-            from_os_prot != MEMPROT_NONE) {
-            SYSLOG_INTERNAL_ERROR("all_memory_areas is missing region "PFX"-"PFX"!",
-                                  from_os_base_pc, from_os_base_pc + from_os_size);
-            DOLOG(4, LOG_VMAREAS, print_all_memory_areas(THREAD_GET););
-            ASSERT_NOT_REACHED();
-            /* be paranoid */
-            out_info->base_pc = from_os_base_pc;
-            out_info->size = from_os_size;
-            out_info->prot = from_os_prot;
-            out_info->type = DR_MEMTYPE_DATA; /* hopefully we won't miss an image */
-        }
+#ifdef HAVE_MEMINFO_QUERY
+    return query_memory_ex_from_os(pc, out_info);
 #else
-        /* We now have nested probes, but currently probing sometimes calls
-         * get_memory_info(), so we can't probe here unless we remove that call
-         * there.
-         */
+    return memcache_query_memory(pc, out_info);
 #endif
-    }
-    all_memory_areas_unlock();
-    return true;
 }
 
-/* Use our cached data structures to retrieve memory info */
+/* Use our cached data structures (if in use, else raw query) to retrieve memory info */
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size,
                 uint *prot /* OUT optional, returns MEMPROT_* value */)
@@ -8108,47 +7714,6 @@ get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size,
     if (prot != NULL)
         *prot = info.prot;
     return true;
-}
-
-/* HACK to get recursive write lock for internal and external use
- * FIXME: code blatantly copied from dynamo_vm_areas_{un}lock(); eliminate duplication!
- */
-void
-all_memory_areas_lock()
-{
-    /* ok to ask for locks or mark stale before all_memory_areas is allocated,
-     * during heap init and before we can allocate it.  no lock needed then.
-     */
-    ASSERT(all_memory_areas != NULL ||
-           get_num_threads() <= 1 /* must be only DR thread */);
-    if (all_memory_areas == NULL)
-        return;
-    if (self_owns_write_lock(&all_memory_areas->lock)) {
-        all_memory_areas_recursion++;
-        /* we have a 5-deep path:
-         *   global_heap_alloc | heap_create_unit | get_guarded_real_memory | 
-         *   heap_low_on_memory | release_guarded_real_memory
-         */
-        ASSERT_CURIOSITY(all_memory_areas_recursion <= 4);
-    } else
-        write_lock(&all_memory_areas->lock);
-}
-
-void
-all_memory_areas_unlock()
-{
-    /* ok to ask for locks or mark stale before all_memory_areas is allocated,
-     * during heap init and before we can allocate it.  no lock needed then.
-     */
-    ASSERT(all_memory_areas != NULL ||
-           get_num_threads() <= 1 /*must be only DR thread*/);
-    if (all_memory_areas == NULL)
-        return;
-    if (all_memory_areas_recursion > 0) {
-        ASSERT_OWN_WRITE_LOCK(true, &all_memory_areas->lock);
-        all_memory_areas_recursion--;
-    } else
-        write_unlock(&all_memory_areas->lock);
 }
 
 

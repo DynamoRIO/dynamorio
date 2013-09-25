@@ -627,6 +627,8 @@
     /* i#853: Use our all_memory_areas address space cache when possible.  This
      * avoids expensive reads of /proc/pid/maps, but if the cache becomes stale,
      * we may have incorrect results.
+     * This option has no effect on platforms with a direct memory query, such
+     * as MacOS.
      */
     OPTION_DEFAULT(bool, use_all_memory_areas, true, "Use all_memory_areas "
                    "address space cache to query page protections.")

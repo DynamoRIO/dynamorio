@@ -259,6 +259,8 @@
 #endif
 
 #ifdef WINDOWS
+#  define HAVE_MEMINFO
+#  define HAVE_MEMINFO_QUERY
 #  define WINDOWS_PC_SAMPLE
 #endif
 
