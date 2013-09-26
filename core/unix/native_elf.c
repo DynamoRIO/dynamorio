@@ -353,6 +353,9 @@ is_special_plt_stub(app_pc stub_pc)
 {
     special_heap_iterator_t shi;
     bool found = false;
+    /* fast check if pc is in dynamo address */
+    if (!is_dynamo_address(stub_pc))
+        return false;
     /* XXX: this acquires a lock in a nested loop. */
     special_heap_iterator_start(plt_stub_heap, &shi);
     while (special_heap_iterator_hasnext(&shi)) {
@@ -724,4 +727,63 @@ native_module_get_ret_stub(dcontext_t *dcontext, app_pc tgt)
 void
 native_module_at_runtime_resolve_ret(app_pc xsp, int offset)
 {
+}
+
+static bool
+is_special_ret_stub(app_pc pc)
+{
+    special_heap_iterator_t shi;
+    bool found = false;
+    /* fast check if pc is in dynamo address */
+    if (!is_dynamo_address(pc))
+        return false;
+    /* XXX: this acquires a lock in a loop. */
+    special_heap_iterator_start(ret_stub_heap, &shi);
+    while (special_heap_iterator_hasnext(&shi)) {
+        app_pc start, end;
+        special_heap_iterator_next(&shi, &start, &end);
+        if (pc >= start && pc < end) {
+            found = true;
+            break;
+        }
+    }
+    special_heap_iterator_stop(&shi);
+    return found;
+}
+
+#ifndef X86
+# error X86-only!
+#endif
+/* i#1276: dcontext->next_tag could be special stub pc from special_ret_stub
+ * for DR maintaining the control in hybrid execution, this routine is called
+ * in dispatch to adjust the target if necessary.
+ */
+bool
+native_exec_replace_next_tag(dcontext_t *dcontext)
+{
+    instr_t instr;
+    app_pc  pc;
+
+    ASSERT (DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt));
+    if (is_special_ret_stub(dcontext->next_tag)) {
+        /* we assume the ret stub is
+         *   save %xax
+         *   mov tgt => %xax
+         */
+        instr_init(dcontext, &instr);
+        /* skip save %rax */
+        pc = decode(dcontext, dcontext->next_tag, &instr);
+        ASSERT(instr_get_opcode(&instr) == OP_mov_st &&
+               opnd_is_reg(instr_get_src(&instr, 0)) &&
+               opnd_get_reg(instr_get_src(&instr, 0)) == DR_REG_XAX);
+        instr_reset(dcontext, &instr);
+        /* get target from mov tgt => %xax */
+        pc = decode(dcontext, pc, &instr);
+        ASSERT(instr_get_opcode(&instr) == OP_mov_imm &&
+               opnd_is_immed_int(instr_get_src(&instr, 0)));
+        dcontext->next_tag = (app_pc) opnd_get_immed_int(instr_get_src(&instr, 0));
+        instr_free(dcontext, &instr);
+        return true;
+    }
+    return false;
 }

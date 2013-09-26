@@ -155,13 +155,22 @@ dispatch(dcontext_t *dcontext)
             dcontext->next_tag == BACK_TO_NATIVE_AFTER_SYSCALL) {
             handle_special_tag(dcontext);
         }
-
         /* Neither hotp_only nor thin_client should have any fragment 
          * fcache related work to do.
          */
         ASSERT(!RUNNING_WITHOUT_CODE_CACHE());
         targetf = fragment_lookup_fine_and_coarse(dcontext, dcontext->next_tag,
                                                   &coarse_f, dcontext->last_exit);
+#ifdef UNIX
+        /* i#1276: dcontext->next_tag could be a special stub pc used by
+         * DR to maintain control in hybrid execution, in which case the
+         * target should be replaced with correct app target.
+         */
+        if (targetf == NULL &&
+            DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt) &&
+            native_exec_replace_next_tag(dcontext))
+            continue;
+#endif
         do {
             if (targetf != NULL) {
                 KSTART(monitor_enter);

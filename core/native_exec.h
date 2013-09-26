@@ -91,6 +91,9 @@ native_module_nonnative_mod_unload(module_area_t *ma);
 /* get (create if not exist) a ret_stub for tgt */
 app_pc
 native_module_get_ret_stub(dcontext_t *dcontext, app_pc ret_tgt);
+
+bool
+native_exec_replace_next_tag(dcontext_t *dcontext);
 #endif
 
 /* Update next_tag with the real app return address. */
@@ -119,4 +122,5 @@ native_exec_is_back_from_native(app_pc pc)
 void
 native_module_at_runtime_resolve_ret(app_pc xsp, int offset);
 #endif
+
 #endif /* _NATIVE_EXEC_H_ */
