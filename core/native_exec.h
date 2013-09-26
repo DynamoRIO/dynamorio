@@ -119,8 +119,9 @@ native_exec_is_back_from_native(app_pc pc)
 }
 
 #ifdef UNIX
+/* xref i#1247: clean call right before dl_runtime_resolve return */
 void
-native_module_at_runtime_resolve_ret(app_pc xsp, int offset);
+native_module_at_runtime_resolve_ret(app_pc xsp, int ret_imm);
 #endif
 
 #endif /* _NATIVE_EXEC_H_ */

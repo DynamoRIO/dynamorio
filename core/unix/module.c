@@ -2329,7 +2329,7 @@ elf_loader_find_pt_interp(elf_loader_t *elf)
 }
 
 bool
-at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *offset)
+at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret_imm)
 {
     /* source_fragment is the start pc of the fragment to be run under DR
      * offset is the location of the address dl_runtime_resolve
@@ -2374,7 +2374,7 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *off
     if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_1), buf)
         && memcmp(buf, DL_RUNTIME_RESOLVE_MAGIC_1,
                   sizeof(DL_RUNTIME_RESOLVE_MAGIC_1)) == 0) {
-        *offset = 0x8;
+        *ret_imm = 0x8;
         return true;
     }
     if (safe_read(source_fragment, sizeof(DL_RUNTIME_RESOLVE_MAGIC_2), buf)
@@ -2382,7 +2382,7 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *off
                   sizeof(DL_RUNTIME_RESOLVE_MAGIC_2)) == 0) {
         LOG(THREAD, LOG_INTERP, 1, "RCT: KNOWN exception this is "
                 "_dl_runtime_resolve --ok \n");
-        *offset = 0xc;
+        *ret_imm = 0xc;
         return true;
     }
     return false;

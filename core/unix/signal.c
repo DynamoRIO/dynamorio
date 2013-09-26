@@ -5865,8 +5865,8 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
     }
 
     if (known_exception == 0) {
-        int offset;
-        return at_dl_runtime_resolve_ret(dcontext, source_fragment, &offset);
+        int ret_imm;
+        return at_dl_runtime_resolve_ret(dcontext, source_fragment, &ret_imm);
     }
     return false;
 }

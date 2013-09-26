@@ -3505,14 +3505,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     /* XXX: i#1247: After a call to a native module throught plt, DR
      * loses control of the app b/c of _dl_runtime_resolve
      */
-    int offset;
+    int ret_imm;
     if (DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt)
         && bb->app_interp && bb->instr != NULL
         && instr_is_return(bb->instr)
-        && at_dl_runtime_resolve_ret(dcontext, bb->start_pc, &offset)) {
+        && at_dl_runtime_resolve_ret(dcontext, bb->start_pc, &ret_imm)) {
         dr_insert_clean_call(dcontext, bb->ilist, bb->instr,
                              (void *)native_module_at_runtime_resolve_ret, false, 2,
-                             opnd_create_reg(REG_XSP), OPND_CREATE_INT32(offset));
+                             opnd_create_reg(REG_XSP), OPND_CREATE_INT32(ret_imm));
     }
 #endif
 

@@ -1322,14 +1322,14 @@ target_link_libraries(common.nativeexec common.nativeexec.appdll)
 set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
 if (UNIX)
   # FIXME i#978: Windows support NYI
-  # FIXME i#1247: DR lost control on native-exec, so disable the test for now
+  # FIXME: DR lost control on mbr from native to nonnative module, so disable it for now
   # torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
   #  "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
   torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "")
   torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
-  # FIXME i#1247: DR lost control on native exec dll module, so disable the test for now
+  # FIXME: DR lost control on mbr from native to nonnative module, so disable it for now
   # torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
   #  "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
   # No swap TLS and no kstats for optimized native_exec
