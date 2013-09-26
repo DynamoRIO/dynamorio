@@ -100,7 +100,6 @@ void display_verbose_message(char *format, ...);
 
 /* i#437 support ymm */
 uint context_xstate = 0;
-bool avx_supported = false;
 
 /* needed for injector and preinject, to avoid them requiring asm and syscalls */
 #if defined(NOT_DYNAMORIO_CORE_PROPER) || defined(NOT_DYNAMORIO_CORE)
@@ -595,7 +594,7 @@ use_ki_syscall_routines()
 static void
 nt_get_context_extended_functions(app_pc base)
 {
-    if (os_supports_avx() && YMM_ENABLED()) {
+    if (YMM_ENABLED()) { /* indicates OS support, not just processor support */
         ntdll_RtlGetExtendedContextLength = (ntdll_RtlGetExtendedContextLength_t)
             get_proc_address(base, "RtlGetExtendedContextLength");
         ntdll_RtlInitializeExtendedContext = 
@@ -606,7 +605,6 @@ nt_get_context_extended_functions(app_pc base)
         ASSERT(ntdll_RtlGetExtendedContextLength  != NULL &&
                ntdll_RtlInitializeExtendedContext != NULL &&
                ntdll_RtlLocateLegacyContext       != NULL);
-        avx_supported = true;
     }
 }
 
@@ -995,7 +993,7 @@ context_ymmh_saved_area(CONTEXT *cxt)
     ptr_uint_t p = (ptr_uint_t)cxt;
     context_ex_t our_cxt_ex;
     context_ex_t *cxt_ex = (context_ex_t *)(p + sizeof(*cxt));
-    ASSERT(avx_supported);
+    ASSERT(proc_avx_enabled());
     /* verify the dr_cxt_ex is correct */
     if (safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
         if (our_cxt_ex.all.offset    != -(LONG)sizeof(*cxt) ||
@@ -5198,7 +5196,7 @@ nt_initialize_context(char *buf, DWORD flags)
     if (TESTALL(CONTEXT_XSTATE, flags)) {
         context_ex_t *cxt_ex;
         int len, res;
-        ASSERT(avx_supported);
+        ASSERT(proc_avx_enabled());
         /* 8d450c          lea     eax,[ebp+0Ch]
          * 50              push    eax
          * 57              push    edi

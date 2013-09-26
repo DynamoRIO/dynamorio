@@ -118,6 +118,7 @@ The current version is \DR_VERSION.
 The changes between version \DR_VERSION and 4.1.0 include:
 
  - Added dr_syscall_intercept_natively()
+ - Added proc_avx_enabled()
  - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework
 
 **************************************************

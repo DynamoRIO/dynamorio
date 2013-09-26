@@ -518,25 +518,22 @@ exit_global_profiles()
  **
  ****************************************************************************/
 
-bool
-os_supports_avx()
-{
-    /* XXX: why not just test proc FEATURE_OSXSAVE? */
-    /* XXX: what about the WINDOWS Server 2008 R2? */
-    if (os_version >= WINDOWS_VERSION_8 ||
-        (os_version == WINDOWS_VERSION_7 && os_service_pack_major >= 1))
-        return true;
-    return false;
-}
-
 static uint
 get_context_xstate_flag(void)
 {
     /* i#437: AVX is supported on Windows 7 SP1 and Windows Server 2008 R2 SP1
      * win7sp1+ both should be 0x40.
      */
-    if (os_supports_avx())
+    if (YMM_ENABLED()) {
+        /* YMM_ENABLED indicates both OS and processor support (i#1278)
+         * but we expect OS support only on Win7 SP1+.
+         * XXX: what about the WINDOWS Server 2008 R2?
+         */
+        ASSERT_CURIOSITY(os_version >= WINDOWS_VERSION_8 ||
+                         (os_version == WINDOWS_VERSION_7 &&
+                          os_service_pack_major >= 1));
         return (IF_X64_ELSE(CONTEXT_AMD64, CONTEXT_i386) | 0x40L);
+    }
     return IF_X64_ELSE((CONTEXT_AMD64 | 0x20L), (CONTEXT_i386 | 0x40L));
 }
 
@@ -726,8 +723,6 @@ windows_version_init()
         FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                           get_application_pid(), PRODUCT_NAME, os_name);
     }
-    /* i#437: get the context_xstate after os version is determined */
-    context_xstate = get_context_xstate_flag();
 }
 
 /* Note that assigning a process to a Job is done only after it has
@@ -821,6 +816,9 @@ os_init(void)
     ASSERT(syscalls != NULL);
     LOG(GLOBAL, LOG_TOP, 1, "Running on %s == %d SP%d.%d\n",
         os_name, os_version, os_service_pack_major, os_service_pack_minor);
+
+    /* i#437, i#1278: get the context_xstate after proc_init() sets proc_avx_enabled() */
+    context_xstate = get_context_xstate_flag();
 
     ntdll_init();
     callback_init();

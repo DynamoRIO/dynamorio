@@ -97,6 +97,8 @@ static features_t features = {0, 0, 0, 0};
  */
 static uint brand_string[12] = {0x6e6b6e75, 0x006e776f};
 
+static bool avx_enabled;
+
 static void
 set_cache_size(uint val, uint *dst)
 {
@@ -427,6 +429,25 @@ proc_init(void)
     CLIENT_ASSERT((proc_has_feature(FEATURE_FXSR) && proc_has_feature(FEATURE_SSE)) ||
                   (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
                   "Unsupported processor type: SSE and FXSR must match");
+
+    if (proc_has_feature(FEATURE_AVX) && proc_has_feature(FEATURE_OSXSAVE)) {
+        /* Even if the processor supports AVX, it will #UD on any AVX instruction
+         * if the OS hasn't enabled YMM and XMM state saving.
+         * To check that, we invoke xgetbv -- for which we need FEATURE_OSXSAVE.
+         * FEATURE_OSXSAVE is also listed as one of the 3 steps in Intel Vol 1
+         * Fig 13-1: 1) cpuid OSXSAVE; 2) xgetbv 0x6; 3) cpuid AVX.
+         * Xref i#1278, i#1030, i#437.
+         */
+        uint bv_high = 0, bv_low = 0;
+        dr_xgetbv(&bv_high, &bv_low);
+        LOG(GLOBAL, LOG_TOP, 2, "\txgetbv => 0x%08x%08x\n", bv_high, bv_low);
+        if (TESTALL(XCR0_AVX|XCR0_SSE, bv_low)) {
+            avx_enabled = true;
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor and OS fully support AVX\n");
+        } else {
+            LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
+        }
+    }
 }
 
 uint
@@ -723,4 +744,10 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
             opnd_set_size(&buf, OPSZ_108);
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_frstor(dcontext, buf));
     }
+}
+
+bool
+proc_avx_enabled(void)
+{
+    return avx_enabled;
 }

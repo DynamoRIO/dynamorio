@@ -248,9 +248,11 @@ extern size_t cache_line_size;
 #define CACHE_LINE_SIZE() cache_line_size
 
 /* xcr0 and xstate_bv feature bits */
-#define XCR0_AVX 4
-#define XCR0_SSE 2
-#define XCR0_FP  1
+enum {
+    XCR0_AVX = 4,
+    XCR0_SSE = 2,
+    XCR0_FP  = 1,
+};
 
 void proc_init(void);
 
@@ -405,5 +407,13 @@ DR_API
  */
 void 
 proc_restore_fpstate(byte *buf);
+
+DR_API
+/** Returns whether AVX is enabled by both the processor and the operating system.
+ * Even if the processor supports AVX, if the operating system does not enable
+ * AVX state saving, then AVX instructions will fault.
+ */
+bool
+proc_avx_enabled(void);
 
 #endif /* _PROC_H_ */

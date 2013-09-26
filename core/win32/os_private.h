@@ -412,13 +412,14 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
  * Windows, so we use a global variable instead and set the value at runtime.
  */
 extern uint context_xstate;
-/* avx is supported only if both hardware and os support it */
-extern bool avx_supported;
 #define CONTEXT_XSTATE context_xstate
 #define CONTEXT_XMM_FLAG IF_X64_ELSE(CONTEXT_FLOATING_POINT, CONTEXT_EXTENDED_REGISTERS)
 #define CONTEXT_YMM_FLAG CONTEXT_XSTATE
 #define CONTEXT_PRESERVE_XMM IF_X64_ELSE(true, is_wow64_process(NT_CURRENT_PROCESS))
-#define CONTEXT_PRESERVE_YMM (avx_supported)
+/* AVX is supported only if both hardware and os support it, and this proc
+ * check looks at both (i#1278)
+ */
+#define CONTEXT_PRESERVE_YMM (proc_avx_enabled())
 #define CONTEXT_DR_STATE_NO_YMM  (CONTEXT_INTEGER | CONTEXT_CONTROL | \
                                   (CONTEXT_PRESERVE_XMM ? CONTEXT_XMM_FLAG : 0U))
 #define CONTEXT_DR_STATE (CONTEXT_DR_STATE_NO_YMM | \
@@ -897,9 +898,6 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
 
 CONTEXT *
 nt_initialize_context(char *buf, DWORD flags);
-
-bool
-os_supports_avx();
 
 byte *
 context_ymmh_saved_area(CONTEXT *cxt);
