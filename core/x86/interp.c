@@ -388,6 +388,12 @@ must_not_be_inlined(app_pc pc)
              */
             || pc == (app_pc)global_heap_free
 #endif
+#ifdef DR_APP_EXPORTS
+            /* i#1237: DR will change dr_app_running_under_dynamorio return value
+             * on seeing a bb starting at dr_app_running_under_dynamorio.
+             */
+            || pc == (app_pc) dr_app_running_under_dynamorio
+#endif
         );
 }
 
@@ -2824,6 +2830,22 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 }
 #endif /* CLIENT_INTERFACE */
 
+#ifdef DR_APP_EXPORTS
+static void
+mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
+{
+    if (bb->start_pc == (app_pc) dr_app_running_under_dynamorio) {
+        /* i#1237: set return value to be true in dr_app_running_under_dynamorio */
+        instr_t *ret = instrlist_last(bb->ilist);
+        instr_t *mov = instr_get_prev(ret);
+        ASSERT(ret != NULL && instr_is_return(ret) &&
+               mov != NULL && instr_get_opcode(mov) == OP_mov_imm &&
+               bb->start_pc == instr_get_translation(mov));
+        instr_set_src(mov, 0, OPND_CREATE_INT32(1));
+    }
+}
+#endif /* DR_APP_EXPORTS */
+
 /* Interprets the application's instructions until the end of a basic
  * block is found, and prepares the resulting instrlist for creation of
  * a fragment, but does not create the fragment, just returns the instrlist.
@@ -3592,6 +3614,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
     }
 #endif
+
+#ifdef DR_APP_EXPORTS
+    /* changes by DR that are visible to clients */
+    mangle_pre_client(dcontext, bb);
+#endif /* DR_APP_EXPORTS */
 
 #ifdef CLIENT_INTERFACE
     if (!client_process_bb(dcontext, bb)) {

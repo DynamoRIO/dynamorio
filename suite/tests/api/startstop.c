@@ -163,7 +163,11 @@ int main(void)
 
     for (j=0; j<10; j++) {
 #ifdef USE_DYNAMO
+        if (dr_app_running_under_dynamorio())
+            print("ERROR: should not be under DynamoRIO before dr_app_start!\n");
         dr_app_start();
+        if (!dr_app_running_under_dynamorio())
+            print("ERROR: should be under DynamoRIO after dr_app_start!\n");
 #endif
         for (i=0; i<ITERS; i++) {
             if (i % 2 == 0) {
@@ -174,11 +178,15 @@ int main(void)
 	}
 	foo();
 #ifdef USE_DYNAMO
+        if (!dr_app_running_under_dynamorio())
+            print("ERROR: should be under DynamoRIO before dr_app_stop!\n");
         /* FIXME i#95: On Linux dr_app_stop only makes the current thread run
          * native.  We should revisit this while implementing full detach for
          * Linux.
          */
 	dr_app_stop();
+        if (dr_app_running_under_dynamorio())
+            print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
 #endif
     }
     /* PR : we get different floating point results on different platforms,

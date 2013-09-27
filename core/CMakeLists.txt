@@ -634,6 +634,8 @@ else (UNIX)
   if (APP_EXPORTS)
     set(dynamorio_link_flags 
       "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over")
+    set(dynamorio_link_flags
+      "${dynamorio_link_flags} /export:dr_app_running_under_dynamorio")
   endif (APP_EXPORTS)
   if (CLIENT_INTERFACE)
     set(dynamorio_link_flags "${dynamorio_link_flags} /export:dr_try_start")

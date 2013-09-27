@@ -107,4 +107,14 @@ DR_APP_API void dr_app_take_over(void);
  */
 DR_APP_API int dr_app_setup_and_start(void);
 
+/**
+ * Indicates whether the current thread is running within the DynamoRIO code
+ * cache. Returns \p true only if the current thread is running within the
+ * DynamoRIO code cache and returns false othrewise.
+ *
+ * \note This routines returns \p false if the current thread is running
+ * within the DynamoRIO probe mode.
+ */
+DR_APP_API bool
+dr_app_running_under_dynamorio(void);
 #endif /* _DR_APP_H_ */

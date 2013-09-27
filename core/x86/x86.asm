@@ -461,6 +461,18 @@ GLOBAL_LABEL(dr_app_start:)
 GLOBAL_LABEL(dr_app_take_over:  )
         jmp      dynamorio_app_take_over 
         END_FUNC(dr_app_take_over)
+
+/* dr_app_running_under_dynamorio - Indicates whether the current thread
+ * is running within the DynamoRIO code cache.
+ * Returns false (not under dynamorio) by default.
+ * The function is mangled by dynamorio to return true instead when
+ * it is brought into the code cache.
+ */
+        DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
+GLOBAL_LABEL(dr_app_running_under_dynamorio: )
+        mov      eax, 0
+        ret
+        END_FUNC(dr_app_running_under_dynamorio)
 #endif
                 
 /*
