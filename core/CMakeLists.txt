@@ -168,6 +168,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
+    set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
   elseif (APPLE)
     # XXX i#1270: add unix/memquery_macos.c
   elseif (VMKERNEL)
