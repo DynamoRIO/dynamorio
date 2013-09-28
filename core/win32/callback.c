@@ -4834,7 +4834,7 @@ check_internal_exception(dcontext_t *dcontext, CONTEXT *cxt,
             if (!RUNNING_WITHOUT_CODE_CACHE() &&
                 check_in_last_thread_vm_area(dcontext, target_addr)) {
 
-                exception_type_t exception_type =
+                dr_exception_type_t exception_type =
                     (pExcptRec->ExceptionCode == EXCEPTION_IN_PAGE_ERROR) ?
                     IN_PAGE_ERROR_EXCEPTION : UNREADABLE_MEMORY_EXECUTION_EXCEPTION;
 
@@ -5653,7 +5653,7 @@ initialize_exception_record(EXCEPTION_RECORD* rec, app_pc exception_address,
   and then get to our own intercept_exception to pass this to the application
 */
 void
-os_forge_exception(app_pc exception_address, exception_type_t exception_type)
+os_forge_exception(app_pc exception_address, dr_exception_type_t exception_type)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     EXCEPTION_RECORD excrec;

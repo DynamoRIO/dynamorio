@@ -267,9 +267,9 @@ typedef enum {
     ILLEGAL_INSTRUCTION_EXCEPTION,
     UNREADABLE_MEMORY_EXECUTION_EXCEPTION,
     IN_PAGE_ERROR_EXCEPTION,
-} exception_type_t;
+} dr_exception_type_t;
 
-void os_forge_exception(app_pc exception_address, exception_type_t type);
+void os_forge_exception(app_pc exception_address, dr_exception_type_t type);
 
 /* events for dumpcore_mask */
 /* NOTE with DUMPCORE_DEADLOCK and DUMPCORE_ASSERT you will get 2 dumps for

@@ -5672,7 +5672,7 @@ is_signal_restorer_code(byte *pc, size_t *len)
 
 
 void
-os_forge_exception(app_pc target_pc, exception_type_t type)
+os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 {
     /* PR 205136:
      * We want to deliver now, and the caller expects us not to return.
