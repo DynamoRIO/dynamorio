@@ -106,7 +106,7 @@ typedef struct _os_thread_data_t {
     KSYNCH_TYPE suspended;
     KSYNCH_TYPE wakeup;
     KSYNCH_TYPE resumed;
-    struct sigcontext *suspended_sigcxt;
+    sigcontext_t *suspended_sigcxt;
 
     /* PR 297902: for thread termination */
     bool terminate;
@@ -203,10 +203,10 @@ void
 signal_handle_close(dcontext_t *dcontext, file_t fd);
 
 void
-sigcontext_to_mcontext(priv_mcontext_t *mc, struct sigcontext *sc);
+sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc);
 
 void
-mcontext_to_sigcontext(struct sigcontext *sc, priv_mcontext_t *mc);
+mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc);
 
 bool
 set_default_signal_action(int sig);

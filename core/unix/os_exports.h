@@ -236,18 +236,18 @@ bool is_signal_restorer_code(byte *pc, size_t *len);
 
 #ifdef MACOS
 /* mcontext_t is a pointer and we want the real thing */
-# ifdef X64
-#  define SIGCXT_TYPE _STRUCT_MCONTEXT64
-# else
-#  define SIGCXT_TYPE _STRUCT_MCONTEXT
-# endif
+#  ifdef X64
+typedef _STRUCT_MCONTEXT64 sigcontext_t; /* == __darwin_mcontext_avx64 */
+#  else
+typedef _STRUCT_MCONTEXT sigcontext_t; /* == __darwin_mcontext_avx32 */
+#  endif
 #else
-# define SIGCXT_TYPE struct sigcontext
+typedef struct sigcontext sigcontext_t;
 #endif
 #define CONTEXT_HEAP_SIZE(sc) (sizeof(sc))
-#define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(SIGCXT_TYPE))
+#define CONTEXT_HEAP_SIZE_OPAQUE (CONTEXT_HEAP_SIZE(sigcontext_t))
 
-/* SIGCXT_TYPE field name changes */
+/* cross-platform sigcontext_t field access */
 #ifdef MACOS
 /* We're using _XOPEN_SOURCE >= 600 so we have __DARWIN_UNIX03 and thus leading __: */
 # define SC_FIELD(name) __ss.__##name
