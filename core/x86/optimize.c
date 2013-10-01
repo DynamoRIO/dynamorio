@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2488,8 +2489,8 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
     dcontext_t *dcontext = state->dcontext;
     instr_t *backup;
     opnd_t opnd;
-    int val;
-    reg_id_t reg, i;
+    int val, i;
+    reg_id_t reg;
     if (is_zeroing || ((opcode == OP_mov_imm || opcode == OP_mov_st) &&
                        opnd_is_immed_int(instr_get_src(inst, 0)))) {
         if (is_zeroing)
@@ -2550,7 +2551,8 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                         } else {
                             /* just in case */
                             for (i = 0; i < 8; i++) {
-                                if (instr_writes_to_reg(inst, REG_START_32 + i)) {
+                                if (instr_writes_to_reg(inst,
+                                                        REG_START_32 + (reg_id_t)i)) {
                                     state->reg_state[i] = 0;
                                 }
                             }
@@ -2603,7 +2605,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
         // update for regs written to, actually if xh then don't need to 
         // invalidate xl and vice versa, but to much work to check for that probably unlikely occurrence
         for (i = 0; i < 8; i++) {
-            if (instr_writes_to_reg(inst, REG_START_32 + i)) {
+            if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i)) {
                 state->reg_state[i] = 0;
             }
         }

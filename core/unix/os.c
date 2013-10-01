@@ -53,7 +53,10 @@
 #include <sys/mman.h>
 /* in case MAP_32BIT is missing */
 #ifndef MAP_32BIT
-# define MAP_32BIT 0x40
+#  define MAP_32BIT 0x40
+#endif
+#ifndef MAP_ANONYMOUS
+#  define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
 #endif
 /* for open */
 #include <sys/stat.h>
@@ -68,7 +71,12 @@
 # include <sys/sysctl.h>         /* for sysctlbyname */
 #endif
 
-#include <sys/vfs.h> /* for statfs */
+#ifdef LINUX
+#  include <sys/vfs.h> /* for statfs */
+#elif defined(MACOS)
+#  include <sys/mount.h> /* for statfs */
+#endif
+
 #include <dirent.h>
 
 /* for getrlimit */
@@ -6447,6 +6455,9 @@ read_proc_self_exe(bool ignore_cache)
 {
     static char exepath[MAXIMUM_PATH];
     static bool tried = false;
+# ifdef MACOS
+    ASSERT_NOT_IMPLEMENTED(false);
+# endif
     if (!tried || ignore_cache) {
         tried = true;
         /* assume we have /proc/self/exe symlink: could add HAVE_PROC_EXE
@@ -7257,6 +7268,9 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     ASSERT(num_threads_out != NULL);
     tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced,
                             ACCT_THREAD_MGT, PROTECTED);
+#ifdef MACOS
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: NYI */
+#endif
     task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
     ASSERT(task_dir != INVALID_FILE);
     os_dir_iterator_start(&iter, task_dir);

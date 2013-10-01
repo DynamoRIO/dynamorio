@@ -1641,6 +1641,12 @@ app_pc safe_read_resume_pc(void);
 
 #ifdef UNIX
 /* i#46: Private string routines for libc isolation. */
+#  ifdef memcpy
+#    undef memcpy
+#  endif
+#  ifdef memset
+#    undef memset
+#  endif
 void *memcpy(void *dst, const void *src, size_t n);
 void *memset(void *dst, int val, size_t n);
 #endif /* UNIX */

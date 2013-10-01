@@ -53,7 +53,9 @@
  */
 
 /* page size is 4K on all DR-supported platforms */
-#define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
+#ifndef PAGE_SIZE /* defined on Mac */
+#  define PAGE_SIZE (4*1024) /**< Size of a page of memory. */
+#endif
 
 /**< Convenience macro to align to the start of a page of memory. */
 #define PAGE_START(x) (((ptr_uint_t)(x)) & ~((PAGE_SIZE)-1))
