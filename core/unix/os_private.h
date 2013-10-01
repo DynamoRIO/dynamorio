@@ -102,7 +102,7 @@ typedef struct _os_thread_data_t {
 
     /* PR 2120990: for thread suspension */
     /* This lock synchronizes suspension and resumption and controls
-     * access to suspend_count and the bools below in thread_suspend
+     * access to suspend_count and the bools below in os_thread_suspend
      * and suspend_resume.  handle_suspend_signal() does not use the
      * mutex as it is not safe to do so, but our suspend and resume
      * synch avoids any need for it there.

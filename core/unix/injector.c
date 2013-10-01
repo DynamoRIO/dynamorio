@@ -1105,7 +1105,7 @@ user_regs_to_mc(priv_mcontext_t *mc, struct user_regs_struct *regs)
 
 /* Detach from the injectee and re-exec ourselves as gdb with --pid.  This is
  * useful for debugging initialization in the injectee.
- * XXX: This is racy.  I have to insert thread_sleep(500) in takeover_ptrace()
+ * XXX: This is racy.  I have to insert os_thread_sleep(500) in takeover_ptrace()
  * in order for this to work.
  */
 static void

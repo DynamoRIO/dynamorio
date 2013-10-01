@@ -2868,7 +2868,7 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
 #endif
     while (!dynamo_initialized && !dynamo_exited) {
         STATS_INC(apc_yields_while_initializing);
-        thread_yield();
+        os_thread_yield();
     }
 }
 
@@ -2895,7 +2895,7 @@ intercept_new_thread(CONTEXT *cxt)
                 "Thread waiting at init_apc for detach to finish\n");
         }
         while (init_apc_go_native_pause) {
-            thread_yield();
+            os_thread_yield();
         }
         /* just return, FIXME : see concerns in detach_helper about
          * getting to native code before the interception_code is 

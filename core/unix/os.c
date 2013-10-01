@@ -2400,7 +2400,7 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 
 /* yield the current thread */
 void
-thread_yield()
+os_thread_yield()
 {
     dynamorio_syscall(SYS_sched_yield, 0);
 }
@@ -2418,7 +2418,7 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
 }
 
 void
-thread_sleep(uint64 milliseconds)
+os_thread_sleep(uint64 milliseconds)
 {
     struct timespec req;
     struct timespec remain;
@@ -2450,11 +2450,11 @@ thread_sleep(uint64 milliseconds)
 }
 
 bool
-thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
-    /* See synch comments in thread_resume: the mutex held there
+    /* See synch comments in os_thread_resume: the mutex held there
      * prevents prematurely sending a re-suspend signal.
      */
     mutex_lock(&ostd->suspend_lock);
@@ -2478,7 +2478,7 @@ thread_suspend(thread_record_t *tr)
         }
     }
     /* we can unlock before the wait loop b/c we're using a separate "resumed"
-     * int and thread_resume holds the lock across its wait.  this way a resume
+     * int and os_thread_resume holds the lock across its wait.  this way a resume
      * can proceed as soon as the suspended thread is suspended, before the
      * suspending thread gets scheduled again.
      */
@@ -2490,14 +2490,14 @@ thread_suspend(thread_record_t *tr)
         ksynch_wait(&ostd->suspended, 0);
         if (ksynch_get_value(&ostd->suspended) == 0) {
             /* If it still has to wait, give up the cpu. */
-            thread_yield();
+            os_thread_yield();
         }
     }
     return true;
 }
 
 bool
-thread_resume(thread_record_t *tr)
+os_thread_resume(thread_record_t *tr)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
@@ -2529,7 +2529,7 @@ thread_resume(thread_record_t *tr)
         ksynch_wait(&ostd->resumed, 0);
         if (ksynch_get_value(&ostd->resumed) == 0) {
             /* If it still has to wait, give up the cpu. */
-            thread_yield();
+            os_thread_yield();
         }
     }
     ksynch_set_value(&ostd->wakeup, 0);
@@ -2539,7 +2539,7 @@ thread_resume(thread_record_t *tr)
 }
 
 bool
-thread_terminate(thread_record_t *tr)
+os_thread_terminate(thread_record_t *tr)
 {
     /* PR 297902: for NPTL sending SIGKILL will take down the whole group:
      * so instead we send SIGUSR2 and have a flag set telling
@@ -2571,7 +2571,7 @@ os_wait_thread_terminated(dcontext_t *dcontext)
         ksynch_wait(&ostd->terminated, 0);
         if (ksynch_get_value(&ostd->terminated) == 0) {
             /* If it still has to wait, give up the cpu. */
-            thread_yield();
+            os_thread_yield();
         }
     }
 }
@@ -6976,7 +6976,7 @@ mutex_wait_contended_lock(mutex_t *lock)
             res = ksynch_wait(event, 0);
 #endif
             if (res != 0 && res != -EWOULDBLOCK)
-                thread_yield();
+                os_thread_yield();
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
@@ -6995,7 +6995,7 @@ mutex_wait_contended_lock(mutex_t *lock)
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = true;
 #endif
-            thread_yield();
+            os_thread_yield();
 #ifdef CLIENT_INTERFACE
             if (set_client_safe_for_synch)
                 dcontext->client_data->client_thread_safe_for_synch = false;
@@ -7040,7 +7040,7 @@ mutex_notify_released_lock(mutex_t *lock)
 void
 rwlock_wait_contended_writer(read_write_lock_t *rwlock)
 {
-    thread_yield();
+    os_thread_yield();
 }
 
 void
@@ -7052,7 +7052,7 @@ rwlock_notify_writer(read_write_lock_t *rwlock)
 void
 rwlock_wait_contended_reader(read_write_lock_t *rwlock)
 {
-    thread_yield();
+    os_thread_yield();
 }
 
 void
@@ -7144,7 +7144,7 @@ wait_for_event(event_t e)
         }
         if (ksynch_get_value(&e->signaled) == 0) {
             /* If it still has to wait, give up the cpu. */
-            thread_yield();
+            os_thread_yield();
         }
     }
 }

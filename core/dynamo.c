@@ -2035,7 +2035,7 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
                          "Thread %d reached initialization point while dynamo exiting, "
                          "waiting for app to exit\n", get_thread_id());); 
         mutex_unlock(&thread_initexit_lock);
-        thread_yield();
+        os_thread_yield();
         /* just in case we want to support exited and then restarted at some 
          * point */
         mutex_lock(&thread_initexit_lock);
@@ -2807,7 +2807,7 @@ dynamorio_protect(void)
             for (i = 0; i < HASHTABLE_SIZE(ALL_THREADS_HASH_BITS); i++) {
                 for (tr = all_threads[i]; tr; tr = tr->next) {
                     if (tr->under_dynamo_control) {
-                        thread_resume(all_threads[i]);
+                        os_thread_resume(all_threads[i]);
                         num++;
                     }
                 }
@@ -2867,7 +2867,7 @@ dynamorio_unprotect(void)
                     for (tr = all_threads[i]; tr; tr = tr->next) {
                         if (tr->under_dynamo_control) {
                             DEBUG_DECLARE(bool ok =)
-                                thread_suspend(all_threads[i]);
+                                os_thread_suspend(all_threads[i]);
                             ASSERT(ok);
                             protect_info->num_threads_suspended++;
                         }

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -465,7 +465,7 @@ sideline_run(void *arg)
         sideline_sample();
 
         /* let other threads run */
-        thread_yield();
+        os_thread_yield();
     }
     signal_event(exited_event);
 

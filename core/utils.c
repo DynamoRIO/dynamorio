@@ -636,7 +636,7 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
 {
     if (INTERNAL_OPTION(simulate_contention)) {
         /* with higher chances another thread will have to wait */
-        thread_yield();
+        os_thread_yield();
     }
 
     LOG(GLOBAL, LOG_THREADS, 6, "released lock "PFX" %s rank=%d, %s dcontext, tid:%d \n", 
@@ -762,7 +762,7 @@ spinmutex_lock(spin_mutex_t *spin_lock)
 {
     /* busy-wait until mutex is locked */
     while (!spinmutex_trylock(spin_lock)) {
-        thread_yield();
+        os_thread_yield();
     }
     return;
 }
@@ -1097,7 +1097,7 @@ void read_lock(read_write_lock_t *rw)
                 }
                 DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
                 /* FIXME: last places where we yield instead of wait */
-                thread_yield();
+                os_thread_yield();
             }
             ATOMIC_INC(int, rw->num_readers);
             if (!mutex_testlock(&rw->lock))
@@ -1195,7 +1195,7 @@ void write_lock(read_write_lock_t *rw)
             /* contended write */
             DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
             /* FIXME: last places where we yield instead of wait */
-            thread_yield();
+            os_thread_yield();
         }
         rw->writer = get_thread_id();
         return;

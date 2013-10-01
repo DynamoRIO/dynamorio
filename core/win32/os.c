@@ -4440,14 +4440,14 @@ os_find_free_code_space_in_libs(void **start OUT, void **end OUT)
 
 /* yield the current thread */
 void
-thread_yield()
+os_thread_yield()
 {
     /* main use in the busy path in mutex_lock  */
     nt_yield();
 }
 
 void
-thread_sleep(uint64 milliseconds)
+os_thread_sleep(uint64 milliseconds)
 {
     LARGE_INTEGER liDueTime;
     /* negative == relative */
@@ -4471,19 +4471,19 @@ os_timeout(int time_in_milliseconds)
 }
 
 bool
-thread_suspend(thread_record_t *tr)
+os_thread_suspend(thread_record_t *tr)
 {
     return nt_thread_suspend(tr->handle, NULL);
 }
 
 bool
-thread_resume(thread_record_t *tr)
+os_thread_resume(thread_record_t *tr)
 {
     return nt_thread_resume(tr->handle, NULL);
 }
 
 bool
-thread_terminate(thread_record_t *tr)
+os_thread_terminate(thread_record_t *tr)
 {
     return nt_terminate_thread(tr->handle, 0);
 }
@@ -6867,7 +6867,7 @@ os_dump_core_live_dump(const char *msg)
                 have_all_threads_lock = true;
                 break;
             } else {
-                thread_yield();
+                os_thread_yield();
             }
         }
         DODEBUG({
@@ -6920,7 +6920,7 @@ os_dump_core_live_dump(const char *msg)
                         nt_get_handle_access_rights(tr->handle);
                     TEB *teb_addr = get_teb(tr->handle);
                     DEBUG_DECLARE(bool res = )
-                        thread_suspend(tr);
+                        os_thread_suspend(tr);
                     /* we can't assert here (could infinite loop) */
                     DODEBUG({ suspend_failures = suspend_failures || !res; });
                     if (thread_get_context(tr, &cxt)) {
@@ -6999,7 +6999,7 @@ os_dump_core_live_dump(const char *msg)
                      * a thread that a caller suspended!
                      */
                     DEBUG_DECLARE(bool res = )
-                        thread_resume(tr);
+                        os_thread_resume(tr);
                     /* we can't assert here (could infinite loop) */
                     DODEBUG({ suspend_failures = suspend_failures || !res; });
                 }
@@ -7371,7 +7371,7 @@ detach_helper(int detach_type)
     init_apc_go_native = true;
     /* see FIXME below about threads caught between the lock and initialization,
      * this just reduces the risk */
-    thread_yield();
+    os_thread_yield();
 
 #ifdef CLIENT_INTERFACE
     /* make sure client nudges are finished */
@@ -7576,7 +7576,7 @@ detach_helper(int detach_type)
         LOG(GLOBAL, LOG_ALL, 1, 
             "Detach : thread %d is being resumed in native context\n", 
             threads[i]->id);
-        res = thread_resume(threads[i]);
+        res = os_thread_resume(threads[i]);
         ASSERT(res);
     }
 
@@ -7638,7 +7638,7 @@ detach_helper(int detach_type)
      * and interception code (will be cleaned up in shared_exit), 
      * potential race condition with unloading the dll, what if is suspended? 
      */
-    thread_yield();
+    os_thread_yield();
 
     LOG(GLOBAL, LOG_ALL, 1, 
         "Detach :  Last message from detach, about to clean up some more memory and unload\n");

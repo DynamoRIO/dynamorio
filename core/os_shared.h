@@ -142,11 +142,11 @@ bool os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit);
 
 thread_id_t get_thread_id(void);
 process_id_t get_process_id(void);
-void thread_yield(void);
-void thread_sleep(uint64 milliseconds);
-bool thread_suspend(thread_record_t *tr);
-bool thread_resume(thread_record_t *tr);
-bool thread_terminate(thread_record_t *tr);
+void os_thread_yield(void);
+void os_thread_sleep(uint64 milliseconds);
+bool os_thread_suspend(thread_record_t *tr);
+bool os_thread_resume(thread_record_t *tr);
+bool os_thread_terminate(thread_record_t *tr);
 
 bool is_thread_currently_native(thread_record_t *tr);
 

@@ -612,7 +612,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
         if (doing_detach) {
             /* We spin for any non-detach synchs encountered during detach
              * since we have no flag telling us this synch is for detach. */
-            /* Ref case 5074, can NOT use thread_yield here. This must be a user
+            /* Ref case 5074, can NOT use os_thread_yield here. This must be a user
              * mode spin loop. */
             SPINLOCK_PAUSE();
         } else {
@@ -626,7 +626,7 @@ check_wait_at_safe_spot(dcontext_t *dcontext, thread_synch_permission_t cur_stat
     /* Regain the synch_lock before ENTERING_DR to avoid races with getting
      * suspended/killed in the middle of ENTERING_DR (before synch_perm is
      * reset to NONE). */
-    /* Ref case 5074, for detach we still can NOT use thread_yield here (no system
+    /* Ref case 5074, for detach we still can NOT use os_thread_yield here (no system
      * calls) so don't allow the spinmutex_lock to yield while grabbing the lock. */
     spinmutex_lock_no_yield(tsd->synch_lock);
     ENTERING_DR();
@@ -770,7 +770,7 @@ set_synched_thread_context(thread_record_t *trec,
 static void
 synch_thread_yield()
 {
-    /* xref 9400, 9488 - thread_yield() works ok on an UP machine, but on an MP machine
+    /* xref 9400, 9488 - os_thread_yield() works ok on an UP machine, but on an MP machine
      * yield might not actually do anything (in which case we burn through to the max
      * loop counts pretty quick).  We actually do want to wait a reasonable amt of time
      * since the target thread might be doing some long latency dr operation (like
@@ -780,9 +780,9 @@ synch_thread_yield()
     ASSERT(num_procs != 0);
     if ((num_procs == 1 && DYNAMO_OPTION(synch_thread_sleep_UP)) ||
         (num_procs > 1 && DYNAMO_OPTION(synch_thread_sleep_MP))) {
-        thread_sleep(SYNCH_WITH_WAIT_MS);
+        os_thread_sleep(SYNCH_WITH_WAIT_MS);
     } else {
-        thread_yield();
+        os_thread_yield();
     }
 }
 
@@ -895,7 +895,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 adjust_wait_at_safe_spot(trec->dcontext, 1);
                 first_loop = false;
             }
-            if (!thread_suspend(trec)) {
+            if (!os_thread_suspend(trec)) {
                 /* FIXME : eventually should be a real assert once we figure out
                  * how to handle threads with low privilege handles */
                 ASSERT_CURIOSITY_ONCE(false && "Thead synch unable to suspend target"
@@ -914,7 +914,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
                 /* Make sure to not leave suspended if not returning success */
                 if (!TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags))
-                    thread_resume(trec);
+                    os_thread_resume(trec);
                 break;
             }
             if (at_safe_spot(trec, &mc, desired_state)) {
@@ -929,7 +929,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 res = THREAD_SYNCH_RESULT_SUCCESS;
                 break;
             }
-            if (!thread_resume(trec)) {
+            if (!os_thread_resume(trec)) {
                 ASSERT_NOT_REACHED();
                 res = (TEST(THREAD_SYNCH_SUSPEND_FAILURE_IGNORE, flags) ?
                        THREAD_SYNCH_RESULT_SUCCESS : THREAD_SYNCH_RESULT_SUSPEND_FAILURE);
@@ -999,7 +999,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
             "Success synching with thread "IDFMT" performing cleanup\n", id);
         if (THREAD_SYNCH_IS_TERMINATED(desired_state)) {
             if (IF_UNIX_ELSE(!trec->execve, true))
-                thread_terminate(trec);
+                os_thread_terminate(trec);
 #ifdef UNIX
             /* We need to ensure the target thread has received the
              * signal and is no longer using its sigstack or ostd struct
@@ -1145,7 +1145,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
     /* FIXME: for DEADLOCK_AVOIDANCE, to preserve LIFO, should we
      * exit DR, trylock, then immediately enter DR?  introducing any
      * race conditions in doing so?
-     * Ditto on all other thread_yields in this file!
+     * Ditto on all other os_thread_yields in this file!
      */
     while (!mutex_trylock(&all_threads_synch_lock)) {
         LOG(THREAD, LOG_SYNCH, 2, "Spinning on all threads synch lock\n");
@@ -1171,7 +1171,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
          * synch with make progress towards a safe synch point). */
         if (INTERNAL_OPTION(single_thread_in_DR))
             EXITING_DR(); /* give up DR exclusion lock */
-        thread_yield();
+        os_thread_yield();
         if (INTERNAL_OPTION(single_thread_in_DR))
             ENTERING_DR(); /* re-gain DR exclusion lock */
     }
@@ -1423,7 +1423,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
 #endif
                 if (resume) {
                     DEBUG_DECLARE(ok =)
-                        thread_resume(threads[i]);
+                        os_thread_resume(threads[i]);
                     ASSERT(ok);
                 }
                 /* ensure synch_with_success is set to false on exit path,
@@ -1475,7 +1475,7 @@ resume_all_threads(thread_record_t **threads, const uint num_threads)
         /* This routine assumes that each thread in the array was suspended, so
          * each one has to successfully resume.
          */
-        res = thread_resume(threads[i]);
+        res = os_thread_resume(threads[i]);
         ASSERT(res);
     }
 }

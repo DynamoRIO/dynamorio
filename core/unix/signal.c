@@ -951,7 +951,7 @@ signal_thread_exit(dcontext_t *dcontext, bool other_thread)
         /* must wait for children to start and copy our state
          * before we destroy it!
          */
-        thread_yield();
+        os_thread_yield();
     }
 
     if (dynamo_exited) {
@@ -1244,7 +1244,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             /* must wait for children to start and copy our state
              * before we modify it!
              */
-            thread_yield();
+            os_thread_yield();
         }
 
         if (info->shared_app_sigaction) {
@@ -4687,7 +4687,7 @@ os_dump_core(const char *msg)
          * want to attach and not continue anyway, so doing an infinite loop:
          */
         while (true)
-            thread_yield();
+            os_thread_yield();
     }
 
     if (DYNAMO_OPTION(live_dump)) {
@@ -5256,12 +5256,12 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     }
 
     /* If suspend_count is 0, we are not trying to suspend this thread
-     * (thread_resume() may have already decremented suspend_count to 0, but
-     * thread_suspend() will not send a signal until this thread unsets
+     * (os_thread_resume() may have already decremented suspend_count to 0, but
+     * os_thread_suspend() will not send a signal until this thread unsets
      * ostd->suspended, so not having a lock around the suspend_count read is
      * ok), so pass signal to app.
      * If we are trying or have already suspended this thread, our own
-     * thread_suspend() will not send a 2nd suspend signal until we are
+     * os_thread_suspend() will not send a 2nd suspend signal until we are
      * completely resumed, so we can distinguish app uses of SUSPEND_SIGNAL.  We
      * can't have a race between the read and write of suspended_sigcxt b/c
      * signals are blocked.  It's fine to have a race and reorder the app's
@@ -5289,7 +5289,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
      * re-entrance here, and our cond vars target just a single thread,
      * so we can get away w/o a mutex.
      */
-    /* Notify thread_suspend that it can now return, as this thread is
+    /* Notify os_thread_suspend that it can now return, as this thread is
      * officially suspended now and is ready for thread_{get,set}_mcontext.
      */
     ASSERT(ostd->suspended == 0);
@@ -5303,7 +5303,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
         ksynch_wait(&ostd->wakeup, 0);
         if (ksynch_get_value(&ostd->wakeup) == 0) {
             /* If it still has to wait, give up the cpu. */
-            thread_yield();
+            os_thread_yield();
         }
     }
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: awake now\n");
@@ -5312,10 +5312,10 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     sigprocmask_syscall(SIG_SETMASK, &prevmask, NULL, sizeof(prevmask));
     ostd->suspended_sigcxt = NULL;
 
-    /* Notify thread_resume that it can return now, which (assuming
+    /* Notify os_thread_resume that it can return now, which (assuming
      * suspend_count is back to 0) means it's then safe to re-suspend. 
      */
-    ksynch_set_value(&ostd->suspended, 0); /* reset prior to signalling thread_resume */
+    ksynch_set_value(&ostd->suspended, 0); /* reset prior to signalling os_thread_resume */
     ksynch_set_value(&ostd->resumed, 1);
     ksynch_wake_all(&ostd->resumed);
 
