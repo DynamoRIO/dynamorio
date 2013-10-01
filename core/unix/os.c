@@ -2556,7 +2556,7 @@ is_thread_terminated(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     ASSERT(ostd != NULL);
-    return (ostd->terminated == 1);
+    return (ksynch_get_value(&ostd->terminated) == 1);
 }
 
 void
@@ -7436,7 +7436,7 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
     if (!is_thread_currently_native(dcontext->thread_record) ||
-        ostd->suspended < 0)
+        ksynch_get_value(&ostd->suspended) < 0)
         return false;
     /* Thread is sitting in suspend signal loop so we just set a flag
      * for when it resumes:

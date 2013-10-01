@@ -5292,7 +5292,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* Notify os_thread_suspend that it can now return, as this thread is
      * officially suspended now and is ready for thread_{get,set}_mcontext.
      */
-    ASSERT(ostd->suspended == 0);
+    ASSERT(ksynch_get_value(&ostd->suspended) == 0);
     ksynch_set_value(&ostd->suspended, 1);
     ksynch_wake_all(&ostd->suspended);
     /* i#96/PR 295561: use futex(2) if available */
