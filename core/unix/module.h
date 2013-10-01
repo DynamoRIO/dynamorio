@@ -296,10 +296,16 @@ get_private_library_address(app_pc modbase, const char *name);
 bool
 get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end);
 
-
-extern struct _IO_FILE  **privmod_stdout;
-extern struct _IO_FILE  **privmod_stderr;
-extern struct _IO_FILE  **privmod_stdin;
+#ifdef LINUX
+typedef struct _IO_FILE stdfile_t;
+#  define STDFILE_FILENO _fileno
+#elif defined(MACOS)
+typedef FILE stdfile_t;
+#  define STDFILE_FILENO _file
+#endif
+extern stdfile_t **privmod_stdout;
+extern stdfile_t **privmod_stderr;
+extern stdfile_t **privmod_stdin;
 
 /* loader.c */
 bool  privload_redirect_sym(ELF_ADDR *r_addr, const char *name);

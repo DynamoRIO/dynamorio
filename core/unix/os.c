@@ -4473,7 +4473,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdout != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdout)->_fileno = our_stdout;
+            (*privmod_stdout)->STDFILE_FILENO = our_stdout;
         }
     }
     if (DYNAMO_OPTION(dup_stderr_on_close) && fd == STDERR) {
@@ -4489,7 +4489,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stderr != NULL && 
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stderr _fileno. */
-            (*privmod_stderr)->_fileno = our_stderr;
+            (*privmod_stderr)->STDFILE_FILENO = our_stderr;
         }
     }
     if (DYNAMO_OPTION(dup_stdin_on_close) && fd == STDIN) {
@@ -4505,7 +4505,7 @@ handle_close_pre(dcontext_t *dcontext)
         if (privmod_stdin != NULL &&
             IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             /* update the privately loaded libc's stdout _fileno. */
-            (*privmod_stdin)->_fileno = our_stdin;
+            (*privmod_stdin)->STDFILE_FILENO = our_stdin;
         }
     }
     return true;
