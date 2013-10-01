@@ -13,6 +13,7 @@
 #ifndef _SIGNALFD_H
 #define _SIGNALFD_H
 
+#include <unistd.h> /* needed for Ubuntu 10.04: i#1282 */
 #include <linux/types.h>
 #include <linux/fcntl.h>
 
