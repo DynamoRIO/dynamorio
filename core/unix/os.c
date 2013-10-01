@@ -75,12 +75,14 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#ifdef LINUX
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
  * defined.  _GNU_SOURCE brings in unwanted extensions and causes name
  * conflicts.  Instead, we include unix/sched.h which comes from the Linux
  * kernel headers.
  */
-#include <linux/sched.h>
+# include <linux/sched.h>
+#endif
 
 #include "module.h" /* elf */
 #include "tls.h"
@@ -2613,6 +2615,7 @@ is_thread_currently_native(thread_record_t *tr)
 }
 
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
+# ifdef LINUX /* XXX i#58: just until we have Mac support */
 static void
 client_thread_run(void)
 {
@@ -2639,6 +2642,7 @@ client_thread_run(void)
         get_thread_id());
     cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false/*just thread*/);
 }
+# endif
 
 /* i#41/PR 222812: client threads
  * * thread must have dcontext since many API routines require one and we
@@ -2654,6 +2658,7 @@ client_thread_run(void)
 DR_API bool
 dr_create_client_thread(void (*func)(void *param), void *arg)
 {
+#ifdef LINUX
     dcontext_t *dcontext = get_thread_private_dcontext();
     byte *xsp;
     /* We do not pass SIGCHLD since don't want signal to parent and don't support
@@ -2678,7 +2683,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, true/*to app*/);
-#ifndef X64
+# ifndef X64
     /* For the TCB we simply share the parent's.  On Linux we could just inherit
      * the same selector but not for VMX86_SERVER so we specify for both for
      * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
@@ -2693,7 +2698,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
             "%s: client thread tls get entry %d failed\n", __FUNCTION__, index);
         return false;
     }
-#endif
+# endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp="PFX" dstack="PFX"\n",
         xsp, get_clone_record_dstack(crec));
     thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, IF_X64_ELSE(NULL, &desc),
@@ -2710,6 +2715,10 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
         return false;
     }
     return true;
+#else
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement on Mac */
+    return false;
+#endif
 }
 #endif /* CLIENT_SIDELINE PR 222812: tied to sideline usage */
 
@@ -3980,6 +3989,7 @@ dr_syscall_invoke_another(void *drcontext)
 }
 #endif /* CLIENT_INTERFACE */
 
+#ifdef LINUX
 static inline bool
 is_clone_thread_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
 {
@@ -4002,6 +4012,7 @@ was_clone_thread_syscall(dcontext_t *dcontext)
                                           /* flags in param0 */
                                           dcontext->sys_param0);
 }
+#endif
 
 static inline bool
 is_sigreturn_syscall_helper(int sysnum)
@@ -5096,6 +5107,7 @@ pre_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* SPAWNING */
 
+#ifdef LINUX
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c 
          * 32-bit params: flags, newsp, ptid, tls, ctid
@@ -5144,6 +5156,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
 
     case SYS_vfork: {
         /* treat as if sys_clone with flags just as sys_vfork does */
@@ -5159,10 +5172,10 @@ pre_system_call(dcontext_t *dcontext)
         /* vfork has the same needs as clone.  Pass info via a clone_record_t
          * structure to child.  See SYS_clone for info about i#149/PR 403015.
          */
-        if (is_clone_thread_syscall(dcontext)) {
-            dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
-            create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
-        }
+        IF_LINUX(ASSERT(is_clone_thread_syscall(dcontext)));
+        dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
+        create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
+
         /* We switch the lib tls segment back to app's segment.
          * Please refer to comment on os_switch_lib_tls.
          */
@@ -5892,8 +5905,8 @@ post_system_call(dcontext_t *dcontext)
 
 
     /* handle fork, try to do it early before too much logging occurs */
-    if (sysnum == SYS_fork ||
-        (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0))) {
+    if (sysnum == SYS_fork
+        IF_LINUX(|| (sysnum == SYS_clone && !TEST(CLONE_VM, dcontext->sys_param0)))) {
         if (result == 0) {
             /* we're the child */
             thread_id_t child = get_sys_thread_id();
@@ -6136,6 +6149,7 @@ post_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* SPAWNING -- fork mostly handled above */
 
+#ifdef LINUX
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n", mc->xax);
@@ -6149,6 +6163,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#endif
 
     case SYS_fork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n", mc->xax);
@@ -6157,13 +6172,13 @@ post_system_call(dcontext_t *dcontext)
 
     case SYS_vfork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
-        if (was_clone_thread_syscall(dcontext)) {
-            /* restore xsp in parent */
-            LOG(THREAD, LOG_SYSCALLS, 2,
-                "vfork: restoring xsp from "PFX" to "PFX"\n",
-                mc->xsp, dcontext->sys_param1);
-            mc->xsp = dcontext->sys_param1;
-        }
+        IF_LINUX(ASSERT(was_clone_thread_syscall(dcontext)));
+        /* restore xsp in parent */
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "vfork: restoring xsp from "PFX" to "PFX"\n",
+            mc->xsp, dcontext->sys_param1);
+        mc->xsp = dcontext->sys_param1;
+
         if (mc->xax != 0) {
             /* We switch the lib tls segment back to dr's segment.
              * Please refer to comment on os_switch_lib_tls.

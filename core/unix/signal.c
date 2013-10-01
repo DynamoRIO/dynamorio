@@ -49,11 +49,14 @@
 #include "include/sigcontext.h"
 #include "include/signalfd.h"
 
+#ifdef LINUX
+#  include <linux/sched.h>
+#endif
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <ucontext.h>
-#include <linux/sched.h>
 #include <string.h> /* for memcpy and memset */
 #include "../globals.h"
 #include "os_private.h"
