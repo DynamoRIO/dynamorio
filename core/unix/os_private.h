@@ -209,6 +209,7 @@ void handle_post_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set
 void handle_sigsuspend(dcontext_t *dcontext, kernel_sigset_t *set,
                        size_t sigsetsize);
 
+#ifdef LINUX
 ptr_int_t
 handle_pre_signalfd(dcontext_t *dcontext, int fd, kernel_sigset_t *mask,
                     size_t sizemask, int flags);
@@ -218,6 +219,7 @@ signal_handle_dup(dcontext_t *dcontext, file_t src, file_t dst);
 
 void
 signal_handle_close(dcontext_t *dcontext, file_t fd);
+#endif
 
 void
 sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc);

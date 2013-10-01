@@ -45,8 +45,9 @@
 #include <stdarg.h>
 #include "../os_shared.h"
 #ifdef MACOS
-# define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
-# include <ucontext.h>
+#  define _XOPEN_SOURCE 700 /* required to get POSIX, etc. defines out of ucontext.h */
+#  define __need_struct_ucontext64 /* seems to be missing from Mac headers */
+#  include <ucontext.h>
 #endif
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER

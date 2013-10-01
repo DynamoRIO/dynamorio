@@ -5284,6 +5284,7 @@ pre_system_call(dcontext_t *dcontext)
                           (size_t) sys_param(dcontext, 1));
         break;
     }
+#ifdef LINUX
     case SYS_signalfd:         /* 282/321 */
     case SYS_signalfd4: {      /* 289 */
         /* int signalfd (int fd, const sigset_t *mask, size_t sizemask) */
@@ -5305,6 +5306,7 @@ pre_system_call(dcontext_t *dcontext)
         SET_RETURN_VAL(dcontext, new_result);
         break;
     }
+#endif
     case SYS_kill: {           /* 37 */
         /* in /usr/src/linux/kernel/signal.c:
          * asmlinkage long sys_kill(int pid, int sig)
@@ -5432,8 +5434,10 @@ pre_system_call(dcontext_t *dcontext)
  
     case SYS_close: {
         execute_syscall = handle_close_pre(dcontext);
+#ifdef LINUX
         if (execute_syscall)
             signal_handle_close(dcontext, (file_t) sys_param(dcontext, 0));
+#endif
         break;
     }
 
@@ -6276,18 +6280,22 @@ post_system_call(dcontext_t *dcontext)
 
     case SYS_dup2:
     case SYS_dup3: {
+#ifdef LINUX
         if (success)
             signal_handle_dup(dcontext, (file_t) sys_param(dcontext, 1), (file_t) result);
+#endif
         break;
     }
 
     case SYS_fcntl: {
+#ifdef LINUX
         if (success) {
             file_t fd = (long) dcontext->sys_param0;
             int cmd = (int) dcontext->sys_param1;
             if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC))
                 signal_handle_dup(dcontext, fd, (file_t) result);
         }
+#endif
         break;
     }
 
