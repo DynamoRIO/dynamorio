@@ -1792,6 +1792,7 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
+#ifdef LINUX
 static bool
 sig_has_restorer(thread_sig_info_t *info, int sig)
 {
@@ -1838,6 +1839,7 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
     }
     return (info->restorer_valid[sig] == 1);
 }
+#endif
 
 /* Returns the size of the frame for delivering to the app.
  * For x64 this does NOT include struct _fpstate.
@@ -1847,8 +1849,10 @@ get_app_frame_size(thread_sig_info_t *info, int sig)
 {
     if (IS_RT_FOR_APP(info, sig))
         return sizeof(sigframe_rt_t);
+#ifdef LINUX
     else
         return sizeof(sigframe_plain_t);
+#endif
 }
 
 sigcontext_t *
@@ -1862,11 +1866,12 @@ get_sigcontext_from_app_frame(thread_sig_info_t *info, int sig, void *frame)
 {
     sigcontext_t *sc;
     bool rtframe = IS_RT_FOR_APP(info, sig);
-    if (rtframe) {
+    if (rtframe)
         sc = get_sigcontext_from_rt_frame((sigframe_rt_t *)frame);
-    } else {
+#ifdef LINUX
+    else
         sc = (sigcontext_t *) &(((sigframe_plain_t *)frame)->sc);
-    }
+#endif
     return sc;
 }
 
@@ -1926,6 +1931,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     } 
     /* now get frame pointer: need to go down to first field of frame */
     sp -= get_app_frame_size(info, sig);
+#ifdef LINUX
     if (frame == NULL) {
         /* XXX i#641: we always include space for full xstate,
          * even if we don't use it all, which does not match what the
@@ -1949,6 +1955,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
             });
         }
     }
+#endif
     /* PR 369907: don't forget the redzone */
     sp -= REDZONE_SIZE;
 
@@ -1960,7 +1967,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     return sp;
 }
 
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
 static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                        sigframe_plain_t *f_new)
@@ -2010,28 +2017,29 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
     ASSERT(dcontext != NULL);
+#ifdef LINUX
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool has_restorer = sig_has_restorer(info, sig);
-#ifdef DEBUG
+#  ifdef DEBUG
     uint level = 3;
-# if !defined(HAVE_MEMINFO)
+#    if !defined(HAVE_MEMINFO)
     /* avoid logging every single TRY probe fault */
     if (!dynamo_initialized)
         level = 5;
-# endif
-#endif
+#    endif
+#  endif
 
     if (has_restorer && for_app)
         f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
     else {
-#ifdef VMX86_SERVER
+#  ifdef VMX86_SERVER
         /* PR 404712: skip kernel's restorer code */
         if (for_app)
             f_new->pretcode = (char *) dynamorio_sigreturn;
-#else
-# ifdef X64
+#  else
+#    ifdef X64
         ASSERT(!for_app);
-# else
+#    else
         /* only point at retcode if old one was -- with newer OS, points at
          * vsyscall page and there is no restorer, yet stack restorer code left
          * there for gdb compatibility
@@ -2042,13 +2050,15 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
          * master_signal_handler 
          */
         LOG(THREAD, LOG_ASYNCH, level, "\tleaving pretcode with old value\n");
-# endif
-#endif
+#    endif
+#  endif
     }
+#endif /* LINUX */
 #ifndef X64
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
 #endif
+#ifdef LINUX
     if (f_old->uc.uc_mcontext.fpstate != NULL) {
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
@@ -2075,11 +2085,12 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         LOG(THREAD, LOG_ASYNCH, level+1, "\tno fpstate needed\n");
     }
     LOG(THREAD, LOG_ASYNCH, level, "\tretaddr = "PFX"\n", f_new->pretcode);
-#ifdef RETURN_AFTER_CALL
+#  ifdef RETURN_AFTER_CALL
     info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
-#endif
+#  endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
+#endif /* LINUX */
 }
 
 /* Copies frame to sp.
@@ -2101,8 +2112,10 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #endif
     byte *check_pc;
     uint size = frame_size;
+#ifdef LINUX
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     size += (sc->fpstate == NULL ? 0 : XSTATE_FRAME_EXTRA);
+#endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
@@ -2130,7 +2143,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
                 /* copy what we can */
                 if (rtframe)
                     memcpy(sp, frame, rest);
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
                 else {
                     convert_frame_to_nonrt_partial(dcontext, sig, frame,
                                                    (sigframe_plain_t *) sp, rest);
@@ -2153,7 +2166,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     }
     if (rtframe)
         memcpy(sp, frame, frame_size);
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     else
         convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *) sp);
 #endif
@@ -2171,21 +2184,23 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     if (rtframe) {
         fixup_rtframe_pointers(dcontext, sig, frame, (sigframe_rt_t *) sp,
                                true/*for app*/);
-    } else {
-#ifdef X64
+    }
+#ifdef LINUX
+    else {
+#  ifdef X64
         ASSERT_NOT_REACHED();
-#else
+#  else
         sigframe_plain_t *f_new = (sigframe_plain_t *) sp;
-# ifndef VMX86_SERVER
+#    ifndef VMX86_SERVER
         sigframe_plain_t *f_old = (sigframe_plain_t *) frame;
-# endif
+#    endif
         if (has_restorer)
             f_new->pretcode = (char *) info->app_sigaction[sig]->restorer;
         else {
-# ifdef VMX86_SERVER
+#    ifdef VMX86_SERVER
             /* PR 404712: skip kernel's restorer code */
             f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
-# else
+#    else
             /* see comments in rt case above */
             if (f_old->pretcode == f_old->retcode)
                 f_new->pretcode = f_new->retcode;
@@ -2196,7 +2211,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
                 f_new->pretcode = (char *) dynamorio_nonrt_sigreturn;
             } /* else, pointing at vsyscall most likely */
             LOG(THREAD, LOG_ASYNCH, 3, "\tleaving pretcode with old value\n");
-# endif
+#    endif
         }
         /* convert_frame_to_nonrt*() should have updated fpstate pointer.
          * The inlined fpstate is no longer used on new kernels, and we do that
@@ -2204,12 +2219,13 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
          */
         ASSERT(f_new->sc.fpstate != &f_new->fpstate);
         LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
-# ifdef RETURN_AFTER_CALL
+#  ifdef RETURN_AFTER_CALL
         info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
-# endif
+#  endif
         /* 32-bit kernel copies to aligned buf so no assert on fpstate alignment */
-#endif
+#  endif /* X64 */
     }
+#endif /* LINUX */
 }
 
 /* Copies frame to pending slot.
@@ -2232,6 +2248,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 #endif
     memcpy(dst, frame, sizeof(*dst));
 
+#ifdef LINUX
     /* For lazy fpstate, it's possible there was no fpstate when the kernel
      * sent us the frame, but in between then and now the app executed some
      * fp or xmm/ymm instrs.  Today we always add fpstate just in case.
@@ -2247,7 +2264,9 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
                XSTATE_DATA_SIZE);
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
-    dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;        
+    dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;
+#endif
+
 #ifdef CLIENT_INTERFACE
     info->sigpending[sig]->access_address = access_address;
 #endif
@@ -2874,8 +2893,10 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     }
 
     LOG(THREAD, LOG_ASYNCH, 3, "\taction is not SIG_IGN\n");
+#ifdef LINUX
     LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n",
         frame->pretcode); /* pretcode has same offs for plain */
+#endif
 
     if (receive_now) {
         /* we need to translate sc before we know whether client wants to
@@ -3918,8 +3939,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* FIXME: we should clear fpstate for app handler itself as that's
      * how our own handler is executed.
      */
+#ifdef LINUX
     ASSERT(sc->fpstate != NULL); /* not doing i#641 yet */
     save_fpstate(dcontext, frame);
+#endif
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "new sigcontext:\n");
@@ -4373,7 +4396,9 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
         set_blocked(dcontext, &frame->uc.uc_sigmask, true/*absolute*/);
-    } else {
+    }
+#ifdef LINUX
+    else {
         /* FIXME: libc's restorer pops prior to calling sigreturn, I have
          * no idea why, but kernel asks for xsp-8 not xsp-4...weird!
          */
@@ -4399,6 +4424,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
             memcpy(&prevset.sig[1], &frame->extramask, sizeof(frame->extramask));
         set_blocked(dcontext, &prevset, true/*absolute*/);
     }
+#endif
 
     /* Make sure we deliver pending signals that are now unblocked.
      */
@@ -4544,7 +4570,9 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * I'm going with #1 for now b/c the common case is simpler.
      */
     dcontext_t *dcontext = get_thread_private_dcontext();
+#if !defined(X64) || defined(LINUX)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+#endif
     char frame_plus_xstate[sizeof(sigframe_rt_t) + AVX_FRAME_EXTRA];
     sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
     int sig;
@@ -4568,8 +4596,10 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     frame->pinfo = &frame->info;
     frame->puc = (void *) &frame->uc;
 #endif
-    frame->uc.uc_mcontext.fpstate = (struct _fpstate *)
+#ifdef LINUX
+    sc->fpstate = (struct _fpstate *)
         ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
+#endif
     mcontext_to_sigcontext(&frame->uc.uc_mcontext, get_mcontext(dcontext));
     frame->uc.uc_mcontext.SC_XIP = (reg_t) target_pc;
     /* we'll fill in fpstate at delivery time
@@ -4580,10 +4610,12 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * We should try to share part of the GET_OWN_CONTEXT macro used for
      * Windows.  Or we can switch to approach #2.
      */
+#ifdef LINUX
     if (sig_has_restorer(info, sig))
         frame->pretcode = (char *) info->app_sigaction[sig]->restorer;
     else
         frame->pretcode = (char *) dynamorio_sigreturn;
+#endif
 
     /* We assume that we do not need to translate the context when forged.
      * If we did, we'd move this below enter_nolinking() (and update
