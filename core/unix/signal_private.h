@@ -109,6 +109,9 @@ typedef struct {
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
 } kernel_ucontext_t;
 
+#define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
+#define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
+
 /* we assume frames look like this, with rt_sigframe used if SA_SIGINFO is set
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */

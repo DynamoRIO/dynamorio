@@ -1858,7 +1858,7 @@ get_app_frame_size(thread_sig_info_t *info, int sig)
 sigcontext_t *
 get_sigcontext_from_rt_frame(sigframe_rt_t *frame)
 {
-    return (sigcontext_t *) &(frame->uc.uc_mcontext);
+    return SIGCXT_FROM_UCXT(&frame->uc);
 }
 
 static sigcontext_t *
@@ -1879,7 +1879,7 @@ static sigcontext_t *
 get_sigcontext_from_pending(thread_sig_info_t *info, int sig)
 {
     ASSERT(info->sigpending[sig] != NULL);
-    return (sigcontext_t *) &(info->sigpending[sig]->rt_frame.uc.uc_mcontext);
+    return get_sigcontext_from_rt_frame(&info->sigpending[sig]->rt_frame);
 }
 
 /* Returns the address on the appropriate signal stack where we should copy
@@ -1975,7 +1975,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
     sigcontext_t *sc_old = get_sigcontext_from_rt_frame(f_old);
     f_new->pretcode = f_old->pretcode;
     f_new->sig = f_old->sig;
-    memcpy(&f_new->sc, &f_old->uc.uc_mcontext, sizeof(sigcontext_t));
+    memcpy(&f_new->sc, get_sigcontext_from_rt_frame(f_old), sizeof(sigcontext_t));
     if (sc_old->fpstate != NULL) {
         /* up to caller to include enough space for fpstate at end */
         byte *new_fpstate = (byte *)
@@ -2281,7 +2281,7 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                       sigcontext_t *raw_sc, byte *access_address,
                       bool blocked, fragment_t *fragment)
 {
-    sigcontext_t *sc = (sigcontext_t *) &(frame->uc.uc_mcontext);
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     dr_siginfo_t si;
     dr_signal_action_t action;
     if (!dr_signal_hook_exists())
@@ -2385,7 +2385,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             "client suppressing signal" :
             "app signal handler is SIG_IGN");
         /* restore original (untranslated) sc */
-        our_frame->uc.uc_mcontext = *sc_orig;
+        *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
         return false;
     }
     else if (!blocked && /* no BYPASS for blocked */
@@ -2400,10 +2400,10 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              */
-            our_frame->uc.uc_mcontext = *sc_orig;
+            *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
             LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xsp="PFX", xip="PFX"\n",
-                __FUNCTION__, our_frame->uc.uc_mcontext.SC_XSP,
-                our_frame->uc.uc_mcontext.SC_XIP);
+                __FUNCTION__, SIGCXT_FROM_UCXT(&our_frame->uc)->SC_XSP,
+                SIGCXT_FROM_UCXT(&our_frame->uc)->SC_XIP);
         }
         return false;
     }
@@ -2704,7 +2704,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
-    sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     sigcontext_t sc_orig;
     byte *pc = (byte *) sc->SC_XIP;
     byte *xsp = (byte*) sc->SC_XSP;
@@ -2976,7 +2976,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 return;
             }
             /* restore original (untranslated) sc */
-            frame->uc.uc_mcontext = sc_orig;
+            *SIGCXT_FROM_UCXT(&frame->uc) = sc_orig;
         }
 #endif
 
@@ -3317,7 +3317,7 @@ sig_should_swap_stack(struct clone_and_swap_args *args, kernel_ucontext_t *ucxt)
         return false;
     GET_STACK_PTR(cur_esp);
     if (!is_on_dstack(dcontext, cur_esp)) {
-        sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         /* Pass back the proper args to clone_and_swap_stack: we want to
          * copy to dstack from the tos at the signal interruption point.
          */
@@ -3348,7 +3348,7 @@ sig_take_over(sigcontext_t *sc)
 static bool
 is_safe_read_ucxt(kernel_ucontext_t *ucxt)
 {
-    app_pc pc = (app_pc)ucxt->uc_mcontext.SC_XIP;
+    app_pc pc = (app_pc) SIGCXT_FROM_UCXT(ucxt)->SC_XIP;
     return is_safe_read_pc(pc);
 }
 
@@ -3379,7 +3379,7 @@ master_signal_handler_C(byte *xsp)
 #ifdef DEBUG
     uint level = 2;
 # ifdef INTERNAL
-    sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
 # endif
 # if !defined(HAVE_MEMINFO)
     /* avoid logging every single TRY probe fault */
@@ -3431,7 +3431,7 @@ master_signal_handler_C(byte *xsp)
             /* We sent SUSPEND_SIGNAL to a thread we don't control (no
              * dcontext), which means we want to take over.
              */
-            sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+            sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
             sig_take_over(sc);  /* no return */
             ASSERT_NOT_REACHED();
         } else {
@@ -3518,7 +3518,7 @@ master_signal_handler_C(byte *xsp)
          *     void *pc = (void*) siginfo->si_addr;
          * Thus we must use the third argument, which is a ucontext_t (see above)
          */
-        sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
         void *pc = (void *) sc->SC_XIP;
         bool syscall_signal = false; /* signal came from syscall? */
         bool is_write = false;
@@ -3546,7 +3546,7 @@ master_signal_handler_C(byte *xsp)
                 os_dump_core("try/except fault");
 
             if (is_safe_read_ucxt(ucxt)) {
-                ucxt->uc_mcontext.SC_XIP = (reg_t) safe_read_resume_pc();
+                sc->SC_XIP = (reg_t) safe_read_resume_pc();
                 /* Break out to log the normal return from the signal handler.
                  */
                 break;
@@ -3567,7 +3567,7 @@ master_signal_handler_C(byte *xsp)
              */
             ASSERT(memcmp(&try_cxt->context.sigmask,
                           &ucxt->uc_sigmask, sizeof(ucxt->uc_sigmask)) == 0);
-            sigprocmask_syscall(SIG_SETMASK, &ucxt->uc_sigmask, NULL,
+            sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), NULL,
                                 sizeof(ucxt->uc_sigmask));
             DR_LONGJMP(&try_cxt->context, LONGJMP_EXCEPTION);
             ASSERT_NOT_REACHED();
@@ -3792,7 +3792,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              */
-            our_frame->uc.uc_mcontext = *sc_orig;
+            *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
         }
         return false;
     }
@@ -4395,7 +4395,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
          */
         sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
         /* discard blocked signals, re-set from prev mask stored in frame */
-        set_blocked(dcontext, &frame->uc.uc_sigmask, true/*absolute*/);
+        set_blocked(dcontext, SIGMASK_FROM_UCXT(&frame->uc), true/*absolute*/);
     }
 #ifdef LINUX
     else {
@@ -4577,6 +4577,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
     int sig;
     where_am_i_t cur_whereami = dcontext->whereami;
+    sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     switch (type) {
     case ILLEGAL_INSTRUCTION_EXCEPTION: sig = SIGILL; break;
     case UNREADABLE_MEMORY_EXECUTION_EXCEPTION: sig = SIGSEGV; break;
@@ -4600,8 +4601,8 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     sc->fpstate = (struct _fpstate *)
         ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
 #endif
-    mcontext_to_sigcontext(&frame->uc.uc_mcontext, get_mcontext(dcontext));
-    frame->uc.uc_mcontext.SC_XIP = (reg_t) target_pc;
+    mcontext_to_sigcontext(sc, get_mcontext(dcontext));
+    sc->SC_XIP = (reg_t) target_pc;
     /* we'll fill in fpstate at delivery time
      * FIXME: it seems to work w/o filling in the other state:
      * I'm leaving segments, cr2, etc. all zero.
@@ -4944,7 +4945,7 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     ASSERT(info != NULL && info->itimer != NULL);
-    sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     int which = 0;
     bool invoke_cb = false, pass_to_app = false, reset_timer_manually = false;
     bool acquired_lock = false;
@@ -5225,7 +5226,7 @@ static bool
 handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 {
     os_thread_data_t *ostd = (os_thread_data_t *) dcontext->os_field;
-    sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     kernel_sigset_t prevmask;
     ASSERT(ostd != NULL);
 
@@ -5278,7 +5279,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
      * thread_{suspend,resume} to prevent our own re-suspension signal
      * from arriving before we've re-blocked on the resume.
      */
-    sigprocmask_syscall(SIG_SETMASK, &ucxt->uc_sigmask, &prevmask,
+    sigprocmask_syscall(SIG_SETMASK, SIGMASK_FROM_UCXT(ucxt), &prevmask,
                         sizeof(ucxt->uc_sigmask));
 
     LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: suspended now\n");
@@ -5347,7 +5348,7 @@ dr_setjmp_sigmask(dr_jmp_buf_t *buf)
 static bool
 handle_nudge_signal(dcontext_t *dcontext, siginfo_t *siginfo, kernel_ucontext_t *ucxt)
 {
-    sigcontext_t *sc = (sigcontext_t *) &(ucxt->uc_mcontext);
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
     nudge_arg_t *arg = (nudge_arg_t *) siginfo;
     instr_t instr;
     char buf[MAX_INSTR_LENGTH];
