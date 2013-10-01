@@ -3619,13 +3619,16 @@ os_set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
 bool
 set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/)
 {
-    app_pc start_page = (app_pc) PAGE_START(pc);
-    uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
-
     if (os_set_protection(pc, length, prot) == false)
         return false;
-    IF_NO_MEMQUERY(memcache_update_locked(start_page, start_page + num_bytes,
-                                          prot, -1/*type unchanged*/, true/*exists*/));
+#ifndef HAVE_MEMINFO_QUERY
+    else {
+        app_pc start_page = (app_pc) PAGE_START(pc);
+        uint num_bytes = ALIGN_FORWARD(length + (pc - start_page), PAGE_SIZE);
+        memcache_update_locked(start_page, start_page + num_bytes,
+                               prot, -1/*type unchanged*/, true/*exists*/);
+    }
+#endif
     return true;
 }
 
