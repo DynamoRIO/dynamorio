@@ -45,8 +45,16 @@
 
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
 
-#if !defined(LINUX) && !defined(MACOS)
-#  error Unknown operating system
+#ifdef LINUX
+/* We want to build on older toolchains so we have our own copy of signal
+ * data structures
+ */
+#  include "include/sigcontext.h"
+#  include "include/signalfd.h"
+#  include "../globals.h" /* after our sigcontext.h, to preclude bits/sigcontext.h */
+#elif defined(MACOS)
+#  include "../globals.h" /* this defines _XOPEN_SOURCE for Mac */
+#  include <signal.h> /* after globals.h, for _XOPEN_SOURCE from os_exports.h */
 #endif
 
 #ifdef LINUX
@@ -58,7 +66,6 @@
 #include <sys/wait.h>
 #include <ucontext.h>
 #include <string.h> /* for memcpy and memset */
-#include "../globals.h"
 #include "os_private.h"
 #include "../fragment.h"
 #include "../fcache.h"
@@ -82,6 +89,12 @@
 
 #ifdef VMX86_SERVER
 # include <errno.h>
+#endif
+
+#ifdef MACOS
+/* Define the Linux names, which the code is already using */
+#  define SA_NOMASK       SA_NODEFER
+#  define SA_ONESHOT      SA_RESETHAND
 #endif
 
 /**** data structures ***************************************************/
@@ -117,9 +130,13 @@ sig_is_alarm_signal(int sig)
 #define SA_RESTORER 0x04000000
 
 /* if no app sigaction, it's RT, since that's our handler */
-#define IS_RT_FOR_APP(info, sig) \
+#ifdef LINUX
+#  define IS_RT_FOR_APP(info, sig) \
   IF_X64_ELSE(true, ((info)->app_sigaction[(sig)] == NULL ? true : \
                      (TEST(SA_SIGINFO, (info)->app_sigaction[(sig)]->flags))))
+#elif defined(MACOS)
+#  define IS_RT_FOR_APP(info, sig) (true)
+#endif
 
 /* kernel sets size and sp to 0 for SS_DISABLE
  * when asked, will hand back SS_ONSTACK only if current xsp is inside the
@@ -135,14 +152,28 @@ sig_is_alarm_signal(int sig)
  * assume the stack pointer is 4-aligned already, so we over estimate padding
  * size by the alignment minus 4.
  */
+#ifdef LINUX
 /* An extra 4 for trailing FP_XSTATE_MAGIC2 */
-#define AVX_FRAME_EXTRA (sizeof(struct _xstate) + AVX_ALIGNMENT - 4 + 4)
-#define FPSTATE_FRAME_EXTRA (sizeof(struct _fpstate) + FPSTATE_ALIGNMENT - 4)
-#define XSTATE_FRAME_EXTRA (YMM_ENABLED() ? AVX_FRAME_EXTRA : FPSTATE_FRAME_EXTRA)
+#  define AVX_FRAME_EXTRA (sizeof(struct _xstate) + AVX_ALIGNMENT - 4 + 4)
+#  define FPSTATE_FRAME_EXTRA (sizeof(struct _fpstate) + FPSTATE_ALIGNMENT - 4)
+#  define XSTATE_FRAME_EXTRA (YMM_ENABLED() ? AVX_FRAME_EXTRA : FPSTATE_FRAME_EXTRA)
 
-#define AVX_DATA_SIZE (sizeof(struct _xstate) + 4)
-#define FPSTATE_DATA_SIZE (sizeof(struct _fpstate))
-#define XSTATE_DATA_SIZE (YMM_ENABLED() ? AVX_DATA_SIZE : FPSTATE_DATA_SIZE)
+#  define AVX_DATA_SIZE (sizeof(struct _xstate) + 4)
+#  define FPSTATE_DATA_SIZE (sizeof(struct _fpstate))
+#  define XSTATE_DATA_SIZE (YMM_ENABLED() ? AVX_DATA_SIZE : FPSTATE_DATA_SIZE)
+
+#elif defined(MACOS)
+/* Currently assuming __darwin_mcontext_avx{32,64} is always used in the
+ * frame.  If instead __darwin_mcontext{32,64} is used (w/ just float and no AVX)
+ * on, say, older machines or OSX versions, we'll have to revisit this.
+ */
+#  define AVX_FRAME_EXTRA 0
+#  define FPSTATE_FRAME_EXTRA 0
+#  define XSTATE_FRAME_EXTRA 0
+#  define AVX_DATA_SIZE 0
+#  define FPSTATE_DATA_SIZE 0
+#  define XSTATE_DATA_SIZE 0
+#endif
 
 /* If we only intercept a few signals, we leave whether un-intercepted signals
  * are blocked unchanged and stored in the kernel.  If we intercept all (not
@@ -356,6 +387,7 @@ void
 signal_init()
 {
     IF_LINUX(IF_X64(ASSERT(ALIGNED(offsetof(sigpending_t, xstate), AVX_ALIGNMENT))));
+    IF_MACOS(ASSERT(sizeof(kernel_sigset_t) == sizeof(__darwin_sigset_t)));
     os_itimers_thread_shared();
 
     /* Set up a handler for safe_read (or other fault detection) during
@@ -1772,13 +1804,17 @@ thread_set_self_context(void *cxt)
      * kernel 2.6.23.9 at least so we leave frame.uc.uc_stack as all zeros.
      */
     /* make sure sigreturn's mask setting doesn't change anything */
-    sigprocmask_syscall(SIG_SETMASK, NULL, &frame.uc.uc_sigmask,
+    sigprocmask_syscall(SIG_SETMASK, NULL, (kernel_sigset_t *) &frame.uc.uc_sigmask,
                         sizeof(frame.uc.uc_sigmask));
     LOG(THREAD_GET, LOG_ASYNCH, 2, "thread_set_self_context: pc="PFX"\n", sc->SC_XIP);
     /* set up xsp to point at &frame + sizeof(char*) */
     xsp_for_sigreturn = ((app_pc)&frame) + sizeof(char*);
     asm("mov  %0, %%"ASM_XSP : : "m"(xsp_for_sigreturn));
+#ifdef MACOS
+    asm("jmp _dynamorio_sigreturn");
+#else
     asm("jmp dynamorio_sigreturn");
+#endif
     ASSERT_NOT_REACHED();
 }
 
@@ -2090,6 +2126,8 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #  endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
+#elif defined(MACOS)
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#85: fix up uc_mcontext ptr */
 #endif /* LINUX */
 }
 
@@ -5249,7 +5287,11 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 #endif
         } else {
             ksynch_set_value(&ostd->terminated, 1);
+#ifdef MACOS
+            asm("jmp _dynamorio_sys_exit");
+#else
             asm("jmp dynamorio_sys_exit");
+#endif
         }
         ASSERT_NOT_REACHED();
         return false;

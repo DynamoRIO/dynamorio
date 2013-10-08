@@ -93,11 +93,19 @@ enum {
  */
 struct _kernel_sigaction_t {
     handler_t handler;
+#ifdef LINUX
     unsigned long flags;
     void (*restorer)(void);
     kernel_sigset_t mask;
+#elif defined(MACOS)
+    /* this is struct __sigaction in sys/signal.h */
+    void (*restorer)(void);
+    kernel_sigset_t mask;
+    int flags;
+#endif
 }; /* typedef in os_private.h */
 
+#ifdef LINUX
 /* kernel's notion of ucontext is different from glibc's!
  * this is adapted from asm/ucontext.h:
  */
@@ -105,13 +113,25 @@ typedef struct {
     unsigned long     uc_flags;
     struct ucontext  *uc_link;
     stack_t           uc_stack;
-    sigcontext_t uc_mcontext;
+    sigcontext_t      uc_mcontext;
     kernel_sigset_t   uc_sigmask; /* mask last for extensibility */
 } kernel_ucontext_t;
 
-#define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
-#define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
+#  define SIGCXT_FROM_UCXT(ucxt) (&((ucxt)->uc_mcontext))
+#  define SIGMASK_FROM_UCXT(ucxt) (&((ucxt)->uc_sigmask))
 
+#elif defined(MACOS)
+#  ifdef X64
+typedef _STRUCT_UCONTEXT64 /* == __darwin_ucontext64 */ kernel_ucontext_t;
+#    define SIGCXT_FROM_UCXT(ucxt) ((ucxt)->uc_mcontext64)
+#  else
+typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
+#    define SIGCXT_FROM_UCXT(ucxt) ((ucxt)->uc_mcontext)
+#  endif
+#  define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
+#endif
+
+#ifdef LINUX
 /* we assume frames look like this, with rt_sigframe used if SA_SIGINFO is set
  * (these are from /usr/src/linux/arch/i386/kernel/signal.c for kernel 2.4.17)
  */
@@ -141,19 +161,23 @@ typedef struct sigframe {
     int sig_noclobber;
     /* In 2.6.28+, fpstate/xstate goes here */
 } sigframe_plain_t;
+#else
+/* Mac only has one frame type, with a libc stub that calls 1-arg or 3-arg handler */
+#endif
 
 /* the rt frame is used for SA_SIGINFO signals */
 typedef struct rt_sigframe {
+#ifdef LINUX
     char *pretcode;
-#ifdef X64
-# ifdef VMX86_SERVER
+#  ifdef X64
+#    ifdef VMX86_SERVER
     siginfo_t info;
     kernel_ucontext_t uc;
-# else
+#     else
     kernel_ucontext_t uc;
     siginfo_t info;
-# endif
-#else
+#     endif
+#  else
     int sig;
     siginfo_t *pinfo;
     void *puc;
@@ -167,8 +191,27 @@ typedef struct rt_sigframe {
      * pointer in the sigcontext anyway.
      */
     char retcode[RETCODE_SIZE];
-#endif
+#  endif
     /* In 2.6.28+, fpstate/xstate goes here */
+
+#elif defined(MACOS)
+#  ifdef X64
+    /* kernel places padding to align to 16, and then puts retaddr slot */
+    struct __darwin_mcontext_avx64 mc; /* "struct mcontext_avx64" to kernel */
+    siginfo_t info; /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
+#  else
+    app_pc retaddr;
+    app_pc handler;
+    int sigstyle; /* UC_TRAD = 1-arg, UC_FLAVOR = 3-arg handler */
+    int sig;
+    siginfo_t *pinfo;
+    struct __darwin_ucontext *puc; /* "struct user_ucontext32 *" to kernel */
+    struct __darwin_mcontext_avx32 mc; /* "struct mcontext_avx32" to kernel */
+    siginfo_t info; /* matches user-mode sys/signal.h struct */
+    struct __darwin_ucontext uc; /* "struct user_ucontext32" to kernel */
+#  endif
+#endif
 } sigframe_rt_t;
 
 /* we have to queue up both rt and non-rt signals because we delay

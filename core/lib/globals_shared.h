@@ -457,6 +457,16 @@ typedef struct _instr_t instr_t;
 # define IF_LINUX_(x)
 #endif
 
+#ifdef MACOS
+# define IF_MACOS(x) x
+# define IF_MACOS_ELSE(x,y) x
+# define IF_MACOS_(x) x,
+#else
+# define IF_MACOS(x)
+# define IF_MACOS_ELSE(x,y) y
+# define IF_MACOS_(x)
+#endif
+
 #ifdef HAVE_MEMINFO_QUERY
 # define IF_MEMQUERY(x) x
 # define IF_MEMQUERY_(x) x,

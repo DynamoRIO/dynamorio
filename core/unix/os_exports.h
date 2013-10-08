@@ -209,7 +209,11 @@ bool unhook_vsyscall(void);
 
 #define NUM_NONRT   32 /* includes 0 */
 #define OFFS_RT     32
-#define NUM_RT      33 /* RT signals are [32..64] inclusive, hence 33. */
+#ifdef LINUX
+#  define NUM_RT    33 /* RT signals are [32..64] inclusive, hence 33. */
+#else
+#  define NUM_RT     0 /* no RT signals */
+#endif
 /* MAX_SIGNUM is the highest valid signum. */
 #define MAX_SIGNUM  ((OFFS_RT) + (NUM_RT) - 1)
 /* i#336: MAX_SIGNUM is a valid signal, so we must allocate space for it.
@@ -229,7 +233,11 @@ bool unhook_vsyscall(void);
  * each (-> 8 bytes vs. 128 bytes)
  */
 typedef struct _kernel_sigset_t {
+#ifdef LINUX
     unsigned long sig[_NSIG_WORDS];
+#elif defined(MACOS)
+    unsigned int sig[_NSIG_WORDS];
+#endif
 } kernel_sigset_t;
 
 void receive_pending_signal(dcontext_t *dcontext);
