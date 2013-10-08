@@ -68,7 +68,7 @@
 #include <limits.h>
 
 #ifdef MACOS
-# include <sys/sysctl.h>         /* for sysctlbyname */
+#  include <sys/sysctl.h>         /* for sysctlbyname */
 #endif
 
 #ifdef LINUX
@@ -2741,7 +2741,8 @@ get_num_processors(void)
          * which should be lower-level than sysctlbyname(), and replace
          * that w/ its straightforward raw syscall underneath later.
          */
-        num_cpu = sysctlbyname("hw.ncpu");
+        int res = sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
+        ASSERT(res == 0);
 #else
         /* We used to use get_nprocs_conf, but that's in libc, so now we just
          * look at the /sys filesystem ourselves, which is what glibc does.
