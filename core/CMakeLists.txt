@@ -161,7 +161,6 @@ if (UNIX)
     unix/stackdump.c
     unix/diagnost.c
     unix/loader.c
-    unix/nudgesig.c
     )
   if (LINUX)
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
@@ -171,6 +170,8 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
+    # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
+    set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)

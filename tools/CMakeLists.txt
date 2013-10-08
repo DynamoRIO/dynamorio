@@ -33,7 +33,11 @@ add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
   add_executable(runstats runstats.c)
-  add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
+  if (APPLE)
+    # XXX i#1286: implement nudge for MacOS
+  else (APPLE)
+    add_executable(nudgeunix nudgeunix.c ${PROJECT_SOURCE_DIR}/core/unix/nudgesig.c)
+  endif ()
   add_executable(drloader drloader.c)
 
   include_directories(
@@ -84,7 +88,9 @@ if (UNIX)
   set(tool_cflags "")
   set(RESOURCES "")
 
-  DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
+  if (NOT APPLE)
+    DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
+  endif ()
 else (UNIX)
   # FIXME i#98: eventually upgrade to W4 with pragma exceptions.
   # W2 is default (we're using W3).  We should also replace

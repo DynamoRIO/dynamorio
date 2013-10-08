@@ -140,3 +140,12 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: MacOS signal handling NYI */
 }
+
+/* XXX i#1286: move to nudge_macos.c once we implement that */
+bool
+send_nudge_signal(process_id_t pid, uint action_mask,
+                  client_id_t client_id, uint64 client_arg)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1286: MacOS nudges NYI */
+    return false;
+}
