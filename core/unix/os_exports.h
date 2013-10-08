@@ -187,8 +187,8 @@ extern app_pc vsyscall_syscall_end_pc;
 extern app_pc vsyscall_sysenter_return_pc;
 #define VSYSCALL_PAGE_MAPS_NAME "[vdso]"
 
-bool is_clone_thread_syscall(dcontext_t *dcontext);
-bool was_clone_thread_syscall(dcontext_t *dcontext);
+bool is_thread_create_syscall(dcontext_t *dcontext);
+bool was_thread_create_syscall(dcontext_t *dcontext);
 bool is_sigreturn_syscall(dcontext_t *dcontext);
 bool was_sigreturn_syscall(dcontext_t *dcontext);
 bool ignorable_system_call(int num);

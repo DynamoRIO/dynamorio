@@ -4003,30 +4003,31 @@ dr_syscall_invoke_another(void *drcontext)
 }
 #endif /* CLIENT_INTERFACE */
 
-#ifdef LINUX
 static inline bool
-is_clone_thread_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
+is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
 {
-    return (sysnum == SYS_vfork ||
-            (sysnum == SYS_clone && TEST(CLONE_VM, flags)));
+    return (sysnum == SYS_vfork
+	    IF_LINUX(|| (sysnum == SYS_clone && TEST(CLONE_VM, flags))));
+#ifdef MACOS
+    /* XXX i#58: look for bsdthread_create and Mach thread_create */
+#endif
 }
 
 
 bool
-is_clone_thread_syscall(dcontext_t *dcontext)
+is_thread_create_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_clone_thread_syscall_helper(mc->xax, sys_param(dcontext, 0));
+    return is_thread_create_syscall_helper(mc->xax, sys_param(dcontext, 0));
 }
 
 bool
-was_clone_thread_syscall(dcontext_t *dcontext)
+was_thread_create_syscall(dcontext_t *dcontext)
 {
-    return is_clone_thread_syscall_helper(dcontext->sys_num,
-                                          /* flags in param0 */
-                                          dcontext->sys_param0);
+    return is_thread_create_syscall_helper(dcontext->sys_num,
+					   /* flags in param0 */
+					   dcontext->sys_param0);
 }
-#endif
 
 static inline bool
 is_sigreturn_syscall_helper(int sysnum)
@@ -5157,7 +5158,7 @@ pre_system_call(dcontext_t *dcontext)
          * to dstack).  xref i#149/PR 403015.
          * Note: This must be done after sys_param0 is set.
          */
-        if (is_clone_thread_syscall(dcontext))
+        if (is_thread_create_syscall(dcontext))
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
         else  /* This is really a fork. */
             os_fork_pre(dcontext);
@@ -5186,7 +5187,7 @@ pre_system_call(dcontext_t *dcontext)
         /* vfork has the same needs as clone.  Pass info via a clone_record_t
          * structure to child.  See SYS_clone for info about i#149/PR 403015.
          */
-        IF_LINUX(ASSERT(is_clone_thread_syscall(dcontext)));
+        IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
 
@@ -6190,7 +6191,7 @@ post_system_call(dcontext_t *dcontext)
 
     case SYS_vfork: {
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
-        IF_LINUX(ASSERT(was_clone_thread_syscall(dcontext)));
+        IF_LINUX(ASSERT(was_thread_create_syscall(dcontext)));
         /* restore xsp in parent */
         LOG(THREAD, LOG_SYSCALLS, 2,
             "vfork: restoring xsp from "PFX" to "PFX"\n",

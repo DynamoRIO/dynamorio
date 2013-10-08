@@ -1797,7 +1797,7 @@ handle_system_call(dcontext_t *dcontext)
         /* FIXME: move into some routine inside unix/?
          * if so, move #include of sys/syscall.h too
          */
-        if (is_clone_thread_syscall(dcontext)) {
+        if (is_thread_create_syscall(dcontext)) {
             /* Code for after clone is in generated code do_clone_syscall. */
             do_syscall = (app_pc) get_do_clone_syscall_entry(dcontext);
         } else if (is_sigreturn_syscall(dcontext)) {
