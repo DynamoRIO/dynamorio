@@ -41,7 +41,8 @@
 #include "os_private.h"
 #include "os_exports.h"   /* os_get_dr_seg_base */
 #include "../x86/instr.h" /* SEG_GS/SEG_FS */
-#include "module.h"     /* elf */
+#include "module.h"
+#include "module_private.h"
 #include "../heap.h"    /* HEAPACCT */
 #include "include/syscall.h"
 
@@ -604,7 +605,7 @@ privload_search_rpath(privmod_t *mod, const char *name,
                 LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
                     __FUNCTION__, filename);
                 if (os_file_exists(filename, false/*!is_dir*/) &&
-                    os_file_has_elf_so_header(filename)) {
+                    module_file_has_module_header(filename)) {
                     return true;
                 }
                 list += len + 1;
@@ -646,7 +647,7 @@ privload_locate(const char *name, privmod_t *dep,
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) &&
-            os_file_has_elf_so_header(filename)) {
+            module_file_has_module_header(filename)) {
             /* If in client or extension dir, always map it reachable */
             *reachable = true;
             return true;
@@ -659,7 +660,7 @@ privload_locate(const char *name, privmod_t *dep,
     filename[MAXIMUM_PATH - 1] = 0;
     LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n", __FUNCTION__, filename);
     if (os_file_exists(filename, false/*!is_dir*/) &&
-        os_file_has_elf_so_header(filename))
+        module_file_has_module_header(filename))
         return true;
 
     /* 3) LD_LIBRARY_PATH */
@@ -678,7 +679,7 @@ privload_locate(const char *name, privmod_t *dep,
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) &&
-            os_file_has_elf_so_header(filename))
+            module_file_has_module_header(filename))
             return true;
         lib_paths = end;
     }
@@ -691,7 +692,7 @@ privload_locate(const char *name, privmod_t *dep,
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
             __FUNCTION__, filename);
         if (os_file_exists(filename, false/*!is_dir*/) && 
-            os_file_has_elf_so_header(filename))
+            module_file_has_module_header(filename))
             return true;
     }
 

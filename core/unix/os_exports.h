@@ -99,7 +99,6 @@ ushort os_get_app_seg_base_offset(unsigned char seg);
 ushort os_get_app_seg_offset(unsigned char seg);
 void *os_get_dr_seg_base(dcontext_t *dcontext, unsigned char seg);
 void *os_get_app_seg_base(dcontext_t *dcontext, unsigned char seg);
-bool os_file_has_elf_so_header(const char *filename);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.

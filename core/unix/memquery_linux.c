@@ -43,6 +43,7 @@
 #include "../globals.h"
 #include "memquery.h"
 #include "os_private.h"
+#include "module_private.h"
 #include <string.h>
 #include <sys/mman.h>
 

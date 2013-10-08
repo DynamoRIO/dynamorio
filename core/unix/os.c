@@ -4158,7 +4158,7 @@ handle_execve(dcontext_t *dcontext)
      */
     file = os_open(fname, OS_OPEN_READ);
     if (file != INVALID_FILE) {
-        x64 = file_is_elf64(file);
+        x64 = module_file_is_module64(file);
         os_close(file);
     }
     inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
@@ -5639,7 +5639,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
         }
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
         DOCHECK(1, {
-            if (readable && is_elf_so_header(base, size)) {
+            if (readable && module_is_header(base, size)) {
                 /* Case 8879: For really small modules, to save disk space, the same
                  * disk page could hold both RO and .data, occupying just 1 page of
                  * disk space, e.g. /usr/lib/httpd/modules/mod_auth_anon.so.  When
@@ -5706,7 +5706,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
          * is the latter case need to adjust the view size or remove from module list. */
         image = true;
         DODEBUG({ map_type = "ELF SO"; });
-    } else if (is_elf_partial_map(base, size, memprot)) {
+    } else if (module_is_partial_map(base, size, memprot)) {
         /* i#1240: App might read first page of ELF header using mmap, which
          * might accidentally be treated as a module load. Heuristically
          * distinguish this by saying that if this is the first mmap for an ELF
@@ -5717,7 +5717,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
                /* i#727: We can still get SIGBUS on mmap'ed files that can't be
                 * read, so pass size=0 to use a safe_read.
                 */
-               is_elf_so_header(base, 0)) {
+               module_is_header(base, 0)) {
         memquery_iter_t iter;
         bool found_map = false;;
         uint64 inode = 0;
@@ -6694,7 +6694,7 @@ find_executable_vm_areas(void)
             image = true;
             DODEBUG({ map_type = "ELF SO"; });
         } else if (TEST(MEMPROT_READ, iter.prot) &&
-                   is_elf_so_header(iter.vm_start, size)) {
+                   module_is_header(iter.vm_start, size)) {
             size_t image_size = size;
             app_pc mod_base, mod_end;
             char *exec_match;
@@ -6918,7 +6918,7 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
          * fault handling: i#350/PR 529066.
          */
         if (TEST(MEMPROT_READ, info->prot) &&
-            is_elf_so_header(info->base_pc, fault_handling_initialized ? 0 : info->size))
+            module_is_header(info->base_pc, fault_handling_initialized ? 0 : info->size))
             info->type = DR_MEMTYPE_IMAGE;
         else {
             /* FIXME: won't quite match find_executable_vm_areas marking as
@@ -7644,23 +7644,6 @@ os_check_option_compatibility(void)
 {
     /* no options are Linux OS version dependent */
     return false;
-}
-
-bool
-os_file_has_elf_so_header(const char *filename)
-{
-    bool result = false;
-    ELF_HEADER_TYPE elf_header;
-    file_t fd;
-
-    fd = os_open(filename, OS_OPEN_READ);
-    if (fd == INVALID_FILE)
-        return false;
-    if (os_read(fd, &elf_header, sizeof(elf_header)) == sizeof(elf_header) &&
-        is_elf_so_header((app_pc)&elf_header, sizeof(elf_header)))
-        result = true;
-    os_close(fd);
-    return result;
 }
 
 #ifndef X64

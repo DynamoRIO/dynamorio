@@ -48,6 +48,7 @@
 #include "disassemble.h"
 #include "os_private.h"
 #include "module.h"
+#include "module_private.h"
 #include "dr_inject.h"
 
 #include <assert.h>

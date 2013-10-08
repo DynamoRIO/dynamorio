@@ -36,6 +36,7 @@
 #include "../globals.h"
 #include "../native_exec.h"
 #include "module.h"
+#include "module_private.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "instrument.h" /* instrlist_meta_append */

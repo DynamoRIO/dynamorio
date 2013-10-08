@@ -166,6 +166,7 @@ if (UNIX)
   if (LINUX)
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
+    set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
@@ -183,6 +184,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} ${VMKUW_DIR}/vmkuw.c)
     set(OS_SRCS ${OS_SRCS} unix/memquery_emulate.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
+    set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
   endif ()
@@ -198,6 +200,7 @@ if (UNIX)
     config.c    # to read config
     unix/os.c  # for file_t interface
     unix/module.c
+    unix/module_elf.c
     string.c
     io.c
     ${x86_noncore_asm_src}  # for dynamorio_syscall

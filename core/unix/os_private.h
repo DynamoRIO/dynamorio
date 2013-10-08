@@ -264,28 +264,7 @@ set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_
 void pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_info);
 void pcprofile_fork_init(dcontext_t *dcontext);
 
-/* in module.c */
-bool is_elf_so_header(app_pc base, size_t size);
-bool is_elf_partial_map(app_pc base, size_t size, uint memprot);
-bool module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
-                                 app_pc *out_base, app_pc *out_end, char **out_soname,
-                                 os_module_data_t *out_data);
-
-uint module_num_program_headers(app_pc base);
-
-app_pc module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                                     OUT app_pc *mod_end);
-
-bool module_read_program_header(app_pc base,
-                                uint segment_num,
-                                OUT app_pc *segment_base,
-                                OUT app_pc *segment_end,
-                                OUT uint *segment_prot,
-                                OUT size_t *segment_align);
-
 void os_request_live_coredump(const char *msg);
-bool file_is_elf64(file_t f);
-bool get_elf_platform(file_t f, dr_platform_t *platform);
 
 #ifdef VMX86_SERVER
 #  include "vmkuw.h"
