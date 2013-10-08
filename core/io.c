@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,11 +45,12 @@
 #include <stdarg.h> /* for varargs */
 
 #ifdef UNIX
-# ifdef MACOS
+#  ifdef MACOS
 /* request extern functions to avoid conflicts with our own tolower() */
-#  define _EXTERNALIZE_CTYPE_INLINES_TOP_
-# endif
-# include <wchar.h>
+#    define _EXTERNALIZE_CTYPE_INLINES_TOP_
+#    define _EXTERNALIZE_CTYPE_INLINES_
+#  endif
+#  include <wchar.h>
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER

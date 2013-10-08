@@ -331,10 +331,10 @@ typedef struct _coarse_incoming_t {
  */
 #define LINKSTUB_NEXT_INCOMING(l) \
     (LINKSTUB_NORMAL_DIRECT((l)->flags) ? \
-     (((direct_linkstub_t *)(l))->cdl.next_incoming) : \
+     ((linkstub_t*)(((direct_linkstub_t *)(l))->cdl.next_incoming)) : \
      (LINKSTUB_CBR_FALLTHROUGH((l)->flags) ? \
-      (((cbr_fallthrough_linkstub_t *)(l))->cdl.next_incoming) : \
-      (ASSERT(false && "indirect linkstub has no next_incoming"), NULL)))
+      ((linkstub_t*)(((cbr_fallthrough_linkstub_t *)(l))->cdl.next_incoming)) : \
+      (ASSERT(false && "indirect linkstub has no next_incoming"), ((linkstub_t*)NULL))))
 
 /* if sharing a stub then no offs, else offs to get to subsequent stub */
 #define CBR_FALLTHROUGH_STUB_OFFS(f) \

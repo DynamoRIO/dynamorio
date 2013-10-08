@@ -41,6 +41,15 @@
  * time limit expires
  */
 
+#include "configure.h"
+
+#ifdef MACOS
+/* struct timeval.tv_usec is int, not long int */
+#  define USEC_FMT "d"
+#else
+#  define USEC_FMT "ld"
+#endif
+
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/types.h> /* for wait and mmap */
@@ -265,7 +274,7 @@ print_stats(struct timeval *start, struct timeval *end,
                  (end->tv_sec % 3600) / 60,
                  end->tv_sec % 60);
     } else {
-        fprintf(FP, "%ld:%02ld.%02ldelapsed ",  /* -> m:s.  */
+        fprintf(FP, "%ld:%02ld.%02"USEC_FMT"elapsed ",  /* -> m:s.  */
                  end->tv_sec / 60,
                  end->tv_sec % 60,
                  end->tv_usec / 10000);
@@ -275,9 +284,9 @@ print_stats(struct timeval *start, struct timeval *end,
         fprintf(FP, "%lu%%CPU ", (v * 100 / r));
     else
         fprintf(FP, "?%%CPU ");
-    fprintf(FP, "%ld.%02lduser ",
+    fprintf(FP, "%ld.%02"USEC_FMT"user ",
             ru->ru_utime.tv_sec, ru->ru_utime.TV_MSEC / 10);
-    fprintf(FP, "%ld.%02ldsystem ",
+    fprintf(FP, "%ld.%02"USEC_FMT"system ",
             ru->ru_stime.tv_sec, ru->ru_stime.TV_MSEC / 10);
     fprintf(FP, "(%ldmajor+%ldminor)pagefaults %ldswaps\n",
             ru->ru_majflt,/* Major page faults.  */
