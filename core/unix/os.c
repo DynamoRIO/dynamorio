@@ -6394,6 +6394,7 @@ get_dynamo_library_bounds(void)
     dynamorio_libname = NULL;
     check_start = (app_pc)&get_dynamo_library_bounds;
 #else /* !STATIC_LIBRARY */
+#  ifdef LINUX
     /* PR 361594: we get our bounds from linker-provided symbols.
      * Note that referencing the value of these symbols will crash:
      * always use the address only.
@@ -6401,6 +6402,9 @@ get_dynamo_library_bounds(void)
     extern int dynamorio_so_start, dynamorio_so_end;
     dynamo_dll_start = (app_pc) &dynamorio_so_start;
     dynamo_dll_end = (app_pc) ALIGN_FORWARD(&dynamorio_so_end, PAGE_SIZE);
+#  elif defined(MACOS)
+    dynamo_dll_start = module_dynamorio_lib_base();
+#  endif
     check_start = dynamo_dll_start;
     dynamorio_libname = IF_UNIT_TEST_ELSE(UNIT_TEST_EXE_NAME,DYNAMORIO_LIBRARY_NAME);
 #endif /* STATIC_LIBRARY */
@@ -6410,8 +6414,11 @@ get_dynamo_library_bounds(void)
                                   BUFFER_SIZE_ELEMENTS(dynamorio_library_path));
     LOG(GLOBAL, LOG_VMAREAS, 1, PRODUCT_NAME" library path: %s\n",
         dynamorio_library_path);
-#ifndef STATIC_LIBRARY
+#if !defined(STATIC_LIBRARY) && defined(LINUX)
     ASSERT(check_start == dynamo_dll_start && check_end == dynamo_dll_end);
+#elif defined(MACOS)
+    ASSERT(check_start == dynamo_dll_start);
+    dynamo_dll_end   = check_end;
 #else
     dynamo_dll_start = check_start;
     dynamo_dll_end   = check_end;

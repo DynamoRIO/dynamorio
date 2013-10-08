@@ -153,4 +153,11 @@ typedef bool (*unmap_fn_t)(byte *map, size_t size);
 typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
 
 
+#ifdef MACOS
+/* module_macho.c */
+byte *
+module_dynamorio_lib_base(void);
+#endif
+
+
 #endif /* MODULE_H */

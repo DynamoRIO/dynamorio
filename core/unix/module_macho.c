@@ -41,6 +41,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "module_private.h"
+#include <mach-o/ldsyms.h> /* _mh_dylib_header */
 
 bool
 module_file_has_module_header(const char *filename)
@@ -183,3 +184,8 @@ module_get_text_section(app_pc file_map, size_t file_size)
     return 0;
 }
 
+byte *
+module_dynamorio_lib_base(void)
+{
+    return (byte *) &_mh_dylib_header;
+}
