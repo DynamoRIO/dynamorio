@@ -202,11 +202,15 @@ if (UNIX)
     config.c    # to read config
     unix/os.c  # for file_t interface
     unix/module.c
-    unix/module_elf.c
     string.c
     io.c
     ${x86_noncore_asm_src}  # for dynamorio_syscall
     )
+  if (APPLE)
+    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
+  else (APPLE)
+    set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_elf.c)
+  endif ()
 else (UNIX)
   set(OSNAME win32)
   set(OS_SRCS

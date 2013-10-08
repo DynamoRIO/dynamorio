@@ -873,7 +873,7 @@ module_get_header_size(app_pc module_base)
 }
 
 bool
-get_elf_platform(file_t f, dr_platform_t *platform)
+module_get_platform(file_t f, dr_platform_t *platform)
 {
     elf_generic_header_t elf_header;
     if (os_read(f, &elf_header, sizeof(elf_header)) != sizeof(elf_header))
@@ -895,7 +895,7 @@ bool
 module_file_is_module64(file_t f)
 {
     dr_platform_t platform;
-    if (get_elf_platform(f, &platform))
+    if (module_get_platform(f, &platform))
         return platform == DR_PLATFORM_64BIT;
     /* on error, assume same arch as us */
     return IF_X64_ELSE(true, false);

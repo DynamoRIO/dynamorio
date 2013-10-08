@@ -132,6 +132,13 @@ module_get_header_size(app_pc module_base)
 }
 
 bool
+module_get_platform(file_t f, dr_platform_t *platform)
+{
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    return false;
+}
+
+bool
 module_file_is_module64(file_t f)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */

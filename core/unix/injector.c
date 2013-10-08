@@ -52,7 +52,13 @@
 #include "dr_inject.h"
 
 #include <assert.h>
-#include <ctype.h>
+#ifndef MACOS
+/* If we don't define _EXTERNALIZE_CTYPE_INLINES_*, we get errors vs tolower
+ * in globals.h; if we do, we get errors on isspace missing.  We solve that
+ * by just by supplying our own isspace.
+ */
+#  include <ctype.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -64,6 +70,27 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifdef MACOS
+/* The type is just "int", and the values are different, so we use the Linux
+ * type name to match the Linux constant names.
+ */
+enum __ptrace_request {
+    PTRACE_TRACEME     = PT_TRACE_ME,
+    PTRACE_CONT        = PT_CONTINUE,
+    PTRACE_KILL        = PT_KILL,
+    PTRACE_ATTACH      = PT_ATTACH,
+    PTRACE_DETACH      = PT_DETACH,
+    PTRACE_SINGLESTEP  = PT_STEP,
+};
+
+static int inline
+isspace(int c)
+{
+    return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' ||
+            c == '\v');
+}
+#endif
 
 static bool verbose = false;
 
@@ -96,8 +123,10 @@ typedef struct _dr_inject_info_t {
 bool
 inject_ptrace(dr_inject_info_t *info, const char *library_path);
 
+#ifdef LINUX /* XXX i#1290: implement on MacOS */
 static long
 our_ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data);
+#endif
 
 /*******************************************************************************
  * Core compatibility layer
@@ -331,12 +360,12 @@ create_inject_info(const char *exe, const char **argv)
 }
 
 static bool
-get_elf_platform_path(const char *exe_path, dr_platform_t *platform)
+module_get_platform_path(const char *exe_path, dr_platform_t *platform)
 {
     file_t fd = os_open(exe_path, OS_OPEN_READ);
     bool res = false;
     if (fd != INVALID_FILE) {
-        res = get_elf_platform(fd, platform);
+        res = module_get_platform(fd, platform);
         os_close(fd);
     }
     return res;
@@ -346,7 +375,7 @@ static bool
 exe_is_right_bitwidth(const char *exe, int *errcode)
 {
     dr_platform_t platform;
-    if (!get_elf_platform_path(exe, &platform)) {
+    if (!module_get_platform_path(exe, &platform)) {
         *errcode = errno;
         return false;
     }
@@ -494,7 +523,7 @@ dr_inject_process_inject(void *data, bool force_injection,
     char dr_ops[MAX_OPTIONS_STRING];
     dr_platform_t platform;
 
-    if (!get_elf_platform_path(info->exe, &platform))
+    if (!module_get_platform_path(info->exe, &platform))
         return false; /* couldn't read header */
 
     if (!get_config_val_other_app(info->image_name, info->pid, platform,
@@ -532,7 +561,11 @@ dr_inject_process_inject(void *data, bool force_injection,
     case INJECT_LD_PRELOAD:
         return inject_ld_preload(info, library_path);
     case INJECT_PTRACE:
+#ifdef LINUX /* XXX i#1290: implement on MacOS */
         return inject_ptrace(info, library_path);
+#else
+	return false;
+#endif
     }
 
     return false;
@@ -560,7 +593,11 @@ dr_inject_process_run(void *data)
         return false;  /* if execv returns, there was an error */
     } else {
         if (info->method == INJECT_PTRACE) {
+#ifdef LINUX /* XXX i#1290: implement on MacOS */
             our_ptrace(PTRACE_DETACH, info->pid, NULL, NULL);
+#else
+	    return false;
+#endif
         }
         /* Close the pipe. */
         close(info->pipe_fd);
@@ -646,6 +683,7 @@ dr_inject_process_exit(void *data, bool terminate)
     return status;
 }
 
+#ifdef LINUX /* XXX i#1290: implement on MacOS */
 /*******************************************************************************
  * ptrace injection code
  */
@@ -1281,3 +1319,5 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
      */
     return true;
 }
+
+#endif /* LINUX */
