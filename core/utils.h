@@ -223,6 +223,14 @@ void external_error(const char *file, int line, const char *msg);
 #elif defined(LINUX)
 #  define KSYNCH_TYPE volatile int
 #  define KSYNCH_TYPE_STATIC_INIT -1
+#elif defined(MACOS)
+#  include <mach/semaphore.h>
+typedef struct _mac_synch_t {
+    semaphore_t sem;
+    volatile int value;
+} mac_synch_t;
+#  define KSYNCH_TYPE mac_synch_t
+#  define KSYNCH_TYPE_STATIC_INIT {0,0}
 #else
 #  error Unknown operating system
 #endif

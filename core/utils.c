@@ -228,6 +228,12 @@ DECLARE_CXTSWPROT_VAR(mutex_t do_threshold_mutex, INIT_LOCK_FREE(do_threshold_mu
 
 /* structure field dumper for both name and value, format with %*s%d */
 #define DUMP_NONZERO(v,field) strlen(#field)+1, (v->field ? #field"=" : ""), v->field
+#ifdef MACOS
+# define DUMP_CONTENDED(v,field) \
+    strlen(#field)+1, (ksynch_var_initialized(&v->field) ? #field"=" : ""), v->field.sem
+#else
+# define DUMP_CONTENDED DUMP_NONZERO
+#endif
 
 /* common format string used for different log files and loglevels */
 #define DUMP_LOCK_INFO_ARGS(depth, cur_lock, prev)                      \
@@ -236,7 +242,7 @@ DECLARE_CXTSWPROT_VAR(mutex_t do_threshold_mutex, INIT_LOCK_FREE(do_threshold_mu
      "lock %*s%8d %*s%8d %*s%8d %*s%8d %*s%8d+2 %s\n",                  \
     depth, cur_lock, cur_lock->name, cur_lock->rank,                    \
     cur_lock->owner, cur_lock->owning_dcontext,                         \
-    DUMP_NONZERO(cur_lock, contended_event), prev,                      \
+    DUMP_CONTENDED(cur_lock, contended_event), prev,                    \
     DUMP_NONZERO(cur_lock, count_times_acquired),                       \
     DUMP_NONZERO(cur_lock, count_times_contended),                      \
     DUMP_NONZERO(cur_lock, count_times_spin_pause),                     \
