@@ -171,7 +171,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
   elseif (APPLE)
-    # XXX i#1270: add unix/memquery_macos.c
+    set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
   elseif (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
     include_directories(${VMKUW_DIR})

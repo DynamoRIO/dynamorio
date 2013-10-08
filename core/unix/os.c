@@ -658,6 +658,8 @@ os_init(void)
     /* We now set up an early fault handler for safe_read() (i#350) */
     fault_handling_initialized = true;
 
+    memquery_init();
+
 #ifdef PROFILE_RDTSC
     if (dynamo_options.profile_times) {
         ASSERT_NOT_TESTED();
