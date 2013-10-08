@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -64,6 +64,7 @@
 .hidden symbol
 # define GLOBAL_LABEL(label) label
 # define ADDRTAKEN_LABEL(label) label
+# define GLOBAL_REF(label) label
 # define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
@@ -113,6 +114,7 @@ ASSUME fs:_DATA @N@\
 # define GLOBAL_LABEL(label)
 /* use double colon (param always has its own colon) to make label visible outside proc */
 # define ADDRTAKEN_LABEL(label) label:
+# define GLOBAL_REF(label) label
 # define BYTE byte ptr
 # define WORD word ptr
 # define DWORD dword ptr
@@ -143,24 +145,26 @@ ASSUME fs:_DATA @N@\
 #elif defined(ASSEMBLE_WITH_NASM)
 # define START_FILE SECTION .text
 # define END_FILE /* nothing */
-# define DECLARE_FUNC(symbol) global symbol
-# define DECLARE_EXPORTED_FUNC(symbol) global symbol
+/* for MacOS, at least, we have to add _ ourselves */
+# define DECLARE_FUNC(symbol) global _##symbol
+# define DECLARE_EXPORTED_FUNC(symbol) global _##symbol
 # define END_FUNC(symbol) /* nothing */
-# define DECLARE_GLOBAL(symbol) global symbol
-# define GLOBAL_LABEL(label) label
-# define ADDRTAKEN_LABEL(label) label
+# define DECLARE_GLOBAL(symbol) global _##symbol
+# define GLOBAL_LABEL(label) _##label
+# define ADDRTAKEN_LABEL(label) _##label
+# define GLOBAL_REF(label) _##label
 # define BYTE byte
 # define WORD word
 # define DWORD dword
 # define QWORD qword
 # ifdef X64
-#  define SYMREF(sym) [rel sym]
+#  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else
-#  define SYMREF(sym) [sym]
+#  define SYMREF(sym) [GLOBAL_REF(sym)]
 # endif
 # define HEX(n) 0x##n
 # define SEGMEM(seg,mem) [seg:mem]
-# define DECL_EXTERN(symbol) EXTERN symbol
+# define DECL_EXTERN(symbol) EXTERN GLOBAL_REF(symbol)
 # define RAW(n) DB HEX(n) @N@
 # define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
 # define PUSH_SEH(reg) push reg

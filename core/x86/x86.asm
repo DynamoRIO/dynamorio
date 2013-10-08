@@ -186,8 +186,8 @@ START_FILE
         PUSHF                                          @N@\
         PUSHGPR                                        @N@\
         lea      REG_XAX, [REG_XSP]                    @N@\
-        CALLC1(get_xmm_vals, REG_XAX)                  @N@\
-        lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP] @N@\
+        CALLC1(GLOBAL_REF(get_xmm_vals), REG_XAX)      @N@\
+        lea      REG_XAX, [PRIV_MCXT_SIZE + REG_XSP]   @N@\
         mov      [PUSHGPR_XSP_OFFS + REG_XSP], REG_XAX
 
 /* Pops the GPRs and flags from a priv_mcontext off the stack.  Does not
@@ -284,7 +284,7 @@ GLOBAL_LABEL(dynamo_auto_start:)
         /* we pass a pointer to TOS as a parameter.
          * a param in xsp won't work w/ win64 padding so put in xax */
         mov      REG_XAX, REG_XSP
-        CALLC1(auto_setup, REG_XAX)
+        CALLC1(GLOBAL_REF(auto_setup), REG_XAX)
         /* if auto_setup returns, we need to go native */
         jmp      load_dynamo_failure
         END_FUNC(dynamo_auto_start)
@@ -360,7 +360,7 @@ GLOBAL_LABEL(call_switch_stack:)
          */
         call     get_pic_xax
 	lea      REG_XAX, [_GLOBAL_OFFSET_TABLE_ + REG_XAX]
-	lea      REG_XAX, VAR_VIA_GOT(REG_XAX, initstack_mutex)
+	lea      REG_XAX, VAR_VIA_GOT(REG_XAX, GLOBAL_REF(initstack_mutex))
         mov      DWORD [REG_XAX], 0
 #else
         mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
@@ -370,7 +370,7 @@ call_dispatch_alt_stack_no_free:
         mov      REG_XSP, REG_XDI
         mov      REG_XAX, REG_XBX
         cmp      BYTE [5*ARG_SZ + REG_XAX], 0 /* return_on_return */
-        je       unexpected_return
+        je       GLOBAL_REF(unexpected_return)
         pop      REG_XDI
         pop      REG_XBX
 #ifdef X64
@@ -392,12 +392,12 @@ call_dispatch_alt_stack_no_free:
         DECLARE_FUNC(unexpected_return)
 GLOBAL_LABEL(unexpected_return:)
 #ifdef INTERNAL
-        CALLC3(internal_error, 0, -99 /* line # */, 0)
+        CALLC3(GLOBAL_REF(internal_error), 0, -99 /* line # */, 0)
         /* internal_error never returns */
 #endif
         /* infinite loop is intentional: FIXME: do better in release build!
          * FIXME - why not an int3? */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(unexpected_return)
 
 /*
@@ -444,7 +444,7 @@ GLOBAL_LABEL(dr_app_start:)
 
         /* do the rest in C */
         lea     REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
-        CALLC1(dr_app_start_helper, REG_XAX)
+        CALLC1(GLOBAL_REF(dr_app_start_helper), REG_XAX)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
@@ -459,7 +459,7 @@ GLOBAL_LABEL(dr_app_start:)
  */
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
 GLOBAL_LABEL(dr_app_take_over:  )
-        jmp      dynamorio_app_take_over 
+        jmp      GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
 /* dr_app_running_under_dynamorio - Indicates whether the current thread
@@ -489,7 +489,7 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
 
         /* do the rest in C */
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
-        CALLC1(dynamorio_app_take_over_helper, REG_XAX)
+        CALLC1(GLOBAL_REF(dynamorio_app_take_over_helper), REG_XAX)
 
         /* if we come back, then DR is not taking control so 
          * clean up stack and return */
@@ -550,7 +550,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
          */
         call     get_pic_xdi
 	lea      REG_XDI, [_GLOBAL_OFFSET_TABLE_ + REG_XDI]
-	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, exiting_thread_count)
+	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
         lock inc DWORD [REG_XAX]
 #else
         lock inc DWORD SYMREF(exiting_thread_count) /* rip-rel for x64 */
@@ -558,7 +558,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
         mov      REG_XBX, ARG1 /* xbx is callee-saved and not an x64 param */
         SAVE_TO_DCONTEXT_VIA_REG(REG_XBX,is_exiting_OFFSET,1)
-        CALLC1(is_currently_on_dstack, REG_XBX) /* xbx is callee-saved */
+        CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_XBX) /* xbx is callee-saved */
         cmp      REG_XAX, 0
         jnz      cat_save_dstack
         mov      REG_XBX, 0 /* save 0 for dstack to avoid double-free */
@@ -571,17 +571,17 @@ cat_done_saving_dstack:
          */
         /* avoid sygate sysenter version as our stack may be static const at 
          * that point, caller will take care of sygate hack */
-        CALLC0(get_cleanup_and_terminate_global_do_syscall_entry)
+        CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
         push     REG_XBX /* 16-byte aligned again */
         push     REG_XAX
         /* upper bytes are 0xab so only look at lower bytes */
         movzx    esi, BYTE [5*ARG_SZ + REG_XBP] /* exitproc */
         cmp      esi, 0
         jz       cat_thread_only
-        CALLC0(dynamo_process_exit)
+        CALLC0(GLOBAL_REF(dynamo_process_exit))
         jmp      cat_no_thread
 cat_thread_only:
-        CALLC0(dynamo_thread_exit)
+        CALLC0(GLOBAL_REF(dynamo_thread_exit))
 cat_no_thread:
         /* now switch to initstack for cleanup of dstack 
          * could use initstack for whole thing but that's too long 
@@ -589,7 +589,7 @@ cat_no_thread:
         mov      ecx, 1
 #if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
-	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, initstack_mutex)
+	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack_mutex))
 #endif
 cat_spin:       
 #if !defined(X64) && defined(UNIX)
@@ -610,7 +610,7 @@ cat_have_lock:
          * use a global single-entry stack (the wow64 layer swaps to a
          * different stack: presumably for alignment and other reasons).
          */
-        CALLC1(os_terminate_wow64_stack, -1/*INVALID_HANDLE_VALUE*/)
+        CALLC1(GLOBAL_REF(os_terminate_wow64_stack), -1/*INVALID_HANDLE_VALUE*/)
         mov      REG_XDI, REG_XAX    /* esp to use */
 #endif
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
@@ -621,7 +621,7 @@ cat_have_lock:
         /* swap stacks */
 #if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
-	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack)
+	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
         mov      REG_XSP, PTRSZ [REG_XBP]
 #else
         mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
@@ -635,7 +635,7 @@ cat_have_lock:
         push     REG_XAX   /* syscall */
         push     REG_XSI   /* sysnum => xsp 16-byte aligned */
         /* free dstack and call the EXIT_DR_HOOK */
-        CALLC1(dynamo_thread_stack_free_and_exit, REG_XCX) /* pass dstack */
+        CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_XCX) /* pass dstack */
         /* finally, execute the termination syscall */
         pop      REG_XAX   /* sysnum */
 #ifdef X64
@@ -675,7 +675,7 @@ cat_have_lock:
          * exiting_thread_count (allows another thread to kill us) */
 #if !defined(X64) && defined(UNIX)
         /* PIC base is still in xdi */
-	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, exiting_thread_count)
+	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
         lock dec DWORD [REG_XBP]
 #else
         lock dec DWORD SYMREF(exiting_thread_count) /* rip-rel on x64 */
@@ -703,11 +703,11 @@ GLOBAL_LABEL(global_do_syscall_int:)
         int      HEX(80)
 #endif
 #ifdef DEBUG
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #endif
 #ifdef UNIX
         /* we do come here for SYS_kill which can fail: try again via exit_group */
-        jmp      dynamorio_sys_exit_group
+        jmp      GLOBAL_REF(dynamorio_sys_exit_group)
 #endif
         END_FUNC(global_do_syscall_int)
 
@@ -742,7 +742,7 @@ GLOBAL_LABEL(global_do_syscall_sysenter:)
         /* We'll never ever reach here, sysenter won't/can't return to this 
          * address since it doesn't know it, but we'll put in a jmp to 
          * debug_infinite_loop just in case */
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #endif
         END_FUNC(global_do_syscall_sysenter)
 
@@ -770,7 +770,7 @@ GLOBAL_LABEL(global_do_syscall_sygate_sysenter:)
         /* We'll never ever reach here, sysenter won't/can't return to this 
          * address since it doesn't know it, but we'll put in a jmp to 
          * debug_infinite_loop just in case */
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #endif
         END_FUNC(global_do_syscall_sygate_sysenter)
 #endif
@@ -788,11 +788,11 @@ GLOBAL_LABEL(global_do_syscall_syscall:)
         mov      r10, REG_XCX
         syscall
 #   ifdef DEBUG
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #   endif
 #   ifdef UNIX
         /* we do come here for SYS_kill which can fail: try again via exit_group */
-        jmp      dynamorio_sys_exit_group
+        jmp      GLOBAL_REF(dynamorio_sys_exit_group)
 #   endif
         END_FUNC(global_do_syscall_syscall)
 #endif
@@ -810,7 +810,7 @@ GLOBAL_LABEL(global_do_syscall_syscall:)
 GLOBAL_LABEL(global_do_syscall_wow64:)
         call     PTRSZ SEGMEM(fs,HEX(0c0))
 #ifdef DEBUG
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #endif
         END_FUNC(global_do_syscall_wow64)
 
@@ -822,7 +822,7 @@ GLOBAL_LABEL(global_do_syscall_wow64_index0:)
         xor      ecx, ecx
         call     PTRSZ SEGMEM(fs,HEX(0c0))
 #ifdef DEBUG
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
 #endif
         END_FUNC(global_do_syscall_wow64_index0)
 
@@ -833,7 +833,7 @@ GLOBAL_LABEL(global_do_syscall_wow64_index0:)
  */
         DECLARE_FUNC(debug_infinite_loop)
 GLOBAL_LABEL(debug_infinite_loop:)
-        jmp      debug_infinite_loop
+        jmp      GLOBAL_REF(debug_infinite_loop)
         END_FUNC(debug_infinite_loop)
 #endif
         
@@ -1175,8 +1175,8 @@ GLOBAL_LABEL(_start:)
 #else
         push    REG_XSP
 #endif
-        call    privload_early_inject
-        jmp     unexpected_return
+        CALLC0(GLOBAL_REF(privload_early_inject))
+        jmp     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
 
@@ -1198,7 +1198,7 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
 #endif
         /* should not return.  if we somehow do,infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
         
 /* we need to exit without using any stack, to support
@@ -1219,7 +1219,7 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
         
 /* we need to call futex_wakeall without using any stack, to support
@@ -1249,7 +1249,7 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 #endif
-        jmp dynamorio_sys_exit
+        jmp GLOBAL_REF(dynamorio_sys_exit)
         END_FUNC(dynamorio_futex_wake_and_exit)
 
 /* exit entire group without using any stack, in case something like
@@ -1270,7 +1270,7 @@ GLOBAL_LABEL(dynamorio_sys_exit_group:)
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit_group)
 
 #ifndef X64
@@ -1285,7 +1285,7 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         int      HEX(80)
         /* should not return.  if we somehow do,infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 #endif
 
@@ -1302,14 +1302,14 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
 GLOBAL_LABEL(master_signal_handler:)
 #ifdef X64
         mov      ARG4, REG_XSP /* pass as 4th arg */
-        jmp      master_signal_handler_C
+        jmp      GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
 #else
         /* We need to pass in xsp.  The easiest way is to create an
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1(master_signal_handler_C, REG_XAX)
+        CALLC1(GLOBAL_REF(master_signal_handler_C), REG_XAX)
         ret
 #endif
         END_FUNC(master_signal_handler)
@@ -1339,7 +1339,7 @@ GLOBAL_LABEL(master_signal_handler:)
         sub      REG_XSP, CLONE_AND_SWAP_STRUCT_SIZE
         mov      REG_XAX, REG_XSP
         /* call a C routine rather than writing everything in asm */
-        CALLC2(sig_should_swap_stack, REG_XAX, REG_XDX)
+        CALLC2(GLOBAL_REF(sig_should_swap_stack), REG_XAX, REG_XDX)
         cmp      REG_XAX, 0
         pop      REG_XAX /* clone_and_swap_args.stack */
         pop      REG_XCX /* clone_and_swap_args.tos */
@@ -1359,7 +1359,7 @@ GLOBAL_LABEL(master_signal_handler:)
         add      REG_XBP, REG_XDX /* xbp += shift */
 # endif
         push     REG_XDX
-        CALLC2(clone_and_swap_stack, REG_XAX, REG_XCX)
+        CALLC2(GLOBAL_REF(clone_and_swap_stack), REG_XAX, REG_XCX)
         /* get shift back and update arg2 and arg3 */
         pop      REG_XDX
         pop      REG_XCX /* arg3 */
@@ -1381,14 +1381,14 @@ GLOBAL_LABEL(master_signal_handler:)
         mov      REG_XCX, REG_XSP
         add      REG_XCX, 3*ARG_SZ /* new frame */
         /* have to be careful about order of reg params */
-        CALLC5(fixup_rtframe_pointers, 0, REG_XAX, REG_XDX, REG_XCX, 0)
+        CALLC5(GLOBAL_REF(fixup_rtframe_pointers), 0, REG_XAX, REG_XDX, REG_XCX, 0)
 no_swap:
 # ifdef X64
         pop      ARG3
         pop      ARG2
         pop      ARG1
         mov      rcx, rsp /* pass as 4th arg */
-        jmp      master_signal_handler_C
+        jmp      GLOBAL_REF(master_signal_handler_C)
         /* can't return, no retaddr */
 # else
         add      REG_XSP, 3*ARG_SZ
@@ -1396,7 +1396,7 @@ no_swap:
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1(master_signal_handler_C, REG_XAX)
+        CALLC1(GLOBAL_REF(master_signal_handler_C), REG_XAX)
         ret
 # endif
         END_FUNC(master_signal_handler)
@@ -1444,7 +1444,7 @@ GLOBAL_LABEL(dynamorio_clone:)
         pop      REG_XCX
         call     REG_XCX
         /* shouldn't return */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
 dynamorio_clone_parent:
 # ifndef X64
         /* restore callee-saved regs */
@@ -1479,9 +1479,9 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
          * obtain and initialize this thread's dcontext pointer and
          * begin execution with the passed-in state.
          */
-        CALLC1(nt_continue_setup, REG_XAX)
+        CALLC1(GLOBAL_REF(nt_continue_setup), REG_XAX)
         /* should not return */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(nt_continue_dynamo_start)
 #endif /* WINDOWS */
 
@@ -1497,7 +1497,7 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
 GLOBAL_LABEL(back_from_native_retstubs:)
 #ifndef ASSEMBLE_WITH_GAS
 /* MASM does short jumps for public symbols. */
-# define Lback_from_native back_from_native
+# define Lback_from_native GLOBAL_REF(back_from_native)
 #endif
         push     0
         jmp      Lback_from_native
@@ -1551,9 +1551,9 @@ Lback_from_native:
 #ifdef X64
         and      REG_XSP, -FRAME_ALIGNMENT  /* x64 alignment */
 #endif
-        CALLC1(return_from_native, REG_XAX)
+        CALLC1(GLOBAL_REF(return_from_native), REG_XAX)
         /* should not return */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(back_from_native)
 
 #ifdef UNIX
@@ -1574,7 +1574,7 @@ GLOBAL_LABEL(native_plt_call:)
         mov      REG_XCX, [REG_XSP + PRIV_MCXT_SIZE]     /* next_pc on stack */
         add      DWORD [REG_XAX + MCONTEXT_XSP_OFFS], ARG_SZ   /* adjust app xsp for arg */
 # endif
-        CALLC2(native_module_callout, REG_XAX, REG_XCX)
+        CALLC2(GLOBAL_REF(native_module_callout), REG_XAX, REG_XCX)
 
         /* If we returned, continue to execute natively on the app stack. */
         POP_PRIV_MCXT_GPRS()
@@ -1602,7 +1602,7 @@ GLOBAL_LABEL(native_plt_call:)
         DECLARE_EXPORTED_FUNC(dr_try_start)
 GLOBAL_LABEL(dr_try_start:)
         add      ARG1, TRY_CXT_SETJMP_OFFS
-        jmp      dr_setjmp
+        jmp      GLOBAL_REF(dr_setjmp)
         END_FUNC(dr_try_start)
 #endif /* CLIENT_INTERFACE */
 
@@ -1614,7 +1614,7 @@ GLOBAL_LABEL(dr_setjmp:)
         /* PR 206278: for try/except we need to save the signal mask */
         mov      REG_XDX, ARG1
         push     REG_XDX /* preserve */
-        CALLC1(dr_setjmp_sigmask, REG_XDX)
+        CALLC1(GLOBAL_REF(dr_setjmp_sigmask), REG_XDX)
         pop      REG_XDX /* preserve */
 #else
         mov      REG_XDX, ARG1
@@ -1879,9 +1879,9 @@ GLOBAL_LABEL(call_modcode_alt_stack:)
         mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
 call_modcode_alt_stack_no_free:
         RESTORE_FROM_DCONTEXT_VIA_REG(REG_XAX,dstack_OFFSET,REG_XSP)
-        CALLC6(found_modified_code, REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX)
+        CALLC6(GLOBAL_REF(found_modified_code), REG_XAX, REG_XBX, REG_XDI, REG_XSI, REG_XDX, REG_XCX)
         /* should never return */
-        jmp      unexpected_return
+        jmp      GLOBAL_REF(unexpected_return)
         ret
         END_FUNC(call_modcode_alt_stack)
 #undef dcontext
@@ -1916,7 +1916,7 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
         /* retaddr + this push => 16-byte alignment prior to call */
 # endif
         push     REG_XSI       /* save xsp */
-        CALLC4(internal_exception_info, \
+        CALLC4(GLOBAL_REF(internal_exception_info), \
                REG_XAX /* dcontext */,  \
                REG_XBX /* pExcptRec */, \
                REG_XDI /* cxt */,       \
@@ -2013,7 +2013,7 @@ GLOBAL_LABEL(get_own_context_helper:)
         mov      di, ss
         xor      ebx, ebx
         mov      bx, cs
-        CALLC4(get_own_context_integer_control, REG_XAX, REG_XBX, REG_XDI, REG_XSI)
+        CALLC4(GLOBAL_REF(get_own_context_integer_control), REG_XAX, REG_XBX, REG_XDI, REG_XSI)
         add      REG_XSP, PRIV_MCXT_SIZE
         pop      REG_XDI
         pop      REG_XSI
@@ -2327,7 +2327,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
         /* Should be 16-byte aligned now: retaddr, 2 args, 7 regs. */
         mov      rdi, [rsp + 7 * ARG_SZ]        /* link map */
         mov      rsi, [rsp + 8 * ARG_SZ]        /* .dynamic index */
-        call     dynamorio_dl_fixup
+        CALLC0(GLOBAL_REF(dynamorio_dl_fixup))
         mov      r11, rax                       /* preserve */
 
         pop      r9
@@ -2345,7 +2345,7 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
         push 	 REG_XCX
         mov      REG_XAX, [REG_XSP + 2 * ARG_SZ]  /* link map */
         mov      REG_XCX, [REG_XSP + 3 * ARG_SZ]  /* .dynamic index */
-        CALLC2(dynamorio_dl_fixup, REG_XAX, REG_XCX)
+        CALLC2(GLOBAL_REF(dynamorio_dl_fixup), REG_XAX, REG_XCX)
         mov      [REG_XSP + 2 * ARG_SZ], REG_XAX /* overwrite arg1 */
         pop 	 REG_XCX
         pop 	 REG_XAX
@@ -2776,7 +2776,7 @@ dynamorio_earliest_init_repeatme:
         jg       dynamorio_earliest_init_repeat_outer
 # endif
         /* args are pointed at by xax */
-        CALLC1(dynamorio_earliest_init_takeover_C, REG_XAX)
+        CALLC1(GLOBAL_REF(dynamorio_earliest_init_takeover_C), REG_XAX)
         /* we will either be under DR control or running natively at this point */
 
         /* restore */
