@@ -326,12 +326,6 @@ void stackdump(void);
 /* use backtrace feature of glibc for quick but sometimes incomplete trace */
 void glibc_stackdump(int fd);
 
-/* loader.c */
-void *privload_tls_init(void *app_tp);
-void  privload_tls_exit(void *dr_tp);
-void  privload_switch_lib_tls(dcontext_t *dcontext, bool to_app);
-void  privload_setup_app_mc(priv_mcontext_t *mc);
-
 /* nudgesig.c */
 bool
 send_nudge_signal(process_id_t pid, uint action_mask,

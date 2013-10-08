@@ -250,8 +250,5 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
 const char *
 elf_loader_find_pt_interp(elf_loader_t *elf);
 
-bool
-privload_redirect_sym(ELF_ADDR *r_addr, const char *name);
-
 
 #endif /* MODULE_ELF_H */

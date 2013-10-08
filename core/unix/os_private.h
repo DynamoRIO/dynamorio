@@ -270,6 +270,10 @@ void os_request_live_coredump(const char *msg);
 #  include "vmkuw.h"
 #endif
 
+/* in loader.c */
+void *privload_tls_init(void *app_tp);
+void  privload_tls_exit(void *dr_tp);
+
 /* in nudgesig.c */
 bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,

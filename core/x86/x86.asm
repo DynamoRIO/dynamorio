@@ -1162,6 +1162,7 @@ GLOBAL_LABEL(client_int_syscall:)
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 #ifdef UNIX
 
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader + injector */
 #if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
 /* i#47: Early injection _start routine.  The kernel sets all registers to zero
  * except the SP and PC.  The stack has argc, argv[], envp[], and the auxiliary
@@ -1170,15 +1171,16 @@ GLOBAL_LABEL(client_int_syscall:)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
-#ifdef X64
+#  ifdef X64
         mov     ARG1, REG_XSP
-#else
+#  else
         push    REG_XSP
-#endif
+#  endif
         CALLC0(GLOBAL_REF(privload_early_inject))
         jmp     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+#endif
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
  * default sigreturn code sequence and be more platform independent,

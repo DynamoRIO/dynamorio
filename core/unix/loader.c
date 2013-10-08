@@ -47,11 +47,12 @@
 #include "include/syscall.h"
 
 #include <dlfcn.h>      /* dlsym */
-#include <sys/prctl.h>  /* PR_SET_NAME */
+#ifdef LINUX
+#  include <sys/prctl.h>  /* PR_SET_NAME */
+#endif
 #include <string.h>     /* strcmp */
 #include <stdlib.h>     /* getenv */
 #include <dlfcn.h>      /* dlopen/dlsym */
-#include <link.h>       /* Elf_Symndx */
 #include <unistd.h>     /* __environ */
 
 /* Written during initialization only */
@@ -100,9 +101,9 @@ static size_t gdb_priv_cmds_sofar;
 /* pointing to the I/O data structure in privately loaded libc,
  * They are used on exit when we need update file_no.
  */
-struct _IO_FILE  **privmod_stdout;
-struct _IO_FILE  **privmod_stderr;
-struct _IO_FILE  **privmod_stdin;
+stdfile_t **privmod_stdout;
+stdfile_t **privmod_stderr;
+stdfile_t **privmod_stdin;
 #define LIBC_STDOUT_NAME "stdout"
 #define LIBC_STDERR_NAME "stderr"
 #define LIBC_STDIN_NAME  "stdin"
@@ -133,8 +134,10 @@ privload_create_os_privmod_data(privmod_t *privmod);
 static void
 privload_delete_os_privmod_data(privmod_t *privmod);
 
+#ifdef LINUX
 static void
 privload_mod_tls_init(privmod_t *mod);
+#endif
 
 /***************************************************************************/
 
@@ -185,7 +188,8 @@ os_loader_init_epilogue(void)
 #endif /* INTERNAL || CLIENT_INTERFACE */
 }
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
+#  if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static void
 privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
 {
@@ -194,6 +198,7 @@ privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
                     &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
                     modpath, text_addr);
 }
+#  endif
 #endif
 
 void
@@ -334,6 +339,7 @@ dr_gdb_add_symbol_file(const char *filename, app_pc textaddr)
 app_pc
 privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable)
 {
+#ifdef LINUX
     map_fn_t map_func;
     unmap_fn_t unmap_func;
     prot_fn_t prot_func;
@@ -413,11 +419,16 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
     elf_loader_destroy(&loader);
 
     return base;
+#else
+    /* XXX i#1285: implement MacOS private loader */
+    return NULL;
+#endif
 }
 
 bool
 privload_process_imports(privmod_t *mod)
 {
+#ifdef LINUX
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     os_privmod_data_t *opd;
     char *strtab, *name;
@@ -450,6 +461,12 @@ privload_process_imports(privmod_t *mod)
     if (!mod->externally_loaded)
         privload_relocate_mod(mod);
     return true;
+#else
+    /* XXX i#1285: implement MacOS private loader */
+    if (!mod->externally_loaded)
+        privload_relocate_mod(mod);
+    return false;
+#endif
 }
 
 bool
@@ -559,6 +576,7 @@ static bool
 privload_search_rpath(privmod_t *mod, const char *name,
                       char *filename OUT /* buffer size is MAXIMUM_PATH */)
 {
+#ifdef LINUX
     os_privmod_data_t *opd;
     ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ASSERT(mod != NULL && "can't look for rpath without a dependent module");
@@ -613,6 +631,9 @@ privload_search_rpath(privmod_t *mod, const char *name,
         }
         ++dyn;
     }
+#else
+    /* XXX i#1285: implement MacOS private loader */
+#endif
     return false;
 }
 
@@ -708,6 +729,7 @@ privload_locate(const char *name, privmod_t *dep,
 app_pc
 get_private_library_address(app_pc modbase, const char *name)
 {
+#ifdef LINUX
     privmod_t *mod;
     app_pc res;
 
@@ -751,6 +773,9 @@ get_private_library_address(app_pc modbase, const char *name)
         return res;
     }
     ASSERT_NOT_REACHED();
+#else
+    /* XXX i#1285: implement MacOS private loader */
+#endif
     return NULL;
 }
 
@@ -821,6 +846,7 @@ get_private_library_bounds(IN app_pc modbase, OUT byte **start, OUT byte **end)
 static void
 privload_relocate_mod(privmod_t *mod)
 {
+#ifdef LINUX
     os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
 
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
@@ -866,6 +892,9 @@ privload_relocate_mod(privmod_t *mod)
                                                               LIBC_STDERR_NAME,
                                                               NULL);
     }
+#else
+    /* XXX i#1285: implement MacOS private loader */
+#endif
 }
 
 static void
@@ -900,6 +929,8 @@ privload_delete_os_privmod_data(privmod_t *privmod)
 /****************************************************************************
  *                  Thread Local Storage Handling Code                      *
  ****************************************************************************/
+
+/* XXX i#1285: implement TLS for MacOS private loader */
 
 /* The description of Linux Thread Local Storage Implementation on x86 arch 
  * Following description is based on the understanding of glibc-2.11.2 code 
@@ -1000,6 +1031,7 @@ typedef struct _tcb_head_t {
  */
 #define APP_LIBC_TLS_SIZE 0x400
 
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
 /* FIXME: add description here to talk how TLS is setup. */
 static void
 privload_mod_tls_init(privmod_t *mod)
@@ -1043,6 +1075,7 @@ privload_mod_tls_init(privmod_t *mod)
         tls_info.max_align = opd->tls_align;
     }
 }
+#endif
 
 void *
 privload_tls_init(void *app_tp)
@@ -1171,13 +1204,13 @@ static const redirect_import_t redirect_imports[] = {
 #define REDIRECT_IMPORTS_NUM (sizeof(redirect_imports)/sizeof(redirect_imports[0]))
 
 bool
-privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
+privload_redirect_sym(ptr_uint_t *r_addr, const char *name)
 {
     int i;
     /* iterate over all symbols and redirect syms when necessary, e.g. malloc */
     for (i = 0; i < REDIRECT_IMPORTS_NUM; i++) {
         if (strcmp(redirect_imports[i].name, name) == 0) {
-            *r_addr = (ELF_ADDR)redirect_imports[i].func;
+            *r_addr = (ptr_uint_t)redirect_imports[i].func;
             return true;;
         }
     }
@@ -1185,9 +1218,10 @@ privload_redirect_sym(ELF_ADDR *r_addr, const char *name)
 }
 
 /***************************************************************************
- * DynamoRIO Early Inection Code
+ * DynamoRIO Early Injection Code
  */
 
+#ifdef LINUX
 /* Find the auxiliary vector and adjust it to look as if the kernel had set up
  * the stack for the ELF mapped at map.  The auxiliary vector starts after the
  * terminating NULL pointer in the envp array.
@@ -1414,3 +1448,6 @@ privload_early_inject(void **sp)
     mc.pc = entry;
     dynamo_start(&mc);
 }
+#else
+/* XXX i#1285: implement MacOS private loader */
+#endif

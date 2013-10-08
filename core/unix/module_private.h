@@ -49,10 +49,10 @@ typedef void (*fp_t)(int argc, char **argv, char **env);
  */
 struct _os_privmod_data_t {
     os_module_data_t os_data;
-#ifdef LINUX
-    ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ptr_int_t      load_delta;  /* delta from preferred base */
     char          *soname;
+#ifdef LINUX
+    ELF_DYNAMIC_ENTRY_TYPE *dyn;
     ELF_ADDR       pltgot;
     size_t         pltrelsz;
     ELF_WORD       pltrel;
@@ -100,5 +100,9 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
                               ptr_int_t delta,
                               const char *name,
                               bool *is_indirect_code OUT);
+
+bool
+privload_redirect_sym(ptr_uint_t *r_addr, const char *name);
+
 
 #endif /* MODULE_PRIVATE_H */
