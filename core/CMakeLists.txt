@@ -400,9 +400,19 @@ if (UNIX)
   set_target_properties(${PRELOAD_NAME} PROPERTIES
     LINK_FLAGS "-nostartfiles")
 
-  # -z now = do non-lazy runtime binding
-  set(dynamorio_link_flags
-    "-Xlinker -z -Xlinker now -Xlinker -Bsymbolic")
+  # Do non-lazy runtime binding
+  if (APPLE)
+    set(dynamorio_link_flags "-Xlinker -bind_at_load")
+  else (APPLE)
+    set(dynamorio_link_flags "-Xlinker -z -Xlinker now")
+  endif (APPLE)
+
+  # Bind global symbols internally to avoid interposing
+  if (APPLE)
+    # Looks like -interposable is off by default
+  else (APPLE)
+    set(dynamorio_link_flags "-Xlinker -Bsymbolic")
+  endif (APPLE)
 
   set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
 
@@ -411,7 +421,11 @@ if (UNIX)
     append_property_string(TARGET dynamorio COMPILE_FLAGS "-fPIC")
   else ()
     # i#47: set the ELF header entry point to _start for early injection.
-    set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
+    if (APPLE)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,-e,_start")
+    else (APPLE)
+      set(dynamorio_link_flags "${dynamorio_link_flags} -Wl,--entry,_start")
+    endif (APPLE)
   endif ()
 
   if (NOT HAVE_FVISIBILITY)
@@ -516,51 +530,59 @@ if (UNIX)
     generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
   endif ()
 
-  # Note that we can't locate readelf inside CMake_readelf.cmake as that
-  # would disallow pointing externally at a readelf location, so we make it
-  # a proper cache variable.
-  # Note that nothing depends on CMake_readelf.cmake: that's ok, we'll check
-  # in the next clean build if we modify the script.
-  # readelf is a binutils app just like ld
-  get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
-  if (APPLE)
-    set(readelf_name "greadelf")
-  else (APPLE)
-    set(readelf_name "readelf")
-  endif (APPLE)
-  find_program(READELF_EXECUTABLE ${readelf_name} HINTS "${binutils_path}"
-    DOC "path to readelf")
-  if (STATIC_LIBRARY)
-    # Skipping readelf check for STATIC_LIBRARY.
-  elseif (NOT READELF_EXECUTABLE)
-    message("${readelf_name} not found: not checking SElinux or execstack")
-  else ()
-    get_target_property(lib_to_check dynamorio LOCATION)
-    add_custom_command(TARGET dynamorio
-      POST_BUILD
-      COMMAND ${CMAKE_COMMAND}
-      # to work around i#84 be sure to put a space after -D for 1st arg at least
-      ARGS -D lib=${lib_to_check}
-           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
-           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
-      VERBATIM # recommended: p260
-      )
-    get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
-    add_custom_command(TARGET ${PRELOAD_NAME}
-      POST_BUILD
-      COMMAND ${CMAKE_COMMAND}
-      # to work around i#84 be sure to put a space after -D for 1st arg at least
-      ARGS -D lib=${lib_to_check}
-           -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
-           -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
-      VERBATIM # recommended: p260
-      )
+  if (LINUX) # No checks for MacOS
+    # Note that we can't locate readelf inside CMake_readelf.cmake as that
+    # would disallow pointing externally at a readelf location, so we make it
+    # a proper cache variable.
+    # Note that nothing depends on CMake_readelf.cmake: that's ok, we'll check
+    # in the next clean build if we modify the script.
+    # readelf is a binutils app just like ld
+    get_filename_component(binutils_path ${CMAKE_LINKER} PATH)
+    if (APPLE)
+      set(readelf_name "greadelf")
+    else (APPLE)
+      set(readelf_name "readelf")
+    endif (APPLE)
+    find_program(READELF_EXECUTABLE ${readelf_name} HINTS "${binutils_path}"
+      DOC "path to readelf")
+    if (STATIC_LIBRARY)
+      # Skipping readelf check for STATIC_LIBRARY.
+    elseif (NOT READELF_EXECUTABLE)
+      message("${readelf_name} not found: not checking SElinux or execstack")
+    else ()
+      get_target_property(lib_to_check dynamorio LOCATION)
+      add_custom_command(TARGET dynamorio
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        # to work around i#84 be sure to put a space after -D for 1st arg at least
+        ARGS -D lib=${lib_to_check}
+             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
+        VERBATIM # recommended: p260
+        )
+      get_target_property(lib_to_check ${PRELOAD_NAME} LOCATION)
+      add_custom_command(TARGET ${PRELOAD_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+        # to work around i#84 be sure to put a space after -D for 1st arg at least
+        ARGS -D lib=${lib_to_check}
+             -D READELF_EXECUTABLE=${READELF_EXECUTABLE}
+             -P ${CMAKE_CURRENT_SOURCE_DIR}/CMake_readelf.cmake
+        VERBATIM # recommended: p260
+        )
+    endif ()
   endif ()
 
   # we used to run size on libdynamorio.so for info purposes
 
   set_target_properties(${PRELOAD_NAME} PROPERTIES
     COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_PRELOAD")
+
+  if (APPLE)
+    # Linker complains about unresolved symbols.
+    # This means we can't use preload by itself -- but these days we never do that.
+    target_link_libraries(${PRELOAD_NAME} dynamorio)
+  endif (APPLE)
 
 else (UNIX)
 ###########################################################################
