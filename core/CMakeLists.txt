@@ -162,7 +162,6 @@ if (UNIX)
     unix/diagnost.c
     unix/loader.c
     unix/nudgesig.c
-    unix/native_elf.c
     )
   if (LINUX)
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
@@ -170,11 +169,14 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
+    set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/tls_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_macos.c)
+    set(OS_SRCS ${OS_SRCS} unix/native_macho.c)
+    # XXX i#1286: implement nudge_macos.c
   elseif (VMKERNEL)
     set(VMKUW_DIR ${PROJECT_SOURCE_DIR}/../internal/core/linux)
     include_directories(${VMKUW_DIR})

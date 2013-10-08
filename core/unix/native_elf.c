@@ -408,7 +408,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
     }
 }
 
-void
+static void
 module_change_hooks(module_area_t *ma, bool add_hooks, bool at_map)
 {
     os_privmod_data_t opd;
