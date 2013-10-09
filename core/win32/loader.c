@@ -1611,6 +1611,147 @@ privload_disable_console_init(privmod_t *mod)
     return success;
 }
 
+/* i#556: A process can be associated with only one console, which is why the call to
+ * ConnectConsoleInternal is nop'd out for win7. With the call disabled priv kernel32
+ * does not initialize globals needed for console support. This routine will share the
+ * real kernel32's ConsoleLpcHandle, ConsolePortHeap, and ConsolePortMemoryRemoteDelta
+ * with private kernel32. This will enable console support for 32-bit kernel and
+ * 64-bit apps.
+ */
+typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
+static kernel32_AttachConsole_t kernel32_AttachConsole;
+
+bool
+privload_console_share(app_pc priv_kernel32) 
+{
+    app_pc pc;
+    instr_t instr;
+    dcontext_t *dcontext = GLOBAL_DCONTEXT;
+    bool success = false;
+    size_t console_handle_diff, console_heap_diff, console_delta_diff;
+    app_pc console_handle = NULL, console_heap = NULL, console_delta = NULL;
+    app_pc kernel32 = (app_pc) get_module_handle(L"kernel32.dll");
+    app_pc get_console_cp = (app_pc) get_proc_address(kernel32, "GetConsoleCP");
+    BOOL status = false;
+    static const uint MAX_DECODE = 1024;
+
+    ASSERT(kernel32 != NULL && get_console_cp != NULL);
+    if (get_os_version() != WINDOWS_VERSION_7)
+        return true;
+    /* GUI apps are initialized without a console. To enable writing to the console
+     * we attach to the parent's console.
+     * XXX: if an app attempts to create/attach to a console w/o first freeing itself
+     * from this console, it will fail since a process can only associate w/ one console.
+     * The solution here would be to monitor such attempts by the app and free the console
+     * that is setup here. 
+     */
+    if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
+        kernel32_AttachConsole = (kernel32_AttachConsole_t)
+            get_proc_address(kernel32, "AttachConsole");
+        status = kernel32_AttachConsole(ATTACH_PARENT_PROCESS);
+        if (status == 0) {
+            return false;
+        }
+    }
+    /* xref i#440: Noping out the call to ConsoleConnectInternal is enough to get console 
+     * support for wow64. We have this check after in case of GUI app.
+     */
+    if (is_wow64_process(NT_CURRENT_PROCESS)) {
+        return true;
+    }
+    /* No exported routines directly reference the globals. The easiest and shortest
+     * path is through GetConsoleCP, where we look for a call to ConsoleClientCallServer
+     * which then references ConsoleLpcHandle and ConsolePortMemoryRemoteDelta.
+     * ConsolePortHeap seems to always precede the remote delta global by the size of a
+     * pointer in memory. Tested on win7 x86 and x64.
+     */
+    instr_init(dcontext, &instr);
+    for (pc = get_console_cp; pc < get_console_cp + MAX_DECODE; ) {
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+        if (!instr_valid(&instr) || instr_is_return(&instr))
+            break; /* bail */
+        if (instr_get_opcode(&instr) == OP_call) {
+            app_pc tgt = opnd_get_pc(instr_get_target(&instr));
+            /* Now we're in ConsoleClientCallServer. ConsoleLpcHandle is referenced
+             * right away w/ a cmp. From there, we fall through on first je and then
+             * follow a jnz where ConsolePortMemoryRemoteDelta is referenced after.
+             */
+            for (pc = tgt; pc < tgt + MAX_DECODE; ) {
+                instr_reset(dcontext, &instr);
+                pc = decode(dcontext, pc, &instr);
+                if (!instr_valid(&instr) || instr_is_return(&instr))
+                    break; /* bail */
+                /* kernel32!ConsoleClientCallServer:
+                 * 8bff            mov     edi,edi
+                 * 55              push    ebp
+                 * 8bec            mov     ebp,esp
+                 * 833da067a47500  cmp     dword ptr [kernel32!ConsoleLpcHandle],0
+                 * 0f8415a1feff    je      kernel32!ConsoleClientCallServer+0xe
+                 */
+                if (instr_get_opcode(&instr) == OP_cmp &&
+#ifdef X64
+                    opnd_is_rel_addr(instr_get_src(&instr, 0)) &&
+#else
+                    opnd_is_abs_addr(instr_get_src(&instr, 0)) &&
+#endif
+                    opnd_is_immed_int(instr_get_src(&instr, 1)) &&
+                    opnd_get_immed_int(instr_get_src(&instr, 1)) == 0) {
+                    console_handle = (app_pc) opnd_get_addr(instr_get_src(&instr, 0));
+                    continue;
+                }
+                if (instr_get_opcode(&instr) == OP_jnz) {
+                    pc = opnd_get_pc(instr_get_target(&instr));
+                    /* First instruction following the jnz is a mov which references
+                     * ConsolePortMemoryRemoteDelta as src.
+                     * 
+                     * 85ff         test edi,edi
+                     * 0f8564710000 jne kernel32!ConsoleClientCallServer+0x49 (759dbcb4)
+                     *
+                     * kernel32!ConsoleClientCallServer+0x49:
+                     * a18465a475 mov eax,dword ptr[kernel32!ConsolePortMemoryRemoteDelta]
+                     */
+                    instr_reset(dcontext, &instr);
+                    pc = decode(dcontext, pc, &instr);
+                    if (!instr_valid(&instr))
+                        break; /* bail */
+                    if (instr_get_opcode(&instr) == OP_mov_ld &&
+#ifdef X64
+                        opnd_is_rel_addr(instr_get_src(&instr, 0))) {
+#else
+                        opnd_is_abs_addr(instr_get_src(&instr, 0))) {
+#endif
+                        console_delta = (app_pc) opnd_get_addr(instr_get_src(&instr, 0));
+                        success = true;
+                    }
+                    break; /* done */
+                }
+            }
+            break; /* bailed, or done */
+        }
+    }
+    /* If we have successfully retrieved the addr to each global from app's kernel32, we
+     * now share the values with private kernel32.
+     * XXX: right now we calculate delta from base of kernel32 to each global. We should
+     * add a checksum to ensure app's kernel32 is same as private kernel32.
+     */
+    if (success) {
+        console_handle_diff = console_handle - kernel32;
+        console_delta_diff = console_delta - kernel32;
+        console_heap_diff = console_delta_diff - sizeof(PVOID);
+
+        if (!safe_write_ex(priv_kernel32 + console_handle_diff, sizeof(PHANDLE),
+                           console_handle, NULL) ||
+            !safe_write_ex(priv_kernel32 + console_delta_diff, sizeof(ULONG_PTR),
+                           console_delta, NULL) ||
+            !safe_write_ex(priv_kernel32 + console_heap_diff, sizeof(PVOID),
+                           kernel32 + console_heap_diff, NULL))
+            success = false;
+    }
+    instr_free(dcontext, &instr);
+    return success;
+}
+
 /* Rather than statically linking to real kernel32 we want to invoke
  * routines in the private kernel32
  */

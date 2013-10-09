@@ -3959,6 +3959,7 @@ DR_API
 bool
 dr_enable_console_printing(void)
 {
+    bool success = false;
     /* b/c private loader sets cxt sw code up front based on whether have windows
      * priv libs or not, this can only be called during dr_init()
      */
@@ -3985,13 +3986,14 @@ dr_enable_console_printing(void)
         if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
             kernel32_WriteFile = (kernel32_WriteFile_t)
                 lookup_library_routine(priv_kernel32, "WriteFile");
+            success = privload_console_share(priv_kernel32);
         }
         /* We go ahead and cache whether dr_using_console().  If app really
          * changes its console, client could call this routine again
          * as a workaround.  Seems unlikely: better to have better perf.
          */
         print_to_console = (priv_kernel32 != NULL &&
-                            kernel32_WriteFile != NULL);
+                            kernel32_WriteFile != NULL && success);
     }
     return print_to_console;
 }

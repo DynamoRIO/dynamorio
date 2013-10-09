@@ -88,6 +88,13 @@
 #define NT_CURRENT_PROCESS ( (HANDLE) PTR_UINT_MINUS_1 )
 #define NT_CURRENT_THREAD  ( (HANDLE) (ptr_uint_t)-2 )
 
+/* This macro is defined in wincon.h, but requires _WIN32_WINNT be XP+. _WIN32_WINNT is
+ * defined in globals.h to _WIN32_WINNT_NT4, thus the need for this re-definition.
+ */
+#ifndef ATTACH_PARENT_PROCESS
+#  define ATTACH_PARENT_PROCESS ((DWORD)-1)
+#endif
+
 #ifndef X64
 typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
     /* Length field is size in bytes not counting final 0 */
