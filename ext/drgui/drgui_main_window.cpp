@@ -450,18 +450,16 @@ drgui_main_window_t::show_preferences_dialog(void)
 }
 
 /* Private Slot
- * Creates a new instance of a tool
- * and displays it in the tab interface
+ * Creates a new instance of a tool and displays it in the tab interface
  */
 void
 drgui_main_window_t::add_tab(void)
 {
     QAction *action = qobject_cast<QAction *>(sender());
-    QWidget *tool = qobject_cast<drgui_tool_interface_t *>(action->parent())
-                    ->create_instance();
+    QWidget *tool =
+        qobject_cast<drgui_tool_interface_t *>(action->parent())->create_instance();
     const QString tool_name = action->text();
-
-    tab_area->setCurrentIndex(tab_area->addTab(tool, tool_name));
+    new_tool_instance(tool, tool_name);
 }
 
 /* Private Slot
@@ -511,6 +509,8 @@ drgui_main_window_t::load_tools(void)
             if (stop)
                 break;
             /* Create and load */
+            connect(i_tool, SIGNAL(new_instance_requested(QWidget *, QString)),
+                    this, SLOT(new_tool_instance(QWidget *, QString)));
             if (i_tool != NULL) {
                 add_tool_to_menu(plugin, i_tool->tool_names(),
                                  SLOT(add_tab()), tool_action_group);
@@ -552,4 +552,13 @@ drgui_main_window_t::add_tool_to_menu(QObject *plugin, const QStringList &texts,
             action_group->addAction(action);
         }
     }
+}
+
+/* Private Slot
+ * Displays the new tool instance in the tab interface
+ */
+void
+drgui_main_window_t::new_tool_instance(QWidget *tool, QString tool_name)
+{
+    tab_area->setCurrentIndex(tab_area->addTab(tool, tool_name));
 }

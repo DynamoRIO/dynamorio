@@ -93,6 +93,8 @@ private slots:
 
     void add_tool(void);
 
+    void new_tool_instance(QWidget *tool, QString tool_name);
+
 private:
     void create_actions(void);
 

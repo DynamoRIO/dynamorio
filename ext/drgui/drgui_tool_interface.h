@@ -83,6 +83,15 @@ public:
      * code editor plugin.
      */
     virtual void open_file(const QString &path, int line_num) = 0;
+
+signals:
+    /**
+     * Allows a tool to tell drgui to open the given widget in a new tab
+     * with the given name as a label.
+     * Signals do not have implementations, therefore it does not make sense
+     * to declare a signal as virtual.
+     */
+    void new_instance_requested(QWidget *tool, QString tool_name);
 };
 
 #define DrGUI_ToolInterface_iid "DynamoRIO.DrGUI.ToolInterface"
