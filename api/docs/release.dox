@@ -117,6 +117,7 @@ The current version is \DR_VERSION.
 
 The changes between version \DR_VERSION and 4.1.0 include:
 
+ - Added preliminary Windows 8.1 support
  - Added dr_syscall_intercept_natively()
  - Added proc_avx_enabled()
  - Added dr_app_running_under_dynamorio()

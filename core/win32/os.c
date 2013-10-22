@@ -568,7 +568,20 @@ windows_version_init()
 
     if (peb->OSPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
-        if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
+        if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 3) {
+            if (module_is_64bit(get_ntdll_base())) {
+                syscalls = (int *) windows_81_x64_syscalls;
+                os_name = "Microsoft Windows 8.1 x64";
+            } else if (is_wow64_process(NT_CURRENT_PROCESS)) {
+                syscalls = (int *) windows_81_wow64_syscalls;
+                os_name = "Microsoft Windows 8.1 x64";
+            } else {
+                syscalls = (int *) windows_81_x86_syscalls;
+                os_name = "Microsoft Windows 8.1";
+            }
+            os_version = WINDOWS_VERSION_81;
+        }
+        else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
             if (module_is_64bit(get_ntdll_base())) {
                 syscalls = (int *) windows_8_x64_syscalls;
                 os_name = "Microsoft Windows 8 x64";

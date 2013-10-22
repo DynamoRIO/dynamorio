@@ -91,6 +91,7 @@ typedef DWORD cxt_seg_t;
 /* XXX: when updating, also update DR_WINDOWS_VERSION_* in instrument.h
  * and get_windows_version() in suite/tests/tools.h
  */
+#define WINDOWS_VERSION_81     63
 #define WINDOWS_VERSION_8      62
 #define WINDOWS_VERSION_7      61
 #define WINDOWS_VERSION_VISTA  60
