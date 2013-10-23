@@ -392,6 +392,14 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
          * a function?  For now we return NULL. Xref case 9717, can also
          * happen for a partial map in which case NULL is the right thing
          * to return. */
+        if (is_in_ntdll(func)) {
+            /* i#: more recent loaders patch forwarded functions.
+             * Since we don't make a private copy of user32.dll, we
+             * hit this when a private lib imports from one of the
+             * couple of user32 routines that forward to ntdll.
+             */
+            return convert_data_to_function(func);
+        }
         ASSERT_CURIOSITY(false && "get_proc_addr export location "
                          "outside of module bounds" ||
                          EXEMPT_TEST("win32.partial_map.exe"));
