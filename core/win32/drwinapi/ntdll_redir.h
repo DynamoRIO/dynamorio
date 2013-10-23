@@ -224,5 +224,11 @@ redirect_LdrGetProcedureAddress(IN HMODULE module_handle,
                                 IN WORD ordinal OPTIONAL,
                                 OUT PVOID *addr);
 
+NTSTATUS NTAPI
+redirect_LdrLoadDll(IN PWSTR path OPTIONAL,
+                    IN PULONG characteristics OPTIONAL,
+                    IN PUNICODE_STRING name,
+                    OUT PVOID *handle);
+
 
 #endif /* _NTDLL_REDIR_H_ */

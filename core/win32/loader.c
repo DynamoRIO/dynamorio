@@ -63,6 +63,8 @@
  *   * does not intercept private libs/client using NtQueryInformationProcess
  *     but kernel seems to just use TEB pointer anyway!
  *   * added dr_get_app_PEB() for client to get app PEB
+ *
+ * i#1299: improved isolation of user32.dll
  */
 
 #include "../globals.h"
@@ -269,7 +271,7 @@ os_loader_init_prologue(void)
                           get_application_name());
     mod->externally_loaded = true;
 
-    /* FIXME i#235: loading a private user32.dll is problematic: it registers
+    /* FIXME i#1299: loading a private user32.dll is problematic: it registers
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
      * duplicate it.  If the app loads it dynamically later we will end up
      * duplicating but not worth checking for that.
@@ -1795,6 +1797,10 @@ privload_redirect_setup(privmod_t *mod)
     }
 }
 
+/* XXX i#1298: we may also want to support redirecting routines via hook instead
+ * of only via imports, to handle cases where priv libs call into their own
+ * routines.
+ */
 static app_pc
 privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer)
 {

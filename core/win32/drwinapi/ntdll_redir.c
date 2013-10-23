@@ -59,6 +59,7 @@ static strhash_table_t *ntdll_win7_table;
  */
 static const redirect_import_t redirect_ntdll[] = {
     {"LdrGetProcedureAddress",            (app_pc)redirect_LdrGetProcedureAddress},
+    {"LdrLoadDll",                        (app_pc)redirect_LdrLoadDll},
     /* kernel32 passes some of its routines to ntdll where they are
      * stored in function pointers.  xref PR 215408 where on x64 we had
      * issues w/ these not showing up b/c no longer in relocs.
@@ -857,4 +858,29 @@ redirect_LdrGetProcedureAddress(IN HMODULE modbase,
         return STATUS_UNSUCCESSFUL;
     else
         return STATUS_SUCCESS;
+}
+
+NTSTATUS NTAPI
+redirect_LdrLoadDll(IN PWSTR path OPTIONAL,
+                    IN PULONG characteristics OPTIONAL,
+                    IN PUNICODE_STRING name,
+                    OUT PVOID *handle)
+{
+    app_pc res = NULL;
+    char buf[MAXIMUM_PATH];
+    if (name == NULL || name->Buffer == NULL ||
+        _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%S", name->Buffer) < 0)
+        return STATUS_INVALID_PARAMETER;
+    NULL_TERMINATE_BUFFER(buf);
+    res = locate_and_load_private_library(buf, false/*!reachable*/);
+    if (res == NULL) {
+        /* XXX: should we call the app's ntdll routine?  Xref similar discussions
+         * in other redirection routines, to try and handle corner cases our own
+         * routines don't support.  But seems best to fail for now.
+         */
+        return STATUS_UNSUCCESSFUL;
+    } else {
+        *handle = (PVOID) res;
+        return STATUS_SUCCESS;
+    }
 }
