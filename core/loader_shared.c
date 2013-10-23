@@ -289,24 +289,29 @@ in_private_library(app_pc pc)
 }
 
 
-/* Lookup the private loaded library by name */
+/* Lookup the private loaded library either by basename or by path */
 privmod_t *
 privload_lookup(const char *name)
 {
     privmod_t *mod;
+    bool by_path;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
     if (name == NULL || name[0] == '\0')
         return NULL;
+    by_path = IF_WINDOWS_ELSE(double_strrchr(name, DIRSEP, ALT_DIRSEP),
+                              strrchr(name, DIRSEP)) != NULL;
     if (!privload_modlist_initialized()) {
         uint i;
         for (i = 0; i < privmod_static_idx; i++) {
             mod = &privmod_static[i];
-            if (strcasecmp(name, mod->name) == 0)
+            if ((by_path && strcasecmp(name, mod->path) == 0) ||
+                (!by_path && strcasecmp(name, mod->name) == 0))
                 return mod;
         }
     } else {
         for (mod = modlist; mod != NULL; mod = mod->next) {
-            if (strcasecmp(name, mod->name) == 0)
+            if ((by_path && strcasecmp(name, mod->path) == 0) ||
+                (!by_path && strcasecmp(name, mod->name) == 0))
                 return mod;
         }
     }

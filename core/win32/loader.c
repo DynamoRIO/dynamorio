@@ -833,12 +833,31 @@ privload_lookup_locate_and_load(const char *name, privmod_t *name_dependent,
                                 bool reachable)
 {
     privmod_t *newmod = NULL;
-    const char *path;
+    const char *toload = name;
+    const char *sep = double_strrchr(name, DIRSEP, ALT_DIRSEP);
+    size_t rootlen = strlen(systemroot);
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
-    path = privload_map_name(name, name_dependent);
-    newmod = privload_lookup(path);
+    if (systemroot[0] != '\0' &&
+        strncasecmp(name, systemroot, rootlen) == 0 &&
+        name[rootlen] != '\0' &&
+        strncasecmp(name + rootlen + 1, "sys", strlen("sys")) == 0) {
+        /* We want to have system32 match syswow64 for WOW64.
+         * We get that effect via dropping the path if it's anywhere
+         * under systemroot/sys*.
+         * XXX: I'm assuming we don't need to match different paths in general that
+         * map to the same file via symlink or junction.  Xref i#1295.
+         */
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: loading %s instead of %s\n",
+            __FUNCTION__, sep + 1, name);
+        name = sep + 1;
+    }
+    if (double_strrchr(name, DIRSEP, ALT_DIRSEP) == NULL) {
+        /* only do this mapping when a basename, not a full path, is specified */
+        toload = privload_map_name(name, name_dependent);
+    }
+    newmod = privload_lookup(toload);
     if (newmod == NULL)
-        newmod = privload_locate_and_load(path, load_dependent, reachable);
+        newmod = privload_locate_and_load(toload, load_dependent, reachable);
     else if (inc_refcnt)
         newmod->ref_count++;
     return newmod;
