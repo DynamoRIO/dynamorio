@@ -158,6 +158,20 @@ redirect_LoadLibraryW(const wchar_t *name)
         return (HMODULE) res;
 }
 
+HMODULE WINAPI
+redirect_LoadLibraryExA(const char *name, HANDLE reserved, DWORD flags)
+{
+    /* XXX i#1063: ignoring flags for now */
+    return redirect_LoadLibraryA(name);
+}
+
+HMODULE WINAPI
+redirect_LoadLibraryExW(const wchar_t *name, HANDLE reserved, DWORD flags)
+{
+    /* XXX i#1063: ignoring flags for now */
+    return redirect_LoadLibraryW(name);
+}
+
 BOOL WINAPI
 redirect_FreeLibrary(HMODULE hLibModule)
 {

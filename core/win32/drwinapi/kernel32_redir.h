@@ -520,7 +520,7 @@ WINAPI
 redirect_LoadLibraryW(
     __in LPCWSTR lpLibFileName
     );
-\
+
 __out
 HMODULE
 WINAPI
