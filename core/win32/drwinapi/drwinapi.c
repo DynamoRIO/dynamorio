@@ -64,6 +64,8 @@ drwinapi_exit(void)
 void
 drwinapi_onload(privmod_t *mod)
 {
+    if (mod->name == NULL)
+        return;
     if (strcasecmp(mod->name, "kernel32.dll") == 0)
         kernel32_redir_onload(mod);
     else if (strcasecmp(mod->name, "rpcrt4.dll") == 0)

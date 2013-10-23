@@ -262,6 +262,13 @@ os_loader_init_prologue(void)
                           DYNAMORIO_LIBRARY_NAME, get_dynamorio_library_path());
     mod->externally_loaded = true;
 
+    /* Sometimes a privlib calls LoadLibrary to get a handle to the executable */
+    mod = privload_insert(NULL, get_application_base(),
+                          get_application_end() - get_application_base() + 1,
+                          get_application_short_unqualified_name(),
+                          get_application_name());
+    mod->externally_loaded = true;
+
     /* FIXME i#235: loading a private user32.dll is problematic: it registers
      * callbacks that KiUserCallbackDispatcher invokes.  For now we do not
      * duplicate it.  If the app loads it dynamically later we will end up
@@ -276,6 +283,7 @@ os_loader_init_prologue(void)
         NULL_TERMINATE_BUFFER(modpath);
         mod = privload_insert(NULL, user32, get_allocation_size(user32, NULL),
                               "user32.dll", modpath);
+        LOG(GLOBAL, LOG_LOADER, 2, "adding app's user32.dll to privlib list\n");
         mod->externally_loaded = true;
     }
 
