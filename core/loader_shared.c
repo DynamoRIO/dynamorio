@@ -383,12 +383,16 @@ privload_insert(privmod_t *after, app_pc base, size_t size, const char *name,
     /* do not add non-heap struct to list: in init() we'll move array to list */
     if (privload_modlist_initialized()) {
         if (after == NULL) {
+            bool prot = DATASEC_PROTECTED(DATASEC_RARELY_PROT);
             mod->next = modlist;
             mod->prev = NULL;
+            if (prot)
+                SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             if (modlist != NULL)
                 modlist->prev = mod;
-            ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
             modlist = mod;
+            if (prot)
+                SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         } else {
             /* we insert after dependent libs so we can unload in forward order */
             mod->prev = after;
@@ -555,8 +559,12 @@ privload_unload(privmod_t *privmod)
             instrument_client_lib_unloaded(privmod->base, privmod->base + privmod->size);
 #endif
         if (privmod->prev == NULL) {
-            ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
+            bool prot = DATASEC_PROTECTED(DATASEC_RARELY_PROT);
+            if (prot)
+                SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             modlist = privmod->next;
+            if (prot)
+                SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
         } else
             privmod->prev->next = privmod->next;
         if (privmod->next != NULL)

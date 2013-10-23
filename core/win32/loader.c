@@ -1983,7 +1983,15 @@ privload_add_windbg_cmds_post_init(privmod_t *mod)
     acquire_recursive_lock(&privload_lock);
     /* privload_lock is our synch mechanism for drmarker windbg field */
     sofar = strlen(marker->windbg_cmds);
+    if (dynamo_initialized) {
+        set_protection((byte *)marker, sizeof(*marker),
+                       MEMPROT_READ|MEMPROT_WRITE|MEMPROT_EXEC);
+    }
     add_mod_to_drmarker(marker, mod->path, mod->name, mod->base, &sofar);
+    if (dynamo_initialized) {
+        set_protection((byte *)marker, sizeof(*marker),
+                       MEMPROT_READ|MEMPROT_EXEC);
+    }
     release_recursive_lock(&privload_lock);
 }
 
