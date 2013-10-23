@@ -110,22 +110,10 @@ redirect_GetModuleHandleW(const wchar_t *name)
 FARPROC WINAPI
 redirect_GetProcAddress(HMODULE modbase, const char *name)
 {
-    privmod_t *mod;
     app_pc res = NULL;
     ASSERT(priv_kernel32_GetProcAddress != NULL);
     LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"%s\n", __FUNCTION__, modbase, name);
-    acquire_recursive_lock(&privload_lock);
-    mod = privload_lookup_by_base((app_pc)modbase);
-    if (mod != NULL) {
-        const char *forwarder;
-        res = drwinapi_redirect_imports(mod, name, NULL);
-        /* I assume GetProcAddress returns NULL for forwarded exports? */
-        if (res == NULL)
-            res = (app_pc) get_proc_address_ex((app_pc)modbase, name, &forwarder);
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
-    }
-    release_recursive_lock(&privload_lock);
-    if (mod == NULL)
+    if (!drwinapi_redirect_getprocaddr((app_pc)modbase, name, &res))
         return (*priv_kernel32_GetProcAddress)(modbase, name);
     else
         return (FARPROC) convert_data_to_function(res);

@@ -53,6 +53,9 @@ app_pc
 drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *importer);
 
 bool
+drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out OUT);
+
+bool
 kernel32_redir_fls_cb(dcontext_t *dcontext, app_pc pc);
 
 #endif /* _DRWINAPI_H_ */

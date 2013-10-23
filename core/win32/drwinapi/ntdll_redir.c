@@ -52,12 +52,13 @@ static strhash_table_t *ntdll_win7_table;
  * of stuff to emulate to really be transparent: we're going to add it
  * incrementally as needed, now that we have the infrastructure.
  *
- * FIXME i#235: redirect the Ldr* routines, incl LdrGetProcedureAddress.  For
+ * FIXME i#235: redirect the rest of the Ldr* routines.  For
  * GetModuleHandle: why does kernel32 seem to do a lot of work?
  * BasepGetModuleHandleExW => RtlPcToFileHeader, RtlComputePrivatizedDllName_U
  * where should we intercept?  why isn't it calling LdrGetDllHandle{,Ex}?
  */
 static const redirect_import_t redirect_ntdll[] = {
+    {"LdrGetProcedureAddress",            (app_pc)redirect_LdrGetProcedureAddress},
     /* kernel32 passes some of its routines to ntdll where they are
      * stored in function pointers.  xref PR 215408 where on x64 we had
      * issues w/ these not showing up b/c no longer in relocs.
@@ -836,3 +837,24 @@ redirect_NtUnmapViewOfSection(HANDLE process_handle,
                                      base_address);
 }
 
+NTSTATUS NTAPI
+redirect_LdrGetProcedureAddress(IN HMODULE modbase,
+                                IN PANSI_STRING func OPTIONAL,
+                                IN WORD ordinal OPTIONAL,
+                                OUT PVOID *addr)
+{
+    /* We ignore ordinal.  Our target is private kernel32's GetProcAddress
+     * invoked dynamically so we didn't redirect it directly, and it
+     * passes 0 for ordinal.
+     */
+    if (func == NULL || func->Buffer == NULL)
+        return STATUS_INVALID_PARAMETER;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s: "PFX"%s\n", __FUNCTION__, modbase, func->Buffer);
+    /* redirect_GetProcAddress invokes the app kernel32 version if it fails, trying
+     * to handle forwarder corner cases or sthg.  We don't bother here.
+     */
+    if (!drwinapi_redirect_getprocaddr((app_pc)modbase, func->Buffer, (app_pc*)addr))
+        return STATUS_UNSUCCESSFUL;
+    else
+        return STATUS_SUCCESS;
+}

@@ -114,6 +114,26 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     return NULL;
 }
 
+bool
+drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out OUT)
+{
+    privmod_t *mod;
+    app_pc res = NULL;
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_base((app_pc)modbase);
+    if (mod != NULL) {
+        const char *forwarder;
+        res = drwinapi_redirect_imports(mod, name, NULL);
+        /* I assume GetProcAddress returns NULL for forwarded exports? */
+        if (res == NULL)
+            res = (app_pc) get_proc_address_ex((app_pc)modbase, name, &forwarder);
+        LOG(GLOBAL, LOG_LOADER, 2, "%s: %s => "PFX"\n", __FUNCTION__, name, res);
+    }
+    release_recursive_lock(&privload_lock);
+    *res_out = res;
+    return (mod != NULL);
+}
+
 DWORD
 ntstatus_to_last_error(NTSTATUS status)
 {

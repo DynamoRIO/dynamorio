@@ -218,6 +218,11 @@ redirect_RtlInitializeCriticalSectionEx(RTL_CRITICAL_SECTION* crit,
 NTSTATUS WINAPI
 redirect_RtlDeleteCriticalSection(RTL_CRITICAL_SECTION *crit);
 
+NTSTATUS NTAPI
+redirect_LdrGetProcedureAddress(IN HMODULE module_handle,
+                                IN PANSI_STRING func OPTIONAL,
+                                IN WORD ordinal OPTIONAL,
+                                OUT PVOID *addr);
 
 
 #endif /* _NTDLL_REDIR_H_ */
