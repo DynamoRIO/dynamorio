@@ -66,6 +66,7 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetProcAddress",                 (app_pc)redirect_GetProcAddress},
     {"LoadLibraryA",                   (app_pc)redirect_LoadLibraryA},
     {"LoadLibraryW",                   (app_pc)redirect_LoadLibraryW},
+    {"FreeLibrary",                    (app_pc)redirect_FreeLibrary},
     {"GetModuleFileNameA",             (app_pc)redirect_GetModuleFileNameA},
     {"GetModuleFileNameW",             (app_pc)redirect_GetModuleFileNameW},
 

@@ -466,7 +466,7 @@ redirect_DelayLoadFailureHook(
 
 BOOL
 WINAPI
-redirect_FreeLibrary (
+redirect_FreeLibrary(
     __in HMODULE hLibModule
     );
 

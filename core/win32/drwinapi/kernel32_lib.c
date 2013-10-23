@@ -170,6 +170,12 @@ redirect_LoadLibraryW(const wchar_t *name)
         return (HMODULE) res;
 }
 
+BOOL WINAPI
+redirect_FreeLibrary(HMODULE hLibModule)
+{
+    return (BOOL) unload_private_library((app_pc)hLibModule);
+}
+
 DWORD WINAPI
 redirect_GetModuleFileNameA(HMODULE modbase, char *buf, DWORD bufcnt)
 {
