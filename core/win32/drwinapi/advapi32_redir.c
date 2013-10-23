@@ -283,8 +283,10 @@ redirect_RegQueryValueExA(
         do { /* loop for REG_MULTI_SZ */
             prev_sofar = sofar;
             if (!print_to_buffer(buf, max_len, &sofar, "%.*ls", *lpcbData - sofar,
-                                 ((char *)lpData) + sofar*sizeof(wchar_t)))
+                                 ((char *)lpData) + sofar*sizeof(wchar_t))) {
+                /* XXX: we don't know what to set *lpcbData to: really shouldn't happen */
                 return ERROR_MORE_DATA;
+            }
             sofar++; /* include, and skip, the null between strings */
         } while (type == REG_MULTI_SZ && sofar > prev_sofar + 1 && sofar < *lpcbData);
         memcpy(lpData, buf, *lpcbData);
@@ -347,7 +349,7 @@ redirect_RegQueryValueExW(
     if (lpcbData != NULL) {
         if (*lpcbData < res_sz - offsetof(KEY_VALUE_PARTIAL_INFORMATION, Data))
             res = STATUS_BUFFER_OVERFLOW;
-        *lpcbData = res_sz;
+        *lpcbData = res_sz - offsetof(KEY_VALUE_PARTIAL_INFORMATION, Data);
     }
 
     if (NT_SUCCESS(res)) {
