@@ -66,7 +66,8 @@
 /* Public
  * Constructor, everything begins here
  */
-drgui_main_window_t::drgui_main_window_t(void)
+drgui_main_window_t::drgui_main_window_t(QString tool_name, QStringList tool_args)
+: tool_to_auto_load(tool_name), tool_to_auto_load_args(tool_args)
 {
     qDebug().nospace() << "INFO: Entering " << __CLASS__ << __FUNCTION__;
     window_mapper = new QSignalMapper(this);
@@ -318,12 +319,17 @@ drgui_main_window_t::read_settings(void)
     settings.beginGroup("Tools_to_load");
     int count = settings.value("Number_of_tools", 0).toInt();
     for (int i = 0; i < count; i++) {
-        tool_files << settings.value(QString::number(i), QString())
-                              .toString();
+        tool_files << settings.value(QString::number(i), QString()).toString();
     }
     settings.endGroup();
     move(pos);
     resize(size);
+    /* Check if tool_to_auto load is a library or a name and add it to the
+     * list of tools to be loaded if it is a file.
+     */
+     QFile tool_file(tool_to_auto_load);
+     if (tool_file.exists())
+        tool_files << tool_file.fileName();;
 }
 
 /* Private
@@ -463,6 +469,18 @@ drgui_main_window_t::add_tab(void)
 }
 
 /* Private Slot
+ * Creates a new instance of a tool with the specified arguments and displays
+ * it in the tab interface.
+ */
+void
+drgui_main_window_t::add_tab(drgui_tool_interface_t *factory, const QStringList &args)
+{
+    QWidget *tool = factory->create_instance(args);
+    const QString tool_name = factory->tool_names().front();
+    new_tool_instance(tool, tool_name);
+}
+
+/* Private Slot
  * Lets user choose more tools to load
  */
 void
@@ -517,6 +535,11 @@ drgui_main_window_t::load_tools(void)
                 plugins.append(i_tool);
                 qDebug() << "INFO: Loaded Plugins" << i_tool->tool_names();
                 plugin_names << i_tool->tool_names();
+                /* Auto-open the requested tool*/
+                if (i_tool->tool_names().contains(tool_to_auto_load) ||
+                    tool_to_auto_load == tool_loc) {
+                    add_tab(i_tool, tool_to_auto_load_args);
+                }
             }
         } else {
             qDebug() << "INFO: Denied Plugins" << loader.errorString();

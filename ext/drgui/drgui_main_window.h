@@ -60,7 +60,7 @@ class drgui_main_window_t : public QMainWindow
     Q_OBJECT
 
 public:
-    drgui_main_window_t(void);
+    drgui_main_window_t(QString tool_name, QStringList tool_args);
     ~drgui_main_window_t(void);
 
 protected:
@@ -90,6 +90,8 @@ private slots:
     void show_preferences_dialog(void);
 
     void add_tab(void);
+
+    void add_tab(drgui_tool_interface_t *factory, const QStringList &args);
 
     void add_tool(void);
 
@@ -144,6 +146,8 @@ private:
 
     /* Data */
     QVector<drgui_tool_interface_t *> plugins;
+    QString tool_to_auto_load;
+    QStringList tool_to_auto_load_args;
 
     /* Options */
     QString custom_command_format;

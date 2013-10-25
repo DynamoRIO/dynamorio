@@ -67,8 +67,9 @@ public:
      * Returns a new instance of a tool to be displayed by drgui's
      * tab interface. This is called by drgui when a user requests a new
      * tab by clicking on the tool's action in the 'Tools' menu.
+     * Arguments can be optionally supplied to the tool.
      */
-    virtual QWidget *create_instance(void) = 0;
+    virtual QWidget *create_instance(const QStringList &args = QStringList()) = 0;
 
     /**
      * Returns an instance of the tools options page to be displayed

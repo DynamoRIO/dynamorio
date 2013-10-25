@@ -36,14 +36,70 @@
  */
 
 #include <QApplication>
+#include <iostream>
 
 #include "drgui_main_window.h"
+
+struct tool_data_t {
+    QString name;
+    QStringList arguments;
+};
+
+static tool_data_t *process_arguments(int argc, char *argv[]);
+static void print_usage(char *arg_0);
 
 int
 main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    drgui_main_window_t main_win;
+    tool_data_t *tool = process_arguments(argc, argv);
+    QString tool_name = "";
+    QStringList tool_args;
+    if (tool != NULL) {
+        tool_name = tool->name;
+        tool_args = tool->arguments;
+        delete tool;
+    }
+    drgui_main_window_t main_win(tool_name, tool_args);
     main_win.show();
     return app.exec();
+}
+
+tool_data_t *
+process_arguments(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; i++) {
+        /* Help */
+        if (QString(argv[i]) == QString("-h")) {
+            print_usage(argv[0]);
+            exit(0);
+        }
+        /* Auto load a tool */
+        if (QString(argv[i]) == QString("-t")) {
+            if (++i >= argc) {
+                print_usage(argv[0]);
+                exit(1);
+            }
+            tool_data_t *tool = new tool_data_t;
+            tool->name = argv[i];
+            /* Get arguments to pass to the tool */
+            while (++i < argc) {
+                tool->arguments << argv[i];
+            }
+            return tool;
+        }
+    }
+    return NULL;
+}
+
+void
+print_usage(char *arg_0)
+{
+    std::cout << "usage " << arg_0 << " [options]" << std::endl;
+    std::cout << "options:" << std::endl;
+    printf("  %-40s%s", "-h", "Display option list");
+    std::cout << std::endl;
+    printf("  %-40s%s", "-t <tool_name> [options]",
+        "Automatically load a tool with optional arguments");
+    std::cout << std::endl;
 }
