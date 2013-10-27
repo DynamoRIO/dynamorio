@@ -94,6 +94,10 @@ In other words, instruction sequences have a single entrance and one
 or more exits.  This representation greatly simplifies analysis and is
 a primary contributor to DynamoRIO's efficiency.
 
+The instruction representation includes all of the operands, whether
+implicit or explicit, and the condition code effects of each instruction.
+This allows for analysis of liveness of registers and condition codes.
+
 DynamoRIO's IR is mostly opaque to clients.  Key data structures have their
 sizes exposed to allow for stack allocation, but their fields are opaque.  In
 order to examine them, clients must call IR accessor routines in DynamoRIO.
@@ -106,6 +110,9 @@ DR_FAST_IR before including dr_api.h.  This removes some of the error checking
 that DynamoRIO performs on calls from the client, so it should typically be
 enabled only in a release build.  Furthermore, some of the macros evaluate their
 arguments twice, so clients should avoid passing arguments with side effects.
+
+See \ref sec_decode for further information on creating instructions from
+scratch, decoding, encoding, and disassembling instructions.
 
 \if level_of_detail
 ********************
