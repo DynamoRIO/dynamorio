@@ -7203,6 +7203,7 @@ callback_interception_init_start(void)
      * see them. */
     DODEBUG({
         /* case 9423 - just SYSLOG, we can somewhat handle these */
+        /* XXX i#1305: suspend all other threads for duration of DR init */
         if (!check_sole_thread()) {
             SYSLOG_INTERNAL_WARNING("!check_sole_thread() case 9423");
         }

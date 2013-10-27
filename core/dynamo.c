@@ -2613,6 +2613,9 @@ dynamorio_take_over_threads(dcontext_t *dcontext)
     bool found_threads;
     uint attempts = 0;
 
+    /* XXX i#1305: we should suspend all the other threads for DR init to
+     * satisfy the parts of the init process that assume there are no races.
+     */
     do {
         found_threads = os_take_over_all_unknown_threads(dcontext);
         attempts++;

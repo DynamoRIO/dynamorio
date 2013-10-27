@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -155,6 +155,14 @@ auto_setup(ptr_uint_t appstack)
     dcontext = get_thread_private_dcontext();
     ASSERT(dcontext);
     thread_starting(dcontext);
+
+    /* Despite what *should* happen, there can be other threads if a statically
+     * imported lib created one in its DllMain (Cygwin does this), or if a
+     * thread was injected from the outside.  We go ahead and check for and
+     * take over any other threads at this time.  Xref i#1304.
+     * XXX i#1305: we should really suspend all these other threads for DR init.
+     */
+    dynamorio_take_over_threads(dcontext);
 
     /* copy over the app state into mcontext */
     mcontext = get_mcontext(dcontext);
