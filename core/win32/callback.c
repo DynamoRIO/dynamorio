@@ -5135,6 +5135,19 @@ intercept_exception(app_state_at_intercept_t *state)
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
             is_in_client_lib(pExcptRec->ExceptionAddress)) {
+            /* i#1354: client might fault touching a code page we made read-only.
+             * If so, just re-execute post-page-prot-change (MOD_CODE_APP_CXT), if
+             * it's safe to do so (we document these criteria under
+             * DR_MEMPROT_PRETEND_WRITE).
+             */
+            if (pExcptRec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+                pExcptRec->NumberParameters >= 2 &&
+                pExcptRec->ExceptionInformation[0] == EXCEPTION_INFORMATION_WRITE_FAULT &&
+                !is_couldbelinking(dcontext) &&
+                OWN_NO_LOCKS(dcontext)) {
+                /* won't return if it was a made-read-only code page */
+                check_for_modified_code(dcontext, pExcptRec, cxt, MOD_CODE_APP_CXT, NULL);
+            }
             report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_CLIENT_EXCEPTION,
                                       "Client exception");
             os_terminate(dcontext, TERMINATE_PROCESS);

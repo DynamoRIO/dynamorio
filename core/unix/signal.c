@@ -3260,9 +3260,12 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
     return target;
 }
 
+/* If native_state is true, assumes the fault is not in the cache and thus
+ * does not need translation but rather should always be re-executed.
+ */
 static bool
 check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                        sigcontext_t *sc, byte *target)
+                        sigcontext_t *sc, byte *target, bool native_state)
 {
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
@@ -3278,36 +3281,42 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
          * signal frame or else we'll lose control when we try to
          * return to signal pc!
          */
-        app_pc next_pc, translated_pc;
+        app_pc next_pc, translated_pc = NULL;
         fragment_t *f = NULL;
         fragment_t wrapper;
         ASSERT((cache_pc)sc->SC_XIP == instr_cache_pc);
-        /* For safe recreation we need to either be couldbelinking or hold 
-         * the initexit lock (to keep someone from flushing current 
-         * fragment), the initexit lock is easier
-         */
-        mutex_lock(&thread_initexit_lock);
-        /* cache the fragment since pclookup is expensive for coarse units (i#658) */
-        f = fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
-        translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
-        ASSERT(translated_pc != NULL);
-        mutex_unlock(&thread_initexit_lock);
+        if (!native_state) {
+            /* For safe recreation we need to either be couldbelinking or hold
+             * the initexit lock (to keep someone from flushing current
+             * fragment), the initexit lock is easier
+             */
+            mutex_lock(&thread_initexit_lock);
+            /* cache the fragment since pclookup is expensive for coarse units (i#658) */
+            f = fragment_pclookup(dcontext, instr_cache_pc, &wrapper);
+            translated_pc = recreate_app_pc(dcontext, instr_cache_pc, f);
+            ASSERT(translated_pc != NULL);
+            mutex_unlock(&thread_initexit_lock);
+        }
+
         next_pc =
             handle_modified_code(dcontext, instr_cache_pc, translated_pc,
                                  target, f);
 
-        /* going to exit from middle of fragment (at the write) so will mess up
-         * trace building
-         */
-        if (is_building_trace(dcontext)) {
-            LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
-            trace_abort(dcontext);
+        if (!native_state) {
+            /* going to exit from middle of fragment (at the write) so will mess up
+             * trace building
+             */
+            if (is_building_trace(dcontext)) {
+                LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
+                trace_abort(dcontext);
+            }
         }
 
         if (next_pc == NULL) {
             /* re-execute the write -- just have master_signal_handler return */
             return true;
         } else {
+            ASSERT(!native_state);
             /* Do not resume execution in cache, go back to dispatch.
              * Set our sigreturn context to point to fcache_return!
              * Then we'll go back through kernel, appear in fcache_return,
@@ -3611,8 +3620,18 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 
+        target = compute_memory_target(dcontext, pc, sc, siginfo, &is_write);
+
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
+            /* i#1354: client might write to a page we made read-only.
+             * If so, handle the fault and re-execute it, if it's safe to do so
+             * (we document these criteria under DR_MEMPROT_PRETEND_WRITE).
+             */
+            if (is_write && !is_couldbelinking(dcontext) &&
+                OWN_NO_LOCKS(dcontext) &&
+                check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
+                break;
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
                            "Client exception",  (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
@@ -3628,7 +3647,6 @@ master_signal_handler_C(byte *xsp)
          * this order should be fine.
          */
 
-        target = compute_memory_target(dcontext, pc, sc, siginfo, &is_write);
 #ifdef STACK_GUARD_PAGE
         if (sig == SIGSEGV && is_write && is_stack_overflow(dcontext, target)) {
             SYSLOG_INTERNAL_CRITICAL(PRODUCT_NAME" stack overflow at pc "PFX, pc);
@@ -3725,7 +3743,8 @@ master_signal_handler_C(byte *xsp)
             /* special case: we expect a seg fault for executable regions
              * that were writable and marked read-only by us.
              */
-            if (is_write && check_for_modified_code(dcontext, pc, sc, target)) {
+            if (is_write &&
+                check_for_modified_code(dcontext, pc, sc, target, false/*!native*/)) {
                 /* it was our signal, so don't pass to app -- return now */
                 break;
             }

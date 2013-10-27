@@ -412,10 +412,31 @@ char *get_dynamorio_library_path(void);
 /**
  * DR's default cache consistency strategy modifies the page protection of
  * pages containing code, making them read-only.  It pretends on application
- * and client queries that the application is writable.  However, a client
- * that writes to the memory will fault, and should check this flag to determine
- * whether doing so is safe.  If the application writes to such memory, DR
- * handles it automatically.
+ * and client queries that the page is writable.  On a write fault
+ * to such a region by the application or by client-added instrumentation, DR
+ * automatically handles the fault and makes the page writable.  This requires
+ * flushing the code from the code cache, which can only be done safely when in
+ * an application context.  Thus, a client writing to such a page is only
+ * supported when these criteria are met:
+ *
+ * -# The client code must be in an application code cache context.  This rules
+ *    out all event callbacks (including the basic block event) except for the
+ *    pre and post system call events and the nudge event.
+ * -# The client must not hold any locks.  An exception is a lock marked as
+ *    an application lock (via dr_mutex_mark_as_app(), dr_rwlock_mark_as_app(),
+ *    or dr_recurlock_mark_as_app()).
+ * -# The client code must not rely on returning to a particular point in the
+ *    code cache, as that point might be flushed and removed during the write
+ *    fault processing.  This rules out a clean call (unless
+ *    dr_redirect_execution() is used), but does allow something like
+ *    drwrap_replace_native() which uses a continuation strategy.
+ *
+ * A client write fault that does not meet the first two criteria will result in
+ * a fatal error report and an abort.  It is up to the client to ensure it
+ * satisifies the third criterion.
+ *
+ * Even when client writes do meet these criteria, for performance it's best for
+ * clients to avoid writing to such memory.
  */
 #define DR_MEMPROT_PRETEND_WRITE 0x10
 

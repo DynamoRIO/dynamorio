@@ -46,5 +46,8 @@ int main()
 
     (*func)();
 
+    /* Make a system call to help test i#143c#4 */
+    print("all done\n");
+
     return 0;
 }

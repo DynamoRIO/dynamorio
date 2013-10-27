@@ -45,6 +45,8 @@ char *global;
 #define SIZE 10
 #define VAL 17
 
+static app_pc app_gencode;
+
 /* i#262 add exec if READ_IMPLIES_EXEC is set in personality */
 static bool add_exec = false;
 
@@ -567,6 +569,13 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_t
                     if (mbi.Protect != PAGE_EXECUTE_READWRITE)
                         dr_fprintf(STDERR, "error: not pretend-writable\n");
 #endif
+
+                    /* Store the pc so we can write to it once in a safe place,
+                     * at the next syscall, to test i#143c#4.
+                     */
+                    if (app_gencode == NULL)
+                        app_gencode = pc;
+
                     dr_fprintf(STDERR, "success\n");
                 }
             }
@@ -575,6 +584,28 @@ dr_emit_flags_t bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_t
 
     /* store, since we're not deterministic */
     return DR_EMIT_STORE_TRANSLATIONS;
+}
+
+/* i#143c#4: test DR handling a fault from a client writing to a
+ * pretend-writable page, which can only be done when nolinking and
+ * when holding no locks.  Thus, we store the pc in the bb event above
+ * and wait for the next syscall.
+ */
+static bool
+filter_syscall_event(void *drcontext, int sysnum)
+{
+    return true;
+}
+
+static bool
+pre_syscall_event(void *drcontext, int sysnum)
+{
+    if (app_gencode != NULL) {
+        *app_gencode = 90;
+        app_gencode = NULL;
+        dr_fprintf(STDERR, "wrote to app code page successfully\n");
+    }
+    return true;
 }
 
 DR_EXPORT
@@ -606,4 +637,6 @@ void dr_init(client_id_t id)
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);
+    dr_register_filter_syscall_event(filter_syscall_event);
+    dr_register_pre_syscall_event(pre_syscall_event);
 }

@@ -19,3 +19,5 @@ code cache:
   reachability test...success
 #endif
   testing query pretend-write....success
+wrote to app code page successfully
+all done
