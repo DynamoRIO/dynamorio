@@ -579,7 +579,7 @@ windows_version_init()
                 syscalls = (int *) windows_81_x86_syscalls;
                 os_name = "Microsoft Windows 8.1";
             }
-            os_version = WINDOWS_VERSION_81;
+            os_version = WINDOWS_VERSION_8_1;
         }
         else if (peb->OSMajorVersion == 6 && peb->OSMinorVersion == 2) {
             if (module_is_64bit(get_ntdll_base())) {
@@ -8097,6 +8097,7 @@ early_inject_init()
         case WINDOWS_VERSION_VISTA:
         case WINDOWS_VERSION_7:
         case WINDOWS_VERSION_8:
+        case WINDOWS_VERSION_8_1:
             /* LdrLoadDll is best but LdrpLoadDll seems to work just as well
              * (FIXME would it be better just to use that so matches XP?),
              * LdrpLoadImportModule also works but it misses the load of

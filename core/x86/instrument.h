@@ -1690,7 +1690,7 @@ dr_get_parent_id(void);
 
 /** Windows versions */
 typedef enum {
-    DR_WINDOWS_VERSION_81    = 63,
+    DR_WINDOWS_VERSION_8_1   = 63,
     DR_WINDOWS_VERSION_8     = 62,
     DR_WINDOWS_VERSION_7     = 61,
     DR_WINDOWS_VERSION_VISTA = 60,

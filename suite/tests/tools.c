@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,7 +55,7 @@ get_windows_version(void)
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {
-            return WINDOWS_VERSION_81;
+            return WINDOWS_VERSION_8_1;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2) {
             return WINDOWS_VERSION_8;
         } else if (version.dwMajorVersion == 6 && version.dwMinorVersion == 1) {
