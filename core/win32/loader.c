@@ -1342,6 +1342,11 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
         return "sechost.dll";
+    /**************************************************/
+    /* Added in Win8.1 */
+    else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
+             str_case_prefix(name, "API-MS-Win-Core-XState-L2-1"))
+        return "kernelbase.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
