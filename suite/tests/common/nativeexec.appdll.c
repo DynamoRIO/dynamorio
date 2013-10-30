@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,7 +34,13 @@
 /* Split C/asm source file. */
 #ifndef ASM_CODE_ONLY
 
-/* nativexec.dll.dll
+#ifdef USE_DYNAMO
+/* for dr_app_handle_mbr_target and dr_app_running_under_dynamorio */
+#  include "configure.h"
+#  include "dr_api.h"
+#endif /* USE_DYNAMO */
+
+/* nativeexec.appdll.dll
  * nativeexec.exe calls routines here w/ different call* constructions
  */
 #include "tools.h"
@@ -41,6 +48,23 @@
 typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
 typedef void (*tail_caller_t)(int_fn_t, int);
+
+/* When the appdll is running natively, the indirect function call may
+ * jump to a native module directly. Thus we must replace the function
+ * pointer with the stub pc returned by dr_app_handle_mbr_target.
+ */
+#ifdef UNIX
+#  define CALL_FUNC(fn, x) do {                                 \
+    if (dr_app_running_under_dynamorio()) {                     \
+        fn(x);                                                  \
+    } else {                                                    \
+        int_fn_t fn2 = dr_app_handle_mbr_target((void *)fn);    \
+        fn2(x);                                                 \
+    }                                                           \
+} while(0)
+#else
+#  define CALL_FUNC(fn, x) do { fn(x); } while(0)
+#endif
 
 int import_ret_imm(int x, int y);
 void tail_caller(int_fn_t fn, int x);
@@ -66,25 +90,25 @@ import_me3(int x)
 void EXPORT
 import_me4(int_fn_t fn, int x)
 {
-    fn(x);
+    CALL_FUNC(fn, x);
 }
 
 void EXPORT
 unwind_level1(int_fn_t fn, int x)
 {
-    fn(x);
+    CALL_FUNC(fn, x);
 }
 
 void EXPORT
 unwind_level3(int_fn_t fn, int x)
 {
-    fn(x);
+    CALL_FUNC(fn, x);
 }
 
 void EXPORT
 unwind_level5(int_fn_t fn, int x)
 {
-    fn(x);
+    CALL_FUNC(fn, x);
 }
 
 #ifdef WINDOWS

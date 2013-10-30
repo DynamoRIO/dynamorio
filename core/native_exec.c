@@ -82,10 +82,23 @@ native_exec_exit(void)
     native_exec_areas = NULL;
 }
 
+static bool
+is_dr_native_pc(app_pc pc)
+{
+#ifdef DR_APP_EXPORTS
+    if (pc == (app_pc) dr_app_running_under_dynamorio
+        IF_UNIX(|| pc == (app_pc) dr_app_handle_mbr_target))
+        return true;
+#endif /* DR_APP_EXPORTS */
+    return false;
+}
+
 bool
 is_native_pc(app_pc pc)
 {
-    return vmvector_overlap(native_exec_areas, pc, pc+1);
+    /* only used for native exec */
+    ASSERT(DYNAMO_OPTION(native_exec) && !vmvector_empty(native_exec_areas));
+    return (is_dr_native_pc(pc) || vmvector_overlap(native_exec_areas, pc, pc+1));
 }
 
 static bool

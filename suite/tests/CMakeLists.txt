@@ -629,6 +629,41 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
 endfunction(tobuild_ci)
 
+function(configure_app_api_build_flags test decoder)
+  # save property since configure_DynamoRIO_standalone will clobber it
+  get_target_property(pre_lflags ${test} LINK_FLAGS)
+  # disable the default rpath for standalone apps
+  set(DynamoRIO_RPATH OFF)
+  # to avoid changing all the REG_ constants we ask for compatibility
+  set(DynamoRIO_REG_COMPATIBILITY ON)
+  if (decoder)
+    configure_DynamoRIO_decoder(${test})
+    set(extra_flags "-DSTANDALONE_DECODER")
+  else ()
+    configure_DynamoRIO_standalone(${test})
+    set(extra_flags "-DSTANDALONE")
+  endif ()
+  # append to properties set by configure_DynamoRIO_standalone
+  get_target_property(prop_cflags ${test} COMPILE_FLAGS)
+  if (NOT prop_cflags)
+    set(prop_cflags "")
+  endif ()
+  set(prop_cflags "${prop_cflags} ${extra_flags}")
+  set(prop_cflags "${prop_cflags} -DUSE_DYNAMO")
+  # since we're including configure.h we do not want any default defines
+  string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
+  # FIXME: apparently moving cflags to a target property makes it show up
+  # in the cpp run for asm targets, where it doesn't if in global var.
+  # This causes compilation failure.  Removing -g3 manually as a workaround.
+  string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
+  get_target_property(prop_lflags ${test} LINK_FLAGS)
+  set_target_properties(${test} PROPERTIES
+    COMPILE_FLAGS "${prop_cflags}"
+    LINK_FLAGS "${pre_lflags} ${prop_lflags}")
+endfunction (configure_app_api_build_flags)
+
 # adds a library target ${test}.appdll built from ${source-without-extension}.appdll.c
 function(tobuild_appdll test source)
   # support a test with a library
@@ -661,6 +696,12 @@ function(tobuild_appdll test source)
         "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
       add_dependencies(${test}.appdll ${gen_asm_tgt})
     endif ()
+    if ("${test}" MATCHES "nativeexec")
+      # Link DynamoRIO for building nativeexec.appdll for using
+      # dr_running_under_dynamorio and dr_native_handle_mbr_target.
+      configure_app_api_build_flags(${test}.appdll OFF)
+      add_dependencies(${test}.appdll api_headers)
+    endif()
   endif (EXISTS "${dll_srcpath}")
 endfunction(tobuild_appdll)
 
@@ -696,38 +737,7 @@ endfunction(torunonly_ci)
 # client interface standalone app
 function(tobuild_api test source dr_ops exe_ops decoder)
   add_exe(${test} ${source})
-  # save property since configure_DynamoRIO_standalone will clobber it
-  get_target_property(pre_lflags ${test} LINK_FLAGS)
-  # disable the default rpath for standalone apps
-  set(DynamoRIO_RPATH OFF)
-  # to avoid changing all the REG_ constants we ask for compatibility
-  set(DynamoRIO_REG_COMPATIBILITY ON)
-  if (decoder)
-    configure_DynamoRIO_decoder(${test})
-    set(extra_flags "-DSTANDALONE_DECODER")
-  else ()
-    configure_DynamoRIO_standalone(${test})
-    set(extra_flags "-DSTANDALONE")
-  endif ()
-  # append to properties set by configure_DynamoRIO_standalone
-  get_target_property(prop_cflags ${test} COMPILE_FLAGS)
-  if (NOT prop_cflags)
-    set(prop_cflags "")
-  endif ()
-  set(prop_cflags "${prop_cflags} ${extra_flags}")
-  set(prop_cflags "${prop_cflags} -DUSE_DYNAMO")
-  # since we're including configure.h we do not want any default defines
-  string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
-  string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
-  # FIXME: apparently moving cflags to a target property makes it show up
-  # in the cpp run for asm targets, where it doesn't if in global var.
-  # This causes compilation failure.  Removing -g3 manually as a workaround.
-  string(REGEX REPLACE "-g3" "" prop_cflags "${prop_cflags}")
-  get_target_property(prop_lflags ${test} LINK_FLAGS)
-  set_target_properties(${test} PROPERTIES
-    COMPILE_FLAGS "${prop_cflags}"
-    LINK_FLAGS "${pre_lflags} ${prop_lflags}")
+  configure_app_api_build_flags(${test} ${decoder})
   add_dependencies(${test} api_headers)
   if (WIN32 AND NOT decoder)
     # Since we can't set the working dir w/o making an external script,
@@ -1322,16 +1332,14 @@ target_link_libraries(common.nativeexec common.nativeexec.appdll)
 set_target_properties(common.nativeexec PROPERTIES SKIP_BUILD_RPATH OFF)
 if (UNIX)
   # FIXME i#978: Windows support NYI
-  # FIXME: DR lost control on mbr from native to nonnative module, so disable it for now
-  # torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
-  #  "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
+  torunonly(common.nativeexec_retakeover common.nativeexec common/nativeexec.c
+    "-native_exec_list ${native_dll_name} -native_exec_retakeover" "")
   torunonly(common.nativeexec_exe common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "")
   torunonly(common.nativeexec_bindnow common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover" "-bind_now")
-  # FIXME: DR lost control on mbr from native to nonnative module, so disable it for now
-  # torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
-  #  "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
+  torunonly(common.nativeexec_retakeover_opt common.nativeexec common/nativeexec.c
+    "-native_exec_list ${native_dll_name} -native_exec_retakeover  -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")
   # No swap TLS and no kstats for optimized native_exec
   torunonly(common.nativeexec_exe_opt common.nativeexec common/nativeexec.c
     "-native_exec_list common.nativeexec -native_exec_retakeover -native_exec_opt -no_kstats -no_private_loader -no_mangle_app_seg" "")

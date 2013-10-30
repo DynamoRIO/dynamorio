@@ -2840,7 +2840,9 @@ mangle_pre_client(dcontext_t *dcontext, build_bb_t *bb)
         instr_t *mov = instr_get_prev(ret);
         ASSERT(ret != NULL && instr_is_return(ret) &&
                mov != NULL && instr_get_opcode(mov) == OP_mov_imm &&
-               bb->start_pc == instr_get_translation(mov));
+               (bb->start_pc == instr_get_raw_bits(mov) ||
+                /* the translation field might be NULL */
+                bb->start_pc == instr_get_translation(mov)));
         instr_set_src(mov, 0, OPND_CREATE_INT32(1));
     }
 }

@@ -117,6 +117,9 @@ static app_pc ret_stub_heap;
 static generic_table_t *native_ret_table;
 #define INIT_HTABLE_SIZE_NERET 6 /* should remain small */
 
+static generic_table_t *native_mbr_table;
+#define INIT_HTABLE_SIZE_NEMBR 6 /* should remain small */
+
 static bool
 module_contains_pc(module_area_t *ma, app_pc pc)
 {
@@ -297,8 +300,7 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
     return true;
 }
 
-/* Allocates and initializes a stub of code for taking control after a PLT call.
- */
+/* Allocates and initializes a stub of code for taking control after a PLT call. */
 static app_pc
 create_plt_stub(app_pc plt_target)
 {
@@ -392,7 +394,8 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
              * a lazy resolution stub or was resolved to the current module.
              * Either way we ignore it.
              */
-            if (!module_contains_pc(ma, gotval)) {
+            /* We also ignore it if the PLT target is in a native module */
+            if (!module_contains_pc(ma, gotval) && !is_native_pc(gotval)) {
                 LOG(THREAD_GET, LOG_LOADER, 4,
                     "%s: hooking cross-module PLT entry to "PFX"\n",
                     __FUNCTION__, gotval);
@@ -535,6 +538,106 @@ dynamorio_dl_fixup(struct link_map *l_map, uint reloc_arg)
     return stub;
 }
 
+static void
+native_module_htable_init(void)
+{
+    native_ret_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NERET,
+                                           50 /* load factor: perf-critical */,
+                                           HASHTABLE_SHARED,
+                                           NULL _IF_DEBUG("ne_ret table"));
+    native_mbr_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NEMBR,
+                                           50 /* load factor, perf-critical */,
+                                           HASHTABLE_SHARED,
+                                           NULL _IF_DEBUG("ne_mbr table"));
+}
+
+static void
+native_module_htable_exit(generic_table_t *htable, app_pc stub_heap)
+{
+    ptr_uint_t key;
+    void *stub_pc;
+    int iter;
+    if (htable == NULL)
+        return;
+    TABLE_RWLOCK(htable, write, lock);
+    iter = 0;
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable,
+                                         iter, &key, &stub_pc);
+        if (iter < 0)
+            break;
+        /* remove from hashtable */
+        iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable,
+                                           iter, key);
+        /* free stub from special heap */
+        special_heap_free(stub_heap, stub_pc);
+    } while (true);
+    TABLE_RWLOCK(htable, write, unlock);
+    generic_hash_destroy(GLOBAL_DCONTEXT, htable);
+}
+
+static void
+native_module_htable_module_unload(module_area_t *ma,
+                                 generic_table_t *htable,
+                                 app_pc stub_heap)
+{
+    int iter;
+    app_pc stub_pc, pc;
+
+    TABLE_RWLOCK(htable, write, lock);
+    iter = 0;
+    do {
+        bool remove = false;
+        os_module_data_t *os_data;
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, htable, iter,
+                                         (ptr_uint_t *)&pc,
+                                         (void **)&stub_pc);
+        if (iter < 0)
+            break;
+        if (pc < ma->start || pc >= ma->end)
+            continue;
+        os_data = &ma->os_data;
+        if (os_data->contiguous)
+            remove = true;
+        else {
+            int i;
+            for (i = 0; i < os_data->num_segments; i++) {
+                if (pc >= os_data->segments[i].start &&
+                    pc <  os_data->segments[i].end) {
+                    remove = true;
+                    break;
+                }
+            }
+        }
+        /* remove from hashtable */
+        if (remove) {
+            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, htable,
+                                               iter, (ptr_uint_t)pc);
+            special_heap_free(stub_heap, pc);
+        }
+    } while (true);
+    TABLE_RWLOCK(htable, write, unlock);
+}
+
+static void *
+native_module_htable_add(generic_table_t *htable, app_pc stub_heap,
+                         ptr_uint_t key, void *payload)
+{
+    void *stub_pc;
+    TABLE_RWLOCK(htable, write, lock);
+    /* lookup again */
+    stub_pc = generic_hash_lookup(GLOBAL_DCONTEXT, htable, key);
+    if (stub_pc != NULL) {
+        TABLE_RWLOCK(htable, write, unlock);
+        /* we found one, use it and delete the new one */
+        special_heap_free(stub_heap, payload);
+        return stub_pc;
+    }
+    generic_hash_add(GLOBAL_DCONTEXT, htable, key, payload);
+    TABLE_RWLOCK(htable, write, unlock);
+    return payload;
+}
+
 void
 native_module_init(void)
 {
@@ -557,10 +660,7 @@ native_module_init(void)
                                       true /* locked */,
                                       true /* exectable */,
                                       true /* persistent */);
-    native_ret_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_HTABLE_SIZE_NERET,
-                                           50 /* load factor: perf-critical */,
-                                           HASHTABLE_SHARED,
-                                           NULL _IF_DEBUG("neret table"));
+    native_module_htable_init();
 }
 
 void
@@ -571,16 +671,12 @@ native_module_exit(void)
      */
     module_iterator_t *mi;
     module_area_t *ma;
-    int iter;
-    void *stub_pc;
-    ptr_uint_t key;
 
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
          ma = module_iterator_next(mi);
-         if (vmvector_overlap(native_exec_areas, ma->start, ma->end)) {
+         if (vmvector_overlap(native_exec_areas, ma->start, ma->end))
              native_module_unhook(ma);
-         }
     }
     module_iterator_stop(mi);
 
@@ -591,30 +687,19 @@ native_module_exit(void)
     }
 #endif
 
+    /* free entries in plt_stub_heap */
+    native_module_htable_exit(native_mbr_table, plt_stub_heap);
+    native_mbr_table = NULL;
+    /* destroy plt_stub_heap */
     if (plt_stub_heap != NULL) {
         special_heap_exit(plt_stub_heap);
         plt_stub_heap = NULL;
     }
 
     /* free ret_stub_heap */
-    if (native_ret_table != NULL) {
-        TABLE_RWLOCK(native_ret_table, write, lock);
-        iter = 0;
-        do {
-            iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, native_ret_table,
-                                             iter, &key, &stub_pc);
-            if (iter < 0)
-                break;
-            /* remove from hashtable */
-            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, native_ret_table,
-                                               iter, key);
-            /* free stub from special heap */
-            special_heap_free(ret_stub_heap, stub_pc);
-        } while (true);
-        TABLE_RWLOCK(native_ret_table, write, unlock);
-        generic_hash_destroy(GLOBAL_DCONTEXT, native_ret_table);
-        native_ret_table = NULL;
-    }
+    native_module_htable_exit(native_ret_table, ret_stub_heap);
+    native_ret_table = NULL;
+    /* destroy ret_stub_heap */
     if (ret_stub_heap != NULL) {
         special_heap_exit(ret_stub_heap);
         ret_stub_heap = NULL;
@@ -625,43 +710,10 @@ native_module_exit(void)
 void
 native_module_nonnative_mod_unload(module_area_t *ma)
 {
-    int iter;
-    app_pc stub_pc, pc;
     ASSERT(DYNAMO_OPTION(native_exec_retakeover) &&
            DYNAMO_OPTION(native_exec_opt));
-    TABLE_RWLOCK(native_ret_table, write, lock);
-    iter = 0;
-    do {
-        bool remove = false;
-        os_module_data_t *os_data;
-        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, native_ret_table, iter,
-                                         (ptr_uint_t *)&pc,
-                                         (void **)&stub_pc);
-        if (iter < 0)
-            break;
-        if (pc < ma->start || pc >= ma->end)
-            continue;
-        os_data = &ma->os_data;
-        if (os_data->contiguous)
-            remove = true;
-        else {
-            int i;
-            for (i = 0; i < os_data->num_segments; i++) {
-                if (pc >= os_data->segments[i].start &&
-                    pc <  os_data->segments[i].end) {
-                    remove = true;
-                    break;
-                }
-            }
-        }
-        /* remove from hashtable */
-        if (remove) {
-            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, native_ret_table,
-                                               iter, (ptr_uint_t)pc);
-            special_heap_free(ret_stub_heap, pc);
-        }
-    } while (true);
-    TABLE_RWLOCK(native_ret_table, write, unlock);
+    native_module_htable_module_unload(ma, native_ret_table, ret_stub_heap);
+    native_module_htable_module_unload(ma, native_mbr_table, plt_stub_heap);
 }
 
 /* We create a ret_stub for each return target of the call site from non-native
@@ -694,19 +746,26 @@ special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
     pc = instrlist_encode(dcontext, &ilist, stub_pc, false);
     instrlist_clear(dcontext, &ilist);
 
-    TABLE_RWLOCK(native_ret_table, write, lock);
-    /* lookup again */
-    pc = (app_pc) generic_hash_lookup(GLOBAL_DCONTEXT, native_ret_table, (ptr_uint_t)tgt);
-    if (pc != NULL) {
-        TABLE_RWLOCK(native_ret_table, write, unlock);
-        /* we found one, delete current one, and return the one we found */
-        special_heap_free(ret_stub_heap, stub_pc);
-        return pc;
-    }
-    generic_hash_add(GLOBAL_DCONTEXT, native_ret_table, (ptr_uint_t)tgt, (void *)stub_pc);
-    TABLE_RWLOCK(native_ret_table, write, unlock);
-    return stub_pc;
+    return (app_pc )native_module_htable_add(native_ret_table,
+                                             ret_stub_heap,
+                                             (ptr_uint_t) tgt,
+                                             (void *) stub_pc);
 }
+
+#ifdef DR_APP_EXPORTS
+DR_APP_API void *
+dr_app_handle_mbr_target(void *target)
+{
+    void *stub;
+    if (!DYNAMO_OPTION(native_exec) || !DYNAMO_OPTION(native_exec_retakeover))
+        return target;
+    if (is_native_pc(target))
+        return target;
+    stub = create_plt_stub(target);
+    return native_module_htable_add(native_mbr_table, plt_stub_heap,
+                                    (ptr_uint_t) target, stub);
+}
+#endif /* DR_APP_EXPORTS */
 
 /* get (create if not exist) a ret_stub for the return target: tgt */
 app_pc

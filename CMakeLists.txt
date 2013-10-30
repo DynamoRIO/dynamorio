@@ -1197,14 +1197,14 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   # set VERSION_NUMBER_INTEGER in dr_api.h
   configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
     ${BUILD_INCLUDE}/dr_api.h)
+  set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
-    DEPENDS ${BUILD_INCLUDE}/dr_app.h
-            ${BUILD_INCLUDE}/dr_api.h)
+    DEPENDS ${EXTRA_HEADERS})
   file(MAKE_DIRECTORY ${BUILD_INCLUDE})
   # technically only the headers in the genapi.pl list
   file(GLOB header_files core/*.h core/*/*.h libutil/*.h core/hotpatch.c ext/*/*.h)
   add_custom_command(
-    OUTPUT ${BUILD_INCLUDE}/dr_app.h # among other files
+    OUTPUT ${EXTRA_HEADERS} # among other files
     DEPENDS ${PROJECT_SOURCE_DIR}/core/lib/genapi.pl
             ${header_files}
     COMMAND ${PERL_EXECUTABLE}

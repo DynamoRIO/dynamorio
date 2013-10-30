@@ -43,13 +43,15 @@ typedef void (*int_fn_t)(int);
 typedef int (*int2_fn_t)(int, int);
 typedef void (*tail_caller_t)(int_fn_t, int);
 
-/* from nativeexec.dll.dll */
+/* from nativeexec.appdll.dll */
 IMPORT void import_me1(int x);
 IMPORT void import_me2(int x);
 IMPORT void import_me3(int x);
 IMPORT void import_me4(int_fn_t fn, int x);
 IMPORT int import_ret_imm(int x, int y);
+#if 0
 IMPORT void *tail_caller(int_fn_t, int);
+#endif
 
 /* Test unwinding across back_from_native retaddrs. */
 IMPORT void unwind_level1(int_fn_t fn, int x);
@@ -152,7 +154,7 @@ main(int argc, char **argv)
      *    % make win32/nativeexec.runinjector
      *    PASS
      *    % make DEBUG=yes win32/nativeexec.runinjector
-     *    > <CURIOSITY : false && "inside native_exec dll" in file x86/interp.c line 1967
+     *    <CURIOSITY : false && "inside native_exec dll" in file x86/interp.c:1967
      */
 
     print("calling via funky ind call\n");
@@ -168,11 +170,15 @@ main(int argc, char **argv)
     x = call_ret_imm(import_ret_imm);
     print(" -> %d\n", x);
 
-    /* i#1077: If the appdll is native, then DR inserts a back_from_native
-     * retaddr.  The appdll then does a tail call
+#if 0
+    /* i#1077: If the appdll is native, DR will lose control in tail_caller's
+     * asm code "jmp $xax". DR may gain control back from the mangled retaddr,
+     * but unless we can mangle the $xax, DR still loses control, so disable
+     * it for now.
      */
     print("calling tail caller\n");
     tail_caller(print_int, 35);
+#endif
 
     print("calling loop_test\n");
     loop_test();

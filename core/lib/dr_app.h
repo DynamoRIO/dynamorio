@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -117,4 +118,21 @@ DR_APP_API int dr_app_setup_and_start(void);
  */
 DR_APP_API bool
 dr_app_running_under_dynamorio(void);
+
+#ifdef UNIX
+/**
+ * DynamoRIO's (experimental) native execution mode supports running
+ * some modules natively while the others run under DynamoRIO.
+ * When a module is running natively, it may jump to a module that should be
+ * executed under DynamoRIO directly without going through DynamoRIO.
+ * To handle this situation, the application code should call this routine and
+ * use the returned stub pc as the branch target instead.
+ * \note Linux only.
+ * \note Native execution mode only.
+ * \note Experimental support.
+ */
+DR_APP_API void *
+dr_app_handle_mbr_target(void *target);
+#endif /* UNIX */
+
 #endif /* _DR_APP_H_ */
