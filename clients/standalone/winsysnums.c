@@ -43,7 +43,11 @@
 /* Uses the DR CLIENT_INTERFACE API, using DR as a standalone library, rather than
  * being a client library working with DR on a target program.
  *
- * To build, use cmake.  Something like:
+ * To build, use cmake.  Build as 64-bit (no reason to build a 32-bit version
+ * as it won't be able to analyze 64-bit dlls, while a 64-bit build can analyze
+ * 32-bit dlls).
+ * Something like:
+ *   % x64
  *   % mkdir ~/dr/git/build_winsysnums
  *   % cd !$
  *   % cmake -DDynamoRIO_DIR=e:/src/dr/git/exports/cmake ../src/clients/standalone
@@ -111,7 +115,8 @@ print(char *fmt, ...)
     va_end(ap);
 }
 
-#define MAX_INSTRS_BEFORE_SYSCALL 16
+/* We do see a large number of nops occasionally (e.g., DrMem i#1366) */
+#define MAX_INSTRS_BEFORE_SYSCALL 32
 #define MAX_INSTRS_IN_FUNCTION 256
 
 typedef struct {
@@ -278,10 +283,12 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
                 byte *tgt;
                 assert(opnd_is_pc(instr_get_target(instr)));
                 tgt = opnd_get_pc(instr_get_target(instr));
-                /* we expect only ret or ret imm, and possibly some nops (in gdi32).
+                /* We expect only ret or ret imm, and possibly some nops (in gdi32).
+                 * There can be quite a few nops (DrMem i#1366) so we allow up
+                 * to 0x40 away.
                  * XXX: what about jmp to shared ret (seen in the past on some syscalls)?
                  */
-                if (tgt > pc && tgt <= pc + 16) {
+                if (tgt > pc && tgt <= pc + 0x40) {
                     bool ok = false;
                     do {
                         if (pc == tgt) {
