@@ -949,7 +949,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpmovsxbw     */  &vex_extensions[ 4][1],
     /* OP_vpmovsxbd     */  &vex_extensions[ 5][1],
     /* OP_vpmovsxbq     */  &vex_extensions[ 6][1],
-    /* OP_vpmovsxdw     */  &vex_extensions[ 7][1],
+    /* OP_vpmovsxwd     */  &vex_extensions[ 7][1],
     /* OP_vpmovsxwq     */  &vex_extensions[ 8][1],
     /* OP_vpmovsxdq     */  &vex_extensions[ 9][1],
     /* OP_vpmuldq       */  &vex_extensions[10][1],
@@ -959,7 +959,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpmovzxbw     */  &vex_extensions[14][1],
     /* OP_vpmovzxbd     */  &vex_extensions[15][1],
     /* OP_vpmovzxbq     */  &vex_extensions[16][1],
-    /* OP_vpmovzxdw     */  &vex_extensions[17][1],
+    /* OP_vpmovzxwd     */  &vex_extensions[17][1],
     /* OP_vpmovzxwq     */  &vex_extensions[18][1],
     /* OP_vpmovzxdq     */  &vex_extensions[19][1],
     /* OP_vpcmpgtq      */  &vex_extensions[20][1],
@@ -4023,7 +4023,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vpmovsxbq,0x66382218, "vpmovsxbq", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext  7 */
     {OP_pmovsxdw, 0x66382318, "pmovsxwd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmovsxdw,0x66382318, "vpmovsxwd", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_vpmovsxwd,0x66382318, "vpmovsxwd", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext  8 */
     {OP_pmovsxwq, 0x66382418, "pmovsxwq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovsxwq,0x66382418, "vpmovsxwq", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
@@ -4053,7 +4053,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vpmovzxbq,0x66383218, "vpmovzxbq", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 17 */
     {OP_pmovzxdw, 0x66383318, "pmovzxwd", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
-    {OP_vpmovzxdw,0x66383318, "vpmovzxwd", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_vpmovzxwd,0x66383318, "vpmovzxwd", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 18 */
     {OP_pmovzxwq, 0x66383418, "pmovzxwq", Vdq, xx, Wdq, xx, xx, mrm|reqp, x, END_LIST},
     {OP_vpmovzxwq,0x66383418, "vpmovzxwq", Vdq, xx, Wdq, xx, xx, mrm|vex|reqp, x, END_LIST},

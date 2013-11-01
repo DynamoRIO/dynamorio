@@ -4790,7 +4790,7 @@ enum {
 /* 821 */     OP_vpmovsxbw,      /* &vex_extensions[ 4][1], */ /**< vpmovsxbw opcode */
 /* 822 */     OP_vpmovsxbd,      /* &vex_extensions[ 5][1], */ /**< vpmovsxbd opcode */
 /* 823 */     OP_vpmovsxbq,      /* &vex_extensions[ 6][1], */ /**< vpmovsxbq opcode */
-/* 824 */     OP_vpmovsxdw,      /* &vex_extensions[ 7][1], */ /**< vpmovsxdw opcode */
+/* 824 */     OP_vpmovsxwd,      /* &vex_extensions[ 7][1], */ /**< vpmovsxwd opcode */
 /* 825 */     OP_vpmovsxwq,      /* &vex_extensions[ 8][1], */ /**< vpmovsxwq opcode */
 /* 826 */     OP_vpmovsxdq,      /* &vex_extensions[ 9][1], */ /**< vpmovsxdq opcode */
 /* 827 */     OP_vpmuldq,        /* &vex_extensions[10][1], */ /**< vpmuldq opcode */
@@ -4800,7 +4800,7 @@ enum {
 /* 831 */     OP_vpmovzxbw,      /* &vex_extensions[14][1], */ /**< vpmovzxbw opcode */
 /* 832 */     OP_vpmovzxbd,      /* &vex_extensions[15][1], */ /**< vpmovzxbd opcode */
 /* 833 */     OP_vpmovzxbq,      /* &vex_extensions[16][1], */ /**< vpmovzxbq opcode */
-/* 834 */     OP_vpmovzxdw,      /* &vex_extensions[17][1], */ /**< vpmovzxdw opcode */
+/* 834 */     OP_vpmovzxwd,      /* &vex_extensions[17][1], */ /**< vpmovzxwd opcode */
 /* 835 */     OP_vpmovzxwq,      /* &vex_extensions[18][1], */ /**< vpmovzxwq opcode */
 /* 836 */     OP_vpmovzxdq,      /* &vex_extensions[19][1], */ /**< vpmovzxdq opcode */
 /* 837 */     OP_vpcmpgtq,       /* &vex_extensions[20][1], */ /**< vpcmpgtq opcode */

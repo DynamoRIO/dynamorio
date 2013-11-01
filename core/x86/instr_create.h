@@ -1175,8 +1175,8 @@
   instr_create_1dst_1src((dc), OP_vpmovsxbd, (d), (s))
 #define INSTR_CREATE_vpmovsxbq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovsxbq, (d), (s))
-#define INSTR_CREATE_vpmovsxdw(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_vpmovsxdw, (d), (s))
+#define INSTR_CREATE_vpmovsxwd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpmovsxwd, (d), (s))
 #define INSTR_CREATE_vpmovsxwq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovsxwq, (d), (s))
 #define INSTR_CREATE_vpmovsxdq(dc, d, s) \
@@ -1189,8 +1189,8 @@
   instr_create_1dst_1src((dc), OP_vpmovzxbd, (d), (s))
 #define INSTR_CREATE_vpmovzxbq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovzxbq, (d), (s))
-#define INSTR_CREATE_vpmovzxdw(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_vpmovzxdw, (d), (s))
+#define INSTR_CREATE_vpmovzxwd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vpmovzxwd, (d), (s))
 #define INSTR_CREATE_vpmovzxwq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vpmovzxwq, (d), (s))
 #define INSTR_CREATE_vpmovzxdq(dc, d, s) \
