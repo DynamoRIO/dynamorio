@@ -754,6 +754,17 @@
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction, which
+ * must be a general-purpose register.
+ */
+#define INSTR_CREATE_rdrand(dc, d) \
+  instr_create_1dst_0src((dc), OP_rdrand, (d))
+#define INSTR_CREATE_rdseed(dc, d) \
+  instr_create_1dst_0src((dc), OP_rdseed, (d))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_sgdt() to get the appropriate operand size.
  */

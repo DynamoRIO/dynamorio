@@ -62,7 +62,7 @@ This section is divided into the following subsections:
 The following are part of the DynamoRIO release distribution:
 
 \if profiling
-  FIXME PR 225255: profile library too
+  PR 225255: list profile library too
 \endif
 
  - Four different DynamoRIO libraries: debug and release for each of
@@ -122,6 +122,7 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added dr_syscall_intercept_natively()
  - Added proc_avx_enabled()
  - Added dr_app_running_under_dynamorio()
+ - Added support for newer IA-32/AMD64 instructions: rdrand
  - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework
 
 **************************************************

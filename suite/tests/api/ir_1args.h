@@ -148,6 +148,8 @@ OPCODE(fsubp, fsubp, fsubp, 0, REGARG(ST0))
 OPCODE(fsubrp, fsubrp, fsubrp, 0, REGARG(ST0))
 OPCODE(fxch, fxch, fxch, 0, REGARG(ST0))
 OPCODE(ffreep, ffreep, ffreep, 0, REGARG(ST0))
+OPCODE(rdrand, rdrand, rdrand, 0, REGARG(ESI))
+OPCODE(rdseed, rdseed, rdseed, 0, REGARG(EDI))
 
 /****************************************************************************/
 /* single pc/instr argument */

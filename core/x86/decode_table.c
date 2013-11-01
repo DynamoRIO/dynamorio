@@ -54,8 +54,10 @@
  * flags written are encoded.
  *
  * XXX: some day it may be worth adding flags indicating which instrs
- * are valid on which models of which processors: for now though we do
- * not rely on being able to predict which instrs are invalid.
+ * are valid on which models of which processors (probably best to just add
+ * which cpuid flag must be set for the instr to be supported): for
+ * now though we do not rely on being able to predict which instrs are
+ * invalid.
  */
 
 /****************************************************************************
@@ -711,7 +713,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vmlaunch      */   &rm_extensions[0][2],
     /* OP_vmresume      */   &rm_extensions[0][3],
     /* OP_vmxoff        */   &rm_extensions[0][4],
-    /* OP_vmptrst       */   &extensions[16][7],
+    /* OP_vmptrst       */   &mod_extensions[13][0],
     /* OP_vmptrld       */   &prefix_extensions[137][0],
     /* OP_vmxon         */   &prefix_extensions[137][1],
     /* OP_vmclear       */   &prefix_extensions[137][2],
@@ -1014,6 +1016,8 @@ const instr_info_t * const op_instr[] =
     /* OP_vperm2f128    */  &vex_extensions[73][1],
     /* OP_vinsertf128   */  &vex_extensions[74][1],
     /* OP_vextractf128  */  &vex_L_extensions[3][2],
+
+    /* added in Ivy Bridge I believe, and covered by F16C cpuid flag */
     /* OP_vcvtph2ps     */  &vex_extensions[63][1],
     /* OP_vcvtps2ph     */  &vex_extensions[76][1],
 
@@ -1088,6 +1092,12 @@ const instr_info_t * const op_instr[] =
     /* OP_xrstor64      */   &rex_w_extensions[3][1],
     /* OP_xsaveopt64    */   &rex_w_extensions[4][1],
 
+    /* added in Intel Ivy Bridge: RDRAND cpuid */
+    /* OP_rdrand        */   &mod_extensions[12][1],
+
+    /* coming in the future but adding now since enough details are known */
+    /* OP_rdseed        */   &mod_extensions[13][1],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1145,6 +1155,7 @@ const instr_info_t * const op_instr[] =
 #define Qq  TYPE_Q, OPSZ_8
 #define Qpi TYPE_Q, OPSZ_8
 #define Rr  TYPE_R, OPSZ_4x8
+#define Rv  TYPE_R, OPSZ_4_rex8_short2
 #define Sw  TYPE_S, OPSZ_2
 #define Vq  TYPE_V, OPSZ_8
 #define Vdq TYPE_V, OPSZ_16
@@ -2279,8 +2290,8 @@ const instr_info_t extensions[][8] = {
     {INVALID, 0x0fc733, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc734, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x0fc735, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {PREFIX_EXT, 0x0fc736, "(prefix ext 137)", xx, xx, xx, xx, xx, no, x, 137},
-    {OP_vmptrst, 0x0fc737, "vmptrst", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
+    {MOD_EXT, 0x0fc736, "(group 9 mod ext 12)", xx, xx, xx, xx, xx, mrm, x, 12},
+    {MOD_EXT, 0x0fc737, "(mod ext 13)", xx, xx, xx, xx, xx, mrm, x, 13},
   },
   /* group 10 is all ud2b and is not used by us since identical */
   /* group 11a (first byte c6) */
@@ -4288,6 +4299,17 @@ const instr_info_t mod_extensions[][2] = {
     {OP_vmovsd,  0xf20f1110, "vmovsd",  Wsd, xx, Vsd,  xx, xx, mrm|vex, x, modx[ 9][1]},
     {OP_vmovsd,  0xf20f1110, "vmovsd",  Usd, xx, Hsd, Vsd, xx, mrm|vex, x, END_LIST},
   },
+  { /* mod extension 12 */
+    {PREFIX_EXT, 0x0fc736, "(prefix ext 137)", xx, xx, xx, xx, xx, no, x, 137},
+    {OP_rdrand,  0x0fc736, "rdrand", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+  },
+  { /* mod extension 13 */
+    /* The latest Intel table implies 0x66 prefix makes invalid instr but not worth
+     * explicitly encoding that until we have more information.
+     */
+    {OP_vmptrst, 0x0fc737, "vmptrst", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
+    {OP_rdseed,  0x0fc737, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+  },
 };
 
 /* Naturally all of these have modrm bytes even if they have no explicit operands */
@@ -4496,7 +4518,7 @@ const instr_info_t rex_w_extensions[][2] = {
  * 3-byte-opcode instructions: 0x0f 0x38 and 0x0f 0x3a.
  * SSSE3 and SSE4.
  *
- * FIXME: if they add more 2nd byte possibilities, we could switch to one
+ * XXX: if they add more 2nd byte possibilities, we could switch to one
  * large table here and one extension type with indices into which subtable.
  * For now we have two separate tables.
  *

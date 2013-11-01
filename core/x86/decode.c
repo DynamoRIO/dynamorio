@@ -677,6 +677,49 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
     return pc;
 }
 
+/* Given an instr_info_t PREFIX_EXT entry, reads the next entry based on the prefixes */
+static inline const instr_info_t *
+read_prefix_ext(const instr_info_t *info, decode_info_t *di)
+{
+    /* discard old info, get new one */
+    int code = (int) info->code;
+    int idx = (di->rep_prefix?1 :(di->data_prefix?2 :(di->repne_prefix?3 :0)));
+    if (di->vex_encoded)
+        idx += 4;
+    info = &prefix_extensions[code][idx];
+    if (info->type == INVALID && !DYNAMO_OPTION(decode_strict)) {
+        /* i#1118: some of these seem to not be invalid with
+         * prefixes that land in blank slots in the decode tables.
+         * Though it seems to only be btc, bsf, and bsr (the SSE*
+         * instrs really do seem invalid when given unlisted prefixes),
+         * we'd rather err on the side of treating as valid, which is
+         * after all what gdb and dumpbin list.  Even if these
+         * fault when executed, we know the length, so there's no
+         * downside to listing as valid, for DR anyway.
+         * Users of drdecodelib may want to be more aggressive: hence the
+         * -decode_strict option.
+         */
+        /* Take the base entry w/o prefixes and keep the prefixes */
+        info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
+    } else if (di->rep_prefix)
+        di->rep_prefix = false;
+    else if (di->repne_prefix)
+        di->repne_prefix = false;
+    if (di->data_prefix &&
+        /* Don't remove it if the entry doesn't list 0x66:
+         * e.g., OP_bsr (i#1118).
+         */
+        (info->opcode >> 24) == PREFIX_DATA)
+        di->data_prefix = false;
+    if (info->type == REX_B_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
+        info = &rex_b_extensions[code][idx];
+    }
+    return info;
+}
+
 /* Disassembles the instruction at pc into the data structures ret_info
  * and di.  Does NOT set or read di->len.
  * Returns a pointer to the pc of the next instruction.
@@ -857,41 +900,7 @@ read_instruction(byte *pc, byte *orig_pc,
     /* can occur AFTER above checks (EXTENSION, in particular */
     if (info->type == PREFIX_EXT) {
         /* discard old info, get new one */
-        int code = (int) info->code;
-        int idx = (di->rep_prefix?1 :(di->data_prefix?2 :(di->repne_prefix?3 :0)));
-        if (di->vex_encoded)
-            idx += 4;
-        info = &prefix_extensions[code][idx];
-        if (info->type == INVALID && !DYNAMO_OPTION(decode_strict)) {
-            /* i#1118: some of these seem to not be invalid with
-             * prefixes that land in blank slots in the decode tables.
-             * Though it seems to only be btc, bsf, and bsr (the SSE*
-             * instrs really do seem invalid when given unlisted prefixes),
-             * we'd rather err on the side of treating as valid, which is
-             * after all what gdb and dumpbin list.  Even if these
-             * fault when executed, we know the length, so there's no
-             * downside to listing as valid, for DR anyway.
-             * Users of drdecodelib may want to be more aggressive: hence the
-             * -decode_strict option.
-             */
-            /* Take the base entry w/o prefixes and keep the prefixes */
-            info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
-        } else if (di->rep_prefix)
-            di->rep_prefix = false;
-        else if (di->repne_prefix)
-            di->repne_prefix = false;
-        if (di->data_prefix &&
-            /* Don't remove it if the entry doesn't list 0x66:
-             * e.g., OP_bsr (i#1118).
-             */
-            (info->opcode >> 24) == PREFIX_DATA)
-            di->data_prefix = false;
-        if (info->type == REX_B_EXT) {
-            /* discard old info, get new one */
-            int code = (int) info->code;
-            int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
-            info = &rex_b_extensions[code][idx];
-        }
+        info = read_prefix_ext(info, di);
     }
     else if (info->type == VEX_EXT) {
         /* discard old info, get new one */
@@ -908,6 +917,10 @@ read_instruction(byte *pc, byte *orig_pc,
          */
         if (info->type == RM_EXT) {
             info = &rm_extensions[info->code][di->rm];
+        }
+        /* We have to support prefix before mod, and mod before prefix */
+        if (info->type == PREFIX_EXT) {
+            info = read_prefix_ext(info, di);
         }
     }
     else if (info->type == VEX_L_EXT) {

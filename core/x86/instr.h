@@ -4554,7 +4554,7 @@ enum {
 /* 600 */     OP_vmlaunch,       /* &rm_extensions[0][2], */ /**< vmlaunch opcode */
 /* 601 */     OP_vmresume,       /* &rm_extensions[0][3], */ /**< vmresume opcode */
 /* 602 */     OP_vmxoff,         /* &rm_extensions[0][4], */ /**< vmxoff opcode */
-/* 603 */     OP_vmptrst,        /* &extensions[16][7], */ /**< vmptrst opcode */
+/* 603 */     OP_vmptrst,        /* &mod_extensions[13][0], */ /**< vmptrst opcode */
 /* 604 */     OP_vmptrld,        /* &prefix_extensions[137][0], */ /**< vmptrld opcode */
 /* 605 */     OP_vmxon,          /* &prefix_extensions[137][1], */ /**< vmxon opcode */
 /* 606 */     OP_vmclear,        /* &prefix_extensions[137][2], */ /**< vmclear opcode */
@@ -4857,6 +4857,8 @@ enum {
 /* 888 */     OP_vperm2f128,     /* &vex_extensions[73][1], */ /**< vperm2f128 opcode */
 /* 889 */     OP_vinsertf128,    /* &vex_extensions[74][1], */ /**< vinsertf128 opcode */
 /* 890 */     OP_vextractf128,   /* &vex_L_extensions[3][2], */ /**< vextractf128 opcode */
+
+    /* added in Ivy Bridge I believe, and covered by F16C cpuid flag */
 /* 891 */     OP_vcvtph2ps,      /* &vex_extensions[63][1], */ /**< vcvtph2ps opcode */
 /* 892 */     OP_vcvtps2ph,      /* &vex_extensions[76][1], */ /**< vcvtps2ph opcode */
 
@@ -4931,10 +4933,16 @@ enum {
 /* 958 */     OP_xrstor64,       /* &rex_w_extensions[3][1], */ /**< xrstor64 opcode */
 /* 959 */     OP_xsaveopt64,     /* &rex_w_extensions[4][1], */ /**< xsaveopt64 opcode */
 
+    /* added in Intel Ivy Bridge: RDRAND and FSGSBASE cpuid flags */
+/* 960 */     OP_rdrand,         /* &mod_extensions[12][1], */ /**< rdrand opcode */
+
+    /* coming in the future but adding now since enough details are known */
+/* 961 */     OP_rdseed,         /* &mod_extensions[13][1], */ /**< rdseed opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 960 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 961 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 962 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 963 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,
