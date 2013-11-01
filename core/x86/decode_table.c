@@ -4116,7 +4116,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vpextrw,  0x663a1518, "vpextrw", Rd_Mw, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 38 */
     {OP_pextrd,   0x663a1618, "pextrd",  Ed_q, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},/*"pextrq" with rex.w*/
-    {OP_vpextrd,  0x663a1618, "vpextrd",  Ed_q, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_vpextrd,  0x663a1618, "vpextrd",  Ed_q, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},/*"vpextrq" with rex.w*/
   }, { /* vex ext 39 */
     {OP_extractps, 0x663a1718, "extractps", Ed, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vextractps,0x663a1718, "vextractps", Ed, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
@@ -4151,7 +4151,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vinsertps,0x663a2118, "vinsertps", Vdq,xx,Hdq,Udq_Md,Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 49 */
     {OP_pinsrd,   0x663a2218, "pinsrd",   Vdq, xx, Ed_q,Ib, xx, mrm|reqp, x, END_LIST},/*"pinsrq" with rex.w*/
-    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, Hdq, Ed_q, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, Hdq, Ed_q, Ib, mrm|vex|reqp, x, END_LIST},/*"vpinsrq" with rex.w*/
   }, { /* vex ext 50 */
     {OP_dpps,     0x663a4018, "dpps",     Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vdpps,    0x663a4018, "vdpps",     Vvdq, xx, Hvdq, Wvdq, Ib, mrm|vex|reqp, x, END_LIST},

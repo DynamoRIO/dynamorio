@@ -4964,6 +4964,9 @@ enum {
  *   fstsw, fstcw, fstenv, finit, fclex
  * for us that has to be a sequence of instructions: a separate fwait
  */
+/* XXX i#1307: we could add extra decode table layers to print the proper name
+ * when we disassemble these, but it's not clear it's worth the effort.
+ */
 /* 16-bit versions that have different names */
 #define OP_cbw        OP_cwde /**< Alternative opcode name for 16-bit version. */
 #define OP_cwd        OP_cdq /**< Alternative opcode name for 16-bit version. */
@@ -4973,9 +4976,13 @@ enum {
 #define OP_cmpxchg16b OP_cmpxchg8b /**< Alternative opcode name for 64-bit version. */
 #define OP_pextrq     OP_pextrd    /**< Alternative opcode name for 64-bit version. */
 #define OP_pinsrq     OP_pinsrd    /**< Alternative opcode name for 64-bit version. */
+#define OP_vpextrq     OP_vpextrd    /**< Alternative opcode name for 64-bit version. */
+#define OP_vpinsrq     OP_vpinsrd    /**< Alternative opcode name for 64-bit version. */
 /* reg-reg version has different name */
 #define OP_movhlps    OP_movlps /**< Alternative opcode name for reg-reg version. */
 #define OP_movlhps    OP_movhps /**< Alternative opcode name for reg-reg version. */
+#define OP_vmovhlps    OP_vmovlps /**< Alternative opcode name for reg-reg version. */
+#define OP_vmovlhps    OP_vmovhps /**< Alternative opcode name for reg-reg version. */
 /* condition codes */
 #define OP_jae_short  OP_jnb_short  /**< Alternative opcode name. */
 #define OP_jnae_short OP_jb_short   /**< Alternative opcode name. */
