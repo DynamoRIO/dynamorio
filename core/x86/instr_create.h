@@ -2847,6 +2847,59 @@
   instr_create_1dst_3src((dc), OP_vfnmsub231sd, (d), (s1), (s2), (d))
 /* @} */ /* end doxygen group */
 
+/** @name 1 explicit destination, 3 explicit sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction.
+ * \param s2 The opnd_t explicit second source operand for the instruction.
+ * \param s3 The opnd_t explicit third source operand for the instruction.
+ */
+/* FMA4 */
+#define INSTR_CREATE_vfmaddsubps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddsubps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmaddsubpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddsubpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubaddps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubaddps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubaddpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubaddpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmaddps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmaddpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmaddss(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddss, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmaddsd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmaddsd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubss(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubss, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfmsubsd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfmsubsd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmaddps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmaddps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmaddpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmaddpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmaddss(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmaddss, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmaddsd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmaddsd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmsubps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmsubps, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmsubpd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmsubpd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmsubss(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmsubss, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vfnmsubsd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vfnmsubsd, (d), (s1), (s2), (s3))
+
 /** @name 1 destination, 3 sources where 2 are implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**

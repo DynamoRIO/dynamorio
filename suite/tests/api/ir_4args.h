@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -110,3 +110,109 @@ OPCODE(vperm2f128_256, vperm2f128, vperm2f128, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 OPCODE(vinsertf128_256, vinsertf128, vinsertf128, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+
+/****************************************************************************/
+/* FMA4 128 and 256*/
+OPCODE(vfmaddsubps_a, vfmaddsubps, vfmaddsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmaddsubps_b, vfmaddsubps, vfmaddsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmaddsubps_a_256, vfmaddsubps, vfmaddsubps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vfmaddsubps_b_256, vfmaddsubps, vfmaddsubps, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vfmaddsubpd_a, vfmaddsubpd, vfmaddsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmaddsubpd_b, vfmaddsubpd, vfmaddsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmaddsubpd_a_256, vfmaddsubpd, vfmaddsubpd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vfmaddsubpd_b_256, vfmaddsubpd, vfmaddsubpd, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vfmsubaddps_a, vfmsubaddps, vfmsubaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmsubaddps_b, vfmsubaddps, vfmsubaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmsubaddps_a_256, vfmsubaddps, vfmsubaddps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vfmsubaddps_b_256, vfmsubaddps, vfmsubaddps, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vfmsubaddpd_a, vfmsubaddpd, vfmsubaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmsubaddpd_b, vfmsubaddpd, vfmsubaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmsubaddpd_a_256, vfmsubaddpd, vfmsubaddpd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vfmsubaddpd_b_256, vfmsubaddpd, vfmsubaddpd, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vfmaddps_a, vfmaddps, vfmaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmaddps_b, vfmaddps, vfmaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmaddpd_a, vfmaddpd, vfmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmaddpd_b, vfmaddpd, vfmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmaddss_a, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfmaddss_b, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+OPCODE(vfmaddsd_a, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfmaddsd_b, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+
+OPCODE(vfmsubps_a, vfmsubps, vfmsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmsubps_b, vfmsubps, vfmsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmsubpd_a, vfmsubpd, vfmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfmsubpd_b, vfmsubpd, vfmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfmsubss_a, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfmsubss_b, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+OPCODE(vfmsubsd_a, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfmsubsd_b, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+
+OPCODE(vfnmaddps_a, vfnmaddps, vfnmaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfnmaddps_b, vfnmaddps, vfnmaddps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfnmaddpd_a, vfnmaddpd, vfnmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfnmaddpd_b, vfnmaddpd, vfnmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfnmaddss_a, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfnmaddss_b, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+OPCODE(vfnmaddsd_a, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfnmaddsd_b, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+
+OPCODE(vfnmsubps_a, vfnmsubps, vfnmsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfnmsubps_b, vfnmsubps, vfnmsubps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfnmsubpd_a, vfnmsubpd, vfnmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vfnmsubpd_b, vfnmsubpd, vfnmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vfnmsubss_a, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfnmsubss_b, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))
+OPCODE(vfnmsubsd_a, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_4), REGARG(XMM3))
+OPCODE(vfnmsubsd_b, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_4))

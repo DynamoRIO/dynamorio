@@ -4943,10 +4943,32 @@ enum {
     /* coming in the future but adding now since enough details are known */
 /* 965 */     OP_rdseed,         /* &mod_extensions[13][1], */ /**< rdseed opcode */
 
+    /* FMA4 */
+/* 966 */     OP_vfmaddsubps,    /* &vex_W_extensions[30][0], */ /**< vfmaddsubps opcode */
+/* 967 */     OP_vfmaddsubpd,    /* &vex_W_extensions[31][0], */ /**< vfmaddsubpd opcode */
+/* 968 */     OP_vfmsubaddps,    /* &vex_W_extensions[32][0], */ /**< vfmsubaddps opcode */
+/* 969 */     OP_vfmsubaddpd,    /* &vex_W_extensions[33][0], */ /**< vfmsubaddpd opcode */
+/* 970 */     OP_vfmaddps,       /* &vex_W_extensions[34][0], */ /**< vfmaddps opcode */
+/* 971 */     OP_vfmaddpd,       /* &vex_W_extensions[35][0], */ /**< vfmaddpd opcode */
+/* 972 */     OP_vfmaddss,       /* &vex_W_extensions[36][0], */ /**< vfmaddss opcode */
+/* 973 */     OP_vfmaddsd,       /* &vex_W_extensions[37][0], */ /**< vfmaddsd opcode */
+/* 974 */     OP_vfmsubps,       /* &vex_W_extensions[38][0], */ /**< vfmsubps opcode */
+/* 975 */     OP_vfmsubpd,       /* &vex_W_extensions[39][0], */ /**< vfmsubpd opcode */
+/* 976 */     OP_vfmsubss,       /* &vex_W_extensions[40][0], */ /**< vfmsubss opcode */
+/* 977 */     OP_vfmsubsd,       /* &vex_W_extensions[41][0], */ /**< vfmsubsd opcode */
+/* 978 */     OP_vfnmaddps,      /* &vex_W_extensions[42][0], */ /**< vfnmaddps opcode */
+/* 979 */     OP_vfnmaddpd,      /* &vex_W_extensions[43][0], */ /**< vfnmaddpd opcode */
+/* 980 */     OP_vfnmaddss,      /* &vex_W_extensions[44][0], */ /**< vfnmaddss opcode */
+/* 981 */     OP_vfnmaddsd,      /* &vex_W_extensions[45][0], */ /**< vfnmaddsd opcode */
+/* 982 */     OP_vfnmsubps,      /* &vex_W_extensions[46][0], */ /**< vfnmsubps opcode */
+/* 983 */     OP_vfnmsubpd,      /* &vex_W_extensions[47][0], */ /**< vfnmsubpd opcode */
+/* 984 */     OP_vfnmsubss,      /* &vex_W_extensions[48][0], */ /**< vfnmsubss opcode */
+/* 985 */     OP_vfnmsubsd,      /* &vex_W_extensions[49][0], */ /**< vfnmsubsd opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 966 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 967 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 986 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 987 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,
