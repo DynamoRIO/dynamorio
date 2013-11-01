@@ -645,7 +645,7 @@ const instr_info_t * const op_instr[] =
     /* OP_palignr       */   &prefix_extensions[133][0],
 
     /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
-    /* OP_popcnt        */   &prefix_extensions[140][1],
+    /* OP_popcnt        */   &second_byte[0xb8],
     /* OP_movntss       */   &prefix_extensions[11][1],
     /* OP_movntsd       */   &prefix_extensions[11][3],
     /* OP_extrq         */   &prefix_extensions[134][2],
@@ -1092,8 +1092,12 @@ const instr_info_t * const op_instr[] =
     /* OP_xrstor64      */   &rex_w_extensions[3][1],
     /* OP_xsaveopt64    */   &rex_w_extensions[4][1],
 
-    /* added in Intel Ivy Bridge: RDRAND cpuid */
+    /* added in Intel Ivy Bridge: RDRAND and FSGSBASE cpuid flags */
     /* OP_rdrand        */   &mod_extensions[12][1],
+    /* OP_rdfsbase      */   &mod_extensions[14][1],
+    /* OP_rdgsbase      */   &mod_extensions[15][1],
+    /* OP_wrfsbase      */   &mod_extensions[16][1],
+    /* OP_wrgsbase      */   &mod_extensions[17][1],
 
     /* coming in the future but adding now since enough details are known */
     /* OP_rdseed        */   &mod_extensions[13][1],
@@ -1156,6 +1160,7 @@ const instr_info_t * const op_instr[] =
 #define Qpi TYPE_Q, OPSZ_8
 #define Rr  TYPE_R, OPSZ_4x8
 #define Rv  TYPE_R, OPSZ_4_rex8_short2
+#define Ry  TYPE_R, OPSZ_4_rex8
 #define Sw  TYPE_S, OPSZ_2
 #define Vq  TYPE_V, OPSZ_8
 #define Vdq TYPE_V, OPSZ_16
@@ -2003,7 +2008,7 @@ const instr_info_t second_byte[] = {
   /* should be 0x0fb800? no! 01 signals to encoder is 2 byte instruction */
   {OP_jmpe_abs,  0x0fb810, "jmpe", xx, xx, Av, xx, xx, no, x, END_LIST}, 
 #else
-  {PREFIX_EXT, 0x0fb810, "(prefix ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
+  {OP_popcnt,0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
 #endif
   /* This is Group 10, but all identical (ud2b) so no reason to split opcode by /reg */
   {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -2353,10 +2358,10 @@ const instr_info_t extensions[][8] = {
   /* group 15 (first bytes 0f ae) */
   { /* extensions[22] */
     /* Intel tables imply they may add opcodes in the mod=3 (non-mem) space in future */
-    {REX_W_EXT,  0x0fae30, "(rex.w ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
-    {REX_W_EXT,  0x0fae31, "(rex.w ext 1)", xx, xx, xx, xx, xx, mrm, x, 1},
-    {VEX_EXT, 0x0fae32, "(vex ext 61)", xx, xx, xx, xx, xx, mrm, x, 61},
-    {VEX_EXT, 0x0fae33, "(vex ext 62)", xx, xx, xx, xx, xx, mrm, x, 62},
+    {MOD_EXT,    0x0fae30, "(group 15 mod ext 14)", xx, xx, xx, xx, xx, mrm, x, 14},
+    {MOD_EXT,    0x0fae31, "(group 15 mod ext 15)", xx, xx, xx, xx, xx, mrm, x, 15},
+    {MOD_EXT,    0x0fae32, "(group 15 mod ext 16)", xx, xx, xx, xx, xx, mrm, x, 16},
+    {MOD_EXT,    0x0fae33, "(group 15 mod ext 17)", xx, xx, xx, xx, xx, mrm, x, 17},
     {REX_W_EXT,  0x0fae34, "(rex.w ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
     {MOD_EXT,    0x0fae35, "(group 15 mod ext 6)", xx, xx, xx, xx, xx, no, x, 6},
     {MOD_EXT,    0x0fae36, "(group 15 mod ext 7)", xx, xx, xx, xx, xx, no, x, 7},
@@ -2420,6 +2425,10 @@ const instr_info_t extensions[][8] = {
  *   none, 0xf3, 0x66, 0xf2
  * A second set is used for vex-encoded instructions, indexed in the
  * same order by prefix.
+ *
+ * N.B.: to avoid having a full entry here when there is only one
+ * valid opcode prefix, use |reqp in the original entry instead of
+ * pointing to this table.
  */
 const instr_info_t prefix_extensions[][8] = {
   /* prefix extension 0 */
@@ -3983,16 +3992,6 @@ const instr_info_t prefix_extensions[][8] = {
      * But detail page doesn't corroborate that...
      */
   },
-  { /* prefix extension 140 */
-    {INVALID,    0x0fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {OP_popcnt,0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
-    {INVALID,  0x660fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,  0xf20fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,    0x0fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,  0xf30fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,  0x660fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,  0xf20fb810, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
-  },
 };
 
 /****************************************************************************
@@ -4309,6 +4308,25 @@ const instr_info_t mod_extensions[][2] = {
      */
     {OP_vmptrst, 0x0fc737, "vmptrst", Mq, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {OP_rdseed,  0x0fc737, "rdseed", Rv, xx, xx, xx, xx, mrm, fW6, END_LIST},
+  },
+  { /* mod extension 14 */
+    {REX_W_EXT,  0x0fae30, "(rex.w ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
+    /* Using reqp to avoid having to create a whole prefix_ext entry for one opcode.
+     * Ditto below.
+     */
+    {OP_rdfsbase,0xf30fae30, "rdfsbase", Ry, xx, xx, xx, xx, mrm|o64|reqp, x, END_LIST},
+  },
+  { /* mod extension 15 */
+    {REX_W_EXT,  0x0fae31, "(rex.w ext 1)", xx, xx, xx, xx, xx, mrm, x, 1},
+    {OP_rdgsbase,0xf30fae31, "rdgsbase", Ry, xx, xx, xx, xx, mrm|o64|reqp, x, END_LIST},
+  },
+  { /* mod extension 16 */
+    {VEX_EXT,    0x0fae32, "(vex ext 61)", xx, xx, xx, xx, xx, mrm, x, 61},
+    {OP_wrfsbase,0xf30fae32, "wrfsbase", xx, xx, Ry, xx, xx, mrm|o64|reqp, x, END_LIST},
+  },
+  { /* mod extension 17 */
+    {VEX_EXT,    0x0fae33, "(vex ext 62)", xx, xx, xx, xx, xx, mrm, x, 62},
+    {OP_wrgsbase,0xf30fae33, "wrgsbase", xx, xx, Ry, xx, xx, mrm|o64|reqp, x, END_LIST},
   },
 };
 

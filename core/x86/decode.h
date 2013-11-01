@@ -509,7 +509,7 @@ enum {
                     * accommodate by shifting to its short size, which is 1 byte). */
     OPSZ_4_short2, /**< Intel 'z': 4/2 bytes */
     OPSZ_4_rex8_short2, /**< Intel 'v': 8/4/2 bytes */
-    OPSZ_4_rex8,   /**< Intel 'd/q' (like 'v' but never 2 bytes). */
+    OPSZ_4_rex8,   /**< Intel 'd/q' (like 'v' but never 2 bytes) or 'y'. */
     OPSZ_6_irex10_short4, /**< Intel 'p': On Intel processors this is 10/6/4 bytes for
                            * segment selector + address.  On AMD processors this is
                            * 6/4 bytes for segment selector + address (rex is ignored). */

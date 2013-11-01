@@ -4486,7 +4486,7 @@ enum {
 /* 538 */     OP_palignr,        /* &prefix_extensions[133][0], */ /**< palignr opcode */
 
     /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
-/* 539 */     OP_popcnt,         /* &prefix_extensions[140][1], */ /**< popcnt opcode */
+/* 539 */     OP_popcnt,         /* &second_byte[0xb8], */ /**< popcnt opcode */
 /* 540 */     OP_movntss,        /* &prefix_extensions[11][1], */ /**< movntss opcode */
 /* 541 */     OP_movntsd,        /* &prefix_extensions[11][3], */ /**< movntsd opcode */
 /* 542 */     OP_extrq,          /* &prefix_extensions[134][2], */ /**< extrq opcode */
@@ -4935,14 +4935,18 @@ enum {
 
     /* added in Intel Ivy Bridge: RDRAND and FSGSBASE cpuid flags */
 /* 960 */     OP_rdrand,         /* &mod_extensions[12][1], */ /**< rdrand opcode */
+/* 961 */     OP_rdfsbase,       /* &mod_extensions[14][1], */ /**< rdfsbase opcode */
+/* 962 */     OP_rdgsbase,       /* &mod_extensions[15][1], */ /**< rdgsbase opcode */
+/* 963 */     OP_wrfsbase,       /* &mod_extensions[16][1], */ /**< wrfsbase opcode */
+/* 964 */     OP_wrgsbase,       /* &mod_extensions[17][1], */ /**< wrgsbase opcode */
 
     /* coming in the future but adding now since enough details are known */
-/* 961 */     OP_rdseed,         /* &mod_extensions[13][1], */ /**< rdseed opcode */
+/* 965 */     OP_rdseed,         /* &mod_extensions[13][1], */ /**< rdseed opcode */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 962 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 963 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 966 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 967 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

@@ -150,6 +150,10 @@ OPCODE(fxch, fxch, fxch, 0, REGARG(ST0))
 OPCODE(ffreep, ffreep, ffreep, 0, REGARG(ST0))
 OPCODE(rdrand, rdrand, rdrand, 0, REGARG(ESI))
 OPCODE(rdseed, rdseed, rdseed, 0, REGARG(EDI))
+OPCODE(rdfsbase, rdfsbase, rdfsbase, X64_ONLY, REGARG(EBX))
+OPCODE(rdgsbase, rdgsbase, rdgsbase, X64_ONLY, REGARG(EBX))
+OPCODE(wrfsbase, wrfsbase, wrfsbase, X64_ONLY, REGARG(EBX))
+OPCODE(wrgsbase, wrgsbase, wrgsbase, X64_ONLY, REGARG(EBX))
 
 /****************************************************************************/
 /* single pc/instr argument */

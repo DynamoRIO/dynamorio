@@ -348,6 +348,17 @@
 #define INSTR_CREATE_vmxon(dc, s) \
   instr_create_0dst_1src((dc), OP_vmxon, (s))
 /**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit second source operand for the instruction, which
+ * must be a general-purpose register.
+ */
+#define INSTR_CREATE_wrfsbase(dc, s) \
+  instr_create_0dst_1src((dc), OP_wrfsbase, (s))
+#define INSTR_CREATE_wrgsbase(dc, s) \
+  instr_create_0dst_1src((dc), OP_wrgsbase, (s))
+/**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
@@ -761,6 +772,10 @@
   instr_create_1dst_0src((dc), OP_rdrand, (d))
 #define INSTR_CREATE_rdseed(dc, d) \
   instr_create_1dst_0src((dc), OP_rdseed, (d))
+#define INSTR_CREATE_rdfsbase(dc, d) \
+  instr_create_1dst_0src((dc), OP_rdfsbase, (d))
+#define INSTR_CREATE_rdgsbase(dc, d) \
+  instr_create_1dst_0src((dc), OP_rdgsbase, (d))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.

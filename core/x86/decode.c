@@ -902,12 +902,6 @@ read_instruction(byte *pc, byte *orig_pc,
         /* discard old info, get new one */
         info = read_prefix_ext(info, di);
     }
-    else if (info->type == VEX_EXT) {
-        /* discard old info, get new one */
-        int code = (int) info->code;
-        int idx = (di->vex_encoded ? 1 : 0);
-        info = &vex_extensions[code][idx];
-    }
 
     /* can occur AFTER above checks (PREFIX_EXT, in particular) */
     if (info->type == MOD_EXT) {
@@ -923,12 +917,13 @@ read_instruction(byte *pc, byte *orig_pc,
             info = read_prefix_ext(info, di);
         }
     }
-    else if (info->type == VEX_L_EXT) {
+
+    /* can occur AFTER above checks (MOD_EXT, in particular) */
+    if (info->type == VEX_EXT) {
         /* discard old info, get new one */
         int code = (int) info->code;
-        int idx = (di->vex_encoded) ?
-            (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
-        info = &vex_L_extensions[code][idx];
+        int idx = (di->vex_encoded ? 1 : 0);
+        info = &vex_extensions[code][idx];
     }
 
     /* can occur AFTER above checks (MOD_EXT, in particular) */
@@ -937,6 +932,13 @@ read_instruction(byte *pc, byte *orig_pc,
         int code = (int) info->code;
         int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
         info = &rex_w_extensions[code][idx];
+    }
+    else if (info->type == VEX_L_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (di->vex_encoded) ?
+            (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
+        info = &vex_L_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {
