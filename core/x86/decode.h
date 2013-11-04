@@ -496,7 +496,7 @@ enum {
     OPSZ_8,  /**< Intel 'q','pi': 8 bytes */
     OPSZ_10, /**< Intel 's' 64-bit, or double extended precision floating point
               * (latter used by fld, fstp, fbld, fbstp) */
-    OPSZ_16, /**< Intel 'dq','ps','pd','ss','sd': 16 bytes */
+    OPSZ_16, /**< Intel 'dq','ps','pd','ss','sd', or AMD 'o': 16 bytes */
     OPSZ_14, /**< FPU operating environment with short data size (fldenv, fnstenv) */
     OPSZ_28, /**< FPU operating environment with normal data size (fldenv, fnstenv) */
     OPSZ_94,  /**< FPU state with short data size (fnsave, frstor) */
@@ -565,7 +565,7 @@ enum {
     OPSZ_8_rex16,         /**< cmpxcgh8b/cmpxchg16b */
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
-    OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L */
+    OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD 'x'). */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };

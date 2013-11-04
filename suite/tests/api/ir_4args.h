@@ -162,9 +162,9 @@ OPCODE(vfmaddss_a, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
 OPCODE(vfmaddss_b, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_4))
 OPCODE(vfmaddsd_a, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
+       MEMARG(OPSZ_8), REGARG(XMM3))
 OPCODE(vfmaddsd_b, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
+       REGARG(XMM3), MEMARG(OPSZ_8))
 
 OPCODE(vfmsubps_a, vfmsubps, vfmsubps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -179,9 +179,9 @@ OPCODE(vfmsubss_a, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
 OPCODE(vfmsubss_b, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_4))
 OPCODE(vfmsubsd_a, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
+       MEMARG(OPSZ_8), REGARG(XMM3))
 OPCODE(vfmsubsd_b, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
+       REGARG(XMM3), MEMARG(OPSZ_8))
 
 OPCODE(vfnmaddps_a, vfnmaddps, vfnmaddps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -196,9 +196,9 @@ OPCODE(vfnmaddss_a, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
 OPCODE(vfnmaddss_b, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_4))
 OPCODE(vfnmaddsd_a, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
+       MEMARG(OPSZ_8), REGARG(XMM3))
 OPCODE(vfnmaddsd_b, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
+       REGARG(XMM3), MEMARG(OPSZ_8))
 
 OPCODE(vfnmsubps_a, vfnmsubps, vfnmsubps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -213,9 +213,9 @@ OPCODE(vfnmsubss_a, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
 OPCODE(vfnmsubss_b, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_4))
 OPCODE(vfnmsubsd_a, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
+       MEMARG(OPSZ_8), REGARG(XMM3))
 OPCODE(vfnmsubsd_b, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
+       REGARG(XMM3), MEMARG(OPSZ_8))
 
 /****************************************************************************/
 /* XOP */
