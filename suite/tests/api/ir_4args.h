@@ -216,3 +216,79 @@ OPCODE(vfnmsubsd_a, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_4), REGARG(XMM3))
 OPCODE(vfnmsubsd_b, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* XOP */
+OPCODE(vpmacssww, vpmacssww, vpmacssww, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacsswd, vpmacsswd, vpmacsswd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacssdql, vpmacssdql, vpmacssdql, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacssdd, vpmacssdd, vpmacssdd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacssdqh, vpmacssdqh, vpmacssdqh, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacsww, vpmacsww, vpmacsww, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacswd, vpmacswd, vpmacswd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacsdql, vpmacsdql, vpmacsdql, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacsdd, vpmacsdd, vpmacsdd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmacsdqh, vpmacsdqh, vpmacsdqh, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmadcsswd, vpmadcsswd, vpmadcsswd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpmadcswd, vpmadcswd, vpmadcswd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+
+OPCODE(vpperm_a, vpperm, vpperm, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpperm_b, vpperm, vpperm, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+
+OPCODE(vpcmov_a, vpcmov, vpcmov, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpcmov_b, vpcmov, vpcmov, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vpcmov_a_256, vpcmov, vpcmov, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vpcmov_b_256, vpcmov, vpcmov, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vpermil2pd_a, vpermil2pd, vpermil2pd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpermil2pd_b, vpermil2pd, vpermil2pd, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vpermil2pd_a_256, vpermil2pd, vpermil2pd, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vpermil2pd_b_256, vpermil2pd, vpermil2pd, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vpermil2ps_a, vpermil2ps, vpermil2ps, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), REGARG(XMM3))
+OPCODE(vpermil2ps_b, vpermil2ps, vpermil2ps, 0, REGARG(XMM0), REGARG(XMM1),
+       REGARG(XMM3), MEMARG(OPSZ_16))
+OPCODE(vpermil2ps_a_256, vpermil2ps, vpermil2ps, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vpermil2ps_b_256, vpermil2ps, vpermil2ps, 0, REGARG(YMM0), REGARG(YMM1),
+       REGARG(YMM3), MEMARG(OPSZ_32))
+
+OPCODE(vpcomb, vpcomb, vpcomb, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomw, vpcomw, vpcomw, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomd, vpcomd, vpcomd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomq, vpcomq, vpcomq, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomub, vpcomub, vpcomub, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomuw, vpcomuw, vpcomuw, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomud, vpcomud, vpcomud, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+OPCODE(vpcomuq, vpcomuq, vpcomuq, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16), IMMARG(OPSZ_1))

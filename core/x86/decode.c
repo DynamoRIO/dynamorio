@@ -86,6 +86,13 @@ static const instr_info_t escape_38_instr =
     {ESCAPE_3BYTE_38,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
 static const instr_info_t escape_3a_instr =
     {ESCAPE_3BYTE_3a,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
+/* used for XOP decoding */
+static const instr_info_t xop_8_instr =
+    {XOP_8_EXT,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
+static const instr_info_t xop_9_instr =
+    {XOP_9_EXT,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
+static const instr_info_t xop_a_instr =
+    {XOP_A_EXT,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
 #undef xx
 
 #ifdef X64
@@ -580,23 +587,33 @@ read_modrm(byte *pc, decode_info_t *di)
  * bytes (and any prefix bytes) and sets the appropriate prefix flags in di.
  * Sets info to the entry for the first opcode byte, and pc to point past
  * the first opcode byte.
+ * Also handles xop encodings, which are quite similar to vex.
  */
 static byte *
 read_vex(byte *pc, decode_info_t *di, byte instr_byte,
-         const instr_info_t **ret_info INOUT, bool *is_vex)
+         const instr_info_t **ret_info INOUT, bool *is_vex/*or xop*/)
 {
-    int idx;
+    int idx = 0;
     const instr_info_t *info;
     byte vex_last = 0, vex_pp;
     ASSERT(ret_info != NULL && *ret_info != NULL && is_vex != NULL);
     info = *ret_info;
-    ASSERT(info->type == VEX_PREFIX_EXT);
-    /* If 32-bit mode and mod selects for memory, this is not vex */
-    if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc))
-        idx = 1;
-    else
-        idx = 0;
-    info = &vex_prefix_extensions[info->code][idx];
+    if (info->type == VEX_PREFIX_EXT) {
+        /* If 32-bit mode and mod selects for memory, this is not vex */
+        if (X64_MODE(di) || TESTALL(MODRM_BYTE(3, 0, 0), *pc))
+            idx = 1;
+        else
+            idx = 0;
+        info = &vex_prefix_extensions[info->code][idx];
+    } else if (info->type == XOP_PREFIX_EXT) {
+        /* If m-mmm (what AMD calls "map_select") < 8, this is not vex */
+        if ((*pc & 0x1f) < 0x8)
+            idx = 0;
+        else
+            idx = 1;
+        info = &xop_prefix_extensions[info->code][idx];
+    } else
+        CLIENT_ASSERT(false, "internal vex decoding error");
     if (idx == 0) {
         /* not vex */
         *ret_info = info;
@@ -623,7 +640,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
         /* 2-byte vex implies leading 0x0f */
         *ret_info = &escape_instr;
         /* rest are shared w/ 3-byte form's final byte */
-    } else if (info->code == PREFIX_VEX_3B) {
+    } else if (info->code == PREFIX_VEX_3B || info->code == PREFIX_XOP) {
         byte vex_mm;
         /* fields are: R, X, B, m-mmmm.  R, X, and B are inverted. */
         if (!TEST(0x80, instr_byte))
@@ -636,16 +653,31 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
         /* our strategy is to decode through the regular tables w/ a vex-encoded
          * flag, to match Intel manuals and vex implicit-prefix flags
          */
-        if (vex_mm == 1) {
-            *ret_info = &escape_instr;
-        } else if (vex_mm == 2) {
-            *ret_info = &escape_38_instr;
-        } else if (vex_mm == 3) {
-            *ret_info = &escape_3a_instr;
+        if (info->code == PREFIX_VEX_3B) {
+            if (vex_mm == 1) {
+                *ret_info = &escape_instr;
+            } else if (vex_mm == 2) {
+                *ret_info = &escape_38_instr;
+            } else if (vex_mm == 3) {
+                *ret_info = &escape_3a_instr;
+            } else {
+                /* #UD: reserved for future use */
+                *ret_info = &invalid_instr;
+                return pc;
+            }
         } else {
-            /* #UD: reserved for future use */
-            *ret_info = &invalid_instr;
-            return pc;
+            /* xop */
+            if (vex_mm == 0x8) {
+                *ret_info = &xop_8_instr;
+            } else if (vex_mm == 0x9) {
+                *ret_info = &xop_9_instr;
+            } else if (vex_mm == 0xa) {
+                *ret_info = &xop_a_instr;
+            } else {
+                /* #UD: reserved for future use */
+                *ret_info = &invalid_instr;
+                return pc;
+            }
         }
         
         /* read 3rd vex byte */
@@ -766,11 +798,11 @@ read_instruction(byte *pc, byte *orig_pc,
         if (info->type == X64_EXT) {
             /* discard old info, get new one */
             info = &x64_extensions[info->code][X64_MODE(di) ? 1 : 0];
-        } else if (info->type == VEX_PREFIX_EXT) {
-            bool is_vex = false;
+        } else if (info->type == VEX_PREFIX_EXT || info->type == XOP_PREFIX_EXT) {
+            bool is_vex = false; /* or xop */
             pc = read_vex(pc, di, instr_byte, &info, &is_vex);
             /* if read_vex changes info, leave this loop */
-            if (info->type != VEX_PREFIX_EXT)
+            if (info->type != VEX_PREFIX_EXT && info->type != XOP_PREFIX_EXT)
                 break;
             else {
                 if (is_vex)
@@ -831,6 +863,22 @@ read_instruction(byte *pc, byte *orig_pc,
             info = &third_byte_38[third_byte_38_index[instr_byte]];
         else
             info = &third_byte_3a[third_byte_3a_index[instr_byte]];
+    } else if (info->type == XOP_8_EXT ||
+               info->type == XOP_9_EXT ||
+               info->type == XOP_A_EXT) {
+        /* discard second byte, move to third */
+        int idx = 0;
+        instr_byte = *pc;
+        pc++;
+        if (info->type == XOP_8_EXT)
+            idx = xop_8_index[instr_byte];
+        else if (info->type == XOP_9_EXT)
+            idx = xop_9_index[instr_byte];
+        else if (info->type == XOP_A_EXT)
+            idx = xop_a_index[instr_byte];
+        else
+            CLIENT_ASSERT(false, "internal invalid XOP type");
+        info = &xop_extensions[idx];
     }
 
     /* all FLOAT_EXT and PREFIX_EXT (except nop & pause) and EXTENSION need modrm,

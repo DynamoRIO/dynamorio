@@ -404,6 +404,48 @@ static const byte threebyte_38_vex_extra[256] = {
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
 };
 
+/* XOP.0x08 is assumed to always have an immed byte */
+
+/* Extra size for XOP opcode 0x09 (from immeds) */
+static const byte xop_9_extra[256] = {
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+};
+
+/* Extra size for XOP opcode 0x0a (from immeds) */
+static const byte xop_a_extra[256] = {
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 7 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 8 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 9 */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* A */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* B */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* C */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* D */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* E */
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0   /* F */
+};
+
 /* Returns the length of the instruction at pc.
  * If num_prefixes is non-NULL, returns the number of prefix bytes.
  * If rip_rel_pos is non-NULL, returns the offset into the instruction
@@ -511,6 +553,38 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
                                               _IF_X64(&rip_rel_pc));
                         goto decode_sizeof_done;
                     }
+                } else
+                    found_prefix = false;
+                break;
+            }
+            case 0x8f: {
+                /* If XOP.map_select < 8, this is not XOP but instead OP_pop */
+                byte map_select = *(pc+1) & 0x1f;
+                if (map_select >= 0x8) {
+                    /* we have the same assumptions as for vex, that no instr size
+                     * differs vased on vex.w or vex.pp
+                     */
+                    pc += 3; /* skip all 3 xop prefix bytes */
+                    sz += 3;
+                    opc = (uint)*pc; /* opcode byte */
+                    sz += 1;
+                    if (num_prefixes != NULL)
+                        *num_prefixes = sz;
+                    /* all have modrm */
+                    sz += sizeof_modrm(dcontext, pc+1, addr16 _IF_X64(&rip_rel_pc));
+                    if (map_select == 0x8) {
+                        /* these always have an immediate byte */
+                        sz += 1;
+                    } else if (map_select == 0x9)
+                        sz += xop_9_extra[opc];
+                    else if (map_select == 0xa)
+                        sz += xop_a_extra[opc];
+                    else {
+                        ASSERT_CURIOSITY(false && "unknown XOP map_select");
+                        /* to try to handle future ISA additions we don't abort */
+                    }
+                    /* no prefixes after xop + already did full size, so goto end */
+                    goto decode_sizeof_done;
                 } else
                     found_prefix = false;
                 break;

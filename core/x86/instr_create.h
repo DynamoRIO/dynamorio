@@ -1215,6 +1215,46 @@
   instr_create_1dst_1src((dc), OP_movq2dq, (d), (s))
 #define INSTR_CREATE_movdq2q(dc, d, s) \
   instr_create_1dst_1src((dc), OP_movdq2q, (d), (s))
+/* XOP */
+#define INSTR_CREATE_vfrczps(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vfrczps, (d), (s))
+#define INSTR_CREATE_vfrczpd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vfrczpd, (d), (s))
+#define INSTR_CREATE_vfrczss(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vfrczss, (d), (s))
+#define INSTR_CREATE_vfrczsd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vfrczsd, (d), (s))
+#define INSTR_CREATE_vphaddbw(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddbw, (d), (s))
+#define INSTR_CREATE_vphaddbd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddbd, (d), (s))
+#define INSTR_CREATE_vphaddbq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddbq, (d), (s))
+#define INSTR_CREATE_vphaddwd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddwd, (d), (s))
+#define INSTR_CREATE_vphaddwq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddwq, (d), (s))
+#define INSTR_CREATE_vphadddq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphadddq, (d), (s))
+#define INSTR_CREATE_vphaddubw(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddubw, (d), (s))
+#define INSTR_CREATE_vphaddubd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddubd, (d), (s))
+#define INSTR_CREATE_vphaddubq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddubq, (d), (s))
+#define INSTR_CREATE_vphadduwd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphadduwd, (d), (s))
+#define INSTR_CREATE_vphadduwq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphadduwq, (d), (s))
+#define INSTR_CREATE_vphaddudq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphaddudq, (d), (s))
+#define INSTR_CREATE_vphsubbw(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphsubbw, (d), (s))
+#define INSTR_CREATE_vphsubwd(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphsubwd, (d), (s))
+#define INSTR_CREATE_vphsubdq(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vphsubdq, (d), (s))
+
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 1 implicit source */
@@ -1844,6 +1884,32 @@
   instr_create_1dst_2src((dc), OP_vpermilpd, (d), (s1), (s2))
 #define INSTR_CREATE_vextractf128(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vextractf128, (d), (s1), (s2))
+/* XOP */
+/* FYI: OP_vprot* have a variant that takes an immediate */
+#define INSTR_CREATE_vprotb(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vprotb, (d), (s1), (s2))
+#define INSTR_CREATE_vprotw(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vprotw, (d), (s1), (s2))
+#define INSTR_CREATE_vprotd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vprotd, (d), (s1), (s2))
+#define INSTR_CREATE_vprotq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vprotq, (d), (s1), (s2))
+#define INSTR_CREATE_vpshlb(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshlb, (d), (s1), (s2))
+#define INSTR_CREATE_vpshld(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshld, (d), (s1), (s2))
+#define INSTR_CREATE_vpshlq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshlq, (d), (s1), (s2))
+#define INSTR_CREATE_vpshlw(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshlw, (d), (s1), (s2))
+#define INSTR_CREATE_vpshab(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshab, (d), (s1), (s2))
+#define INSTR_CREATE_vpshad(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshad, (d), (s1), (s2))
+#define INSTR_CREATE_vpshaq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshaq, (d), (s1), (s2))
+#define INSTR_CREATE_vpshaw(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpshaw, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2899,6 +2965,69 @@
   instr_create_1dst_3src((dc), OP_vfnmsubss, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vfnmsubsd(dc, d, s1, s2, s3) \
   instr_create_1dst_3src((dc), OP_vfnmsubsd, (d), (s1), (s2), (s3))
+/* XOP */
+#define INSTR_CREATE_vpmacssww(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacssww, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacsswd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacsswd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacssdql(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacssdql, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacssdd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacssdd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacssdqh(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacssdqh, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacsww(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacsww, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacswd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacswd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacsdql(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacsdql, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacsdd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacsdd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmacsdqh(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmacsdqh, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmadcsswd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmadcsswd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpmadcswd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpmadcswd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpperm(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpperm, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpcmov(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpcmov, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpermil2pd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpermil2pd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpermil2ps(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpermil2ps, (d), (s1), (s2), (s3))
+/* @} */ /* end doxygen group */
+/** @name 1 destination, 3 sources where the final is an immediate */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param s1 The opnd_t explicit first source operand for the instruction.
+ * \param s2 The opnd_t explicit second source operand for the instruction.
+ * \param i The opnd_t explicit third source operand for the instruction, which
+ * must be an immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_vpcomb(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomb, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomw(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomw, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomd(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomd, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomq(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomq, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomub(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomub, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomuw(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomuw, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomud(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomud, (d), (s1), (s2), (i))
+#define INSTR_CREATE_vpcomuq(dc, d, s1, s2, i) \
+  instr_create_1dst_3src((dc), OP_vpcomuq, (d), (s1), (s2), (i))
+/* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources where 2 are implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */

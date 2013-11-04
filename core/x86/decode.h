@@ -92,12 +92,14 @@
 #define PREFIX_SEG_FS         0x1000
 #define PREFIX_SEG_GS         0x2000
 
-/* First two are only used during initial decode so if running out of
+/* First 2 are only used during initial decode so if running out of
  * space could replace w/ byte value compare.
  */
 #define PREFIX_VEX_2B    0x000004000
 #define PREFIX_VEX_3B    0x000008000
 #define PREFIX_VEX_L     0x000010000
+/* Also only used during initial decode */
+#define PREFIX_XOP       0x000020000
 
 /* We encode some prefixes in the operands themselves, such that we shouldn't
  * consider the whole-instr_t flags when considering equality of Instrs
@@ -253,6 +255,14 @@ enum {
     VEX_L_EXT,
     /* instructions differing based on vex.W */
     VEX_W_EXT,
+    /* instructions differing based on whether part of an xop prefix */
+    XOP_PREFIX_EXT,
+    /* xop opcode map 8 */
+    XOP_8_EXT,
+    /* xop opcode map 9 */
+    XOP_9_EXT,
+    /* xop opcode map 10 */
+    XOP_A_EXT,
     /* else, from OP_ enum */
 };
 
@@ -811,6 +821,12 @@ extern const instr_info_t float_high_modrm[][64];
 extern const byte suffix_index[256];
 extern const instr_info_t suffix_extensions[];
 extern const instr_info_t extra_operands[];
+extern const byte xop_8_index[256];
+extern const byte xop_9_index[256];
+extern const byte xop_a_index[256];
+extern const instr_info_t xop_prefix_extensions[][2];
+extern const instr_info_t xop_extensions[];
+
 /* table that translates opcode enums into pointers into above tables */
 extern const instr_info_t * const op_instr[];
 /* for debugging: printing out types and sizes */

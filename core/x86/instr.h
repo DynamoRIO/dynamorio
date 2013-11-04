@@ -4965,10 +4965,67 @@ enum {
 /* 984 */     OP_vfnmsubss,      /* &vex_W_extensions[48][0], */ /**< vfnmsubss opcode */
 /* 985 */     OP_vfnmsubsd,      /* &vex_W_extensions[49][0], */ /**< vfnmsubsd opcode */
 
+    /* XOP */
+/* 986 */     OP_vfrczps,        /* &xop_extensions[27], */ /**< vfrczps opcode */
+/* 987 */     OP_vfrczpd,        /* &xop_extensions[28], */ /**< vfrczpd opcode */
+/* 988 */     OP_vfrczss,        /* &xop_extensions[29], */ /**< vfrczss opcode */
+/* 989 */     OP_vfrczsd,        /* &xop_extensions[30], */ /**< vfrczsd opcode */
+/* 990 */     OP_vpcmov,         /* &vex_W_extensions[50][0], */ /**< vpcmov opcode */
+/* 991 */     OP_vpcomb,         /* &xop_extensions[19], */ /**< vpcomb opcode */
+/* 992 */     OP_vpcomw,         /* &xop_extensions[20], */ /**< vpcomw opcode */
+/* 993 */     OP_vpcomd,         /* &xop_extensions[21], */ /**< vpcomd opcode */
+/* 994 */     OP_vpcomq,         /* &xop_extensions[22], */ /**< vpcomq opcode */
+/* 995 */     OP_vpcomub,        /* &xop_extensions[23], */ /**< vpcomub opcode */
+/* 996 */     OP_vpcomuw,        /* &xop_extensions[24], */ /**< vpcomuw opcode */
+/* 997 */     OP_vpcomud,        /* &xop_extensions[25], */ /**< vpcomud opcode */
+/* 998 */     OP_vpcomuq,        /* &xop_extensions[26], */ /**< vpcomuq opcode */
+/* 999 */     OP_vpermil2pd,     /* &vex_W_extensions[65][0], */ /**< vpermil2pd opcode */
+/* 1000 */     OP_vpermil2ps,     /* &vex_W_extensions[64][0], */ /**< vpermil2ps opcode */
+/* 1001 */     OP_vphaddbw,       /* &xop_extensions[43], */ /**< vphaddbw opcode */
+/* 1002 */     OP_vphaddbd,       /* &xop_extensions[44], */ /**< vphaddbd opcode */
+/* 1003 */     OP_vphaddbq,       /* &xop_extensions[45], */ /**< vphaddbq opcode */
+/* 1004 */     OP_vphaddwd,       /* &xop_extensions[46], */ /**< vphaddwd opcode */
+/* 1005 */     OP_vphaddwq,       /* &xop_extensions[47], */ /**< vphaddwq opcode */
+/* 1006 */     OP_vphadddq,       /* &xop_extensions[48], */ /**< vphadddq opcode */
+/* 1007 */     OP_vphaddubw,      /* &xop_extensions[49], */ /**< vphaddubw opcode */
+/* 1008 */     OP_vphaddubd,      /* &xop_extensions[50], */ /**< vphaddubd opcode */
+/* 1009 */     OP_vphaddubq,      /* &xop_extensions[51], */ /**< vphaddubq opcode */
+/* 1010 */     OP_vphadduwd,      /* &xop_extensions[52], */ /**< vphadduwd opcode */
+/* 1011 */     OP_vphadduwq,      /* &xop_extensions[53], */ /**< vphadduwq opcode */
+/* 1012 */     OP_vphaddudq,      /* &xop_extensions[54], */ /**< vphaddudq opcode */
+/* 1013 */     OP_vphsubbw,       /* &xop_extensions[55], */ /**< vphsubbw opcode */
+/* 1014 */     OP_vphsubwd,       /* &xop_extensions[56], */ /**< vphsubwd opcode */
+/* 1015 */     OP_vphsubdq,       /* &xop_extensions[57], */ /**< vphsubdq opcode */
+/* 1016 */     OP_vpmacssww,      /* &xop_extensions[ 1], */ /**< vpmacssww opcode */
+/* 1017 */     OP_vpmacsswd,      /* &xop_extensions[ 2], */ /**< vpmacsswd opcode */
+/* 1018 */     OP_vpmacssdql,     /* &xop_extensions[ 3], */ /**< vpmacssdql opcode */
+/* 1019 */     OP_vpmacssdd,      /* &xop_extensions[ 4], */ /**< vpmacssdd opcode */
+/* 1020 */     OP_vpmacssdqh,     /* &xop_extensions[ 5], */ /**< vpmacssdqh opcode */
+/* 1021 */     OP_vpmacsww,       /* &xop_extensions[ 6], */ /**< vpmacsww opcode */
+/* 1022 */     OP_vpmacswd,       /* &xop_extensions[ 7], */ /**< vpmacswd opcode */
+/* 1023 */     OP_vpmacsdql,      /* &xop_extensions[ 8], */ /**< vpmacsdql opcode */
+/* 1024 */     OP_vpmacsdd,       /* &xop_extensions[ 9], */ /**< vpmacsdd opcode */
+/* 1025 */     OP_vpmacsdqh,      /* &xop_extensions[10], */ /**< vpmacsdqh opcode */
+/* 1026 */     OP_vpmadcsswd,     /* &xop_extensions[11], */ /**< vpmadcsswd opcode */
+/* 1027 */     OP_vpmadcswd,      /* &xop_extensions[12], */ /**< vpmadcswd opcode */
+/* 1028 */     OP_vpperm,         /* &vex_W_extensions[51][0], */ /**< vpperm opcode */
+/* 1029 */     OP_vprotb,         /* &xop_extensions[15], */ /**< vprotb opcode */
+/* 1030 */     OP_vprotw,         /* &xop_extensions[16], */ /**< vprotw opcode */
+/* 1031 */     OP_vprotd,         /* &xop_extensions[17], */ /**< vprotd opcode */
+/* 1032 */     OP_vprotq,         /* &xop_extensions[18], */ /**< vprotq opcode */
+/* 1033 */     OP_vpshlb,         /* &vex_W_extensions[56][0], */ /**< vpshlb opcode */
+/* 1034 */     OP_vpshlw,         /* &vex_W_extensions[57][0], */ /**< vpshlw opcode */
+/* 1035 */     OP_vpshld,         /* &vex_W_extensions[58][0], */ /**< vpshld opcode */
+/* 1036 */     OP_vpshlq,         /* &vex_W_extensions[59][0], */ /**< vpshlq opcode */
+/* 1037 */     OP_vpshab,         /* &vex_W_extensions[60][0], */ /**< vpshab opcode */
+/* 1038 */     OP_vpshaw,         /* &vex_W_extensions[61][0], */ /**< vpshaw opcode */
+/* 1039 */     OP_vpshad,         /* &vex_W_extensions[62][0], */ /**< vpshad opcode */
+/* 1040 */     OP_vpshaq,         /* &vex_W_extensions[63][0], */ /**< vpshaq opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 986 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 987 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1041 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1042 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

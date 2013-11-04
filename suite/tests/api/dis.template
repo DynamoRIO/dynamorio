@@ -114,8 +114,8 @@
 +0x00fb   90                   nop    
 +0x00fc   54                   push   rsp
 +0x00fd   b3 83                mov    bl, 0x83
-+0x00ff   65 8f f2...??        <INVALID>
-+0x0100   8f f2...??           <INVALID>
++0x00ff   65 8f f2 59 bb e3...??  <INVALID>
++0x0100   8f f2 59 bb e3...??  <INVALID>
 +0x0101   f2 59                pop    rcx
 +0x0103   bb e3 c4 58 cf       mov    ebx, 0xcf58c4e3
 +0x0108   8b 48 20             mov    ecx, dword ptr [rax+0x20]
@@ -1278,7 +1278,8 @@
 +0x0c48   6b b6 a1 c5 fb 53 5a imul   esi, dword ptr [rsi+0x53fbc5a1], 0x5a
 +0x0c4f   7f 89                jnle   0x000000000fffff8b
 +0x0c51   82 8f 49 76 36 9f 7d...??  <INVALID>
-+0x0c52   8f 49 76...??        <INVALID>
++0x0c52   8f 49 76 36 9f 7d 50...??  <INVALID>
+     69 38
 +0x0c53   49 76 36             jbe    0x0000000010000039
 +0x0c56   9f                   lahf   
 +0x0c57   7d 50                jnl    0x0000000010000052
@@ -1304,9 +1305,12 @@
 +0x0c91   b9 e3 df 9b d8       mov    ecx, 0xd89bdfe3
 +0x0c96   c5 f0 f0 8f f1 86 e8...??  <INVALID>
      05
-+0x0c97   f0 f0 8f f1...??     <INVALID>
-+0x0c98   f0 8f f1...??        <INVALID>
-+0x0c99   8f f1...??           <INVALID>
++0x0c97   f0 f0 8f f1 86 e8 05...??  <INVALID>
+     71 d3 9e 35
++0x0c98   f0 8f f1 86 e8 05 71...??  <INVALID>
+     d3 9e 35
++0x0c99   8f f1 86 e8 05 71 d3...??  <INVALID>
+     9e 35
 +0x0c9a   f1                   int1   
 +0x0c9b   86 e8                xchg   al, ch
 +0x0c9d   05 71 d3 9e 35       add    eax, 0x359ed371
@@ -1537,7 +1541,7 @@
 +0x0efd   60...??              <INVALID>
 +0x0efe   c3                   ret    
 +0x0eff   41 11 66 3b          adc    dword ptr [r14+0x3b], esp
-+0x0f03   8f 34 3b...??        <INVALID>
++0x0f03   8f 34 3b 59 cc...??  <INVALID>
 +0x0f04   34 3b                xor    al, 0x3b
 +0x0f06   59                   pop    rcx
 +0x0f07   cc                   int3   
@@ -1547,8 +1551,8 @@
 +0x0f11   53                   push   rbx
 +0x0f12   de dc...??           <INVALID>
 +0x0f13   dc 77 72             fdiv   qword ptr [rdi+0x72]
-+0x0f16   4e 8f 74 15 c6...??  <INVALID>
-+0x0f17   8f 74 15 c6...??     <INVALID>
++0x0f16   4e 8f 74 15 c6 79 fd...??  <INVALID>
++0x0f17   8f 74 15 c6 79 fd...??  <INVALID>
 +0x0f18   74 15                jz     0x0000000010000017
 +0x0f1a   c6 79 fd 35...??     <INVALID>
 +0x0f1b   79 fd                jns    0x000000000fffffff
@@ -1638,6 +1642,7 @@
 +0x1008   bc 27 58 0f 4e       mov    esp, 0x4e0f5827
 +0x100d   4f f9                stc    
 +0x100f   8f 94 7b 14 94 53 57...??  <INVALID>
+     75 47 a3
 +0x1010   94                   xchg   esp, eax
 +0x1011   7b 14                jnp    0x0000000010000016
 +0x1013   94                   xchg   esp, eax
@@ -1898,7 +1903,7 @@
 +0x127d   5c                   pop    rsp
 +0x127e   8c d1                mov    ecx, ss
 +0x1280   ef                   out    eax, dx
-+0x1281   8f 7b 04...??        <INVALID>
++0x1281   8f 7b 04 b6 70 ef...??  <INVALID>
 +0x1282   7b 04                jnp    0x0000000010000006
 +0x1284   b6 70                mov    dh, 0x70
 +0x1286   ef                   out    eax, dx
@@ -2606,7 +2611,8 @@
 +0x19d6   c4 1c 0f 27...??     <INVALID>
 +0x19d7   1c 0f                sbb    al, 0x0f
 +0x19d9   27...??              <INVALID>
-+0x19da   8f 48 ca...??        <INVALID>
++0x19da   8f 48 ca 6c bf 88 c6...??  <INVALID>
+     8b 9d 6f
 +0x19db   48 ca 6c bf          retf   0xbf6c
 +0x19df   88 c6                mov    dh, al
 +0x19e1   8b 9d 6f 63 fd 30    mov    ebx, dword ptr [rbp+0x30fd636f]
@@ -2725,7 +2731,7 @@
 +0x1af4   3e 83 84 0a e1 66 45 add    dword ptr [ds:rdx+rcx-0x4dba991f], 0x4e
      b2 4e
 +0x1afd   02 90 65 e5 fc cf    add    dl, byte ptr [rax-0x30031a9b]
-+0x1b03   8f ff...??           <INVALID>
++0x1b03   8f ff 4f 73 cc...??  <INVALID>
 +0x1b04   ff 4f 73             dec    dword ptr [rdi+0x73]
 +0x1b07   cc                   int3   
 +0x1b08   d4 6b...??           <INVALID>
@@ -2813,7 +2819,8 @@
 +0x1bee   38 fb                cmp    bl, bh
 +0x1bf0   09 49 d8             or     dword ptr [rcx-0x28], ecx
 +0x1bf3   c2 2c d2             ret    0xd22c
-+0x1bf6   8f a8 5f ae 87 4d...??  <INVALID>
++0x1bf6   8f a8 5f ae 87 4d 07...??  <INVALID>
+     1f 48 a4
 +0x1bf7   a8 5f                test   al, 0x5f
 +0x1bf9   ae                   scasb  
 +0x1bfa   87 4d 07             xchg   dword ptr [rbp+0x07], ecx
@@ -2859,6 +2866,7 @@
 +0x1c66   e0 ef                loopne 0x000000000ffffff1
 +0x1c68   7b d6                jnp    0x000000000fffffd8
 +0x1c6a   8f b4 f7 9c a3 4b 41...??  <INVALID>
+     6d 15
 +0x1c6b   b4 f7                mov    ah, 0xf7
 +0x1c6d   9c                   pushfq 
 +0x1c6e   a3 4b 41 6d 15 90 d6 mov    dword ptr [0x85e0d690156d414b], eax
@@ -2868,7 +2876,7 @@
 +0x1c79   5d                   pop    rbp
 +0x1c7a   e7 5c                out    0x5c, eax
 +0x1c7c   0e...??              <INVALID>
-+0x1c7d   8f fa...??           <INVALID>
++0x1c7d   8f fa 57 13 fa...??  <INVALID>
 +0x1c7e   fa                   cli    
 +0x1c7f   57                   push   rdi
 +0x1c80   13 fa                adc    edi, edx
@@ -3196,8 +3204,8 @@
 +0x00fb   90                   nop    
 +0x00fc   54                   push   esp
 +0x00fd   b3 83                mov    bl, 0x83
-+0x00ff   65 8f f2...??        <INVALID>
-+0x0100   8f f2...??           <INVALID>
++0x00ff   65 8f f2 59 bb e3...??  <INVALID>
++0x0100   8f f2 59 bb e3...??  <INVALID>
 +0x0101   f2 59                pop    ecx
 +0x0103   bb e3 c4 58 cf       mov    ebx, 0xcf58c4e3
 +0x0108   8b 48 20             mov    ecx, dword ptr [eax+0x20]
@@ -4409,9 +4417,12 @@
 +0x0c90   63 b9 e3 df 9b d8    arpl   word ptr [ecx+0xd89bdfe3], di
 +0x0c96   c5 f0 f0 8f f1 86 e8...??  <INVALID>
      05
-+0x0c97   f0 f0 8f f1...??     <INVALID>
-+0x0c98   f0 8f f1...??        <INVALID>
-+0x0c99   8f f1...??           <INVALID>
++0x0c97   f0 f0 8f f1 86 e8 05...??  <INVALID>
+     71 d3 9e 35
++0x0c98   f0 8f f1 86 e8 05 71...??  <INVALID>
+     d3 9e 35
++0x0c99   8f f1 86 e8 05 71 d3...??  <INVALID>
+     9e 35
 +0x0c9a   f1                   int1   
 +0x0c9b   86 e8                xchg   al, ch
 +0x0c9d   05 71 d3 9e 35       add    eax, 0x359ed371
@@ -4649,7 +4660,7 @@
 +0x0efe   c3                   ret    
 +0x0eff   41                   inc    ecx
 +0x0f00   11 66 3b             adc    dword ptr [esi+0x3b], esp
-+0x0f03   8f 34 3b...??        <INVALID>
++0x0f03   8f 34 3b 59 cc...??  <INVALID>
 +0x0f04   34 3b                xor    al, 0x3b
 +0x0f06   59                   pop    ecx
 +0x0f07   cc                   int3   
@@ -4660,7 +4671,7 @@
 +0x0f12   de dc...??           <INVALID>
 +0x0f13   dc 77 72             fdiv   qword ptr [edi+0x72]
 +0x0f16   4e                   dec    esi
-+0x0f17   8f 74 15 c6...??     <INVALID>
++0x0f17   8f 74 15 c6 79 fd...??  <INVALID>
 +0x0f18   74 15                jz     0x10000017
 +0x0f1a   c6 79 fd 35...??     <INVALID>
 +0x0f1b   79 fd                jns    0x0fffffff
@@ -4751,6 +4762,7 @@
 +0x100d   4f                   dec    edi
 +0x100e   f9                   stc    
 +0x100f   8f 94 7b 14 94 53 57...??  <INVALID>
+     75 47 a3
 +0x1010   94                   xchg   esp, eax
 +0x1011   7b 14                jnp    0x10000016
 +0x1013   94                   xchg   esp, eax
@@ -5012,7 +5024,7 @@
 +0x127d   5c                   pop    esp
 +0x127e   8c d1                mov    ecx, ss
 +0x1280   ef                   out    eax, dx
-+0x1281   8f 7b 04...??        <INVALID>
++0x1281   8f 7b 04 b6 70 ef...??  <INVALID>
 +0x1282   7b 04                jnp    0x10000006
 +0x1284   b6 70                mov    dh, 0x70
 +0x1286   ef                   out    eax, dx
@@ -5747,7 +5759,8 @@
 +0x19d4   7a 65                jp     0x10000067
 +0x19d6   c4 1c 0f             les    ebx, [edi+ecx]
 +0x19d9   27                   daa    
-+0x19da   8f 48 ca...??        <INVALID>
++0x19da   8f 48 ca 6c bf 88 c6...??  <INVALID>
+     8b 9d 6f
 +0x19db   48                   dec    eax
 +0x19dc   ca 6c bf             retf   0xbf6c
 +0x19df   88 c6                mov    dh, al
@@ -5868,7 +5881,7 @@
 +0x1af4   3e 83 84 0a e1 66 45 add    dword ptr [ds:edx+ecx+0xb24566e1], 0x4e
      b2 4e
 +0x1afd   02 90 65 e5 fc cf    add    dl, byte ptr [eax+0xcffce565]
-+0x1b03   8f ff...??           <INVALID>
++0x1b03   8f ff 4f 73 cc...??  <INVALID>
 +0x1b04   ff 4f 73             dec    dword ptr [edi+0x73]
 +0x1b07   cc                   int3   
 +0x1b08   d4 6b                aam    0x6b
@@ -5956,7 +5969,8 @@
 +0x1bee   38 fb                cmp    bl, bh
 +0x1bf0   09 49 d8             or     dword ptr [ecx-0x28], ecx
 +0x1bf3   c2 2c d2             ret    0xd22c
-+0x1bf6   8f a8 5f ae 87 4d...??  <INVALID>
++0x1bf6   8f a8 5f ae 87 4d 07...??  <INVALID>
+     1f 48 a4
 +0x1bf7   a8 5f                test   al, 0x5f
 +0x1bf9   ae                   scasb  
 +0x1bfa   87 4d 07             xchg   dword ptr [ebp+0x07], ecx
@@ -6005,6 +6019,7 @@
 +0x1c66   e0 ef                loopne 0x0ffffff1
 +0x1c68   7b d6                jnp    0x0fffffd8
 +0x1c6a   8f b4 f7 9c a3 4b 41...??  <INVALID>
+     6d 15
 +0x1c6b   b4 f7                mov    ah, 0xf7
 +0x1c6d   9c                   pushfd 
 +0x1c6e   a3 4b 41 6d 15       mov    dword ptr [0x156d414b], eax
@@ -6016,7 +6031,7 @@
 +0x1c79   5d                   pop    ebp
 +0x1c7a   e7 5c                out    0x5c, eax
 +0x1c7c   0e                   push   cs
-+0x1c7d   8f fa...??           <INVALID>
++0x1c7d   8f fa 57 13 fa...??  <INVALID>
 +0x1c7e   fa                   cli    
 +0x1c7f   57                   push   edi
 +0x1c80   13 fa                adc    edi, edx

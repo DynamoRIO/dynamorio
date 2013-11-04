@@ -2075,36 +2075,53 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
                     bool *output_initial_opcode)
 {
     byte val;
+    byte vex_mm = (byte)((info->opcode & 0x00ff0000) >> 16);
+    /* We're out flags for REQUIRES_XOP, so XOP instrs have REQUIRES_VEX and we
+     * rely on XOP.map_select being disjoint from VEX.m-mmmm:
+     */
+    bool xop = (vex_mm >= 0x08 && vex_mm < 0x0f); /* XOP instead of VEX */
     CLIENT_ASSERT(output_initial_opcode != NULL, "required param");
     if (TESTANY(PREFIX_REX_X | PREFIX_REX_B | PREFIX_REX_W, di->prefixes) ||
         /* 3-byte vex shortest encoding for 0x0f 0x3[8a], and the same
          * size but I'm assuming faster decode in processor for 0x0f
          */
         TEST(OPCODE_THREEBYTES, info->opcode) ||
+        /* XOP is always 3 bytes */
+        xop ||
         /* 2-byte requires leading 0x0f */
         ((info->opcode & 0x00ff0000) >> 16) != 0x0f) {
         /* need 3-byte vex */
         *output_initial_opcode = true;
         /* first vex byte */
-        *field_ptr = 0xc4;
+        if (xop)
+            *field_ptr = 0x8f;
+        else
+            *field_ptr = 0xc4;
         field_ptr++;
         /* second vex byte */
         val = /* these are negated */
             (TEST(PREFIX_REX_R, di->prefixes) ? 0x00 : 0x80) |
             (TEST(PREFIX_REX_X, di->prefixes) ? 0x00 : 0x40) |
             (TEST(PREFIX_REX_B, di->prefixes) ? 0x00 : 0x20);
-        if (TEST(OPCODE_THREEBYTES, info->opcode)) {
-            byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
-            if (op3 == 0x38)
-                val |= 0x02;
-            else if (op3 == 0x3a)
-                val |= 0x03;
-            else
-                CLIENT_ASSERT(false, "unknown 3-byte opcode");
+        if (xop) {
+            byte map_select = (byte)((info->opcode & 0x00ff0000) >> 16);
+            CLIENT_ASSERT(TEST(OPCODE_THREEBYTES, info->opcode), "internal invalid XOP");
+            CLIENT_ASSERT(map_select < 0x20, "XOP.map_select only has 5 bits");
+            val |= map_select;
         } else {
-            byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
-            if (op3 == 0x0f)
-                val |= 0x01;
+            if (TEST(OPCODE_THREEBYTES, info->opcode)) {
+                byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
+                if (op3 == 0x38)
+                    val |= 0x02;
+                else if (op3 == 0x3a)
+                    val |= 0x03;
+                else
+                    CLIENT_ASSERT(false, "unknown 3-byte opcode");
+            } else {
+                byte op3 = (byte)((info->opcode & 0x00ff0000) >> 16);
+                if (op3 == 0x0f)
+                    val |= 0x01;
+            }
         }
         *field_ptr = val;
         field_ptr++;
