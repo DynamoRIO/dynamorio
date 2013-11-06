@@ -291,3 +291,8 @@ OPCODE(vpshaq_a, vpshaq, vpshaq, 0, REGARG(XMM0), MEMARG(OPSZ_16), REGARG(XMM1))
 OPCODE(vpshaq_b, vpshaq, vpshaq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vpshaw_a, vpshaw, vpshaw, 0, REGARG(XMM0), MEMARG(OPSZ_16), REGARG(XMM1))
 OPCODE(vpshaw_b, vpshaw, vpshaw, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+
+/****************************************************************************/
+/* TBM */
+OPCODE(bextr_a, bextr, bextr, 0, REGARG(EDI), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(bextr_b, bextr, bextr, 0, REGARG(EDI), MEMARG(OPSZ_4), IMMARG(OPSZ_4))

@@ -1254,6 +1254,25 @@
   instr_create_1dst_1src((dc), OP_vphsubwd, (d), (s))
 #define INSTR_CREATE_vphsubdq(dc, d, s) \
   instr_create_1dst_1src((dc), OP_vphsubdq, (d), (s))
+/* TBM */
+#define INSTR_CREATE_blcfill(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blcfill, (d), (s))
+#define INSTR_CREATE_blci(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blci, (d), (s))
+#define INSTR_CREATE_blcic(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blcic, (d), (s))
+#define INSTR_CREATE_blcmsk(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blcmsk, (d), (s))
+#define INSTR_CREATE_blcs(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blcs, (d), (s))
+#define INSTR_CREATE_blsfill(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blsfill, (d), (s))
+#define INSTR_CREATE_blsic(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blsic, (d), (s))
+#define INSTR_CREATE_t1mskc(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_t1mskc, (d), (s))
+#define INSTR_CREATE_tzmsk(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_tzmsk, (d), (s))
 
 /* @} */ /* end doxygen group */
 
@@ -1910,6 +1929,10 @@
   instr_create_1dst_2src((dc), OP_vpshaq, (d), (s1), (s2))
 #define INSTR_CREATE_vpshaw(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vpshaw, (d), (s1), (s2))
+/* TBM */
+/* Has a variant that takes an immediate */
+#define INSTR_CREATE_bextr(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_bextr, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */

@@ -1181,6 +1181,18 @@ const instr_info_t * const op_instr[] =
     /* OP_vpshad        */   &vex_W_extensions[62][0],
     /* OP_vpshaq        */   &vex_W_extensions[63][0],
 
+    /* AMD TBM */
+    /* OP_bextr         */   &third_byte_38[98],
+    /* OP_blcfill       */   &extensions[27][1],
+    /* OP_blci          */   &extensions[28][6],
+    /* OP_blcic         */   &extensions[27][5],
+    /* OP_blcmsk        */   &extensions[28][1],
+    /* OP_blcs          */   &extensions[27][3],
+    /* OP_blsfill       */   &extensions[27][2],
+    /* OP_blsic         */   &extensions[27][6],
+    /* OP_t1mskc        */   &extensions[27][7],
+    /* OP_tzmsk         */   &extensions[27][4],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1200,6 +1212,7 @@ const instr_info_t * const op_instr[] =
 
 /* from Intel tables, using our corresponding OPSZ constants */
 #define Ap  TYPE_A, OPSZ_6_irex10_short4 /* NOTE - not legal for 64-bit instructions */
+#define By  TYPE_B, OPSZ_4_rex8
 #define Cr  TYPE_C, OPSZ_4x8
 #define Dr  TYPE_D, OPSZ_4x8
 #define Eb  TYPE_E, OPSZ_1
@@ -1209,6 +1222,7 @@ const instr_info_t * const op_instr[] =
 #define Ed  TYPE_E, OPSZ_4
 #define Ep  TYPE_E, OPSZ_6_irex10_short4
 #define Ed_q TYPE_E, OPSZ_4_rex8
+#define Ey  TYPE_E, OPSZ_4_rex8
 #define Rd_Mb TYPE_E, OPSZ_1_reg4
 #define Rd_Mw TYPE_E, OPSZ_2_reg4
 #define Gb  TYPE_G, OPSZ_1
@@ -1218,8 +1232,10 @@ const instr_info_t * const op_instr[] =
 #define Gd  TYPE_G, OPSZ_4
 #define Gd_q TYPE_G, OPSZ_4_rex8
 #define Gr  TYPE_G, OPSZ_4x8
+#define Gy  TYPE_G, OPSZ_4_rex8
 #define Ib  TYPE_I, OPSZ_1
 #define Iw  TYPE_I, OPSZ_2
+#define Id  TYPE_I, OPSZ_4
 #define Iv  TYPE_I, OPSZ_4_rex8_short2
 #define Iz  TYPE_I, OPSZ_4_short2
 #define Jb  TYPE_J, OPSZ_1
@@ -1549,6 +1565,7 @@ const instr_info_t * const op_instr[] =
 #define trexw (ptr_int_t)&rex_w_extensions
 #define tvex (ptr_int_t)&vex_extensions
 #define tvexw (ptr_int_t)&vex_W_extensions
+#define txop (ptr_int_t)&xop_extensions
 
 /* point at this when you need a canonical invalid instr 
  * type is OP_INVALID so can be copied to instr->opcode
@@ -2500,6 +2517,28 @@ const instr_info_t extensions[][8] = {
     {INVALID, 0x8f0025, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x8f0026, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0x8f0027, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  /* XOP group 1 */
+  { /* extensions[27] */
+    {INVALID,     0x090138, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_blcfill,  0x090139, "blcfill", By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blsfill,  0x09013a, "blsfill", By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blcs,     0x09013b, "blcs",    By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_tzmsk,    0x09013c, "tzmsk",   By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blcic,    0x09013d, "blcic",   By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blsic,    0x09013e, "blsic",   By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_t1mskc,   0x09013f, "t1mskc",  By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+  },
+  /* XOP group 2 */
+  { /* extensions[28] */
+    {INVALID,     0x090238, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_blcmsk,   0x090239, "blcmsk",By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {INVALID,     0x09023a, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09023b, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09023c, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09023d, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_blci,     0x09023e, "blci",  By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {INVALID,     0x09023f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
@@ -4663,7 +4702,7 @@ const byte third_byte_38_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,51, 52,53,54,55,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-    47,48, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    47,48, 0, 0,  0, 0, 0,98,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -4778,6 +4817,9 @@ const instr_info_t third_byte_38[] = {
   {VEX_EXT, 0x66382f18, "(vex ext 70)", xx, xx, xx, xx, xx, mrm, x, 70},/*95*/
   {VEX_EXT, 0x66380c18, "(vex ext 77)", xx, xx, xx, xx, xx, mrm, x, 77},/*96*/
   {VEX_EXT, 0x66380d18, "(vex ext 78)", xx, xx, xx, xx, xx, mrm, x, 78},/*97*/
+  /* TBM */
+  /* marked reqp b/c it should have no prefix (prefixes for future opcodes) */
+  {OP_bextr, 0x38f718, "bextr", Gy,xx,Ey,By,xx, mrm|vex|reqp, x, txop[60]},/*98*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -5105,7 +5147,7 @@ const byte xop_8_index[256] = {
 };
 const byte xop_9_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
+     0,58,59, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
@@ -5126,7 +5168,7 @@ const byte xop_9_index[256] = {
 const byte xop_a_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
+    60, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
@@ -5209,7 +5251,10 @@ const instr_info_t xop_extensions[] = {
   {OP_vphsubbw,  0x09e118,"vphsubbw",   Vdq,xx,Wdq,xx,xx,mrm|vex,x,END_LIST},   /*55*/
   {OP_vphsubwd,  0x09e218,"vphsubwd",   Vdq,xx,Wdq,xx,xx,mrm|vex,x,END_LIST},   /*56*/
   {OP_vphsubdq,  0x09e318,"vphsubdq",   Vdq,xx,Wdq,xx,xx,mrm|vex,x,END_LIST},   /*57*/
+  {EXTENSION,    0x090118, "(XOP group 1)", xx,xx, xx,xx,xx, mrm|vex, x, 27},   /*58*/
+  {EXTENSION,    0x090218, "(XOP group 2)", xx,xx, xx,xx,xx, mrm|vex, x, 28},   /*59*/
   /* XOP.map_select = 0x0a */
+  {OP_bextr,     0x0a1018, "bextr",  Gy,xx,Ey,Id,xx, mrm|vex, fW6, END_LIST},   /*60*/
 };
 
 /****************************************************************************

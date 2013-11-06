@@ -362,6 +362,7 @@ enum {
     /* operand types */
     TYPE_NONE,
     TYPE_A, /* immediate that is absolute address */
+    TYPE_B, /* vex.vvvv field selects general-purpose register */
     TYPE_C, /* reg of modrm selects control reg */
     TYPE_D, /* reg of modrm selects debug reg */
     TYPE_E, /* modrm selects reg or mem addr */

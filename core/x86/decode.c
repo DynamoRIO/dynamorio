@@ -992,22 +992,29 @@ read_instruction(byte *pc, byte *orig_pc,
     if (TEST(REQUIRES_PREFIX, info->flags)) {
         byte required = (byte)(info->opcode >> 24);
         bool *prefix_var = NULL;
-        CLIENT_ASSERT(info->opcode > 0xffffff, "decode error in SSSE3/SSE4 instr");
-        if (required == DATA_PREFIX_OPCODE)
-            prefix_var = &di->data_prefix;
-        else if (required == REPNE_PREFIX_OPCODE)
-            prefix_var = &di->repne_prefix;
-        else if (required == REP_PREFIX_OPCODE)
-            prefix_var = &di->rep_prefix;
-        else
-            CLIENT_ASSERT(false, "internal required-prefix error");
-        if (prefix_var == NULL || !*prefix_var) {
-            /* Invalid instr.  TODO: have processor w/ SSE4, confirm that
-             * an exception really is raised.
-             */
-            info = NULL;
-        } else
-            *prefix_var = false;
+        if (required == 0) { /* cannot have a prefix */
+            if (prefix_var != NULL) {
+                /* invalid instr */
+                info = NULL;
+            }
+        } else {
+            CLIENT_ASSERT(info->opcode > 0xffffff, "decode error in SSSE3/SSE4 instr");
+            if (required == DATA_PREFIX_OPCODE)
+                prefix_var = &di->data_prefix;
+            else if (required == REPNE_PREFIX_OPCODE)
+                prefix_var = &di->repne_prefix;
+            else if (required == REP_PREFIX_OPCODE)
+                prefix_var = &di->rep_prefix;
+            else
+                CLIENT_ASSERT(false, "internal required-prefix error");
+            if (prefix_var == NULL || !*prefix_var) {
+                /* Invalid instr.  TODO: have processor w/ SSE4, confirm that
+                 * an exception really is raised.
+                 */
+                info = NULL;
+            } else
+                *prefix_var = false;
+        }
     }
 
     /* we go through regular tables for vex but only some are valid w/ vex */
@@ -1159,6 +1166,7 @@ typedef enum {
     DECODE_REG_BASE,
     DECODE_REG_INDEX,
     DECODE_REG_RM,
+    DECODE_REG_VEX,
 } decode_reg_t;
 
 /* Pass in the raw opsize, NOT a size passed through resolve_variable_size(),
@@ -1178,6 +1186,13 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         reg = di->index; extend = X64_MODE(di) && TEST(PREFIX_REX_X, di->prefixes); break;
     case DECODE_REG_RM:
         reg = di->rm;    extend = X64_MODE(di) && TEST(PREFIX_REX_B, di->prefixes); break;
+    case DECODE_REG_VEX:
+        /* Part of XOP/AVX: vex.vvvv selects general-purpose register.
+         * It has 4 bits so no separate prefix bit is needed to extend.
+         */
+        reg = (~di->vex_vvvv) & 0xf; /* bit-inverted */
+        extend = false;
+        break;
     default:
         CLIENT_ASSERT(false, "internal unknown reg error");
     }
@@ -1209,6 +1224,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_E:
     case TYPE_G:
     case TYPE_R:
+    case TYPE_B:
     case TYPE_M:
     case TYPE_INDIR_E:
     case TYPE_FLOATMEM:
@@ -1754,6 +1770,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                                       opsize != OPSZ_4_of_16 &&
                                       opsize != OPSZ_8_of_16) ?
                                      REG_START_YMM : REG_START_XMM) + reg);
+            return true;
+        }
+    case TYPE_B:
+        {
+            /* part of XOP/AVX: vex.vvvv selects general-purpose register */
+            *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
             return true;
         }
     default:

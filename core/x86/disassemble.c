@@ -762,6 +762,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             return false;
         /* else fall through */
     case TYPE_A:
+    case TYPE_B:
     case TYPE_C:
     case TYPE_D:
     case TYPE_E:

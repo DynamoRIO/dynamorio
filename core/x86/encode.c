@@ -63,6 +63,7 @@
 const char * const type_names[] = {
     "TYPE_NONE",
     "TYPE_A", /* immediate that is absolute address */
+    "TYPE_B", /* vex.vvvv field selects general-purpose register */
     "TYPE_C", /* reg of modrm selects control reg */
     "TYPE_D", /* reg of modrm selects debug reg */
     "TYPE_E", /* modrm selects reg or mem addr */
@@ -956,9 +957,14 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                  reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false/*!addr*/) &&
                  reg_rm_selectable(opnd_get_reg(opnd))));
     case TYPE_G:
+    case TYPE_R:
+    case TYPE_B:
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, opsize,
+                            false/*!addr*/) &&
+                reg_is_gpr(opnd_get_reg(opnd)));
     case TYPE_P:
     case TYPE_V:
-    case TYPE_R:
     case TYPE_P_MODRM:
     case TYPE_V_MODRM:
         /* We are able to rule out segment registers b/c they should use TYPE_S
@@ -2036,6 +2042,19 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             reg_id_t reg = opnd_get_reg(opnd);
             di->vex_vvvv = (reg_is_ymm(reg) ? (reg - REG_START_YMM) :
                             (reg - REG_START_XMM));
+            di->vex_vvvv = (~di->vex_vvvv) & 0xf;
+            return;
+        }
+    case TYPE_B:
+        {
+            /* There are 4 bits in vvvv so no prefix bit is needed. */
+            reg_id_t reg = opnd_get_reg(opnd);
+            encode_reg_ext_prefixes(di, reg, 0);
+            di->vex_vvvv = reg_get_bits(reg);
+#ifdef X64
+            if (reg_is_extended(reg)) /* reg_get_bits does % 8 */
+                di->vex_vvvv |= 0x8;
+#endif
             di->vex_vvvv = (~di->vex_vvvv) & 0xf;
             return;
         }

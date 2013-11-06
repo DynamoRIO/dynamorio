@@ -5006,8 +5006,8 @@ enum {
 /* 1023 */     OP_vpmacsdql,      /* &xop_extensions[ 8], */ /**< vpmacsdql opcode */
 /* 1024 */     OP_vpmacsdd,       /* &xop_extensions[ 9], */ /**< vpmacsdd opcode */
 /* 1025 */     OP_vpmacsdqh,      /* &xop_extensions[10], */ /**< vpmacsdqh opcode */
-/* 1026 */     OP_vpmadcsswd,     /* &xop_extensions[11], */ /**< vpmadcsswd opcode */
-/* 1027 */     OP_vpmadcswd,      /* &xop_extensions[12], */ /**< vpmadcswd opcode */
+/* 1026 */     OP_vpmadcsswd,     /* &xop_extensions[13], */ /**< vpmadcsswd opcode */
+/* 1027 */     OP_vpmadcswd,      /* &xop_extensions[14], */ /**< vpmadcswd opcode */
 /* 1028 */     OP_vpperm,         /* &vex_W_extensions[51][0], */ /**< vpperm opcode */
 /* 1029 */     OP_vprotb,         /* &xop_extensions[15], */ /**< vprotb opcode */
 /* 1030 */     OP_vprotw,         /* &xop_extensions[16], */ /**< vprotw opcode */
@@ -5022,10 +5022,22 @@ enum {
 /* 1039 */     OP_vpshad,         /* &vex_W_extensions[62][0], */ /**< vpshad opcode */
 /* 1040 */     OP_vpshaq,         /* &vex_W_extensions[63][0], */ /**< vpshaq opcode */
 
+    /* AMD TBM */
+/* 1041 */     OP_bextr,          /* &third_byte_38[98], */ /**< bextr opcode */
+/* 1042 */     OP_blcfill,        /* &extensions[27][1], */ /**< blcfill opcode */
+/* 1043 */     OP_blci,           /* &extensions[27][2], */ /**< blci opcode */
+/* 1044 */     OP_blcic,          /* &extensions[27][3], */ /**< blcic opcode */
+/* 1045 */     OP_blcmsk,         /* &extensions[27][4], */ /**< blcmsk opcode */
+/* 1046 */     OP_blcs,           /* &extensions[27][5], */ /**< blcs opcode */
+/* 1047 */     OP_blsfill,        /* &extensions[27][6], */ /**< blsfill opcode */
+/* 1048 */     OP_blsic,          /* &extensions[27][7], */ /**< blsic opcode */
+/* 1049 */     OP_t1mskc,         /* &extensions[28][1], */ /**< t1mskc opcode */
+/* 1050 */     OP_tzmsk,          /* &extensions[28][6], */ /**< tzmsk opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1041 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1042 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1051 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1052 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,
