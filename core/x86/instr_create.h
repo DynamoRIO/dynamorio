@@ -358,6 +358,8 @@
   instr_create_0dst_1src((dc), OP_wrfsbase, (s))
 #define INSTR_CREATE_wrgsbase(dc, s) \
   instr_create_0dst_1src((dc), OP_wrgsbase, (s))
+#define INSTR_CREATE_llwpcb(dc, s) \
+  instr_create_0dst_1src((dc), OP_llwpcb, (s))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
@@ -678,6 +680,24 @@
     opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
+/** @name No destination, 3 sources */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s1 The opnd_t first source operand for the instruction, which must be
+ * a general-purpose register.
+ * \param s2 The opnd_t second source operand for the instruction
+ * \param i The opnd_t third source operand for the instruction, which must be
+ * an immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_lwpins(dc, s1, s2, i) \
+  instr_create_0dst_3src((dc), OP_lwpins, (s1), (s2), (i))
+#define INSTR_CREATE_lwpval(dc, s1, s2, i) \
+  instr_create_0dst_3src((dc), OP_lwpval, (s1), (s2), (i))
+/* @} */ /* end doxygen group */
+
 /* floating-point */
 /** @name Floating-point with source of memory or fp register */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -776,6 +796,8 @@
   instr_create_1dst_0src((dc), OP_rdfsbase, (d))
 #define INSTR_CREATE_rdgsbase(dc, d) \
   instr_create_1dst_0src((dc), OP_rdgsbase, (d))
+#define INSTR_CREATE_slwpcb(dc, d) \
+  instr_create_1dst_0src((dc), OP_slwpcb, (d))
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
  * explicit operands, automatically supplying any implicit operands.

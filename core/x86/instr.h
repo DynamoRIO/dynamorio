@@ -5025,19 +5025,25 @@ enum {
     /* AMD TBM */
 /* 1041 */     OP_bextr,          /* &third_byte_38[98], */ /**< bextr opcode */
 /* 1042 */     OP_blcfill,        /* &extensions[27][1], */ /**< blcfill opcode */
-/* 1043 */     OP_blci,           /* &extensions[27][2], */ /**< blci opcode */
-/* 1044 */     OP_blcic,          /* &extensions[27][3], */ /**< blcic opcode */
-/* 1045 */     OP_blcmsk,         /* &extensions[27][4], */ /**< blcmsk opcode */
-/* 1046 */     OP_blcs,           /* &extensions[27][5], */ /**< blcs opcode */
-/* 1047 */     OP_blsfill,        /* &extensions[27][6], */ /**< blsfill opcode */
-/* 1048 */     OP_blsic,          /* &extensions[27][7], */ /**< blsic opcode */
-/* 1049 */     OP_t1mskc,         /* &extensions[28][1], */ /**< t1mskc opcode */
-/* 1050 */     OP_tzmsk,          /* &extensions[28][6], */ /**< tzmsk opcode */
+/* 1043 */     OP_blci,           /* &extensions[28][6], */ /**< blci opcode */
+/* 1044 */     OP_blcic,          /* &extensions[27][5], */ /**< blcic opcode */
+/* 1045 */     OP_blcmsk,         /* &extensions[28][1], */ /**< blcmsk opcode */
+/* 1046 */     OP_blcs,           /* &extensions[27][3], */ /**< blcs opcode */
+/* 1047 */     OP_blsfill,        /* &extensions[27][2], */ /**< blsfill opcode */
+/* 1048 */     OP_blsic,          /* &extensions[27][6], */ /**< blsic opcode */
+/* 1049 */     OP_t1mskc,         /* &extensions[27][7], */ /**< t1mskc opcode */
+/* 1050 */     OP_tzmsk,          /* &extensions[27][4], */ /**< tzmsk opcode */
+
+    /* AMD LWP */
+/* 1051 */     OP_llwpcb,         /* &extensions[29][0], */ /**< llwpcb opcode */
+/* 1052 */     OP_slwpcb,         /* &extensions[29][1], */ /**< slwpcb opcode */
+/* 1053 */     OP_lwpins,         /* &extensions[30][0], */ /**< lwpins opcode */
+/* 1054 */     OP_lwpval,         /* &extensions[30][1], */ /**< lwpval opcode */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1051 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1052 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1055 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1056 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

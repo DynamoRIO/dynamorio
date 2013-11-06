@@ -170,3 +170,8 @@ OPCODE(jmp_far_ind, jmp_far_ind, jmp_far_ind, 0, MEMARG(OPSZ_6))
 OPCODE(call, call, call, 0, TGTARG)
 OPCODE(call_far, call_far, call_far, X86_ONLY, opnd_create_far_pc(0x1234, 0))
 OPCODE(call_far_ind, call_far_ind, call_far_ind, 0, MEMARG(OPSZ_6))
+
+/****************************************************************************/
+/* LWP */
+OPCODE(llwpcb, llwpcb, llwpcb, 0, REGARG(EAX))
+OPCODE(slwpcb, slwpcb, slwpcb, 0, REGARG(EAX))

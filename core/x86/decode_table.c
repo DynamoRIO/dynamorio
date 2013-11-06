@@ -1193,6 +1193,12 @@ const instr_info_t * const op_instr[] =
     /* OP_t1mskc        */   &extensions[27][7],
     /* OP_tzmsk         */   &extensions[27][4],
 
+    /* AMD LWP */
+    /* OP_llwpcb        */   &extensions[29][0],
+    /* OP_slwpcb        */   &extensions[29][1],
+    /* OP_lwpins        */   &extensions[30][0],
+    /* OP_lwpval        */   &extensions[30][1],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -2539,6 +2545,34 @@ const instr_info_t extensions[][8] = {
     {INVALID,     0x09023d, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_blci,     0x09023e, "blci",  By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
     {INVALID,     0x09023f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  /* XOP group 3 */
+  { /* extensions[29] */
+    /* XXX i#1311: these instrs implicitly write to memory which we should
+     * find a way to encode into the IR.
+     */
+    {OP_llwpcb,   0x091238, "llwpcb", xx, xx, Ry, xx, xx, mrm|vex, x, END_LIST},
+    {OP_slwpcb,   0x091239, "slwpcb", Ry, xx, xx, xx, xx, mrm|vex, x, END_LIST},
+    {INVALID,     0x09123a, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09123b, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09123c, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09123d, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09123e, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x09123f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  /* XOP group 3 */
+  { /* extensions[30] */
+    /* XXX i#1311: these instrs implicitly write to memory which we should
+     * find a way to encode into the IR.
+     */
+    {OP_lwpins,   0x0a1238, "lwpins", xx, xx, By, Ed, Id, mrm|vex, fWC, END_LIST},
+    {OP_lwpval,   0x0a1239, "lwpval", xx, xx, By, Ed, Id, mrm|vex, x, END_LIST},
+    {INVALID,     0x0a123a, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x0a123b, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x0a123c, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x0a123d, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x0a123e, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x0a123f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
@@ -5148,7 +5182,7 @@ const byte xop_8_index[256] = {
 const byte xop_9_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
      0,58,59, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
+     0, 0,61, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
@@ -5168,7 +5202,7 @@ const byte xop_9_index[256] = {
 const byte xop_a_index[256] = {
   /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 0 */
-    60, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
+    60, 0,62, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
@@ -5255,6 +5289,9 @@ const instr_info_t xop_extensions[] = {
   {EXTENSION,    0x090218, "(XOP group 2)", xx,xx, xx,xx,xx, mrm|vex, x, 28},   /*59*/
   /* XOP.map_select = 0x0a */
   {OP_bextr,     0x0a1018, "bextr",  Gy,xx,Ey,Id,xx, mrm|vex, fW6, END_LIST},   /*60*/
+  /* Later-added instrs, from various tables */
+  {EXTENSION,    0x091218, "(XOP group 3)", xx,xx, xx,xx,xx, mrm|vex, x, 29},   /*61*/
+  {EXTENSION,    0x0a1218, "(XOP group 4)", xx,xx, xx,xx,xx, mrm|vex, x, 30},   /*62*/
 };
 
 /****************************************************************************

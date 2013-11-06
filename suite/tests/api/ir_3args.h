@@ -296,3 +296,8 @@ OPCODE(vpshaw_b, vpshaw, vpshaw, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 /* TBM */
 OPCODE(bextr_a, bextr, bextr, 0, REGARG(EDI), MEMARG(OPSZ_4), REGARG(EBX))
 OPCODE(bextr_b, bextr, bextr, 0, REGARG(EDI), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
+
+/****************************************************************************/
+/* LWP */
+OPCODE(lwpins, lwpins, lwpins, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
+OPCODE(lwpval, lwpval, lwpval, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
