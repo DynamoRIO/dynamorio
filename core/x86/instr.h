@@ -4127,7 +4127,7 @@ enum {
 /* 195 */     OP_movzx,        /* &second_byte[0xb7], */ /**< movzx opcode */
 /* 196 */     OP_ud2b,         /* &second_byte[0xb9], */ /**< ud2b opcode */
 /* 197 */     OP_btc,          /* &second_byte[0xbb], */ /**< btc opcode */
-/* 198 */     OP_bsf,          /* &second_byte[0xbc], */ /**< bsf opcode */
+/* 198 */     OP_bsf,          /* &prefix_extensions[140][0], */ /**< bsf opcode */
 /* 199 */     OP_bsr,          /* &prefix_extensions[136][0], */ /**< bsr opcode */
 /* 200 */     OP_movsx,        /* &second_byte[0xbf], */ /**< movsx opcode */
 /* 201 */     OP_xadd,         /* &second_byte[0xc1], */ /**< xadd opcode */
@@ -4943,7 +4943,7 @@ enum {
     /* coming in the future but adding now since enough details are known */
 /* 965 */     OP_rdseed,         /* &mod_extensions[13][1], */ /**< rdseed opcode */
 
-    /* FMA4 */
+    /* AMD FMA4 */
 /* 966 */     OP_vfmaddsubps,    /* &vex_W_extensions[30][0], */ /**< vfmaddsubps opcode */
 /* 967 */     OP_vfmaddsubpd,    /* &vex_W_extensions[31][0], */ /**< vfmaddsubpd opcode */
 /* 968 */     OP_vfmsubaddps,    /* &vex_W_extensions[32][0], */ /**< vfmsubaddps opcode */
@@ -4965,7 +4965,7 @@ enum {
 /* 984 */     OP_vfnmsubss,      /* &vex_W_extensions[48][0], */ /**< vfnmsubss opcode */
 /* 985 */     OP_vfnmsubsd,      /* &vex_W_extensions[49][0], */ /**< vfnmsubsd opcode */
 
-    /* XOP */
+    /* AMD XOP */
 /* 986 */     OP_vfrczps,        /* &xop_extensions[27], */ /**< vfrczps opcode */
 /* 987 */     OP_vfrczpd,        /* &xop_extensions[28], */ /**< vfrczpd opcode */
 /* 988 */     OP_vfrczss,        /* &xop_extensions[29], */ /**< vfrczss opcode */
@@ -5040,10 +5040,18 @@ enum {
 /* 1053 */     OP_lwpins,         /* &extensions[30][0], */ /**< lwpins opcode */
 /* 1054 */     OP_lwpval,         /* &extensions[30][1], */ /**< lwpval opcode */
 
+    /* Intel BMI1 */
+    /* (includes non-immed form of OP_bextr) */
+/* 1055 */     OP_andn,           /* &third_byte_38[100], */ /**< andn opcode */
+/* 1056 */     OP_blsr,           /* &extensions[31][1], */ /**< blsr opcode */
+/* 1057 */     OP_blsmsk,         /* &extensions[31][2], */ /**< blsmsk opcode */
+/* 1058 */     OP_blsi,           /* &extensions[31][3], */ /**< blsi opcode */
+/* 1059 */     OP_tzcnt,          /* &prefix_extensions[140][1], */ /**< tzcnt opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1055 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1056 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1060 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1061 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

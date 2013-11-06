@@ -1295,6 +1295,15 @@
   instr_create_1dst_1src((dc), OP_t1mskc, (d), (s))
 #define INSTR_CREATE_tzmsk(dc, d, s) \
   instr_create_1dst_1src((dc), OP_tzmsk, (d), (s))
+/* BL1 */
+#define INSTR_CREATE_blsr(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blsr, (d), (s))
+#define INSTR_CREATE_blsmsk(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blsmsk, (d), (s))
+#define INSTR_CREATE_blsi(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_blsi, (d), (s))
+#define INSTR_CREATE_tzcnt(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_tzcnt, (d), (s))
 
 /* @} */ /* end doxygen group */
 
@@ -1955,6 +1964,9 @@
 /* Has a variant that takes an immediate */
 #define INSTR_CREATE_bextr(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_bextr, (d), (s1), (s2))
+/* BL1 */
+#define INSTR_CREATE_andn(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_andn, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */

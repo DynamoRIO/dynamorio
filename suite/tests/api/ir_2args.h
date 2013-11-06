@@ -393,3 +393,10 @@ OPCODE(blsfill, blsfill, blsfill, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(blsic, blsic, blsic, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(t1mskc, t1mskc, t1mskc, 0, REGARG(EDX), MEMARG(OPSZ_4))
 OPCODE(tzmsk, tzmsk, tzmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* BL1 */
+OPCODE(blsr, blsr, blsr, 0, REGARG(EDX), MEMARG(OPSZ_4))
+OPCODE(blsmsk, blsmsk, blsmsk, 0, REGARG(EDX), MEMARG(OPSZ_4))
+OPCODE(blsi, blsi, blsi, 0, REGARG(EDX), MEMARG(OPSZ_4))
+OPCODE(tzcnt, tzcnt, tzcnt, 0, REGARG(EDX), MEMARG(OPSZ_4))

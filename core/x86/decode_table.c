@@ -286,7 +286,7 @@ const instr_info_t * const op_instr[] =
     /* OP_movzx       */   &second_byte[0xb7],
     /* OP_ud2b        */   &second_byte[0xb9],
     /* OP_btc         */   &second_byte[0xbb],
-    /* OP_bsf         */   &second_byte[0xbc],
+    /* OP_bsf         */   &prefix_extensions[140][0],
     /* OP_bsr         */   &prefix_extensions[136][0],
     /* OP_movsx       */   &second_byte[0xbf],
     /* OP_xadd        */   &second_byte[0xc1],
@@ -1102,7 +1102,7 @@ const instr_info_t * const op_instr[] =
     /* coming in the future but adding now since enough details are known */
     /* OP_rdseed        */   &mod_extensions[13][1],
 
-    /* FMA4 */
+    /* AMD FMA4 */
     /* OP_vfmaddsubps   */   &vex_W_extensions[30][0],
     /* OP_vfmaddsubpd   */   &vex_W_extensions[31][0],
     /* OP_vfmsubaddps   */   &vex_W_extensions[32][0],
@@ -1124,7 +1124,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vfnmsubss     */   &vex_W_extensions[48][0],
     /* OP_vfnmsubsd     */   &vex_W_extensions[49][0],
 
-    /* XOP */
+    /* AMD XOP */
     /* OP_vfrczps       */   &xop_extensions[27],
     /* OP_vfrczpd       */   &xop_extensions[28],
     /* OP_vfrczss       */   &xop_extensions[29],
@@ -1198,6 +1198,14 @@ const instr_info_t * const op_instr[] =
     /* OP_slwpcb        */   &extensions[29][1],
     /* OP_lwpins        */   &extensions[30][0],
     /* OP_lwpval        */   &extensions[30][1],
+
+    /* Intel BMI1 */
+    /* (includes non-immed form of OP_bextr) */
+    /* OP_andn          */   &third_byte_38[100],
+    /* OP_blsr          */   &extensions[31][1],
+    /* OP_blsmsk        */   &extensions[31][2],
+    /* OP_blsi          */   &extensions[31][3],
+    /* OP_tzcnt         */   &prefix_extensions[140][1],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -2120,7 +2128,7 @@ const instr_info_t second_byte[] = {
   {OP_ud2b, 0x0fb910, "ud2b", xx, xx, xx, xx, xx, no, x, END_LIST},
   {EXTENSION, 0x0fba10, "(group 8)", xx, xx, xx, xx, xx, mrm, x, 15},
   {OP_btc, 0x0fbb10, "btc", Ev, xx, Gv, Ev, xx, mrm, fW6, tex[15][7]},
-  {OP_bsf, 0x0fbc10, "bsf", Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+  {PREFIX_EXT, 0x0fbc10, "(prefix ext 140)", xx, xx, xx, xx, xx, mrm, x, 140},
   {PREFIX_EXT, 0x0fbd10, "(prefix ext 136)", xx, xx, xx, xx, xx, mrm, x, 136},
   {OP_movsx, 0x0fbe10, "movsx", Gv, xx, Eb, xx, xx, mrm, x, END_LIST},
   {OP_movsx, 0x0fbf10, "movsx", Gv, xx, Ew, xx, xx, mrm, x, tsb[0xbe]},
@@ -2573,6 +2581,17 @@ const instr_info_t extensions[][8] = {
     {INVALID,     0x0a123d, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0a123e, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x0a123f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  },
+  /* group 17 */
+  { /* extensions[31] */
+    {INVALID,     0x38f338, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_blsr,     0x38f339, "blsr",   By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blsmsk,   0x38f33a, "blsmsk", By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {OP_blsi,     0x38f33b, "blsi",   By, xx, Ey, xx, xx, mrm|vex, fW6, END_LIST},
+    {INVALID,     0x38f33c, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x38f33d, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x38f33e, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,     0x38f33f, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
   },
 };
 
@@ -4149,6 +4168,18 @@ const instr_info_t prefix_extensions[][8] = {
      * But detail page doesn't corroborate that...
      */
   },
+  { /* prefix extension 140 */
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    /* XXX: if cpuid doesn't show tzcnt support, this is treated as bsf */
+    {OP_tzcnt,     0xf30fbc10, "tzcnt",   Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    /* see OP_bsr comments above -- this is the same but for bsf: */
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
+    {INVALID,        0x0fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf30fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x660fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf20fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+  },
 };
 
 /****************************************************************************
@@ -4736,7 +4767,7 @@ const byte third_byte_38_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,51, 52,53,54,55,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-    47,48, 0, 0,  0, 0, 0,98,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    47,48,100,99,  0, 0, 0,98,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -4854,6 +4885,10 @@ const instr_info_t third_byte_38[] = {
   /* TBM */
   /* marked reqp b/c it should have no prefix (prefixes for future opcodes) */
   {OP_bextr, 0x38f718, "bextr", Gy,xx,Ey,By,xx, mrm|vex|reqp, x, txop[60]},/*98*/
+  /* BMI1 */
+  {EXTENSION, 0x38f318, "(group 17)", By, xx, Ey, xx, xx, mrm|vex, x, 31},      /*99*/
+  /* marked reqp b/c it should have no prefix (prefixes for future opcodes) */
+  {OP_andn, 0x38f218, "andn", Gy, xx, By, Ey, xx, mrm|vex|reqp, fW6, END_LIST},/*100*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed

@@ -43,7 +43,7 @@ while (<>) {
     # handle DOS end-of-line:
     if ($_ =~ /\r$/) { chop; };
     $l = $_;
-    if ($l =~ /OP_/) {
+    if ($l =~ /\* OP_/) {
 	$l =~ /^\s*\/\*\s*OP_([a-zA-Z0-9_]*)(\s*)\*\/\s*(.*)$/;
         $op = $1;
         $space = $2;
