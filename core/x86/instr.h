@@ -5063,11 +5063,12 @@ enum {
 
     /* Misc Intel additions */
 /* 1069 */     OP_vmfunc,         /* &rm_extensions[4][4], */ /**< vmfunc opcode */
+/* 1070 */     OP_invpcid,        /* &third_byte_38[103], */ /**< invpcid opcode */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1070 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1071 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1071 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1072 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

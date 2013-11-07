@@ -1222,6 +1222,7 @@ const instr_info_t * const op_instr[] =
 
     /* Misc Intel additions */
     /* OP_vmfunc        */   &rm_extensions[4][4],
+    /* OP_invpcid       */   &third_byte_38[103],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -4801,7 +4802,7 @@ const byte third_byte_38_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-    49,50, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
+    49,50,103,0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0,58,59, 60,61,62,63, 64,65,66,67,  /* 9 */
      0, 0, 0, 0,  0, 0,68,69, 70,71,72,73, 74,75,76,77,  /* A */
      0, 0, 0, 0,  0, 0,78,79, 80,81,82,83, 84,85,86,87,  /* B */
@@ -4932,6 +4933,7 @@ const instr_info_t third_byte_38[] = {
   /* BMI2 */
   {PREFIX_EXT, 0x38f518, "(prefix ext 142)", xx, xx, xx, xx, xx, mrm, x, 142}, /*101*/
   {PREFIX_EXT, 0x38f618, "(prefix ext 143)", xx, xx, xx, xx, xx, mrm, x, 143}, /*102*/
+  {OP_invpcid, 0x66388218, "invpcid",  xx, xx, Gy, Mdq, xx, mrm|reqp, x, END_LIST},/*103*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed

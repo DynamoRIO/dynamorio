@@ -579,6 +579,8 @@
   instr_create_0dst_2src((dc), OP_invept, (s1), (s2))
 #define INSTR_CREATE_invvpid(dc, s1, s2) \
   instr_create_0dst_2src((dc), OP_invvpid, (s1), (s2))
+#define INSTR_CREATE_invpcid(dc, s1, s2) \
+  instr_create_0dst_2src((dc), OP_invpcid, (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* no destination, 2 sources: 1 implicit */

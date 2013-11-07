@@ -332,6 +332,7 @@ OPCODE(comiss, comiss, comiss, 0, REGARG(XMM0), MEMARG(OPSZ_4))
 OPCODE(comisd, comisd, comisd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
 OPCODE(invept, invept, invept, 0, REGARG(XAX), MEMARG(OPSZ_16))
 OPCODE(invvpid, invvpid, invvpid, 0, REGARG(XAX), MEMARG(OPSZ_16))
+OPCODE(invpcid, invpcid, invpcid, 0, REGARG(EAX), MEMARG(OPSZ_16))
 
 OPCODE(crc32, crc32, crc32, 0, REGARG(EAX), MEMARG(OPSZ_4))
 
