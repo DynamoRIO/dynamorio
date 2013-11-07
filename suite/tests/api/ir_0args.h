@@ -183,3 +183,6 @@ OPCODE(vzeroupper, vzeroupper, vzeroupper, 0)
 OPCODE(vzeroall, vzeroall, vzeroall, 0)
 
 OPCODE(getsec, getsec, getsec, 0)
+
+OPCODE(xend, xend, xend, 0)
+OPCODE(xtest, xtest, xtest, 0)

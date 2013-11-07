@@ -998,7 +998,11 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     } else
         name = "<RAW>";
 
-    if ((instr->prefixes & PREFIX_LOCK) != 0)
+    if (TEST(PREFIX_XACQUIRE, instr->prefixes))
+        print_to_buffer(buf, bufsz, sofar, "xacquire ");
+    if (TEST(PREFIX_XRELEASE, instr->prefixes))
+        print_to_buffer(buf, bufsz, sofar, "xrelease ");
+    if (TEST(PREFIX_LOCK, instr->prefixes))
         print_to_buffer(buf, bufsz, sofar, "lock ");
     /* Note that we do not try to figure out data16 or addr16 prefixes
      * if they are not already set from a recent decode;

@@ -3792,6 +3792,8 @@ enum {
     RAW_PREFIX_jcc_not_taken   = 0x2e,
     RAW_PREFIX_jcc_taken       = 0x3e,
     RAW_PREFIX_lock            = 0xf0,
+    RAW_PREFIX_xacquire        = 0xf2,
+    RAW_PREFIX_xrelease        = 0xf3,
 };
 
 enum { /* FIXME: vs RAW_OPCODE_* enum */
@@ -5065,10 +5067,16 @@ enum {
 /* 1069 */     OP_vmfunc,         /* &rm_extensions[4][4], */ /**< vmfunc opcode */
 /* 1070 */     OP_invpcid,        /* &third_byte_38[103], */ /**< invpcid opcode */
 
+    /* Intel TSX */
+/* 1071 */     OP_xabort,         /* &extensions[17][7], */ /**< xabort opcode */
+/* 1072 */     OP_xbegin,         /* &extensions[18][7], */ /**< xbegin opcode */
+/* 1073 */     OP_xend,           /* &rm_extensions[4][5], */ /**< xend opcode */
+/* 1074 */     OP_xtest,          /* &rm_extensions[4][6], */ /**< xtest opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1071 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1072 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1075 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1076 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

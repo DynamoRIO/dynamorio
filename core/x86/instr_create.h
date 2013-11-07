@@ -252,6 +252,7 @@
 #define INSTR_CREATE_int1(dc) instr_create_0dst_0src((dc), OP_int1)
 #define INSTR_CREATE_vzeroupper(dc) instr_create_0dst_0src((dc), OP_vzeroupper)
 #define INSTR_CREATE_vzeroall(dc) instr_create_0dst_0src((dc), OP_vzeroall)
+#define INSTR_CREATE_xtest(dc) instr_create_0dst_0src((dc), OP_xtest)
 /* @} */ /* end doxygen group */
 /**
  * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
@@ -300,6 +301,8 @@
   instr_create_0dst_1src((dc), OP_jmp, (t))
 #define INSTR_CREATE_jmp_short(dc, t) \
   instr_create_0dst_1src((dc), OP_jmp_short, (t))
+#define INSTR_CREATE_xbegin(dc, t) \
+  instr_create_0dst_1src((dc), OP_xbegin, (t))
 /* @} */ /* end doxygen group */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1361,6 +1364,9 @@
 #define INSTR_CREATE_xlat(dc) \
   instr_create_1dst_1src((dc), OP_xlat, opnd_create_reg(DR_REG_AL), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XBX, DR_REG_AL, 1, 0, OPSZ_xlat))
+#define INSTR_CREATE_xend(dc) \
+  instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
 /** @name In with no explicit sources */
@@ -1391,6 +1397,15 @@
 #define INSTR_CREATE_in_4_imm(dc, i) \
   instr_create_1dst_1src((dc), OP_in, opnd_create_reg(DR_REG_EAX), (i))
 /* @} */ /* end doxygen group */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param i The opnd_t explicit source operand for the instruction, which must be an
+ * immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_xabort(dc, i) \
+  instr_create_1dst_1src((dc), OP_xabort, opnd_create_reg(DR_REG_EAX), (i))
 
 /* floating-point */
 /**

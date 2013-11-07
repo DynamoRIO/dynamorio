@@ -1069,7 +1069,7 @@ read_instruction(byte *pc, byte *orig_pc,
         *ret_info = &invalid_instr;
         return NULL;
     }
-        
+
 #ifdef INTERNAL
     DODEBUG({ /* rep & repne should have been completely handled by now */
         /* processor will typically ignore extra prefixes, but we log this internally
@@ -1121,6 +1121,17 @@ read_instruction(byte *pc, byte *orig_pc,
         } else {
             di->prefixes |= PREFIX_DATA;
         }
+    }
+    if ((di->repne_prefix || di->rep_prefix) &&
+        (TEST(PREFIX_LOCK, di->prefixes) ||
+         /* xrelease can go on non-0xa3 mov_st w/o lock prefix */
+         (di->repne_prefix && info->type == OP_mov_st &&
+          (info->opcode & 0xa30000) != 0xa30000))) {
+        /* we don't go so far as to ensure the mov_st is of the right type */
+        if (di->repne_prefix)
+            di->prefixes |= PREFIX_XACQUIRE;
+        if (di->rep_prefix)
+            di->prefixes |= PREFIX_XRELEASE;
     }
     
     /* read any trailing immediate bytes */
@@ -2029,6 +2040,9 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
         }
     }
+    /* PREFIX_XRELEASE is allowed w/o LOCK on mov_st, but use of it or PREFIX_XACQUIRE
+     * in other situations does not result in #UD so we ignore.
+     */
 
     if (orig_pc != pc) {
         /* We do not want to copy when encoding and condone an invalid

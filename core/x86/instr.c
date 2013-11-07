@@ -2727,11 +2727,13 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
     switch (instr_get_opcode(instr)) {
     case OP_jmp:
     case OP_call:
+        /* XXX i#1315: we should support 2-byte immeds => length 3 */
         return 5;
     case OP_jb: case OP_jnb: case OP_jbe: case OP_jnbe:
     case OP_jl: case OP_jnl: case OP_jle: case OP_jnle:
     case OP_jo: case OP_jno: case OP_jp: case OP_jnp:
     case OP_js: case OP_jns: case OP_jz: case OP_jnz:
+        /* XXX i#1315: we should support 2-byte immeds => length 4+ */
         return 6 + ((TEST(PREFIX_JCC_TAKEN, instr_get_prefixes(instr)) ||
                      TEST(PREFIX_JCC_NOT_TAKEN, instr_get_prefixes(instr))) ? 1 : 0);
     case OP_jb_short: case OP_jnb_short: case OP_jbe_short: case OP_jnbe_short:
@@ -2755,6 +2757,9 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
             return 2;
     case OP_LABEL:
         return 0;
+    case OP_xbegin:
+        /* XXX i#1315: we should support 2-byte immeds => length 4 */
+        return 6;
     }
 
     /* else, encode to find length */

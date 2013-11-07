@@ -68,7 +68,7 @@
         ASSERT(instr_get_opcode(instr) == OP_##opc); \
         /* ensure operands all came out the same (xref i#1232) */ \
         ASSERT(instr_same(orig, instr) || \
-               instr_is_cti(orig) && opnd_is_instr(instr_get_target(orig))); \
+               instr_num_srcs(orig) > 0 && opnd_is_instr(instr_get_target(orig))); \
         pc = next_pc; \
         orig = instr_get_next(orig); \
         if (orig != NULL && instr_is_label(orig)) \

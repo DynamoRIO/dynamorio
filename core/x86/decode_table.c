@@ -1224,6 +1224,12 @@ const instr_info_t * const op_instr[] =
     /* OP_vmfunc        */   &rm_extensions[4][4],
     /* OP_invpcid       */   &third_byte_38[103],
 
+    /* Intel TSX */
+    /* OP_xabort        */   &extensions[17][7],
+    /* OP_xbegin        */   &extensions[18][7],
+    /* OP_xend          */   &rm_extensions[4][5],
+    /* OP_xtest         */   &rm_extensions[4][6],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -2449,7 +2455,8 @@ const instr_info_t extensions[][8] = {
     {INVALID, 0xc60024, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60025, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc60026, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xc60027, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* XXX i#1314: this also sets eip */
+    {OP_xabort, 0xf8c60067, "xabort", eax, xx, Ib, xx, xx, mrm, x, END_LIST},
   },
   /* group 11b (first byte c7) */
   { /* extensions[18] */
@@ -2461,7 +2468,7 @@ const instr_info_t extensions[][8] = {
     {INVALID, 0xc70024, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70025, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xc70026, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID, 0xc70027, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_xbegin, 0xf8c70067, "xbegin", xx, xx, Jz, xx, xx, mrm, x, END_LIST},
   },
   /* group 12 (first bytes 0f 71): all assumed to have Ib */
   { /* extensions[19] */
@@ -4622,8 +4629,11 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmfunc, 0xd40f0172, "vmfunc", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    /* Only if the transaction fails does xend write to eax => src+dest (i#269).
+     * XXX i#1314: on failure eip is also written to.
+     */
+    {OP_xend,   0xd50f0172, "xend", eax, xx, eax, xx, xx, mrm, x, NA},
+    {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
 };

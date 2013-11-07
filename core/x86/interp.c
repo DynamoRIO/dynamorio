@@ -3438,12 +3438,19 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+#if 0/*i#1313, i#1314*/
         else if (instr_get_opcode(bb->instr) == OP_getsec) {
             /* XXX i#1313: if we support CPL0 in the future we'll need to
              * dynamically handle the leaf functions here, which can change eip
-             * and other state.
+             * and other state.  We'll need OP_getsec in decode_cti().
+             */
+        else if (instr_get_opcode(bb->instr) == OP_xend ||
+                 instr_get_opcode(bb->instr) == OP_xabort) {
+            /* XXX i#1314: support OP_xend failing and setting eip to the
+             * fallback pc recorded by OP_xbegin.  We'll need both in decode_cti().
              */
         }
+#endif
 #ifdef CHECK_RETURNS_SSE2
         else if (instr_is_sse_or_sse2(bb->instr)) {
             FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_XMM_USED, 2, 

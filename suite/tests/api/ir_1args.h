@@ -128,6 +128,7 @@ OPCODE(ret_imm, ret, ret_imm, 0, IMMARG(OPSZ_2))
 OPCODE(ret_far_imm, ret_far, ret_far_imm, 0, IMMARG(OPSZ_2))
 OPCODE(push_imm, push_imm, push_imm, 0, IMMARG(OPSZ_4))
 OPCODE(int, int, int, 0, IMMARG(OPSZ_1))
+OPCODE(xabort, xabort, xabort, 0, IMMARG(OPSZ_1))
 
 /****************************************************************************/
 /* single register argument */
@@ -170,6 +171,7 @@ OPCODE(jmp_far_ind, jmp_far_ind, jmp_far_ind, 0, MEMARG(OPSZ_6))
 OPCODE(call, call, call, 0, TGTARG)
 OPCODE(call_far, call_far, call_far, X86_ONLY, opnd_create_far_pc(0x1234, 0))
 OPCODE(call_far_ind, call_far_ind, call_far_ind, 0, MEMARG(OPSZ_6))
+OPCODE(xbegin, xbegin, xbegin, 0, TGTARG)
 
 /****************************************************************************/
 /* LWP */

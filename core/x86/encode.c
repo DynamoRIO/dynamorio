@@ -1398,18 +1398,8 @@ encode_immed(decode_info_t * di, byte *pc)
         /* do we need to pc-relativize a target pc? */
         if (di->immed_pc_relativize) {
             int len;
-            size = di->size_immed;
-            if ((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
-                size == OPSZ_4)
-                len = 4;
-            else if (size == OPSZ_4_short2 && TEST(PREFIX_DATA, di->prefixes))
-                len = 2;
-            else if (size == OPSZ_1)
-                len = 1;
-            else {
-                len = 0; /* avoid compiler warning */
-                CLIENT_ASSERT(false, "encode error: immediate has unknown size");
-            }
+            size = resolve_variable_size(di, di->size_immed, false);
+            len = opnd_size_in_bytes(size);
             /* offset is from start of next instruction */
             val = di->immed - ((ptr_int_t)pc + len);
         } else if (di->immed_subtract_length) {
@@ -1417,18 +1407,8 @@ encode_immed(decode_info_t * di, byte *pc)
              * the offset not counting the instruction length
              */
             int len;
-            size = di->size_immed;
-            if ((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
-                size == OPSZ_4)
-                len = 4;
-            else if (size == OPSZ_4_short2 && TEST(PREFIX_DATA, di->prefixes))
-                len = 2;
-            else if (size == OPSZ_1)
-                len = 1;
-            else {
-                len = 0; /* avoid compiler warning */
-                CLIENT_ASSERT(false, "encode error: immediate has unknown size");
-            }
+            size = resolve_variable_size(di, di->size_immed, false);
+            len = opnd_size_in_bytes(size);
             /* just need to subtract the total instr length from the offset */
             /* HACK: di->modrm was set with the number of instruction bytes
              * prior to this immed
@@ -2487,6 +2467,14 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     if (di.prefixes != 0) {
         if (TEST(PREFIX_LOCK, di.prefixes)) {
             *field_ptr = RAW_PREFIX_lock;
+            field_ptr++;
+        }
+        if (TEST(PREFIX_XACQUIRE, di.prefixes)) {
+            *field_ptr = RAW_PREFIX_xacquire;
+            field_ptr++;
+        }
+        if (TEST(PREFIX_XRELEASE, di.prefixes)) {
+            *field_ptr = RAW_PREFIX_xrelease;
             field_ptr++;
         }
         if (TEST(PREFIX_JCC_TAKEN, di.prefixes)) {

@@ -960,6 +960,47 @@ test_strict_invalid(void *dc)
     instr_free(dc, &instr);
 }
 
+static void
+test_tsx(void *dc)
+{
+    /* Test the xacquire and xrelease prefixes */
+    byte *pc;
+    const byte b1[] = { 0xf3, 0xa3, 0x9a, 0x7a, 0x21, 0x02, 0xfa, 0x8c, 0xec, 0xa3 };
+    const byte b2[] = { 0xf3, 0x89, 0x39 };
+    const byte b3[] = { 0xf2, 0x89, 0x39 };
+    const byte b4[] = { 0xf2, 0xf0, 0x00, 0x00 };
+    byte buf[512];
+    int len;
+
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, IF_X64_ELSE("mov    %eax -> 0xa3ec8cfa02217a9a \n",
+                                   "mov    %eax -> 0x02217a9a \n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,  IF_X64_ELSE("mov    %edi -> (%rcx) \n",
+                                    "mov    %edi -> (%ecx) \n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire mov    %edi -> (%rcx) \n",
+                                   "xacquire mov    %edi -> (%ecx) \n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire lock add    %al (%rax) -> (%rax) \n",
+                                   "xacquire lock add    %al (%eax) -> (%eax) \n")) == 0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1012,6 +1053,8 @@ main(int argc, char *argv[])
     test_instr_opnds(dcontext);
 
     test_strict_invalid(dcontext);
+
+    test_tsx(dcontext);
 
     print("all done\n");
     return 0;
