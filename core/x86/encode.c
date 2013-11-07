@@ -93,6 +93,7 @@ const char * const type_names[] = {
     "TYPE_VAR_REG",
     "TYPE_VARZ_REG",
     "TYPE_VAR_XREG",
+    "TYPE_VAR_REGX",
     "TYPE_VAR_ADDR_XREG",
     "TYPE_REG_EX",
     "TYPE_VAR_REG_EX",
@@ -269,6 +270,7 @@ template_optype_is_reg(int optype)
     case TYPE_VAR_REG:
     case TYPE_VARZ_REG:
     case TYPE_VAR_XREG:
+    case TYPE_VAR_REGX:
     case TYPE_VAR_ADDR_XREG:
     case TYPE_INDIR_REG:
     case TYPE_INDIR_VAR_XREG:
@@ -905,6 +907,14 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                             false/*!addr*/) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, true
                                                       _IF_X64(true) _IF_X64(true)
+                                                      _IF_X64(false/*!extendable*/)));
+    case TYPE_VAR_REGX:
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4_rex8,
+                            false/*!addr*/) &&
+                opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, false/*!shrink*/
+                                                      _IF_X64(false/*default 32*/)
+                                                      _IF_X64(true/*can grow*/)
                                                       _IF_X64(false/*!extendable*/)));
     case TYPE_VAR_ADDR_XREG:
         return (opnd_is_reg(opnd) &&
@@ -1747,6 +1757,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_VAR_REG:
     case TYPE_VARZ_REG:
     case TYPE_VAR_XREG:
+    case TYPE_VAR_REGX:
     case TYPE_VAR_ADDR_XREG:
     case TYPE_1:
     case TYPE_FLOATCONST:

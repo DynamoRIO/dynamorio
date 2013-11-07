@@ -123,7 +123,7 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added proc_avx_enabled()
  - Added dr_app_running_under_dynamorio()
  - Added support for recent IA-32/AMD64 instructions: the rdrand,
-   fsgsbase, FMA4, XOP, TBM, LWP, and BMI1 instruction groups
+   fsgsbase, FMA4, XOP, TBM, LWP, BMI1, and BMI2 instruction groups
  - Fixed misnamed opcodes: OP_vpmovsxdw is now OP_vpmovsxwd and
    OP_vpmovzxdw is now OP_vpmovzxwd
  - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework

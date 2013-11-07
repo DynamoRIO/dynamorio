@@ -1964,9 +1964,25 @@
 /* Has a variant that takes an immediate */
 #define INSTR_CREATE_bextr(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_bextr, (d), (s1), (s2))
-/* BL1 */
+/* BMI1 */
 #define INSTR_CREATE_andn(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_andn, (d), (s1), (s2))
+/* BMI2 */
+#define INSTR_CREATE_bzhi(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_bzhi, (d), (s1), (s2))
+#define INSTR_CREATE_pext(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_pext, (d), (s1), (s2))
+#define INSTR_CREATE_pdep(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_pdep, (d), (s1), (s2))
+#define INSTR_CREATE_sarx(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_sarx, (d), (s1), (s2))
+#define INSTR_CREATE_shlx(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_shlx, (d), (s1), (s2))
+#define INSTR_CREATE_shrx(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_shrx, (d), (s1), (s2))
+/* Takes an immediate for s2 */
+#define INSTR_CREATE_rorx(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_rorx, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -3556,6 +3572,19 @@
   instr_create_2dst_2src((dc), OP_push_imm, opnd_create_reg(DR_REG_XSP), \
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, IF_X64_ELSE(-8,-4), OPSZ_VARSTACK), \
     (i), opnd_create_reg(DR_REG_XSP))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d1 The opnd_t explicit first destination source operand for the
+ * instruction, which must be a general-purpose register.
+ * \param d2 The opnd_t explicit first destination source operand for the
+ * instruction, which must be a general-purpose register.
+ * \param s The opnd_t explicit source operand for the instruction.
+ */
+#define INSTR_CREATE_mulx(dc, d1, d2, s) \
+  instr_create_2dst_2src((dc), OP_mulx, (d1), (d2), (s), \
+    opnd_create_reg(reg_resize_to_opsz(DR_REG_EDX, opnd_get_size(d1))))
 
 /* 2 destinations: 1 implicit, 3 sources: 1 implicit */
 /** @name 2 destinations: 1 implicit, 3 sources: 1 implicit */

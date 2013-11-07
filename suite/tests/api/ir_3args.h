@@ -303,5 +303,17 @@ OPCODE(lwpins, lwpins, lwpins, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
 OPCODE(lwpval, lwpval, lwpval, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_4))
 
 /****************************************************************************/
-/* BL1 */
+/* BMI1 */
 OPCODE(andn, andn, andn, 0, REGARG(EAX), REGARG(EBX), MEMARG(OPSZ_4))
+
+/****************************************************************************/
+/* BMI2 */
+OPCODE(bzhi, bzhi, bzhi, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(pext, pext, pext, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(pdep, pdep, pdep, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(sarx, sarx, sarx, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(shlx, shlx, shlx, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(shrx, shrx, shrx, 0, REGARG(EAX), MEMARG(OPSZ_4), REGARG(EBX))
+OPCODE(rorx, rorx, rorx, 0, REGARG(EAX), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(mulx_a, mulx, mulx, 0, REGARG(RAX), REGARG(R9), MEMARG(OPSZ_8))
+OPCODE(mulx, mulx, mulx, 0, REGARG(EAX), REGARG(EBX), MEMARG(OPSZ_4))

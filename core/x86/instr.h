@@ -5023,7 +5023,7 @@ enum {
 /* 1040 */     OP_vpshaq,         /* &vex_W_extensions[63][0], */ /**< vpshaq opcode */
 
     /* AMD TBM */
-/* 1041 */     OP_bextr,          /* &third_byte_38[98], */ /**< bextr opcode */
+/* 1041 */     OP_bextr,          /* &prefix_extensions[141][0], */ /**< bextr opcode */
 /* 1042 */     OP_blcfill,        /* &extensions[27][1], */ /**< blcfill opcode */
 /* 1043 */     OP_blci,           /* &extensions[28][6], */ /**< blci opcode */
 /* 1044 */     OP_blcic,          /* &extensions[27][5], */ /**< blcic opcode */
@@ -5048,10 +5048,20 @@ enum {
 /* 1058 */     OP_blsi,           /* &extensions[31][3], */ /**< blsi opcode */
 /* 1059 */     OP_tzcnt,          /* &prefix_extensions[140][1], */ /**< tzcnt opcode */
 
+    /* Intel BMI2 */
+/* 1060 */     OP_bzhi,           /* &prefix_extensions[142][0], */ /**< bzhi opcode */
+/* 1061 */     OP_pext,           /* &prefix_extensions[142][2], */ /**< pext opcode */
+/* 1062 */     OP_pdep,           /* &prefix_extensions[142][3], */ /**< pdep opcode */
+/* 1063 */     OP_sarx,           /* &prefix_extensions[141][1], */ /**< sarx opcode */
+/* 1064 */     OP_shlx,           /* &prefix_extensions[141][2], */ /**< shlx opcode */
+/* 1065 */     OP_shrx,           /* &prefix_extensions[141][3], */ /**< shrx opcode */
+/* 1066 */     OP_rorx,           /* &third_byte_3a[56], */ /**< rorx opcode */
+/* 1067 */     OP_mulx,           /* &prefix_extensions[143][3], */ /**< mulx opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1060 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1061 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1068 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1069 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

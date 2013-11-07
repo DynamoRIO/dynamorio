@@ -276,7 +276,9 @@ enum {
  */
 #define X86_INVALID           0x08
 #define X64_INVALID           0x10
-/* to avoid needing a single-valid-entry subtable in prefix_extensions */
+/* We use this to avoid needing a single-valid-entry subtable in prefix_extensions
+ * when decoding.  This is never needed for encoding.
+ */
 #define REQUIRES_PREFIX       0x20
 /* instr must be encoded using vex.  if this flag is not present, this instruction
  * is invalid if encoded using vex.
@@ -399,6 +401,8 @@ enum {
     TYPE_VAR_XREG, /* hardcoded register, default 32/64 bits depending on mode,
                     * but can be 16 w/ data prefix: equivalent of Intel 'd64'
                     * == like OPSZ_4x8_short2 */
+    TYPE_VAR_REGX, /* hardcoded register, default 32 bits, but can be 64 w/ rex.w:
+                    * equivalent of Intel 'y' == like OPSZ_4_rex8 */
     TYPE_VAR_ADDR_XREG, /* hardcoded register, default 32/64 bits depending on mode,
                          * but can be 16/32 w/ addr prefix: equivalent of Intel 'd64' */
     /* For x64 extensions (Intel '+r.') where rex.r can select an extended
@@ -411,9 +415,7 @@ enum {
                        * used for xchg and mov_imm 'v' immed. */
     TYPE_VAR_XREG_EX, /* like TYPE_VAR_XREG (OPSZ_4x8_short2) but extendable.
                        * used for pop and push. */
-    TYPE_VAR_REGX_EX, /* hardcoded register, default 32 bits, but can be 64 w/ rex.w,
-                       * and extendable.  used for bswap. 
-                       * == OPSZ_4_rex8 */
+    TYPE_VAR_REGX_EX, /* like TYPE_VAR_REGX but extendable.  used for bswap. */
     TYPE_INDIR_E,
     TYPE_INDIR_REG,
     TYPE_INDIR_VAR_XREG, /* indirected register that varies (by addr prefix),

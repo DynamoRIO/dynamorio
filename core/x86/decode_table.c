@@ -1182,7 +1182,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vpshaq        */   &vex_W_extensions[63][0],
 
     /* AMD TBM */
-    /* OP_bextr         */   &third_byte_38[98],
+    /* OP_bextr         */   &prefix_extensions[141][4],
     /* OP_blcfill       */   &extensions[27][1],
     /* OP_blci          */   &extensions[28][6],
     /* OP_blcic         */   &extensions[27][5],
@@ -1206,6 +1206,16 @@ const instr_info_t * const op_instr[] =
     /* OP_blsmsk        */   &extensions[31][2],
     /* OP_blsi          */   &extensions[31][3],
     /* OP_tzcnt         */   &prefix_extensions[140][1],
+
+    /* Intel BMI2 */
+    /* OP_bzhi          */   &prefix_extensions[142][4],
+    /* OP_pext          */   &prefix_extensions[142][6],
+    /* OP_pdep          */   &prefix_extensions[142][7],
+    /* OP_sarx          */   &prefix_extensions[141][5],
+    /* OP_shlx          */   &prefix_extensions[141][6],
+    /* OP_shrx          */   &prefix_extensions[141][7],
+    /* OP_rorx          */   &third_byte_3a[56],
+    /* OP_mulx          */   &prefix_extensions[143][7],
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
@@ -1464,6 +1474,9 @@ const instr_info_t * const op_instr[] =
 #define uBP_x TYPE_VAR_REGX_EX, REG_EBP
 #define uSI_x TYPE_VAR_REGX_EX, REG_ESI
 #define uDI_x TYPE_VAR_REGX_EX, REG_EDI
+
+/* 4_rex8 implicit registers (not from modrm) */
+#define uDX TYPE_VAR_REGX, REG_EDX
 
 #define ax TYPE_REG, REG_AX
 #define cx TYPE_REG, REG_CX
@@ -2568,7 +2581,7 @@ const instr_info_t extensions[][8] = {
     {INVALID,     0x09123e, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,     0x09123f, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
-  /* XOP group 3 */
+  /* XOP group 4: all assumed to have a 4-byte immediate by xop_a_extra[] */
   { /* extensions[30] */
     /* XXX i#1311: these instrs implicitly write to memory which we should
      * find a way to encode into the IR.
@@ -4180,6 +4193,36 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID,      0x660fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf20fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },
+  { /* prefix extension 141 */
+    {INVALID,        0x38f718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f718, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_bextr,       0x38f718, "bextr",   Gy, xx, Ey, By, xx, mrm|vex, fW6, txop[60]},
+    {OP_sarx,      0xf338f718, "sarx",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+    {OP_shlx,      0x6638f718, "shlx",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+    {OP_shrx,      0xf238f718, "shrx",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+  },
+  { /* prefix extension 142 */
+    {INVALID,        0x38f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_bzhi,        0x38f518, "bzhi",    Gy, xx, Ey, By, xx, mrm|vex, fW6, END_LIST},
+    {INVALID,      0xf338f518, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_pext,      0x6638f518, "pext",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+    {OP_pdep,      0xf238f518, "pdep",    Gy, xx, Ey, By, xx, mrm|vex, x, END_LIST},
+  },
+  { /* prefix extension 143 */
+    {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf238f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,        0x38f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0xf338f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {INVALID,      0x6638f618, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
+    {OP_mulx,      0xf238f618, "mulx",    By, Gy, Ey, uDX, xx, mrm|vex, x, END_LIST},
+  },
 };
 
 /****************************************************************************
@@ -4767,7 +4810,7 @@ const byte third_byte_38_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,51, 52,53,54,55,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-    47,48,100,99,  0, 0, 0,98,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+   47,48,100,99,  0,101,102,98, 0, 0, 0, 0, 0, 0, 0, 0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -4883,12 +4926,14 @@ const instr_info_t third_byte_38[] = {
   {VEX_EXT, 0x66380c18, "(vex ext 77)", xx, xx, xx, xx, xx, mrm, x, 77},/*96*/
   {VEX_EXT, 0x66380d18, "(vex ext 78)", xx, xx, xx, xx, xx, mrm, x, 78},/*97*/
   /* TBM */
-  /* marked reqp b/c it should have no prefix (prefixes for future opcodes) */
-  {OP_bextr, 0x38f718, "bextr", Gy,xx,Ey,By,xx, mrm|vex|reqp, x, txop[60]},/*98*/
+  {PREFIX_EXT, 0x38f718, "(prefix ext 141)", xx, xx, xx, xx, xx, mrm, x, 141},  /*98*/
   /* BMI1 */
   {EXTENSION, 0x38f318, "(group 17)", By, xx, Ey, xx, xx, mrm|vex, x, 31},      /*99*/
   /* marked reqp b/c it should have no prefix (prefixes for future opcodes) */
   {OP_andn, 0x38f218, "andn", Gy, xx, By, Ey, xx, mrm|vex|reqp, fW6, END_LIST},/*100*/
+  /* BMI2 */
+  {PREFIX_EXT, 0x38f518, "(prefix ext 142)", xx, xx, xx, xx, xx, mrm, x, 142}, /*101*/
+  {PREFIX_EXT, 0x38f618, "(prefix ext 143)", xx, xx, xx, xx, xx, mrm, x, 143}, /*102*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -4911,7 +4956,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,24,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
+    56, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0   /* F */
 };
 const instr_info_t third_byte_3a[] = {
   {INVALID,     0x3aff18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},                 /* 0*/
@@ -4978,6 +5023,8 @@ const instr_info_t third_byte_3a[] = {
   /* XOP */
   {VEX_W_EXT,0x663a4818, "(vex_W ext 64)", xx, xx, xx, xx, xx, mrm, x, 64},/*54*/
   {VEX_W_EXT,0x663a4918, "(vex_W ext 65)", xx, xx, xx, xx, xx, mrm, x, 65},/*55*/
+  /* BMI2 */
+  {OP_rorx,  0xf23af018, "rorx",  Gy, xx, Ey, Ib, xx, mrm|vex|reqp, x, END_LIST},/*56*/
 };
 
 /****************************************************************************
