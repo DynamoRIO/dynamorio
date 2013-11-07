@@ -201,7 +201,7 @@ typedef struct instr_info_t {
     byte src1_type;  opnd_size_t src1_size;
     byte src2_type;  opnd_size_t src2_size;
     byte src3_type;  opnd_size_t src3_size;
-    byte flags; /* modrm and extra operand flags */
+    ushort flags; /* modrm and extra operand flags */
     uint eflags; /* combination of read & write flags from instr.h */
     ptr_int_t code; /* for PREFIX: one of the PREFIX_ constants, or SEG_ constant
                      * for EXTENSION and *_EXT: index into extensions table
@@ -266,7 +266,7 @@ enum {
     /* else, from OP_ enum */
 };
 
-/* instr_info_t modrm/extra operands flags == single byte only! */
+/* instr_info_t modrm/extra operands flags == ushort only! */
 #define HAS_MODRM             0x01   /* else, no modrm */
 #define HAS_EXTRA_OPERANDS    0x02   /* else, <= 2 dsts, <= 3 srcs */
 /* if HAS_EXTRA_OPERANDS: */
@@ -289,6 +289,15 @@ enum {
  * does today.
  */
 #define REQUIRES_REX          0x80
+/* Instr must be encoded with VEX.L=0.  If VEX.L=1 this is an invalid instr.
+ * This helps us avoid creating a ton of vex_L_extensions entries.
+ */
+#define REQUIRES_VEX_L_0    0x0100
+/* Instr must be encoded with VEX.L=1.  If VEX.L=0 this is an invalid instr.
+ * This helps us avoid creating a ton of vex_L_extensions entries.
+ * OPCODE_SUFFIX for REQUIRES_VEX means the same thing for encoding.
+ */
+#define REQUIRES_VEX_L_1    0x0200
 
 /* instr_info_t is used for table entries, it holds info that is constant
  * for all instances of an instruction.

@@ -1018,9 +1018,12 @@ read_instruction(byte *pc, byte *orig_pc,
     }
 
     /* we go through regular tables for vex but only some are valid w/ vex */
-    if (info != NULL && di->vex_encoded && !TEST(REQUIRES_VEX, info->flags))
-        info = NULL; /* invalid encoding */
-    else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags))
+    if (info != NULL && di->vex_encoded) {
+        if (!TEST(REQUIRES_VEX, info->flags))
+            info = NULL; /* invalid encoding */
+        else if (TEST(REQUIRES_VEX_L_0, info->flags) && TEST(PREFIX_VEX_L, di->prefixes))
+            info = NULL;
+    } else if (info != NULL && !di->vex_encoded && TEST(REQUIRES_VEX, info->flags))
         info = NULL; /* invalid encoding */
     /* XXX: not currently marking these cases as invalid instructions:
      * - if no TYPE_H:
