@@ -3635,6 +3635,18 @@
     opnd_create_reg(DR_REG_EDX), opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
+/* 3 implicit destinations, 3 implicit sources */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_getsec(dc) \
+  instr_create_3dst_3src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
+    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX), \
+    opnd_create_reg(DR_REG_ECX))
+
 /* 3 destinations: 2 implicit, 5 implicit sources */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given

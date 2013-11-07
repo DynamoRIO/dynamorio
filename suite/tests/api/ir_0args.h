@@ -180,3 +180,5 @@ OPCODE(repne_scas4, repne_scas, repne_scas_4, 0)
 
 OPCODE(vzeroupper, vzeroupper, vzeroupper, 0)
 OPCODE(vzeroall, vzeroall, vzeroall, 0)
+
+OPCODE(getsec, getsec, getsec, 0)

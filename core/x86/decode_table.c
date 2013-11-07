@@ -1217,6 +1217,9 @@ const instr_info_t * const op_instr[] =
     /* OP_rorx          */   &third_byte_3a[56],
     /* OP_mulx          */   &prefix_extensions[143][7],
 
+    /* Intel Safer Mode Extensions */
+    /* OP_getsec        */   &second_byte[0x37],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1980,7 +1983,12 @@ const instr_info_t second_byte[] = {
   /* FIXME: sysexit writes cs and ss and reads ecx, but we don't care, right? */
   {OP_sysexit, 0x0f3510, "sysexit", xsp, xx, xx, xx, xx, no, x, END_LIST},
   {INVALID, 0x0f3610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  {INVALID, 0x0f3710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+  /* XXX i#1313: various getsec leaf funcs at CPL 0 write to all kinds of
+   * processor state including eflags and eip.  Leaf funcs are indicated by eax
+   * value, though.  Here we only model the CPL > 0 effects, which conditionally
+   * write to ebx + ecx, modeled as read + write (ebx is a real input too) (i#269).
+   */
+  {OP_getsec, 0x0f3710, "getsec", eax, ebx, eax, ebx, ecx, xop, x, exop[13]},
   /* 38 */
   {ESCAPE_3BYTE_38, 0x0f3810, "(3byte 38)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -6207,5 +6215,6 @@ const instr_info_t extra_operands[] =
     {OP_CONTD,0xf90f0177, "<rdtscp cont'd>", ecx, xx, xx, xx, xx, mrm, x, END_LIST},
     {OP_CONTD,0x663a6018, "<vpcmpestrm cont'd", xx, xx, eax, edx, xx, mrm|vex|reqp, fW6, END_LIST},
     {OP_CONTD,0x663a6018, "<vpcmpestri cont'd", xx, xx, eax, edx, xx, mrm|vex|reqp, fW6, END_LIST},
+    {OP_CONTD,0x0f3710, "<getsec cont'd", ecx, xx, xx, xx, xx, no, x, END_LIST},
 };
 

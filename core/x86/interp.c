@@ -3438,6 +3438,12 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!bb_process_interrupt(dcontext, bb))
                 break;
         }
+        else if (instr_get_opcode(bb->instr) == OP_getsec) {
+            /* XXX i#1313: if we support CPL0 in the future we'll need to
+             * dynamically handle the leaf functions here, which can change eip
+             * and other state.
+             */
+        }
 #ifdef CHECK_RETURNS_SSE2
         else if (instr_is_sse_or_sse2(bb->instr)) {
             FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_XMM_USED, 2, 
