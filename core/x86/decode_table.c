@@ -1220,6 +1220,9 @@ const instr_info_t * const op_instr[] =
     /* Intel Safer Mode Extensions */
     /* OP_getsec        */   &second_byte[0x37],
 
+    /* Misc Intel additions */
+    /* OP_vmfunc        */   &rm_extensions[4][4],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -4617,7 +4620,7 @@ const instr_info_t rm_extensions[][8] = {
     {OP_xsetbv, 0xd10f0172, "xsetbv", xx, xx, ecx, edx, eax, mrm, x, END_LIST},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vmfunc, 0xd40f0172, "vmfunc", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},

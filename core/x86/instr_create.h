@@ -244,6 +244,7 @@
 #define INSTR_CREATE_vmresume(dc) instr_create_0dst_0src((dc), OP_vmresume)
 #define INSTR_CREATE_vmxoff(dc)   instr_create_0dst_0src((dc), OP_vmxoff)
 #define INSTR_CREATE_vmmcall(dc)  instr_create_0dst_0src((dc), OP_vmmcall)
+#define INSTR_CREATE_vmfunc(dc)   instr_create_0dst_0src((dc), OP_vmfunc)
 #define INSTR_CREATE_stgi(dc)     instr_create_0dst_0src((dc), OP_stgi)
 #define INSTR_CREATE_clgi(dc)     instr_create_0dst_0src((dc), OP_clgi)
 #define INSTR_CREATE_int3(dc) instr_create_0dst_0src((dc), OP_int3)
