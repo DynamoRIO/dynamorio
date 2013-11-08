@@ -741,7 +741,7 @@ read_prefix_ext(const instr_info_t *info, decode_info_t *di)
         /* Don't remove it if the entry doesn't list 0x66:
          * e.g., OP_bsr (i#1118).
          */
-        (info->opcode >> 24) == PREFIX_DATA)
+        (info->opcode >> 24) == DATA_PREFIX_OPCODE)
         di->data_prefix = false;
     if (info->type == REX_B_EXT) {
         /* discard old info, get new one */
