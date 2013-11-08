@@ -292,3 +292,14 @@ OPCODE(vpcomud, vpcomud, vpcomud, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(vpcomuq, vpcomuq, vpcomuq, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), IMMARG(OPSZ_1))
+
+/****************************************************************************/
+/* AVX2 */
+OPCODE(vpalignr_256, vpalignr, vpalignr, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpblendvb_256, vpblendvb, vpblendvb, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), REGARG(YMM3))
+OPCODE(vpblendw_256, vpblendw, vpblendw, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vmpsadbw_256, vmpsadbw, vmpsadbw, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))

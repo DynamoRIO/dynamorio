@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -180,6 +180,23 @@ OPCODE(vcvtph2ps_256, vcvtph2ps, vcvtph2ps, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 OPCODE(vbroadcastss_256, vbroadcastss, vbroadcastss, 0, REGARG(YMM0), MEMARG(OPSZ_4))
 OPCODE(vbroadcastsd, vbroadcastsd, vbroadcastsd, 0, REGARG(YMM0), MEMARG(OPSZ_8))
 OPCODE(vbroadcastf128, vbroadcastf128, vbroadcastf128, 0, REGARG(YMM0), MEMARG(OPSZ_16))
+
+/* AVX2 256-bit */
+OPCODE(vpmovmskb_256, vpmovmskb, vpmovmskb, 0, REGARG(EAX), REGARG(YMM0))
+OPCODE(vpshufb_256, vpshufb, vpshufb, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxbw_256, vpmovsxbw, vpmovsxbw, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxbd_256, vpmovsxbd, vpmovsxbd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxbq_256, vpmovsxbq, vpmovsxbq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxwd_256, vpmovsxwd, vpmovsxwd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxwq_256, vpmovsxwq, vpmovsxwq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovsxdq_256, vpmovsxdq, vpmovsxdq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vmovntdqa_256, vmovntdqa, vmovntdqa, 0, MEMARG(OPSZ_32), REGARG(YMM0))
+OPCODE(vpmovzxbw_256, vpmovzxbw, vpmovzxbw, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovzxbd_256, vpmovzxbd, vpmovzxbd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovzxbq_256, vpmovzxbq, vpmovzxbq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovzxwd_256, vpmovzxwd, vpmovzxwd, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovzxwq_256, vpmovzxwq, vpmovzxwq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
+OPCODE(vpmovzxdq_256, vpmovzxdq, vpmovzxdq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 
 /* random extended reg tests */
 OPCODE(vmovdqu_256_ext, vmovdqu, vmovdqu, X64_ONLY, REGARG(YMM11), MEMARG(OPSZ_32))

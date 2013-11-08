@@ -580,7 +580,7 @@ enum {
     OPSZ_8_rex16,         /**< cmpxcgh8b/cmpxchg16b */
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
-    OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD 'x'). */
+    OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
