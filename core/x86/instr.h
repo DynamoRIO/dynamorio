@@ -4501,7 +4501,7 @@ enum {
 /* 549 */     OP_pmovsxbw,       /* &vex_extensions[4][0], */ /**< pmovsxbw opcode */
 /* 550 */     OP_pmovsxbd,       /* &vex_extensions[5][0], */ /**< pmovsxbd opcode */
 /* 551 */     OP_pmovsxbq,       /* &vex_extensions[6][0], */ /**< pmovsxbq opcode */
-/* 552 */     OP_pmovsxdw,       /* &vex_extensions[7][0], */ /**< pmovsxdw opcode */
+/* 552 */     OP_pmovsxwd,       /* &vex_extensions[7][0], */ /**< pmovsxwd opcode */
 /* 553 */     OP_pmovsxwq,       /* &vex_extensions[8][0], */ /**< pmovsxwq opcode */
 /* 554 */     OP_pmovsxdq,       /* &vex_extensions[9][0], */ /**< pmovsxdq opcode */
 /* 555 */     OP_pmuldq,         /* &vex_extensions[10][0], */ /**< pmuldq opcode */
@@ -4511,7 +4511,7 @@ enum {
 /* 559 */     OP_pmovzxbw,       /* &vex_extensions[14][0], */ /**< pmovzxbw opcode */
 /* 560 */     OP_pmovzxbd,       /* &vex_extensions[15][0], */ /**< pmovzxbd opcode */
 /* 561 */     OP_pmovzxbq,       /* &vex_extensions[16][0], */ /**< pmovzxbq opcode */
-/* 562 */     OP_pmovzxdw,       /* &vex_extensions[17][0], */ /**< pmovzxdw opcode */
+/* 562 */     OP_pmovzxwd,       /* &vex_extensions[17][0], */ /**< pmovzxwd opcode */
 /* 563 */     OP_pmovzxwq,       /* &vex_extensions[18][0], */ /**< pmovzxwq opcode */
 /* 564 */     OP_pmovzxdq,       /* &vex_extensions[19][0], */ /**< pmovzxdq opcode */
 /* 565 */     OP_pcmpgtq,        /* &vex_extensions[20][0], */ /**< pcmpgtq opcode */

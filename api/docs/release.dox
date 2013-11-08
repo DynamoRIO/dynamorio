@@ -125,8 +125,9 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added support for recent IA-32/AMD64 instructions: the rdrand,
    fsgsbase, FMA4, XOP, TBM, LWP, BMI1, BMI2, SMX, INVPCID,
    and TSX instruction groups
- - Fixed misnamed opcodes: OP_vpmovsxdw is now OP_vpmovsxwd and
-   OP_vpmovzxdw is now OP_vpmovzxwd
+ - Fixed misnamed opcodes: OP_pmovsxdw is now OP_pmovsxwd,
+   OP_pmovzxdw is now OP_pmovzxwd, OP_vpmovsxdw is now OP_vpmovsxwd,
+   and OP_vpmovzxdw is now OP_vpmovzxwd.
  - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework
 
 **************************************************
