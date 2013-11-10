@@ -1550,8 +1550,8 @@ const instr_info_t * const op_instr[] =
 #define esi TYPE_REG, REG_ESI
 #define edi TYPE_REG, REG_EDI
 
-#define xsp TYPE_REG, REG_XSP
-#define xcx TYPE_REG, REG_XCX
+#define xsp TYPE_XREG, REG_ESP
+#define xcx TYPE_XREG, REG_ECX
 
 #define cs  TYPE_REG, SEG_CS
 #define ss  TYPE_REG, SEG_SS
@@ -1961,10 +1961,10 @@ const instr_info_t second_byte[] = {
   {OP_lar, 0x0f0210, "lar", Gv, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
   {OP_lsl, 0x0f0310, "lsl", Gv, xx, Ew, xx, xx, mrm, fWZ, END_LIST},
   {INVALID, 0x0f0410, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-  /* FIXME: writes ss and cs, we don't care, right? */
+  /* XXX: writes ss and cs */
   {OP_syscall, 0x0f0510, "syscall", xcx, xx, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
   {OP_clts, 0x0f0610, "clts", xx, xx, xx, xx, xx, no, x, END_LIST},
-  /* FIXME: writes ss and cs, we don't care, right? */
+  /* XXX: writes ss and cs */
   {OP_sysret, 0x0f0710, "sysret", xx, xx, xx, xx, xx, no, x, NA}, /* AMD/x64 only */
   /* 08 */
   {OP_invd, 0x0f0810, "invd", xx, xx, xx, xx, xx, no, x, END_LIST},
@@ -2020,10 +2020,10 @@ const instr_info_t second_byte[] = {
   {OP_rdtsc, 0x0f3110, "rdtsc", edx, eax, xx, xx, xx, no, x, END_LIST},
   {OP_rdmsr, 0x0f3210, "rdmsr", edx, eax, ecx, xx, xx, no, x, END_LIST},
   {OP_rdpmc, 0x0f3310, "rdpmc", edx, eax, ecx, xx, xx, no, x, END_LIST},
-  /* FIXME: sysenter writes cs and ss, but we don't care, right? */
+  /* XXX: sysenter writes cs and ss */
   {OP_sysenter, 0x0f3410, "sysenter", xsp, xx, xx, xx, xx, no, x, END_LIST},
-  /* FIXME: sysexit writes cs and ss and reads ecx, but we don't care, right? */
-  {OP_sysexit, 0x0f3510, "sysexit", xsp, xx, xx, xx, xx, no, x, END_LIST},
+  /* XXX: sysexit writes cs and ss */
+  {OP_sysexit, 0x0f3510, "sysexit", xsp, xx, xcx, xx, xx, no, x, END_LIST},
   {INVALID, 0x0f3610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* XXX i#1313: various getsec leaf funcs at CPL 0 write to all kinds of
    * processor state including eflags and eip.  Leaf funcs are indicated by eax

@@ -1540,6 +1540,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_REG:
         *opnd = opnd_create_reg(opsize);
         return true;
+    case TYPE_XREG:
+        *opnd = opnd_create_reg(resolve_var_reg
+                                (di, opsize, false/*!addr*/, false/*!shrinkable*/
+                                 _IF_X64(true/*d64*/) _IF_X64(false/*!growable*/)
+                                 _IF_X64(false/*!extendable*/)));
+        return true;
     case TYPE_VAR_REG:
         *opnd = opnd_create_reg(resolve_var_reg
                                 (di, opsize, false/*!addr*/, true/*shrinkable*/

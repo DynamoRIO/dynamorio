@@ -906,8 +906,6 @@
   instr_create_1dst_0src((dc), OP_lahf, opnd_create_reg(DR_REG_AH))
 #define INSTR_CREATE_sysenter(dc) \
   instr_create_1dst_0src((dc), OP_sysenter, opnd_create_reg(DR_REG_XSP))
-#define INSTR_CREATE_sysexit(dc) \
-  instr_create_1dst_0src((dc), OP_sysexit, opnd_create_reg(DR_REG_XSP))
 #define INSTR_CREATE_syscall(dc) \
   instr_create_1dst_0src((dc), OP_syscall, opnd_create_reg(DR_REG_XCX))
 #define INSTR_CREATE_salc(dc) \
@@ -1370,6 +1368,9 @@
 #define INSTR_CREATE_xend(dc) \
   instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_sysexit(dc) \
+  instr_create_1dst_1src((dc), OP_sysexit, opnd_create_reg(DR_REG_XSP), \
+    opnd_create_reg(DR_REG_XCX))
 /* @} */ /* end doxygen group */
 
 /** @name In with no explicit sources */

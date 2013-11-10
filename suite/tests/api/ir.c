@@ -730,6 +730,16 @@ test_x86_mode(void *dc)
     ASSERT(pc != NULL);
     ASSERT(instr_get_opcode(instr) == OP_dec);
 
+    /* test i#352: in x86 mode, sysexit should have esp as dest, not rsp */
+    set_x86_mode(dc, true/*32-bit*/);
+    buf[0] = 0x0f;
+    buf[1] = 0x35;
+    instr_reset(dc, instr);
+    pc = decode(dc, buf, instr);
+    ASSERT(pc != NULL);
+    ASSERT(instr_get_opcode(instr) == OP_sysexit);
+    ASSERT(opnd_get_reg(instr_get_dst(instr, 0)) == DR_REG_ESP);
+
     instr_free(dc, instr);
     set_x86_mode(dc, false/*64-bit*/);
 }

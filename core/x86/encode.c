@@ -91,6 +91,7 @@ const char * const type_names[] = {
     "TYPE_FLOATMEM",
     "TYPE_VSIB",
     "TYPE_REG",
+    "TYPE_XREG",
     "TYPE_VAR_REG",
     "TYPE_VARZ_REG",
     "TYPE_VAR_XREG",
@@ -268,6 +269,7 @@ template_optype_is_reg(int optype)
 {
     switch (optype) {
     case TYPE_REG:
+    case TYPE_XREG:
     case TYPE_VAR_REG:
     case TYPE_VARZ_REG:
     case TYPE_VAR_XREG:
@@ -901,6 +903,12 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return opnd_is_null(opnd);
     case TYPE_REG:
         return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == opsize);
+    case TYPE_XREG:
+        return (opnd_is_reg(opnd) &&
+                reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4x8, false/*!addr*/) &&
+                opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, false
+                                                      _IF_X64(true) _IF_X64(false)
+                                                      _IF_X64(false/*!extendable*/)));
     case TYPE_VAR_REG:
         /* for TYPE_*REG*, opsize is really reg_id_t */
         return (opnd_is_reg(opnd) &&
@@ -1763,6 +1771,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     switch (optype) {
     case TYPE_NONE: 
     case TYPE_REG:
+    case TYPE_XREG:
     case TYPE_VAR_REG:
     case TYPE_VARZ_REG:
     case TYPE_VAR_XREG:

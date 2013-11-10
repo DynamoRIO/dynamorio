@@ -405,6 +405,7 @@ enum {
     TYPE_FLOATMEM,
     TYPE_VSIB, /* modrm selects mem addr with required VSIB */
     TYPE_REG,     /* hardcoded register */
+    TYPE_XREG, /* hardcoded register, default 32/64 bits depending on mode */
     TYPE_VAR_REG, /* hardcoded register, default 32 bits, but can be
                    * 16 w/ data prefix or 64 w/ rex.w: equivalent of Intel 'v'
                    * == like OPSZ_4_rex8_short2 */
