@@ -4401,7 +4401,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vpinsrb,  0x663a2018, "vpinsrb",   Vdq, xx, Hdq, Eb, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 48 */
     {OP_insertps, 0x663a2118, "insertps", Vdq,xx,Udq_Md,Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vinsertps,0x663a2118, "vinsertps", Vdq,xx,Hdq,Udq_Md,Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_vinsertps,0x663a2118, "vinsertps", Vdq,xx,Hdq,Udq_Md,Ib, mrm|vex|reqp|reqL0, x, END_LIST},
   }, { /* vex ext 49 */
     {OP_pinsrd,   0x663a2218, "pinsrd",   Vdq, xx, Ed_q,Ib, xx, mrm|reqp, x, END_LIST},/*"pinsrq" with rex.w*/
     {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, Hdq, Ed_q, Ib, mrm|vex|reqp, x, END_LIST},/*"vpinsrq" with rex.w*/

@@ -332,6 +332,18 @@ type_uses_modrm_bits(int type)
     }
 }
 
+static bool
+type_uses_vex_vvvv_bits(int type)
+{
+    switch (type) {
+    case TYPE_B:
+    case TYPE_H:
+        return true;
+    default:
+        return false;
+    }
+}
+
 /* Helper routine that sets/checks rex.w or data prefix, if necessary, for
  * variable-sized OPSZ_ constants that the user asks for.  We try to be flexible
  * setting/checking only enough prefix flags to ensure that the final template size
@@ -1217,7 +1229,12 @@ instr_info_extra_opnds(const instr_info_t *info)
                 !opnd_same(using_modrm_bits, get_op))            \
                 return false;                                    \
             using_modrm_bits = get_op;                           \
-        }                                                        \
+        } else if (type_uses_vex_vvvv_bits(iitype)) {            \
+            if (!opnd_is_null(using_vvvv_bits) &&                \
+                !opnd_same(using_vvvv_bits, get_op))             \
+                return false;                                    \
+            using_vvvv_bits = get_op;                            \
+       }                                                         \
     } else if (inst_num >= iinum)                                \
         return false;
 
@@ -1232,6 +1249,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     /* make sure multiple operands aren't using same modrm bits */
     opnd_t using_reg_bits = opnd_create_null();
     opnd_t using_modrm_bits = opnd_create_null();
+    opnd_t using_vvvv_bits = opnd_create_null();
 
     /* for efficiency we separately test 2 dsts, 3 srcs */
     TEST_OPND(di, ii->dst1_type, ii->dst1_size, 1, in->num_dsts, instr_get_dst(in, 0));

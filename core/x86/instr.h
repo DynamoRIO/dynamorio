@@ -5102,6 +5102,8 @@ enum {
 #define OP_cwd        OP_cdq /**< Alternative opcode name for 16-bit version. */
 #define OP_jcxz       OP_jecxz /**< Alternative opcode name for 16-bit version. */
 /* 64-bit versions that have different names */
+#define OP_cdqe       OP_cwde /**< Alternative opcode name for 64-bit version. */
+#define OP_cqo        OP_cdq /**< Alternative opcode name for 64-bit version. */
 #define OP_jrcxz      OP_jecxz     /**< Alternative opcode name for 64-bit version. */
 #define OP_cmpxchg16b OP_cmpxchg8b /**< Alternative opcode name for 64-bit version. */
 #define OP_pextrq     OP_pextrd    /**< Alternative opcode name for 64-bit version. */
@@ -5153,6 +5155,8 @@ enum {
 # define OP_xrstor   OP_xrstor32   /**< Alternative opcode name. */
 # define OP_xsaveopt OP_xsaveopt32 /**< Alternative opcode name. */
 #endif
+#define OP_wait   OP_fwait /**< Alternative opcode name. */
+#define OP_sal    OP_shl /**< Alternative opcode name. */
 /* undocumented opcodes */
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc
