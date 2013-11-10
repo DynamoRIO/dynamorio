@@ -294,7 +294,7 @@ OPCODE(vpcomuq, vpcomuq, vpcomuq, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 
 /****************************************************************************/
-/* AVX2 */
+/* AVX 256 */
 OPCODE(vpalignr_256, vpalignr, vpalignr, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 OPCODE(vpblendvb_256, vpblendvb, vpblendvb, 0, REGARG(YMM0), REGARG(YMM1),
@@ -303,3 +303,10 @@ OPCODE(vpblendw_256, vpblendw, vpblendw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 OPCODE(vmpsadbw_256, vmpsadbw, vmpsadbw, 0, REGARG(YMM0), REGARG(YMM1),
        MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+
+OPCODE(vinserti128, vinserti128, vinserti128, 0, REGARG(YMM0), REGARG(YMM1),
+       MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpblendd, vpblendd, vpblendd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
+       IMMARG(OPSZ_1))
+OPCODE(vpblendd_256, vpblendd, vpblendd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32),
+       IMMARG(OPSZ_1))

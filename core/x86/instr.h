@@ -5101,11 +5101,27 @@ enum {
 /* 1080 */     OP_vgatherdpd,     /* &vex_W_extensions[68][1], */ /**< vgatherdpd opcode */
 /* 1081 */     OP_vgatherqps,     /* &vex_W_extensions[69][0], */ /**< vgatherqps opcode */
 /* 1082 */     OP_vgatherqpd,     /* &vex_W_extensions[69][1], */ /**< vgatherqpd opcode */
+/* 1083 */     OP_vbroadcasti128,  /* &third_byte_38[108], */ /**< vbroadcasti128 opcode */
+/* 1084 */     OP_vinserti128,    /* &third_byte_3a[57], */ /**< vinserti128 opcode */
+/* 1085 */     OP_vextracti128,   /* &third_byte_3a[58], */ /**< vextracti128 opcode */
+/* 1086 */     OP_vpmaskmovd,     /* &vex_W_extensions[70][0], */ /**< vpmaskmovd opcode */
+/* 1087 */     OP_vpmaskmovq,     /* &vex_W_extensions[70][1], */ /**< vpmaskmovq opcode */
+/* 1088 */     OP_vperm2i128,     /* &vex_W_extensions[69][1], */ /**< vperm2i128 opcode */
+/* 1089 */     OP_vpermd,         /* &third_byte_38[112], */ /**< vpermd opcode */
+/* 1090 */     OP_vpermps,        /* &third_byte_38[111], */ /**< vpermps opcode */
+/* 1091 */     OP_vpermq,         /* &third_byte_3a[59], */ /**< vpermq opcode */
+/* 1092 */     OP_vpermpd,        /* &third_byte_3a[60], */ /**< vpermpd opcode */
+/* 1093 */     OP_vpblendd,       /* &third_byte_3a[61], */ /**< vpblendd opcode */
+/* 1094 */     OP_vpsllvd,        /* &vex_W_extensions[73][0], */ /**< vpsllvd opcode */
+/* 1095 */     OP_vpsllvq,        /* &vex_W_extensions[73][1], */ /**< vpsllvq opcode */
+/* 1096 */     OP_vpsravd,        /* &third_byte_38[114], */ /**< vpsravd opcode */
+/* 1097 */     OP_vpsrlvd,        /* &vex_W_extensions[72][0], */ /**< vpsrlvd opcode */
+/* 1098 */     OP_vpsrlvq,        /* &vex_W_extensions[72][1], */ /**< vpsrlvq opcode */
 
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1083 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1084 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1099 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1100 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

@@ -1310,6 +1310,9 @@
   instr_create_1dst_1src((dc), OP_blsi, (d), (s))
 #define INSTR_CREATE_tzcnt(dc, d, s) \
   instr_create_1dst_1src((dc), OP_tzcnt, (d), (s))
+/* AVX2 */
+#define INSTR_CREATE_vbroadcasti128(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vbroadcasti128, (d), (s))
 
 /* @} */ /* end doxygen group */
 
@@ -2001,6 +2004,19 @@
 /* Takes an immediate for s2 */
 #define INSTR_CREATE_rorx(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_rorx, (d), (s1), (s2))
+/* AVX2 */
+#define INSTR_CREATE_vpermps(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermps, (d), (s1), (s2))
+#define INSTR_CREATE_vpermd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermd, (d), (s1), (s2))
+#define INSTR_CREATE_vpsravd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsravd, (d), (s1), (s2))
+#define INSTR_CREATE_vextracti128(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vextracti128, (d), (s1), (s2))
+#define INSTR_CREATE_vpermq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermq, (d), (s1), (s2))
+#define INSTR_CREATE_vpermpd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpermpd, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2738,6 +2754,12 @@
   instr_create_1dst_3src((dc), OP_vblendvps, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vblendvpd(dc, d, s1, s2, s3) \
   instr_create_1dst_3src((dc), OP_vblendvpd, (d), (s1), (s2), (s3))
+/* AVX2 */
+/* these take immediates: not bothering to call out in docs */
+#define INSTR_CREATE_vinserti128(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vinserti128, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vpblendd(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vpblendd, (d), (s1), (s2), (s3))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */

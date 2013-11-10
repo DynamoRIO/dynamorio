@@ -201,3 +201,6 @@ OPCODE(vpmovzxdq_256, vpmovzxdq, vpmovzxdq, 0, REGARG(YMM0), MEMARG(OPSZ_32))
 /* random extended reg tests */
 OPCODE(vmovdqu_256_ext, vmovdqu, vmovdqu, X64_ONLY, REGARG(YMM11), MEMARG(OPSZ_32))
 OPCODE(vtestpd_256_ext, vtestpd, vtestpd, X64_ONLY, REGARG(YMM15), MEMARG(OPSZ_32))
+
+/* AVX2 */
+OPCODE(vbroadcasti128, vbroadcasti128, vbroadcasti128, 0, REGARG(YMM0), MEMARG(OPSZ_16))

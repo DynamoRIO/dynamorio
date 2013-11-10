@@ -345,3 +345,12 @@ OPCODE(vgatherqps_256, vgatherqps, vgatherqps, 0, REGARG(YMM0), VSIBY(OPSZ_4),
        REGARG(YMM1))
 OPCODE(vgatherqpd_256, vgatherqpd, vgatherqpd, 0, REGARG(YMM0), VSIBY(OPSZ_8),
        REGARG(YMM1))
+
+OPCODE(vpermps, vpermps, vpermps, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpermd, vpermd, vpermd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vpsravd, vpsravd, vpsravd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpsravd_256, vpsravd, vpsravd, 0, REGARG(YMM0), REGARG(YMM1), MEMARG(OPSZ_32))
+OPCODE(vextracti128, vextracti128, vextracti128, 0, MEMARG(OPSZ_16), REGARG(YMM0),
+       IMMARG(OPSZ_1))
+OPCODE(vpermq, vpermq, vpermq, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpermpd, vpermpd, vpermpd, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
