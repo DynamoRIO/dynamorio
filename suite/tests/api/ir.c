@@ -103,6 +103,8 @@ static byte buf[8192];
 #define IMMARG(sz)  opnd_create_immed_int(37, sz)
 #define TGTARG      opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(REG_##reg)
+#define VSIBX(sz)  (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
+#define VSIBY(sz)  (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
 #define X86_ONLY    1
 #define X64_ONLY    2
 
@@ -1001,6 +1003,145 @@ test_tsx(void *dc)
                                    "xacquire lock add    %al (%eax) -> (%eax) \n")) == 0);
 }
 
+static void
+test_vsib_helper(void *dc, dr_mcontext_t *mc, instr_t *instr,
+                 reg_t base, int mask_idx, int index_idx, int scale, int disp,
+                 int count, opnd_size_t index_sz)
+{
+    uint memopidx, memoppos;
+    app_pc addr;
+    bool write;
+    for (memopidx = 0;
+         instr_compute_address_ex_pos(instr, mc, memopidx,
+                                      &addr, &write, &memoppos);
+         memopidx++) {
+        /* should be a read from 1st source */
+        ptr_int_t index =
+            ((index_sz == OPSZ_4) ?
+             /* this only works w/ the mask all enabled */
+             (mc->ymm[index_idx].u32[memopidx]) :
+#ifdef X64
+             (mc->ymm[index_idx].u64[memopidx])
+#else
+             ((((int64)mc->ymm[index_idx].u32[memopidx*2+1]) << 32) |
+              mc->ymm[index_idx].u32[memopidx*2])
+#endif
+             );
+        ASSERT(!write);
+        ASSERT(memoppos == 0);
+        ASSERT((ptr_int_t)addr == base + disp + scale * index);
+    }
+    ASSERT(memopidx == count);
+}
+
+static void
+test_vsib(void *dc)
+{
+    dr_mcontext_t mc;
+    instr_t *instr;
+
+    /* Test VSIB addressing */
+    byte *pc;
+    const byte b1[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x24, 0x42 };
+    /* Invalid b/c modrm doesn't ask for SIB */
+    const byte b2[] = { 0xc4, 0xe2, 0xe9, 0x90, 0x00 };
+    byte buf[512];
+    int len;
+
+    pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc != NULL);
+    ASSERT(strcmp(buf,
+                  IF_X64_ELSE("vpgatherdq (%rdx,%xmm0,2) %xmm2 -> %xmm4 %xmm2 \n",
+                              "vpgatherdq (%edx,%xmm0,2) %xmm2 -> %xmm4 %xmm2 \n")) == 0);
+
+    pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
+                               false/*no pc*/, false/*no bytes*/,
+                               buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+    ASSERT(pc == NULL);
+
+    /* Test mem addr emulation */
+    mc.size = sizeof(mc);
+    mc.flags = DR_MC_ALL;
+    mc.xcx = 0x42;
+    mc.ymm[1].u32[0] = 0x11111111;
+    mc.ymm[1].u32[1] = 0x22222222;
+    mc.ymm[1].u32[2] = 0x33333333;
+    mc.ymm[1].u32[3] = 0x44444444;
+    mc.ymm[1].u32[4] = 0x12345678;
+    mc.ymm[1].u32[5] = 0x87654321;
+    mc.ymm[1].u32[6] = 0xabababab;
+    mc.ymm[1].u32[7] = 0xcdcdcdcd;
+    /* mask */
+    mc.ymm[2].u32[0] = 0xf1111111;
+    mc.ymm[2].u32[1] = 0xf2222222;
+    mc.ymm[2].u32[2] = 0xf3333333;
+    mc.ymm[2].u32[3] = 0xf4444444;
+    mc.ymm[2].u32[4] = 0xf5444444;
+    mc.ymm[2].u32[5] = 0xf6444444;
+    mc.ymm[2].u32[6] = 0xf7444444;
+    mc.ymm[2].u32[7] = 0xf8444444;
+
+    /* test index size 4 and mem size 8 */
+    instr = INSTR_CREATE_vgatherdpd
+        (dc, opnd_create_reg(REG_XMM0),
+         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
+         opnd_create_reg(REG_XMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_4);
+    instr_destroy(dc, instr);
+
+    /* test index size 8 and mem size 4 */
+    instr = INSTR_CREATE_vgatherqpd
+        (dc, opnd_create_reg(REG_XMM0),
+         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_8),
+         opnd_create_reg(REG_XMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
+    instr_destroy(dc, instr);
+
+    /* test index size 4 and mem size 4 */
+    instr = INSTR_CREATE_vgatherdps
+        (dc, opnd_create_reg(REG_XMM0),
+         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
+         opnd_create_reg(REG_XMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 4, OPSZ_4);
+    instr_destroy(dc, instr);
+
+    /* test index size 8 and mem size 4 */
+    instr = INSTR_CREATE_vgatherqps
+        (dc, opnd_create_reg(REG_XMM0),
+         opnd_create_base_disp(REG_XCX, REG_XMM1, 2, 0x12, OPSZ_4),
+         opnd_create_reg(REG_XMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 2, OPSZ_8);
+    instr_destroy(dc, instr);
+
+    /* test 256-byte */
+    instr = INSTR_CREATE_vgatherdps
+        (dc, opnd_create_reg(REG_YMM0),
+         opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
+         opnd_create_reg(REG_YMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 8, OPSZ_4);
+    instr_destroy(dc, instr);
+
+    /* test mask not selecting things -- in the middle complicates
+     * our helper checks so we just do the ends
+     */
+    mc.ymm[2].u32[0] = 0x71111111;
+    mc.ymm[2].u32[1] = 0x32222222;
+    mc.ymm[2].u32[2] = 0x13333333;
+    mc.ymm[2].u32[3] = 0x04444444;
+    mc.ymm[2].u32[4] = 0x65444444;
+    mc.ymm[2].u32[5] = 0x56444444;
+    mc.ymm[2].u32[6] = 0x47444444;
+    mc.ymm[2].u32[7] = 0x28444444;
+    instr = INSTR_CREATE_vgatherdps
+        (dc, opnd_create_reg(REG_YMM0),
+         opnd_create_base_disp(REG_XCX, REG_YMM1, 2, 0x12, OPSZ_4),
+         opnd_create_reg(REG_YMM2));
+    test_vsib_helper(dc, &mc, instr, mc.xcx, 2, 1, 2, 0x12, 0/*nothing*/, OPSZ_4);
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1055,6 +1196,8 @@ main(int argc, char *argv[])
     test_strict_invalid(dcontext);
 
     test_tsx(dcontext);
+
+    test_vsib(dcontext);
 
     print("all done\n");
     return 0;

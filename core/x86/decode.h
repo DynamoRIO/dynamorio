@@ -386,7 +386,7 @@ enum {
     TYPE_I, /* immediate */
     TYPE_J, /* immediate that is relative offset of EIP */
     TYPE_L, /* top 4 bits of 8-bit immed select xmm/ymm register */
-    TYPE_M, /* modrm select mem addr */
+    TYPE_M, /* modrm selects mem addr */
     TYPE_O, /* immediate that is memory offset */
     TYPE_P, /* reg of modrm selects MMX */
     TYPE_Q, /* modrm selects MMX or mem addr */
@@ -403,6 +403,7 @@ enum {
     TYPE_XLAT,     /* DS:(RE)(E)BX+AL */
     TYPE_MASKMOVQ, /* DS:(RE)(E)DI */
     TYPE_FLOATMEM,
+    TYPE_VSIB, /* modrm selects mem addr with required VSIB */
     TYPE_REG,     /* hardcoded register */
     TYPE_VAR_REG, /* hardcoded register, default 32 bits, but can be
                    * 16 w/ data prefix or 64 w/ rex.w: equivalent of Intel 'v'

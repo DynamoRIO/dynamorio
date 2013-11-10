@@ -1430,6 +1430,10 @@ bb_process_fs_ref_opnd(dcontext_t *dcontext, build_bb_t *bb, opnd_t dst,
          * even when not for cache (for recreation etc.). */
         if (bb->app_interp) {
             /* check is write to fs:[0] */
+            /* XXX: this won't identify all memory references (need to switch to
+             * instr_compute_address_ex_priv() in order to handle VSIB) but the
+             * current usage is just to identify the Borland pattern so that's ok.
+             */
             if (opnd_compute_address_priv(dst, get_mcontext(dcontext)) == NULL) {
                 /* we have new mov to fs:[0] */
                 *is_to_fs0 = true;

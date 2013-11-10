@@ -1219,6 +1219,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_V:
     case TYPE_W:
     case TYPE_V_MODRM:
+    case TYPE_VSIB:
         return ((TEST(PREFIX_VEX_L, di->prefixes) &&
                  /* we use this to indicate .LIG since all {VHW}s{sd} types
                   * and no others are .LIG
@@ -1301,7 +1302,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
         int disp = 0;
         reg_id_t index_reg = REG_NULL;
         int scale = 0;
-        char memtype = TYPE_M;
+        char memtype = (optype == TYPE_VSIB ? TYPE_VSIB : TYPE_M);
         opnd_size_t memsize = resolve_addr_size(di);
         bool encode_zero_disp, force_full_disp;
         if (di->has_disp)
@@ -1313,7 +1314,8 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
                           "decode error: x86 addr16 cannot have a SIB byte");
             if (di->index == 4 &&
                 /* rex.x enables r12 as index */
-                (!X64_MODE(di) || !TEST(PREFIX_REX_X, di->prefixes))) {
+                (!X64_MODE(di) || !TEST(PREFIX_REX_X, di->prefixes)) &&
+                optype != TYPE_VSIB) {
                 /* no scale/index */
                 index_reg = REG_NULL;
             } else {
@@ -1335,13 +1337,15 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
                 /* no base */
                 base_reg = REG_NULL;
             } else {
-                base_reg = decode_reg(DECODE_REG_BASE, di, memtype, memsize);
+                base_reg = decode_reg(DECODE_REG_BASE, di, TYPE_M, memsize);
                 if (base_reg == REG_NULL) {
                     CLIENT_ASSERT(false, "decode error: internal modrm decode error");
                     return false;
                 }
             }
         } else {
+            if (optype == TYPE_VSIB)
+                return false; /* invalid w/o vsib byte */
             if ((!addr16 && di->mod == 0 && di->rm == 5) ||
                 (addr16 && di->mod == 0 && di->rm == 6)) {
                 /* just absolute displacement, or rip-relative for x64 */
@@ -1592,6 +1596,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     case TYPE_FLOATMEM:
     case TYPE_M:
+    case TYPE_VSIB:
         /* ensure referencing memory */
         if (di->mod >= 3)
             return false;

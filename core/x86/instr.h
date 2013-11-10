@@ -988,6 +988,14 @@ opnd_is_far_base_disp(opnd_t opnd);
 
 DR_API
 /** 
+ * Returns true iff \p opnd uses vector indexing via a VSIB byte.  This
+ * memory addressing form was introduced in Intel AVX2.
+ */
+bool
+opnd_is_vsib(opnd_t opnd);
+
+DR_API
+/** 
  * Returns true iff \p opnd is a (near or far) absolute address operand.
  * Returns true for both base-disp operands with no base or index and
  * 64-bit non-base-disp absolute address operands. 
@@ -1638,6 +1646,11 @@ DR_API
  * or typical fs: or gs: references on Linux.  For far addresses the
  * calling thread's segment selector is used.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
+ *
+ * \note This routine does not support vector addressing (via VSIB,
+ * introduced in AVX2).  Use instr_compute_address(),
+ * instr_compute_address_ex(), or instr_compute_address_ex_pos()
+ * instead.
  */
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc);
@@ -2944,6 +2957,8 @@ DR_API
  * when the operands are considered in this order: destinations and then
  * sources.  The address is computed using the passed-in registers.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
+ * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * mc->flags must additionally include DR_MC_MULTIMEDIA.
  */
 app_pc
 instr_compute_address(instr_t *instr, dr_mcontext_t *mc);
@@ -2963,6 +2978,8 @@ DR_API
  * write is returned in \p is_write.  Either or both OUT variables can
  * be NULL.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
+ * For instructions that use vector addressing (VSIB, introduced in AVX2),
+ * mc->flags must additionally include DR_MC_MULTIMEDIA.
  */
 bool
 instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
@@ -2990,6 +3007,8 @@ DR_API
  * Calculates the size, in bytes, of the memory read or write of \p instr.
  * If \p instr does not reference memory, or is invalid, returns 0.
  * If \p instr is a repeated string instruction, considers only one iteration.
+ * If \p instr uses vector addressing (VSIB, introduced in AVX2), considers
+ * only the size of each separate memory access.
  */
 uint
 instr_memory_reference_size(instr_t *instr);
@@ -5073,10 +5092,20 @@ enum {
 /* 1073 */     OP_xend,           /* &rm_extensions[4][5], */ /**< xend opcode */
 /* 1074 */     OP_xtest,          /* &rm_extensions[4][6], */ /**< xtest opcode */
 
+    /* AVX2 */
+/* 1075 */     OP_vpgatherdd,     /* &vex_W_extensions[66][0], */ /**< vpgatherdd opcode */
+/* 1076 */     OP_vpgatherdq,     /* &vex_W_extensions[66][1], */ /**< vpgatherdq opcode */
+/* 1077 */     OP_vpgatherqd,     /* &vex_W_extensions[67][0], */ /**< vpgatherqd opcode */
+/* 1078 */     OP_vpgatherqq,     /* &vex_W_extensions[67][1], */ /**< vpgatherqq opcode */
+/* 1079 */     OP_vgatherdps,     /* &vex_W_extensions[68][0], */ /**< vgatherdps opcode */
+/* 1080 */     OP_vgatherdpd,     /* &vex_W_extensions[68][1], */ /**< vgatherdpd opcode */
+/* 1081 */     OP_vgatherqps,     /* &vex_W_extensions[69][0], */ /**< vgatherqps opcode */
+/* 1082 */     OP_vgatherqpd,     /* &vex_W_extensions[69][1], */ /**< vgatherqpd opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 1075 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 1076 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 1083 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 1084 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,

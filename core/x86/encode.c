@@ -89,6 +89,7 @@ const char * const type_names[] = {
     "TYPE_XLAT",     /* DS:(RE)(E)BX+AL */
     "TYPE_MASKMOVQ", /* DS:(RE)(E)DI */
     "TYPE_FLOATMEM",
+    "TYPE_VSIB",
     "TYPE_REG",
     "TYPE_VAR_REG",
     "TYPE_VARZ_REG",
@@ -326,6 +327,7 @@ type_uses_modrm_bits(int type)
     case TYPE_INDIR_E:
     case TYPE_P_MODRM:
     case TYPE_V_MODRM:
+    case TYPE_VSIB:
         return true;
     default:
         return false;
@@ -810,7 +812,7 @@ reg_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         (optype == TYPE_V || optype == TYPE_V_MODRM || optype == TYPE_W ||
          optype == TYPE_H || optype == TYPE_L))
         return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);
-    if (opsize == OPSZ_8_of_16_vex32) {
+    if (opsize == OPSZ_8_of_16_vex32 || optype == TYPE_VSIB) {
         if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
             return !TEST(PREFIX_VEX_L, di->prefixes);
         if (reg >= REG_START_YMM && reg <= REG_STOP_YMM) {
@@ -867,7 +869,8 @@ mem_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                          true/*addr*/)) &&
             (!opnd_is_base_disp(opnd) ||
              opnd_get_index(opnd) == REG_NULL ||
-             reg_size_ok(di, opnd_get_index(opnd), TYPE_M,
+             reg_size_ok(di, opnd_get_index(opnd),
+                         optype == TYPE_VSIB ? TYPE_VSIB : TYPE_M,
                          IF_X64(!X64_MODE(di) ? OPSZ_4_short2 :) OPSZ_4x8_short2,
                          true/*addr*/)));
 }
@@ -967,6 +970,12 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, false
                                                       _IF_X64(false) _IF_X64(true)
                                                       _IF_X64(true/*extendable*/)));
+    case TYPE_VSIB:
+#ifndef X64
+        if (TEST(PREFIX_ADDR, di->prefixes))
+            return false; /* VSIB invalid w/ 16-bit addressing */
+#endif
+        /* fall through */
     case TYPE_FLOATMEM:
     case TYPE_M:
         return mem_size_ok(di, opnd, optype, opsize);
@@ -1685,7 +1694,9 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
                 /* note that r13 can be an index register */
                 CLIENT_ASSERT(index != REG_ESP IF_X64(&& index != REG_RSP),
                               "encode error: xsp cannot be an index register");
-                CLIENT_ASSERT(reg_is_32bit(index) || (X64_MODE(di) && reg_is_64bit(index)),
+                CLIENT_ASSERT(reg_is_32bit(index) ||
+                              (X64_MODE(di) && reg_is_64bit(index)) ||
+                              reg_is_xmm(index) /* VSIB */,
                               "encode error: index must be general-purpose register");
                 encode_reg_ext_prefixes(di, index, PREFIX_REX_X);
                 if (X64_MODE(di) && reg_is_32bit(index))
@@ -1778,6 +1789,10 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
     case TYPE_VAR_REGX_EX:
         encode_reg_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B);
         return;
+    case TYPE_VSIB:
+        CLIENT_ASSERT(opnd_is_base_disp(opnd),
+                      "encode error: VSIB operand must be base-disp");
+        /* fall through */
     case TYPE_FLOATMEM:
     case TYPE_M:
         CLIENT_ASSERT(opnd_is_memory_reference(opnd),

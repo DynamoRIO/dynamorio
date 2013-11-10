@@ -783,6 +783,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     case TYPE_P_MODRM:
     case TYPE_V_MODRM:
     case TYPE_FLOATMEM:
+    case TYPE_VSIB:
     case TYPE_1:
         if (prev)
             print_to_buffer(buf, bufsz, sofar, ", ");

@@ -150,6 +150,12 @@ bool opnd_is_far_abs_addr(opnd_t opnd) {
 }
 
 bool
+opnd_is_vsib(opnd_t op)
+{
+    return (opnd_is_base_disp(op) && reg_is_xmm(opnd_get_index(op)));
+}
+
+bool
 opnd_is_reg_32bit(opnd_t opnd)
 {
     if (opnd_is_reg(opnd))
@@ -1354,7 +1360,11 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
         reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
         return (val & 0x0000ffff);
     }
-    /* mmx, xmm, and segment cannot be part of address 
+    /* mmx and segment cannot be part of address.
+     * xmm/ymm can with VSIB, but we'd have to either return a larger type,
+     * or take in an offset within the xmm/ymm register -- so we leave this
+     * routine supporting only GPR and have a separate routine for VSIB
+     * (opnd_compute_VSIB_index()).
      * if want to use this routine for more than just effective address
      * calculations, need to pass in mmx/xmm state, or need to grab it
      * here.  would then need to check dr_mcontext_t.size.
@@ -1393,17 +1403,12 @@ reg_set_value(reg_id_t reg, dr_mcontext_t *mc, reg_t value)
     reg_set_value_priv(reg, dr_mcontext_as_priv_mcontext(mc), value);
 }
 
-/* Returns the effective address of opnd, computed using the passed-in
- * register values.  If opnd is a far address, ignores that aspect
- * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
- * or typical fs: or gs: references on Linux.  For far addresses the
- * calling thread's segment selector is used.
- */
-app_pc
-opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
+/* helper for sharing w/ VSIB computations */
+static app_pc
+opnd_compute_address_helper(opnd_t opnd, priv_mcontext_t *mc, ptr_int_t scaled_index)
 {
-    reg_id_t base, index;
-    int scale, disp;
+    reg_id_t base;
+    int disp;
     app_pc seg_base = NULL;
     app_pc addr = NULL;
     CLIENT_ASSERT(opnd_is_memory_reference(opnd),
@@ -1426,17 +1431,36 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
 #endif
     addr = seg_base;
     base = opnd_get_base(opnd);
-    index = opnd_get_index(opnd);
-    scale = opnd_get_scale(opnd);
     disp = opnd_get_disp(opnd);
     logopnd(get_thread_private_dcontext(), 4, opnd, "opnd_compute_address for");
     addr += reg_get_value_priv(base, mc);
     LOG(THREAD_GET, LOG_ALL, 4, "\tbase => "PFX"\n", addr);
-    addr += scale * reg_get_value_priv(index, mc);
+    addr += scaled_index;
     LOG(THREAD_GET, LOG_ALL, 4, "\tindex,scale => "PFX"\n", addr);
     addr += disp;
     LOG(THREAD_GET, LOG_ALL, 4, "\tdisp => "PFX"\n", addr);
     return addr;
+}
+
+/* Returns the effective address of opnd, computed using the passed-in
+ * register values.  If opnd is a far address, ignores that aspect
+ * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
+ * or typical fs: or gs: references on Linux.  For far addresses the
+ * calling thread's segment selector is used.
+ *
+ * XXX: this does not support VSIB.  All callers should really be switched to
+ * use instr_compute_address_ex_priv().
+ */
+app_pc
+opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc)
+{
+    ptr_int_t scaled_index = 0;
+    if (opnd_is_base_disp(opnd)) {
+        reg_id_t index = opnd_get_index(opnd);
+        ptr_int_t scale = opnd_get_scale(opnd);
+        scaled_index = scale * reg_get_value_priv(index, mc);
+    }
+    return opnd_compute_address_helper(opnd, mc, scaled_index);
 }
 
 DR_API
@@ -3551,13 +3575,116 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+/* Returns whether ordinal is within the count of memory references
+ * (i.e., the caller should iterate, incrementing ordinal by one,
+ * until it returns false).
+ * If it returns true, sets *selected to whether this memory
+ * reference actually goes through (i.e., whether it is enabled in
+ * the mask).
+ * If *selected is true, returns the scaled index in *result.
+ *
+ * On a fault, any completed memory loads have their corresponding
+ * mask bits cleared, so we shouldn't have to do anything special
+ * to support faults of VSIB accesses.
+ */
+static bool
+instr_compute_VSIB_index(bool *selected OUT, app_pc *result OUT,
+                         instr_t *instr, int ordinal,
+                         priv_mcontext_t *mc, size_t mc_size,
+                         dr_mcontext_flags_t mc_flags)
+{
+    int opc = instr_get_opcode(instr);
+    opnd_size_t index_size = OPSZ_NA;
+    opnd_size_t mem_size = OPSZ_NA;
+    /* We assume that all VSIB-using instrs have the VSIB memop as the 1st
+     * source and the mask register as the 2nd source.
+     */
+    opnd_t memop = instr_get_src(instr, 0);
+    int scale = opnd_get_scale(memop);
+    reg_id_t index_reg = opnd_get_index(memop);
+    reg_id_t mask_reg = opnd_get_reg(instr_get_src(instr, 1));
+    bool ymm = (opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_32);
+    int reg_start = (ymm ? REG_START_YMM : REG_START_XMM);
+    uint64 index_addr;
+
+    /* Once we add zmm we'll need to do size checks */
+    CLIENT_ASSERT(selected != NULL && result != NULL && mc != NULL, "invalid args");
+    CLIENT_ASSERT(mc_size >= sizeof(dr_mcontext_t),
+                  "dr_mcontext_t.size is invalid");
+    CLIENT_ASSERT(TEST(DR_MC_MULTIMEDIA, mc_flags),
+                  "dr_mcontext_t.flags must include DR_MC_MULTIMEDIA");
+    CLIENT_ASSERT((!ymm && index_reg >= REG_START_XMM && index_reg <= REG_STOP_XMM) ||
+                  (ymm && index_reg >= REG_START_YMM && index_reg <= REG_STOP_YMM),
+                  "invalid index register for VSIB");
+
+    switch (opc) {
+    case OP_vgatherdpd: index_size = OPSZ_4; mem_size = OPSZ_8; break;
+    case OP_vgatherqpd: index_size = OPSZ_8; mem_size = OPSZ_8; break;
+    case OP_vgatherdps: index_size = OPSZ_4; mem_size = OPSZ_4; break;
+    case OP_vgatherqps: index_size = OPSZ_8; mem_size = OPSZ_4; break;
+    case OP_vpgatherdd: index_size = OPSZ_4; mem_size = OPSZ_4; break;
+    case OP_vpgatherqd: index_size = OPSZ_8; mem_size = OPSZ_4; break;
+    case OP_vpgatherdq: index_size = OPSZ_4; mem_size = OPSZ_8; break;
+    case OP_vpgatherqq: index_size = OPSZ_8; mem_size = OPSZ_8; break;
+    default: CLIENT_ASSERT(false, "non-VSIB opcode passed in"); return false;
+    }
+
+    LOG(THREAD_GET, LOG_ALL, 4, "%s: ordinal=%d: index=%s, mem=%s, ymm=%d\n",
+        __FUNCTION__, ordinal, size_names[index_size], size_names[mem_size], ymm);
+
+    if (index_size == OPSZ_4) {
+        int mask;
+        if (mem_size == OPSZ_4) {
+            if ((ymm && ordinal > 7) || (!ymm && ordinal > 3))
+                return false;
+        } else if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
+            return false;
+        mask = (int) mc->ymm[mask_reg - reg_start].u32[ordinal];
+        if (mask >= 0) { /* top bit not set */
+            *selected = false;
+            return true;
+        }
+        *selected = true;
+        index_addr = mc->ymm[index_reg - reg_start].u32[ordinal];
+    } else if (index_size == OPSZ_8) {
+        int mask; /* just top half */
+        if ((ymm && ordinal > 3) || (!ymm && ordinal > 1))
+            return false;
+        mask = (int) mc->ymm[mask_reg - reg_start].u32[ordinal*2+1];
+        if (mask >= 0) { /* top bit not set */
+            *selected = false;
+            return true;
+        }
+        *selected = true;
+#ifdef X64
+        index_addr = mc->ymm[index_reg - reg_start].reg[ordinal];
+#else
+        index_addr = (((uint64)mc->ymm[index_reg - reg_start].u32[ordinal*2+1]) << 32) |
+            mc->ymm[index_reg - reg_start].u32[ordinal*2];
+#endif
+    } else
+        return false;
+
+    LOG(THREAD_GET, LOG_ALL, 4, "%s: ordinal=%d: "PFX"*%d="PFX"\n",
+        __FUNCTION__, ordinal, index_addr, scale, index_addr*scale);
+
+    index_addr *= scale;
+#ifdef X64
+    *result = (app_pc)index_addr;
+#else
+    *result = (app_pc)(uint)index_addr; /* truncated */
+#endif
+    return true;
+}
+
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
-bool
-instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
-                              OUT app_pc *addr, OUT bool *is_write,
-                              OUT uint *pos)
+static bool
+instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                             dr_mcontext_flags_t mc_flags, uint index,
+                             OUT app_pc *addr, OUT bool *is_write,
+                             OUT uint *pos)
 {
     /* for string instr, even w/ rep prefix, assume want value at point of
      * register snapshot passed in
@@ -3565,7 +3692,8 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
     int i;
     opnd_t curop = {0};
     int memcount = -1;
-    bool write = false;;
+    bool write = false;
+    bool have_addr = false;
     for (i=0; i<instr_num_dsts(instr); i++) {
         curop = instr_get_dst(instr, i);
         if (opnd_is_memory_reference(curop)) {
@@ -3581,16 +3709,47 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
         for (i=0; i<instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {
+                if (opnd_is_vsib(curop)) {
+                    /* We assume that any instr w/ a VSIB opnd has no other
+                     * memory reference (and the VSIB is a source)!  Else we'll
+                     * have to be more careful w/ memcount, as we have multiple
+                     * iters in the VSIB.
+                     */
+                    bool selected = false;
+                    /* XXX: b/c we have no iterator state we have to repeat the
+                     * full iteration on each call
+                     */
+                    uint vsib_idx = 0;
+                    have_addr = true;
+                    while (instr_compute_VSIB_index(&selected, addr, instr, vsib_idx,
+                                                    mc, mc_size, mc_flags) &&
+                           (!selected || vsib_idx < index)) {
+                        vsib_idx++;
+                        selected = false;
+                    }
+                    if (selected && vsib_idx == index) {
+                        write = false;
+                        if (addr != NULL) {
+                            /* Add in seg, base, and disp */
+                            *addr = opnd_compute_address_helper(curop, mc,
+                                                                (ptr_int_t)*addr);
+                        }
+                        break;
+                    } else
+                        return false;
+                }
                 memcount++;
                 if (memcount == (int)index)
                     break;
             }
         }
     }
-    if (memcount != (int)index)
-        return false;
-    if (addr != NULL)
-        *addr = opnd_compute_address_priv(curop, mc);
+    if (!have_addr) {
+        if (memcount != (int)index)
+            return false;
+        if (addr != NULL)
+            *addr = opnd_compute_address_priv(curop, mc);
+    }
     if (is_write != NULL)
         *is_write = write;
     if (pos != 0)
@@ -3598,14 +3757,23 @@ instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
     return true;
 }
 
+bool
+instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
+                              OUT app_pc *addr, OUT bool *is_write,
+                              OUT uint *pos)
+{
+    return instr_compute_address_helper(instr, mc, sizeof(*mc), DR_MC_ALL,
+                                        index, addr, is_write, pos);
+}
+
 DR_API
 bool
 instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
                          OUT app_pc *addr, OUT bool *is_write)
 {
-    /* only supports GPRs so we ignore mc.size */
-    return instr_compute_address_ex_priv(instr, dr_mcontext_as_priv_mcontext(mc),
-                                         index, addr, is_write, NULL);
+    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc),
+                                        mc->size, mc->flags,
+                                        index, addr, is_write, NULL);
 }
 
 /* i#682: add pos so that the caller knows which opnd is used. */
@@ -3615,9 +3783,8 @@ instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
                              OUT app_pc *addr, OUT bool *is_write,
                              OUT uint *pos)
 {
-    /* only supports GPRs so we ignore mc.size */
-    return instr_compute_address_ex_priv(instr, dr_mcontext_as_priv_mcontext(mc),
-                                         index, addr, is_write, pos);
+    return instr_compute_address_helper(instr, dr_mcontext_as_priv_mcontext(mc),
+                                        mc->size, mc->flags, index, addr, is_write, pos);
 }
 
 /* Returns NULL if none of instr's operands is a memory reference.
@@ -3638,8 +3805,10 @@ DR_API
 app_pc
 instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
 {
-    /* only supports GPRs so we ignore mc.size */
-    return instr_compute_address_priv(instr, dr_mcontext_as_priv_mcontext(mc));
+    app_pc addr;
+    if (!instr_compute_address_ex(instr, mc, 0, &addr, NULL))
+        return NULL;
+    return addr;
 }
 
 /* Calculates the size, in bytes, of the memory read or write of instr

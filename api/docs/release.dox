@@ -125,6 +125,10 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added support for recent IA-32/AMD64 instructions: the rdrand,
    fsgsbase, FMA4, XOP, TBM, LWP, BMI1, BMI2, SMX, INVPCID,
    and TSX instruction groups
+ - Added vector addressing (VSIB) support to instr_compute_address(),
+   instr_compute_address_ex() and
+   instr_compute_address_ex_pos()
+ - Added opnd_is_vsib()
  - Fixed misnamed opcodes: OP_pmovsxdw is now OP_pmovsxwd,
    OP_pmovzxdw is now OP_pmovzxwd, OP_vpmovsxdw is now OP_vpmovsxwd,
    and OP_vpmovzxdw is now OP_vpmovzxwd.

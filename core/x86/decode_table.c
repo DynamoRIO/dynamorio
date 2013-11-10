@@ -1230,6 +1230,16 @@ const instr_info_t * const op_instr[] =
     /* OP_xend          */   &rm_extensions[4][5],
     /* OP_xtest         */   &rm_extensions[4][6],
 
+    /* AVX2 */
+    /* OP_vpgatherdd    */   &vex_W_extensions[66][0],
+    /* OP_vpgatherdq    */   &vex_W_extensions[66][1],
+    /* OP_vpgatherqd    */   &vex_W_extensions[67][0],
+    /* OP_vpgatherqq    */   &vex_W_extensions[67][1],
+    /* OP_vgatherdps    */   &vex_W_extensions[68][0],
+    /* OP_vgatherdpd    */   &vex_W_extensions[68][1],
+    /* OP_vgatherqps    */   &vex_W_extensions[69][0],
+    /* OP_vgatherqpd    */   &vex_W_extensions[69][1],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1371,6 +1381,8 @@ const instr_info_t * const op_instr[] =
 #define Mdq  TYPE_M, OPSZ_16
 #define Mq_dq TYPE_M, OPSZ_8_rex16
 #define Mv  TYPE_M, OPSZ_4_rex8_short2
+#define MVd TYPE_VSIB, OPSZ_4
+#define MVq TYPE_VSIB, OPSZ_8
 #define Zb  TYPE_XLAT, OPSZ_1
 #define Bq  TYPE_MASKMOVQ, OPSZ_8
 #define Bdq  TYPE_MASKMOVQ, OPSZ_16
@@ -4804,23 +4816,23 @@ const instr_info_t rex_w_extensions[][2] = {
  * table of 256 indices instead of 256 instr_info_t structs.
  */
 const byte third_byte_38_index[256] = {
-  /* 0  1  2  3   4  5  6  7   8  9  A  B   C  D  E  F */
-     1, 2, 3, 4,  5, 6, 7, 8,  9,10,11,12, 96,97,56,57,  /* 0 */
-    16, 0, 0,88, 17,18, 0,19, 89,90,91, 0, 13,14,15, 0,  /* 1 */
-    20,21,22,23, 24,25, 0, 0, 26,27,28,29, 92,93,94,95,  /* 2 */
-    30,31,32,33, 34,35, 0,36, 37,38,39,40, 41,42,43,44,  /* 3 */
-    45,46, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-    49,50,103,0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
-     0, 0, 0, 0,  0, 0,58,59, 60,61,62,63, 64,65,66,67,  /* 9 */
-     0, 0, 0, 0,  0, 0,68,69, 70,71,72,73, 74,75,76,77,  /* A */
-     0, 0, 0, 0,  0, 0,78,79, 80,81,82,83, 84,85,86,87,  /* B */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0,51, 52,53,54,55,  /* D */
-     0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
-   47,48,100,99,  0,101,102,98, 0, 0, 0, 0, 0, 0, 0, 0   /* F */
+  /* 0   1   2   3    4   5   6   7    8   9   A   B    C   D   E   F */
+     1,  2,  3,  4,   5,  6,  7,  8,   9, 10, 11, 12,  96, 97, 56, 57,  /* 0 */
+    16,  0,  0, 88,  17, 18,  0, 19,  89, 90, 91,  0,  13, 14, 15,  0,  /* 1 */
+    20, 21, 22, 23,  24, 25,  0,  0,  26, 27, 28, 29,  92, 93, 94, 95,  /* 2 */
+    30, 31, 32, 33,  34, 35,  0, 36,  37, 38, 39, 40,  41, 42, 43, 44,  /* 3 */
+    45, 46,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 4 */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 5 */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 6 */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 7 */
+    49, 50,103,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* 8 */
+   104,105,106,107,   0,  0, 58, 59,  60, 61, 62, 63,  64, 65, 66, 67,  /* 9 */
+     0,  0,  0,  0,   0,  0, 68, 69,  70, 71, 72, 73,  74, 75, 76, 77,  /* A */
+     0,  0,  0,  0,   0,  0, 78, 79,  80, 81, 82, 83,  84, 85, 86, 87,  /* B */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* C */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0, 51,  52, 53, 54, 55,  /* D */
+     0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,   0,  0,  0,  0,  /* E */
+    47, 48,100, 99,   0,101,102, 98,   0,  0,  0,  0,   0,  0,  0,  0   /* F */
 };
 
 const instr_info_t third_byte_38[] = {
@@ -4945,6 +4957,11 @@ const instr_info_t third_byte_38[] = {
   {PREFIX_EXT, 0x38f518, "(prefix ext 142)", xx, xx, xx, xx, xx, mrm, x, 142}, /*101*/
   {PREFIX_EXT, 0x38f618, "(prefix ext 143)", xx, xx, xx, xx, xx, mrm, x, 143}, /*102*/
   {OP_invpcid, 0x66388218, "invpcid",  xx, xx, Gy, Mdq, xx, mrm|reqp, x, END_LIST},/*103*/
+  /* AVX2 */
+  {VEX_W_EXT, 0x66389018, "(vex_W ext 66)", xx, xx, xx, xx, xx, mrm|vex, x, 66},/*104*/
+  {VEX_W_EXT, 0x66389118, "(vex_W ext 67)", xx, xx, xx, xx, xx, mrm|vex, x, 67},/*105*/
+  {VEX_W_EXT, 0x66389218, "(vex_W ext 68)", xx, xx, xx, xx, xx, mrm|vex, x, 68},/*106*/
+  {VEX_W_EXT, 0x66389318, "(vex_W ext 69)", xx, xx, xx, xx, xx, mrm|vex, x, 69},/*107*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -5236,11 +5253,26 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vpshaq,    0x099b18,"vpshaq",    Vdq,xx,Wdq,Hdq,xx,mrm|vex,x,tvexw[63][1]},
     {OP_vpshaq,    0x099b58,"vpshaq",    Vdq,xx,Hdq,Wdq,xx,mrm|vex,x,END_LIST},
   }, { /* vex_W_ext 64 */
-    {OP_vpermil2ps,0x663a4818,"vpermil2ps",Vvs,xx,Hvs,Wvs,Lvs,mrm|vex,x,tvexw[64][1]},
-    {OP_vpermil2ps,0x663a4858,"vpermil2ps",Vvs,xx,Hvs,Lvs,Wvs,mrm|vex,x,END_LIST},
+    {OP_vpermil2ps,0x663a4818,"vpermil2ps",Vvs,xx,Hvs,Wvs,Lvs,mrm|vex|reqp,x,tvexw[64][1]},
+    {OP_vpermil2ps,0x663a4858,"vpermil2ps",Vvs,xx,Hvs,Lvs,Wvs,mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 65 */
-    {OP_vpermil2pd,0x663a4918,"vpermil2pd",Vvs,xx,Hvs,Wvs,Lvs,mrm|vex,x,tvexw[65][1]},
-    {OP_vpermil2pd,0x663a4958,"vpermil2pd",Vvs,xx,Hvs,Lvs,Wvs,mrm|vex,x,END_LIST},
+    {OP_vpermil2pd,0x663a4918,"vpermil2pd",Vvs,xx,Hvs,Wvs,Lvs,mrm|vex|reqp,x,tvexw[65][1]},
+    {OP_vpermil2pd,0x663a4958,"vpermil2pd",Vvs,xx,Hvs,Lvs,Wvs,mrm|vex|reqp,x,END_LIST},
+  }, { /* vex_W_ext 66 */
+    /* XXX: OP_v*gather* raise #UD if any pair of the index, mask, or destination
+     * registers are identical.  We don't bother trying to detect that.
+     */
+    {OP_vpgatherdd,0x66389018,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[66][1]},
+    {OP_vpgatherdq,0x66389058,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+  }, { /* vex_W_ext 67 */
+    {OP_vpgatherqd,0x66389118,"vpgatherdd",Vx,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[67][1]},
+    {OP_vpgatherqq,0x66389158,"vpgatherdq",Vx,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+  }, { /* vex_W_ext 68 */
+    {OP_vgatherdps,0x66389218,"vgatherdps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[68][1]},
+    {OP_vgatherdpd,0x66389258,"vgatherdpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
+  }, { /* vex_W_ext 69 */
+    {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[69][1]},
+    {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   },
 };
 

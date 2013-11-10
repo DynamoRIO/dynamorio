@@ -3279,6 +3279,33 @@
   instr_create_2dst_2src((dc), OP_pop, (d), opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XSP), \
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK))
+/** @name 2 implicit destinations, 3 sources: 1 implicit */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction.
+ * \param s1 The opnd_t first source operand for the instruction.
+ * \param s2 The opnd_t second source operand for the instruction.
+ */
+#define INSTR_CREATE_vpgatherdd(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vpgatherdd, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vpgatherdq(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vpgatherdq, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vpgatherqd(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vpgatherqd, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vpgatherqq(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vpgatherqq, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vgatherdps(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vgatherdps, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vgatherdpd(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vgatherdpd, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vgatherqps(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vgatherqps, (d), (s2), (s1), (s2))
+#define INSTR_CREATE_vgatherqpd(dc, d, s1, s2) \
+  instr_create_2dst_2src((dc), OP_vgatherqpd, (d), (s2), (s1), (s2))
+/* @} */ /* end doxygen group */
 
 /* 2 destinations: 1 implicit, 2 sources: 1 implicit */
 /** @name 2 destinations: 1 implicit, 2 sources: 1 implicit */
