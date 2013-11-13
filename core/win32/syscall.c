@@ -445,7 +445,12 @@ syscall_while_native(app_state_at_intercept_t *state)
         return AFTER_INTERCEPT_TAKE_OVER; /* syscall under DR */ 
     } else if (!dcontext->thread_record->under_dynamo_control
                /* xref PR 230836 */
-               IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(dcontext))) {
+               IF_CLIENT_INTERFACE(&& !IS_CLIENT_THREAD(dcontext))
+               /* i#1318: may get here from privlib at exit, at least until we
+                * redirect *everything*.  From privlib we need to keep
+                * the syscall native as DR locks may be held.
+                */
+               IF_CLIENT_INTERFACE(&& dcontext->whereami == WHERE_APP)) {
         /* assumption is that any known native thread is one we control in general,
          * just not right now while in a native_exec_list dll */
         STATS_INC(num_syscall_trampolines_native);
