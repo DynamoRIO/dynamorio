@@ -828,7 +828,8 @@ standalone_init(void)
 #endif
 #ifdef WINDOWS
     /* MUST do this before making any system calls */
-    syscalls_init();
+    if (!syscalls_init())
+        return NULL; /* typically b/c of unsupported OS version */
 #endif
     config_init();
     options_init();

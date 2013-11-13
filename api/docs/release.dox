@@ -135,6 +135,8 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Renamed DRgui to DRstats in anticipation of a new DRgui graphical tool framework
  - dr_exit_process() now supports sending a fatal signal via the 2nd byte of
    the exit code being set to the signal number
+ - Added a return value of NULL to dr_standalone_init() to indicate
+   failure, such as running on an unsupported OS
 
 **************************************************
 <hr>

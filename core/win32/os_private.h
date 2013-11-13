@@ -197,7 +197,7 @@ extern bool init_apc_go_native;
 void check_syscall_array_sizes(void);
 #endif
 
-void
+bool
 windows_version_init(void);
 
 enum {

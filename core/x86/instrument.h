@@ -1561,6 +1561,8 @@ DR_API
  * \warning This context cannot be used as the drcontext for a thread 
  * running under DR control!  It is only for standalone programs that 
  * wish to use DR as a library of disassembly, etc. routines.
+ * \return NULL on failure, such as running on an unsupported operating
+ * system version.
  */
 void *
 dr_standalone_init(void);
@@ -1716,7 +1718,11 @@ typedef struct _dr_os_version_info_t {
 DR_API
 /** 
  * Returns information about the version of the operating system.
- * Returns whether successful.  \note Windows only.
+ * Returns whether successful.  \note Windows only.  \note The Windows
+ * API routine GetVersionEx may hide distinctions between versions,
+ * such as between Windows 8 and Windows 8.1.  DR reports the true
+ * low-level version.
+ *
  */
 bool
 dr_get_os_version(dr_os_version_info_t *info);

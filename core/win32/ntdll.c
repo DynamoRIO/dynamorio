@@ -411,7 +411,7 @@ syscalls_init_options_read()
  * that things are initialized -- that's all fixed now, with stats, dcontext,
  * etc. checked for NULL in all the right places.
  */
-void
+bool
 syscalls_init()
 {
     /* Determine which syscall routine to use 
@@ -437,7 +437,8 @@ syscalls_init()
     ushort check = *((ushort *)(int_target));
     HMODULE ntdllh = get_ntdll_base();
 
-    windows_version_init();
+    if (!windows_version_init())
+        return false;
     ASSERT(syscalls != NULL);
 
     /* FIXME : ref case 5463, we should follow through to actual system call
@@ -565,6 +566,7 @@ syscalls_init()
             CHECK_SYSNUM_AT((byte *) get_proc_address(ntdllh, syscall_names[i]), i);
         }
     });
+    return true;
 }
 
 /* Returns true if machine is using the Ki*SysCall routines (indirection via vsyscall

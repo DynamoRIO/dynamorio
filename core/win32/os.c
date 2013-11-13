@@ -547,7 +547,7 @@ get_context_xstate_flag(void)
  * N.B.: this is prior to eventlog_init(), but then we've been reporting
  * usage errors prior to that for a long time now anyway.
  */
-void
+bool
 windows_version_init()
 {
     PEB *peb = get_own_peb();
@@ -710,6 +710,8 @@ windows_version_init()
         } else {
             SYSLOG_INTERNAL_ERROR("Unknown Windows NT-family version: major=%d, minor=%d\n",
                                   peb->OSMajorVersion, peb->OSMinorVersion);
+            if (standalone_library)
+                return false; /* let app handle it */
             os_name = "Unrecognized Windows NT-family version";
             FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                               get_application_pid(), PRODUCT_NAME, os_name);
@@ -718,6 +720,8 @@ windows_version_init()
         /* Win95 or Win98 */
         uint ver_high = (peb->OSBuildNumber >> 8) & 0xff;
         uint ver_low = peb->OSBuildNumber & 0xff;
+        if (standalone_library)
+            return false; /* let app handle it */
         if (ver_low >= 90 || ver_high >= 5)
             os_name = "Windows ME";
         else if (ver_low >= 10 && ver_low < 90)
@@ -731,11 +735,14 @@ windows_version_init()
         FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                           get_application_pid(), PRODUCT_NAME, os_name);
     } else {
+        if (standalone_library)
+            return false; /* let app handle it */
         os_name = "Win32s";
         /* Win32S on Windows 3.1 */
         FATAL_USAGE_ERROR(BAD_OS_VERSION, 4, get_application_name(),
                           get_application_pid(), PRODUCT_NAME, os_name);
     }
+    return true;
 }
 
 /* Note that assigning a process to a Job is done only after it has

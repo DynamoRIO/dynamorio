@@ -492,7 +492,7 @@ is_intercepted_app_pc(app_pc pc, byte **interception_pc);
 #include "inject_shared.h"
 
 /* in ntdll.c, exported through here */
-void syscalls_init(void);
+bool syscalls_init(void);
 void syscalls_init_options_read(void);
 int get_last_error(void);
 void set_last_error(int error);
