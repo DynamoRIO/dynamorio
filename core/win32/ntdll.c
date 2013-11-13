@@ -981,6 +981,18 @@ is_in_ntdll(app_pc pc)
     return (pc >= base && pc < ntdll_end);
 }
 
+static bool
+context_check_extended_sizes(context_ex_t *cxt_ex, uint flags)
+{
+    return (cxt_ex->all.offset    == -(LONG)sizeof(CONTEXT) &&
+            cxt_ex->legacy.offset == -(LONG)sizeof(CONTEXT) &&
+            (cxt_ex->legacy.length == (DWORD)sizeof(CONTEXT)
+             /* We won't allocate space for ExtendedRegisters if not saving xmm */
+             IF_NOT_X64(|| (!TESTALL(CONTEXT_XMM_FLAG, flags) &&
+                            cxt_ex->legacy.length ==
+                            (DWORD)offsetof(CONTEXT, ExtendedRegisters)))));
+}
+
 /* get the ymm saved area from CONTEXT extended area
  * returns NULL if the extended area is not initialized. 
  */
@@ -998,9 +1010,7 @@ context_ymmh_saved_area(CONTEXT *cxt)
     ASSERT(proc_avx_enabled());
     /* verify the dr_cxt_ex is correct */
     if (safe_read(cxt_ex, sizeof(*cxt_ex), &our_cxt_ex)) {
-        if (our_cxt_ex.all.offset    != -(LONG)sizeof(*cxt) ||
-            our_cxt_ex.legacy.offset != -(LONG)sizeof(*cxt) ||
-            our_cxt_ex.legacy.length != (DWORD)sizeof(*cxt)) {
+        if (!context_check_extended_sizes(&our_cxt_ex, cxt->ContextFlags)) {
             ASSERT_CURIOSITY(false && "CONTEXT_EX is not setup correctly");
             return NULL;
         }
@@ -5220,13 +5230,7 @@ nt_initialize_context(char *buf, DWORD flags)
          * ff15b8007a76    call    dword ptr [_imp__RtlLocateLegacyContext]
          */
         cxt = (CONTEXT *)ntdll_RtlLocateLegacyContext(cxt_ex, 0);
-        ASSERT(cxt_ex->all.offset    == -(LONG)sizeof(*cxt) &&
-               cxt_ex->legacy.offset == -(LONG)sizeof(*cxt) &&
-               (cxt_ex->legacy.length == (DWORD)sizeof(*cxt)
-                /* We won't allocate space for ExtendedRegisters if not saving xmm */
-                IF_NOT_X64(|| (!TESTALL(CONTEXT_XMM_FLAG, flags) &&
-                               cxt_ex->legacy.length ==
-                               (DWORD)offsetof(CONTEXT, ExtendedRegisters)))));
+        ASSERT(context_check_extended_sizes(cxt_ex, flags));
         ASSERT(cxt != NULL && 
                (char *)cxt >= buf && 
                (char *)cxt + cxt_ex->all.length < buf + MAX_CONTEXT_SIZE);
