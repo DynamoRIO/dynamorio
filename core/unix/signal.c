@@ -319,6 +319,7 @@ unblock_all_signals(kernel_sigset_t *oset)
 bool
 set_default_signal_action(int sig)
 {
+    kernel_sigset_t set;
     kernel_sigaction_t act;
     int rc;
     memset(&act, 0, sizeof(act));
@@ -326,6 +327,12 @@ set_default_signal_action(int sig)
     /* arm the signal */
     rc = sigaction_syscall(sig, &act, NULL);
     DODEBUG({ removed_sig_handler = true; });
+
+    /* If we're in our handler now, we have to unblock */
+    kernel_sigemptyset(&set);
+    kernel_sigaddset(&set, sig);
+    sigprocmask_syscall(SIG_UNBLOCK, &set, NULL, sizeof(set));
+
     return (rc == 0);
 }
 
@@ -4134,6 +4141,69 @@ terminate_via_kill(dcontext_t *dcontext)
     ASSERT_NOT_REACHED();
 }
 
+bool
+is_currently_on_sigaltstack(dcontext_t *dcontext)
+{
+    thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
+    byte *cur_esp;
+    GET_STACK_PTR(cur_esp);
+    return (cur_esp >= (byte *)info->sigstack.ss_sp &&
+            cur_esp <  (byte *)info->sigstack.ss_sp + info->sigstack.ss_size);
+}
+
+static void
+terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
+{
+    dcontext->sys_param0 = sig; /* store arg to SYS_kill */
+    if (is_currently_on_sigaltstack(dcontext)) {
+        /* We can't clean up our sigstack properly when we're on it
+         * (i#1160) so we terminate on the dstack.
+         */
+        call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
+                          false /*!initstack */, false/*no return */);
+    } else {
+        terminate_via_kill(dcontext);
+    }
+    ASSERT_NOT_REACHED();
+}
+
+/* xref os_request_fatal_coredump() */
+void
+os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
+{
+    DEBUG_DECLARE(bool res =)
+        set_default_signal_action(sig);
+    ASSERT(res);
+    if (TEST(TERMINATE_CLEANUP, flags)) {
+        /* we enter from several different places, so rewind until top-level kstat */
+        KSTOP_REWIND_UNTIL(thread_measured);
+        ASSERT(dcontext != NULL);
+        dcontext->sys_param0 = sig;
+        /* XXX: the comment in the else below implies some systems have SYS_kill
+         * of SIGSEGV w/ no handler on oneself actually return.
+         * cleanup_and_terminate won't return to us and will use global_do_syscall
+         * to invoke SYS_kill, which in debug will do an inf loop (good!) but
+         * in release will do SYS_exit_group -- oh well, the systems I'm testing
+         * on do an immediate exit.
+         */
+        terminate_via_kill_from_anywhere(dcontext, sig);
+    } else {
+        /* general clean up is unsafe: just remove .1config file */
+        config_exit();
+        dynamorio_syscall(SYS_kill, 2, get_process_id(), sig);
+        /* We try both the SYS_kill and the immediate crash since on some platforms
+         * the SIGKILL is delayed and on others the *-1 is hanging(?): should investigate
+         */
+        if (sig == SIGSEGV) /* make doubly-sure */
+            *((int *)PTR_UINT_MINUS_1) = 0;
+        while (true) {
+            /* in case signal delivery is delayed we wait...forever */
+            os_thread_yield();
+        }
+    }
+    ASSERT_NOT_REACHED();
+}
+
 static bool
 execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                        sigcontext_t *sc_orig, bool from_dispatch)
@@ -4174,15 +4244,9 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
      * the signal ourselves.
      */
     if (default_action[sig] != DEFAULT_IGNORE) {
-        kernel_sigset_t set;
         DEBUG_DECLARE(bool ok =)
             set_default_signal_action(sig);
         ASSERT(ok);
-
-        /* If we're in our handler now, we have to unblock */
-        kernel_sigemptyset(&set);
-        kernel_sigaddset(&set, sig);
-        sigprocmask_syscall(SIG_UNBLOCK, &set, NULL, sizeof(set));
 
         /* FIXME: to avoid races w/ shared handlers should set a flag to
          * prevent another thread from re-enabling.
@@ -4217,24 +4281,13 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                  * FIXME: should have app make the syscall to get a more
                  * transparent core dump!
                  */
-                byte *cur_esp;
                 if (!from_dispatch)
                     KSTOP_NOT_MATCHING_NOT_PROPAGATED(fcache_default);
                 KSTOP_NOT_MATCHING_NOT_PROPAGATED(dispatch_num_exits);
                 if (is_couldbelinking(dcontext)) /* won't be for SYS_kill (i#1159) */
                     enter_nolinking(dcontext, NULL, false);
-                GET_STACK_PTR(cur_esp);
-                dcontext->sys_param0 = sig; /* store arg to SYS_kill */
-                if (cur_esp >= (byte *)info->sigstack.ss_sp &&
-                    cur_esp <  (byte *)info->sigstack.ss_sp + info->sigstack.ss_size) {
-                    /* We can't clean up our sigstack properly when we're on it
-                     * (i#1160) so we terminate on the dstack.
-                     */
-                    call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
-                                      false /*!initstack */, false/*no return */);
-                } else {
-                    terminate_via_kill(dcontext);
-                }
+                /* we could be on sigstack so call this version: */
+                terminate_via_kill_from_anywhere(dcontext, sig);
                 ASSERT_NOT_REACHED();
             } else {
                 /* We assume that re-executing the interrupted instr will
@@ -4285,14 +4338,9 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                     return false;
                 } else {
                     /* mismatch, cleanup and terminate */
-                    cleanup_and_terminate(dcontext, SYS_kill,
-                                          /* Pass -pid in case main thread has exited
-                                           * in which case will get -ESRCH
-                                           */
-                                          IF_VMX86(os_in_vmkernel_userworld() ?
-                                                   -(int)get_process_id() :)
-                                          get_process_id(),
-                                          sig, true);
+                    dcontext->sys_param0 = sig;
+                    terminate_via_kill(dcontext);
+                    ASSERT_NOT_REACHED();
                 }
             }
         } else {
@@ -4703,17 +4751,12 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 void
 os_request_fatal_coredump(const char *msg)
 {
-    set_default_signal_action(SIGSEGV);
-    SYSLOG_INTERNAL_ERROR("Crashing the process deliberately for a core dump!");
-    /* We try both the SIGKILL and the immediate crash since on some platforms
-     * the SIGKILL is delayed and on others the *-1 is hanging(?): should investigate
-     */
-    dynamorio_syscall(SYS_kill, 2, get_process_id(), SIGSEGV);
-    *((int *)PTR_UINT_MINUS_1) = 0;
     /* To enable getting a coredump just make sure that rlimits are
      * not preventing getting one, e.g. ulimit -c unlimited
      */
-    return;
+    SYSLOG_INTERNAL_ERROR("Crashing the process deliberately for a core dump!");
+    os_terminate_via_signal(NULL, 0/*no cleanup*/, SIGSEGV);
+    ASSERT_NOT_REACHED();
 }
 
 void

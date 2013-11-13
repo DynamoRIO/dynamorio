@@ -339,6 +339,11 @@ typedef uint64 linkcount_type_t;
 #include "dr_stats.h"
 
 #ifdef CLIENT_INTERFACE
+/* did the client request a premature exit at a potentially awkward spot
+ * (nudge handler, signal handler)?
+ */
+extern bool client_requested_exit;
+
 typedef struct _client_to_do_list_t {
     /* used to make a list of fragments to delete/replace */
     /* deletes frag at tag if ilist is null else replaces it with ilist */

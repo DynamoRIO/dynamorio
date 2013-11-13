@@ -233,6 +233,9 @@ set_default_signal_action(int sig);
 void
 share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc);
 
+void
+os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig);
+
 void start_itimer(dcontext_t *dcontext);
 void stop_itimer(dcontext_t *dcontext);
 

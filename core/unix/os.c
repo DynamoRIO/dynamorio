@@ -955,8 +955,15 @@ os_fast_exit(void)
 void
 os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_code)
 {
+    /* i#1319: we support a signal via 2nd byte */
+    bool use_signal = exit_code > 0x00ff;
     /* XXX: TERMINATE_THREAD not supported */
     ASSERT_NOT_IMPLEMENTED(TEST(TERMINATE_PROCESS, flags));
+    if (use_signal) {
+        int sig = (exit_code & 0xff00) >> 8;
+        os_terminate_via_signal(dcontext, flags, sig);
+        ASSERT_NOT_REACHED();
+    }
     if (TEST(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);

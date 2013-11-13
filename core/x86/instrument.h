@@ -1805,8 +1805,12 @@ DR_API
 /**
  * Exits the process, first performing a full cleanup that will
  * trigger the exit event (dr_register_exit_event()).  The process
- * exit code is set to \p exit_code.  Note that on some platforms only
- * the bottom 8 bits of \p exit_code will be honored.
+ * exit code is set to \p exit_code.
+ *
+ * On Linux, only the bottom 8 bits of \p exit_code will be honored
+ * for a normal exit.  If bits 9..16 are not all zero, DR will send an
+ * unhandled signal of that signal number instead of performing a normal
+ * exit.
  */
 void
 dr_exit_process(int exit_code);

@@ -241,6 +241,7 @@ typedef struct _kernel_sigset_t {
 
 void receive_pending_signal(dcontext_t *dcontext);
 bool is_signal_restorer_code(byte *pc, size_t *len);
+bool is_currently_on_sigaltstack(dcontext_t *dcontext);
 
 #ifdef MACOS
 /* mcontext_t is a pointer and we want the real thing */

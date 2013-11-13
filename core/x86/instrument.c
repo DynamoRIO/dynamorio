@@ -266,10 +266,11 @@ typedef BOOL (WINAPI *kernel32_WriteFile_t)
 static kernel32_WriteFile_t kernel32_WriteFile;
 #endif
 
+bool client_requested_exit;
+
 #ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
-static bool client_requested_exit;
 DECLARE_CXTSWPROT_VAR(static int num_client_nudge_threads, 0);
 #endif
 #ifdef CLIENT_SIDELINE
@@ -2166,13 +2167,15 @@ void
 dr_exit_process(int exit_code)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-#ifdef WINDOWS
     SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
-    /* prevent cleanup from waiting for nudges as this may be called
+    /* Prevent cleanup from waiting for nudges as this may be called
      * from a nudge!
+     * Also suppress leak asserts, as it's hard to clean up from
+     * some situations (such as DrMem -crash_at_error).
      */
     client_requested_exit = true;
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+#ifdef WINDOWS
     if (dcontext != NULL && dcontext->nudge_target != NULL) {
         /* we need to free the nudge thread stack which may involved
          * switching stacks so we have the nudge thread invoke
@@ -2182,8 +2185,9 @@ dr_exit_process(int exit_code)
         CLIENT_ASSERT(false, "shouldn't get here");
     }
 #endif
-    if (!is_currently_on_dstack(dcontext)) {
-        /* if on app stack, avoid incorrect leak assert at exit */
+    if (!is_currently_on_dstack(dcontext)
+        IF_UNIX(&& !is_currently_on_sigaltstack(dcontext))) {
+        /* if on app stack or sigaltstack, avoid incorrect leak assert at exit */
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
         dr_api_exit = true;
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT); /* to keep properly nested */

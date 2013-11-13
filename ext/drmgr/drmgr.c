@@ -883,12 +883,14 @@ static void
 drmgr_generic_event_exit(generic_event_entry_t *list, void *rwlock)
 {
     generic_event_entry_t *e, *next_e;
-    dr_rwlock_write_lock(rwlock);
+    /* i#1317: we don't do grab the write rwlock to support exiting
+     * mid-event.  drmgr_exit() is already ensuring we're only
+     * called by one thread.
+     */
     for (e = list; e != NULL; e = next_e) {
         next_e = (generic_event_entry_t *) e->pri.next;
         dr_global_free(e, sizeof(*e));
     }
-    dr_rwlock_write_unlock(rwlock);
 }
 
 static void

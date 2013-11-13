@@ -2780,7 +2780,11 @@ heap_free_unit(heap_unit_t *unit, dcontext_t *dcontext)
                       heapmgt->global_units.acct.cur_usage[ACCT_LIBDUP] > 0 ||
                       is_region_memset_to_char(unit->start_pc, 
                                                unit->end_pc - unit->start_pc,
-                                               HEAP_UNALLOCATED_BYTE),
+                                               HEAP_UNALLOCATED_BYTE)
+                      /* don't assert when client does premature exit as it's
+                       * hard for Extension libs, etc. to clean up in such situations
+                       */
+                      IF_CLIENT_INTERFACE(|| client_requested_exit),
                       "memory leak detected");
     });
 #endif
@@ -3060,7 +3064,10 @@ threadunits_exit(thread_units_t *tu, dcontext_t *dcontext)
                 INTERNAL_OPTION(heap_accounting_assert)) {
                 SYSLOG_INTERNAL_ERROR("memory leak: %s "SZFMT" bytes not freed",
                                       whichheap_name[j], tu->acct.cur_usage[j]);
-                CLIENT_ASSERT(false && "potential memory leak",
+                /* Don't assert when client does premature exit as it's
+                 * hard for Extension libs, etc. to clean up in such situations:
+                 */
+                CLIENT_ASSERT(IF_CLIENT_INTERFACE(client_requested_exit ||) false,
                               "memory leak detected");
             }
         }
