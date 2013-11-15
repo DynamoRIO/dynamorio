@@ -35,6 +35,11 @@
 #include "dr_api.h"
 #include "drx.h"
 
+/* We use drmgr but only internally.  A user of drx will end up loading in
+ * the drmgr library, but it won't affect the user's code.
+ */
+#include "drmgr.h"
+
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
@@ -51,7 +56,15 @@
 #define ALIGN_BACKWARD(x, alignment) \
     (((ptr_uint_t)x) & (~((ptr_uint_t)(alignment)-1)))
 
-static void *note_lock;
+/* Reserved note range values */
+enum {
+    DRX_NOTE_AFLAGS_RESTORE_BEGIN,
+    DRX_NOTE_AFLAGS_RESTORE_SAHF,
+    DRX_NOTE_AFLAGS_RESTORE_END,
+    DRX_NOTE_COUNT,
+};
+static ptr_uint_t note_base;
+#define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
 /***************************************************************************
  * INIT
@@ -66,7 +79,11 @@ drx_init(void)
     int count = dr_atomic_add32_return_sum(&drx_init_count, 1);
     if (count > 1)
         return true;
-    note_lock = dr_mutex_create();
+
+    drmgr_init();
+    note_base = drmgr_reserve_note_range(DRX_NOTE_COUNT);
+    ASSERT(note_base != DRMGR_NOTE_NONE, "failed to reserve note range");
+
     return true;
 }
 
@@ -77,7 +94,8 @@ drx_exit()
     int count = dr_atomic_add32_return_sum(&drx_init_count, -1);
     if (count != 0)
         return;
-    dr_mutex_destroy(note_lock);
+
+    drmgr_exit();
 }
 
 
@@ -85,49 +103,14 @@ drx_exit()
  * INSTRUCTION NOTE FIELD
  */
 
-enum {
-    DRX_NOTE_AFLAGS_RESTORE_BEGIN = DRX_NOTE_NONE + 1,
-    DRX_NOTE_AFLAGS_RESTORE_SAHF,
-    DRX_NOTE_AFLAGS_RESTORE_END,
-    /* reserve some values in case we want them in the future */
-    DRX_NOTE_RESERVED_1,
-    DRX_NOTE_RESERVED_2,
-    DRX_NOTE_RESERVED_3,
-    DRX_NOTE_RESERVED_4,
-    DRX_NOTE_RESERVED_5,
-    DRX_NOTE_RESERVED_6,
-    DRX_NOTE_RESERVED_7,
-    DRX_NOTE_RESERVED_8,
-    DRX_NOTE_RESERVED_9,
-    DRX_NOTE_RESERVED_10,
-    DRX_NOTE_RESERVED_11,
-    DRX_NOTE_RESERVED_12,
-    DRX_NOTE_RESERVED_13,
-    DRX_NOTE_RESERVED_14,
-    DRX_NOTE_RESERVED_15,
-    DRX_NOTE_RESERVED_16,
-    DRX_NOTE_FIRST_FREE,
-};
-
-static ptr_uint_t note_next = DRX_NOTE_FIRST_FREE;
-
-/* un-reserving is not supported (would require interval tree to impl) */
+/* For historical reasons we have this routine exported by drx.
+ * We just forward to drmgr.
+ */
 DR_EXPORT
 ptr_uint_t
 drx_reserve_note_range(size_t size)
 {
-    ptr_uint_t res;
-    if (size == 0)
-        return DRX_NOTE_NONE;
-    dr_mutex_lock(note_lock);
-    if (note_next + size < note_next)
-        res = DRX_NOTE_NONE;
-    else {
-        res = note_next;
-        note_next += size;
-    }
-    dr_mutex_unlock(note_lock);
-    return res;
+    return drmgr_reserve_note_range(size);
 }
 
 /***************************************************************************
@@ -235,7 +218,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 {
     instr_t *instr;
     ilist_insert_note_label(drcontext, ilist, where,
-                            (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_BEGIN);
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN));
     if (restore_oflag) {
         /* add 0x7f, %al */
         instr = INSTR_CREATE_add(drcontext, opnd_create_reg(DR_REG_AL),
@@ -244,7 +227,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
     }
     /* sahf */
     instr = INSTR_CREATE_sahf(drcontext);
-    instr_set_note(instr, (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_SAHF);
+    instr_set_note(instr, NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF));
     MINSERT(ilist, where, instr);
     /* restore eax if necessary */
     if (restore_eax) {
@@ -262,7 +245,7 @@ drx_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
         }
     }
     ilist_insert_note_label(drcontext, ilist, where,
-                            (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_END);
+                            NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END));
 }
 
 /* Check if current instrumentation can be merged into previous aflags
@@ -292,8 +275,7 @@ merge_prev_drx_aflags_switch(instr_t *where)
      * We bail even there is only a label instr in between, which
      * might be a target of internal cti.
      */
-    if (instr_get_note(instr) !=
-        (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_END)
+    if (instr_get_note(instr) != NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_END))
         return NULL;
 
     /* find DRX_NOTE_AFLAGS_RESTORE_BEGIN */
@@ -306,8 +288,7 @@ merge_prev_drx_aflags_switch(instr_t *where)
             return NULL;
         }
         if (instr_is_label(instr)) {
-            if (instr_get_note(instr) ==
-                (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_BEGIN) {
+            if (instr_get_note(instr) == NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_BEGIN)) {
                 ASSERT(has_sahf, "missing sahf");
                 return instr;
             }
@@ -316,8 +297,7 @@ merge_prev_drx_aflags_switch(instr_t *where)
             return NULL;
 #ifdef DEBUG
         } else {
-            if (instr_get_note(instr) ==
-                (void *)(ptr_int_t) DRX_NOTE_AFLAGS_RESTORE_SAHF)
+            if (instr_get_note(instr) == NOTE_VAL(DRX_NOTE_AFLAGS_RESTORE_SAHF))
                 has_sahf = true;
 #endif
         }

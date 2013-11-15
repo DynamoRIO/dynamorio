@@ -47,6 +47,11 @@ add_library(drx ${libtype}
 set(PREFERRED_BASE 0x77000000)
 configure_DynamoRIO_client(drx)
 
+# While we use drmgr in our implementation of drx, we only use pieces that
+# do not rely on drmgr's 4 phases or event orderings, and we do not include
+# drmgr.h in drx.h, all so that drx users need not use drmgr.
+use_DynamoRIO_extension(drx drmgr)
+
 # ensure we rebuild if includes change
 add_dependencies(drx api_headers)
 if (UNIX)

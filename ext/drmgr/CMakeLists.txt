@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,6 @@ add_library(drmgr ${libtype}
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x73000000)
 configure_DynamoRIO_client(drmgr)
-use_DynamoRIO_extension(drmgr drx)
 # ensure we rebuild if includes change
 add_dependencies(drmgr api_headers)
 if (UNIX)

@@ -55,17 +55,6 @@ library to use \p drx without coordinating with the client over who invokes
 
 \section sec_drx_notes Instruction Note Fields
 
-Instrumentation passes often need to mark instructions with information for
-later passes.  One method of doing this is to use the \p note field built
-in to the \p instr_t type.  For example, labels can be inserted with \p
-note field corresponding to pre-defined constants to indicate insertion
-points.  In order to avoid these \p note constants from overlapping and
-conflicting among different components or passes, \p drx provides mediation
-of the namespace.
-
-\note The mediation is not mandatory. Instrumentation components or passes
-should feel free to use pointer values in the \p note field.  The \p note
-constant value mediation is intended for small constants that will not be
-confused with pointer values.
+Please reference \ref sec_drmgr_notes in \ref page_drmgr for instruction note mediation.
 
 */
