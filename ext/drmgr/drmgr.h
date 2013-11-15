@@ -677,6 +677,7 @@ DR_EXPORT
 /**
  * Given a system call wrapper routine \p entry of the Native API variety,
  * decodes the routine and returns the system call number.
+ * Returns -1 on error.
  */
 int
 drmgr_decode_sysnum_from_wrapper(app_pc entry);

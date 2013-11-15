@@ -136,6 +136,72 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
                           dr_spill_slot_t slot, void *addr, int value,
                           uint flags);
 
+/***************************************************************************
+ * SOFT KILLS
+ */
+
+#ifdef WINDOWS
+
+/** Values for the \p flags parameter for drx_register_soft_kills */
+typedef enum {
+    /**
+     * The event callback return value is ignored and the child is not terminated
+     * unless the client performs that action.
+     */
+    DRX_SOFT_KILLS_ALWAYS_SKIPS = 0x01,
+} drx_soft_kills_flags_t;
+
+DR_EXPORT
+/**
+ * Registers for the "soft kills" event, which helps to execute process
+ * exit events when a process is terminated by another process.
+ *
+ * The callback's return value indicates whether to skip the
+ * termination action by the application: i.e., true indicates to skip
+ * it (the usual case) and false indicates to continue with the
+ * application action.  However, there are cases where carrying out
+ * the application action is infeasible.  In such cases, \p flags is
+ * set to include DRX_SOFT_KILLS_ALWAYS_SKIPS.
+ *
+ * When there are multiple registered callbacks, if any callback
+ * returns true, the application action is skipped.
+ *
+ * In normal usage, upon receiving this callback the client will send
+ * a nudge (see dr_nudge_client_ex()) to the targeted process.  The
+ * nudge handler then performs any shutdown actions, such as
+ * instrumentation result output.  The handler then terminates the
+ * target process from within, allowing the callback in the targeting
+ * process to skip the termination action.  Passing the exit code to
+ * the nudge handler can preserve the intended application exit code.
+ *
+ * The nudge handler should support being invoked multiple times
+ * (typically by having only the first one take effect) as in some
+ * cases a parent process will terminate child processes in multiple
+ * ways.
+ *
+ * This event must be registered for during process initialization, in
+ * order to properly track per-thread information.  Un-registering is
+ * not supported: soft kills cannot be in effect for only part of the
+ * process lifetime.
+ *
+ * Soft kills can be risky.  If the targeted process is not under
+ * DynamoRIO control, the nudge might terminate it, but in a different
+ * manner than would have occurred.  If the nudge fails for some
+ * reason but the targeter's termination is still skipped, the child
+ * process might be left alive, causing the application to behave
+ * incorrectly.
+ *
+ * \note Currently Windows-only.
+ *
+ * \return whether successful.
+ */
+bool
+drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code,
+                                         drx_soft_kills_flags_t flags));
+
+#endif
+
+
 /*@}*/ /* end doxygen group */
 
 #ifdef __cplusplus

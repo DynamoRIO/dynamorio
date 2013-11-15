@@ -47,10 +47,19 @@ add_library(drx ${libtype}
 set(PREFERRED_BASE 0x77000000)
 configure_DynamoRIO_client(drx)
 
+use_DynamoRIO_extension(drx drcontainers)
+
 # While we use drmgr in our implementation of drx, we only use pieces that
 # do not rely on drmgr's 4 phases or event orderings, and we do not include
 # drmgr.h in drx.h, all so that drx users need not use drmgr.
 use_DynamoRIO_extension(drx drmgr)
+
+include(../../make/ntdll_imports.cmake)
+target_link_libraries(drx "${ntimp_lib}")
+if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+  # for parallel build correctness we need a target dependence
+  add_dependencies(drx ntimp_tgt)
+endif ()
 
 # ensure we rebuild if includes change
 add_dependencies(drx api_headers)

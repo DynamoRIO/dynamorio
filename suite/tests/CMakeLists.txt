@@ -1454,6 +1454,11 @@ if (CLIENT_INTERFACE)
     target_link_libraries(client.drmgr-test ${libpthread})
   endif (UNIX)
 
+  if (WIN32) # XXX i#1231: port to Linux
+    tobuild_ci(client.drx-test client-interface/drx-test.c "" "" "")
+    use_DynamoRIO_extension(client.drx-test.dll drx)
+  endif (WIN32)
+
   tobuild_appdll(client.drwrap-test client-interface/drwrap-test.c)
   get_target_property(drwrap_libpath client.drwrap-test.appdll LOCATION${location_suffix})
   tobuild_ci(client.drwrap-test client-interface/drwrap-test.c "" "" "${drwrap_libpath}")

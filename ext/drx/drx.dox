@@ -35,9 +35,13 @@
 ***************************************************************************
 \page page_drx DynamoRIO eXtension utilities
 
-The \p drx DynamoRIO Extension provides various utilities for instrumentation.
+The \p drx DynamoRIO Extension provides various utilities for
+instrumentation and sports a BSD license, as opposed to the \p drutil Extension
+which also contains instrumentation utilities but uses an LGPL 2.1 license.
+
  - \ref sec_drx_setup
  - \ref sec_drx_notes
+ - \ref sec_drx_soft_kills
 
 \section sec_drx_setup Setup
 
@@ -56,5 +60,20 @@ library to use \p drx without coordinating with the client over who invokes
 \section sec_drx_notes Instruction Note Fields
 
 Please reference \ref sec_drmgr_notes in \ref page_drmgr for instruction note mediation.
+
+\section sec_drx_soft_kills Soft Kills
+
+A common scenario with multi-process applications is for a parent process
+to directly kill child processes.  This is problematic for most dynamic
+tools as this leaves no chance for each child process to output the results
+of its instrumentation.  On Windows, \p drx provides a feature called "soft
+kills" to address this situation.  When enabled, this feature monitors
+system calls that terminate child processes, whether directly or through
+job objects.  When detected, it notifies the client, who is expected to
+then notify the target process via a nudge.  Typically this nudge will
+perform instrumentation output and then terminate its process, allowing the
+parent to simply skip its own termination request.  The nudge handler
+should normally handle multiple requests, as it is not uncommon for the
+parent to kill each child process through multiple mechanisms.
 
 */

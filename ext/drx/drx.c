@@ -34,6 +34,7 @@
 
 #include "dr_api.h"
 #include "drx.h"
+#include "hashtable.h"
 
 /* We use drmgr but only internally.  A user of drx will end up loading in
  * the drmgr library, but it won't affect the user's code.
@@ -66,6 +67,12 @@ enum {
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
+#ifdef WINDOWS
+static bool soft_kills_enabled;
+
+static void soft_kills_exit(void);
+#endif
+
 /***************************************************************************
  * INIT
  */
@@ -94,6 +101,11 @@ drx_exit()
     int count = dr_atomic_add32_return_sum(&drx_init_count, -1);
     if (count != 0)
         return;
+
+#ifdef WINDOWS
+    if (soft_kills_enabled)
+        soft_kills_exit();
+#endif
 
     drmgr_exit();
 }
@@ -383,3 +395,472 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
     return true;
 }
 
+/***************************************************************************
+ * SOFT KILLS
+ */
+
+/* XXX i#1231: we should add Linux support as well */
+#ifdef WINDOWS
+
+/* Track callbacks in a simple list protected by a lock */
+typedef struct _cb_entry_t {
+    /* XXX: the bool return value is complex to support in some situations.  We
+     * ignore the return value and always skip the app's termination of the
+     * child process for jobs containing multiple pids and for
+     * JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.  If we wanted to not skip those we'd
+     * have to emulate the kill via NtTerminateProcess, which doesn't seem worth
+     * it when our two use cases (DrMem and bbcov) don't need that kind of
+     * control.
+     */
+    bool (*cb)(process_id_t, int, drx_soft_kills_flags_t);
+    struct _cb_entry_t *next;
+} cb_entry_t;
+
+static cb_entry_t *cb_list;
+static void *cb_lock;
+
+/* The system calls we need to watch for soft kills.
+ * These are are in ntoskrnl so we get away without drsyscall.
+ */
+enum {
+    SYS_NUM_PARAMS_TerminateProcess        = 2,
+    SYS_NUM_PARAMS_TerminateJobObject      = 2,
+    SYS_NUM_PARAMS_SetInformationJobObject = 4,
+    SYS_NUM_PARAMS_Close                   = 1,
+};
+
+enum {
+    SYS_WOW64_IDX_TerminateProcess        = 0,
+    SYS_WOW64_IDX_TerminateJobObject      = 0,
+    SYS_WOW64_IDX_SetInformationJobObject = 7,
+    SYS_WOW64_IDX_Close                   = 0,
+};
+
+static int sysnum_TerminateProcess;
+static int sysnum_TerminateJobObject;
+static int sysnum_SetInformationJobObject;
+static int sysnum_Close;
+
+/* Table of job handles for which the app set JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE */
+#define JOB_TABLE_HASH_BITS 6
+static hashtable_t job_table;
+
+/* We need CLS as we track data across syscalls, where TLS is not sufficient */
+static int cls_idx_soft;
+
+typedef struct _cls_soft_t {
+    DWORD job_limit_flags_orig;
+    DWORD *job_limit_flags_loc;
+} cls_soft_t;
+
+/* XXX: should we have some kind of shared wininc/ dir for these common defines?
+ * I don't really want to include core/win32/ntdll.h here.
+ */
+
+typedef LONG NTSTATUS;
+#define NT_SUCCESS(status) (((NTSTATUS)(status)) >= 0)
+
+/* Since we invoke only in a client/privlib context, we can statically link
+ * with ntdll to call these syscall wrappers:
+ */
+#define GET_NTDLL(NtFunction, signature) NTSYSAPI NTSTATUS NTAPI NtFunction signature
+
+GET_NTDLL(NtQueryInformationJobObject, (IN HANDLE JobHandle,
+                                        IN JOBOBJECTINFOCLASS JobInformationClass,
+                                        OUT PVOID JobInformation,
+                                        IN ULONG JobInformationLength,
+                                        OUT PULONG ReturnLength OPTIONAL));
+
+#define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005L)
+
+#define NT_CURRENT_PROCESS ((HANDLE)(ptr_int_t)-1)
+
+typedef LONG KPRIORITY;
+
+typedef enum _PROCESSINFOCLASS {
+    ProcessBasicInformation,
+} PROCESSINFOCLASS;
+
+typedef struct _PROCESS_BASIC_INFORMATION {
+    NTSTATUS ExitStatus;
+    void * PebBaseAddress;
+    ULONG_PTR AffinityMask;
+    KPRIORITY BasePriority;
+    ULONG_PTR UniqueProcessId;
+    ULONG_PTR InheritedFromUniqueProcessId;
+} PROCESS_BASIC_INFORMATION;
+typedef PROCESS_BASIC_INFORMATION *PPROCESS_BASIC_INFORMATION;
+
+GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
+                                      IN PROCESSINFOCLASS ProcessInformationClass,
+                                      OUT PVOID ProcessInformation,
+                                      IN ULONG ProcessInformationLength,
+                                      OUT PULONG ReturnLength OPTIONAL));
+static ssize_t
+num_job_object_pids(HANDLE job)
+{
+    JOBOBJECT_BASIC_PROCESS_ID_LIST empty;
+    NTSTATUS res;
+    res = NtQueryInformationJobObject(job, JobObjectBasicProcessIdList,
+                                      &empty, sizeof(empty), NULL);
+    if (NT_SUCCESS(res) || res == STATUS_BUFFER_OVERFLOW)
+        return empty.NumberOfAssignedProcesses;
+    else
+        return -1;
+}
+
+static bool
+get_job_object_pids(HANDLE job, JOBOBJECT_BASIC_PROCESS_ID_LIST *list, size_t list_sz)
+{
+    NTSTATUS res;
+    res = NtQueryInformationJobObject(job, JobObjectBasicProcessIdList,
+                                      list, (ULONG) list_sz, NULL);
+    return NT_SUCCESS(res);
+}
+
+/* XXX: should DR provide a routine to query this? */
+static bool
+get_app_exit_code(int *exit_code)
+{
+    ULONG got;
+    PROCESS_BASIC_INFORMATION info;
+    NTSTATUS res;
+    memset(&info, 0, sizeof(PROCESS_BASIC_INFORMATION));
+    res = NtQueryInformationProcess(NT_CURRENT_PROCESS, ProcessBasicInformation,
+                                    &info, sizeof(PROCESS_BASIC_INFORMATION), &got);
+    if (!NT_SUCCESS(res) || got != sizeof(PROCESS_BASIC_INFORMATION))
+        return false;
+    *exit_code = (int) info.ExitStatus;
+    return true;
+}
+
+static void
+soft_kills_context_init(void *drcontext, bool new_depth)
+{
+    cls_soft_t *cls;
+    if (new_depth) {
+        cls = (cls_soft_t *) dr_thread_alloc(drcontext, sizeof(*cls));
+        drmgr_set_cls_field(drcontext, cls_idx_soft, cls);
+    } else {
+        cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+    }
+    memset(cls, 0, sizeof(*cls));
+}
+
+static void
+soft_kills_context_exit(void *drcontext, bool thread_exit)
+{
+    if (thread_exit) {
+        cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+        dr_thread_free(drcontext, cls, sizeof(*cls));
+    }
+    /* else, nothing to do: we leave the struct for re-use on next callback */
+}
+
+static int
+soft_kills_get_sysnum(const char *name, int num_params, int wow64_idx)
+{
+    static module_handle_t ntdll;
+    app_pc wrapper;
+    int sysnum;
+
+    if (ntdll == NULL) {
+        module_data_t *data = dr_lookup_module_by_name("ntdll.dll");
+        if (data == NULL)
+            return -1;
+        ntdll = data->handle;
+        dr_free_module_data(data);
+    }
+    wrapper = (app_pc) dr_get_proc_address(ntdll, name);
+    if (wrapper == NULL)
+        return -1;
+    sysnum = drmgr_decode_sysnum_from_wrapper(wrapper);
+    if (sysnum == -1)
+        return -1;
+    /* Ensure that DR intercepts these if we go native.
+     * XXX: better to only do this if client plans to use native execution
+     * to reduce the hook count and shrink chance of hook conflicts?
+     */
+    if (!dr_syscall_intercept_natively(name, sysnum, num_params, wow64_idx))
+        return -1;
+    return sysnum;
+}
+
+static bool
+soft_kills_invoke_cbs(process_id_t pid, int exit_code, drx_soft_kills_flags_t flags)
+{
+    cb_entry_t *e;
+    bool skip = false;
+    dr_mutex_lock(cb_lock);
+    for (e = cb_list; e != NULL; e = e->next) {
+        /* If anyone wants to skip, we skip */
+        skip = e->cb(pid, exit_code, flags) || skip;
+    }
+    dr_mutex_unlock(cb_lock);
+    return skip;
+}
+
+static void
+soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
+{
+    ssize_t num_jobs = num_job_object_pids(job);
+    if (num_jobs > 0) {
+        JOBOBJECT_BASIC_PROCESS_ID_LIST *list;
+        size_t sz = sizeof(*list) + (num_jobs- 1)*sizeof(list->ProcessIdList[0]);
+        byte *buf = dr_thread_alloc(drcontext, sz);
+        list = (JOBOBJECT_BASIC_PROCESS_ID_LIST *) buf;
+        if (get_job_object_pids(job, list, sz)) {
+            int i;
+            for (i = 0; i < num_jobs; i++) {
+                process_id_t pid = list->ProcessIdList[i];
+                /* We don't support not skipping here, as it gets too complex
+                 * with multi-process jobs.
+                 */
+                soft_kills_invoke_cbs(pid, exit_code, DRX_SOFT_KILLS_ALWAYS_SKIPS);
+            }
+        }
+        dr_thread_free(drcontext, buf, sz);
+    } /* else query failed: I'd issue a warning log msg if not inside drx library */
+}
+
+static void
+soft_kills_handle_close(void *drcontext, HANDLE job, int exit_code)
+{
+    soft_kills_handle_job_termination(drcontext, job, exit_code);
+    /* We don't support not skipping, so we don't have to emulate the termination
+     * by calling NtTerminateJobObject(job, (NTSTATUS)exit_code)
+     */
+}
+
+static bool
+soft_kills_filter_syscall(void *drcontext, int sysnum)
+{
+    return (sysnum == sysnum_TerminateProcess ||
+            sysnum == sysnum_TerminateJobObject ||
+            sysnum == sysnum_SetInformationJobObject ||
+            sysnum == sysnum_Close);
+}
+
+/* Returns whether to execute the system call */
+static bool
+soft_kills_pre_syscall(void *drcontext, int sysnum)
+{
+    cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+    /* Xref DrMem i#544, DrMem i#1297, and DRi#1231: give child
+     * processes a chance for clean exit for dumping of data or other
+     * actions.
+     *
+     * XXX: a child under DR but not a supporting client will be left
+     * alive: but that's a risk we can live with.
+     */
+    if (sysnum == sysnum_TerminateProcess) {
+        HANDLE proc = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        process_id_t pid = dr_convert_handle_to_pid(proc);
+        if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
+            int exit_code = (int) dr_syscall_get_param(drcontext, 1);
+            if (soft_kills_invoke_cbs(pid, exit_code, 0)) {
+                dr_syscall_set_result(drcontext, 0/*success*/);
+                return false; /* skip syscall */
+            } else
+                return true; /* execute syscall */
+        }
+    }
+    else if (sysnum == sysnum_TerminateJobObject) {
+        /* There are several ways a process in a job can be killed:
+         *
+         *   1) NtTerminateJobObject
+         *   2) The last handle is closed + JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE is set
+         *   3) JOB_OBJECT_LIMIT_ACTIVE_PROCESS is hit
+         *   4) Time limit and JOB_OBJECT_TERMINATE_AT_END_OF_JOB is hit
+         *
+         * XXX: we only handle #1 and #2.
+         */
+        HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        NTSTATUS exit_code = (NTSTATUS) dr_syscall_get_param(drcontext, 1);
+        soft_kills_handle_job_termination(drcontext, job, exit_code);
+        /* Skip syscall since target will terminate itself */
+        dr_syscall_set_result(drcontext, 0/*success*/);
+        return false; /* skip syscall */
+    }
+    else if (sysnum == sysnum_SetInformationJobObject) {
+        HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        JOBOBJECTINFOCLASS class = (JOBOBJECTINFOCLASS)
+            dr_syscall_get_param(drcontext, 1);
+        ULONG sz = (ULONG) dr_syscall_get_param(drcontext, 3);
+        /* MSDN claims that JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE requires an
+         * extended info struct, which we trust, though it seems odd as it's
+         * a flag in the basic struct.
+         */
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+        if (class == JobObjectExtendedLimitInformation &&
+            sz >= sizeof(info) &&
+            dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2),
+                         sizeof(info), &info, NULL)) {
+            if (TEST(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+                     info.BasicLimitInformation.LimitFlags)) {
+                /* Remove the kill-on-close flag from the syscall arg.
+                 * We restore in post-syscall in case app uses the memory
+                 * for something else.  There is of course a race where another
+                 * thread could use it and get the wrong value: -soft_kills isn't
+                 * perfect.
+                 */
+                JOBOBJECT_EXTENDED_LIMIT_INFORMATION *ptr =
+                    (JOBOBJECT_EXTENDED_LIMIT_INFORMATION *)
+                    dr_syscall_get_param(drcontext, 2);
+                ULONG new_flags = info.BasicLimitInformation.LimitFlags &
+                    (~JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE);
+                bool isnew;
+                cls->job_limit_flags_orig = info.BasicLimitInformation.LimitFlags;
+                cls->job_limit_flags_loc = &ptr->BasicLimitInformation.LimitFlags;
+                ASSERT(sizeof(cls->job_limit_flags_orig) ==
+                       sizeof(ptr->BasicLimitInformation.LimitFlags), "size mismatch");
+                if (!dr_safe_write(cls->job_limit_flags_loc,
+                                   sizeof(ptr->BasicLimitInformation.LimitFlags),
+                                   &new_flags, NULL)) {
+                    /* XXX: Any way we can send a WARNING on our failure to write? */
+                }
+                /* Track the handle so we can notify the client on close or exit */
+                isnew = hashtable_add(&job_table, (void *)job, (void *)job);
+                ASSERT(isnew, "missed an NtClose");
+            }
+        }
+    }
+    else if (sysnum == sysnum_Close) {
+        /* If a job object, act on it, and remove from our table */
+        HANDLE handle = (HANDLE) dr_syscall_get_param(drcontext, 0);
+        if (hashtable_remove(&job_table, (void *)handle)) {
+            /* The exit code is set to 0 by the kernel for this case */
+            soft_kills_handle_close(drcontext, handle, 0);
+        }
+    }
+    return true;
+}
+
+static void
+soft_kills_post_syscall(void *drcontext, int sysnum)
+{
+    if (sysnum == sysnum_SetInformationJobObject) {
+        cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+        if (cls->job_limit_flags_loc != NULL) {
+            /* Restore the app's memory */
+            if (!dr_safe_write(cls->job_limit_flags_loc,
+                               sizeof(cls->job_limit_flags_orig),
+                               &cls->job_limit_flags_orig, NULL)) {
+                /* If we weren't in drx lib I'd log a warning */
+            }
+            cls->job_limit_flags_loc = NULL;
+        }
+    }
+}
+
+static bool
+soft_kills_init(void)
+{
+    /* XXX: would be nice to fail if it's not still process init,
+     * but we don't have an easy way to check.
+     */
+    soft_kills_enabled = true;
+
+    cb_lock = dr_mutex_create();
+
+    hashtable_init(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false);
+
+    sysnum_TerminateProcess =
+        soft_kills_get_sysnum("NtTerminateProcess",
+                              SYS_NUM_PARAMS_TerminateProcess,
+                              SYS_WOW64_IDX_TerminateProcess);
+    if (sysnum_TerminateProcess == -1)
+        return false;
+    sysnum_TerminateJobObject =
+        soft_kills_get_sysnum("NtTerminateJobObject",
+                              SYS_NUM_PARAMS_TerminateJobObject,
+                              SYS_WOW64_IDX_TerminateJobObject);
+    if (sysnum_TerminateJobObject == -1)
+        return false;
+    sysnum_SetInformationJobObject =
+        soft_kills_get_sysnum("NtSetInformationJobObject",
+                              SYS_NUM_PARAMS_SetInformationJobObject,
+                              SYS_WOW64_IDX_SetInformationJobObject);
+    if (sysnum_SetInformationJobObject == -1)
+        return false;
+    sysnum_Close = soft_kills_get_sysnum("NtClose",
+                                         SYS_NUM_PARAMS_Close, SYS_WOW64_IDX_Close);
+    if (sysnum_Close == -1)
+        return false;
+
+    if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
+        !drmgr_register_post_syscall_event(soft_kills_post_syscall))
+        return false;
+    dr_register_filter_syscall_event(soft_kills_filter_syscall);
+
+    cls_idx_soft = drmgr_register_cls_field(soft_kills_context_init,
+                                            soft_kills_context_exit);
+    if (cls_idx_soft == -1)
+        return false;
+    return true;
+}
+
+static void
+soft_kills_exit(void)
+{
+    /* Any open job handles will be closed, triggering
+     * JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+     */
+    uint i;
+    cb_entry_t *e;
+    /* The exit code used is the exit code for this process */
+    int exit_code;
+    if (!get_app_exit_code(&exit_code))
+        exit_code = 0;
+    hashtable_lock(&job_table);
+    for (i = 0; i < HASHTABLE_SIZE(job_table.table_bits); i++) {
+        hash_entry_t *he;
+        for (he = job_table.table[i]; he != NULL; he = he->next) {
+            HANDLE job = (HANDLE) he->payload;
+            soft_kills_handle_close(dr_get_current_drcontext(), job, exit_code);
+        }
+    }
+    hashtable_unlock(&job_table);
+
+    hashtable_delete(&job_table);
+
+    dr_mutex_lock(cb_lock);
+    while (cb_list != NULL) {
+        e = cb_list;
+        cb_list = e->next;
+        dr_global_free(e, sizeof(*e));
+    }
+    dr_mutex_unlock(cb_lock);
+
+    dr_mutex_destroy(cb_lock);
+
+    drmgr_unregister_cls_field(soft_kills_context_init, soft_kills_context_exit,
+                               cls_idx_soft);
+}
+
+bool
+drx_register_soft_kills(bool (*event_cb)(process_id_t pid,
+                                         int exit_code,
+                                         drx_soft_kills_flags_t flags))
+{
+    /* We split our init from drx_init() to avoid extra work when nobody
+     * requests this feature.
+     */
+    static int soft_kills_init_count;
+    cb_entry_t *e;
+    int count = dr_atomic_add32_return_sum(&soft_kills_init_count, 1);
+    if (count == 1) {
+        soft_kills_init();
+    }
+
+    e = dr_global_alloc(sizeof(*e));
+    e->cb = event_cb;
+
+    dr_mutex_lock(cb_lock);
+    e->next = cb_list;
+    cb_list = e;
+    dr_mutex_unlock(cb_lock);
+    return true;
+}
+
+#endif /* WINDOWS */
