@@ -2501,7 +2501,11 @@ DR_API
  * Assumes that \p instr's raw bits are valid.
  * Returns a pointer to \p instr's raw bits.
  * \note A freshly-decoded instruction has valid raw bits that point to the
- * address from which it was decoded.
+ * address from which it was decoded.  However, for instructions presented
+ * in the basic block or trace events, use instr_get_app_pc() to retrieve
+ * the corresponding application address, as the raw bits will not be set
+ * for instructions added after decoding, and may point to a different location
+ * for insructions that have been modified.
  */
 byte *
 instr_get_raw_bits(instr_t *instr);

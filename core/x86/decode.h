@@ -743,8 +743,8 @@ DR_API
  * it were located at address \p orig_pc.  Any pc-relative operands have
  * their values calculated as though the instruction were actually at
  * \p orig_pc, though that address is never de-referenced.
- * The instruction's raw bits are not valid, but its translation field
- * (see instr_get_translation()) is set to \p orig_pc.
+ * The instruction's raw bits are not valid, but its application address field
+ * (see instr_get_app_pc()) is set to \p orig_pc.
  * The instruction's opcode, eflags usage, prefixes, and operands are
  * all filled in.
  * Assumes that \p instr is already initialized, but uses the x86/x64 mode
