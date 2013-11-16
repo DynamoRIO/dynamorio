@@ -82,11 +82,11 @@ else () # Qt5 and CMake 2.8.10+
 
   # Install
   add_rel_rpaths(drgui)
+  DR_export_target(drgui)
+  install_exported_target(drgui ${INSTALL_EXT_BIN})
   DR_install(FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_tool_interface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_options_interface.h
     DESTINATION
     ${INSTALL_EXT_INCLUDE})
-  DR_export_target(drgui)
-  install_exported_target(drgui ${INSTALL_EXT_BIN})
 endif () # Qt5 and CMake 2.8.10+
