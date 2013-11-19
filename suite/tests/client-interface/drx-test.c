@@ -36,11 +36,11 @@
 #include "tools.h"
 
 #ifdef UNIX
-#  include <sys/wait.h>
-#  include <stdlib.h>
-#  include <unistd.h>
-#  include <string.h>
-#  include <signal.h>
+# include <sys/wait.h>
+# include <stdlib.h>
+# include <unistd.h>
+# include <string.h>
+# include <signal.h>
 #endif
 
 int
@@ -56,6 +56,7 @@ main(int argc, char **argv)
         PROCESS_INFORMATION pi;
         HANDLE job;
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit = {0,};
+        DWORD exitcode = (DWORD)-1;
 
         /* For synchronization we create an inherited event */
         SECURITY_ATTRIBUTES sa = {sizeof(sa), NULL, TRUE/*inherit*/};
@@ -73,6 +74,8 @@ main(int argc, char **argv)
         print("terminating child #1 by NtTerminateProcess\n");
         TerminateProcess(pi.hProcess, 42);
         WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        print("child #1 exit code = %d\n", exitcode);
         if (!ResetEvent(event))
             print("Failed to reset event\n");
 
@@ -89,6 +92,8 @@ main(int argc, char **argv)
         TerminateJobObject(job, 123456);
         CloseHandle(job);
         WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        print("child #2 exit code = %d\n", exitcode);
         if (!ResetEvent(event))
             print("Failed to reset event\n");
 
@@ -108,6 +113,8 @@ main(int argc, char **argv)
         print("terminating child #3 by closing job handle\n");
         CloseHandle(job);
         WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        print("child #3 exit code = %d\n", exitcode);
     }
     else { /* child process */
         int iter = 0;
@@ -143,6 +150,7 @@ main(int argc, char **argv)
         exit(1);
     } else if (cpid > 0) {
         /* parent */
+        int status;
         close(pipefd[1]); /* close unused write end */
         if (read(pipefd[0], &buf, sizeof(buf)) <= 0) {
             perror("pipe read failed");
@@ -150,8 +158,9 @@ main(int argc, char **argv)
         }
         print("terminating child by sending SIGKILL\n");
         kill(cpid, SIGKILL);
-        wait(NULL); /* wait for child */
+        wait(&status); /* wait for child */
         close(pipefd[0]);
+        print("child exit code = %d\n", status);
     } else {
         /* child */
         int iter = 0;

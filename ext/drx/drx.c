@@ -48,8 +48,10 @@
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+# define IF_DEBUG(x) x
 #else
 # define ASSERT(x, msg) /* nothing */
+# define IF_DEBUG(x) /* nothing */
 #endif /* DEBUG */
 
 #define MINSERT instrlist_meta_preinsert
@@ -800,6 +802,9 @@ soft_kills_post_syscall(void *drcontext, int sysnum)
 static bool
 soft_kills_init(void)
 {
+#ifdef WINDOWS
+    IF_DEBUG(bool ok;)
+#endif
     /* XXX: would be nice to fail if it's not still process init,
      * but we don't have an easy way to check.
      */
@@ -837,6 +842,32 @@ soft_kills_init(void)
                                             soft_kills_context_exit);
     if (cls_idx_soft == -1)
         return false;
+
+    /* Ensure that DR intercepts these when we're native */
+    IF_DEBUG(ok = )
+        dr_syscall_intercept_natively("NtTerminateProcess",
+                                      sysnum_TerminateProcess,
+                                      SYS_NUM_PARAMS_TerminateProcess,
+                                      SYS_WOW64_IDX_TerminateProcess);
+    ASSERT(ok, "failure to watch syscall while native");
+    IF_DEBUG(ok = )
+        dr_syscall_intercept_natively("NtTerminateJobObject",
+                                      sysnum_TerminateJobObject,
+                                      SYS_NUM_PARAMS_TerminateJobObject,
+                                      SYS_WOW64_IDX_TerminateJobObject);
+    ASSERT(ok, "failure to watch syscall while native");
+    IF_DEBUG(ok = )
+        dr_syscall_intercept_natively("NtSetInformationJobObject",
+                                      sysnum_SetInformationJobObject,
+                                      SYS_NUM_PARAMS_SetInformationJobObject,
+                                      SYS_WOW64_IDX_SetInformationJobObject);
+    ASSERT(ok, "failure to watch syscall while native");
+    IF_DEBUG(ok = )
+        dr_syscall_intercept_natively("NtClose",
+                                      sysnum_Close,
+                                      SYS_NUM_PARAMS_Close,
+                                      SYS_WOW64_IDX_Close);
+    ASSERT(ok, "failure to watch syscall while native");
 #endif
 
     if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
