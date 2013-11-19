@@ -1817,13 +1817,13 @@ instrument_pre_syscall(dcontext_t *dcontext, int sysnum)
     /* clear flag from dr_syscall_invoke_another() */
     dcontext->client_data->invoke_another_syscall = false;
     if (pre_syscall_callbacks.num > 0) {
-        /* skip syscall if any client wants to skip it.
-         * we short-circuit if any client wants to skip.  this does
-         * violate the "priority order" of events where the last one
-         * is supposed to have final say b/c it won't even see the
-         * event (xref i#424).
+        /* Skip syscall if any client wants to skip it, but don't short-circuit,
+         * as skipping syscalls is usually done when the effect of the syscall
+         * will be emulated in some other way.  The app is typically meant to
+         * think that the syscall succeeded.  Thus, other tool components
+         * should see the syscall as well (xref i#424).
          */
-        call_all_ret(exec, = exec &&, , pre_syscall_callbacks,
+        call_all_ret(exec, =, && exec, pre_syscall_callbacks,
                      bool (*)(void *, int), (void *)dcontext, sysnum);
     }
     dcontext->client_data->in_pre_syscall = false;
