@@ -410,7 +410,7 @@ typedef struct _cb_entry_t {
      * it when our two use cases (DrMem and bbcov) don't need that kind of
      * control.
      */
-    bool (*cb)(process_id_t, int, drx_soft_kills_flags_t);
+    bool (*cb)(process_id_t, int);
     struct _cb_entry_t *next;
 } cb_entry_t;
 
@@ -418,14 +418,14 @@ static cb_entry_t *cb_list;
 static void *cb_lock;
 
 static bool
-soft_kills_invoke_cbs(process_id_t pid, int exit_code, drx_soft_kills_flags_t flags)
+soft_kills_invoke_cbs(process_id_t pid, int exit_code)
 {
     cb_entry_t *e;
     bool skip = false;
     dr_mutex_lock(cb_lock);
     for (e = cb_list; e != NULL; e = e->next) {
         /* If anyone wants to skip, we skip */
-        skip = e->cb(pid, exit_code, flags) || skip;
+        skip = e->cb(pid, exit_code) || skip;
     }
     dr_mutex_unlock(cb_lock);
     return skip;
@@ -510,6 +510,9 @@ GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
                                       OUT PVOID ProcessInformation,
                                       IN ULONG ProcessInformationLength,
                                       OUT PULONG ReturnLength OPTIONAL));
+GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle,
+                               IN NTSTATUS ExitStatus));
+
 static ssize_t
 num_job_object_pids(HANDLE job)
 {
@@ -613,10 +616,16 @@ soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
             int i;
             for (i = 0; i < num_jobs; i++) {
                 process_id_t pid = list->ProcessIdList[i];
-                /* We don't support not skipping here, as it gets too complex
-                 * with multi-process jobs.
-                 */
-                soft_kills_invoke_cbs(pid, exit_code, DRX_SOFT_KILLS_ALWAYS_SKIPS);
+                if (!soft_kills_invoke_cbs(pid, exit_code)) {
+                    /* Client is not terminating and requests not to skip the action.
+                     * But since we have multiple pids, we go with a local decision
+                     * here and emulate the kill.
+                     */
+                    HANDLE phandle = dr_convert_pid_to_handle(pid);
+                    if (phandle != INVALID_HANDLE_VALUE)
+                        NtTerminateProcess(phandle, exit_code);
+                    /* else, child stays alive: not much we can do */
+                }
             }
         }
         dr_thread_free(drcontext, buf, sz);
@@ -627,9 +636,6 @@ static void
 soft_kills_handle_close(void *drcontext, HANDLE job, int exit_code)
 {
     soft_kills_handle_job_termination(drcontext, job, exit_code);
-    /* We don't support not skipping, so we don't have to emulate the termination
-     * by calling NtTerminateJobObject(job, (NTSTATUS)exit_code)
-     */
 }
 
 static bool
@@ -658,7 +664,7 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         process_id_t pid = dr_convert_handle_to_pid(proc);
         if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
             int exit_code = (int) dr_syscall_get_param(drcontext, 1);
-            if (soft_kills_invoke_cbs(pid, exit_code, 0)) {
+            if (soft_kills_invoke_cbs(pid, exit_code)) {
                 dr_syscall_set_result(drcontext, 0/*success*/);
                 return false; /* skip syscall */
             } else
@@ -678,7 +684,10 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
         NTSTATUS exit_code = (NTSTATUS) dr_syscall_get_param(drcontext, 1);
         soft_kills_handle_job_termination(drcontext, job, exit_code);
-        /* Skip syscall since target will terminate itself */
+        /* We always skip this syscall.  If individual processes were requested
+         * to not be skipped, we emulated via NtTerminateProcess in
+         * soft_kills_handle_job_termination().
+         */
         dr_syscall_set_result(drcontext, 0/*success*/);
         return false; /* skip syscall */
     }
@@ -770,7 +779,7 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         if (sig == SIGKILL && pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
             /* Pass exit code << 8 for use with dr_exit_process() */
             int exit_code = sig << 8;
-            if (soft_kills_invoke_cbs(pid, exit_code, 0)) {
+            if (soft_kills_invoke_cbs(pid, exit_code)) {
                 dr_syscall_set_result(drcontext, 0/*success*/);
                 return false; /* skip syscall */
             } else
@@ -879,9 +888,7 @@ soft_kills_exit(void)
 }
 
 bool
-drx_register_soft_kills(bool (*event_cb)(process_id_t pid,
-                                         int exit_code,
-                                         drx_soft_kills_flags_t flags))
+drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code))
 {
     /* We split our init from drx_init() to avoid extra work when nobody
      * requests this feature.

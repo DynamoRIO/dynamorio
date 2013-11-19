@@ -66,7 +66,7 @@ event_nudge(void *drcontext, uint64 argument)
 }
 
 static bool
-event_soft_kill(process_id_t pid, int exit_code, drx_soft_kills_flags_t flags)
+event_soft_kill(process_id_t pid, int exit_code)
 {
     dr_config_status_t res =
         dr_nudge_client_ex(pid, client_id, exit_code, 0);

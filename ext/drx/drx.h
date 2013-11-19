@@ -140,15 +140,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
  * SOFT KILLS
  */
 
-/** Values for the \p flags parameter for drx_register_soft_kills */
-typedef enum {
-    /**
-     * The event callback return value is ignored and the child is not terminated
-     * unless the client performs that action.
-     */
-    DRX_SOFT_KILLS_ALWAYS_SKIPS = 0x01,
-} drx_soft_kills_flags_t;
-
 DR_EXPORT
 /**
  * Registers for the "soft kills" event, which helps to execute process
@@ -157,9 +148,9 @@ DR_EXPORT
  * The callback's return value indicates whether to skip the
  * termination action by the application: i.e., true indicates to skip
  * it (the usual case) and false indicates to continue with the
- * application action.  However, there are cases where carrying out
- * the application action is infeasible.  In such cases, \p flags is
- * set to include DRX_SOFT_KILLS_ALWAYS_SKIPS.
+ * application action.  In some cases, individually continuing
+ * requires emulation when the original application action involved
+ * multiple processes.
  *
  * When there are multiple registered callbacks, if any callback
  * returns true, the application action is skipped.
@@ -170,7 +161,8 @@ DR_EXPORT
  * instrumentation result output.  The handler then terminates the
  * target process from within, allowing the callback in the targeting
  * process to skip the termination action.  Passing the exit code to
- * the nudge handler can preserve the intended application exit code.
+ * the nudge handler is recommended to preserve the intended
+ * application exit code.
  *
  * The nudge handler should support being invoked multiple times
  * (typically by having only the first one take effect) as in some
@@ -192,8 +184,7 @@ DR_EXPORT
  * \return whether successful.
  */
 bool
-drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code,
-                                         drx_soft_kills_flags_t flags));
+drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
 
 
 
