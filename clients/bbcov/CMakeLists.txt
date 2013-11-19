@@ -50,6 +50,7 @@ add_library(bbcov ${libtype}
   )
 configure_DynamoRIO_client(bbcov)
 use_DynamoRIO_extension(bbcov drmgr)
+use_DynamoRIO_extension(bbcov drx)
 use_DynamoRIO_extension(bbcov drcontainers)
 
 # ensure we rebuild if includes change

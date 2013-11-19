@@ -44,9 +44,9 @@
  * The runtime options for this client include:
  * -dump_text         Dumps the log file in text format
  * -dump_binary       Dumps the log file in binary format
- * -[no_]nudge_kills  Windows only. On by default.
- *                    Uses nudge to notify the process for termination
- *                    so that the exit event will be called.
+ * -[no_]nudge_kills  On by default.
+ *                    Uses nudge to notify a child process being terminated
+ *                    by its parent, so that the exit event will be called.
  * -logdir <dir>      Sets log directory, which by default is at the same
  *                    directory as the client library.
  *
@@ -63,6 +63,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "drx.h"
 #include "bbcov.h"
 #include "../common/modules.h"
 #include "../common/utils.h"
@@ -70,11 +71,6 @@
 #include "drtable.h"
 #include "limits.h"
 #include <string.h>
-
-#ifdef WINDOWS
-# define  STATIC_DRMGR_ONLY 1 /* for drmgr_decode_sysnum_from_wrapper only */
-# include "drmgr.h"
-#endif
 
 #ifdef CBR_COVERAGE
 # define IF_CBR_COVERAGE_ELSE(x, y) x
@@ -94,12 +90,10 @@ static uint verbose;
 typedef struct _bbcov_option_t {
     bool dump_text;
     bool dump_binary;
-#ifdef WINDOWS
     /* Use nudge to notify the process for termination so that
-     * event_exit will be called. Windows only.
+     * event_exit will be called.
      */
     bool nudge_kills;
-#endif
     char logdir[MAXIMUM_PATH];
     int native_until_thread;
 #ifdef CBR_COVERAGE
@@ -563,52 +557,46 @@ global_data_destroy(per_thread_t *data)
 }
 
 /****************************************************************************
- * Windows Specific Code
+ * Nudges
  */
-
-#ifdef WINDOWS
 
 enum {
     NUDGE_TERMINATE_PROCESS = 1,
 };
-
-static int sysnum_TerminateProcess = 0;
-
-/* copy from nudge_ex.dll.c */
-static int
-get_sysnum(const char *wrapper)
-{
-    byte *entry;
-    module_data_t *data = dr_lookup_module_by_name("ntdll.dll");
-    ASSERT(data != NULL, "data must not be NULL");
-    entry = (byte *) dr_get_proc_address(data->handle, wrapper);
-    dr_free_module_data(data);
-    if (entry == NULL)
-        return -1;
-    return drmgr_decode_sysnum_from_wrapper(entry);
-}
 
 static void
 event_nudge(void *drcontext, uint64 argument)
 {
     int nudge_arg = (int)argument;
     int exit_arg  = (int)(argument >> 32);
-    if (nudge_arg == NUDGE_TERMINATE_PROCESS)
-        dr_exit_process(exit_arg);
+    if (nudge_arg == NUDGE_TERMINATE_PROCESS) {
+        static int nudge_term_count;
+        /* handle multiple from both NtTerminateProcess and NtTerminateJobObject */
+        uint count = dr_atomic_add32_return_sum(&nudge_term_count, 1);
+        if (count == 1) {
+            dr_exit_process(exit_arg);
+        }
+    }
     ASSERT(nudge_arg == NUDGE_TERMINATE_PROCESS, "unsupported nudge");
     ASSERT(false, "should not reach"); /* should not reach */
 }
-#endif
 
 static bool
-event_filter_syscall(void *drcontext, int sysnum)
+event_soft_kill(process_id_t pid, int exit_code)
 {
-
-#ifdef WINDOWS
-    return (options.nudge_kills && sysnum == sysnum_TerminateProcess);
-#else
-    return sysnum == sysnum_execve;
-#endif
+    /* we pass [exit_code, NUDGE_TERMINATE_PROCESS] to target process */
+    dr_config_status_t res;
+    res = dr_nudge_client_ex(pid, client_id,
+                             NUDGE_TERMINATE_PROCESS | (uint64)exit_code << 32,
+                             0);
+    if (res == DR_SUCCESS) {
+        /* skip syscall since target will terminate itself */
+        return true;
+    }
+    /* else failed b/c target not under DR control or maybe some other
+     * error: let syscall go through
+     */
+    return false;
 }
 
 /****************************************************************************
@@ -616,45 +604,26 @@ event_filter_syscall(void *drcontext, int sysnum)
  */
 
 static bool
-event_pre_syscall(void *drcontext, int sysnum)
+event_filter_syscall(void *drcontext, int sysnum)
 {
 #ifdef WINDOWS
-    /* XXX: we should also watch for NtTerminateJobObject and other job
-     * termination (xref i#1229).
-     */
-    /* XXX i#1231: we should try to share Dr. Memory's code by placing it
-     * in an Extension.
-     */
-    if (options.nudge_kills && sysnum == sysnum_TerminateProcess) {
-        HANDLE proc = (HANDLE)dr_syscall_get_param(drcontext, 0);
-        process_id_t pid = dr_convert_handle_to_pid(proc);
-        if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
-            /* we pass [exit_code, NUDGE_TERMINATE_PROCESS] to target process */
-            dr_config_status_t res;
-            uint64 exit_code = (uint64)dr_syscall_get_param(drcontext, 1);
-            ASSERT(exit_code >> 32 == 0, "exit_code top 32-bit is not zero");
-            res = dr_nudge_client_ex(pid, client_id,
-                                     NUDGE_TERMINATE_PROCESS | exit_code << 32,
-                                     0);
-            if (res == DR_SUCCESS) {
-                /* skip syscall since target will terminate itself */
-                dr_syscall_set_result(drcontext, 0/*success*/);
-                return false;
-            }
-            /* else failed b/c target not under DR control or maybe some other
-             * error: let syscall go through
-             */
-        }
-    }
-    return true;
+    return false;
 #else
+    return sysnum == sysnum_execve;
+#endif
+}
+
+static bool
+event_pre_syscall(void *drcontext, int sysnum)
+{
+#ifdef UNIX
     /* We assume execve always succeeds */
     if (sysnum == sysnum_execve) {
         event_thread_exit(drcontext);
         event_exit();
     }
-    return true;
 #endif
+    return true;
 }
 
 /* We collect the basic block information including offset from module base,
@@ -859,6 +828,7 @@ event_exit(void)
 
     drmgr_unregister_tls_field(tls_idx);
 
+    drx_exit();
     drmgr_exit();
 }
 
@@ -888,10 +858,8 @@ options_init(client_id_t id)
     const char *s;
 
     char token[OPTION_MAX_LENGTH];
-#ifdef WINDOWS
     /* enable nudge_kills by default */
     options.nudge_kills = true;
-#endif
     for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
          s != NULL;
          s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
@@ -899,12 +867,10 @@ options_init(client_id_t id)
             options.dump_text = true;
         else if (strcmp(token, "-dump_binary") == 0)
             options.dump_binary = true;
-#ifdef WINDOWS
         else if (strcmp(token, "-no_nudge_kills") == 0)
             options.nudge_kills = false;
         else if (strcmp(token, "-nudge_kills") == 0)
             options.nudge_kills = true;
-#endif
         else if (strcmp(token, "-logdir") == 0) {
             s = dr_get_token(s, options.logdir,
                              BUFFER_SIZE_ELEMENTS(options.logdir));
@@ -957,6 +923,7 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     drmgr_init();
+    drx_init();
 
     dr_register_exit_event(event_exit);
     drmgr_register_thread_init_event(event_thread_init);
@@ -966,10 +933,8 @@ dr_init(client_id_t id)
     drmgr_register_module_unload_event(event_module_unload);
     dr_register_filter_syscall_event(event_filter_syscall);
     drmgr_register_pre_syscall_event(event_pre_syscall);
-#ifdef WINDOWS
-    sysnum_TerminateProcess = get_sysnum("NtTerminateProcess");
     dr_register_nudge_event(event_nudge, id);
-#else
+#ifdef UNIX
     dr_register_fork_init_event(event_fork);
 #endif
 
@@ -980,5 +945,9 @@ dr_init(client_id_t id)
     if (dr_using_all_private_caches())
         bbcov_per_thread = true;
     options_init(id);
+
+    if (options.nudge_kills)
+        drx_register_soft_kills(event_soft_kill);
+
     event_init();
 }
