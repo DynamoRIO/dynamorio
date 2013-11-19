@@ -41,6 +41,11 @@
  */
 #include "drmgr.h"
 
+#ifdef UNIX
+# include "../../core/unix/include/syscall.h"
+# include <signal.h> /* SIGKILL */
+#endif
+
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
 #else
@@ -67,11 +72,9 @@ enum {
 static ptr_uint_t note_base;
 #define NOTE_VAL(enum_val) ((void *)(ptr_int_t)(note_base + (enum_val)))
 
-#ifdef WINDOWS
 static bool soft_kills_enabled;
 
 static void soft_kills_exit(void);
-#endif
 
 /***************************************************************************
  * INIT
@@ -102,10 +105,8 @@ drx_exit()
     if (count != 0)
         return;
 
-#ifdef WINDOWS
     if (soft_kills_enabled)
         soft_kills_exit();
-#endif
 
     drmgr_exit();
 }
@@ -399,9 +400,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
  * SOFT KILLS
  */
 
-/* XXX i#1231: we should add Linux support as well */
-#ifdef WINDOWS
-
 /* Track callbacks in a simple list protected by a lock */
 typedef struct _cb_entry_t {
     /* XXX: the bool return value is complex to support in some situations.  We
@@ -418,6 +416,22 @@ typedef struct _cb_entry_t {
 
 static cb_entry_t *cb_list;
 static void *cb_lock;
+
+static bool
+soft_kills_invoke_cbs(process_id_t pid, int exit_code, drx_soft_kills_flags_t flags)
+{
+    cb_entry_t *e;
+    bool skip = false;
+    dr_mutex_lock(cb_lock);
+    for (e = cb_list; e != NULL; e = e->next) {
+        /* If anyone wants to skip, we skip */
+        skip = e->cb(pid, exit_code, flags) || skip;
+    }
+    dr_mutex_unlock(cb_lock);
+    return skip;
+}
+
+#ifdef WINDOWS
 
 /* The system calls we need to watch for soft kills.
  * These are are in ntoskrnl so we get away without drsyscall.
@@ -586,20 +600,6 @@ soft_kills_get_sysnum(const char *name, int num_params, int wow64_idx)
     return sysnum;
 }
 
-static bool
-soft_kills_invoke_cbs(process_id_t pid, int exit_code, drx_soft_kills_flags_t flags)
-{
-    cb_entry_t *e;
-    bool skip = false;
-    dr_mutex_lock(cb_lock);
-    for (e = cb_list; e != NULL; e = e->next) {
-        /* If anyone wants to skip, we skip */
-        skip = e->cb(pid, exit_code, flags) || skip;
-    }
-    dr_mutex_unlock(cb_lock);
-    return skip;
-}
-
 static void
 soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
 {
@@ -752,6 +752,41 @@ soft_kills_post_syscall(void *drcontext, int sysnum)
         }
     }
 }
+#else /* WINDOWS */
+
+static bool
+soft_kills_filter_syscall(void *drcontext, int sysnum)
+{
+    return (sysnum == SYS_kill);
+}
+
+/* Returns whether to execute the system call */
+static bool
+soft_kills_pre_syscall(void *drcontext, int sysnum)
+{
+    if (sysnum == SYS_kill) {
+        process_id_t pid = (process_id_t) dr_syscall_get_param(drcontext, 0);
+        int sig = (int) dr_syscall_get_param(drcontext, 1);
+        if (sig == SIGKILL && pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
+            /* Pass exit code << 8 for use with dr_exit_process() */
+            int exit_code = sig << 8;
+            if (soft_kills_invoke_cbs(pid, exit_code, 0)) {
+                dr_syscall_set_result(drcontext, 0/*success*/);
+                return false; /* skip syscall */
+            } else
+                return true; /* execute syscall */
+        }
+    }
+    return true;
+}
+
+static void
+soft_kills_post_syscall(void *drcontext, int sysnum)
+{
+    /* nothing yet */
+}
+
+#endif /* UNIX */
 
 static bool
 soft_kills_init(void)
@@ -763,6 +798,7 @@ soft_kills_init(void)
 
     cb_lock = dr_mutex_create();
 
+#ifdef WINDOWS
     hashtable_init(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false);
 
     sysnum_TerminateProcess =
@@ -788,26 +824,29 @@ soft_kills_init(void)
     if (sysnum_Close == -1)
         return false;
 
+    cls_idx_soft = drmgr_register_cls_field(soft_kills_context_init,
+                                            soft_kills_context_exit);
+    if (cls_idx_soft == -1)
+        return false;
+#endif
+
     if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
         !drmgr_register_post_syscall_event(soft_kills_post_syscall))
         return false;
     dr_register_filter_syscall_event(soft_kills_filter_syscall);
 
-    cls_idx_soft = drmgr_register_cls_field(soft_kills_context_init,
-                                            soft_kills_context_exit);
-    if (cls_idx_soft == -1)
-        return false;
     return true;
 }
 
 static void
 soft_kills_exit(void)
 {
+    cb_entry_t *e;
+#ifdef WINDOWS
     /* Any open job handles will be closed, triggering
      * JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
      */
     uint i;
-    cb_entry_t *e;
     /* The exit code used is the exit code for this process */
     int exit_code;
     if (!get_app_exit_code(&exit_code))
@@ -824,6 +863,10 @@ soft_kills_exit(void)
 
     hashtable_delete(&job_table);
 
+    drmgr_unregister_cls_field(soft_kills_context_init, soft_kills_context_exit,
+                               cls_idx_soft);
+#endif
+
     dr_mutex_lock(cb_lock);
     while (cb_list != NULL) {
         e = cb_list;
@@ -833,9 +876,6 @@ soft_kills_exit(void)
     dr_mutex_unlock(cb_lock);
 
     dr_mutex_destroy(cb_lock);
-
-    drmgr_unregister_cls_field(soft_kills_context_init, soft_kills_context_exit,
-                               cls_idx_soft);
 }
 
 bool
@@ -862,5 +902,3 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid,
     dr_mutex_unlock(cb_lock);
     return true;
 }
-
-#endif /* WINDOWS */

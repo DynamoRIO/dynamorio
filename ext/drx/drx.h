@@ -140,8 +140,6 @@ drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
  * SOFT KILLS
  */
 
-#ifdef WINDOWS
-
 /** Values for the \p flags parameter for drx_register_soft_kills */
 typedef enum {
     /**
@@ -191,15 +189,12 @@ DR_EXPORT
  * process might be left alive, causing the application to behave
  * incorrectly.
  *
- * \note Currently Windows-only.
- *
  * \return whether successful.
  */
 bool
 drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code,
                                          drx_soft_kills_flags_t flags));
 
-#endif
 
 
 /*@}*/ /* end doxygen group */

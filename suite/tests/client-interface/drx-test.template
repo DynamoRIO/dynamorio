@@ -1,3 +1,4 @@
+#ifdef WINDOWS
 creating child #1
 terminating child #1 by NtTerminateProcess
 event_nudge exit code 42
@@ -11,3 +12,10 @@ terminating child #3 by closing job handle
 event_nudge exit code 0
 event_exit
 event_exit
+#else
+creating child
+terminating child by sending SIGKILL
+event_nudge exit code 2304
+event_exit
+event_exit
+#endif

@@ -35,9 +35,18 @@
 
 #include "tools.h"
 
+#ifdef UNIX
+#  include <sys/wait.h>
+#  include <stdlib.h>
+#  include <unistd.h>
+#  include <string.h>
+#  include <signal.h>
+#endif
+
 int
 main(int argc, char **argv)
 {
+#ifdef WINDOWS
     HANDLE event;
     char cmdline[128];
 
@@ -115,5 +124,47 @@ main(int argc, char **argv)
     }
 
     CloseHandle(event);
+
+#else /* WINDOWS */
+
+    int pipefd[2];
+    pid_t cpid;
+    char buf = 0;
+
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(1);
+    }
+
+    print("creating child\n");
+    cpid = fork();
+    if (cpid == -1) {
+        perror("fork");
+        exit(1);
+    } else if (cpid > 0) {
+        /* parent */
+        close(pipefd[1]); /* close unused write end */
+        if (read(pipefd[0], &buf, sizeof(buf)) <= 0) {
+            perror("pipe read failed");
+            exit(1);
+        }
+        print("terminating child by sending SIGKILL\n");
+        kill(cpid, SIGKILL);
+        wait(NULL); /* wait for child */
+        close(pipefd[0]);
+    } else {
+        /* child */
+        int iter = 0;
+        close(pipefd[0]); /* close unused read end */
+        write(pipefd[1], &buf, sizeof(buf));
+        close(pipefd[1]);
+        /* spin until parent kills us or we time out */
+        while (iter++ < 12) {
+            sleep(5);
+        }
+    }
+
+#endif /* UNIX */
+
     return 0;
 }

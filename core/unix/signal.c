@@ -4171,9 +4171,11 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
 void
 os_terminate_via_signal(dcontext_t *dcontext, terminate_flags_t flags, int sig)
 {
-    DEBUG_DECLARE(bool res =)
-        set_default_signal_action(sig);
-    ASSERT(res);
+    if (sig != SIGKILL && sig != SIGSTOP) {
+        DEBUG_DECLARE(bool res =)
+            set_default_signal_action(sig);
+        ASSERT(res);
+    }
     if (TEST(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);
