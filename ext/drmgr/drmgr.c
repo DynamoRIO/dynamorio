@@ -439,8 +439,12 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                 (drcontext, tag, bb, for_trace, translating, quartet_data[quartet_idx]);
             quartet_idx++;
         } else {
-            res |= (*e->cb.pair.analysis_cb)
-                (drcontext, tag, bb, for_trace, translating, &pair_data[pair_idx]);
+            if (e->cb.pair.analysis_cb == NULL) {
+                pair_data[pair_idx] = NULL;
+            } else {
+                res |= (*e->cb.pair.analysis_cb)
+                    (drcontext, tag, bb, for_trace, translating, &pair_data[pair_idx]);
+            }
             pair_idx++;
         }
         /* XXX: add checks that cb followed the rules */
@@ -459,9 +463,11 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                      quartet_data[quartet_idx]);
                 quartet_idx++;
             } else {
-                res |= (*e->cb.pair.insertion_cb)
-                    (drcontext, tag, bb, inst, for_trace, translating,
-                     pair_data[pair_idx]);
+                if (e->cb.pair.insertion_cb != NULL) {
+                    res |= (*e->cb.pair.insertion_cb)
+                        (drcontext, tag, bb, inst, for_trace, translating,
+                         pair_data[pair_idx]);
+                }
                 pair_idx++;
             }
             /* XXX: add checks that cb followed the rules */
@@ -573,11 +579,11 @@ drmgr_bb_cb_add(cb_entry_t **list,
 {
     cb_entry_t *new_e;
     bool res = true;
-    ASSERT(list != NULL && priority != NULL, "invalid internal params");
+    ASSERT(list != NULL, "invalid internal params");
     ASSERT(((xform_func != NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
              instru2instru_ex_func == NULL) ||
-            (xform_func == NULL && analysis_func != NULL && insertion_func != NULL &&
+            (xform_func == NULL && (analysis_func != NULL || insertion_func != NULL) &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
              instru2instru_ex_func == NULL) ||
             (xform_func == NULL && analysis_func == NULL && insertion_func == NULL &&
@@ -636,7 +642,7 @@ DR_EXPORT
 bool
 drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
 {
-    if (func == NULL || priority == NULL)
+    if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_app2app, func, NULL, NULL,
                            NULL, NULL, NULL, priority);
@@ -648,7 +654,7 @@ drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
                                         drmgr_insertion_cb_t insertion_func,
                                         drmgr_priority_t *priority)
 {
-    if (analysis_func == NULL || insertion_func == NULL || priority == NULL)
+    if (analysis_func == NULL && insertion_func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instrumentation, NULL, analysis_func,
                            insertion_func, NULL, NULL, NULL, priority);
@@ -658,7 +664,7 @@ DR_EXPORT
 bool
 drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority)
 {
-    if (func == NULL || priority == NULL)
+    if (func == NULL)
         return false; /* invalid params */
     return drmgr_bb_cb_add(&cblist_instru2instru, func, NULL, NULL,
                            NULL, NULL, NULL, priority);
@@ -674,7 +680,7 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 {
     bool ok = true;
     if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
-        instru2instru_func == NULL || priority == NULL)
+        instru2instru_func == NULL)
         return false; /* invalid params */
     ok = drmgr_bb_cb_add(&cblist_app2app, NULL, NULL, NULL, app2app_func,
                          NULL, NULL, priority) && ok;

@@ -251,6 +251,7 @@ DR_EXPORT
  *
  * @param[in]  func        The callback to be called.
  * @param[in]  priority    Specifies the relative ordering of the callback.
+ *                         Can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_app2app_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
@@ -308,8 +309,12 @@ DR_EXPORT
  * priority->after) or the given name is already taken.
  *
  * @param[in]  analysis_func   The analysis callback to be called for the second stage.
+ *                             Can be NULL if insertion_func is non-NULL, in which
+ *                             case the user_data passed to insertion_func is NULL.
  * @param[in]  insertion_func  The insertion callback to be called for the third stage.
+ *                             Can be NULL if analysis_func is non-NULL.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
+ *                             Can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,
@@ -349,6 +354,7 @@ DR_EXPORT
  *
  * @param[in]  func        The callback to be called.
  * @param[in]  priority    Specifies the relative ordering of the callback.
+ *                         Can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_instru2instru_event(drmgr_xform_cb_t func, drmgr_priority_t *priority);
@@ -376,6 +382,7 @@ DR_EXPORT
  * The aforemented routines are identical to this with the exception of the
  * extra \p user_data parameter, which is an OUT parameter to the \p
  * app2app_func and passed in to the three subsequent callbacks.
+ * The \p priority param can be NULL, in which case a default priority is used.
  */
 bool
 drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
