@@ -2317,6 +2317,13 @@ dr_convert_handle_to_pid(HANDLE process_handle)
 }
 
 DR_API
+HANDLE
+dr_convert_pid_to_handle(process_id_t pid)
+{
+    return process_handle_from_id(pid);
+}
+
+DR_API
 /** 
  * Returns information about the version of the operating system.
  * Returns whether successful.

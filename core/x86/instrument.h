@@ -1756,6 +1756,15 @@ DR_API
 process_id_t
 dr_convert_handle_to_pid(HANDLE process_handle);
 
+DR_API
+/**
+ * Converts a process id to a process handle.
+ * \return Process handle if successful; INVALID_HANDLE_VALUE on failure.
+ * \note Windows only.
+ */
+HANDLE
+dr_convert_pid_to_handle(process_id_t pid);
+
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
