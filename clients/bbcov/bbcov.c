@@ -62,6 +62,7 @@
  */
 
 #include "dr_api.h"
+#include "drmgr.h"
 #include "bbcov.h"
 #include "../common/modules.h"
 #include "../common/utils.h"
@@ -129,6 +130,7 @@ static client_id_t client_id;
 static int sysnum_execve = IF_X64_ELSE(59, 11);
 #endif
 static volatile bool go_native;
+static int tls_idx = -1;
 
 static void
 event_exit(void);
@@ -660,8 +662,8 @@ event_pre_syscall(void *drcontext, int sysnum)
  * instrumentation.
  */
 static dr_emit_flags_t
-event_basic_block(void *drcontext, void *tag,
-                  instrlist_t *bb, bool for_trace, bool translating)
+event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                           bool for_trace, bool translating, OUT void **user_data)
 {
     per_thread_t *data;
     instr_t *instr;
@@ -675,7 +677,7 @@ event_basic_block(void *drcontext, void *tag,
     if (translating)
         return DR_EMIT_DEFAULT;
 
-    data = (per_thread_t *)dr_get_tls_field(drcontext);
+    data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     /* Collect the number of instructions and the basic block size,
      * assuming the basic block does not have any elision on control
      * transfer instructions, which is true for default options passed
@@ -753,7 +755,7 @@ event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
 
-    data = (per_thread_t *)dr_get_tls_field(drcontext);
+    data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(data != NULL, "data must not be NULL");
 
     if (bbcov_per_thread) {
@@ -817,7 +819,7 @@ event_thread_init(void *drcontext)
         data = thread_data_create(drcontext);
     else
         data = thread_data_copy(drcontext);
-    dr_set_tls_field(drcontext, data);
+    drmgr_set_tls_field(drcontext, tls_idx, data);
 }
 
 #ifndef WINDOWS
@@ -827,7 +829,7 @@ event_fork(void *drcontext)
     if (!bbcov_per_thread) {
         log_file_create(NULL, global_data);
     } else {
-        per_thread_t *data = dr_get_tls_field(drcontext);
+        per_thread_t *data = drmgr_get_tls_field(drcontext, tls_idx);
         if (data != NULL) {
             thread_data_destroy(drcontext, data);
         }
@@ -854,6 +856,10 @@ event_exit(void)
     }
     /* destroy module table */
     module_table_destroy(module_table);
+
+    drmgr_unregister_tls_field(tls_idx);
+
+    drmgr_exit();
 }
 
 static void
@@ -950,20 +956,26 @@ options_init(client_id_t id)
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
+    drmgr_init();
+
     dr_register_exit_event(event_exit);
-    dr_register_thread_init_event(event_thread_init);
-    dr_register_thread_exit_event(event_thread_exit);
-    dr_register_bb_event(event_basic_block);
-    dr_register_module_load_event(event_module_load);
-    dr_register_module_unload_event(event_module_unload);
+    drmgr_register_thread_init_event(event_thread_init);
+    drmgr_register_thread_exit_event(event_thread_exit);
+    drmgr_register_bb_instrumentation_event(event_basic_block_analysis, NULL, NULL);
+    drmgr_register_module_load_event(event_module_load);
+    drmgr_register_module_unload_event(event_module_unload);
     dr_register_filter_syscall_event(event_filter_syscall);
-    dr_register_pre_syscall_event(event_pre_syscall);
+    drmgr_register_pre_syscall_event(event_pre_syscall);
 #ifdef WINDOWS
     sysnum_TerminateProcess = get_sysnum("NtTerminateProcess");
     dr_register_nudge_event(event_nudge, id);
 #else
     dr_register_fork_init_event(event_fork);
 #endif
+
+    tls_idx = drmgr_register_tls_field();
+    ASSERT(tls_idx > -1, "unable to reserve TLS slot");
+
     client_id = id;
     if (dr_using_all_private_caches())
         bbcov_per_thread = true;

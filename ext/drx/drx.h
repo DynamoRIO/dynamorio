@@ -181,6 +181,11 @@ DR_EXPORT
  * process might be left alive, causing the application to behave
  * incorrectly.
  *
+ * The implementation of this event uses drmgr's CLS
+ * (drmgr_register_cls_field()), which conflicts with
+ * dr_get_tls_field().  A client using this event must use
+ * drmgr_register_tls_field() instead of dr_get_tls_field().
+ *
  * \return whether successful.
  */
 bool
