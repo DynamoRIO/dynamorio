@@ -2914,8 +2914,6 @@ DR_API
  *
  * \note On Windows, symbols imported from delay-loaded DLLs are not included
  * yet.
- *
- * \note To iterate over symbols exported by a module, use the \ref page_drsyms.
  */
 dr_symbol_import_iterator_t *
 dr_symbol_import_iterator_start(module_handle_t handle,
@@ -2943,6 +2941,79 @@ DR_API
  */
 void
 dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *iter);
+
+/* DR_API EXPORT BEGIN */
+/**
+ * Symbol export iterator data type.  Can be created by calling
+ * dr_symbol_export_iterator_start() and must be freed by calling
+ * dr_symbol_export_iterator_stop().
+ */
+struct _dr_symbol_export_iterator_t;
+typedef struct _dr_symbol_export_iterator_t dr_symbol_export_iterator_t;
+
+/**
+ * Symbol export data returned from dr_symbol_export_iterator_next().
+ *
+ * String fields point into the exporting module image.  Robust clients should
+ * use DR_TRY_EXCEPT while inspecting the strings in case the module is
+ * partially mapped or the app racily unmaps it.
+ *
+ * On Windows, the address in \p addr may not be inside the exporting module if
+ * it is a forward and has been patched by the loader.  In that case, \p forward
+ * will be NULL.
+ */
+typedef struct _dr_symbol_export_t {
+    const char *name;       /**< Name of exported symbol, if available. */
+    app_pc addr;            /**< Address of the exported symbol. */
+    const char *forward;    /**< Forward name, or NULL if not forwarded (Windows only). */
+    ptr_uint_t ordinal;     /**< Ordinal value (Windows only). */
+    /**
+     * Whether an indirect code object (see dr_export_info_t).  (Linux only).
+     */
+    bool is_indirect_code;
+    bool is_code;           /**< Whether code as opposed to exported data (Linux only). */
+/* DR_API EXPORT END */
+    /* We never ask the client to allocate this struct, so we can go ahead and
+     * add fields here without breaking ABI compat.
+     */
+/* DR_API EXPORT BEGIN */
+} dr_symbol_export_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Creates an iterator over symbols exported by a module.
+ * The iterator returned is invalid until after the first call to
+ * dr_symbol_export_iterator_next().
+ *
+ * \note To iterate over all symbols in a module and not just those exported,
+ * use the \ref page_drsyms.
+ */
+dr_symbol_export_iterator_t *
+dr_symbol_export_iterator_start(module_handle_t handle);
+
+DR_API
+/**
+ * Returns true if there is another exported symbol in the iterator.
+ */
+bool
+dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *iter);
+
+DR_API
+/**
+ * Returns the next exported symbol.  The returned pointer is valid until the
+ * next call to dr_symbol_export_iterator_next() or
+ * dr_symbol_export_iterator_stop().
+ */
+dr_symbol_export_t *
+dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *iter);
+
+DR_API
+/**
+ * Stops symbol export iteration and frees the iterator.
+ */
+void
+dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *iter);
 
 /* DR_API EXPORT BEGIN */
 #ifdef WINDOWS

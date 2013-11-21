@@ -69,6 +69,30 @@ typedef struct _elf_import_iterator_t {
     ELF_SYM_TYPE *import_end;           /* end of imports in .dynsym */
     bool error_occurred;                /* error during iteration */
 } elf_import_iterator_t;
+
+typedef struct _elf_export_iterator_t {
+    dr_symbol_export_t symbol_export;   /* symbol export returned by next() */
+
+    /* Just like elf_import_iterator_t, this is copied from os_module_data_t. */
+    bool hash_is_gnu;
+    ELF_SYM_TYPE *dynsym;               /* absolute addr of .dynsym */
+    size_t symentry_size;               /* size of a .dynsym entry */
+    const char *dynstr;                 /* absolute addr of .dynstr */
+    size_t dynstr_size;                 /* size of .dynstr */
+
+    /* For gnu hashtable we have to walk the hashtable. */
+    Elf_Symndx *buckets;
+    size_t num_buckets;
+    Elf_Symndx *chain;
+    ptr_int_t load_delta;
+    Elf_Symndx hidx;
+    Elf_Symndx chain_idx;
+
+    ELF_SYM_TYPE *cur_sym;              /* pointer to next export in .dynsym */
+    ELF_SYM_TYPE safe_cur_sym;          /* safe_read() copy of cur_sym */
+    ELF_SYM_TYPE *export_end;           /* end of exports in .dynsym */
+    bool valid_entry;                   /* is safe_cur_sym valid */
+} elf_export_iterator_t;
 #endif /* CLIENT_INTERFACE */
 
 /* In case want to build w/o gnu headers and use that to run recent gnu elf */
@@ -717,8 +741,8 @@ gnu_hash_lookup(const char   *name,
     hidx = elf_gnu_hash(name);
     entry = bitmask[(hidx / ELF_WORD_SIZE) & bitidx];
     h1 = hidx & (ELF_WORD_SIZE - 1);
-    h2 = (hidx >>shift) & (ELF_WORD_SIZE - 1);
-    if (TEST(1, (entry >> h1) & (entry >> h2))) {
+    h2 = (hidx >> shift) & (ELF_WORD_SIZE - 1); /* bloom filter hash */
+    if (TEST(1, (entry >> h1) & (entry >> h2))) { /* bloom filter check */
         Elf32_Word bucket = buckets[hidx % num_buckets];
         if (bucket != 0) {
             Elf32_Word *harray = &chain[bucket];
@@ -1403,6 +1427,135 @@ dr_symbol_import_iterator_stop(dr_symbol_import_iterator_t *dr_iter)
         return;
     global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
 }
+
+static bool
+dynsym_next_export(elf_export_iterator_t *iter)
+{
+    if (iter->hash_is_gnu) {
+        /* XXX: perhaps we should safe_read buckets[] and chain[] */
+        if (iter->chain_idx == 0) {
+            /* Advance to next hash chain */
+            do {
+                if (iter->hidx >= iter->num_buckets)
+                    return false;
+                iter->chain_idx = iter->buckets[iter->hidx];
+                iter->hidx++;
+            } while (iter->chain_idx == 0);
+        }
+        /* Walk the hash chain for this bucket value */
+        if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx]) ||
+            /* hashtable should only have non-zero entries, but be paranoid */
+            iter->safe_cur_sym.st_value == 0) {
+            memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+            return false;
+        }
+        /* End of chain is marked by LSB being 1 */
+        if (TEST(1, iter->chain[iter->chain_idx]))
+            iter->chain_idx = 0;
+        else
+            iter->chain_idx++;
+    } else {
+        do {
+            iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym + iter->symentry_size);
+            if (iter->cur_sym >= iter->export_end)
+                return false;
+            if (!SAFE_READ_VAL(iter->safe_cur_sym, iter->cur_sym)) {
+                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+                return false;
+            }
+        } while (iter->safe_cur_sym.st_value == 0);
+    }
+
+    if (iter->safe_cur_sym.st_name >= iter->dynstr_size) {
+        ASSERT_CURIOSITY(false && "st_name out of .dynstr bounds");
+        return false;
+    }
+    return true;
+}
+
+dr_symbol_export_iterator_t *
+dr_symbol_export_iterator_start(module_handle_t handle)
+{
+    module_area_t *ma;
+    elf_export_iterator_t *iter;
+
+    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    if (iter == NULL)
+        return NULL;
+    memset(iter, 0, sizeof(*iter));
+
+    os_get_module_info_lock();
+    ma = module_pc_lookup((byte *) handle);
+    if (ma != NULL) {
+        iter->dynsym = (ELF_SYM_TYPE *) ma->os_data.dynsym;
+        iter->symentry_size = ma->os_data.symentry_size;
+        iter->dynstr = (const char *) ma->os_data.dynstr;
+        iter->dynstr_size = ma->os_data.dynstr_size;
+        iter->cur_sym = iter->dynsym;
+
+        /* See dr_symbol_import_iterator_start(): we don't have the length of .dynsym
+         * (we'd have to map the original file).
+         */
+        iter->hash_is_gnu = ma->os_data.hash_is_gnu;
+        if (iter->hash_is_gnu) {
+            /* We have to walk the hashtable */
+            iter->buckets = (Elf_Symndx *) ma->os_data.buckets;
+            iter->chain = (Elf_Symndx *) ma->os_data.chain;
+            iter->num_buckets = ma->os_data.num_buckets;
+            iter->load_delta = ma->start - ma->os_data.base_address;
+            iter->hidx = 0;
+            iter->chain_idx = 0;
+        } else {
+            /* See dr_symbol_import_iterator_start(): num_chain is # of .dynsym entries */
+            iter->export_end = (ELF_SYM_TYPE *)
+                ((app_pc)iter->dynsym + (ma->os_data.num_chain * iter->symentry_size));
+            ASSERT_CURIOSITY(iter->cur_sym->st_name == 0); /* ok to skip 1st */
+        }
+        /* Just like the import iterator, we always point at next */
+        iter->valid_entry = dynsym_next_export(iter);
+    } else {
+        global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+        iter = NULL;
+    }
+    os_get_module_info_unlock();
+
+    return (dr_symbol_export_iterator_t *) iter;
+}
+
+bool
+dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
+{
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    return (iter != NULL && iter->valid_entry &&
+            (iter->hash_is_gnu || iter->cur_sym < iter->export_end));
+}
+
+dr_symbol_export_t *
+dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
+{
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+
+    CLIENT_ASSERT(iter != NULL, "invalid parameter");
+    memset(&iter->symbol_export, 0, sizeof(iter->symbol_export));
+    iter->symbol_export.name = iter->dynstr + iter->safe_cur_sym.st_name;
+    iter->symbol_export.is_indirect_code =
+        (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_GNU_IFUNC);
+    iter->symbol_export.is_code = (ELF_ST_TYPE(iter->safe_cur_sym.st_info) == STT_FUNC);
+    iter->symbol_export.addr = (app_pc) (iter->safe_cur_sym.st_value + iter->load_delta);
+
+    iter->valid_entry = dynsym_next_export(iter);
+    return &iter->symbol_export;
+}
+
+void
+dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
+{
+    elf_export_iterator_t *iter = (elf_export_iterator_t *) dr_iter;
+    if (iter == NULL)
+        return;
+    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+}
+
 #endif /* CLIENT_INTERFACE */
 
 static void

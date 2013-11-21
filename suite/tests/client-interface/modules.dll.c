@@ -81,12 +81,19 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
      */
     /* Test i#138 */
     dr_symbol_import_iterator_t *sym_iter;
-    if (data->full_path == NULL || data->full_path[0] == '\0')
-        dr_fprintf(STDERR, "ERROR: full_path empty for %s\n", dr_module_preferred_name(data));
+    dr_symbol_export_iterator_t *exp_iter;
+    bool found_sym = false;
+
+    if (data->full_path == NULL || data->full_path[0] == '\0') {
+        dr_fprintf(STDERR, "ERROR: full_path empty for %s\n",
+                   dr_module_preferred_name(data));
+    }
 #ifdef WINDOWS
     /* We do not expect \\server-style paths for this test */
-    else if (data->full_path[0] == '\\' || data->full_path[1] != ':')
-        dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n", data->full_path);
+    else if (data->full_path[0] == '\\' || data->full_path[1] != ':') {
+        dr_fprintf(STDERR, "ERROR: full_path is not in DOS format: %s\n",
+                   data->full_path);
+    }
 #endif
     if (string_match(data->names.module_name,
                      IF_WINDOWS_ELSE("ADVAPI32.dll", "libz.so.1")))
@@ -137,6 +144,21 @@ void module_load_event(void *dcontext, const module_data_t *data, bool loaded)
     }
     dr_symbol_import_iterator_stop(sym_iter);
 #endif /* WINDOWS */
+
+    exp_iter = dr_symbol_export_iterator_start(data->handle);
+    while (dr_symbol_export_iterator_hasnext(exp_iter)) {
+        dr_symbol_export_t *sym = dr_symbol_export_iterator_next(exp_iter);
+        INFO("%s exports %s @"PFX" forward=%s ordinal=%d indirect=%d code=%d\n",
+             dr_module_preferred_name(data), sym->name, sym->addr,
+             sym->forward == NULL ? "\"\"" : sym->forward,
+             sym->ordinal, sym->is_indirect_code, sym->is_code);
+        if (strcmp(sym->name, "decode_next_pc") == 0)
+            found_sym = true;
+    }
+    dr_symbol_export_iterator_stop(exp_iter);
+    if (strstr(dr_module_preferred_name(data), "dynamorio") != NULL &&
+        !found_sym)
+        dr_fprintf(STDERR, "failed to find a DR export\n");
 }
 
 static

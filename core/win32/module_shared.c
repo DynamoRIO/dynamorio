@@ -90,6 +90,24 @@ bool is_readable_without_exception(const byte *pc, size_t size);
 # define LOG(...) /* nothing */
 #endif
 
+#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) &&\
+    !defined(NOT_DYNAMORIO_CORE_PROPER)
+# include "instrument.h"
+typedef struct _pe_symbol_export_iterator_t {
+    dr_symbol_export_t info;
+
+    byte *mod_base;
+    size_t mod_size;
+    IMAGE_EXPORT_DIRECTORY *exports;
+    size_t exports_size;
+    PULONG functions; /* array of RVAs */
+    PUSHORT ordinals;
+    PULONG fnames; /* array of RVAs */
+    uint idx;
+    bool hasnext;                           /* set to false on error or end */
+} pe_symbol_export_iterator_t;
+#endif
+
 /* This routine was moved here from os.c since we need it for 
  * get_proc_address_64 (via get_module_exports_directory_*()) for preinject
  * and drmarker, neither of which link os.c.
@@ -481,7 +499,8 @@ get_proc_address_by_ordinal(module_base_t lib, uint ordinal, const char **forwar
     return get_proc_address_common(lib, NULL, ordinal _IF_NOT_X64(false), forwarder);
 }
 
-# if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+#if defined(CLIENT_INTERFACE) && !defined(NOT_DYNAMORIO_CORE) &&\
+    !defined(NOT_DYNAMORIO_CORE_PROPER)
 
 generic_func_t
 get_proc_address_resolve_forward(module_base_t lib, const char *name)
@@ -532,6 +551,99 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name)
     }
     return func;
 }
+
+DR_API
+dr_symbol_export_iterator_t *
+dr_symbol_export_iterator_start(module_handle_t handle)
+{
+    pe_symbol_export_iterator_t *iter;
+    byte *base_check;
+
+    iter = global_heap_alloc(sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    memset(iter, 0, sizeof(*iter));
+    iter->mod_base = (byte *) handle;
+    iter->mod_size = get_allocation_size(iter->mod_base, &base_check);
+    if (base_check != iter->mod_base || !is_readable_pe_base(base_check))
+        goto error;
+    iter->exports = get_module_exports_directory_check_common
+        (iter->mod_base, &iter->exports_size, true _IF_NOT_X64(false));
+    if (iter->exports == NULL || iter->exports_size == 0 ||
+        iter->exports->AddressOfNames >= iter->mod_size ||
+        iter->exports->AddressOfFunctions >= iter->mod_size ||
+        iter->exports->AddressOfNameOrdinals >= iter->mod_size)
+        goto error;
+
+    iter->functions = (PULONG)(iter->mod_base + iter->exports->AddressOfFunctions);
+    iter->ordinals = (PUSHORT)(iter->mod_base + iter->exports->AddressOfNameOrdinals);
+    iter->fnames = (PULONG)(iter->mod_base + iter->exports->AddressOfNames);
+    iter->idx = 0;
+    iter->hasnext = (iter->idx < iter->exports->NumberOfNames);
+
+    return (dr_symbol_export_iterator_t *) iter;
+
+error:
+    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+    return NULL;
+}
+
+DR_API
+bool
+dr_symbol_export_iterator_hasnext(dr_symbol_export_iterator_t *dr_iter)
+{
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    return (iter != NULL && iter->hasnext);
+}
+
+DR_API
+dr_symbol_export_t *
+dr_symbol_export_iterator_next(dr_symbol_export_iterator_t *dr_iter)
+{
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+
+    CLIENT_ASSERT(iter != NULL, "invalid parameter");
+    CLIENT_ASSERT(iter->hasnext, "dr_symbol_export_iterator_next: !hasnext");
+    CLIENT_ASSERT(iter->idx < iter->exports->NumberOfNames, "export iter internal error");
+
+    memset(&iter->info, 0, sizeof(iter->info));
+    iter->info.name = (char *)(iter->mod_base + iter->fnames[iter->idx]);
+    if ((app_pc)iter->info.name < iter->mod_base ||
+        (app_pc)iter->info.name >= iter->mod_base + iter->mod_size)
+        return NULL;
+
+    iter->info.ordinal = iter->ordinals[iter->idx];
+    if (iter->info.ordinal >= iter->exports->NumberOfFunctions)
+        return NULL;
+    iter->info.addr = (app_pc)(iter->mod_base + iter->functions[iter->info.ordinal]);
+    if (iter->info.addr == iter->mod_base) {
+        /* see get_proc_address_ex: this means there's no export */
+        return NULL;
+    }
+    if (iter->info.addr < iter->mod_base ||
+        iter->info.addr >= iter->mod_base + iter->mod_size) {
+        /* an already-patched forward -- we leave as is */
+    } else if (iter->info.addr >= (app_pc)iter->exports &&
+               iter->info.addr < (app_pc)iter->exports + iter->exports_size) {
+        iter->info.forward = (const char *) iter->info.addr;
+        iter->info.addr = NULL;
+    }
+    iter->info.is_code = true;
+    iter->idx++;
+    iter->hasnext = (iter->idx < iter->exports->NumberOfNames);
+
+    return &iter->info;
+}
+
+DR_API
+void
+dr_symbol_export_iterator_stop(dr_symbol_export_iterator_t *dr_iter)
+{
+    pe_symbol_export_iterator_t *iter = (pe_symbol_export_iterator_t *) dr_iter;
+    if (iter == NULL)
+        return;
+    global_heap_free(iter, sizeof(*iter) HEAPACCT(ACCT_CLIENT));
+}
+
 # endif /* CLIENT_INTERFACE */
 
 /* returns NULL if no loader module is found
