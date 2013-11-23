@@ -969,7 +969,7 @@ endfunction(template2expect)
 
 ##################################################
 
-function(rundr_cmd outcmd outops native use_drinject dr_ops_aux is_runall)
+function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
   # assumes tools have been built: enforced at top level
   if (UNIX)
     set(os_ops "-dumpcore_mask 0")
@@ -980,13 +980,13 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux is_runall)
   endif ()
   set(dr_ops "-stderr_mask 0xC ${os_ops} ${dr_ops_aux} ${TEST_OPTIONS}")
 
-  if (is_runall)
+  if (separate_script)
     # eliminate double-spaces, to help w/ passing strings to runall.cmake
     string(REGEX REPLACE "  +" " " dr_ops "${dr_ops}")
     string(REGEX REPLACE " $" "" dr_ops "${dr_ops}")
     # ; must be quoted: can't seem to match \; or replace w/ \ so using !
     string(REGEX REPLACE ".;" "!" dr_ops "${dr_ops}")
-  endif (is_runall)
+  endif (separate_script)
 
   if (WIN32 OR NOT native)
     # Both Windows and non-native Unix tests now use the native drrun frontend.
@@ -1073,15 +1073,21 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   else ()
     set(is_runall OFF)
   endif ()
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runcmp")
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runcmp" OR
+      DEFINED ${key}_runcmp)
     set(is_runcmp ON)
   else ()
     set(is_runcmp OFF)
   endif ()
+  if (is_runall OR is_runcmp)
+    set(separate_script ON)
+  else ()
+    set(separate_script OFF)
+  endif ()
 
   set(ALREADY_REGEX OFF)
 
-  rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${is_runall})
+  rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${separate_script})
   get_target_property(exepath ${exe} LOCATION${location_suffix})
   # support running binaries that are not targets of this build
   if (NOT exepath)
@@ -1100,7 +1106,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # to run the test we use a series of commands in runall.cmake.
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${srcbase}.runall" runall)
     if (UNIX)
-      # swap from runstats to run_in_bg to run the test in the background
+      # swap from drrun to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
       string(REGEX REPLACE "^.*(${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)" 
         "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};\\1"
@@ -1139,16 +1145,24 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
       -P ${CMAKE_CURRENT_SOURCE_DIR}/runall.cmake)
   elseif (is_runcmp)
     # Some apps have enough output that ctest runs out of memory when
-    # doing its built-in regex cmp so we use a separate script
+    # doing its built-in regex cmp so we use a separate script.
+    # We also use this approach for tests that need custom success tests.
     set(cmd_with_at ${rundr} ${exepath} ${exe_ops})
     # we pass intra-arg spaces via @@ and inter-arg via @ and ; via !
     # to get around the pain of trying to quote everything just right:
     # much simpler this way.
+    # XXX i#1327: now that we have -c and other option passing improvements we
+    # should be able to get rid of this @@ stuff.
     string(REGEX REPLACE " " "@@" cmd_with_at "${cmd_with_at}")
     string(REGEX REPLACE ";" "@" cmd_with_at "${cmd_with_at}")
+    if (DEFINED ${key}_runcmp)
+      set(runcmp_script ${${key}_runcmp})
+    else ()
+      set(runcmp_script ${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake)
+    endif ()
     add_test(${test} ${CMAKE_COMMAND} -D cmd=${cmd_with_at}
       -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${srcbase}.expect
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake)
+      -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
   else (is_runcmp)
@@ -1598,6 +1612,12 @@ if (CLIENT_INTERFACE)
       endif ()
     endforeach ()
   endif (BUILD_SAMPLES)
+
+  if (BUILD_CLIENTS)
+    torunonly_ci(tool.drltrace common.eflags drltrace common/eflags.c
+      "-only_from_app" "" "")
+    set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
+  endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
 

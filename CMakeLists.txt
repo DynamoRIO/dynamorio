@@ -1429,13 +1429,14 @@ if (BUILD_SAMPLES)
   add_subdirectory(api/samples)
 endif (BUILD_SAMPLES)
 
-if (BUILD_TESTS)
-  add_subdirectory(suite/tests)
-endif (BUILD_TESTS)
-
 if (BUILD_CLIENTS)
   add_subdirectory(clients)
 endif (BUILD_CLIENTS)
+
+# This must be after samples and clients, as we use those targets in tests.
+if (BUILD_TESTS)
+  add_subdirectory(suite/tests)
+endif (BUILD_TESTS)
 
 # We must append to this file to avoid cmake_install.cmake's diff from thinking
 # the exports have changed and thus clobbering the other config's files.

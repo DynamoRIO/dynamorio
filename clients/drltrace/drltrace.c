@@ -78,6 +78,9 @@ static app_pc exe_start;
  * Perhaps refactor bbcov.c logfile routines into ../common/utils.c.
  */
 
+/* runtest.cmake assumes this is the prefix, so update both when changing it */
+#define STDERR_PREFIX "~~~~ "
+
 /****************************************************************************
  * Library entry wrapping
  */
@@ -86,6 +89,7 @@ static void
 lib_entry(void *wrapcxt, INOUT void **user_data)
 {
     const char *name = (const char *) *user_data;
+    const char *modname = NULL;
     app_pc func = drwrap_get_func(wrapcxt);
     module_data_t *mod;
     if (options.only_from_app) {
@@ -105,17 +109,26 @@ lib_entry(void *wrapcxt, INOUT void **user_data)
                 if (!from_exe)
                     return;
             }
+        } else {
+            /* Nearly all of these cases should be things like KiUserCallbackDispatcher
+             * or other abnormal transitions.
+             * If the user really wants to see everything they can not pass
+             * -only_from_app.
+             */
+            return;
         }
     }
     /* XXX: it may be better to heap-allocate the "module!func" string and
      * pass in, to avoid this lookup.
      */
     mod = dr_lookup_module(func);
-    if (mod != NULL && dr_module_preferred_name(mod) != NULL) {
-        dr_fprintf(STDERR, "%s!", dr_module_preferred_name(mod));
+    if (mod != NULL)
+        modname = dr_module_preferred_name(mod);
+    dr_fprintf(STDERR, "%s%s%s%s\n", STDERR_PREFIX,
+               modname == NULL ? "" : modname,
+               modname == NULL ? "" : "!", name);
+    if (mod != NULL)
         dr_free_module_data(mod);
-    }
-    dr_fprintf(STDERR, "%s\n", name);
 }
 
 static void
@@ -254,4 +267,8 @@ dr_init(client_id_t id)
 #endif
     drmgr_register_module_load_event(event_module_load);
     drmgr_register_module_unload_event(event_module_unload);
+
+#ifdef WINDOWS
+    dr_enable_console_printing();
+#endif
 }
