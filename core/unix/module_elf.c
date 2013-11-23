@@ -1433,27 +1433,30 @@ dynsym_next_export(elf_export_iterator_t *iter)
 {
     if (iter->hash_is_gnu) {
         /* XXX: perhaps we should safe_read buckets[] and chain[] */
-        if (iter->chain_idx == 0) {
-            /* Advance to next hash chain */
-            do {
-                if (iter->hidx >= iter->num_buckets)
-                    return false;
-                iter->chain_idx = iter->buckets[iter->hidx];
-                iter->hidx++;
-            } while (iter->chain_idx == 0);
-        }
-        /* Walk the hash chain for this bucket value */
-        if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx]) ||
-            /* hashtable should only have non-zero entries, but be paranoid */
-            iter->safe_cur_sym.st_value == 0) {
-            memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
-            return false;
-        }
-        /* End of chain is marked by LSB being 1 */
-        if (TEST(1, iter->chain[iter->chain_idx]))
-            iter->chain_idx = 0;
-        else
-            iter->chain_idx++;
+        do { /* loop over zero entries */
+            if (iter->chain_idx == 0) {
+                /* Advance to next hash chain */
+                do {
+                    if (iter->hidx >= iter->num_buckets)
+                        return false;
+                    iter->chain_idx = iter->buckets[iter->hidx];
+                    iter->hidx++;
+                } while (iter->chain_idx == 0);
+            }
+            /* Walk the hash chain for this bucket value */
+            if (!SAFE_READ_VAL(iter->safe_cur_sym, &iter->dynsym[iter->chain_idx])) {
+                memset(&iter->safe_cur_sym, 0, sizeof(iter->safe_cur_sym));
+                return false;
+            }
+            /* End of chain is marked by LSB being 1 */
+            if (TEST(1, iter->chain[iter->chain_idx]))
+                iter->chain_idx = 0;
+            else
+                iter->chain_idx++;
+            /* Hashtable should only have non-zero entries, but I see some in
+             * the middle of .dynsym for 32-bit libs.
+             */
+        } while (iter->safe_cur_sym.st_value == 0);
     } else {
         do {
             iter->cur_sym = (ELF_SYM_TYPE *)((byte *)iter->cur_sym + iter->symentry_size);
