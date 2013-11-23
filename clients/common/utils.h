@@ -37,12 +37,43 @@
 
 #ifdef DEBUG
 # define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+# define IF_DEBUG(x) x
 #else
 # define ASSERT(x, msg) /* nothing */
+# define IF_DEBUG(x) /* nothing */
+#endif
+
+/* XXX: should be moved to DR API headers? */
+#define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
+#define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof((buf)[0]))
+#define BUFFER_LAST_ELEMENT(buf)    (buf)[BUFFER_SIZE_ELEMENTS(buf) - 1]
+#define NULL_TERMINATE_BUFFER(buf)  BUFFER_LAST_ELEMENT(buf) = 0
+#define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+#define TEST  TESTANY
+
+#ifdef WINDOWS
+# define IF_WINDOWS(x) x
+# define IF_UNIX_ELSE(x,y) y
+#else
+# define IF_WINDOWS(x)
+# define IF_UNIX_ELSE(x,y) x
 #endif
 
 /* Checks for both debug and release builds: */
 #define USAGE_CHECK(x, msg) DR_ASSERT_MSG(x, msg)
 
+static inline generic_func_t
+cast_to_func(void *p)
+{
+#ifdef WINDOWS
+#  pragma warning(push)
+#  pragma warning(disable : 4055)
+#endif
+    return (generic_func_t) p;
+#ifdef WINDOWS
+#  pragma warning(pop)
+#endif
+}
 
 #endif /* CLIENTS_COMMON_UTILS_H_ */

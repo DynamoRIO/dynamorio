@@ -44,6 +44,9 @@
 #include "drsyms.h"
 #include "hashtable.h"
 
+#include "../common/utils.h"
+#undef ASSERT /* we're standalone, so no client assert */
+
 #include <string.h> /* strlen */
 #include <stdlib.h> /* malloc */
 #include <stdio.h>

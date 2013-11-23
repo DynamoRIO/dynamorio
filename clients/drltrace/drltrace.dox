@@ -30,33 +30,21 @@
  * DAMAGE.
  */
 
-/* used by both bbcov.c and bbcov2lcov.c */
-#ifndef _BBCOV_H_
-#define _BBCOV_H_ 1
+/**
+***************************************************************************
+***************************************************************************
+\page page_drltrace Library Tracing Tool
 
-#include "dr_api.h"
+drltrace is a DynamoRIO client tool that records calls to shared libraries.
+It reports all invocations of exported functions in all shared libraries
+loaded into the target process.
 
-/* The bb_entry_t is used by both bbcov client and post processing bbcov2lcov.
- * It has different sizes and members with and without CBR_COVERAGE.
- * We use different BBCOV_VERSION to make sure the bbcov2lcov process the
- * right log file generated from corrsponding bbcov client.
- */
-#ifdef CBR_COVERAGE
-# define BBCOV_VERSION 2
-#else
-# define BBCOV_VERSION 1
-#endif
+The runtime options for this tool include:
+ - \b -only_from_app:
+    Only reports library calls from the application itself, as opposed to
+    all calls even from other libraries or within the same library.
+ - \b -logdir dir:
+    Sets the log directory, which by default
+    is the directory containing the client library.
 
-/* data structure used in bbcov.log */
-typedef struct _bb_entry_t {
-    uint   start;      /* offset of bb start from the image base */
-    ushort size;
-    ushort mod_id;
-#ifdef CBR_COVERAGE
-    uint   cbr_tgt;    /* offset of cbr target from the image base */
-    bool   trace;
-    ushort num_instrs;
-#endif
-} bb_entry_t;
-
-#endif /* _BBCOV_H_ */
+*/
