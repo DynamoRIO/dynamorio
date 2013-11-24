@@ -30,9 +30,9 @@
  * DAMAGE.
  */
 
-/* bbcov2lcov.c
+/* drcov2lcov.c
  *
- * Covert client bbcov binary format to lcov text format.
+ * Covert client drcov binary format to lcov text format.
  */
 /* TODO:
  * - add other coverage: cbr, function, ...
@@ -40,7 +40,7 @@
  */
 
 #include "dr_api.h"
-#include "bbcov.h"
+#include "drcov.h"
 #include "drsyms.h"
 #include "hashtable.h"
 
@@ -66,34 +66,34 @@ static int warning = 1;
 
 #define PRINT(lvl, ...) do {                                \
     if (verbose >= lvl) {                                   \
-        fprintf(stdout, "[BBCOV2LCOV] INFO(%d):    ", lvl); \
+        fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
         fprintf(stdout, __VA_ARGS__);                       \
     }                                                       \
 } while (0)
 
 #define WARN(lvl, ...) do {                                 \
     if (warning >= lvl) {                                   \
-        fprintf(stderr, "[BBCOV2LCOV] WARNING(%d): ", lvl); \
+        fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
         fprintf(stderr, __VA_ARGS__);                       \
     }                                                       \
 } while (0)
 
 #define ASSERT(val, ...) do {                               \
     if (!(val)) {                                           \
-        fprintf(stderr, "[BBCOV2LCOV] ERROR:      ");       \
+        fprintf(stderr, "[DRCOV2LCOV] ERROR:      ");       \
         fprintf(stderr, __VA_ARGS__);                       \
         exit(1);                                            \
     }                                                       \
 } while (0)
 
 const char *usage_str = 
-    "bbcov2lcov: covert bbcov file format to lcov file format\n"
-    "usage: bbcov2lcov [options]\n"
+    "drcov2lcov: covert drcov file format to lcov file format\n"
+    "usage: drcov2lcov [options]\n"
     "      --help                          Print this message.\n"
     "      --verbose <int>                 Verbose level.\n"
     "      --warning <int>                 Warning level.\n"
-    "      --list <input list file>        The file with a list of bbcov files to be processed.\n"
-    "      --dir <input directory>         The directory with all bbcov.*.log files to be processed.\n"
+    "      --list <input list file>        The file with a list of drcov files to be processed.\n"
+    "      --dir <input directory>         The directory with all drcov.*.log files to be processed.\n"
     "      --output <output file>          The output file.\n"
     "      --mod_filter <module filter>    Only process the module whose path contains the filter string.\n"
     "      --src_filter <source filter>    Only process the source file whose path contains the filter string.\n"
@@ -514,8 +514,8 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
     PRINT(3, "Reading module table...\n");
     /* versione number */
     PRINT(4, "Reading version number");
-    if (dr_sscanf(buf, "BBCOV VERSION: %u\n", &version) != 1 &&
-        version != BBCOV_VERSION) {
+    if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1 &&
+        version != DRCOV_VERSION) {
         WARN(2, "Failed to read version number");
         return NULL;
     }
@@ -627,7 +627,7 @@ close_input_file(file_t f, char *map, size_t map_size)
 }
 
 static bool
-read_bbcov_file(char *input)
+read_drcov_file(char *input)
 {
     file_t log;
     char  *map, *ptr;
@@ -636,10 +636,10 @@ read_bbcov_file(char *input)
     uint   num_mods, num_bbs;
     bool   res;
 
-    PRINT(2, "Reading bbcov log file: %s\n", input);
+    PRINT(2, "Reading drcov log file: %s\n", input);
     log = open_input_file(input, &map, &map_size, NULL);
     if (log == INVALID_FILE) {
-        WARN(1, "Failed to read bbcov log file %s\n", input);
+        WARN(1, "Failed to read drcov log file %s\n", input);
         return false;
     }
     ptr = read_module_list(map, &tables, &num_mods);
@@ -664,7 +664,7 @@ read_bbcov_file(char *input)
 }
 
 static inline bool
-is_bbcov_log_file(const char *fname)
+is_drcov_log_file(const char *fname)
 {
     if (fname[0] == 'b' && fname[1] == 'b' &&
         fname[2] == 'c' && fname[3] == 'o' &&
@@ -676,7 +676,7 @@ is_bbcov_log_file(const char *fname)
 
 #ifdef UNIX
 static bool
-read_bbcov_dir(void)
+read_drcov_dir(void)
 {
     DIR *dir;
     struct dirent *ent;
@@ -685,12 +685,12 @@ read_bbcov_dir(void)
     PRINT(2, "Reading input directory %s\n", input_dir);
     if ((dir = opendir(input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
-            if (is_bbcov_log_file(ent->d_name)) {
+            if (is_drcov_log_file(ent->d_name)) {
                 if (GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL) == 0) {
                     WARN(2, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
                     NULL_TERMINATE_BUFFER(path);
-                    read_bbcov_file(path);
+                    read_drcov_file(path);
                 }
             }
         }
@@ -704,7 +704,7 @@ read_bbcov_dir(void)
 }
 #else
 static bool
-read_bbcov_dir(void)
+read_drcov_dir(void)
 {
     HANDLE hFind = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATA ffd;
@@ -728,12 +728,12 @@ read_bbcov_dir(void)
     }
     do {
         if (!TESTANY(ffd.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) &&
-            is_bbcov_log_file(ffd.cFileName)) {
+            is_drcov_log_file(ffd.cFileName)) {
             strcpy(path, input_dir);
             if (!has_sep)
                 strcat(path, "\\");
             strcat(path, ffd.cFileName);
-            read_bbcov_file(path);
+            read_drcov_file(path);
         }
     } while (FindNextFile(hFind, &ffd) != 0);
     FindClose(hFind);
@@ -742,7 +742,7 @@ read_bbcov_dir(void)
 #endif
 
 static bool
-read_bbcov_list(void)
+read_drcov_list(void)
 {
     file_t list;
     char  *map, *ptr;
@@ -763,20 +763,20 @@ read_bbcov_list(void)
         NULL_TERMINATE_BUFFER(path);
         ptr = move_to_next_line(ptr);
         null_terminate_path(path);
-        read_bbcov_file(path);
+        read_drcov_file(path);
     }
     close_input_file(list, map, map_size);
     return true;
 }
 
 static bool
-read_bbcov_input(void)
+read_drcov_input(void)
 {
     bool res = true;
     if (input_list != NULL)
-        res = res && read_bbcov_list();
+        res = res && read_drcov_list();
     if (input_dir  != NULL)
-        res = res && read_bbcov_dir();
+        res = res && read_drcov_dir();
     return res;
 }
 
@@ -1051,7 +1051,7 @@ main(int argc, char *argv[])
                       NULL /* hash */, NULL /* cmp */);
 
     PRINT(1, "Reading input files...\n");
-    if (!read_bbcov_input()) {
+    if (!read_drcov_input()) {
         ASSERT(false, "Failed to read input files\n");
         return 1;
     }

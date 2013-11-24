@@ -31,7 +31,7 @@
  */
 
 /* Code Manipulation API Sample:
- * bbcov.c
+ * drcov.c
  * 
  * Collects information about basic blocks that have been executed.
  * It simply stores the information of basic blocks seen in bb callback event
@@ -56,7 +56,7 @@
  * -check_cbr     Performs simple online conditional branch coverage checks.
  *                Checks how many conditional branches are seen and how
  *                many branches/fallthroughs are not excercised.
- *                The result are printed to bbcov.*.res file.
+ *                The result are printed to drcov.*.res file.
  * -summary_only  Prints only the summary of check results. Must be used
  *                with -check_cbr option.
  */
@@ -64,7 +64,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drx.h"
-#include "bbcov.h"
+#include "drcov.h"
 #include "../common/modules.h"
 #include "../common/utils.h"
 #include "hashtable.h"
@@ -87,7 +87,7 @@ static uint verbose;
 
 #define OPTION_MAX_LENGTH MAXIMUM_PATH
 
-typedef struct _bbcov_option_t {
+typedef struct _drcov_option_t {
     bool dump_text;
     bool dump_binary;
     /* Use nudge to notify the process for termination so that
@@ -100,8 +100,8 @@ typedef struct _bbcov_option_t {
     bool check;
     bool summary;
 #endif
-} bbcov_option_t;
-static bbcov_option_t options;
+} drcov_option_t;
+static drcov_option_t options;
 
 
 #define NUM_THREAD_MODULE_CACHE 4
@@ -117,7 +117,7 @@ typedef struct _per_thread_t {
 } per_thread_t;
 
 static per_thread_t *global_data;
-static bool bbcov_per_thread = false;
+static bool drcov_per_thread = false;
 static module_table_t *module_table;
 static client_id_t client_id;
 #ifndef WINDOWS
@@ -152,7 +152,7 @@ log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
 #endif
                            DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
         if (log != INVALID_FILE) {
-            dr_log(drcontext, LOG_ALL, 1, "bbcov: log file is %s\n", buf);
+            dr_log(drcontext, LOG_ALL, 1, "drcov: log file is %s\n", buf);
             NOTIFY(1, "<created log file %s>\n", buf);
             return log;
         }
@@ -197,7 +197,7 @@ log_file_create(void *drcontext, per_thread_t *data)
         app_name = "unknown";
     len = dr_snprintf(dirsep + 1,
                       (sizeof(logname)-(dirsep+1-logname))/sizeof(logname[0]),
-                      "bbcov.%s.%05d", app_name,
+                      "drcov.%s.%05d", app_name,
                       drcontext == NULL ?
                       dr_get_process_id() :
                       dr_get_thread_id(drcontext));
@@ -513,10 +513,10 @@ thread_data_create(void *drcontext)
 {
     per_thread_t *data;
     if (drcontext == NULL) {
-        ASSERT(!bbcov_per_thread, "bbcov_per_thread should not be set");
+        ASSERT(!drcov_per_thread, "drcov_per_thread should not be set");
         data = dr_global_alloc(sizeof(*data));
     } else {
-        ASSERT(bbcov_per_thread, "bbcov_per_thread should be set");
+        ASSERT(drcov_per_thread, "drcov_per_thread should be set");
         data = dr_thread_alloc(drcontext, sizeof(*data));
     }
     /* XXX: can we assume bb create event is serialized,
@@ -536,10 +536,10 @@ thread_data_destroy(void *drcontext, per_thread_t *data)
     dr_close_file(data->log);
     /* free thread data */
     if (drcontext == NULL) {
-        ASSERT(!bbcov_per_thread, "bbcov_per_thread should not be set");
+        ASSERT(!drcov_per_thread, "drcov_per_thread should not be set");
         dr_global_free(data, sizeof(*data));
     } else {
-        ASSERT(bbcov_per_thread, "bbcov_per_thread is not set");
+        ASSERT(drcov_per_thread, "drcov_per_thread is not set");
         dr_thread_free(drcontext, data, sizeof(*data));
     }
 }
@@ -716,7 +716,7 @@ version_print(file_t log)
         ASSERT(false, "invalid log file");
         return;
     }
-    dr_fprintf(log, "BBCOV VERSION: %d\n", BBCOV_VERSION);
+    dr_fprintf(log, "DRCOV VERSION: %d\n", DRCOV_VERSION);
 }
 
 static void
@@ -727,8 +727,8 @@ event_thread_exit(void *drcontext)
     data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
     ASSERT(data != NULL, "data must not be NULL");
 
-    if (bbcov_per_thread) {
-        /* print per-thread bbcov info */
+    if (drcov_per_thread) {
+        /* print per-thread drcov info */
         if (options.dump_text || options.dump_binary) {
             version_print(data->log);
             module_table_print(module_table, data->log,
@@ -784,7 +784,7 @@ event_thread_init(void *drcontext)
 
     }
     /* allocate thread private data for per-thread cache */
-    if (bbcov_per_thread)
+    if (drcov_per_thread)
         data = thread_data_create(drcontext);
     else
         data = thread_data_copy(drcontext);
@@ -795,7 +795,7 @@ event_thread_init(void *drcontext)
 static void
 event_fork(void *drcontext)
 {
-    if (!bbcov_per_thread) {
+    if (!drcov_per_thread) {
         log_file_create(NULL, global_data);
     } else {
         per_thread_t *data = drmgr_get_tls_field(drcontext, tls_idx);
@@ -810,7 +810,7 @@ event_fork(void *drcontext)
 static void
 event_exit(void)
 {
-    if (!bbcov_per_thread) {
+    if (!drcov_per_thread) {
         if (options.dump_text || options.dump_binary) {
             version_print(global_data->log);
             module_table_print(module_table, global_data->log,
@@ -847,7 +847,7 @@ event_init(void)
     /* create module table */
     module_table = module_table_create();
     /* create process data if whole process bb coverage. */
-    if (!bbcov_per_thread)
+    if (!drcov_per_thread)
         global_data = global_data_create();
 }
 
@@ -943,7 +943,7 @@ dr_init(client_id_t id)
 
     client_id = id;
     if (dr_using_all_private_caches())
-        bbcov_per_thread = true;
+        drcov_per_thread = true;
     options_init(id);
 
     if (options.nudge_kills)

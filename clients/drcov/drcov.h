@@ -30,24 +30,24 @@
  * DAMAGE.
  */
 
-/* used by both bbcov.c and bbcov2lcov.c */
-#ifndef _BBCOV_H_
-#define _BBCOV_H_ 1
+/* used by both drcov.c and drcov2lcov.c */
+#ifndef _DRCOV_H_
+#define _DRCOV_H_ 1
 
 #include "dr_api.h"
 
-/* The bb_entry_t is used by both bbcov client and post processing bbcov2lcov.
+/* The bb_entry_t is used by both drcov client and post processing drcov2lcov.
  * It has different sizes and members with and without CBR_COVERAGE.
- * We use different BBCOV_VERSION to make sure the bbcov2lcov process the
- * right log file generated from corrsponding bbcov client.
+ * We use different DRCOV_VERSION to make sure the drcov2lcov process the
+ * right log file generated from corrsponding drcov client.
  */
 #ifdef CBR_COVERAGE
-# define BBCOV_VERSION 2
+# define DRCOV_VERSION 2
 #else
-# define BBCOV_VERSION 1
+# define DRCOV_VERSION 1
 #endif
 
-/* data structure used in bbcov.log */
+/* data structure used in drcov.log */
 typedef struct _bb_entry_t {
     uint   start;      /* offset of bb start from the image base */
     ushort size;
@@ -59,4 +59,4 @@ typedef struct _bb_entry_t {
 #endif
 } bb_entry_t;
 
-#endif /* _BBCOV_H_ */
+#endif /* _DRCOV_H_ */

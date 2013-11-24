@@ -409,7 +409,7 @@ typedef struct _cb_entry_t {
      * child process for jobs containing multiple pids and for
      * JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.  If we wanted to not skip those we'd
      * have to emulate the kill via NtTerminateProcess, which doesn't seem worth
-     * it when our two use cases (DrMem and bbcov) don't need that kind of
+     * it when our two use cases (DrMem and drcov) don't need that kind of
      * control.
      */
     bool (*cb)(process_id_t, int);

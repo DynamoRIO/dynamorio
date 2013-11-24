@@ -39,7 +39,7 @@ DynamoRIO-Based tools are provided for direct use.
 A tool can be invoked using the option \p -t with the tool name.
 For example:
 \code
-bin64/drrun -t bbcov -- app
+bin64/drrun -t drcov -- app
 \endcode
 
 Those interested in how the -t option works should see

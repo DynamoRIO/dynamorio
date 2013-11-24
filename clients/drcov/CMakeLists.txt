@@ -36,48 +36,48 @@ if (CBR_COVERAGE)
   add_definitions(-DCBR_COVERAGE)
 endif(CBR_COVERAGE)
 
-# add bbcov client
+# add drcov client
 if (STATIC_LIBRARY)
   set(libtype STATIC)
 else()
   set(libtype SHARED)
 endif ()
 
-add_library(bbcov ${libtype}
-  bbcov.c
+add_library(drcov ${libtype}
+  drcov.c
   ../common/modules.c
   # add more here
   )
-configure_DynamoRIO_client(bbcov)
-use_DynamoRIO_extension(bbcov drmgr)
-use_DynamoRIO_extension(bbcov drx)
-use_DynamoRIO_extension(bbcov drcontainers)
+configure_DynamoRIO_client(drcov)
+use_DynamoRIO_extension(drcov drmgr)
+use_DynamoRIO_extension(drcov drx)
+use_DynamoRIO_extension(drcov drcontainers)
 
 # ensure we rebuild if includes change
-add_dependencies(bbcov api_headers)
+add_dependencies(drcov api_headers)
 
 # Provide a hint for how to use the client
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
-  add_custom_command(TARGET bbcov
+  add_custom_command(TARGET drcov
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Usage: pass to drconfig or drrun: -t bbcov"
+    ARGS -E echo "Usage: pass to drconfig or drrun: -t drcov"
     VERBATIM)
 endif ()
 
-# add bbcov2lcov
-add_executable(bbcov2lcov bbcov2lcov.c)
+# add drcov2lcov
+add_executable(drcov2lcov drcov2lcov.c)
 # We don't want an rpath as it makes it hard to switch
 # between debug and release at runtime (rpath is removed
 # on "make install"; here we avoid in build dir).
 # DynamoRIOConfig.cmake sets for standalone but not lib.
 set(DynamoRIO_RPATH OFF)
-configure_DynamoRIO_standalone(bbcov2lcov)
-use_DynamoRIO_extension(bbcov2lcov drsyms)
-use_DynamoRIO_extension(bbcov2lcov drcontainers)
+configure_DynamoRIO_standalone(drcov2lcov)
+use_DynamoRIO_extension(drcov2lcov drsyms)
+use_DynamoRIO_extension(drcov2lcov drcontainers)
 
 # ensure we rebuild if includes change
-add_dependencies(bbcov2lcov api_headers)
+add_dependencies(drcov2lcov api_headers)
 
 # Provide a hint for running
 if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
@@ -86,7 +86,7 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
   else (UNIX)
     set(FIND_MSG "(set PATH or copy to same directory)")
   endif (UNIX)
-  add_custom_command(TARGET bbcov2lcov
+  add_custom_command(TARGET drcov2lcov
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
     ARGS -E echo "Make sure the loader finds the dynamorio and drsyms library ${FIND_MSG}"
@@ -96,13 +96,23 @@ endif ()
 if (WIN32 AND GENERATE_PDBS)
   # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
   # In any case we make sure to add it (for release and debug, to get pdb):
-  append_property_string(TARGET bbcov LINK_FLAGS "/debug")
-  append_property_string(TARGET bbcov2lcov LINK_FLAGS "/debug")
+  append_property_string(TARGET drcov LINK_FLAGS "/debug")
+  append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
-DR_export_target(bbcov)
-install_exported_target(bbcov ${INSTALL_CLIENTS_LIB})
-install_exported_target(bbcov2lcov ${INSTALL_CLIENTS_BIN})
+DR_export_target(drcov)
+install_exported_target(drcov ${INSTALL_CLIENTS_LIB})
+install_exported_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
+# Create a legacy-named copy of the executable
+get_target_property(exe_path drcov2lcov LOCATION)
+get_filename_component(legacy_exe "${exe_path}" NAME)
+string(REGEX REPLACE "drcov" "bbcov" legacy_exe ${legacy_exe})
+if (DEFINED DR_INSTALL_TARGETS_DEST)
+  set(inst_dst ${DR_INSTALL_TARGETS_DEST})
+else ()
+  set(inst_dst ${INSTALL_CLIENTS_BIN})
+endif ()
+DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 
 DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
   DESTINATION "${INSTALL_CLIENTS_BIN}"
@@ -118,12 +128,15 @@ if (NOT DR_EXT_DRSYMS_STATIC)
     PATTERN "lib*.debug" EXCLUDE)
 endif (NOT DR_EXT_DRSYMS_STATIC)
 
-set(INSTALL_BBCOV_CONFIG ${INSTALL_CLIENTS_BASE})
+set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
 
+# Originally this tool was called "bbcov", so we keep a legacy .drrun for back-compat.
 if (X64)
-  set(CONFIG ${PROJECT_BINARY_DIR}/bbcov.drrun64)
+  set(CONFIG ${PROJECT_BINARY_DIR}/drcov.drrun64)
+  set(CONFIG_LEGACY bbcov.drrun64)
 else (X64)
-  set(CONFIG ${PROJECT_BINARY_DIR}/bbcov.drrun32)
+  set(CONFIG ${PROJECT_BINARY_DIR}/drcov.drrun32)
+  set(CONFIG_LEGACY bbcov.drrun32)
 endif (X64)
 
 if (UNIX)
@@ -134,12 +147,13 @@ else (UNIX)
   set(LIB_PFX "")
 endif (UNIX)
 
-file(WRITE  ${CONFIG} "# bbcov tool config file\n")
+file(WRITE  ${CONFIG} "# drcov tool config file\n")
 file(APPEND ${CONFIG} "# DynamoRIO options\n")
 file(APPEND ${CONFIG} "DR_OP=-nop_initial_bblock\n")
 file(APPEND ${CONFIG} "# client tool path\n")
-file(APPEND ${CONFIG} "CLIENT_REL=${INSTALL_CLIENTS_LIB}/${LIB_PFX}bbcov${LIB_EXT}\n")
+file(APPEND ${CONFIG} "CLIENT_REL=${INSTALL_CLIENTS_LIB}/${LIB_PFX}drcov${LIB_EXT}\n")
 file(APPEND ${CONFIG} "# client tool options\n")
 file(APPEND ${CONFIG} "TOOL_OP=\n")
 
-DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_BBCOV_CONFIG})
+DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_DRCOV_CONFIG})
+DR_install(FILES "${CONFIG}" RENAME "${CONFIG_LEGACY}" DESTINATION ${INSTALL_DRCOV_CONFIG})

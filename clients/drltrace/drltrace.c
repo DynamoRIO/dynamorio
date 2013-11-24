@@ -75,7 +75,7 @@ static drltrace_options_t options;
 static app_pc exe_start;
 
 /* XXX i#1349: add writing to logdir instead of just stderr.
- * Perhaps refactor bbcov.c logfile routines into ../common/utils.c.
+ * Perhaps refactor drcov.c logfile routines into ../common/utils.c.
  */
 
 /* runtest.cmake assumes this is the prefix, so update both when changing it */

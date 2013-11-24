@@ -119,6 +119,7 @@ The changes between version \DR_VERSION and 4.1.0 include:
 
  - Added preliminary Windows 8.1 support
  - Added a new \ref page_drltrace
+ - Re-branded our \ref page_drcov
  - Added dr_app_handle_mbr_target()
  - Added dr_syscall_intercept_natively()
  - Added proc_avx_enabled()
