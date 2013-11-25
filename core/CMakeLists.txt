@@ -419,6 +419,12 @@ if (UNIX)
       "${dynamorio_link_flags} -install_name @rpath/libdynamorio.dylib")
   endif (APPLE)
 
+  if (APPLE AND NOT X64)
+    # XXX i#1322: get the asm code PIC.  Until then we have to suppress the
+    # error from ld about text relocs.
+    set(dynamorio_link_flags "-read_only_relocs suppress")
+  endif ()
+
   # Bind global symbols internally to avoid interposing
   if (APPLE)
     # Looks like -interposable is off by default

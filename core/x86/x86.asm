@@ -354,7 +354,7 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      REG_XSP, [2*ARG_SZ + REG_XAX] /* stack */
         cmp      BYTE [4*ARG_SZ + REG_XAX], 0 /* free_initstack */
         je       call_dispatch_alt_stack_no_free
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PR 212290: avoid text relocations: get PIC base into xax
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
@@ -544,7 +544,7 @@ GLOBAL_LABEL(cleanup_and_terminate:)
 #endif
         /* increment exiting_thread_count so that we don't get killed after 
          * thread_exit removes us from the all_threads list */
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PR 212290: avoid text relocations: get PIC base into callee-saved xdi.
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
@@ -587,12 +587,12 @@ cat_no_thread:
          * could use initstack for whole thing but that's too long 
          * of a time to hold global initstack_mutex */
         mov      ecx, 1
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack_mutex))
 #endif
 cat_spin:       
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         xchg     DWORD [REG_XAX], ecx
 #else
         xchg     DWORD SYMREF(initstack_mutex), ecx /* rip-relative on x64 */
@@ -619,7 +619,7 @@ cat_have_lock:
         mov      REG_XBX, [3*ARG_SZ + REG_XBP] /* sys_arg1 */
         mov      REG_XDX, [4*ARG_SZ + REG_XBP] /* sys_arg2 */
         /* swap stacks */
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
         mov      REG_XSP, PTRSZ [REG_XBP]
@@ -664,7 +664,7 @@ cat_have_lock:
         /* give up initstack mutex -- potential problem here with a thread getting 
          *   an asynch event that then uses initstack, but syscall should only care 
          *   about ebx and edx */
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
         mov      DWORD [REG_XBP], 0
@@ -673,7 +673,7 @@ cat_have_lock:
 #endif
         /* we are finished with all shared resources, decrement the  
          * exiting_thread_count (allows another thread to kill us) */
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
 	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
         lock dec DWORD [REG_XBP]
@@ -2122,7 +2122,7 @@ GLOBAL_LABEL(get_ymm_caller_saved:)
  */
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* We don't have any free registers to make this PIC so we patch
          * this up.  It would be better to generate than patch .text,
          * but we need a static address to reference in null_fragment

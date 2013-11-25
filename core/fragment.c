@@ -780,7 +780,7 @@ hashtable_ibl_myinit(dcontext_t *dcontext, ibl_table_t *table, uint bits,
     if (dcontext != GLOBAL_DCONTEXT && hashlookup_null_target == NULL) {
         ASSERT(!dynamo_initialized);
         hashlookup_null_target = get_target_delete_entry_pc(dcontext, table);
-#if !defined(X64) && defined(UNIX)
+#if !defined(X64) && defined(LINUX)
         /* see comments in x86.asm: we patch to avoid text relocations */
         byte *pc = (byte *) hashlookup_null_handler;
         byte *page_start = (byte *) PAGE_START(pc);
