@@ -35,6 +35,11 @@
  *
  * FIXME i#58: NYI (see comments below as well):
  * + pretty much the whole file
+ *
+ * We deliberately do not statically partition into single types that
+ * map to _64 for X64 and 32-bit versions for 32-bit, to support 64-bit
+ * DR handling 32-bit modules.  The Mac headers containing both structs
+ * make this easier.
  */
 
 #include "../globals.h"
@@ -42,12 +47,53 @@
 #include "os_private.h"
 #include "module_private.h"
 #include <mach-o/ldsyms.h> /* _mh_dylib_header */
+#include <mach-o/loader.h> /* mach_header */
+#include <stddef.h> /* offsetof */
+
+/* Like is_elf_so_header(), if size == 0 then safe-reads the header; else
+ * assumes that [base, base+size) is readable.
+ */
+static bool
+is_macho_header(app_pc base, size_t size)
+{
+    struct mach_header hdr_safe;
+    struct mach_header *hdr;
+    if (base == NULL)
+	return false;
+    if (size >= sizeof(hdr_safe)) {
+	hdr = (struct mach_header *) base;
+    } else {
+	if (!safe_read(base, sizeof(hdr_safe), &hdr_safe))
+	    return false;
+	hdr = &hdr_safe;
+    }
+    ASSERT(offsetof(struct mach_header, filetype) ==
+	   offsetof(struct mach_header_64, filetype));
+    if ((hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86) ||
+	(hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
+	/* XXX: should we include MH_PRELOAD or MH_FVMLIB? */
+	if (hdr->filetype == MH_EXECUTE ||
+	    hdr->filetype == MH_DYLIB ||
+	    hdr->filetype == MH_BUNDLE) {
+	    return true;
+	}
+    }
+    return false;
+}
 
 bool
 module_file_has_module_header(const char *filename)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return false;
+    bool res = false;
+    struct mach_header hdr;
+    file_t fd = os_open(filename, OS_OPEN_READ);
+    if (fd == INVALID_FILE)
+        return false;
+    if (os_read(fd, &hdr, sizeof(hdr)) == sizeof(hdr) &&
+	is_macho_header((app_pc)&hdr, sizeof(hdr)))
+	res = true;
+    os_close(fd);
+    return res;
 }
 
 bool
@@ -134,15 +180,18 @@ module_get_header_size(app_pc module_base)
 bool
 module_get_platform(file_t f, dr_platform_t *platform)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return false;
-}
-
-bool
-module_file_is_module64(file_t f)
-{
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return false;
+    struct mach_header hdr;
+    if (os_read(f, &hdr, sizeof(hdr)) != sizeof(hdr))
+        return false;
+    if (!is_macho_header((app_pc)&hdr, sizeof(hdr)))
+        return false;
+    switch (hdr.cputype) {
+    case CPU_TYPE_X86_64: *platform = DR_PLATFORM_64BIT; break;
+    case CPU_TYPE_X86:    *platform = DR_PLATFORM_32BIT; break;
+    default:
+        return false;
+    }
+    return true;
 }
 
 bool

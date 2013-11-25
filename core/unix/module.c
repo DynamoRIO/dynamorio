@@ -602,3 +602,13 @@ at_dl_runtime_resolve_ret(dcontext_t *dcontext, app_pc source_fragment, int *ret
     }
     return false;
 }
+
+bool
+module_file_is_module64(file_t f)
+{
+    dr_platform_t platform;
+    if (module_get_platform(f, &platform))
+        return platform == DR_PLATFORM_64BIT;
+    /* on error, assume same arch as us */
+    return IF_X64_ELSE(true, false);
+}

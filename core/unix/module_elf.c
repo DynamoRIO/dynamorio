@@ -915,16 +915,6 @@ module_get_platform(file_t f, dr_platform_t *platform)
     return true;
 }
 
-bool
-module_file_is_module64(file_t f)
-{
-    dr_platform_t platform;
-    if (module_get_platform(f, &platform))
-        return platform == DR_PLATFORM_64BIT;
-    /* on error, assume same arch as us */
-    return IF_X64_ELSE(true, false);
-}
-
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 /* returns true if the module is marked as having text relocations.
