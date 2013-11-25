@@ -60,27 +60,27 @@ print "-------------------------------------------------\n";
 $num_bmarks = 0;
 while (<FILE1>) {
     if ($_ =~ /^\s*(\w+)\s+\d+\/\d+\s+(\S+)\s+(\S+)\s+([\d\.]+)\s+(\d+)\s+(\d+)/) {
-	$bmark = $1;
-	$status1{$bmark} = $2;
-	$cpu1{$bmark} = $3;
-	$time1{$bmark} = $4;
-	$rss1{$bmark} = $5;
-	$vsz1{$bmark} = $6;
-	$name_bmarks[$num_bmarks] = $bmark;
-	$num_bmarks++;
+        $bmark = $1;
+        $status1{$bmark} = $2;
+        $cpu1{$bmark} = $3;
+        $time1{$bmark} = $4;
+        $rss1{$bmark} = $5;
+        $vsz1{$bmark} = $6;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
     }
 }
 close(FILE1);
 while (<FILE2>) {
     if ($_ =~ /^\s*(\w+)\s+\d+\/\d+\s+(\S+)\s+(\S+)\s+([\d\.]+)\s+(\d+)\s+(\d+)/) {
-	$bmark = $1;
-	$status2{$bmark} = $2;
-	$cpu2{$bmark} = $3;
-	$time2{$bmark} = $4;
-	$rss2{$bmark} = $5;
-	$vsz2{$bmark} = $6;
-	$name_bmarks[$num_bmarks] = $bmark;
-	$num_bmarks++;
+        $bmark = $1;
+        $status2{$bmark} = $2;
+        $cpu2{$bmark} = $3;
+        $time2{$bmark} = $4;
+        $rss2{$bmark} = $5;
+        $vsz2{$bmark} = $6;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
     }
 }
 close(FILE2);
@@ -98,7 +98,7 @@ $harsum{"vsz"} = 0;
 $harnum{"vsz"} = 0;
 foreach $s (@sorted) {
     if ($s eq $last) {
-	next;
+        next;
     }
     $last = $s;
     
@@ -107,37 +107,37 @@ foreach $s (@sorted) {
     # both must be ok
     # we only look at status -- we assume table filtered out bad %CPU
     if ($ignore_errors || $status1{$s} =~ /ok/ && $status2{$s} =~ /ok/) {
-	$bad = 0;
+        $bad = 0;
     } else {
-	$bad = 1;
+        $bad = 1;
     }
 
     if (!$bad && defined($time1{$s}) && defined($time2{$s}) &&
-	$time1{$s} > 0 && $time2{$s} > 0) {
-	$ratio = $time1{$s} / $time2{$s};
-	$harsum{"time"} += 1/$ratio;
-	$harnum{"time"}++;
-	printf "%4.3f    ", $ratio;
+        $time1{$s} > 0 && $time2{$s} > 0) {
+        $ratio = $time1{$s} / $time2{$s};
+        $harsum{"time"} += 1/$ratio;
+        $harnum{"time"}++;
+        printf "%4.3f    ", $ratio;
     } else {
-	printf "%5s    ", "-----";
+        printf "%5s    ", "-----";
     }
     if (!$bad && defined($rss1{$s}) && defined($rss2{$s}) &&
-	$rss1{$s} > 0 && $rss2{$s} > 0) {
-	$ratio = $rss1{$s} / $rss2{$s};
-	$harsum{"rss"} += 1/$ratio;
-	$harnum{"rss"}++;
-	printf "%4.3f    ", $ratio;
+        $rss1{$s} > 0 && $rss2{$s} > 0) {
+        $ratio = $rss1{$s} / $rss2{$s};
+        $harsum{"rss"} += 1/$ratio;
+        $harnum{"rss"}++;
+        printf "%4.3f    ", $ratio;
     } else {
-	printf "%5s    ", "-----";
+        printf "%5s    ", "-----";
     }
     if (!$bad && defined($vsz1{$s}) && defined($vsz2{$s}) &&
-	$vsz1{$s} > 0 && $vsz2{$s} > 0) {
-	$ratio = $vsz1{$s} / $vsz2{$s};
-	$harsum{"vsz"} += 1/$ratio;
-	$harnum{"vsz"}++;
-	printf "%4.3f    ", $ratio;
+        $vsz1{$s} > 0 && $vsz2{$s} > 0) {
+        $ratio = $vsz1{$s} / $vsz2{$s};
+        $harsum{"vsz"} += 1/$ratio;
+        $harnum{"vsz"}++;
+        printf "%4.3f    ", $ratio;
     } else {
-	printf "%5s    ", "-----";
+        printf "%5s    ", "-----";
     }
     print "\n";
 }
@@ -167,8 +167,8 @@ print "\n";
 sub stat($) {
     my ($status) = @_;
     if ($status eq "") {
-	return "--";
+        return "--";
     } else {
-	return $status;
+        return $status;
     }
 }

@@ -52,7 +52,7 @@ load_library(const char *path)
         print("error loading library %s: %s\n", path, dlerror());
     } else {
         print("loaded library\n");
-	dlclose(lib);
+        dlclose(lib);
     }
 #endif
 }

@@ -412,13 +412,13 @@ $catch_memory = 0;
 
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq "-v") {
-	$verbose = 1;
+        $verbose = 1;
     }
     elsif ($ARGV[0] eq "-w") {
-	$warning = 1;
+        $warning = 1;
     }
     elsif ($ARGV[0] eq "-d") {
-	$details = 1;
+        $details = 1;
     }
     elsif ($ARGV[0] eq "-catch_syscalls") {
         $catch_syscalls = 1;
@@ -433,7 +433,7 @@ while ($#ARGV >= 0) {
         init_memory_tags();
     }
     else {
-	$logfile = $ARGV[0];
+        $logfile = $ARGV[0];
     }
     shift;
 }

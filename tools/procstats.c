@@ -192,10 +192,10 @@ void GetProcNameFromId( int pid, TCHAR* pName )
         fOK = Process32First(processes, &pe);
         for (; fOK; fOK = Process32Next(processes, &pe)) {
             if( (int)pe.th32ProcessID == pid)
-			{
-				_tcscpy( pName, pe.szExeFile );
-				return;
-			}
+                        {
+                                _tcscpy( pName, pe.szExeFile );
+                                return;
+                        }
         }
         CloseHandle(processes);
         Sleep(181);
@@ -222,7 +222,7 @@ int __cdecl _tmain (int argc, TCHAR **argv)
    LARGE_INTEGER duetime;
 
    if(argc<2) {
-       _ftprintf(stderr,_T("Usage: %s [<exeName> | <pid> | all] [num_samples] [interval] [outputfile]\n"), argv[0]);	
+       _ftprintf(stderr,_T("Usage: %s [<exeName> | <pid> | all] [num_samples] [interval] [outputfile]\n"), argv[0]);        
        return -1;
    }
 

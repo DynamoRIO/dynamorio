@@ -66,20 +66,20 @@ int main(int argc, char *argv[])
     }
 
     if (find_dynamo_library())
-	print("parent is running under DynamoRIO\n");
+        print("parent is running under DynamoRIO\n");
     else
-	print("parent is running natively\n");
+        print("parent is running natively\n");
     child = fork();
     if (child < 0) {
-	perror("ERROR on fork");
+        perror("ERROR on fork");
     } else if (child > 0) {
-	pid_t result;
-	print("parent waiting for child\n");
-	result = waitpid(child, NULL, 0);
-	assert(result == child);
-	print("child has exited\n");
+        pid_t result;
+        print("parent waiting for child\n");
+        result = waitpid(child, NULL, 0);
+        assert(result == child);
+        print("child has exited\n");
     } else {
-	int result;
+        int result;
         const char *arg[3];
 #if NULL_ENV
         const char **env = NULL;
@@ -90,19 +90,19 @@ int main(int argc, char *argv[])
         env[1] = "DYNAMORIO_OPTIONS=-bad_option i#1097";
         env[2] = NULL;
 #endif
-	arg[0] = argv[1];
-	arg[1] = "/fake/path/it_worked";
-	arg[2] = NULL;
-	if (find_dynamo_library())
-	    print("child is running under DynamoRIO\n");
-	else
-	    print("child is running natively\n");
+        arg[0] = argv[1];
+        arg[1] = "/fake/path/it_worked";
+        arg[2] = NULL;
+        if (find_dynamo_library())
+            print("child is running under DynamoRIO\n");
+        else
+            print("child is running natively\n");
         result = execve("/bin/bogus_will_fail", (char **)arg,
                         (char **)env);
         result = execve(argv[1], (char **)arg, (char **)env);
-	if (result < 0)
-	    perror("ERROR in execve");
-    }	
+        if (result < 0)
+            perror("ERROR in execve");
+    }        
 
 #ifdef USE_DYNAMO
     dynamorio_app_stop();

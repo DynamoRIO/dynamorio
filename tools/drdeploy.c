@@ -895,31 +895,31 @@ int main(int argc, char *argv[])
         }
 #endif
         else if (strcmp(argv[i], "-32") == 0) {
-	    dr_platform = DR_PLATFORM_32BIT;
+            dr_platform = DR_PLATFORM_32BIT;
             continue;
-	}
+        }
         else if (strcmp(argv[i], "-64") == 0) {
-	    dr_platform = DR_PLATFORM_64BIT;
+            dr_platform = DR_PLATFORM_64BIT;
             continue;
         }
 #if defined(DRRUN) || defined(DRINJECT)
         else if (strcmp(argv[i], "-stats") == 0) {
-	    showstats = true;
+            showstats = true;
             continue;
         }
         else if (strcmp(argv[i], "-mem") == 0) {
-	    showmem = true;
+            showmem = true;
             continue;
         }
         else if (strcmp(argv[i], "-no_inject") == 0 ||
                  /* support old drinjectx param name */
                  strcmp(argv[i], "-noinject") == 0) {
             DR_dll_not_needed = true;
-	    inject = false;
+            inject = false;
             continue;
         }
         else if (strcmp(argv[i], "-force") == 0) {
-	    force_injection = true;
+            force_injection = true;
             continue;
         }
         else if (strcmp(argv[i], "-no_wait") == 0) {
@@ -1075,12 +1075,12 @@ int main(int argc, char *argv[])
             /* support repeating the option (i#477) */
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
                              &extra_ops_sofar, "%s", argv[++i]);
-	}
+        }
 #endif
 #if defined(DRRUN) || defined(DRINJECT)
         else if (strcmp(argv[i], "-pidfile") == 0) {
             pidfile = argv[++i];
-	}
+        }
         else if (strcmp(argv[i], "-use_dll") == 0) {
             DR_dll_not_needed = true;
             /* Support relative path: very useful! */
@@ -1088,22 +1088,22 @@ int main(int argc, char *argv[])
                             custom_dll, NULL);
             NULL_TERMINATE_BUFFER(custom_dll);
             drlib_path = custom_dll;
-	}
+        }
         else if (strcmp(argv[i], "-s") == 0) {
             limit = atoi(argv[++i]);
             if (limit <= 0)
                 usage("invalid time");
-	}
+        }
         else if (strcmp(argv[i], "-m") == 0) {
             limit = atoi(argv[++i])*60;
             if (limit <= 0)
                 usage("invalid time");
-	}
+        }
         else if (strcmp(argv[i], "-h") == 0) {
             limit = atoi(argv[++i])*3600;
             if (limit <= 0)
                 usage("invalid time");
-	}
+        }
 # ifdef UNIX
         else if (strcmp(argv[i], "-killpg") == 0) {
             kill_group = true;
@@ -1171,7 +1171,7 @@ int main(int argc, char *argv[])
                 i++;
                 goto done_with_options;
             }
-	}
+        }
 #else /* DRINJECT */
         else if (strcmp(argv[i], "--") == 0) {
             i++;

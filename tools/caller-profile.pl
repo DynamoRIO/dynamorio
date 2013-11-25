@@ -51,17 +51,17 @@ $reloc = 0;
 # get optional params
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq '-build') {
-	if ($#ARGV <= 0) { print $usage; exit; }
-	shift;
-	$bld = $ARGV[0];
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $bld = $ARGV[0];
     } elsif ($ARGV[0] eq '-base') {
-	if ($#ARGV <= 0) { print $usage; exit; }
-	shift;
-	$base = $ARGV[0];
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $base = $ARGV[0];
     } elsif ($ARGV[0] eq '-dll') {
-	if ($#ARGV <= 0) { print $usage; exit; }
-	shift;
-	$DRdll = $ARGV[0];
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $DRdll = $ARGV[0];
     } else {
         $infile = $ARGV[0];
         last;

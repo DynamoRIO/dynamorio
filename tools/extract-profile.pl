@@ -67,7 +67,7 @@ $usage = "Usage: $0 [-h] [-drprofile] [-num_addrs <num>] <profile file>\n" .
 
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq "-v") {
-	$verbose = 1;
+        $verbose = 1;
     } elsif ($ARGV[0] eq "-drprofile") {
         $dr_profile = 1;
         $export_addresses = 1;
@@ -86,7 +86,7 @@ while ($#ARGV >= 0) {
         print $usage;
         exit;
     } else {
-	$infile = $ARGV[0];
+        $infile = $ARGV[0];
     }
     shift;
 }

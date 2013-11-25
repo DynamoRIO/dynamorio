@@ -61,8 +61,8 @@ process(void *arg)
     /* Do the local computations */
     localsum = 0;
     for (i=iproc; i<intervals; i+=2) {
-	register double x = (i + 0.5) * width;
-	localsum += 4.0 / (1.0 + x * x);
+        register double x = (i + 0.5) * width;
+        localsum += 4.0 / (1.0 + x * x);
         /* Make a system call to trigger DR operations that might
          * crash in a race (PR 470957)
          */

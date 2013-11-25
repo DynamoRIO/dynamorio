@@ -132,13 +132,13 @@ is_file_in_use(WCHAR *filename)
 /*
 0:000> !handle 10 f
 Handle 10
-  Type         	File
-  Attributes   	0
-  GrantedAccess	0x120089:
+  Type                 File
+  Attributes           0
+  GrantedAccess        0x120089:
          ReadControl,Synch
          Read/List,ReadEA,ReadAttr
-  HandleCount  	2
-  PointerCount 	3
+  HandleCount          2
+  PointerCount         3
   No Object Specific Information available
 */
 

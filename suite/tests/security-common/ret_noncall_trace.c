@@ -31,7 +31,7 @@
  * DAMAGE.
  */
 
-/* Description:	This test is intended to check if the -ibl_table_per_type 
+/* Description:        This test is intended to check if the -ibl_table_per_type 
  *   option works, which is done by generating a bogus-return-address-security-
  *   violation.  The nature of the violation is  such that it won't be caught
  *   by DR unless the -ibl_table_per_type option is turned on.  The program
@@ -62,7 +62,7 @@ next_num(void **retaddr_p)
 
   counter++;
   saved_eip = (ptr_uint_t)*retaddr_p;
-  saved_eip += 6;		/* Set rp to main()'s do-while loop. */
+  saved_eip += 6;                /* Set rp to main()'s do-while loop. */
   return counter;
 }
 

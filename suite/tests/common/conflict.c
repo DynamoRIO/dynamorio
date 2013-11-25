@@ -59,13 +59,13 @@ int main()
     arch_init();
   
     for (i=0; i<ITERS; i++) {
-	if (i % 2 == 0) {
-	    res += cos(1./(double)(i+1));
-	} else {
-	    res += sin(1./(double)(i+1));
-	}
-	j = (i << 4) / (i | 0x38);
-	a[i] += j;
+        if (i % 2 == 0) {
+            res += cos(1./(double)(i+1));
+        } else {
+            res += sin(1./(double)(i+1));
+        }
+        j = (i << 4) / (i | 0x38);
+        a[i] += j;
     }
     printf("%f\n", res);
 

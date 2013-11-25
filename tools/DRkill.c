@@ -89,33 +89,33 @@ main(int argc, char **argv)
 
     while (argidx < argc) {
 
-	if (!strcmp(argv[argidx], "-help")) {
-  	    help();
-	}
-	else if (!strcmp(argv[argidx], "-quiet")) {
-	    killquietly=TRUE;
-	}
-	else if (!strcmp(argv[argidx], "-pid")) {
-	    pid=atoi(argv[++argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-exe")) {
-	    _snwprintf(exe, MAX_PATH, L"%S", argv[++argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-underdr")) {
+        if (!strcmp(argv[argidx], "-help")) {
+              help();
+        }
+        else if (!strcmp(argv[argidx], "-quiet")) {
+            killquietly=TRUE;
+        }
+        else if (!strcmp(argv[argidx], "-pid")) {
+            pid=atoi(argv[++argidx]);
+        }
+        else if (!strcmp(argv[argidx], "-exe")) {
+            _snwprintf(exe, MAX_PATH, L"%S", argv[++argidx]);
+        }
+        else if (!strcmp(argv[argidx], "-underdr")) {
             underdr=TRUE;
-	}
-	else if (!strcmp(argv[argidx], "-v")) {
+        }
+        else if (!strcmp(argv[argidx], "-v")) {
 #ifdef BUILD_NUMBER
-	  printf("DRkill.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
+          printf("DRkill.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
 #else
-	  printf("DRkill.exe custom build -- %s, %s\n", __DATE__, __TIME__);
+          printf("DRkill.exe custom build -- %s, %s\n", __DATE__, __TIME__);
 #endif
-	}
-	else {
-	    fprintf(stderr,"Unknown option: %s\n", argv[argidx]);
-	    usage();
-	}
-	argidx++;
+        }
+        else {
+            fprintf(stderr,"Unknown option: %s\n", argv[argidx]);
+            usage();
+        }
+        argidx++;
     }
     
     if(pid) {

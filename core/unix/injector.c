@@ -564,7 +564,7 @@ dr_inject_process_inject(void *data, bool force_injection,
 #ifdef LINUX /* XXX i#1290: implement on MacOS */
         return inject_ptrace(info, library_path);
 #else
-	return false;
+        return false;
 #endif
     }
 
@@ -596,7 +596,7 @@ dr_inject_process_run(void *data)
 #ifdef LINUX /* XXX i#1290: implement on MacOS */
             our_ptrace(PTRACE_DETACH, info->pid, NULL, NULL);
 #else
-	    return false;
+            return false;
 #endif
         }
         /* Close the pipe. */

@@ -4218,7 +4218,7 @@ hook_vsyscall(dcontext_t *dcontext)
     } while (instr_is_nop(&instr));
     vsyscall_sysenter_return_pc = pc;
     ASSERT(instr_get_opcode(&instr) == OP_jmp_short ||
-	   instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
+           instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
     /* We fail if the pattern looks different */
 #define CHECK(x) do {                                 \

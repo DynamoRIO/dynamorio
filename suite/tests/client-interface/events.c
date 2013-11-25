@@ -60,11 +60,11 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGUSR1)
-	print("Got SIGUSR1\n");
+        print("Got SIGUSR1\n");
     else if (sig == SIGUSR2)
-	print("Got SIGUSR2\n");
+        print("Got SIGUSR2\n");
     else if (sig == SIGURG)
-	print("Got SIGURG\n");
+        print("Got SIGURG\n");
 }
 #endif /* UNIX */
 

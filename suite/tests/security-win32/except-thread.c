@@ -68,15 +68,15 @@ call_bad_code(LPVOID parm)
 
     print("Attempting execution of badfunc\n");
     __try {
-	__try {
-	    __try {
+        __try {
+            __try {
                 initialize_registry_context();
                 ((funcptr)badfunc)();
-		print("DATA: At statement after exception\n");
-	    }
-	    __except (
+                print("DATA: At statement after exception\n");
+            }
+            __except (
                       exception = *((GetExceptionInformation())->ExceptionRecord),
-		      context = (GetExceptionInformation())->ContextRecord,
+                      context = (GetExceptionInformation())->ContextRecord,
                       print("DATA VIOLATION: Inside first filter eax=%x\n", 
                              context->CXT_XAX),
 #ifdef DUMP_REGISTER_STATE
@@ -85,29 +85,29 @@ call_bad_code(LPVOID parm)
                       print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no"),
                       print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no"),
 #endif
-		      EXCEPTION_EXECUTE_HANDLER) {
-		print("DATA VIOLATION: Inside first handler\n");
-	    }
-	    print("DATA: At statement after 1st try-except\n");
-	    __try {
+                      EXCEPTION_EXECUTE_HANDLER) {
+                print("DATA VIOLATION: Inside first handler\n");
+            }
+            print("DATA: At statement after 1st try-except\n");
+            __try {
                 initialize_registry_context();
                 ((funcptr)badfunc)(); 
-		print("DATA: Inside 2nd try\n");
-	    } __except (EXCEPTION_CONTINUE_SEARCH) {
-		print("DATA: This should NOT be printed\n");
-	    }
-	}
-	__finally {
-	    print("DATA: Finally!\n");
-	}
-	print("DATA: At statement after 2nd try-finally\n");
+                print("DATA: Inside 2nd try\n");
+            } __except (EXCEPTION_CONTINUE_SEARCH) {
+                print("DATA: This should NOT be printed\n");
+            }
+        }
+        __finally {
+            print("DATA: Finally!\n");
+        }
+        print("DATA: At statement after 2nd try-finally\n");
     }
     __except (
-	      exception = *((GetExceptionInformation())->ExceptionRecord),
-	      context = (GetExceptionInformation())->ContextRecord,
-	      (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-	      EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
-	print("DATA: Expected execution violation!\n");
+              exception = *((GetExceptionInformation())->ExceptionRecord),
+              context = (GetExceptionInformation())->ContextRecord,
+              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
+              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        print("DATA: Expected execution violation!\n");
 #ifdef DUMP_REGISTER_STATE
         dump_exception_info(&exception, context);
 #else 
@@ -142,7 +142,7 @@ main()
 
     call_bad_code(0);
     print("THREAD0: After calling more bad code here\n");
-	
+        
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();

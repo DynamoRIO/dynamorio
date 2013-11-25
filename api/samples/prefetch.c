@@ -82,9 +82,9 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 
     /* look for and remove prefetch[w] instructions */
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-	next_instr = instr_get_next(instr);
-	opcode = instr_get_opcode(instr);
-	if (opcode == OP_prefetch || opcode == OP_prefetchw) {
+        next_instr = instr_get_next(instr);
+        opcode = instr_get_opcode(instr);
+        if (opcode == OP_prefetch || opcode == OP_prefetchw) {
             instrlist_remove(bb, instr);
             instr_destroy(drcontext, instr);
             if (!translating) {
@@ -96,7 +96,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                     prefetchws_removed++;
                 dr_mutex_unlock(count_mutex);
             }
-	}
+        }
     }
     return DR_EMIT_DEFAULT;
 }

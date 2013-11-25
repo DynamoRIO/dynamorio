@@ -220,7 +220,7 @@ delete_thread(pid_t pid, void *stack)
     if (result == -1 || result != pid) {
         /* somehow getting errors: ignoring for now since works */
 #if VERBOSE
-	perror("delete_thread waitpid");
+        perror("delete_thread waitpid");
 #endif
     }
     stack_free(stack, THREAD_STACK_SIZE);

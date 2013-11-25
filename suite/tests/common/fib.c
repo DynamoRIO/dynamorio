@@ -77,12 +77,12 @@ main(int argc, char** argv)
 
     /* show recursion */
     for (i=0; i<=GOAL; i++) {
-	t = fib(i);
-	print("fib(%d)=%d\n", i, t);
+        t = fib(i);
+        print("fib(%d)=%d\n", i, t);
     }
 
     for (i=0; i<=ITER; i++) {
-	t = fib(DEPTH);
+        t = fib(DEPTH);
     }
 
     print("fib(%d)=%d\n", DEPTH, t);

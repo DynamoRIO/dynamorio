@@ -144,15 +144,15 @@ is_elf_partial_map(app_pc base, size_t size, uint memprot);
 
 app_pc
 module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-			      OUT app_pc *mod_end);
+                              OUT app_pc *mod_end);
 
 bool
 module_read_program_header(app_pc base,
-			   uint segment_num,
-			   OUT app_pc *segment_base,
-			   OUT app_pc *segment_end,
-			   OUT uint *segment_prot,
-			   OUT size_t *segment_align);
+                           uint segment_num,
+                           OUT app_pc *segment_base,
+                           OUT app_pc *segment_end,
+                           OUT uint *segment_prot,
+                           OUT size_t *segment_align);
 
 ELF_ADDR
 module_get_section_with_name(app_pc image, size_t img_size,

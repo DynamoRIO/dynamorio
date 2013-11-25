@@ -102,35 +102,35 @@ main(int argc, char** argv)
 
     /* now a little more realistic depths that fit in the RSB */
     for (i=0; i<=ITER; i++) {
-	sort();
-	sort();
-	sort();
+        sort();
+        sort();
+        sort();
         /* more pronounced with a few more - though three is sufficiently visible */
 #ifdef MORE
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
-	sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
+        sort();
 #endif
     }
 

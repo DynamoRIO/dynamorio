@@ -44,9 +44,9 @@ int bar(int n)
     printf("bar %d\n", n);
     if (n==0) return 1;
     if (n % 2 == 0)
-	return n + foo(n-1);
+        return n + foo(n-1);
     if (n % 2 == 1)
-	return n + bar(n-1);
+        return n + bar(n-1);
     printf("\tdone with bar %d\n", n);
     return 0;
 }
@@ -56,9 +56,9 @@ int foo(int n)
     printf("foo %d\n", n);
     if (n==0) return 1;
     if (n % 2 == 0)
-	return n + foo(n-1);
+        return n + foo(n-1);
     if (n % 2 == 1)
-	return n + bar(n-1);
+        return n + bar(n-1);
     printf("\tdone with foo %d\n", n);
     return 0;
 }
@@ -75,8 +75,8 @@ main()
 #endif
 
     for (i=GOAL; i<=GOAL; i++) {
-	t = foo(i);
-	printf("%d %d\n", i, t);
+        t = foo(i);
+        printf("%d %d\n", i, t);
     }
 
 #ifdef USE_DYNAMO
@@ -86,4 +86,4 @@ main()
 
     return 0;
 }
-	
+        

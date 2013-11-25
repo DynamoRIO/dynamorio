@@ -631,7 +631,7 @@ if (UNIX)
           CMAKE_EXE_LINKER_FLAGS_${config_upper};
           CMAKE_MODULE_LINKER_FLAGS_${config_upper};
           CMAKE_SHARED_LINKER_FLAGS_${config_upper})
-	set(${var} "-Wl,--hash-style=both")
+        set(${var} "-Wl,--hash-style=both")
       endforeach ()
     endforeach ()
   endif ()

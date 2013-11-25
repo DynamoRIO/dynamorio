@@ -2750,8 +2750,8 @@ get_num_processors(void)
          * which should be lower-level than sysctlbyname(), and replace
          * that w/ its straightforward raw syscall underneath later.
          */
-	DEBUG_DECLARE(int res = )
-	    sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
+        DEBUG_DECLARE(int res = )
+            sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
         ASSERT(res == 0);
 #else
         /* We used to use get_nprocs_conf, but that's in libc, so now we just
@@ -4015,7 +4015,7 @@ static inline bool
 is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
 {
     return (sysnum == SYS_vfork
-	    IF_LINUX(|| (sysnum == SYS_clone && TEST(CLONE_VM, flags))));
+            IF_LINUX(|| (sysnum == SYS_clone && TEST(CLONE_VM, flags))));
 #ifdef MACOS
     /* XXX i#58: look for bsdthread_create and Mach thread_create */
 #endif
@@ -4033,8 +4033,8 @@ bool
 was_thread_create_syscall(dcontext_t *dcontext)
 {
     return is_thread_create_syscall_helper(dcontext->sys_num,
-					   /* flags in param0 */
-					   dcontext->sys_param0);
+                                           /* flags in param0 */
+                                           dcontext->sys_param0);
 }
 
 static inline bool

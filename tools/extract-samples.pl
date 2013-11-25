@@ -49,7 +49,7 @@ $usage = "Usage: $0 [-h] -symbol-file <file> -addr-file <file>\n" .
 
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq "-v") {
-	$verbose = 1;
+        $verbose = 1;
     } elsif ($ARGV[0] eq "-h") {
         print $usage;
         exit;

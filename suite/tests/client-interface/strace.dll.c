@@ -117,7 +117,7 @@ dr_init(client_id_t id)
     DR_ASSERT(tcls_idx != -1);
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on())
-	dr_fprintf(STDERR, "Client strace is running\n");
+        dr_fprintf(STDERR, "Client strace is running\n");
 #endif
 }
 

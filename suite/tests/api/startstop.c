@@ -174,9 +174,9 @@ int main(void)
                 res += cos(1./(double)(i+1));
             } else {
                 res += sin(1./(double)(i+1));
-	    }
-	}
-	foo();
+            }
+        }
+        foo();
 #ifdef USE_DYNAMO
         if (!dr_app_running_under_dynamorio())
             print("ERROR: should be under DynamoRIO before dr_app_stop!\n");
@@ -184,7 +184,7 @@ int main(void)
          * native.  We should revisit this while implementing full detach for
          * Linux.
          */
-	dr_app_stop();
+        dr_app_stop();
         if (dr_app_running_under_dynamorio())
             print("ERROR: should not be under DynamoRIO after dr_app_stop!\n");
 #endif

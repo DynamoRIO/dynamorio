@@ -43,20 +43,20 @@ void
 finally_proc() 
 {
     __try {
-	__try {
-	    printf("This should be printed\n");
-	    __leave;
-	    printf("This should NOT be printed\n");
-	}
-	__finally {
-	    printf("Inside first finally\n");
-	}
-	printf("At statement after 1st try-finally\n");
+        __try {
+            printf("This should be printed\n");
+            __leave;
+            printf("This should NOT be printed\n");
+        }
+        __finally {
+            printf("Inside first finally\n");
+        }
+        printf("At statement after 1st try-finally\n");
     }
     __finally {
-	printf("Inside second finally\n");
-	longjmp(mark, 1);
-	printf("This should NOT be printed\n");
+        printf("Inside second finally\n");
+        longjmp(mark, 1);
+        printf("This should NOT be printed\n");
     }
 }
 
@@ -71,16 +71,16 @@ main()
 #endif
 
     __try {
-	jmpret = setjmp(mark);
-	if (jmpret == 0)
-	    finally_proc();
-	else
-	    printf("done with longjmp\n");
+        jmpret = setjmp(mark);
+        if (jmpret == 0)
+            finally_proc();
+        else
+            printf("done with longjmp\n");
     }
     __finally {
-	printf("In final finally\n");
+        printf("In final finally\n");
     }
-	
+        
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();

@@ -223,33 +223,33 @@ main(int argc, char** argv)
     
     /* now a little more realistic depths that fit in the RSB */
     for (i=0; i<=ITER; i++) {
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
-	t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
+        t = foo(DEPTH);
     }
 
     print("foo(%d)=%d\n", DEPTH, t);

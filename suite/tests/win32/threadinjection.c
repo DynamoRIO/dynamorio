@@ -81,7 +81,7 @@ DWORD WINAPI ThreadProc( LPVOID lpParam )
     {
         Sleep(nSleepTime);
     }
-	
+        
     return 0;
 
 }
@@ -98,8 +98,8 @@ DWORD WINAPI ThreadProc2( LPVOID lpParam )
 
 void LaunchTest
 ( 
-	char szCommandLine[],
-	PARAMETERS myParameters
+        char szCommandLine[],
+        PARAMETERS myParameters
 )
 {
     STARTUPINFO si;
@@ -109,23 +109,23 @@ void LaunchTest
     si.cb = sizeof(si);
     ZeroMemory( &pi, sizeof(pi) );
 
-	if (myParameters.bVerbose == TRUE)
-	{
-		print("------------------------------------------------------------\n");
-		print("Test beginning with options: %s\n",szCommandLine);
-		print("------------------------------------------------------------\n");
-	}
-	
-	if(0 == CreateProcess(NULL, szCommandLine, NULL, NULL, FALSE, 0, NULL, ".", &si, &pi))
-	{       
-		print("Error creating process:\n\"%s\"\n", szCommandLine);		
-	}
-	else if (myParameters.bVerbose == TRUE)
-	{
-	    print("------------------------------------------------------------\n");
-	    print("Test completed: %s options executed\n",szCommandLine);
-	    print("------------------------------------------------------------\n");
-	}
+        if (myParameters.bVerbose == TRUE)
+        {
+                print("------------------------------------------------------------\n");
+                print("Test beginning with options: %s\n",szCommandLine);
+                print("------------------------------------------------------------\n");
+        }
+        
+        if(0 == CreateProcess(NULL, szCommandLine, NULL, NULL, FALSE, 0, NULL, ".", &si, &pi))
+        {       
+                print("Error creating process:\n\"%s\"\n", szCommandLine);                
+        }
+        else if (myParameters.bVerbose == TRUE)
+        {
+            print("------------------------------------------------------------\n");
+            print("Test completed: %s options executed\n",szCommandLine);
+            print("------------------------------------------------------------\n");
+        }
 
     WaitForSingleObject(pi.hProcess, INFINITE);
 }
@@ -323,7 +323,7 @@ void ExerciseThread
         }
         if ((ResumeThread(hThread) == -1) && (myParameters.bVerbose == TRUE))
         {
-            print("Error in ResumeThread() (Code %d)\n",GetLastError());			
+            print("Error in ResumeThread() (Code %d)\n",GetLastError());                        
         }
     }
     if (myParameters.bGetContext == TRUE)
@@ -331,7 +331,7 @@ void ExerciseThread
         bError = GetThreadContext(hThread, &Context);
         if ((bError == 0) && (myParameters.bVerbose == TRUE))
         {
-            print("Error in GetThreadContext (Code %d)\n",GetLastError());			
+            print("Error in GetThreadContext (Code %d)\n",GetLastError());                        
         }
     }
     if ((myParameters.bSetContext == TRUE) && (myParameters.bVerbose == TRUE))
@@ -339,7 +339,7 @@ void ExerciseThread
         bError = SetThreadContext(hThread, &Context);
         if ((bError == 0)  && (myParameters.bVerbose == TRUE))
         {
-            print("Error in SetThreadContext (Code %d)\n",GetLastError());			
+            print("Error in SetThreadContext (Code %d)\n",GetLastError());                        
         }
     }
 }
@@ -350,8 +350,8 @@ int main( int argc, char *argv[])       /* Thread One */
     DWORD  dwThreadID;
     HANDLE hProcess;
     HANDLE hThread1, hThread2, hThread3, hThread4;
-	char   szCommandLine[1024];
-	int    i;
+        char   szCommandLine[1024];
+        int    i;
     PARAMETERS myParameters;
 
     INIT();
@@ -375,19 +375,19 @@ int main( int argc, char *argv[])       /* Thread One */
     }
     else
     {
-		print("Entering thread with options:\n");
-		for (i = 1; i < argc; i++)
-		{
-			if (!strncmp(argv[i], "/PID", 4))
-			{
-				strcat(szCommandLine, "/PID");
-			}
-			else
-			{
-				strcat(szCommandLine, argv[i]);
-			}
-		}
-		print("%s\n", szCommandLine);
+                print("Entering thread with options:\n");
+                for (i = 1; i < argc; i++)
+                {
+                        if (!strncmp(argv[i], "/PID", 4))
+                        {
+                                strcat(szCommandLine, "/PID");
+                        }
+                        else
+                        {
+                                strcat(szCommandLine, argv[i]);
+                        }
+                }
+                print("%s\n", szCommandLine);
 
         do
         {  
@@ -424,7 +424,7 @@ int main( int argc, char *argv[])       /* Thread One */
                 CloseHandle(hThread3);
             }
 
-		} while(ThreadNr < MAX_THREADS);
+                } while(ThreadNr < MAX_THREADS);
 
         if (myParameters.nPID != 0)
         {
@@ -432,14 +432,14 @@ int main( int argc, char *argv[])       /* Thread One */
             hProcess = OpenProcess(PROCESS_ALL_ACCESS, TRUE, myParameters.nPID);
             if ((hProcess == NULL) && (myParameters.bVerbose == TRUE))
             {
-                print("Error in OpenProcess(Code %d)\n",GetLastError());		
+                print("Error in OpenProcess(Code %d)\n",GetLastError());                
             }
 
             hThread4 = CreateRemoteThread(hProcess, 0, 0, &ThreadProc, &(myParameters.nSleepTime), 0, &dwThreadID );
 
             if ((hThread4 == NULL) && (myParameters.bVerbose == TRUE))
             {
-                print("Error in CreateRemoteThread(Code %d)\n",GetLastError());				
+                print("Error in CreateRemoteThread(Code %d)\n",GetLastError());                                
             }
             WaitForSingleObject(hThread4, INFINITE);
 
@@ -448,8 +448,8 @@ int main( int argc, char *argv[])       /* Thread One */
                 CloseHandle(hThread4);
             }
         }
-		print("Exiting thread with options:\n");
-		print("%s\n", szCommandLine);
+                print("Exiting thread with options:\n");
+                print("%s\n", szCommandLine);
     }
     
     return 0;

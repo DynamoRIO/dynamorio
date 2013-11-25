@@ -134,7 +134,7 @@ main(int argc, const char *argv[])
             }   
 
             arg_offs += 2;
-	} else
+        } else
             return usage();
     }
     if (arg_offs < argc)

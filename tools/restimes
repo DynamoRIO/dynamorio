@@ -47,25 +47,25 @@ open(FIND, "< $resfile") || die "Error running $resfile\n";
 while (<FIND>) {
     chop;
     if ($_ =~ m|.+/([^/]+)|) {
-	$bmark = $1;
-	$elapsed = 0;
-	$val{$bmark,$opt,$dset} = 0;
-	$bm{$bmark} = 1;
+        $bmark = $1;
+        $elapsed = 0;
+        $val{$bmark,$opt,$dset} = 0;
+        $bm{$bmark} = 1;
     } elsif ($_ =~ /Elapsed: ([0-9]+):([0-9]+):([0-9\.]+)/) {
-	# texec format
-	$elapsed = $1*60 + $2 + $3/60.; # minutes
-	$val{$bmark,$opt,$dset} += $elapsed;
+        # texec format
+        $elapsed = $1*60 + $2 + $3/60.; # minutes
+        $val{$bmark,$opt,$dset} += $elapsed;
     } elsif ($_ =~ /real\t([0-9]+)m([0-9\.]+)s/) {
-	# /usr/bin/time simple format
-	# FIXME: what do hours look like?
-	$elapsed = $1 + $2/60.; # minutes
-	$val{$bmark,$opt,$dset} += $elapsed;
+        # /usr/bin/time simple format
+        # FIXME: what do hours look like?
+        $elapsed = $1 + $2/60.; # minutes
+        $val{$bmark,$opt,$dset} += $elapsed;
     } elsif ($_ =~ /(\d+):(\d+).(\d+)elapsed (\d+)%CPU/) {
-	# /usr/bin/time and runstats compressed format
-	# FIXME: what do hours look like?
-	$elapsed = $1 + $2/60.; # minutes
-	$val{$bmark,$opt,$dset} += $elapsed;
-	
+        # /usr/bin/time and runstats compressed format
+        # FIXME: what do hours look like?
+        $elapsed = $1 + $2/60.; # minutes
+        $val{$bmark,$opt,$dset} += $elapsed;
+        
     }
 }
 close(FIND);
@@ -73,7 +73,7 @@ close(FIND);
 print("Benchmark\tTime\tRSS\tVSz\t%CPU\n");
 foreach $b (sort (keys %bm)) {
     printf("%10s\t%6.2f\t%6.2f\t%6.2f\t%6.2f\n",$b,
-	   $val{$b,"n","r"},$val{$b,"o","r"},
-	   $val{$b,"n","t"},$val{$b,"o","t"});
+           $val{$b,"n","r"},$val{$b,"o","r"},
+           $val{$b,"n","t"},$val{$b,"o","t"});
 }
 

@@ -194,15 +194,15 @@ void dr_init(client_id_t id)
     dr_fprintf(STDERR, "writable_buf is %s%s%s\n", TEST(DR_MEMPROT_READ, prot) ? "r" : "",
               TEST(DR_MEMPROT_WRITE, prot) ? "w" : "",
 #ifdef UNIX
-	      /* Linux sometimes (probably depends on version and hardware NX
-	       * support) lists all readable regions as also exectuable in the
-	       * maps file.  We just skip checking here for Linux to make
-	       * matching the template file easier. */
-	      ""
+              /* Linux sometimes (probably depends on version and hardware NX
+               * support) lists all readable regions as also exectuable in the
+               * maps file.  We just skip checking here for Linux to make
+               * matching the template file easier. */
+              ""
 #else
               TEST(DR_MEMPROT_EXEC, prot) ? "x" : ""
 #endif
-	      );
+              );
     if (base_pc > writable_buf || base_pc + size < writable_buf)
         dr_fprintf(STDERR, "writable_buf region mismatch\n");
     if (base_pc + size < writable_buf + sizeof(writable_buf))

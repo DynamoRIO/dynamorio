@@ -44,7 +44,7 @@ while (<>) {
     if ($_ =~ /\r$/) { chop; };
     $l = $_;
     if ($l =~ /\* OP_/) {
-	$l =~ /^\s*\/\*\s*OP_([a-zA-Z0-9_]*)(\s*)\*\/\s*(.*)$/;
+        $l =~ /^\s*\/\*\s*OP_([a-zA-Z0-9_]*)(\s*)\*\/\s*(.*)$/;
         $op = $1;
         $space = $2;
         $table = $3;
@@ -52,9 +52,9 @@ while (<>) {
         $name =~ s/xsave32/xsave/;
         $name =~ s/xrstor32/xrstor/;
         $name =~ s/xsaveopt32/xsaveopt/;
-	printf "/* %3d */     OP_$op,$space /* $table */ /**< $name opcode */\n", $num;
-	$num++;
+        printf "/* %3d */     OP_$op,$space /* $table */ /**< $name opcode */\n", $num;
+        $num++;
     } else {
-	print "$l\n";
+        print "$l\n";
     }
 }

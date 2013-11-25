@@ -54,21 +54,21 @@ main()
     dynamorio_app_start();
 #endif
     print("Calling mmap(0, "PFX", "PFX", "PFX", "PFX", 0)\n",
-	   size, PROT_EXEC|PROT_READ|PROT_WRITE,
-	   MAP_ANON|MAP_PRIVATE, -1);
+           size, PROT_EXEC|PROT_READ|PROT_WRITE,
+           MAP_ANON|MAP_PRIVATE, -1);
     p = mmap(0, size, PROT_EXEC|PROT_READ|PROT_WRITE,
-		   MAP_ANON|MAP_PRIVATE, -1, 0);
+                   MAP_ANON|MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {
-	print("mmap ERROR "PFX"\n", p);
-	return 1;
+        print("mmap ERROR "PFX"\n", p);
+        return 1;
     }
 #if VERBOSE
     print("mmap returned "PFX"\n", p);
 #endif
     p = (void *)mremap(p, size, newsize, 0);
     if ((ptr_int_t) p == -1) {
-	print("mremap ERROR "PFX"\n", p);
-	return 1;
+        print("mremap ERROR "PFX"\n", p);
+        return 1;
     }
 #if VERBOSE
     print("mremap returned "PFX"\n", p);

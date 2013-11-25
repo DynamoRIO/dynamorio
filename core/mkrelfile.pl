@@ -54,41 +54,27 @@ open(IN, "< $infile") || die "Error: Couldn't open $infile for input\n";
 while (<IN>) {
     $l = $_;
     if ($inmacro) {
-	# try to find ; not inside a string
-	if ($l =~ /;[^\"]*$/) {
-	    $inmacro = 0;
-	    $l =~ s/[^;]*;//;
-	} else {
+        # try to find ; not inside a string
+        if ($l =~ /;[^\"]*$/) {
+            $inmacro = 0;
+            $l =~ s/[^;]*;//;
+        } else {
             # print line so that compiler will have right line numbers
             # use backslash so will work inside of multiline macros
             print "\\\n";
             next;
-	}
+        }
     }
     elsif ($l =~ /\WLOG\W/) {
-	if (! ($l =~ /;[^\"]*$/) ) {
-	    $inmacro = 1;
-	}
-	if ($l =~ /\\\s*$/) {
-	    $l =~ s/(\W)LOG.*(\s*\\\s*)$/\1;\2/;
-	} else {
-	    $l =~ s/(\W)LOG.*$/\1;/;
-	}
+        if (! ($l =~ /;[^\"]*$/) ) {
+            $inmacro = 1;
+        }
+        if ($l =~ /\\\s*$/) {
+            $l =~ s/(\W)LOG.*(\s*\\\s*)$/\1;\2/;
+        } else {
+            $l =~ s/(\W)LOG.*$/\1;/;
+        }
     }
     print "$l";
 }
 close(IN);
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -40,12 +40,12 @@ $usage = "Usage: $0 [-h] <kstats file>\n";
 
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq "-v") {
-	$verbose = 1;
+        $verbose = 1;
     } elsif ($ARGV[0] eq "-h") {
         print $usage;
         exit;
     } else {
-	$infile = $ARGV[0];
+        $infile = $ARGV[0];
     }
     shift;
 }

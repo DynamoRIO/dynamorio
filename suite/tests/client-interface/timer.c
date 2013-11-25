@@ -48,7 +48,7 @@ static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
     if (sig == SIGALRM)
-	print("app got SIGALRM\n");
+        print("app got SIGALRM\n");
     else
         assert(0);
 }

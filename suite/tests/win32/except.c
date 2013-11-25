@@ -118,36 +118,36 @@ do_run(void (*func) (), uint *target_addr_location)
 #endif
 
     __try {
-	__try {
-	    __try {
+        __try {
+            __try {
                 func();
-		print("At statement after exception\n");
-	    }
-	    __except (
-		      context = (GetExceptionInformation())->ContextRecord,
-		      context->CXT_XAX = (unsigned long) &slot,
-		      EXCEPTION_CONTINUE_EXECUTION) {
-		print("Inside first handler (should NOT be printed)\n");
-	    }
-	    print("At statement after 1st try-except\n");
-	    __try {
+                print("At statement after exception\n");
+            }
+            __except (
+                      context = (GetExceptionInformation())->ContextRecord,
+                      context->CXT_XAX = (unsigned long) &slot,
+                      EXCEPTION_CONTINUE_EXECUTION) {
+                print("Inside first handler (should NOT be printed)\n");
+            }
+            print("At statement after 1st try-except\n");
+            __try {
                 func();
                 print("This should NOT be printed1\n");
-	    } __except (EXCEPTION_CONTINUE_SEARCH) {
-		print("This should NOT be printed2\n");
-	    }
-	}
-	__finally {
-	    print("Finally!\n");
-	}
-	print("At statement after 2nd try-finally (should NOT be printed)\n");
+            } __except (EXCEPTION_CONTINUE_SEARCH) {
+                print("This should NOT be printed2\n");
+            }
+        }
+        __finally {
+            print("Finally!\n");
+        }
+        print("At statement after 2nd try-finally (should NOT be printed)\n");
     }
     __except (
-	      exception = *(GetExceptionInformation())->ExceptionRecord,
-	      context = (GetExceptionInformation())->ContextRecord,
-	      (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
-	      EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
-	print("Caught my own memory access violation, ignoring it!\n");
+              exception = *(GetExceptionInformation())->ExceptionRecord,
+              context = (GetExceptionInformation())->ContextRecord,
+              (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) ?
+              EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+        print("Caught my own memory access violation, ignoring it!\n");
         if (exception.ExceptionAddress == (void *)exception_location &&
             exception.ExceptionInformation[1] == *target_addr_location &&
             exception.ExceptionInformation[0] == 1) {
@@ -169,7 +169,7 @@ do_run(void (*func) (), uint *target_addr_location)
         }
     }
     print("After exception handler\n");
-	
+        
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();

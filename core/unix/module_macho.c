@@ -59,24 +59,24 @@ is_macho_header(app_pc base, size_t size)
     struct mach_header hdr_safe;
     struct mach_header *hdr;
     if (base == NULL)
-	return false;
+        return false;
     if (size >= sizeof(hdr_safe)) {
-	hdr = (struct mach_header *) base;
+        hdr = (struct mach_header *) base;
     } else {
-	if (!safe_read(base, sizeof(hdr_safe), &hdr_safe))
-	    return false;
-	hdr = &hdr_safe;
+        if (!safe_read(base, sizeof(hdr_safe), &hdr_safe))
+            return false;
+        hdr = &hdr_safe;
     }
     ASSERT(offsetof(struct mach_header, filetype) ==
-	   offsetof(struct mach_header_64, filetype));
+           offsetof(struct mach_header_64, filetype));
     if ((hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86) ||
-	(hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
-	/* XXX: should we include MH_PRELOAD or MH_FVMLIB? */
-	if (hdr->filetype == MH_EXECUTE ||
-	    hdr->filetype == MH_DYLIB ||
-	    hdr->filetype == MH_BUNDLE) {
-	    return true;
-	}
+        (hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
+        /* XXX: should we include MH_PRELOAD or MH_FVMLIB? */
+        if (hdr->filetype == MH_EXECUTE ||
+            hdr->filetype == MH_DYLIB ||
+            hdr->filetype == MH_BUNDLE) {
+            return true;
+        }
     }
     return false;
 }
@@ -90,8 +90,8 @@ module_file_has_module_header(const char *filename)
     if (fd == INVALID_FILE)
         return false;
     if (os_read(fd, &hdr, sizeof(hdr)) == sizeof(hdr) &&
-	is_macho_header((app_pc)&hdr, sizeof(hdr)))
-	res = true;
+        is_macho_header((app_pc)&hdr, sizeof(hdr)))
+        res = true;
     os_close(fd);
     return res;
 }

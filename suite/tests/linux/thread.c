@@ -52,8 +52,8 @@
 #include "dynamorio.h"
 #endif
 
-#define CLONE_THREAD	0x00010000	/* Same thread group? */
-#define CLONE_CHILD_CLEARTID	0x00200000	/* clear the TID in the child */
+#define CLONE_THREAD        0x00010000        /* Same thread group? */
+#define CLONE_CHILD_CLEARTID        0x00200000        /* clear the TID in the child */
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
 extern int
 clone(int (*fn) (void *arg), void *child_stack, int flags, void *arg, ...);
@@ -170,9 +170,9 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     /* this is really a tid since we passed CLONE_THREAD: child has same pid as us */
   
     if (newpid == -1) {
-	fprintf(stderr, "smp.c: Error calling clone\n");
-	stack_free(my_stack, THREAD_STACK_SIZE);
-	return -1;
+        fprintf(stderr, "smp.c: Error calling clone\n");
+        stack_free(my_stack, THREAD_STACK_SIZE);
+        return -1;
     }
 
     *stack = my_stack;

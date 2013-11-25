@@ -51,11 +51,11 @@ while (<IN>) {
     next if /^\#/;
     next if /^$/;
     if ($_ =~ /^-SPLIT$/) {
-	close(OUT);
-	$proc++;
-	open(OUT, "> .#mp-$proc") || die "Error in opening output file\n";
+        close(OUT);
+        $proc++;
+        open(OUT, "> .#mp-$proc") || die "Error in opening output file\n";
     } else {
-	print OUT $_;
+        print OUT $_;
     }
 }
 close(IN);
@@ -65,8 +65,8 @@ close(OUT);
 foreach $f (@subs) {
     chop $f; # this affects @subs, only do it once!
     unless (fork()) {
-	exec("/bin/csh -s < $f");
-	exit(0);
+        exec("/bin/csh -s < $f");
+        exit(0);
     }
 }
 foreach $f (@subs) {

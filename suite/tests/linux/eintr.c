@@ -95,7 +95,7 @@ main(int argc, char **argv)
     pthread_cond_init(&condvar,  NULL);
 
     if (pthread_create(&thread, NULL, thread_routine, (void *)(long)pipefd[0]) != 0) {
-	perror("failed to create thread");
+        perror("failed to create thread");
         exit(1);
     }
 

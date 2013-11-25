@@ -159,39 +159,39 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     bool res = false;
     memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
     if (memquery_iterator_next(&iter) && iter.vm_start <= pc) {
-	res = true;
-	info->base_pc = iter.vm_start;
-	ASSERT(iter.vm_end > pc);
-	/* XXX: should switch to storing size to avoid pointer overflow */
-	info->size = iter.vm_end - iter.vm_start;
-	info->prot = iter.prot;
-	/* FIXME i#58: figure out whether image via SYS_proc_info */
-	*have_type = false;
-	info->type = DR_MEMTYPE_DATA;
+        res = true;
+        info->base_pc = iter.vm_start;
+        ASSERT(iter.vm_end > pc);
+        /* XXX: should switch to storing size to avoid pointer overflow */
+        info->size = iter.vm_end - iter.vm_start;
+        info->prot = iter.prot;
+        /* FIXME i#58: figure out whether image via SYS_proc_info */
+        *have_type = false;
+        info->type = DR_MEMTYPE_DATA;
     } else {
-	/* Unlike Windows, the Mach queries skip free regions, so we have to
-	 * find the prior allocated region.  We could try just a few pages back,
-	 * but querying a free region is rare so we go with simple.
-	 */
-	internal_iter_t *ii = (internal_iter_t *) &iter.internal;
-	app_pc last_end = NULL;
-	app_pc next_start = (app_pc) POINTER_MAX;
-	ii->address = 0;
-	while (memquery_iterator_next(&iter)) {
-	    if (iter.vm_start > pc) {
-		next_start = iter.vm_start;
-		break;
-	    }
-	    last_end = iter.vm_end;
-	}
-	info->base_pc = last_end;
-	info->size = (next_start - last_end);
-	if (next_start == (app_pc) POINTER_MAX)
-	    info->size++;
-	info->prot = MEMPROT_NONE;
-	info->type = DR_MEMTYPE_FREE;
-	*have_type = true;
-	res = true;
+        /* Unlike Windows, the Mach queries skip free regions, so we have to
+         * find the prior allocated region.  We could try just a few pages back,
+         * but querying a free region is rare so we go with simple.
+         */
+        internal_iter_t *ii = (internal_iter_t *) &iter.internal;
+        app_pc last_end = NULL;
+        app_pc next_start = (app_pc) POINTER_MAX;
+        ii->address = 0;
+        while (memquery_iterator_next(&iter)) {
+            if (iter.vm_start > pc) {
+                next_start = iter.vm_start;
+                break;
+            }
+            last_end = iter.vm_end;
+        }
+        info->base_pc = last_end;
+        info->size = (next_start - last_end);
+        if (next_start == (app_pc) POINTER_MAX)
+            info->size++;
+        info->prot = MEMPROT_NONE;
+        info->type = DR_MEMTYPE_FREE;
+        *have_type = true;
+        res = true;
     }
     memquery_iterator_stop(&iter);
     return res;

@@ -113,19 +113,19 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     proc_save_fpstate(fp_align);
 
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr))
-	cur_size++;
+        cur_size++;
 
     dr_mutex_lock(stats_mutex);
 #ifdef VERBOSE_VERBOSE
     dr_fprintf(STDERR,
-	       "Average: cur=%d, old=%8.1f, num=%d, old*num=%8.1f\n"
-	       "\told*num+cur=%8.1f, new=%8.1f\n",
-	       cur_size, ave_size, num_bb, ave_size*num_bb,
-	       (ave_size * num_bb) + cur_size,
-	       ((ave_size * num_bb) + cur_size) / (double) (num_bb+1));
+               "Average: cur=%d, old=%8.1f, num=%d, old*num=%8.1f\n"
+               "\told*num+cur=%8.1f, new=%8.1f\n",
+               cur_size, ave_size, num_bb, ave_size*num_bb,
+               (ave_size * num_bb) + cur_size,
+               ((ave_size * num_bb) + cur_size) / (double) (num_bb+1));
 #endif
     if (cur_size > max_size)
-	max_size = cur_size;
+        max_size = cur_size;
     ave_size = ((ave_size * num_bb) + cur_size) / (double) (num_bb+1);
     num_bb++;
     dr_mutex_unlock(stats_mutex);

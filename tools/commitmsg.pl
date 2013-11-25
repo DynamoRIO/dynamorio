@@ -104,13 +104,13 @@ $cvs_output = "_cvs_out";
 $verbose = 0;
 while ($#ARGV >= 0) {
     if ($ARGV[0] eq "-v") {
-	$verbose = 1;
+        $verbose = 1;
     } elsif ($ARGV[0] eq "-n") {
-	$nop = 1;
+        $nop = 1;
     } elsif ($ARGV[0] eq "-q") {
-	$interactive = 0;
+        $interactive = 0;
     } else {
-	$msgfile = $ARGV[0];
+        $msgfile = $ARGV[0];
     }
     shift;
 }

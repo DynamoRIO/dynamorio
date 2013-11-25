@@ -55,28 +55,28 @@ open(OUT, "> $out") || die "Error: Couldn't open $out for output\n";
 $rets = 0;
 while (<FILE>) {
     if ($_ =~ /^\s*ret\s*$/) {
-	$rets++;
-	print OUT "# ---- translation of ret -----\n";
-	print OUT "	addl \$4,%esp\n";
-	print OUT "	jmp *0xfffffffc(%esp)\n";
+        $rets++;
+        print OUT "# ---- translation of ret -----\n";
+        print OUT "        addl \$4,%esp\n";
+        print OUT "        jmp *0xfffffffc(%esp)\n";
     } elsif ($_ =~ /^\s*ret\s+\$([0-9a-fA-Fx]+)\s*$/) {
-	print "Found ret with immed operand: $_";
-	# extra stack space is removed after return address is popped
-	$rets++;
-	$extra = $1;
-	if ($extra =~ /0x([0-9a-fA-F]+)/) {
-	    $remove = 4 + hex($1);
-	} else {
-	    $remove = 4 + $extra;
-	}
-	$offs = -$remove;
-	print  OUT "# ---- translation of ret -----\n";
-	print  OUT "	addl \$$remove,%esp\n";
-	printf OUT "	jmp *0x%08x(%%esp)\n", $offs;
+        print "Found ret with immed operand: $_";
+        # extra stack space is removed after return address is popped
+        $rets++;
+        $extra = $1;
+        if ($extra =~ /0x([0-9a-fA-F]+)/) {
+            $remove = 4 + hex($1);
+        } else {
+            $remove = 4 + $extra;
+        }
+        $offs = -$remove;
+        print  OUT "# ---- translation of ret -----\n";
+        print  OUT "        addl \$$remove,%esp\n";
+        printf OUT "        jmp *0x%08x(%%esp)\n", $offs;
     } elsif ($_ =~ /^\s*ret\s+/) {
-	print "Error: Found unidentified ret: $_";
+        print "Error: Found unidentified ret: $_";
     } else {
-	print OUT $_;
+        print OUT $_;
     }
 }
 close(FILE);

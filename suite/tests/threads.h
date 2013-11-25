@@ -113,9 +113,9 @@ create_thread(int (*run_func)(void *), void *arg, void **stack)
     newpid = clone(run_func, my_stack, flags, arg);
   
     if (newpid == -1) {
-	print("smp.c: Error calling clone\n");
-	stack_free(my_stack, THREAD_STACK_SIZE);
-	return -1;
+        print("smp.c: Error calling clone\n");
+        stack_free(my_stack, THREAD_STACK_SIZE);
+        return -1;
     }
 
     if (*stack == NULL)

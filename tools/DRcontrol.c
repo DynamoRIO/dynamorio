@@ -221,30 +221,30 @@ main(int argc, char **argv)
     while (argidx < argc) {
 
         if (!strcmp(argv[argidx], "-help")) {
-  	    help();
-	}
+            help();
+        }
         /* ******************** actions on active processes ******************** */
-	else if (!strcmp(argv[argidx], "-detachall")) {
-	    detachall=1;
-	}
-	else if (!strcmp(argv[argidx], "-detach")) {
+        else if (!strcmp(argv[argidx], "-detachall")) {
+            detachall=1;
+        }
+        else if (!strcmp(argv[argidx], "-detach")) {
             if (++argidx >= argc)
                 usage();
-	    detachpid=atoi(argv[argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-detachexe")) {
+            detachpid=atoi(argv[argidx]);
+        }
+        else if (!strcmp(argv[argidx], "-detachexe")) {
             if (++argidx >= argc)
                 usage();
-	    detach_exename=argv[argidx];
-	}
+            detach_exename=argv[argidx];
+        }
         else if (!strcmp(argv[argidx], "-pid") || !strcmp(argv[argidx], "-p")) {
             if (++argidx >= argc)
                 usage();
             pid=atoi(argv[argidx]);
         }
-	else if (!strcmp(argv[argidx], "-all")) {
-	    all=1;
-	}
+        else if (!strcmp(argv[argidx], "-all")) {
+            all=1;
+        }
         else if (!strcmp(argv[argidx], "-delay")) {
             /* in milliseconds */
             if (++argidx >= argc)
@@ -257,31 +257,31 @@ main(int argc, char **argv)
                 usage();
             timeout_ms=atoi(argv[argidx]);
         }
-	else if (!strcmp(argv[argidx], "-hot_patch_nudge")) {
+        else if (!strcmp(argv[argidx], "-hot_patch_nudge")) {
             if (++argidx >= argc)
                 usage();
-	    hotp_nudge_pid=atoi(argv[argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-hot_patch_modes_nudge")) {
+            hotp_nudge_pid=atoi(argv[argidx]);
+        }
+        else if (!strcmp(argv[argidx], "-hot_patch_modes_nudge")) {
             if (++argidx >= argc)
                 usage();
-	    hotp_modes_nudge_pid=atoi(argv[argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-hot_patch_nudge_all")) {
-	    hotp_nudge_all = 1;
-	}
-	else if (!strcmp(argv[argidx], "-verbose")) {
-	    verbose = 1;
-	}
-	else if (!strcmp(argv[argidx], "-hot_patch_modes_nudge_all")) {
-	    hotp_modes_nudge_all = 1;
-	}
-	else if (!strcmp(argv[argidx], "-drpop")) {
-	    nudge = 1;
+            hotp_modes_nudge_pid=atoi(argv[argidx]);
+        }
+        else if (!strcmp(argv[argidx], "-hot_patch_nudge_all")) {
+            hotp_nudge_all = 1;
+        }
+        else if (!strcmp(argv[argidx], "-verbose")) {
+            verbose = 1;
+        }
+        else if (!strcmp(argv[argidx], "-hot_patch_modes_nudge_all")) {
+            hotp_modes_nudge_all = 1;
+        }
+        else if (!strcmp(argv[argidx], "-drpop")) {
+            nudge = 1;
             /* allow composition */
-	    nudge_action_mask |= NUDGE_GENERIC(opt) | NUDGE_GENERIC(reset);
-	}
-	else if (!strcmp(argv[argidx], "-nudge")) {
+            nudge_action_mask |= NUDGE_GENERIC(opt) | NUDGE_GENERIC(reset);
+        }
+        else if (!strcmp(argv[argidx], "-nudge")) {
             int nudge_numeric;
             if (++argidx >= argc)
                 usage();
@@ -301,8 +301,8 @@ main(int argc, char **argv)
                 }
             }   
 
-	    nudge=1;
-	}
+            nudge=1;
+        }
         else if (!strcmp(argv[argidx], "-client_nudge")) {
             if (++argidx >= argc)
                 usage();
@@ -311,130 +311,130 @@ main(int argc, char **argv)
             nudge = 1;
         }
         /* ******************** configuration actions ******************** */
-	else if (!strcmp(argv[argidx], "-reset")) {
-	    reset=1;
-	}
-	else if (!strcmp(argv[argidx], "-create")) {
+        else if (!strcmp(argv[argidx], "-reset")) {
+            reset=1;
+        }
+        else if (!strcmp(argv[argidx], "-create")) {
             if (++argidx >= argc)
                 usage();
-	    create = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-destroy")) {
+            create = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-destroy")) {
             destroy = 1;
-	}
-	else if (!strcmp(argv[argidx], "-exists")) {
+        }
+        else if (!strcmp(argv[argidx], "-exists")) {
             exists = 1;
-	}
-	else if (!strcmp(argv[argidx], "-run")) {
+        }
+        else if (!strcmp(argv[argidx], "-run")) {
             run = 1;
             if (++argidx >= argc)
                 usage();
             runval = atoi(argv[argidx]);
-	}
-	else if (!strcmp(argv[argidx], "-app")) {
+        }
+        else if (!strcmp(argv[argidx], "-app")) {
             if (++argidx >= argc)
                 usage();
             appname = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-add")) {
+        }
+        else if (!strcmp(argv[argidx], "-add")) {
             if (++argidx >= argc)
                 usage();
-	    addapp = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-remove")) {
+            addapp = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-remove")) {
             if (++argidx >= argc)
                 usage();
-	    removeapp = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-options")) {
+            removeapp = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-options")) {
             if (++argidx >= argc)
                 usage();
-	    opstring = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-drlib")) {
+            opstring = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-drlib")) {
             if (++argidx >= argc)
                 usage();
-	    drdll = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-preinject")) {
+            drdll = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-preinject")) {
             if (++argidx >= argc)
                 usage();
             preinject = argv[argidx];
-	}
+        }
         else if (!strcmp(argv[argidx], "-create_eventlog")) {
             if (++argidx >= argc)
                 usage();
             eventlog = argv[argidx];
         }
-	else if (!strcmp(argv[argidx], "-destroy_eventlog")) {
+        else if (!strcmp(argv[argidx], "-destroy_eventlog")) {
             free_eventlog = 1;
-	}
-	else if (!strcmp(argv[argidx], "-drhome")) {
+        }
+        else if (!strcmp(argv[argidx], "-drhome")) {
             if (++argidx >= argc)
                 usage();
             drhome = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-modes")) {
+        }
+        else if (!strcmp(argv[argidx], "-modes")) {
             if (++argidx >= argc)
                 usage();
             modes = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-defs")) {
+        }
+        else if (!strcmp(argv[argidx], "-defs")) {
             if (++argidx >= argc)
                 usage();
             defs = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-logdir")) {
+        }
+        else if (!strcmp(argv[argidx], "-logdir")) {
             if (++argidx >= argc)
                 usage();
-	    logdir = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-sharedcache")) {
+            logdir = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-sharedcache")) {
             if (++argidx >= argc)
                 usage();
-	    sharedcache = argv[argidx];
-	}
-	else if (!strcmp(argv[argidx], "-load")) {
+            sharedcache = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-load")) {
             if (++argidx >= argc)
                 usage();
-	    load = argv[argidx];
-	}
+            load = argv[argidx];
+        }
         else if (!strcmp(argv[argidx], "-save")) {
             if (++argidx >= argc)
                 usage();
             save = argv[argidx];
         }
-	else if (!strcmp(argv[argidx], "-dump")) {
-	    dump = 1;
-	}
-	else if (!strcmp(argv[argidx], "-appdump")) {
+        else if (!strcmp(argv[argidx], "-dump")) {
+            dump = 1;
+        }
+        else if (!strcmp(argv[argidx], "-appdump")) {
             if (++argidx >= argc)
                 usage();
-            appdump = argv[argidx];	    
-	}
-	else if (!strcmp(argv[argidx], "-fulldump")) {
-	    dump = 1;
-	}
-	else if (!strcmp(argv[argidx], "-v")) {
+            appdump = argv[argidx];
+        }
+        else if (!strcmp(argv[argidx], "-fulldump")) {
+            dump = 1;
+        }
+        else if (!strcmp(argv[argidx], "-v")) {
 #ifdef BUILD_NUMBER
-	  printf("DRcontrol.exe build %d -- %s", BUILD_NUMBER, __DATE__);
+          printf("DRcontrol.exe build %d -- %s", BUILD_NUMBER, __DATE__);
 #else
-	  printf("DRcontrol.exe custom build -- %s, %s", __DATE__, __TIME__);
+          printf("DRcontrol.exe custom build -- %s, %s", __DATE__, __TIME__);
 #endif
-	} else if (!strcmp(argv[argidx], "-canary_default")) {
+        } else if (!strcmp(argv[argidx], "-canary_default")) {
             canary_default = 1;
-	} else if (!strcmp(argv[argidx], "-canary")) {
+        } else if (!strcmp(argv[argidx], "-canary")) {
             if (++argidx >= argc)
                 usage();
-	    canary_process=argv[argidx];
+            canary_process=argv[argidx];
             if (++argidx >= argc)
                 usage();
-	    scratch_folder=argv[argidx];
-	} else if (!strcmp(argv[argidx], "-canary_run")) {
+            scratch_folder=argv[argidx];
+        } else if (!strcmp(argv[argidx], "-canary_run")) {
             if (++argidx >= argc)
                 usage();
-	    canary_run = strtol(argv[argidx], NULL, 0);
-	} else if (!strcmp(argv[argidx], "-canary_fault")) {
+            canary_run = strtol(argv[argidx], NULL, 0);
+        } else if (!strcmp(argv[argidx], "-canary_fault")) {
             char *dummy;
             if (++argidx >= argc)
                 usage();
@@ -442,15 +442,15 @@ main(int argc, char **argv)
             if (++argidx >= argc)
                 usage();
             canary_fault_ops = argv[argidx];
-	} else if (!strcmp(argv[argidx], "-32")) {
-	    dr_platform = DR_PLATFORM_32BIT;
-	} else if (!strcmp(argv[argidx], "-64")) {
-	    dr_platform = DR_PLATFORM_64BIT;
-	} else {
-	    fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
-	    usage();
-	}
-	argidx++;
+        } else if (!strcmp(argv[argidx], "-32")) {
+            dr_platform = DR_PLATFORM_32BIT;
+        } else if (!strcmp(argv[argidx], "-64")) {
+            dr_platform = DR_PLATFORM_64BIT;
+        } else {
+            fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
+            usage();
+        }
+        argidx++;
     }
   
     /* PR 244206: set the registry view before any registry access */

@@ -135,43 +135,43 @@ main(int argc, char **argv)
     while (argidx < argc) {
 
         if (!strcmp(argv[argidx], "-help")) {
-  	    help();
-	}
-	else if (!strcmp(argv[argidx], "-auto")) {
-	    sauto=1;
-	}
-	else if (!strcmp(argv[argidx], "-manual")) {
-	    sman=1;
-	}
-	else if (!strcmp(argv[argidx], "-restart")) {
-	    srestart=1;
-	}
-	else if (!strcmp(argv[argidx], "-show")) {
-	    show=1;
-	}
-	else if (!strcmp(argv[argidx], "-depreset")) {
-	    depreset=1;
-	}
-	else if (!strcmp(argv[argidx], "-dep")) {
+              help();
+        }
+        else if (!strcmp(argv[argidx], "-auto")) {
+            sauto=1;
+        }
+        else if (!strcmp(argv[argidx], "-manual")) {
+            sman=1;
+        }
+        else if (!strcmp(argv[argidx], "-restart")) {
+            srestart=1;
+        }
+        else if (!strcmp(argv[argidx], "-show")) {
+            show=1;
+        }
+        else if (!strcmp(argv[argidx], "-depreset")) {
+            depreset=1;
+        }
+        else if (!strcmp(argv[argidx], "-dep")) {
             if (argidx + 1 >= argc)
                 usage();
             dep = argv[++argidx];
-	}
-	else if (!strcmp(argv[argidx], "-disabled")) {
-	    sdis=1;
-	}
-	else if (!strcmp(argv[argidx], "-v")) {
+        }
+        else if (!strcmp(argv[argidx], "-disabled")) {
+            sdis=1;
+        }
+        else if (!strcmp(argv[argidx], "-v")) {
 #ifdef BUILD_NUMBER
-	  printf("svccntrl.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
+          printf("svccntrl.exe build %d -- %s\n", BUILD_NUMBER, __DATE__);
 #else
-	  printf("svccntrl.exe custom build -- %s, %s\n", __DATE__, __TIME__);
+          printf("svccntrl.exe custom build -- %s, %s\n", __DATE__, __TIME__);
 #endif
-	}
-	else {
-	    fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
-	    usage();
-	}
-	argidx++;
+        }
+        else {
+            fprintf(stderr, "Unknown option: %s\n", argv[argidx]);
+            usage();
+        }
+        argidx++;
     }
 
     if (argc < 3) 

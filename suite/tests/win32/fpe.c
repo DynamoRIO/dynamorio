@@ -64,15 +64,15 @@ void test(double n1, double n2)
      */
     jmpret = setjmp(mark);
     if (jmpret == 0) {
-	r = n1 / n2;
-	/* This won't be reached if error occurs. */
-	printf("\n\n%4.3g / %4.3g = %4.3g\n", n1, n2, r);
-	r = n1 * n2;
-	/* This won't be reached if error occurs. */
-	printf("\n\n%4.3g * %4.3g = %4.3g\n", n1, n2, r);
+        r = n1 / n2;
+        /* This won't be reached if error occurs. */
+        printf("\n\n%4.3g / %4.3g = %4.3g\n", n1, n2, r);
+        r = n1 * n2;
+        /* This won't be reached if error occurs. */
+        printf("\n\n%4.3g * %4.3g = %4.3g\n", n1, n2, r);
     }
     else
-	fpcheck();
+        fpcheck();
 }
 
 int main()
@@ -86,8 +86,8 @@ int main()
      */
 #pragma warning(disable:4113)
     if (signal(SIGFPE, fphandler) == SIG_ERR) {
-	fprintf(stderr, "Couldn't set SIGFPE\n");
-	abort();   
+        fprintf(stderr, "Couldn't set SIGFPE\n");
+        abort();   
     }
     test(4., 0.);
     test(0., DBL_MAX);
@@ -128,24 +128,24 @@ void fpcheck(void)
     char fpstr[30];
     switch(fperr) {
     case _FPE_INVALID:
-	strcpy(fpstr, "Invalid number");
-	break;
+        strcpy(fpstr, "Invalid number");
+        break;
     case _FPE_OVERFLOW:
-	strcpy(fpstr, "Overflow");
-	break;
+        strcpy(fpstr, "Overflow");
+        break;
     case _FPE_UNDERFLOW:
-	strcpy(fpstr, "Underflow");
-	break;
+        strcpy(fpstr, "Underflow");
+        break;
     /* FIXME i#910: on win8 this is raised instead of _FPE_ZERODIVIDE */
     case _FPE_MULTIPLE_TRAPS:
         fperr = _FPE_ZERODIVIDE;
         /* fall-through */
     case _FPE_ZERODIVIDE:
-	strcpy(fpstr, "Divide by zero");
-	break;
+        strcpy(fpstr, "Divide by zero");
+        break;
     default:
-	strcpy(fpstr, "Other floating point error");
-	break;
+        strcpy(fpstr, "Other floating point error");
+        break;
     }
     printf("Error %d: %s\n", fperr, fpstr);
 }

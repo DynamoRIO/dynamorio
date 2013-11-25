@@ -359,8 +359,8 @@ GLOBAL_LABEL(call_switch_stack:)
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
         call     get_pic_xax
-	lea      REG_XAX, [_GLOBAL_OFFSET_TABLE_ + REG_XAX]
-	lea      REG_XAX, VAR_VIA_GOT(REG_XAX, GLOBAL_REF(initstack_mutex))
+        lea      REG_XAX, [_GLOBAL_OFFSET_TABLE_ + REG_XAX]
+        lea      REG_XAX, VAR_VIA_GOT(REG_XAX, GLOBAL_REF(initstack_mutex))
         mov      DWORD [REG_XAX], 0
 #else
         mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
@@ -549,8 +549,8 @@ GLOBAL_LABEL(cleanup_and_terminate:)
          * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
          */
         call     get_pic_xdi
-	lea      REG_XDI, [_GLOBAL_OFFSET_TABLE_ + REG_XDI]
-	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
+        lea      REG_XDI, [_GLOBAL_OFFSET_TABLE_ + REG_XDI]
+        lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
         lock inc DWORD [REG_XAX]
 #else
         lock inc DWORD SYMREF(exiting_thread_count) /* rip-rel for x64 */
@@ -589,7 +589,7 @@ cat_no_thread:
         mov      ecx, 1
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-	lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack_mutex))
+        lea      REG_XAX, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack_mutex))
 #endif
 cat_spin:       
 #if !defined(X64) && defined(LINUX)
@@ -621,7 +621,7 @@ cat_have_lock:
         /* swap stacks */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
+        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(initstack))
         mov      REG_XSP, PTRSZ [REG_XBP]
 #else
         mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
@@ -666,7 +666,7 @@ cat_have_lock:
          *   about ebx and edx */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
+        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, initstack_mutex)
         mov      DWORD [REG_XBP], 0
 #else
         mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
@@ -675,7 +675,7 @@ cat_have_lock:
          * exiting_thread_count (allows another thread to kill us) */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
-	lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
+        lea      REG_XBP, VAR_VIA_GOT(REG_XDI, GLOBAL_REF(exiting_thread_count))
         lock dec DWORD [REG_XBP]
 #else
         lock dec DWORD SYMREF(exiting_thread_count) /* rip-rel on x64 */
@@ -2343,15 +2343,15 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
         add      rsp, 16        /* clear args */
         jmp      r11            /* Jump to resolved PC, or into DR. */
 # else /* !X64 */
-        push 	 REG_XAX
-        push 	 REG_XCX
+        push     REG_XAX
+        push     REG_XCX
         mov      REG_XAX, [REG_XSP + 2 * ARG_SZ]  /* link map */
         mov      REG_XCX, [REG_XSP + 3 * ARG_SZ]  /* .dynamic index */
         CALLC2(GLOBAL_REF(dynamorio_dl_fixup), REG_XAX, REG_XCX)
         mov      [REG_XSP + 2 * ARG_SZ], REG_XAX /* overwrite arg1 */
-        pop 	 REG_XCX
-        pop 	 REG_XAX
-        ret	 4 /* ret to target, pop arg2 */
+        pop      REG_XCX
+        pop      REG_XAX
+        ret      4 /* ret to target, pop arg2 */
 # endif /* !X64 */
         END_FUNC(_dynamorio_runtime_resolve)
 

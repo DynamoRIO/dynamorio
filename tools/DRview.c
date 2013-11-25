@@ -282,11 +282,11 @@ main(int argc, char **argv)
             listdr=TRUE;
         }
         else if (!strcmp(argv[argidx], "-listdlls")) {
-	  listdlls=TRUE;
+            listdlls=TRUE;
         }
         else if (!strcmp(argv[argidx], "-showdlls")) {
-	  listdlls=TRUE;
-          showdlls=TRUE;
+            listdlls=TRUE;
+            showdlls=TRUE;
         }
         else if (!strcmp(argv[argidx], "-nopid")) {
             nopid=TRUE;

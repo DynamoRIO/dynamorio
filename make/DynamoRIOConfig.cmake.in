@@ -555,11 +555,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
         ERROR_VARIABLE gcc_err
         OUTPUT_VARIABLE gcc_out)
       if (gcc_result)
-	if (APPLE AND gcc_err MATCHES "_main\", referenced from")
-	  # not an error: "-v --help" tries to build w/ no src file for some reason
-	else ()
+        if (APPLE AND gcc_err MATCHES "_main\", referenced from")
+          # not an error: "-v --help" tries to build w/ no src file for some reason
+        else ()
           message(FATAL_ERROR "*** ${CMAKE_C_COMPILER} failed to run: ${gcc_out}\n${gcc_err} ***\n")
-	endif ()
+        endif ()
       endif (gcc_result)
       string(REGEX MATCH "fstack-protector" flag_present "${gcc_out}")
       if (flag_present)

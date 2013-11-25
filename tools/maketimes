@@ -64,25 +64,25 @@ if ($have_res) {
     open(RES1, "< $res1") || die "Error: Couldn't open $res1 for input\n";
     $bmark = "";
     while (<RES1>) {
-	if ($_ =~ /^%%%% .*\/(\w+)$/) {
-	    $bmark = $1;
-	    $ok1{$bmark} = 0;
-	}
-	if ($_ =~ /^Verify: correct/) {
-	    $ok1{$bmark} = 1;
-	}
+        if ($_ =~ /^%%%% .*\/(\w+)$/) {
+            $bmark = $1;
+            $ok1{$bmark} = 0;
+        }
+        if ($_ =~ /^Verify: correct/) {
+            $ok1{$bmark} = 1;
+        }
     }
     close(RES1);
     open(RES2, "< $res2") || die "Error: Couldn't open $res2 for input\n";
     $bmark = "";
     while (<RES2>) {
-	if ($_ =~ /^%%%% .*\/(\w+)$/) {
-	    $bmark = $1;
-	    $ok2{$bmark} = 0;
-	}
-	if ($_ =~ /^Verify: correct/) {
-	    $ok2{$bmark} = 1;
-	}
+        if ($_ =~ /^%%%% .*\/(\w+)$/) {
+            $bmark = $1;
+            $ok2{$bmark} = 0;
+        }
+        if ($_ =~ /^Verify: correct/) {
+            $ok2{$bmark} = 1;
+        }
     }
     close(RES2);
 }
@@ -90,27 +90,27 @@ if ($have_res) {
 $num_bmarks = 0;
 while (<FILE1>) {
     if ($_ =~ /^\s*(\w+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)/) {
-	$bmark = $1;
-	$ref_nopt = $2;
-	$ref_opt = $3;
-	$test_nopt = $4;
-	$test_opt = $5;
-	$t1{$bmark} = $ref_opt;
-	$name_bmarks[$num_bmarks] = $bmark;
-	$num_bmarks++;
+        $bmark = $1;
+        $ref_nopt = $2;
+        $ref_opt = $3;
+        $test_nopt = $4;
+        $test_opt = $5;
+        $t1{$bmark} = $ref_opt;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
     }
 }
 close(FILE1);
 while (<FILE2>) {
     if ($_ =~ /^\s*(\w+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)/) {
-	$bmark = $1;
-	$ref_nopt = $2;
-	$ref_opt = $3;
-	$test_nopt = $4;
-	$test_opt = $5;
-	$t2{$bmark} = $ref_opt;
-	$name_bmarks[$num_bmarks] = $bmark;
-	$num_bmarks++;
+        $bmark = $1;
+        $ref_nopt = $2;
+        $ref_opt = $3;
+        $test_nopt = $4;
+        $test_opt = $5;
+        $t2{$bmark} = $ref_opt;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
     }
 }
 close(FILE2);
@@ -121,35 +121,35 @@ $ratio_sum = 0;
 $ratio_num = 0;
 foreach $s (@sorted) {
     if ($s eq $last) {
-	next;
+        next;
     }
     $last = $s;
 
     printf "%12s", $s;
     if (defined($t1{$s})) {
-	printf "%9.2f", $t1{$s};
-	if ($have_res) {
-	    printf "%s", $ok1{$s} ? " " : "*";
-	}
-	$div = $t1{$s};
+        printf "%9.2f", $t1{$s};
+        if ($have_res) {
+            printf "%s", $ok1{$s} ? " " : "*";
+        }
+        $div = $t1{$s};
     } else {
-	printf "%9s", "-----";
-	$div = 0;
+        printf "%9s", "-----";
+        $div = 0;
     }
 
     if (defined($t2{$s})) {
-	printf "%9.2f", $t2{$s};
-	if ($have_res) {
-	    printf "%s", $ok2{$s} ? " " : "*";
-	}
-	if ($div > 0 && $t2{$s} > 0) {
-	    $ratio = $div / $t2{$s};
-	    $ratio_sum += 1/$ratio;
-	    $ratio_num++;
-	    printf "%8s%4.3f", "=> ", $ratio;
-	}
+        printf "%9.2f", $t2{$s};
+        if ($have_res) {
+            printf "%s", $ok2{$s} ? " " : "*";
+        }
+        if ($div > 0 && $t2{$s} > 0) {
+            $ratio = $div / $t2{$s};
+            $ratio_sum += 1/$ratio;
+            $ratio_num++;
+            printf "%8s%4.3f", "=> ", $ratio;
+        }
     } else {
-	printf "%9s", "-----";
+        printf "%9s", "-----";
     }
     print "\n";
 }

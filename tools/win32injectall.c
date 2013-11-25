@@ -53,16 +53,16 @@ print_error(int error)
 {
     LPVOID lpMsgBuf;
     FormatMessage( 
-		  FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-		  FORMAT_MESSAGE_FROM_SYSTEM | 
-		  FORMAT_MESSAGE_IGNORE_INSERTS,
-		  NULL,
-		  error,
-		  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-		  (LPTSTR) &lpMsgBuf,
-		  0,
-		  NULL 
-		  );
+                  FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+                  FORMAT_MESSAGE_FROM_SYSTEM | 
+                  FORMAT_MESSAGE_IGNORE_INSERTS,
+                  NULL,
+                  error,
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+                  (LPTSTR) &lpMsgBuf,
+                  0,
+                  NULL 
+                  );
     // Display the string.
     fprintf(stderr, "%s\n", (LPCTSTR)lpMsgBuf);
     // Free the buffer.
@@ -79,45 +79,45 @@ main(int argc, char *argv[])
     unsigned long size = 0;
 
     if (argc != 2) {
-	printf("Usage: %s set|unset|view\n", argv[0]);
-	return 0;
+        printf("Usage: %s set|unset|view\n", argv[0]);
+        return 0;
     }
 
     if (strcmp(argv[1], "view") == 0) {
-	res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0, KEY_READ, &hk);
-	assert(res == ERROR_SUCCESS);
-	res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY, 0, NULL, (LPBYTE) data,
-			      &size);
-	/* for some reason we get error code "More data is available" here
-	 * (doing exact same thing in win32gui always gets ERROR_SUCCESS)
-	 */
-	/* assert(res == ERROR_SUCCESS); */
-	RegCloseKey(hk);
-	// assumption: only we use this key, so if it is non-empty it must be us!
-	if (size > 1)
-	    printf("Inject all is set to %s\n", data);
-	else
-	    printf("Inject all is NOT set\n");
+        res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0, KEY_READ, &hk);
+        assert(res == ERROR_SUCCESS);
+        res = RegQueryValueEx(hk, INJECT_ALL_SUBKEY, 0, NULL, (LPBYTE) data,
+                              &size);
+        /* for some reason we get error code "More data is available" here
+         * (doing exact same thing in win32gui always gets ERROR_SUCCESS)
+         */
+        /* assert(res == ERROR_SUCCESS); */
+        RegCloseKey(hk);
+        // assumption: only we use this key, so if it is non-empty it must be us!
+        if (size > 1)
+            printf("Inject all is set to %s\n", data);
+        else
+            printf("Inject all is NOT set\n");
     } else {
-	if (strcmp(argv[1], "set") == 0) {
-	    const char *subdir = "\\bin\\drpreinject.dll";
-	    size =
-		GetEnvironmentVariable((LPCTSTR)"DYNAMORIO_HOME", data, 1023 - strlen(subdir));
-	    strcpy(data + strlen(data), subdir);
-	    val = data;
-	    printf("Setting key to %s\n", val);
-	} else if (strcmp(argv[1], "unset") == 0) {
-	    val = "";
-	} else {
-	    printf("Usage: %s set|unset|view\n", argv[0]);
-	    return 0;
-	}
-	res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0, KEY_WRITE, &hk);
-	assert(res == ERROR_SUCCESS);
-	res = RegSetValueEx(hk, INJECT_ALL_SUBKEY, 0, REG_SZ, (LPBYTE) val,
-			    strlen(val)+1);
-	assert(res == ERROR_SUCCESS);
-	RegCloseKey(hk);
+        if (strcmp(argv[1], "set") == 0) {
+            const char *subdir = "\\bin\\drpreinject.dll";
+            size =
+                GetEnvironmentVariable((LPCTSTR)"DYNAMORIO_HOME", data, 1023 - strlen(subdir));
+            strcpy(data + strlen(data), subdir);
+            val = data;
+            printf("Setting key to %s\n", val);
+        } else if (strcmp(argv[1], "unset") == 0) {
+            val = "";
+        } else {
+            printf("Usage: %s set|unset|view\n", argv[0]);
+            return 0;
+        }
+        res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY, 0, KEY_WRITE, &hk);
+        assert(res == ERROR_SUCCESS);
+        res = RegSetValueEx(hk, INJECT_ALL_SUBKEY, 0, REG_SZ, (LPBYTE) val,
+                            strlen(val)+1);
+        assert(res == ERROR_SUCCESS);
+        RegCloseKey(hk);
     }
 
     return 0;

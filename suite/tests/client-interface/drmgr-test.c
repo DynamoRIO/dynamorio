@@ -265,8 +265,8 @@ process(void *arg)
     /* Do the local computations */
     localsum = 0;
     for (i=iproc; i<intervals; i+=2) {
-	register double x = (i + 0.5) * width;
-	localsum += 4.0 / (1.0 + x * x);
+        register double x = (i + 0.5) * width;
+        localsum += 4.0 / (1.0 + x * x);
     }
     localsum *= width;
 
@@ -304,16 +304,16 @@ main(int argc, char **argv)
 
     /* Make the two threads */
     if (pthread_create(&thread0, NULL, process, (void *)"0") ||
-	pthread_create(&thread1, NULL, process, (void *)"1")) {
-	print("%s: cannot make thread\n", argv[0]);
-	exit(1);
+        pthread_create(&thread1, NULL, process, (void *)"1")) {
+        print("%s: cannot make thread\n", argv[0]);
+        exit(1);
     }
     
     /* Join (collapse) the two threads */
     if (pthread_join(thread0, &retval) ||
-	pthread_join(thread1, &retval)) {
-	print("%s: thread join failed\n", argv[0]);
-	exit(1);
+        pthread_join(thread1, &retval)) {
+        print("%s: thread join failed\n", argv[0]);
+        exit(1);
     }
 
     /* Print the result */

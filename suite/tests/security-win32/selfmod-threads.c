@@ -76,7 +76,7 @@ foo(int iters)
     asm("  movl %%ecx, %0" : "=r" (total));
 #else
     __asm {
-	mov  ecx, iters
+        mov  ecx, iters
         call next_inst
       next_inst:
         pop  edx

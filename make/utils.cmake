@@ -75,9 +75,9 @@ function (add_rel_rpaths target)
       
       # Append the new rpath element if it isn't there already.
       if (APPLE)
-	set(new_lflag "-Wl,-rpath,'@loader_path/${relpath}'")
+        set(new_lflag "-Wl,-rpath,'@loader_path/${relpath}'")
       else (APPLE)
-	set(new_lflag "-Wl,-rpath='$ORIGIN/${relpath}'")
+        set(new_lflag "-Wl,-rpath='$ORIGIN/${relpath}'")
       endif ()
       get_target_property(lflags ${target} LINK_FLAGS)
       if (NOT lflags MATCHES "\\$ORIGIN/${relpath}")

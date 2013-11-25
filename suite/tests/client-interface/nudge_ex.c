@@ -57,21 +57,21 @@ main(int argc, char** argv)
 #ifdef UNIX
     pid_t child = fork();
     if (child < 0) {
-	perror("ERROR on fork");
+        perror("ERROR on fork");
     } else if (child > 0) {
-	pid_t result;
+        pid_t result;
         int status = 0;
         /* don't print here: could be out-of-order wrt client prints */
-	result = waitpid(child, &status, 0);
-	assert(result == child);
-	print("child has exited with status %d\n",
+        result = waitpid(child, &status, 0);
+        assert(result == child);
+        print("child has exited with status %d\n",
               WIFEXITED(status) ? WEXITSTATUS(status) : -1);
     } else {
         /* client nudge handler will terminate us earlier */
         int left = 20;
         while (left > 0)
             left = sleep(left); /* unfortunately, nudge signal interrupts us */
-    }	
+    }   
 #else
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;

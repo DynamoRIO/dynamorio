@@ -109,103 +109,103 @@ while (<IN>) {
     next if /^\s*$/; # skip blank lines
     next if /^\#/; # skip comments
     if ($_ =~ /\S*=/) {
-	# parameter line
-	if ($_ =~ /multiple_runs/) {
-	    $multiple_runs = 1;
-	} elsif ($_ =~ /sep_slim/) {
-	    $sep_slim = 1;
-	} elsif ($_ =~ /type=(\w+)/) {
-	    $type = $1;
-	    if ($type eq "clustered") {
-		$overwrite = 0;
-	    } else {
-		$overwrite = 2; # stacked
-	    }
-	} elsif ($_ =~ /size=(\d+)x(\d+)/) {
-	    $sizex = $1;
-	    $sizey = $2;
-	} elsif ($_ =~ /title=(.+)/) {
-	    $title = $1;
-	} elsif ($_ =~ /x_label=(.+)/) {
-	    $x_label = $1;
-	} elsif ($_ =~ /y_label=(.+)/) {
-	    $y_label = $1;
-	} elsif ($_ =~ /y_max_value=([\d\.]+)/) {
-	    $y_max_value = $1;
-	} elsif ($_ =~ /y_tick_number=([\d\.]+)/) {
-	    $y_tick_number = $1;
-	} elsif ($_ =~ /y_number_format=\"?(.*)\"?/) {
-	    $y_number_format = $1;
-	} elsif ($_ =~ /legend_placement=(.+)/) {
-	    $legend_placement = $1;
-	} elsif ($_ =~ /transparent=(.+)/) {
-	    $transparent = $1;
-	} elsif ($_ =~ /lg_cols=([\d]+)/) {
-	    $lg_cols = $1;
-	} elsif ($_ =~ /legend=/) {
-	    $_ =~ s/legend=//;
-	    chop;
-	    @legend = split("\" ", $_);
-	    # now remove quotes
-	    foreach $l (@legend) {
-		$l =~ s/\"//g;
-	    }
-	    if ($sep_slim) {
-		# add blank legend for separator dataset
-		@legend = ("", @legend);
-	    }
-	} else {
-	    $_ =~ /(.*)=/;
-	    die "Unknown parameter: $1\n";
-	}
+        # parameter line
+        if ($_ =~ /multiple_runs/) {
+            $multiple_runs = 1;
+        } elsif ($_ =~ /sep_slim/) {
+            $sep_slim = 1;
+        } elsif ($_ =~ /type=(\w+)/) {
+            $type = $1;
+            if ($type eq "clustered") {
+                $overwrite = 0;
+            } else {
+                $overwrite = 2; # stacked
+            }
+        } elsif ($_ =~ /size=(\d+)x(\d+)/) {
+            $sizex = $1;
+            $sizey = $2;
+        } elsif ($_ =~ /title=(.+)/) {
+            $title = $1;
+        } elsif ($_ =~ /x_label=(.+)/) {
+            $x_label = $1;
+        } elsif ($_ =~ /y_label=(.+)/) {
+            $y_label = $1;
+        } elsif ($_ =~ /y_max_value=([\d\.]+)/) {
+            $y_max_value = $1;
+        } elsif ($_ =~ /y_tick_number=([\d\.]+)/) {
+            $y_tick_number = $1;
+        } elsif ($_ =~ /y_number_format=\"?(.*)\"?/) {
+            $y_number_format = $1;
+        } elsif ($_ =~ /legend_placement=(.+)/) {
+            $legend_placement = $1;
+        } elsif ($_ =~ /transparent=(.+)/) {
+            $transparent = $1;
+        } elsif ($_ =~ /lg_cols=([\d]+)/) {
+            $lg_cols = $1;
+        } elsif ($_ =~ /legend=/) {
+            $_ =~ s/legend=//;
+            chop;
+            @legend = split("\" ", $_);
+            # now remove quotes
+            foreach $l (@legend) {
+                $l =~ s/\"//g;
+            }
+            if ($sep_slim) {
+                # add blank legend for separator dataset
+                @legend = ("", @legend);
+            }
+        } else {
+            $_ =~ /(.*)=/;
+            die "Unknown parameter: $1\n";
+        }
     } else {
-	# data line
-	# first get label
-	if ($multiple_runs) {
-	    $_ =~ s/(\w+)\s+(\d+)\s+//;
-	    $bm[$n] = "$1 $2";
-	    $this_bm = $1;
-	} else {
-	    $_ =~ s/(\w+)\s+//;
-	    $bm[$n] = $1;
-	    $this_bm = $1;
-	}
-	if ($sep_slim) {
-	    # add empty data set for separator
-	    $val[0][$n] = "";
-	    $d++;
-	} else {
-	    # add entire empty entry for separator
-	    if ($n > 0 && $this_bm ne $last_bm) {
-		# separator
-		$temp = $bm[$n];
-		$bm[$n] = "";
-		for ($i=0; $i<$data_sets; $i++) {
-		    $val[$i][$n] = "";
-		}
-		$n++;
-		$bm[$n] = $temp;
-	    }
-	}
-	while (1) {
-	    if ($_ =~ /^\s*$/) {
-		last;
-	    }
-	    $_ =~ s/([\d\.]+)\s*//;
-	    $data = $1;
-	    if ($data ne "") {
-		$val[$d][$n] = $data;
-		$d++;
-	    } else {
-		last;
-	    }
-	}
-	if ($n == 0) {
-	    $data_sets = $d;
-	}
-	$d = 0;
-	$last_bm = $this_bm;
-	$n++;
+        # data line
+        # first get label
+        if ($multiple_runs) {
+            $_ =~ s/(\w+)\s+(\d+)\s+//;
+            $bm[$n] = "$1 $2";
+            $this_bm = $1;
+        } else {
+            $_ =~ s/(\w+)\s+//;
+            $bm[$n] = $1;
+            $this_bm = $1;
+        }
+        if ($sep_slim) {
+            # add empty data set for separator
+            $val[0][$n] = "";
+            $d++;
+        } else {
+            # add entire empty entry for separator
+            if ($n > 0 && $this_bm ne $last_bm) {
+                # separator
+                $temp = $bm[$n];
+                $bm[$n] = "";
+                for ($i=0; $i<$data_sets; $i++) {
+                    $val[$i][$n] = "";
+                }
+                $n++;
+                $bm[$n] = $temp;
+            }
+        }
+        while (1) {
+            if ($_ =~ /^\s*$/) {
+                last;
+            }
+            $_ =~ s/([\d\.]+)\s*//;
+            $data = $1;
+            if ($data ne "") {
+                $val[$d][$n] = $data;
+                $d++;
+            } else {
+                last;
+            }
+        }
+        if ($n == 0) {
+            $data_sets = $d;
+        }
+        $d = 0;
+        $last_bm = $this_bm;
+        $n++;
     }
 }
 
@@ -225,28 +225,28 @@ $my_graph->set_y_label_font(gdMediumBoldFont);
 $my_graph->set_legend_font(gdMediumBoldFont);
 if ($sep_slim) {
     $my_graph->set(dclrs => 
-	   [ qw(pink lred lgreen lblue lyellow lpurple cyan lorange) ]);
+           [ qw(pink lred lgreen lblue lyellow lpurple cyan lorange) ]);
 }
 if (defined($lg_cols)) {
     $my_graph->set(lg_cols           => $lg_cols);
 }
 $my_graph->set(
-	       overwrite         => $overwrite,
-	       title             => $title,
-	       x_label           => $x_label,
-	       y_label           => $y_label,
-	       long_ticks        => 1,
-	       axis_space        => 5,
-	       y_max_value       => $y_max_value,
-	       y_tick_number     => $y_tick_number,
-	       y_label_skip      => 1,
-	       y_number_format   => $y_number_format,
-	       x_ticks           => 0,
-	       x_labels_vertical => 1,
-	       x_label_position  => 0.5,
-	       legend_placement  => $legend_placement,
-	       transparent       => $transparent,
-	       );
+               overwrite         => $overwrite,
+               title             => $title,
+               x_label           => $x_label,
+               y_label           => $y_label,
+               long_ticks        => 1,
+               axis_space        => 5,
+               y_max_value       => $y_max_value,
+               y_tick_number     => $y_tick_number,
+               y_label_skip      => 1,
+               y_number_format   => $y_number_format,
+               x_ticks           => 0,
+               x_labels_vertical => 1,
+               x_label_position  => 0.5,
+               legend_placement  => $legend_placement,
+               transparent       => $transparent,
+               );
 
 ## can't do gifs anymore!
 ## $my_graph->plot_to_gif( "$infile.gif", \@data );

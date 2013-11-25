@@ -180,7 +180,7 @@ delete_thread(pid_t pid, void *stack)
     result = waitpid(pid, NULL, 0);
     print("Child has exited\n");
     if (result == -1 || result != pid)
-	perror("delete_thread waitpid");
+        perror("delete_thread waitpid");
     stack_free(stack, THREAD_STACK_SIZE);
 }
 

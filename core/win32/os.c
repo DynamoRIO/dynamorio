@@ -7461,7 +7461,7 @@ detach_helper(int detach_type)
     /* FIXME : will go ahead and check option, though detach probably won't work with
      * noasynch anyways */
     if (!INTERNAL_OPTION(noasynch)
-	IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(private_loader))) {
+        IF_CLIENT_INTERFACE(&& !INTERNAL_OPTION(private_loader))) {
         callback_interception_unintercept();
     }
     if (!DYNAMO_OPTION(thin_client))
