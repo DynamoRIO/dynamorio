@@ -60,6 +60,81 @@ else (UNIX)
   set(install_build_args "")
 endif (UNIX)
 
+
+##################################################
+# Pre-commit source file checks.
+# Google Code does not support adding subversion hooks, so we
+# have checks here.
+# We could do a GLOB_RECURSE and read every file, but that's slow, so
+# we try to construct the diff.
+if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.svn" OR
+    # in case the top-level dir and not trunk was checked out
+    EXISTS "${CTEST_SOURCE_DIRECTORY}/../.svn")
+  find_program(SVN svn DOC "subversion client")
+  if (SVN)
+    execute_process(COMMAND ${SVN} diff
+      WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+      RESULT_VARIABLE svn_result
+      ERROR_VARIABLE svn_err
+      OUTPUT_VARIABLE diff_contents)
+    if (svn_result OR svn_err)
+      message(FATAL_ERROR "*** ${SVN} diff failed: ***\n${svn_result} ${svn_err}")
+    endif (svn_result OR svn_err)
+    # Remove tabs from the revision lines
+    string(REGEX REPLACE "\n(---|\\+\\+\\+)[^\n]*\t" "" diff_contents "${diff_contents}")
+  endif (SVN)
+else ()
+  if (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
+    find_program(GIT git DOC "git client")
+    if (GIT)
+      # Included committed, staged, and unstaged changes.
+      # We assume "master" contains the svn top-of-trunk.
+      execute_process(COMMAND ${GIT} diff master
+        WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+        RESULT_VARIABLE git_result
+        ERROR_VARIABLE git_err
+        OUTPUT_VARIABLE diff_contents)
+      if (git_result OR git_err)
+        if (git_err MATCHES "unknown revision")
+          # It may be a cloned branch
+          execute_process(COMMAND ${GIT} diff remotes/origin/master
+            WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
+            RESULT_VARIABLE git_result
+            ERROR_VARIABLE git_err
+            OUTPUT_VARIABLE diff_contents)
+        endif ()
+        if (git_result OR git_err)
+          message(FATAL_ERROR "*** ${GIT} diff failed: ***\n${git_err}")
+        endif (git_result OR git_err)
+      endif (git_result OR git_err)
+    endif (GIT)
+  endif (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
+endif ()
+if (NOT DEFINED diff_contents)
+  message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
+endif ()
+
+# Check for tabs.  We already removed them from svn's diff format.
+string(REGEX MATCH "\t" match "${diff_contents}")
+if (NOT "${match}" STREQUAL "")
+  string(REGEX MATCH "\n[^\n]*\t[^\n]*" match "${diff_contents}")
+  message(FATAL_ERROR "ERROR: diff contains tabs: ${match}")
+endif ()
+
+# Check for NOCHECKIN
+string(REGEX MATCH "NOCHECKIN" match "${diff_contents}")
+if (NOT "${match}" STREQUAL "")
+  string(REGEX MATCH "\n[^\n]*NOCHECKIN[^\n]*" match "${diff_contents}")
+  message(FATAL_ERROR "ERROR: diff contains NOCHECKIN: ${match}")
+endif ()
+
+# CMake seems to remove carriage returns for us so we can't easily
+# check for them unless we switch to perl or python or something
+# to get the diff and check it.
+
+##################################################
+
+
 # for short suite, don't build tests for builds that don't run tests
 # (since building takes forever on windows): so we only turn
 # on BUILD_TESTS for TEST_LONG or debug-internal-{32,64}
