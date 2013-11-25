@@ -1788,7 +1788,9 @@ thread_set_self_context(void *cxt)
      * full machine state", so we need to get the rest of the state,
      */
     sigframe_rt_t frame;
+#if defined(LINUX) || defined(DEBUG)
     sigcontext_t *sc = (sigcontext_t *) cxt;
+#endif
     app_pc xsp_for_sigreturn;
 #ifdef VMX86_SERVER
     ASSERT_NOT_IMPLEMENTED(false); /* PR 405694: can't use regular sigreturn! */
@@ -2152,7 +2154,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool rtframe = IS_RT_FOR_APP(info, sig);
     uint frame_size = get_app_frame_size(info, sig);
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     bool has_restorer = sig_has_restorer(info, sig);
 #endif
     byte *check_pc;
@@ -4677,7 +4679,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
      * I'm going with #1 for now b/c the common case is simpler.
      */
     dcontext_t *dcontext = get_thread_private_dcontext();
-#if !defined(X64) || defined(LINUX)
+#ifdef LINUX
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
 #endif
     char frame_plus_xstate[sizeof(sigframe_rt_t) + AVX_FRAME_EXTRA];

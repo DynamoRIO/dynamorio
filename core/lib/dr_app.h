@@ -119,7 +119,7 @@ DR_APP_API int dr_app_setup_and_start(void);
 DR_APP_API bool
 dr_app_running_under_dynamorio(void);
 
-#ifdef UNIX
+#ifdef LINUX
 /**
  * DynamoRIO's (experimental) native execution mode supports running
  * some modules natively while the others run under DynamoRIO.
@@ -133,6 +133,6 @@ dr_app_running_under_dynamorio(void);
  */
 DR_APP_API void *
 dr_app_handle_mbr_target(void *target);
-#endif /* UNIX */
+#endif /* LINUX */
 
 #endif /* _DR_APP_H_ */

@@ -41,7 +41,11 @@ include_directories(${DynamoRIO_DIR})
 
 # we aren't using DR's configure.h so we have to set defines:
 if (UNIX)
-  set(asm_defs ${asm_defs} -DASSEMBLE_WITH_GAS)
+  if (APPLE)
+    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_NASM)
+  else (APPLE)
+    set(asm_defs ${asm_defs} -DASSEMBLE_WITH_GAS)
+  endif (APPLE)
 else (UNIX)
   set(asm_defs ${asm_defs} -DASSEMBLE_WITH_MASM)
 endif (UNIX)

@@ -577,9 +577,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
     endif (NOT tgt_x64)
 
-    # Generate the .hash section in addition to .gnu.hash for every target, to
-    # avoid SIGFPE when running binaries on old systems:
-    set(tgt_link_flags "${tgt_link_flags} -Wl,--hash-style=both")
+    if (NOT APPLE)
+      # Generate the .hash section in addition to .gnu.hash for every target, to
+      # avoid SIGFPE when running binaries on old systems:
+      set(tgt_link_flags "${tgt_link_flags} -Wl,--hash-style=both")
+    endif (NOT APPLE)
 
     # gcc is invoked for the link step so we have to repeat cflags as well
     set(tgt_link_flags "${tgt_cflags} ${tgt_link_flags}")

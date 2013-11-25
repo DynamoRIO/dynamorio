@@ -87,7 +87,7 @@ is_dr_native_pc(app_pc pc)
 {
 #ifdef DR_APP_EXPORTS
     if (pc == (app_pc) dr_app_running_under_dynamorio
-        IF_UNIX(|| pc == (app_pc) dr_app_handle_mbr_target))
+        IF_LINUX(|| pc == (app_pc) dr_app_handle_mbr_target))
         return true;
 #endif /* DR_APP_EXPORTS */
     return false;

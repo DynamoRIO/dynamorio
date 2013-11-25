@@ -67,7 +67,7 @@ GLOBAL_LABEL(FUNCNAME:)
          */
         push     REG_XAX
         push     REG_XDX
-        CALLC0(replace_native_xfer_stack_adjust)
+        CALLC0(GLOBAL_REF(replace_native_xfer_stack_adjust))
         mov      ecx, eax
         pop      REG_XDX
         pop      REG_XAX
@@ -86,11 +86,11 @@ GLOBAL_LABEL(FUNCNAME:)
         /* put app retaddr into the slot we made above the 2 pushes */
         push     REG_XAX
         push     REG_XDX
-        CALLC0(replace_native_xfer_app_retaddr)
+        CALLC0(GLOBAL_REF(replace_native_xfer_app_retaddr))
         mov      PTRSZ [2 * ARG_SZ + REG_XSP], REG_XAX
 
         /* now get our target */
-        CALLC0(replace_native_xfer_target)
+        CALLC0(GLOBAL_REF(replace_native_xfer_target))
         mov      REG_XCX, REG_XAX
         pop      REG_XDX
         pop      REG_XAX
@@ -113,6 +113,8 @@ GLOBAL_LABEL(FUNCNAME:)
  * from this series.  We only support pointer-aligned.  We do support
  * for x64 although it's quite rare to need it there.
  */
+DECLARE_GLOBAL(replace_native_ret_imms)
+DECLARE_GLOBAL(replace_native_ret_imms_end)
 #define FUNCNAME replace_native_rets
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
@@ -161,9 +163,6 @@ ADDRTAKEN_LABEL(replace_native_ret_imms:)
 ADDRTAKEN_LABEL(replace_native_ret_imms_end:)
         nop
         END_FUNC(FUNCNAME)
-
-DECLARE_GLOBAL(replace_native_ret_imms)
-DECLARE_GLOBAL(replace_native_ret_imms_end)
 
 
 END_FILE

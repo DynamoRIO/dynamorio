@@ -91,11 +91,13 @@ static os_privmod_data_t *libdr_opd;
 static bool privmod_initialized = false;
 static size_t max_client_tls_size = 2 * PAGE_SIZE;
 
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
+# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static bool printed_gdb_commands = false;
 /* Global so visible in release build gdb */
 static char gdb_priv_cmds[4096];
 static size_t gdb_priv_cmds_sofar;
+# endif
 #endif
 
 /* pointing to the I/O data structure in privately loaded libc,
@@ -170,7 +172,8 @@ os_loader_init_prologue(void)
 void
 os_loader_init_epilogue(void)
 {
-#if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+#ifdef LINUX /* XXX i#1285: implement MacOS private loader */
+# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* Print the add-symbol-file commands so they can be copy-pasted into gdb.
      * We have to do it in a single syslog so they can be copy pasted.
      * For non-internal builds, or for private libs loaded after this point,
@@ -185,11 +188,12 @@ os_loader_init_epilogue(void)
                              "set confirm off\n"
                              "%s", gdb_priv_cmds);
     }
-#endif /* INTERNAL || CLIENT_INTERFACE */
+# endif /* INTERNAL || CLIENT_INTERFACE */
+#endif
 }
 
 #ifdef LINUX /* XXX i#1285: implement MacOS private loader */
-#  if defined(INTERNAL) || defined(CLIENT_INTERFACE)
+# if defined(INTERNAL) || defined(CLIENT_INTERFACE)
 static void
 privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
 {
@@ -198,7 +202,7 @@ privload_add_gdb_cmd(const char *modpath, app_pc text_addr)
                     &gdb_priv_cmds_sofar, "add-symbol-file '%s' %p\n",
                     modpath, text_addr);
 }
-#  endif
+# endif
 #endif
 
 void

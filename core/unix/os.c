@@ -2750,7 +2750,8 @@ get_num_processors(void)
          * which should be lower-level than sysctlbyname(), and replace
          * that w/ its straightforward raw syscall underneath later.
          */
-        int res = sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
+	DEBUG_DECLARE(int res = )
+	    sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
         ASSERT(res == 0);
 #else
         /* We used to use get_nprocs_conf, but that's in libc, so now we just
