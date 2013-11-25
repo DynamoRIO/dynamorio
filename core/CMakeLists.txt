@@ -405,18 +405,25 @@ if (UNIX)
   set_target_properties(${PRELOAD_NAME} PROPERTIES
     LINK_FLAGS "-nostartfiles")
 
+  set(dynamorio_link_flags "")
+
   # Do non-lazy runtime binding
   if (APPLE)
-    set(dynamorio_link_flags "-Xlinker -bind_at_load")
+    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -bind_at_load")
   else (APPLE)
-    set(dynamorio_link_flags "-Xlinker -z -Xlinker now")
+    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -z -Xlinker now")
+  endif (APPLE)
+
+  if (APPLE)
+    set(dynamorio_link_flags
+      "${dynamorio_link_flags} -install_name @rpath/libdynamorio.dylib")
   endif (APPLE)
 
   # Bind global symbols internally to avoid interposing
   if (APPLE)
     # Looks like -interposable is off by default
   else (APPLE)
-    set(dynamorio_link_flags "-Xlinker -Bsymbolic")
+    set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -Bsymbolic")
   endif (APPLE)
 
   set(dynamorio_link_flags "${dynamorio_link_flags} -nostdlib")
@@ -782,6 +789,10 @@ if (WIN32)
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
     "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
 endif (WIN32)
+if (APPLE)
+  set_target_properties(drinjectlib PROPERTIES
+    LINK_FLAGS "-install_name @rpath/libdrinjectlib.dylib")
+endif (APPLE)
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
