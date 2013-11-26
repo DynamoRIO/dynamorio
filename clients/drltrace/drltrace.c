@@ -36,10 +36,11 @@
  *
  * The runtime options for this client include:
  *
- * -logdir <dir>      Sets log directory, which by default is "-".
- *                    If set to "-", the tool prints to stderr.
- * -only_from_app     Only reports library calls from the application itself.
- * -verbose <N>       For debugging the tool itself.
+ * -logdir <dir>       Sets log directory, which by default is "-".
+ *                     If set to "-", the tool prints to stderr.
+ * -only_from_app      Only reports library calls from the application itself.
+ * -ignore_underscore  Ignores library routine names starting with "_".
+ * -verbose <N>        For debugging the tool itself.
  */
 
 #include "dr_api.h"
@@ -49,10 +50,21 @@
 #include "../common/utils.h"
 #include <string.h>
 
-/* XXX i#1349: add 2 more modes, both gathering statistics rather than
- * a full trace.  We'll probably want to insert custom instrumentation
- * rather than a clean call via drwrap, and so we'll want our own
- * hashtable of the library entries.
+/* XXX i#1349: features to add:
+ *
+ * + Add filtering of which library routines to trace.
+ *   This would likely be via a configuration file.
+ *
+ * + Add argument values and return values.  The number and type of each
+ *   argument and return would likely come from the filter configuration
+ *   file.
+ *
+ * + Add 2 more modes, both gathering statistics rather than a full
+ *   trace: one mode that counts total calls, and one that just
+ *   records whether each library routine was ever called.  For these,
+ *   we'll probably want to insert custom instrumentation rather than
+ *   a clean call via drwrap, and so we'll want our own hashtable of
+ *   the library entries.
  */
 
 static uint verbose;
@@ -67,6 +79,7 @@ static uint verbose;
 typedef struct _drltrace_options_t {
     char logdir[MAXIMUM_PATH];
     bool only_from_app;
+    bool ignore_underscore;
 } drltrace_options_t;
 
 static drltrace_options_t options;
@@ -76,10 +89,6 @@ static file_t outf;
 
 /* Avoid exe exports, as on Linux many apps have a ton of global symbols. */
 static app_pc exe_start;
-
-/* XXX i#1349: add writing to logdir instead of just stderr.
- * Perhaps refactor drcov.c logfile routines into ../common/utils.c.
- */
 
 /* runtest.cmake assumes this is the prefix, so update both when changing it */
 #define STDERR_PREFIX "~~~~ "
@@ -158,6 +167,8 @@ iterate_exports(const module_data_t *info, bool add)
                    sym->name, sym->addr, func);
         }
 #endif
+        if (options.ignore_underscore && strstr(sym->name, "_") == sym->name)
+            func = NULL;
         if (func != NULL) {
             if (add) {
                 IF_DEBUG(bool ok =)
@@ -193,14 +204,6 @@ event_module_unload(void *drcontext, const module_data_t *info)
  * Init and exit
  */
 
-#ifndef WINDOWS
-static void
-event_fork(void *drcontext)
-{
-    /* XXX i#1349: create a new logfile */
-}
-#endif
-
 static void
 open_log_file(void)
 {
@@ -219,6 +222,15 @@ open_log_file(void)
         NOTIFY(1, "log file is %s\n", buf);
     }
 }
+
+#ifndef WINDOWS
+static void
+event_fork(void *drcontext)
+{
+    /* The old file was closed by DR b/c we passed DR_FILE_CLOSE_ON_FORK */
+    open_log_file();
+}
+#endif
 
 static void
 event_exit(void)
@@ -248,6 +260,8 @@ options_init(client_id_t id)
             USAGE_CHECK(s != NULL, "missing logdir path");
         } else if (strcmp(token, "-only_from_app") == 0) {
             options.only_from_app = true;
+        } else if (strcmp(token, "-ignore_underscore") == 0) {
+            options.ignore_underscore = true;
         } else if (strcmp(token, "-verbose") == 0) {
             s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token));
             USAGE_CHECK(s != NULL, "missing -verbose number");

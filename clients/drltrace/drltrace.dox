@@ -46,5 +46,7 @@ The runtime options for this tool include:
  - \b -logdir dir:
     Sets the log directory, which by default is "-".
     If set to "-", the tool prints to stderr.
+ - \b -ignore_underscore:
+    Ignores library routine names starting with "_".
 
 */
