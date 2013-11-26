@@ -44,7 +44,7 @@ The runtime options for this tool include:
     Only reports library calls from the application itself, as opposed to
     all calls even from other libraries or within the same library.
  - \b -logdir dir:
-    Sets the log directory, which by default
-    is the directory containing the client library.
+    Sets the log directory, which by default is "-".
+    If set to "-", the tool prints to stderr.
 
 */

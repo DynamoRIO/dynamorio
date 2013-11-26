@@ -36,9 +36,8 @@
  *
  * The runtime options for this client include:
  *
- * -logdir <dir>      Sets log directory, which by default is at the same
- *                    directory as the client library.
- *                    XXX: logging is not yet implemented.
+ * -logdir <dir>      Sets log directory, which by default is "-".
+ *                    If set to "-", the tool prints to stderr.
  * -only_from_app     Only reports library calls from the application itself.
  * -verbose <N>       For debugging the tool itself.
  */
@@ -46,6 +45,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drwrap.h"
+#include "drx.h"
 #include "../common/utils.h"
 #include <string.h>
 
@@ -70,6 +70,9 @@ typedef struct _drltrace_options_t {
 } drltrace_options_t;
 
 static drltrace_options_t options;
+
+/* Where to write the trace */
+static file_t outf;
 
 /* Avoid exe exports, as on Linux many apps have a ton of global symbols. */
 static app_pc exe_start;
@@ -124,7 +127,7 @@ lib_entry(void *wrapcxt, INOUT void **user_data)
     mod = dr_lookup_module(func);
     if (mod != NULL)
         modname = dr_module_preferred_name(mod);
-    dr_fprintf(STDERR, "%s%s%s%s\n", STDERR_PREFIX,
+    dr_fprintf(outf, "%s%s%s%s\n", (outf == STDERR ? STDERR_PREFIX : ""),
                modname == NULL ? "" : modname,
                modname == NULL ? "" : "!", name);
     if (mod != NULL)
@@ -199,8 +202,29 @@ event_fork(void *drcontext)
 #endif
 
 static void
+open_log_file(void)
+{
+    char buf[MAXIMUM_PATH];
+    if (strcmp(options.logdir, "-") == 0)
+        outf = STDERR;
+    else {
+        outf = drx_open_unique_appid_file(options.logdir, dr_get_process_id(),
+                                          "drltrace", "log",
+#ifndef WINDOWS
+                                          DR_FILE_CLOSE_ON_FORK |
+#endif
+                                          DR_FILE_ALLOW_LARGE,
+                                          buf, BUFFER_SIZE_ELEMENTS(buf));
+        ASSERT(outf != INVALID_FILE, "failed to open log file");
+        NOTIFY(1, "log file is %s\n", buf);
+    }
+}
+
+static void
 event_exit(void)
 {
+    if (outf != STDERR)
+        dr_close_file(outf);
     drwrap_exit();
     drmgr_exit();
 }
@@ -211,6 +235,10 @@ options_init(client_id_t id)
     const char *opstr = dr_get_options(id);
     const char *s;
     char token[OPTION_MAX_LENGTH];
+
+    /* default values */
+    dr_snprintf(options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir), "-");
+
     for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
          s != NULL;
          s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {
@@ -271,4 +299,6 @@ dr_init(client_id_t id)
 #ifdef WINDOWS
     dr_enable_console_printing();
 #endif
+
+    open_log_file();
 }

@@ -35,6 +35,7 @@ add_library(drltrace SHARED drltrace.c)
 configure_DynamoRIO_client(drltrace)
 use_DynamoRIO_extension(drltrace drmgr)
 use_DynamoRIO_extension(drltrace drwrap)
+use_DynamoRIO_extension(drltrace drx)
 
 # ensure we rebuild if includes change
 add_dependencies(drltrace api_headers)
