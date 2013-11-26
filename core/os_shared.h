@@ -720,6 +720,7 @@ file_t os_open_directory(const char *fname, int os_open_flags);
 bool os_file_exists(const char *fname, bool is_dir);
 bool os_get_file_size(const char *file, uint64 *size); /* NYI on Linux */
 bool os_get_file_size_by_handle(file_t fd, uint64 *size);
+bool os_get_current_dir(char *buf, size_t bufsz);
 
 typedef enum {
     CREATE_DIR_ALLOW_EXISTING = 0x0,

@@ -3195,6 +3195,12 @@ os_close_protected(file_t f)
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
+bool
+os_get_current_dir(char *buf, size_t bufsz)
+{
+    return (dynamorio_syscall(SYS_getcwd, 2, buf, bufsz) > 0);
+}
+
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* so drinject can use drdecode's copy */
 ssize_t
 os_write(file_t f, const void *buf, size_t count)

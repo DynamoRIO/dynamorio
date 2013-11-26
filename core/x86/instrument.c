@@ -3590,6 +3590,13 @@ dr_create_dir(const char *fname)
 }
 
 DR_API
+bool
+dr_get_current_directory(char *buf, size_t bufsz)
+{
+    return os_get_current_dir(buf, bufsz);
+}
+
+DR_API
 /* Checks existence of a directory. */
 bool
 dr_directory_exists(const char *fname)

@@ -3237,6 +3237,16 @@ bool
 dr_create_dir(const char *fname);
 
 DR_API
+/**
+ * Returns the current directory for this process in \p buf.
+ * On Windows, reading the current directory is considered unsafe
+ * except during initialization, as it is stored in user memory and
+ * access is not controlled via any standard synchronization.
+ */
+bool
+dr_get_current_directory(char *buf, size_t bufsz);
+
+DR_API
 /** Checks for the existence of a directory. */
 bool
 dr_directory_exists(const char *fname);
@@ -3283,8 +3293,8 @@ DR_API
  * On Windows, \p fname must be an absolute path (when using Windows
  * system calls directly there is no such thing as a relative path.
  * On Windows the notions of current directory and relative paths are
- * limited to user space via the Win32 API.  We may add limited
- * support for using the same current directory via Issue 298.)
+ * limited to user space via the Win32 API.  The current directory can
+ * be obtained with dr_get_current_directory().)
  *
  * On Linux, the file descriptor will be marked as close-on-exec.  The
  * DR_FILE_CLOSE_ON_FORK flag can be used to automatically close a

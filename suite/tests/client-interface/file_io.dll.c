@@ -115,7 +115,7 @@ event_exit(void)
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    char buf[100];
+    char buf[MAXIMUM_PATH];
     int64 pos;
     int i;
     uint prot;
@@ -275,6 +275,9 @@ void dr_init(client_id_t id)
     }
     dr_nonheap_free(mbuf, PAGE_SIZE*3);
     dr_fprintf(STDERR, "dr_safe_write() check\n");
+
+    if (!dr_get_current_directory(buf, BUFFER_SIZE_ELEMENTS(buf)))
+        dr_fprintf(STDERR, "failed to get current directory\n");
 }
 
 /* Creates a closed, unique temporary file and returns its filename.

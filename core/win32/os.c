@@ -6179,6 +6179,20 @@ os_close_protected(file_t f)
     os_close(f);
 }
 
+bool
+os_get_current_dir(char *buf, size_t bufsz)
+{
+    int len = snprintf(buf, bufsz, "%S",
+                       get_own_peb()->ProcessParameters->CurrentDirectoryPath.Buffer);
+    buf[bufsz-1] = '\0';
+    if (len < 0 || (size_t)len == bufsz)
+        return false;
+    /* for consistency with Linux we remove the trailing separator */
+    if (buf[len-1] == '\\')
+        buf[len-1] = '\0';
+    return true;
+}
+
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* so drinject can use drdecode's copy */
 /* We take in size_t count to match linux, but Nt{Read,Write}File only
  * takes in a ULONG (==uint), though they return a ULONG_PTR (size_t)
