@@ -120,10 +120,13 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added preliminary Windows 8.1 support
  - Added a new \ref page_drltrace
  - Re-branded our \ref page_drcov
- - Added dr_app_handle_mbr_target()
- - Added dr_syscall_intercept_natively()
+ - Added an export iterator: dr_symbol_export_iterator_start(),
+   dr_symbol_export_iterator_hasnext(), dr_symbol_export_iterator_next(),
+   dr_symbol_export_iterator_stop()
+ - Added relative directory support to file routines on Windows
+ - Added dr_get_current_directory()
+ - Added dr_delete_dir()
  - Added proc_avx_enabled()
- - Added dr_app_running_under_dynamorio()
  - Added support for recent IA-32/AMD64 instructions: the rdrand,
    fsgsbase, FMA4, XOP, TBM, LWP, BMI1, BMI2, SMX, INVPCID,
    TSX, and AVX2 instruction groups
@@ -143,11 +146,9 @@ The changes between version \DR_VERSION and 4.1.0 include:
    drx_register_soft_kills() to avoid child process termination preventing
    output of instrumentation results
  - Added dr_convert_pid_to_handle()
- - Added an export iterator: dr_symbol_export_iterator_start(),
-   dr_symbol_export_iterator_hasnext(), dr_symbol_export_iterator_next(),
-   dr_symbol_export_iterator_stop()
- - Added dr_get_current_directory()
- - Added dr_delete_dir()
+ - Added dr_syscall_intercept_natively()
+ - Added dr_app_handle_mbr_target()
+ - Added dr_app_running_under_dynamorio()
 
 **************************************************
 <hr>

@@ -53,6 +53,7 @@
 
 static void test_dr_rename_delete(void);
 static void test_dir(void);
+static void test_relative(void);
 
 byte * find_prot_edge(const byte *start, uint prot_flag)
 {
@@ -278,6 +279,8 @@ void dr_init(client_id_t id)
     dr_fprintf(STDERR, "dr_safe_write() check\n");
 
     test_dir();
+
+    test_relative();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -381,5 +384,47 @@ test_dir(void)
     if (!dr_directory_exists(buf))
         dr_fprintf(STDERR, "failed to detect dir\n");
     if (!dr_delete_dir(buf))
+        dr_fprintf(STDERR, "failed to delete newly created dir\n");
+}
+
+static void
+test_relative_path(const char *path)
+{
+    const char *towrite = "test\n";
+    file_t fd = dr_open_file(path, DR_FILE_WRITE_OVERWRITE);
+    if (fd != INVALID_FILE) {
+        dr_write_file(fd, towrite, strlen(towrite));
+        dr_close_file(fd);
+    } else
+        dr_fprintf(STDERR, "failed to open %s\n", path);
+    if (!dr_file_exists(path) ||
+        !dr_delete_file(path))
+        dr_fprintf(STDERR, "failed to delete newly created relative file\n");
+}
+
+static void
+test_relative(void)
+{
+    char cwd[MAXIMUM_PATH];
+    char buf[MAXIMUM_PATH];
+    bool ok;
+
+    if (!dr_get_current_directory(cwd, BUFFER_SIZE_ELEMENTS(cwd)))
+        dr_fprintf(STDERR, "failed to get current directory\n");
+
+    test_relative_path("./foo");
+    test_relative_path("../foo");
+    /* we should be in <build_dir>/suite/tests, so ok to go up two levels */
+    test_relative_path("../../foo");
+
+    ok = dr_create_dir("newdir");
+    if (!ok)
+        dr_fprintf(STDERR, "failed to create dir\n");
+    if (!dr_directory_exists("newdir"))
+        dr_fprintf(STDERR, "failed to detect dir rel\n");
+    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/newdir", cwd);
+    if (!dr_directory_exists(buf))
+        dr_fprintf(STDERR, "failed to detect dir abs\n");
+    if (!dr_delete_dir("newdir"))
         dr_fprintf(STDERR, "failed to delete newly created dir\n");
 }

@@ -152,6 +152,8 @@ static app_pc ldrpLoadDll_address_NT = NULL;
 static app_pc ldrpLoadImportModule_address = NULL;
 dcontext_t *early_inject_load_helper_dcontext = NULL;
 
+static char cwd[MAXIMUM_PATH];
+
 /* forwards */
 static void
 get_system_basic_info(void);
@@ -788,6 +790,7 @@ os_init(void)
     uint alignment = 0;
     uint offs;
     int res;
+    DEBUG_DECLARE(bool ok;)
 
     if (dynamo_options.max_supported_os_version <
         peb->OSMajorVersion * 10 + peb->OSMinorVersion) {
@@ -999,6 +1002,12 @@ os_init(void)
     is_in_ntdll(get_ntdll_base());
 
     os_take_over_init();
+
+    /* i#298: cache cur dir at init time, when safer to read it.
+     * We just don't support later changes to cur dir.
+     */
+    DEBUG_DECLARE(ok =)
+        os_get_current_dir(cwd, BUFFER_SIZE_ELEMENTS(cwd));
 }
 
 static void
@@ -5669,8 +5678,6 @@ convert_NT_to_Dos_path(OUT wchar_t *buf, IN const wchar_t *fname,
  * In that case, the memory should be freed by calling
  * convert_to_NT_file_path_wide_free();
  * Always null-terminates when it returns non-NULL.
- *
- * FIXME i#298: we need to support relative paths for drwinapi
  */
 wchar_t *
 convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
@@ -5684,6 +5691,7 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
      */
     bool is_UNC = false;
     bool is_device = false;
+    size_t relative_sz = 0;
     const wchar_t *name = fname;
     wchar_t *buf;
     int i, size;
@@ -5721,6 +5729,34 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
                 name += 3;
             }
         }
+    } else if (name[1] == L':' && (name[2] == L'/' || name[2] == L'\\')) {
+        /* something like "c:\" */
+    } else if (name[0] != '/' && name[0] != '\\') {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        /* i#298: support relative paths.
+         * We don't support absolute for the current drive ("\foo.txt").
+         * We also don't support relative for other drives ("c:foo.txt").
+         */
+        char *cwd_end = cwd + strlen(cwd) - 1;
+        relative_sz = strlen(cwd);
+        if (name[0] == L'.' && (name[1] == L'/' || name[1] == L'\\')) {
+            name += 2;
+        } else {
+            while (name[0] == L'.' && name[1] == L'.' &&
+                   (name[2] == L'/' || name[2] == L'\\')) {
+                name += 3;
+                /* Walk backward in cwd past the next backslash.  We assume cwd
+                 * has no trailing slash and is all backslashes (no forward slashes).
+                 */
+                while (relative_sz > 0 && *(cwd_end+1) != '\\') {
+                    cwd_end--;
+                    relative_sz--;
+                }
+                if (relative_sz == 0)
+                    return false;
+            }
+        }
+#endif
     }
     /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
     wchars_needed = (wcslen(name) + wcslen(L"\\??\\") +
@@ -5738,7 +5774,13 @@ convert_to_NT_file_path_wide(OUT wchar_t *fixedbuf, IN const wchar_t *fname,
         buf_len = wchars_needed;
         *allocbuf_sz = wchars_needed * sizeof(wchar_t);
     }
-    size = snwprintf(buf, buf_len, L"\\??\\%s%s", is_UNC ? L"UNC" : L"", name);
+    size = snwprintf(buf, buf_len, L"\\??\\%s%.*hs%s%s", is_UNC ? L"UNC" : L"",
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+                     0, "", L"",
+#else
+                     relative_sz, cwd, (relative_sz > 0) ? L"\\" : L"",
+#endif
+                     name);
     buf[buf_len-1] = L'\0';
     if (size < 0 || size == (int)buf_len) {
         if (buf != fixedbuf)
@@ -5761,7 +5803,6 @@ convert_to_NT_file_path_wide_free(wchar_t *buf, size_t alloc_sz)
 #endif /* NOT_DYNAMORIO_CORE_PROPER, b/c of global_heap_* */
 
 /* Always null-terminates when it returns true.
- * FIXME i#298: we need to support relative paths for drwinapi.
  */
 bool
 convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
@@ -5769,6 +5810,7 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
 {
     bool is_UNC = false;
     bool is_device = false;
+    size_t relative_sz = 0;
     const char *name = fname;
     int i, size;
     ASSERT(buf != NULL && buf_len != 0);
@@ -5848,16 +5890,45 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
                                   "create file invalid name"));
             }
         }
-    } else {
+    } else if (name[1] == ':' && (name[2] == '/' || name[2] == '\\')) {
         /* is c:\ type, NOTE case 9329 c:/ is also legal */
-        ASSERT_CURIOSITY(CLIENT_OR_STANDALONE() ||
-                         (name[1] == ':' && (name[2] == '/' || name[2] == '\\') &&
-                          "create file invalid name"));
+    } else if (name[0] != '/' && name[0] != '\\') {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        /* i#298: support relative paths.
+         * We don't support absolute for the current drive ("\foo.txt").
+         * We also don't support relative for other drives ("c:foo.txt").
+         */
+        char *cwd_end = cwd + strlen(cwd) - 1;
+        relative_sz = strlen(cwd);
+        if (name[0] == '.' && (name[1] == '/' || name[1] == '\\')) {
+            name += 2;
+        } else {
+            while (name[0] == '.' && name[1] == '.' &&
+                   (name[2] == '/' || name[2] == '\\')) {
+                name += 3;
+                /* Walk backward in cwd past the next backslash.  We assume cwd
+                 * has no trailing slash and is all backslashes (no forward slashes).
+                 */
+                while (relative_sz > 0 && *(cwd_end+1) != '\\') {
+                    cwd_end--;
+                    relative_sz--;
+                }
+                if (relative_sz == 0)
+                    return false;
+            }
+        }
+#endif
     }
 
     /* should now have either ("c:\" and !is_UNC) or ("\server" and is_UNC) */ 
-    size = snwprintf(buf, buf_len, L"\\??\\%ls%hs",
-                     is_UNC ? L"UNC" : L"", name);
+    size = snwprintf(buf, buf_len, L"\\??\\%ls%.*hs%ls%hs",
+                     is_UNC ? L"UNC" : L"", 
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+                     0, "", L"",
+#else
+                     relative_sz, cwd, (relative_sz > 0) ? L"\\" : L"",
+#endif
+                     name);
     buf[buf_len-1] = L'\0';
     if (size < 0 || size == (int)buf_len)
         return false;

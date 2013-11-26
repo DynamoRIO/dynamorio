@@ -3232,6 +3232,7 @@ DR_API
 /**
  * Creates a new directory.  Fails if the directory already exists
  * or if it can't be created.
+ * Relative path support on Windows is identical to that described in dr_open_file().
  */
 bool
 dr_create_dir(const char *fname);
@@ -3255,12 +3256,18 @@ bool
 dr_get_current_directory(char *buf, size_t bufsz);
 
 DR_API
-/** Checks for the existence of a directory. */
+/**
+ * Checks for the existence of a directory.
+ * Relative path support on Windows is identical to that described in dr_open_file().
+ */
 bool
 dr_directory_exists(const char *fname);
 
 DR_API
-/** Checks the existence of a file. */
+/**
+ * Checks the existence of a file.
+ * Relative path support on Windows is identical to that described in dr_open_file().
+ */
 bool
 dr_file_exists(const char *fname);
 
@@ -3298,11 +3305,14 @@ DR_API
  * The file access mode is set by the \p mode_flags argument which is drawn from
  * the DR_FILE_* defines ORed together.  Returns INVALID_FILE if unsuccessful.
  *
- * On Windows, \p fname must be an absolute path (when using Windows
- * system calls directly there is no such thing as a relative path.
- * On Windows the notions of current directory and relative paths are
- * limited to user space via the Win32 API.  The current directory can
- * be obtained with dr_get_current_directory().)
+ * On Windows, \p fname is safest as an absolute path (when using Windows system
+ * calls directly there is no such thing as a relative path).  A relative path
+ * passed to this routine will be converted to absolute on a best-effort basis
+ * using the current directory that was set at process initialization time.
+ * (The most recently set current directory can be retrieved (albeit with no
+ * safety guarantees) with dr_get_current_directory().)  Drive-implied-absolute
+ * paths ("\foo.txt") and other-drive-relative paths ("c:foo.txt") are not
+ * supported.
  *
  * On Linux, the file descriptor will be marked as close-on-exec.  The
  * DR_FILE_CLOSE_ON_FORK flag can be used to automatically close a
@@ -3339,8 +3349,9 @@ DR_API
  * Returns true if successful.
  * On both Linux and Windows, if filename refers to a symlink, the symlink will
  * be deleted and not the target of the symlink.
- * On Windows, this will fail to delete any file was not opened with
+ * On Windows, this will fail to delete any file that was not opened with
  * FILE_SHARE_DELETE and is still open.
+ * Relative path support on Windows is identical to that described in dr_open_file().
  */
 bool
 dr_delete_file(const char *filename);

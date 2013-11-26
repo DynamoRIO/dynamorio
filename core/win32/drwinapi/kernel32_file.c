@@ -341,6 +341,8 @@ redirect_SetCurrentDirectoryW(
     int len;
     /* FIXME: once we have redirect_GetFullPathNameW() we should use it here.
      * For now we don't support relative paths.
+     * Update: we now have i#298 so we do have some relative path support
+     * in DR.
      */
     /* CurrentDirectoryPath.Buffer should have MAX_PATH space in it */
     len = _snwprintf(us->Buffer, us->MaximumLength, L"%s", lpPathName);
@@ -1996,6 +1998,9 @@ test_directories(void)
     BOOL ok;
 
     EXPECT(redirect_CreateDirectoryA("xyz:\\bogus\\name", NULL), FALSE);
+    EXPECT(get_last_error(), ERROR_INVALID_NAME);
+
+    EXPECT(redirect_CreateDirectoryA("c:\\_bogus_\\_no_way_\\_no_exist_", NULL), FALSE);
     EXPECT(get_last_error(), ERROR_PATH_NOT_FOUND);
 
     /* XXX: should look at SYSTEMDRIVE instead of assuming c:\windows exists */
@@ -2501,6 +2506,36 @@ test_file_paths(void)
                      L"3.txt", env);
     EXPECT(res > 0 && res < BUFFER_SIZE_ELEMENTS(wbuf), true);
     f = redirect_CreateFileW(wbuf, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    /* Test relative paths (i#298) */
+    f = redirect_CreateFileW(L"test456.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+    ok = redirect_DeleteFileW(L"test456.txt");
+    EXPECT(ok, true);
+
+    f = redirect_CreateFileW(L".\\test456.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    f = redirect_CreateFileW(L"./test456.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    EXPECT(f != INVALID_HANDLE_VALUE, true);
+    ok = redirect_CloseHandle(f);
+    EXPECT(ok, TRUE);
+
+    /* Potentially risky if we can't write to parent dir but we need to test ..
+     * with wide paths.
+     */
+    f = redirect_CreateFileW(L"..\\test456.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, NULL);
     EXPECT(f != INVALID_HANDLE_VALUE, true);
     ok = redirect_CloseHandle(f);
