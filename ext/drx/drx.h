@@ -191,7 +191,42 @@ DR_EXPORT
 bool
 drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code));
 
+/***************************************************************************
+ * LOGGING
+ */
 
+DR_EXPORT
+/**
+ * Opens a new file with a name constructed from "dir/prefix.xxxx.suffix",
+ * where xxxx is a 4-digit number incremented until a unique name is found
+ * that does not collide with any existing file.
+ *
+ * Passes \p extra_flags through to the dr_open_file() call.
+ *
+ * On success, returns the file handle and optionally the resulting path
+ * in \p result.  On failure, returns INVALID_FILE.
+ */
+file_t
+drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
+                     uint extra_flags, char *result OUT, size_t result_len);
+
+DR_EXPORT
+/**
+ * Opens a new file with a name constructed from "dir/prefix.appname.id.xxxx.suffix",
+ * where xxxx is a 4-digit number incremented until a unique name is found
+ * that does not collide with any existing file.  The appname string comes
+ * from dr_get_application_name().  The id portion of the string is from \p id,
+ * which is meant to be either the process id or the thread id.
+ *
+ * Passes \p extra_flags through to the dr_open_file() call.
+ *
+ * On success, returns the file handle and optionally the resulting path
+ * in \p result.  On failure, returns INVALID_FILE.
+ */
+file_t
+drx_open_unique_appid_file(const char *dir, ptr_int_t id,
+                           const char *prefix, const char *suffix,
+                           uint extra_flags, char *result OUT, size_t result_len);
 
 /*@}*/ /* end doxygen group */
 

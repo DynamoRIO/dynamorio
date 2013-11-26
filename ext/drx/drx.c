@@ -35,6 +35,7 @@
 #include "dr_api.h"
 #include "drx.h"
 #include "hashtable.h"
+#include "../ext_utils.h"
 
 /* We use drmgr but only internally.  A user of drx will end up loading in
  * the drmgr library, but it won't affect the user's code.
@@ -939,4 +940,51 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code))
     cb_list = e;
     dr_mutex_unlock(cb_lock);
     return true;
+}
+
+/***************************************************************************
+ * LOGGING
+ */
+
+file_t
+drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
+                     uint extra_flags, char *result OUT, size_t result_len)
+{
+    char buf[MAXIMUM_PATH];
+    file_t f;
+    int i;
+    size_t len;
+    for (i = 0; i < 10000; i++) {
+        len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+                          "%s/%s.%04d.%s", dir, prefix, i, suffix);
+        if (len < 0)
+            return false;
+        NULL_TERMINATE_BUFFER(buf);
+        f = dr_open_file(buf, DR_FILE_WRITE_REQUIRE_NEW | extra_flags);
+        if (f != INVALID_FILE) {
+            if (result != NULL)
+                dr_snprintf(result, result_len, "%s", buf);
+            return f;
+        }
+    }
+    return INVALID_FILE;
+}
+
+file_t
+drx_open_unique_appid_file(const char *dir, ptr_int_t id,
+                           const char *prefix, const char *suffix,
+                           uint extra_flags, char *result OUT, size_t result_len)
+{
+    int len;
+    char appid[MAXIMUM_PATH];
+    const char *app_name = dr_get_application_name();
+    if (app_name == NULL)
+        app_name = "<unknown-app>";
+    len = dr_snprintf(appid, BUFFER_SIZE_ELEMENTS(appid),
+                      "%s.%s.%05d", prefix, app_name, id);
+    if (len < 0 || (size_t)len >= BUFFER_SIZE_ELEMENTS(appid))
+        return INVALID_FILE;
+    NULL_TERMINATE_BUFFER(appid);
+
+    return drx_open_unique_file(dir, appid, suffix, extra_flags, result, result_len);
 }

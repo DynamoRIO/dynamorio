@@ -47,8 +47,7 @@
  * -[no_]nudge_kills  On by default.
  *                    Uses nudge to notify a child process being terminated
  *                    by its parent, so that the exit event will be called.
- * -logdir <dir>      Sets log directory, which by default is at the same
- *                    directory as the client library.
+ * -logdir <dir>      Sets log directory, which by default is ".".
  *
  * The two options below can only be used when the client is compiled with
  * CBR_COVERAGE being defined.
@@ -136,84 +135,37 @@ event_thread_exit(void *drcontext);
  * Utility Functions
  */
 static file_t
-log_file_create_helper(void *drcontext, char *prefix, const char *suffix)
+log_file_create_helper(void *drcontext, const char *suffix)
 {
     char buf[MAXIMUM_PATH];
-    file_t log;
-    int i;
-    size_t len;
-    for (i = 0; i < 10000; i++) {
-        len = dr_snprintf(buf, MAXIMUM_PATH, "%s.%04d.%s", prefix, i, suffix);
-        ASSERT(len > 0, "dr_snprintf failed");
-        NULL_TERMINATE_BUFFER(buf);
-        log = dr_open_file(buf,
+    file_t log =
+        drx_open_unique_appid_file(options.logdir, drcontext == NULL ?
+                                   dr_get_process_id() : dr_get_thread_id(drcontext),
+                                   "drcov", suffix,
 #ifndef WINDOWS
-                           DR_FILE_CLOSE_ON_FORK |
+                                   DR_FILE_CLOSE_ON_FORK |
 #endif
-                           DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
-        if (log != INVALID_FILE) {
-            dr_log(drcontext, LOG_ALL, 1, "drcov: log file is %s\n", buf);
-            NOTIFY(1, "<created log file %s>\n", buf);
-            return log;
-        }
+                                   DR_FILE_ALLOW_LARGE,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf));
+    if (log != INVALID_FILE) {
+        dr_log(drcontext, LOG_ALL, 1, "drcov: log file is %s\n", buf);
+        NOTIFY(1, "<created log file %s>\n", buf);
     }
-    return INVALID_FILE;
+    return log;
 }
 
 static void
 log_file_create(void *drcontext, per_thread_t *data)
 {
-    char logname[MAXIMUM_PATH];
-    const char *app_name;
-    char *dirsep;
-    size_t len;
-
-    /* We will dump data to a log file at the same directory as our library.
-     * We could also pass in a path and retrieve with dr_get_options().
-     */
-    len = dr_snprintf(logname, BUFFER_SIZE_ELEMENTS(logname), "%s",
-                      options.logdir[0] != '\0' ?
-                      options.logdir : dr_get_client_path(client_id));
-    ASSERT(len > 0, "dr_snprintf failed");
-    NULL_TERMINATE_BUFFER(logname);
-    dirsep = logname + len - 1;
-    if (options.logdir[0] == '\0' /* removing client lib */ ||
-        /* path does not have a trailing / and is too large to add it */
-        (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\') &&
-         len == BUFFER_SIZE_ELEMENTS(logname) - 1)) {
-        for (dirsep = logname + len;
-             *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\');
-             dirsep--)
-            ASSERT(dirsep > logname, "fail to find trailing /");
-    }
-    /* add trailing / if necessary */
-    if (*dirsep != '/' IF_WINDOWS(&& *dirsep != '\\')) {
-        dirsep++;
-        /* append a dirsep at the end if missing */
-        *dirsep = IF_UNIX_ELSE('/', '\\');
-    }
-    app_name = dr_get_application_name();
-    if (app_name == NULL)
-        app_name = "unknown";
-    len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname)-(dirsep+1-logname))/sizeof(logname[0]),
-                      "drcov.%s.%05d", app_name,
-                      drcontext == NULL ?
-                      dr_get_process_id() :
-                      dr_get_thread_id(drcontext));
-    ASSERT(len > 0, "dr_snprintf failed");
-    NULL_TERMINATE_BUFFER(logname);
     if (options.dump_text || options.dump_binary) {
-        data->log = log_file_create_helper(drcontext, logname,
-                                           drcontext == NULL ?
+        data->log = log_file_create_helper(drcontext, drcontext == NULL ?
                                            "proc.log" : "thd.log");
     } else {
         data->log = INVALID_FILE;
     }
 #ifdef CBR_COVERAGE
     if (options.check) {
-        data->res = log_file_create_helper(drcontext, logname,
-                                           drcontext == NULL ?
+        data->res = log_file_create_helper(drcontext, drcontext == NULL ?
                                            "proc.res" : "thd.res");
     } else
         data->res = INVALID_FILE;
@@ -858,8 +810,11 @@ options_init(client_id_t id)
     const char *s;
 
     char token[OPTION_MAX_LENGTH];
-    /* enable nudge_kills by default */
+
+    /* default values */
     options.nudge_kills = true;
+    dr_snprintf(options.logdir, BUFFER_SIZE_ELEMENTS(options.logdir), ".");
+
     for (s = dr_get_token(opstr, token, BUFFER_SIZE_ELEMENTS(token));
          s != NULL;
          s = dr_get_token(s, token, BUFFER_SIZE_ELEMENTS(token))) {

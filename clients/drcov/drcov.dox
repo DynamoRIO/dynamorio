@@ -54,8 +54,7 @@ The runtime options for this tool include:
     Uses nudge to notify the process for termination
     so that the exit event will be called.
  - \b -logdir dir:
-    Sets log directory, which by default
-    is the directory containing the client library.
+    Sets log directory, which by default is ".".
 
 \section sec_drcov2lcov Post-Processing
 
