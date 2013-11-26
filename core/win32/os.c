@@ -6437,6 +6437,19 @@ os_delete_file(const char *name)
     return os_delete_file_w(wname, NULL);
 }
 
+bool
+os_delete_dir(const char *name)
+{
+    /* os_delete_file_w() assumes it's not passed a dir so we use nt_delete_file */
+    wchar_t wname[MAX_FILE_NAME_LENGTH];
+    NTSTATUS res;
+    if (!convert_to_NT_file_path(wname, name, BUFFER_SIZE_ELEMENTS(wname)))
+        return false;
+    NULL_TERMINATE_BUFFER(wname); /* be paranoid */
+    res = nt_delete_file(wname);
+    return NT_SUCCESS(res);
+}
+
 /* We take in orig_name instead of a file handle so that we can abstract
  * away the privileges required to rename a file when opening the handle.
  * We also do not take in a rootdir handle to be parallel to the linux

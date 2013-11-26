@@ -2970,6 +2970,12 @@ os_create_dir(const char *fname, create_directory_flags_t create_dir_flags)
     return (rc == 0 || (!require_new && rc == -EEXIST));
 }
 
+bool
+os_delete_dir(const char *name)
+{
+    return (dynamorio_syscall(SYS_rmdir, 1, name) == 0);
+}
+
 int
 open_syscall(const char *file, int flags, int mode)
 {

@@ -3238,6 +3238,14 @@ dr_create_dir(const char *fname);
 
 DR_API
 /**
+ * Deletes the given directory.  Fails if the directory is not empty.
+ * Relative path support on Windows is identical to that described in dr_open_file().
+ */
+bool
+dr_delete_dir(const char *fname);
+
+DR_API
+/**
  * Returns the current directory for this process in \p buf.
  * On Windows, reading the current directory is considered unsafe
  * except during initialization, as it is stored in user memory and

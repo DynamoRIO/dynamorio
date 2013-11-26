@@ -147,6 +147,7 @@ The changes between version \DR_VERSION and 4.1.0 include:
    dr_symbol_export_iterator_hasnext(), dr_symbol_export_iterator_next(),
    dr_symbol_export_iterator_stop()
  - Added dr_get_current_directory()
+ - Added dr_delete_dir()
 
 **************************************************
 <hr>

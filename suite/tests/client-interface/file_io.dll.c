@@ -52,6 +52,7 @@
 #define TEST TESTANY
 
 static void test_dr_rename_delete(void);
+static void test_dir(void);
 
 byte * find_prot_edge(const byte *start, uint prot_flag)
 {
@@ -276,8 +277,7 @@ void dr_init(client_id_t id)
     dr_nonheap_free(mbuf, PAGE_SIZE*3);
     dr_fprintf(STDERR, "dr_safe_write() check\n");
 
-    if (!dr_get_current_directory(buf, BUFFER_SIZE_ELEMENTS(buf)))
-        dr_fprintf(STDERR, "failed to get current directory\n");
+    test_dir();
 }
 
 /* Creates a closed, unique temporary file and returns its filename.
@@ -365,4 +365,21 @@ test_dr_rename_delete(void)
         dr_delete_file(tmp_src);
     if (dr_file_exists(tmp_dst))
         dr_delete_file(tmp_dst);
+}
+
+static void
+test_dir(void)
+{
+    char cwd[MAXIMUM_PATH];
+    char buf[MAXIMUM_PATH];
+
+    if (!dr_get_current_directory(cwd, BUFFER_SIZE_ELEMENTS(cwd)))
+        dr_fprintf(STDERR, "failed to get current directory\n");
+    dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/newdir", cwd);
+    if (!dr_create_dir(buf))
+        dr_fprintf(STDERR, "failed to create dir\n");
+    if (!dr_directory_exists(buf))
+        dr_fprintf(STDERR, "failed to detect dir\n");
+    if (!dr_delete_dir(buf))
+        dr_fprintf(STDERR, "failed to delete newly created dir\n");
 }

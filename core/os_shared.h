@@ -734,6 +734,7 @@ typedef enum {
 } create_directory_flags_t;
 
 bool os_create_dir(const char *fname, create_directory_flags_t create_dir_flags);
+bool os_delete_dir(const char *fname);
 void os_close(file_t f);
 void os_close_protected(file_t f);
 /* returns number of bytes written, negative if failure */
