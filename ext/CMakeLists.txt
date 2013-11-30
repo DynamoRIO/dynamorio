@@ -113,6 +113,7 @@ if (NOT ARM)
   add_subdirectory(drsyms)
   add_subdirectory(drutil)
   add_subdirectory(drwrap)
+  add_subdirectory(drreg)
 endif (NOT ARM)
 
 # documentation is put into main DR docs/ dir

@@ -169,6 +169,7 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
+ - Added a new scratch register coordination Extension, \p drreg.
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
  - Added cross-platform instruction creation macros
