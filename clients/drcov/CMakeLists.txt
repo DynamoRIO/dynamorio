@@ -104,7 +104,7 @@ DR_export_target(drcov)
 install_exported_target(drcov ${INSTALL_CLIENTS_LIB})
 install_exported_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 # Create a legacy-named copy of the executable
-get_target_property(exe_path drcov2lcov LOCATION)
+get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
 get_filename_component(legacy_exe "${exe_path}" NAME)
 string(REGEX REPLACE "drcov" "bbcov" legacy_exe ${legacy_exe})
 if (DEFINED DR_INSTALL_TARGETS_DEST)
