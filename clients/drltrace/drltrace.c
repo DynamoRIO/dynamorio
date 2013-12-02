@@ -237,6 +237,7 @@ event_exit(void)
 {
     if (outf != STDERR)
         dr_close_file(outf);
+    drx_exit();
     drwrap_exit();
     drmgr_exit();
 }
@@ -290,6 +291,9 @@ dr_init(client_id_t id)
     IF_DEBUG(ok = )
         drwrap_init();
     ASSERT(ok, "drwrap failed to initialize");
+    IF_DEBUG(ok = )
+        drx_init();
+    ASSERT(ok, "drx failed to initialize");
 
     exe = dr_get_main_module();
     if (exe != NULL)
