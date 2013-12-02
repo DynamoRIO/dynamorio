@@ -2461,7 +2461,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
                 instr_disassemble(dcontext, instr, THREAD);
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
-            CLIENT_ASSERT(false, "instr_encode error: no encoding found");
+            CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
             /* FIXME: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
              */
