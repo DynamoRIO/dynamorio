@@ -1404,7 +1404,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
 # we need to strip out the #include of configure.h
 DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm\" str)
   string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
-  file(WRITE \"\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
+  file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 
 # export docs support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/api/docs/CMake_rundoxygen.cmake
@@ -1446,7 +1446,12 @@ endif (BUILD_TESTS)
 DR_target_install(CODE "file(APPEND \"${PROJECT_BINARY_DIR}/CMakeFiles/Export/cmake/${exported_targets_name}.cmake\" \"${exported_targets_append}\")")
 # Create the exported targets file.  This will include all targets added
 # in subdirectories via DR_install(TARGETS ... EXPORT ${exported_targets_name}).
-DR_target_install(EXPORT ${exported_targets_name} DESTINATION ${INSTALL_CMAKE})
+if (DEFINED DR_INSTALL_TARGETS_DEST)
+  set(target_dst ${DR_INSTALL_TARGETS_DEST})
+else ()
+  set(target_dst ${INSTALL_CMAKE})
+endif ()
+DR_target_install(EXPORT ${exported_targets_name} DESTINATION ${target_dst})
 
 ###########################################################################
 # packaging

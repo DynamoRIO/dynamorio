@@ -31,11 +31,15 @@
 
 # Packages up a DynamoRIO release via ctest command mode.
 # This is a cross-platform script that replaces package.sh and
-# package.bat: though we assume can use Unix Makefiles on Windows,
-# in order to build in parallel.
+# package.bat.
 
 # Usage: invoke via "ctest -S package.cmake,build=<build#>"
 # See other available args below
+
+# To include Dr. Memory, use the invoke= argument to point at the
+# Dr. Memory package script.
+# For example:
+# ctest -V -S /my/path/to/dynamorio/src/make/package.cmake,build=1\;version=5.0.0\;invoke=/my/path/to/drmemory/src/package.cmake\;drmem_only\;cacheappend=TOOL_VERSION_NUMBER:STRING=1.6.0
 
 cmake_minimum_required (VERSION 2.2)
 
@@ -48,6 +52,7 @@ set(arg_version "")    # version #
 set(arg_outdir ".")    # directory in which to place deliverables
 set(arg_cacheappend "")# string to append to every build's cache
 set(arg_no64 OFF)      # skip the 64-bit builds?
+set(arg_invoke "")     # sub-project package.cmake to invoke
 # also takes args parsed by runsuite_common_pre.cmake, in particular:
 set(arg_preload "")    # cmake file to include prior to each 32-bit build
 set(arg_preload64 "")  # cmake file to include prior to each 64-bit build
@@ -70,6 +75,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
   endif ()
   if (${arg} MATCHES "^no64")
     set(arg_no64 ON)
+  endif ()
+  if (${arg} MATCHES "^invoke=")
+    string(REGEX REPLACE "^invoke=" "" arg_invoke "${arg}")
   endif ()
 endforeach (arg)
 
@@ -99,6 +107,18 @@ if (arg_version)
     VERSION_NUMBER:STRING=${arg_version}")
 endif (arg_version)
 
+# 64-bit first, to match DrMem, so that the last package dir has the right
+# Windows VS env var setup.
+if (NOT arg_no64)
+  testbuild_ex("release-64" ON "" OFF ON "")
+  testbuild_ex("debug-64" ON "
+    DEBUG:BOOL=ON
+    INTERNAL:BOOL=ON
+    BUILD_DOCS:BOOL=OFF
+    BUILD_DRSTATS:BOOL=OFF
+    BUILD_SAMPLES:BOOL=OFF
+    " OFF ON "")
+endif (NOT arg_no64)
 # open-source now, no reason for debug to not be internal as well
 testbuild_ex("release-32" OFF "" OFF ON "")
 # note that we do build TOOLS so our DynamoRIOTarget{32,64}.cmake files match
@@ -110,23 +130,24 @@ testbuild_ex("debug-32" OFF "
   BUILD_DRSTATS:BOOL=OFF
   BUILD_SAMPLES:BOOL=OFF
   " OFF ON "")
-if (NOT arg_no64)
-  testbuild_ex("release-64" ON "" OFF ON "")
-  testbuild_ex("debug-64" ON "
-    DEBUG:BOOL=ON
-    INTERNAL:BOOL=ON
-    BUILD_DOCS:BOOL=OFF
-    BUILD_DRSTATS:BOOL=OFF
-    BUILD_SAMPLES:BOOL=OFF
-    " OFF ON "")
-endif (NOT arg_no64)
+
+if (NOT arg_invoke STREQUAL "")
+  message("\n***************\ninvoking sub-project ${arg_invoke}\n")
+  # sub-package has its own version, assumed to be set by caller via cacheappend
+  string(REGEX REPLACE ";version=[^;]*;" ";" CTEST_SCRIPT_ARG "${CTEST_SCRIPT_ARG}")
+  set(save_last_dir ${last_package_build_dir})
+  set(arg_sub_package ON)
+  set(arg_sub_script ${arg_invoke})
+  include("${arg_invoke}")
+  set(last_package_build_dir ${save_last_dir})
+endif ()
 
 set(build_package ON)
 include("${CTEST_SCRIPT_DIRECTORY}/../suite/runsuite_common_post.cmake")
 
 # copy the final archive into cur dir
 # "cmake -E copy" only takes one file so use 'z' => .tar.gz or .zip
-file(GLOB results ${last_build_dir}/DynamoRIO-*z*)
+file(GLOB results ${last_package_build_dir}/DynamoRIO-*z*)
 if (EXISTS "${results}")
   execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${results} "${arg_outdir}")
 else (EXISTS "${results}")
