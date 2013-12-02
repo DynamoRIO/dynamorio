@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,13 +36,22 @@
 #include "drvector.h"
 #include <string.h> /* memcpy */
 
+/* Arbitrary value for first allocation, if user asks for 0.  We
+ * lazily allocate it, assuming that a request for 0 means the user
+ * doesn't want to waste any memory until the vector is used.
+ */
+#define INITIAL_CAPACITY_IF_ZERO_REQUESTED 8
+
 bool
 drvector_init(drvector_t *vec, uint initial_capacity, bool synch,
               void (*free_data_func)(void*))
 {
     if (vec == NULL)
         return false;
-    vec->array = dr_global_alloc(initial_capacity * sizeof(void*));
+    if (initial_capacity > 0)
+        vec->array = dr_global_alloc(initial_capacity * sizeof(void*));
+    else
+        vec->array = NULL;
     vec->entries = 0;
     vec->capacity = initial_capacity;
     vec->synch = synch;
@@ -66,6 +75,34 @@ drvector_get_entry(drvector_t *vec, uint idx)
     return res;
 }
 
+static void
+drvector_increase_size(drvector_t *vec, uint newcap)
+{
+    void **newarray = dr_global_alloc(newcap * sizeof(void*));
+    if (vec->array != NULL) {
+        memcpy(newarray, vec->array, vec->entries * sizeof(void*));
+        dr_global_free(vec->array, vec->capacity * sizeof(void*));
+    }
+    vec->array = newarray;
+    vec->capacity = newcap;
+}
+
+bool
+drvector_set_entry(drvector_t *vec, uint idx, void *data)
+{
+    if (vec == NULL)
+        return false;
+    if (vec->synch)
+        dr_mutex_lock(vec->lock);
+    if (idx >= vec->capacity)
+        drvector_increase_size(vec, idx * 2);
+    vec->array[idx] = data;
+    vec->entries = idx + 1; /* ensure append goes beyond this entry */
+    if (vec->synch)
+        dr_mutex_unlock(vec->lock);
+    return true;
+}
+
 bool
 drvector_append(drvector_t *vec, void *data)
 {
@@ -74,12 +111,10 @@ drvector_append(drvector_t *vec, void *data)
     if (vec->synch)
         dr_mutex_lock(vec->lock);
     if (vec->entries >= vec->capacity) {
-        uint newcap = vec->capacity * 2;
-        void **newarray = dr_global_alloc(newcap * sizeof(void*));
-        memcpy(newarray, vec->array, vec->entries * sizeof(void*));
-        dr_global_free(vec->array, vec->capacity * sizeof(void*));
-        vec->array = newarray;
-        vec->capacity = newcap;
+        if (vec->capacity == 0)
+            drvector_increase_size(vec, INITIAL_CAPACITY_IF_ZERO_REQUESTED);
+        else
+            drvector_increase_size(vec, vec->capacity * 2);
     }
     vec->array[vec->entries] = data;
     vec->entries++;

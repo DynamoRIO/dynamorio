@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -53,13 +53,14 @@ extern "C" {
  */
 /*@{*/ /* begin doxygen group */
 
+/** The storage for a vector. */
 typedef struct _drvector_t {
-    uint entries;
-    uint capacity;
-    void **array;
-    bool synch;
-    void *lock;
-    void (*free_data_func)(void*);
+    uint entries;   /**< The index at which drvector_append() will write. */
+    uint capacity;  /**< The size of \p array. */
+    void **array;   /**< The dynamically allocated storage for the vector entries. */
+    bool synch;     /**< Whether to automatically synchronize each operation. */
+    void *lock;     /**< The lock used for synchronization. */
+    void (*free_data_func)(void*);  /**< The routine called when freeing each entry. */
 } drvector_t;
 
 /**
@@ -88,7 +89,18 @@ void *
 drvector_get_entry(drvector_t *vec, uint idx);
 
 /**
+ * Sets the entry at index \p idx to \p data.  For an unsychronized
+ * table, the caller is free to directly set the \p array field of \p
+ * vec.  Entries in between the last set index and \p idx are left
+ * uninitialized.  Returns whether successful.
+ */
+bool
+drvector_set_entry(drvector_t *vec, uint idx, void *data);
+
+/**
  * Adds a new entry to the end of the vector, resizing it if necessary.
+ * If drvector_set_entry() has been called, this will add to the index beyond
+ * the last index passed to drvector_set_entry().
  */
 bool
 drvector_append(drvector_t *vec, void *data);
