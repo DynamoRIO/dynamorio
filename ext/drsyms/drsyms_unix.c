@@ -170,7 +170,22 @@ load_module(const char *modpath)
     if (newmod == NULL) {
         Dwarf_Debug dbg;
         /* If there is no .gnu_debuglink, initialize parsing. */
-        if (!drsym_obj_mod_init_post(mod->obj_info))
+#ifdef WINDOWS
+        /* i#1395: support switching to expots-only for MinGW, for which we
+         * need an image mapping.  We don't need the file mapping anymore.
+         */
+        if (drsym_obj_remap_as_image(mod->obj_info)) {
+            dr_unmap_file(mod->map_base, mod->map_size);
+            mod->map_size = 0;
+            mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ,
+                                        DR_MAP_PRIVATE | DR_MAP_IMAGE);
+            if (mod->map_base == NULL || mod->map_size < mod->file_size) {
+                NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
+                goto error;
+            }
+        }
+#endif
+        if (!drsym_obj_mod_init_post(mod->obj_info, mod->map_base))
             goto error;
         if (TEST(DRSYM_DWARF_LINE, mod->debug_kind) &&
             drsym_obj_dwarf_init(mod->obj_info, &dbg)) {
@@ -610,7 +625,7 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
 
 #ifdef WINDOWS
         /* our libelftc returns the # of chars needed, and copies the truncated
-         * unmangeld name
+         * unmangled name
          */
         return status;
 #else

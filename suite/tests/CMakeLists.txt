@@ -749,12 +749,16 @@ function(tobuild_api test source dr_ops exe_ops decoder)
     if (NOT created_drcopy_target)
       set(drcopy_stamp "${CMAKE_CURRENT_BINARY_DIR}/DRcopy.stamp")
       add_custom_command(OUTPUT "${drcopy_stamp}"
-        DEPENDS dynamorio
+        DEPENDS dynamorio drsyms
         COMMAND ${CMAKE_COMMAND} ARGS
           -E touch "${drcopy_stamp}"
         COMMAND ${CMAKE_COMMAND} ARGS
-          -E copy ${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll
-          ${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll
+          -E copy "${MAIN_LIBRARY_OUTPUT_DIRECTORY}/dynamorio.dll"
+          "${CMAKE_CURRENT_BINARY_DIR}/dynamorio.dll"
+        # We copy drsyms.dll too, for api.symtest
+        COMMAND ${CMAKE_COMMAND} ARGS
+          -E copy "${PROJECT_BINARY_DIR}/ext/${INSTALL_LIB}/drsyms.dll"
+          "${CMAKE_CURRENT_BINARY_DIR}/drsyms.dll"
         VERBATIM)
       add_custom_target(drcopy DEPENDS "${drcopy_stamp}")
       set(created_drcopy_target ON PARENT_SCOPE)
@@ -1582,6 +1586,19 @@ if (CLIENT_INTERFACE)
   # test static decoder library
   tobuild_api(api.ir-static api/ir.c "" "" ON)
   tobuild_api(api.static api/static.c "" "" ON)
+
+  # XXX: we should expand this test of drsyms standalone to be cross-platform and
+  # not just check libstdc++-6.dll.
+  if (WIN32)
+    find_program(mingwlib libstdc++-6.dll
+      HINTS "c:/cygwin/usr/i686-pc-mingw32/sys-root/mingw/bin"
+      DOC "path to MinGW libstdc++-6.dll")
+    if (mingwlib)
+      message(STATUS "Found ${mingwlib}, enabling api.symtest")
+      tobuild_api(api.symtest api/symtest.c "" "${mingwlib}" OFF)
+      use_DynamoRIO_extension(api.symtest drsyms)
+    endif ()
+  endif ()
 
   if (NOT X64)
     # i#696: Use -thread_private and small fcache units to trigger shifts.  x64

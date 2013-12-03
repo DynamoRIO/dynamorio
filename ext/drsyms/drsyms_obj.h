@@ -42,7 +42,7 @@
 #include "libdwarf.h"
 
 /***************************************************************************
- * Platform-specific: Linux (ELF) or Cygwin (PECOFF)
+ * Platform-specific: Linux (ELF) or Cygwin/MinGW (PECOFF)
  */
 
 void
@@ -51,8 +51,17 @@ drsym_obj_init(void);
 void *
 drsym_obj_mod_init_pre(byte *map_base, size_t file_size);
 
+#ifdef WINDOWS
+/* This is called between init_pre and init_post */
 bool
-drsym_obj_mod_init_post(void *mod_in);
+drsym_obj_remap_as_image(void *mod_in);
+#endif
+
+/* This takes a new map_base which may not match the one passed to init_pre,
+ * if drsym_obj_remap_as_image() returned true.
+ */
+bool
+drsym_obj_mod_init_post(void *mod_in, byte *map_base);
 
 bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg);

@@ -238,9 +238,10 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
 }
 
 bool
-drsym_obj_mod_init_post(void *mod_in)
+drsym_obj_mod_init_post(void *mod_in, byte *map_base)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
+    mod->map_base = map_base; /* shouldn't change, though */
     mod->load_base = find_load_base(mod->elf);
     return true;
 }
