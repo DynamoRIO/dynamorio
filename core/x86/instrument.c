@@ -3785,7 +3785,10 @@ dr_unmap_file(void *map, size_t size)
      * the bound to make sure vm_areas are updated correctly.
      */
     map  = info.base_pc;
-    size = info.size;
+    if (info.type == DR_MEMTYPE_IMAGE) {
+        size = get_allocation_size(map, NULL);
+    } else
+        size = info.size;
 #endif
     return unmap_file((byte *) map, size);
 }
