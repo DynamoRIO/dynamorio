@@ -397,8 +397,8 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                     SYSLOG_INTERNAL_WARNING
                         ("get_memory_info mismatch! "
                          "(can happen if os combines entries in /proc/pid/maps)\n"
-                         "\tos says: "PFX"-"PFX" prot="PFX"\n"
-                         "\tcache says: "PFX"-"PFX" prot="PFX"\n",
+                         "\tos says: "PFX"-"PFX" prot=0x%08x\n"
+                         "\tcache says: "PFX"-"PFX" prot=0x%08x\n",
                          from_os_base_pc, from_os_base_pc + from_os_size,
                          from_os_prot, start, end, info->prot);
                 }
