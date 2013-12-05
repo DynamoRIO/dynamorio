@@ -336,7 +336,8 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                           void *callee_arg, after_intercept_action_t action_after,
                           app_pc *skip_syscall_pc /* OUT */,
                           byte **orig_bytes_pc /* OUT */,
-                          byte *fpo_stack_adjustment /* OUT OPTIONAL */);
+                          byte *fpo_stack_adjustment /* OUT OPTIONAL */,
+                          const char *name);
 byte *
 insert_trampoline(byte *tgt_pc, intercept_function_t prof_func, void *callee_arg,
                   bool assume_esp, after_intercept_action_t action_after,

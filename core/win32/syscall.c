@@ -676,7 +676,7 @@ init_syscall_trampolines(void)
                                            * this could just simply be the same as the
                                            * returned syscall_trampoline_pc. */
                                           &syscall_trampoline_copy_pc[i],
-                                          fpo_adjustment);
+                                          fpo_adjustment, syscall_names[i]);
         }
     }
 }
@@ -688,11 +688,15 @@ exit_syscall_trampolines(void)
     ASSERT(DYNAMO_OPTION(native_exec_syscalls));
     for (i = 0; i < TRAMPOLINE_MAX; i++) {
         if (intercept_native_syscall(i)) {
-            ASSERT(syscall_trampoline_pc[i] != NULL &&
-                   syscall_trampoline_copy_pc[i] != NULL &&
-                   syscall_trampoline_hook_pc[i] != NULL);
-            remove_trampoline(syscall_trampoline_copy_pc[i],
-                              syscall_trampoline_hook_pc[i]);
+            if (syscall_trampoline_pc[i] != NULL) {
+                ASSERT(syscall_trampoline_copy_pc[i] != NULL &&
+                       syscall_trampoline_hook_pc[i] != NULL);
+                remove_trampoline(syscall_trampoline_copy_pc[i],
+                                  syscall_trampoline_hook_pc[i]);
+            } else {
+                ASSERT(DYNAMO_OPTION(native_exec_hook_conflict) ==
+                       HOOKED_TRAMPOLINE_NO_HOOK);
+            }
         }
         DEBUG_DECLARE(else ASSERT(syscall_trampoline_pc[i] == NULL));
     }
@@ -3232,7 +3236,7 @@ postsys_QueryVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success
                     LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                         "ERROR: Query to now-readonly executable area w/ bad flags %s\n",
                         prot_string(mbi->Protect));
-                    SYSLOG_INTERNAL_INFO("ERROR: Query to now-readonly executable area w/ bad flags\n");
+                    SYSLOG_INTERNAL_INFO("ERROR: Query to now-readonly executable area w/ bad flags");
                 }
             } else if (is_dynamo_address(base)) {
                 LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,

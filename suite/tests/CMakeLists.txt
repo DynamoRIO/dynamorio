@@ -1850,7 +1850,8 @@ else (UNIX)
 
     tobuild(win32.except win32/except.c)
     tobuild(win32.getthreadcontext win32/getthreadcontext.c)
-    tobuild_dll(win32.hookerfirst win32/hookerfirst.c "")
+    tobuild_dll(win32.hookerfirst win32/hookerfirst.c
+      "-handle_ntdll_modify 1 -native_exec_hook_conflict 1")
     tobuild(win32.hooker-secur32 win32/hooker-secur32.c)
     tobuild(win32.rsbtest win32/rsbtest.c)
     tobuild(win32.setcxtsyscall win32/setcxtsyscall.c)
@@ -1874,7 +1875,8 @@ else (UNIX)
     if (TEST_SUITE) # fails non-det so run only in suite
       tobuild(security-win32.hooker_FLAKY security-win32/hooker.c)
     endif (TEST_SUITE)
-    tobuild(security-win32.hooker-ntdll security-win32/hooker-ntdll.c)
+    tobuild_ops(security-win32.hooker-ntdll security-win32/hooker-ntdll.c
+      "-handle_ntdll_modify 1" "")
     tobuild(security-win32.indexisting security-win32/indexisting.c)
     tobuild(security-win32.patterns security-win32/patterns.c)
     tobuild(security-win32.ret-SEH security-win32/ret-SEH.c)

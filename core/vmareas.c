@@ -6355,9 +6355,9 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         } else {
-            SYSLOG_INTERNAL_WARNING("Application changing protections of "
-                                    "%s memory @"PFX"-"PFX, 
-                                    target_area_name, base, base+size);
+            SYSLOG_INTERNAL_WARNING_ONCE("Application changing protections of "
+                                         "%s memory at least once ("PFX"-"PFX")",
+                                         target_area_name, base, base+size);
             if (how_handle == DR_MODIFY_NOP) {
                 /* we use a separate list, rather than a flag on DR areas, as the
                  * affected region could include non-DR memory
@@ -6409,10 +6409,10 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                 return FAIL_APP_MEM_PROT_CHANGE; /* have syscall fail! */
             } else if (how_handle == DR_MODIFY_ALLOW) {
                 LOG(THREAD, LOG_VMAREAS, 2, "ALLOWING system call!\n");
-                return DO_APP_MEM_PROT_CHANGE;
+                /* continue down below */
             }
         }
-        ASSERT_NOT_REACHED();
+        ASSERT(how_handle == DR_MODIFY_ALLOW);
     }
 
     /* DR areas may have changed, but we still have to remove from pretend list */

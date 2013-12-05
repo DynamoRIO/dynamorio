@@ -2085,7 +2085,8 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
                       byte **ptgt_pc /* IN/OUT */, 
                       void *callee_arg, 
                       byte *fpo_stack_adjustment, /* OUT OPTIONAL */
-                      byte **ret_pc /* OUT */)
+                      byte **ret_pc /* OUT */,
+                      const char *name)
 {
     byte *pc, *after_hook_target = NULL;
     byte *after_mov_immed;
@@ -2178,11 +2179,11 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
                  * get off down below: really shouldn't continue here */
             }
         } else if (DYNAMO_OPTION(native_exec_hook_conflict) == HOOKED_TRAMPOLINE_SQUASH) {
-            SYSLOG_INTERNAL_WARNING_ONCE("intercept_syscall_wrapper: "
-                                         "squashing hooked syscall at "PFX, pc);
+            SYSLOG_INTERNAL_WARNING("intercept_syscall_wrapper: "
+                                    "squashing hook in %s @"PFX, name, pc);
             LOG(GLOBAL, LOG_ASYNCH, 2, 
-                "intercept_syscall_wrapper: squashing hooked syscall %02x at "PFX"\n", 
-                native_sys_num, pc);
+                "intercept_syscall_wrapper: squashing hooked syscall %s %02x at "PFX"\n",
+                name, native_sys_num, pc);
 #ifdef X64
             /* in this case we put our hook at the 1st instr */
             instrlist_append(ilist,
@@ -2214,6 +2215,15 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
             /* skip original instruction */
             instr_destroy(dcontext, instr);
 #endif
+        } else if (DYNAMO_OPTION(native_exec_hook_conflict) ==
+                   HOOKED_TRAMPOLINE_NO_HOOK) {
+            SYSLOG_INTERNAL_WARNING("intercept_syscall_wrapper: "
+                                    "not hooking %s due to conflict @"PFX, name, pc);
+            LOG(GLOBAL, LOG_ASYNCH, 2, 
+                "intercept_syscall_wrapper: not hooking syscall %s %02x at "PFX"\n", 
+                name, native_sys_num, pc);
+            instr_destroy(dcontext, instr);
+            return NULL;
         } else {
             ASSERT_NOT_REACHED();
             FATAL_USAGE_ERROR(TAMPERED_NTDLL, 2, get_application_name(),
@@ -2455,7 +2465,8 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                           void *callee_arg, after_intercept_action_t action_after,
                           app_pc *skip_syscall_pc /* OUT */,
                           byte **orig_bytes_pc /* OUT */,
-                          byte *fpo_stack_adjustment /* OUT OPTIONAL */)
+                          byte *fpo_stack_adjustment /* OUT OPTIONAL */,
+                          const char *name)
 {
     byte *pc, *emit_pc, *ret_pc = NULL, *after_hook_target = NULL, *tgt_pc;
     byte *lpad_start, *lpad_pc, *lpad_resume_pc, *xl8_start_pc;
@@ -2472,7 +2483,9 @@ intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
     ASSERT(ptgt_pc != NULL && *ptgt_pc != NULL);
 
     after_hook_target = syscall_wrapper_ilist(dcontext, &ilist, ptgt_pc, callee_arg,
-                                              fpo_stack_adjustment, &ret_pc);
+                                              fpo_stack_adjustment, &ret_pc, name);
+    if (after_hook_target == NULL)
+        return NULL; /* aborted */
 
     tgt_pc = *ptgt_pc;
     pc = tgt_pc;
@@ -3866,12 +3879,18 @@ found_modified_code(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
         DEBUG_DECLARE(bool system_overlap = tamper_resistant_region_overlap(target, target+1);)
         DEBUG_DECLARE(bool patch_module_overlap = vmvector_overlap(patch_proof_areas,
                                                                    target, target+1);)
+
+        DEBUG_DECLARE(uint write_size = 0;)
+        DODEBUG({
+            decode_memory_reference_size(dcontext, (app_pc) pExcptRec->ExceptionAddress,
+                                         &write_size);
+        });
         SYSLOG_INTERNAL_WARNING_ONCE("app tried to write to pretend-writable "
-                                     "code "PFX, target);
+                                     "code "PFX" %d bytes", target, write_size);
         LOG(THREAD, LOG_ASYNCH, 2, "app tried to write to pretend-writable %s code "
-            PFX"\n",
+            PFX" %d bytes\n",
             system_overlap ? "system" : (patch_module_overlap ? "patch module" : "DR"), 
-            target);
+            target, write_size);
             
         DOSTATS({if (system_overlap)
             STATS_INC(app_modify_ntdll_writes);

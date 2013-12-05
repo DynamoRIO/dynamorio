@@ -98,7 +98,8 @@ enum {
     HOOKED_TRAMPOLINE_SQUASH = 1, /* modify any existing chains with a good guess */
     HOOKED_TRAMPOLINE_CHAIN  = 2, /* rerelativize and mangle to support chaining */
     HOOKED_TRAMPOLINE_HOOK_DEEPER = 3, /* move our hook deeper into the function */
-    HOOKED_TRAMPOLINE_MAX = 3,
+    HOOKED_TRAMPOLINE_NO_HOOK = 4, /* give up on adding our hook */
+    HOOKED_TRAMPOLINE_MAX = 4,
 };
 
 /* for options.appfault_mask */

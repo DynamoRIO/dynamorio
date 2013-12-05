@@ -1824,7 +1824,13 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
     OPTION_DEFAULT(uint, handle_DR_modify, 1 /*DR_MODIFY_NOP*/, "specify how to handle app attempts to modify DR memory protection: either halt with an error, turn into a nop (default), or return failure to the app")
 
-    OPTION_DEFAULT(uint, handle_ntdll_modify, 1 /*DR_MODIFY_NOP*/, "specify how to handle app attempts to modify ntdll code: either halt with an error, turn into a nop (default), or return failure to the app")
+    OPTION_DEFAULT(uint, handle_ntdll_modify,
+                   /* i#467: for CI builds the goal is to run an arbitrary app and
+                    * err on the side of DR missing stuff while native rather than
+                    * messing up the app's behavior.
+                    */
+                   IF_CLIENT_INTERFACE_ELSE(3 /*DR_MODIFY_ALLOW*/, 1 /*DR_MODIFY_NOP*/),
+                   "specify how to handle app attempts to modify ntdll code: either halt with an error, turn into a nop (default), or return failure to the app")
 
     /* generalized DR_MODIFY_NOP for customizable list of modules */
     OPTION_DEFAULT(liststring_t, patch_proof_default_list,
@@ -2172,7 +2178,13 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(uint, hook_conflict, 1 /* HOOKED_TRAMPOLINE_SQUASH */, /* case 2525 */
         "action on conflict with existing non Nt* hooks: die, squash or chain")
     OPTION_DEFAULT(uint, native_exec_hook_conflict, 
-        1 /* HOOKED_TRAMPOLINE_SQUASH */,
+        /* i#467: for CI builds, better to let the app run correctly, even if
+         * DR missing something while native.  Native intercept matters only
+         * for AppInit, or tools that go native, or future attach: all rare
+         * things.
+         */
+        IF_CLIENT_INTERFACE_ELSE(4 /* HOOKED_TRAMPOLINE_NO_HOOK */,
+                                 1 /* HOOKED_TRAMPOLINE_SQUASH */),
         "action on conflict with existing Nt* hooks: die, squash, or deeper")
     /* NOTE - be careful about using the default value till the options are
      * read */
