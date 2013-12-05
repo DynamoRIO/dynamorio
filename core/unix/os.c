@@ -786,7 +786,22 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             strncpy(executable_path, read_proc_self_exe(ignore_cache),
                     BUFFER_SIZE_ELEMENTS(executable_path));
 #else
-            ASSERT_NOT_IMPLEMENTED(false);
+            /* OSX kernel puts full app path and as-executed path below envp */
+            const char *c = *our_environ;
+            do {
+                c--;
+            } while (*c == '\0');
+            /* Now skip the specified path which might be relative */
+            while (*c != '\0')
+                c--;
+            do {
+                c--;
+            } while (*c == '\0');
+            /* Now find the front of the absolute path */
+            while (*c != '\0')
+                c--;
+            c++; /* Skip the null */
+            strncpy(executable_path, c, BUFFER_SIZE_ELEMENTS(executable_path));
 #endif
             NULL_TERMINATE_BUFFER(executable_path);
             /* FIXME: Fall back on /proc/self/cmdline and maybe argv[0] from
