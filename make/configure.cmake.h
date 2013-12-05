@@ -83,6 +83,7 @@
 
 /* features */
 #cmakedefine HAVE_FVISIBILITY
+#cmakedefine HAVE_TYPELIMITS_CONTROL
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool

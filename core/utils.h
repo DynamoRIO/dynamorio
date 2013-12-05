@@ -161,16 +161,21 @@ void external_error(const char *file, int line, const char *msg);
 #define CHECK_TRUNCATE_TYPE_short(val) ((val) <= SHRT_MAX && ((int64)(val)) >= SHRT_MIN)
 #define CHECK_TRUNCATE_TYPE_uint(val) ((val) >= 0 && (val) <= UINT_MAX)
 #ifdef UNIX
-/* The check may cause a gcc warning using some older version of gcc in Linux.
- * Some older version of gcc may generate a warning on ((int64)(val)) >= INT_MIN
+/* The check causes a gcc warning that can't be disabled in gcc 4.2 and earlier
+ * (in gcc 4.3 it was moved to -Wextra under -Wtype-limits).
+ * The warning is on ((int64)(val)) >= INT_MIN
  * if val has type uint that I can't seem to cast around and is impossible to ignore -
  * "comparison is always true due to limited range of data type".
  * See http://gcc.gnu.org/ml/gcc/2006-01/msg00784.html and note that the suggested
  * workaround option doesn't exist as far as I can tell. We are potentially in trouble
  * if val has type int64, is negative, and too big to fit in an int.
- * One quick workaround is to check (val) <= INT_MAX only.
  */
-# define CHECK_TRUNCATE_TYPE_int(val) ((val) <= INT_MAX && ((int64)(val)) >= INT_MIN)
+# ifdef HAVE_TYPELIMITS_CONTROL
+#  define CHECK_TRUNCATE_TYPE_int(val) ((val) <= INT_MAX && ((int64)(val)) >= INT_MIN)
+# else
+#  define CHECK_TRUNCATE_TYPE_int(val) \
+    ((val) <= INT_MAX && (-(int64)(val)) <= ((int64)INT_MAX)+1)
+# endif
 #else
 # define CHECK_TRUNCATE_TYPE_int(val) ((val) <= INT_MAX && ((int64)(val)) >= INT_MIN)
 #endif
