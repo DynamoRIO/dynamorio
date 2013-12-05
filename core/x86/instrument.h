@@ -2032,12 +2032,13 @@ DR_API
 bool
 dr_raw_mem_free(void *addr, size_t size);
 
-#ifdef UNIX
+#ifdef LINUX
 DR_API
 /**
  * Calls mremap with the specified parameters and returns the result.
  * The old memory must be non-DR memory, and the new memory is also
  * considered to be non-DR memory (see #DR_ALLOC_NON_DR).
+ * \note Linux-only.
  */
 void *
 dr_raw_mremap(void *old_address, size_t old_size, size_t new_size,
@@ -2049,6 +2050,7 @@ DR_API
  * system call and returns the result.  This is the application's
  * program break, so use this system call only when deliberately
  * changing the application's behavior.
+ * \note Linux-only.
  */
 void *
 dr_raw_brk(void *new_address);

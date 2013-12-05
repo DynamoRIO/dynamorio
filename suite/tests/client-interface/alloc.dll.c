@@ -451,18 +451,22 @@ void custom_unix_test(void)
         dr_fprintf(STDERR, "error: unable to mmap\n");
     write_array(array);
 
+# ifdef LINUX
     array = dr_raw_mremap(array, PAGE_SIZE, PAGE_SIZE*2, MREMAP_MAYMOVE, NULL);
     if ((ptr_int_t)array <= 0 && (ptr_int_t)array >= -PAGE_SIZE)
         dr_fprintf(STDERR, "error: unable to mremap\n");
     write_array(array);
+# endif
 
     ok = dr_raw_mem_free(array, PAGE_SIZE*2);
     if (!ok)
         dr_fprintf(STDERR, "error: failed to munmap\n");
 
+# ifdef LINUX
     array = dr_raw_brk(0);
     if (array == NULL)
         dr_fprintf(STDERR, "error: unable to query brk\n");
+# endif
 
     dr_fprintf(STDERR, "success\n");
 }

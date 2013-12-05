@@ -208,10 +208,12 @@ DECLARE_CXTSWPROT_VAR(static mutex_t client_tls_lock, INIT_LOCK_FREE(client_tls_
 static void handle_execve_post(dcontext_t *dcontext);
 static bool os_switch_lib_tls(dcontext_t *dcontext, bool to_app);
 static bool os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app);
+#ifdef LINUX
 static bool handle_app_mremap(dcontext_t *dcontext, byte *base, size_t size,
                               byte *old_base, size_t old_size,
                               uint old_prot, uint old_type);
 static void handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk);
+#endif
 
 /* full path to our own library, used for execve */
 static char dynamorio_library_path[MAXIMUM_PATH];
@@ -2150,7 +2152,7 @@ os_raw_mem_alloc(void *preferred, size_t size, uint prot, uint flags,
     return p;
 }
 
-#ifdef CLIENT_INTERFACE
+#if defined(CLIENT_INTERFACE) && defined(LINUX)
 DR_API
 /* XXX: could add dr_raw_mem_realloc() instead of dr_raw_mremap() -- though there
  * is no realloc for Windows: supposed to reserve yourself and then commit in
@@ -2198,7 +2200,7 @@ dr_raw_brk(void *new_address)
         return res;
     }
 }
-#endif
+#endif /* CLIENT_INTERFACE && LINUX */
 
 /* caller is required to handle thread synchronization and to update dynamo vm areas */
 void
@@ -3801,13 +3803,17 @@ ignorable_system_call(int num)
     case SYS_exit_group:
 #endif
     case SYS_exit:
+#ifdef LINUX
     case SYS_brk:
+#endif
     case SYS_mmap:
-#ifndef X64
+#if !defined(X64) && !defined(MACOS)
     case SYS_mmap2:
 #endif
     case SYS_munmap:
+#ifdef LINUX
     case SYS_mremap:
+#endif
     case SYS_mprotect:
     case SYS_execve:
     case SYS_clone:
@@ -4928,7 +4934,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #endif
-    case IF_X64_ELSE(SYS_mmap,SYS_mmap2): {
+    case IF_MACOS_ELSE(SYS_mmap,IF_X64_ELSE(SYS_mmap,SYS_mmap2)): {
         /* in /usr/src/linux/arch/i386/kernel/sys_i386.c:
            asmlinkage long sys_mmap2(unsigned long addr, unsigned long len,
              unsigned long prot, unsigned long flags,
@@ -5022,6 +5028,7 @@ pre_system_call(dcontext_t *dcontext)
 #endif
         break;
     }
+#ifdef LINUX
     case SYS_mremap: {
         /* in /usr/src/linux/mm/mmap.c:
            asmlinkage unsigned long sys_mremap(unsigned long addr,
@@ -5056,6 +5063,7 @@ pre_system_call(dcontext_t *dcontext)
         });
         break;
     }
+#endif
     case SYS_mprotect: {
         /* in /usr/src/linux/mm/mprotect.c:
            asmlinkage long sys_mprotect(unsigned long start, uint len,
@@ -5126,6 +5134,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#ifdef LINUX
     case SYS_brk: {
         /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
          * We store the old break in the param1 slot.
@@ -5143,6 +5152,7 @@ pre_system_call(dcontext_t *dcontext)
         ASSERT_NOT_IMPLEMENTED(false);
         break;
     }
+#endif
 
     /****************************************************************************/
     /* SPAWNING */
@@ -5837,6 +5847,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 #endif
 }
 
+#ifdef LINUX
 /* Call right after the system call.
  * i#173: old_prot and old_type should be from before the system call
  */
@@ -5902,6 +5913,7 @@ handle_app_brk(dcontext_t *dcontext, byte *old_brk, byte *new_brk)
     }
     IF_NO_MEMQUERY(memcache_handle_app_brk(old_brk, new_brk));
 }
+#endif
 
 /* Returns false if system call should NOT be executed
  * Returns true if system call should go ahead
@@ -6004,7 +6016,7 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_mmap2:
 #endif
     case SYS_mmap: {
@@ -6081,6 +6093,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#ifdef LINUX
     case SYS_mremap: {
         app_pc old_base = (app_pc) dcontext->sys_param0;
         size_t old_size = (size_t) dcontext->sys_param1;
@@ -6106,6 +6119,7 @@ post_system_call(dcontext_t *dcontext)
              goto exit_post_system_call;
         break;
     }
+#endif
     case SYS_mprotect: {
         base = (app_pc) dcontext->sys_param0;
         size = dcontext->sys_param1;
@@ -6168,6 +6182,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#ifdef LINUX
     case SYS_brk: {
         /* i#91/PR 396352: need to watch SYS_brk to maintain all_memory_areas.
          * This code should work regardless of whether syscall failed
@@ -6177,7 +6192,7 @@ post_system_call(dcontext_t *dcontext)
         app_pc old_brk = (app_pc) dcontext->sys_param1;
         app_pc new_brk = (app_pc) result;
         DEBUG_DECLARE(app_pc req_brk = (app_pc) dcontext->sys_param0;);
-#ifdef DEBUG
+# ifdef DEBUG
         if (DYNAMO_OPTION(early_inject) &&
             req_brk != NULL /* Ignore calls that don't increase brk. */) {
             DO_ONCE({
@@ -6185,10 +6200,11 @@ post_system_call(dcontext_t *dcontext)
                                  "allocation failed with -early_inject");
             });
         }
-#endif
+# endif
         handle_app_brk(dcontext, old_brk, new_brk);
         break;
     }
+#endif
 
     /****************************************************************************/
     /* SPAWNING -- fork mostly handled above */
