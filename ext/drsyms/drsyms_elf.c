@@ -47,9 +47,18 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 
 #ifndef MIN
 # define MIN(x, y) ((x) <= (y) ? (x) : (y))
+#endif
+
+#ifndef SIZE_T_MAX
+# ifdef X64
+#  define SIZE_T_MAX ULLONG_MAX
+# else
+#  define SIZE_T_MAX UINT_MAX
+# endif
 #endif
 
 static bool verbose;
@@ -337,8 +346,14 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
         return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     }
     *offs_start = mod->syms[idx].st_value - mod->load_base;
-    if (offs_end != NULL)
+    if (offs_end != NULL) {
+        /* XXX i#1337: we don't try to handle st_size==0 asm routines as we
+         * don't want to take the time to find the next entry.  We could sort
+         * symtab into our own data structure to solve that, and then assume
+         * it goes to the next entry
+         */
         *offs_end = mod->syms[idx].st_value + mod->syms[idx].st_size - mod->load_base;
+    }
     return DRSYM_SUCCESS;
 }
 
@@ -347,6 +362,8 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
     int i;
+    int closest_idx = -1;
+    size_t closest_diff = SIZE_T_MAX;
 
     if (mod == NULL || mod->syms == NULL || idx == NULL || mod->syms == NULL)
         return DRSYM_ERROR;
@@ -359,6 +376,22 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
         size_t hi_offs = lo_offs + mod->syms[i].st_size;
         if (lo_offs <= modoffs && modoffs < hi_offs) {
             *idx = i;
+            return DRSYM_SUCCESS;
+        }
+        /* i#1337: handle st_size==0 asm routines */
+        if (modoffs >= lo_offs) {
+            if (modoffs - lo_offs < closest_diff) {
+                closest_idx = i;
+                closest_diff = modoffs - lo_offs;
+            }
+        }
+    }
+
+    if (closest_idx >= 0 && mod->syms[closest_idx].st_size == 0) {
+        /* i#1337: rule out anything without a name */
+        const char *name = drsym_obj_symbol_name(mod_in, closest_idx);
+        if (name != NULL && name[0] != '\0') {
+            *idx = closest_idx;
             return DRSYM_SUCCESS;
         }
     }
