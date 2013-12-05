@@ -1,14 +1,14 @@
 thank you for testing the client interface
-nudge delivered 65
+nudge delivered 101
 self
 #ifdef WINDOWS
 thank you for testing the client interface
-nudge delivered 65
+nudge delivered 101
 self
 #endif
-nudge delivered 66
+nudge delivered 102
 printing
-nudge delivered 67
+nudge delivered 103
 terminating
 client exiting
 child has exited with status 42

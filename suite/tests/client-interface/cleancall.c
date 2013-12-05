@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,12 +47,6 @@
 #endif
 
 #include <setjmp.h>
-
-#ifdef WINDOWS
-# define NOP __nop()
-#else /* UNIX */
-# define NOP asm("nop")
-#endif
 
 static void foo(void)
 { /* nothing: just a marker */ }

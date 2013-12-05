@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,32 +35,61 @@
  * also tests dr_exit_process() (i#743)
  */
 
+#define _CRT_SECURE_NO_WARNINGS 1
+
 #include "tools.h"
 
 #ifdef UNIX
-# include <sys/types.h>
-# include <unistd.h>
-# include <sys/types.h> /* for wait */
 # include <sys/wait.h>  /* for wait */
-# include <assert.h>
-# include <stdio.h>
+# include <stdlib.h>
+# include <unistd.h>
 # include <string.h>
-# include <syscall.h>
+# include <assert.h>
 #else
 # include "windows.h"
-# include <stdio.h>
 #endif
+
+volatile int val;
+
+static void
+foo(void)
+{
+    /* avoid inlining */
+    val = 4;
+}
+
+static void
+child_is_ready(void)
+{
+    NOP_NOP_CALL(foo);
+}
 
 int
 main(int argc, char** argv)
 {
 #ifdef UNIX
-    pid_t child = fork();
+    int pipefd[2];
+    char buf = 0;
+    pid_t child;
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(1);
+    }
+    child = fork();
     if (child < 0) {
         perror("ERROR on fork");
     } else if (child > 0) {
+        /* parent */
         pid_t result;
         int status = 0;
+        /* wait for child to start up */
+        close(pipefd[1]); /* close unused write end */
+        if (read(pipefd[0], &buf, sizeof(buf)) <= 0) {
+            perror("pipe read failed");
+            exit(1);
+        }
+        /* notify client */
+        child_is_ready();
         /* don't print here: could be out-of-order wrt client prints */
         result = waitpid(child, &status, 0);
         assert(result == child);
@@ -69,19 +98,38 @@ main(int argc, char** argv)
     } else {
         /* client nudge handler will terminate us earlier */
         int left = 20;
+        close(pipefd[0]); /* close unused read end */
+        /* notify parent */
+        write(pipefd[1], &buf, sizeof(buf));
+        close(pipefd[1]);
         while (left > 0)
             left = sleep(left); /* unfortunately, nudge signal interrupts us */
-    }   
+    }
 #else
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;
+    char cmdline[128];
+    HANDLE event;
     if (argc == 1) {
         /* parent */
-        if (!CreateProcess(argv[0], "nudge_ex.exe 1", NULL, NULL, FALSE, 0,
-                           NULL, NULL, &si, &pi)) 
+
+        /* for synchronization we create an inherited event */
+        SECURITY_ATTRIBUTES sa = {sizeof(sa), NULL, TRUE/*inherit*/};
+        event = CreateEvent(&sa, FALSE/*manual reset*/, FALSE/*start unset*/, NULL);
+        if (event == NULL)
+            print("Failed to create event");
+
+        _snprintf(cmdline, BUFFER_SIZE_ELEMENTS(cmdline), "%s %p", argv[0], event);
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
+                           0, NULL, NULL, &si, &pi)) 
             print("ERROR on CreateProcess\n"); 
         else {
             int status;
+            /* wait for child */
+            WaitForSingleObject(event, INFINITE);
+            /* notify client */
+            child_is_ready();
+            /* wait for termination */
             WaitForSingleObject(pi.hProcess, INFINITE);
             GetExitCodeProcess(pi.hProcess, (LPDWORD) &status);
             print("child has exited with status %d\n", status);
@@ -90,6 +138,12 @@ main(int argc, char** argv)
     }
     else {
         /* child */
+        if (sscanf(argv[1], "%p", &event) != 1) {
+            print("Failed to obtain event handle from %s\n", argv[1]);
+            return -1;
+        }
+        if (!SetEvent(event))
+            print("Failed to set event\n");
         Sleep(20000);
     }
 #endif

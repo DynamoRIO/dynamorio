@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -30,22 +31,17 @@
  * DAMAGE.
  */
 
-#include <stdio.h>
+#include "tools.h"
 
-#ifdef WINDOWS
-# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
-#else /* UNIX */
-# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
-#endif
 
 void foo(void)
 {
-    fprintf(stderr, "called foo()\n");
+    print("called foo()\n");
 }
 
 void bar(void)
 {
-    fprintf(stderr, "called bar()\n");
+    print("called bar()\n");
 }
 
 int main(void)

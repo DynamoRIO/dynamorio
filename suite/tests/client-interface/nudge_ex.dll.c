@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -45,6 +45,8 @@ static int cls_idx;
 
 static bool sent_self;
 
+static process_id_t child_pid;
+
 typedef struct {
     ptr_int_t saved_param;
     process_id_t child_pid;
@@ -80,7 +82,7 @@ get_sysnum(const char *wrapper)
 static void
 event_nudge(void *drcontext, uint64 arg)
 {
-    dr_fprintf(STDERR, "nudge delivered %x\n", (uint)arg);
+    dr_fprintf(STDERR, "nudge delivered %d\n", (uint)arg);
     if (arg == NUDGE_ARG_SELF)
         dr_fprintf(STDERR, "self\n");
     else if (arg == NUDGE_ARG_PRINT)
@@ -98,22 +100,12 @@ nudge_child(process_id_t child_pid)
     /* send two nudges to the child process */
     dr_config_status_t res;
     uint count = 0;
-    /* XXX: we need bi-directional communication.  Here we need to wait for
-     * the child to be initialized.  We could have the child send us a nudge,
-     * but we're using the same client and we don't want to send our
-     * parent a nudge b/c that will kill it (on Linux).
-     * For now we just wait a little and we try several times.
-     */
-    dr_sleep(400);
-    do {
-        dr_sleep(200);
-        res = dr_nudge_client_ex(child_pid, client_id, NUDGE_ARG_PRINT, 0);
-        count++;
-    } while (res != DR_SUCCESS && count < NUDGE_MAX_TRIES);
+    res = dr_nudge_client_ex(child_pid, client_id, NUDGE_ARG_PRINT, 0);
     if (res != DR_SUCCESS)
         dr_fprintf(STDERR, "nudge failed\n");
     /* On Linux, wait for child's signal handler to finish so this
-     * nudge won't be blocked (xref i#744)
+     * nudge won't be blocked (xref i#744).
+     * XXX: flaky!
      */
     dr_sleep(200);
     res = dr_nudge_client_ex(child_pid, client_id,
@@ -149,15 +141,13 @@ event_pre_syscall(void *drcontext, int sysnum)
 static void
 event_post_syscall(void *drcontext, int sysnum)
 {
-    process_id_t child_pid = 0;
     per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, cls_idx);
     /* XXX i#752: should DR provide a child creation event that gives us the pid? */
 #ifdef UNIX
     if (sysnum == SYS_fork ||
         (sysnum == SYS_clone && !TEST(CLONE_VM, data->saved_param))) {
         child_pid = dr_syscall_get_result(drcontext);
-        if (child_pid > 0)
-            nudge_child(child_pid);
+        /* we nudge once we see notification from parent, via bb pattern (i#953) */
     }
 #else
     if (sysnum == sysnum_CreateProcess || sysnum == sysnum_CreateProcessEx ||
@@ -171,9 +161,8 @@ event_post_syscall(void *drcontext, int sysnum)
             /* we can't nudge now b/c the child's initial thread is suspended */
         }
     } else if (sysnum == sysnum_ResumeThread) {
-        /* child should be alive now */
-        if (data->child_pid != INVALID_PROCESS_ID)
-            nudge_child(data->child_pid);
+        /* child should be alive now but we nudge in bb event (i#953) */
+        child_pid = data->child_pid;
     }
 #endif
 }
@@ -209,6 +198,30 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
     /* else, nothing to do: we leave the struct for re-use on next context */
 }
 
+static dr_emit_flags_t
+event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating, OUT void **user_data)
+{
+    instr_t *instr, *next_instr, *next_next_instr;
+    /* Look for 3 nops in parent code to know child is live and avoid flakiness (i#953) */
+    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next(instr);
+        if (next_instr != NULL)
+            next_next_instr = instr_get_next(next_instr);
+        else
+            next_next_instr = NULL;
+        if (instr_is_nop(instr) && 
+            next_instr != NULL && instr_is_nop(next_instr) && 
+            next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
+            /* we set child_pid while watching syscalls creating it */
+            if (child_pid != INVALID_PROCESS_ID)
+                nudge_child(child_pid);
+            break;
+        }
+    }
+    return DR_EMIT_DEFAULT;
+}
+
 static void
 event_exit(void)
 {
@@ -222,6 +235,7 @@ event_exit(void)
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    bool ok;
     client_id = id;
     dr_fprintf(STDERR, "thank you for testing the client interface\n");
     drmgr_init();
@@ -233,6 +247,9 @@ void dr_init(client_id_t id)
     drmgr_register_pre_syscall_event(event_pre_syscall);
     drmgr_register_post_syscall_event(event_post_syscall);
     dr_register_exit_event(event_exit);
+
+    ok = drmgr_register_bb_instrumentation_event(event_bb_analysis, NULL, NULL);
+    ASSERT(ok);
 
 #ifdef WINDOWS
     sysnum_CreateProcess = get_sysnum("NtCreateProcess");

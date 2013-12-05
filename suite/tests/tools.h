@@ -247,6 +247,16 @@ intercept_signal(int sig, handler_3_t handler, bool sigstack);
 # define SIGLONGJMP(buf, count) longjmp(buf, count)
 #endif
 
+#ifdef WINDOWS
+# define NOP __nop()
+# define NOP_NOP_NOP       __nop(); __nop(); __nop()
+# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
+#else /* UNIX */
+# define NOP asm("nop")
+# define NOP_NOP_NOP      asm("nop\n nop\n nop\n")
+# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
+#endif
+
 /* DynamoRIO prints directly by syscall to stderr, so we need to too to get
  * right output, esp. with ctest -j where fprintf(stderr) is buffered.
  * Likely to crash if the stack is unaligned due to possible floating point args

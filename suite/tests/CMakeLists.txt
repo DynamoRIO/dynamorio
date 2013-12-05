@@ -1608,9 +1608,8 @@ if (CLIENT_INTERFACE)
       "" "-thread_private -cache_bb_unit_init 4K" "")
   endif ()
 
-  # FIXME i#953: flaky, uses sleeps
-  tobuild_ci(client.nudge_ex_FLAKY client-interface/nudge_ex.c "" "" "")
-  use_DynamoRIO_extension(client.nudge_ex_FLAKY.dll drmgr)
+  tobuild_ci(client.nudge_ex client-interface/nudge_ex.c "" "" "")
+  use_DynamoRIO_extension(client.nudge_ex.dll drmgr)
 
   tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
 

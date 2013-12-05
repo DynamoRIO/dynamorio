@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,12 +32,6 @@
  */
 
 #include "tools.h"
-
-#ifdef WINDOWS
-# define NOP __nop()
-#else /* UNIX */
-# define NOP asm("nop")
-#endif
 
 int main()
 {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,12 +45,6 @@
 #include <ucontext.h>
 #include <assert.h>
 #include <setjmp.h>
-
-#ifdef WINDOWS
-# define NOP_NOP_CALL(tgt) __nop(); __nop(); tgt()
-#else /* UNIX */
-# define NOP_NOP_CALL(tgt) asm("nop\n nop\n call " #tgt)
-#endif
 
 static SIGJMP_BUF mark;
 static int bar;

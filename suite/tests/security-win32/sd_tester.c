@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2004 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,7 @@
 
 typedef unsigned char * (*func_TYPE)();
 
-#define NOP 0x90
+#define OPC_NOP 0x90
 #define NUM_NOPS 1000
 
 char data_section[4096]; // For .data tests
@@ -97,7 +97,7 @@ int buffer_test(char* location) {
         return(-1);
     }
 
-    memset(ptr,NOP,NUM_NOPS);
+    memset(ptr,OPC_NOP,NUM_NOPS);
     memcpy(ptr+NUM_NOPS,shellcode,sizeof(shellcode));
 
     func=(func_TYPE)ptr;
