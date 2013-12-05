@@ -108,6 +108,12 @@
 # define SYSNUM_FSTAT SYS_fstat64
 #endif
 
+#ifdef MACOS
+# define SYSNUM_EXIT_PROCESS SYS_exit
+#else
+# define SYSNUM_EXIT_PROCESS SYS_exit_group
+#endif
+
 /* Prototype for all functions in .init_array. */
 typedef int (*init_fn_t)(int argc, char **argv, char **envp);
 
@@ -973,7 +979,7 @@ os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_c
     if (TEST(TERMINATE_CLEANUP, flags)) {
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);
-        cleanup_and_terminate(dcontext, SYS_exit_group, exit_code, 0,
+        cleanup_and_terminate(dcontext, SYSNUM_EXIT_PROCESS, exit_code, 0,
                               true/*whole process*/);
     } else {
         /* clean up may be impossible - just terminate */
@@ -3422,7 +3428,7 @@ exit_process_syscall(long status)
      * space) manually?  Presumably we got here b/c at an unsafe point to do
      * full exit?  Or is that not true: what about dr_abort()?
      */
-    dynamorio_syscall(SYS_exit_group, 1, status);
+    dynamorio_syscall(SYSNUM_EXIT_PROCESS, 1, status);
     /* would assert that result is -ENOSYS but assert likely calls us => infinite loop */
     exit_thread_syscall(status);
     ASSERT_NOT_REACHED();
@@ -3816,7 +3822,9 @@ ignorable_system_call(int num)
 #endif
     case SYS_mprotect:
     case SYS_execve:
+#ifdef LINUX
     case SYS_clone:
+#endif
     case SYS_fork:
     case SYS_vfork:
     case SYS_kill:
@@ -3826,14 +3834,17 @@ ignorable_system_call(int num)
 #if defined(SYS_tgkill)
     case SYS_tgkill:
 #endif
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_signal:
+#endif
+#if !defined(X64) || defined(MACOS)
     case SYS_sigaction:
     case SYS_sigsuspend:
     case SYS_sigpending:
     case SYS_sigreturn:
     case SYS_sigprocmask:
 #endif
+#ifdef LINUX
     case SYS_rt_sigreturn:
     case SYS_rt_sigaction:
     case SYS_rt_sigprocmask:
@@ -3841,10 +3852,11 @@ ignorable_system_call(int num)
     case SYS_rt_sigtimedwait:
     case SYS_rt_sigqueueinfo:
     case SYS_rt_sigsuspend:
-    case SYS_sigaltstack:
     case SYS_signalfd:
     case SYS_signalfd4:
-#ifndef X64
+#endif
+    case SYS_sigaltstack:
+#if defined(LINUX) && !defined(X64)
     case SYS_sgetmask:
     case SYS_ssetmask:
 #endif
@@ -3852,21 +3864,27 @@ ignorable_system_call(int num)
     case SYS_getitimer:
     case SYS_close:
     case SYS_dup2:
+#ifdef LINUX
     case SYS_dup3:
+#endif
     case SYS_fcntl:
     case SYS_getrlimit:
     case SYS_setrlimit:
+#ifdef LINUX
     /* i#784: app may have behavior relying on SIGALRM */
     case SYS_alarm:
+#endif
     /* i#107: syscall might change/query app's seg memory 
      * need stop app from clobbering our GDT slot.
      */
 #if defined(LINUX) && defined(X64)
     case SYS_arch_prctl:
 #endif
+#ifdef LINUX
     case SYS_set_thread_area:
     case SYS_get_thread_area:
     /* FIXME: we might add SYS_modify_ldt later. */
+#endif
         return false;
     default:
 #ifdef VMX86_SERVER
@@ -4063,7 +4081,11 @@ was_thread_create_syscall(dcontext_t *dcontext)
 static inline bool
 is_sigreturn_syscall_helper(int sysnum)
 {
+#ifdef MACOS
+    return sysnum == SYS_sigreturn;
+#else
     return (IF_NOT_X64(sysnum == SYS_sigreturn ||) sysnum == SYS_rt_sigreturn);
+#endif
 }
 
 bool
@@ -4565,7 +4587,7 @@ handle_exit(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool exit_process = false;
 
-    if (mc->xax == SYS_exit_group) {
+    if (mc->xax == SYSNUM_EXIT_PROCESS) {
         /* We can have multiple thread groups within the same address space.
          * We need to know whether this is the only group left.
          * FIXME: we can have races where new threads are created after our
@@ -4628,7 +4650,7 @@ handle_exit(dcontext_t *dcontext)
     if (is_last_app_thread() && !dynamo_exited) {
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in final thread %d of %d => exiting DynamoRIO\n",
-            (mc->xax == SYS_exit_group) ? "_group" : "", mc->xax,
+            (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "", mc->xax,
             get_thread_id(), get_process_id());
         /* we want to clean up even if not automatic startup! */
         automatic_startup = true;
@@ -4636,7 +4658,7 @@ handle_exit(dcontext_t *dcontext)
     } else {
         LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in thread %d of %d => cleaning up %s\n",
-            (mc->xax == SYS_exit_group) ? "_group" : "",
+            (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "",
             mc->xax, get_thread_id(), get_process_id(),
             exit_process ? "process" : "thread");
     }
@@ -4881,6 +4903,7 @@ pre_system_call(dcontext_t *dcontext)
 
     switch (mc->xax) {
 
+#ifdef LINUX
     case SYS_exit_group:
 # ifdef VMX86_SERVER
         if (os_in_vmkernel_32bit()) {
@@ -4891,6 +4914,7 @@ pre_system_call(dcontext_t *dcontext)
         }
 # endif
         /* fall-through */
+#endif
     case SYS_exit: {
         handle_exit(dcontext);
         break;
@@ -4899,7 +4923,7 @@ pre_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* MEMORY REGIONS */
 
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_mmap: {
         /* in /usr/src/linux/arch/i386/kernel/sys_i386.c:
            asmlinkage int old_mmap(struct mmap_arg_struct_t *arg)
@@ -5249,7 +5273,7 @@ pre_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* SIGNALS */
  
-    case SYS_rt_sigaction: {   /* 174 */
+    case IF_MACOS_ELSE(SYS_sigaction,SYS_rt_sigaction): {   /* 174 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigaction(int sig, const struct sigaction *act, 
@@ -5270,7 +5294,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_sigreturn: {      /* 119 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_sigreturn(unsigned long __unused)
@@ -5283,7 +5307,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #endif
-    case SYS_rt_sigreturn: {   /* 173 */
+    case IF_MACOS_ELSE(SYS_sigreturn,SYS_rt_sigreturn): {   /* 173 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_rt_sigreturn(unsigned long __unused)
          */
@@ -5305,7 +5329,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
-    case SYS_rt_sigprocmask: { /* 175 */
+    case IF_MACOS_ELSE(SYS_sigprocmask,SYS_rt_sigprocmask): { /* 175 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, 
@@ -5325,7 +5349,7 @@ pre_system_call(dcontext_t *dcontext)
             SET_RETURN_VAL(dcontext, 0);
         break;
     }
-    case SYS_rt_sigsuspend: { /* 179 */
+    case IF_MACOS_ELSE(SYS_sigsuspend,SYS_rt_sigsuspend): { /* 179 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage int
            sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize)
@@ -5416,10 +5440,12 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
+#ifdef LINUX
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         handle_pre_alarm(dcontext, (unsigned int) dcontext->sys_param0);
         break;
+#endif
 #if 0
 # ifndef X64
     case SYS_signal: {         /* 48 */
@@ -5454,7 +5480,7 @@ pre_system_call(dcontext_t *dcontext)
 # endif
 #else
     /* until we've implemented them, keep down here to get warning: */
-# ifndef X64
+# if defined(LINUX) && !defined(X64)
     case SYS_signal:
     case SYS_sigaction:
     case SYS_sigsuspend:
@@ -5462,14 +5488,16 @@ pre_system_call(dcontext_t *dcontext)
 # endif
 #endif
 
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_sigpending:      /* 73 */
     case SYS_sgetmask:        /* 68 */
     case SYS_ssetmask:        /* 69 */
 #endif
-    case SYS_rt_sigpending:   /* 176 */
+#ifdef LINUX
     case SYS_rt_sigtimedwait: /* 177 */
-    case SYS_rt_sigqueueinfo: { /* 178 */
+    case SYS_rt_sigqueueinfo: /* 178 */
+#endif
+    case IF_MACOS_ELSE(SYS_sigpending,SYS_rt_sigpending): { /* 176 */
         /* FIXME: handle all of these syscalls! */
         LOG(THREAD, LOG_ASYNCH|LOG_SYSCALLS, 1,
             "WARNING: unhandled signal system call %d\n", mc->xax);
@@ -5492,7 +5520,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 
     case SYS_dup2:
-    case SYS_dup3: {
+    IF_LINUX(case SYS_dup3:) {
         file_t newfd = (file_t) sys_param(dcontext, 1);
         if (fd_is_dr_owned(newfd) || fd_is_in_private_range(newfd)) {
             SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
@@ -6268,7 +6296,7 @@ post_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* SIGNALS */
 
-    case SYS_rt_sigaction: {   /* 174 */
+    case IF_MACOS_ELSE(SYS_sigaction,SYS_rt_sigaction): {   /* 174 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigaction(int sig, const struct sigaction *act, 
@@ -6286,7 +6314,7 @@ post_system_call(dcontext_t *dcontext)
         handle_post_sigaction(dcontext, sig, act, oact, sigsetsize);
         break;
     }
-    case SYS_rt_sigprocmask: { /* 175 */
+    case IF_MACOS_ELSE(SYS_sigprocmask,SYS_rt_sigprocmask): { /* 175 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage long
            sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, 
@@ -6299,10 +6327,10 @@ post_system_call(dcontext_t *dcontext)
                                 (size_t) dcontext->sys_param3);
         break;
     }
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
     case SYS_sigreturn:        /* 119 */
 #endif
-    case SYS_rt_sigreturn:     /* 173 */
+    case IF_MACOS_ELSE(SYS_sigreturn,SYS_rt_sigreturn):     /* 173 */
         /* there is no return value: it's just the value of eax, so avoid
          * assert below
          */
@@ -6318,9 +6346,11 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
+#ifdef LINUX
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
         break;
+#endif
 #if defined(LINUX) && defined(X64)
     case SYS_arch_prctl: {
         if (success && INTERNAL_OPTION(mangle_app_seg)) {
@@ -6335,7 +6365,7 @@ post_system_call(dcontext_t *dcontext)
     /* FILES */
 
     case SYS_dup2:
-    case SYS_dup3: {
+    IF_LINUX(case SYS_dup3:) {
 #ifdef LINUX
         if (success)
             signal_handle_dup(dcontext, (file_t) sys_param(dcontext, 1), (file_t) result);
