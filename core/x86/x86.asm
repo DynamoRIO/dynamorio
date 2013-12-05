@@ -1143,6 +1143,7 @@ syscall_0args:
 # endif /* X64 */
         pop      REG_XBX
         /* return val is in eax for us */
+        /* for MacOS, it can also include edx, so be sure not to clobber that! */
         ret
         END_FUNC(dynamorio_syscall)
 

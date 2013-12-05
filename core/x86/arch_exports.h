@@ -830,7 +830,12 @@ void call_intr_excpt_alt_stack(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec
 void dynamorio_earliest_init_takeover(void);
 #else /* UNIX */
 void client_int_syscall(void);
+# ifdef MACOS
+/* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
+int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
+# else
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
+# endif
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
 void dynamorio_futex_wake_and_exit(volatile int *futex);

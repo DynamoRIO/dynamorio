@@ -136,9 +136,13 @@ char **our_environ;
 #include <syslog.h>             /* vsyslog */
 #include "../vmareas.h"
 #ifdef RCT_IND_BRANCH
-#  include "../rct.h"
+# include "../rct.h"
 #endif
-#include "include/syscall.h"            /* our own local copy */
+#ifdef LINUX
+# include "include/syscall.h"            /* our own local copy */
+#else
+# include <sys/syscall.h>
+#endif
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../synch.h"
@@ -2081,8 +2085,9 @@ mmap_syscall_succeeded(byte *retval)
 static inline byte *
 mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong pgoff)
 {
-    return (byte *) dynamorio_syscall(IF_X64_ELSE(SYS_mmap, SYS_mmap2), 6,
-                                      addr, len, prot, flags, fd, pgoff);
+    return (byte *)(ptr_int_t)
+        dynamorio_syscall(IF_MACOS_ELSE(SYS_mmap, IF_X64_ELSE(SYS_mmap, SYS_mmap2)), 6,
+                          addr, len, prot, flags, fd, pgoff);
 }
 
 static inline long
@@ -2886,7 +2891,7 @@ shared_library_bounds(IN shlib_handle_t lib, IN byte *addr,
 int
 llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 {
-#ifdef X64
+#if defined(X64) || defined(MACOS)
     *result = dynamorio_syscall(SYS_lseek, 3, fd, offset, origin);
     return ((*result > 0) ? 0 : (int)*result);
 #else
