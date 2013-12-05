@@ -221,9 +221,23 @@ pre_execve_ld_preload(const char *dr_path)
              cur_path == NULL ? "" : ":",
              cur_path == NULL ? "" : cur_path);
     NULL_TERMINATE_BUFFER(ld_lib_path);
+#ifdef MACOS
+    setenv("DYLD_LIBRARY_PATH", ld_lib_path, true/*overwrite*/);
+    /* XXX: why does it not work w/o the full path? */
+    snprintf(ld_lib_path, BUFFER_SIZE_ELEMENTS(ld_lib_path),
+             "%.*s/%s:%.*s/%s",
+             last_slash - dr_path, dr_path, "libdrpreload.dylib",
+             last_slash - dr_path, dr_path, "libdynamorio.dylib");
+    setenv("DYLD_INSERT_LIBRARIES", ld_lib_path, true/*overwrite*/);
+    /* This is required to use DYLD_INSERT_LIBRARIES on apps that use
+     * two-level naming, but it can cause an app to run incorrectly.
+     * Long-term we'll want a true early injector.
+     */
+    setenv("DYLD_FORCE_FLAT_NAMESPACE", "1", true/*overwrite*/);
+#else
     setenv("LD_LIBRARY_PATH", ld_lib_path, true/*overwrite*/);
-    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so",
-           true/*overwrite*/);
+    setenv("LD_PRELOAD", "libdynamorio.so libdrpreload.so", true/*overwrite*/);
+#endif
     if (verbose) {
         printf("Setting LD_USE_LOAD_BIAS for PIEs so the loader will honor "
                "DR's preferred base. (i#719)\n"
@@ -437,6 +451,7 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
 {
     dr_inject_info_t *info = create_inject_info(exe, argv);
     int errcode = 0;
+    *data = info;
     if (!exe_is_right_bitwidth(exe, &errcode) &&
         errcode != WARN_IMAGE_MACHINE_TYPE_MISMATCH_EXE) {
         free(info);
@@ -446,7 +461,6 @@ dr_inject_prepare_to_exec(const char *exe, const char **argv, void **data OUT)
     info->pipe_fd = 0;  /* No pipe. */
     info->exec_self = true;
     info->method = INJECT_LD_PRELOAD;
-    *data = info;
 #ifdef STATIC_LIBRARY
     setenv("DYNAMORIO_TAKEOVER_IN_INIT", "1", true/*overwrite*/);
 #endif

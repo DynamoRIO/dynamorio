@@ -461,6 +461,11 @@ if (UNIX)
       "${dynamorio_link_flags} -Xlinker --version-script -Xlinker ${export_list}")
   endif (NOT HAVE_FVISIBILITY)
 
+  if (APPLE)
+    # Needs explicit -init (regardless of name: _init, init, etc.)
+    set(dynamorio_link_flags "${dynamorio_link_flags} -init __init")
+  endif (APPLE)
+
   set_target_properties(dynamorio PROPERTIES
     LINK_FLAGS "${dynamorio_link_flags}")
 
@@ -600,6 +605,8 @@ if (UNIX)
     # Linker complains about unresolved symbols.
     # This means we can't use preload by itself -- but these days we never do that.
     target_link_libraries(${PRELOAD_NAME} dynamorio)
+    # Needs explicit -init (regardless of name: _init, init, etc.)
+    append_property_string(TARGET ${PRELOAD_NAME} LINK_FLAGS "-init __init")
   endif (APPLE)
 
 else (UNIX)

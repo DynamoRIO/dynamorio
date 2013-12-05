@@ -395,7 +395,16 @@ static bool check_dr_root(const char *dr_root, bool debug,
         "lib64\\drpreinject.dll",
         "lib64\\release\\dynamorio.dll",
         "lib64\\debug\\dynamorio.dll"
-#else /* UNIX */
+#elif defined(MACOS)
+        "lib32/debug/libdrpreload.dylib",
+        "lib32/debug/libdynamorio.dylib",
+        "lib32/release/libdrpreload.dylib",
+        "lib32/release/libdynamorio.dylib",
+        "lib64/debug/libdrpreload.dylib",
+        "lib64/debug/libdynamorio.dylib",
+        "lib64/release/libdrpreload.dylib",
+        "lib64/release/libdynamorio.dylib"
+#else /* LINUX */
         "lib32/debug/libdrpreload.so",
         "lib32/debug/libdynamorio.so",
         "lib32/release/libdrpreload.so",
