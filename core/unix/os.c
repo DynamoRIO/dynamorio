@@ -68,7 +68,7 @@
 #include <limits.h>
 
 #ifdef MACOS
-#  include <sys/sysctl.h>         /* for sysctlbyname */
+# include <sys/sysctl.h>         /* for sysctl */
 #endif
 
 #ifdef LINUX
@@ -620,6 +620,21 @@ kernel_is_64bit(void)
     return kernel_64bit;
 }
 
+#ifdef MACOS
+/* XXX: if we get enough of these, move to os_macos.c or sthg */
+static bool
+sysctl_query(int level0, int level1, void *buf, size_t bufsz)
+{
+    int res;
+    int name[2];
+    size_t len = bufsz;
+    name[0] = level0;
+    name[1] = level1;
+    res = dynamorio_syscall(SYS___sysctl, 6, &name, 2, buf, &len, NULL, 0);
+    return (res >= 0);
+}
+#endif
+
 static void
 get_uname(void)
 {
@@ -627,9 +642,21 @@ get_uname(void)
      * or .data unprot
      */
     static struct utsname uinfo; /* can be large, avoid stack overflow */
+#ifdef MACOS
+    if (!sysctl_query(CTL_KERN, KERN_OSTYPE, &uinfo.sysname, sizeof(uinfo.sysname)) ||
+        !sysctl_query(CTL_KERN, KERN_HOSTNAME, &uinfo.nodename,
+                      sizeof(uinfo.nodename)) ||
+        !sysctl_query(CTL_KERN, KERN_OSRELEASE, &uinfo.release, sizeof(uinfo.release)) ||
+        !sysctl_query(CTL_KERN, KERN_VERSION, &uinfo.version, sizeof(uinfo.version)) ||
+        !sysctl_query(CTL_HW, HW_MACHINE, &uinfo.machine, sizeof(uinfo.machine))) {
+        ASSERT(false && "sysctl queries failed");
+        return;
+    }
+#else
     DEBUG_DECLARE(int res =)
         dynamorio_syscall(SYS_uname, 1, (ptr_uint_t)&uinfo);
     ASSERT(res >= 0);
+#endif
     LOG(GLOBAL, LOG_TOP, 1, "uname:\n\tsysname: %s\n", uinfo.sysname);
     LOG(GLOBAL, LOG_TOP, 1, "\tnodename: %s\n", uinfo.nodename);
     LOG(GLOBAL, LOG_TOP, 1, "\trelease: %s\n", uinfo.release);
@@ -2773,14 +2800,9 @@ get_num_processors(void)
     static uint num_cpu = 0;         /* cached value */
     if (!num_cpu) {
 #ifdef MACOS
-        /* FIXME i#58: use raw syscalls (and remove #include above).
-         * Initially could use libSystem's mach interface (host_info())
-         * which should be lower-level than sysctlbyname(), and replace
-         * that w/ its straightforward raw syscall underneath later.
-         */
-        DEBUG_DECLARE(int res = )
-            sysctlbyname("hw.ncpu", NULL, NULL, &num_cpu, sizeof(num_cpu));
-        ASSERT(res == 0);
+        DEBUG_DECLARE(bool ok =)
+            sysctl_query(CTL_HW, HW_NCPU, &num_cpu, sizeof(num_cpu));
+        ASSERT(ok);
 #else
         /* We used to use get_nprocs_conf, but that's in libc, so now we just
          * look at the /sys filesystem ourselves, which is what glibc does.
