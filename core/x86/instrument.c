@@ -579,6 +579,18 @@ instrument_init(void)
         (*init)(client_libs[i].id);
     }
 
+    /* We now initialize the 1st thread before coming here, so we can
+     * hand the client a dcontext; so we need to specially generate
+     * the thread init event now.  An alternative is to have
+     * dr_get_global_drcontext(), but that's extra complexity for no
+     * real reason.
+     * We raise the thread init event prior to the module load events
+     * so the client can access a dcontext in module load events (i#1339).
+     */
+    if (thread_init_callbacks.num > 0) {
+        instrument_thread_init(get_thread_private_dcontext(), false, false);
+    }
+
     /* If the client just registered the module-load event, let's
      * assume it wants to be informed of *all* modules and tell it
      * which modules are already loaded.  If the client registers the
@@ -594,16 +606,6 @@ instrument_init(void)
             dr_free_module_data(data);
         }
         dr_module_iterator_stop(mi);
-    }
-
-    /* We now initialize the 1st thread before coming here, so we can
-     * hand the client a dcontext; so we need to specially generate
-     * the thread init event now.  An alternative is to have
-     * dr_get_global_drcontext(), but that's extra complexity for no
-     * real reason.
-     */
-    if (thread_init_callbacks.num > 0) {
-        instrument_thread_init(get_thread_private_dcontext(), false, false);
     }
 }
 

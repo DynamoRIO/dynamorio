@@ -151,6 +151,9 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added dr_app_handle_mbr_target()
  - Added dr_app_running_under_dynamorio()
  - Added drvector_set_entry()
+ - Re-ordered the initial thread init event to be prior to the initial
+   module load events
+ - Various bug fixes
 
 **************************************************
 <hr>
