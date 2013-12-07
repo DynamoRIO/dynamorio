@@ -5424,6 +5424,8 @@ pre_system_call(dcontext_t *dcontext)
          */
         pid_t pid = (pid_t) sys_param(dcontext, 0);
         uint sig = (uint) sys_param(dcontext, 1);
+        LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
+            "thread %d sending signal %d to pid %d\n", get_thread_id(), sig, pid);
         /* We check whether targeting this process or this process group */
         if (pid == get_process_id() || pid == 0 || pid == -get_process_group_id()) {
             handle_self_signal(dcontext, sig);
@@ -5437,6 +5439,8 @@ pre_system_call(dcontext_t *dcontext)
          */
         pid_t tid = (pid_t) sys_param(dcontext, 0);
         uint sig = (uint) sys_param(dcontext, 1);
+        LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
+            "thread %d sending signal %d to tid %d\n", get_thread_id(), sig, tid);
         if (tid == get_thread_id()) {
             handle_self_signal(dcontext, sig);
         }
@@ -5451,6 +5455,9 @@ pre_system_call(dcontext_t *dcontext)
         pid_t tgid = (pid_t) sys_param(dcontext, 0);
         pid_t tid = (pid_t) sys_param(dcontext, 1);
         uint sig = (uint) sys_param(dcontext, 2);
+        LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
+            "thread %d sending signal %d to tid %d tgid %d\n",
+            get_thread_id(), sig, tid, tgid);
         /* some kernels support -1 values:
          +   tgkill(-1, tid, sig)  == tkill(tid, sig)
          *   tgkill(tgid, -1, sig) == kill(tgid, sig)
@@ -6456,7 +6463,7 @@ post_system_call(dcontext_t *dcontext)
             if (!(success || sysnum == SYS_close ||
                   dcontext->expect_last_syscall_to_fail)) {
                 LOG(THREAD, LOG_SYSCALLS, 1,
-                    "Unexpected failure of non-ignorable syscall %d", sysnum);
+                    "Unexpected failure of non-ignorable syscall %d\n", sysnum);
             }
         }
     });

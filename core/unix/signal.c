@@ -2791,12 +2791,18 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
     }
     ostd->processing_signal++; /* no need for atomicity: thread-private */
 
+    /* First, check whether blocked, before we restore for sigsuspend (i#1340). */
+    if (kernel_sigismember(&info->app_sigblocked, sig))
+        blocked = true;
+
     if (info->in_sigsuspend) {
         /* sigsuspend ends when a signal is received, so restore the
          * old blocked set
          */
         info->app_sigblocked = info->app_sigblocked_save;
         info->in_sigsuspend = false;
+        /* update the set to restore to post-signal-delivery */
+        ucxt->uc_sigmask = info->app_sigblocked;
 #ifdef DEBUG
         if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
             LOG(THREAD, LOG_ASYNCH, 3, "after sigsuspend, blocked signals are now:\n");
@@ -2816,12 +2822,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             sig, pc);
         ostd->processing_signal--;
         return;
-    } else if (kernel_sigismember(&info->app_sigblocked, sig)) {
+    } else if (blocked) {
         /* signal is blocked by app, so just record it, don't receive now */
         LOG(THREAD, LOG_ASYNCH, 2,
             "record_pending_signal(%d at pc "PFX"): signal is currently blocked\n",
             sig, pc);
-        blocked = true;
         IF_LINUX(handled = notify_signalfd(dcontext, info, sig, frame));
     } else if (safe_is_in_fcache(dcontext, pc, xsp)) {
         LOG(THREAD, LOG_ASYNCH, 2,
@@ -3074,6 +3079,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
 
             pend->next = info->sigpending[sig];
             info->sigpending[sig] = pend;
+            pend->unblocked = !blocked;
 
             /* FIXME: note that for asynchronous signals we don't need to
              *  bother to record exact machine context, even entire frame,
@@ -4434,7 +4440,11 @@ receive_pending_signal(dcontext_t *dcontext)
     for (sig = 1; sig <= MAX_SIGNUM; sig++) {
         if (info->sigpending[sig] != NULL) {
             bool executing = true;
-            if (kernel_sigismember(&info->app_sigblocked, sig)) {
+            /* We do not re-check whether blocked if it was unblocked at
+             * receive time, to properly handle sigsuspend (i#1340).
+             */
+            if (!info->sigpending[sig]->unblocked &&
+                !kernel_sigismember(&info->app_sigblocked, sig)) {
                 LOG(THREAD, LOG_ASYNCH, 3, "\tsignal %d is blocked!\n", sig);
                 continue;
             }

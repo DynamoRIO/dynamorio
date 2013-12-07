@@ -235,6 +235,8 @@ typedef struct _sigpending_t {
 #endif
     /* use the sigcontext, not the mcontext (used to restart syscalls for i#1145) */
     bool use_sigcontext;
+    /* was this unblocked at receive time? */
+    bool unblocked;
     struct _sigpending_t *next;
 } sigpending_t;
 

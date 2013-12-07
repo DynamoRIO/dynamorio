@@ -1709,6 +1709,9 @@ if (UNIX)
   target_link_libraries(linux.eintr ${libpthread})
   torunonly(linux.eintr-noinline linux.eintr linux/eintr.c "-no_ignore_syscalls" "")
 
+  tobuild(linux.sigsuspend linux/sigsuspend.c)
+  target_link_libraries(linux.sigsuspend ${libpthread})
+
   # We pass -native_exec_list which causes us to call strcasecmp in libc,
   # thereby exercising on our ability to copy libc's TLS data.
   tobuild_ops(linux.app_tls linux/app_tls.c "-native_exec_list libfoo.so" "")
