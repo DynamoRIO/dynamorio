@@ -75,8 +75,10 @@ main(int argc, const char *argv[])
          * fails to kill.  15 billion syscalls takes ~ 1 minute.
          */
         counter++;
-        if (counter > 15*1024*1024*1024LL)
+        if (counter > 15*1024*1024*1024LL) {
+            print("hit max iters\n");
             break;
+        }
     }
     return 0;
 }

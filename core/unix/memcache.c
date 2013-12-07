@@ -394,7 +394,7 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
                 /* we add the whole client lib as a single entry */
                 if (IF_CLIENT_INTERFACE_ELSE(!is_in_client_lib(start) ||
                                              !is_in_client_lib(end - 1), true)) {
-                    SYSLOG_INTERNAL_WARNING
+                    SYSLOG_INTERNAL_WARNING_ONCE
                         ("get_memory_info mismatch! "
                          "(can happen if os combines entries in /proc/pid/maps)\n"
                          "\tos says: "PFX"-"PFX" prot=0x%08x\n"
