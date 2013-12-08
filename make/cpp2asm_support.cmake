@@ -205,6 +205,7 @@ else ()
   endif ()
   set(ASM_FLAGS "/nologo ${ASM_DBG}")
 endif ()
+string(REPLACE " " ";" ASM_FLAGS_LIST "${ASM_FLAGS}")
 
 if (APPLE)
   # XXX: xcode assembler uses Intel mnemonics but opposite src,dst order!

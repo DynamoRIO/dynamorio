@@ -678,12 +678,10 @@ else (UNIX)
   if (GENERATE_PDBS)
     set(DBG "/Zi")
     set(LINK_DBG "/debug")
-    set(ASM_DBG "/Zi /Zd")
   else (GENERATE_PDBS)
     # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
     set(DBG "")
     set(LINK_DBG "")
-    set(ASM_DBG "")
     # Default from cmake in DEBUG and RELWITHDEBINFO has /debug
     string(REGEX REPLACE "/debug" "" CMAKE_EXE_LINKER_FLAGS
       "${CMAKE_EXE_LINKER_FLAGS}")
@@ -699,7 +697,6 @@ else (UNIX)
   # explicitly request /Od even though it's cl's default b/c VS has /O2 as default
   # and cl 14.00 hangs compiling core/fragment.c with /Od and DEBUG.
   set(DBG_OPT "/Od")
-  set(ASM_FLAGS "/nologo ${ASM_DBG}")
   set(BASE_CXXFLAGS "${BASE_CFLAGS}")
   if (CMAKE_RC_FLAGS)
     set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /nologo")
@@ -707,7 +704,6 @@ else (UNIX)
     set(CMAKE_RC_FLAGS "/nologo")
   endif ()
 endif (UNIX)
-string(REPLACE " " ";" ASM_FLAGS_LIST "${ASM_FLAGS}")
 
 if (UNIX)
   # Check for -fvisibility
