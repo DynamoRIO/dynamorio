@@ -283,11 +283,58 @@ function (set_compile_flags target tgt_cflags)
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${tgt_definc}")
 endfunction(set_compile_flags)
 
-# Global config once per project.  See i#1052 comments below for why
-# we use a global property w/ the project name in it rather than
-# any other kind of variable.
-set_property(GLOBAL PROPERTY
-  DynamoRIO_configured_globally_${CMAKE_PROJECT_NAME} OFF)
+if (NOT DynamoRIO_INTERNAL)
+  # Global config once per project.
+  # We want to do this on the find_package() to avoid any additional export
+  # sets failing to find these targets (DrMem i#1400), so we try to figure
+  # out whether we should take bitwidth from C++ or C globally
+  if (CMAKE_CXX_COMPILER_WORKS)
+    set(is_cxx ON)
+  else ()
+    set(is_cxx OFF)
+  endif ()
+  get_size(${is_cxx} is_x64)
+
+  if (is_x64)
+    set(bits 64)
+  else (is_x64)
+    set(bits 32)
+  endif (is_x64)
+
+  if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+    set(type debug)
+  else ()
+    set(type release)
+  endif ()
+
+  # if we were built w/ static drsyms, clients need dependent static libs too
+  if (UNIX AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+    add_library(elf STATIC IMPORTED)
+    set_property(TARGET elf PROPERTY
+      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelf.a")
+    add_library(dwarf STATIC IMPORTED)
+    set_property(TARGET dwarf PROPERTY
+      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
+    add_library(elftc STATIC IMPORTED)
+    set_property(TARGET elftc PROPERTY
+      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelftc.a")
+  endif ()
+  if (WIN32 AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+    add_library(dwarf STATIC IMPORTED)
+    set_property(TARGET dwarf PROPERTY
+      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
+    add_library(elftc STATIC IMPORTED)
+    set_property(TARGET elftc PROPERTY
+      IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/elftc.lib")
+  endif ()
+
+  # Define imported target for DynamoRIO library, to allow dependencies on
+  # the library and trigger client rebuild on DynamoRIO upgrade:
+  # We always link to release build.  At runtime debug build can be
+  # swapped in instead.
+  # We assume is_x64 can have only one value per configuration.
+  include(${DynamoRIO_cwd}/DynamoRIOTarget${bits}.cmake)
+endif (NOT DynamoRIO_INTERNAL)
 
 # Unfortunately, CMake doesn't support removing flags on a per-target basis,
 # or per-target include dirs or link dirs, so we have to make global changes.
@@ -298,59 +345,6 @@ set_property(GLOBAL PROPERTY
 # unless the C++ compiler and the C compiler are configured for
 # different bitwidths.
 function (configure_DynamoRIO_global is_cxx change_flags)
-  # Should only be done once per project
-  get_property(already_configured_project GLOBAL PROPERTY
-    DynamoRIO_configured_globally_${CMAKE_PROJECT_NAME})
-  if (NOT already_configured_project)
-    set_property(GLOBAL PROPERTY
-      DynamoRIO_configured_globally_${CMAKE_PROJECT_NAME} ON)
-    # We can't have configure_common() pass in is_x64, since we want to
-    # support a user calling us prior to setting up any targets
-    get_size(${is_cxx} is_x64)
-
-    if (is_x64)
-      set(bits 64)
-    else (is_x64)
-      set(bits 32)
-    endif (is_x64)
-
-    if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-      set(type debug)
-    else ()
-      set(type release)
-    endif ()
-
-    if (NOT DynamoRIO_INTERNAL)
-      # if we were built w/ static drsyms, clients need dependent static libs too
-      if (UNIX AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
-        add_library(elf STATIC IMPORTED)
-        set_property(TARGET elf PROPERTY
-          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelf.a")
-        add_library(dwarf STATIC IMPORTED)
-        set_property(TARGET dwarf PROPERTY
-          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libdwarf.a")
-        add_library(elftc STATIC IMPORTED)
-        set_property(TARGET elftc PROPERTY
-          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/libelftc.a")
-      endif ()
-      if (WIN32 AND EXISTS "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
-        add_library(dwarf STATIC IMPORTED)
-        set_property(TARGET dwarf PROPERTY
-          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/dwarf.lib")
-        add_library(elftc STATIC IMPORTED)
-        set_property(TARGET elftc PROPERTY
-          IMPORTED_LOCATION "${DynamoRIO_cwd}/../ext/lib${bits}/${type}/elftc.lib")
-      endif ()
-
-      # Define imported target for DynamoRIO library, to allow dependencies on
-      # the library and trigger client rebuild on DynamoRIO upgrade:
-      # We always link to release build.  At runtime debug build can be
-      # swapped in instead.
-      # We assume is_x64 can have only one value per configuration.
-      include(${DynamoRIO_cwd}/DynamoRIOTarget${bits}.cmake)
-    endif (NOT DynamoRIO_INTERNAL)
-  endif (NOT already_configured_project)
-
   # We need to perform some global config once per cmake directory.
   # We want it to work even if the caller puts code in a function
   # (=> no PARENT_SCOPE var) and we want to re-execute on each re-config
