@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -53,11 +53,43 @@ set(INSTALL_EXT_LIB ${INSTALL_EXT_BASE}/${INSTALL_LIB})
 set(INSTALL_EXT_INCLUDE ${INSTALL_EXT_BASE}/include)
 set(INSTALL_EXT_CMAKE ${INSTALL_EXT_BASE}/cmake)
 
-option(BUILD_EXT_STATIC "build each of DynamoRIO's extensions statically" OFF)
-
 disable_compiler_warnings()
 # Extensions don't include configure.h so they don't get DR defines
 add_dr_defines()
+
+if (STATIC_LIBRARY)
+  set(libtype STATIC)
+else()
+  set(libtype SHARED)
+endif ()
+
+# This lets us share common code among all extensions.  We use a macro to
+# avoid scope issues and avoid having to call configure_DynamoRIO_global().
+macro(configure_extension target)
+  configure_DynamoRIO_client(${target})
+
+  # ensure we rebuild if includes change
+  add_dependencies(${target} api_headers)
+
+  if (WIN32 AND GENERATE_PDBS)
+    # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
+    # In any case we make sure to add it (for release and debug, to get pdb):
+    append_property_string(TARGET ${target} LINK_FLAGS "/debug")
+  endif (WIN32 AND GENERATE_PDBS)
+
+  if (UNIX)
+    # static libs must be PIC to be linked into clients: else requires
+    # relocations that run afoul of security policies, etc.
+    # Doesn't hurt to apply to shared libs as well, though CMake
+    # should already be adding it.
+    append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
+  endif ()
+
+  # documentation is put into main DR docs/ dir
+
+  DR_export_target(${target})
+  install_exported_target(${target} ${INSTALL_EXT_LIB})
+endmacro(configure_extension)
 
 file(GLOB dirs "*/CMakeLists.txt")
 foreach (dir ${dirs})

@@ -28,16 +28,6 @@ cmake_minimum_required(VERSION 2.6)
 # not using it (i#714).
 set(DynamoRIO_USE_LIBC OFF)
 
-# since LGPL, must be SHARED and not STATIC by default.
-# SHARED is also required if multiple separate components all want to
-# use this same extension.
-option(DR_EXT_DRWRAP_STATIC "create drwrap as a static, not shared, library (N.B.: ensure the LGPL license implications are acceptable for your tool, as well as ensuring no separately-linked components of your tool also use drwrap, before enabling as a static library)" ${BUILD_EXT_STATIC})
-if (DR_EXT_DRWRAP_STATIC OR STATIC_LIBRARY)
-  set(libtype STATIC)
-else()
-  set(libtype SHARED)
-endif ()
-
 ##################################################
 # we rely on DR proper's asm setup so we don't need to include cpp2asm_support.cmake)
 
@@ -65,49 +55,51 @@ add_asm_target(drwrap_asm.asm drwrap_asm_src drwrap_asm_tgt ""
 #
 ##################################################
 
-add_library(drwrap ${libtype}
+set(srcs
   drwrap.c
   ${drwrap_asm_src}
   # add more here
   )
+
+add_library(drwrap ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
 set(PREFERRED_BASE 0x74000000)
-configure_DynamoRIO_client(drwrap)
+configure_extension(drwrap)
 use_DynamoRIO_extension(drwrap drmgr)
 use_DynamoRIO_extension(drwrap drcontainers)
-if (UNIX)
-  # static containers must be PIC to be linked into clients: else requires
-  # relocations that run afoul of security policies, etc.
-  append_property_string(TARGET drwrap COMPILE_FLAGS "-fPIC")
-endif (UNIX)
 
-if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
-  # for non-VS generators
-  append_property_string(TARGET drwrap COMPILE_FLAGS "${asm_defs}")
+macro(configure_drwrap_target target)
+  if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # we need to add asm_defs to target b/c add_asm_target() is not able to set flags
+    # for non-VS generators
+    append_property_string(TARGET ${target} COMPILE_FLAGS "${asm_defs}")
+  endif ()
+
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    # ensure race-free parallel builds
+    add_dependencies(${target} ${drwrap_asm_tgt})
+  endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+
+  if (WIN32)
+    # XXX i#893: our asm isn't SEH compliant
+    append_property_string(TARGET ${target} LINK_FLAGS "/safeseh:no")
+  endif (WIN32)
+endmacro()
+
+configure_drwrap_target(drwrap)
+
+# Since LGPL, most users will want this as a shared library.
+# A shared library is also required if multiple separate components all want to
+# use this same extension.
+# We do provide the static library for those who are ok w/ the license and who
+# are building an end tool.
+if (NOT STATIC_LIBRARY)
+  add_library(drwrap_static STATIC ${srcs})
+  configure_extension(drwrap_static)
+  use_DynamoRIO_extension(drwrap_static drmgr_static)
+  use_DynamoRIO_extension(drwrap_static drcontainers)
+  configure_drwrap_target(drwrap_static)
 endif ()
 
-# ensure we rebuild if includes change
-add_dependencies(drwrap api_headers)
-
-if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  # ensure race-free parallel builds
-  add_dependencies(drwrap ${drwrap_asm_tgt})
-endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-
-if (WIN32 AND GENERATE_PDBS)
-  # I believe it's the lack of CMAKE_BUILD_TYPE that's eliminating this?
-  # In any case we make sure to add it (for release and debug, to get pdb):
-  append_property_string(TARGET drwrap LINK_FLAGS "/debug")
-endif (WIN32 AND GENERATE_PDBS)
-if (WIN32)
-  # XXX i#893: our asm isn't seh complient
-  append_property_string(TARGET drwrap LINK_FLAGS "/safeseh:no")
-endif (WIN32)
-
-# documentation is put into main DR docs/ dir
-
-DR_export_target(drwrap)
-install_exported_target(drwrap ${INSTALL_EXT_LIB})
 DR_install(FILES drwrap.h DESTINATION ${INSTALL_EXT_INCLUDE})

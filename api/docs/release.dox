@@ -155,6 +155,11 @@ The changes between version \DR_VERSION and 4.1.0 include:
    module load events
  - Changed DynamoRIO_USE_LIBC to be on by default for all clients,
    including clients written in C
+ - Added static library versions of most Extension libraries: drmgr_static,
+   drutil_static, drwrap_static, drsyms_static, and drx_static.
+   Be sure to check the licenses and other restrictions (in particular,
+   most of these Extensions will not work properly if duplicated)
+   before using these static versions.
  - Various bug fixes
 
 **************************************************

@@ -859,17 +859,23 @@ function (use_DynamoRIO_extension target extname)
     # support building from build dir for our own samples, and from
     # build dir for a client that includes our sources as a sub-project,
     # in which case DynamoRIO_SOURCE_DIR will automatically be set:
+    if ("${extname}" MATCHES "_static$")
+      # support additional targets with "_static" appended
+      string(REGEX REPLACE "_static$" "" ext_dir "${extname}")
+    else ()
+      set(ext_dir "${extname}")
+    endif ()
     if (EXISTS "${DynamoRIO_SOURCE_DIR}/ext")
-      include_directories(${DynamoRIO_SOURCE_DIR}/ext/${extname})
+      include_directories(${DynamoRIO_SOURCE_DIR}/ext/${ext_dir})
     elseif (EXISTS "${PROJECT_SOURCE_DIR}/ext")
-      include_directories(${PROJECT_SOURCE_DIR}/ext/${extname})
+      include_directories(${PROJECT_SOURCE_DIR}/ext/${ext_dir})
     elseif (EXISTS "${PROJECT_SOURCE_DIR}/../../ext")
       # A hack to support samples being a separate project: probably it
       # should NOT be separate inside DR, and the exported CMakeLists.txt
       # should add a project declaration.  An alternative is to
       # copy ext headers to <builddir>/ext/include and not even check
       # DynamoRIO_INTERNAL.
-      include_directories(${PROJECT_SOURCE_DIR}/../../ext/${extname})
+      include_directories(${PROJECT_SOURCE_DIR}/../../ext/${ext_dir})
     endif ()
   endif (NOT DynamoRIO_INTERNAL)
 

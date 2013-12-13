@@ -119,7 +119,7 @@ SUCH DAMAGE.
 
 The \p drwrap (see \ref page_drwrap) and \p drutil (see \ref page_drutil)
 Extensions are licensed under the LGPL 2.1 License and NOT the BSD license
-used for the rest of DynamoRIO.  These Extensions are provided as shared
+used for the rest of DynamoRIO.  These Extensions are provided as
 libraries distinct from the rest of DynamoRIO.  The details of this license
 are below:
 
