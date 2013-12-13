@@ -3742,7 +3742,8 @@ dr_dup_file_handle(file_t f)
 #else
     HANDLE ht = INVALID_HANDLE_VALUE;
     NTSTATUS res = duplicate_handle(NT_CURRENT_PROCESS, f, NT_CURRENT_PROCESS,
-                                    &ht, SYNCHRONIZE, 0, 0);
+                                    &ht, SYNCHRONIZE, 0,
+                                    DUPLICATE_SAME_ACCESS|DUPLICATE_SAME_ATTRIBUTES);
     if (!NT_SUCCESS(res))
         return INVALID_FILE;
     else

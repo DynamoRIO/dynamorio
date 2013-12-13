@@ -456,6 +456,7 @@ enum {
     SYS_NUM_PARAMS_TerminateJobObject      = 2,
     SYS_NUM_PARAMS_SetInformationJobObject = 4,
     SYS_NUM_PARAMS_Close                   = 1,
+    SYS_NUM_PARAMS_DuplicateObject         = 7,
 };
 
 enum {
@@ -463,23 +464,44 @@ enum {
     SYS_WOW64_IDX_TerminateJobObject      = 0,
     SYS_WOW64_IDX_SetInformationJobObject = 7,
     SYS_WOW64_IDX_Close                   = 0,
+    SYS_WOW64_IDX_DuplicateObject         = 0,
 };
 
 static int sysnum_TerminateProcess;
 static int sysnum_TerminateJobObject;
 static int sysnum_SetInformationJobObject;
 static int sysnum_Close;
+static int sysnum_DuplicateObject;
 
 /* Table of job handles for which the app set JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE */
 #define JOB_TABLE_HASH_BITS 6
 static hashtable_t job_table;
 
+/* Entry in job_table.  If it is present in the table, it should only be
+ * accessed while holding the table lock.
+ */
+typedef struct _job_info_t {
+    /* So far just a reference count.  We don't need store a duplicated handle
+     * b/c we always have a valid app handle for this job.
+     */
+    uint ref_count;
+} job_info_t;
+
 /* We need CLS as we track data across syscalls, where TLS is not sufficient */
 static int cls_idx_soft;
 
 typedef struct _cls_soft_t {
+    /* For NtSetInformationJobObject */
     DWORD job_limit_flags_orig;
     DWORD *job_limit_flags_loc;
+    /* For NtDuplicateObject */
+    bool dup_proc_src_us;
+    bool dup_proc_dst_us;
+    ULONG dup_options;
+    HANDLE dup_src;
+    HANDLE *dup_dst;
+    job_info_t *dup_jinfo;
+    /* If we add data for more syscalls, we could use a union to save space */
 } cls_soft_t;
 
 /* XXX: should we have some kind of shared wininc/ dir for these common defines?
@@ -659,11 +681,41 @@ soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
 }
 
 static void
-soft_kills_handle_close(void *drcontext, HANDLE job, int exit_code)
+soft_kills_free_job_info(void *ptr)
 {
-    NOTIFY(1, "--drx-- closing kill-on-close handle 0x%x in pid %d\n",
-           job, dr_get_process_id());
-    soft_kills_handle_job_termination(drcontext, job, exit_code);
+    job_info_t *jinfo = (job_info_t *) ptr;
+    if (jinfo->ref_count == 0)
+        dr_global_free(jinfo, sizeof(*jinfo));
+}
+
+/* Called when the app closes a job handle "job".
+ * Caller must hold job_table lock.
+ * If "remove" is true, removes from the hashtable and de-allocates "jinfo",
+ * if refcount is 0.
+ */
+static void
+soft_kills_handle_close(void *drcontext, job_info_t *jinfo, HANDLE job, int exit_code,
+                        bool remove)
+{
+    ASSERT(jinfo->ref_count > 0, "invalid ref count");
+    jinfo->ref_count--;
+    if (jinfo->ref_count == 0) {
+        NOTIFY(1, "--drx-- closing kill-on-close handle 0x%x in pid %d\n",
+               job, dr_get_process_id());
+        /* XXX: It's possible for us to miss a handle being closed from another
+         * process.  In such a case, our ref count won't reach 0 and we'll
+         * fail to kill the child at all.
+         * If that handle value is re-used as a job object (else our job queryies
+         * will get STATUS_OBJECT_TYPE_MISMATCH) with no kill-on-close, we could
+         * incorrectly kill a job when the app is just closing its handle, but
+         * this would only happen when a job is being controlled from multiple
+         * processes.  We'll have to live with the risk.  We could watch
+         * NtCreateJobObject but it doesn't seem worth it.
+         */
+        soft_kills_handle_job_termination(drcontext, job, exit_code);
+    }
+    if (remove)
+        hashtable_remove(&job_table, (void *)job);
 }
 
 static bool
@@ -672,7 +724,154 @@ soft_kills_filter_syscall(void *drcontext, int sysnum)
     return (sysnum == sysnum_TerminateProcess ||
             sysnum == sysnum_TerminateJobObject ||
             sysnum == sysnum_SetInformationJobObject ||
-            sysnum == sysnum_Close);
+            sysnum == sysnum_Close ||
+            sysnum == sysnum_DuplicateObject);
+}
+
+static bool
+soft_kills_pre_SetInformationJobObject(void *drcontext, cls_soft_t *cls)
+{
+    HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
+    JOBOBJECTINFOCLASS class = (JOBOBJECTINFOCLASS)
+        dr_syscall_get_param(drcontext, 1);
+    ULONG sz = (ULONG) dr_syscall_get_param(drcontext, 3);
+    /* MSDN claims that JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE requires an
+     * extended info struct, which we trust, though it seems odd as it's
+     * a flag in the basic struct.
+     */
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
+    if (class == JobObjectExtendedLimitInformation &&
+        sz >= sizeof(info) &&
+        dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2),
+                     sizeof(info), &info, NULL)) {
+        if (TEST(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+                 info.BasicLimitInformation.LimitFlags)) {
+            /* Remove the kill-on-close flag from the syscall arg.
+             * We restore in post-syscall in case app uses the memory
+             * for something else.  There is of course a race where another
+             * thread could use it and get the wrong value: -soft_kills isn't
+             * perfect.
+             */
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION *ptr =
+                (JOBOBJECT_EXTENDED_LIMIT_INFORMATION *)
+                dr_syscall_get_param(drcontext, 2);
+            ULONG new_flags = info.BasicLimitInformation.LimitFlags &
+                (~JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE);
+            bool isnew;
+            job_info_t *jinfo;
+            cls->job_limit_flags_orig = info.BasicLimitInformation.LimitFlags;
+            cls->job_limit_flags_loc = &ptr->BasicLimitInformation.LimitFlags;
+            ASSERT(sizeof(cls->job_limit_flags_orig) ==
+                   sizeof(ptr->BasicLimitInformation.LimitFlags), "size mismatch");
+            if (!dr_safe_write(cls->job_limit_flags_loc,
+                               sizeof(ptr->BasicLimitInformation.LimitFlags),
+                               &new_flags, NULL)) {
+                /* XXX: Any way we can send a WARNING on our failure to write? */
+                NOTIFY(1, "--drx-- FAILED to remove kill-on-close from job 0x%x "
+                       "in pid %d\n", job, dr_get_process_id());
+            } else {
+                NOTIFY(1, "--drx-- removed kill-on-close from job 0x%x in pid %d\n",
+                       job, dr_get_process_id());
+            }
+            /* Track the handle so we can notify the client on close or exit */
+            hashtable_lock(&job_table);
+            /* See if already there (in case app called Set 2x) */
+            if (hashtable_lookup(&job_table, (void *)job) == NULL) {
+                jinfo = (job_info_t *) dr_global_alloc(sizeof(*jinfo));
+                jinfo->ref_count = 1;
+                isnew = hashtable_add(&job_table, (void *)job, (void *)jinfo);
+                ASSERT(isnew, "missed an NtClose");
+            }
+            hashtable_unlock(&job_table);
+        }
+    }
+    return true;
+}
+
+/* We must do two things on NtDuplicateObject:
+ * 1) Update our job table: adding a new entry for the duplicate,
+ *    and removing the source handle if it is closed.
+ * 2) Process a handle being closed but a new one not being
+ *    created (in this process): corner case that triggers a kill.
+ */
+static bool
+soft_kills_pre_DuplicateObject(void *drcontext, cls_soft_t *cls)
+{
+    HANDLE proc_src = (HANDLE) dr_syscall_get_param(drcontext, 0);
+    process_id_t id_src = dr_convert_handle_to_pid(proc_src);
+    cls->dup_proc_src_us = (id_src == dr_get_process_id());
+    cls->dup_jinfo = NULL;
+    if (cls->dup_proc_src_us) {
+        /* NtDuplicateObject seems more likely than NtClose to fail, so we
+         * shift as much handling as possible post-syscall.
+         */
+        HANDLE proc_dst = (HANDLE) dr_syscall_get_param(drcontext, 2);
+        process_id_t id_dst = dr_convert_handle_to_pid(proc_dst);
+        cls->dup_proc_dst_us = (id_dst == dr_get_process_id());
+        cls->dup_src = (HANDLE) dr_syscall_get_param(drcontext, 1);
+        cls->dup_dst = (HANDLE *) dr_syscall_get_param(drcontext, 3);
+        cls->dup_options = (ULONG) dr_syscall_get_param(drcontext, 6);
+        hashtable_lock(&job_table);
+        /* We have to save jinfo b/c dup_src will be gone */
+        cls->dup_jinfo = (job_info_t *)
+            hashtable_lookup(&job_table, (void *)cls->dup_src);
+        if (cls->dup_jinfo != NULL) {
+            if (TEST(DUPLICATE_CLOSE_SOURCE, cls->dup_options)) {
+                /* "This occurs regardless of any error status returned"
+                 * according to MSDN DuplicateHandle, and Nebbett.
+                 * Thus, we act on this here, which avoids any handle value
+                 * reuse race, and we don't have to undo in post.
+                 * If this weren't true, we'd have to reinstate in the table
+                 * on failure, and we'd have to duplicate the handle
+                 * (dr_dup_file_handle would do it -- at least w/ current impl)
+                 * to call soft_kills_handle_close() in post.
+                 */
+                if (!cls->dup_proc_dst_us) {
+                    NOTIFY(1, "--drx-- job 0x%x closed in pid %d w/ dst outside proc\n",
+                           cls->dup_src, dr_get_process_id());
+                    /* The exit code is set to 0 by the kernel for this case */
+                    soft_kills_handle_close(drcontext, cls->dup_jinfo, cls->dup_src, 0,
+                                            true/*remove*/);
+                } else {
+                    hashtable_remove(&job_table, (void *)cls->dup_src);
+                    /* Adjust refcount after removing to avoid freeing prematurely.
+                     * The refcount may be sitting at 0, but no other thread should
+                     * be able to affect it as there is no hashtable entry.
+                     */
+                    ASSERT(cls->dup_jinfo->ref_count > 0, "invalid ref count");
+                    cls->dup_jinfo->ref_count--;
+                }
+            }
+        }
+        hashtable_unlock(&job_table);
+    }
+    return true;
+}
+
+static void
+soft_kills_post_DuplicateObject(void *drcontext)
+{
+    cls_soft_t *cls = (cls_soft_t *) drmgr_get_cls_field(drcontext, cls_idx_soft);
+    HANDLE dup_dst;
+    if (cls->dup_jinfo == NULL)
+        return;
+    if (!NT_SUCCESS(dr_syscall_get_result(drcontext)))
+        return;
+    ASSERT(cls->dup_proc_src_us, "shouldn't get here");
+    if (!cls->dup_proc_dst_us)
+        return; /* already handled in pre */
+    /* At this point we have a successful intra-process duplication.  If
+     * DUPLICATE_CLOSE_SOURCE, we already removed from the table in pre.
+     */
+    hashtable_lock(&job_table);
+    if (cls->dup_dst != NULL &&
+        dr_safe_read(cls->dup_dst, sizeof(dup_dst), &dup_dst, NULL)) {
+        NOTIFY(1, "--drx-- job 0x%x duplicated as 0x%x in pid %d\n",
+               cls->dup_src, dup_dst, dr_get_process_id());
+        cls->dup_jinfo->ref_count++;
+        hashtable_add(&job_table, (void *)dup_dst, (void *)cls->dup_jinfo);
+    }
+    hashtable_unlock(&job_table);
 }
 
 /* Returns whether to execute the system call */
@@ -723,59 +922,24 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         return false; /* skip syscall */
     }
     else if (sysnum == sysnum_SetInformationJobObject) {
-        HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
-        JOBOBJECTINFOCLASS class = (JOBOBJECTINFOCLASS)
-            dr_syscall_get_param(drcontext, 1);
-        ULONG sz = (ULONG) dr_syscall_get_param(drcontext, 3);
-        /* MSDN claims that JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE requires an
-         * extended info struct, which we trust, though it seems odd as it's
-         * a flag in the basic struct.
-         */
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION info;
-        if (class == JobObjectExtendedLimitInformation &&
-            sz >= sizeof(info) &&
-            dr_safe_read((byte *)dr_syscall_get_param(drcontext, 2),
-                         sizeof(info), &info, NULL)) {
-            if (TEST(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-                     info.BasicLimitInformation.LimitFlags)) {
-                /* Remove the kill-on-close flag from the syscall arg.
-                 * We restore in post-syscall in case app uses the memory
-                 * for something else.  There is of course a race where another
-                 * thread could use it and get the wrong value: -soft_kills isn't
-                 * perfect.
-                 */
-                JOBOBJECT_EXTENDED_LIMIT_INFORMATION *ptr =
-                    (JOBOBJECT_EXTENDED_LIMIT_INFORMATION *)
-                    dr_syscall_get_param(drcontext, 2);
-                ULONG new_flags = info.BasicLimitInformation.LimitFlags &
-                    (~JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE);
-                bool isnew;
-                cls->job_limit_flags_orig = info.BasicLimitInformation.LimitFlags;
-                cls->job_limit_flags_loc = &ptr->BasicLimitInformation.LimitFlags;
-                ASSERT(sizeof(cls->job_limit_flags_orig) ==
-                       sizeof(ptr->BasicLimitInformation.LimitFlags), "size mismatch");
-                if (!dr_safe_write(cls->job_limit_flags_loc,
-                                   sizeof(ptr->BasicLimitInformation.LimitFlags),
-                                   &new_flags, NULL)) {
-                    /* XXX: Any way we can send a WARNING on our failure to write? */
-                }
-                NOTIFY(1, "--drx-- removed kill-on-close from job 0x%x in pid %d\n",
-                       job, dr_get_process_id());
-                /* Track the handle so we can notify the client on close or exit */
-                isnew = hashtable_add(&job_table, (void *)job, (void *)job);
-                ASSERT(isnew, "missed an NtClose");
-            }
-        }
+        return soft_kills_pre_SetInformationJobObject(drcontext, cls);
     }
     else if (sysnum == sysnum_Close) {
         /* If a job object, act on it, and remove from our table */
         HANDLE handle = (HANDLE) dr_syscall_get_param(drcontext, 0);
-        if (hashtable_remove(&job_table, (void *)handle)) {
-            /* The exit code is set to 0 by the kernel for this case */
+        job_info_t *jinfo;
+        hashtable_lock(&job_table);
+        jinfo = (job_info_t *) hashtable_lookup(&job_table, (void *)handle);
+        if (jinfo != NULL) {
             NOTIFY(1, "--drx-- explicit close of job 0x%x in pid %d\n",
                    handle, dr_get_process_id());
-            soft_kills_handle_close(drcontext, handle, 0);
+            /* The exit code is set to 0 by the kernel for this case */
+            soft_kills_handle_close(drcontext, jinfo, handle, 0, true/*remove*/);
         }
+        hashtable_unlock(&job_table);
+    }
+    else if (sysnum == sysnum_DuplicateObject) {
+        return soft_kills_pre_DuplicateObject(drcontext, cls);
     }
     return true;
 }
@@ -794,6 +958,9 @@ soft_kills_post_syscall(void *drcontext, int sysnum)
             }
             cls->job_limit_flags_loc = NULL;
         }
+    }
+    else if (sysnum == sysnum_DuplicateObject) {
+        soft_kills_post_DuplicateObject(drcontext);
     }
 }
 #else /* WINDOWS */
@@ -848,7 +1015,8 @@ soft_kills_init(void)
     cb_lock = dr_mutex_create();
 
 #ifdef WINDOWS
-    hashtable_init(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false);
+    hashtable_init_ex(&job_table, JOB_TABLE_HASH_BITS, HASH_INTPTR, false/*!strdup*/,
+                      false/*!synch*/, soft_kills_free_job_info, NULL, NULL);
 
     sysnum_TerminateProcess =
         soft_kills_get_sysnum("NtTerminateProcess",
@@ -871,6 +1039,12 @@ soft_kills_init(void)
     sysnum_Close = soft_kills_get_sysnum("NtClose",
                                          SYS_NUM_PARAMS_Close, SYS_WOW64_IDX_Close);
     if (sysnum_Close == -1)
+        return false;
+    sysnum_DuplicateObject =
+        soft_kills_get_sysnum("NtDuplicateObject",
+                              SYS_NUM_PARAMS_DuplicateObject,
+                              SYS_WOW64_IDX_DuplicateObject);
+    if (sysnum_DuplicateObject == -1)
         return false;
 
     cls_idx_soft = drmgr_register_cls_field(soft_kills_context_init,
@@ -903,6 +1077,12 @@ soft_kills_init(void)
                                       SYS_NUM_PARAMS_Close,
                                       SYS_WOW64_IDX_Close);
     ASSERT(ok, "failure to watch syscall while native");
+    IF_DEBUG(ok = )
+        dr_syscall_intercept_natively("NtDuplicateObject",
+                                      sysnum_DuplicateObject,
+                                      SYS_NUM_PARAMS_DuplicateObject,
+                                      SYS_WOW64_IDX_DuplicateObject);
+    ASSERT(ok, "failure to watch syscall while native");
 #endif
 
     if (!drmgr_register_pre_syscall_event(soft_kills_pre_syscall) ||
@@ -930,10 +1110,12 @@ soft_kills_exit(void)
     for (i = 0; i < HASHTABLE_SIZE(job_table.table_bits); i++) {
         hash_entry_t *he;
         for (he = job_table.table[i]; he != NULL; he = he->next) {
-            HANDLE job = (HANDLE) he->payload;
+            HANDLE job = (HANDLE) he->key;
+            job_info_t *jinfo = (job_info_t *) he->payload;
             NOTIFY(1, "--drx-- implicit close of job 0x%x in pid %d\n",
                    job, dr_get_process_id());
-            soft_kills_handle_close(dr_get_current_drcontext(), job, exit_code);
+            soft_kills_handle_close(dr_get_current_drcontext(), jinfo, job, exit_code,
+                                    false/*do not remove*/);
         }
     }
     hashtable_unlock(&job_table);

@@ -54,7 +54,7 @@ main(int argc, char **argv)
         /* parent process */
         STARTUPINFO si = { sizeof(STARTUPINFO) };
         PROCESS_INFORMATION pi;
-        HANDLE job;
+        HANDLE job, job2, job3;
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit = {0,};
         DWORD exitcode = (DWORD)-1;
 
@@ -106,7 +106,7 @@ main(int argc, char **argv)
         limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                      &limit, sizeof(limit)))
-            print("SetInformationJobObject failed");
+            print("SetInformationJobObject failed\n");
         ResumeThread(pi.hThread);
         CloseHandle(pi.hThread);
         WaitForSingleObject(event, INFINITE);
@@ -115,6 +115,33 @@ main(int argc, char **argv)
         WaitForSingleObject(pi.hProcess, INFINITE);
         GetExitCodeProcess(pi.hProcess, &exitcode);
         print("child #3 exit code = %d\n", exitcode);
+
+        /* Test DuplicateHandle (DrMem i#1401) */
+        print("creating child #4\n");
+        if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
+                           CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+            print("CreateProcess failure\n");
+        job = CreateJobObject(NULL, "drx-test job");
+        AssignProcessToJobObject(job, pi.hProcess);
+        limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                                     &limit, sizeof(limit)))
+            print("SetInformationJobObject failed\n");
+        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job2,
+                             0, FALSE, DUPLICATE_SAME_ACCESS))
+            print("DuplicateHandle failed\n");
+        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job3,
+                             0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS))
+            print("DuplicateHandle failed\n");
+        ResumeThread(pi.hThread);
+        CloseHandle(pi.hThread);
+        WaitForSingleObject(event, INFINITE);
+        print("terminating child #4 by closing both job handles\n");
+        CloseHandle(job2);
+        CloseHandle(job3);
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        print("child #4 exit code = %d\n", exitcode);
     }
     else { /* child process */
         int iter = 0;
