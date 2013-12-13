@@ -32,6 +32,11 @@ cmake_minimum_required(VERSION 2.6)
 
 # DynamoRIO eXtension utilities
 
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
+
 option(DR_EXT_DRX_STATIC "create drx as a static, not shared, library (N.B.: ensure no separately-linked components of your tool also use drx before enabling as a static library)" ${BUILD_EXT_STATIC})
 if (DR_EXT_DRX_STATIC OR STATIC_LIBRARY)
   set(libtype STATIC)

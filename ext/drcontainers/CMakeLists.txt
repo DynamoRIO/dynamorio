@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -30,6 +30,11 @@
 # DAMAGE.
 
 cmake_minimum_required(VERSION 2.6)
+
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
 
 # library of container utilities in C that use DR API for memory allocation
 # and synchronization

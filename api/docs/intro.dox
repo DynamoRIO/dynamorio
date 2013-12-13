@@ -1184,14 +1184,14 @@ heap.  The loader also attempts to isolate other global resource usage and
 global callbacks.  Please file reports on any transparency problems
 observed when using the private loader.
 
-By default, a Windows C client will not link with libc and will instead
+By default, all Windows clients link with libc.  To instead
 use the libc subset of routines forwarded from the DynamoRIO library to \p
-ntdll.dll.  This keeps clients more lightweight and is usually sufficient
-for most C code.  To request that a C client link with libc, set this
-variable prior to invoking configure_DynamoRIO_client():
+ntdll.dll (which keeps clients more lightweight and is usually sufficient
+for most C code), set this variable prior to invoking
+configure_DynamoRIO_client():
 
 \code
-  set(DynamoRIO_USE_LIBC ON)
+  set(DynamoRIO_USE_LIBC OFF)
 \endcode
 
 C++ clients and standalone clients link with libc by default.

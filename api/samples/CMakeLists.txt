@@ -197,6 +197,10 @@ configure_DynamoRIO_global(OFF ON)
 
 # Use ;-separated lists for source files and extensions.
 
+# For C clients that only rely on the DR API and not on any 3rd party
+# library routines, we could shrink the size of the client binary
+# by disabling libc via "set(DynamoRIO_USE_LIBC OFF)".
+
 add_sample_client(bbbuf       "bbbuf.c"         "")
 add_sample_client(bbcount     "bbcount.c"       "")
 add_sample_client(bbsize      "bbsize.c"        "")
@@ -210,22 +214,14 @@ add_sample_client(inscount    "inscount.c"      "")
 add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
 add_sample_client(prefetch    "prefetch.c"      "")
 add_sample_client(signal      "signal.c"        "")
-add_sample_client(stl_test    "stl_test.cpp"    "")
 add_sample_client(strace      "strace.c"        "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
-
-if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
-  # required for using drsyms built as a static library
-  set(DynamoRIO_USE_LIBC ON)
-endif ()
+add_sample_client(stl_test    "stl_test.cpp"    "")
 add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
-if (SHOW_SYMBOLS AND DR_EXT_DRSYMS_STATIC)
-  set(DynamoRIO_USE_LIBC OFF) # reset
-endif ()
 
 if (WIN32)
   # This client is Windows-only.

@@ -33,6 +33,11 @@ cmake_minimum_required(VERSION 2.6)
 # DynamoRIO Multi-Instrumentation Manager: a mediator for combining
 # and coordinating multiple instrumentation passes.
 
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
+
 # Must be shared to ensure only one copy, since can be used by
 # the client and by multiple other libraries, some of which may
 # be shared: the whole point is to have one master drmgr.

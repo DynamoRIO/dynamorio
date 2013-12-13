@@ -153,6 +153,8 @@ The changes between version \DR_VERSION and 4.1.0 include:
  - Added drvector_set_entry()
  - Re-ordered the initial thread init event to be prior to the initial
    module load events
+ - Changed DynamoRIO_USE_LIBC to be on by default for all clients,
+   including clients written in C
  - Various bug fixes
 
 **************************************************

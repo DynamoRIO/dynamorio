@@ -36,6 +36,11 @@ if (CBR_COVERAGE)
   add_definitions(-DCBR_COVERAGE)
 endif(CBR_COVERAGE)
 
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
+
 # add drcov client
 if (STATIC_LIBRARY)
   set(libtype STATIC)

@@ -147,12 +147,14 @@
 #
 #  set(DynamoRIO_SET_PREFERRED_BASE ON)
 #
-# On Windows, by default, standalone clients and C++ clients link with
-# the C library, but C clients do not.  To link with the C library for
-# a C client (which is required if using a static library build of
-# the drsyms Extension), set this variable:
+# On Windows, by default, all clients link with the C library.
+# A standalone client or a C++ client (or a client using the drsyms
+# static library) must link with the C library.
+# A C client, however, can be made more lightweight (and also reduce
+# its exposure to transparency corner cases) by avoiding the C library
+# by turning off this variable:
 #
-#  set(DynamoRIO_USE_LIBC ON)
+#  set(DynamoRIO_USE_LIBC OFF)
 #
 # To request fast IR access (at the cost of binary compatibility):
 #
@@ -185,6 +187,11 @@ if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
+
+if (NOT DEFINED DynamoRIO_USE_LIBC)
+  # i#714: the default is now ON
+  set(DynamoRIO_USE_LIBC ON)
+endif ()
 
 ###########################################################################
 #

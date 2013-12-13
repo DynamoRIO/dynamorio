@@ -23,6 +23,11 @@ cmake_minimum_required(VERSION 2.6)
 
 # DynamoRIO Function Wrapping and Replacing Extension
 
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
+
 # since LGPL, must be SHARED and not STATIC by default.
 # SHARED is also required if multiple separate components all want to
 # use this same extension.

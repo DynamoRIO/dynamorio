@@ -31,6 +31,11 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+# We do not need libc, and we avoid a 10x size increase in both our
+# dll and pdb (plus we avoid stressing private library isolation) by
+# not using it (i#714).
+set(DynamoRIO_USE_LIBC OFF)
+
 add_library(drltrace SHARED drltrace.c)
 configure_DynamoRIO_client(drltrace)
 use_DynamoRIO_extension(drltrace drmgr)
