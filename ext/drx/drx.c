@@ -79,6 +79,16 @@ static bool soft_kills_enabled;
 
 static void soft_kills_exit(void);
 
+/* For debugging */
+static uint verbose = 0;
+
+#undef NOTIFY
+#define NOTIFY(n, ...) do { \
+    if (verbose >= (n)) {             \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+    } \
+} while (0)
+
 /***************************************************************************
  * INIT
  */
@@ -425,6 +435,8 @@ soft_kills_invoke_cbs(process_id_t pid, int exit_code)
 {
     cb_entry_t *e;
     bool skip = false;
+    NOTIFY(1, "--drx-- parent %d soft killing pid %d code %d\n", dr_get_process_id(),
+           pid, exit_code);
     dr_mutex_lock(cb_lock);
     for (e = cb_list; e != NULL; e = e->next) {
         /* If anyone wants to skip, we skip */
@@ -519,12 +531,20 @@ GET_NTDLL(NtTerminateProcess, (IN HANDLE ProcessHandle,
 static ssize_t
 num_job_object_pids(HANDLE job)
 {
-    JOBOBJECT_BASIC_PROCESS_ID_LIST empty;
+    /* i#1401: despite what Nebbett says and MSDN hints at, on Win7 at least
+     * JobObjectBasicProcessIdList returning STATUS_BUFFER_OVERFLOW does NOT
+     * fill in any data at all.  We thus have to query through a different
+     * mechanism.
+     */
+    JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info;
     NTSTATUS res;
-    res = NtQueryInformationJobObject(job, JobObjectBasicProcessIdList,
-                                      &empty, sizeof(empty), NULL);
-    if (NT_SUCCESS(res) || res == STATUS_BUFFER_OVERFLOW)
-        return empty.NumberOfAssignedProcesses;
+    DWORD len;
+    res = NtQueryInformationJobObject(job, JobObjectBasicAccountingInformation,
+                                      &info, sizeof(info), &len);
+    NOTIFY(1, "--drx-- job 0x%x => %d pids len=%d res=0x%08x\n",
+           job, info.ActiveProcesses, len, res);
+    if (NT_SUCCESS(res))
+        return info.ActiveProcesses;
     else
         return -1;
 }
@@ -610,14 +630,17 @@ static void
 soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
 {
     ssize_t num_jobs = num_job_object_pids(job);
+    NOTIFY(1, "--drx-- for job 0x%x got %d jobs\n", job, num_jobs);
     if (num_jobs > 0) {
         JOBOBJECT_BASIC_PROCESS_ID_LIST *list;
         size_t sz = sizeof(*list) + (num_jobs- 1)*sizeof(list->ProcessIdList[0]);
         byte *buf = dr_thread_alloc(drcontext, sz);
         list = (JOBOBJECT_BASIC_PROCESS_ID_LIST *) buf;
         if (get_job_object_pids(job, list, sz)) {
-            int i;
-            for (i = 0; i < num_jobs; i++) {
+            uint i;
+            NOTIFY(1, "--drx-- for job 0x%x got %d jobs in list\n", job,
+                   list->NumberOfProcessIdsInList);
+            for (i = 0; i < list->NumberOfProcessIdsInList; i++) {
                 process_id_t pid = list->ProcessIdList[i];
                 if (!soft_kills_invoke_cbs(pid, exit_code)) {
                     /* Client is not terminating and requests not to skip the action.
@@ -638,6 +661,8 @@ soft_kills_handle_job_termination(void *drcontext, HANDLE job, int exit_code)
 static void
 soft_kills_handle_close(void *drcontext, HANDLE job, int exit_code)
 {
+    NOTIFY(1, "--drx-- closing kill-on-close handle 0x%x in pid %d\n",
+           job, dr_get_process_id());
     soft_kills_handle_job_termination(drcontext, job, exit_code);
 }
 
@@ -667,6 +692,7 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         process_id_t pid = dr_convert_handle_to_pid(proc);
         if (pid != INVALID_PROCESS_ID && pid != dr_get_process_id()) {
             int exit_code = (int) dr_syscall_get_param(drcontext, 1);
+            NOTIFY(1, "--drx-- NtTerminateProcess in pid %d\n", dr_get_process_id());
             if (soft_kills_invoke_cbs(pid, exit_code)) {
                 dr_syscall_set_result(drcontext, 0/*success*/);
                 return false; /* skip syscall */
@@ -686,6 +712,8 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
          */
         HANDLE job = (HANDLE) dr_syscall_get_param(drcontext, 0);
         NTSTATUS exit_code = (NTSTATUS) dr_syscall_get_param(drcontext, 1);
+        NOTIFY(1, "--drx-- NtTerminateJobObject job 0x%x in pid %d\n",
+               job, dr_get_process_id());
         soft_kills_handle_job_termination(drcontext, job, exit_code);
         /* We always skip this syscall.  If individual processes were requested
          * to not be skipped, we emulated via NtTerminateProcess in
@@ -731,6 +759,8 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
                                    &new_flags, NULL)) {
                     /* XXX: Any way we can send a WARNING on our failure to write? */
                 }
+                NOTIFY(1, "--drx-- removed kill-on-close from job 0x%x in pid %d\n",
+                       job, dr_get_process_id());
                 /* Track the handle so we can notify the client on close or exit */
                 isnew = hashtable_add(&job_table, (void *)job, (void *)job);
                 ASSERT(isnew, "missed an NtClose");
@@ -742,6 +772,8 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
         HANDLE handle = (HANDLE) dr_syscall_get_param(drcontext, 0);
         if (hashtable_remove(&job_table, (void *)handle)) {
             /* The exit code is set to 0 by the kernel for this case */
+            NOTIFY(1, "--drx-- explicit close of job 0x%x in pid %d\n",
+                   handle, dr_get_process_id());
             soft_kills_handle_close(drcontext, handle, 0);
         }
     }
@@ -810,6 +842,8 @@ soft_kills_init(void)
      * but we don't have an easy way to check.
      */
     soft_kills_enabled = true;
+
+    NOTIFY(1, "--drx-- init pid %d %s\n", dr_get_process_id(), dr_get_application_name());
 
     cb_lock = dr_mutex_create();
 
@@ -897,6 +931,8 @@ soft_kills_exit(void)
         hash_entry_t *he;
         for (he = job_table.table[i]; he != NULL; he = he->next) {
             HANDLE job = (HANDLE) he->payload;
+            NOTIFY(1, "--drx-- implicit close of job 0x%x in pid %d\n",
+                   job, dr_get_process_id());
             soft_kills_handle_close(dr_get_current_drcontext(), job, exit_code);
         }
     }
