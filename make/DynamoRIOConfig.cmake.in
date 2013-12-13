@@ -906,4 +906,10 @@ function (use_DynamoRIO_extension target extname)
     target_link_libraries(${target} ${extname})
   endif (NOT DynamoRIO_EXT_${extname}_NOLIB)
 
+  # XXX i#893: our asm isn't SEH compliant.
+  # For now we hardcode the extension name here.
+  if (WIN32 AND "${extname}" MATCHES "drwrap_static")
+    append_property_string(TARGET ${target} LINK_FLAGS "/safeseh:no")
+  endif ()
+
 endfunction (use_DynamoRIO_extension)

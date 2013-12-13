@@ -82,7 +82,8 @@ macro(configure_drwrap_target target)
   endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
   if (WIN32)
-    # XXX i#893: our asm isn't SEH compliant
+    # XXX i#893: our asm isn't SEH compliant.
+    # We do this for clients in DynamoRIOConfig.cmake.
     append_property_string(TARGET ${target} LINK_FLAGS "/safeseh:no")
   endif (WIN32)
 endmacro()
