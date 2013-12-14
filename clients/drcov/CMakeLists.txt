@@ -72,13 +72,9 @@ endif ()
 
 # add drcov2lcov
 add_executable(drcov2lcov drcov2lcov.c)
-# We don't want an rpath as it makes it hard to switch
-# between debug and release at runtime (rpath is removed
-# on "make install"; here we avoid in build dir).
-# DynamoRIOConfig.cmake sets for standalone but not lib.
-set(DynamoRIO_RPATH OFF)
+# We do want an rpath, which is on by default for standalone
 configure_DynamoRIO_standalone(drcov2lcov)
-use_DynamoRIO_extension(drcov2lcov drsyms)
+use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
 
 # ensure we rebuild if includes change
@@ -94,7 +90,7 @@ if (NOT DynamoRIO_INTERNAL OR NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
   add_custom_command(TARGET drcov2lcov
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
-    ARGS -E echo "Make sure the loader finds the dynamorio and drsyms library ${FIND_MSG}"
+    ARGS -E echo "Make sure the loader finds the dynamorio library ${FIND_MSG}"
     VERBATIM)
 endif ()
 
@@ -119,19 +115,14 @@ else ()
 endif ()
 DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 
-DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
-  DESTINATION "${INSTALL_CLIENTS_BIN}"
-  FILES_MATCHING
-  PATTERN "dynamorio.dll" PATTERN "libdynamorio.so*"
-  PATTERN "lib*.debug" EXCLUDE)
-if (NOT DR_EXT_DRSYMS_STATIC)
-  DR_install(DIRECTORY
-    "${DR_LIBRARY_OUTPUT_DIRECTORY}/../../ext/${INSTALL_LIB}/"
+# On Linux we rely on the rpath
+if (WIN32)
+  DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_CLIENTS_BIN}"
     FILES_MATCHING
-    PATTERN "drsyms.dll" PATTERN "libdrsyms.so*"
+    PATTERN "dynamorio.dll" PATTERN "libdynamorio.so*"
     PATTERN "lib*.debug" EXCLUDE)
-endif (NOT DR_EXT_DRSYMS_STATIC)
+endif (WIN32)
 
 set(INSTALL_DRCOV_CONFIG ${INSTALL_CLIENTS_BASE})
 
@@ -161,4 +152,5 @@ file(APPEND ${CONFIG} "# client tool options\n")
 file(APPEND ${CONFIG} "TOOL_OP=\n")
 
 DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_DRCOV_CONFIG})
-DR_install(FILES "${CONFIG}" RENAME "${CONFIG_LEGACY}" DESTINATION ${INSTALL_DRCOV_CONFIG})
+DR_install(FILES "${CONFIG}" RENAME "${CONFIG_LEGACY}" DESTINATION
+  ${INSTALL_DRCOV_CONFIG})

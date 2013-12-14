@@ -40,9 +40,9 @@ endif(NOT DynamoRIO_FOUND)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/${INSTALL_LIB}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-# we want both our dll's and exe in the lib dir
-# (could use MODULE instead of SHARED if it would let us link)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/${INSTALL_LIB}")
+# We need the bin dir to match the install bin dir relative to the DR lib,
+# so our relative rpath works on Linux.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/clients/${INSTALL_BIN}")
 set_per_config_ouput_to_match_single_config()
 
 # For end-user tools build on top of DR
