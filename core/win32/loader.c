@@ -1156,11 +1156,16 @@ privload_call_entry(privmod_t *privmod, uint reason)
              * We can ignore and continue for at least small apps.
              * Once larger ones seem ok we can remove the warning.
              */
+            /* I'm making this debug-only as an intermediate step since we're
+             * getting more confident about Win8+.
+             */
+#ifdef DEBUG
             DO_ONCE({
                 SYSLOG(SYSLOG_WARNING,
                        WIN8_PRIVATE_KERNELBASE_NYI, 2,
                        get_application_name(), get_application_pid());
             });
+#endif
         }
 
         TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
