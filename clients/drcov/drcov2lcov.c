@@ -666,7 +666,9 @@ read_drcov_file(char *input)
 static inline bool
 is_drcov_log_file(const char *fname)
 {
-    if (fname[0] == 'b' && fname[1] == 'b' &&
+    if (((fname[0] == 'd' && fname[1] == 'r') ||
+         /* legacy data files before rebranding */
+         (fname[0] == 'b' && fname[1] == 'b')) &&
         fname[2] == 'c' && fname[3] == 'o' &&
         fname[4] == 'v' && fname[5] == '.' &&
         strstr(fname, ".log") != NULL)
@@ -681,6 +683,7 @@ read_drcov_dir(void)
     DIR *dir;
     struct dirent *ent;
     char path[MAXIMUM_PATH];
+    bool found_logs = false;
 
     PRINT(2, "Reading input directory %s\n", input_dir);
     if ((dir = opendir(input_dir)) != NULL) {
@@ -691,6 +694,7 @@ read_drcov_dir(void)
                 } else {
                     NULL_TERMINATE_BUFFER(path);
                     read_drcov_file(path);
+                    found_logs = true;
                 }
             }
         }
@@ -700,7 +704,9 @@ read_drcov_dir(void)
         WARN(1, "Failed to open directory %s\n", input_dir);
         return false;
     }
-    return true;
+    if (!found_logs)
+        WARN(1, "Failed to find log files in dir %s\n", input_dir);
+    return found_logs;
 }
 #else
 static bool
@@ -710,6 +716,7 @@ read_drcov_dir(void)
     WIN32_FIND_DATA ffd;
     char path[MAXIMUM_PATH];
     bool has_sep;
+    bool found_logs = false;
 
     /* append \* to the end */
     strcpy(path, input_dir);
@@ -734,10 +741,13 @@ read_drcov_dir(void)
                 strcat(path, "\\");
             strcat(path, ffd.cFileName);
             read_drcov_file(path);
+            found_logs = true;
         }
     } while (FindNextFile(hFind, &ffd) != 0);
     FindClose(hFind);
-    return true;
+    if (!found_logs)
+        WARN(1, "Failed to find log files in dir %s\n", input_dir);
+    return found_logs;
 }
 #endif
 
@@ -749,6 +759,7 @@ read_drcov_list(void)
     char   path[MAXIMUM_PATH];
     size_t map_size;
     uint64 file_size;
+    bool found_logs = false;
 
     PRINT(2, "Reading list %s\n", input_list);
     list = open_input_file(input_list, &map, &map_size, &file_size);
@@ -764,9 +775,12 @@ read_drcov_list(void)
         ptr = move_to_next_line(ptr);
         null_terminate_path(path);
         read_drcov_file(path);
+        found_logs = true;
     }
     close_input_file(list, map, map_size);
-    return true;
+    if (!found_logs)
+        WARN(1, "Failed to find log files on list %s\n", input_list);
+    return found_logs;
 }
 
 static bool
@@ -866,7 +880,7 @@ write_lcov_output(void)
 
     PRINT(2, "Writing output lcov file: %s\n", output_file);
     log = dr_open_file(output_file,
-                       DR_FILE_WRITE_REQUIRE_NEW | DR_FILE_ALLOW_LARGE);
+                       DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     if (log == INVALID_FILE) {
         ASSERT(false, "Failed to open output file %s\n", output_file);
         return false;
