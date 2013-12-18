@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -40,6 +40,8 @@
 # + version_number      : version number to put in the docs
 # + module_string_long  : replacement text for Modules
 # + module_string_short : replacement text for Module
+# + files_string        : replacement text for Files; optional
+# + structs_string      : replacement text for Data Structures; optional
 # + home_url            : home page URL
 # + home_title          : home page title
 # + logo_imgfile        : image file with logo
@@ -49,6 +51,12 @@
 # Any quotes carry over and it's simplest to assume not there.
 string(REPLACE "\"" "" module_string_long ${module_string_long})
 string(REPLACE "\"" "" module_string_short ${module_string_short})
+if (DEFINED files_string)
+  string(REPLACE "\"" "" files_string ${files_string})
+endif ()
+if (DEFINED structs_string)
+  string(REPLACE "\"" "" structs_string ${structs_string})
+endif ()
 string(REPLACE "\"" "" home_url ${home_url})
 string(REPLACE "\"" "" home_title ${home_title})
 string(REPLACE "\"" "" logo_imgfile ${logo_imgfile})
@@ -171,6 +179,14 @@ else ()
     "\\}\n*$"
     "${add_logo}\n}"
     string "${string}")
+  # While we're here we replace Files and Data Structures, if requested
+  if (DEFINED files_string)
+    string(REGEX REPLACE "\"Files\"" "\"${files_string}\"" string "${string}")
+  endif ()
+  if (DEFINED structs_string)
+    string(REGEX REPLACE "\"Data Structures\"" "\"${structs_string}\""
+      string "${string}")
+  endif ()
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/html/navtree.js "${string}")
 endif ()
 
