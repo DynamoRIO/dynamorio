@@ -49,4 +49,31 @@ The runtime options for this tool include:
  - \b -ignore_underscore:
     Ignores library routine names starting with "_".
 
+\code
+bin32/drrun -t drltrace -only_from_app -- hello.exe
+\endcode
+
+Here is a portion of the output from the above command:
+
+\code
+~~~~ ntdll.dll!RtlDecodePointer
+~~~~ ntdll.dll!RtlEnterCriticalSection
+~~~~ ntdll.dll!RtlEnterCriticalSection
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ ntdll.dll!RtlEnterCriticalSection
+~~~~ ntdll.dll!RtlEnterCriticalSection
+~~~~ KERNEL32.dll!WriteFile
+Hello world!
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ ntdll.dll!RtlEnterCriticalSection
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ KERNEL32.dll!HeapFree
+~~~~ ntdll.dll!RtlLeaveCriticalSection
+~~~~ KERNEL32.dll!GetModuleHandleW
+~~~~ KERNELBASE.dll!GetModuleHandleW
+~~~~ KERNEL32.dll!ExitProcess
+\endcode
+
 */
