@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -164,6 +164,7 @@ if (UNIX)
     )
   if (LINUX)
     set(OS_SRCS ${OS_SRCS} unix/memquery_linux.c)
+    set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/memcache.c)
     set(OS_SRCS ${OS_SRCS} unix/module_elf.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
@@ -174,6 +175,7 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
   elseif (APPLE)
     set(OS_SRCS ${OS_SRCS} unix/memquery_macos.c)
+    set(OS_SRCS ${OS_SRCS} unix/memquery.c)
     set(OS_SRCS ${OS_SRCS} unix/module_macho.c)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_macos.c)
     set(OS_SRCS ${OS_SRCS} unix/tls_macos.c)

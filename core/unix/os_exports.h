@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,8 +54,14 @@
 # define getpid getpid_forbidden_use_get_process_id
 #endif
 
-#define DYNAMORIO_LIBRARY_NAME "libdynamorio.so"
-#define DYNAMORIO_PRELOAD_NAME "libdrpreload.so"
+#ifdef MACOS
+/* We end up de-referencing the symlink so we rely on a prefix match */
+# define DYNAMORIO_LIBRARY_NAME "libdynamorio."
+# define DYNAMORIO_PRELOAD_NAME "libdrpreload.dylib"
+#else
+# define DYNAMORIO_LIBRARY_NAME "libdynamorio.so"
+# define DYNAMORIO_PRELOAD_NAME "libdrpreload.so"
+#endif
 
 /* The smallest granularity the OS supports */
 #define OS_ALLOC_GRANULARITY     (4*1024)

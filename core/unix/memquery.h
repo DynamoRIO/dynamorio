@@ -92,6 +92,8 @@ memquery_iterator_next(memquery_iter_t *iter);
 
 /* Finds the bounds of the library with name "name".  If "name" is NULL,
  * "start" must be non-NULL and must be an address within the library.
+ * The name match is done using strstr.
+ *
  * Note that we can't just walk backward and look for is_elf_so_header() b/c
  * some ELF files are mapped twice and it's not clear how to know if
  * one has hit the original header or a later header: this is why we allow
@@ -103,6 +105,14 @@ memquery_iterator_next(memquery_iter_t *iter);
 int
 memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
                         char *fullpath/*OPTIONAL OUT*/, size_t path_size);
+
+/* Interface is identical to memquery_library_bounds().  This is an iterator-based
+ * impl shared among Linux and Mac.
+ */
+int
+memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
+                                    app_pc *end/*OUT*/,
+                                    char *fullpath/*OPTIONAL OUT*/, size_t path_size);
 
 /* XXX i#1270: ideally we could have os.c use generic memquery iterator code,
  * but the probe + dl_iterate_phdr approach is difficult to fit into that mold

@@ -54,6 +54,11 @@
 # error Mac-only
 #endif
 
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+# undef LOG
+# define LOG(...) /* nothing */
+#endif
+
 /* Code passed to SYS_proc_info */
 #define PROC_INFO_PID_INFO 2
 
@@ -108,8 +113,7 @@ int
 memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*OUT*/,
                         char *fullpath/*OPTIONAL OUT*/, size_t path_size)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* XXX i#58 MacOS base impl */
-    return 0;
+    return memquery_library_bounds_by_iterator(name, start, end, fullpath, path_size);
 }
 
 bool
