@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -337,7 +337,8 @@
      * don't want to mess up any legacy tools that rely on hotp libs in
      * regular loader list
      */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, true,
+    /* XXX i#1285: MacOS private loader is NYI */
+    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_MACOS_ELSE(false, true),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,

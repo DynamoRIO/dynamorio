@@ -4962,13 +4962,34 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
         break;
     }
+    case TLS_TYPE_LDT: {
+        uint index;
+        uint selector;
+        /* XXX i#1285: added for MacOS private loader, but we don't
+         * have enough other code to test this yet.
+         */
+        ASSERT_NOT_TESTED();
+        if (to_app) {
+            selector = (seg == SEG_FS ? os_tls->app_fs : os_tls->app_gs);
+            index = SELECTOR_INDEX(selector);
+        } else {
+            index = (seg == LIB_SEG_TLS ? tls_priv_lib_index() : tls_dr_index());
+            ASSERT(index != -1 && "TLS indices not initialized");
+            selector = LDT_SELECTOR(index);
+        }
+        LOG(THREAD, LOG_LOADER, 2, "%s: switching to %s, setting %s to 0x%x\n",
+            __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
+        WRITE_LIB_SEG(selector);
+        LOG(THREAD, LOG_LOADER, 2,
+            "%s %s: ldt selector swap successful for thread %d\n",
+            __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
+        break;
+    }
     default:
-        /* not support ldt yet. */
-        ASSERT_NOT_IMPLEMENTED(false);
+        ASSERT_NOT_REACHED();
         return false;
     }
     ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
-    /* FIXME: We do not support using ldt yet. */
     return res;
 }
 
