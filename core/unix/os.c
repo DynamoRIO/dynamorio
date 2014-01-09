@@ -756,12 +756,16 @@ os_file_init(void)
          * with -steal_fds 0.
          */
         if (rlimit_nofile.rlim_max > DYNAMO_OPTION(steal_fds)) {
+            int res;
             app_rlimit_nofile.rlim_max = rlimit_nofile.rlim_max - DYNAMO_OPTION(steal_fds);
             app_rlimit_nofile.rlim_cur = app_rlimit_nofile.rlim_max;
 
             rlimit_nofile.rlim_cur = rlimit_nofile.rlim_max;
-            if (dynamorio_syscall(SYS_setrlimit, 2, RLIMIT_NOFILE, &rlimit_nofile) != 0)
-                SYSLOG_INTERNAL_WARNING("unable to raise RLIMIT_NOFILE soft limit");
+            res = dynamorio_syscall(SYS_setrlimit, 2, RLIMIT_NOFILE, &rlimit_nofile);
+            if (res != 0) {
+                SYSLOG_INTERNAL_WARNING("unable to raise RLIMIT_NOFILE soft limit: %d",
+                                        res);
+            }
         } else /* not fatal: we'll just end up using fds in app space */
             SYSLOG_INTERNAL_WARNING("unable to reserve fds");
     }
