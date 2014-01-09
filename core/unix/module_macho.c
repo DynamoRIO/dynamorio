@@ -147,10 +147,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                 seg_min_start = (app_pc) seg->vmaddr;
             if ((app_pc)seg->vmaddr + seg->vmsize > seg_max_end)
                 seg_max_end = (app_pc)seg->vmaddr + seg->vmsize;
-            /* XXX: we need to fill in segment data (like ELF module_add_segment_data:
-             * perhaps share some code there?).
-             * We also need to fill in out_data (like ELF module_fill_os_data).
-             */
             if (out_data != NULL) {
                 module_add_segment_data(out_data, 0/*don't know*/,
                                         (app_pc) seg->vmaddr, seg->vmsize,
@@ -168,6 +164,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             LOG(GLOBAL, LOG_VMAREAS, 4, "%s: lib identity %s\n", __FUNCTION__, soname);
             if (out_soname != NULL)
                 *out_soname = soname;
+            if (out_data != NULL)
+                out_data->timestamp = dy->dylib.timestamp;
         }
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
@@ -176,6 +174,13 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             *out_base = seg_min_start;
         if (out_end != NULL)
             *out_end = seg_max_end;
+        if (out_data != NULL) {
+            /* FIXME i#58: we need to fill in more of out_data, like preferred
+             * base.  For alignment: it's per-section, so how handle it?
+             */
+            out_data->base_address = base; /* FIXME i#58: need preferred */
+            out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
+        }
     }
     return found_seg;
 }
@@ -286,15 +291,20 @@ module_read_os_data(app_pc base,
 char *
 get_shared_lib_name(app_pc map)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return NULL;
+    char *soname;
+    if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false,
+                                     NULL, NULL, &soname, NULL))
+        return NULL;
+    return soname;
 }
 
 void
 module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
                            OUT os_privmod_data_t *pd)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    pd->load_delta = 0; /* FIXME i#58: need preferred base */
+    module_walk_program_headers(base, size, false, NULL, NULL, &pd->soname, NULL);
+    /* XXX i#1285: fill in the rest of the fields */
     return;
 }
 

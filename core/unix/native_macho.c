@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -67,7 +67,7 @@ dynamorio_dl_fixup(void *l_map, uint reloc_arg)
 void
 native_module_init(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    /* FIXME i#1287: implement for MacOS */
 }
 
 void

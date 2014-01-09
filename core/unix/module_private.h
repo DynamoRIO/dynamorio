@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -69,7 +69,7 @@ struct _os_privmod_data_t {
     int            relcount;
     ELF_HALF      *versym;
 #else
-  /* XXX i#1285: MacOS private loader NYI */
+    /* XXX i#1285: MacOS private loader NYI */
 #endif
     /* initialization/finalization function */
     fp_t           init;
