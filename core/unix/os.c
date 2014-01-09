@@ -7521,7 +7521,13 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced,
                             ACCT_THREAD_MGT, PROTECTED);
 #ifdef MACOS
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: NYI */
+    /* XXX i#58: NYI.
+     * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
+     * or is that just BSD threads and instead we want process_set_tasks()
+     * and task_info() as in 7.3.1.3 in Singh's OSX book?
+     */
+    *num_threads_out = 0;
+    return NULL;
 #endif
     task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
     ASSERT(task_dir != INVALID_FILE);
@@ -7585,6 +7591,10 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
      * our control.  Shift them to the beginning of the tids array.
      */
     tids = os_list_threads(dcontext, &num_threads);
+    if (tids == NULL) {
+        mutex_unlock(&thread_initexit_lock);
+        return false; /* have to assume no unknown */
+    }
     for (i = 0; i < num_threads; i++) {
         thread_record_t *tr = thread_lookup(tids[i]);
         if (tr == NULL)
