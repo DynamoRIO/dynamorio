@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -687,10 +687,24 @@ os_init(void)
      * or whether getpid suffices.  even 2.4 kernels have gettid
      * (maps to getpid), don't have an old enough target to test this.
      */
+#ifdef MACOS
+    kernel_thread_groups = (dynamorio_syscall(SYS_thread_selfid, 0) >= 0);
+#else
     kernel_thread_groups = (dynamorio_syscall(SYS_gettid, 0) >= 0);
+#endif
     LOG(GLOBAL, LOG_TOP|LOG_STATS, 1, "thread id is from %s\n",
         kernel_thread_groups ? "gettid" : "getpid");
+#ifdef MACOS
+    /* SYS_thread_selfid was added in 10.6.  We have no simple way to get the
+     * thread id on 10.5, so we don't support it.
+     */
+    if (!kernel_thread_groups) {
+        SYSLOG(SYSLOG_WARNING, UNSUPPORTED_OS_VERSION, 3,
+               get_application_name(), get_application_pid(), "Mac OSX 10.5 or earlier");
+    }
+#else
     ASSERT_CURIOSITY(kernel_thread_groups);
+#endif
 
     pid_cached = get_process_id();
 
@@ -1898,11 +1912,14 @@ get_parent_id(void)
 thread_id_t 
 get_sys_thread_id(void)
 {
-    if (kernel_thread_groups) {
+#ifdef MACOS
+    if (kernel_thread_groups)
+        return dynamorio_syscall(SYS_thread_selfid, 0);
+#else
+    if (kernel_thread_groups)
         return dynamorio_syscall(SYS_gettid, 0);
-    } else {
-        return dynamorio_syscall(SYS_getpid, 0);
-    }
+#endif
+    return dynamorio_syscall(SYS_getpid, 0);
 }
 
 thread_id_t 
