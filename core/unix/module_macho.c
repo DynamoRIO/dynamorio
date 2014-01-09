@@ -34,7 +34,10 @@
  * module_macho.c - Mach-O file parsing support
  *
  * FIXME i#58: NYI (see comments below as well):
- * + pretty much the whole file
+ * + preferred base and load delta
+ * + exports
+ * + imports
+ * + relocations
  *
  * We deliberately do not statically partition into single types that
  * map to _64 for X64 and 32-bit versions for 32-bit, to support 64-bit
@@ -49,6 +52,7 @@
 #include "memquery_macos.h"
 #include <mach-o/ldsyms.h> /* _mh_dylib_header */
 #include <mach-o/loader.h> /* mach_header */
+#include <mach/thread_status.h> /* i386_thread_state_t */
 #include <stddef.h> /* offsetof */
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -207,7 +211,27 @@ module_read_program_header(app_pc base,
 app_pc
 module_entry_point(app_pc base, ptr_int_t load_delta)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
+    mach_header_t *hdr = (mach_header_t *) base;
+    struct load_command *cmd, *cmd_stop;
+    ASSERT(is_macho_header(base, PAGE_SIZE));
+    cmd = (struct load_command *)(hdr + 1);
+    cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
+    while (cmd < cmd_stop) {
+        if (cmd->cmd == LC_UNIXTHREAD) {
+            /* There's no nice struct for this: see thread_command in loader.h. */
+#           define LC_UNIXTHREAD_REGS_OFFS 16
+#ifdef X64
+            const x86_thread_state64_t *reg = (const x86_thread_state64_t *)
+                ((char*)cmd + LC_UNIXTHREAD_REGS_OFFS);
+            return (app_pc)reg->__rip + load_delta
+#else
+            const i386_thread_state_t *reg = (const i386_thread_state_t *)
+                ((byte *)cmd + LC_UNIXTHREAD_REGS_OFFS);
+            return (app_pc)reg->__eip + load_delta;
+#endif
+        }
+        cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
+    }
     return NULL;
 }
 
