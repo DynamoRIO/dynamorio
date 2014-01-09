@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -33,9 +33,7 @@
 /*
  * memquery_macos.c - memory querying for OSX
  *
- * FIXME i#58: NYI (see comments below as well):
- * + file backing info
- * + memquery_library_bounds()
+ * XXX i#58: NYI (see comments below as well):
  * + use 32-bit query version for 32-bit
  * + longer-term i#1291: use raw syscalls instead of libSystem wrappers
  */
@@ -121,6 +119,9 @@ memquery_iterator_next(memquery_iter_t *iter)
     do {
         kr = vm_region_recurse_64(mach_task_self(), &ii->address, &size, &ii->depth,
                                   (vm_region_info_64_t)&ii->info, &count);
+        LOG(GLOBAL, LOG_ALL, 5, "%s: res=%d "PFX"-"PFX" sub=%d depth=%d\n",
+            __FUNCTION__, kr, ii->address, ii->address + size, ii->info.is_submap,
+            ii->depth);
         if (kr != KERN_SUCCESS) {
             /* We expect KERN_INVALID_ADDRESS at end of address space, but we
              * still want to return false there.
@@ -131,7 +132,7 @@ memquery_iterator_next(memquery_iter_t *iter)
             /* Query again w/ greater depth */
             ii->depth++;
         } else {
-            ii->depth = 0;
+            /* Keep depth for next iter.  Kernel will reset to 0. */
             break;
         }
     } while (true);
@@ -145,6 +146,9 @@ memquery_iterator_next(memquery_iter_t *iter)
     iter->inode = 0; /* XXX: not filling in */
     /* FIXME i#58: fill this in via SYS_proc_info */
     iter->comment = "";
+
+    LOG(GLOBAL, LOG_ALL, 5, "%s: returning "PFX"-"PFX" prot=0x%x %s\n",
+        __FUNCTION__, iter->vm_start, iter->vm_end, iter->prot, iter->comment);
 
     /* Prepare for next call */
     ii->address += size;

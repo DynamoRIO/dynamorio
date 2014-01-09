@@ -6905,7 +6905,9 @@ find_executable_vm_areas(void)
                 "\t"PFX"-"PFX"%s inode="UINT64_FORMAT_STRING" name=%s\n",
                 iter.vm_start, iter.vm_end, TEST(MEMPROT_EXEC, iter.prot) ? " +x": "",
                 iter.inode, iter.comment);
+#ifdef LINUX
             ASSERT_CURIOSITY(iter.inode != 0); /* mapped images should have inodes */
+#endif
             ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
             /* Get size by walking the program headers. Size includes the .bss section. */
             if (module_walk_program_headers(iter.vm_start, size, false,
