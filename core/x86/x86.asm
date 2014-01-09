@@ -1080,6 +1080,10 @@ GLOBAL_LABEL(dynamorio_syscall:)
         /* reverse order so we don't clobber earlier args */
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
         mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+#  ifdef MACOS
+        /* for now we assume a BSD syscall */
+        or       rax, 0x2000000
+#   endif
         cmp      REG_XBX, 0
         je       syscall_ready
         mov      ARG1, ARG3
@@ -1134,9 +1138,29 @@ syscall_2args:
 syscall_1args:
         mov      ebx, [16+12 + esp] /* arg1 */
 syscall_0args:
+#  ifdef MACOS
+        /* Arg size is encoded in upper bits.
+         * XXX: or is that only for sysenter gateway?
+         */
+        mov      eax, [16+ 8 + esp] /* num_args */
+        shl      eax, 18 /* <<16 but also *4 for size */
+        or       eax, [16+ 4 + esp] /* sysnum */
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        push     ebp
+        push     edi
+        push     esi
+        push     edx
+        push     ecx
+        push     ebx
+        push     0 /* extra slot */
+#  else
         mov      eax, [16+ 4 + esp] /* sysnum */
+#  endif
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
+#  ifdef MACOS
+        lea      esp, [7*ARG_SZ + esp] /* must not change flags */
+#  endif
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP
@@ -1144,6 +1168,12 @@ syscall_0args:
         pop      REG_XBX
         /* return val is in eax for us */
         /* for MacOS, it can also include edx, so be sure not to clobber that! */
+# ifdef MACOS
+        /* convert to -errno */
+        jae      syscall_success
+        neg      eax
+syscall_success:
+# endif
         ret
         END_FUNC(dynamorio_syscall)
 
