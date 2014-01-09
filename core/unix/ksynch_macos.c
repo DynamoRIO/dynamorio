@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -76,7 +76,7 @@ ksynch_init_var(mac_synch_t *synch)
      * no thread waiting at that precise point.
      */
     kern_return_t res = semaphore_create(mach_task_self(), &synch->sem,
-                                         SYNC_POLICY_PREPOST, -1);
+                                         SYNC_POLICY_PREPOST, 0);
     ASSERT(synch->sem != 0); /* we assume 0 is never a legitimate value */
     synch->value = 0;
     return (res == KERN_SUCCESS);
