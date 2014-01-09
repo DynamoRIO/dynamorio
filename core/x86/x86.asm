@@ -390,21 +390,6 @@ call_dispatch_alt_stack_no_free:
         END_FUNC(call_switch_stack)
 
 /*
- * For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-#ifdef INTERNAL
-        CALLC3(GLOBAL_REF(internal_error), 0, -99 /* line # */, 0)
-        /* internal_error never returns */
-#endif
-        /* infinite loop is intentional: FIXME: do better in release build!
-         * FIXME - why not an int3? */
-        jmp      GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
-
-/*
  * Copies from the current xsp to tos onto the base of stack and then
  * swaps to the cloned top of stack.
  *
@@ -1069,12 +1054,30 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
 #endif /* WINDOWS */
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
+
+/*
+ * For debugging: report an error if the function called by call_switch_stack()
+ * unexpectedly returns.  Also used elsewhere.
+ */
+        DECLARE_FUNC(unexpected_return)
+GLOBAL_LABEL(unexpected_return:)
+#if defined(INTERNAL) && !defined(NOT_DYNAMORIO_CORE_PROPER)
+        CALLC3(GLOBAL_REF(internal_error), 0, -99 /* line # */, 0)
+        /* internal_error never returns */
+#endif
+        /* infinite loop is intentional: FIXME: do better in release build!
+         * FIXME - why not an int3? */
+        jmp      GLOBAL_REF(unexpected_return)
+        END_FUNC(unexpected_return)
+
 /* we share dynamorio_syscall w/ preload */
 #ifdef UNIX
 /* to avoid libc wrappers we roll our own syscall here
  * hardcoded to use int 0x80 for 32-bit -- FIXME: use something like do_syscall
  * and syscall for 64-bit.
  * signature: dynamorio_syscall(sysnum, num_args, arg1, arg2, ...)
+ * For Linux, the argument max is 6.
+ * For MacOS, the argument max is 6 for x64 and 7 for x86.
  */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
@@ -1087,7 +1090,7 @@ GLOBAL_LABEL(dynamorio_syscall:)
 #  ifdef MACOS
         /* for now we assume a BSD syscall */
         or       rax, 0x2000000
-#   endif
+#  endif
         cmp      REG_XBX, 0
         je       syscall_ready
         mov      ARG1, ARG3
@@ -1130,6 +1133,19 @@ syscall_ready:
         je       syscall_4args
         cmp      ecx, 5
         je       syscall_5args
+#  ifdef MACOS
+        cmp      ecx, 6
+        je       syscall_6args
+#   ifdef INTERNAL
+        cmp      ecx, 7
+        jg       GLOBAL_REF(unexpected_return)
+#   endif
+        mov      eax, [16+36 + esp] /* arg7 */
+syscall_6args:
+#  elif defined(INTERNAL)
+        cmp      ecx, 6
+        jg       GLOBAL_REF(unexpected_return)
+#  endif
         mov      ebp, [16+32 + esp] /* arg6 */
 syscall_5args:
         mov      edi, [16+28 + esp] /* arg5 */
@@ -1143,12 +1159,15 @@ syscall_1args:
         mov      ebx, [16+12 + esp] /* arg1 */
 syscall_0args:
 #  ifdef MACOS
+        push     eax /* 7th arg, if any */
         /* Arg size is encoded in upper bits.
          * XXX: or is that only for sysenter gateway?
+         * We assume this is size, not count, and so for our "7 arg"
+         * call that's really 6 with one 64-bit we leave it.
          */
-        mov      eax, [16+ 8 + esp] /* num_args */
+        mov      eax, [20+ 8 + esp] /* num_args */
         shl      eax, 18 /* <<16 but also *4 for size */
-        or       eax, [16+ 4 + esp] /* sysnum */
+        or       eax, [20+ 4 + esp] /* sysnum */
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
         push     ebp
         push     edi
@@ -1163,7 +1182,7 @@ syscall_0args:
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 #  ifdef MACOS
-        lea      esp, [7*ARG_SZ + esp] /* must not change flags */
+        lea      esp, [8*ARG_SZ + esp] /* must not change flags */
 #  endif
         pop      REG_XDI
         pop      REG_XSI
