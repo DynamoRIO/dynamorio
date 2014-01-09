@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -833,6 +833,7 @@ void client_int_syscall(void);
 # ifdef MACOS
 /* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
 int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
+int64 dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
 # else
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif

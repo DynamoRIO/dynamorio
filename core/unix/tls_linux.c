@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -594,7 +594,7 @@ tls_get_fs_gs_segment_base(uint seg)
         __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
     
     if (seg != SEG_FS && seg != SEG_GS)
-        return NULL;
+        return (byte *) POINTER_MAX;
 
     if (TEST(SELECTOR_IS_LDT, selector)) {
         LOG(THREAD_GET, LOG_THREADS, 4, "selector is LDT\n");

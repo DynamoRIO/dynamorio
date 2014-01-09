@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -1199,6 +1199,80 @@ syscall_success:
 # endif
         ret
         END_FUNC(dynamorio_syscall)
+
+# ifdef MACOS
+/* Mach dep syscall invocation.
+ * Signature: dynamorio_mach_dep_syscall(sysnum, num_args, arg1, arg2, ...)
+ * Only supports up to 4 args.
+ */
+        DECLARE_FUNC(dynamorio_mach_dep_syscall)
+GLOBAL_LABEL(dynamorio_mach_dep_syscall:)
+        /* x64 kernel doesn't clobber all the callee-saved registers */
+        push     REG_XBX
+#  ifdef X64
+        /* reverse order so we don't clobber earlier args */
+        mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
+        mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+        cmp      REG_XBX, 0
+        je       mach_dep_syscall_ready
+        mov      ARG1, ARG3
+        cmp      REG_XBX, 1
+        je       mach_dep_syscall_ready
+        mov      ARG2, ARG4
+        cmp      REG_XBX, 2
+        je       mach_dep_syscall_ready
+        mov      ARG3, ARG5
+        cmp      REG_XBX, 3
+        je       mach_dep_syscall_ready
+        mov      ARG4, ARG6
+#  else
+        push     REG_XBP
+        push     REG_XSI
+        push     REG_XDI
+        /* add 16 to skip the 4 pushes */
+        mov      ecx, [16+ 8 + esp] /* num_args */
+        cmp      ecx, 0
+        je       mach_dep_syscall_0args
+        cmp      ecx, 1
+        je       mach_dep_syscall_1args
+        cmp      ecx, 2
+        je       mach_dep_syscall_2args
+        cmp      ecx, 3
+        je       mach_dep_syscall_3args
+        mov      esi, [16+24 + esp] /* arg4 */
+mach_dep_syscall_3args:
+        mov      edx, [16+20 + esp] /* arg3 */
+mach_dep_syscall_2args:
+        mov      ecx, [16+16 + esp] /* arg2 */
+mach_dep_syscall_1args:
+        mov      ebx, [16+12 + esp] /* arg1 */
+mach_dep_syscall_0args:
+        mov      eax, [16+ 4 + esp] /* sysnum */
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        push     esi
+        push     edx
+        push     ecx
+        push     ebx
+        push     0 /* extra slot */
+#  endif
+        /* mach dep syscalls use interrupt 0x82 */
+        int      HEX(82)
+#  ifndef X64
+        lea      esp, [5*ARG_SZ + esp] /* must not change flags */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+#  endif
+        pop      REG_XBX
+        /* return val is in eax for us */
+        /* for MacOS, it can also include edx, so be sure not to clobber that! */
+        /* convert to -errno */
+        jae      mach_dep_syscall_success
+        neg      eax
+mach_dep_syscall_success:
+        ret
+        END_FUNC(dynamorio_mach_dep_syscall)
+# endif /* MACOS */
 
 /* FIXME: this function should be in #ifdef CLIENT_INTERFACE
  * However, the compiler complains about it in

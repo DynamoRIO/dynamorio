@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -41,12 +41,17 @@
 
 #include "../globals.h"
 #include "tls.h"
+#include <architecture/i386/table.h>
+#include <i386/user_ldt.h>
 
 #ifndef MACOS
 # error Mac-only
 #endif
 
 tls_type_t tls_global_type;
+
+/* from the (short) machdep syscall table */
+#define SYS_i386_get_ldt 6
 
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
@@ -66,8 +71,41 @@ tls_thread_free(tls_type_t tls_type, int index)
 byte *
 tls_get_fs_gs_segment_base(uint seg)
 {
-    ASSERT_NOT_IMPLEMENTED(false);
-    return NULL;
+    uint selector;
+    uint index;
+    ldt_t ldt;
+    byte *base;
+    int res;
+
+    if (seg != SEG_FS && seg != SEG_GS)
+        return (byte *) POINTER_MAX;
+
+    selector = read_selector(seg);
+    index = SELECTOR_INDEX(selector);
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
+        __FUNCTION__, selector, index, TEST(SELECTOR_IS_LDT, selector));
+
+    if (!TEST(SELECTOR_IS_LDT, selector) && selector != 0) {
+        ASSERT_NOT_IMPLEMENTED(false);
+        return (byte *) POINTER_MAX;
+    }
+
+    /* The man page is confusing, but experimentation shows it takes in the index,
+     * not a selector value.
+     */
+    res = dynamorio_mach_dep_syscall(SYS_i386_get_ldt, 3, index, &ldt, 1);
+    if (res < 0) {
+        LOG(THREAD_GET, LOG_THREADS, 4, "%s failed with code 0x%x\n", __FUNCTION__, res);
+        ASSERT_NOT_REACHED();
+        return (byte *) POINTER_MAX;
+    }
+
+    base = (byte *)
+        (((ptr_uint_t)ldt.data.base24 << 24) |
+         ((ptr_uint_t)ldt.data.base16 << 16) |
+         (ptr_uint_t)ldt.data.base00);
+    LOG(THREAD_GET, LOG_THREADS, 4, "%s => base "PFX"\n", __FUNCTION__, base);
+    return base;
 }
 
 /* Assumes it's passed either SEG_FS or SEG_GS.
