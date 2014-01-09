@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -464,7 +464,7 @@ signal_thread_init(dcontext_t *dcontext)
     info->sigstack.ss_sp = (char *) stack_alloc(SIGSTACK_SIZE) - SIGSTACK_SIZE;
     info->sigstack.ss_size = SIGSTACK_SIZE;
     /* kernel will set xsp to sp+size to grow down from there, we don't have to */
-    info->sigstack.ss_flags = SS_ONSTACK;
+    info->sigstack.ss_flags = 0;
     rc = sigaltstack_syscall(&info->sigstack, &info->app_sigstack);
     ASSERT(rc == 0);
     LOG(THREAD, LOG_ASYNCH, 1, "signal stack is "PFX" - "PFX"\n",
