@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -370,7 +370,7 @@ endif (WIN32)
 # Note that the new DynamoRIOConfig.cmake doesn't set these so we can
 # probably remove this line.  We remove from target-specific flags
 # from configure_DynamoRIO_* in tobuild_api().
-remove_definitions(-DX64 -DLINUX -DWINDOWS)
+remove_definitions(-DX64 -DLINUX -DWINDOWS -DMACOS)
 # If people want perf stress tests they'll have to manually build to avoid
 # the NIGHTLY_REGRESSION define
 set(test_defs "-DNIGHTLY_REGRESSION")
@@ -379,7 +379,11 @@ if (X64)
   set(platform_defs "${platform_defs} -DX64")
 endif (X64)
 if (UNIX)
-  set(platform_defs "${platform_defs} -DLINUX")
+  if (APPLE)
+    set(platform_defs "${platform_defs} -DMACOS")
+  else (APPLE)
+    set(platform_defs "${platform_defs} -DLINUX")
+  endif (APPLE)
 else (UNIX)
   set(platform_defs "${platform_defs} -DWINDOWS")
 endif (UNIX)
@@ -654,6 +658,7 @@ function(configure_app_api_build_flags test decoder)
   string(REGEX REPLACE "-DX64" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DLINUX" "" prop_cflags "${prop_cflags}")
   string(REGEX REPLACE "-DWINDOWS" "" prop_cflags "${prop_cflags}")
+  string(REGEX REPLACE "-DMACOS" "" prop_cflags "${prop_cflags}")
   # FIXME: apparently moving cflags to a target property makes it show up
   # in the cpp run for asm targets, where it doesn't if in global var.
   # This causes compilation failure.  Removing -g3 manually as a workaround.

@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -444,7 +444,11 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
   endif (tgt_x64)
 
   if (UNIX)
-    set(extra_cflags "${extra_cflags} -DLINUX")
+    if (APPLE)
+      set(extra_cflags "${extra_cflags} -DMACOS")
+    else (APPLE)
+      set(extra_cflags "${extra_cflags} -DLINUX")
+    endif (APPLE)
   else (UNIX)
     set(extra_cflags "${extra_cflags} -DWINDOWS")
   endif (UNIX)

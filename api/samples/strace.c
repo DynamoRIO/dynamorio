@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,7 +48,11 @@
 #include <string.h> /* memset */
 
 #ifdef UNIX
-# include <syscall.h>
+# ifdef MACOS
+#  include <sys/syscall.h>
+# else
+#  include <syscall.h>
+# endif
 #endif
 
 #ifdef WINDOWS

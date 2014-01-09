@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,8 +63,8 @@
 
 #ifdef API_EXPORT_ONLY
 /* A client's target operating system and architecture must be specified. */
-#if (!defined(LINUX) && !defined(WINDOWS)) || (defined(LINUX) && defined(WINDOWS))
-# error Target operating system unspecified: must define either WINDOWS xor LINUX
+#if !defined(LINUX) && !defined(WINDOWS) && !defined(MACOS)
+# error Target operating system unspecified: must define WINDOWS, LINUX, or MACOS
 #endif
 #endif
 
@@ -78,7 +78,7 @@
 # define X64
 #endif
 
-#if defined(LINUX) && !defined(UNIX)
+#if (defined(LINUX) || defined(MACOS)) && !defined(UNIX)
 # define UNIX
 #endif
 

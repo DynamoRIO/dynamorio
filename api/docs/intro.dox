@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -1029,7 +1029,7 @@ be specified by setting pre-processor defines before including the
 DynamoRIO header files.  The appropriate library must then be linked
 with.  The define choices are:
 
--# \p WINDOWS or \p LINUX
+-# \p WINDOWS, \p LINUX, or (coming soon) \p MACOS
 -# \p X86_32 or \p X86_64
 
 Currently we provide a private loader for both Windows and Linux.
