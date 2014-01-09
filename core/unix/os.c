@@ -4074,6 +4074,11 @@ sys_param_addr(dcontext_t *dcontext, int num)
     default: CLIENT_ASSERT(false, "invalid system call parameter number");
     }
 #else
+# ifdef MACOS
+    /* XXX: if we don't end up using dcontext->sys_was_int here, we could
+     * make that field Linux-only.
+     */
+# endif
     /* even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
      * ebp, the original parameter registers are not yet changed pre-syscall,
      * except for ebp, which is pushed on the stack:
@@ -5037,6 +5042,7 @@ pre_system_call(dcontext_t *dcontext)
     });
     LOG(THREAD, LOG_SYSCALLS, 2, "system call %d\n", mc->xax);
 
+#ifdef LINUX
     /* PR 313715: If we fail to hook the vsyscall page (xref PR 212570, PR 288330)
      * we fall back on int, but we have to tweak syscall param #5 (ebp)
      * Once we have PR 288330 we can remove this.
@@ -5053,6 +5059,7 @@ pre_system_call(dcontext_t *dcontext)
             mc->xbp = 0;
         });
     }
+#endif
 
     switch (mc->xax) {
 
@@ -6132,6 +6139,7 @@ post_system_call(dcontext_t *dcontext)
     old_whereami = dcontext->whereami;
     dcontext->whereami = WHERE_SYSCALL_HANDLER;
 
+#ifdef LINUX
     /* PR 313715: restore xbp since for some vsyscall sequences that use
      * the syscall instruction its value is needed:
      *   0xffffe400 <__kernel_vsyscall+0>:       push   %ebp
@@ -6146,7 +6154,7 @@ post_system_call(dcontext_t *dcontext)
     if (should_syscall_method_be_sysenter() && !dcontext->sys_was_int) {
         mc->xbp = dcontext->sys_xbp;
     }
-
+#endif
 
     /* handle fork, try to do it early before too much logging occurs */
     if (sysnum == SYS_fork

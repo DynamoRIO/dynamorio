@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,7 +81,7 @@ generated_code_t *shared_code_x86_to_x64 = NULL;
 
 static int syscall_method = SYSCALL_METHOD_UNINITIALIZED;
 byte *app_sysenter_instr_addr = NULL;
-#ifdef UNIX
+#ifdef LINUX
 static bool sysenter_hook_failed = false;
 #endif
 
@@ -4149,7 +4149,16 @@ get_cleanup_and_terminate_global_do_syscall_entry()
         return get_global_do_syscall_entry();
 }
 
-#ifdef UNIX
+#ifdef MACOS
+/* There is no single resumption point from sysenter: each sysenter stores
+ * the caller's retaddr in edx.  Thus, there is nothing to hook.
+ */
+bool
+unhook_vsyscall(void)
+{
+    return false;
+}
+#elif defined(LINUX)
 /* PR 212570: for sysenter support we need to regain control after the
  * kernel sets eip to a hardcoded user-mode address on the vsyscall page.
  * The vsyscall code layout is as follows:
@@ -4322,7 +4331,7 @@ unhook_vsyscall(void)
     }
     return true;
 }
-#endif
+#endif /* LINUX */
 
 void
 check_syscall_method(dcontext_t *dcontext, instr_t *instr)
@@ -4385,7 +4394,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                 }
             });
             /* For linux, we should have found "[vdso]" in the maps file */
-            IF_UNIX(ASSERT(vsyscall_page_start != NULL &&
+            IF_LINUX(ASSERT(vsyscall_page_start != NULL &&
                             vsyscall_page_start ==
                             (app_pc) PAGE_START(instr_get_raw_bits(instr))));
             LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
@@ -4440,14 +4449,15 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
           get_syscall_method() != SYSCALL_METHOD_SYSCALL))) {
         ASSERT(get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
                get_syscall_method() == SYSCALL_METHOD_INT);
+# ifdef LINUX
         if (new_method == SYSCALL_METHOD_SYSENTER) {
-# ifndef HAVE_TLS
+#  ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
                 FATAL_USAGE_ERROR(SYSENTER_NOT_SUPPORTED, 2, 
                                   get_application_name(), get_application_pid());
             }
-# endif
+#  endif
             /* Hook the sysenter continuation point so we don't lose control */
             if (!sysenter_hook_failed && !hook_vsyscall(dcontext)) {
                 /* PR 212570: for now we bail out to using int;
@@ -4463,6 +4473,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
             if (sysenter_hook_failed)
                 new_method = SYSCALL_METHOD_INT;
         }
+# endif /* LINUX */
         if (get_syscall_method() == SYSCALL_METHOD_UNINITIALIZED ||
             new_method != get_syscall_method()) {
             set_syscall_method(new_method);
@@ -4499,7 +4510,7 @@ set_syscall_method(int method)
     syscall_method = method;
 }
 
-#ifdef UNIX
+#ifdef LINUX
 /* PR 313715: If we fail to hook the vsyscall page (xref PR 212570, PR 288330)
  * we fall back on int, but we have to tweak syscall param #5 (ebp)
  */

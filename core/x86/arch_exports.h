@@ -785,7 +785,7 @@ int get_syscall_method(void);
 /* Does the syscall instruction always return to the invocation point? */
 bool does_syscall_ret_to_callsite(void);
 void set_syscall_method(int method);
-#ifdef UNIX
+#ifdef LINUX
 bool should_syscall_method_be_sysenter(void);
 #endif
 /* returns the address of the first app syscall instruction we saw (see hack

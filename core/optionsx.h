@@ -1453,10 +1453,12 @@
     /* Whether we inline ignoreable syscalls inside of bbs (xref PR 307284) */
     OPTION_DEFAULT(bool, inline_ignored_syscalls, true,
                    "inline ignored system calls in the middle of bbs")
-#ifdef UNIX /* XXX i#58: not sure how MacOS uses sysenter, if at all: Linux-specific? */
+#ifdef LINUX
     OPTION_DEFAULT(bool, hook_vsyscall, true, "hook vdso vsyscall if possible")
     /* PR 356503: workaround to allow clients to make syscalls */
     OPTION_ALIAS(sysenter_is_int80, hook_vsyscall, false, STATIC, OP_PCACHE_GLOBAL)
+#endif
+#ifdef UNIX
     OPTION_DEFAULT(bool, restart_syscalls, true,
                    "restart appropriate syscalls when interrupted by a signal")
 #endif
