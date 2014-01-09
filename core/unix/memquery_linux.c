@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -314,7 +314,7 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
     app_pc mod_start = NULL;
     ASSERT(name != NULL || start != NULL);
 
-    memquery_iterator_start(&iter, NULL, false/*won't alloc*/);
+    memquery_iterator_start(&iter, NULL, true/*ok to alloc*/);
     libname[0] = '\0';
     while (memquery_iterator_next(&iter)) {
         LOG(GLOBAL, LOG_VMAREAS, 5,"start="PFX" end="PFX" prot=%x comment=%s\n",

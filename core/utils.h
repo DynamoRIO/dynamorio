@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -574,6 +574,8 @@ enum {
      */
 #ifdef LINUX
     LOCK_RANK(memory_info_buf_lock),
+#elif defined(MACOS)
+    LOCK_RANK(memquery_backing_lock),
 #endif
 #ifdef WINDOWS
     LOCK_RANK(dump_core_lock),

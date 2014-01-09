@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -77,6 +77,9 @@ memquery_exit(void);
 /* The passed-in "start" parameter is a performance hint to start
  * iteration at the region containing that address.  However, the
  * iterator may start before that point.
+ *
+ * Pass true for may_alloc, unless the caller is in a fragile situation (e.g.,
+ * a signal handler) where we shouldn't allocate heap.
  */
 bool
 memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc);

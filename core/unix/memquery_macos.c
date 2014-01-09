@@ -45,15 +45,33 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 
+/* For querying which file backs an mmap */
+#include <libproc.h>
+#include <sys/proc_info.h>
+#include <sys/syscall.h>
+
 #ifndef MACOS
 # error Mac-only
 #endif
+
+/* Code passed to SYS_proc_info */
+#define PROC_INFO_PID_INFO 2
+
+/* We need a large (1272 byte) structure to obtain file backing info.
+ * For regular queries we allocate this on the heap, but for fragile no-alloc
+ * queries we use a static struct.
+ */
+static struct proc_regionwithpathinfo backing_info;
+static mutex_t memquery_backing_lock = INIT_LOCK_FREE(memquery_backing_lock);
 
 /* Internal data */
 typedef struct _internal_iter_t {
     struct vm_region_submap_info_64 info;
     vm_address_t address;
     uint32_t depth;
+    /* This points at either the heap or the global backing_info */
+    struct proc_regionwithpathinfo *backing;
+    dcontext_t *dcontext; /* GLOBAL_DCONTEXT for global heap; NULL for global struct */
 } internal_iter_t;
 
 void
@@ -66,6 +84,24 @@ memquery_init(void)
 void
 memquery_exit(void)
 {
+    DELETE_LOCK(memquery_backing_lock);
+}
+
+static bool
+memquery_file_backing(struct proc_regionwithpathinfo *info, app_pc addr)
+{
+    int res;
+#ifdef X64
+    res = dynamorio_syscall(SYS_proc_info, 6, PROC_INFO_PID_INFO, get_process_id(),
+                            PROC_PIDREGIONPATHINFO, (uint64_t)addr, info, sizeof(*info));
+#else
+    res = dynamorio_syscall(SYS_proc_info, 7, PROC_INFO_PID_INFO, get_process_id(),
+                            PROC_PIDREGIONPATHINFO, 
+                            /* represent 64-bit arg as 2 32-bit args */
+                            addr, NULL,
+                            info, sizeof(*info));
+#endif
+    return (res >= 0);
 }
 
 int
@@ -83,13 +119,29 @@ memquery_iterator_start(memquery_iter_t *iter, app_pc start, bool may_alloc)
     memset(ii, 0, sizeof(*ii));
     ii->address = (vm_address_t) start;
     iter->may_alloc = may_alloc;
+    if (may_alloc) {
+        ii->dcontext = get_thread_private_dcontext();
+        if (ii->dcontext == NULL)
+            ii->dcontext = GLOBAL_DCONTEXT;
+        ii->backing = HEAP_TYPE_ALLOC(ii->dcontext, struct proc_regionwithpathinfo,
+                                      ACCT_MEM_MGT, PROTECTED);
+    } else {
+        mutex_lock(&memquery_backing_lock);
+        ii->backing = &backing_info;
+        ii->dcontext = NULL;
+    }
     return true;
 }
 
 void
 memquery_iterator_stop(memquery_iter_t *iter)
 {
-    /* nothing */
+    internal_iter_t *ii = (internal_iter_t *) &iter->internal;
+    if (ii->dcontext != NULL) {
+        HEAP_TYPE_FREE(ii->dcontext, ii->backing, struct proc_regionwithpathinfo,
+                       ACCT_MEM_MGT, PROTECTED);
+    } else
+        mutex_unlock(&memquery_backing_lock);
 }
 
 /* Translate mach flags to memprot flags.  They happen to equal the mmap
@@ -144,8 +196,11 @@ memquery_iterator_next(memquery_iter_t *iter)
     iter->prot = vmprot_to_memprot(ii->info.protection);
     iter->offset = 0; /* XXX: not filling in */
     iter->inode = 0; /* XXX: not filling in */
-    /* FIXME i#58: fill this in via SYS_proc_info */
-    iter->comment = "";
+    if (memquery_file_backing(ii->backing, iter->vm_start)) {
+        NULL_TERMINATE_BUFFER(ii->backing->prp_vip.vip_path);
+        iter->comment = ii->backing->prp_vip.vip_path;
+    } else
+        iter->comment = "";
 
     LOG(GLOBAL, LOG_ALL, 5, "%s: returning "PFX"-"PFX" prot=0x%x %s\n",
         __FUNCTION__, iter->vm_start, iter->vm_end, iter->prot, iter->comment);
