@@ -2780,7 +2780,11 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
         info->app_sigblocked = info->app_sigblocked_save;
         info->in_sigsuspend = false;
         /* update the set to restore to post-signal-delivery */
+#ifdef MACOS
+        ucxt->uc_sigmask = *(__darwin_sigset_t *) &info->app_sigblocked;
+#else
         ucxt->uc_sigmask = info->app_sigblocked;
+#endif
 #ifdef DEBUG
         if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
             LOG(THREAD, LOG_ASYNCH, 3, "after sigsuspend, blocked signals are now:\n");
