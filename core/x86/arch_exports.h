@@ -842,8 +842,10 @@ void dynamorio_futex_wake_and_exit(volatile int *futex);
 # ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 # endif
+# ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
+# endif
 #endif
 void back_from_native(void);
 /* These two are labels, not functions. */

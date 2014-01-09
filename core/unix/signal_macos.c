@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -39,6 +39,7 @@
  */
 
 #include "signal_private.h" /* pulls in globals.h for us, in right order */
+#include <sys/syscall.h>
 
 #ifndef MACOS
 # error Mac-only
@@ -116,6 +117,28 @@ bool can_always_delay[] = {
      true, /* 31 SIGUSR2 */
     /* no real-time support */
 };
+
+bool
+sysnum_is_not_restartable(int sysnum)
+{
+    /* Man page says these are restarted:
+     *  The affected system calls include open(2), read(2), write(2),
+     *  sendto(2), recvfrom(2), sendmsg(2) and recvmsg(2) on a
+     *  communications channel or a slow device (such as a terminal,
+     *  but not a regular file) and during a wait(2) or ioctl(2).
+     */
+    return (sysnum != SYS_open && sysnum != SYS_open_nocancel &&
+            sysnum != SYS_read && sysnum != SYS_read_nocancel &&
+            sysnum != SYS_write && sysnum != SYS_write_nocancel &&
+            sysnum != SYS_sendto && sysnum != SYS_sendto_nocancel &&
+            sysnum != SYS_recvfrom && sysnum != SYS_recvfrom_nocancel &&
+            sysnum != SYS_sendmsg && sysnum != SYS_sendmsg_nocancel &&
+            sysnum != SYS_recvmsg && sysnum != SYS_recvmsg_nocancel &&
+            sysnum != SYS_wait4 && sysnum != SYS_wait4_nocancel &&
+            sysnum != SYS_waitid && sysnum != SYS_waitid_nocancel &&
+            sysnum != SYS_waitevent &&
+            sysnum != SYS_ioctl);
+}
 
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)

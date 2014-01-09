@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -210,6 +210,39 @@ bool can_always_delay[] = {
     /* 63 */                       true,
     /* 64 */                       true,
 };
+
+bool
+sysnum_is_not_restartable(int sysnum)
+{
+    /* Check the list of non-restartable syscalls.
+     * We're missing:
+     * + SYS_read from an inotify file descriptor.
+     * We're overly aggressive on:
+     * + Socket interfaces: supposed to restart if no timeout has been set
+     *   but we never restart for simplicity for now.
+     */
+    return (sysnum == SYS_pause || 
+            sysnum == SYS_rt_sigsuspend ||
+            sysnum == SYS_rt_sigtimedwait ||
+            IF_X64(sysnum == SYS_epoll_wait_old ||)
+            sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
+            sysnum == SYS_poll || sysnum == SYS_ppoll ||
+            sysnum == SYS_select || sysnum == SYS_pselect6 ||
+#ifdef X64
+            sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
+            sysnum == SYS_semtimedop ||
+            /* XXX: these should be restarted if there's no timeout */
+            sysnum == SYS_accept || sysnum == SYS_accept4 ||
+            sysnum == SYS_recvfrom || sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg ||
+            sysnum == SYS_connect || sysnum == SYS_sendto ||
+            sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
+#else
+            /* XXX: some should be restarted if there's no timeout */
+            sysnum == SYS_ipc ||
+#endif
+            sysnum == SYS_clock_nanosleep || sysnum == SYS_nanosleep ||
+            sysnum == SYS_io_getevents);
+}
 
 /**** floating point support ********************************************/
 

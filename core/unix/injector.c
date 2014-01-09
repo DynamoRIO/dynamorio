@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,11 @@
 #include "globals_shared.h"
 #include "../config.h"  /* for get_config_val_other_app */
 #include "../globals.h"
-#include "include/syscall.h"  /* for SYS_ptrace */
+#ifdef LINUX
+# include "include/syscall.h"  /* for SYS_ptrace */
+#else
+# include <sys/syscall.h>
+#endif
 #include "instrument.h"
 #include "instr.h"
 #include "instr_create.h"

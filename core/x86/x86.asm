@@ -69,7 +69,11 @@
 START_FILE
 
 #ifdef UNIX
-# include "../unix/include/syscall.h"
+# ifdef LINUX
+#  include "include/syscall.h"
+# else
+#  include <sys/syscall.h>
+# endif
 #endif
         
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) mov dest, PTRSZ [offs + reg]
@@ -1435,6 +1439,7 @@ no_swap:
         END_FUNC(master_signal_handler)
 #endif /* !HAVE_SIGALTSTACK */
 
+#ifdef LINUX
 /* SYS_clone swaps the stack so we need asm support to call it.
  * signature:
  *   thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
@@ -1488,6 +1493,7 @@ dynamorio_clone_parent:
         /* return val is in eax still */
         ret
         END_FUNC(dynamorio_clone)
+#endif /* LINUX */
 
 #endif /* UNIX */
 

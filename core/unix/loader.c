@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -44,7 +44,11 @@
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h"    /* HEAPACCT */
-#include "include/syscall.h"
+#ifdef LINUX
+# include "include/syscall.h"
+#else
+# include <sys/syscall.h>
+#endif
 
 #include <dlfcn.h>      /* dlsym */
 #ifdef LINUX

@@ -81,7 +81,11 @@
 #include "disassemble.h"
 #include "ksynch.h"
 
-#include "include/syscall.h"
+#ifdef LINUX
+# include "include/syscall.h"
+#else
+# include <sys/syscall.h>
+#endif
 
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
@@ -278,8 +282,8 @@ sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
         act->restorer = (void (*)(void)) dynamorio_sigreturn;
     }
 #endif
-    return dynamorio_syscall(SYS_rt_sigaction, 4, sig, act, oact,
-                             sizeof(kernel_sigset_t));
+    return dynamorio_syscall(IF_MACOS_ELSE(SYS_sigaction,SYS_rt_sigaction),
+                             4, sig, act, oact, sizeof(kernel_sigset_t));
 }
 
 static inline int
@@ -304,7 +308,8 @@ static inline int
 sigprocmask_syscall(int how, kernel_sigset_t *set, kernel_sigset_t *oset,
                     size_t sigsetsize)
 {
-    return dynamorio_syscall(SYS_rt_sigprocmask, 4, how, set, oset, sigsetsize);
+    return dynamorio_syscall(IF_MACOS_ELSE(SYS_sigprocmask,SYS_rt_sigprocmask),
+                             4, how, set, oset, sigsetsize);
 }
 
 static void
@@ -662,7 +667,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
             "parent tid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n", 
             record->caller_id, record->clone_sysnum,
             record->clone_sysnum == SYS_vfork ? "vfork" : 
-            record->clone_sysnum == SYS_clone ? "clone" : "unexpected",
+            IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :) "unexpected",
             record->clone_flags);
         if (record->clone_sysnum == SYS_vfork) {
             /* The above clone_flags argument is bogus.
@@ -895,7 +900,11 @@ share_siginfo_after_take_over(dcontext_t *dcontext, dcontext_t *takeover_dc)
      * tell if they're sharing signal handlers or not.
      */
     crec.caller_id = takeover_dc->owning_thread;
+#ifdef LINUX
     crec.clone_sysnum = SYS_clone;
+#else
+    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: NYI on Mac */
+#endif
     crec.clone_flags = PTHREAD_CLONE_FLAGS;
     crec.parent_info = parent_siginfo;
     crec.info = *parent_siginfo;
@@ -2604,37 +2613,6 @@ interrupted_inlined_syscall(dcontext_t *dcontext, fragment_t *f,
     return pre_or_post_syscall;
 }
 
-bool
-sysnum_is_not_restartable(int sysnum)
-{
-    /* Check the list of non-restartable syscalls.
-     * We're missing:
-     * + SYS_read from an inotify file descriptor.
-     * We're overly aggressive on:
-     * + Socket interfaces: supposed to restart if no timeout has been set
-     *   but we never restart for simplicity for now.
-     */
-    return (sysnum == SYS_pause || sysnum == SYS_rt_sigsuspend ||
-            sysnum == SYS_rt_sigtimedwait || IF_X64(sysnum == SYS_epoll_wait_old ||)
-            sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
-            sysnum == SYS_poll || sysnum == SYS_ppoll ||
-            sysnum == SYS_select || sysnum == SYS_pselect6 ||
-#ifdef X64
-            sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
-            sysnum == SYS_semtimedop ||
-            /* XXX: these should be restarted if there's no timeout */
-            sysnum == SYS_accept || sysnum == SYS_accept4 ||
-            sysnum == SYS_recvfrom || sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg ||
-            sysnum == SYS_connect || sysnum == SYS_sendto ||
-            sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
-#else
-            /* XXX: some should be restarted if there's no timeout */
-            sysnum == SYS_ipc ||
-#endif
-            sysnum == SYS_clock_nanosleep || sysnum == SYS_nanosleep ||
-            sysnum == SYS_io_getevents);
-}
-
 /* i#1145: auto-restart syscalls interrupted by signals */
 static bool
 adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int sig,
@@ -3149,9 +3127,14 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 #endif
     return (is_at_do_syscall(dcontext, pc, xsp) &&
             (dcontext->sys_num == SYS_kill ||
+#ifdef LINUX
              dcontext->sys_num == SYS_tkill ||
              dcontext->sys_num == SYS_tgkill ||
-             dcontext->sys_num == SYS_rt_sigqueueinfo));
+             dcontext->sys_num == SYS_rt_sigqueueinfo
+#elif defined (MACOS)
+             dcontext->sys_num == SYS___pthread_kill
+#endif
+             ));
 }
 
 static byte *
@@ -4643,14 +4626,19 @@ is_signal_restorer_code(byte *pc, size_t *len)
      */
 #   define reverse(x) ((((x) & 0xff) << 24) | (((x) & 0xff00) << 8) | \
                        (((x) & 0xff0000) >> 8) | (((x) & 0xff000000) >> 24))
+#ifdef MACOS
+# define SYS_RT_SIGRET SYS_sigreturn
+#else
+# define SYS_RT_SIGRET SYS_rt_sigreturn
+#endif
 #ifndef X64
     /* 58 b8 s4 s3 s2 s1 cd 80 */
     static const uint non_rt_1w =  reverse(0x58b80000 | (reverse(SYS_sigreturn) >> 16));
     static const uint non_rt_2w = reverse((reverse(SYS_sigreturn) << 16) | 0xcd80);
 #endif
     /* b8 s4 s3 s2 s1 cd 80 XX */
-    static const uint rt_1w = reverse(0xb8000000 | (reverse(SYS_rt_sigreturn) >> 8));
-    static const uint rt_2w = reverse((reverse(SYS_rt_sigreturn) << 24) | 0x00cd8000);
+    static const uint rt_1w = reverse(0xb8000000 | (reverse(SYS_RT_SIGRET) >> 8));
+    static const uint rt_2w = reverse((reverse(SYS_RT_SIGRET) << 24) | 0x00cd8000);
     /* test rt first as it's the most common 
      * only 7 bytes here so we ignore the last one (becomes msb since little-endian)
      */

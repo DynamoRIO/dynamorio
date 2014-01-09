@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -43,7 +43,11 @@
 #include "drmgr.h"
 
 #ifdef UNIX
-# include "../../core/unix/include/syscall.h"
+# ifdef LINUX
+#  include "../../core/unix/include/syscall.h"
+# else
+#  include <sys/syscall.h>
+# endif
 # include <signal.h> /* SIGKILL */
 #endif
 

@@ -13,6 +13,11 @@
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_ 1
 
+/* Do not include this on MacOS as you'll get the wrong numbers! */
+#ifndef LINUX
+# error Only use this file on Linux
+#endif
+
 #ifdef X64
 
 /* From FC 8's /usr/include/asm/unistd_64.h, updated with FC17 */
