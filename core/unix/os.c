@@ -7375,6 +7375,13 @@ os_dir_iterator_start(dir_iterator_t *iter, file_t fd)
 static bool
 os_dir_iterator_next(dir_iterator_t *iter)
 {
+#ifdef MACOS
+    /* We can use SYS_getdirentries, but do we even need a dir iterator?
+     * On Linux it's only used to enumerate /proc/pid/task.
+     */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#else
     if (iter->off < iter->end) {
         /* Have existing dents, get the next offset. */
         iter->off += CURRENT_DIRENT(iter)->d_reclen;
@@ -7401,6 +7408,7 @@ os_dir_iterator_next(dir_iterator_t *iter)
     }
     iter->name = CURRENT_DIRENT(iter)->d_name;
     return true;
+#endif
 }
 
 /***************************************************************************
