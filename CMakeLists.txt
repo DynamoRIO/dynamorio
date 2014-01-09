@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -463,6 +463,16 @@ if (UNIX)
   string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
   if (CMAKE_COMPILER_IS_CLANG)
     set(CMAKE_COMPILER_IS_GNUCC TRUE)
+  else ()
+    if (CMAKE_C_COMPILER MATCHES "/cc")
+      # CMake 2.8.10 on Mac has CMAKE_C_COMPILER as "/usr/bin/cc"
+      execute_process(COMMAND ${CMAKE_C_COMPILER} --version
+        OUTPUT_VARIABLE cc_out ERROR_QUIET)
+      if (cc_out MATCHES "clang")
+        set(CMAKE_COMPILER_IS_CLANG ON)
+        set(CMAKE_COMPILER_IS_GNUCC TRUE)
+      endif ()
+    endif ()
   endif ()
 
   if (CYGWIN)
@@ -589,8 +599,11 @@ if (UNIX)
     set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
     set(BASE_CXXFLAGS "-m32")
     # i#847 keep stack boundary 4-byte aligned
-    set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
-    set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
+    # XXX i#1346: what is clang equivalent?
+    if (NOT CMAKE_COMPILER_IS_CLANG)
+      set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
+      set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
+    endif ()
     set(LD_FLAGS "-melf_i386")
   endif (X64)
   # there's no cmake warning control so we hardcode it
