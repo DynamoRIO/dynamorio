@@ -2503,6 +2503,13 @@ os_thread_yield()
 static bool
 thread_signal(process_id_t pid, thread_id_t tid, int signum)
 {
+#ifdef MACOS
+    /* FIXME i#58: this takes in a thread port.  Need to map thread id to port.
+     * Need to figure out whether we support raw Mach threads w/o pthread on top.
+     */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return (dynamorio_syscall(SYS___pthread_kill, 2, tid, signum) == 0);
+#else
     /* FIXME: for non-NPTL use SYS_kill */
     /* Note that the pid is equivalent to the thread group id.
      * However, we can have threads sharing address space but not pid
@@ -2510,6 +2517,7 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
      * use the pid of the target thread, not our pid.
      */
     return (dynamorio_syscall(SYS_tgkill, 3, pid, tid, signum) == 0);
+#endif
 }
 
 void
