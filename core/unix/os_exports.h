@@ -226,7 +226,11 @@ bool unhook_vsyscall(void);
 # define _NSIG_BPW 32
 #endif
 
-#define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
+#ifdef LINUX
+# define _NSIG_WORDS (MAX_SIGNUM / _NSIG_BPW)
+#else
+# define _NSIG_WORDS 1 /* avoid 0 */
+#endif
 
 /* kernel's sigset_t packs info into bits, while glibc's uses a short for
  * each (-> 8 bytes vs. 128 bytes)
