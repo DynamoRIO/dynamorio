@@ -3302,13 +3302,32 @@ os_close_protected(file_t f)
     }
     os_close(f);
 }
-#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool
 os_get_current_dir(char *buf, size_t bufsz)
 {
+# ifdef MACOS
+    bool res = false;
+    file_t fd = os_open(".", OS_OPEN_READ);
+    int len;
+    /* F_GETPATH assumes a buffer of size MAXPATHLEN */
+    char *fcntl_buf = global_heap_alloc(MAXPATHLEN HEAPACCT(ACCT_OTHER));
+    if (fd == INVALID_FILE)
+        goto cwd_error;
+    if (fcntl_syscall(fd, F_GETPATH, (long)fcntl_buf) != 0)
+        goto cwd_error;
+    len = snprintf(buf, bufsz, "%s", fcntl_buf);
+    buf[bufsz-1] = '\0';
+    return (len > 0 && len < bufsz);
+ cwd_error:
+    global_heap_free(fcntl_buf, MAXPATHLEN HEAPACCT(ACCT_OTHER));
+    os_close(fd);
+    return res;
+# else
     return (dynamorio_syscall(SYS_getcwd, 2, buf, bufsz) > 0);
+# endif
 }
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER /* so drinject can use drdecode's copy */
 ssize_t
