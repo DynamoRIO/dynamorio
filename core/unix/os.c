@@ -69,6 +69,7 @@
 
 #ifdef MACOS
 # include <sys/sysctl.h>         /* for sysctl */
+# include <mach/mach_traps.h>    /* for swtch_pri */
 #endif
 
 #ifdef LINUX
@@ -2491,7 +2492,12 @@ os_heap_get_commit_limit(size_t *commit_used, size_t *commit_limit)
 void
 os_thread_yield()
 {
+#ifdef MACOS
+    /* XXX i#1291: use raw syscall instead */
+    swtch_pri(0);
+#else
     dynamorio_syscall(SYS_sched_yield, 0);
+#endif
 }
 
 static bool
