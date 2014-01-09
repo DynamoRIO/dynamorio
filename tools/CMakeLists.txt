@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -56,7 +56,8 @@ if (UNIX)
     ERROR_VARIABLE symlink_error
     OUTPUT_QUIET)
   if (symlink_result OR symlink_error)
-    message(FATAL_ERROR "*** drdeploy symlink failed: ***\n${symlink_error}")
+    message(FATAL_ERROR
+      "*** drdeploy symlink failed (${symlink_result}): ***\n${symlink_error}")
   endif (symlink_result OR symlink_error)
   # simpler to install all and exclude
   DR_install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"

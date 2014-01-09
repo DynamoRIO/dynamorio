@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -169,10 +169,19 @@ if (APPLE)
     message(FATAL_ERROR "nasm assembler not found: required to build")
   endif (NOT NASM)
   message(STATUS "Found nasm: ${NASM}")
+  execute_process(COMMAND ${NASM} -hf OUTPUT_VARIABLE nasm_result ERROR_QUIET)
   if (X64)
+    # x64 support added between 0.98.40 and 2.10.07
+    if (NOT nasm_result MATCHES macho64)
+      message(FATAL_ERROR "nasm is too old: no 64-bit support")
+    endif ()
     set(ASM_FLAGS "${ASM_FLAGS} -fmacho64")
   else (X64)
-    set(ASM_FLAGS "${ASM_FLAGS} -fmacho32")
+    if (nasm_result MATCHES macho32)
+      set(ASM_FLAGS "${ASM_FLAGS} -fmacho32")
+    else ()
+      set(ASM_FLAGS "${ASM_FLAGS} -fmacho")
+    endif ()
   endif (X64)
   if (DEBUG)
     set(ASM_FLAGS "${ASM_FLAGS} -g")
