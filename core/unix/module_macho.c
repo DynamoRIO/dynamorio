@@ -54,6 +54,7 @@
 #include <mach-o/loader.h> /* mach_header */
 #include <mach/thread_status.h> /* i386_thread_state_t */
 #include <stddef.h> /* offsetof */
+#include <string.h> /* strcmp */
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef LOG
@@ -147,19 +148,25 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             LOG(GLOBAL, LOG_VMAREAS, 4,
                 "%s: segment %s addr=0x%x sz=0x%x\n", __FUNCTION__,
                 seg->segname, seg->vmaddr, seg->vmsize);
-            if ((app_pc)seg->vmaddr < seg_min_start)
-                seg_min_start = (app_pc) seg->vmaddr;
             if ((app_pc)seg->vmaddr + seg->vmsize > seg_max_end)
                 seg_max_end = (app_pc)seg->vmaddr + seg->vmsize;
-            if (out_data != NULL) {
-                module_add_segment_data(out_data, 0/*don't know*/,
-                                        (app_pc) seg->vmaddr, seg->vmsize,
-                                        /* assuming we want initprot and not maxprot */
-                                        vmprot_to_memprot(seg->initprot),
-                                        /* XXX: alignment is specified per section --
-                                         * ignoring for now
-                                         */
-                                        PAGE_SIZE);
+            if (strcmp(seg->segname, "__PAGEZERO") == 0 &&
+                seg->initprot == 0) {
+                /* Skip it: zero page for executable, and it's hard to identify
+                 * that page as part of the module.
+                 */
+            } else if ((app_pc)seg->vmaddr < seg_min_start) {
+                seg_min_start = (app_pc) seg->vmaddr;
+                if (out_data != NULL) {
+                    module_add_segment_data(out_data, 0/*don't know*/,
+                                            (app_pc) seg->vmaddr, seg->vmsize,
+                                            /* assuming we want initprot, not maxprot */
+                                            vmprot_to_memprot(seg->initprot),
+                                            /* XXX: alignment is specified per section --
+                                             * ignoring for now
+                                             */
+                                            PAGE_SIZE);
+                }
             }
         } else if (cmd->cmd == LC_ID_DYLIB) {
             struct dylib_command *dy = (struct dylib_command *) cmd;
