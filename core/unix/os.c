@@ -53,10 +53,10 @@
 #include <sys/mman.h>
 /* in case MAP_32BIT is missing */
 #ifndef MAP_32BIT
-#  define MAP_32BIT 0x40
+# define MAP_32BIT 0x40
 #endif
 #ifndef MAP_ANONYMOUS
-#  define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
+# define MAP_ANONYMOUS MAP_ANON /* MAP_ANON on Mac */
 #endif
 /* for open */
 #include <sys/stat.h>
@@ -73,9 +73,13 @@
 #endif
 
 #ifdef LINUX
-#  include <sys/vfs.h> /* for statfs */
+# include <sys/vfs.h> /* for statfs */
 #elif defined(MACOS)
-#  include <sys/mount.h> /* for statfs */
+# include <sys/mount.h> /* for statfs */
+# include <mach/mach.h>
+# include <mach/task.h>
+# include <mach/semaphore.h>
+# include <mach/sync_policy.h>
 #endif
 
 #include <dirent.h>
@@ -2523,12 +2527,29 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
 void
 os_thread_sleep(uint64 milliseconds)
 {
-    struct timespec req;
+#ifdef MACOS
+    semaphore_t sem = MACH_PORT_NULL;
+    int res;
+#else
     struct timespec remain;
     int count = 0;
+#endif
+    struct timespec req;
     req.tv_sec = (milliseconds / 1000);
     /* docs say can go up to 1000000000, but doesn't work on FC9 */
     req.tv_nsec = (milliseconds % 1000) * 1000000;
+#ifdef MACOS
+    if (sem == MACH_PORT_NULL) {
+        DEBUG_DECLARE(kern_return_t res =)
+            semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
+        ASSERT(res == KERN_SUCCESS);
+    }
+    res = dynamorio_syscall(SYS___semwait_signal, 6, sem, MACH_PORT_NULL, 1, 1,
+                            (int64_t)req.tv_sec, (int32_t)req.tv_nsec);
+    if (res == -EINTR) {
+        /* FIXME i#58: figure out how much time elapsed and re-wait */
+    }
+#else
     /* FIXME: if we need accurate sleeps in presence of itimers we should
      * be using SYS_clock_nanosleep w/ an absolute time instead of relative
      */
@@ -2550,6 +2571,7 @@ os_thread_sleep(uint64 milliseconds)
         }
         req = remain;
     }
+#endif
 }
 
 bool
