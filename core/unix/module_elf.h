@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,8 +36,10 @@
 
 #include <elf.h> /* for ELF types */
 
-/* FIXME - can we have 32bit and 64bit elf files in the same process like we see in
- * windows WOW?  What if anything should we do to accommodate that? */
+/* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
+ * There is no official support for that on Linux or Mac and for now we do
+ * not support it either, especially not mixing libraries.
+ */
 #ifdef X64
 # define ELF_HEADER_TYPE Elf64_Ehdr
 # define ELF_ALTARCH_HEADER_TYPE Elf32_Ehdr

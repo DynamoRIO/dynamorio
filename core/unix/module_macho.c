@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * *******************************************************************************/
 
 /*
@@ -49,6 +49,23 @@
 #include <mach-o/ldsyms.h> /* _mh_dylib_header */
 #include <mach-o/loader.h> /* mach_header */
 #include <stddef.h> /* offsetof */
+
+#ifdef NOT_DYNAMORIO_CORE_PROPER
+# undef LOG
+# define LOG(...) /* nothing */
+#endif
+
+/* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
+ * There is no official support for that on Linux or Mac and for now we do
+ * not support it either, especially not mixing libraries.
+ */
+#ifdef X64
+typedef struct mach_header_64 mach_header_t;
+typedef struct segment_command_64 segment_command_t;
+#else
+typedef struct mach_header mach_header_t;
+typedef struct segment_command segment_command_t;
+#endif
 
 /* Like is_elf_so_header(), if size == 0 then safe-reads the header; else
  * assumes that [base, base+size) is readable.
@@ -110,8 +127,46 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             OUT char **out_soname,
                             OUT os_module_data_t *out_data)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return false;
+    mach_header_t *hdr = (mach_header_t *) base;
+    struct load_command *cmd, *cmd_stop;
+    app_pc seg_min_start = base + view_size;
+    app_pc seg_max_end = base;
+    bool found_seg = false;
+    ASSERT(is_macho_header(base, view_size));
+    cmd = (struct load_command *)(hdr + 1);
+    cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
+    while (cmd < cmd_stop) {
+        if (cmd->cmd == LC_SEGMENT) {
+            segment_command_t *seg = (segment_command_t *) cmd;
+            found_seg = true;
+            LOG(GLOBAL, LOG_VMAREAS, 4,
+                "%s: segment %s addr=0x%x sz=0x%x\n", __FUNCTION__,
+                seg->segname, seg->vmaddr, seg->vmsize);
+            if ((app_pc)seg->vmaddr < seg_min_start)
+                seg_min_start = (app_pc) seg->vmaddr;
+            if ((app_pc)seg->vmaddr + seg->vmsize > seg_max_end)
+                seg_max_end = (app_pc)seg->vmaddr + seg->vmsize;
+            /* XXX: we need to fill in segment data (like ELF module_add_segment_data:
+             * perhaps share some code there?).
+             * We also need to fill in out_data (like ELF module_fill_os_data).
+             */
+        } else if (cmd->cmd == LC_ID_DYLIB) {
+            struct dylib_command *dy = (struct dylib_command *) cmd;
+            char *soname = (char *)cmd + dy->dylib.name.offset;
+            /* XXX: we assume these strings are always null-terminated */
+            LOG(GLOBAL, LOG_VMAREAS, 4, "%s: lib identity %s\n", __FUNCTION__, soname);
+            if (out_soname != NULL)
+                *out_soname = soname;
+        }
+        cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
+    }
+    if (found_seg) {
+        if (out_base != NULL)
+            *out_base = seg_min_start;
+        if (out_end != NULL)
+            *out_end = seg_max_end;
+    }
+    return found_seg;
 }
 
 uint
@@ -143,8 +198,7 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
 bool
 module_is_header(app_pc base, size_t size /*optional*/)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return false;
+    return is_macho_header(base, size);
 }
 
 app_pc
