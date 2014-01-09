@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,6 +115,14 @@ module_file_is_module64(file_t f);
 
 bool
 module_get_platform(file_t f, dr_platform_t *platform);
+
+void
+module_add_segment_data(OUT os_module_data_t *out_data,
+                        uint num_segments /*hint only*/,
+                        app_pc segment_start,
+                        size_t segment_size,
+                        uint segment_prot,
+                        size_t alignment);
 
 /* Redirected functions for loaded module,
  * they are also used by __wrap_* functions in instrument.c

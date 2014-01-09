@@ -46,6 +46,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "module_private.h"
+#include "memquery_macos.h"
 #include <mach-o/ldsyms.h> /* _mh_dylib_header */
 #include <mach-o/loader.h> /* mach_header */
 #include <stddef.h> /* offsetof */
@@ -129,7 +130,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
 {
     mach_header_t *hdr = (mach_header_t *) base;
     struct load_command *cmd, *cmd_stop;
-    app_pc seg_min_start = base + view_size;
+    app_pc seg_min_start = base + (view_size == 0 ? PAGE_SIZE : view_size);
     app_pc seg_max_end = base;
     bool found_seg = false;
     ASSERT(is_macho_header(base, view_size));
@@ -150,6 +151,16 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
              * perhaps share some code there?).
              * We also need to fill in out_data (like ELF module_fill_os_data).
              */
+            if (out_data != NULL) {
+                module_add_segment_data(out_data, 0/*don't know*/,
+                                        (app_pc) seg->vmaddr, seg->vmsize,
+                                        /* assuming we want initprot and not maxprot */
+                                        vmprot_to_memprot(seg->initprot),
+                                        /* XXX: alignment is specified per section --
+                                         * ignoring for now
+                                         */
+                                        PAGE_SIZE);
+            }
         } else if (cmd->cmd == LC_ID_DYLIB) {
             struct dylib_command *dy = (struct dylib_command *) cmd;
             char *soname = (char *)cmd + dy->dylib.name.offset;

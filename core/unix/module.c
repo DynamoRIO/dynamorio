@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -409,6 +409,63 @@ os_module_get_rct_htable(app_pc pc, rct_type_t which)
     return NULL; /* we use rac_non_module_table */
 }
 #endif
+
+/* Adds an entry for a segment to the out_data->segments array */
+void
+module_add_segment_data(OUT os_module_data_t *out_data,
+                        uint num_segments /*hint only*/,
+                        app_pc segment_start,
+                        size_t segment_size,
+                        uint segment_prot, /* MEMPROT_ */
+                        size_t alignment)
+{
+    uint seg, i;
+    if (out_data->alignment == 0) {
+        out_data->alignment = alignment;
+    } else {
+        /* We expect all segments to have the same alignment */
+        ASSERT_CURIOSITY(out_data->alignment == alignment);
+    }
+    /* Add segments to the module vector (i#160/PR 562667).
+     * For !HAVE_MEMINFO we should combine w/ the segment
+     * walk done in dl_iterate_get_areas_cb().
+     */
+    if (out_data->num_segments == 0) {
+        /* over-allocate to avoid 2 passes to count PT_LOAD */
+        out_data->alloc_segments = (num_segments == 0 ? 4 : num_segments);
+        out_data->segments = (module_segment_t *)
+            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
+                             out_data->alloc_segments, ACCT_OTHER, PROTECTED);
+        out_data->contiguous = true;
+    }
+    /* Keep array sorted in addr order.  I'm assuming segments are disjoint! */
+    for (i = 0; i < out_data->num_segments; i++) {
+        if (out_data->segments[i].start > segment_start)
+            break;
+    }
+    seg = i;
+    /* Shift remaining entries */
+    for (i = out_data->num_segments; i > seg; i++) {
+        out_data->segments[i] = out_data->segments[i - 1];
+    }
+    out_data->num_segments++;
+    ASSERT(out_data->num_segments <= out_data->alloc_segments);
+    /* ELF requires p_vaddr to already be aligned to p_align */
+    out_data->segments[seg].start = (app_pc) ALIGN_BACKWARD(segment_start, PAGE_SIZE);
+    out_data->segments[seg].end = (app_pc)
+        ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
+    out_data->segments[seg].prot = segment_prot;
+    if (seg > 0) {
+        ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
+        if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
+            out_data->contiguous = false;
+    }
+    if (seg < out_data->num_segments - 1) {
+        ASSERT(out_data->segments[seg + 1].start >= out_data->segments[seg].end);
+        if (out_data->segments[seg + 1].start > out_data->segments[seg].end)
+            out_data->contiguous = false;
+    }
+}
 
 /* Returns true if the module has an nth segment, false otherwise. */
 bool

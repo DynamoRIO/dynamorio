@@ -40,6 +40,7 @@
 
 #include "../globals.h"
 #include "memquery.h"
+#include "memquery_macos.h"
 #include "os_private.h"
 
 #include <mach/mach.h>
@@ -146,22 +147,6 @@ memquery_iterator_stop(memquery_iter_t *iter)
                        ACCT_MEM_MGT, PROTECTED);
     } else
         mutex_unlock(&memquery_backing_lock);
-}
-
-/* Translate mach flags to memprot flags.  They happen to equal the mmap
- * flags, but best to not rely on that.
- */
-static inline uint
-vmprot_to_memprot(uint prot)
-{
-    uint mem_prot = 0;
-    if (TEST(VM_PROT_EXECUTE, prot))
-        mem_prot |= MEMPROT_EXEC;
-    if (TEST(VM_PROT_READ, prot))
-        mem_prot |= MEMPROT_READ;
-    if (TEST(VM_PROT_WRITE, prot))
-        mem_prot |= MEMPROT_WRITE;
-    return mem_prot;
 }
 
 bool

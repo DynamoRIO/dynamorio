@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -311,62 +311,6 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
-/* Adds an entry for a segment to the out_data->segments array */
-static void
-module_add_segment_data(OUT os_module_data_t *out_data,
-                        ELF_HEADER_TYPE *elf_hdr,
-                        ptr_int_t load_delta,
-                        ELF_PROGRAM_HEADER_TYPE *prog_hdr)
-{
-    uint seg, i;
-    if (out_data->alignment == 0) {
-        out_data->alignment = prog_hdr->p_align;
-    } else {
-        /* We expect all segments to have the same alignment */
-        ASSERT_CURIOSITY(out_data->alignment == prog_hdr->p_align);
-    }
-    /* Add segments to the module vector (i#160/PR 562667).
-     * For !HAVE_MEMINFO we should combine w/ the segment
-     * walk done in dl_iterate_get_areas_cb().
-     */
-    if (out_data->num_segments == 0) {
-        /* over-allocate to avoid 2 passes to count PT_LOAD */
-        out_data->alloc_segments = elf_hdr->e_phnum;
-        out_data->segments = (module_segment_t *)
-            HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
-                             out_data->alloc_segments, ACCT_OTHER, PROTECTED);
-        out_data->contiguous = true;
-    }
-    /* Keep array sorted in addr order.  I'm assuming segments are disjoint! */
-    for (i = 0; i < out_data->num_segments; i++) {
-        if (out_data->segments[i].start > (app_pc)prog_hdr->p_vaddr + load_delta)
-            break;
-    }
-    seg = i;
-    /* Shift remaining entries */
-    for (i = out_data->num_segments; i > seg; i++) {
-        out_data->segments[i] = out_data->segments[i - 1];
-    }
-    out_data->num_segments++;
-    ASSERT(out_data->num_segments <= out_data->alloc_segments);
-    /* ELF requires p_vaddr to already be aligned to p_align */
-    out_data->segments[seg].start = (app_pc)
-        ALIGN_BACKWARD(prog_hdr->p_vaddr + load_delta, PAGE_SIZE);
-    out_data->segments[seg].end = (app_pc)
-        ALIGN_FORWARD(prog_hdr->p_vaddr + load_delta + prog_hdr->p_memsz, PAGE_SIZE);
-    out_data->segments[seg].prot = module_segment_prot_to_osprot(prog_hdr);
-    if (seg > 0) {
-        ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
-        if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
-            out_data->contiguous = false;
-    }
-    if (seg < out_data->num_segments - 1) {
-        ASSERT(out_data->segments[seg + 1].start >= out_data->segments[seg].end);
-        if (out_data->segments[seg + 1].start > out_data->segments[seg].end)
-            out_data->contiguous = false;
-    }
-}
-
 /* common code to fill os_module_data_t for loader and module_area_t */
 static void
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
@@ -519,8 +463,11 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                 (base + elf_hdr->e_phoff + i * elf_hdr->e_phentsize);
             if (prog_hdr->p_type == PT_LOAD) {
                 if (out_data != NULL) {
-                    module_add_segment_data(out_data, elf_hdr,
-                                            load_delta, prog_hdr);
+                    module_add_segment_data(out_data, elf_hdr->e_phnum,
+                                            (app_pc) prog_hdr->p_vaddr + load_delta,
+                                            prog_hdr->p_memsz,
+                                            module_segment_prot_to_osprot(prog_hdr),
+                                            prog_hdr->p_align);
                 }
                 found_load = true;
             }
