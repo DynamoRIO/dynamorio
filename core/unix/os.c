@@ -1501,6 +1501,8 @@ os_tls_init(void)
 
     tls_thread_init(os_tls, segment);
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
+    /* store type in global var for convenience: should be same for all threads */
+    tls_global_type = os_tls->tls_type;
     /* FIXME: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
      * Should have create_ldt_entry() return failure instead of asserting, then.
      */

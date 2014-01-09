@@ -555,9 +555,6 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     }
 
     os_tls->ldt_index = index;
-
-    /* store type in global var for convenience: should be same for all threads */
-    tls_global_type = os_tls->tls_type;
 }
 
 void

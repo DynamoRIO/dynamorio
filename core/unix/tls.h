@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -134,7 +134,7 @@ read_selector(reg_id_t seg)
 #  define GDT_NUM_TLS_SLOTS 3
 #elif defined(MACOS)
 /* XXX: rename to APP_SAVED_TLS_SLOTS or sthg? */
-#  define GDT_NUM_TLS_SLOTS 2
+#  define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
 #endif
 
 #define MAX_NUM_CLIENT_TLS 64
