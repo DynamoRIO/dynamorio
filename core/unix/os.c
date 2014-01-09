@@ -933,7 +933,16 @@ get_timer_frequency()
 uint
 query_time_seconds(void)
 {
+#ifdef MACOS
+    struct timeval tv;
+    /* MacOS returns usecs:secs and does not set the timeval struct */
+    uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &tv, NULL);
+    if ((int)val < 0)
+        return 0;
+    return (uint)val + UTC_TO_EPOCH_SECONDS;
+#else
     return (uint) dynamorio_syscall(SYS_time, 1, NULL) + UTC_TO_EPOCH_SECONDS;
+#endif
 }
 
 /* milliseconds since 1601 */
@@ -941,7 +950,15 @@ uint64
 query_time_millis()
 {
     struct timeval current_time;
-    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) == 0) {
+#ifdef MACOS
+    /* MacOS returns usecs:secs and does not set the timeval struct */
+    uint64 val = dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL);
+    current_time.tv_sec = (uint) val;
+    current_time.tv_usec = (uint)(val >> 32);
+    if ((int)val > 0) {
+#else
+    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+#endif
         uint64 res = (((uint64)current_time.tv_sec) * 1000) +
             (current_time.tv_usec / 1000);
         res += UTC_TO_EPOCH_SECONDS * 1000;
