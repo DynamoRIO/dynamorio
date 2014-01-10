@@ -198,6 +198,8 @@ if (UNIX)
     config.c
     unix/os.c
     ${x86_noncore_asm_src}
+    # i#1334: private string routines for libc independence
+    string.c
     )
   set(INJECTOR_SRCS
     unix/injector.c
