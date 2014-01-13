@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -114,8 +114,12 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 \section sec_changes Changes Since Prior Releases
 
 The current version is \DR_VERSION.  
+The changes between version \DR_VERSION and 4.2.0 include:
 
-The changes between version \DR_VERSION and 4.1.0 include:
+ - Added dr_syscall_get_result_ex() and dr_syscall_set_result_ex() for
+   future MacOS support.
+
+The changes between version 4.2.0 and 4.1.0 include:
 
  - Added preliminary Windows 8.1 support
  - Added a new \ref page_drltrace

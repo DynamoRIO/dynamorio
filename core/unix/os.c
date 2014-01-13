@@ -4085,6 +4085,10 @@ sys_param_addr(dcontext_t *dcontext, int num)
     /* XXX: if we don't end up using dcontext->sys_was_int here, we could
      * make that field Linux-only.
      */
+    /* For 32-bit, the args are passed on the stack, above a retaddr slot
+     * (regardless of whether using a sysenter or int gateway).
+     */
+    return ((reg_t *)mc->esp) + 1/*retaddr*/ + num;
 # endif
     /* even for vsyscall where ecx (syscall) or esp (sysenter) are saved into
      * ebp, the original parameter registers are not yet changed pre-syscall,
@@ -4120,8 +4124,36 @@ sys_param(dcontext_t *dcontext, int num)
     return *sys_param_addr(dcontext, num);
 }
 
-/* since always coming from dispatch now, only need to set mcontext */
-#define SET_RETURN_VAL(dc, val)  get_mcontext(dc)->xax = (val);
+/* For non-Mac, this does nothing to indicate "success": you can pass -errno.
+ * For Mac, this clears CF and just sets xax.  To return a 64-bit value in
+ * 32-bit mode, the caller must explicitly set xdx as well (we don't always
+ * do so b/c syscalls that just return 32-bit values do not touch xdx).
+ */
+static inline void
+set_success_return_val(dcontext_t *dcontext, reg_t val)
+{
+    /* since always coming from dispatch now, only need to set mcontext */
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+#ifdef MACOS
+    /* On MacOS, success is determined by CF */
+    mc->eflags &= ~(EFLAGS_CF);
+#endif
+    mc->xax = val;
+}
+
+/* Always pass a positive value for errno */
+static inline void
+set_failure_return_val(dcontext_t *dcontext, uint errno)
+{
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+#ifdef MACOS
+    /* On MacOS, success is determined by CF, and errno is positive */
+    mc->eflags |= EFLAGS_CF;
+    mc->xax = errno;
+#else
+    mc->xax = -(int)errno;
+#endif
+}
 
 #ifdef CLIENT_INTERFACE
 DR_API
@@ -4163,7 +4195,10 @@ dr_syscall_set_result(void *drcontext, reg_t value)
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_result() can only be called from a syscall event");
-    SET_RETURN_VAL(dcontext, value);
+    /* For non-Mac, the caller can still pass -errno and this will work.
+     * XXX: we need dr_syscall_set_result_ex() for Mac.
+     */
+    set_success_return_val(dcontext, value);
 }
 
 DR_API
@@ -4654,7 +4689,7 @@ handle_close_pre(dcontext_t *dcontext)
         SYSLOG_INTERNAL_WARNING_ONCE("app trying to close DR file(s)");
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "WARNING: app trying to close DR file %d!  Not allowing it.\n", fd);
-        SET_RETURN_VAL(dcontext, -EBADF);
+        set_failure_return_val(dcontext, EBADF);
         DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
         return false; /* do not execute syscall */
     }
@@ -5115,7 +5150,7 @@ pre_system_call(dcontext_t *dcontext)
                  * we'd need dedicate per-thread storage, and SYS_mmap is obsolete.
                  */
                 execute_syscall = false;
-                SET_RETURN_VAL(dcontext, -ENOMEM);
+                set_failure_return_val(dcontext, ENOMEM);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 break;
             }
@@ -5151,7 +5186,7 @@ pre_system_call(dcontext_t *dcontext)
                 *sys_param_addr(dcontext, 0) = 0;
             } else {
                 execute_syscall = false;
-                SET_RETURN_VAL(dcontext, -ENOMEM);
+                set_failure_return_val(dcontext, ENOMEM);
                 DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
                 break;
             }
@@ -5294,7 +5329,7 @@ pre_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "\t"PFX" isn't mapped; aborting mprotect\n", addr);
             execute_syscall = false;
-            SET_RETURN_VAL(dcontext, -ENOMEM);
+            set_failure_return_val(dcontext, ENOMEM);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             break;
         } else {
@@ -5457,7 +5492,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param3 = (reg_t) sigsetsize;
         execute_syscall = handle_sigaction(dcontext, sig, act, oact, sigsetsize);
         if (!execute_syscall) {
-            SET_RETURN_VAL(dcontext, 0);
+            set_success_return_val(dcontext, 0);
         }
         break;
     }
@@ -5492,7 +5527,7 @@ pre_system_call(dcontext_t *dcontext)
         execute_syscall =
             handle_sigaltstack(dcontext, uss, uoss);
         if (!execute_syscall) {
-            SET_RETURN_VAL(dcontext, 0);
+            set_success_return_val(dcontext, 0);
         }
         break;
     }
@@ -5513,7 +5548,7 @@ pre_system_call(dcontext_t *dcontext)
                                (kernel_sigset_t *) sys_param(dcontext, 2),
                                (size_t) sys_param(dcontext, 3));
         if (!execute_syscall)
-            SET_RETURN_VAL(dcontext, 0);
+            set_success_return_val(dcontext, 0);
         break;
     }
 #ifdef MACOS
@@ -5547,7 +5582,8 @@ pre_system_call(dcontext_t *dcontext)
                                 (size_t) dcontext->sys_param2,
                                 (int) dcontext->sys_param3);
         execute_syscall = false;
-        SET_RETURN_VAL(dcontext, new_result);
+        /* since non-Mac, we can use this even if the call failed */
+        set_success_return_val(dcontext, new_result);
         break;
     }
 #endif
@@ -5706,7 +5742,7 @@ pre_system_call(dcontext_t *dcontext)
             SYSLOG_INTERNAL_WARNING_ONCE("app trying to dup-close DR file(s)");
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "WARNING: app trying to dup2/dup3 to %d.  Disallowing.\n", newfd);
-            SET_RETURN_VAL(dcontext, -EBADF);
+            set_failure_return_val(dcontext, EBADF);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             execute_syscall = false;
         }
@@ -5726,7 +5762,7 @@ pre_system_call(dcontext_t *dcontext)
             SYSLOG_INTERNAL_WARNING_ONCE("app trying to open private fd(s)");
             LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
                 "WARNING: app trying to dup to >= %d.  Disallowing.\n", arg);
-            SET_RETURN_VAL(dcontext, -EINVAL);
+            set_failure_return_val(dcontext, EINVAL);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             execute_syscall = false;
         } else {
@@ -5747,7 +5783,7 @@ pre_system_call(dcontext_t *dcontext)
         int resource = (int) sys_param(dcontext, 0);
         if (resource == RLIMIT_NOFILE && DYNAMO_OPTION(steal_fds) > 0) {
             /* don't let app change limits as that would mess up our fd space */
-            SET_RETURN_VAL(dcontext, -EPERM);
+            set_failure_return_val(dcontext, EPERM);
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             execute_syscall = false;
         }
@@ -5775,7 +5811,7 @@ pre_system_call(dcontext_t *dcontext)
                 /* check if the range is unlimited */
                 ASSERT_CURIOSITY(desc.limit == 0xfffff);
                 execute_syscall = false;
-                SET_RETURN_VAL(dcontext, 0);
+                set_success_return_val(dcontext, 0);
             }
         }
         break;
@@ -5789,7 +5825,7 @@ pre_system_call(dcontext_t *dcontext)
                 safe_write_ex((void *)sys_param(dcontext, 0), 
                               sizeof(desc), &desc, NULL)) {
                 execute_syscall = false;
-                SET_RETURN_VAL(dcontext, 0);
+                set_success_return_val(dcontext, 0);
             }
         }
         break;
@@ -6146,7 +6182,11 @@ post_system_call(dcontext_t *dcontext)
      * case-by-case basis in the switch statement below.
      */
     ptr_int_t result = (ptr_int_t) mc->xax; /* signed */
+#ifdef MACOS
+    bool success = !TEST(EFLAGS_CF, mc->eflags);
+#else
     bool success = (result >= 0);
+#endif
     app_pc base;
     size_t size;
     uint prot;
@@ -6244,6 +6284,7 @@ post_system_call(dcontext_t *dcontext)
         base = (app_pc) mc->xax; /* For mmap, it's NOT arg->addr! */
         /* mmap isn't simply a user-space wrapper for mmap2. It's called
          * directly when dynamically loading an SO, i.e., dlopen(). */
+#ifdef LINUX /* MacOS success is in CF */
         success = mmap_syscall_succeeded((app_pc)result);
         /* The syscall either failed OR the retcode is less than the
          * largest uint value of any errno and the addr returned is
@@ -6252,6 +6293,9 @@ post_system_call(dcontext_t *dcontext)
         ASSERT_CURIOSITY(!success ||
                          ((app_pc)result < (app_pc)(ptr_int_t)-0x1000 &&
                           ALIGNED(base, PAGE_SIZE)));
+#else
+        ASSERT_CURIOSITY(!success || ALIGNED(base, PAGE_SIZE));
+#endif
         if (!success)
             goto exit_post_system_call;
 #ifndef X64
@@ -6347,7 +6391,8 @@ post_system_call(dcontext_t *dcontext)
         if (os_in_vmkernel_userworld() &&
             result == -EBUSY && prot == PROT_NONE) {
             result = mprotect_syscall(base, size, PROT_READ);
-            SET_RETURN_VAL(dcontext, result);
+            /* since non-Mac, we can use this even if the call failed */
+            set_success_return_val(dcontext, result);
             success = (result >= 0);
             LOG(THREAD, LOG_VMAREAS, 1, 
                 "re-doing mprotect -EBUSY for "PFX"-"PFX" => %d\n",
