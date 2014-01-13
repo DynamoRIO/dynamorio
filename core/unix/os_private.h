@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,6 +84,13 @@
 #define PTHREAD_CLONE_FLAGS (CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND| \
                              CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS| \
                              CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID)
+
+/* On Mac, we use the _nocancel variant to defer app-initiated thread termination */
+#ifdef MACOS
+# define SYSNUM_NO_CANCEL(num) num##_nocancel
+#else
+# define SYSNUM_NO_CANCEL(num) num
+#endif
 
 /* Maximum number of arguments to Linux syscalls. */
 enum { MAX_SYSCALL_ARGS = 6 };

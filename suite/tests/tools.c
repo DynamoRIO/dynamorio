@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -449,7 +449,13 @@ nolibc_strlen(const char *str)
 void
 nolibc_print(const char *str)
 {
-    nolibc_syscall(SYS_write, 3, stderr->_fileno, str, nolibc_strlen(str));
+    nolibc_syscall(
+#ifdef MACOS
+                   SYS_write_nocancel,
+#else
+                   SYS_write,
+#endif
+                   3, stderr->_fileno, str, nolibc_strlen(str));
 }
 
 /* Safe print int syscall.

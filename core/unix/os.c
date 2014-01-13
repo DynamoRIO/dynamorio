@@ -2567,7 +2567,8 @@ os_thread_sleep(uint64 milliseconds)
             semaphore_create(mach_task_self(), &sem, SYNC_POLICY_FIFO, 0);
         ASSERT(res == KERN_SUCCESS);
     }
-    res = dynamorio_syscall(SYS___semwait_signal, 6, sem, MACH_PORT_NULL, 1, 1,
+    res = dynamorio_syscall(SYSNUM_NO_CANCEL(SYS___semwait_signal),
+                            6, sem, MACH_PORT_NULL, 1, 1,
                             (int64_t)req.tv_sec, (int32_t)req.tv_nsec);
     if (res == -EINTR) {
         /* FIXME i#58: figure out how much time elapsed and re-wait */
@@ -3106,13 +3107,13 @@ int
 open_syscall(const char *file, int flags, int mode)
 {
     ASSERT(file != NULL);
-    return dynamorio_syscall(SYS_open, 3, file, flags, mode);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_open), 3, file, flags, mode);
 }
 
 int
 close_syscall(int fd)
 {
-    return dynamorio_syscall(SYS_close, 1, fd);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_close), 1, fd);
 }
 
 int
@@ -3124,20 +3125,20 @@ dup_syscall(int fd)
 ssize_t
 read_syscall(int fd, void *buf, size_t nbytes)
 {
-    return dynamorio_syscall(SYS_read, 3, fd, buf, nbytes);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_read), 3, fd, buf, nbytes);
 }
 
 ssize_t
 write_syscall(int fd, const void *buf, size_t nbytes)
 {
-    return dynamorio_syscall(SYS_write, 3, fd, buf, nbytes);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_write), 3, fd, buf, nbytes);
 }
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 static int
 fcntl_syscall(int fd, int cmd, long arg)
 {
-    return dynamorio_syscall(SYS_fcntl, 3, fd, cmd, arg);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_fcntl), 3, fd, cmd, arg);
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 

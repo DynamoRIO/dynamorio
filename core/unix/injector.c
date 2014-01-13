@@ -884,7 +884,7 @@ gen_print(void *dc, instrlist_t *ilist, const char *msg)
     args[1] = OPND_CREATE_MEMPTR(DR_REG_XSP, 0);  /* msg is on TOS. */
     args[2] = OPND_CREATE_INTPTR(strlen(msg));
     gen_push_string(dc, ilist, msg);
-    gen_syscall(dc, ilist, SYS_write, 3, args);
+    gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_write), 3, args);
 }
 #endif
 
@@ -1015,7 +1015,7 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
-    gen_syscall(dc, ilist, SYS_open, num_args, args);
+    gen_syscall(dc, ilist, SYSNUM_NO_CANCEL(SYS_open), num_args, args);
     return injectee_run_get_retval(info, dc, ilist);
 }
 

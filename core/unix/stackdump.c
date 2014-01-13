@@ -80,7 +80,7 @@
 pid_t
 wait_syscall(int *status)
 {
-    return dynamorio_syscall(SYS_wait4, 4, WAIT_ANY, status, 0, NULL);
+    return dynamorio_syscall(SYSNUM_NO_CANCEL(SYS_wait4), 4, WAIT_ANY, status, 0, NULL);
 }
 
 static int
