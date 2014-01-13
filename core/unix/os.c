@@ -3995,10 +3995,16 @@ ignorable_system_call(int num)
 #endif
     case SYS_setitimer:
     case SYS_getitimer:
+#ifdef MACOS
+    case SYS_close_nocancel:
+#endif
     case SYS_close:
     case SYS_dup2:
 #ifdef LINUX
     case SYS_dup3:
+#endif
+#ifdef MACOS
+    case SYS_fcntl_nocancel:
 #endif
     case SYS_fcntl:
     case SYS_getrlimit:
@@ -5510,6 +5516,9 @@ pre_system_call(dcontext_t *dcontext)
             SET_RETURN_VAL(dcontext, 0);
         break;
     }
+#ifdef MACOS
+    case SYS_sigsuspend_nocancel:
+#endif
     case IF_MACOS_ELSE(SYS_sigsuspend,SYS_rt_sigsuspend): { /* 179 */
         /* in /usr/src/linux/kernel/signal.c:
            asmlinkage int
@@ -5678,6 +5687,9 @@ pre_system_call(dcontext_t *dcontext)
      * it's not worth monitoring all syscalls that take in fds from affecting ours.
      */
  
+#ifdef MACOS
+    case SYS_close_nocancel:
+#endif
     case SYS_close: {
         execute_syscall = handle_close_pre(dcontext);
 #ifdef LINUX
@@ -5701,6 +5713,9 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
+#ifdef MACOS
+    case SYS_fcntl_nocancel:
+#endif
     case SYS_fcntl: {
         int cmd = (int) sys_param(dcontext, 1);
         long arg = (long) sys_param(dcontext, 2);
@@ -5784,6 +5799,9 @@ pre_system_call(dcontext_t *dcontext)
 #endif
 
 #ifdef DEBUG
+# ifdef MACOS
+    case SYS_open_nocancel:
+# endif
     case SYS_open: {
         dcontext->sys_param0 = sys_param(dcontext, 0);
         break;
@@ -6201,6 +6219,9 @@ post_system_call(dcontext_t *dcontext)
     /* MEMORY REGIONS */
 
 #ifdef DEBUG
+# ifdef MACOS
+    case SYS_open_nocancel:
+# endif
     case SYS_open: {
         if (success) {
             /* useful for figuring out what module was loaded that then triggers
@@ -6542,16 +6563,19 @@ post_system_call(dcontext_t *dcontext)
         break;
     }
 
+#ifdef MACOS
+    case SYS_fcntl_nocancel:
+#endif
     case SYS_fcntl: {
-#ifdef LINUX
+#ifdef LINUX /* Linux-only since only for signalfd */
         if (success) {
             file_t fd = (long) dcontext->sys_param0;
             int cmd = (int) dcontext->sys_param1;
             if ((cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC))
                 signal_handle_dup(dcontext, fd, (file_t) result);
         }
-#endif
         break;
+#endif
     }
 
     case SYS_getrlimit: {
@@ -6586,6 +6610,7 @@ post_system_call(dcontext_t *dcontext)
              * for SYS_close case.
              */
             if (!(success || sysnum == SYS_close ||
+                  IF_MACOS(sysnum == SYS_close_nocancel ||)
                   dcontext->expect_last_syscall_to_fail)) {
                 LOG(THREAD, LOG_SYSCALLS, 1,
                     "Unexpected failure of non-ignorable syscall %d\n", sysnum);
