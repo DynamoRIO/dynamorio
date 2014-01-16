@@ -274,7 +274,9 @@ typedef enum {
 #define NUM_XMM_REGS  NUM_XMM_SAVED
 #define NUM_GP_REGS   (1 + (IF_X64_ELSE(DR_REG_R15, DR_REG_XDI) - DR_REG_XAX))
 
-/* information about each individual clean call invocation site */
+/* Information about each individual clean call invocation site.
+ * The whole struct is set to 0 at init time.
+ */
 typedef struct _clean_call_info_t {
     void *callee;
     uint num_args;
@@ -289,6 +291,7 @@ typedef struct _clean_call_info_t {
     uint num_regs_skip;
     bool reg_skip[NUM_GP_REGS];
     bool preserve_mcontext; /* even if skip reg save, preserve mcontext shape */
+    bool out_of_line_swap; /* whether we use clean_call_{save,restore} gencode */
     void *callee_info;  /* callee information */
     instrlist_t *ilist; /* instruction list for inline optimization */
 } clean_call_info_t;

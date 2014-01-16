@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -856,6 +856,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
     if (cci == NULL)
         cci = &default_clean_call_info;
+
     /* Swap stacks.  For thread-shared, we need to get the dcontext
      * dynamically rather than use the constant passed in here.  Save
      * away xax in a TLS slot and then load the dcontext there.
@@ -878,11 +879,13 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
          * death" by using xsp as scratch but don't have simple alternative.
+         * We don't support non-SCRATCH_ALWAYS_TLS.
          */
         /* XXX: should use clean callee analysis to remove pieces of this
          * such as errno preservation
          */
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+            !cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, true/*to priv*/);
         }
@@ -896,6 +899,13 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     }
     else {
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+            !cci->out_of_line_swap) {
+            preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
+                               REG_XAX/*unused*/, REG_XSP/*scratch*/, true/*to priv*/);
+        }
+#endif
         PRE(ilist, instr, instr_create_restore_dynamo_stack(dcontext));
     }
 
@@ -910,9 +920,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * this while hotpatching cannot (hotp_inject_gateway_call() fixes it up every
      * time) b/c the callee has to ask for the priv_mcontext_t.
      */
-    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
-        cci->num_regs_skip == 0 /* save all regs */ &&
-        !cci->skip_save_aflags) {
+    if (cci->out_of_line_swap) {
         dstack_offs +=
             insert_out_of_line_context_switch(dcontext, ilist, instr, true);
     } else {
@@ -981,9 +989,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
 
     /* now restore everything */
-    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
-        cci->num_regs_skip == 0 /* save all regs */ &&
-        !cci->skip_save_aflags) {
+    if (cci->out_of_line_swap) {
         insert_out_of_line_context_switch(dcontext, ilist, instr, false);
     } else {
         insert_pop_all_registers(dcontext, cci, ilist, instr,
@@ -1004,8 +1010,10 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
          * death" by using xsp as scratch but don't have simple alternative.
+         * We don't support non-SCRATCH_ALWAYS_TLS.
          */
-        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+            !cci->out_of_line_swap) {
             preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
                                REG_XAX/*dc*/, REG_XSP/*scratch*/, false/*to app*/);
         }
@@ -1018,6 +1026,13 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
             (dcontext, REG_XAX, TLS_XAX_SLOT));
     }
     else {
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+        if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer() &&
+            !cci->out_of_line_swap) {
+            preinsert_swap_peb(dcontext, ilist, instr, !SCRATCH_ALWAYS_TLS(),
+                               REG_XAX/*unused*/, REG_XSP/*scratch*/, false/*to app*/);
+        }
+#endif
         PRE(ilist, instr,
             instr_create_restore_from_dcontext(dcontext, REG_XSP, XSP_OFFSET));
     }
@@ -6119,46 +6134,53 @@ analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
                    void *callee, bool save_fpstate, uint num_args, opnd_t *args)
 {
     callee_info_t *ci;
+    /* by default, no inline optimization */
+    bool should_inline = false;
 
     CLIENT_ASSERT(callee != NULL, "Clean call target is NULL");
     /* 1. init clean_call_info */
     clean_call_info_init(cci, callee, save_fpstate, num_args);
     /* 2. check runtime optimization options */
-    if (INTERNAL_OPTION(opt_cleancall) == 0)
-        return false;
-    /* 3. search if callee was analyzed before */
-    ci = callee_info_table_lookup(callee);
-    /* 4. this callee is not seen before */
-    if (ci == NULL) {
-        STATS_INC(cleancall_analyzed);
-        LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: analyze callee "PFX"\n", callee);
-        /* 4.1. create func_info */
-        ci = callee_info_create((app_pc)callee, num_args);
-        /* 4.2. decode the callee */
-        decode_callee_ilist(dcontext, ci);
-        /* 4.3. analyze the instrlist */
-        if (!ci->bailout)
-            analyze_callee_ilist(dcontext, ci);
-        /* 4.4. add info into callee list */
-        ci = callee_info_table_add(ci);
+    if (INTERNAL_OPTION(opt_cleancall) > 0) {
+        /* 3. search if callee was analyzed before */
+        ci = callee_info_table_lookup(callee);
+        /* 4. this callee is not seen before */
+        if (ci == NULL) {
+            STATS_INC(cleancall_analyzed);
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: analyze callee "PFX"\n", callee);
+            /* 4.1. create func_info */
+            ci = callee_info_create((app_pc)callee, num_args);
+            /* 4.2. decode the callee */
+            decode_callee_ilist(dcontext, ci);
+            /* 4.3. analyze the instrlist */
+            if (!ci->bailout)
+                analyze_callee_ilist(dcontext, ci);
+            /* 4.4. add info into callee list */
+            ci = callee_info_table_add(ci);
+        }
+        cci->callee_info = ci;
+        if (ci->bailout) {
+            callee_info_init(ci);
+            ci->start = (app_pc)callee;
+            LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: bailout "PFX"\n", callee);
+        } else {
+            /* 5. aflags optimization analysis */
+            analyze_clean_call_aflags(dcontext, cci, where);
+            /* 6. register optimization analysis */
+            analyze_clean_call_regs(dcontext, cci);
+            /* 7. check arguments */
+            analyze_clean_call_args(dcontext, cci, args);
+            /* 8. inline optimization analysis */
+            should_inline = analyze_clean_call_inline(dcontext, cci);
+        }
     }
-    cci->callee_info = ci;
-    if (ci->bailout) {
-        callee_info_init(ci);
-        ci->start = (app_pc)callee;
-        return false;
-    }
-    /* 5. aflags optimization analysis */
-    analyze_clean_call_aflags(dcontext, cci, where);
-    /* 6. register optimization analysis */
-    analyze_clean_call_regs(dcontext, cci);
-    /* 7. check arguments */
-    analyze_clean_call_args(dcontext, cci, args);
-    /* 8. inline optimization analysis */
-    if (analyze_clean_call_inline(dcontext, cci))
-        return true;
-    /* by default, no inline optimization */
-    return false;
+    /* 9. derived fields */
+    if (cci->num_xmms_skip == 0 /* save all xmms */ &&
+        cci->num_regs_skip == 0 /* save all regs */ &&
+        !cci->skip_save_aflags)
+        cci->out_of_line_swap = true;
+
+    return should_inline;
 }
 
 static void

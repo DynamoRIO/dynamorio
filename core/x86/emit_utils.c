@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2997,8 +2997,7 @@ build_profile_call_buffer()
     /*  77F45BBE: 89 48 34           mov         reg_result, dword ptr fs:[34h] */
 
 /* i#249: isolate app's PEB+TEB by keeping our own copy and swapping on cxt switch
- * XXX i#171: this is getting longer.  We should save space in clean calls via a shared
- * gencode sequence.
+ * For clean calls we share this in clean_call_{save,restore} (i#171, i#1349).
  */
 void
 preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
@@ -8107,6 +8106,30 @@ emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     insert_push_all_registers(dcontext, NULL, &ilist, NULL, PAGE_SIZE,
                               INSTR_CREATE_push_imm(dcontext,
                                                     OPND_CREATE_INT32(0)));
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* i#249: isolate the PEB */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        /* We pay the cost of this extra load of dcontext in order to get
+         * this code shared (when not shared we place this where we already
+         * have the dcontext in a register: see prepare_for_clean_call()).
+         */
+        if (SCRATCH_ALWAYS_TLS())
+            insert_get_mcontext_base(dcontext, &ilist, NULL, REG_XAX);
+        preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
+                           REG_XAX/*dc*/, REG_XCX/*scratch*/, true/*to priv*/);
+        /* We also need 2 extra loads to restore the 2 regs, in case the
+         * clean call passes them as args.
+         */
+        APP(&ilist, INSTR_CREATE_mov_ld
+            (dcontext, opnd_create_reg(REG_XAX),
+             OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xax))));
+        APP(&ilist, INSTR_CREATE_mov_ld
+            (dcontext, opnd_create_reg(REG_XCX),
+             OPND_CREATE_MEMPTR(REG_XSP, offsetof(priv_mcontext_t, xcx))));
+    }
+#endif
+
     /* clear eflags */
     insert_clear_eflags(dcontext, NULL, &ilist, NULL);
     /* return back */
@@ -8131,6 +8154,21 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     instrlist_t ilist;
 
     instrlist_init(&ilist);
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* i#249: isolate the PEB */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        /* We pay the cost of this extra load of dcontext in order to get
+         * this code shared (when not shared we place this where we already
+         * have the dcontext in a register: see cleanup_after_clean_call()).
+         * The 2 regs are dead as the popa will restore.
+         */
+        if (SCRATCH_ALWAYS_TLS())
+            insert_get_mcontext_base(dcontext, &ilist, NULL, REG_XAX);
+        preinsert_swap_peb(dcontext, &ilist, NULL, !SCRATCH_ALWAYS_TLS(),
+                           REG_XAX/*dc*/, REG_XCX/*scratch*/, false/*to app*/);
+    }
+#endif
 
     /* adjust the stack for the return target */
     APP(&ilist, INSTR_CREATE_lea
