@@ -116,6 +116,7 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 The current version is \DR_VERSION.  
 The changes between version \DR_VERSION and 4.2.0 include:
 
+ - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Added dr_syscall_get_result_ex() and dr_syscall_set_result_ex() for
    future MacOS support.
 

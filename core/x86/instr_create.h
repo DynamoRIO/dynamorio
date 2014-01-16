@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3658,10 +3658,10 @@
 /** @name 2 destinations: 1 implicit, 3 sources: 1 implicit */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx_1 or INSTR_CREATE_xxx_4 macro creates an
+ * This INSTR_CREATE_xxx_1, INSTR_CREATE_xxx_4, or INSTR_CREATE_xxx_8 macro creates an
  * instr_t with opcode OP_xxx and the given explicit operands, automatically
- * supplying any implicit operands.    The _1 or _4 suffixes distinguish between
- * alternative forms of the same opcode (1 and 4 identify the operand size).
+ * supplying any implicit operands.    The _1, _4, or _8 suffixes distinguish between
+ * alternative forms of the same opcode with the given operand size.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param d The opnd_t explicit destination operand for the instruction.
  * \param s The opnd_t explicit source operand for the instruction.
@@ -3672,6 +3672,9 @@
 #define INSTR_CREATE_cmpxchg_4(dc, d, s) \
   instr_create_2dst_3src((dc), OP_cmpxchg, (d), opnd_create_reg(DR_REG_EAX), (s), (d), \
     opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_cmpxchg_8(dc, d, s) \
+  instr_create_2dst_3src((dc), OP_cmpxchg, (d), opnd_create_reg(DR_REG_RAX), (s), (d), \
+    opnd_create_reg(DR_REG_RAX))
 /* @} */ /* end doxygen group */
 
 /* 2 implicit destinations, 3 implicit sources */

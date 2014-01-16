@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -67,6 +67,7 @@ OPCODE(xchg, xchg, xchg, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(xadd, xadd, xadd, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(cmpxchg1, cmpxchg, cmpxchg_1, 0, MEMARG(OPSZ_1), REGARG(AL))
 OPCODE(cmpxchg4, cmpxchg, cmpxchg_4, 0, MEMARG(OPSZ_4), REGARG(EAX))
+OPCODE(cmpxchg8, cmpxchg, cmpxchg_8, X64_ONLY, MEMARG(OPSZ_8), REGARG(RDX))
 OPCODE(cmp, cmp, cmp, 0, REGARG(EAX), MEMARG(OPSZ_4))
 OPCODE(test, test, test, 0, MEMARG(OPSZ_4), REGARG(EAX))
 OPCODE(bound, bound, bound, X86_ONLY, REGARG(EAX), MEMARG(OPSZ_bound))
