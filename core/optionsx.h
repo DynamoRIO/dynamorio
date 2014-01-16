@@ -552,8 +552,12 @@
     DYNAMIC_OPTION_DEFAULT(uint, msgbox_mask,
          /* Enable for client debug builds so DR ASSERTS are visible (xref PR 232783) */
          /* i#116/PR 394985: for Linux off by default since won't work for all apps */
-         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(IF_DEBUG_ELSE(0xC, 0), 0), 0),
-         "show a messagebox for events, use only for demonstration purposes")
+         /* For CI builds, interactive use is the norm: so we enable, esp since
+          * we can't print to the cmd console.  The user must explicitly disable
+          * for automation or running daemons.
+          */
+         IF_WINDOWS_ELSE(IF_CLIENT_INTERFACE_ELSE(0xC, 0), 0),
+         "show a messagebox for events")
 #ifdef WINDOWS
     OPTION_DEFAULT(uint_time, eventlog_timeout, 10000, "gives the timeout (in ms) to use for an eventlog transaction")
 #endif /* WINDOWS */
@@ -585,18 +589,15 @@
                            IF_WINDOWS_ELSE(true, IF_VMX86_ELSE(true, false)),
                            "do a live core dump (no outside dependencies) when warranted by the dumpcore_mask")
 #ifdef WINDOWS
-    /* FIXME: make a dynamic option */
+    /* XXX: make a dynamic option */
     OPTION_INTERNAL(bool, external_dump, "do a core dump using an external debugger (specified in the ONCRASH registry value) when warranted by the dumpcore_mask (kills process on win2k or w/ drwtsn32)")
 #endif
 
-    /* FIXME: this is really needed in release builds only for our unit tests */
-    /* WARNING: on win32 GUI programs can cause problems */
     OPTION_DEFAULT(uint, stderr_mask,
                    /* Enable for client linux debug so ASSERTS are visible (PR 232783) */
-                   IF_CLIENT_INTERFACE_ELSE(IF_UNIX_ELSE(IF_DEBUG_ELSE(
-                       SYSLOG_ALL, SYSLOG_CRITICAL|SYSLOG_ERROR|SYSLOG_WARNING),
-                       SYSLOG_NONE), SYSLOG_NONE),
-                   "show messages onto stderr")
+                   IF_CLIENT_INTERFACE_ELSE
+                   (IF_DEBUG_ELSE(SYSLOG_ALL, SYSLOG_CRITICAL|SYSLOG_ERROR),
+                    SYSLOG_NONE), "show messages onto stderr")
 
     OPTION_DEFAULT(uint, appfault_mask, IF_CLIENT_INTERFACE_ELSE
                    (IF_DEBUG_ELSE(APPFAULT_CRASH, 0), 0),

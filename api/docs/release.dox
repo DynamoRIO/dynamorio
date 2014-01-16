@@ -119,6 +119,10 @@ The changes between version \DR_VERSION and 4.2.0 include:
  - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Added dr_syscall_get_result_ex() and dr_syscall_set_result_ex() for
    future MacOS support.
+ - Changed the default -stderr_mask on Windows to 0xC (for both release
+   and debug), and the default -msgbox_mask on Windows release builds 
+   to 0xC, for better error reporting.  For interactive runs, then,
+   the user should explicitly pass -msgbox_mask 0.
 
 The changes between version 4.2.0 and 4.1.0 include:
 
