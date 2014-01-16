@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2009 Derek Bruening   All rights reserved.
  * *******************************************************************************/
@@ -127,11 +127,12 @@ loader_init(void)
         if (!privload_load_finalize(mod)) {
             mod = NULL; /* it's been unloaded! */
 #ifdef CLIENT_INTERFACE
-            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
+            SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 5,
                    get_application_name(), get_application_pid(), name_copy,
-                   ".\n\tUnable to process imports of client library");
+                   "\n\tUnable to locate imports of client library");
 #endif
-            CLIENT_ASSERT(false, "failure to process imports of client library");
+            os_terminate(NULL, TERMINATE_PROCESS);
+            ASSERT_NOT_REACHED();
         }
     }
     /* os specific loader initialization epilogue after finalize the load */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -1443,6 +1443,19 @@ privload_locate_and_load(const char *impname, privmod_t *dependent, bool reachab
         }
     }
     /* 5) dirs on PATH: FIXME: not supported yet */
+
+#ifdef CLIENT_INTERFACE
+    if (mod == NULL) {
+        /* There's a SYSLOG in loader_init(), but we want the name of the missing
+         * library.  If we end up using this loading code for cases where we
+         * expect failure, we could switch to a global missing_lib[] that we
+         * can write to and have loader_init() use to add to its message.
+         */
+        SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
+               get_application_name(), get_application_pid(), impname,
+               "\n\tCannot find library");
+    }
+#endif
     return mod;
 }
 

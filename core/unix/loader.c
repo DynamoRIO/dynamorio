@@ -726,6 +726,7 @@ privload_locate(const char *name, privmod_t *dep,
     }
 
     /* Cannot find the library */
+    /* There's a syslog in loader_init() but we want to provide the lib name */
     SYSLOG(SYSLOG_ERROR, CLIENT_LIBRARY_UNLOADABLE, 4,
            get_application_name(), get_application_pid(), name,
            "\n\tUnable to locate library! Try adding path to LD_LIBRARY_PATH");
