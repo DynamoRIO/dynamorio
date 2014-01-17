@@ -2331,6 +2331,33 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 
 /**** real work ***********************************************/
 
+/* transfer control from signal handler to fcache return routine */
+static void
+transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *sc,
+                                           app_pc next_pc, linkstub_t *last_exit)
+{
+    /* Set our sigreturn context to point to fcache_return!
+     * Then we'll go back through kernel, appear in fcache_return,
+     * and go through dispatch & interp, without messing up dynamo stack.
+     * Note that even if this is a write in the shared cache, we
+     * still go to the private fcache_return for simplicity.
+     */
+    sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
+
+#ifdef X64
+    /* x64 always uses shared gencode */
+    get_local_state_extended()->spill_space.xax = sc->SC_XAX;
+#else
+    get_mcontext(dcontext)->xax = sc->SC_XAX;
+#endif
+    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->SC_XAX);
+
+    dcontext->next_tag = next_pc;
+    sc->SC_XAX = (ptr_uint_t) last_exit;
+    LOG(THREAD, LOG_ASYNCH, 2,
+        "\tset next_tag to "PFX", resuming in fcache_return\n", next_pc);
+}
+
 #ifdef CLIENT_INTERFACE
 static dr_signal_action_t
 send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
@@ -2424,9 +2451,8 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
          * the mcontext state and this as next_tag
          */
         sigcontext_to_mcontext(get_mcontext(dcontext), sc);
-        dcontext->next_tag = (app_pc) sc->SC_XIP;
-        sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-        sc->SC_XAX = (ptr_uint_t) get_sigreturn_linkstub();
+        transfer_from_sig_handler_to_fcache_return(dcontext, sc, (app_pc) sc->SC_XIP,
+                                  (linkstub_t *) get_sigreturn_linkstub());
         if (is_building_trace(dcontext)) {
             LOG(THREAD, LOG_ASYNCH, 3, "\tsquashing trace-in-progress\n");
             trace_abort(dcontext);
@@ -3319,27 +3345,9 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             return true;
         } else {
             ASSERT(!native_state);
-            /* Do not resume execution in cache, go back to dispatch.
-             * Set our sigreturn context to point to fcache_return!
-             * Then we'll go back through kernel, appear in fcache_return,
-             * and go through dispatch & interp, without messing up dynamo stack.
-             * Note that even if this is a write in the shared cache, we
-             * still go to the private fcache_return for simplicity.
-             */
-            sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-#ifdef X64
-            /* x64 always uses shared gencode */
-            get_local_state_extended()->spill_space.xax = sc->SC_XAX;
-#else
-            get_mcontext(dcontext)->xax = sc->SC_XAX;
-#endif
-            LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->SC_XAX);
-            sc->SC_XAX = (ptr_uint_t) get_selfmod_linkstub();
-            /* fcache_return will save rest of state */
-            dcontext->next_tag = next_pc;
-            LOG(THREAD, LOG_ASYNCH, 2,
-                "\tset next_tag to "PFX", resuming in fcache_return\n",
-                next_pc);
+            /* Do not resume execution in cache, go back to dispatch. */
+            transfer_from_sig_handler_to_fcache_return(dcontext, sc, next_pc,
+                                      (linkstub_t *) get_selfmod_linkstub());
             /* now have master_signal_handler return */
             return true;
         }
@@ -3901,8 +3909,10 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * Then we'll go back through kernel, appear in fcache_return,
      * and go through dispatch & interp, without messing up DR stack.
      */
-    sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
-    sc->SC_XAX = (ptr_uint_t) get_sigreturn_linkstub();
+    transfer_from_sig_handler_to_fcache_return(dcontext, sc,
+                              /* Make sure handler is next thing we execute */
+                              (app_pc) info->app_sigaction[sig]->handler,
+                              (linkstub_t *) get_sigreturn_linkstub());
     /* Doesn't matter what most app registers are, signal handler doesn't
      * expect anything except the frame on the stack.  We do need to set xsp,
      * only because if app wants special signal stack we need to point xsp
@@ -3915,8 +3925,6 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     sc->SC_XSI = (reg_t) &((sigframe_rt_t *)xsp)->info;
     sc->SC_XDX = (reg_t) &((sigframe_rt_t *)xsp)->uc;
 #endif
-    /* Make sure handler is next thing we execute */       
-    dcontext->next_tag = (app_pc) info->app_sigaction[sig]->handler;
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
