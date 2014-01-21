@@ -207,6 +207,11 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
     bool res = false;
     memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
     if (memquery_iterator_next(&iter) && iter.vm_start <= pc) {
+        /* There may be some inner regions we have to wade through */
+        while (iter.vm_end <= pc) {
+            if (!memquery_iterator_next(&iter))
+                return false;
+        }
         res = true;
         info->base_pc = iter.vm_start;
         ASSERT(iter.vm_end > pc);
