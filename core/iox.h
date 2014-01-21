@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -407,29 +407,45 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             case _T('i'):
                 {
                     long val;
-                    ulong abval;
+                    ulong abval = 0;
+                    int64 val64;
+                    uint64 abval64 = 0;
+                    bool negative = false;
                     if (decimal == -1) 
                         decimal = 1;  /* defaults */
                     else
                         filler = _T(' ');
-                    if (l_type) 
-                        val = va_arg(ap, long);  /* get arg */
-                    else if (h_type) 
-                        val = (long)va_arg(ap, int); /* short is promoted to int */
-                    else
-                        val = (long)va_arg(ap, int);
-                    if (val >= 0 && space_flag) 
-                        prefixbuf[0] = _T(' ');  /* set prefix */
-                    if (val >= 0 && plus_flag) 
-                        prefixbuf[0] = _T('+');
-                    if (val < 0) {
-                        prefixbuf[0] = _T('-');
-                        abval = -val;
+                    if (ll_type) {
+                        val64 = va_arg(ap, int64);  /* get arg */
+                        negative = (val64 < 0);
+                        if (negative)
+                            abval64= -val64;
+                        else
+                            abval64 = val64;
                     } else {
-                        abval = val;
+                        if (l_type) 
+                            val = va_arg(ap, long);  /* get arg */
+                        else if (h_type) 
+                            val = (long)va_arg(ap, int); /* short is promoted to int */
+                        else
+                            val = (long)va_arg(ap, int);
+                        negative = (val < 0);
+                        if (negative)
+                            abval = -val;
+                        else
+                            abval = val;
                     }
+                    if (!negative && space_flag) 
+                        prefixbuf[0] = _T(' ');  /* set prefix */
+                    if (!negative && plus_flag) 
+                        prefixbuf[0] = _T('+');
+                    if (negative)
+                        prefixbuf[0] = _T('-');
                     /* generate string */
-                    str = TNAME(ulong_to_str)(abval, 10, buf, decimal, false);
+                    if (ll_type)
+                        str = TNAME(uint64_to_str)(abval64, 10, buf, decimal, false);
+                    else
+                        str = TNAME(ulong_to_str)(abval, 10, buf, decimal, false);
                     break;
                 }
             case _T('u'):

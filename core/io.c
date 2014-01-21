@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -920,6 +920,28 @@ our_memcpy_vs_libc(void)
 }
 # endif /* UNIX */
 
+static void
+test_integer(void)
+{
+    char buf[512];
+    ssize_t res;
+
+    /* test integer codes */
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x12345678abcdef01LL);
+    EXPECT(res == (ssize_t) strlen("1311768467750121217"), true);
+    EXPECT(strcmp(buf, "1311768467750121217"), 0);
+
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%lld", 0x82345678abcdef01LL);
+    EXPECT(res == (ssize_t) strlen("-9064525073711501567"), true);
+    EXPECT(strcmp(buf, "-9064525073711501567"), 0);
+
+    res = our_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%llu", 0x82345678abcdef01LL);
+    EXPECT(res == (ssize_t) strlen("9382218999998050049"), true);
+    EXPECT(strcmp(buf, "9382218999998050049"), 0);
+
+    /* XXX: add more tests */
+}
+
 void
 unit_test_io(void)
 {
@@ -1015,6 +1037,8 @@ unit_test_io(void)
     EXPECT(res == 2, true);
     EXPECT(wbuf[0] == 0x0391 && wbuf[1] == 0x03a9 && wbuf[2] == L'\0', true);
 #endif
+
+    test_integer();
 
     /* sscanf tests */
     test_sscanf_maps_x86();
