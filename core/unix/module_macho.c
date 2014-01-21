@@ -136,8 +136,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
 {
     mach_header_t *hdr = (mach_header_t *) base;
     struct load_command *cmd, *cmd_stop;
-    app_pc seg_min_start = base + (view_size == 0 ? PAGE_SIZE : view_size);
-    app_pc seg_max_end = base;
+    app_pc seg_min_start = (app_pc) POINTER_MAX;
+    app_pc seg_max_end = NULL;
     bool found_seg = false;
     ASSERT(is_macho_header(base, view_size));
     cmd = (struct load_command *)(hdr + 1);
@@ -182,6 +182,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
     if (found_seg) {
+        LOG(GLOBAL, LOG_VMAREAS, 4, "%s: bounds "PFX"-"PFX"\n", __FUNCTION__,
+            seg_min_start, seg_max_end);
         if (out_base != NULL)
             *out_base = seg_min_start;
         if (out_end != NULL)
