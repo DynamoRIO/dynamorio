@@ -73,7 +73,7 @@ native_module_init(void)
 void
 native_module_exit(void)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#1287: implement for MacOS */
+    /* FIXME i#1287: implement for MacOS */
 }
 
 /* called on unloading a non-native module */

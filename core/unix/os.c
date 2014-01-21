@@ -6300,7 +6300,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
         if (!success)
             goto exit_post_system_call;
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
         if (sysnum == SYS_mmap) {
             /* The syscall succeeded so the read of 'arg' should be
              * safe. */
@@ -6316,7 +6316,7 @@ post_system_call(dcontext_t *dcontext)
             prot = (uint) dcontext->sys_param2;
             flags = (uint) dcontext->sys_param3;
             DEBUG_DECLARE(map_type = IF_X64_ELSE("mmap2","mmap");)
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
         }
 #endif
         process_mmap(dcontext, base, size, prot, flags _IF_DEBUG(map_type));
@@ -7599,8 +7599,7 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     thread_id_t *tids;
 
     ASSERT(num_threads_out != NULL);
-    tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced,
-                            ACCT_THREAD_MGT, PROTECTED);
+
 #ifdef MACOS
     /* XXX i#58: NYI.
      * We may want SYS_proc_info with PROC_INFO_PID_INFO and PROC_PIDLISTTHREADS,
@@ -7610,6 +7609,9 @@ os_list_threads(dcontext_t *dcontext, uint *num_threads_out)
     *num_threads_out = 0;
     return NULL;
 #endif
+
+    tids = HEAP_ARRAY_ALLOC(dcontext, thread_id_t, tids_alloced,
+                            ACCT_THREAD_MGT, PROTECTED);
     task_dir = os_open_directory("/proc/self/task", OS_OPEN_READ);
     ASSERT(task_dir != INVALID_FILE);
     os_dir_iterator_start(&iter, task_dir);
