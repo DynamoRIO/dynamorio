@@ -126,6 +126,7 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
     return false;
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             OUT app_pc *out_base /* relative pc */,
@@ -202,6 +203,7 @@ module_num_program_headers(app_pc base)
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
     return 0;
 }
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 bool
 module_read_program_header(app_pc base,
@@ -319,6 +321,7 @@ module_read_os_data(app_pc base,
     return false;
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 char *
 get_shared_lib_name(app_pc map)
 {
@@ -338,7 +341,8 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
     /* XXX i#1285: fill in the rest of the fields */
     return;
 }
-
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+ 
 ptr_uint_t
 module_get_text_section(app_pc file_map, size_t file_size)
 {

@@ -59,6 +59,8 @@
  */
 # undef CLIENT_ASSERT
 # define CLIENT_ASSERT(cond, msg)
+# undef ASSERT
+# define ASSERT(x)
 #endif /* NOT_DYNAMORIO_CORE_PROPER */
 
 #define VA_ARG_CHAR2INT
