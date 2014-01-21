@@ -4267,14 +4267,14 @@ security_violation_internal_main(dcontext_t *dcontext, app_pc addr,
             DO_THRESHOLD_SAFE(DYNAMO_OPTION(detect_mode_max), FREQ_PROTECTED_SECTION,
                               {/* < max */
                                   LOG(GLOBAL, LOG_ALL, 1, 
-                                      "security_violation: allowing violation #%d [max %d], tid=%d\n", 
+                                      "security_violation: allowing violation #%d [max %d], tid="TIDFMT"\n", 
                                       do_threshold_cur, DYNAMO_OPTION(detect_mode_max),
                                       get_thread_id());
                               },
                               {/* >= max */
                                   allow = false;
                                   LOG(GLOBAL, LOG_ALL, 1, 
-                                      "security_violation: reached maximum allowed %d, tid=%d\n", 
+                                      "security_violation: reached maximum allowed %d, tid="TIDFMT"\n", 
                                       DYNAMO_OPTION(detect_mode_max), get_thread_id());
                               });
         } else {
@@ -7758,7 +7758,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 
     if (area == NULL /* unknown area */) {
         LOG(GLOBAL, LOG_VMAREAS, 2,
-            "WARNING: "PFX" -> "PFX"-"PFX" %s%s is not on executable list (thread %d)\n",
+            "WARNING: "PFX" -> "PFX"-"PFX" %s%s is not on executable list (thread "TIDFMT")\n",
             pc, base_pc, base_pc+size,
             ((prot & MEMPROT_WRITE) != 0)?"W":"", ((prot & MEMPROT_EXEC) != 0)?"E":"",
             dcontext->owning_thread);
@@ -9349,7 +9349,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
     ASSERT(dcontext != GLOBAL_DCONTEXT || dynamo_exited || dynamo_resetting);
 
     LOG(THREAD, LOG_FRAGMENT|LOG_VMAREAS, 2, 
-        "thread %d (flushtime %d) walking pending deletion list (was_I_flushed==F%d)\n",
+        "thread "TIDFMT" (flushtime %d) walking pending deletion list (was_I_flushed==F%d)\n",
         get_thread_id(), dcontext == GLOBAL_DCONTEXT ? flushtime_global :
         get_flushtime_last_update(dcontext),
         (was_I_flushed==NULL) ? -1 : was_I_flushed->id);
@@ -9534,7 +9534,7 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
 
     /* last_area cleared in vm_area_unlink_fragments */
     LOG(THREAD, LOG_FRAGMENT|LOG_VMAREAS, 2, 
-        "thread %d done walking pending list @flushtime %d\n",
+        "thread "TIDFMT" done walking pending list @flushtime %d\n",
         get_thread_id(), flushtime_global);
     if (dcontext != GLOBAL_DCONTEXT) {
         /* update thread timestamp */
@@ -10174,7 +10174,7 @@ remove_thread_vm_area(dcontext_t *dcontext, app_pc start, app_pc end)
 {
     thread_data_t *data = GET_DATA(dcontext, 0);
     bool ok;
-    LOG(THREAD, LOG_VMAREAS, 2, "removing thread %d vm area: "PFX"-"PFX"\n",
+    LOG(THREAD, LOG_VMAREAS, 2, "removing thread "TIDFMT" vm area: "PFX"-"PFX"\n",
         dcontext->owning_thread, start, end);
     /* no lock needed, this is thread-private */
     ok = remove_vm_area(&data->areas, start, end, false);

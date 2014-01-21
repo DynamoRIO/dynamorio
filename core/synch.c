@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -321,7 +321,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
 #ifdef CLIENT_INTERFACE
         if (IS_CLIENT_THREAD(trec->dcontext)) {
             /* don't need to translate anything */
-            LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d is client "
+            LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" is client "
                 "thread, no translation needed\n", trec->id);
             return true;
         }
@@ -330,7 +330,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
                                          (byte *)mcontext->xsp)) {
 #ifdef WINDOWS
             if ((app_pc)mcontext->xip == (app_pc) thread_attach_takeover) {
-                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d at "
+                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" at "
                     "takeover point\n", trec->id);
                 thread_attach_translate(trec->dcontext, mcontext, restore_memory);
                 return true;
@@ -338,11 +338,11 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
 #endif
             if (is_at_do_syscall(trec->dcontext, (app_pc)mcontext->xip,
                                  (byte *)mcontext->xsp)) {
-                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d running "
+                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" running "
                     "natively, at do_syscall so translation needed\n", trec->id);
                 native_translate = true;
             } else {
-                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d running "
+                LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" running "
                     "natively, no translation needed\n", trec->id);
                 return true;
             }
@@ -365,7 +365,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
         res = THREAD_SYNCH_SAFE(tsd->synch_perm, THREAD_SYNCH_VALID_MCONTEXT);
         spinmutex_unlock(tsd->synch_lock);
         if (res) {
-            LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread %d waiting at "
+            LOG(THREAD_GET, LOG_SYNCH, 1, "translate context, thread "TIDFMT" waiting at "
                 "valid mcontext point, copying over\n", trec->id);
             DOLOG(2, LOG_SYNCH, {
                 LOG(THREAD_GET, LOG_SYNCH, 2, "Thread State\n");
@@ -385,7 +385,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
                      native_translate ||
                      trec->id == get_thread_id());
     LOG(THREAD_GET, LOG_SYNCH, 2, 
-        "translate context, thread %d at pc_recreatable spot translating\n", 
+        "translate context, thread "TIDFMT" at pc_recreatable spot translating\n", 
         trec->id);
     success = recreate_app_state(trec->dcontext, mcontext, restore_memory, f);
     if (success != RECREATE_SUCCESS_STATE) {
@@ -394,7 +394,7 @@ translate_mcontext(thread_record_t *trec, priv_mcontext_t *mcontext,
          * immediately (PR 213040).
          */
         LOG(THREAD_GET, LOG_SYNCH, 1, 
-            "translate context, thread %d unable to translate context at pc"
+            "translate context, thread "TIDFMT" unable to translate context at pc"
             " = "PFX"\n", trec->id, mcontext->pc);
         SYSLOG_INTERNAL_WARNING_ONCE("failed to translate");
         return false;
@@ -415,12 +415,12 @@ waiting_at_safe_spot(thread_record_t *trec, thread_synch_state_t desired_state)
         spinmutex_unlock(tsd->synch_lock);
         if (res) {
             LOG(THREAD_GET, LOG_SYNCH, 2, 
-                "thread %d waiting at safe spot\n", trec->id);
+                "thread "TIDFMT" waiting at safe spot\n", trec->id);
             return true;
         }
     } else {
         LOG(THREAD_GET, LOG_SYNCH, 2, 
-            "at_safe_spot unable to get locks to test if thread %d is waiting "
+            "at_safe_spot unable to get locks to test if thread "TIDFMT" is waiting "
             "at safe spot\n", trec->id);
     } 
     return false;
@@ -526,12 +526,12 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
         ASSERT(trec->dcontext->whereami == WHERE_FCACHE || 
                is_thread_currently_native(trec));
         LOG(THREAD_GET, LOG_SYNCH, 2, 
-            "thread %d suspended at safe spot pc="PFX"\n", trec->id, mc->pc);
+            "thread "TIDFMT" suspended at safe spot pc="PFX"\n", trec->id, mc->pc);
         
         return true;
     }
     LOG(THREAD_GET, LOG_SYNCH, 2, 
-        "thread %d not at safe spot (pc="PFX") for %d\n", 
+        "thread "TIDFMT" not at safe spot (pc="PFX") for %d\n", 
         trec->id, mc->pc, desired_state);
     return false;
 }
@@ -843,7 +843,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     }
 
     LOG(THREAD, LOG_SYNCH, 2, 
-        "Synching with thread "IDFMT", giving %d, requesting %d, blocking=%d\n", 
+        "Synching with thread "TIDFMT", giving %d, requesting %d, blocking=%d\n",
         id, caller_state, desired_state, block);
 
     if (!hold_initexit_lock) 
@@ -856,7 +856,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
          * FIXME: use the new num field of thread_record_t?
          */
         LOG(THREAD, LOG_SYNCH, 3, 
-            "Looping on synch with thread "IDFMT"\n", id);
+            "Looping on synch with thread "TIDFMT"\n", id);
         trec = thread_lookup(id);
         /* We test the exiting thread count to avoid races between terminate/
          * suspend thread (current thread, though we could be here for other 
@@ -871,7 +871,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
              * small loop counts and abort on failure, so only a curiosity. */
             ASSERT_CURIOSITY(loop_count < max_loops);
             LOG(THREAD, LOG_SYNCH, 3, 
-                "Exceeded loop count synching with thread "IDFMT"\n", id);
+                "Exceeded loop count synching with thread "TIDFMT"\n", id);
             goto exit_synch_with_thread;
         }
         DOSTATS({
@@ -922,9 +922,9 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
                 IF_WINDOWS(ASSERT_NOT_IMPLEMENTED
                            (!dcontext->aslr_context.sys_aslr_clobbered));
                 LOG(THREAD, LOG_SYNCH, 2, 
-                    "Thread "IDFMT" suspended in good spot\n", id);
+                    "Thread "TIDFMT" suspended in good spot\n", id);
                 LOG(trec->dcontext->logfile, LOG_SYNCH, 2, 
-                    "@@@@@@@@@@@@@@@@@@ SUSPENDED BY THREAD "IDFMT" synch_with_thread "
+                    "@@@@@@@@@@@@@@@@@@ SUSPENDED BY THREAD "TIDFMT" synch_with_thread "
                     "@@@@@@@@@@@@@@@@@@\n", my_id);
                 res = THREAD_SYNCH_RESULT_SUCCESS;
                 break;
@@ -996,7 +996,7 @@ synch_with_thread(thread_id_t id, bool block, bool hold_initexit_lock,
     /* success!, is suspended (or already exited) put in desired state */
     if (res == THREAD_SYNCH_RESULT_SUCCESS) {
         LOG(THREAD, LOG_SYNCH, 2, 
-            "Success synching with thread "IDFMT" performing cleanup\n", id);
+            "Success synching with thread "TIDFMT" performing cleanup\n", id);
         if (THREAD_SYNCH_IS_TERMINATED(desired_state)) {
             if (IF_UNIX_ELSE(!trec->execve, true))
                 os_thread_terminate(trec);
@@ -1292,7 +1292,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                     synch_array[i] = SYNCH_WITH_ALL_NOTIFIED;
                 }
                 LOG(THREAD, LOG_SYNCH, 2, 
-                    "About to try synch with thread "IDFMT"\n", threads[i]->id);
+                    "About to try synch with thread "TIDFMT"\n", threads[i]->id);
                 synch_res = synch_with_thread(threads[i]->id, false, true,
                                               THREAD_SYNCH_NONE,
                                               desired_synch_state, flags_one);
@@ -1313,7 +1313,7 @@ synch_with_all_threads(thread_synch_state_t desired_synch_state,
                 }
             } else {
                 LOG(THREAD, LOG_SYNCH, 2, 
-                    "Skipping synch with thread "IDFMT"\n", thread_ids_temp[i]);
+                    "Skipping synch with thread "TIDFMT"\n", thread_ids_temp[i]);
             }
         }
         /* We test the exiting thread count to avoid races between exit

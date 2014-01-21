@@ -816,7 +816,7 @@ is_newly_created_process(HANDLE process_handle)
                                                 &remote_process_handle_count);
         if (NT_SUCCESS(res)) {
             LOG(GLOBAL, LOG_ALL, 2, 
-                "is_newly_created_process: process "IDFMT" has %d handles -> %s\n",
+                "is_newly_created_process: process "PIDFMT" has %d handles -> %s\n",
                 process_id_from_handle(process_handle),
                 remote_process_handle_count,
                 remote_process_handle_count == 1 ? "NEW" : "maybe new");
@@ -826,7 +826,7 @@ is_newly_created_process(HANDLE process_handle)
     remote_ldr_data = get_remote_process_ldr_status(process_handle);
     if (remote_ldr_data >= 0) {
         LOG(GLOBAL, LOG_ALL, 1, 
-            "is_newly_created_process: process "IDFMT" PEB->Ldr = %s\n",
+            "is_newly_created_process: process "PIDFMT" PEB->Ldr = %s\n",
             process_id_from_handle(process_handle),
             remote_ldr_data != 0 ? "initialized" : "NULL -> new process");
         
@@ -2801,7 +2801,7 @@ postsys_GetContextThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             }
         });
         LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, 2, 
-            "NtGetContextThread on unknown thread %d\n", tid);
+            "NtGetContextThread on unknown thread "TIDFMT"\n", tid);
     } else {
         /* FIXME : the following routine (and the routines it calls
          * namely recreate_app_state) require that trec thread be
@@ -2942,7 +2942,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             thread_record_t *tr;
             /* know thread isn't holding any of the locks we will need */
             LOG(THREAD, LOG_SYNCH, 2, 
-                "SuspendThread got necessary locks to test if thread %d suspended at good spot without resuming\n", 
+                "SuspendThread got necessary locks to test if thread "TIDFMT" suspended at good spot without resuming\n", 
                 tid); 
             tr = thread_lookup(tid);
             if (tr == NULL) {
@@ -2959,7 +2959,7 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
                     /* suspended at good spot, skip synch */
                     mutex_unlock(&thread_initexit_lock);
                     LOG(THREAD, LOG_SYNCH, 2, 
-                        "SuspendThread suspended thread %d at good place\n", 
+                        "SuspendThread suspended thread "TIDFMT" at good place\n", 
                         tid);
                     SELF_PROTECT_LOCAL(tr->dcontext, READONLY);
                     return;
@@ -2968,17 +2968,17 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
             }
         } else {
             LOG(THREAD, LOG_SYNCH, 2, 
-                "SuspendThread couldn't get all_threads_lock to test if thread %d at good spot without resuming\n", 
+                "SuspendThread couldn't get all_threads_lock to test if thread "TIDFMT" at good spot without resuming\n", 
                 tid); 
         }
         mutex_unlock(&thread_initexit_lock);
     } else {
         LOG(THREAD, LOG_SYNCH, 2, 
-            "SuspendThread couldn't get thread_initexit_lock to test if thread %d at good spot without resuming\n", 
+            "SuspendThread couldn't get thread_initexit_lock to test if thread "TIDFMT" at good spot without resuming\n", 
             tid); 
     }
     LOG(THREAD, LOG_SYNCH, 2, 
-        "SuspendThread resuming suspended thread %d for synch routine\n",
+        "SuspendThread resuming suspended thread "TIDFMT" for synch routine\n",
         tid);
         
     /* resume for synch */

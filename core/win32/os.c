@@ -277,7 +277,7 @@ DllMainThreadAttach()
          * noasynch, we do it here (which is later, but better than nothing)
          */
         LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-            "DllMain: initializing new thread %d\n", get_thread_id());
+            "DllMain: initializing new thread "TIDFMT"\n", get_thread_id());
         dynamo_thread_init(NULL, NULL _IF_CLIENT_INTERFACE(false));
     }
 }
@@ -1346,7 +1346,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
                           DETACH_BAD_STATE_NO_CLEANUP : DETACH_BAD_STATE);
             /* skip option synch, make this as safe as possible */
             SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING, 
-                                            "detach on terminate failed or already started by another thread, killing thread %d\n", 
+                                            "detach on terminate failed or already started by another thread, killing thread "TIDFMT"\n", 
                                             get_thread_id());
             /* if we get here, either we recursed or someone is already trying
              * to detach, just kill this thread so progress is made we don't
@@ -1740,7 +1740,7 @@ os_list_threads(uint *num_threads_out)
                 num_alloc = new_alloc;
             }
             LOG(GLOBAL, LOG_THREADS, 1,
-                "%s: thread %d handle="PFX"\n", __FUNCTION__, num_threads, hthread);
+                "%s: thread "TIDFMT" handle="PFX"\n", __FUNCTION__, num_threads, hthread);
             threads[num_threads].handle = hthread;
             threads[num_threads].tid = INVALID_THREAD_ID;
             threads[num_threads].user_data = NULL;
@@ -1768,7 +1768,7 @@ os_list_threads(uint *num_threads_out)
                     ASSERT(get_process_id() == (process_id_t)
                            sp->Threads[i].ClientId.UniqueProcess);
                     LOG(GLOBAL, LOG_THREADS, 1,
-                        "%s: thread %d UniqueThread="PFX"\n", __FUNCTION__, i, tid);
+                        "%s: thread "TIDFMT" UniqueThread="PFX"\n", __FUNCTION__, i, tid);
                     threads[i].handle = thread_handle_from_id(tid);
                     ASSERT(threads[i].handle != INVALID_HANDLE_VALUE);
                     threads[i].tid = tid;
@@ -1941,13 +1941,13 @@ os_take_over_wow64_extra(takeover_data_t *data, HANDLE hthread, thread_id_t tid,
     cxt64 = (CONTEXT_64 *) ALIGN_FORWARD(buf, 0x10);
     cxt64->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
     if (!thread_get_context_64(hthread, cxt64)) {
-        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to get x64 cxt for thread %d\n", tid);
+        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to get x64 cxt for thread "TIDFMT"\n", tid);
         ASSERT_NOT_REACHED();
         global_heap_free(buf, MAX_CONTEXT_64_SIZE HEAPACCT(ACCT_THREAD_MGT));
         return;
     }
     LOG(GLOBAL, LOG_THREADS, 2,
-        "x64 context for thread %d: xip is "HEX64_FORMAT_STRING
+        "x64 context for thread "TIDFMT": xip is "HEX64_FORMAT_STRING
         ", xsp="HEX64_FORMAT_STRING, tid, cxt64->Rip, cxt64->Rsp);
     if (cxt64->SegCs == CS32_SELECTOR) {
         /* In x86 mode, so not inside the wow64 layer.  Context setting should
@@ -2086,7 +2086,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
              * yet added itself to main thread table.
              */
             LOG(GLOBAL, LOG_THREADS, 1,
-                "\tthread %d partially taken over already; pc="PFX"\n",
+                "\tthread "TIDFMT" partially taken over already; pc="PFX"\n",
                 tid, cxt->CXT_XIP);
             if (already_taken_over != NULL && already_taken_over != INVALID_PAYLOAD &&
                 !is_dynamo_address((byte *)cxt->CXT_XIP) &&
@@ -2099,7 +2099,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                  * See also comment above.
                  */
                 data = (takeover_data_t *) already_taken_over;
-                LOG(GLOBAL, LOG_THREADS, 1, "\tthread %d reverted!", tid);
+                LOG(GLOBAL, LOG_THREADS, 1, "\tthread "TIDFMT" reverted!", tid);
                 /* Now that i#1141 is fixed this shouldn't happen: we'd like to
                  * know if it does.
                  */
@@ -2111,7 +2111,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
             data = (takeover_data_t *)
                 global_heap_alloc(sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
         }
-        LOG(GLOBAL, LOG_THREADS, 1, "thread %d context:\n", tid);
+        LOG(GLOBAL, LOG_THREADS, 1, "thread "TIDFMT" context:\n", tid);
         memset(data, 0, sizeof(*data));
         data->tid = tid;
         data->continuation_pc = (app_pc) cxt->CXT_XIP;
@@ -2124,11 +2124,11 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         res = nt_set_context(hthread, cxt);
         if (!NT_SUCCESS(res)) {
             LOG(GLOBAL, LOG_THREADS, 1,
-                "\tfailed to set context for thread %d with error %d\n", tid, res);
+                "\tfailed to set context for thread "TIDFMT" with error %d\n", tid, res);
             success = false;
             global_heap_free(data, sizeof(*data) HEAPACCT(ACCT_THREAD_MGT));
             if (!nt_thread_resume(hthread, NULL)) {
-                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread %d\n", tid);
+                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread "TIDFMT"\n", tid);
                 ASSERT_NOT_REACHED();
             }
         } else {
@@ -2138,12 +2138,12 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
                 TABLE_RWLOCK(takeover_table, write, unlock);
             }
             LOG(GLOBAL, LOG_THREADS, 1,
-                "\tset context for thread %d; old xip="PFX", xsp="PFX", data="PFX"\n",
+                "\tset context for thread "TIDFMT"; old xip="PFX", xsp="PFX", data="PFX"\n",
                 tid, data->continuation_pc, cxt->CXT_XSP, data);
             /* leave thread suspended */
         }
     } else {
-        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread %d\n", tid);
+        LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to suspend/query thread "TIDFMT"\n", tid);
         success = false;
     }
     return success;
@@ -2220,7 +2220,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                 if (tr == NULL) { /* not already under our control */
                     /* cur thread is assumed to be under DR */
                     ASSERT(threads[i].tid != get_thread_id());
-                    LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: taking over thread %d\n",
+                    LOG(GLOBAL, LOG_THREADS, 1, "TAKEOVER: taking over thread "TIDFMT"\n",
                         threads[i].tid);
                     if (os_take_over_thread(dcontext, threads[i].handle,
                                             threads[i].tid, false/*!suspended*/)) {
@@ -2245,7 +2245,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
     for (i = 0; i < num_threads; i++) {
         if ((ptr_uint_t)threads[i].user_data == TAKEOVER_SUCCESS) {
             if (!nt_thread_resume(threads[i].handle, NULL)) {
-                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread %d\n",
+                LOG(GLOBAL, LOG_THREADS, 1, "\tfailed to resume thread "TIDFMT"\n",
                     threads[i].tid);
                 took_over_all = false;
                 ASSERT_NOT_REACHED();
@@ -2300,7 +2300,7 @@ thread_attach_setup(priv_mcontext_t *mc)
     set_at_syscall(dcontext, false);
 
     LOG(GLOBAL, LOG_THREADS, 1,
-        "TAKEOVER: thread %d, start pc "PFX"\n", get_thread_id(), data->continuation_pc);
+        "TAKEOVER: thread "TIDFMT", start pc "PFX"\n", get_thread_id(), data->continuation_pc);
 
     ASSERT(os_using_app_state(dcontext));
 
@@ -7297,7 +7297,7 @@ detach_helper_handle_callbacks(int num_threads, thread_record_t **threads,
             dcontext_t *tmp_dc = dcontext->prev_unused;
             int count = 0;
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : thread %d has stacked callbacks\n", threads[i]->id);
+                "Detach : thread "TIDFMT" has stacked callbacks\n", threads[i]->id);
             do {
                 count++;
                 LOG(GLOBAL, LOG_ALL, 1, "callback %d has ret pc "PFX"\n", 
@@ -7334,11 +7334,11 @@ detach_helper_handle_callbacks(int num_threads, thread_record_t **threads,
             cleanup_tpc[i] = (get_syscall_method() == SYSCALL_METHOD_SYSENTER && 
                               INTERNAL_OPTION(detach_fix_sysenter_on_stack));
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : thread %d had %d stacked callbacks\n", threads[i]->id, count);
+                "Detach : thread "TIDFMT" had %d stacked callbacks\n", threads[i]->id, count);
         } else {
             /* no saved callback state, done with this thread */
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : thread %d has no stacked callbacks\n", threads[i]->id);
+                "Detach : thread "TIDFMT" has no stacked callbacks\n", threads[i]->id);
         }
     }
     
@@ -7473,7 +7473,7 @@ detach_helper(int detach_type)
             /* If detaching in thin_client/hotp_only mode, must only be WHERE_APP!  */
             (RUNNING_WITHOUT_CODE_CACHE() && my_dcontext->whereami == WHERE_APP)));
 
-    LOG(GLOBAL, LOG_ALL, 1, "Detach : thread %d starting\n", my_id);
+    LOG(GLOBAL, LOG_ALL, 1, "Detach : thread "TIDFMT" starting\n", my_id);
     SYSLOG(SYSLOG_INFORMATION, INFO_DETACHING, 2, get_application_name(), 
            get_application_pid());
 
@@ -7534,7 +7534,7 @@ detach_helper(int detach_type)
         for (i = 0; i < num_threads; i++) {
             if (IS_UNDER_DYN_HACK(threads[i]->under_dynamo_control)) {
                 LOG(GLOBAL, LOG_ALL, 1, 
-                    "Detach : unpatching image entry point (from thread %d)\n",
+                    "Detach : unpatching image entry point (from thread "TIDFMT")\n",
                     threads[i]->id);
                 ASSERT(!did_unhook); /* should only happen once, at most! */
                 did_unhook = true;
@@ -7605,7 +7605,7 @@ detach_helper(int detach_type)
         /* XXX : callback UNDER_DYN_HACK hack again */
         if (IS_UNDER_DYN_HACK(threads[i]->under_dynamo_control)) {
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : thread %d running natively since lost control at callback "
+                "Detach : thread "TIDFMT" running natively since lost control at callback "
                 "return and have not regained it, no need to translate context\n", 
                 threads[i]->id);
             /* We don't expect to be at do_syscall (and therefore require translation
@@ -7622,7 +7622,7 @@ detach_helper(int detach_type)
             ASSERT(res);
             if (!threads[i]->under_dynamo_control) {
                 LOG(GLOBAL, LOG_ALL, 1, 
-                    "Detach : thread %d already running natively\n", 
+                    "Detach : thread "TIDFMT" already running natively\n", 
                     threads[i]->id);
                 /* we do need to restore the app ret addr, for native_exec */
                 if (!DYNAMO_OPTION(thin_client) && DYNAMO_OPTION(native_exec) &&
@@ -7645,7 +7645,7 @@ detach_helper(int detach_type)
                                   (DYNAMO_OPTION(sygate_sysenter) ? XSP_SZ : 0)) ==
                     after_shared_syscall_code(dcontext)) {
                     LOG(GLOBAL, LOG_ALL, 1, 
-                        "Detach : thread %d suspended at vsysall with ret to after "
+                        "Detach : thread "TIDFMT" suspended at vsysall with ret to after "
                         "shared syscall, fixing up by changing ret to "PFX"\n", 
                         threads[i]->id, POST_SYSCALL_PC(dcontext));
                     /* need to restore sysenter_storage for Sygate hack */
@@ -7654,13 +7654,13 @@ detach_helper(int detach_type)
                     *(app_pc *)cxt->CXT_XSP = POST_SYSCALL_PC(dcontext);
                 } else {
                     LOG(GLOBAL, LOG_ALL, 1,
-                        "Detach, thread %d suspended at vsyscall with ret to "
+                        "Detach, thread "TIDFMT" suspended at vsyscall with ret to "
                         "unknown addr, must be running native!\n",
                         threads[i]->id);
                 }
             }
             LOG(GLOBAL, LOG_ALL, 1, 
-                "Detach : pc = "PFX" for thread %d\n", cxt->CXT_XIP, threads[i]->id);
+                "Detach : pc = "PFX" for thread "TIDFMT"\n", cxt->CXT_XIP, threads[i]->id);
             ASSERT(!is_dynamo_address((app_pc)cxt->CXT_XIP)&&
                    !in_fcache((app_pc)cxt->CXT_XIP));
             /* FIXME case 7457: if the thread is suspended after it
@@ -7692,7 +7692,7 @@ detach_helper(int detach_type)
 #endif
         /* resume thread */
         LOG(GLOBAL, LOG_ALL, 1, 
-            "Detach : thread %d is being resumed in native context\n", 
+            "Detach : thread "TIDFMT" is being resumed in native context\n", 
             threads[i]->id);
         res = os_thread_resume(threads[i]);
         ASSERT(res);
@@ -7725,11 +7725,11 @@ detach_helper(int detach_type)
         if (i != my_thread_index) {
             if (cleanup_tpc[i]) {
                 LOG(GLOBAL, LOG_ALL, 1, 
-                    "Detach : cleaning up thread %d, including its TPC\n", threads[i]->id);
+                    "Detach : cleaning up thread "TIDFMT", including its TPC\n", threads[i]->id);
                 dynamo_other_thread_exit(threads[i], false);
             } else {
                 LOG(GLOBAL, LOG_ALL, 1,
-                    "Detach : cleaning up thread %d, but not its TPC\n",
+                    "Detach : cleaning up thread "TIDFMT", but not its TPC\n",
                     threads[i]->id);
                 dynamo_other_thread_exit(threads[i], true);
             }

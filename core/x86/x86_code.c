@@ -69,7 +69,7 @@ thread_starting(dcontext_t *dcontext)
     ASSERT(dcontext->initialized);
     dynamo_thread_under_dynamo(dcontext);
 #ifdef WINDOWS
-    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread %d\n",
+    LOG(THREAD, LOG_INTERP, 2, "thread_starting: interpreting thread "TIDFMT"\n",
         get_thread_id());
 #endif
 }
@@ -248,7 +248,7 @@ new_thread_setup(priv_mcontext_t *mc)
     /* i#149/PR 403015: clone_record_t is passed via dstack. */
     crec = get_clone_record(mc->xsp);
     LOG(GLOBAL, LOG_INTERP, 1,
-        "new_thread_setup: thread %d, dstack "PFX" clone record "PFX"\n",
+        "new_thread_setup: thread "TIDFMT", dstack "PFX" clone record "PFX"\n",
         get_thread_id(), get_clone_record_dstack(crec), crec);
 
     /* As we used dstack as app thread stack to pass clone record, we now need

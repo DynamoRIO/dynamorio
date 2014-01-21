@@ -237,8 +237,8 @@ DECLARE_CXTSWPROT_VAR(mutex_t do_threshold_mutex, INIT_LOCK_FREE(do_threshold_mu
 
 /* common format string used for different log files and loglevels */
 #define DUMP_LOCK_INFO_ARGS(depth, cur_lock, prev)                      \
-     "%d lock "PFX": name=%s\nrank=%d owner=%d owning_dc="PFX" "  \
-     "%*s"PIFX" prev="PFX"\n"                                    \
+    "%d lock "PFX": name=%s\nrank=%d owner="TIDFMT" owning_dc="PFX" " \
+     "%*s"PIFX" prev="PFX"\n"                                           \
      "lock %*s%8d %*s%8d %*s%8d %*s%8d %*s%8d+2 %s\n",                  \
     depth, cur_lock, cur_lock->name, cur_lock->rank,                    \
     cur_lock->owner, cur_lock->owning_dcontext,                         \
@@ -277,7 +277,7 @@ dump_owned_locks(dcontext_t *dcontext)
     mutex_t *cur_lock;
     uint depth = 0;
     cur_lock = dcontext->thread_owned_locks->last_lock;
-    LOG(THREAD, LOG_THREADS, 1, "Owned locks for thread %d dcontext="PFX"\n", 
+    LOG(THREAD, LOG_THREADS, 1, "Owned locks for thread "TIDFMT" dcontext="PFX"\n", 
         dcontext->owning_thread, dcontext);
     while (cur_lock != &outermost_lock) {
         depth++;
@@ -2774,7 +2774,7 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     if (name[0] == '\0') 
         return INVALID_FILE;
     snprintf(&name[strlen(name)], BUFFER_SIZE_ELEMENTS(name) - strlen(name), 
-             "%c%s.%d."IDFMT".html", DIRSEP, basename, 
+             "%c%s.%d."TIDFMT".html", DIRSEP, basename,
              get_thread_num(get_thread_id()), get_thread_id());
     NULL_TERMINATE_BUFFER(name);
 #ifdef UNIX

@@ -516,7 +516,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
     LOG(THREAD, LOG_ASYNCH, 1,
-        "create_clone_record: thread %d, pc "PFX"\n",
+        "create_clone_record: thread "TIDFMT", pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
     /* Set the thread stack to point to the dstack, below the clone record.
@@ -2500,7 +2500,7 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
 {
     const char *fmt =
         "%s at PC "PFX"\n"
-        "Received SIG%s at%s pc "PFX" in thread %d\n"
+        "Received SIG%s at%s pc "PFX" in thread "TIDFMT"\n"
         "Base: "PFX"\n"
         "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
         "\tesi="PFX" edi="PFX" esp="PFX" ebp="PFX"\n"
@@ -3761,7 +3761,7 @@ master_signal_handler_C(byte *xsp)
         }
         /* pass it to the application (or client) */
         LOG(THREAD, LOG_ALL, 1,
-            "** Received SIG%s at cache pc "PFX" in thread %d\n",
+            "** Received SIG%s at cache pc "PFX" in thread "TIDFMT"\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());
         ASSERT(syscall_signal || safe_is_in_fcache(dcontext, pc, (byte *)sc->SC_XSP));
         /* we do not call trace_abort() here since we may need to
@@ -4260,7 +4260,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
          */
         if (info->shared_app_sigaction) {
             LOG(THREAD, LOG_ASYNCH, 1,
-                "WARNING: having to install SIG_DFL for thread %d, but will be shared!\n",
+                "WARNING: having to install SIG_DFL for thread "TIDFMT", but will be shared!\n",
                 get_thread_id());
         }
         if (default_action[sig] == DEFAULT_TERMINATE ||
@@ -4366,7 +4366,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 fragment_t wrapper;
                 fragment_t *f;
                 LOG(THREAD, LOG_ALL, 1,
-                    "Received SIGSEGV at pc "PFX" in thread %d\n", pc, get_thread_id());
+                    "Received SIGSEGV at pc "PFX" in thread "TIDFMT"\n", pc, get_thread_id());
                 f = fragment_pclookup(dcontext, pc, &wrapper);
                 if (f)
                     disassemble_fragment(dcontext, f, false);
@@ -5167,7 +5167,7 @@ start_itimer(dcontext_t *dcontext)
          * sharing itimers is under DR control
          */
         int which;
-        LOG(THREAD, LOG_ASYNCH, 2, "starting DR itimers from thread %d\n",
+        LOG(THREAD, LOG_ASYNCH, 2, "starting DR itimers from thread "TIDFMT"\n",
             get_thread_id());
         for (which = 0; which < NUM_ITIMERS; which++) {
             /* May have already been started if there was no stop_itimer() since
@@ -5206,7 +5206,7 @@ stop_itimer(dcontext_t *dcontext)
          * itimer is now compmletely native
          */
         int which;
-        LOG(THREAD, LOG_ASYNCH, 2, "stopping DR itimers from thread %d\n",
+        LOG(THREAD, LOG_ASYNCH, 2, "stopping DR itimers from thread "TIDFMT"\n",
             get_thread_id());
         for (which = 0; which < NUM_ITIMERS; which++) {
             if ((*info->itimer)[which].dr.value > 0) {

@@ -706,23 +706,23 @@ event_thread_init(void *drcontext)
 
     if (options.native_until_thread > 0) {
         int local_count = dr_atomic_add32_return_sum(&thread_count, 1);
-        NOTIFY(1, "@@@@@@@@@@@@@ new thread #%d %d\n",
+        NOTIFY(1, "@@@@@@@@@@@@@ new thread #%d "TIDFMT"\n",
                local_count, dr_get_thread_id(drcontext));
         if (go_native && local_count == options.native_until_thread) {
             void **drcontexts = NULL;
             uint num_threads, i;
             go_native = false;
-            NOTIFY(1, "thread %d suspending all threads\n", dr_get_thread_id(drcontext));
+            NOTIFY(1, "thread "TIDFMT" suspending all threads\n", dr_get_thread_id(drcontext));
             if (dr_suspend_all_other_threads_ex(&drcontexts, &num_threads, NULL,
                                                 DR_SUSPEND_NATIVE)) {
                 NOTIFY(1, "suspended %d threads\n", num_threads);
                 for (i = 0; i < num_threads; i++) {
                     if (dr_is_thread_native(drcontexts[i])) {
-                        NOTIFY(2, "\txxx taking over thread #%d %d\n",
+                        NOTIFY(2, "\txxx taking over thread #%d "TIDFMT"\n",
                                i, dr_get_thread_id(drcontexts[i]));
                         dr_retakeover_suspended_native_thread(drcontexts[i]);
                     } else {
-                        NOTIFY(2, "\tthread #%d %d under DR\n",
+                        NOTIFY(2, "\tthread #%d "TIDFMT" under DR\n",
                                i, dr_get_thread_id(drcontexts[i]));
                     }
                 }

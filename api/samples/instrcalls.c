@@ -135,7 +135,7 @@ event_thread_init(void *drcontext)
     /* store it in the slot provided in the drcontext */
     dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
     dr_log(drcontext, LOG_ALL, 1, 
-           "instrcalls: log for thread %d is instrcalls.%03d\n",
+           "instrcalls: log for thread "TIDFMT" is instrcalls.%03d\n",
            dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 }
 

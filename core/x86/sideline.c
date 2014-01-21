@@ -281,7 +281,7 @@ sideline_init()
     add_thread(IF_WINDOWS_ELSE(child_handle, child_tid)
                child_tid, false, NULL);
 
-    LOG(GLOBAL, LOG_SIDELINE, 1, "Sideline thread (id %d) created\n", child_tid);
+    LOG(GLOBAL, LOG_SIDELINE, 1, "Sideline thread (id "TIDFMT") created\n", child_tid);
 
 #ifdef WINDOWS
     /* now let child thread run */
@@ -621,7 +621,7 @@ sideline_optimize(fragment_t *f,
     if (dcontext->whereami != WHERE_FCACHE) {
         /* wait for thread to reach waiting point in dispatch */
         LOG(logfile, LOG_SIDELINE, VERB_3,
-            "\nsideline_optimize: waiting for target thread %d\n",
+            "\nsideline_optimize: waiting for target thread "TIDFMT"\n",
             pause_for_sideline);
         if (!dynamo_exited && !child_sleep && !child_exit) {
             /* must give up do_not_delete_lock in case app thread is going to

@@ -1276,7 +1276,7 @@ dynamo_process_exit(void)
              * address space, so we clean up now
              */
             LOG(GLOBAL, LOG_TOP, 1,
-                "\ndynamo_process_exit from thread %d -- cleaning up dynamo\n",
+                "\ndynamo_process_exit from thread "TIDFMT" -- cleaning up dynamo\n",
                 get_thread_id());
             dynamo_process_exit_cleanup();
         }
@@ -2091,7 +2091,8 @@ dynamo_thread_init(byte *dstack_in, priv_mcontext_t *mc
 #endif
 
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-        "\ndynamo_thread_init: %d thread(s) now, dcontext="PFX", #=%d, id=%d, pid=%d\n\n",
+        "\ndynamo_thread_init: %d thread(s) now, dcontext="PFX", #=%d, id="
+        TIDFMT", pid="PIDFMT"\n\n",
         GLOBAL_STAT(num_threads), dcontext, get_thread_num(get_thread_id()),
         get_thread_id(), get_process_id());
 
@@ -2286,7 +2287,7 @@ dynamo_thread_exit_common(dcontext_t *dcontext, thread_id_t id,
 #endif
 
     LOG(GLOBAL, LOG_TOP|LOG_THREADS, 1,
-        "\ndynamo_thread_exit (thread #%d id=%d): %d thread(s) now\n\n",
+        "\ndynamo_thread_exit (thread #%d id="TIDFMT"): %d thread(s) now\n\n",
         get_thread_num(id), id, GLOBAL_STAT(num_threads)-1);
 
     DOLOG(1, LOG_STATS, {
@@ -2526,7 +2527,7 @@ void
 dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
-    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread %d", get_thread_id());
+    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread "TIDFMT"", get_thread_id());
 
     if (!INTERNAL_OPTION(nullcalls)) {
         /* Adjust the app stack to account for the return address + alignment.
@@ -2769,7 +2770,7 @@ static void
 dynamorio_protect(void)
 {
     ASSERT(SELF_PROTECT_ON_CXT_SWITCH);
-    LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_protect thread=%d\n", get_thread_id());
+    LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_protect thread="TIDFMT"\n", get_thread_id());
     /* we don't protect local heap here, that's done lazily */
 
     mutex_lock(&protect_info->lock);
@@ -2887,7 +2888,7 @@ dynamorio_unprotect(void)
      * it was protected lazily
      */
     mutex_unlock(&protect_info->lock);
-    LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_unprotect thread=%d\n", get_thread_id());
+    LOG(GLOBAL, LOG_DISPATCH, 4, "dynamorio_unprotect thread="TIDFMT"\n", get_thread_id());
 }
 
 #ifdef DEBUG
@@ -3111,7 +3112,7 @@ protect_data_section(uint sec, bool writable)
     }
     LOG(TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? THREAD_GET : GLOBAL,
         LOG_VMAREAS, TEST(DATASEC_SELFPROT[sec], SELFPROT_ON_CXT_SWITCH) ? 3U : 2U,
-        "protect_data_section: thread %d %s (recur %d, stat %d) %s %s %d\n",
+        "protect_data_section: thread "TIDFMT" %s (recur %d, stat %d) %s %s %d\n",
         get_thread_id(), DATASEC_WRITABLE(sec) == 1 ? "changing" : "nop",
         DATASEC_WRITABLE(sec), GLOBAL_STAT(datasec_not_prot),
         DATASEC_NAMES[sec], writable ? "rw" : "r", DATASEC_WRITABLE(sec));
@@ -3134,11 +3135,11 @@ entering_dynamorio(void)
     if (SELF_PROTECT_ON_CXT_SWITCH)
         dynamorio_unprotect();
     ASSERT(HOOK_ENABLED);
-    LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread=%d\n", get_thread_id());
+    LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread="TIDFMT"\n", get_thread_id());
     STATS_INC(num_entering_DR);
     if (INTERNAL_OPTION(single_thread_in_DR)) {
         acquire_recursive_lock(&thread_in_DR_exclusion);
-        LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread=%d count=%d\n",
+        LOG(GLOBAL, LOG_DISPATCH, 3, "entering_dynamorio thread="TIDFMT" count=%d\n",
             get_thread_id(), thread_in_DR_exclusion.count);
     }
 }
@@ -3147,11 +3148,11 @@ void
 exiting_dynamorio(void)
 {
     ASSERT(HOOK_ENABLED);
-    LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread=%d\n", get_thread_id());
+    LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread="TIDFMT"\n", get_thread_id());
     STATS_INC(num_exiting_DR);
     if (INTERNAL_OPTION(single_thread_in_DR)) {
         /* thread init/exit can proceed now */
-        LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread=%d count=%d\n",
+        LOG(GLOBAL, LOG_DISPATCH, 3, "exiting_dynamorio thread="TIDFMT" count=%d\n",
             get_thread_id(), thread_in_DR_exclusion.count - 1);
         release_recursive_lock(&thread_in_DR_exclusion);
     }

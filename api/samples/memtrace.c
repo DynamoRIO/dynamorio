@@ -230,11 +230,11 @@ event_thread_init(void *drcontext)
                              DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(data->log != INVALID_FILE);
     dr_log(drcontext, LOG_ALL, 1, 
-           "memtrace: log for thread %d is memtrace.%03d\n",
+           "memtrace: log for thread "TIDFMT" is memtrace.%03d\n",
            dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 #ifdef SHOW_RESULTS
     if (dr_is_notify_on()) {
-        dr_fprintf(STDERR, "<memtrace results for thread %d in %s>\n",
+        dr_fprintf(STDERR, "<memtrace results for thread "TIDFMT" in %s>\n",
                    dr_get_thread_id(drcontext), logname);
     }
 #endif

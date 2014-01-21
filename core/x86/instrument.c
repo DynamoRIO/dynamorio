@@ -4295,7 +4295,7 @@ dr_suspend_all_other_threads_ex(OUT void ***drcontexts,
     CLIENT_ASSERT(drcontexts != NULL && num_suspended != NULL,
                   "dr_suspend_all_other_threads invalid params");
     LOG(GLOBAL, LOG_FRAGMENT, 2, 
-        "\ndr_suspend_all_other_threads: thread %d suspending all threads\n",
+        "\ndr_suspend_all_other_threads: thread "TIDFMT" suspending all threads\n",
         get_thread_id());
 
     /* suspend all DR-controlled threads at safe locations */

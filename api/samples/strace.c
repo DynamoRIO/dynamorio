@@ -156,7 +156,7 @@ event_thread_context_init(void *drcontext, bool new_depth)
     /* create an instance of our data structure for this thread context */
     per_thread_t *data;
 #ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "new thread context id=%d%s\n", dr_get_thread_id(drcontext),
+    dr_fprintf(STDERR, "new thread context id="TIDFMT"%s\n", dr_get_thread_id(drcontext),
                new_depth ? " new depth" : "");
 #endif
     if (new_depth) {
@@ -171,7 +171,7 @@ static void
 event_thread_context_exit(void *drcontext, bool thread_exit)
 {
 #ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "resuming prior thread context id=%d\n",
+    dr_fprintf(STDERR, "resuming prior thread context id="TIDFMT"\n",
                dr_get_thread_id(drcontext));
 #endif
     if (thread_exit) {

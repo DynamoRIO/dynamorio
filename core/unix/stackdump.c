@@ -168,7 +168,7 @@ stackdump(void)
     pid = fork_syscall();
     if (pid == 0) { /* child */
 #if VERBOSE
-        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread %d",
+        SYSLOG_INTERNAL_ERROR("about to dump core in process %d parent %d thread "TIDFMT"",
                               get_process_id(), get_parent_id(), get_thread_id());
 #endif
         /* We used to use abort here, but that had lots of complications with

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3130,7 +3130,7 @@ get_application_pid()
 
     if (!pidstr[0]) {
         process_id_t pid = get_process_id();
-        snprintf(pidstr, BUFFER_SIZE_ELEMENTS(pidstr), IDFMT, pid);
+        snprintf(pidstr, BUFFER_SIZE_ELEMENTS(pidstr), PIDFMT, pid);
         NULL_TERMINATE_BUFFER(pidstr);
     }
     return pidstr;

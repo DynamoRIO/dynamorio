@@ -674,12 +674,12 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 
         /* Print the thread id so even if it has no hits we can
          * count the # total threads. */
-        print_file(profile_file, "Profile for thread "IDFMT"\n", tid);
+        print_file(profile_file, "Profile for thread "TIDFMT"\n", tid);
         sum = sum_profile_range(tpc->profile, tpc->fcache_enter,
                                 tpc->fcache_enter_return_end);
         if (sum > 0) {
             print_file(profile_file, "\nDumping cache enter/exit code profile "
-                       "(thread "IDFMT")\n%d hits\n", tid, sum);
+                       "(thread "TIDFMT")\n%d hits\n", tid, sum);
             dump_profile_range(profile_file, tpc->profile, tpc->fcache_enter,
                                tpc->fcache_enter_return_end);
         }
@@ -699,7 +699,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
                 sum = sum_profile_range(tpc->profile, start, end);
                 if (sum > 0) {
                     print_file(profile_file, "\nDumping trace IBL code %s profile "
-                               "(thread "IDFMT")\n%d hits\n",
+                               "(thread "TIDFMT")\n%d hits\n",
                                get_branch_type_name(branch_type), tid, sum);
                     dump_profile_range(profile_file, tpc->profile, start, end);
                 }
@@ -710,7 +710,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
                 sum = sum_profile_range(tpc->profile, start, end);
                 if (sum > 0) {
                     print_file(profile_file, "\nDumping BB IBL code %s profile "
-                               "(thread "IDFMT")\n%d hits\n",
+                               "(thread "TIDFMT")\n%d hits\n",
                                get_branch_type_name(branch_type), tid, sum);
                     dump_profile_range(profile_file, tpc->profile, start, end);
                 }
@@ -721,7 +721,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
                 sum = sum_profile_range(tpc->profile, start, end);
                 if (sum > 0) {
                     print_file(profile_file, "\nDumping coarse IBL code %s profile "
-                               "(thread "IDFMT")\n%d hits\n",
+                               "(thread "TIDFMT")\n%d hits\n",
                                get_branch_type_name(branch_type), tid, sum);
                     dump_profile_range(profile_file, tpc->profile, start, end);
                 }
@@ -732,7 +732,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
                                 tpc->profile->end);
         if (sum > 0) {
             print_file(profile_file, "\nDumping generated code profile "
-                       "(thread "IDFMT")\n%d hits\n", tid, sum);
+                       "(thread "TIDFMT")\n%d hits\n", tid, sum);
             dump_profile_range(profile_file, tpc->profile,
                                tpc->ibl_routines_end, tpc->profile->end);
         }
@@ -3384,7 +3384,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
         LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
             "recreate_app state at untranslatable address in "
-            "generated routines for thread "IDFMT"\n", tdcontext->owning_thread);
+            "generated routines for thread "TIDFMT"\n", tdcontext->owning_thread);
         return RECREATE_FAILURE;
     } else if (in_fcache(mcontext->pc)) {
         /* FIXME: what if pc is in separate direct stub??? 

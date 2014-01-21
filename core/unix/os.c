@@ -1407,7 +1407,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     }
     instr_free(dcontext, &instr);
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread %d segment change %s to selector 0x%x => app fs: "PFX", gs: "PFX"\n",
+        "thread "TIDFMT" segment change %s to selector 0x%x => app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), reg_names[seg], sel, os_tls->app_fs_base, os_tls->app_gs_base);
 }
 
@@ -1459,9 +1459,9 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 #endif
     }
 
-    LOG(THREAD_GET, LOG_THREADS, 1, "thread %d app fs: "PFX", gs: "PFX"\n",
+    LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
-    LOG(THREAD_GET, LOG_THREADS, 1, "thread %d DR fs: "PFX", gs: "PFX"\n",
+    LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" DR fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
 }
 
@@ -1478,7 +1478,7 @@ os_tls_init(void)
     byte *segment = heap_mmap(PAGE_SIZE);
     os_local_state_t *os_tls = (os_local_state_t *) segment;
 
-    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "IDFMT"\n", get_thread_id());
+    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init for thread "TIDFMT"\n", get_thread_id());
 
     /* MUST zero out dcontext slot so uninit access gets NULL */
     memset(segment, 0, PAGE_SIZE);
@@ -4297,7 +4297,7 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
      */
     if (sig == SIGABRT && !DYNAMO_OPTION(intercept_all_signals)) {
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1,
-            "thread %d sending itself a SIGABRT\n", get_thread_id());
+            "thread "TIDFMT" sending itself a SIGABRT\n", get_thread_id());
         KSTOP(num_exits_dir_syscall);
         /* FIXME: need to check whether app has a handler for SIGABRT! */
         /* FIXME PR 211180/6723: this will do SYS_exit rather than the SIGABRT.
@@ -4666,7 +4666,7 @@ cleanup_after_vfork_execve(dcontext_t *dcontext)
     get_list_of_threads_ex(&threads, &num_threads, true/*include execve*/);
     for (i=0; i<num_threads; i++) {
         if (threads[i]->execve) {
-            LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread %d\n",
+            LOG(THREAD, LOG_SYSCALLS, 2, "cleaning up earlier vfork thread "TIDFMT"\n",
                 threads[i]->id);
             dynamo_other_thread_exit(threads[i]);
         }
@@ -4828,7 +4828,7 @@ handle_exit(dcontext_t *dcontext)
 
     if (is_last_app_thread() && !dynamo_exited) {
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
-            "SYS_exit%s(%d) in final thread %d of %d => exiting DynamoRIO\n",
+            "SYS_exit%s(%d) in final thread "TIDFMT" of "PIDFMT" => exiting DynamoRIO\n",
             (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "", mc->xax,
             get_thread_id(), get_process_id());
         /* we want to clean up even if not automatic startup! */
@@ -4836,7 +4836,7 @@ handle_exit(dcontext_t *dcontext)
         exit_process = true;
     } else {
         LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
-            "SYS_exit%s(%d) in thread %d of %d => cleaning up %s\n",
+            "SYS_exit%s(%d) in thread "TIDFMT" of "PIDFMT" => cleaning up %s\n",
             (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "",
             mc->xax, get_thread_id(), get_process_id(),
             exit_process ? "process" : "thread");
@@ -4959,7 +4959,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         res = tls_set_fs_gs_segment_base(os_tls->tls_type, seg, base, NULL);
         ASSERT(res);
         LOG(GLOBAL, LOG_THREADS, 2,
-            "%s %s: arch_prctl successful for thread %d base "PFX"\n",
+            "%s %s: arch_prctl successful for thread "TIDFMT" base "PFX"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
         if (seg == SEG_TLS && base == NULL) {
             /* Set the selector to 0 so we don't think TLS is available. */
@@ -5005,7 +5005,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
             __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
-            "%s %s: set_thread_area successful for thread %d base "PFX"\n",
+            "%s %s: set_thread_area successful for thread "TIDFMT" base "PFX"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id(), base);
         break;
     }
@@ -5028,7 +5028,7 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
             __FUNCTION__, (to_app ? "app" : "dr"), reg_names[seg], selector);
         WRITE_LIB_SEG(selector);
         LOG(THREAD, LOG_LOADER, 2,
-            "%s %s: ldt selector swap successful for thread %d\n",
+            "%s %s: ldt selector swap successful for thread "TIDFMT"\n",
             __FUNCTION__, to_app ? "to app" : "to DR", get_thread_id());
         break;
     }
@@ -5594,7 +5594,8 @@ pre_system_call(dcontext_t *dcontext)
         pid_t pid = (pid_t) sys_param(dcontext, 0);
         uint sig = (uint) sys_param(dcontext, 1);
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
-            "thread %d sending signal %d to pid %d\n", get_thread_id(), sig, pid);
+            "thread "TIDFMT" sending signal %d to pid "PIDFMT"\n",
+            get_thread_id(), sig, pid);
         /* We check whether targeting this process or this process group */
         if (pid == get_process_id() || pid == 0 || pid == -get_process_group_id()) {
             handle_self_signal(dcontext, sig);
@@ -5609,7 +5610,8 @@ pre_system_call(dcontext_t *dcontext)
         pid_t tid = (pid_t) sys_param(dcontext, 0);
         uint sig = (uint) sys_param(dcontext, 1);
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
-            "thread %d sending signal %d to tid %d\n", get_thread_id(), sig, tid);
+            "thread "TIDFMT" sending signal %d to tid %d\n",
+            get_thread_id(), sig, tid);
         if (tid == get_thread_id()) {
             handle_self_signal(dcontext, sig);
         }
@@ -5625,7 +5627,7 @@ pre_system_call(dcontext_t *dcontext)
         pid_t tid = (pid_t) sys_param(dcontext, 1);
         uint sig = (uint) sys_param(dcontext, 2);
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 2,
-            "thread %d sending signal %d to tid %d tgid %d\n",
+            "thread "TIDFMT" sending signal %d to tid %d tgid %d\n",
             get_thread_id(), sig, tid, tgid);
         /* some kernels support -1 values:
          +   tgkill(-1, tid, sig)  == tkill(tid, sig)
@@ -7436,7 +7438,7 @@ signal_event(event_t e)
     mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 1);
     ksynch_wake(&e->signaled);
-    LOG(THREAD_GET, LOG_THREADS, 3,"thread %d signalling event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD_GET, LOG_THREADS, 3,"thread "TIDFMT" signalling event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
 
@@ -7445,7 +7447,7 @@ reset_event(event_t e)
 {
     mutex_lock(&e->lock);
     ksynch_set_value(&e->signaled, 0);
-    LOG(THREAD_GET, LOG_THREADS, 3,"thread %d resetting event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD_GET, LOG_THREADS, 3,"thread "TIDFMT" resetting event "PFX"\n",get_thread_id(),e);
     mutex_unlock(&e->lock);
 }
 
@@ -7456,13 +7458,13 @@ wait_for_event(event_t e)
     dcontext_t *dcontext = get_thread_private_dcontext();
 #endif
     /* Use a user-space event on Linux, a kernel event on Windows. */
-    LOG(THREAD, LOG_THREADS, 3, "thread %d waiting for event "PFX"\n",get_thread_id(),e);
+    LOG(THREAD, LOG_THREADS, 3, "thread "TIDFMT" waiting for event "PFX"\n",get_thread_id(),e);
     while (true) {
         if (ksynch_get_value(&e->signaled) == 1) {
             mutex_lock(&e->lock);
             if (ksynch_get_value(&e->signaled) == 0) {
                 /* some other thread beat us to it */
-                LOG(THREAD, LOG_THREADS, 3, "thread %d was beaten to event "PFX"\n",
+                LOG(THREAD, LOG_THREADS, 3, "thread "TIDFMT" was beaten to event "PFX"\n",
                     get_thread_id(),e);
                 mutex_unlock(&e->lock);
             } else {
@@ -7470,7 +7472,7 @@ wait_for_event(event_t e)
                 ksynch_set_value(&e->signaled, 0);
                 mutex_unlock(&e->lock);
                 LOG(THREAD, LOG_THREADS, 3,
-                    "thread %d finished waiting for event "PFX"\n", get_thread_id(),e);
+                    "thread "TIDFMT" finished waiting for event "PFX"\n", get_thread_id(),e);
                 return;
             }
         } else {
@@ -7694,7 +7696,7 @@ os_take_over_all_unknown_threads(dcontext_t *dcontext)
                                    PROTECTED);
         for (i = 0; i < threads_to_signal; i++) {
             LOG(GLOBAL, LOG_THREADS, 1,
-                "TAKEOVER: will signal thread %d\n", tids[i]);
+                "TAKEOVER: will signal thread "TIDFMT"\n", tids[i]);
             records[i].tid = tids[i];
             records[i].event = create_event();
         }
@@ -7753,7 +7755,7 @@ os_thread_take_over(priv_mcontext_t *mc)
     event_t event = NULL;
 
     LOG(GLOBAL, LOG_THREADS, 1,
-        "TAKEOVER: received signal in thread %d\n", get_sys_thread_id());
+        "TAKEOVER: received signal in thread "TIDFMT"\n", get_sys_thread_id());
 
     /* Do standard DR thread initialization.  Mirrors code in
      * create_clone_record and new_thread_setup, except we're not putting a

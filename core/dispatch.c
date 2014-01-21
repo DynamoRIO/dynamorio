@@ -532,7 +532,7 @@ handle_special_tag(dcontext_t *dcontext)
 
     if (is_stopping_point(dcontext, dcontext->next_tag)) {
         LOG(THREAD, LOG_INTERP, 1,
-            "\nFound DynamoRIO stopping point: thread %d returning to app @"PFX"\n",
+            "\nFound DynamoRIO stopping point: thread "TIDFMT" returning to app @"PFX"\n",
             get_thread_id(),  dcontext->next_tag);
         dispatch_enter_native(dcontext);
         ASSERT_NOT_REACHED();  /* noreturn */

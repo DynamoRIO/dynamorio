@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -5599,14 +5599,14 @@ wait_for_flusher_nolinking(dcontext_t *dcontext)
     ASSERT(!pt->could_be_linking);
     while (pt->wait_for_unlink) {
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
-            "Thread %d waiting for flush (flusher is %d @flushtime %d)\n",
+            "Thread "TIDFMT" waiting for flush (flusher is %d @flushtime %d)\n",
             /* safe to deref flusher since flusher is waiting for our signal */
             dcontext->owning_thread, flusher->owning_thread, flushtime_global);
         mutex_unlock(&pt->linking_lock);
         STATS_INC(num_wait_flush);
         wait_for_event(pt->finished_all_unlink);
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
-            "Thread %d resuming after flush\n", dcontext->owning_thread);
+            "Thread "TIDFMT" resuming after flush\n", dcontext->owning_thread);
         mutex_lock(&pt->linking_lock);
     }
 }
@@ -5621,7 +5621,7 @@ wait_for_flusher_linking(dcontext_t *dcontext)
     ASSERT(pt->could_be_linking);
     while (pt->wait_for_unlink) {
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
-            "Thread %d waiting for flush (flusher is %d @flushtime %d)\n",
+            "Thread "TIDFMT" waiting for flush (flusher is %d @flushtime %d)\n",
             /* safe to deref flusher since flusher is waiting for our signal */
             dcontext->owning_thread, flusher->owning_thread, flushtime_global);
         mutex_unlock(&pt->linking_lock);
@@ -5629,7 +5629,7 @@ wait_for_flusher_linking(dcontext_t *dcontext)
         STATS_INC(num_wait_flush);
         wait_for_event(pt->finished_with_unlink);
         LOG(THREAD, LOG_DISPATCH|LOG_THREADS, 2,
-            "Thread %d resuming after flush\n", dcontext->owning_thread);
+            "Thread "TIDFMT" resuming after flush\n", dcontext->owning_thread);
         mutex_lock(&pt->linking_lock);
     }
 }
@@ -6000,7 +6000,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
     DEBUG_DECLARE(bool ok;)
     KSTART(synchall_flush);
     LOG(GLOBAL, LOG_FRAGMENT, 2, 
-        "\nflush_fragments_synchall_start: thread %d suspending all threads\n",
+        "\nflush_fragments_synchall_start: thread "TIDFMT" suspending all threads\n",
         get_thread_id());
 
     STATS_INC(flush_synchall);
@@ -6057,7 +6057,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
         if (dcontext != NULL) { /* include my_dcontext here */
             DEBUG_DECLARE(uint removed;)
             LOG(GLOBAL, LOG_FRAGMENT, 2, 
-                "\tconsidering thread #%d %d\n", i, flush_threads[i]->id);
+                "\tconsidering thread #%d "TIDFMT"\n", i, flush_threads[i]->id);
             if (dcontext != my_dcontext) {
                 /* must translate BEFORE freeing any memory! */
                 if (!thread_synch_successful(flush_threads[i])) {
@@ -6069,7 +6069,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
                     SYSLOG_INTERNAL_ERROR_ONCE("failed to synch with thread during "
                                                "synchall flush");
                     LOG(THREAD, LOG_FRAGMENT|LOG_SYNCH, 2, 
-                        "failed to synch with thread %d\n", i);
+                        "failed to synch with thread #%d\n", i);
                     STATS_INC(flush_synchall_fail);
                     all_synched = false;
                 } else if (is_thread_currently_native(flush_threads[i])) {
@@ -6104,7 +6104,7 @@ flush_fragments_synchall_start(dcontext_t *ignored, app_pc base, size_t size,
                  */
                 if (is_building_trace(dcontext)) {
                     LOG(THREAD, LOG_FRAGMENT, 2,
-                        "\tsquashing trace of thread %d\n", i);
+                        "\tsquashing trace of thread #%d\n", i);
                     trace_abort(dcontext);
                 }
             }
@@ -6197,7 +6197,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
     int i;
 
     LOG(THREAD, LOG_FRAGMENT, 2,
-        "FLUSH STAGE 1: synch_unlink_priv(thread %d flushtime %d): "PFX"-"PFX"\n",
+        "FLUSH STAGE 1: synch_unlink_priv(thread "TIDFMT" flushtime %d): "PFX"-"PFX"\n",
         dcontext->owning_thread, flushtime_global, base, base + size);
     /* Case 9750: to specify a region of size 0, do not pass in NULL as the base!
      * Use EMPTY_REGION_{BASE,SIZE} instead.
@@ -6313,7 +6313,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
         tgt_dcontext = flush_threads[i]->dcontext;
         tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
         LOG(THREAD, LOG_FRAGMENT, 2,
-            "  considering thread %d/%d = %d\n", i+1, flush_num_threads,
+            "  considering thread #%d/%d = "TIDFMT"\n", i+1, flush_num_threads,
             flush_threads[i]->id);
         ASSERT(is_thread_known(tgt_dcontext->owning_thread));
 
@@ -6331,17 +6331,17 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
              * cannot be here at the same time!
              */
             LOG(THREAD, LOG_FRAGMENT, 2,
-                "\twaiting for thread %d\n", tgt_dcontext->owning_thread);
+                "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
             tgt_pt->wait_for_unlink = true;
             mutex_unlock(&tgt_pt->linking_lock);
             wait_for_event(tgt_pt->waiting_for_unlink);
             mutex_lock(&tgt_pt->linking_lock);
             tgt_pt->wait_for_unlink = false;
             LOG(THREAD, LOG_FRAGMENT, 2,
-                "\tdone waiting for thread %d\n", tgt_dcontext->owning_thread);
+                "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
         } else {
             LOG(THREAD, LOG_FRAGMENT, 2,
-                "\tthread %d synch not required\n", tgt_dcontext->owning_thread);
+                "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
         }
             
         /* it is now safe to access link, vm, and trace info in tgt_dcontext
@@ -6368,7 +6368,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
             if (trace_vmlist != NULL &&
                 vm_list_overlaps(tgt_dcontext, trace_vmlist, base, base+size)) {
                 LOG(THREAD, LOG_FRAGMENT, 2,
-                    "\tsquashing trace of thread %d\n", tgt_dcontext->owning_thread);
+                    "\tsquashing trace of thread "TIDFMT"\n", tgt_dcontext->owning_thread);
                 trace_abort(tgt_dcontext);
             }
         }
@@ -6423,7 +6423,7 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
         /* don't need to go any further if thread has no frags in region */
         if (size == 0 || !thread_vm_area_overlap(tgt_dcontext, base, base+size)) {
             LOG(THREAD, LOG_FRAGMENT, 2,
-                "\tthread %d has no fragments in region to flush\n",
+                "\tthread "TIDFMT" has no fragments in region to flush\n",
                 tgt_dcontext->owning_thread);
 #ifdef WINDOWS
             /* restore, since won't be restored in vm_area_flush_fragments */
@@ -6457,12 +6457,12 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
             goto next_thread;
         }
 
-        LOG(THREAD, LOG_FRAGMENT, 2, "\tflushing fragments for thread %d\n",
+        LOG(THREAD, LOG_FRAGMENT, 2, "\tflushing fragments for thread "TIDFMT"\n",
             flush_threads[i]->id);
         DOLOG(2, LOG_FRAGMENT, {
             if (tgt_dcontext != dcontext) {
                 LOG(tgt_dcontext->logfile, LOG_FRAGMENT, 2,
-                    "thread %d is flushing our fragments\n",
+                    "thread "TIDFMT" is flushing our fragments\n",
                     dcontext->owning_thread);
             }
         });
@@ -6520,7 +6520,7 @@ flush_fragments_unlink_shared(dcontext_t *dcontext, app_pc base, size_t size,
      */
 
     LOG(THREAD, LOG_FRAGMENT, 2,
-        "FLUSH STAGE 2: unlink_shared(thread %d): flusher is %d\n",
+        "FLUSH STAGE 2: unlink_shared(thread "TIDFMT"): flusher is "TIDFMT"\n",
         dcontext->owning_thread, (flusher == NULL) ? -1 : flusher->owning_thread);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
     ASSERT(flush_threads != NULL);
@@ -6667,7 +6667,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
     int i;
 
     LOG(THREAD, LOG_FRAGMENT, 2,
-        "FLUSH STAGE 3: end_synch(thread %d): flusher is %d\n",
+        "FLUSH STAGE 3: end_synch(thread "TIDFMT"): flusher is "TIDFMT"\n",
         dcontext->owning_thread, (flusher == NULL) ? -1 : flusher->owning_thread);
 
     if (!is_self_flushing() && !flush_synchall/* doesn't set flusher */) {

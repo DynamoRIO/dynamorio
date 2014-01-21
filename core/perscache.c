@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -575,7 +575,7 @@ coarse_units_freeze_all(bool in_place)
                 last_exit_deleted(dcontext);
                 if (is_building_trace(dcontext)) {
                     LOG(THREAD, LOG_FRAGMENT, 2,
-                        "\tsquashing trace of thread %d\n", i);
+                        "\tsquashing trace of thread "TIDFMT"\n", i);
                     trace_abort(dcontext);
                 }
                 if (DYNAMO_OPTION(bb_ibl_targets)) {
@@ -2539,7 +2539,7 @@ get_unique_name(const char *origname, const char *key,
     size_t timestamp = get_random_offset(UINT_MAX);
     LOG_DECLARE(int trunc =) /* for DEBUG and INTERNAL */
     snprintf(filename, filename_max,
-             "%s-"IDFMT"-%010"SZFC"-%s", origname,
+             "%s-"PIDFMT"-%010"SZFC"-%s", origname,
              get_process_id(), timestamp, key);
     ASSERT_CURIOSITY(trunc > 0 && trunc < (int)filename_max &&
                      "perscache new name truncated");

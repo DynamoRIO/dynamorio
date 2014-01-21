@@ -256,6 +256,9 @@ typedef size_t app_rva_t;
 #ifdef WINDOWS
 typedef ptr_uint_t thread_id_t;
 typedef ptr_uint_t process_id_t;
+#elif defined(MACOS)
+typedef uint64 thread_id_t;
+typedef pid_t process_id_t;
 #else /* Linux */
 typedef pid_t thread_id_t;
 typedef pid_t process_id_t;
@@ -726,8 +729,8 @@ typedef uint64 timestamp_t;
  * that ignored defines are outermost */
 /* DR_API EXPORT BEGIN */
 #ifdef API_EXPORT_ONLY
-#define PFX "0x" PFMT
-#define PIFX "0x" PIFMT
+#define PFX "0x" PFMT      /**< printf format code for pointers */
+#define PIFX "0x" PIFMT    /**< printf format code for pointer-sized integers */
 #endif
 /* DR_API EXPORT END */
 
@@ -777,12 +780,20 @@ typedef int stats_int_t;
 #define PFX "0x"PFMT
 #define PIFX "0x"PIFMT
 
-/* printf code for {thread,process}_id_t */
+/* DR_API EXPORT BEGIN */
+/* printf codes for {thread,process}_id_t */
 #ifdef WINDOWS
-# define IDFMT SZFMT
+# define PIDFMT SZFMT /**< printf format code for process_id_t */
+# define TIDFMT SZFMT /**< printf format code for thread_id_t */
 #else
-# define IDFMT "%d"
+# define PIDFMT "%d" /**< printf format code for process_id_t */
+# ifdef MACOS
+#  define TIDFMT UINT64_FORMAT_STRING /**< printf format code for thread_id_t */
+# else
+#  define TIDFMT "%d" /**< printf format code for thread_id_t */
+# endif
 #endif
+/* DR_API EXPORT END */
 
 /* Maximum length of any registry parameter. Note that some are further
  * restricted to MAXIMUM_PATH from their usage. */

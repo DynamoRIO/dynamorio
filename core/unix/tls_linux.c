@@ -826,7 +826,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
     }
     } /* switch (dcontext->sys_param0) */
     LOG(THREAD_GET, LOG_THREADS, 2,
-        "thread %d segment change => app fs: "PFX", gs: "PFX"\n",
+        "thread "TIDFMT" segment change => app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
 }
 #endif /* X64 */

@@ -212,7 +212,7 @@ static void event_thread_init(void *drcontext)
   data->num_direct_calls = 0;
   data->num_indirect_calls = 0;
   data->num_returns = 0;
-  dr_log(drcontext, LOG_ALL, 1, "countcalls: set up for thread %d\n",
+  dr_log(drcontext, LOG_ALL, 1, "countcalls: set up for thread "TIDFMT"\n",
          dr_get_thread_id(drcontext));
 }
 

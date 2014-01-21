@@ -4110,7 +4110,7 @@ fcache_reset_all_caches_proactively(uint target)
     mutex_unlock(&reset_pending_lock);
 
     LOG(GLOBAL, LOG_CACHE, 2, 
-        "\nfcache_reset_all_caches_proactively: thread %d suspending all threads\n",
+        "\nfcache_reset_all_caches_proactively: thread "TIDFMT" suspending all threads\n",
         get_thread_id());
 
     /* Suspend all DR-controlled threads at safe locations.
@@ -4182,7 +4182,7 @@ fcache_reset_all_caches_proactively(uint target)
         dcontext_t *dcontext = threads[i]->dcontext;
         if (dcontext != NULL) { /* include my_dcontext here */
             LOG(GLOBAL, LOG_CACHE, 2, 
-                "\tconsidering thread #%d %d\n", i, threads[i]->id);
+                "\tconsidering thread #%d "TIDFMT"\n", i, threads[i]->id);
             if (dcontext != my_dcontext) {
                 /* must translate BEFORE freeing any memory! */
                 if (is_thread_currently_native(threads[i])) {
@@ -4211,12 +4211,12 @@ fcache_reset_all_caches_proactively(uint target)
                  */
                 if (is_building_trace(dcontext)) {
                     LOG(THREAD, LOG_FRAGMENT, 2,
-                        "\tsquashing trace of thread %d\n", i);
+                        "\tsquashing trace of thread "TIDFMT"\n", i);
                     trace_abort(dcontext);
                 }
             } else {
-                LOG(GLOBAL, LOG_CACHE, 2, "\tfreeing memory in thread %d\n", i);
-                LOG(THREAD, LOG_CACHE, 2, "------- reset for thread %d -------\n",
+                LOG(GLOBAL, LOG_CACHE, 2, "\tfreeing memory in thread "TIDFMT"\n", i);
+                LOG(THREAD, LOG_CACHE, 2, "------- reset for thread "TIDFMT" -------\n",
                     threads[i]->id);
                 /* N.B.: none of these can assume the executing thread is the
                  * dcontext owner, esp. wrt tls!
@@ -4272,7 +4272,7 @@ fcache_reset_all_caches_proactively(uint target)
             dcontext_t *dcontext = threads[i]->dcontext;
             if (dcontext != NULL) { /* include my_dcontext here */
                 LOG(GLOBAL, LOG_CACHE, 2, 
-                    "fcache_reset_all_caches_proactively: re-initializing thread %d\n", i);
+                    "fcache_reset_all_caches_proactively: re-initializing thread "TIDFMT"\n", i);
                 /* now set up private state all over again -- generally, we can do
                  * this before the global free/init since our private/global
                  * free/init are completely separate (due to the presence of

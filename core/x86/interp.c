@@ -2559,7 +2559,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     }
     if (bb->for_cache && TEST(DR_EMIT_GO_NATIVE, emitflags)) {
         LOG(THREAD, LOG_INTERP, 2, "client requested that we go native\n");
-        SYSLOG_INTERNAL_INFO("thread %d is going native at client request",
+        SYSLOG_INTERNAL_INFO("thread "TIDFMT" is going native at client request",
                              get_thread_id());
         /* we leverage the existing native_exec mechanism */
         dcontext->native_exec_postsyscall = bb->start_pc;

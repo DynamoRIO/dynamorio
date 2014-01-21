@@ -219,7 +219,7 @@ intercept_asynch_common(thread_record_t *tr, bool intercept_unknown)
         /* caller should have made all attempts to get tr */
         if (control_all_threads) {
             /* we should know about all threads! */
-            SYSLOG_INTERNAL_WARNING("Received asynch event for unknown thread %d", get_thread_id());
+            SYSLOG_INTERNAL_WARNING("Received asynch event for unknown thread "TIDFMT"", get_thread_id());
             /* try to make everything run rather than assert -- just do
              * this asynch natively, we probably received it for a thread that's
              * been created but not scheduled?  
@@ -2768,7 +2768,7 @@ wipe_out_ntdll()
     get_list_of_threads(&threads, &num_threads);
     for (i=0; i<num_threads; i++) {
         if (threads[i]->id != get_thread_id()) {
-            LOG(GLOBAL, LOG_ASYNCH, 1, "Suspending thread %d == "PFX"\n", 
+            LOG(GLOBAL, LOG_ASYNCH, 1, "Suspending thread "TIDFMT" == "PFX"\n", 
                 tr->id, tr->handle);
             SuspendThread(threads[i]->handle);
         }
@@ -3340,7 +3340,7 @@ intercept_apc(app_state_at_intercept_t *state)
         /* FIXME: invalid app parameters would have been caught already, right? */
         ASSERT(apc_target != 0 && cxt != NULL);
         LOG(GLOBAL, LOG_ASYNCH, 2,
-            "ASYNCH intercepted apc: thread=%d, apc pc="PFX", cont pc="PFX"\n", 
+            "ASYNCH intercepted apc: thread="TIDFMT", apc pc="PFX", cont pc="PFX"\n", 
             get_thread_id(), apc_target, cxt->CXT_XIP);
 #endif
 
@@ -3586,7 +3586,7 @@ intercept_nt_continue(CONTEXT *cxt, int flag)
         dcontext_t *dcontext = get_thread_private_dcontext();
         
         LOG(THREAD, LOG_ASYNCH, 2,
-            "ASYNCH intercept_nt_continue in thread %d, xip="PFX"\n",
+            "ASYNCH intercept_nt_continue in thread "TIDFMT", xip="PFX"\n",
             get_thread_id(), cxt->CXT_XIP);
 
         LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
@@ -3693,7 +3693,7 @@ intercept_nt_setcontext(dcontext_t *dcontext, CONTEXT *cxt)
     ASSERT(intercept_asynch_for_thread(dcontext->owning_thread, false/*no unknown threads*/));
     ASSERT(dcontext != NULL && dcontext->initialized);
     LOG(THREAD, LOG_ASYNCH, 1,
-        "ASYNCH intercept_nt_setcontext: thread %d targeting thread %d\n",
+        "ASYNCH intercept_nt_setcontext: thread "TIDFMT" targeting thread "TIDFMT"\n",
         get_thread_id(), dcontext->owning_thread);
     LOG(THREAD, LOG_ASYNCH, 3, "target context:\n");
     DOLOG(3, LOG_ASYNCH, { dump_context_info(cxt, THREAD, true); });
@@ -5045,7 +5045,7 @@ intercept_exception(app_state_at_intercept_t *state)
             dcontext->forged_exception_addr = NULL;
 
         LOG(THREAD, LOG_ASYNCH, 1,
-            "ASYNCH intercepted exception in %sthread %d at pc "PFX"\n", 
+            "ASYNCH intercepted exception in %sthread "TIDFMT" at pc "PFX"\n", 
             takeover ? "" : "non-asynch ", get_thread_id(),
             pExcptRec->ExceptionAddress);
         DOLOG(2, LOG_ASYNCH, {
@@ -5872,7 +5872,7 @@ intercept_callback_start(app_state_at_intercept_t *state)
             app_pc *cbtable = (app_pc *) get_own_peb()->KernelCallbackTable;
             target = cbtable[*(uint*)(state->mc.xsp+IF_X64_ELSE(0x2c,4))];
             LOG(THREAD_GET, LOG_ASYNCH, 2,
-                "ASYNCH intercepted callback #%d: target="PFX", thread=%d\n",
+                "ASYNCH intercepted callback #%d: target="PFX", thread="TIDFMT"\n",
                 GLOBAL_STAT(num_callbacks)+1, target, get_thread_id());
             DOLOG(3, LOG_ASYNCH, {
                 dump_mcontext(&state->mc, THREAD_GET, DUMP_NOT_XML);
@@ -6263,7 +6263,7 @@ callback_start_return(priv_mcontext_t *mc)
                  * exactly where thread was suspended, but there's no guarantee we can do that
                  * if there were indirect jmps.
                  */
-                SYSLOG_INTERNAL_ERROR("non-process-init callback return with native callback context for %s thread %d",
+                SYSLOG_INTERNAL_ERROR("non-process-init callback return with native callback context for %s thread "TIDFMT"",
                                       (tr == NULL) ? "unknown" : "known", 
                                       get_thread_id());
                 /* might be injected late, refer to bug 426 for discussion
@@ -6511,7 +6511,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
     if (tr == NULL) {
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: native thread in intercept_load_dll\n");
         if (control_all_threads) {
-            SYSLOG_INTERNAL_ERROR("LdrLoadDll reached by unexpected %s thread %d", 
+            SYSLOG_INTERNAL_ERROR("LdrLoadDll reached by unexpected %s thread "TIDFMT"", 
                                   (tr == NULL) ? "unknown" : "known",
                                   get_thread_id());
             /* case 9385 tracks an instance */
@@ -6521,7 +6521,7 @@ intercept_load_dll(app_state_at_intercept_t *state)
     } else if (control_all_threads && IS_UNDER_DYN_HACK(tr->under_dynamo_control)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         /* trying to open debugbox causes IIS to fail, so don't SYSLOG_INTERNAL */
-        LOG(THREAD, LOG_ASYNCH, 1, "ERROR: load_dll: we lost control of thread %d\n",
+        LOG(THREAD, LOG_ASYNCH, 1, "ERROR: load_dll: we lost control of thread "TIDFMT"\n",
             tr->id);
         DOLOG(2, LOG_ASYNCH, {
             dump_callstack(NULL, (app_pc) state->mc.xbp, THREAD, DUMP_NOT_XML);
@@ -6566,7 +6566,7 @@ intercept_unload_dll(app_state_at_intercept_t *state)
         LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: native thread in "
                                     "intercept_unload_dll\n");
         if (control_all_threads) {
-            SYSLOG_INTERNAL_ERROR("LdrUnloadDll reached by unexpected %s thread %d", 
+            SYSLOG_INTERNAL_ERROR("LdrUnloadDll reached by unexpected %s thread "TIDFMT"", 
                                   (tr == NULL) ? "unknown" : "known",
                                   get_thread_id());
             /* case 9385 tracks an instance */
@@ -7021,7 +7021,7 @@ intercept_image_entry(app_state_at_intercept_t *state)
              * we want to take over so no conditional is needed there.
              */
         } else {
-            SYSLOG_INTERNAL_ERROR("Image entry interception point reached by unexpected %s thread %d", 
+            SYSLOG_INTERNAL_ERROR("Image entry interception point reached by unexpected %s thread "TIDFMT"", 
                                   (tr == NULL) ? "unknown" : "known",
                                   get_thread_id());
             ASSERT_NOT_REACHED();
