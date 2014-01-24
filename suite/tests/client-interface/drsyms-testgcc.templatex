@@ -2,6 +2,7 @@
 Failed to unmangle _ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E
 #ifdef WINDOWS
 got correct overflow
+Failed to unmangle std::operator<<<<<std::char_traits<char, truncated
 #endif
 got correct overflow
 finished unmangling.
@@ -21,10 +22,12 @@ drsyms-test\.cpp:74!.anonymous namespace.::Foo::Bar(\(\))?
 drsyms-test\.cpp:81!exe_export
 drsyms-test\.cpp:87!exe_public(\(\))?
 drsyms-test\.cpp:93!exe_static(\(\))?
-drsyms-test\.cpp:137!main
+drsyms-test\.cpp:179!main
 #endif
 overloaded: 1
 overloaded: 2
 overloaded: 4
 app num_calls: 7
+got back 4
+got back 4
 // we don't get an "all done" b/c cygwin somehow messes up output

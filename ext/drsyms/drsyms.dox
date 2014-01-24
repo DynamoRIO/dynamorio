@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -149,17 +149,21 @@ Currently there are three modes:
 - \p DRSYM_LEAVE_MANGLED: Matches against or returns the mangled C++ symbol.
 - \p DRSYM_DEMANGLE: Matches against or returns a "short" demangled C++ symbol.
   On Linux, both templates and parameters are collapsed to <> and ()
-  respectively.  On Windows, templates are still expanded, and parameters are
+  respectively.  On Windows, templates are collapsed to <>, but parameters are
   omitted without parentheses.
 - \p DRSYM_DEMANGLE_FULL: Matches against or returns the fully demangled C++
   symbol with both template arguments and parameter types.
+- \p DRSYM_DEMANGLE_PDB_TEMPLATES: Only applies to Windows PDB symbols.
+  Does not affect matches, but returns symbols with parameters omitted
+  without parentheses and templates fully expanded.
 - \p DRSYM_DEFAULT_FLAGS: This is equivalent to \p DRSYM_DEMANGLE.
 
 On Windows, this functionality is reduced due to the limitations of \p
-dbghelp.dll.  For all routines except drsym_demangle_symbol(), no matter what
-flags the user passes, all symbols returned or searched use the default
-demangling on Windows, which includes template arguments and excludes parameter
-types.
+dbghelp.dll.  For all routines except drsym_demangle_symbol(), the only
+flag that the user passes that has any effect is
+DRSYM_DEMANGLE_PDB_TEMPLATES: all symbols returned or searched either use
+default demangling or additionally use DRSYM_DEMANGLE_PDB_TEMPLATES if
+requested.
 
 For an example of usage see the \p instrcalls sample client distributed with
 DynamoRIO.

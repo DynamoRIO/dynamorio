@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -59,6 +59,7 @@ static void lookup_glibc_syms(void *dc, const module_data_t *dll_data);
 static void test_demangle(void);
 #ifdef WINDOWS
 static void lookup_overloads(const char *exe_path);
+static void lookup_templates(const char *exe_path);
 #endif
 
 #ifdef WINDOWS
@@ -243,7 +244,7 @@ get_real_proc_addr(module_handle_t mod_handle, const char *symbol)
 
 static size_t
 lookup_and_wrap(const char *modpath, app_pc modbase, const char *modname, const
-                char *symbol, int flags)
+                char *symbol, uint flags)
 {
     drsym_error_t r;
     size_t modoffs = 0;
@@ -324,8 +325,10 @@ lookup_exe_syms(void)
     ASSERT(r == DRSYM_ERROR_INVALID_PARAMETER);
 
 #ifdef WINDOWS
-    if (TEST(DRSYM_PDB, debug_kind)) /* else NYI */
+    if (TEST(DRSYM_PDB, debug_kind)) { /* else NYI */
         lookup_overloads(exe_path);
+        lookup_templates(exe_path);
+    }
 #endif
 
     dr_free_module_data(exe_data);
@@ -444,6 +447,49 @@ lookup_overloads(const char *exe_path)
         p.overloaded_class == NUM_OVERLOADED_CLASS) {
         dr_fprintf(STDERR, "found all overloads\n");
     }
+}
+
+static bool
+search_templates_cb(const char *name, size_t modoffs, void *data)
+{
+    if (strstr(name, "::templated_func") != NULL ||
+        strstr(name, "::<unnamed-tag>") != NULL)
+        dr_fprintf(STDERR, "found %s\n", name);
+    return true;
+}
+
+static bool
+search_ex_templates_cb(drsym_info_t *out, drsym_error_t status, void *data)
+{
+    if (strstr(out->name, "::templated_func") != NULL ||
+        strstr(out->name, "::<unnamed-tag>") != NULL)
+        dr_fprintf(STDERR, "found %s\n", out->name);
+    return true;
+}
+
+static void
+lookup_templates(const char *exe_path)
+{
+    /* These should collapse the templates */
+    drsym_error_t r =
+        drsym_search_symbols(exe_path, "*!*nested*", true, search_templates_cb, NULL);
+    ASSERT(r == DRSYM_SUCCESS);
+    r = drsym_search_symbols_ex(exe_path, "*!*nested*", true, search_ex_templates_cb,
+                                sizeof(drsym_info_t), NULL);
+    ASSERT(r == DRSYM_SUCCESS);
+    r = drsym_enumerate_symbols(exe_path, search_templates_cb, NULL, DRSYM_DEFAULT_FLAGS);
+    ASSERT(r == DRSYM_SUCCESS);
+    r = drsym_enumerate_symbols_ex(exe_path, search_ex_templates_cb, sizeof(drsym_info_t),
+                                   NULL, DRSYM_DEFAULT_FLAGS);
+    ASSERT(r == DRSYM_SUCCESS);
+    /* These should expand the templates */
+    r = drsym_enumerate_symbols(exe_path, search_templates_cb, NULL,
+                                DRSYM_DEMANGLE|DRSYM_DEMANGLE_PDB_TEMPLATES);
+    ASSERT(r == DRSYM_SUCCESS);
+    r = drsym_enumerate_symbols_ex(exe_path, search_ex_templates_cb, sizeof(drsym_info_t),
+                                   NULL, DRSYM_DEMANGLE|DRSYM_DEMANGLE_PDB_TEMPLATES);
+    ASSERT(r == DRSYM_SUCCESS);
+    /* XXX i#1350: add a way to pass flags to drsym_search_*! */
 }
 #endif /* WINDOWS */
 
@@ -907,16 +953,16 @@ static cpp_name_t symbols_pdb[] = {
      "WebCore::SVGSVGElement::synchronizeRequiredExtensions"},
     {"??$?0$04@WebString@WebKit@@QAE@AAY04$$CBD@Z",
      "WebKit::WebString::WebString<5>(char const (&)[5])",
-     "WebKit::WebString::WebString<5>"},
+     "WebKit::WebString::WebString<>"},
     {"?createParser@PluginDocument@WebCore@@EAE?AV?$PassRefPtr@VDocumentParser@WebCore@@@WTF@@XZ",
      "WebCore::PluginDocument::createParser(void)",
      "WebCore::PluginDocument::createParser"},
     {"?_Compat@?$_Vector_const_iterator@V?$_Iterator@$00@?$list@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@V?$allocator@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@@2@@std@@V?$allocator@V?$_Iterator@$00@?$list@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@V?$allocator@U?$pair@$$CBHPAVWebIDBCursor@WebKit@@@std@@@2@@std@@@3@@std@@QBEXABV12@@Z",
      "std::_Vector_const_iterator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1>,class std::allocator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1> > >::_Compat(class std::_Vector_const_iterator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1>,class std::allocator<class std::list<struct std::pair<int const ,class WebKit::WebIDBCursor *>,class std::allocator<struct std::pair<int const ,class WebKit::WebIDBCursor *> > >::_Iterator<1> > > const &)const ",
-     "std::_Vector_const_iterator<std::list<std::pair<int const ,WebKit::WebIDBCursor *>,std::allocator<std::pair<int const ,WebKit::WebIDBCursor *> > >::_Iterator<1>,std::allocator<std::list<std::pair<int const ,WebKit::WebIDBCursor *>,std::allocator<std::pair<int const ,WebKit::WebIDBCursor *> > >::_Iterator<1> > >::_Compat"},
+     "std::_Vector_const_iterator<>::_Compat"},
     {"??$MatchAndExplain@VNotificationDetails@@@?$PropertyMatcher@V?$Details@$$CBVAutofillCreditCardChange@@@@PBVAutofillCreditCardChange@@@internal@testing@@QBE_NABVNotificationDetails@@PAVMatchResultListener@2@@Z",
      "testing::internal::PropertyMatcher<class Details<class AutofillCreditCardChange const >,class AutofillCreditCardChange const *>::MatchAndExplain<class NotificationDetails>(class NotificationDetails const &,class testing::MatchResultListener *)const ",
-     "testing::internal::PropertyMatcher<Details<AutofillCreditCardChange const >,AutofillCreditCardChange const *>::MatchAndExplain<NotificationDetails>"},
+     "testing::internal::PropertyMatcher<>::MatchAndExplain<>"},
     {"?MD5Sum@base@@YAXPBXIPAUMD5Digest@1@@Z",
      "base::MD5Sum(void const *,unsigned int,struct base::MD5Digest *)",
      "base::MD5Sum"},
@@ -928,16 +974,56 @@ static cpp_name_t symbols_pdb[] = {
      "ClipboardHostMsg_ReadAsciiText::ReadReplyParam"},
     {"?begin@?$HashMap@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@U?$PtrHash@PAVValue@v8@@@WTF@@U?$HashTraits@PAVValue@v8@@@6@U?$HashTraits@PAVGlobalHandleInfo@WebCore@@@6@@WTF@@QAE?AU?$HashTableIteratorAdapter@V?$HashTable@PAVValue@v8@@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@U?$PairFirstExtractor@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@@WTF@@U?$PtrHash@PAVValue@v8@@@6@U?$PairHashTraits@U?$HashTraits@PAVValue@v8@@@WTF@@U?$HashTraits@PAVGlobalHandleInfo@WebCore@@@2@@6@U?$HashTraits@PAVValue@v8@@@6@@WTF@@U?$pair@PAVValue@v8@@PAVGlobalHandleInfo@WebCore@@@std@@@2@XZ",
      "WTF::HashMap<class v8::Value *,class WebCore::GlobalHandleInfo *,struct WTF::PtrHash<class v8::Value *>,struct WTF::HashTraits<class v8::Value *>,struct WTF::HashTraits<class WebCore::GlobalHandleInfo *> >::begin(void)",
-     "WTF::HashMap<v8::Value *,WebCore::GlobalHandleInfo *,WTF::PtrHash<v8::Value *>,WTF::HashTraits<v8::Value *>,WTF::HashTraits<WebCore::GlobalHandleInfo *> >::begin"},
+     "WTF::HashMap<>::begin"},
     {"??D?$_Deque_iterator@V?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@V?$allocator@V?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@@std@@$00@std@@QBEAAV?$linked_ptr@V?$CallbackRunner@U?$Tuple1@H@@@@@@XZ",
      "std::_Deque_iterator<class linked_ptr<class CallbackRunner<struct Tuple1<int> > >,class std::allocator<class linked_ptr<class CallbackRunner<struct Tuple1<int> > > >,1>::operator*(void)const ",
-     "std::_Deque_iterator<linked_ptr<CallbackRunner<Tuple1<int> > >,std::allocator<linked_ptr<CallbackRunner<Tuple1<int> > > >,1>::operator*"},
+     "std::_Deque_iterator<>::operator*"},
     {"??$PerformAction@$$A6AXABVFilePath@@0PBVDictionaryValue@base@@PBVExtension@@@Z@?$ActionResultHolder@X@internal@testing@@SAPAV012@ABV?$Action@$$A6AXABVFilePath@@0PBVDictionaryValue@base@@PBVExtension@@@Z@2@ABV?$tuple@ABVFilePath@@ABV1@PBVDictionaryValue@base@@PBVExtension@@XXXXXX@tr1@std@@@Z",
      "testing::internal::ActionResultHolder<void>::PerformAction<void (class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *)>(class testing::Action<void (class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *)> const &,class std::tr1::tuple<class FilePath const &,class FilePath const &,class base::DictionaryValue const *,class Extension const *,void,void,void,void,void,void> const &)",
-     "testing::internal::ActionResultHolder<void>::PerformAction<void __cdecl(FilePath const &,FilePath const &,base::DictionaryValue const *,Extension const *)>"},
+     "testing::internal::ActionResultHolder<>::PerformAction<>"},
     {"?ClassifyInputEvent@ppapi@webkit@@YA?AW4PP_InputEvent_Class@@W4Type@WebInputEvent@WebKit@@@Z",
      "webkit::ppapi::ClassifyInputEvent(enum WebKit::WebInputEvent::Type)",
      "webkit::ppapi::ClassifyInputEvent"},
+    /* Test removal of template parameters.  I don't have the mangled forms of
+     * these b/c I'm drawing them from Chromium private symbols, which are never
+     * decorated.
+     */
+    {"std::operator<<<std::char_traits<char> >",
+     "std::operator<<<std::char_traits<char> >",
+     "std::operator<<<>"},
+    {"std::operator<<std::char_traits<char> >",
+     "std::operator<<std::char_traits<char> >",
+     "std::operator<<>"},
+    {"std::operator<=<std::char_traits<char> >",
+     "std::operator<=<std::char_traits<char> >",
+     "std::operator<=<>"},
+    {"std::operator<<=<std::char_traits<char> >",
+     "std::operator<<=<std::char_traits<char> >",
+     "std::operator<<=<>"},
+    {"myclass<foo<bar<baz> > >::std::operator-><std::char_traits<char> >",
+     "myclass<foo<bar<baz> > >::std::operator-><std::char_traits<char> >",
+     "myclass<>::std::operator-><>"},
+    {"std::operator-><std::char_traits<char, truncated",
+     "std::operator-><std::char_traits<char, truncated",
+     /* Truncated => we just close <> */
+     "std::operator-><>"},
+    {"std::operator<<<<<std::char_traits<char, truncated",
+     "std::operator<<<<<std::char_traits<char, truncated",
+     "<failure to unmangle>"},
+    /* Test non-template <> */
+    {"<CrtImplementationDetails>::NativeDll::ProcessVerifier",
+     "<CrtImplementationDetails>::NativeDll::ProcessVerifier",
+     "<CrtImplementationDetails>::NativeDll::ProcessVerifier"},
+    {"foo::<unamed-tag>::<not a template>::template<foo::<bar>>",
+     "foo::<unamed-tag>::<not a template>::template<foo::<bar>>",
+     "foo::<unamed-tag>::<not a template>::template<>"},
+    /* Test malformed */
+    {"bogus<::std::operator-><std::char_traits<char> >",
+     "bogus<::std::operator-><std::char_traits<char> >",
+     /* Is this what we want?  Should we add a more sophisticated parser to
+      * detect this as malformed?
+      */
+     "bogus<><>"},
 };
 #endif
 

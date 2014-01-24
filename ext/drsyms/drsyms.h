@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -88,17 +88,26 @@ typedef enum {
 
 /** Bitfield of options to each DRSyms operation. */
 typedef enum {
-    DRSYM_LEAVE_MANGLED = 0x00,     /**< Do not demangle C++ symbols. */
+    /**
+     * Do not demangle C++ symbols.  This option is not available for
+     * Windows PDB symbols.
+     */
+    DRSYM_LEAVE_MANGLED = 0x00,
     /**
      * Demangle C++ symbols, omitting templates and parameter types.
      * On Linux (DRSYM_ELF_SYMTAB) and Windows non-PDB (DRSYM_PECOFF_SYMTAB),
      * both templates and parameters are collapsed to <> and () respectively.
-     * For Windows PDB (DRSYM_PDB), templates are still expanded, and
+     * For Windows PDB (DRSYM_PDB), templates are collapsed to <>, but
      * parameters are omitted without parentheses.
      */
     DRSYM_DEMANGLE      = 0x01,
-    /** Demangle template arguments and parameter types. */
+    /**
+     * Demangle template arguments and parameter types.  This option is not
+     * available for Windows PDB symbols (except in drsym_demangle_symbol()).
+     */
     DRSYM_DEMANGLE_FULL = 0x02,
+    /** For Windows PDB, do not collapse templates to <>. */
+    DRSYM_DEMANGLE_PDB_TEMPLATES = 0x04,
     DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE,   /**< Default flags. */
 } drsym_flags_t;
 
@@ -210,7 +219,9 @@ DR_EXPORT
  * @param[in] modoffs The offset from the base of the module specifying the address
  *   to be queried.
  * @param[in,out] info Information about the symbol at the queried address.
- * @param[in]  flags   Options for the operation.  Ignored for Windows PDB (DRSYM_PDB).
+ * @param[in]  flags   Options for the operation as a combination of drsym_flags_t
+ *    values.  Ignored for Windows PDB (DRSYM_PDB) except for
+ *    DRSYM_DEMANGLE_PDB_TEMPLATES.
  */
 drsym_error_t
 drsym_lookup_address(const char *modpath, size_t modoffs, drsym_info_t *info /*INOUT*/,
@@ -380,7 +391,10 @@ DR_EXPORT
  *
  * For Windows PDB symbols (DRSYM_PDB), we don't support the
  * DRSYM_DEMANGLE_FULL flag.  Also for Windows PDB, if DRSYM_DEMANGLE is
- * set, \p symbol must include the template arguments.
+ * set, \p symbol must include the template arguments.  Consider
+ * using drsym_search_symbols_ex() instead with "<*>" for each template
+ * instantation in order to locate all symbols regardless of template
+ * arguments.
  *
  * @param[in] modpath The full path to the module to be queried.
  * @param[in] symbol The name of the symbol being queried.
@@ -388,7 +402,8 @@ DR_EXPORT
  *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
- * @param[in]  flags   Options for the operation.  Ignored for Window PDB (DRSYM_PDB).
+ * @param[in]  flags   Options for the operation as a combination of drsym_flags_t
+ *    values.  Ignored for Windows PDB (DRSYM_PDB).
  */
 drsym_error_t
 drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*OUT*/,
@@ -431,7 +446,9 @@ DR_EXPORT
  * @param[in] modpath   The full path to the module to be queried.
  * @param[in] callback  Function to call for each symbol found.
  * @param[in] data      User parameter passed to callback.
- * @param[in] flags     Options for the operation.  Ignored for Windows PDB (DRSYM_PDB).
+ * @param[in] flags     Options for the operation as a combination of drsym_flags_t
+ *    values.  Ignored for Windows PDB (DRSYM_PDB) except for
+ *    DRSYM_DEMANGLE_PDB_TEMPLATES.
  */
 drsym_error_t
 drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *data,
@@ -440,7 +457,7 @@ drsym_enumerate_symbols(const char *modpath, drsym_enumerate_cb callback, void *
 DR_EXPORT
 /**
  * Enumerates all symbol information for a given module, including exports.
- * Calls the given callback function for each symbol, returning full information
+ * Calls the given callback function for each symbol, passing full information
  * about the symbol (as opposed to selected information returned by
  * drsym_enumerate_symbols()).
  * If the callback returns false, the enumeration will end.
@@ -450,7 +467,9 @@ DR_EXPORT
  * @param[in] info_size The size of the drsym_info_t struct to pass to \p callback.
  *                      Enough space for each name will be allocated automatically.
  * @param[in] data      User parameter passed to callback.
- * @param[in] flags     Options for the operation.  Ignored for Windows PDB (DRSYM_PDB).
+ * @param[in] flags     Options for the operation as a combination of drsym_flags_t
+ *    values.  Ignored for Windows PDB (DRSYM_PDB) except for
+ *    DRSYM_DEMANGLE_PDB_TEMPLATES.
  */
 drsym_error_t
 drsym_enumerate_symbols_ex(const char *modpath, drsym_enumerate_ex_cb callback,
@@ -477,10 +496,14 @@ DR_EXPORT
  * successful.  If the caller needs the full name, they may need to make
  * multiple attempts with a larger buffer.
  *
+ * \note If the passed-in mangled symbol is truncated already, there
+ * is no guarantee that the demangling will even partically succeed.
+ *
  * @param[out] dst      Output buffer for demangled name.
  * @param[in]  dst_sz   Size of the output buffer in bytes.
  * @param[in]  mangled  Mangled C++ symbol to demangle.
- * @param[in]  flags    Options for the operation.  DRSYM_DEMANGLE is implied.
+ * @param[in]  flags    Options for the operation as a combination of drsym_flags_t
+ *    values.  DRSYM_DEMANGLE is implied.
  */
 size_t
 drsym_demangle_symbol(char *dst, size_t dst_sz, const char *mangled,
@@ -520,6 +543,14 @@ DR_EXPORT
  *
  * This routine is only supported for PDB symbols (DRSYM_PDB).
  *
+ * Modifying the demangling is currently not supported:
+ * DRSYM_DEFAULT_FLAGS is used.
+ *
+ * Due to dbghelp leaving template parameters in place (they are removed
+ * for DRSYM_DEMANGLE in the drsyms library itself), searching may find
+ * symbols that do not appear to match due to drsyms having removed that
+ * part of the symbol name.
+ *
  * \note drsym_search_symbols() with full=false is significantly
  * faster and uses less memory than drsym_enumerate_symbols(), and is
  * faster than drsym_lookup_symbol(), but requires dbghelp.dll version
@@ -547,12 +578,20 @@ DR_EXPORT
 /**
  * Enumerates all symbol information (including exports) matching a
  * pattern for a given module.
- * Calls the given callback function for each symbol, returning full information
+ * Calls the given callback function for each symbol, passing full information
  * about the symbol (as opposed to selected information returned by
  * drsym_search_symbols()).
  * If the callback returns false, the enumeration will end.
  *
  * This routine is only supported for PDB symbols (DRSYM_PDB).
+ *
+ * Modifying the demangling is currently not supported:
+ * DRSYM_DEFAULT_FLAGS is used.
+ *
+ * Due to dbghelp leaving template parameters in place (they are removed
+ * for DRSYM_DEMANGLE in the drsyms library itself), searching may find
+ * symbols that do not appear to match due to drsyms having removed that
+ * part of the symbol name.
  *
  * \note The performance note for drsym_search_symbols() applies here
  * as well.

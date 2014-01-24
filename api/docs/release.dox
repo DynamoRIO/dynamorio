@@ -123,6 +123,8 @@ The changes between version \DR_VERSION and 4.2.0 include:
    and debug), and the default -msgbox_mask on Windows release builds 
    to 0xC, for better error reporting.  For interactive runs, then,
    the user should explicitly pass -msgbox_mask 0.
+ - Added collapsing of template parameters to "<>" for drsyms operations on
+   Windows PDB symbols when #DRSYM_DEMANGLE is specified.
 
 The changes between version 4.2.0 and 4.1.0 include:
 

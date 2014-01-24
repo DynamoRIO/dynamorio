@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -104,6 +104,48 @@ int overloaded(std::nothrow_t *a) { return 64; }
 /* no arg so not really an overload, but we need to test no-arg func */
 int overloaded(void)       { return 128; }
 
+template<typename T> T *
+templated_func(T *t)
+{
+    return t;
+}
+
+/* test some nesting */
+namespace name_outer {
+    namespace name_middle {
+        namespace name_inner {
+            template<typename X>
+            class sample_class {
+            public:
+                template<typename Y>
+                class nested_class {
+                public:
+                    template<typename T > T *
+                    templated_func(T *t)
+                    {
+                        return t;
+                    }
+                    union {
+                        int zz;
+                    };
+                };
+            };
+        }
+    }
+}
+
+void
+test_templates(void)
+{
+    int x = 4;
+    int *y = templated_func<int>(&x);
+    print("got back %d\n", *y);
+    char c = 'x';
+    name_outer::name_middle::name_inner::sample_class<char>::nested_class<int> sc;
+    y = sc.templated_func<int>(&x);
+    print("got back %d\n", *y);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -147,6 +189,8 @@ main(int argc, char **argv)
 #endif
 
     print("app num_calls: %d\n", num_calls);
+
+    test_templates();
 
     return 0;
 }

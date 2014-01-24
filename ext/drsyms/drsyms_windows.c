@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -457,12 +457,120 @@ lookup_or_load(const char *modpath, bool use_dbghelp)
     return mod;
 }
 
+/***************************************************************************
+ * SYMBOL HANDLING
+ */
+
 /* SYMBOL_INFO.Name has 1 char in the struct */
 #define NAME_EXTRA_SZ(full_sz) ((full_sz) - 1)
 
 enum {
+    /* MAX_SYM_NAME comes from dbghelp.h and is equal to 2000 */
     SYMBOL_INFO_SIZE = (sizeof(SYMBOL_INFO) + NAME_EXTRA_SZ(MAX_SYM_NAME*sizeof(TCHAR)))
 };
+
+#define OPERATOR "operator"
+#define LEN_OPERATOR 8 /* strlen("operator") */
+
+/* Removes the template parameters from the passed-in demangled
+ * symbol.  Assumes there is no function return type (or other tokens)
+ * prior to the name, and that there are no function arguments: thus,
+ * templates can only appear in class names (classes could be nested)
+ * and the function name itself.  This makes our job much easier: we just
+ * remove everything between outer <> pairs in all class names.  In
+ * the function name, we look for leading < to keep (for operators).
+ * Note that there is not always a space between the operator name and
+ * the template start (e.g., "std::operator<<<std::char_traits<char> >").
+ *
+ * Supports in-buffer detemplatizing: i.e., dst can equal src, but there
+ * should be no partial (non-full) overlap.
+ */
+static drsym_error_t
+detemplatize(char *dst OUT, size_t dst_sz, const char *src, size_t *dst_written OUT)
+{
+    const char *c = src;
+    char *d = dst;
+    uint in_template = 0;
+    bool just_copy = false;
+    while (*c != '\0') {
+        if (just_copy)
+            just_copy = false;
+        else if (*c == '<') {
+            /* Look for "operator<<" */
+            if (in_template == 0 &&
+                *(c+1) == '<' &&
+                /* To support in-buffer, any time we look backward we have
+                 * to look at dst and not src
+                 */
+                d - dst > LEN_OPERATOR &&
+                *(d-1) == 'r' && /* quick check */
+                strncmp(d - LEN_OPERATOR, OPERATOR, LEN_OPERATOR) == 0) {
+                /* We've hit an "operator<<" corner case.  We need two walks
+                 * from here to the end.  We go with a quick walk now for code
+                 * simplicity.  We assume there's either no truncation (src is
+                 * MAX_SYM_NAME long from a direct dbghelp query) or if the user
+                 * passed us a truncated symbol (to drsym_demangle_symbol())
+                 * it's ok to fail.
+                 *
+                 * XXX: using namespace __identifier("operator<"), it's possible
+                 * to construct a symbol name that fools us.  We could take
+                 * extra effort to try and detect malformed names up front,
+                 * instead of incrementally until we've already written to dst --
+                 * which matters for src==dst.  For now we rely on the caller
+                 * recovering.
+                 */
+                const char *forw;
+                uint count = 0;
+                for (forw = c + 1; *forw != '\0'; forw++) {
+                    if (*forw == '<')
+                        count++;
+                    else if (*forw == '>')
+                        count--;
+                }
+                if (count == 0) {
+                    /* "operator<" */
+                } else if (count == 1) {
+                    /* "operator<<" */
+                    just_copy = true; /* just copy 2nd < */
+                } else /* malformed input */
+                    return DRSYM_ERROR;
+            } else if (*(c+1) != '=' && /* rule out "operator<=" */
+                       /* Rule out <> used in identifiers, such as in
+                        * "<CrtImplementationDetails>::NativeDll::ProcessAttach"
+                        * (constructed for MSCRT via __identifier).
+                        */
+                       c != src && *(d-1) != ':')
+                in_template++;
+        } else if (in_template > 0 && *c == '>') {
+            if (in_template == 0)
+                return DRSYM_ERROR; /* malformed input */
+            in_template--;
+        }
+        /* We include the outer '<>' to match Linux. */
+        if (in_template == 0 || (in_template == 1 && *c == '<')) {
+            *d = *c;
+            d++;
+            if (d - dst >= (ssize_t)dst_sz - 1) {
+                dst[dst_sz - 1] = '\0';
+                return DRSYM_ERROR_NOMEM;
+            }
+        }
+        c++;
+    }
+    if (in_template > 0) {
+        /* Input is truncated.  Just close the <>. */
+        *d = '>';
+        d++;
+        if (d - dst >= (ssize_t)dst_sz - 1) {
+            dst[dst_sz - 1] = '\0';
+            return DRSYM_ERROR_NOMEM;
+        }
+    }
+    *d = '\0';
+    if (dst_written != NULL)
+        *dst_written = d + 1 - dst;
+    return DRSYM_SUCCESS;
+}
 
 /* Allocates a SYMBOL_INFO struct.  Initializes the SizeOfStruct and MaxNameLen
  * fields.
@@ -487,10 +595,11 @@ free_symbol_info(PSYMBOL_INFO info)
 }
 
 /* File and line info is assumed to not be available and already zeroed out */
-static void
+static drsym_error_t
 fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
-                   bool set_debug_kind)
+                   bool set_debug_kind, uint flags)
 {
+    drsym_error_t res = DRSYM_SUCCESS;
     if (set_debug_kind &&
         !query_available(GetCurrentProcess(), base, &out->debug_kind)) {
         out->debug_kind = 0;
@@ -500,9 +609,15 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
     out->name_available_size = info->NameLen*sizeof(char);
     out->type_id = info->TypeIndex;
     if (out->name != NULL) {
-        strncpy(out->name, info->Name, out->name_size);
+        /* We don't check for DRSYM_DEMANGLE b/c that's always implied for PDB */
+        if (TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, flags) ||
+            /* On failure to detemplatize we fall back to straight copy */
+            detemplatize(out->name, out->name_size, info->Name, NULL) !=
+            DRSYM_SUCCESS)
+            strncpy(out->name, info->Name, out->name_size);
         out->name[out->name_size - 1] = '\0';
     }
+    return res;
 }
 
 static drsym_error_t
@@ -542,7 +657,12 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
      * to use SymFromAddrW or do any conversion (i#1085).
      */
     if (SymFromAddr(GetCurrentProcess(), base + modoffs, &disp, info)) {
-        fill_in_drsym_info(out, info, base, true);
+        drsym_error_t res = fill_in_drsym_info(out, info, base, true, flags);
+        if (res != DRSYM_SUCCESS) {
+            free_symbol_info(info);
+            dr_recurlock_unlock(symbol_lock);
+            return res;
+        }
         NOTIFY("Symbol 0x%I64x => %s+0x%x (0x%I64x-0x%I64x)\n", base+modoffs, out->name,
                disp, info->Address, info->Address + info->Size);
     } else {
@@ -628,6 +748,7 @@ typedef struct _enum_info_t {
     drsym_enumerate_cb cb;
     drsym_enumerate_ex_cb cb_ex;
     drsym_info_t *out;
+    uint flags;
     void *data;
     DWORD64 base;
     bool found_match;
@@ -645,7 +766,8 @@ enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context)
              */
             NOTIFY("symbol enum name exceeded MAX_SYM_NAME size\n");
         }
-        fill_in_drsym_info(info->out, pSymInfo, info->base, false);
+        /* We ignore errors in detemplatizing */
+        fill_in_drsym_info(info->out, pSymInfo, info->base, false, info->flags);
         /* It seems to be impossible to get line # info for dup syms at same addr
          * b/c none of the search/enum routines return it: it has to be looked
          * up from the addr, which is not good enough.
@@ -653,6 +775,16 @@ enum_cb(PSYMBOL_INFO pSymInfo, ULONG SymbolSize, PVOID Context)
         return (BOOL) (*info->cb_ex)(info->out, DRSYM_ERROR_LINE_NOT_AVAILABLE,
                                      info->data);
     } else {
+        /* XXX: we do this in place, but it's dbghelp's buffer -- we assume
+         * it's dead space at this point.
+         */
+        /* We don't check for DRSYM_DEMANGLE b/c that's always implied for PDB */
+        if (!TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, info->flags)) {
+            if (detemplatize(pSymInfo->Name, pSymInfo->MaxNameLen, pSymInfo->Name, NULL)
+                != DRSYM_SUCCESS) {
+                /* XXX: we can't do much about it so we carry on */
+            }
+        }
         return (BOOL) (*info->cb)(pSymInfo->Name,
                                   (size_t) (pSymInfo->Address - info->base),
                                   info->data);
@@ -705,6 +837,7 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
         info.out->line_offs = 0;
     } else
         info.out = NULL;
+    info.flags = flags;
     info.data = data;
     info.base = mod->u.load_base;
     info.found_match = false;
@@ -726,6 +859,10 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
 
 /* SymSearch (w/ default flags) is much faster than SymEnumSymbols or even
  * SymFromName so we export it separately for Windows (Dr. Memory i#313).
+ */
+/* XXX i#601: we should expose a flag parameter so the user can control
+ * demangling (once we figure out how to implement that, with dbghelp's
+ * global fixed demangling settings).
  */
 static drsym_error_t
 drsym_search_symbols_local(const char *modpath, const char *match, bool full,
@@ -786,6 +923,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
             info.out->line_offs = 0;
         } else
             info.out = NULL;
+        info.flags = DRSYM_DEFAULT_FLAGS;
         info.data = data;
         info.base = mod->u.load_base;
         if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0,
@@ -823,8 +961,7 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
                        UNDNAME_NO_ACCESS_SPECIFIERS |
                        UNDNAME_NO_MS_KEYWORDS);
     } else {
-        /* FIXME i#587: This still expands templates.
-         */
+        /* i#587: this still expands templates, but we remove those below. */
         undec_flags = UNDNAME_NAME_ONLY;
     }
 
@@ -838,6 +975,14 @@ demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled, uint flags)
      * for.
      */
     if (len != 0 && len + 2 < dst_sz) {
+        if (!TESTANY(DRSYM_DEMANGLE_FULL|DRSYM_DEMANGLE_PDB_TEMPLATES, flags)) {
+            /* We do this in place. */
+            if (detemplatize(dst, dst_sz, dst, &len) != DRSYM_SUCCESS) {
+                /* Revert to a raw copy */
+                UnDecorateSymbolName(mangled, dst, (DWORD)dst_sz, undec_flags);
+                return 0;
+            }
+        }
         return len;  /* Success. */
     } else if (len == 0) {
         /* The docs say the contents of dst are undetermined, so we cannot rely

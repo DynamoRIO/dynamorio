@@ -9,6 +9,16 @@ compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
     func has 1 args
       arg 0 is type 1 and size 4
 found all overloads
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::<unnamed-tag>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::<unnamed-tag>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
+found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
+found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 #endif
 #ifdef UNIX
 Failed to unmangle xmlRelaxNGParseImportRefs
@@ -17,6 +27,7 @@ Failed to unmangle xmlRelaxNGParseImportRefs
 Failed to unmangle _ZN10linked_ptrIN12CrxInstaller14WhitelistEntryEE4copyIS1_EEvPKS_IT_E
 #ifdef WINDOWS
 got correct overflow
+Failed to unmangle std::operator<<<<<std::char_traits<char, truncated
 #endif
 got correct overflow
 finished unmangling.
@@ -39,10 +50,12 @@ drsyms-test\.cpp:74!.anonymous namespace.::Foo::Bar(\(\))?
 drsyms-test\.cpp:81!exe_export
 drsyms-test\.cpp:87!exe_public(\(\))?
 drsyms-test\.cpp:93!exe_static(\(\))?
-drsyms-test\.cpp:137!main
+drsyms-test\.cpp:179!main
 #endif
 overloaded: 1
 overloaded: 2
 overloaded: 4
 app num_calls: 7
+got back 4
+got back 4
 all done
