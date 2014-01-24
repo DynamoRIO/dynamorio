@@ -114,7 +114,15 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 \section sec_changes Changes Since Prior Releases
 
 The current version is \DR_VERSION.  
-The changes between version \DR_VERSION and 4.2.0 include:
+The changes between version \DR_VERSION and 4.2.0 include the
+following source compatibility changes:
+
+ - Changed the third parameter to drsym_search_symbols_ex() from a bool to
+   a uint flags in order to take in demangling flags.  Binary compatibility
+   is maintained as drsym_info_t's size was changed, but source
+   compatibility is affected by this change.
+
+Further non-compatibility-affecting changes include:
 
  - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Added dr_syscall_get_result_ex() and dr_syscall_set_result_ex() for
@@ -124,8 +132,12 @@ The changes between version \DR_VERSION and 4.2.0 include:
    to 0xC, for better error reporting.  For interactive runs, then,
    the user should explicitly pass -msgbox_mask 0.
  - Added collapsing of template parameters to "<>" for drsyms operations on
-   Windows PDB symbols when #DRSYM_DEMANGLE is specified.
+   Windows PDB symbols when #DRSYM_DEMANGLE is specified.  This can be
+   undone by specifying #DRSYM_DEMANGLE_PDB_TEMPLATES.
+ - Added a flags output parameter to #drsym_info_t.
 
+**************************************************
+<hr>
 The changes between version 4.2.0 and 4.1.0 include:
 
  - Added preliminary Windows 8.1 support

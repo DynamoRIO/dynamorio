@@ -71,6 +71,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdio.h> /* _vsnprintf */
+#include <stddef.h> /* offsetof */
 
 /* We use the Container Extension's hashtable */
 #include "hashtable.h"
@@ -617,6 +618,12 @@ fill_in_drsym_info(drsym_info_t *out INOUT, PSYMBOL_INFO info, DWORD64 base,
             strncpy(out->name, info->Name, out->name_size);
         out->name[out->name_size - 1] = '\0';
     }
+    /* Fields beyond name require compatibility checks */
+    if (out->struct_size > offsetof(drsym_info_t, flags)) {
+        /* Remove unsupported flags */
+        out->flags = flags & ~(UNSUPPORTED_PDB_FLAGS);
+        out->flags |= DRSYM_DEMANGLE; /* always done (xref i#601) */
+    }
     return res;
 }
 
@@ -634,7 +641,9 @@ drsym_lookup_address_local(const char *modpath, size_t modoffs,
     if (modpath == NULL || out == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
     /* If we add fields in the future we would dispatch on out->struct_size */
-    if (out->struct_size != sizeof(*out))
+    if (out->struct_size != sizeof(*out) &&
+        /* Check for pre-flags field */
+        out->struct_size != offsetof(drsym_info_t, flags))
         return DRSYM_ERROR_INVALID_SIZE;
 
     dr_recurlock_lock(symbol_lock);
@@ -860,12 +869,8 @@ drsym_enumerate_symbols_local(const char *modpath, const char *match,
 /* SymSearch (w/ default flags) is much faster than SymEnumSymbols or even
  * SymFromName so we export it separately for Windows (Dr. Memory i#313).
  */
-/* XXX i#601: we should expose a flag parameter so the user can control
- * demangling (once we figure out how to implement that, with dbghelp's
- * global fixed demangling settings).
- */
 static drsym_error_t
-drsym_search_symbols_local(const char *modpath, const char *match, bool full,
+drsym_search_symbols_local(const char *modpath, const char *match, uint flags,
                            drsym_enumerate_cb callback,
                            drsym_enumerate_ex_cb callback_ex, size_t info_size,
                            void *data)
@@ -903,7 +908,7 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
                 /* fall back to slower enum */
                 return drsym_enumerate_symbols_local(modpath, match, callback,
                                                      callback_ex, info_size, data,
-                                                     DRSYM_DEFAULT_FLAGS);
+                                                     flags);
             }
         }
         recursive_context = true;
@@ -923,12 +928,12 @@ drsym_search_symbols_local(const char *modpath, const char *match, bool full,
             info.out->line_offs = 0;
         } else
             info.out = NULL;
-        info.flags = DRSYM_DEFAULT_FLAGS;
+        info.flags = flags;
         info.data = data;
         info.base = mod->u.load_base;
         if (!(*func)(GetCurrentProcess(), mod->u.load_base, 0, 0, match, 0,
                      enum_cb, (PVOID) &info,
-                     full ? SYMSEARCH_ALLITEMS : 0)) {
+                     TEST(DRSYM_FULL_SEARCH, flags) ? SYMSEARCH_ALLITEMS : 0)) {
             NOTIFY("SymSearch error %d\n", GetLastError());
             res = DRSYM_ERROR_SYMBOL_NOT_FOUND;
         }
@@ -1497,20 +1502,32 @@ drsym_search_symbols(const char *modpath, const char *match, bool full,
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_search_symbols_local(modpath, match, full, callback, NULL,
-                                          sizeof(drsym_info_t), data);
+        return drsym_search_symbols_local(modpath, match,
+                                          (full ? DRSYM_FULL_SEARCH : 0) |
+                                          DRSYM_DEFAULT_FLAGS,
+                                          callback, NULL, sizeof(drsym_info_t), data);
     }
 }
 
 DR_EXPORT
 drsym_error_t
-drsym_search_symbols_ex(const char *modpath, const char *match, bool full,
+drsym_search_symbols_ex(const char *modpath, const char *match, uint flags_in,
                         drsym_enumerate_ex_cb callback, size_t info_size, void *data)
 {
     if (IS_SIDELINE) {
         return DRSYM_ERROR_NOT_IMPLEMENTED;
     } else {
-        return drsym_search_symbols_local(modpath, match, full, NULL, callback,
+        uint flags;
+        /* Compatibility check (xref i#1350): prior to adding the
+         * flags field, this routine took "bool full" instead of "uint
+         * flags".
+         */
+        if (info_size == offsetof(drsym_info_t, flags)) {
+            bool full = (bool) flags_in;
+            flags = (full ? DRSYM_FULL_SEARCH : 0) | DRSYM_DEFAULT_FLAGS;
+        } else
+            flags = flags_in;
+        return drsym_search_symbols_local(modpath, match, flags, NULL, callback,
                                           info_size, data);
     }
 }

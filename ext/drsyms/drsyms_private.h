@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -61,6 +61,9 @@
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 /* check if a single bit is set in var */
 #define TEST TESTANY
+
+#define UNSUPPORTED_PDB_FLAGS (DRSYM_DEMANGLE_FULL|DRSYM_LEAVE_MANGLED)
+#define UNSUPPORTED_NONPDB_FLAGS (DRSYM_DEMANGLE_PDB_TEMPLATES|DRSYM_FULL_SEARCH)
 
 /* Memory pool that uses externally allocated memory.
  */

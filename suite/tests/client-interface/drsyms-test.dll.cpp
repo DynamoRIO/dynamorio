@@ -474,8 +474,8 @@ lookup_templates(const char *exe_path)
     drsym_error_t r =
         drsym_search_symbols(exe_path, "*!*nested*", true, search_templates_cb, NULL);
     ASSERT(r == DRSYM_SUCCESS);
-    r = drsym_search_symbols_ex(exe_path, "*!*nested*", true, search_ex_templates_cb,
-                                sizeof(drsym_info_t), NULL);
+    r = drsym_search_symbols_ex(exe_path, "*!*nested*", DRSYM_FULL_SEARCH|DRSYM_DEMANGLE,
+                                search_ex_templates_cb, sizeof(drsym_info_t), NULL);
     ASSERT(r == DRSYM_SUCCESS);
     r = drsym_enumerate_symbols(exe_path, search_templates_cb, NULL, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
@@ -483,13 +483,17 @@ lookup_templates(const char *exe_path)
                                    NULL, DRSYM_DEFAULT_FLAGS);
     ASSERT(r == DRSYM_SUCCESS);
     /* These should expand the templates */
+    r = drsym_search_symbols_ex(exe_path, "*!*nested*",
+                                DRSYM_FULL_SEARCH | DRSYM_DEMANGLE |
+                                DRSYM_DEMANGLE_PDB_TEMPLATES,
+                                search_ex_templates_cb, sizeof(drsym_info_t), NULL);
+    ASSERT(r == DRSYM_SUCCESS);
     r = drsym_enumerate_symbols(exe_path, search_templates_cb, NULL,
                                 DRSYM_DEMANGLE|DRSYM_DEMANGLE_PDB_TEMPLATES);
     ASSERT(r == DRSYM_SUCCESS);
     r = drsym_enumerate_symbols_ex(exe_path, search_ex_templates_cb, sizeof(drsym_info_t),
                                    NULL, DRSYM_DEMANGLE|DRSYM_DEMANGLE_PDB_TEMPLATES);
     ASSERT(r == DRSYM_SUCCESS);
-    /* XXX i#1350: add a way to pass flags to drsym_search_*! */
 }
 #endif /* WINDOWS */
 
@@ -659,6 +663,7 @@ typedef struct {
     bool syms_found[BUFFER_SIZE_ELEMENTS(dll_syms) - 1];
     const char **syms_expected;
     const char *dll_path;
+    uint flags_expected;
 } dll_syms_found_t;
 
 /* If this was a symbol we expected that we haven't found yet, mark it found,
@@ -716,6 +721,11 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
             syms_found->syms_found[i] = true;
     }
 
+    ASSERT(out->flags == syms_found->flags_expected
+           IF_WINDOWS(|| syms_found->flags_expected == DRSYM_LEAVE_MANGLED
+                      || (out->flags ==
+                          (syms_found->flags_expected & ~DRSYM_DEMANGLE_FULL))));
+
     if (TEST(DRSYM_PDB, out->debug_kind)) { /* else types NYI */
         static char buf[4096];
         drsym_type_t *type;
@@ -767,6 +777,7 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
     /* Test the _ex version */
     memset(&syms_found, 0, sizeof(syms_found));
     syms_found.dll_path = dll_path;
+    syms_found.flags_expected = flags;
     r = drsym_enumerate_symbols_ex(dll_path, enum_sym_ex_cb,
                                    sizeof(drsym_info_t), &syms_found, flags);
     ASSERT(r == DRSYM_SUCCESS);
@@ -796,11 +807,11 @@ enum_syms_with_flags(const char *dll_path, const char **syms_expected,
         /* Test the _ex version */
         memset(&syms_found, 0, sizeof(syms_found));
         syms_found.dll_path = dll_path;
-        r = drsym_search_symbols_ex(dll_path, "*!*dll_*", false, enum_sym_ex_cb,
+        r = drsym_search_symbols_ex(dll_path, "*!*dll_*", DRSYM_DEMANGLE, enum_sym_ex_cb,
                                     sizeof(drsym_info_t), &syms_found);
         ASSERT(r == DRSYM_SUCCESS);
-        r = drsym_search_symbols_ex(dll_path, "*!*stack_trace*", false, enum_sym_ex_cb,
-                                    sizeof(drsym_info_t), &syms_found);
+        r = drsym_search_symbols_ex(dll_path, "*!*stack_trace*", DRSYM_DEMANGLE,
+                                    enum_sym_ex_cb, sizeof(drsym_info_t), &syms_found);
         ASSERT(r == DRSYM_SUCCESS);
         for (i = 0; i < BUFFER_SIZE_ELEMENTS(syms_found.syms_found); i++) {
             if (!syms_found.syms_found[i])

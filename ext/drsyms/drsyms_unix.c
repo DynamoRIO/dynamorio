@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -44,6 +44,7 @@
 
 #include <string.h> /* strlen */
 #include <errno.h>
+#include <stddef.h> /* offsetof */
 
 #include "demangle.h"
 #include "libelftc.h"
@@ -317,6 +318,11 @@ symsearch_symtab(dbg_module_t *mod, drsym_enumerate_cb callback,
     out->file = NULL;
     out->file_size = 0;
     out->file_available_size = 0;
+    /* Fields beyond name require compatibility checks */
+    if (out->struct_size > offsetof(drsym_info_t, flags)) {
+        /* Remove unsupported flags */
+        out->flags = flags & ~(UNSUPPORTED_NONPDB_FLAGS);
+    }
 
     for (i = 0; keep_searching && i < num_syms; i++) {
         const char *mangled = drsym_obj_symbol_name(mod->obj_info, i);
@@ -554,6 +560,11 @@ drsym_unix_lookup_address(void *mod_in, size_t modoffs,
     }
 
     out->debug_kind = mod->debug_kind;
+    /* Fields beyond name require compatibility checks */
+    if (out->struct_size > offsetof(drsym_info_t, flags)) {
+        /* Remove unsupported flags */
+        out->flags = flags & ~(UNSUPPORTED_NONPDB_FLAGS);
+    }
     return r;
 }
 

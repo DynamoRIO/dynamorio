@@ -108,6 +108,12 @@ typedef enum {
     DRSYM_DEMANGLE_FULL = 0x02,
     /** For Windows PDB, do not collapse templates to <>. */
     DRSYM_DEMANGLE_PDB_TEMPLATES = 0x04,
+    /**
+     * Windows-only, for drsym_search_symbols_ex().
+     * Requests a full search for all symbols and not just functions.
+     * This adds overhead: see drsym_search_symbols_ex() for details.
+     */
+    DRSYM_FULL_SEARCH   = 0x08,
     DRSYM_DEFAULT_FLAGS = DRSYM_DEMANGLE,   /**< Default flags. */
 } drsym_flags_t;
 
@@ -180,6 +186,9 @@ typedef struct _drsym_info_t {
      * Optional: can be set to NULL.
      */
     char *name;
+
+    /** Output: the demangling status of the symbol, as drsym_flags_t values. */
+    uint flags;
 } drsym_info_t;
 
 #ifdef WINDOWS
@@ -600,19 +609,21 @@ DR_EXPORT
  * @param[in] match     Regular expression describing the names of the symbols
  *                      to be enumerated.  To specify a target module, use the
  *                      "module_pattern!symbol_pattern" format.
- * @param[in] full      Whether to search all symbols or (the default) just
- *                      functions.  A full search takes significantly
- *                      more time and memory and eliminates the
- *                      performance advantage over other lookup
- *                      methods.  A full search requires dbghelp.dll
- *                      version 6.6 or higher.
+ * @param[in] flags     Options for the operation as a combination of drsym_flags_t
+ *                      values.  DRSYM_LEAVE_MANGLED and DRSYM_DEMANGLE_FULL are
+ *                      ignored.  DRSYM_FULL_SEARCH, if set, requests to search all
+ *                      symbols as opposed to the default of just functions.  A full
+ *                      search takes significantly more time and memory and
+ *                      eliminates the performance advantage over other lookup
+ *                      methods.  A full search requires dbghelp.dll version 6.6 or
+ *                      higher.
  * @param[in] callback  Function to call for each matching symbol found.
  * @param[in] info_size The size of the drsym_info_t struct to pass to \p callback.
  *                      Enough space for each name will be allocated automatically.
  * @param[in] data      User parameter passed to callback.
  */
 drsym_error_t
-drsym_search_symbols_ex(const char *modpath, const char *match, bool full,
+drsym_search_symbols_ex(const char *modpath, const char *match, uint flags,
                         drsym_enumerate_ex_cb callback, size_t info_size, void *data);
 #endif
 
