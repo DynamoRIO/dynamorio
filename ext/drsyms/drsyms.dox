@@ -148,9 +148,8 @@ Currently there are three modes:
 
 - \p DRSYM_LEAVE_MANGLED: Matches against or returns the mangled C++ symbol.
 - \p DRSYM_DEMANGLE: Matches against or returns a "short" demangled C++ symbol.
-  On Linux, both templates and parameters are collapsed to <> and ()
-  respectively.  On Windows, templates are collapsed to <>, but parameters are
-  omitted without parentheses.
+  Templates and are collapsed to <> while parameters are omitted entirely
+  without parentheses.
 - \p DRSYM_DEMANGLE_FULL: Matches against or returns the fully demangled C++
   symbol with both template arguments and parameter types.
 - \p DRSYM_DEMANGLE_PDB_TEMPLATES: Only applies to Windows PDB symbols.

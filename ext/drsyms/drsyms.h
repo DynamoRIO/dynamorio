@@ -95,10 +95,8 @@ typedef enum {
     DRSYM_LEAVE_MANGLED = 0x00,
     /**
      * Demangle C++ symbols, omitting templates and parameter types.
-     * On Linux (DRSYM_ELF_SYMTAB) and Windows non-PDB (DRSYM_PECOFF_SYMTAB),
-     * both templates and parameters are collapsed to <> and () respectively.
-     * For Windows PDB (DRSYM_PDB), templates are collapsed to <>, but
-     * parameters are omitted without parentheses.
+     * For all symbol types, templates are collapsed to <> while function
+     * parameters are omitted entirely (without any parentheses).
      */
     DRSYM_DEMANGLE      = 0x01,
     /**

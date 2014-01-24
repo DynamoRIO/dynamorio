@@ -78,6 +78,7 @@
  * - Added extern "C" to call from C.
  * - demangle.h uses C++ // comments, but does not need to compile as C89 under
  *   MSVC, so they were left as-is.
+ * - Do not add "()" when removing parameters.
  */
 #define _START_GOOGLE_NAMESPACE_
 #define _END_GOOGLE_NAMESPACE_
@@ -90,7 +91,7 @@ extern "C" {
 
 // Options accepted by Demangle.
 enum {
-  DEMANGLE_DEFAULT         = 0x00,  //< Replace templates and overloads with <> and ().
+  DEMANGLE_DEFAULT         = 0x00,  //< Replace templates with <> and remove overloads.
   DEMANGLE_KEEP_TEMPLATES  = 0x02,  //< Do not strip template arguments.
   DEMANGLE_KEEP_OVERLOADS  = 0x04,  //< Do not strip function parameter types.
 };

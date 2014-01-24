@@ -610,8 +610,8 @@ drsym_unix_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
     int status;
 
     if (!TEST(DRSYM_DEMANGLE_FULL, flags)) {
-        /* The demangle.cc implementation is fast and replaces template args and
-         * overloads with <> and () respectively.  Use it if the user doesn't
+        /* The demangle.cc implementation is fast and replaces template args
+         * with <> and omits parameters.  Use it if the user doesn't
          * want either of those.  Its return value always follows our
          * conventions.
          */

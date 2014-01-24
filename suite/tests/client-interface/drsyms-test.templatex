@@ -45,14 +45,14 @@ found tools.h
 #endif
 found drsyms-test.appdll.cpp
 stack trace:
-drsyms-test\.appdll\.cpp:52!dll_public(\(\))?
+drsyms-test\.appdll\.cpp:52!dll_public
 #if !(defined(WINDOWS) && defined(X64))
-drsyms-test\.appdll\.cpp:59!dll_static(\(\))?
+drsyms-test\.appdll\.cpp:59!dll_static
 drsyms-test\.appdll\.cpp:65!dll_export
-drsyms-test\.cpp:74!.anonymous namespace.::Foo::Bar(\(\))?
+drsyms-test\.cpp:74!.anonymous namespace.::Foo::Bar
 drsyms-test\.cpp:81!exe_export
-drsyms-test\.cpp:87!exe_public(\(\))?
-drsyms-test\.cpp:93!exe_static(\(\))?
+drsyms-test\.cpp:87!exe_public
+drsyms-test\.cpp:93!exe_static
 drsyms-test\.cpp:179!main
 #endif
 overloaded: 1

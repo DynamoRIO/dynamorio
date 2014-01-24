@@ -1063,15 +1063,16 @@ static bool ParseFunctionType(State *state) {
 // <bare-function-type> ::= <(signature) type>+
 static bool ParseBareFunctionType(State *state) {
   State copy = *state;
-  MaybeAppend(state, "(");
+  // i#1351: we do not want the empty "()"
   if (!(state->options & DEMANGLE_KEEP_OVERLOADS)) {
     DisableAppend(state);
   }
+  MaybeAppend(state, "(");
   if (OneOrMore(ParseType, state)) {
+    MaybeAppend(state, ")");
     if (!(state->options & DEMANGLE_KEEP_OVERLOADS)) {
       RestoreAppend(state, copy.append);
     }
-    MaybeAppend(state, ")");
     return true;
   }
   *state = copy;
