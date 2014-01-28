@@ -1176,6 +1176,13 @@ syscall_0args:
         push     ecx
         push     ebx
         push     0 /* extra slot */
+        /* It simplifies our syscall calling to have a single dynamorio_syscall()
+         * signature that returns int64 -- but most syscalls just return a 32-bit
+         * value and the kernel does not clear edx.  Thus we need to do so, which
+         * should be safe since edx is caller-saved.  (Note that we do not risk
+         * doing this for app syscalls: only those called by DR.)
+         */
+        mov      edx, 0
 #  else
         mov      eax, [16+ 4 + esp] /* sysnum */
 #  endif
@@ -1254,6 +1261,8 @@ mach_dep_syscall_0args:
         push     ecx
         push     ebx
         push     0 /* extra slot */
+        /* clear the top half so we can always consider the result 64-bit */
+        mov      edx, 0
 #  endif
         /* mach dep syscalls use interrupt 0x82 */
         int      HEX(82)
