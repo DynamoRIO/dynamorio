@@ -4124,6 +4124,16 @@ sys_param(dcontext_t *dcontext, int num)
     return *sys_param_addr(dcontext, num);
 }
 
+static inline bool
+syscall_successful(priv_mcontext_t *mc)
+{
+#ifdef MACOS
+    return !TEST(EFLAGS_CF, mc->eflags);
+#else
+    return ((ptr_int_t)mc->xax >= 0);
+#endif
+}
+
 /* For non-Mac, this does nothing to indicate "success": you can pass -errno.
  * For Mac, this clears CF and just sets xax.  To return a 64-bit value in
  * 32-bit mode, the caller must explicitly set xdx as well (we don't always
@@ -4188,6 +4198,41 @@ dr_syscall_get_result(void *drcontext)
 }
 
 DR_API
+bool
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
+                  "only call dr_syscall_get_param_ex() from post-syscall event");
+    CLIENT_ASSERT(info != NULL, "invalid parameter");
+    CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
+    if (info->size != sizeof(*info))
+        return false;
+    info->value = mc->xax;
+    info->succeeded = syscall_successful(mc);
+    if (info->use_high) {
+        /* MacOS has some 32-bit syscalls that return 64-bit values in
+         * xdx:xax, but the other syscalls don't clear xdx, so we can't easily
+         * return a 64-bit value all the time.
+         */
+        info->high = mc->xdx;
+    }
+    if (info->use_errno) {
+        if (info->succeeded)
+            info->errno_value = 0;
+        else {
+#ifdef LINUX
+            info->errno_value = (uint)-(int)mc->xax;
+#else
+            info->errno_value = (uint)mc->xax;
+#endif
+        }
+    }
+    return true;
+}
+
+DR_API
 void
 dr_syscall_set_result(void *drcontext, reg_t value)
 {
@@ -4195,10 +4240,45 @@ dr_syscall_set_result(void *drcontext, reg_t value)
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_result() can only be called from a syscall event");
-    /* For non-Mac, the caller can still pass -errno and this will work.
-     * XXX: we need dr_syscall_set_result_ex() for Mac.
-     */
+    /* For non-Mac, the caller can still pass -errno and this will work */
     set_success_return_val(dcontext, value);
+}
+
+DR_API
+bool
+dr_syscall_set_result_ex(void *drcontext, dr_syscall_result_info_t *info)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
+                  dcontext->client_data->in_post_syscall,
+                  "dr_syscall_set_result() can only be called from a syscall event");
+    CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
+    if (info->size != sizeof(*info))
+        return false;
+    if (info->use_errno) {
+        if (info->succeeded) {
+            /* a weird case but we let the user combine these */
+            set_success_return_val(dcontext, info->errno_value);
+        } else
+            set_failure_return_val(dcontext, info->errno_value);
+    } else {
+        if (info->succeeded)
+            set_success_return_val(dcontext, info->value);
+        else {
+            /* use this to set CF, even though it might negate the value */
+            set_failure_return_val(dcontext, (uint)info->value);
+            /* now set the value, overriding set_failure_return_val() */
+            mc->xax = info->value;
+        }
+        if (info->use_high) {
+            /* MacOS has some 32-bit syscalls that return 64-bit values in
+             * xdx:xax.
+             */
+            mc->xdx = info->high;
+        }
+    }
+    return true;
 }
 
 DR_API
@@ -6184,11 +6264,7 @@ post_system_call(dcontext_t *dcontext)
      * case-by-case basis in the switch statement below.
      */
     ptr_int_t result = (ptr_int_t) mc->xax; /* signed */
-#ifdef MACOS
-    bool success = !TEST(EFLAGS_CF, mc->eflags);
-#else
-    bool success = (result >= 0);
-#endif
+    bool success = syscall_successful(mc);
     app_pc base;
     size_t size;
     uint prot;

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,6 +32,10 @@
  */
 
 #include <stdio.h>
+#ifndef WINDOWS
+# include <signal.h>
+# include <errno.h>
+#endif
 
 int main()
 {
@@ -41,7 +46,20 @@ int main()
     fprintf(stderr, "Hello world!\n");
     fprintf(stdout, "Goodbye world!\n");
 #else
-    fprintf(stderr, "Hello stderr!\n");
     fprintf(stdout, "Hello stdout!\n");
+    fprintf(stderr, "Hello stderr!\n");
+    /* I'm having trouble with deterministic ordering, w/ stdout
+     * redirected to stderr: must be buffering in libc.
+     */
+    fflush(stdout);
+    fflush(stderr);
+    /* Test dr_syscall_{get,set}_result_ex() */
+    sigset_t mask;
+    sigfillset(&mask);
+    int res = sigprocmask(SIG_BLOCK, &mask, NULL);
+    if (res == -1)
+        perror("sigprocmask failed");
+    else
+        fprintf(stderr, "sigprocmask succeeded\n");
 #endif
 }

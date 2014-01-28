@@ -243,9 +243,12 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* pretend it succeeded */
 #ifdef UNIX
             /* return the #bytes == 3rd param */
-            dr_syscall_set_result(drcontext, dr_syscall_get_param(drcontext, 2));
+            dr_syscall_result_info_t info = { sizeof(info), };
+            info.succeeded = true;
+            info.value = dr_syscall_get_param(drcontext, 2);
+            dr_syscall_set_result_ex(drcontext, &info);
 #else
-            /* we should also set the IO_STATUS_BLOCK.Information field */
+            /* XXX: we should also set the IO_STATUS_BLOCK.Information field */
             dr_syscall_set_result(drcontext, 0);
 #endif
 #ifdef SHOW_RESULTS
@@ -271,10 +274,11 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
 #ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")\n",
-               sysnum, 
-               dr_syscall_get_result(drcontext),
-               (ptr_int_t)dr_syscall_get_result(drcontext));
+    dr_syscall_result_info_t info = { sizeof(info), };
+    dr_syscall_get_result_ex(drcontext, &info);
+    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")%s\n",
+               sysnum, info.value, (ptr_int_t)info.value,
+               info.succeeded ? "" : " (failed)");
 #endif
     if (sysnum == write_sysnum) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);

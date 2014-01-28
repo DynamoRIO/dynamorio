@@ -1043,8 +1043,8 @@ DR_API
  * If \p func returns true, the application's system call is invoked
  * normally; if \p func returns false, the system call is skipped.  If
  * it is skipped, the return value can be set with
- * dr_syscall_set_result().  If the system call is skipped, there will
- * not be a post-syscall event.
+ * dr_syscall_set_result() or dr_syscall_set_result_ex().  If the
+ * system call is skipped, there will not be a post-syscall event.
  * If multiple callbacks are registered, the first one that returns
  * false will short-circuit event delivery to later callbacks.
  */
@@ -1068,7 +1068,7 @@ DR_API
  * intercepted via the filter event
  * (dr_register_filter_syscall_event()) or if DR itself needs to
  * intercept the system call.  The result of the system call can be
- * modified with dr_syscall_set_result().
+ * modified with dr_syscall_set_result() or dr_syscall_set_result_ex().
  *
  * System calls that change control flow or terminate the current
  * thread or process typically do not have a post-syscall event.
@@ -3121,6 +3121,79 @@ dr_get_proc_address_ex(module_handle_t lib, const char *name,
 /**************************************************
  * SYSTEM CALL PROCESSING ROUTINES
  */
+
+/**
+ * Data structure used to obtain or modify the result of an application
+ * system call by dr_syscall_get_result_ex() and dr_syscall_set_result_ex().
+ */
+typedef struct _dr_syscall_result_info_t {
+    /** The caller should set this to the size of the structure. */
+    size_t size;
+    /**
+     * Indicates whether the system call succeeded or failed.  For
+     * dr_syscall_set_result_ex(), this requests that DR set any
+     * additional machine state, if any, used by the particular
+     * plaform that is not part of \p value to indicate success or
+     * failure (e.g., on MacOS the carry flag is used to indicate
+     * success).
+     *
+     * For Windows, the success result from dr_syscall_get_result_ex()
+     * should only be relied upon for ntoskrnl system calls.  For
+     * other Windows system calls (such as win32k.sys graphical
+     * (NtGdi) or user (NtUser) system calls), computing success
+     * depends on each particular call semantics and is beyond the
+     * scope of this routine (consider using the "drsyscall" Extension
+     * instead).
+     */
+    bool succeeded;
+    /**
+     * The raw main value returned by the system call.
+     * See also the \p high field.
+     */
+    reg_t value;
+    /**
+     * On some platforms (such as MacOS), a 32-bit application's
+     * system call can return a 64-bit value.  For such calls,
+     * this field will hold the top 32 bit bits, if requested
+     * by \p use_high.  It is up to the caller to know which
+     * system calls have 64-bit return values.  System calls that
+     * return only 32-bit values do not clear the upper bits.
+     * Consider using the "drsyscall" Extension in order to obtain
+     * per-system-call semantic information, including return type.
+     */
+    reg_t high;
+    /**
+     * This should be set by the caller, and only applies to 32-bit
+     * system calls.  For dr_syscall_get_result_ex(), this requests
+     * that DR fill in the \p high field.  For
+     * dr_syscall_set_result_ex(), this requests that DR set the high
+     * 32 bits of the application-facing result to the value in the \p
+     * high field.
+     */
+    bool use_high;
+    /**
+     * This should be set by the caller.  For dr_syscall_get_result_ex(),
+     * this requests that DR fill in the \p errno_value field.
+     * For dr_syscall_set_result_ex(), this requests that DR set the
+     * \p value to indicate the particular error code in \p errno_value.
+     */
+    bool use_errno;
+    /**
+     * If requested by \p use_errno, if a system call fails (i.e., \p
+     * succeeded is false) dr_syscall_get_result_ex() will set this
+     * field to the absolute value of the error code returned (i.e.,
+     * on Linux, it will be inverted from what the kernel directly
+     * returns, in order to facilitate cross-platform clients that
+     * operate on both Linux and MacOS).  For Linux and Macos, when
+     * \p succeeded is true, \p errno_value is set to 0.
+     *
+     * If \p use_errno is set for dr_syscall_set_result_ex(), then
+     * this value will be stored as the system call's return value,
+     * negated if necessary for the underlying platform.  In that
+     * case, \p value will be ignored.
+     */
+    uint errno_value;
+} dr_syscall_result_info_t;
 /* DR_API EXPORT END */
 
 DR_API
@@ -3132,6 +3205,12 @@ DR_API
  * safe: this routine does not know the number of parameters for each
  * system call, nor does it check whether this might read off the base
  * of the stack.
+ *
+ * \note On some platforms, notably MacOS, a 32-bit application's
+ * system call can still take a 64-bit parameter (typically on the
+ * stack).  In that situation, this routine will consider the 64-bit
+ * parameter to be split into high and low parts, each with its own
+ * parameter number.
  */
 reg_t
 dr_syscall_get_param(void *drcontext, int param_num);
@@ -3147,6 +3226,12 @@ DR_API
  * safe: this routine does not know the number of parameters for each
  * system call, nor does it check whether this might write beyond the
  * base of the stack.
+ *
+ * \note On some platforms, notably MacOS, a 32-bit application's
+ * system call can still take a 64-bit parameter (typically on the
+ * stack).  In that situation, this routine will consider the 64-bit
+ * parameter to be split into high and low parts, each with its own
+ * parameter number.
  */
 void
 dr_syscall_set_param(void *drcontext, int param_num, reg_t new_value);
@@ -3156,9 +3241,31 @@ DR_API
  * Usable only from a post-syscall (dr_register_post_syscall_event())
  * event.  Returns the return value of the system call that will be
  * presented to the application.
+ *
+ * \note On some platforms (such as MacOS), a 32-bit application's
+ * system call can return a 64-bit value.  Use dr_syscall_get_result_ex()
+ * to obtain the upper bits in that case.
+ *
+ * \note On some platforms (such as MacOS), whether a system call
+ * succeeded or failed cannot be determined from the main result
+ * value.  Use dr_syscall_get_result_ex() to obtain the success result
+ * in such cases.
  */
 reg_t
 dr_syscall_get_result(void *drcontext);
+
+DR_API
+/**
+ * Usable only from a post-syscall (dr_register_post_syscall_event())
+ * event.  Returns whether it successfully retrieved the results
+ * of the system call into \p info.
+ *
+ * The caller should set the \p size, \p use_high, and \p use_errno fields
+ * of \p info prior to calling this routine.
+ * See the fields of #dr_syscall_result_info_t for details.
+ */
+bool
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT);
 
 DR_API
 /**
@@ -3167,9 +3274,26 @@ DR_API
  * For pre-syscall, should only be used when skipping the system call.
  * This sets the return value of the system call that the application sees
  * to \p value.
+ *
+ * \note On MacOS, do not use this function as it fails to set the
+ * carry flag and thus fails to properly indicate whether the system
+ * call succeeded or failed: use dr_syscall_set_result_ex() instead.
  */
 void
 dr_syscall_set_result(void *drcontext, reg_t value);
+
+DR_API
+/**
+ * Usable only from a pre-syscall (dr_register_pre_syscall_event()) or
+ * post-syscall (dr_register_post_syscall_event()) event.
+ * For pre-syscall, should only be used when skipping the system call.
+ *
+ * This sets the returned results of the system call as specified in
+ * \p info.  Returns whether it successfully did so.
+ * See the fields of #dr_syscall_result_info_t for details.
+ */
+bool
+dr_syscall_set_result_ex(void *drcontext, dr_syscall_result_info_t *info);
 
 DR_API
 /**

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -880,7 +880,7 @@ syscall_uses_edx_param_base()
 
 /* since always coming from dispatch now, only need to set mcontext */
 #define SET_RETURN_VAL(dc, val) \
-  get_mcontext(dc)->xax = (reg_t) (val);
+  get_mcontext(dc)->xax = (reg_t) (val)
 
 /***************************************************************************
  * PRE SYSTEM CALL
@@ -4030,6 +4030,27 @@ dr_syscall_get_result(void *drcontext)
 }
 
 DR_API
+bool
+dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
+                  "only call dr_syscall_get_result_ex() from post-syscall event");
+    CLIENT_ASSERT(info != NULL, "invalid parameter");
+    CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
+    if (info->size != sizeof(*info))
+        return false;
+    info->value = dr_syscall_get_result(drcontext);
+    /* We document not to rely on this for non-ntoskrnl syscalls */
+    info->succeeded = NT_SUCCESS(info->value);
+    if (info->use_high)
+        info->high = 0;
+    if (info->use_errno)
+        info->errno_value = (uint) info->value;
+    return true;
+}
+
+DR_API
 void
 dr_syscall_set_result(void *drcontext, reg_t value)
 {
@@ -4038,6 +4059,28 @@ dr_syscall_set_result(void *drcontext, reg_t value)
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_result() can only be called from a syscall event");
     SET_RETURN_VAL(dcontext, value);
+}
+
+DR_API
+bool
+dr_syscall_set_result_ex(void *drcontext, dr_syscall_result_info_t *info)
+{
+    dcontext_t *dcontext = (dcontext_t *) drcontext;
+    CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
+                  dcontext->client_data->in_post_syscall,
+                  "only call dr_syscall_set_result_ex() from a syscall event");
+    CLIENT_ASSERT(info != NULL, "invalid parameter");
+    CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
+    if (info->size != sizeof(*info))
+        return false;
+    if (info->use_high)
+        return false; /* not supported */
+    /* we ignore info->succeeded */
+    if (info->use_errno)
+        SET_RETURN_VAL(dcontext, info->errno_value);
+    else
+        SET_RETURN_VAL(dcontext, info->value);
+    return true;
 }
 
 DR_API

@@ -986,7 +986,10 @@ soft_kills_pre_syscall(void *drcontext, int sysnum)
             /* Pass exit code << 8 for use with dr_exit_process() */
             int exit_code = sig << 8;
             if (soft_kills_invoke_cbs(pid, exit_code)) {
-                dr_syscall_set_result(drcontext, 0/*success*/);
+                /* set result to 0 (success) and use_high and use_errno to false */
+                dr_syscall_result_info_t info = { sizeof(info), };
+                info.succeeded = true;
+                dr_syscall_set_result_ex(drcontext, &info);
                 return false; /* skip syscall */
             } else
                 return true; /* execute syscall */

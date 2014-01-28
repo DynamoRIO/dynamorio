@@ -1117,7 +1117,7 @@ syscall_ready:
         push     REG_XSI
         push     REG_XDI
         /* add 16 to skip the 4 pushes 
-         * FIXME: rather than this dispatch, could have separate routines 
+         * FIXME: rather than this dispatch, could have separate routines
          * for each #args, or could just blindly read upward on the stack. 
          * for dispatch, if assume size of mov instr can do single ind jmp */
         mov      ecx, [16+ 8 + esp] /* num_args */

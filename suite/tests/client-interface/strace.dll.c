@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,6 +47,12 @@
 
 #ifdef UNIX
 # include <syscall.h>
+# ifdef LINUX
+#  define SYSNUM_SIGPROCMASK SYS_rt_sigprocmask
+# else
+#  define SYSNUM_SIGPROCMASK SYS_sigprocmask
+# endif
+# include <errno.h>
 #endif
 
 /* Due to differences among platforms we don't display syscall #s and args 
@@ -84,6 +90,7 @@ typedef struct {
 #ifdef WINDOWS
     reg_t xcx; /* emulation parameter for WOW64 */
 #endif
+    bool suppress_stderr;
     bool repeat;
 } per_thread_t;
 
@@ -163,6 +170,7 @@ event_thread_context_init(void *drcontext, bool new_depth)
     } else
         data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
     memset(data, 0, sizeof(*data));
+    data->suppress_stderr = true;
 }
 
 static void 
@@ -188,6 +196,7 @@ event_filter_syscall(void *drcontext, int sysnum)
 static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
+    per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
     ATOMIC_INC(num_syscalls);
 #ifdef UNIX
     if (sysnum == SYS_execve) {
@@ -208,7 +217,6 @@ event_pre_syscall(void *drcontext, int sysnum)
     if (sysnum == write_sysnum) {
         /* store params for access post-syscall */
         int i;
-        per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
 #ifdef WINDOWS
         /* stderr and stdout are identical in our cygwin rxvt shell so for
          * our example we suppress output starting with 'H' instead
@@ -229,7 +237,8 @@ event_pre_syscall(void *drcontext, int sysnum)
         for (i = 0; i < SYS_MAX_ARGS; i++)
             data->param[i] = dr_syscall_get_param(drcontext, i);
         /* suppress stderr */
-        if (dr_syscall_get_param(drcontext, 0) == (reg_t) STDERR
+        if (dr_syscall_get_param(drcontext, 0) == (reg_t) STDERR &&
+            data->suppress_stderr
 #ifdef WINDOWS
             && first == 'H'
 #endif
@@ -237,9 +246,12 @@ event_pre_syscall(void *drcontext, int sysnum)
             /* pretend it succeeded */
 #ifdef UNIX
             /* return the #bytes == 3rd param */
-            dr_syscall_set_result(drcontext, dr_syscall_get_param(drcontext, 2));
+            dr_syscall_result_info_t info = { sizeof(info), };
+            info.succeeded = true;
+            info.value = dr_syscall_get_param(drcontext, 2);
+            dr_syscall_set_result_ex(drcontext, &info);
 #else
-            /* we should also set the IO_STATUS_BLOCK.Information field */
+            /* XXX: we should also set the IO_STATUS_BLOCK.Information field */
             dr_syscall_set_result(drcontext, 0);
 #endif
 #ifdef SHOW_RESULTS
@@ -258,6 +270,20 @@ event_pre_syscall(void *drcontext, int sysnum)
             data->repeat = !data->repeat;
         }
     }
+#ifdef UNIX
+    /* Test dr_syscall_{get,set}_result_ex() errno support */
+    if (sysnum == SYSNUM_SIGPROCMASK) {
+        /* Have it fail w/ a particular errno */
+        dr_syscall_result_info_t info = { sizeof(info), };
+        info.succeeded = false;
+        info.use_errno = true;
+        info.errno_value = EFAULT;
+        dr_syscall_set_result_ex(drcontext, &info);
+        /* We want to see the app's perror() */
+        data->suppress_stderr = false;
+        return false; /* skip */
+    }
+#endif
     return true; /* execute normally */
 }
 
@@ -265,10 +291,16 @@ static void
 event_post_syscall(void *drcontext, int sysnum)
 {
 #ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")\n",
-               sysnum, 
-               dr_syscall_get_result(drcontext),
-               (ptr_int_t)dr_syscall_get_result(drcontext));
+    dr_syscall_result_info_t info = { sizeof(info), };
+    info.user_errno = true;
+    dr_syscall_get_result_ex(drcontext, &info);
+    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")%s\n",
+               sysnum, info.value, (ptr_int_t)info.value,
+               info.succeeded ? "" : " (failed)");
+# ifndef WINDOWS
+    DR_ASSERT((info.succeeded && info.errno == 0) ||
+              (!info.succeeded && info.errno > 0));
+# endif
 #endif
     if (sysnum == write_sysnum) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
