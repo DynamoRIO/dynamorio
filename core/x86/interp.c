@@ -1799,13 +1799,13 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 #endif
     BBPRINT(bb, 3, "syscall # is %d\n", sysnum);
 #ifdef CLIENT_INTERFACE 
-    if (sysnum > -1 && instrument_filter_syscall(dcontext, sysnum)) {
+    if (sysnum != -1 && instrument_filter_syscall(dcontext, sysnum)) {
         BBPRINT(bb, 3, "client asking to intercept => pretending syscall # %d is -1\n",
                 sysnum);
         sysnum = -1;
     }
 #endif
-    if (sysnum > -1 &&
+    if (sysnum != -1 &&
         DYNAMO_OPTION(ignore_syscalls) && 
         ignorable_system_call(sysnum)
         /* PR 288101: On Linux we do not yet support inlined sysenter instrs as we
@@ -1824,7 +1824,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
         }
     }
 #ifdef WINDOWS
-    if (sysnum > -1 && DYNAMO_OPTION(shared_syscalls) &&
+    if (sysnum != -1 && DYNAMO_OPTION(shared_syscalls) &&
         optimizable_system_call(sysnum)) {
         bb_process_shared_syscall(dcontext, bb, sysnum);
         return false;

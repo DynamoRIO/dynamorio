@@ -780,7 +780,7 @@ struct _dcontext_t {
     void *         allocated_start; /* used for cache alignment */
     fragment_t *     last_fragment;   /* cached value of linkstub_fragment(last_exit) */
 
-    int            sys_num;         /* used for post_system_call */
+    int            sys_num;         /* holds normalized syscall number */
 #ifdef WINDOWS
     reg_t *        sys_param_base;  /* used for post_system_call */
 #endif

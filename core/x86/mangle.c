@@ -2650,6 +2650,9 @@ cti_is_normal_elision(instr_t *instr)
 /* Tries to statically find the syscall number for the
  * syscall instruction instr.
  * Returns -1 upon failure.
+ * Note that on MacOS, 32-bit Mach syscalls are encoded using negative numbers
+ * (although -1 is invalid), so be sure to test for -1 and not just <0 as a failure
+ * code.
  */
 int
 find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)

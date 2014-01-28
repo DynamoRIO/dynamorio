@@ -3934,9 +3934,30 @@ make_unwritable(byte *pc, size_t size)
  * and put them in our own local syscall.h.
  */
 
-bool
-ignorable_system_call(int num)
+static int
+normalize_sysnum(reg_t xax)
 {
+#ifdef MACOS
+    if ((ptr_int_t)xax < 0) /* Mach syscall */
+        return -(int)xax;
+    else {
+# ifdef X64
+        /* Bottom 24 bits are the number */
+        return (int)(xax & 0xffffff);
+# else
+        /* Bottom 16 bits are the number */
+        return (int)(xax & 0xffff);
+# endif
+    }
+#else
+    return (int) xax;
+#endif
+}
+
+bool
+ignorable_system_call(int num_raw)
+{
+    int num = normalize_sysnum(num_raw);
     switch (num) {
 #if defined(SYS_exit_group)
     case SYS_exit_group:
@@ -4846,7 +4867,7 @@ handle_exit(dcontext_t *dcontext)
     priv_mcontext_t *mc = get_mcontext(dcontext);
     bool exit_process = false;
 
-    if (mc->xax == SYSNUM_EXIT_PROCESS) {
+    if (dcontext->sys_num == SYSNUM_EXIT_PROCESS) {
         /* We can have multiple thread groups within the same address space.
          * We need to know whether this is the only group left.
          * FIXME: we can have races where new threads are created after our
@@ -4909,7 +4930,7 @@ handle_exit(dcontext_t *dcontext)
     if (is_last_app_thread() && !dynamo_exited) {
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in final thread "TIDFMT" of "PIDFMT" => exiting DynamoRIO\n",
-            (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "", mc->xax,
+            (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "", mc->xax,
             get_thread_id(), get_process_id());
         /* we want to clean up even if not automatic startup! */
         automatic_startup = true;
@@ -4917,7 +4938,7 @@ handle_exit(dcontext_t *dcontext)
     } else {
         LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in thread "TIDFMT" of "PIDFMT" => cleaning up %s\n",
-            (mc->xax == SYSNUM_EXIT_PROCESS) ? "_group" : "",
+            (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "",
             mc->xax, get_thread_id(), get_process_id(),
             exit_process ? "process" : "thread");
     }
@@ -5155,14 +5176,14 @@ pre_system_call(dcontext_t *dcontext)
     /* save key register values for post_system_call (they get clobbered
      * in syscall itself)
      */
-    dcontext->sys_num = mc->xax;
+    dcontext->sys_num = normalize_sysnum(mc->xax);
 
     RSTATS_INC(pre_syscall);
     DOSTATS({
-        if (ignorable_system_call(mc->xax))
+        if (ignorable_system_call(dcontext->sys_num))
             STATS_INC(pre_syscall_ignorable);
     });
-    LOG(THREAD, LOG_SYSCALLS, 2, "system call %d\n", mc->xax);
+    LOG(THREAD, LOG_SYSCALLS, 2, "system call %d\n", dcontext->sys_num);
 
 #ifdef LINUX
     /* PR 313715: If we fail to hook the vsyscall page (xref PR 212570, PR 288330)
@@ -5183,7 +5204,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 #endif
 
-    switch (mc->xax) {
+    switch (dcontext->sys_num) {
 
 #ifdef LINUX
     case SYS_exit_group:
@@ -5652,7 +5673,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         dcontext->sys_param2 = sys_param(dcontext, 2);
-        if (mc->xax == SYS_signalfd)
+        if (dcontext->sys_num == SYS_signalfd)
             dcontext->sys_param3 = 0;
         else
             dcontext->sys_param3 = sys_param(dcontext, 3);
@@ -5795,7 +5816,7 @@ pre_system_call(dcontext_t *dcontext)
     case IF_MACOS_ELSE(SYS_sigpending,SYS_rt_sigpending): { /* 176 */
         /* FIXME: handle all of these syscalls! */
         LOG(THREAD, LOG_ASYNCH|LOG_SYSCALLS, 1,
-            "WARNING: unhandled signal system call %d\n", mc->xax);
+            "WARNING: unhandled signal system call %d\n", dcontext->sys_num);
         break;
     }
 
@@ -5928,7 +5949,7 @@ pre_system_call(dcontext_t *dcontext)
 
     default: {
 #ifdef VMX86_SERVER
-        if (is_vmkuw_sysnum(mc->xax)) {
+        if (is_vmkuw_sysnum(dcontext->sys_num)) {
             execute_syscall = vmkuw_pre_system_call(dcontext);
             break;
         }
