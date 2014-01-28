@@ -639,7 +639,12 @@ cat_have_lock:
 # endif
 #else
         pop      REG_XSI   /* syscall */
-# ifdef UNIX
+# ifdef MACOS
+        /* Leave the args on the stack for 32-bit Mac.  We actually need another
+         * slot before the 1st arg.
+         */
+        push     0
+# elif defined(LINUX)
         pop      REG_XBX   /* sys_arg1 */
         pop      REG_XCX   /* sys_arg2 */
 # else
@@ -1120,7 +1125,7 @@ syscall_ready:
         push     REG_XSI
         push     REG_XDI
         /* add 16 to skip the 4 pushes 
-         * FIXME: rather than this dispatch, could have separate routines
+         * XXX: rather than this dispatch, could have separate routines
          * for each #args, or could just blindly read upward on the stack. 
          * for dispatch, if assume size of mov instr can do single ind jmp */
         mov      ecx, [16+ 8 + esp] /* num_args */
