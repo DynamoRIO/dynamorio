@@ -2291,6 +2291,17 @@ after_do_shared_syscall_addr(dcontext_t *dcontext)
     return (cache_pc) (code->do_syscall + code->do_syscall_offs);
 }
 
+cache_pc
+after_do_syscall_addr(dcontext_t *dcontext)
+{
+    /* PR 212570: return the thread-shared do_syscall used for vsyscall hook */
+    generated_code_t *code = get_emitted_routines_code(dcontext
+                                                       _IF_X64(GENCODE_FROM_DCONTEXT));
+    ASSERT(code != NULL);
+    ASSERT(code->do_syscall != NULL);
+    return (cache_pc) (code->do_syscall + code->do_syscall_offs);
+}
+
 static bool
 is_after_main_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
 {
@@ -3327,8 +3338,16 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          /* Check for pointing right at sysenter, for i#1145 */
          mcontext->pc + SYSENTER_LENGTH == vsyscall_syscall_end_pc ||
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
+# ifdef MACOS
+        if (!just_pc) {
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+                "recreate_app: restoring xdx (at sysenter)\n");
+            mcontext->xdx = tdcontext->app_xdx;
+        }
+# else
         LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
             "recreate_app no translation needed (at syscall)\n");
+# endif
         return res;
     }
 #endif
@@ -4499,7 +4518,16 @@ does_syscall_ret_to_callsite(void)
 {
     return (syscall_method == SYSCALL_METHOD_INT || 
             syscall_method == SYSCALL_METHOD_SYSCALL
-            IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64));
+            IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
+            /* The app is reported to be at whatever's in edx, so
+             * for our purposes it does return to the call site
+             * if we always mangle edx to point there.  Since we inline
+             * Mac sysenter (well, we execute it inside fragments, even
+             * if we don't continue (except maybe in a trace) we do
+             * want to return true here for skipping syscalls and
+             * handling interrupted syscalls.
+             */
+            IF_MACOS(|| syscall_method == SYSCALL_METHOD_SYSENTER));
 }
 
 void

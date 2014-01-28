@@ -1928,14 +1928,18 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
  */
 #define SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)                      \
     ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) ?           \
-     INSTR_CREATE_mov_st(dc, opnd_create_tls_slot(os_tls_offset(tls_offs)),       \
-                         opnd_create_reg(reg)) :                                  \
+     instr_create_save_to_tls(dc, reg, tls_offs) :                                \
      instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 #define SAVE_TO_DC_OR_TLS_OR_REG(dc, flags, reg, tls_offs, dc_offs, dest_reg)   \
     ((X64_CACHE_MODE_DC(dc) && !X64_MODE_DC(dc)) ?                              \
      INSTR_CREATE_mov_ld(dc, opnd_create_reg(dest_reg), opnd_create_reg(reg)) : \
      SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs))
+
+#define RESTORE_FROM_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs)                 \
+    ((DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags))) ?           \
+     instr_create_restore_from_tls(dc, reg, tls_offs) :                           \
+     instr_create_restore_from_dcontext((dc), (reg), (dc_offs)))
 
 static void
 mangle_far_direct_helper(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
@@ -2861,7 +2865,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                         (dcontext, opnd_create_pc(instr_get_raw_bits(instr))));
     PRE(ilist, instr, skip_exit);
 
-    if (get_syscall_method() != SYSCALL_METHOD_SYSENTER &&
+    if (does_syscall_ret_to_callsite() &&
         sysnum_is_not_restartable(ilist_find_sysnum(ilist, instr))) {
         /* i#1216: we insert a nop instr right after inlined non-auto-restart
          * syscall to make it a safe point for suspending.
@@ -2877,6 +2881,31 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
         instr_set_ok_to_mangle(instr, true);
         instrlist_postinsert(ilist, instr, nop);
     }
+
+# ifdef MACOS
+    if (instr_get_opcode(instr) == OP_sysenter) {
+        /* The kernel returns control to whatever user-mode places in edx.
+         * We get control back here and then go to the ret ibl (since normally
+         * there's a call to a shared routine that does "pop edx").
+         */
+        instr_t *post_sysenter = INSTR_CREATE_label(dcontext);
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT, XDX_OFFSET));
+        instrlist_insert_mov_instr_addr(dcontext, post_sysenter, NULL/*in cache*/,
+                                        opnd_create_reg(REG_XDX),
+                                        ilist, instr, NULL, NULL);
+        /* sysenter goes here */
+        PRE(ilist, next_instr, post_sysenter);
+        PRE(ilist, next_instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX, TLS_XDX_SLOT, XDX_OFFSET));
+        PRE(ilist, next_instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX, TLS_XCX_SLOT, XCX_OFFSET));
+        PRE(ilist, next_instr,
+            INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XCX),
+                                opnd_create_reg(REG_XDX)));
+    }
+# endif
+
 # ifdef STEAL_REGISTER
     /* in linux, system calls get their parameters via registers.
      * edi is the last one used, but there are system calls that
@@ -4190,6 +4219,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
  */
 
 #undef SAVE_TO_DC_OR_TLS
+#undef RESTORE_FROM_DC_OR_TLS
 /* PR 244737: x64 uses tls to avoid reachability issues w/ absolute addresses */
 #ifdef X64
 # define SAVE_TO_DC_OR_TLS(dc, reg, tls_offs, dc_offs) \

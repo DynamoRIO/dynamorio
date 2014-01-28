@@ -689,6 +689,9 @@ GLOBAL_LABEL(global_do_syscall_int:)
 #ifdef WINDOWS
         int      HEX(2e)
 #else
+        /* XXX: if we need to make any Mach syscalls for MacOS here, we'll
+         * need a sysenter version, as the kernel throws SIGSYS when using int.
+         */
         int      HEX(80)
 #endif
 #ifdef DEBUG

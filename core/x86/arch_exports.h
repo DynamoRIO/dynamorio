@@ -750,6 +750,7 @@ cache_pc after_do_syscall_addr(dcontext_t *dcontext);
 cache_pc after_do_syscall_code(dcontext_t *dcontext);
 #else
 cache_pc after_do_shared_syscall_addr(dcontext_t *dcontext);
+cache_pc after_do_syscall_addr(dcontext_t *dcontext);
 bool is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc);
 #endif
 

@@ -1595,9 +1595,15 @@ adjust_syscall_continuation(dcontext_t *dcontext)
      * continuation pc, we have no work to do here either!
      */
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
+# ifdef MACOS
+        priv_mcontext_t *mc = get_mcontext(dcontext);
+        mc->xdx = dcontext->app_xdx;
+        dcontext->asynch_target = (app_pc) mc->xdx;
+# else
         /* we still see some int syscalls (for SYS_clone in particular) */
         ASSERT(dcontext->sys_was_int ||
                dcontext->asynch_target == vsyscall_syscall_end_pc);
+# endif
     } else if (vsyscall_syscall_end_pc != NULL &&
                /* PR 341469: 32-bit apps (LOL64) on AMD hardware have
                 * OP_syscall in a vsyscall page
@@ -1831,6 +1837,16 @@ handle_system_call(dcontext_t *dcontext)
              * whereami for prev dcontext, not real one!
              */
             tmp_dcontext->whereami = WHERE_FCACHE;
+        }
+#endif
+
+#ifdef MACOS
+        if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
+            /* The kernel returns control to whatever user-mode places in edx */
+            byte *post_sysenter = after_do_syscall_addr(dcontext);
+            priv_mcontext_t *mc = get_mcontext(dcontext);
+            dcontext->app_xdx = mc->xdx;
+            mc->xdx = (reg_t) post_sysenter;
         }
 #endif
 

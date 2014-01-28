@@ -798,6 +798,9 @@ struct _dcontext_t {
     bool           mprot_multi_areas; /* PR 410921: mprotect of 2 or more vmareas? */
 # endif
 #endif
+#ifdef MACOS
+    reg_t          app_xdx;         /* stores orig xdx during sysenter */
+#endif
 
 #ifdef X64
     /* Is this thread in 32-bit (x86) or 64-bit (x64) mode?

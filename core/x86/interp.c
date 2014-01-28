@@ -212,6 +212,7 @@ typedef struct {
     app_pc checked_end;       /* end of current vmarea checked */
     cache_pc exit_target;     /* fall-through target of final instr */
     uint exit_type;           /* indirect branch type  */
+    ibl_branch_type_t ibl_branch_type; /* indirect branch type as an IBL selector */
 #ifdef UNIX
     bool invalid_instr_hack;
 #endif
@@ -243,6 +244,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->overlap_info = overlap_info;
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
+    bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
     DODEBUG(bb->initialized = true;);
 }
 
@@ -1674,6 +1676,21 @@ bb_process_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
         STATS_DEC(ignorable_syscalls);
         return false;
     }
+#elif defined (MACOS)
+    if (instr_get_opcode(bb->instr) == OP_sysenter) {
+        /* To continue after the sysenter we need to go to the ret ibl, as user-mode
+         * sysenter wrappers put the retaddr into edx as the post-kernel continuation.
+         */
+        bb->exit_type |= LINK_INDIRECT|LINK_RETURN;
+        bb->ibl_branch_type = IBL_RETURN;
+        bb->exit_target = get_ibl_routine(dcontext, get_ibl_entry_type(bb->exit_type),
+                                          DEFAULT_IBL_BB(), bb->ibl_branch_type);
+        LOG(THREAD, LOG_INTERP, 4, "sysenter exit target = "PFX"\n", bb->exit_target);
+        if (continue_bb != NULL)
+            *continue_bb = false;
+    } else if (continue_bb != NULL)
+        *continue_bb = true;
+    return true;
 #else
     if (continue_bb != NULL)
         *continue_bb = true;
@@ -1796,7 +1813,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
          * for now on very simple sysenter handling where dispatch uses asynch_target
          * to know where to go next.
          */
-        IF_UNIX(&& instr_get_opcode(bb->instr) != OP_sysenter)) {
+        IF_LINUX(&& instr_get_opcode(bb->instr) != OP_sysenter)) {
 
         bool continue_bb;
 
@@ -2891,8 +2908,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     instr_t *non_cti;              /* used if !full_decode */
     byte *non_cti_start_pc; /* used if !full_decode */
     uint eflags_6 = 0; /* holds arith eflags written so far (in read slots) */
-    /* indirect branch type as an IBL selector */
-    ibl_branch_type_t ibl_branch_type = IBL_GENERIC; /* initialization only */
 #ifdef HOT_PATCHING_INTERFACE
     bool hotp_should_inject = false, hotp_injected = false;
 #endif
@@ -3334,7 +3349,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bool elide_and_continue_if_converted = true;
 
             if (instr_is_return(bb->instr)) {
-                ibl_branch_type = IBL_RETURN;
+                bb->ibl_branch_type = IBL_RETURN;
                 STATS_INC(num_returns);
             } else if (instr_is_call_indirect(bb->instr)) {
                 STATS_INC(num_all_calls);
@@ -3370,13 +3385,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     normal_indirect_processing = false;
                 }
                 else
-                    ibl_branch_type = IBL_INDCALL;
+                    bb->ibl_branch_type = IBL_INDCALL;
             } else if (instr_get_opcode(bb->instr) == OP_jmp_far) {
                  /* far direct is treated as indirect (i#823) */
-                ibl_branch_type = IBL_INDJMP;
+                bb->ibl_branch_type = IBL_INDJMP;
             } else if (instr_get_opcode(bb->instr) == OP_call_far) {
                  /* far direct is treated as indirect (i#823) */
-                ibl_branch_type = IBL_INDCALL;
+                bb->ibl_branch_type = IBL_INDCALL;
             } else {
                 /* indirect jump */
                 /* was prev instr a direct call? if so, this is a PLT-style ind call */
@@ -3402,7 +3417,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     bb->exit_type &= ~INSTR_CALL_EXIT; /* leave just JMP */
                     normal_indirect_processing = false;
                 } else          /* FIXME: this can always be set */
-                    ibl_branch_type = IBL_INDJMP;
+                    bb->ibl_branch_type = IBL_INDJMP;
                 STATS_INC(num_indirect_jumps);
             }
 #ifdef CUSTOM_TRACES_RET_REMOVAL
@@ -3416,7 +3431,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->exit_type |= instr_branch_type(bb->instr);
                 bb->exit_target = get_ibl_routine(dcontext,
                                                   get_ibl_entry_type(bb->exit_type),
-                                                  DEFAULT_IBL_BB(), ibl_branch_type);
+                                                  DEFAULT_IBL_BB(), bb->ibl_branch_type);
                 LOG(THREAD, LOG_INTERP, 4, "mbr exit target = "PFX"\n", bb->exit_target);
                 break;
             } else {
@@ -3784,9 +3799,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (!TEST(FRAG_SHARED, bb->flags) && TEST(LINK_INDIRECT, bb->exit_type)) {
         ASSERT(bb->exit_target == get_ibl_routine(dcontext,
                                                   get_ibl_entry_type(bb->exit_type),
-                                                  DEFAULT_IBL_BB(), ibl_branch_type));
+                                                  DEFAULT_IBL_BB(), bb->ibl_branch_type));
         bb->exit_target = get_ibl_routine(dcontext, get_ibl_entry_type(bb->exit_type),
-                                          IBL_BB_PRIVATE, ibl_branch_type);
+                                          IBL_BB_PRIVATE, bb->ibl_branch_type);
     }
 
     if (bb->mangle_ilist &&
