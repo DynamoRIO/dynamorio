@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,6 +35,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "client_tools.h"
 #include <string.h> /* memset */
 
 #define CHECK(x, msg) do {               \
@@ -57,6 +58,7 @@ static bool in_syscall_B;
 static bool in_post_syscall_A;
 static bool in_post_syscall_B;
 static void *syslock;
+static uint one_time_exec;
 
 #define MAGIC_NUMBER_FROM_CACHE 0x0eadbeef
 
@@ -95,6 +97,8 @@ static dr_emit_flags_t event_bb4_instru2instru(void *drcontext, void *tag, instr
                                                bool for_trace, bool translating,
                                                void *user_data);
 
+static dr_emit_flags_t one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
+                                         bool for_trace, bool translating);
 DR_EXPORT void 
 dr_init(client_id_t id)
 {
@@ -137,6 +141,9 @@ dr_init(client_id_t id)
     CHECK(ok, "drmgr register sys failed");
 
     syslock = dr_mutex_create();
+
+    ok = drmgr_register_bb_app2app_event(one_time_bb_event, NULL);
+    CHECK(ok, "drmgr app2app registration failed");
 }
 
 static void 
@@ -147,9 +154,21 @@ event_exit(void)
     CHECK(checked_cls_from_cache, "failed to hit clean call");
     CHECK(checked_tls_write_from_cache, "failed to hit clean call");
     CHECK(checked_cls_write_from_cache, "failed to hit clean call");
-    drmgr_unregister_cls_field(event_thread_context_init,
-                               event_thread_context_exit,
-                               cls_idx);
+    CHECK(one_time_exec == 1, "failed to execute one-time event");
+
+    if (!drmgr_unregister_bb_instrumentation_event(event_bb_analysis))
+        CHECK(false, "drmgr unregistration failed");
+
+    if (!drmgr_unregister_bb_instrumentation_ex_event(event_bb4_app2app,
+                                                      event_bb4_analysis,
+                                                      event_bb4_insert,
+                                                      event_bb4_instru2instru))
+        CHECK(false, "drmgr unregistration failed");
+
+    if (!drmgr_unregister_cls_field(event_thread_context_init,
+                                    event_thread_context_exit, cls_idx))
+        CHECK(false, "drmgr unregistration failed");
+
     drmgr_exit();
     dr_fprintf(STDERR, "all done\n");
 }
@@ -389,4 +408,47 @@ event_post_sys_B(void *drcontext, int sysnum)
         }
         dr_mutex_unlock(syslock);
     }
+}
+
+/* test unregistering from inside an event */
+static dr_emit_flags_t
+one_time_bb_event(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    int i;
+#   define STRESS_REGISTER_ITERS 64
+#   define NAME_SZ 32
+    char *names[STRESS_REGISTER_ITERS];
+    drmgr_priority_t pri = { sizeof(pri), };
+
+    one_time_exec++;
+    if (!drmgr_unregister_bb_app2app_event(one_time_bb_event))
+        CHECK(false, "drmgr unregistration failed");
+
+    /* stress-test adding and removing */
+    for (i = 0; i < STRESS_REGISTER_ITERS; i++) {
+        /* force sorted insertion on each add */
+        pri.priority = STRESS_REGISTER_ITERS - i;
+        names[i] = dr_thread_alloc(drcontext, NAME_SZ);
+        dr_snprintf(names[i], NAME_SZ, "%d", pri.priority);
+        pri.name = names[i];
+        if (!drmgr_register_bb_app2app_event(one_time_bb_event, &pri))
+            CHECK(false, "drmgr app2app registration failed");
+    }
+    /* XXX: drmgr lets us add multiple instances of the same callback
+     * so long as they have different priority names (or use default
+     * priority) -- but on removal it only asks for callback and
+     * removes the first it finds.  Thus we cannot free any memory
+     * tied up in a priority until we remove *all* of them.
+     * Normally priorities use string literals, so seems ok.
+     */
+    for (i = 0; i < STRESS_REGISTER_ITERS; i++) {
+        if (!drmgr_unregister_bb_app2app_event(one_time_bb_event))
+            CHECK(false, "drmgr app2app unregistration failed");
+    }
+    for (i = 0; i < STRESS_REGISTER_ITERS; i++) {
+        dr_thread_free(drcontext, names[i], NAME_SZ);
+    }
+
+    return DR_EMIT_DEFAULT;
 }

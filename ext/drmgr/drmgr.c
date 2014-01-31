@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,6 +36,7 @@
 
 #include "dr_api.h"
 #include "drmgr.h"
+#include "../ext_utils.h"
 #ifdef UNIX
 # include <string.h>
 #endif
@@ -81,9 +82,9 @@
 
 /* priority list entry base struct */
 typedef struct _priority_event_entry_t {
-    const char *name;
+    bool valid; /* is whole entry valid (not just priority) */
     int priority;
-    struct _priority_event_entry_t *next;
+    const char *name;
 } priority_event_entry_t;
 
 
@@ -131,6 +132,22 @@ typedef struct _generic_event_entry_t {
     } cb;
 } generic_event_entry_t;
 
+/* array of events */
+/* XXX: what we want is drvector_t with inlined elements */
+typedef struct _cb_list_t {
+    union { /* array of callbacks */
+        cb_entry_t *bb;
+        generic_event_entry_t *generic;
+        byte *array;
+    } cbs;
+    size_t entry_sz; /* size of each entry */
+    size_t num;      /* valid entries in array */
+    size_t capacity; /* allocated entries in array */
+} cb_list_t;
+
+#define EVENTS_INITIAL_SZ 10
+#define EVENTS_STACK_SZ 16
+
 /***************************************************************************
  * GLOBALS
  */
@@ -145,9 +162,9 @@ static void *bb_cb_lock;
 static uint bb_event_count;
 
 /* Lists sorted by priority and protected by bb_cb_lock */
-static cb_entry_t *cblist_app2app;
-static cb_entry_t *cblist_instrumentation;
-static cb_entry_t *cblist_instru2instru;
+static cb_list_t cblist_app2app;
+static cb_list_t cblist_instrumentation;
+static cb_list_t cblist_instru2instru;
 
 /* Count of callbacks needing user_data, protected by bb_cb_lock */
 static uint pair_count;
@@ -164,6 +181,9 @@ static int tls_idx_bb_phase;
 static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                bool for_trace, bool translating);
+
+static void
+drmgr_bb_init(void);
 
 static void
 drmgr_bb_exit(void);
@@ -195,38 +215,38 @@ static void *tls_lock;
 static void *note_lock;
 
 /* Thread event cbs and rwlock */
-static generic_event_entry_t *cblist_thread_init;
-static generic_event_entry_t *cblist_thread_exit;
+static cb_list_t cb_list_thread_init;
+static cb_list_t cb_list_thread_exit;
 static void *thread_event_lock;
 
-static generic_event_entry_t *cblist_cls_init;
-static generic_event_entry_t *cblist_cls_exit;
+static cb_list_t cblist_cls_init;
+static cb_list_t cblist_cls_exit;
 static void *cls_event_lock;
 
 /* Yet another event we must wrap to ensure we go last */
-static generic_event_entry_t *cblist_presys;
+static cb_list_t cblist_presys;
 static void *presys_event_lock;
 
-static generic_event_entry_t *cblist_postsys;
+static cb_list_t cblist_postsys;
 static void *postsys_event_lock;
 
-static generic_event_entry_t *cblist_modload;
+static cb_list_t cblist_modload;
 static void *modload_event_lock;
 
-static generic_event_entry_t *cblist_modunload;
+static cb_list_t cblist_modunload;
 static void *modunload_event_lock;
 
 #ifdef UNIX
-static generic_event_entry_t *cblist_signal;
+static cb_list_t cblist_signal;
 static void *signal_event_lock;
 #endif
 
 #ifdef WINDOWS
-static generic_event_entry_t *cblist_exception;
+static cb_list_t cblist_exception;
 static void *exception_event_lock;
 #endif
 
-static generic_event_entry_t *cblist_fault;
+static cb_list_t cblist_fault;
 static void *fault_event_lock;
 static bool registered_fault; /* for lazy registration */
 
@@ -247,6 +267,9 @@ drmgr_cls_stack_init(void *drcontext);
 
 static bool
 drmgr_cls_stack_exit(void *drcontext);
+
+static void
+drmgr_event_init(void);
 
 static void
 drmgr_event_exit(void);
@@ -328,6 +351,9 @@ drmgr_init(void)
     dr_register_exception_event(drmgr_exception_event);
 #endif
 
+    drmgr_bb_init();
+    drmgr_event_init();
+
     tls_idx_bb_phase = drmgr_register_tls_field();
 
     return true;
@@ -367,6 +393,105 @@ drmgr_exit(void)
 }
 
 /***************************************************************************
+ * DYNAMIC ARAY OF CALLBACKS
+ */
+
+/* We want an array for a simple temporary copy to support unregistering
+ * while delivering events.  Even though we sort our callbacks, we expect
+ * orders of magnitude more event delivery than even register/unregister
+ * calls.
+ *
+ * We do not shift on removal: we simply mark invalid.  We try to use
+ * invalid slots when we can, but with the sorting that's rare.
+ * We assume there won't be enough unregister calls to cause
+ * fragmentation.
+ */
+
+static void
+cblist_init(cb_list_t *l, size_t per_entry)
+{
+    l->entry_sz = per_entry;
+    l->num = 0;
+    l->capacity = EVENTS_INITIAL_SZ;
+    l->cbs.array = dr_global_alloc(l->capacity * l->entry_sz);
+}
+
+static void
+cblist_delete(cb_list_t *l)
+{
+    dr_global_free(l->cbs.array, l->capacity * l->entry_sz);
+}
+
+static inline priority_event_entry_t *
+cblist_get_pri(cb_list_t *l, uint idx)
+{
+    return (priority_event_entry_t *)(l->cbs.array + idx*l->entry_sz);
+}
+
+/* Caller must hold write lock.
+ * Returns -1 on error.
+ */
+static int
+cblist_shift_and_resize(cb_list_t *l, uint insert_at)
+{
+    size_t orig_num = l->num;
+    if (insert_at > l->num)
+        return -1;
+    l->num++;
+    /* check for invalid slots we can easily use */
+    if (insert_at < l->num && !cblist_get_pri(l, insert_at)->valid)
+        return insert_at;
+    else if (insert_at > 0 && !cblist_get_pri(l, insert_at - 1)->valid)
+        return insert_at - 1;
+    if (l->num >= l->capacity) {
+        /* do the shift implicitly while resizing */
+        size_t new_cap = l->capacity * 2;
+        byte *new_array = dr_global_alloc(new_cap * l->entry_sz);
+        memcpy(new_array, l->cbs.array, insert_at*l->entry_sz);
+        memcpy(new_array + (insert_at+1)*l->entry_sz,
+               l->cbs.array + insert_at*l->entry_sz,
+               (orig_num - insert_at)*l->entry_sz);
+        dr_global_free(l->cbs.array, l->capacity * l->entry_sz);
+        l->cbs.array = new_array;
+        l->capacity = new_cap;
+    } else {
+        if (insert_at == orig_num)
+            return insert_at;
+        memmove(l->cbs.array + (insert_at+1)*l->entry_sz,
+                l->cbs.array + insert_at*l->entry_sz,
+                (l->num - insert_at)*l->entry_sz);
+    }
+    return insert_at;
+}
+
+/* Creates a temporary local copy, using local if it's big enough but
+ * otherwise allocating new space on the heap.
+ * Caller must hold read lock.
+ */
+static void
+cblist_create_local(void *drcontext, cb_list_t *src, cb_list_t *dst,
+                    byte *local, size_t local_num)
+{
+    dst->entry_sz = src->entry_sz;
+    dst->num = src->num;
+    dst->capacity = src->num;
+    if (src->num > local_num) {
+        dst->cbs.array = dr_thread_alloc(drcontext, src->num*src->entry_sz);
+    } else {
+        dst->cbs.array = local;
+    }
+    memcpy(dst->cbs.array, src->cbs.array, src->num*src->entry_sz);
+}
+
+static void
+cblist_delete_local(void *drcontext, cb_list_t *l, size_t local_num)
+{
+    if (l->num > local_num) {
+        dr_thread_free(drcontext, l->cbs.array, l->num*l->entry_sz);
+    } /* else nothing to do */
+}
+
+/***************************************************************************
  * BB EVENTS
  */
 
@@ -399,13 +524,31 @@ static dr_emit_flags_t
 drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                bool for_trace, bool translating)
 {
+    uint i;
     cb_entry_t *e;
     dr_emit_flags_t res = DR_EMIT_DEFAULT;
     instr_t *inst, *next_inst;
     void **pair_data = NULL, **quartet_data = NULL;
     uint pair_idx, quartet_idx;
+    cb_entry_t local_app2app[EVENTS_STACK_SZ];
+    cb_entry_t local_insert[EVENTS_STACK_SZ];
+    cb_entry_t local_instru[EVENTS_STACK_SZ];
+    cb_list_t iter_app2app;
+    cb_list_t iter_insert;
+    cb_list_t iter_instru;
 
     dr_rwlock_read_lock(bb_cb_lock);
+    /* We use arrays to more easily support unregistering while in an event (i#1356).
+     * With arrays we can make a temporary copy and avoid holding a lock while
+     * delivering events.
+     */
+    cblist_create_local(drcontext, &cblist_app2app, &iter_app2app,
+                        (byte *)local_app2app, BUFFER_SIZE_ELEMENTS(local_app2app));
+    cblist_create_local(drcontext, &cblist_instrumentation, &iter_insert,
+                        (byte *)local_insert, BUFFER_SIZE_ELEMENTS(local_insert));
+    cblist_create_local(drcontext, &cblist_instru2instru, &iter_instru,
+                        (byte *)local_instru, BUFFER_SIZE_ELEMENTS(local_instru));
+    dr_rwlock_read_unlock(bb_cb_lock);
 
     /* We need per-thread user_data */
     if (pair_count > 0)
@@ -419,8 +562,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
      */
     drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
                         (void *)(ptr_int_t)DRMGR_PHASE_APP2APP);
-    for (quartet_idx = 0, e = cblist_app2app; e != NULL;
-         e = (cb_entry_t *) e->pri.next) {
+    for (quartet_idx = 0, i = 0; i < iter_app2app.num; i++) {
+        e = &iter_app2app.cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
         if (e->has_quartet) {
             res |= (*e->cb.app2app_ex_cb)
                 (drcontext, tag, bb, for_trace, translating, &quartet_data[quartet_idx]);
@@ -432,8 +577,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     /* Pass 2: analysis */
     drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
                         (void *)(ptr_int_t)DRMGR_PHASE_ANALYSIS);
-    for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
-         e = (cb_entry_t *) e->pri.next) {
+    for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
+        e = &iter_insert.cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
         if (e->has_quartet) {
             res |= (*e->cb.pair_ex.analysis_ex_cb)
                 (drcontext, tag, bb, for_trace, translating, quartet_data[quartet_idx]);
@@ -455,8 +602,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                         (void *)(ptr_int_t)DRMGR_PHASE_INSERTION);
     for (inst = instrlist_first(bb); inst != NULL; inst = next_inst) {
         next_inst = instr_get_next(inst);
-        for (quartet_idx = 0, pair_idx = 0, e = cblist_instrumentation; e != NULL;
-             e = (cb_entry_t *) e->pri.next) {
+        for (quartet_idx = 0, pair_idx = 0, i = 0; i < iter_insert.num; i++) {
+            e = &iter_insert.cbs.bb[i];
+            if (!e->pri.valid)
+                continue;
             if (e->has_quartet) {
                 res |= (*e->cb.pair_ex.insertion_ex_cb)
                     (drcontext, tag, bb, inst, for_trace, translating,
@@ -477,8 +626,10 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     /* Pass 4: final */
     drmgr_set_tls_field(drcontext, tls_idx_bb_phase,
                         (void *)(ptr_int_t)DRMGR_PHASE_INSTRU2INSTRU);
-    for (quartet_idx = 0, e = cblist_instru2instru; e != NULL;
-         e = (cb_entry_t *) e->pri.next) {
+    for (quartet_idx = 0, i = 0; i < iter_instru.num; i++) {
+        e = &iter_instru.cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
         if (e->has_quartet) {
             res |= (*e->cb.instru2instru_ex_cb)
                 (drcontext, tag, bb, for_trace, translating, quartet_data[quartet_idx]);
@@ -498,76 +649,82 @@ drmgr_bb_event(void *drcontext, void *tag, instrlist_t *bb,
     if (quartet_count > 0)
         dr_thread_free(drcontext, quartet_data, sizeof(void*)*quartet_count);
 
-    dr_rwlock_read_unlock(bb_cb_lock);
+    cblist_delete_local(drcontext, &iter_app2app, BUFFER_SIZE_ELEMENTS(local_app2app));
+    cblist_delete_local(drcontext, &iter_insert, BUFFER_SIZE_ELEMENTS(local_insert));
+    cblist_delete_local(drcontext, &iter_instru, BUFFER_SIZE_ELEMENTS(local_instru));
 
     return res;
 }
 
 /* Caller must hold write lock.
  * priority can be NULL in which case default_priority is used.
+ * Returns -1 on error, else index of new entry.
  */
-static bool
-priority_event_add(priority_event_entry_t **list,
-                   priority_event_entry_t *new_e,
-                   drmgr_priority_t *priority)
+static int
+priority_event_add(cb_list_t *list,
+                   drmgr_priority_t *new_pri)
 {
-    priority_event_entry_t *prev_e, *e;
+    uint i;
     bool past_after; /* are we past the "after" constraint */
+    priority_event_entry_t *pri;
 
-    if (priority == NULL)
-        priority = (drmgr_priority_t *) &default_priority;
-    if (priority->name == NULL)
-        return false; /* must have a name */
+    if (new_pri == NULL)
+        new_pri = (drmgr_priority_t *) &default_priority;
+    if (new_pri->name == NULL)
+        return -1; /* must have a name */
 
     /* if we add fields in the future this is where we decide which to use */
-    if (priority->struct_size < sizeof(drmgr_priority_t))
-        return false; /* incorrect struct */
-
-    new_e->name = priority->name;
-    new_e->priority = priority->priority;
+    if (new_pri->struct_size < sizeof(drmgr_priority_t))
+        return -1; /* incorrect struct */
 
     /* check for duplicate names.
      * not expecting a very long list, so simpler to do full walk
      * here rather than more complex logic to fold into walk below.
      */
-    for (prev_e = NULL, e = *list; e != NULL; prev_e = e, e = e->next) {
-        if (strcmp(priority->name, e->name) == 0 &&
-            priority != &default_priority) {
-            return false; /* duplicate name */
+    if (new_pri != &default_priority) {
+        for (i = 0; i < list->num; i++) {
+            pri = cblist_get_pri(list, i);
+            if (pri->valid && strcmp(new_pri->name, pri->name) == 0)
+                return -1; /* duplicate name */
         }
     }
 
     /* keep the list sorted */
-    past_after = (priority->after == NULL);
-    for (prev_e = NULL, e = *list; e != NULL; prev_e = e, e = e->next) {
+    past_after = (new_pri->after == NULL);
+    for (i = 0; i < list->num; i++) {
+        pri = cblist_get_pri(list, i);
+        if (!pri->valid)
+            continue;
         /* Priority 1: must be before "before" */
-        if (priority->before != NULL && strcmp(priority->before, e->name) == 0)
+        if (new_pri->before != NULL && strcmp(new_pri->before, pri->name) == 0)
             break;
         /* Priority 2: must be after "after" */
         else if (!past_after) {
-            ASSERT(priority->after != NULL, "past_after should be true");
-            if (strcmp(priority->after, e->name) == 0)
+            ASSERT(new_pri->after != NULL, "past_after should be true");
+            if (strcmp(new_pri->after, pri->name) == 0)
                 past_after = true;
         }
         /* Priority 3: numeric priority.  Tie goes to 1st to register. */
-        else if (e->priority > priority->priority)
+        else if (pri->priority > new_pri->priority)
             break;
     }
-    if (past_after) {
-        if (prev_e == NULL)
-            *list = new_e;
-        else
-            prev_e->next = new_e;
-        new_e->next = e;
-        return true;
-    } else {
+    if (!past_after) {
         /* cannot satisfy both the before and after requests */
-        return false;
+        return -1;
     }
+    /* insert at index i */
+    i = cblist_shift_and_resize(list, i);
+    if (i < 0)
+        return -1;
+    pri = cblist_get_pri(list, i);
+    pri->valid = true;
+    pri->name = new_pri->name;
+    pri->priority = new_pri->priority;
+    return (int) i;
 }
 
 static bool
-drmgr_bb_cb_add(cb_entry_t **list,
+drmgr_bb_cb_add(cb_list_t *list,
                 drmgr_xform_cb_t xform_func,
                 drmgr_analysis_cb_t analysis_func,
                 drmgr_insertion_cb_t insertion_func,
@@ -577,8 +734,8 @@ drmgr_bb_cb_add(cb_entry_t **list,
                 drmgr_ilist_ex_cb_t instru2instru_ex_func,
                 drmgr_priority_t *priority)
 {
-    cb_entry_t *new_e;
-    bool res = true;
+    int idx;
+    bool res = false;
     ASSERT(list != NULL, "invalid internal params");
     ASSERT(((xform_func != NULL && analysis_func == NULL && insertion_func == NULL &&
              app2app_ex_func == NULL && analysis_ex_func == NULL &&
@@ -597,31 +754,29 @@ drmgr_bb_cb_add(cb_entry_t **list,
              instru2instru_ex_func != NULL)),
            "invalid internal params");
 
-    new_e = (cb_entry_t *) dr_global_alloc(sizeof(*new_e));
-    if (app2app_ex_func != NULL) {
-        new_e->has_quartet = true;
-        new_e->cb.app2app_ex_cb = app2app_ex_func;
-    } else if (analysis_ex_func != NULL) {
-        new_e->has_quartet = true;
-        new_e->cb.pair_ex.analysis_ex_cb = analysis_ex_func;
-        new_e->cb.pair_ex.insertion_ex_cb = insertion_func;
-    } else if (instru2instru_ex_func != NULL) {
-        new_e->has_quartet = true;
-        new_e->cb.instru2instru_ex_cb = instru2instru_ex_func;
-    } else {
-        new_e->has_quartet = false;
-        if (xform_func != NULL) {
-            new_e->cb.xform_cb = xform_func;
-        } else {
-            new_e->cb.pair.analysis_cb = analysis_func;
-            new_e->cb.pair.insertion_cb = insertion_func;
-        }
-    }
-
     dr_rwlock_write_lock(bb_cb_lock);
-
-    if (priority_event_add((priority_event_entry_t **)list,
-                           &new_e->pri, priority)) {
+    idx = priority_event_add(list, priority);
+    if (idx >= 0) {
+        cb_entry_t *new_e = &list->cbs.bb[idx];
+        if (app2app_ex_func != NULL) {
+            new_e->has_quartet = true;
+            new_e->cb.app2app_ex_cb = app2app_ex_func;
+        } else if (analysis_ex_func != NULL) {
+            new_e->has_quartet = true;
+            new_e->cb.pair_ex.analysis_ex_cb = analysis_ex_func;
+            new_e->cb.pair_ex.insertion_ex_cb = insertion_func;
+        } else if (instru2instru_ex_func != NULL) {
+            new_e->has_quartet = true;
+            new_e->cb.instru2instru_ex_cb = instru2instru_ex_func;
+        } else {
+            new_e->has_quartet = false;
+            if (xform_func != NULL) {
+                new_e->cb.xform_cb = xform_func;
+            } else {
+                new_e->cb.pair.analysis_cb = analysis_func;
+                new_e->cb.pair.insertion_cb = insertion_func;
+            }
+        }
         if (bb_event_count == 0)
             dr_register_bb_event(drmgr_bb_event);
         bb_event_count++;
@@ -629,11 +784,8 @@ drmgr_bb_cb_add(cb_entry_t **list,
             quartet_count++;
         else if (xform_func == NULL)
             pair_count++;
-    } else {
-        dr_global_free(new_e, sizeof(*new_e));
-        res = false;
+        res = true;
     }
-
     dr_rwlock_write_unlock(bb_cb_lock);
     return res;
 }
@@ -692,7 +844,7 @@ drmgr_register_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
 }
 
 static bool
-drmgr_bb_cb_remove(cb_entry_t **list,
+drmgr_bb_cb_remove(cb_list_t *list,
                    drmgr_xform_cb_t xform_func,
                    drmgr_analysis_cb_t analysis_func,
                    /* for quartet */
@@ -701,64 +853,63 @@ drmgr_bb_cb_remove(cb_entry_t **list,
                    drmgr_ilist_ex_cb_t instru2instru_ex_func)
 {
     bool res = false;
-    cb_entry_t *e, *prev_e;
+    uint i;
     ASSERT(list != NULL, "invalid internal params");
     ASSERT((xform_func != NULL && analysis_func == NULL) ||
-           (xform_func == NULL && analysis_func != NULL), "invalid internal params");
+           (xform_func == NULL && analysis_func != NULL) ||
+           (xform_func == NULL && analysis_func == NULL &&
+            (app2app_ex_func != NULL ||
+             analysis_ex_func != NULL ||
+             instru2instru_ex_func != NULL)), "invalid internal params");
 
     dr_rwlock_write_lock(bb_cb_lock);
-
-    for (prev_e = NULL, e = *list; e != NULL;
-         prev_e = e, e = (cb_entry_t *) e->pri.next) {
+    for (i = 0; i < list->num; i++) {
+        cb_entry_t *e = &list->cbs.bb[i];
+        if (!e->pri.valid)
+            continue;
         if ((xform_func != NULL && xform_func == e->cb.xform_cb) ||
             (analysis_func != NULL && analysis_func == e->cb.pair.analysis_cb) ||
             (app2app_ex_func != NULL && app2app_ex_func == e->cb.app2app_ex_cb) ||
             (analysis_ex_func != NULL &&
              analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
             (instru2instru_ex_func != NULL &&
-             instru2instru_ex_func == e->cb.instru2instru_ex_cb))
+             instru2instru_ex_func == e->cb.instru2instru_ex_cb)) {
+            res = true;
+            e->pri.valid = false;
+            if (i == list->num - 1)
+                list->num--;
+            if (e->has_quartet)
+                quartet_count--;
+            else if (xform_func == NULL)
+                pair_count--;
+            bb_event_count--;
+            if (bb_event_count == 0)
+                dr_unregister_bb_event(drmgr_bb_event);
             break;
+        }
     }
-    if (e != NULL) {
-        res = true;
-        if (prev_e == NULL)
-            *list = (cb_entry_t *) e->pri.next;
-        else
-            prev_e->pri.next = e->pri.next;
-        dr_global_free(e, sizeof(*e));
-
-        if (e->has_quartet)
-            quartet_count--;
-        else if (xform_func == NULL)
-            pair_count--;
-
-        bb_event_count--;
-        if (bb_event_count == 0)
-            dr_unregister_bb_event(drmgr_bb_event);
-    }
-
     dr_rwlock_write_unlock(bb_cb_lock);
     return res;
 }
 
 static void
-drmgr_bb_cb_exit(cb_entry_t *list)
+drmgr_bb_init(void)
 {
-    cb_entry_t *e, *next_e;
-    dr_rwlock_write_lock(bb_cb_lock);
-    for (e = list; e != NULL; e = next_e) {
-        next_e = (cb_entry_t *) e->pri.next;
-        dr_global_free(e, sizeof(*e));
-    }
-    dr_rwlock_write_unlock(bb_cb_lock);
+    cblist_init(&cblist_app2app, sizeof(cb_entry_t));
+    cblist_init(&cblist_instrumentation, sizeof(cb_entry_t));
+    cblist_init(&cblist_instru2instru, sizeof(cb_entry_t));
 }
 
 static void
 drmgr_bb_exit(void)
 {
-    drmgr_bb_cb_exit(cblist_app2app);
-    drmgr_bb_cb_exit(cblist_instrumentation);
-    drmgr_bb_cb_exit(cblist_instru2instru);
+    /* i#1317: we don't do grab the write rwlock to support exiting
+     * mid-event.  drmgr_exit() is already ensuring we're only
+     * called by one thread.
+     */
+    cblist_delete(&cblist_app2app);
+    cblist_delete(&cblist_instrumentation);
+    cblist_delete(&cblist_instru2instru);
 }
 
 DR_EXPORT
@@ -826,28 +977,31 @@ drmgr_current_bb_phase(void *drcontext)
  */
 
 static bool
-drmgr_generic_event_add_ex(generic_event_entry_t **list,
+drmgr_generic_event_add_ex(cb_list_t *list,
                            void *rwlock,
                            void (*func)(void),
                            drmgr_priority_t *priority,
                            bool is_ex)
 {
+    int idx;
     generic_event_entry_t *e;
-    bool res;
+    bool res = false;
     if (func == NULL)
         return false;
     dr_rwlock_write_lock(rwlock);
-    e = (generic_event_entry_t *) dr_global_alloc(sizeof(*e));
-    e->is_ex = is_ex;
-    e->cb.generic_cb = func;
-    res = priority_event_add((priority_event_entry_t **)list,
-                             &e->pri, priority);
+    idx = priority_event_add(list, priority);
+    if (idx >= 0) {
+        res = true;
+        e = &list->cbs.generic[idx];
+        e->is_ex = is_ex;
+        e->cb.generic_cb = func;
+    }
     dr_rwlock_write_unlock(rwlock);
     return res;
 }
 
 static bool
-drmgr_generic_event_add(generic_event_entry_t **list,
+drmgr_generic_event_add(cb_list_t *list,
                         void *rwlock,
                         void (*func)(void),
                         drmgr_priority_t *priority)
@@ -856,24 +1010,23 @@ drmgr_generic_event_add(generic_event_entry_t **list,
 }
 
 static bool
-drmgr_generic_event_remove(generic_event_entry_t **list,
+drmgr_generic_event_remove(cb_list_t *list,
                            void *rwlock,
                            void (*func)(void))
 {
     bool res = false;
-    generic_event_entry_t *e, *prev_e;
+    uint i;
+    generic_event_entry_t *e;
     if (func == NULL)
         return false;
     dr_rwlock_write_lock(rwlock);
-    for (prev_e = NULL, e = *list; e != NULL;
-         prev_e = e, e = (generic_event_entry_t *) e->pri.next) {
+    for (i = 0; i < list->num; i++) {
+        e = &list->cbs.generic[i];
+        if (!e->pri.valid)
+            continue;
         if (e->cb.generic_cb == func) {
-            if (prev_e == NULL)
-                *list = (generic_event_entry_t *) e->pri.next;
-            else
-                prev_e->pri.next = e->pri.next;
-            dr_global_free(e, sizeof(*e));
             res = true;
+            e->pri.valid = false;
             break;
         }
     }
@@ -882,44 +1035,54 @@ drmgr_generic_event_remove(generic_event_entry_t **list,
 }
 
 static void
-drmgr_generic_event_exit(generic_event_entry_t *list, void *rwlock)
+drmgr_event_init(void)
 {
-    generic_event_entry_t *e, *next_e;
-    /* i#1317: we don't do grab the write rwlock to support exiting
-     * mid-event.  drmgr_exit() is already ensuring we're only
-     * called by one thread.
-     */
-    for (e = list; e != NULL; e = next_e) {
-        next_e = (generic_event_entry_t *) e->pri.next;
-        dr_global_free(e, sizeof(*e));
-    }
+    cblist_init(&cb_list_thread_init, sizeof(generic_event_entry_t));
+    cblist_init(&cb_list_thread_exit, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_cls_init, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_cls_exit, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_presys, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_postsys, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_modload, sizeof(generic_event_entry_t));
+    cblist_init(&cblist_modunload, sizeof(generic_event_entry_t));
+#ifdef UNIX
+    cblist_init(&cblist_signal, sizeof(generic_event_entry_t));
+#endif
+#ifdef WINDOWS
+    cblist_init(&cblist_exception, sizeof(generic_event_entry_t));
+#endif
+    cblist_init(&cblist_fault, sizeof(generic_event_entry_t));
 }
 
 static void
 drmgr_event_exit(void)
 {
-    drmgr_generic_event_exit(cblist_thread_init, thread_event_lock);
-    drmgr_generic_event_exit(cblist_thread_exit, thread_event_lock);
-    drmgr_generic_event_exit(cblist_cls_init, cls_event_lock);
-    drmgr_generic_event_exit(cblist_cls_exit, cls_event_lock);
-    drmgr_generic_event_exit(cblist_presys, presys_event_lock);
-    drmgr_generic_event_exit(cblist_postsys, postsys_event_lock);
-    drmgr_generic_event_exit(cblist_modload, modload_event_lock);
-    drmgr_generic_event_exit(cblist_modunload, modunload_event_lock);
+    /* i#1317: we don't grab the write rwlock to support exiting
+     * mid-event.  drmgr_exit() is already ensuring we're only
+     * called by one thread.
+     */
+    cblist_delete(&cb_list_thread_init);
+    cblist_delete(&cb_list_thread_exit);
+    cblist_delete(&cblist_cls_init);
+    cblist_delete(&cblist_cls_exit);
+    cblist_delete(&cblist_presys);
+    cblist_delete(&cblist_postsys);
+    cblist_delete(&cblist_modload);
+    cblist_delete(&cblist_modunload);
 #ifdef UNIX
-    drmgr_generic_event_exit(cblist_signal, signal_event_lock);
+    cblist_delete(&cblist_signal);
 #endif
 #ifdef WINDOWS
-    drmgr_generic_event_exit(cblist_exception, exception_event_lock);
+    cblist_delete(&cblist_exception);
 #endif
-    drmgr_generic_event_exit(cblist_fault, fault_event_lock);
+    cblist_delete(&cblist_fault);
 }
 
 DR_EXPORT
 bool
 drmgr_register_thread_init_event(void (*func)(void *drcontext))
 {
-    return drmgr_generic_event_add(&cblist_thread_init, thread_event_lock,
+    return drmgr_generic_event_add(&cb_list_thread_init, thread_event_lock,
                                    (void (*)(void)) func, NULL);
 }
 
@@ -927,7 +1090,7 @@ DR_EXPORT
 bool
 drmgr_unregister_thread_init_event(void (*func)(void *drcontext))
 {
-    return drmgr_generic_event_remove(&cblist_thread_init, thread_event_lock,
+    return drmgr_generic_event_remove(&cb_list_thread_init, thread_event_lock,
                                       (void (*)(void)) func);
 }
 
@@ -935,7 +1098,7 @@ DR_EXPORT
 bool
 drmgr_register_thread_exit_event(void (*func)(void *drcontext))
 {
-    return drmgr_generic_event_add(&cblist_thread_exit, thread_event_lock,
+    return drmgr_generic_event_add(&cb_list_thread_exit, thread_event_lock,
                                    (void (*)(void)) func, NULL);
 }
 
@@ -943,7 +1106,7 @@ DR_EXPORT
 bool
 drmgr_unregister_thread_exit_event(void (*func)(void *drcontext))
 {
-    return drmgr_generic_event_remove(&cblist_thread_exit, thread_event_lock,
+    return drmgr_generic_event_remove(&cb_list_thread_exit, thread_event_lock,
                                       (void (*)(void)) func);
 }
 
@@ -975,15 +1138,26 @@ drmgr_unregister_pre_syscall_event(bool (*func)(void *drcontext, int sysnum))
 static bool
 drmgr_presyscall_event(void *drcontext, int sysnum)
 {
-    generic_event_entry_t *e;
     bool execute = true;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(presys_event_lock);
-    for (e = cblist_presys; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        execute = (*e->cb.presys_cb)(drcontext, sysnum) && execute;
+    cblist_create_local(drcontext, &cblist_presys, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(presys_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        execute = (*iter.cbs.generic[i].cb.presys_cb)(drcontext, sysnum) && execute;
+    }
 
     /* this must go last (the whole reason we're wrapping this) */
     execute = drmgr_cls_presys_event(drcontext, sysnum) && execute;
+
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
+
     return execute;
 }
 
@@ -1015,11 +1189,20 @@ drmgr_unregister_post_syscall_event(void (*func)(void *drcontext, int sysnum))
 static void
 drmgr_postsyscall_event(void *drcontext, int sysnum)
 {
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(postsys_event_lock);
-    for (e = cblist_postsys; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.postsys_cb)(drcontext, sysnum);
+    cblist_create_local(drcontext, &cblist_postsys, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(postsys_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.postsys_cb)(drcontext, sysnum);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
 /***************************************************************************
@@ -1060,11 +1243,20 @@ static void
 drmgr_modload_event(void *drcontext, const module_data_t *info,
                     bool loaded)
 {
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(modload_event_lock);
-    for (e = cblist_modload; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.modload_cb)(drcontext, info, loaded);
+    cblist_create_local(drcontext, &cblist_modload, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(modload_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.modload_cb)(drcontext, info, loaded);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
 DR_EXPORT
@@ -1098,11 +1290,20 @@ drmgr_unregister_module_unload_event(void (*func)
 static void
 drmgr_modunload_event(void *drcontext, const module_data_t *info)
 {
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(modunload_event_lock);
-    for (e = cblist_modunload; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.modunload_cb)(drcontext, info);
+    cblist_create_local(drcontext, &cblist_modunload, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(modunload_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.modunload_cb)(drcontext, info);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 }
 
 /***************************************************************************
@@ -1142,15 +1343,23 @@ static dr_signal_action_t
 drmgr_signal_event(void *drcontext, dr_siginfo_t *siginfo)
 {
     dr_signal_action_t res = DR_SIGNAL_DELIVER;
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(signal_event_lock);
-    for (e = cblist_signal; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+    cblist_create_local(drcontext, &cblist_signal, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(signal_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
         /* follow DR semantics: short-circuit on first handler to "own" the signal */
-        res = (*e->cb.signal_cb)(drcontext, siginfo);
+        res = (*iter.cbs.generic[i].cb.signal_cb)(drcontext, siginfo);
         if (res != DR_SIGNAL_DELIVER)
             break;
     }
-    dr_rwlock_read_unlock(signal_event_lock);
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
     return res;
 }
 #endif /* UNIX */
@@ -1185,15 +1394,23 @@ static bool
 drmgr_exception_event(void *drcontext, dr_exception_t *excpt)
 {
     bool res = true; /* deliver to app */
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(exception_event_lock);
-    for (e = cblist_exception; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+    cblist_create_local(drcontext, &cblist_exception, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(exception_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
         /* follow DR semantics: short-circuit on first handler to "own" the fault */
-        res = (*e->cb.exception_cb)(drcontext, excpt);
+        res = (*iter.cbs.generic[i].cb.exception_cb)(drcontext, excpt);
         if (!res)
             break;
     }
-    dr_rwlock_read_unlock(exception_event_lock);
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
     return res;
 }
 #endif /* WINDOWS */
@@ -1270,20 +1487,29 @@ drmgr_restore_state_event(void *drcontext, bool restore_memory,
                           dr_restore_state_info_t *info)
 {
     bool res = true; /* deliver to app */
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(fault_event_lock);
-    for (e = cblist_fault; e != NULL; e = (generic_event_entry_t *) e->pri.next) {
+    cblist_create_local(drcontext, &cblist_fault, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(fault_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
         /* follow DR semantics: short-circuit on first handler to "own" the fault */
-        if (e->is_ex) {
-            res = (*e->cb.fault_ex_cb)(drcontext, restore_memory, info);
+        if (iter.cbs.generic[i].is_ex) {
+            res = (*iter.cbs.generic[i].cb.fault_ex_cb)(drcontext, restore_memory, info);
         } else {
-            (*e->cb.fault_cb)(drcontext, info->fragment_info.tag, info->mcontext,
-                              restore_memory, info->fragment_info.app_code_consistent);
+            (*iter.cbs.generic[i].cb.fault_cb)(drcontext, info->fragment_info.tag,
+                                           info->mcontext, restore_memory,
+                                           info->fragment_info.app_code_consistent);
         }
         if (!res)
             break;
     }
-    dr_rwlock_read_unlock(fault_event_lock);
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
     return res;
 }
 
@@ -1294,15 +1520,24 @@ drmgr_restore_state_event(void *drcontext, bool restore_memory,
 static void
 drmgr_thread_init_event(void *drcontext)
 {
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     tls_array_t *tls = dr_thread_alloc(drcontext, sizeof(*tls));
     memset(tls, 0, sizeof(*tls));
     dr_set_tls_field(drcontext, (void *)tls);
 
     dr_rwlock_read_lock(thread_event_lock);
-    for (e = cblist_thread_init; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.thread_cb)(drcontext);
+    cblist_create_local(drcontext, &cb_list_thread_init, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(thread_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
     drmgr_cls_stack_init(drcontext);
 }
@@ -1310,12 +1545,20 @@ drmgr_thread_init_event(void *drcontext)
 static void
 drmgr_thread_exit_event(void *drcontext)
 {
-    generic_event_entry_t *e;
-
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     dr_rwlock_read_lock(thread_event_lock);
-    for (e = cblist_thread_exit; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.thread_cb)(drcontext);
+    cblist_create_local(drcontext, &cb_list_thread_exit, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(thread_event_lock);
+
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.thread_cb)(drcontext);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
     drmgr_cls_stack_exit(drcontext);
 }
@@ -1442,12 +1685,20 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
 static bool
 drmgr_cls_stack_push_event(void *drcontext, bool new_depth)
 {
-    generic_event_entry_t *e;
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     /* let client initialize cls slots (and allocate new ones if new_depth) */
     dr_rwlock_read_lock(cls_event_lock);
-    for (e = cblist_cls_init; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.cls_cb)(drcontext, new_depth);
+    cblist_create_local(drcontext, &cblist_cls_init, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(cls_event_lock);
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.cls_cb)(drcontext, new_depth);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
     return true;
 }
 
@@ -1493,10 +1744,12 @@ static bool
 drmgr_cls_stack_pop(void)
 {
     /* Our callback enter is AFTER DR's, but our callback exit is BEFORE. */
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     void *drcontext = dr_get_current_drcontext();
     tls_array_t *tls_child = (tls_array_t *) dr_get_tls_field(drcontext);
     tls_array_t *tls_parent;
-    generic_event_entry_t *e;
     if (tls_child == NULL) {
         ASSERT(false, "internal error");
         return false;
@@ -1510,9 +1763,15 @@ drmgr_cls_stack_pop(void)
 
     /* let client know, though normally no action is needed */
     dr_rwlock_read_lock(cls_event_lock);
-    for (e = cblist_cls_exit; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-        (*e->cb.cls_cb)(drcontext, false/*!thread_exit*/);
+    cblist_create_local(drcontext, &cblist_cls_exit, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
     dr_rwlock_read_unlock(cls_event_lock);
+    for (i = 0; i < iter.num; i++) {
+        if (!iter.cbs.generic[i].pri.valid)
+            continue;
+        (*iter.cbs.generic[i].cb.cls_cb)(drcontext, false/*!thread_exit*/);
+    }
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
 
     /* update tls w/ any changes while in child context */
     memcpy(tls_parent->tls, tls_child->tls, sizeof(*tls_child->tls)*MAX_NUM_TLS);
@@ -1525,24 +1784,34 @@ drmgr_cls_stack_pop(void)
 static bool
 drmgr_cls_stack_exit(void *drcontext)
 {
+    generic_event_entry_t local[EVENTS_STACK_SZ];
+    cb_list_t iter;
+    uint i;
     tls_array_t *tls = (tls_array_t *) dr_get_tls_field(drcontext);
     tls_array_t *nxt, *tmp;
-    generic_event_entry_t *e;
     if (tls == NULL)
         return false;
+
+    dr_rwlock_read_lock(cls_event_lock);
+    cblist_create_local(drcontext, &cblist_cls_exit, &iter, (byte *)local,
+                        BUFFER_SIZE_ELEMENTS(local));
+    dr_rwlock_read_unlock(cls_event_lock);
+
     for (nxt = tls; nxt->prev != NULL; nxt = nxt->prev)
         ; /* nothing */
-    dr_rwlock_read_lock(cls_event_lock);
     while (nxt != NULL) {
         tmp = nxt;
         nxt = nxt->next;
         /* set the field in case client queries */
         dr_set_tls_field(drcontext, (void *)tmp);
-        for (e = cblist_cls_exit; e != NULL; e = (generic_event_entry_t *) e->pri.next)
-            (*e->cb.cls_cb)(drcontext, true/*thread_exit*/);
+        for (i = 0; i < iter.num; i++) {
+            if (!iter.cbs.generic[i].pri.valid)
+                continue;
+            (*iter.cbs.generic[i].cb.cls_cb)(drcontext, true/*thread_exit*/);
+        }
         dr_thread_free(drcontext, tmp, sizeof(*tmp));
     }
-    dr_rwlock_read_unlock(cls_event_lock);
+    cblist_delete_local(drcontext, &iter, BUFFER_SIZE_ELEMENTS(local));
     dr_set_tls_field(drcontext, NULL);
     return true;
 }
