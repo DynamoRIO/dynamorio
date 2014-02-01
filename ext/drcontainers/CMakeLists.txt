@@ -65,6 +65,7 @@ DR_export_target(drcontainers)
 install_exported_target(drcontainers ${INSTALL_EXT_LIB})
 DR_install(FILES
   hashtable.h
+  drvector.h
   drtable.h
   # add more here
   DESTINATION ${INSTALL_EXT_INCLUDE})
