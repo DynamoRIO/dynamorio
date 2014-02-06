@@ -332,6 +332,9 @@ GLOBAL_LABEL(call_switch_stack:)
 #ifdef X64
 # ifdef WINDOWS
         mov      REG_XAX, REG_XSP
+        /* stack alignment doesn't really matter (b/c we're swapping) but in case
+         * we add a call we keep this here
+         */
         lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
 # else
         /* no padding so we make our own space. odd #slots keeps align-16 w/ retaddr */
@@ -345,11 +348,12 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      [3*ARG_SZ + REG_XAX], ARG3
         mov      [4*ARG_SZ + REG_XAX], ARG4
 #else
+        /* stack alignment doesn't matter */
         mov      REG_XAX, REG_XSP
 #endif
         /* we need a callee-saved reg across our call so save it onto stack */
         push     REG_XBX
-        push     REG_XDI /* still 16-aligned */
+        push     REG_XDI /* alignment doesn't matter: swapping stacks */
         mov      REG_XBX, REG_XAX
         mov      REG_XDI, REG_XSP
         /* set up for call */
@@ -530,6 +534,9 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         mov      [4*ARG_SZ + REG_XBP], ARG4
 #else
         mov      REG_XBP, REG_XSP
+# if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+# endif
 #endif
         /* increment exiting_thread_count so that we don't get killed after 
          * thread_exit removes us from the all_threads list */
@@ -561,6 +568,9 @@ cat_done_saving_dstack:
         /* avoid sygate sysenter version as our stack may be static const at 
          * that point, caller will take care of sygate hack */
         CALLC0(GLOBAL_REF(get_cleanup_and_terminate_global_do_syscall_entry))
+#if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16 w/ 2 pushes below */
+#endif
         push     REG_XBX /* 16-byte aligned again */
         push     REG_XAX
         /* upper bytes are 0xab so only look at lower bytes */
@@ -605,6 +615,9 @@ cat_have_lock:
         mov      REG_XSI, [2*ARG_SZ + REG_XBP]  /* sysnum */
         pop      REG_XAX             /* syscall */
         pop      REG_XCX             /* dstack */
+#if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align-16 lea from above */
+#endif
         mov      REG_XBX, [3*ARG_SZ + REG_XBP] /* sys_arg1 */
         mov      REG_XDX, [4*ARG_SZ + REG_XBP] /* sys_arg2 */
         /* swap stacks */
@@ -616,15 +629,25 @@ cat_have_lock:
         mov      REG_XSP, PTRSZ SYMREF(initstack) /* rip-relative on x64 */
 #endif
         /* now save registers */
+#if defined(MACOS) && !defined(X64)
+        /* ensure aligned after 1st 2 arg pushes below, which are the syscall args */
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP]
+#endif
 #ifdef WINDOWS
         push     REG_XDI   /* esp to use */
 #endif
         push     REG_XDX   /* sys_arg2 */
         push     REG_XBX   /* sys_arg1 */
         push     REG_XAX   /* syscall */
-        push     REG_XSI   /* sysnum => xsp 16-byte aligned */
+        push     REG_XSI   /* sysnum => xsp 16-byte aligned for x64 and x86 */
+#if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* align to 16 for this call */
+#endif
         /* free dstack and call the EXIT_DR_HOOK */
         CALLC1(GLOBAL_REF(dynamo_thread_stack_free_and_exit), REG_XCX) /* pass dstack */
+#if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align to 16 */
+#endif
         /* finally, execute the termination syscall */
         pop      REG_XAX   /* sysnum */
 #ifdef X64
@@ -641,7 +664,8 @@ cat_have_lock:
         pop      REG_XSI   /* syscall */
 # ifdef MACOS
         /* Leave the args on the stack for 32-bit Mac.  We actually need another
-         * slot before the 1st arg.
+         * slot before the 1st arg (usually the retaddr for app syscall).
+         * This ends up with stack alignment of 0xc, which is what we want.
          */
         push     0
 # elif defined(LINUX)
@@ -1090,7 +1114,7 @@ GLOBAL_LABEL(unexpected_return:)
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
         /* x64 kernel doesn't clobber all the callee-saved registers */
-        push     REG_XBX
+        push     REG_XBX /* stack now aligned for x64 */
 # ifdef X64
         /* reverse order so we don't clobber earlier args */
         mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
@@ -1182,8 +1206,8 @@ syscall_0args:
         push     esi
         push     edx
         push     ecx
-        push     ebx
-        push     0 /* extra slot */
+        push     ebx /* aligned to 16 after this push */
+        push     0 /* extra slot (app retaddr) */
         /* It simplifies our syscall calling to have a single dynamorio_syscall()
          * signature that returns int64 -- but most syscalls just return a 32-bit
          * value and the kernel does not clear edx.  Thus we need to do so, which
@@ -1263,6 +1287,7 @@ mach_dep_syscall_1args:
         mov      ebx, [16+12 + esp] /* arg1 */
 mach_dep_syscall_0args:
         mov      eax, [16+ 4 + esp] /* sysnum */
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: retaddr-5th below */
         /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
         push     esi
         push     edx
@@ -1275,7 +1300,7 @@ mach_dep_syscall_0args:
         /* mach dep syscalls use interrupt 0x82 */
         int      HEX(82)
 #  ifndef X64
-        lea      esp, [5*ARG_SZ + esp] /* must not change flags */
+        lea      esp, [7*ARG_SZ + esp] /* must not change flags */
         pop      REG_XDI
         pop      REG_XSI
         pop      REG_XBP
@@ -1316,16 +1341,20 @@ GLOBAL_LABEL(client_int_syscall:)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
         xor     REG_XBP, REG_XBP  /* Terminate stack traces at NULL. */
-#  ifdef X64
+# ifdef X64
         mov     ARG1, REG_XSP
-#  else
-        push    REG_XSP
+# else
+        mov     REG_XAX, REG_XSP
+#  ifdef MACOS
+        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
 #  endif
+        push    REG_XAX
+# endif
         CALLC0(GLOBAL_REF(privload_early_inject))
         jmp     GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 #endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
-#endif
+#endif /* LINUX */
 
 /* while with pre-2.6.9 kernels we were able to rely on the kernel's
  * default sigreturn code sequence and be more platform independent,
@@ -1339,6 +1368,9 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
         mov      r10, rcx
         syscall
 #else
+# ifdef MACOS
+        /* we assume we don't need to align the stack (tricky to do so) */
+# endif
         mov      eax, HEX(ad)
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
@@ -1359,6 +1391,12 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
         mov      r10, rcx
         syscall
 #else
+#  ifdef MACOS
+        /* XXX: won't this kill the whole process?  dynamorio_sys_exit_group
+         * should do this, and here we should invoke something else
+         */
+        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+#  endif
         mov      ebx, 0 /* exit code: hardcoded */
         mov      eax, HEX(1) /* SYS_exit */
         /* PR 254280: we assume int$80 is ok even for LOL64 */
@@ -1368,7 +1406,8 @@ GLOBAL_LABEL(dynamorio_sys_exit:)
          * FIXME: do better in release build! FIXME - why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
-        
+
+#ifdef LINUX
 /* we need to call futex_wakeall without using any stack, to support
  * THREAD_SYNCH_TERMINATED_AND_CLEANED.
  * takes int* futex in xax.
@@ -1398,6 +1437,7 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
 #endif
         jmp GLOBAL_REF(dynamorio_sys_exit)
         END_FUNC(dynamorio_futex_wake_and_exit)
+#endif /* LINUX */
 
 /* exit entire group without using any stack, in case something like
  * SYS_kill via cleanup_and_terminate fails
@@ -1410,6 +1450,10 @@ GLOBAL_LABEL(dynamorio_sys_exit_group:)
         mov      r10, rcx
         syscall
 #else
+#  ifdef MACOS
+        /* XXX: invoke SYS_exit here and something else in dynamorio_sys_exit */
+        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+#  endif
         mov      ebx, 0 /* exit code: hardcoded */
         mov      eax, HEX(fc) /* SYS_exit_group */
         /* PR 254280: we assume int$80 is ok even for LOL64 */
@@ -1420,7 +1464,7 @@ GLOBAL_LABEL(dynamorio_sys_exit_group:)
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit_group)
 
-#ifndef X64
+#if defined(LINUX) && !defined(X64)
 /* since our handler is rt, we have no source for the kernel's/libc's
  * default non-rt sigreturn, so we set up our own.
  */
@@ -1456,7 +1500,7 @@ GLOBAL_LABEL(master_signal_handler:)
          * intermediate frame.
          */
         mov      REG_XAX, REG_XSP
-        CALLC1(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+        CALLC1_FRESH(GLOBAL_REF(master_signal_handler_C), REG_XAX)
         ret
 #endif
         END_FUNC(master_signal_handler)
@@ -1697,8 +1741,8 @@ Lback_from_native:
          * this thread's dcontext pointer and begin execution with the passed-in
          * state.
          */
-#ifdef X64
-        and      REG_XSP, -FRAME_ALIGNMENT  /* x64 alignment */
+#if defined(X64) || defined(MACOS)
+        and      REG_XSP, -FRAME_ALIGNMENT  /* x64 or Mac alignment */
 #endif
         CALLC1(GLOBAL_REF(return_from_native), REG_XAX)
         /* should not return */
@@ -1723,7 +1767,7 @@ GLOBAL_LABEL(native_plt_call:)
         mov      REG_XCX, [REG_XSP + PRIV_MCXT_SIZE]     /* next_pc on stack */
         add      DWORD [REG_XAX + MCONTEXT_XSP_OFFS], ARG_SZ   /* adjust app xsp for arg */
 # endif
-        CALLC2(GLOBAL_REF(native_module_callout), REG_XAX, REG_XCX)
+        CALLC2_FRESH(GLOBAL_REF(native_module_callout), REG_XAX, REG_XCX)
 
         /* If we returned, continue to execute natively on the app stack. */
         POP_PRIV_MCXT_GPRS()
@@ -1763,7 +1807,13 @@ GLOBAL_LABEL(dr_setjmp:)
         /* PR 206278: for try/except we need to save the signal mask */
         mov      REG_XDX, ARG1
         push     REG_XDX /* preserve */
+# if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: ra + push */
+# endif
         CALLC1(GLOBAL_REF(dr_setjmp_sigmask), REG_XDX)
+# if defined(MACOS) && !defined(X64)
+        lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* maintain align-16: ra + push */
+# endif
         pop      REG_XDX /* preserve */
 #else
         mov      REG_XDX, ARG1
@@ -2077,7 +2127,7 @@ GLOBAL_LABEL(call_intr_excpt_alt_stack:)
 #undef pExcptRec
 #undef cxt
 #undef stack
-#endif
+#endif /* STACK_GUARD_PAGE */
 
 /* CONTEXT.Seg* is WORD for x64 but DWORD for x86 */
 #ifdef X64
@@ -2494,7 +2544,13 @@ GLOBAL_LABEL(_dynamorio_runtime_resolve:)
         push     REG_XCX
         mov      REG_XAX, [REG_XSP + 2 * ARG_SZ]  /* link map */
         mov      REG_XCX, [REG_XSP + 3 * ARG_SZ]  /* .dynamic index */
+#  ifdef MACOS
+        lea      REG_XSP, [-1*ARG_SZ + REG_XSP] /* maintain align-16: ra + push x2 */
+#  endif
         CALLC2(GLOBAL_REF(dynamorio_dl_fixup), REG_XAX, REG_XCX)
+#  ifdef MACOS
+        lea      REG_XSP, [1*ARG_SZ + REG_XSP] /* maintain align-16: ra + push x2 */
+#  endif
         mov      [REG_XSP + 2 * ARG_SZ], REG_XAX /* overwrite arg1 */
         pop      REG_XCX
         pop      REG_XAX

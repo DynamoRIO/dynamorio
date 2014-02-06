@@ -5364,6 +5364,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
         } else {
             ksynch_set_value(&ostd->terminated, 1);
 #ifdef MACOS
+            /* XXX: won't this kill the whole process? */
             asm("jmp _dynamorio_sys_exit");
 #else
             asm("jmp dynamorio_sys_exit");

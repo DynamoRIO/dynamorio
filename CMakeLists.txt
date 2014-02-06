@@ -598,9 +598,9 @@ if (UNIX)
   else (X64)
     set(BASE_CFLAGS "-m32 ${BASE_CFLAGS}")
     set(BASE_CXXFLAGS "-m32")
-    # i#847 keep stack boundary 4-byte aligned
+    # i#847 keep stack boundary 4-byte aligned (except on Mac)
     # XXX i#1346: what is clang equivalent?
-    if (NOT CMAKE_COMPILER_IS_CLANG)
+    if (NOT CMAKE_COMPILER_IS_CLANG AND NOT APPLE)
       set(BASE_CFLAGS "${BASE_CFLAGS} -mpreferred-stack-boundary=2")
       set(BASE_CXXFLAGS "${BASE_CXXFLAGS} -mpreferred-stack-boundary=2")
     endif ()
@@ -1202,6 +1202,7 @@ configure_file(${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
 configure_file(${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   ${BUILD_CMAKE}/cpp2asm_add_newlines.cmake COPYONLY)
 # we need to strip out the #include of configure.h
+# XXX: this should be a build-time rule as it depends on asm_defines.asm!
 file(READ "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm" str)
 string(REPLACE "#include \"configure.h\"" "" str "${str}")
 file(WRITE "${BUILD_CMAKE}/cpp2asm_defines.h" "${str}")

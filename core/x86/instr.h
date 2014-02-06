@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -3902,7 +3902,11 @@ enum {
     NUM_REGPARM          = 0,
     REGPARM_MINSTACK     = 0,
     REDZONE_SIZE         = 0,
+# ifdef MACOS
+    REGPARM_END_ALIGN    = 16,
+# else
     REGPARM_END_ALIGN    = sizeof(XSP_SZ),
+# endif
 #endif
 };
 extern const reg_id_t regparms[];

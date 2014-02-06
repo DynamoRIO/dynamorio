@@ -565,8 +565,6 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
  * currently (they all build a priv_mcontext_t and have to do further xsp
  * fixups anyway).
  * Includes xmm0-5 for PR 264138.
- * If stack_align16 is true, assumes the stack pointer is currently aligned
- * on a 16-byte boundary.
  */
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, 
@@ -596,7 +594,7 @@ insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
          * guide says to use movlps+movhps for unaligned stores, but
          * for simplicity and smaller code I'm using movups anyway.
          */
-        /* FIXME i#438: once have SandyBridge processor need to measure
+        /* XXX i#438: once have SandyBridge processor need to measure
          * cost of vmovdqu and whether worth arranging 32-byte alignment
          * for all callers.  B/c we put ymm at end of priv_mcontext_t, we do
          * currently have 32-byte alignment for clean calls.
@@ -937,7 +935,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      * We do not need to preserve DR's Linux errno across app execution.
      */
 
-#ifdef X64
+#if defined(X64) || defined(MACOS)
     /* PR 218790: maintain 16-byte rsp alignment.
      * insert_parameter_preparation() currently assumes we leave rsp aligned.
      */
@@ -973,7 +971,7 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         cci = &default_clean_call_info;
     /* saved error code is currently on the top of the stack */
 
-#ifdef X64
+#if defined(X64) || defined(MACOS)
     /* PR 218790: remove the padding we added for 16-byte rsp alignment */
     if (cci->should_align) {
         uint num_slots = NUM_GP_REGS + NUM_EXTRA_SLOTS;
@@ -1080,7 +1078,7 @@ shrink_reg_for_param(reg_id_t regular, opnd_t arg)
  * to work for non-clean, especially for 64-bit where we align, etc.  Arguments that
  * reference sub-register portions of REG_XSP are not supported.
  *
- * FIXME PR 307874: w/ a post optimization pass, or perhaps more clever use of
+ * XXX PR 307874: w/ a post optimization pass, or perhaps more clever use of
  * existing passes, we could do much better on calling convention and xsp conflicting
  * args.  We should also really consider inlining client callees (PR 218907), since
  * clean calls for 64-bit are enormous (71 instrs/264 bytes for 2-arg x64; 26
@@ -1179,7 +1177,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
          * to be 16-byte aligned for x64 SysV (note that retaddr will then make
          * rsp 8-byte-aligned, which is ok: callee has to rectify that).
          * For clean calls, prepare_for_clean_call leaves rsp aligned for x64.
-         * FIXME PR 218790: we require users of dr_insert_call to ensure
+         * XXX PR 218790: we require users of dr_insert_call to ensure
          * alignment; should we put in support to dynamically align?
          */
         preparm_padding =
@@ -1421,7 +1419,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     direct = insert_reachable_cti(dcontext, ilist, instr, encode_pc, (byte *)callee,
                                   false/*call*/, false/*!precise*/, DR_REG_R11, NULL);
     if (stack_for_params > 0) {
-        /* FIXME PR 245936: let user decide whether to clean up?
+        /* XXX PR 245936: let user decide whether to clean up?
          * i.e., support calling a stdcall routine?
          */
         PRE(ilist, instr,

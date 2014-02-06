@@ -578,9 +578,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
     # instructions. We make both DynamoRIO and clients use 4-byte
     # stack alignment to avoid any back compatibility issue without
     # using extra stack space or changing performance.
-    if (NOT tgt_x64)
+    # On Mac we have to use the ABI's 16-byte alignment, but we have
+    # no compatibility there as we're starting fresh.
+    if (NOT tgt_x64 AND NOT APPLE)
       set(tgt_cflags "${tgt_cflags} -mpreferred-stack-boundary=2")
-    endif (NOT tgt_x64)
+    endif (NOT tgt_x64 AND NOT APPLE)
 
     if (NOT APPLE)
       # Generate the .hash section in addition to .gnu.hash for every target, to

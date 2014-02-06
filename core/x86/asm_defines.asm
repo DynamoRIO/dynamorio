@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * ********************************************************** */
 
@@ -253,94 +253,133 @@ ASSUME fs:_DATA @N@\
 #endif
 
 #ifdef X64
-#  define PUSHF   pushfq
-#  define POPF    popfq
-#  ifdef WINDOWS
-#    define STACK_PAD(tot, gt4) \
+# define PUSHF   pushfq
+# define POPF    popfq
+# ifdef WINDOWS
+#  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-32 - ARG_SZ*gt4 + REG_XSP]
-#    define STACK_UNPAD(tot, gt4) \
+#  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [32 + ARG_SZ*gt4 + REG_XSP]
 /* we split these out just to avoid nop lea for x64 linux */
-#    define STACK_PAD_LE4 STACK_PAD(0/*doesn't matter*/, 0)
-#    define STACK_UNPAD_LE4(tot) STACK_UNPAD(tot, 0)
-#  else
-#    define STACK_PAD(tot, gt4) \
+#  define STACK_PAD_LE4(tot, mod4) STACK_PAD(0/*doesn't matter*/, 0, mod4)
+#  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
+# else
+#  define STACK_PAD(tot, gt4) \
         lea      REG_XSP, [-ARG_SZ*gt4 + REG_XSP]
-#    define STACK_UNPAD(tot, gt4) \
+#  define STACK_UNPAD(tot, gt4) \
         lea      REG_XSP, [ARG_SZ*gt4 + REG_XSP]
-#    define STACK_PAD_LE4 /* nothing */
-#    define STACK_UNPAD_LE4(tot) /* nothing */
-#  endif
-#  define SETARG(argreg, p) \
+#  define STACK_PAD_LE4(tot, mod4) /* nothing */
+#  define STACK_UNPAD_LE4(tot, mod4) /* nothing */
+# endif
+/* we split these out just to avoid nop lea for x86 mac */
+# define STACK_PAD_ZERO STACK_PAD_LE4(0, 4)
+# define STACK_UNPAD_ZERO STACK_UNPAD_LE4(0, 4)
+# define SETARG(argnum, argreg, p) \
         mov      argreg, p
 #else
-#  define PUSHF   pushfd
-#  define POPF    popfd
-#  define STACK_PAD(tot, gt4) /* nothing */
-#  define STACK_UNPAD(tot, gt4) \
+# define PUSHF   pushfd
+# define POPF    popfd
+# ifdef MACOS
+/* Mac requires 32-bit to have 16-byte stack alignment (at call site)
+ * Pass 4 instead of 0 for mod4 to avoid wasting stack space.
+ */
+#  define STACK_PAD(tot, gt4, mod4) \
+        lea      REG_XSP, [-ARG_SZ*((tot) + 4 - (mod4)) + REG_XSP]
+#  define STACK_UNPAD(tot, gt4, mod4) \
+        lea      REG_XSP, [ARG_SZ*((tot) + 4 - (mod4)) + REG_XSP]
+#  define STACK_PAD_LE4(tot, mod4) STACK_PAD(tot, 0, mod4)
+#  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
+#  define STACK_PAD_ZERO /* nothing */
+#  define STACK_UNPAD_ZERO /* nothing */
+/* p cannot be a memory operand, naturally */
+#  define SETARG(argnum, argreg, p) \
+        mov      PTRSZ [ARG_SZ*argnum + REG_XSP], p
+# else
+#  define STACK_PAD(tot, gt4, mod4) /* nothing */
+#  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [ARG_SZ*tot + REG_XSP]
-#  define STACK_PAD_LE4 /* nothing */
-#  define STACK_UNPAD_LE4(tot) STACK_UNPAD(tot, 0)
+#  define STACK_PAD_LE4(tot, mod4) /* nothing */
+#  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
+#  define STACK_PAD_ZERO /* nothing */
+#  define STACK_UNPAD_ZERO /* nothing */
 /* SETARG usage is order-dependent on 32-bit.  we could avoid that
  * by having STACK_PAD allocate the stack space and do a mov here.
  */
-#  define SETARG(argreg, p) \
+#  define SETARG(argnum, argreg, p) \
         push     p
-#endif
+# endif
+#endif /* !X64 */
 /* CALLC* are for C calling convention callees only.
  * Caller must ensure that if params are passed in regs there are no conflicts.
  * Caller can rely on us storing each parameter in reverse order.
  * For x64, caller must arrange for 16-byte alignment at end of arg setup.
  */
 #define CALLC0(callee)     \
-        STACK_PAD_LE4   @N@\
+        STACK_PAD_ZERO  @N@\
         call     callee @N@\
-        STACK_UNPAD_LE4(0)
-#define CALLC1(callee, p1)    \
-        STACK_PAD_LE4      @N@\
-        SETARG(ARG1, p1)   @N@\
-        call     callee    @N@\
-        STACK_UNPAD_LE4(1)
+        STACK_UNPAD_ZERO
+#define CALLC1(callee, p1)     \
+        STACK_PAD_LE4(1, 1) @N@\
+        SETARG(0, ARG1, p1) @N@\
+        call     callee     @N@\
+        STACK_UNPAD_LE4(1, 1)
 #define CALLC2(callee, p1, p2)    \
-        STACK_PAD_LE4          @N@\
-        SETARG(ARG2, p2)       @N@\
-        SETARG(ARG1, p1)       @N@\
+        STACK_PAD_LE4(2, 2)    @N@\
+        SETARG(0, ARG2, p2)    @N@\
+        SETARG(1, ARG1, p1)    @N@\
         call     callee        @N@\
-        STACK_UNPAD_LE4(2)
+        STACK_UNPAD_LE4(2, 2)
 #define CALLC3(callee, p1, p2, p3)    \
-        STACK_PAD_LE4              @N@\
-        SETARG(ARG3, p3)           @N@\
-        SETARG(ARG2, p2)           @N@\
-        SETARG(ARG1, p1)           @N@\
+        STACK_PAD_LE4(3, 3)        @N@\
+        SETARG(0, ARG3, p3)        @N@\
+        SETARG(1, ARG2, p2)        @N@\
+        SETARG(2, ARG1, p1)        @N@\
         call     callee            @N@\
-        STACK_UNPAD_LE4(3)
+        STACK_UNPAD_LE4(3, 3)
 #define CALLC4(callee, p1, p2, p3, p4)    \
-        STACK_PAD_LE4                  @N@\
-        SETARG(ARG4, p4)               @N@\
-        SETARG(ARG3, p3)               @N@\
-        SETARG(ARG2, p2)               @N@\
-        SETARG(ARG1, p1)               @N@\
+        STACK_PAD_LE4(4, 4)            @N@\
+        SETARG(0, ARG4, p4)            @N@\
+        SETARG(1, ARG3, p3)            @N@\
+        SETARG(2, ARG2, p2)            @N@\
+        SETARG(3, ARG1, p1)            @N@\
         call     callee                @N@\
-        STACK_UNPAD_LE4(4)
+        STACK_UNPAD_LE4(4, 4)
 #define CALLC5(callee, p1, p2, p3, p4, p5)    \
-        STACK_PAD(5, 1)                    @N@\
-        SETARG(ARG5_NORETADDR, p5)         @N@\
-        SETARG(ARG4, p4)                   @N@\
-        SETARG(ARG3, p3)                   @N@\
-        SETARG(ARG2, p2)                   @N@\
-        SETARG(ARG1, p1)                   @N@\
+        STACK_PAD(5, 1, 1)                 @N@\
+        SETARG(0, ARG5_NORETADDR, p5)      @N@\
+        SETARG(1, ARG4, p4)                @N@\
+        SETARG(2, ARG3, p3)                @N@\
+        SETARG(3, ARG2, p2)                @N@\
+        SETARG(4, ARG1, p1)                @N@\
         call     callee                    @N@\
-        STACK_UNPAD(5, 1)
+        STACK_UNPAD(5, 1, 1)
 #define CALLC6(callee, p1, p2, p3, p4, p5, p6)\
-        STACK_PAD(6, 2)                    @N@\
-        SETARG(ARG6_NORETADDR, p6)         @N@\
-        SETARG(ARG5_NORETADDR, p5)         @N@\
-        SETARG(ARG4, p4)                   @N@\
-        SETARG(ARG3, p3)                   @N@\
-        SETARG(ARG2, p2)                   @N@\
-        SETARG(ARG1, p1)                   @N@\
+        STACK_PAD(6, 2, 2)                 @N@\
+        SETARG(0, ARG6_NORETADDR, p6)      @N@\
+        SETARG(1, ARG5_NORETADDR, p5)      @N@\
+        SETARG(2, ARG4, p4)                @N@\
+        SETARG(3, ARG3, p3)                @N@\
+        SETARG(4, ARG2, p2)                @N@\
+        SETARG(5, ARG1, p1)                @N@\
         call     callee                    @N@\
-        STACK_UNPAD(6, 2)
+        STACK_UNPAD(6, 2, 2)
+
+/* Versions to help with Mac stack aligmnment.  _FRESH means that the
+ * stack has not been changed since function entry and thus for Mac 32-bit
+ * esp ends in 0xc.  We simply add 1 to the # args the pad code should assume,
+ * resulting in correct alignment when combined with the retaddr.
+ */
+#define CALLC1_FRESH(callee, p1) \
+        STACK_PAD_LE4(1, 2) @N@\
+        SETARG(0, ARG1, p1) @N@\
+        call     callee     @N@\
+        STACK_UNPAD_LE4(1, 2)
+#define CALLC2_FRESH(callee, p1, p2) \
+        STACK_PAD_LE4(2, 3)    @N@\
+        SETARG(0, ARG2, p2)    @N@\
+        SETARG(1, ARG1, p1)    @N@\
+        call     callee        @N@\
+        STACK_UNPAD_LE4(2, 3)
 
 /* For stdcall callees */
 #ifdef X64
@@ -349,16 +388,16 @@ ASSUME fs:_DATA @N@\
 # define CALLWIN2 CALLC2
 #else
 # define CALLWIN0(callee)     \
-        STACK_PAD_LE4   @N@\
+        STACK_PAD_ZERO     @N@\
         call     callee
 # define CALLWIN1(callee, p1)    \
-        STACK_PAD_LE4      @N@\
-        SETARG(ARG1, p1)   @N@\
+        STACK_PAD_LE4(1, 1)   @N@\
+        SETARG(0, ARG1, p1)   @N@\
         call     callee
 # define CALLWIN2(callee, p1, p2)    \
-        STACK_PAD_LE4          @N@\
-        SETARG(ARG2, p2)       @N@\
-        SETARG(ARG1, p1)       @N@\
+        STACK_PAD_LE4(2, 2)       @N@\
+        SETARG(0, ARG2, p2)       @N@\
+        SETARG(0, ARG1, p1)       @N@\
         call     callee
 #endif
 

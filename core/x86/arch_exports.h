@@ -840,9 +840,11 @@ ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
+# ifdef LINUX
 void dynamorio_futex_wake_and_exit(volatile int *futex);
-# ifndef X64
+#  ifndef X64
 void dynamorio_nonrt_sigreturn(void);
+#  endif
 # endif
 # ifdef LINUX
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
