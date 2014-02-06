@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -134,8 +134,10 @@ null_terminate_path(char *path)
 {
     size_t len = strlen(path);
     ASSERT(len != 0, "Wrong path length for %s\n", path);
-    while (len >= 0 && (path[len] == '\n' || path[len] == '\r')) {
+    while (path[len] == '\n' || path[len] == '\r') {
         path[len] = '\0';
+        if (len == 0)
+            break;
         len--;
     }
 }

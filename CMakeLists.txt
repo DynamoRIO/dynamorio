@@ -457,23 +457,7 @@ if (UNIX)
 endif (UNIX)
 
 if (UNIX)
-  # Assume clang behaves like gcc.  CMake 2.6 won't detect clang and will set
-  # CMAKE_COMPILER_IS_GNUCC to TRUE, but 2.8 does not.  We prefer the 2.6
-  # behavior.
-  string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
-  if (CMAKE_COMPILER_IS_CLANG)
-    set(CMAKE_COMPILER_IS_GNUCC TRUE)
-  else ()
-    if (CMAKE_C_COMPILER MATCHES "/cc")
-      # CMake 2.8.10 on Mac has CMAKE_C_COMPILER as "/usr/bin/cc"
-      execute_process(COMMAND ${CMAKE_C_COMPILER} --version
-        OUTPUT_VARIABLE cc_out ERROR_QUIET)
-      if (cc_out MATCHES "clang")
-        set(CMAKE_COMPILER_IS_CLANG ON)
-        set(CMAKE_COMPILER_IS_GNUCC TRUE)
-      endif ()
-    endif ()
-  endif ()
+  identify_clang(CMAKE_COMPILER_IS_CLANG)
 
   if (CYGWIN)
     message(FATAL_ERROR "building using gcc within cygwin is not supported")

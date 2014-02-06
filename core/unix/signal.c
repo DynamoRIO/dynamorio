@@ -1918,7 +1918,7 @@ get_sigcontext_from_rt_frame(sigframe_rt_t *frame)
 static sigcontext_t *
 get_sigcontext_from_app_frame(thread_sig_info_t *info, int sig, void *frame)
 {
-    sigcontext_t *sc;
+    sigcontext_t *sc = NULL; /* initialize to satisfy Mac clang */
     bool rtframe = IS_RT_FOR_APP(info, sig);
     if (rtframe)
         sc = get_sigcontext_from_rt_frame((sigframe_rt_t *)frame);
@@ -4470,7 +4470,7 @@ bool
 handle_sigreturn(dcontext_t *dcontext, bool rt)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    sigcontext_t *sc;
+    sigcontext_t *sc = NULL; /* initialize to satisfy Mac clang */
     int sig = 0;
     app_pc next_pc;
     /* xsp was put in mcontext prior to pre_system_call() */

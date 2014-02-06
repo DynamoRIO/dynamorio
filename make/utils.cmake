@@ -1,5 +1,5 @@
 ## **********************************************************
-## Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
+## Copyright (c) 2012-2014 Google, Inc.    All rights reserved.
 ## **********************************************************
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,28 @@
 ## LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 ## OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 ## DAMAGE.
+
+# sets CMAKE_COMPILER_IS_CLANG and CMAKE_COMPILER_IS_GNUCC in parent scope
+function (identify_clang)
+  # Assume clang behaves like gcc.  CMake 2.6 won't detect clang and will set
+  # CMAKE_COMPILER_IS_GNUCC to TRUE, but 2.8 does not.  We prefer the 2.6
+  # behavior.
+  string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
+  if (CMAKE_COMPILER_IS_CLANG)
+    set(CMAKE_COMPILER_IS_GNUCC TRUE PARENT_SCOPE)
+  else ()
+    if (CMAKE_C_COMPILER MATCHES "/cc")
+      # CMake 2.8.10 on Mac has CMAKE_C_COMPILER as "/usr/bin/cc"
+      execute_process(COMMAND ${CMAKE_C_COMPILER} --version
+        OUTPUT_VARIABLE cc_out ERROR_QUIET)
+      if (cc_out MATCHES "clang")
+        set(CMAKE_COMPILER_IS_CLANG ON)
+        set(CMAKE_COMPILER_IS_GNUCC TRUE PARENT_SCOPE)
+      endif ()
+    endif ()
+  endif ()
+  set(CMAKE_COMPILER_IS_CLANG ${CMAKE_COMPILER_IS_CLANG} PARENT_SCOPE)
+endfunction (identify_clang)
 
 function (append_property_string type target name value)
   # XXX: if we require cmake 2.8.6 we can simply use APPEND_STRING

@@ -162,7 +162,10 @@
 #
 ###########################################################################
 
+INCLUDEFILE make/utils.cmake
+
 if (UNIX)
+  identify_clang()
   if (NOT CMAKE_COMPILER_IS_GNUCC)
     # Our linker script is GNU-specific
     message(FATAL_ERROR "DynamoRIO's CMake configuration only supports the GNU linker on Linux")
@@ -196,8 +199,6 @@ endif ()
 ###########################################################################
 #
 # Define functions the client can use to set up build parameters:
-
-INCLUDEFILE make/utils.cmake
 
 # For VS generator we need to use a suffix on LOCATION to avoid having
 # "$(Configuration)" in the resulting path.
@@ -551,7 +552,11 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       # i#157, when enable private loader, symbols from default libraries and startfiles
       # are required, so -nostartfiles and -nodefaultlibs should be removed
       set(tgt_link_flags 
-        "${tgt_link_flags} -fPIC -shared -lgcc")
+        "${tgt_link_flags} -fPIC -shared")
+      if (NOT CMAKE_COMPILER_IS_CLANG)
+        set(tgt_link_flags
+          "${tgt_link_flags} -lgcc")
+      endif ()
 
       # i#163: avoid stack-check feature that relies on separate library
       execute_process(COMMAND

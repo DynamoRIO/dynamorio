@@ -1178,7 +1178,7 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
     char buf[MAXIMUM_PATH];
     file_t f;
     int i;
-    size_t len;
+    ssize_t len;
     for (i = 0; i < 10000; i++) {
         len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
                           "%s/%s.%04d.%s", dir, prefix, i, suffix);

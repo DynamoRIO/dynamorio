@@ -664,7 +664,7 @@ static int
 priority_event_add(cb_list_t *list,
                    drmgr_priority_t *new_pri)
 {
-    uint i;
+    int i;
     bool past_after; /* are we past the "after" constraint */
     priority_event_entry_t *pri;
 
@@ -682,7 +682,7 @@ priority_event_add(cb_list_t *list,
      * here rather than more complex logic to fold into walk below.
      */
     if (new_pri != &default_priority) {
-        for (i = 0; i < list->num; i++) {
+        for (i = 0; i < (int)list->num; i++) {
             pri = cblist_get_pri(list, i);
             if (pri->valid && strcmp(new_pri->name, pri->name) == 0)
                 return -1; /* duplicate name */
@@ -691,7 +691,7 @@ priority_event_add(cb_list_t *list,
 
     /* keep the list sorted */
     past_after = (new_pri->after == NULL);
-    for (i = 0; i < list->num; i++) {
+    for (i = 0; i < (int)list->num; i++) {
         pri = cblist_get_pri(list, i);
         if (!pri->valid)
             continue;
