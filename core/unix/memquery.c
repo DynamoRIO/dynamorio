@@ -69,7 +69,12 @@ memquery_library_bounds_by_iterator(const char *name, app_pc *start/*IN/OUT*/,
      * address space even when we have syscalls for memquery (e.g., on Mac).
      * Even if start is non-NULL, it could be in the middle of the library.
      */
-    memquery_iterator_start(&iter, NULL, true/*ok to alloc*/);
+    memquery_iterator_start(&iter, NULL,
+                            /* We're never called from a fragile place like a
+                             * signal handler, so as long as it's not real early
+                             * it's ok to alloc.
+                             */
+                            dynamo_heap_initialized);
     libname[0] = '\0';
     while (memquery_iterator_next(&iter)) {
         LOG(GLOBAL, LOG_VMAREAS, 5, "start="PFX" end="PFX" prot=%x comment=%s\n",
