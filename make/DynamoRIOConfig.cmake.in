@@ -460,6 +460,10 @@ function (DynamoRIO_extra_cflags flags_out extra_cflags tgt_cxx)
 
   if (DynamoRIO_FAST_IR)
     set(extra_cflags "${extra_cflags} -DDR_FAST_IR")
+    if (NOT tgt_cxx AND CMAKE_COMPILER_IS_GNUCC)
+      # we require C99 for our extern inline functions to work properly
+      set(extra_cflags "${extra_cflags} -std=gnu99")
+    endif ()
   endif (DynamoRIO_FAST_IR)
 
   set(${flags_out} "${extra_cflags}" PARENT_SCOPE)

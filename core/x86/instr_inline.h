@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -33,6 +33,10 @@
 #ifndef _INSTR_INLINE_H_
 #define _INSTR_INLINE_H_ 1
 
+/* Use different names to avoid conflicting with an including project */
+#define DR_IF_DEBUG IF_DEBUG
+#define DR_IF_DEBUG_ IF_DEBUG_
+
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 /* DR_API EXPORT BEGIN */
 
@@ -45,7 +49,7 @@
 #endif
 
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
-#define CLIENT_ASSERT_(cond, msg) IF_DEBUG_(CLIENT_ASSERT(cond, msg))
+#define CLIENT_ASSERT_(cond, msg) DR_IF_DEBUG_(CLIENT_ASSERT(cond, msg))
 
 #ifdef API_EXPORT_ONLY
 /* Internally DR has multiple levels of IR, but once it gets to a client, we
@@ -58,8 +62,8 @@
  * internal routines we'd use for these checks anyway.
  */
 #define CLIENT_ASSERT(cond, msg)
-#define IF_DEBUG(stmt)
-#define IF_DEBUG_(stmt)
+#define DR_IF_DEBUG(stmt)
+#define DR_IF_DEBUG_(stmt)
 #endif
 
 /* Any function that takes or returns an opnd_t by value should be a macro,
@@ -168,7 +172,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg(reg_id_t r)
 {
-    opnd_t opnd IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd DR_IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
     CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;

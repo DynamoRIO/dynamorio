@@ -60,6 +60,7 @@
 #endif
 #ifdef API_EXPORT_ONLY
 #include "dr_ir_opnd.h"
+#include "dr_ir_instr.h"
 #include "dr_ir_utils.h"
 #endif
 
