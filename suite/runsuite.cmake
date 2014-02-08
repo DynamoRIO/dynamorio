@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -272,8 +272,8 @@ endif (DO_ALL_BUILDS)
 
 # sets ${outvar} in PARENT_SCOPE
 function (error_string str outvar)
-  string(REGEX MATCHALL "[^\n]*Unrecoverable[^\n]*" crash "${str}")
-  string(REGEX MATCHALL "[^\n]*Internal DynamoRIO Error[^\n]*" assert "${str}")
+  string(REGEX MATCHALL "[^\n]*Platform exception[^\n]*" crash "${str}")
+  string(REGEX MATCHALL "[^\n]*debug check failure[^\n]*" assert "${str}")
   string(REGEX MATCHALL "[^\n]*CURIOSITY[^\n]*" curiosity "${str}")
   if (crash OR assert OR curiosity)
     string(REGEX REPLACE "[ \t]*<Value>" "" assert "${assert}")

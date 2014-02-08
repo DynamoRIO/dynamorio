@@ -2531,8 +2531,8 @@ static void
 abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, sigcontext_t *sc,
                   const char *signame, const char *where)
 {
-    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sc, "Unrecoverable error",
-                   signame, where);
+    abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sc,
+                   "Platform exception", signame, where);
     ASSERT_NOT_REACHED();
 }
 

@@ -1,5 +1,5 @@
 ;// **********************************************************
-;// Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+;// Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
 ;// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
 ;// **********************************************************
 
@@ -175,7 +175,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_CRITICAL
 Language=English
-Application %1!s! (%2!s!).  Internal Critical Error %3!s!
+Application %1!s! (%2!s!).  Internal Critical Error: %3!s!
 .
 
 MessageId = 
@@ -183,7 +183,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_ERROR
 Language=English
-Application %1!s! (%2!s!).  Internal Error %3!s!
+Application %1!s! (%2!s!).  Internal Error: %3!s!
 .
 
 MessageId = 
@@ -191,7 +191,7 @@ Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_WARNING
 Language=English
-Application %1!s! (%2!s!).  Internal Warning %3!s!
+Application %1!s! (%2!s!).  Internal Warning: %3!s!
 .
 
 MessageId = 
@@ -199,7 +199,7 @@ Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_INFORMATION
 Language=English
-Application %1!s! (%2!s!).  Internal Information %3!s!
+Application %1!s! (%2!s!).  Internal Information: %3!s!
 .
 
 MessageId = 
@@ -207,7 +207,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_EXCEPTION
 Language=English
-Application %1!s! (%2!s!).  Unrecoverable Error at PC %3!s!.  Program aborted. %4!s!
+Application %1!s! (%2!s!).  Platform exception at PC %3!s!.  Please report this.  Program aborted. %4!s!
 .
 
 MessageId = 

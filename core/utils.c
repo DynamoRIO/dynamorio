@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -172,7 +172,11 @@ internal_error(const char *file, int line, const char *expr)
         do_once_internal_error = true;
 
     report_dynamorio_problem(NULL, DUMPCORE_ASSERTION, NULL, NULL,
+#ifdef CLIENT_INTERFACE
+                         PRODUCT_NAME" debug check failure: %s:%d %s"
+#else
                          "Internal "PRODUCT_NAME" Error: %s:%d %s"
+#endif
 #if defined(DEBUG) && defined(INTERNAL)
                          "\n(Error occurred @%d frags)"
 #endif
@@ -1970,7 +1974,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * Here's a sample of a report.  First four lines here are the
  * passed-in custom string fmt, subsequent are the options and call
  * stack, which are always appended:
- *   Unrecoverable error at PC 0x15003075
+ *   Platform exception at PC 0x15003075
  *   0xc0000005 0x00000000 0x15003075 0x15003075 0x00000001 0x00000037 
  *   Registers: eax 0x00000000 ebx 0x00000000 ecx 0x177c9040 edx 0x177c9040
  *           esi 0x00000b56 edi 0x0000015f esp 0x177e3eb0 eflags 0x00010246
@@ -2055,15 +2059,15 @@ under_internal_exception()
  * skip it for the SYSLOG, but not the other notifications
  */
 #ifdef X64
-# define EXCEPTION_PREFIX "Unrecoverable error at PC 0x0000000000000000\n"
+# define EXCEPTION_PREFIX "Platform exception at PC 0x0000000000000000"
 #else
-# define EXCEPTION_PREFIX "Unrecoverable error at PC 0x00000000\n"
+# define EXCEPTION_PREFIX "Platform exception at PC 0x00000000"
 #endif
 #ifdef CLIENT_INTERFACE
 # ifdef X64
-#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x0000000000000000\n"
+#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x0000000000000000"
 # else
-#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x00000000\n"
+#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x00000000"
 # endif
 #endif
 #define REPORT_EXCEPTION_SKIP_PREFIX (sizeof(EXCEPTION_PREFIX) - 1/*NULL*/ -1/*include newline!*/)
