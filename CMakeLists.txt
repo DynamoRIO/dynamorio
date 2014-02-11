@@ -789,6 +789,31 @@ if (UNIX)
     string(REGEX MATCH "only-keep-debug" flag_present "${objcopy_out}")
     if (NOT flag_present)
       message("${CMAKE_OBJCOPY} missing flag --only-keep-debug: leaving debug info in .so files")
+      if (APPLE)
+        # Incredibly, for both clang and g++, while a single compile-and-link
+        # invocation will create an executable.dSYM/ dir with debug info,
+        # with separate compilation the final link does NOT create the
+        # dSYM dir.
+        # The "dsymutil" program will create the dSYM dir for us.
+        # Strangely it takes in the executable and not the object
+        # files even though it's the latter that contain the debug info.
+        # Thus it will only work if the object files are still sitting around.
+        find_program(DSYMUTIL_PROGRAM dsymutil)
+        if (DSYMUTIL_PROGRAM)
+          set(CMAKE_C_LINK_EXECUTABLE
+            "${CMAKE_C_LINK_EXECUTABLE}"
+            "${DSYMUTIL_PROGRAM} <TARGET>")
+          set(CMAKE_C_CREATE_SHARED_LIBRARY
+            "${CMAKE_C_CREATE_SHARED_LIBRARY}"
+            "${DSYMUTIL_PROGRAM} <TARGET>")
+          set(CMAKE_CXX_LINK_EXECUTABLE
+            "${CMAKE_CXX_LINK_EXECUTABLE}"
+            "${DSYMUTIL_PROGRAM} <TARGET>")
+          set(CMAKE_CXX_CREATE_SHARED_LIBRARY
+            "${CMAKE_CXX_CREATE_SHARED_LIBRARY}"
+            "${DSYMUTIL_PROGRAM} <TARGET>")
+        endif ()
+      endif ()
     else (NOT flag_present)
       set(CMAKE_C_CREATE_SHARED_LIBRARY
         # standard rule
