@@ -44,6 +44,7 @@
 
 #include <mach-o/loader.h> /* mach_header */
 #include <mach-o/nlist.h>
+#include <mach-o/fat.h>
 
 #include <string.h>
 #include <sys/stat.h>
@@ -126,6 +127,36 @@ is_macho_header(byte *base)
 #else
     return (hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86);
 #endif
+}
+
+static bool
+is_fat_header(byte *base)
+{
+    struct fat_header *hdr = (struct fat_header *) base;
+    /* all fields are big-endian */
+    return (hdr->magic == FAT_CIGAM);
+}
+
+/* Handle a universal or "fat" binary by locating the piece we want inside it */
+static byte *
+find_macho_in_fat_binary(byte *base, size_t *arch_size)
+{
+    struct fat_header *hdr = (struct fat_header *) base;
+    struct fat_arch *arch;
+    uint num, i;
+    /* all fields are big-endian */
+    if (hdr->magic != FAT_CIGAM)
+        return NULL;
+    num = OSSwapInt32(hdr->nfat_arch);
+    for (i = 0; i < num; i++) {
+        arch = ((struct fat_arch *)(hdr + 1)) + i;
+        if (OSSwapInt32(arch->cputype) == IF_X64_ELSE(CPU_TYPE_X86_64, CPU_TYPE_X86)) {
+            if (arch_size != NULL)
+                *arch_size = OSSwapInt32(arch->size);
+            return base + OSSwapInt32(arch->offset);
+        }
+    }
+    return NULL;
 }
 
 /* Iterates the program headers for a Mach-O object and returns the minimum
@@ -228,16 +259,26 @@ void *
 drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
 {
     macho_info_t *mod;
-    mach_header_t *hdr = (mach_header_t *) map_base;
+    mach_header_t *hdr;
     struct load_command *cmd, *cmd_stop;
+    byte *arch_base;
 
     mod = dr_global_alloc(sizeof(*mod));
     memset(mod, 0, sizeof(*mod));
-    mod->map_base = map_base;
 
-    if (!is_macho_header(map_base))
+    if (is_fat_header(map_base)) {
+        arch_base = find_macho_in_fat_binary(map_base, NULL);
+        if (arch_base == NULL)
+            return NULL;
+    } else
+        arch_base = map_base;
+
+    mod->map_base = arch_base;
+
+    if (!is_macho_header(arch_base))
         return NULL;
 
+    hdr = (mach_header_t *) arch_base;
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
     while (cmd < cmd_stop) {
@@ -256,9 +297,9 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
             /* even if stripped, dynamic symbols are in this table */
             struct symtab_command *symtab = (struct symtab_command *) cmd;
             mod->debug_kind |= DRSYM_SYMBOLS | DRSYM_MACHO_SYMTAB;
-            mod->syms = (nlist_t *)(map_base + symtab->symoff);
+            mod->syms = (nlist_t *)(arch_base + symtab->symoff);
             mod->num_syms = symtab->nsyms;
-            mod->strtab = map_base + symtab->stroff;
+            mod->strtab = arch_base + symtab->stroff;
             mod->strsz = symtab->strsize;
         }
         cmd = (struct load_command *)((char *)cmd + cmd->cmdsize);
@@ -271,7 +312,7 @@ bool
 drsym_obj_mod_init_post(void *mod_in, byte *map_base)
 {
     macho_info_t *mod = (macho_info_t *) mod_in;
-    mod->map_base = map_base; /* shouldn't change, though */
+    /* we ignore map_base, esp for fat binaries */
     mod->load_base = find_load_base(mod->map_base);
     drsym_macho_sort_symbols(mod);
     return true;
