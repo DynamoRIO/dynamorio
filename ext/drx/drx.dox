@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -40,7 +40,6 @@ instrumentation and sports a BSD license, as opposed to the \p drutil Extension
 which also contains instrumentation utilities but uses an LGPL 2.1 license.
 
  - \ref sec_drx_setup
- - \ref sec_drx_notes
  - \ref sec_drx_soft_kills
 
 \section sec_drx_setup Setup
@@ -56,10 +55,6 @@ The \p drx_init() function may be called multiple times; subsequent calls
 will be nops and will return \p true for success.  This allows a 
 library to use \p drx without coordinating with the client over who invokes
 \p drx_init().
-
-\section sec_drx_notes Instruction Note Fields
-
-Please reference \ref sec_drmgr_notes in \ref page_drmgr for instruction note mediation.
 
 \section sec_drx_soft_kills Soft Kills
 
