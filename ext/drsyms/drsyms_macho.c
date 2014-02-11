@@ -104,6 +104,9 @@ typedef struct _macho_info_t {
     uint num_syms;
     byte *strtab;
     uint strsz;
+    /* Used for locating dSYM symbols */
+    uint8_t uuid[16];
+    char dsym_path[MAXIMUM_PATH];
     /* Since we have no symbol sizes, we sort the symbol table to get
      * at least the value of the next entry.
      */
@@ -160,6 +163,20 @@ find_macho_in_fat_binary(byte *base, size_t *arch_size)
     return NULL;
 }
 
+static byte *
+find_macho_header(byte *map_base)
+{
+    byte *arch_base = map_base;
+    if (is_fat_header(map_base)) {
+        arch_base = find_macho_in_fat_binary(map_base, NULL);
+        if (arch_base == NULL)
+            return NULL;
+    }
+    if (!is_macho_header(arch_base))
+        return NULL;
+    return arch_base;
+}
+
 /* Iterates the program headers for a Mach-O object and returns the minimum
  * segment load address.  For executables this is generally a well-known
  * address.  For PIC shared libraries this is usually 0.  For DR clients this is
@@ -190,6 +207,58 @@ find_load_base(byte *map_base)
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
     return load_base;
+}
+
+/* The LC_UUID section is present in both modules and dSYM files, so we
+ * use it to match them up.
+ */
+static bool
+drsym_macho_uuids_match(macho_info_t *mod, const char *path)
+{
+    bool match = false;
+    mach_header_t *hdr;
+    struct load_command *cmd, *cmd_stop;
+    byte *map_base = NULL, *arch_base;
+    uint64 file_size;
+    size_t map_size;
+    file_t fd = dr_open_file(path, DR_FILE_READ);
+    if (fd == INVALID_FILE) {
+        NOTIFY(1, "%s: unable to open %s\n", __FUNCTION__, path);
+        goto uuid_error;
+    }
+    if (!dr_file_size(fd, &file_size)) {
+        NOTIFY(1, "%s: unable to get file size %s\n", __FUNCTION__, path);
+        goto uuid_error;
+    }
+    map_size = file_size;
+    map_base = dr_map_file(fd, &map_size, 0, NULL, DR_MEMPROT_READ, DR_MAP_PRIVATE);
+    if (map_base == NULL || map_size < file_size) {
+        NOTIFY(1, "%s: unable to map %s\n", __FUNCTION__, path);
+        goto uuid_error;
+    }
+    arch_base = find_macho_header(map_base);
+    if (arch_base == NULL) {
+        NOTIFY(1, "%s: did not find Mach-O header in %s\n", __FUNCTION__, path);
+        goto uuid_error;
+    }
+    hdr = (mach_header_t *) arch_base;
+    cmd = (struct load_command *)(hdr + 1);
+    cmd_stop = (struct load_command *)((char *)cmd + hdr->sizeofcmds);
+    while (cmd < cmd_stop) {
+        if (cmd->cmd == LC_UUID) {
+            match = (memcmp(mod->uuid, ((struct uuid_command *)cmd)->uuid,
+                            sizeof(mod->uuid)) == 0);
+            NOTIFY(2, "%s: uuid %s for %s\n", __FUNCTION__,
+                   match ? "matches" : "does NOT match", path);
+            break;
+        }
+    }
+ uuid_error:
+    if (map_base != NULL)
+        dr_unmap_file(map_base, map_size);
+    if (fd != INVALID_FILE)
+        dr_close_file(fd);
+    return match;
 }
 
 static int
@@ -282,17 +351,10 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
     mod = dr_global_alloc(sizeof(*mod));
     memset(mod, 0, sizeof(*mod));
 
-    if (is_fat_header(map_base)) {
-        arch_base = find_macho_in_fat_binary(map_base, NULL);
-        if (arch_base == NULL)
-            return NULL;
-    } else
-        arch_base = map_base;
-
-    mod->map_base = arch_base;
-
-    if (!is_macho_header(arch_base))
+    arch_base = find_macho_header(map_base);
+    if (arch_base == NULL)
         return NULL;
+    mod->map_base = arch_base;
 
     hdr = (mach_header_t *) arch_base;
     cmd = (struct load_command *)(hdr + 1);
@@ -317,6 +379,9 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
             mod->num_syms = symtab->nsyms;
             mod->strtab = arch_base + symtab->stroff;
             mod->strsz = symtab->strsize;
+        } else if (cmd->cmd == LC_UUID) {
+            memcpy(mod->uuid, ((struct uuid_command *)cmd)->uuid,
+                   sizeof(mod->uuid));
         }
         cmd = (struct load_command *)((char *)cmd + cmd->cmdsize);
     }
@@ -374,8 +439,40 @@ drsym_obj_load_base(void *mod_in)
 }
 
 const char *
-drsym_obj_debuglink_section(void *mod_in)
+drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
+    /* The Mac equivalent of the GNU debuglink is the dSYM directory.
+     * The dsymutil tool, when given binary foo, creates
+     * foo.dSYM/Contents/Resources/DWARF/foo.  However, there is no
+     * section in the original foo that names its corresponding dSYM.
+     * There is an LC_UUID that can be used to match them up.
+     */
+    macho_info_t *mod = (macho_info_t *) mod_in;
+    const char *basename = NULL, *s;
+    for (s = modpath; *s != '\0'; s++) {
+        if (*s == '/')
+            basename = s;
+    }
+    if (basename == NULL)
+        return NULL;
+    else
+        basename++; /* skip slash */
+
+    /* 1. Check foo.dSYM/Contents/Resources/DWARF/foo */
+    dr_snprintf(mod->dsym_path, MAXIMUM_PATH,
+                "%s.dSYM/Contents/Resources/DWARF/%s", modpath, basename);
+    mod->dsym_path[MAXIMUM_PATH-1] = '\0';
+    NOTIFY(2, "%s: looking for %s\n", __FUNCTION__, mod->dsym_path);
+    if (dr_file_exists(mod->dsym_path) &&
+        drsym_macho_uuids_match(mod, mod->dsym_path)) {
+        /* There's no reason to cache this as this routine is only called
+         * once, but if it ends up called multiple times we should cache.
+         */
+        return mod->dsym_path;
+    }
+
+    /* XXX: search other standard places */
+
     return NULL;
 }
 

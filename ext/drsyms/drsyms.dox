@@ -90,6 +90,10 @@ On Linux, \p drsyms will look in the default debug directories for symbols
 for a library: a <tt>.debug</tt> subdirectory of the library's directory or
 in <tt>/usr/lib/debug</tt>.
 
+On Mac, for binary <tt>foo</tt>, \p drsyms will look in the default
+<tt>dsymutil</tt> path of <tt>foo.dSYM/Contents/Resources/DWARF/foo</tt>
+for symbols.
+
 On Windows, the <tt>_NT_SYMBOL_PATH</tt> environment variable is honored by
 \p drsyms as a local cache of \p pdb files.  However, \p drsyms does not
 support symbol store paths (those that contain \p srv).

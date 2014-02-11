@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -76,7 +76,7 @@ byte *
 drsym_obj_load_base(void *mod_in);
 
 const char *
-drsym_obj_debuglink_section(void *mod_in);
+drsym_obj_debuglink_section(void *mod_in, const char *modpath);
 
 uint
 drsym_obj_num_symbols(void *mod_in);

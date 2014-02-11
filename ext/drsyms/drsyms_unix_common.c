@@ -142,7 +142,7 @@ load_module(const char *modpath)
     /* If there is a .gnu_debuglink section, then all the debug info we care
      * about is in the file it points to (except maybe .symtab: see below).
      */
-    debuglink = drsym_obj_debuglink_section(mod->obj_info);
+    debuglink = drsym_obj_debuglink_section(mod->obj_info, modpath);
     if (debuglink != NULL) {
         char debug_modpath[MAXIMUM_PATH];
         NOTIFY("%s: looking for debuglink %s\n", __FUNCTION__, debuglink);
@@ -224,6 +224,13 @@ follow_debuglink(const char *modpath, dbg_module_t *mod, const char *debuglink,
 {
     char mod_dir[MAXIMUM_PATH];
     char *s, *last_slash = NULL;
+
+    /* For non-GNU we might be handed an absolute path */
+    if (debuglink[0] == '/' && dr_file_exists(debuglink)) {
+        strncpy(debug_modpath, debuglink, MAXIMUM_PATH);
+        debug_modpath[MAXIMUM_PATH-1] = '\0';
+        return true;
+    }
 
     /* Get the module's directory. */
     strncpy(mod_dir, modpath, MAXIMUM_PATH);

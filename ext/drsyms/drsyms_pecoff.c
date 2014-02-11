@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -304,7 +304,7 @@ drsym_obj_load_base(void *mod_in)
  * find it.
  */
 const char *
-drsym_obj_debuglink_section(void *mod_in)
+drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
     pecoff_data_t *mod = (pecoff_data_t *) mod_in;
     return (const char *) mod->debuglink;

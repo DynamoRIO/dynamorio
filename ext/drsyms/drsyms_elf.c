@@ -301,7 +301,7 @@ drsym_obj_load_base(void *mod_in)
  * out of sync.
  */
 const char *
-drsym_obj_debuglink_section(void *mod_in)
+drsym_obj_debuglink_section(void *mod_in, const char *modpath)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
     Elf_Shdr *section_header =
