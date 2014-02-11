@@ -130,9 +130,10 @@ following minor compatibility changes:
 
 Further non-compatibility-affecting changes include:
 
- - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Added dr_syscall_get_result_ex() and dr_syscall_set_result_ex() for
    future MacOS support.
+ - Added Mach-O support to drsyms.
+ - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Changed the default -stderr_mask on Windows to 0xC (for both release
    and debug), and the default -msgbox_mask on Windows release builds 
    to 0xC, for better error reporting.  For interactive runs, then,

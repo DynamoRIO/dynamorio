@@ -37,8 +37,8 @@
 \page page_drsyms Symbol Access Library
 
 The \p drsyms DynamoRIO Extension provides symbol information.  Currently drsyms
-supports reading symbol information from Windows PDB files and Linux ELF or
-Windows PECOFF files with DWARF2 line information.
+supports reading symbol information from Windows PDB files or Linux ELF,
+Mac Mach-O, or Windows PECOFF files with DWARF2 line information.
 
  - \ref sec_drsyms_setup
  - \ref sec_drsyms_paths
@@ -79,7 +79,7 @@ file and line information if in DWARF2 format.  The \p stabs format is not
 supported.  Cygwin and MinGW gcc versions prior to 4.3 use \p stabs by
 default; pass the \p -ggdb flag to request DWARF2.
 
-The \p drsyms library on Linux uses bundled copies of \p libelf, \p libdwarf,
+The \p drsyms library on Linux and Mac uses bundled copies of \p libelf, \p libdwarf,
 and \p libelftc built from the
 <a href="http://elftoolchain.sourceforge.net">elftoolchain</a> project and
 requires no setup.

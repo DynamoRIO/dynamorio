@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -95,12 +95,22 @@ if (WIN32)
   set(PREFERRED_BASE 0x76000000)
 
 elseif (UNIX)
+  # XXX i#1359: rename drsyms_linux.c as it's now used on both Linux and Mac?
   set(srcs
-    drsyms_linux.c drsyms_unix.c drsyms_elf.c
+    drsyms_linux.c drsyms_unix.c
     drsyms_dwarf.c demangle.cc drsyms_common.c)
-  set(dwarf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libdwarf.a")
-  set(elftc_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
-  set(elf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a")
+  if (APPLE)
+    set(srcs ${srcs} drsyms_macho.c)
+    set(dwarf_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libdwarf.a")
+    set(elftc_libpath
+      "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-macho/lib${BITS}/libelftc.a")
+  else (APPLE)
+    set(srcs ${srcs} drsyms_elf.c)
+    set(dwarf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libdwarf.a")
+    set(elftc_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
+    set(elf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a")
+  endif (APPLE)
 endif (WIN32)
 
 add_library(drsyms ${libtype} ${srcs})
@@ -148,7 +158,7 @@ endif ()
 
 if (NOT STATIC_LIBRARY)
   target_link_libraries(drsyms "${dwarf_libpath}" "${elftc_libpath}")
-  if (UNIX)
+  if (LINUX)
     target_link_libraries(drsyms "${elf_libpath}")
   endif ()
   # i#693: CMake will try to export the path to the static libs we use via
@@ -164,10 +174,12 @@ set_property(TARGET dwarf PROPERTY IMPORTED_LOCATION "${dwarf_libpath}")
 add_library(elftc STATIC IMPORTED)
 set_property(TARGET elftc PROPERTY IMPORTED_LOCATION "${elftc_libpath}")
 target_link_libraries(${static_tgt} dwarf elftc)
-if (UNIX)
+if (LINUX)
   add_library(elf STATIC IMPORTED)
   set_property(TARGET elf PROPERTY IMPORTED_LOCATION "${elf_libpath}")
   target_link_libraries(${static_tgt} elf)
+endif (LINUX)
+if (UNIX)
   # Avoid missing symbols in static library build from g++ libs when
   # drsyms_bench is linked with gcc instead of g++ (i#715, happens w/ cmake
   # < 2.8.0 where demangle.cc is not propagated through libdrsyms.a)

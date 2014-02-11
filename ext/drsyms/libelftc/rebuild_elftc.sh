@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+# Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@ fi
 
 # Fedora uses bmake.
 # We assume user has already patched according to
-# http://sourceforge.net/apps/trac/elftoolchain/wiki/BuildingFromSource
+# https://sourceforge.net/p/elftoolchain/wiki/BuildingFromSource/
 if [[ -e /etc/fedora-release ]]
 then
     make_cmd=bmake
@@ -60,7 +60,7 @@ then
   svn up "${elftc_dir}"
 else
   mkdir -p `dirname "${elftc_dir}"`
-  svn co http://elftoolchain.svn.sourceforge.net/svnroot/elftoolchain/trunk "${elftc_dir}"
+  svn co svn://svn.code.sf.net/p/elftoolchain/code/trunk "${elftc_dir}"
 fi
 cd "${elftc_dir}"
 

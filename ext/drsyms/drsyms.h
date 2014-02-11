@@ -34,8 +34,9 @@
 /* DRSyms DynamoRIO Extension 
  *
  * Symbol lookup support (Issue 44).
- * Currently supports Windows PDB, ELF symtab, Windows PECOFF, and DWARF on
- * both Windows and Linux.  No stabs support yet.
+ * Currently supports Windows PDB, ELF symtab, Windows PECOFF,
+ * Mach-O symtab, and DWARF on Windows, Linux, and MacOS.
+ * No stabs support yet.
  *
  * This API will eventually support both sideline (via a separate
  * process) and online use.  Today only online use is supported.
@@ -129,6 +130,7 @@ typedef enum {
     DRSYM_DWARF_LINE = (1 <<  9), /**< DWARF line info. */
     DRSYM_PDB        = (1 << 10), /**< Windows PDB files. */
     DRSYM_PECOFF_SYMTAB = (1 <<  11), /**< PE COFF (Cygwin or MinGW) symbol table names.*/
+    DRSYM_MACHO_SYMTAB =  (1 <<  12), /**< Mach-O symbol table names. */
 } drsym_debug_kind_t;
 
 /** Data structure that holds symbol information */
@@ -162,8 +164,8 @@ typedef struct _drsym_info_t {
     size_t start_offs;
     /**
      * Output: offset from module base of end of symbol.
-     * \note For DRSYM_PECOFF_SYMTAB (Cygwin or MinGW) symbols, the end offset
-     * is not known precisely.
+     * \note For DRSYM_PECOFF_SYMTAB (Cygwin or MinGW) or DRSYM_MACHO_SYMTAB (MacOS)
+     * symbols, the end offset is not known precisely.
      * The start address of the subsequent symbol will be stored here.
      **/
     size_t end_offs;

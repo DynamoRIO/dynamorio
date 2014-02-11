@@ -62,7 +62,7 @@
 #endif
 
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
- * There is no official support for that on Linux or Mac and for now we do
+ * There is no official support for that on Linux or Windows and for now we do
  * not support it either, especially not mixing libraries.
  */
 #ifdef X64

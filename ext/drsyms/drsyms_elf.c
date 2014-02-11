@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -365,7 +365,7 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     int closest_idx = -1;
     size_t closest_diff = SIZE_T_MAX;
 
-    if (mod == NULL || mod->syms == NULL || idx == NULL || mod->syms == NULL)
+    if (mod == NULL || mod->syms == NULL || idx == NULL)
         return DRSYM_ERROR;
 
     /* XXX: if a function is split into non-contiguous pieces, will it
