@@ -835,6 +835,10 @@ void client_int_syscall(void);
 /* Some 32-bit syscalls return 64-bit values (e.g., SYS_lseek) in eax:edx */
 int64 dynamorio_syscall(uint sysnum, uint num_args, ...);
 int64 dynamorio_mach_dep_syscall(uint sysnum, uint num_args, ...);
+#  ifndef X64
+/* This version only returns 32-bit, and does not encode #args into eax. */
+int dynamorio_syscall_sysenter(int sysnum, uint num_args, ...);
+#  endif
 # else
 ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif

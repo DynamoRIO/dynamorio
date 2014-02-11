@@ -1316,6 +1316,85 @@ mach_dep_syscall_success:
         END_FUNC(dynamorio_mach_dep_syscall)
 # endif /* MACOS */
 
+# if defined(MACOS) && !defined(X64)
+/* This version uses sysenter, only returns 32-bit values, and does not
+ * encode #args into eax.  We seem to need this for SYS_mmap (i#1361).
+ */
+        DECLARE_FUNC(dynamorio_syscall_sysenter)
+GLOBAL_LABEL(dynamorio_syscall_sysenter:)
+        /* x64 kernel doesn't clobber all the callee-saved registers */
+        push     REG_XBX /* stack now aligned for x64 */
+        push     REG_XBP
+        push     REG_XSI
+        push     REG_XDI
+        /* add 16 to skip the 4 pushes */
+        mov      ecx, [16+ 8 + esp] /* num_args */
+        cmp      ecx, 0
+        je       syscall_sysenter_0args
+        cmp      ecx, 1
+        je       syscall_sysenter_1args
+        cmp      ecx, 2
+        je       syscall_sysenter_2args
+        cmp      ecx, 3
+        je       syscall_sysenter_3args
+        cmp      ecx, 4
+        je       syscall_sysenter_4args
+        cmp      ecx, 5
+        je       syscall_sysenter_5args
+        cmp      ecx, 6
+        je       syscall_sysenter_6args
+#  ifdef INTERNAL
+        cmp      ecx, 7
+        jg       GLOBAL_REF(unexpected_return)
+#  endif
+        mov      eax, [16+36 + esp] /* arg7 */
+syscall_sysenter_6args:
+        mov      ebp, [16+32 + esp] /* arg6 */
+syscall_sysenter_5args:
+        mov      edi, [16+28 + esp] /* arg5 */
+syscall_sysenter_4args:
+        mov      esi, [16+24 + esp] /* arg4 */
+syscall_sysenter_3args:
+        mov      edx, [16+20 + esp] /* arg3 */
+syscall_sysenter_2args:
+        mov      ecx, [16+16 + esp] /* arg2 */
+syscall_sysenter_1args:
+        mov      ebx, [16+12 + esp] /* arg1 */
+syscall_sysenter_0args:
+        push     eax /* 7th arg, if any */
+        /* As promised, no arg encoding */
+        mov      eax, [20+ 4 + esp] /* sysnum */
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        push     ebp
+        push     edi
+        push     esi
+        push     edx
+        push     ecx
+        push     ebx /* aligned to 16 after this push */
+        push     0 /* extra slot (app retaddr) */
+        mov      ecx, esp
+        /* If we use ADDRTAKEN_LABEL and GLOBAL_REF we get text relocation
+         * complaints so we instead do this hack:
+         */
+        call     syscall_sysenter_next
+syscall_sysenter_next:
+        pop      edx
+        lea      edx, [1/*pop*/ + 3/*lea*/ + 2/*sysenter*/ + edx]
+        sysenter
+        lea      esp, [8*ARG_SZ + esp] /* must not change flags */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+        pop      REG_XBX
+        /* return val is in eax for us */
+        /* convert to -errno */
+        jae      syscall_sysenter_success
+        neg      eax
+syscall_sysenter_success:
+        ret
+        END_FUNC(dynamorio_syscall_sysenter)
+# endif /* defined(MACOS) && !defined(X64) */
+
 /* FIXME: this function should be in #ifdef CLIENT_INTERFACE
  * However, the compiler complains about it in
  * vps-debug-internal-32 build, so we remove the ifdef now.

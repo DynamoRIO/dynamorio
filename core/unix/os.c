@@ -2177,12 +2177,24 @@ mmap_syscall_succeeded(byte *retval)
     return !fail;
 }
 
+/* N.B.: offs should be in pages for 32-bit Linux */
 static inline byte *
-mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong pgoff)
+mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong offs)
 {
+#ifdef MACOS
+    /* i#1361: for some reason, mmap only works properly when invoked via sysenter
+     * and without #args encoded into eax.  The worst part is that it doesn't
+     * fail outright: it returns a success value with the mapping
+     * showing up when examined externally (e.g., via "vmmap") yet any
+     * access returns SIGBUS.
+     */
+    return (byte *)(ptr_int_t)
+        dynamorio_syscall_sysenter(SYS_mmap, 6, addr, len, prot, flags, fd, offs);
+#else
     return (byte *)(ptr_int_t)
         dynamorio_syscall(IF_MACOS_ELSE(SYS_mmap, IF_X64_ELSE(SYS_mmap, SYS_mmap2)), 6,
-                          addr, len, prot, flags, fd, pgoff);
+                          addr, len, prot, flags, fd, offs);
+#endif
 }
 
 static inline long
@@ -3485,8 +3497,8 @@ os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr, uint prot,
 #endif
         map = mmap_syscall(addr, *size, memprot_to_osprot(prot),
                            flags, f,
-                           /* mmap in X64 uses offset instead of page offset */
-                           IF_X64_ELSE(offs, pg_offs));
+                           /* x86 Linux mmap uses offset in pages */
+                           IF_LINUX_ELSE(IF_X64_ELSE(offs, pg_offs), offs));
         if (!mmap_syscall_succeeded(map)) {
             LOG(THREAD_GET, LOG_SYSCALLS, 2, "%s failed: "PIFX"\n",
                 __func__, map);
