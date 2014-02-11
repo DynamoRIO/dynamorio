@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -32,7 +32,7 @@
 
 /* DRSyms DynamoRIO Extension */
 
-/* Symbol lookup for Linux
+/* Symbol lookup front-end for Linux and Mac
  *
  * For symbol and address lookup and enumeration we use a combination of libelf
  * and libdwarf.  All symbol and address lookup is dealt with by parsing the
@@ -40,9 +40,6 @@
  * number information, we have to go the extra mile and use libdwarf to dig
  * through the .debug_line section, which was added in DWARF2.  We don't support
  * STABS or any other form of line number debug information.
- *
- * FIXME i#545: Provide an API to demangle the symbol names returned by
- * drsym_lookup_address.
  */
 
 #include "dr_api.h"

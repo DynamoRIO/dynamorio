@@ -80,7 +80,7 @@ if (WIN32)
   set(dbghelp_flags "${dbghelp_lib}")
 
   set(srcs
-    drsyms_windows.c drsyms_unix.c drsyms_pecoff.c
+    drsyms_windows.c drsyms_unix_common.c drsyms_pecoff.c
     drsyms_dwarf.c demangle.cc drsyms_common.c
     ${dbghelp_dep})
   set(dwarf_dir "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}")
@@ -95,9 +95,8 @@ if (WIN32)
   set(PREFERRED_BASE 0x76000000)
 
 elseif (UNIX)
-  # XXX i#1359: rename drsyms_linux.c as it's now used on both Linux and Mac?
   set(srcs
-    drsyms_linux.c drsyms_unix.c
+    drsyms_unix_frontend.c drsyms_unix_common.c
     drsyms_dwarf.c demangle.cc drsyms_common.c)
   if (APPLE)
     set(srcs ${srcs} drsyms_macho.c)

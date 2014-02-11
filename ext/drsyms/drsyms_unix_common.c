@@ -32,7 +32,7 @@
 
 /* DRSyms DynamoRIO Extension */
 
-/* Symbol lookup for Unix: code shared between Linux and Cygwin */
+/* Symbol lookup for Unix: code shared between Linux, Mac, and Cygwin */
 
 #include "dr_api.h"
 #include "drsyms.h"
