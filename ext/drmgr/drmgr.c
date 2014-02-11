@@ -506,7 +506,11 @@ drmgr_fix_app_ctis(void *drcontext, instrlist_t *bb)
         /* Any CTI with an instr target must have an intra-bb target and thus
          * we assume it should not be mangled.  We mark it meta.
          */
-        if (instr_ok_to_mangle(inst) && 
+        if (instr_ok_to_mangle(inst) &&
+            instr_opcode_valid(inst) &&
+            /* For -fast_client_decode we can have level 0 instrs so check
+             * to ensure this is an single instr with valid opcode.
+             */
             instr_is_cti(inst) &&
             opnd_is_instr(instr_get_target(inst))) {
             instr_set_ok_to_mangle(inst, false);
@@ -1854,7 +1858,11 @@ drmgr_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst
         dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_push,
                              false, 0);
     }
-    if (instr_get_opcode(inst) == OP_int &&
+    if (instr_opcode_valid(inst) &&
+        /* For -fast_client_decode we can have level 0 instrs so check
+         * to ensure this is an single instr with valid opcode.
+         */
+        instr_get_opcode(inst) == OP_int &&
         opnd_get_immed_int(instr_get_src(inst, 0)) == CBRET_INTERRUPT_NUM) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_pop,
                              false, 0);
