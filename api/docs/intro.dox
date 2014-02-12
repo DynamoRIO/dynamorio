@@ -515,6 +515,8 @@ bin32/drconfig.exe -reg calc.exe -c myclient.dll -client_op1 -client_op2
 bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 "-client_op1 -client_op2"
 \endcode
 
+The client can call dr_get_options() to retrieve the option string passed
+to it.
 
 \section multi_client Multiple Clients
 
