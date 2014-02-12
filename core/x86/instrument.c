@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -264,6 +264,8 @@ static shlib_handle_t priv_kernel32;
 typedef BOOL (WINAPI *kernel32_WriteFile_t)
     (HANDLE, LPCVOID, DWORD, LPDWORD, LPOVERLAPPED);
 static kernel32_WriteFile_t kernel32_WriteFile;
+
+static ssize_t dr_write_to_console_varg(bool to_stdout, const char *fmt, ...);
 #endif
 
 bool client_requested_exit;
@@ -3700,7 +3702,12 @@ DR_API
 ssize_t
 dr_write_file(file_t f, const void *buf, size_t count)
 {
-    return os_write(f, buf, count);
+#ifdef WINDOWS
+    if ((f == STDOUT || f == STDERR) && print_to_console)
+        return dr_write_to_console_varg(f == STDOUT, "%.*s", count, buf);
+    else
+#endif
+        return os_write(f, buf, count);
 }
 
 DR_API 
@@ -3946,12 +3953,12 @@ dr_messagebox(const char *fmt, ...)
     va_end(ap);
 }
 
-static bool
+static ssize_t
 dr_write_to_console(bool to_stdout, const char *fmt, va_list ap)
 {
     bool res = true;
     char msg[MAX_LOG_LENGTH];
-    uint written;
+    uint written = 0;
     int len;
     HANDLE std;
     CLIENT_ASSERT(dr_using_console(), "internal logic error");
@@ -3971,6 +3978,17 @@ dr_write_to_console(bool to_stdout, const char *fmt, va_list ap)
      */
     res = res &&
         kernel32_WriteFile(std, msg, (DWORD) strlen(msg), (LPDWORD) &written, NULL);
+    return (res ? written : 0);
+}
+
+static ssize_t
+dr_write_to_console_varg(bool to_stdout, const char *fmt, ...)
+{
+    va_list ap;
+    ssize_t res;
+    va_start(ap, fmt);
+    res = dr_write_to_console(to_stdout, fmt, ap);
+    va_end(ap);
     return res;
 }
 
