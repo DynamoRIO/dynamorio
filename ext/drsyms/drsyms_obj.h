@@ -61,7 +61,7 @@ drsym_obj_remap_as_image(void *mod_in);
  * if drsym_obj_remap_as_image() returned true.
  */
 bool
-drsym_obj_mod_init_post(void *mod_in, byte *map_base);
+drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info);
 
 bool
 drsym_obj_dwarf_init(void *mod_in, Dwarf_Debug *dbg);
@@ -110,6 +110,9 @@ drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base);
 
 void
 drsym_dwarf_exit(void *mod_in);
+
+void
+drsym_dwarf_set_obj_offs(void *mod_in, ssize_t adjust);
 
 bool
 drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);

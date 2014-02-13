@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -60,6 +60,8 @@ typedef struct _dwarf_module_t {
     Dwarf_Die lines_cu;
     Dwarf_Line *lines;
     Dwarf_Signed num_lines;
+    /* Amount to adjust all offsets for __PAGEZERO + PIE (i#1365) */
+    ssize_t offs_adjust;
 } dwarf_module_t;
 
 static bool
@@ -183,6 +185,8 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
     Dwarf_Die cu_die;
     Dwarf_Unsigned cu_offset = 0;
     bool success = false;
+
+    pc += mod->offs_adjust;
 
     /* On failure, these should be zeroed.
      */
@@ -366,9 +370,10 @@ enumerate_lines_in_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
         if (dwarf_lineaddr(lines[i], &lineaddr, &de) != DW_DLV_OK) {
             NOTIFY_DWARF(de);
             info.line_addr = 0;
-        } else
-            info.line_addr = (size_t) (lineaddr - (Dwarf_Addr)(ptr_uint_t)mod->load_base);
-
+        } else {
+            info.line_addr = (size_t)
+                (lineaddr - (Dwarf_Addr)(ptr_uint_t)mod->load_base - mod->offs_adjust);
+        }
         if (!(*callback)(&info, data))
             return 0;
     }
@@ -411,10 +416,9 @@ void *
 drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base)
 {
     dwarf_module_t *mod = (dwarf_module_t *) dr_global_alloc(sizeof(*mod));
+    memset(mod, 0, sizeof(*mod));
     mod->load_base = load_base;
     mod->dbg = dbg;
-    mod->lines_cu = NULL;
-    mod->lines = NULL;
     return mod;
 }
 
@@ -426,6 +430,13 @@ drsym_dwarf_exit(void *mod_in)
         dwarf_srclines_dealloc(mod->dbg, mod->lines, mod->num_lines);
     dwarf_finish(mod->dbg, NULL);
     dr_global_free(mod, sizeof(*mod));
+}
+
+void
+drsym_dwarf_set_obj_offs(void *mod_in, ssize_t adjust)
+{
+    dwarf_module_t *mod = (dwarf_module_t *) mod_in;
+    mod->offs_adjust = adjust;
 }
 
 #if defined(WINDOWS) && defined(STATIC_LIB)

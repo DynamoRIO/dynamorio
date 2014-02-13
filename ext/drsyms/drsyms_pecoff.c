@@ -228,7 +228,7 @@ drsym_obj_remap_as_image(void *mod_in)
 }
 
 bool
-drsym_obj_mod_init_post(void *mod_in, byte *map_base)
+drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
     pecoff_data_t *mod = (pecoff_data_t *) mod_in;
     /* Now that we know we're using this for sure, do any heavyweight init */

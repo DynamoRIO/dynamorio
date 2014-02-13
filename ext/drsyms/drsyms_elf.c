@@ -247,7 +247,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
 }
 
 bool
-drsym_obj_mod_init_post(void *mod_in, byte *map_base)
+drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
     elf_info_t *mod = (elf_info_t *) mod_in;
     mod->map_base = map_base; /* shouldn't change, though */

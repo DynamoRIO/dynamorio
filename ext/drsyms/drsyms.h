@@ -160,7 +160,10 @@ typedef struct _drsym_info_t {
     /** Output: offset from address that starts at line */
     size_t line_offs;
 
-    /** Output: offset from module base of start of symbol */
+    /**
+     * Output: offset from module base of start of symbol.
+     * For Mach-O executables, the module base is after any __PAGEZERO segment.
+     */
     size_t start_offs;
     /**
      * Output: offset from module base of end of symbol.
@@ -227,6 +230,7 @@ DR_EXPORT
  * @param[in] modpath The full path to the module to be queried.
  * @param[in] modoffs The offset from the base of the module specifying the address
  *   to be queried.
+ *   For Mach-O executables, the module base is after any __PAGEZERO segment.
  * @param[in,out] info Information about the symbol at the queried address.
  * @param[in]  flags   Options for the operation as a combination of drsym_flags_t
  *    values.  Ignored for Windows PDB (DRSYM_PDB) except for
@@ -312,6 +316,7 @@ DR_EXPORT
  * @param[in] modpath    The full path to the module to be queried.
  * @param[in] modoffs    The offset from the base of the module specifying
  *                       the start address of the function.
+ *                       For Mach-O, the module base is after any __PAGEZERO segment.
  * @param[in] levels_to_expand  The maximum levels of sub-types to expand.
  *                       Set to UINT_MAX for unlimited expansion.
  *                       Further expansion can be performed by calling
@@ -348,6 +353,7 @@ DR_EXPORT
  * @param[in] modpath    The full path to the module to be queried.
  * @param[in] modoffs    The offset from the base of the module specifying
  *                       the start address of the function.
+ *                       For Mach-O, the module base is after any __PAGEZERO segment.
  * @param[out] buf       Memory used for the types.
  * @param[in] buf_sz     Number of bytes in \p buf.
  * @param[out] func_type Pointer to the type of the function.
@@ -411,6 +417,7 @@ DR_EXPORT
  *   string to look up.
  * @param[out] modoffs The offset from the base of the module specifying the address
  *   of the specified symbol.
+ *   For Mach-O, the module base is after any __PAGEZERO segment.
  * @param[in]  flags   Options for the operation as a combination of drsym_flags_t
  *    values.  Ignored for Windows PDB (DRSYM_PDB).
  */
@@ -424,6 +431,7 @@ drsym_lookup_symbol(const char *modpath, const char *symbol, size_t *modoffs /*O
  *
  * @param[in]  name    Name of the symbol.
  * @param[in]  modoffs Offset of the symbol from the module base.
+ *                     For Mach-O, the module base is after any __PAGEZERO segment.
  * @param[in]  data    User parameter passed to drsym_enumerate_symbols() or
  *                     drsym_search_symbols().
  */
@@ -665,7 +673,10 @@ typedef struct _drsym_line_info_t {
     const char *file;
     /** Line number */
     uint64 line;
-    /** Offset from module base of the first instruction of the line */
+    /**
+     * Offset from module base of the first instruction of the line.
+     * For Mach-O executables, the module base is after any __PAGEZERO segment.
+     */
     size_t line_addr;
 } drsym_line_info_t;
 

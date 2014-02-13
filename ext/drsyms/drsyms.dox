@@ -45,6 +45,7 @@ Mac Mach-O, or Windows PECOFF files with DWARF2 line information.
  - \ref sec_drsyms_exports
  - \ref sec_drsyms_api
  - \ref sec_drsyms_mem
+ - \ref sec_drsyms_modbase
 
 \section sec_drsyms_setup Setup
 
@@ -184,5 +185,14 @@ until perhaps a callstack walk later on.  Thus, we recommend that a client
 call drsym_free_resources() at the end of its module load event.  Due to
 fragmentation concerns, it is not easy for drsyms itself to perform
 internal garbage collection at any high frequency.
+
+\subsection sec_drsyms_modbase Module Bases
+
+All \p drsyms functions operate on relative offsets from a module base,
+rather than absolute addresses for any given mapping.  These are offsets
+from the in-memory mapping of the module.  For Mach-O executables,
+the module base is considered to be placed after any __PAGEZERO segment.
+This is especially important for PIE executables on MacOS, where the
+randomized shift is between the __PAGEZERO segment and the __TEXT segment.
 
 */

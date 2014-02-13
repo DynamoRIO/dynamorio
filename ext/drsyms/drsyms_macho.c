@@ -99,11 +99,14 @@ typedef struct nlist nlist_t;
 typedef struct _macho_info_t {
     byte *map_base;
     ptr_uint_t load_base;
+    size_t load_size;
     drsym_debug_kind_t debug_kind;
     nlist_t *syms;
     uint num_syms;
     byte *strtab;
     uint strsz;
+    /* Amount to adjust all offsets for __PAGEZERO + PIE (i#1365) */
+    ssize_t offs_adjust;
     /* Used for locating dSYM symbols */
     uint8_t uuid[16];
     char dsym_path[MAXIMUM_PATH];
@@ -184,7 +187,7 @@ find_macho_header(byte *map_base)
  * also.
  */
 static ptr_uint_t
-find_load_base(byte *map_base)
+find_load_base(byte *map_base, size_t *load_size)
 {
     mach_header_t *hdr = (mach_header_t *) map_base;
     struct load_command *cmd, *cmd_stop;
@@ -371,6 +374,12 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
                     mod->debug_kind |= DRSYM_LINE_NUMS | DRSYM_DWARF_LINE;
                 sec++;
             }
+            if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
+                /* i#1365: any PIE shift is placed after this, and DR skips it
+                 * for the effective base, so we need to adjust our offsets.
+                 */
+                mod->offs_adjust = seg->vmsize;
+            }
         } else if (cmd->cmd == LC_SYMTAB) {
             /* even if stripped, dynamic symbols are in this table */
             struct symtab_command *symtab = (struct symtab_command *) cmd;
@@ -390,12 +399,14 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
 }
 
 bool
-drsym_obj_mod_init_post(void *mod_in, byte *map_base)
+drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
     macho_info_t *mod = (macho_info_t *) mod_in;
     /* we ignore map_base, esp for fat binaries */
     mod->load_base = find_load_base(mod->map_base);
     drsym_macho_sort_symbols(mod);
+    if (dwarf_info != NULL)
+        drsym_dwarf_set_obj_offs(dwarf_info, mod->offs_adjust);
     return true;
 }
 
@@ -521,15 +532,16 @@ drsym_obj_symbol_offs(void *mod_in, uint idx, size_t *offs_start OUT,
         return DRSYM_ERROR_INVALID_PARAMETER;
     /* We removed all the symbols with value==0 when we sorted */
     sym = mod->sorted_syms[idx];
-    *offs_start = sym->n_value - mod->load_base;
+    *offs_start = sym->n_value - mod->load_base - mod->offs_adjust;
     if (offs_end != NULL) {
         /* XXX: the Mach-O nlist struct doesn't store the size
          * so, like PECOFF, we use the next symbol's start as the size
          * and we document that it isn't precise.
          */
-        if (idx + 1 < mod->sorted_count)
-            *offs_end = mod->sorted_syms[idx+1]->n_value - mod->load_base;
-        else
+        if (idx + 1 < mod->sorted_count) {
+            *offs_end = mod->sorted_syms[idx+1]->n_value - mod->load_base -
+                mod->offs_adjust;
+        } else
             *offs_end = *offs_start + 1;
     }
     return DRSYM_SUCCESS;
