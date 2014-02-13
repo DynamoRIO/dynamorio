@@ -84,6 +84,7 @@ typedef struct _export_info_t {
 
 typedef struct _pecoff_data_t {
     byte *map_base;
+    size_t map_size;
     byte *preferred_base;
     bool is_64;
     IMAGE_SYMBOL *symbol_table;
@@ -143,7 +144,7 @@ drsym_pecoff_get_section_name(pecoff_data_t *mod, IMAGE_SECTION_HEADER *sec,
 }
 
 void *
-drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
+drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
 {
     IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *) map_base;
     IMAGE_NT_HEADERS *nt;
@@ -161,6 +162,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
     mod = dr_global_alloc(sizeof(*mod));
     memset(mod, 0, sizeof(*mod));
     mod->map_base = map_base;
+    mod->map_size = map_size;
 
     mod->symbol_table = (IMAGE_SYMBOL *)
         (map_base + nt->FileHeader.PointerToSymbolTable);
@@ -526,6 +528,8 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
     drsym_error_t res;
     if (mod == NULL || idx == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
+    if (modoffs >= mod->map_size)
+        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
     /* XXX: if a function is split into non-contiguous pieces, will it
      * have multiple entries?
      */

@@ -56,6 +56,9 @@
 #ifndef MIN
 # define MIN(x, y) ((x) <= (y) ? (x) : (y))
 #endif
+#ifndef MAX
+# define MAX(x, y) ((x) >= (y) ? (x) : (y))
+#endif
 
 #ifndef SIZE_T_MAX
 # ifdef X64
@@ -191,7 +194,7 @@ find_load_base(byte *map_base, size_t *load_size)
 {
     mach_header_t *hdr = (mach_header_t *) map_base;
     struct load_command *cmd, *cmd_stop;
-    ptr_uint_t load_base = 0;
+    ptr_uint_t load_base = 0, load_end = 0;
     bool found_seg = false;
     if (!is_macho_header(map_base))
         return 0;
@@ -203,12 +206,16 @@ find_load_base(byte *map_base, size_t *load_size)
             if (!found_seg) {
                 found_seg = true;
                 load_base = seg->vmaddr;
+                load_end = seg->vmaddr + seg->vmsize;
             } else {
                 load_base = MIN(load_base, seg->vmaddr);
+                load_end = MAX(load_end, seg->vmaddr + seg->vmsize);
             }
         }
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
+    if (load_size != NULL)
+        *load_size = (load_end - load_base);
     return load_base;
 }
 
@@ -344,7 +351,7 @@ drsym_obj_init(void)
 }
 
 void *
-drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
+drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
 {
     macho_info_t *mod;
     mach_header_t *hdr;
@@ -403,7 +410,7 @@ drsym_obj_mod_init_post(void *mod_in, byte *map_base, void *dwarf_info)
 {
     macho_info_t *mod = (macho_info_t *) mod_in;
     /* we ignore map_base, esp for fat binaries */
-    mod->load_base = find_load_base(mod->map_base);
+    mod->load_base = find_load_base(mod->map_base, &mod->load_size);
     drsym_macho_sort_symbols(mod);
     if (dwarf_info != NULL)
         drsym_dwarf_set_obj_offs(dwarf_info, mod->offs_adjust);
@@ -558,6 +565,9 @@ drsym_obj_addrsearch_symtab(void *mod_in, size_t modoffs, uint *idx OUT)
 
     if (mod == NULL || mod->sorted_syms == NULL || idx == NULL)
         return DRSYM_ERROR_INVALID_PARAMETER;
+    /* since we have no symbol sizes, we have to rule this out up front */
+    if (modoffs >= mod->load_size)
+        return DRSYM_ERROR_SYMBOL_NOT_FOUND;
 
     /* binary search */
     /* XXX: share code with drsyms_pecoff.c */

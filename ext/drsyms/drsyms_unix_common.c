@@ -126,7 +126,7 @@ load_module(const char *modpath)
     mod->map_size = mod->file_size;
     mod->map_base = dr_map_file(mod->fd, &mod->map_size, 0, NULL, DR_MEMPROT_READ,
                                 DR_MAP_PRIVATE);
-    /* XXX: on windows, map_size ends up larger than file_size: not sure why */
+    /* map_size can be larger than file_size */
     if (mod->map_base == NULL || mod->map_size < mod->file_size) {
         NOTIFY("%s: unable to map %s\n", __FUNCTION__, modpath);
         goto error;

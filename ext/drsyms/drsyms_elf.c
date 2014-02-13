@@ -194,7 +194,7 @@ drsym_obj_init(void)
 }
 
 void *
-drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
+drsym_obj_mod_init_pre(byte *map_base, size_t map_size)
 {
     elf_info_t *mod;
     Elf_Scn *symtab_scn;
@@ -205,7 +205,7 @@ drsym_obj_mod_init_pre(byte *map_base, size_t file_size)
     memset(mod, 0, sizeof(*mod));
     mod->map_base = map_base;
 
-    mod->elf = elf_memory((char *)map_base, file_size);
+    mod->elf = elf_memory((char *)map_base, map_size);
 
     symtab_scn = find_elf_section_by_name(mod->elf, ".symtab");
     strtab_scn = find_elf_section_by_name(mod->elf, ".strtab");
