@@ -6036,7 +6036,8 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
              * is elsewhere in the address space (so who and how allocated that adjacent
              * memory). I've yet to see any issue with dynamically loaded modules so
              * it's probably the loader merging regions.  Still worth investigating. */
-            ASSERT_CURIOSITY(inode == 0 /*see above comment*/|| base+size <= ma->end);
+            ASSERT_CURIOSITY(inode == 0 /*see above comment*/||
+                             module_contains_pc(ma, base+size-1));
         }
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
         DOCHECK(1, {
@@ -7125,7 +7126,7 @@ find_executable_vm_areas(void)
         } else if (TEST(MEMPROT_READ, iter.prot) &&
                    module_is_header(iter.vm_start, size)) {
             size_t image_size = size;
-            app_pc mod_base, mod_end;
+            app_pc mod_base, mod_first_end, mod_max_end;
             char *exec_match;
             bool found_exec = false;
             image = true;
@@ -7139,10 +7140,11 @@ find_executable_vm_areas(void)
             ASSERT_CURIOSITY(iter.inode != 0); /* mapped images should have inodes */
 #endif
             ASSERT_CURIOSITY(iter.offset == 0); /* first map shouldn't have offset */
-            /* Get size by walking the program headers. Size includes the .bss section. */
+            /* Get size by walking the program headers.  This includes .bss. */
             if (module_walk_program_headers(iter.vm_start, size, false,
-                                            &mod_base, &mod_end, NULL, NULL)) {
-                image_size = mod_end - mod_base;
+                                            &mod_base, &mod_first_end,
+                                            &mod_max_end, NULL, NULL)) {
+                image_size = mod_max_end - mod_base;
             } else {
                 ASSERT_NOT_REACHED();
             }
@@ -7165,7 +7167,11 @@ find_executable_vm_areas(void)
                     iter.vm_start, iter.vm_start+image_size, iter.comment);
             }
 
-            module_list_add(iter.vm_start, image_size, false, iter.comment, iter.inode);
+            /* We don't yet know whether contiguous so we have to settle for the
+             * first segment's size.  We'll update it in module_list_add().
+             */
+            module_list_add(iter.vm_start, mod_first_end - mod_base,
+                            false, iter.comment, iter.inode);
         } else if (iter.inode != 0) {
             DODEBUG({ map_type = "Mapped File"; });
         }

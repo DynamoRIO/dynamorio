@@ -104,5 +104,4 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
 bool
 privload_redirect_sym(ptr_uint_t *r_addr, const char *name);
 
-
 #endif /* MODULE_PRIVATE_H */

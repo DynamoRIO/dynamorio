@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * *******************************************************************************/
@@ -129,7 +129,8 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
      */
     app_pc pref_start, pref_end;
     app_pc min_vaddr =
-        module_vaddr_from_prog_header((app_pc)info->dlpi_phdr, info->dlpi_phnum, NULL);
+        module_vaddr_from_prog_header((app_pc)info->dlpi_phdr, info->dlpi_phnum,
+                                      NULL, NULL);
     app_pc base = info->dlpi_addr + min_vaddr;
     /* Note that dl_iterate_phdr doesn't give a name for the executable or
      * ld-linux.so presumably b/c those are mapped by the kernel so the
@@ -144,7 +145,7 @@ dl_iterate_get_path_cb(struct dl_phdr_info *info, size_t size, void *data)
                                      * anything larger than header sizes works
                                      */
                                     PAGE_SIZE,
-                                    false, &pref_start, &pref_end, NULL, NULL)) {
+                                    false, &pref_start, NULL, &pref_end, NULL, NULL)) {
         /* we're passed back start,end of preferred base */
         if ((iter_data->target_addr != NULL &&
              iter_data->target_addr >= base &&
@@ -234,7 +235,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
     /* see comments in dl_iterate_get_path_cb() */
     app_pc modend;
     app_pc min_vaddr = module_vaddr_from_prog_header((app_pc)info->dlpi_phdr,
-                                                     info->dlpi_phnum, &modend);
+                                                     info->dlpi_phnum, NULL, &modend);
     app_pc modbase = info->dlpi_addr + min_vaddr;
     size_t modsize = modend - min_vaddr;
     LOG(GLOBAL, LOG_VMAREAS, 2,
@@ -257,7 +258,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
         /* Xref VSYSCALL_PAGE_START_HARDCODED but later linuxes randomize */
         char *soname;
         if (module_walk_program_headers(modbase, modsize, false,
-                                        NULL, NULL, &soname, NULL) &&
+                                        NULL, NULL, NULL, &soname, NULL) &&
             strncmp(soname, VSYSCALL_PAGE_SO_NAME,
                     strlen(VSYSCALL_PAGE_SO_NAME)) == 0) {
             ASSERT(!dynamo_initialized); /* .data should be +w */

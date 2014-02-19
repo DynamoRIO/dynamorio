@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -114,6 +114,9 @@ os_get_module_info_write_locked(void)
 
 /**************** module_area routines *****************/
 
+/* view_size can be the size of the first mapping, to handle non-contiguous
+ * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ */
 static module_area_t *
 module_area_create(app_pc base, size_t view_size, bool at_map, const char *filepath
                    _IF_UNIX(uint64 inode))
@@ -237,6 +240,9 @@ module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end)
         GET_MODULE_NAME(&ma->names), map_start, map_end);
 }
 
+/* view_size can be the size of the first mapping, to handle non-contiguous
+ * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ */
 void
 module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
                 _IF_UNIX(uint64 inode))

@@ -919,7 +919,7 @@ privload_create_os_privmod_data(privmod_t *privmod)
 
     /* walk the module's program header to get privmod information */
     module_walk_program_headers(privmod->base, privmod->size, false,
-                                &out_base, &out_end, &opd->soname,
+                                &out_base, NULL, &out_end, &opd->soname,
                                 &opd->os_data);
     module_get_os_privmod_data(privmod->base, privmod->size,
                                false/*!relocated*/, opd);

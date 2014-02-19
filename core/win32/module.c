@@ -6298,6 +6298,12 @@ os_module_has_dynamic_base(app_pc module_base)
                 nt->OptionalHeader.DllCharacteristics);
 }
 
+bool
+module_contains_pc(module_area_t *ma, app_pc pc)
+{
+    return (pc >= ma->start && pc < ma->end);
+}
+
 #ifdef CLIENT_INTERFACE
 
 /* Returns true if the next module import was read and is valid.

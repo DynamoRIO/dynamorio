@@ -120,12 +120,6 @@ static generic_table_t *native_ret_table;
 static generic_table_t *native_mbr_table;
 #define INIT_HTABLE_SIZE_NEMBR 6 /* should remain small */
 
-static bool
-module_contains_pc(module_area_t *ma, app_pc pc)
-{
-    return (pc >= ma->start && pc < ma->end);
-}
-
 /* Finds the call to _dl_fixup in _dl_runtime_resolve from ld.so.  _dl_fixup is
  * not exported, but we need to call it.  We assume that _dl_runtime_resolve is
  * straightline code until the call to _dl_fixup.

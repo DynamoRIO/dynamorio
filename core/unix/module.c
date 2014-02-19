@@ -57,6 +57,9 @@ os_modules_exit(void)
     /* nothing */
 }
 
+/* view_size can be the size of the first mapping, to handle non-contiguous
+ * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ */
 void
 os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                     bool at_map, const char *filepath, uint64 inode
@@ -68,10 +71,13 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     ASSERT(module_is_header(base, view_size));
 
     module_walk_program_headers(base, view_size, at_map,
-                                &mod_base, &mod_end, &soname, &ma->os_data);
-    if (ma->os_data.contiguous)
-        module_list_add_mapping(ma, base, base+view_size);
-    else {
+                                &mod_base, NULL, &mod_end, &soname, &ma->os_data);
+    if (ma->os_data.contiguous) {
+        app_pc map_end = ma->os_data.segments[ma->os_data.num_segments-1].end;
+        module_list_add_mapping(ma, base, map_end);
+        /* update, since may just be 1st segment size */
+        ma->end = map_end;
+    } else {
         /* Add the non-contiguous segments (i#160/PR 562667).  We could just add
          * them all separately but vmvectors are more efficient with fewer
          * entries so we merge.  We don't want general merging in our vector
@@ -97,6 +103,8 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                     ma->os_data.segments[i].prot);
             }
         });
+        /* update, to ensure view_size is 1st segment end */
+        ma->end = ma->os_data.segments[0].end;
     }
 
 #ifdef LINUX
@@ -106,10 +114,12 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
         ma->os_data.dynstr_size, ma->os_data.symentry_size); 
 #endif
 
+#ifdef LINUX /* on Mac the entire dyld shared cache has split __TEXT and __DATA */
     /* expect to map whole module */
     /* XREF 307599 on rounding module end to the next PAGE boundary */
     ASSERT_CURIOSITY(mod_end - mod_base == at_map ?
                      ALIGN_FORWARD(view_size, PAGE_SIZE) : view_size);
+#endif
 
     ma->os_data.base_address = mod_base;
     load_delta = base - mod_base;
@@ -432,12 +442,25 @@ module_add_segment_data(OUT os_module_data_t *out_data,
      * For !HAVE_MEMINFO we should combine w/ the segment
      * walk done in dl_iterate_get_areas_cb().
      */
-    if (out_data->num_segments == 0) {
+    if (out_data->num_segments + 1 >= out_data->alloc_segments) {
         /* over-allocate to avoid 2 passes to count PT_LOAD */
-        out_data->alloc_segments = (num_segments == 0 ? 4 : num_segments);
-        out_data->segments = (module_segment_t *)
+        uint newsz;
+        module_segment_t *newmem;
+        if (out_data->alloc_segments == 0)
+            newsz = (num_segments == 0 ? 4 : num_segments);
+        else
+            newsz = out_data->alloc_segments * 2;
+        newmem = (module_segment_t *)
             HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_t,
-                             out_data->alloc_segments, ACCT_OTHER, PROTECTED);
+                             newsz, ACCT_OTHER, PROTECTED);
+        if (out_data->alloc_segments > 0) {
+            memcpy(newmem, out_data->segments,
+                   out_data->alloc_segments * sizeof(*out_data->segments));
+            HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, out_data->segments, module_segment_t,
+                            out_data->alloc_segments, ACCT_OTHER, PROTECTED);
+        }
+        out_data->segments = newmem;
+        out_data->alloc_segments = newsz;
         out_data->contiguous = true;
     }
     /* Keep array sorted in addr order.  I'm assuming segments are disjoint! */
@@ -447,7 +470,7 @@ module_add_segment_data(OUT os_module_data_t *out_data,
     }
     seg = i;
     /* Shift remaining entries */
-    for (i = out_data->num_segments; i > seg; i++) {
+    for (i = out_data->num_segments; i > seg; i--) {
         out_data->segments[i] = out_data->segments[i - 1];
     }
     out_data->num_segments++;
@@ -670,4 +693,22 @@ module_file_is_module64(file_t f)
         return platform == DR_PLATFORM_64BIT;
     /* on error, assume same arch as us */
     return IF_X64_ELSE(true, false);
+}
+
+bool
+module_contains_pc(module_area_t *ma, app_pc pc)
+{
+    if (ma->os_data.contiguous)
+        return (pc >= ma->start && pc < ma->end);
+    else {
+        uint i;
+        ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
+        for (i = 0; i < ma->os_data.num_segments; i++) {
+            if (pc >= ma->os_data.segments[i].start &&
+                pc < ma->os_data.segments[i].end)
+                return true;
+        }
+
+    }
+    return false;
 }

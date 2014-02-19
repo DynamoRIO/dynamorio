@@ -130,14 +130,15 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             OUT app_pc *out_base /* relative pc */,
-                            OUT app_pc *out_end /* relative pc */,
+                            OUT app_pc *out_first_end /* relative pc */,
+                            OUT app_pc *out_max_end /* relative pc */,
                             OUT char **out_soname,
                             OUT os_module_data_t *out_data)
 {
     mach_header_t *hdr = (mach_header_t *) base;
     struct load_command *cmd, *cmd_stop;
     app_pc seg_min_start = (app_pc) POINTER_MAX;
-    app_pc seg_max_end = NULL;
+    app_pc seg_max_end = NULL, seg_first_end;
     bool found_seg = false;
     size_t linkedit_file_off = 0, linkedit_mem_off, exports_file_off = 0;
     ASSERT(is_macho_header(base, view_size));
@@ -159,6 +160,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                  */
             } else if ((app_pc)seg->vmaddr < seg_min_start) {
                 seg_min_start = (app_pc) seg->vmaddr;
+                seg_first_end = (app_pc)seg->vmaddr + seg->vmsize;
                 if (out_data != NULL) {
                     module_add_segment_data(out_data, 0/*don't know*/,
                                             (app_pc) seg->vmaddr, seg->vmsize,
@@ -199,8 +201,10 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             seg_min_start, seg_max_end);
         if (out_base != NULL)
             *out_base = seg_min_start;
-        if (out_end != NULL)
-            *out_end = seg_max_end;
+        if (out_first_end != NULL)
+            *out_first_end = seg_first_end;
+        if (out_max_end != NULL)
+            *out_max_end = seg_max_end;
         if (out_data != NULL) {
             /* FIXME i#58: we need to fill in more of out_data, like preferred
              * base.  For alignment: it's per-section, so how handle it?
@@ -468,7 +472,7 @@ get_shared_lib_name(app_pc map)
 {
     char *soname;
     if (!module_walk_program_headers(map, PAGE_SIZE/*at least*/, false,
-                                     NULL, NULL, &soname, NULL))
+                                     NULL, NULL, NULL, &soname, NULL))
         return NULL;
     return soname;
 }
@@ -478,7 +482,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
                            OUT os_privmod_data_t *pd)
 {
     pd->load_delta = 0; /* FIXME i#58: need preferred base */
-    module_walk_program_headers(base, size, false, NULL, NULL, &pd->soname, NULL);
+    module_walk_program_headers(base, size, false, NULL, NULL, NULL, &pd->soname, NULL);
     /* XXX i#1285: fill in the rest of the fields */
     return;
 }

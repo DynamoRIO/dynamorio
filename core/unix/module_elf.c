@@ -246,8 +246,8 @@ module_is_partial_map(app_pc base, size_t size, uint memprot)
      * map's size.
      */
     ASSERT(elf_hdr->e_phentsize == sizeof(ELF_PROGRAM_HEADER_TYPE));
-    first_seg_base = module_vaddr_from_prog_header(
-        base + elf_hdr->e_phoff, elf_hdr->e_phnum, &last_seg_end);
+    first_seg_base = module_vaddr_from_prog_header
+        (base + elf_hdr->e_phoff, elf_hdr->e_phnum, NULL, &last_seg_end);
 
     return last_seg_end == NULL ||
            ALIGN_FORWARD(size, PAGE_SIZE) < (last_seg_end - first_seg_base);
@@ -315,7 +315,7 @@ module_segment_prot_to_osprot(ELF_PROGRAM_HEADER_TYPE *prog_hdr)
 static void
 module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
                     app_pc mod_base,
-                    app_pc mod_end,
+                    app_pc mod_max_end,
                     app_pc base,
                     size_t view_size,
                     bool at_map,
@@ -341,7 +341,7 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
     TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
         int soname_index = -1;
         char *dynstr = NULL;
-        size_t sz = mod_end - mod_base;
+        size_t sz = mod_max_end - mod_base;
         /* i#489, DT_SONAME is optional, init soname to NULL first */
         *soname = NULL;
         while (dyn->d_tag != DT_NULL) {
@@ -425,11 +425,12 @@ module_fill_os_data(ELF_PROGRAM_HEADER_TYPE *prog_hdr, /* PT_DYNAMIC entry */
 bool
 module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                             OUT app_pc *out_base /* relative pc */,
-                            OUT app_pc *out_end /* relative pc */,
+                            OUT app_pc *out_first_end /* relative pc */,
+                            OUT app_pc *out_max_end /* relative pc */,
                             OUT char **out_soname,
                             OUT os_module_data_t *out_data)
 {
-    app_pc mod_base = (app_pc) POINTER_MAX, mod_end = (app_pc)0;
+    app_pc mod_base = NULL, first_end = NULL, max_end = NULL;
     char *soname = NULL;
     bool found_load = false;
     ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) base;
@@ -455,7 +456,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
          * out_soname, so we do a full segment walk up front
          */
         mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
-                                                 elf_hdr->e_phnum, &mod_end);
+                                                 elf_hdr->e_phnum, &first_end,
+                                                 &max_end);
         load_delta = base - mod_base;
         /* now we do our own walk */
         for (i = 0; i < elf_hdr->e_phnum; i++) {
@@ -473,19 +475,21 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             }
             if ((out_soname != NULL || out_data != NULL) &&
                 prog_hdr->p_type == PT_DYNAMIC) {
-                module_fill_os_data(prog_hdr, mod_base, mod_end,
+                module_fill_os_data(prog_hdr, mod_base, max_end,
                                     base, view_size, at_map, load_delta,
                                     &soname, out_data);
             }
         }
     }
     ASSERT_CURIOSITY(found_load && mod_base != (app_pc)POINTER_MAX &&
-                     mod_end != (app_pc)0);
-    ASSERT_CURIOSITY(mod_end > mod_base);
+                     max_end != (app_pc)0);
+    ASSERT_CURIOSITY(max_end > mod_base);
     if (out_base != NULL)
         *out_base = mod_base;
-    if (out_end != NULL)
-        *out_end = mod_end;
+    if (out_first_end != NULL)
+        *out_first_end = first_end;
+    if (out_max_end != NULL)
+        *out_max_end = max_end;
     if (out_soname != NULL)
         *out_soname = soname;
     return found_load;
@@ -507,11 +511,12 @@ module_num_program_headers(app_pc base)
  */
 app_pc
 module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
-                              OUT app_pc *out_end)
+                              OUT app_pc *out_first_end, OUT app_pc *out_max_end)
 {
     uint i;
     app_pc min_vaddr = (app_pc) POINTER_MAX;
-    app_pc mod_end = (app_pc) PTR_UINT_0;
+    app_pc max_end = (app_pc) PTR_UINT_0;
+    app_pc first_end = NULL;
     for (i = 0; i < num_segments; i++) {
         /* Without the ELF header we use sizeof instead of elf_hdr->e_phentsize
          * which must be a reliable assumption as dl_iterate_phdr() doesn't
@@ -523,13 +528,17 @@ module_vaddr_from_prog_header(app_pc prog_header, uint num_segments,
             /* ELF requires p_vaddr to already be aligned to p_align */
             min_vaddr =
                 MIN(min_vaddr, (app_pc) ALIGN_BACKWARD(prog_hdr->p_vaddr, PAGE_SIZE));
-            mod_end =
-                MAX(mod_end, (app_pc)
+            if (min_vaddr == (app_pc)prog_hdr->p_vaddr)
+                first_end = (app_pc)prog_hdr->p_vaddr + prog_hdr->p_memsz;
+            max_end =
+                MAX(max_end, (app_pc)
                     ALIGN_FORWARD(prog_hdr->p_vaddr + prog_hdr->p_memsz, PAGE_SIZE));
         }
     }
-    if (out_end != NULL)
-        *out_end = mod_end;
+    if (out_first_end != NULL)
+        *out_first_end = first_end;
+    if (out_max_end != NULL)
+        *out_max_end = max_end;
     return min_vaddr;
 }
 
@@ -882,7 +891,7 @@ module_has_text_relocs(app_pc base, bool at_map)
     ASSERT(is_elf_so_header(base, 0));
     /* walk program headers to get mod_base */
     mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
-                                             elf_hdr->e_phnum, &mod_end);
+                                             elf_hdr->e_phnum, NULL, &mod_end);
     load_delta = base - mod_base;
     /* walk program headers to get dynamic section pointer */
     prog_hdr = (ELF_PROGRAM_HEADER_TYPE *)(base + elf_hdr->e_phoff);
@@ -967,7 +976,7 @@ module_read_os_data(app_pc base,
     uint i;
     ASSERT_CURIOSITY(elf_hdr->e_phentsize == sizeof(ELF_PROGRAM_HEADER_TYPE));
     v_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
-                                           elf_hdr->e_phnum, &v_end);
+                                           elf_hdr->e_phnum, NULL, &v_end);
     *load_delta = base - v_base;
     /* now we do our own walk */
     for (i = 0; i < elf_hdr->e_phnum; i++) {
@@ -1017,7 +1026,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
 
     /* walk program headers to get mod_base mod_end and delta */
     mod_base = module_vaddr_from_prog_header(base + elf_hdr->e_phoff,
-                                             elf_hdr->e_phnum, &mod_end);
+                                             elf_hdr->e_phnum, NULL, &mod_end);
     /* delta from preferred address, used for calcuate real address */
     load_delta = base - mod_base;
     pd->load_delta = load_delta;
@@ -1159,7 +1168,7 @@ module_get_relro(app_pc base, OUT app_pc *relro_base, OUT size_t *relro_size)
     if (phdr == NULL)
         return false;
     mod_base = module_vaddr_from_prog_header(base + ehdr->e_phoff,
-                                             ehdr->e_phnum, NULL);
+                                             ehdr->e_phnum, NULL, NULL);
     load_delta = base - mod_base;
     *relro_base = (app_pc) phdr->p_vaddr + load_delta;
     *relro_size = phdr->p_memsz;
@@ -1817,7 +1826,7 @@ elf_loader_map_phdrs(elf_loader_t *elf, bool fixed, map_fn_t map_func,
         return NULL;
 
     map_base = module_vaddr_from_prog_header((app_pc)elf->phdrs,
-                                             elf->ehdr->e_phnum, &map_end);
+                                             elf->ehdr->e_phnum, NULL, &map_end);
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
     if (fixed && (get_dynamorio_dll_start() < map_end &&

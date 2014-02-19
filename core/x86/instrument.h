@@ -2648,7 +2648,9 @@ typedef struct _module_segment_data_t {
  * cast to an Elf32_Ehdr or Elf64_Ehdr. \note On Windows the start address can be cast to
  * an IMAGE_DOS_HEADER for use in finding the IMAGE_NT_HEADER and its OptionalHeader.
  * The OptionalHeader can be used to walk the module sections (among other things).
- * See WINNT.H. \note When accessing any memory inside the module (including header fields)
+ * See WINNT.H. \note on MacOS the start address can be cast to mach_header or
+ * mach_header_64.
+ * \note When accessing any memory inside the module (including header fields)
  * user is responsible for guarding against corruption and the possibility of the module
  * being unmapped.
  */
@@ -2658,9 +2660,10 @@ struct _module_data_t {
         module_handle_t handle; /**< module_handle for use with dr_get_proc_address() */
     } ; /* anonymous union of start address and module handle */
     /**
-     * Ending address of this module.  Note that on Linux the module may not
-     * be contiguous: there may be gaps containing other objects between start
-     * and end.  Use the segments array to examine each mapped region on Linux.
+     * Ending address of this module.  If the module is not contiguous
+     * (which is common on MacOS, and can happen on Linux), this is instead
+     * the end address of the first segment of the module.
+     * Use the segments array to examine each mapped region.
      */
     app_pc end;
 
