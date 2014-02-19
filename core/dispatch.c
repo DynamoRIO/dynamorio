@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1672,7 +1672,7 @@ handle_system_call(dcontext_t *dcontext)
     get_mcontext(dcontext)->xip = get_fcache_target(dcontext);
     /* i#202: ignore native syscalls in early_inject_init() */
     if (IF_WINDOWS(dynamo_initialized &&)
-        !instrument_pre_syscall(dcontext, (int) mc->xax)) {
+        !instrument_pre_syscall(dcontext, os_normalized_sysnum(mc))) {
         /* we won't execute post-syscall so we do not need to store
          * dcontext->sys_*
          */

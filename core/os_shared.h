@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -228,6 +228,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags);
 
 bool pre_system_call(dcontext_t *dcontext);
 void post_system_call(dcontext_t *dcontext);
+int os_normalized_sysnum(priv_mcontext_t *mc);
 
 char *get_application_pid(void);
 char *get_application_name(void);

@@ -2415,6 +2415,12 @@ presys_OpenFile(dcontext_t *dcontext, reg_t *param_base)
 }
 #endif
 
+int
+os_normalized_sysnum(priv_mcontext_t *mc)
+{
+    return (int) mc->xax;
+}
+
 /* WARNING: flush_fragments_and_remove_region assumes that pre and post system
  * call handlers do not examine or modify fcache or its fragments in any
  * way except for calling flush_fragments_and_remove_region!

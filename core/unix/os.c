@@ -3966,6 +3966,12 @@ normalize_sysnum(reg_t xax)
 #endif
 }
 
+int
+os_normalized_sysnum(priv_mcontext_t *mc)
+{
+    return normalize_sysnum(mc->xax);
+}
+
 bool
 ignorable_system_call(int num_raw)
 {
