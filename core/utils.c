@@ -2070,9 +2070,9 @@ under_internal_exception()
 #  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x00000000"
 # endif
 #endif
-#define REPORT_EXCEPTION_SKIP_PREFIX (sizeof(EXCEPTION_PREFIX) - 1/*NULL*/ -1/*include newline!*/)
+#define REPORT_EXCEPTION_SKIP_PREFIX (sizeof(EXCEPTION_PREFIX) - 1/*NULL*/)
 #define REPORT_CLIENT_EXCEPTION_SKIP_PREFIX \
-    (sizeof(CLIENT_EXCEPTION_PREFIX) - 1/*NULL*/ -1/*include newline!*/)
+    (sizeof(CLIENT_EXCEPTION_PREFIX) - 1/*NULL*/)
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
  * If dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION, does a full SYSLOG;
