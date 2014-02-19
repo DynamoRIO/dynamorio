@@ -274,7 +274,7 @@ ASSUME fs:_DATA @N@\
 /* we split these out just to avoid nop lea for x86 mac */
 # define STACK_PAD_ZERO STACK_PAD_LE4(0, 4)
 # define STACK_UNPAD_ZERO STACK_UNPAD_LE4(0, 4)
-# define SETARG(argnum, argreg, p) \
+# define SETARG(argoffs, argreg, p) \
         mov      argreg, p
 #else
 # define PUSHF   pushfd
@@ -292,8 +292,8 @@ ASSUME fs:_DATA @N@\
 #  define STACK_PAD_ZERO /* nothing */
 #  define STACK_UNPAD_ZERO /* nothing */
 /* p cannot be a memory operand, naturally */
-#  define SETARG(argnum, argreg, p) \
-        mov      PTRSZ [ARG_SZ*argnum + REG_XSP], p
+#  define SETARG(argoffs, argreg, p) \
+        mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
 # else
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_UNPAD(tot, gt4, mod4) \
@@ -305,7 +305,7 @@ ASSUME fs:_DATA @N@\
 /* SETARG usage is order-dependent on 32-bit.  we could avoid that
  * by having STACK_PAD allocate the stack space and do a mov here.
  */
-#  define SETARG(argnum, argreg, p) \
+#  define SETARG(argoffs, argreg, p) \
         push     p
 # endif
 #endif /* !X64 */
@@ -325,42 +325,42 @@ ASSUME fs:_DATA @N@\
         STACK_UNPAD_LE4(1, 1)
 #define CALLC2(callee, p1, p2)    \
         STACK_PAD_LE4(2, 2)    @N@\
-        SETARG(0, ARG2, p2)    @N@\
-        SETARG(1, ARG1, p1)    @N@\
+        SETARG(1, ARG2, p2)    @N@\
+        SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 2)
 #define CALLC3(callee, p1, p2, p3)    \
         STACK_PAD_LE4(3, 3)        @N@\
-        SETARG(0, ARG3, p3)        @N@\
+        SETARG(2, ARG3, p3)        @N@\
         SETARG(1, ARG2, p2)        @N@\
-        SETARG(2, ARG1, p1)        @N@\
+        SETARG(0, ARG1, p1)        @N@\
         call     callee            @N@\
         STACK_UNPAD_LE4(3, 3)
 #define CALLC4(callee, p1, p2, p3, p4)    \
         STACK_PAD_LE4(4, 4)            @N@\
-        SETARG(0, ARG4, p4)            @N@\
-        SETARG(1, ARG3, p3)            @N@\
-        SETARG(2, ARG2, p2)            @N@\
-        SETARG(3, ARG1, p1)            @N@\
+        SETARG(3, ARG4, p4)            @N@\
+        SETARG(2, ARG3, p3)            @N@\
+        SETARG(1, ARG2, p2)            @N@\
+        SETARG(0, ARG1, p1)            @N@\
         call     callee                @N@\
         STACK_UNPAD_LE4(4, 4)
 #define CALLC5(callee, p1, p2, p3, p4, p5)    \
         STACK_PAD(5, 1, 1)                 @N@\
-        SETARG(0, ARG5_NORETADDR, p5)      @N@\
-        SETARG(1, ARG4, p4)                @N@\
+        SETARG(4, ARG5_NORETADDR, p5)      @N@\
+        SETARG(3, ARG4, p4)                @N@\
         SETARG(2, ARG3, p3)                @N@\
-        SETARG(3, ARG2, p2)                @N@\
-        SETARG(4, ARG1, p1)                @N@\
+        SETARG(1, ARG2, p2)                @N@\
+        SETARG(0, ARG1, p1)                @N@\
         call     callee                    @N@\
         STACK_UNPAD(5, 1, 1)
 #define CALLC6(callee, p1, p2, p3, p4, p5, p6)\
         STACK_PAD(6, 2, 2)                 @N@\
-        SETARG(0, ARG6_NORETADDR, p6)      @N@\
-        SETARG(1, ARG5_NORETADDR, p5)      @N@\
-        SETARG(2, ARG4, p4)                @N@\
-        SETARG(3, ARG3, p3)                @N@\
-        SETARG(4, ARG2, p2)                @N@\
-        SETARG(5, ARG1, p1)                @N@\
+        SETARG(5, ARG6_NORETADDR, p6)      @N@\
+        SETARG(4, ARG5_NORETADDR, p5)      @N@\
+        SETARG(3, ARG4, p4)                @N@\
+        SETARG(2, ARG3, p3)                @N@\
+        SETARG(1, ARG2, p2)                @N@\
+        SETARG(0, ARG1, p1)                @N@\
         call     callee                    @N@\
         STACK_UNPAD(6, 2, 2)
 
@@ -376,8 +376,8 @@ ASSUME fs:_DATA @N@\
         STACK_UNPAD_LE4(1, 2)
 #define CALLC2_FRESH(callee, p1, p2) \
         STACK_PAD_LE4(2, 3)    @N@\
-        SETARG(0, ARG2, p2)    @N@\
-        SETARG(1, ARG1, p1)    @N@\
+        SETARG(1, ARG2, p2)    @N@\
+        SETARG(0, ARG1, p1)    @N@\
         call     callee        @N@\
         STACK_UNPAD_LE4(2, 3)
 
@@ -396,7 +396,7 @@ ASSUME fs:_DATA @N@\
         call     callee
 # define CALLWIN2(callee, p1, p2)    \
         STACK_PAD_LE4(2, 2)       @N@\
-        SETARG(0, ARG2, p2)       @N@\
+        SETARG(1, ARG2, p2)       @N@\
         SETARG(0, ARG1, p1)       @N@\
         call     callee
 #endif
