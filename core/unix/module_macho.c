@@ -54,6 +54,7 @@
 #include <mach-o/loader.h> /* mach_header */
 #include <mach-o/dyld_images.h>
 #include <mach/thread_status.h> /* i386_thread_state_t */
+#include <mach-o/nlist.h>
 #include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
 #include <string.h> /* strcmp */
@@ -71,9 +72,11 @@
 #ifdef X64
 typedef struct mach_header_64 mach_header_t;
 typedef struct segment_command_64 segment_command_t;
+typedef struct nlist_64 nlist_t;
 #else
 typedef struct mach_header mach_header_t;
 typedef struct segment_command segment_command_t;
+typedef struct nlist nlist_t;
 #endif
 
 /* Like is_elf_so_header(), if size == 0 then safe-reads the header; else
@@ -198,6 +201,10 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
     }
     if (found_seg) {
         ptr_int_t load_delta = base - seg_min_start;
+        ptr_int_t linkedit_delta = 0;
+        if (linkedit_file_off > 0) {
+            linkedit_delta = ((ssize_t)linkedit_mem_off - linkedit_file_off);
+        }
         LOG(GLOBAL, LOG_VMAREAS, 4, "%s: bounds "PFX"-"PFX"\n", __FUNCTION__,
             seg_min_start, seg_max_end);
         if (out_base != NULL)
@@ -233,6 +240,15 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                              have_shared && seg_start >= shared_start &&
                              seg_start + seg->vmsize < shared_end);
                     }
+                } else if (cmd->cmd == LC_SYMTAB) {
+                    /* even if stripped, dynamic symbols are in this table */
+                    struct symtab_command *symtab = (struct symtab_command *) cmd;
+                    out_data->symtab = (app_pc) symtab->symoff + load_delta +
+                        linkedit_delta;
+                    out_data->num_syms = symtab->nsyms;
+                    out_data->strtab = (app_pc) symtab->stroff + load_delta +
+                        linkedit_delta;
+                    out_data->strtab_sz = symtab->strsize;
                 }
                 cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
             }
@@ -241,9 +257,9 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
              */
             out_data->base_address = seg_min_start;
             out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
-            if (linkedit_file_off > 0) {
+            if (linkedit_file_off > 0 && exports_file_off > 0) {
                 out_data->exports = (app_pc) load_delta + exports_file_off +
-                    ((ssize_t)linkedit_mem_off - linkedit_file_off);
+                    linkedit_delta;
             } else
                 out_data->exports = NULL;
         }
@@ -339,6 +355,10 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
 {
     /* Walk the Mach-O export trie.  We don't support < 10.6 which is when
      * they put this scheme in place.
+     * XXX: should we go ahead and look in symtab if we don't find it in
+     * the trie?  That could include internal symbols too.  Plus our
+     * current lookup_in_symtab() is a linear walk.  Xref drsyms which sorts
+     * it and does a binary search.
      */
     app_pc res = NULL;
     ptr_uint_t node_sz, node_offs;
@@ -564,14 +584,54 @@ module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT)
     return true;
 }
 
+/* Brute force linear walk lookup */
+static app_pc
+lookup_in_symtab(app_pc lib_base, const char *symbol)
+{
+    app_pc res = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup(lib_base);
+    if (ma != NULL) {
+        uint i;
+        for (i = 0; i < ma->os_data.num_syms; i++) {
+            nlist_t *sym = ((nlist_t *)(ma->os_data.symtab)) + i;
+            const char *name;
+            if (sym->n_un.n_strx > 0 && sym->n_un.n_strx < ma->os_data.strtab_sz &&
+                sym->n_value > 0) {
+                name = (const char *)ma->os_data.strtab + sym->n_un.n_strx;
+                if (name[0] == '_')
+                    name++;
+                LOG(GLOBAL, LOG_SYMBOLS, 5, "\tsym %d = %s\n", i, name);
+                if (strcmp(name, symbol) == 0) {
+                    res = (app_pc)(sym->n_value + ma->start - ma->os_data.base_address);
+                    break;
+                }
+            }
+        }
+    }
+    os_get_module_info_unlock();
+    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, symbol, res);
+    return res;
+}
+
 void
 module_walk_dyld_list(app_pc dyld_base)
 {
-    uint i, offs;
+    uint i;
     struct dyld_all_image_infos *dyinfo;
-    /* We only support OSX 10.6+ so we can use this offset */
-    offs = *(uint *)(dyld_base + DYLD_ALL_IMAGE_INFOS_OFFSET_OFFSET);
-    dyinfo = (struct dyld_all_image_infos *)(dyld_base + offs);
+    /* The DYLD_ALL_IMAGE_INFOS_OFFSET_OFFSET added in 10.6 seems to not
+     * exist in 10.9 anymore so we do not use it.  Instead we directly
+     * look up "dyld_all_image_infos".  Unfortunately dyld has no exports
+     * trie and so we must walk the symbol table.
+     */
+    dyinfo = (struct dyld_all_image_infos *)
+        lookup_in_symtab(dyld_base, "dyld_all_image_infos");
+    /* We rely on this -- so until Mac support is more solid let's assert */
+    if (dyinfo == NULL || !is_readable_without_exception((byte *)dyinfo, PAGE_SIZE)) {
+        SYSLOG_INTERNAL_WARNING("failed to walk dyld shared cache libraries");
+        return;
+    }
     LOG(GLOBAL, LOG_VMAREAS, 2,
         "Walking %d modules in dyld module list\n", dyinfo->infoArrayCount);
     for (i = 0; i < dyinfo->infoArrayCount; i++) {

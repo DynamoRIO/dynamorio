@@ -87,6 +87,10 @@ typedef struct _os_module_data_t {
 #else /* MACOS */
     byte *exports;        /* absolute addr of exports trie */
     size_t exports_sz;    /* size of exports trie */
+    byte *symtab;
+    uint num_syms;
+    byte *strtab;
+    size_t strtab_sz;
 #endif
 
     /* i#160/PR 562667: support non-contiguous library mappings */
