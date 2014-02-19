@@ -3464,6 +3464,16 @@ master_signal_handler_C(byte *xsp)
 #endif
     dcontext_t *dcontext = get_thread_private_dcontext();
 
+#ifdef MACOS
+# ifdef X64
+    ASSERT((YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT_AVX64)) ||
+           (!YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT64)));
+# else
+    ASSERT((YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT_AVX32)) ||
+           (!YMM_ENABLED() && ucxt->uc_mcsize == sizeof(_STRUCT_MCONTEXT)));
+# endif
+#endif
+
     /* i#350: To support safe_read or TRY_EXCEPT without a dcontext, use the
      * global dcontext
      * when handling safe_read faults.  This lets us pass the check for a

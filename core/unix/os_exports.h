@@ -255,10 +255,13 @@ bool is_currently_on_sigaltstack(dcontext_t *dcontext);
 
 #ifdef MACOS
 /* mcontext_t is a pointer and we want the real thing */
+/* We need room for avx.  If we end up with !YMM_ENABLED() we'll just end
+ * up wasting some space in synched thread allocations.
+ */
 #  ifdef X64
-typedef _STRUCT_MCONTEXT64 sigcontext_t; /* == __darwin_mcontext_avx64 */
+typedef _STRUCT_MCONTEXT_AVX64 sigcontext_t; /* == __darwin_mcontext_avx64 */
 #  else
-typedef _STRUCT_MCONTEXT sigcontext_t; /* == __darwin_mcontext_avx32 */
+typedef _STRUCT_MCONTEXT_AVX32 sigcontext_t; /* == __darwin_mcontext_avx32 */
 #  endif
 #else
 typedef struct sigcontext sigcontext_t;

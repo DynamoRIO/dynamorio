@@ -149,13 +149,32 @@ save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
 void
 sigcontext_to_mcontext_mm(priv_mcontext_t *mc, sigcontext_t *sc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: MacOS signal handling NYI */
+    /* We assume that _STRUCT_X86_FLOAT_STATE* matches exactly the first
+     * half of _STRUCT_X86_AVX_STATE*.
+     */
+    int i;
+    for (i=0; i<NUM_XMM_SLOTS; i++) {
+        memcpy(&mc->ymm[i], &sc->__fs.__fpu_xmm0 + i, XMM_REG_SIZE);
+    }
+    if (YMM_ENABLED()) {
+        for (i=0; i<NUM_XMM_SLOTS; i++) {
+            memcpy(&mc->ymm[i].u32[4], &sc->__fs.__fpu_ymmh0 + i, YMMH_REG_SIZE);
+        }
+    }
 }
 
 void
 mcontext_to_sigcontext_mm(sigcontext_t *sc, priv_mcontext_t *mc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: MacOS signal handling NYI */
+    int i;
+    for (i=0; i<NUM_XMM_SLOTS; i++) {
+        memcpy(&sc->__fs.__fpu_xmm0 + i, &mc->ymm[i], XMM_REG_SIZE);
+    }
+    if (YMM_ENABLED()) {
+        for (i=0; i<NUM_XMM_SLOTS; i++) {
+            memcpy(&sc->__fs.__fpu_ymmh0 + i, &mc->ymm[i].u32[4], YMMH_REG_SIZE);
+        }
+    }
 }
 
 void

@@ -127,10 +127,10 @@ typedef struct {
 #elif defined(MACOS)
 #  ifdef X64
 typedef _STRUCT_UCONTEXT64 /* == __darwin_ucontext64 */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((ucxt)->uc_mcontext64)
+#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext64))
 #  else
 typedef _STRUCT_UCONTEXT /* == __darwin_ucontext */ kernel_ucontext_t;
-#    define SIGCXT_FROM_UCXT(ucxt) ((ucxt)->uc_mcontext)
+#    define SIGCXT_FROM_UCXT(ucxt) ((sigcontext_t*)((ucxt)->uc_mcontext))
 #  endif
 #  define SIGMASK_FROM_UCXT(ucxt) ((kernel_sigset_t*)&((ucxt)->uc_sigmask))
 #endif
