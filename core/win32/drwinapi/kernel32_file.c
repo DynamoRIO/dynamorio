@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -1055,12 +1055,17 @@ redirect_MapViewOfFileEx(
     /* Easiest to deal w/ our bitmasks and then convert: */
     if (TESTANY(FILE_MAP_READ|FILE_MAP_WRITE|FILE_MAP_COPY, dwDesiredAccess))
         prot |= MEMPROT_READ;
-    if (TEST(FILE_MAP_WRITE, dwDesiredAccess))
+    /* I checked: despite the docs talking about FILE_MAP_COPY working with
+     * read-only file mapping objects, it does end up as PAGE_WRITECOPY.
+     */
+    if (TESTANY(FILE_MAP_WRITE|FILE_MAP_COPY, dwDesiredAccess))
         prot |= FILE_MAP_WRITE;
     if (TEST(FILE_MAP_EXECUTE, dwDesiredAccess))
         prot |= MEMPROT_EXEC;
     prot = memprot_to_osprot(prot);
-    if (TEST(FILE_MAP_COPY, dwDesiredAccess))
+    if (TEST(FILE_MAP_COPY, dwDesiredAccess) &&
+        /* i#1368: not a true bitmask! */
+        dwDesiredAccess != FILE_MAP_ALL_ACCESS)
         prot = osprot_add_writecopy(prot);
 
     res = nt_raw_MapViewOfSection(hFileMappingObject, NT_CURRENT_PROCESS, &map,
@@ -2152,6 +2157,8 @@ test_file_mapping(void)
     HANDLE h, h2;
     BOOL ok;
     PVOID p;
+    MEMORY_BASIC_INFORMATION mbi;
+    SIZE_T sz;
     int res;
     char env[MAX_PATH];
     char buf[MAX_PATH];
@@ -2178,6 +2185,25 @@ test_file_mapping(void)
     *(int *)p = 42; /* test writing: shouldn't crash */
     ok = redirect_UnmapViewOfFile(p);
     EXPECT(ok, true);
+
+    /* i#1368: ensure FILE_MAP_ALL_ACCESS does not include COW */
+    p = redirect_MapViewOfFileEx(h, FILE_MAP_ALL_ACCESS, 0, 0, 0x1000, NULL);
+    EXPECT(p != NULL, true);
+    sz = redirect_VirtualQuery(p, &mbi, sizeof(mbi));
+    EXPECT(sz == sizeof(mbi), true);
+    EXPECT(mbi.AllocationProtect == PAGE_READWRITE, true);
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+
+    /* i#1368: ensure FILE_MAP_COPY does include COW */
+    p = redirect_MapViewOfFileEx(h, FILE_MAP_COPY, 0, 0, 0x1000, NULL);
+    EXPECT(p != NULL, true);
+    sz = redirect_VirtualQuery(p, &mbi, sizeof(mbi));
+    EXPECT(sz == sizeof(mbi), true);
+    EXPECT(mbi.AllocationProtect == PAGE_WRITECOPY, true);
+    ok = redirect_UnmapViewOfFile(p);
+    EXPECT(ok, true);
+
     ok = redirect_CloseHandle(h);
     EXPECT(ok, true);
 
