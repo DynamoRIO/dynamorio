@@ -1040,6 +1040,10 @@ DR_API
  * platforms.  On Linux, for SYS_clone, client changes to the ebp/rbp
  * register will be ignored by the clone child.
  * 
+ * The system call number passed (\p sysnum) has been normalized: i.e.,
+ * any encoding to indicate which type of system call has been removed.
+ * Access the raw eax register to view the unmodified number.
+ *
  * If \p func returns true, the application's system call is invoked
  * normally; if \p func returns false, the system call is skipped.  If
  * it is skipped, the return value can be set with
@@ -1080,6 +1084,10 @@ DR_API
  * The application's machine state can be accessed and set with
  * dr_get_mcontext() and dr_set_mcontext().
  * 
+ * The system call number passed (\p sysnum) has been normalized: i.e.,
+ * any encoding to indicate which type of system call has been removed.
+ * Access the raw eax register to view the unmodified number.
+ *
  * Additional system calls may be invoked by calling
  * dr_syscall_invoke_another() prior to returning from the
  * post-syscall event callback.  The system call to be invoked should
