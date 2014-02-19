@@ -1449,8 +1449,13 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
 #else
 # ifdef MACOS
         /* we assume we don't need to align the stack (tricky to do so) */
-# endif
+        /* XXX: should we target _sigtramp instead?  Some callers aren't
+         * on a signal frame though.
+         */
+        mov      eax, HEX(b8)
+# else
         mov      eax, HEX(ad)
+# endif
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 #endif
@@ -1571,7 +1576,11 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
 #ifdef X64
-        mov      ARG4, REG_XSP /* pass as 4th arg */
+# ifdef LINUX
+        mov      ARG4, REG_XSP /* pass as extra arg */
+# else
+        mov      ARG6, REG_XSP /* pass as extra arg */
+# endif
         jmp      GLOBAL_REF(master_signal_handler_C)
         /* master_signal_handler_C will do the ret */
 #else
@@ -1580,7 +1589,15 @@ GLOBAL_LABEL(master_signal_handler:)
          */
         mov      REG_XAX, REG_XSP
         CALLC1_FRESH(GLOBAL_REF(master_signal_handler_C), REG_XAX)
+# ifdef MACOS
+        mov      eax, ARG5 /* ucxt */
+        /* Set up args to SYS_sigreturn, skipping the retaddr slot */
+        mov      edx, ARG2 /* style */
+        CALLC2_FRESH(GLOBAL_REF(dynamorio_sigreturn), eax, edx)
+        jmp      GLOBAL_REF(unexpected_return)
+# else
         ret
+# endif
 #endif
         END_FUNC(master_signal_handler)
 

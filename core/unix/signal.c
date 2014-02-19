@@ -80,6 +80,7 @@
 #include "../nudge.h"
 #include "disassemble.h"
 #include "ksynch.h"
+#include "tls.h" /* tls_reinstate_selector */
 
 #ifdef LINUX
 # include "include/syscall.h"
@@ -275,7 +276,7 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info);
 static inline int
 sigaction_syscall(int sig, kernel_sigaction_t *act, kernel_sigaction_t *oact)
 {
-#if defined(X64) && !defined(VMX86_SERVER)
+#if defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
     /* PR 305020: must have SA_RESTORER for x64 */
     if (act != NULL && !TEST(SA_RESTORER, act->flags)) {
         act->flags |= SA_RESTORER;
@@ -1110,13 +1111,17 @@ static void
 set_our_handler_sigact(kernel_sigaction_t *act, int sig)
 {
     act->handler = (handler_t) master_signal_handler;
+#ifdef MACOS
+    /* This is the real target */
+    act->tramp = (tramp_t) master_signal_handler;
+#endif
 
     act->flags = SA_SIGINFO; /* send 3 args to handler */
 #ifdef HAVE_SIGALTSTACK
     act->flags |= SA_ONSTACK; /* use our sigstack */
 #endif
 
-#if defined(X64) && !defined(VMX86_SERVER)
+#if defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
     /* PR 305020: must have SA_RESTORER for x64 */
     act->flags |= SA_RESTORER;
     act->restorer = (void (*)(void)) dynamorio_sigreturn;
@@ -1333,8 +1338,9 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             handler_free(dcontext, info->app_sigaction[sig], sizeof(kernel_sigaction_t));
         }
         info->app_sigaction[sig] = save;
-        LOG(THREAD, LOG_ASYNCH, 3, "\tflags = "PFX", restorer = "PFX"\n",
-            act->flags, act->restorer);
+        LOG(THREAD, LOG_ASYNCH, 3, "\tflags = "PFX", %s = "PFX"\n",
+            act->flags, IF_MACOS_ELSE("tramp","restorer"),
+            IF_MACOS_ELSE(act->tramp, act->restorer));
         /* clear cache */
         info->restorer_valid[sig] = -1;
         if (info->shared_app_sigaction)
@@ -3415,9 +3421,15 @@ is_safe_read_ucxt(kernel_ucontext_t *ucxt)
  */
 #ifdef X64
 /* stub in x86.asm passes our xsp to us */
+# ifdef MACOS
+void
+master_signal_handler_C(handler_t handler, int style, int sig, siginfo_t *info,
+                        kernel_ucontext_t *ucxt, byte *xsp)
+# else
 void
 master_signal_handler_C(int sig, siginfo_t *siginfo, kernel_ucontext_t *ucxt,
                         byte *xsp)
+# endif
 #else
 /* On ia32, adding a parameter disturbs the frame we're trying to capture, so we
  * add an intermediate frame and read the normal params off the stack directly.
@@ -3433,11 +3445,9 @@ master_signal_handler_C(byte *xsp)
     siginfo_t *siginfo = frame->pinfo;
     kernel_ucontext_t *ucxt = frame->puc;
 #endif /* !X64 */
+    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
 #ifdef DEBUG
     uint level = 2;
-# ifdef INTERNAL
-    sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
-# endif
 # if !defined(HAVE_MEMINFO)
     /* avoid logging every single TRY probe fault */
     if (!dynamo_initialized)
@@ -3445,6 +3455,13 @@ master_signal_handler_C(byte *xsp)
 # endif
 #endif
     bool local;
+#if defined(MACOS) && !defined(X64)
+    /* The kernel clears fs, so we have to re-instate our selector, if
+     * it was set in the first place.
+     */
+    if (sc->__ss.__fs != 0)
+        tls_reinstate_selector(sc->__ss.__fs);
+#endif
     dcontext_t *dcontext = get_thread_private_dcontext();
 
     /* i#350: To support safe_read or TRY_EXCEPT without a dcontext, use the
@@ -3488,7 +3505,6 @@ master_signal_handler_C(byte *xsp)
             /* We sent SUSPEND_SIGNAL to a thread we don't control (no
              * dcontext), which means we want to take over.
              */
-            sigcontext_t *sc = SIGCXT_FROM_UCXT(ucxt);
             sig_take_over(sc);  /* no return */
             ASSERT_NOT_REACHED();
         } else {
@@ -3527,8 +3543,7 @@ master_signal_handler_C(byte *xsp)
         siginfo->si_code);
     DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
-#ifndef X64
-# ifndef VMX86_SERVER
+#if !defined(X64) && !defined(VMX86_SERVER) && defined(LINUX)
     /* FIXME case 6700: 2.6.9 (FC3) kernel sets up our frame with a pretcode
      * of 0x440.  This happens if our restorer is unspecified (though 2.6.9
      * src code shows setting the restorer to a default value in that case...)
@@ -3539,7 +3554,6 @@ master_signal_handler_C(byte *xsp)
      * vmkernel's non-standard sigreturn semantics.  PR 404712.
      */
     *((byte **)xsp) = (byte *) dynamorio_sigreturn;
-# endif
 #endif
 
     /* N.B.:

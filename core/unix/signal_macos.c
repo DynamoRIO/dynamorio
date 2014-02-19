@@ -161,7 +161,42 @@ mcontext_to_sigcontext_mm(sigcontext_t *sc, priv_mcontext_t *mc)
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: MacOS signal handling NYI */
+    LOG(THREAD, LOG_ASYNCH, 1, "\txdi="PFX"\n", sc->SC_XDI);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txsi="PFX"\n", sc->SC_XSI);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txbp="PFX"\n", sc->SC_XBP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txsp="PFX"\n", sc->SC_XSP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txbx="PFX"\n", sc->SC_XBX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txdx="PFX"\n", sc->SC_XDX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txcx="PFX"\n", sc->SC_XCX);
+    LOG(THREAD, LOG_ASYNCH, 1, "\txax="PFX"\n", sc->SC_XAX);
+#ifdef X64
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r8="PFX"\n", sc->r8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\t r9="PFX"\n", sc->r8);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr10="PFX"\n", sc->r10);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr11="PFX"\n", sc->r11);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr12="PFX"\n", sc->r12);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr13="PFX"\n", sc->r13);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr14="PFX"\n", sc->r14);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tr15="PFX"\n", sc->r15);
+#endif
+
+    LOG(THREAD, LOG_ASYNCH, 1, "\txip="PFX"\n", sc->SC_XIP);
+    LOG(THREAD, LOG_ASYNCH, 1, "\teflags="PFX"\n", sc->SC_XFLAGS);
+
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcs=0x%04x\n", sc->__ss.__cs);
+#ifndef X64
+    LOG(THREAD, LOG_ASYNCH, 1, "\tds=0x%04x\n", sc->__ss.__ds);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tes=0x%04x\n", sc->__ss.__es);
+#endif
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfs=0x%04x\n", sc->__ss.__fs);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tgs=0x%04x\n", sc->__ss.__gs);
+
+    LOG(THREAD, LOG_ASYNCH, 1, "\ttrapno=0x%04x\n", sc->__es.__trapno);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tcpu=0x%04x\n", sc->__es.__cpu);
+    LOG(THREAD, LOG_ASYNCH, 1, "\terr=0x%08x\n", sc->__es.__err);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr="PFX"\n", sc->__es.__faultvaddr);
+
+    /* FIXME i#58: MacOS signal handling fault/multimedia state NYI */
 }
 
 /* XXX i#1286: move to nudge_macos.c once we implement that */

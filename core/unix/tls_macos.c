@@ -115,6 +115,16 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 #endif
 }
 
+#ifndef X64
+/* The kernel clears fs in signal handlers, so we have to re-instate our selector */
+void
+tls_reinstate_selector(uint selector)
+{
+    ASSERT(selector == TLS_DR_SELECTOR);
+    WRITE_DR_SEG(selector); /* macro needs lvalue! */
+}
+#endif
+
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,6 +63,10 @@
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, siginfo_t *, void *);
 
+#ifdef MACOS
+typedef void (*tramp_t)(handler_t, int, int, siginfo_t *, void *);
+#endif
+
 /* default actions */
 enum {
     DEFAULT_TERMINATE,
@@ -99,7 +103,7 @@ struct _kernel_sigaction_t {
     kernel_sigset_t mask;
 #elif defined(MACOS)
     /* this is struct __sigaction in sys/signal.h */
-    void (*restorer)(void);
+    tramp_t tramp;
     kernel_sigset_t mask;
     int flags;
 #endif
@@ -207,6 +211,10 @@ typedef struct rt_sigframe {
     int sig;
     siginfo_t *pinfo;
     struct __darwin_ucontext *puc; /* "struct user_ucontext32 *" to kernel */
+    /* The kernel places padding here to align to 16 and then subtract one slot
+     * for retaddr post-call alignment, so don't access these subsequent fields
+     * directly if given a frame from the kernel!
+     */
     struct __darwin_mcontext_avx32 mc; /* "struct mcontext_avx32" to kernel */
     siginfo_t info; /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext uc; /* "struct user_ucontext32" to kernel */

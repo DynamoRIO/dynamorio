@@ -230,4 +230,9 @@ void
 tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base);
 #endif
 
+#if defined(MACOS) && !defined(X64)
+void
+tls_reinstate_selector(uint selector);
+#endif
+
 #endif /* _OS_TLS_H_ */
