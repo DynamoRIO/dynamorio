@@ -7022,6 +7022,10 @@ int
 find_executable_vm_areas(void)
 {
     int count = 0;
+#ifdef MACOS
+    app_pc shared_start, shared_end;
+    bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
+#endif
 
 #ifndef HAVE_MEMINFO_QUERY
     /* We avoid tracking the innards of vmheap for all_memory_areas by
@@ -7081,6 +7085,15 @@ find_executable_vm_areas(void)
             /* i#479, hide private module and match Windows's behavior */
             LOG(GLOBAL, LOG_VMAREAS, 2, PFX"-"PFX" skipping: internal DR region\n",
                 iter.vm_start, iter.vm_end);            
+#ifdef MACOS
+        } else if (have_shared && iter.vm_start >= shared_start &&
+                   iter.vm_start < shared_end) {
+            /* Skip modules we happen to find inside the dyld shared cache,
+             * as we'll fail to identify the library.  We add them
+             * in module_walk_dyld_list instead.
+             */
+            image = true;
+#endif
         } else if (strncmp(iter.comment, VSYSCALL_PAGE_MAPS_NAME,
                     strlen(VSYSCALL_PAGE_MAPS_NAME)) == 0
             IF_X64_ELSE(|| strncmp(iter.comment, VSYSCALL_REGION_MAPS_NAME,
@@ -7166,12 +7179,17 @@ find_executable_vm_areas(void)
                     "Found executable %s @"PFX"-"PFX" %s\n", get_application_name(),
                     iter.vm_start, iter.vm_start+image_size, iter.comment);
             }
-
             /* We don't yet know whether contiguous so we have to settle for the
              * first segment's size.  We'll update it in module_list_add().
              */
             module_list_add(iter.vm_start, mod_first_end - mod_base,
                             false, iter.comment, iter.inode);
+
+#ifdef MACOS
+            /* look for dyld */
+            if (strcmp(iter.comment, "/usr/lib/dyld") == 0)
+                module_walk_dyld_list(iter.vm_start);
+#endif
         } else if (iter.inode != 0) {
             DODEBUG({ map_type = "Mapped File"; });
         }

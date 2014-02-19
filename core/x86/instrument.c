@@ -1612,10 +1612,14 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
 #else
                                   , bool contiguous,
                                   uint num_segments,
+                                  module_segment_t *os_segments,
                                   module_segment_data_t *segments
 #endif
                                   )
 {
+#ifndef WINDOWS
+    uint i;
+#endif
     module_data_t *copy = (module_data_t *)
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_data_t, ACCT_CLIENT, UNPROTECTED);
     memset(copy, 0, sizeof(module_data_t));
@@ -1648,7 +1652,14 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
     copy->segments = (module_segment_data_t *)
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_segment_data_t,
                          num_segments, ACCT_VMAREAS, PROTECTED);
-    memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
+    if (os_segments != NULL) {
+        for (i = 0; i < num_segments; i++) {
+            copy->segments[i].start = os_segments[i].start;
+            copy->segments[i].end = os_segments[i].end;
+            copy->segments[i].prot = os_segments[i].prot;
+        }
+    } else
+        memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
 #endif
     return copy;
 }
@@ -1659,9 +1670,6 @@ copy_module_area_to_module_data(const module_area_t *area)
     if (area == NULL)
         return NULL;
 
-#ifdef UNIX
-    ASSERT(sizeof(module_segment_data_t) == sizeof(module_segment_t));
-#endif
     return create_and_initialize_module_data(area->start, area->end, area->entry_point,
                                              0, &area->names, area->full_path
 #ifdef WINDOWS
@@ -1673,8 +1681,8 @@ copy_module_area_to_module_data(const module_area_t *area)
 #else
                                              , area->os_data.contiguous,
                                              area->os_data.num_segments,
-                                             (module_segment_data_t *)
-                                             area->os_data.segments
+                                             area->os_data.segments,
+                                             NULL
 #endif
                                              );
 }
@@ -1699,6 +1707,7 @@ dr_copy_module_data(const module_data_t *data)
 #else
                                              , data->contiguous,
                                              data->num_segments,
+                                             NULL,
                                              data->segments
 #endif
                                              );

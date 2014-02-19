@@ -47,6 +47,7 @@ typedef struct _module_segment_t {
     app_pc start;
     app_pc end;
     uint prot;
+    bool shared; /* not unique to this module */
 } module_segment_t;
 
 typedef struct _os_module_data_t {
@@ -130,7 +131,8 @@ module_add_segment_data(OUT os_module_data_t *out_data,
                         app_pc segment_start,
                         size_t segment_size,
                         uint segment_prot,
-                        size_t alignment);
+                        size_t alignment,
+                        bool shared);
 
 /* Redirected functions for loaded module,
  * they are also used by __wrap_* functions in instrument.c
@@ -176,6 +178,12 @@ typedef bool (*prot_fn_t)(byte *map, size_t size, uint prot/*MEMPROT_*/);
 /* module_macho.c */
 byte *
 module_dynamorio_lib_base(void);
+
+bool
+module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT);
+
+void
+module_walk_dyld_list(app_pc dyld_base);
 #endif
 
 

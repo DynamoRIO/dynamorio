@@ -469,7 +469,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                                             (app_pc) prog_hdr->p_vaddr + load_delta,
                                             prog_hdr->p_memsz,
                                             module_segment_prot_to_osprot(prog_hdr),
-                                            prog_hdr->p_align);
+                                            prog_hdr->p_align, false/*!shared*/);
                 }
                 found_load = true;
             }

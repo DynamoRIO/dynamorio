@@ -49,9 +49,12 @@
 #include "os_private.h"
 #include "module_private.h"
 #include "memquery_macos.h"
+#include "module_macos_dyld.h"
 #include <mach-o/ldsyms.h> /* _mh_dylib_header */
 #include <mach-o/loader.h> /* mach_header */
+#include <mach-o/dyld_images.h>
 #include <mach/thread_status.h> /* i386_thread_state_t */
+#include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
 #include <string.h> /* strcmp */
 #include <dlfcn.h>
@@ -97,7 +100,8 @@ is_macho_header(app_pc base, size_t size)
         /* XXX: should we include MH_PRELOAD or MH_FVMLIB? */
         if (hdr->filetype == MH_EXECUTE ||
             hdr->filetype == MH_DYLIB ||
-            hdr->filetype == MH_BUNDLE) {
+            hdr->filetype == MH_BUNDLE ||
+            hdr->filetype == MH_DYLINKER) {
             return true;
         }
     }
@@ -161,16 +165,6 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             } else if ((app_pc)seg->vmaddr < seg_min_start) {
                 seg_min_start = (app_pc) seg->vmaddr;
                 seg_first_end = (app_pc)seg->vmaddr + seg->vmsize;
-                if (out_data != NULL) {
-                    module_add_segment_data(out_data, 0/*don't know*/,
-                                            (app_pc) seg->vmaddr, seg->vmsize,
-                                            /* assuming we want initprot, not maxprot */
-                                            vmprot_to_memprot(seg->initprot),
-                                            /* XXX: alignment is specified per section --
-                                             * ignoring for now
-                                             */
-                                            PAGE_SIZE);
-                }
             }
             if (strcmp(seg->segname, "__LINKEDIT") == 0) {
                 linkedit_file_off = seg->fileoff;
@@ -197,6 +191,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
     if (found_seg) {
+        ptr_int_t load_delta = base - seg_min_start;
         LOG(GLOBAL, LOG_VMAREAS, 4, "%s: bounds "PFX"-"PFX"\n", __FUNCTION__,
             seg_min_start, seg_max_end);
         if (out_base != NULL)
@@ -206,14 +201,43 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
         if (out_max_end != NULL)
             *out_max_end = seg_max_end;
         if (out_data != NULL) {
+            app_pc shared_start, shared_end;
+            bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
+            /* Now that we have the load delta, we can add the abs addr segments */
+            cmd = (struct load_command *)(hdr + 1);
+            while (cmd < cmd_stop) {
+                if (cmd->cmd == LC_SEGMENT) {
+                    segment_command_t *seg = (segment_command_t *) cmd;
+                    if (strcmp(seg->segname, "__PAGEZERO") == 0 && seg->initprot == 0) {
+                        /* skip */
+                    } else {
+                        app_pc seg_start = (app_pc) seg->vmaddr + load_delta;
+                        module_add_segment_data
+                            (out_data, 0/*don't know*/, seg_start, seg->vmsize,
+                             /* we want initprot, not maxprot, right? */
+                             vmprot_to_memprot(seg->initprot),
+                             /* XXX: alignment is specified per section --
+                              * ignoring for now
+                              */
+                             PAGE_SIZE,
+                             /* we assume that all __LINKEDIT segments in the
+                              * dyld cache are shared as one single segment
+                              */
+                             strcmp(seg->segname, "__LINKEDIT") == 0 &&
+                             have_shared && seg_start >= shared_start &&
+                             seg_start + seg->vmsize < shared_end);
+                    }
+                }
+                cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
+            }
             /* FIXME i#58: we need to fill in more of out_data, like preferred
              * base.  For alignment: it's per-section, so how handle it?
              */
             out_data->base_address = seg_min_start;
             out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
             if (linkedit_file_off > 0) {
-                out_data->exports = base - (ptr_int_t)seg_min_start +
-                    ((ssize_t)linkedit_mem_off - linkedit_file_off) + exports_file_off;
+                out_data->exports = (app_pc) load_delta + exports_file_off +
+                    ((ssize_t)linkedit_mem_off - linkedit_file_off);
             } else
                 out_data->exports = NULL;
         }
@@ -500,3 +524,72 @@ module_dynamorio_lib_base(void)
 {
     return (byte *) &_mh_dylib_header;
 }
+
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+bool
+module_dyld_shared_region(app_pc *start OUT, app_pc *end OUT)
+{
+    uint64 cache_start;
+    struct dyld_cache_header *hdr;
+    struct dyld_cache_mapping_info *map;
+    uint i;
+    app_pc cache_end;
+    if (dynamorio_syscall(SYS_shared_region_check_np, 1, &cache_start) != 0) {
+        LOG(GLOBAL, LOG_VMAREAS, 2, "could not find dyld shared cache\n");
+        return false;
+    }
+    hdr = (struct dyld_cache_header *) cache_start;
+    map = (struct dyld_cache_mapping_info *) (cache_start + hdr->mappingOffset);
+    cache_end = (app_pc) cache_start;
+    /* Find the max endpoint.  We assume the gap in between the +ro and
+     * +rw mappings will never hold anything else.
+     */
+    for (i = 0; i < hdr->mappingCount; i++) {
+        if (map->address + map->size > (ptr_uint_t)cache_end)
+            cache_end = (app_pc)(ptr_uint_t)(map->address + map->size);
+        map++;
+    }
+    LOG(GLOBAL, LOG_VMAREAS, 2, "dyld shared cache is "PFX"-"PFX"\n",
+        (app_pc)cache_start, cache_end);
+    if (start != NULL)
+        *start = (app_pc) cache_start;
+    if (end != NULL)
+        *end = cache_end;
+    return true;
+}
+
+void
+module_walk_dyld_list(app_pc dyld_base)
+{
+    uint i, offs;
+    struct dyld_all_image_infos *dyinfo;
+    /* We only support OSX 10.6+ so we can use this offset */
+    offs = *(uint *)(dyld_base + DYLD_ALL_IMAGE_INFOS_OFFSET_OFFSET);
+    dyinfo = (struct dyld_all_image_infos *)(dyld_base + offs);
+    LOG(GLOBAL, LOG_VMAREAS, 2,
+        "Walking %d modules in dyld module list\n", dyinfo->infoArrayCount);
+    for (i = 0; i < dyinfo->infoArrayCount; i++) {
+        const struct dyld_image_info *modinfo = &dyinfo->infoArray[i];
+        bool already = false;
+        os_get_module_info_lock();
+        if (module_pc_lookup((app_pc)modinfo->imageLoadAddress) != NULL)
+            already = true;
+        os_get_module_info_unlock();
+        if (already) {
+            LOG(GLOBAL, LOG_VMAREAS, 2,
+                "Module %d: "PFX" already seen %s\n", i, modinfo->imageLoadAddress,
+                modinfo->imageFilePath);
+            continue;
+        }
+        /* module_list_add() will call module_walk_program_headers() and find
+         * the segments.  The dyld shared cache typically splits __TEXT from
+         * __DATA, so we don't want to try to find a "size" of the module.
+         */
+        LOG(GLOBAL, LOG_VMAREAS, 2,
+            "Module %d: "PFX" %s\n", i, modinfo->imageLoadAddress,
+            modinfo->imageFilePath);
+        module_list_add((app_pc)modinfo->imageLoadAddress, PAGE_SIZE, false,
+                        modinfo->imageFilePath, 0);
+    }
+}
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */

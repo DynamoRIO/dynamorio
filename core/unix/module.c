@@ -45,6 +45,9 @@
 # define LOG(...) /* nothing */
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
+/* XXX; perhaps make a module_list interface to check for overlap? */
+extern vm_area_vector_t *loaded_module_areas;
+
 void
 os_modules_init(void)
 {
@@ -88,12 +91,27 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
         ASSERT(ma->os_data.num_segments > 0 && ma->os_data.segments != NULL);
         seg_base = ma->os_data.segments[0].start;
         for (i = 1; i < ma->os_data.num_segments; i++) {
-            if (ma->os_data.segments[i].start > ma->os_data.segments[i - 1].end) {
-                module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+            if (ma->os_data.segments[i].start > ma->os_data.segments[i - 1].end ||
+                /* XXX: for shared we just add the first one.  But if the first
+                 * module is unloaded we'll be missing an entry for the others.
+                 * We assume this won't happen b/c our only use of this now is
+                 * the MacOS dyld shared cache's shared __LINKEDIT segment.  If
+                 * it could happen we should switch to a refcount in the vector.
+                 */
+                ma->os_data.segments[i - 1].shared) {
+                if (!ma->os_data.segments[i - 1].shared ||
+                    !vmvector_overlap(loaded_module_areas, seg_base,
+                                      ma->os_data.segments[i - 1].end)) {
+                    module_list_add_mapping(ma, seg_base,
+                                            ma->os_data.segments[i - 1].end);
+                }
                 seg_base = ma->os_data.segments[i].start;
             }
         }
-        module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
+        if (!ma->os_data.segments[i - 1].shared ||
+            !vmvector_overlap(loaded_module_areas, seg_base,
+                              ma->os_data.segments[i - 1].end))
+            module_list_add_mapping(ma, seg_base, ma->os_data.segments[i - 1].end);
         DOLOG(2, LOG_VMAREAS, {
             LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "segment list\n");
             for (i = 0; i < ma->os_data.num_segments; i++) {
@@ -429,7 +447,8 @@ module_add_segment_data(OUT os_module_data_t *out_data,
                         app_pc segment_start,
                         size_t segment_size,
                         uint segment_prot, /* MEMPROT_ */
-                        size_t alignment)
+                        size_t alignment,
+                        bool shared)
 {
     uint seg, i;
     if (out_data->alignment == 0) {
@@ -480,6 +499,7 @@ module_add_segment_data(OUT os_module_data_t *out_data,
     out_data->segments[seg].end = (app_pc)
         ALIGN_FORWARD(segment_start + segment_size, PAGE_SIZE);
     out_data->segments[seg].prot = segment_prot;
+    out_data->segments[seg].shared = shared;
     if (seg > 0) {
         ASSERT(out_data->segments[seg].start >= out_data->segments[seg - 1].end);
         if (out_data->segments[seg].start > out_data->segments[seg - 1].end)
