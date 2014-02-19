@@ -155,7 +155,7 @@ memquery_iterator_next(memquery_iter_t *iter)
     internal_iter_t *ii = (internal_iter_t *) &iter->internal;
     kern_return_t kr = KERN_SUCCESS;
     vm_size_t size = 0;
-    /* XXX i#58: for 32-bit we should use the 32-bit version */
+    /* 64-bit versions seem to work fine for 32-bit */
     mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
     do {
         kr = vm_region_recurse_64(mach_task_self(), &ii->address, &size, &ii->depth,
@@ -205,6 +205,7 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
 {
     memquery_iter_t iter;
     bool res = false;
+    bool free = true;
     memquery_iterator_start(&iter, (app_pc) pc, false/*won't alloc*/);
     if (memquery_iterator_next(&iter) && iter.vm_start <= pc) {
         /* There may be some inner regions we have to wade through */
@@ -212,16 +213,22 @@ memquery_from_os(const byte *pc, OUT dr_mem_info_t *info, OUT bool *have_type)
             if (!memquery_iterator_next(&iter))
                 return false;
         }
-        res = true;
-        info->base_pc = iter.vm_start;
-        ASSERT(iter.vm_end > pc);
-        /* XXX: should switch to storing size to avoid pointer overflow */
-        info->size = iter.vm_end - iter.vm_start;
-        info->prot = iter.prot;
-        /* FIXME i#58: figure out whether image via SYS_proc_info */
-        *have_type = false;
-        info->type = DR_MEMTYPE_DATA;
-    } else {
+        /* Sometimes the kernel returns a much earlier region so this may still be free */
+        if (iter.vm_start <= pc) {
+            res = true;
+            info->base_pc = iter.vm_start;
+            ASSERT(iter.vm_end > pc);
+            /* XXX: should switch to storing size to avoid pointer overflow */
+            info->size = iter.vm_end - iter.vm_start;
+            info->prot = iter.prot;
+            /* FIXME i#58: figure out whether image via SYS_proc_info */
+            *have_type = false;
+            info->type = DR_MEMTYPE_DATA;
+            free = false;
+        } else
+            free = true;
+    }
+    if (free) {
         /* Unlike Windows, the Mach queries skip free regions, so we have to
          * find the prior allocated region.  We could try just a few pages back,
          * but querying a free region is rare so we go with simple.
