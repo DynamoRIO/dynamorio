@@ -158,7 +158,9 @@ typedef struct _module_area_t {
      * vmvector.  We store no data here on that but rely on the vector and
      * on checking whether the vector entry's start == this start to know
      * which entry is the primary entry for a module.
-     * We store just the first segment's endpoint in the end field.
+     * We still store the maximum endpoint in the end field (after this
+     * data structure is fully initialized).  Use module_contains_addr() to
+     * check for overlap, rather than checking [start..end).
      */
     app_pc start;
     app_pc end;
@@ -255,7 +257,7 @@ const char * os_get_module_name_buf_strdup(const app_pc pc, char *buf, size_t bu
 
 size_t os_module_get_view_size(app_pc module_base);
 
-bool module_contains_pc(module_area_t *ma, app_pc pc);
+bool module_contains_addr(module_area_t *ma, app_pc pc);
 
 /**************** module iterator routines *****************/
 /* module iterator fields */

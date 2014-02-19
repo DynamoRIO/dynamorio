@@ -139,6 +139,8 @@ Further non-compatibility-affecting changes include:
    to 0xC, for better error reporting.  For interactive runs, then,
    the user should explicitly pass -msgbox_mask 0.
  - Added a flags output parameter to #drsym_info_t.
+ - Added dr_module_contains_addr() to make handling non-contiguous
+   libraries easier.
 
 **************************************************
 <hr>

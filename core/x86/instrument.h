@@ -2648,7 +2648,7 @@ typedef struct _module_segment_data_t {
  * cast to an Elf32_Ehdr or Elf64_Ehdr. \note On Windows the start address can be cast to
  * an IMAGE_DOS_HEADER for use in finding the IMAGE_NT_HEADER and its OptionalHeader.
  * The OptionalHeader can be used to walk the module sections (among other things).
- * See WINNT.H. \note on MacOS the start address can be cast to mach_header or
+ * See WINNT.H. \note On MacOS the start address can be cast to mach_header or
  * mach_header_64.
  * \note When accessing any memory inside the module (including header fields)
  * user is responsible for guarding against corruption and the possibility of the module
@@ -2661,9 +2661,12 @@ struct _module_data_t {
     } ; /* anonymous union of start address and module handle */
     /**
      * Ending address of this module.  If the module is not contiguous
-     * (which is common on MacOS, and can happen on Linux), this is instead
-     * the end address of the first segment of the module.
-     * Use the segments array to examine each mapped region.
+     * (which is common on MacOS, and can happen on Linux), this is the
+     * highest address of the module, but there can be gaps in between start
+     * and end that are either unmapped or that contain other mappings or
+     * libraries.   Use the segments array to examine each mapped region,
+     * and use dr_module_contains_addr() as a convenience routine, rather than
+     * checking against [start..end).
      */
     app_pc end;
 
@@ -2792,6 +2795,15 @@ DR_API
  */
 const char *
 dr_module_preferred_name(const module_data_t *data);
+
+DR_API
+/**
+ * Returns whether \p addr is contained inside any segment of the module \p data.
+ * We recommend using this routine rather than checking against the \p start
+ * and \p end fields of \p data, as modules are not always contiguous.
+ */
+bool
+dr_module_contains_addr(const module_data_t *data, app_pc addr);
 
 /* DR_API EXPORT BEGIN */
 /**

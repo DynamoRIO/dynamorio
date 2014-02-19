@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -381,7 +381,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
         app_pc *r_addr;
         app_pc gotval;
         r_addr = (app_pc *) (opd->load_delta + rel->r_offset);
-        ASSERT(module_contains_pc(ma, (app_pc)r_addr));
+        ASSERT(module_contains_addr(ma, (app_pc)r_addr));
         gotval = *r_addr;
         if (add_hooks) {
             /* If the PLT target is inside the current module, then it is either
@@ -389,7 +389,7 @@ update_plt_relocations(module_area_t *ma, os_privmod_data_t *opd, bool add_hooks
              * Either way we ignore it.
              */
             /* We also ignore it if the PLT target is in a native module */
-            if (!module_contains_pc(ma, gotval) && !is_native_pc(gotval)) {
+            if (!module_contains_addr(ma, gotval) && !is_native_pc(gotval)) {
                 LOG(THREAD_GET, LOG_LOADER, 4,
                     "%s: hooking cross-module PLT entry to "PFX"\n",
                     __FUNCTION__, gotval);

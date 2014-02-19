@@ -6043,7 +6043,7 @@ mmap_check_for_module_overlap(app_pc base, size_t size, bool readable, uint64 in
              * memory). I've yet to see any issue with dynamically loaded modules so
              * it's probably the loader merging regions.  Still worth investigating. */
             ASSERT_CURIOSITY(inode == 0 /*see above comment*/||
-                             module_contains_pc(ma, base+size-1));
+                             module_contains_addr(ma, base+size-1));
         }
         ASSERT_CURIOSITY(ma->names.inode == inode || inode == 0 /* for .bss */);
         DOCHECK(1, {

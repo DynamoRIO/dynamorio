@@ -61,7 +61,7 @@ os_modules_exit(void)
 }
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
- * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ * modules -- we'll update the module's size here
  */
 void
 os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
@@ -121,8 +121,8 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
                     ma->os_data.segments[i].prot);
             }
         });
-        /* update, to ensure view_size is 1st segment end */
-        ma->end = ma->os_data.segments[0].end;
+        /* update to max end (view_size may just be 1st segment end) */
+        ma->end = ma->os_data.segments[ma->os_data.num_segments-1].end;
     }
 
 #ifdef LINUX
@@ -716,7 +716,7 @@ module_file_is_module64(file_t f)
 }
 
 bool
-module_contains_pc(module_area_t *ma, app_pc pc)
+module_contains_addr(module_area_t *ma, app_pc pc)
 {
     if (ma->os_data.contiguous)
         return (pc >= ma->start && pc < ma->end);

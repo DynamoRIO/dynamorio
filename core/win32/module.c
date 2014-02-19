@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -6299,7 +6299,7 @@ os_module_has_dynamic_base(app_pc module_base)
 }
 
 bool
-module_contains_pc(module_area_t *ma, app_pc pc)
+module_contains_addr(module_area_t *ma, app_pc pc)
 {
     return (pc >= ma->start && pc < ma->end);
 }

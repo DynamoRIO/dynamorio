@@ -115,7 +115,7 @@ os_get_module_info_write_locked(void)
 /**************** module_area routines *****************/
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
- * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ * modules -- we'll update the module's size in os_module_area_init()
  */
 static module_area_t *
 module_area_create(app_pc base, size_t view_size, bool at_map, const char *filepath
@@ -125,7 +125,7 @@ module_area_create(app_pc base, size_t view_size, bool at_map, const char *filep
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_area_t, ACCT_VMAREAS, PROTECTED);
     memset(ma, 0, sizeof(*ma));
     ma->start = base;
-    ma->end = base + view_size;
+    ma->end = base + view_size; /* updated in os_module_area_init () */
     os_module_area_init(ma, base, view_size, at_map, filepath _IF_UNIX(inode)
                         HEAPACCT(ACCT_VMAREAS));
     return ma;
@@ -241,7 +241,7 @@ module_list_remove_mapping(module_area_t *ma, app_pc map_start, app_pc map_end)
 }
 
 /* view_size can be the size of the first mapping, to handle non-contiguous
- * modules -- we'll update the module's size, if contiguous, in os_module_area_init()
+ * modules -- we'll update the module's size in os_module_area_init()
  */
 void
 module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath

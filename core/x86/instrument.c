@@ -1740,6 +1740,29 @@ dr_free_module_data(module_data_t *data)
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, data, module_data_t, ACCT_CLIENT, UNPROTECTED);
 }
 
+DR_API
+bool
+dr_module_contains_addr(const module_data_t *data, app_pc addr)
+{
+    /* XXX: this duplicates module_contains_addr(), but we have two different
+     * data structures (module_area_t and module_data_t) so it's hard to share.
+     */
+#ifdef WINDOWS
+    return (addr >= data->start && addr < data->end);
+#else
+    if (data->contiguous)
+        return (addr >= data->start && addr < data->end);
+    else {
+        uint i;
+        for (i = 0; i < data->num_segments; i++) {
+            if (addr >= data->segments[i].start && addr < data->segments[i].end)
+                return true;
+        }
+    }
+    return false;
+#endif
+}
+
 /* Looks up the being-loaded module at modbase and invokes the client event */
 void
 instrument_module_load_trigger(app_pc modbase)
