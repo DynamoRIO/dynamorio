@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -35,11 +35,11 @@
 ***************************************************************************
 \page page_tool DynamoRIO-Based Tools
 
-DynamoRIO-Based tools are provided for direct use.
+DynamoRIO-based tools are provided for direct use.
 A tool can be invoked using the option \p -t with the tool name.
 For example:
 \code
-bin64/drrun -t drcov -- app
+bin64/drrun -t drcov -- application arg1 arg2
 \endcode
 
 Those interested in how the -t option works should see

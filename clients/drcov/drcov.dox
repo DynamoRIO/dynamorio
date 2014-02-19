@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -42,7 +42,7 @@
 \section sec_drcov The Code Coverage Client
 
 The DynamoRIO tool \p drcov collects information about which basic blocks
-have been executed.
+have been executed.  It writes the results to a separate log file per process.
 
 The runtime options for this tool include:
  - \b -dump_text:
