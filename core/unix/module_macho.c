@@ -182,6 +182,12 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             struct dylib_command *dy = (struct dylib_command *) cmd;
             char *soname = (char *)cmd + dy->dylib.name.offset;
             /* XXX: we assume these strings are always null-terminated */
+            /* They seem to have full paths on Mac.  We drop to basename, as
+             * that's what many clients expect for module_name.
+             */
+            char *slash = strrchr(soname, '/');
+            if (slash != NULL)
+                soname = slash + 1;
             LOG(GLOBAL, LOG_VMAREAS, 4, "%s: lib identity %s\n", __FUNCTION__, soname);
             if (out_soname != NULL)
                 *out_soname = soname;
