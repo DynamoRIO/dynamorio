@@ -225,20 +225,36 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                         /* skip */
                     } else {
                         app_pc seg_start = (app_pc) seg->vmaddr + load_delta;
+                        size_t seg_size = seg->vmsize;
+                        bool shared = false;
+                        if (strcmp(seg->segname, "__LINKEDIT") == 0 &&
+                            have_shared && seg_start >= shared_start &&
+                            seg_start < shared_end) {
+                            /* We assume that all __LINKEDIT segments in the
+                             * dyld cache are shared as one single segment.
+                             */
+                            shared = true;
+                            /* XXX: seg->vmsize is too large for these: it extends
+                             * off the end of the mapping.  I have no idea why.
+                             * So we truncate it.  We leave max_end above.
+                             */
+                            if (seg_start + seg->vmsize > shared_end) {
+                                LOG(GLOBAL, LOG_VMAREAS, 4,
+                                    "%s: truncating __LINKEDIT size from "PIFX
+                                    " to "PIFX"\n", __FUNCTION__, seg->vmsize,
+                                    shared_end - seg_start);
+                                seg_size = shared_end - seg_start;
+                            }
+                        }
                         module_add_segment_data
-                            (out_data, 0/*don't know*/, seg_start, seg->vmsize,
+                            (out_data, 0/*don't know*/, seg_start, seg_size,
                              /* we want initprot, not maxprot, right? */
                              vmprot_to_memprot(seg->initprot),
                              /* XXX: alignment is specified per section --
                               * ignoring for now
                               */
                              PAGE_SIZE,
-                             /* we assume that all __LINKEDIT segments in the
-                              * dyld cache are shared as one single segment
-                              */
-                             strcmp(seg->segname, "__LINKEDIT") == 0 &&
-                             have_shared && seg_start >= shared_start &&
-                             seg_start + seg->vmsize < shared_end);
+                             shared);
                     }
                 } else if (cmd->cmd == LC_SYMTAB) {
                     /* even if stripped, dynamic symbols are in this table */
