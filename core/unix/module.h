@@ -64,6 +64,7 @@ typedef struct _os_module_data_t {
     size_t checksum;
     size_t timestamp;
 
+#ifdef LINUX
     /* i#112: Dynamic section info for exported symbol lookup.  Not
      * using elf types here to avoid having to export those.
      */
@@ -82,6 +83,10 @@ typedef struct _os_module_data_t {
     ptr_uint_t gnu_shift;
     ptr_uint_t gnu_bitidx;
     size_t gnu_symbias;   /* .dynsym index of first export */
+#else /* MACOS */
+    byte *exports;        /* absolute addr of exports trie */
+    size_t exports_sz;    /* size of exports trie */
+#endif
 
     /* i#160/PR 562667: support non-contiguous library mappings */
     bool contiguous;

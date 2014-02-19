@@ -99,10 +99,12 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
         });
     }
 
+#ifdef LINUX
     LOG(GLOBAL, LOG_SYMBOLS, 2,
         "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
         __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
         ma->os_data.dynstr_size, ma->os_data.symentry_size); 
+#endif
 
     /* expect to map whole module */
     /* XREF 307599 on rounding module end to the next PAGE boundary */

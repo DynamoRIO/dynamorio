@@ -34,8 +34,7 @@
  * module_macho.c - Mach-O file parsing support
  *
  * FIXME i#58: NYI (see comments below as well):
- * + preferred base and load delta
- * + exports
+ * + export iterator and forwarded exports (i#1360)
  * + imports
  * + relocations
  *
@@ -55,6 +54,7 @@
 #include <mach/thread_status.h> /* i386_thread_state_t */
 #include <stddef.h> /* offsetof */
 #include <string.h> /* strcmp */
+#include <dlfcn.h>
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef LOG
@@ -139,6 +139,7 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
     app_pc seg_min_start = (app_pc) POINTER_MAX;
     app_pc seg_max_end = NULL;
     bool found_seg = false;
+    size_t linkedit_file_off = 0, linkedit_mem_off, exports_file_off = 0;
     ASSERT(is_macho_header(base, view_size));
     cmd = (struct load_command *)(hdr + 1);
     cmd_stop = (struct load_command *)((byte *)cmd + hdr->sizeofcmds);
@@ -147,8 +148,8 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             segment_command_t *seg = (segment_command_t *) cmd;
             found_seg = true;
             LOG(GLOBAL, LOG_VMAREAS, 4,
-                "%s: segment %s addr=0x%x sz=0x%x\n", __FUNCTION__,
-                seg->segname, seg->vmaddr, seg->vmsize);
+                "%s: segment %s addr=0x%x sz=0x%x file=0x%x\n", __FUNCTION__,
+                seg->segname, seg->vmaddr, seg->vmsize, seg->fileoff);
             if ((app_pc)seg->vmaddr + seg->vmsize > seg_max_end)
                 seg_max_end = (app_pc)seg->vmaddr + seg->vmsize;
             if (strcmp(seg->segname, "__PAGEZERO") == 0 &&
@@ -169,6 +170,18 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                                             PAGE_SIZE);
                 }
             }
+            if (strcmp(seg->segname, "__LINKEDIT") == 0) {
+                linkedit_file_off = seg->fileoff;
+                linkedit_mem_off = seg->vmaddr;
+            }
+        } else if (cmd->cmd == LC_DYLD_INFO || cmd->cmd == LC_DYLD_INFO_ONLY) {
+            struct dyld_info_command *di = (struct dyld_info_command *) cmd;
+            LOG(GLOBAL, LOG_VMAREAS, 4,
+                "%s: exports addr=0x%x sz=0x%x\n", __FUNCTION__,
+                di->export_off, di->export_size);
+            exports_file_off = di->export_off;
+            if (out_data != NULL)
+                out_data->exports_sz = di->export_size;
         } else if (cmd->cmd == LC_ID_DYLIB) {
             struct dylib_command *dy = (struct dylib_command *) cmd;
             char *soname = (char *)cmd + dy->dylib.name.offset;
@@ -192,8 +205,13 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             /* FIXME i#58: we need to fill in more of out_data, like preferred
              * base.  For alignment: it's per-section, so how handle it?
              */
-            out_data->base_address = base; /* FIXME i#58: need preferred */
+            out_data->base_address = seg_min_start;
             out_data->alignment = PAGE_SIZE; /* FIXME i#58: need min section align? */
+            if (linkedit_file_off > 0) {
+                out_data->exports = base - (ptr_int_t)seg_min_start +
+                    ((ssize_t)linkedit_mem_off - linkedit_file_off) + exports_file_off;
+            } else
+                out_data->exports = NULL;
         }
     }
     return found_seg;
@@ -252,21 +270,141 @@ module_is_header(app_pc base, size_t size /*optional*/)
     return is_macho_header(base, size);
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+/* ULEB128 is a little-endian 128-base encoding where msb is set if there's
+ * another byte of data to add to the integer represented.
+ */
+static ptr_uint_t
+read_uleb128(byte *start, byte *max, byte **next_entry OUT)
+{
+    ptr_uint_t val = 0;
+    uint shift = 0;
+    uint octet;
+    byte *next = start;
+    while (next < max) {
+        /* Each byte ("octet") holds 7 bits of the integer.  If msb is 0,
+         * we're done; else, there's another octet.
+         */
+        octet = *next;
+        val |= ((octet & 0x7f) << shift);
+        next++;
+        if (octet < 128)
+            break;
+        shift += 7;
+    }
+    if (next_entry != NULL)
+        *next_entry = next;
+    return val;
+}
+
 app_pc
 get_proc_address_from_os_data(os_module_data_t *os_data,
                               ptr_int_t load_delta,
                               const char *name,
                               OUT bool *is_indirect_code)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return NULL;
+    /* Walk the Mach-O export trie.  We don't support < 10.6 which is when
+     * they put this scheme in place.
+     */
+    app_pc res = NULL;
+    ptr_uint_t node_sz, node_offs;
+    byte *ptr = os_data->exports;
+    byte *max = ptr + os_data->exports_sz;
+    uint i, children;
+    const char *name_loc = name;
+    bool first_node = true;
+    if (os_data->exports == NULL || name[0] == '0')
+        return NULL;
+
+    LOG(GLOBAL, LOG_SYMBOLS, 4, "%s: trie "PFX"-"PFX"\n", __FUNCTION__, ptr, max);
+    while (ptr < max) {
+        bool match = false;
+        node_sz = read_uleb128(ptr, max, &ptr);
+        if (*name_loc == '\0')
+            break; /* matched */
+        /* Skip symbol info, until we find a match */
+        ptr += node_sz;
+        children = *ptr++;
+        LOG(GLOBAL, LOG_SYMBOLS, 4, "  node @"PFX" size=%d children=%d\n",
+            ptr - 1 - node_sz - 1/*can be wrong*/, node_sz, children);
+        for (i = 0; i < children; i++) {
+            /* Each edge is a string followed by the offset of that edge's target node */
+            char next_char;
+            uint idx = 0;
+            byte *pfx_start = ptr;
+            bool no_inc = false;
+            match = true;
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tchild #%d: %s vs %s\n", i, ptr, name_loc);
+            while (true) {
+                next_char = *(char *)ptr;
+                ptr++;
+                if (next_char == '\0')
+                    break;
+                /* Auto-add "_" -- we assume always looking up regular syms */
+                if (first_node && next_char == '_' && name_loc == name && idx == 0 &&
+                    ptr == pfx_start + 1)
+                    no_inc = true;
+                else if (match && *(name_loc + idx) != next_char)
+                    match = false;
+                if (no_inc)
+                    no_inc = false;
+                else
+                    idx++;
+            }
+            node_offs = read_uleb128(ptr, max, &ptr);
+            if (match) {
+                LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatched child #%d offs="PIFX"\n",
+                    i, node_offs);
+                name_loc += idx;
+                if (node_offs == 0) /* avoid infinite loop */
+                    return NULL;
+                ptr = os_data->exports + node_offs;
+                break;
+            }
+        }
+        if (first_node)
+            first_node = false;
+        if (!match)
+            return NULL;
+    }
+    /* We have a match */
+    if (node_sz > 0) {
+        uint flags = read_uleb128(ptr, max, &ptr);
+        if (TEST(EXPORT_SYMBOL_FLAGS_REEXPORT, flags)) {
+            /* Forwarder */
+            read_uleb128(ptr, max, &ptr); /* ordinal */
+            const char *forw_name = (const char *) ptr;
+            if (forw_name[0] == '\0') /* see if has different name */
+                forw_name = name;
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tforwarder %s\n", forw_name);
+            /* FIXME i#1360: handle forwards */
+        } else {
+            size_t sym_offs = read_uleb128(ptr, max, &ptr);
+            res = (app_pc)(sym_offs + load_delta);
+            LOG(GLOBAL, LOG_SYMBOLS, 4, "\tmatch offs="PIFX" => "PFX"\n",
+                sym_offs, res);
+        }
+    }
+    if (is_indirect_code != NULL)
+        *is_indirect_code = false;
+    return res;
 }
 
 generic_func_t
 get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code OUT)
 {
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
-    return NULL;
+    app_pc res = NULL;
+    module_area_t *ma;
+    os_get_module_info_lock();
+    ma = module_pc_lookup((app_pc)lib);
+    if (ma != NULL) {
+        res = get_proc_address_from_os_data(&ma->os_data,
+                                            ma->start - ma->os_data.base_address,
+                                            name, is_indirect_code);
+    }
+    os_get_module_info_unlock();
+    LOG(GLOBAL, LOG_SYMBOLS, 2, "%s: %s => "PFX"\n", __func__, name, res);
+    return convert_data_to_function(res);
 }
 
 generic_func_t
@@ -274,6 +412,7 @@ get_proc_address(module_base_t lib, const char *name)
 {
     return get_proc_address_ex(lib, name, NULL);
 }
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 size_t
 module_get_header_size(app_pc module_base)
