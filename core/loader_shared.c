@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -47,15 +47,15 @@
 
 /* ok to be in .data w/ no sentinel head node b/c never empties out
  * .ntdll always there for Windows, so no need to unprot.
- * XXX: Does it hold for Linux? 
- * It seems no library is must in Linux, even the loader. 
+ * XXX: Does it hold for Linux?
+ * It seems no library is must in Linux, even the loader.
  * Maybe the linux-gate or we just create a fake one?
  */
-static privmod_t *modlist; 
+static privmod_t *modlist;
 
 
 /* Recursive library load could happen:
- * Linux:   when load dependent library 
+ * Linux:   when load dependent library
  * Windows: redirect_* can be invoked from private libray
  *          entry points.
  */
@@ -167,7 +167,7 @@ loader_thread_init(dcontext_t *dcontext)
     privmod_t *mod;
 
     if (modlist == NULL) {
-#ifdef WINDOWS 
+#ifdef WINDOWS
         /* FIXME i#338: once restore order this will become nop */
         /* os specific thread initilization prologue for loader with no lock */
         os_loader_thread_init_prologue(dcontext);
@@ -256,7 +256,7 @@ load_private_library(const char *filename, bool reachable)
     acquire_recursive_lock(&privload_lock);
 
     privmod = privload_lookup(filename);
-    /* XXX: If the private lib has been loaded, shall we increase the counter 
+    /* XXX: If the private lib has been loaded, shall we increase the counter
      * or report error?
      */
     if (privmod == NULL) {
@@ -611,8 +611,8 @@ privload_add_drext_path(void)
      */
     path = get_dynamorio_library_path();
     mid = strstr(path, LIB_SUBDIR);
-    if (mid != NULL && 
-        search_paths_idx < SEARCH_PATHS_NUM && 
+    if (mid != NULL &&
+        search_paths_idx < SEARCH_PATHS_NUM &&
         (strlen(path)+strlen(EXT_SUBDIR)+1/*sep*/) <
         BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
         char *s = search_paths[search_paths_idx];

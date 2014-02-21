@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -70,8 +70,8 @@ void
 print_status(bool ok)
 {
     printf("%s 0x%08x %s %d\n",
-           ok ? "" : "NTSTATUS", 
-           ok ? 0 : get_last_status(), 
+           ok ? "" : "NTSTATUS",
+           ok ? 0 : get_last_status(),
            ok ? "success:" : "GLE", GetLastError());
 }
 #endif
@@ -104,15 +104,15 @@ drdel -f <file> -d <directory> -r \n\
 /* file_exists() */
 /* get_unique_filename() */
 /* delete_file_rename_in_use() */
-/* copy_file_permissions() 
+/* copy_file_permissions()
  * delete_tree()
  */
 
 DWORD
 is_file_in_use(WCHAR *filename)
 {
-    HANDLE hFile; 
- 
+    HANDLE hFile;
+
     hFile = CreateFile(filename,              // file to open
                        GENERIC_READ,          // open for reading
                        0,                     // EXCLUSIVE access, should fail if in use
@@ -146,7 +146,7 @@ Handle 10
         print_status(hFile != INVALID_HANDLE_VALUE);
     }
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
         return true;            /* in use */
     CloseHandle(hFile);
     return false;
@@ -159,8 +159,8 @@ Handle 10
 bool
 is_file_present(WCHAR *filename)
 {
-    HANDLE hFile; 
- 
+    HANDLE hFile;
+
     hFile = CreateFile(filename,              // file to open
                        0,                     // just existence check
                        FILE_SHARE_READ,       // share for reading FIXME: do we need this
@@ -172,7 +172,7 @@ is_file_present(WCHAR *filename)
         print_status(hFile != INVALID_HANDLE_VALUE);
     }
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
         return false;
     CloseHandle(hFile);
     return true;
@@ -182,8 +182,8 @@ is_file_present(WCHAR *filename)
 bool
 delete_file_on_close(WCHAR *filename)
 {
-    HANDLE hFile; 
- 
+    HANDLE hFile;
+
     hFile = CreateFile(filename,              // file to open
                        0,                     // just existence check
                        FILE_SHARE_READ|FILE_SHARE_DELETE, // share for reading FIXME: do we need this
@@ -195,7 +195,7 @@ delete_file_on_close(WCHAR *filename)
         print_status(hFile != INVALID_HANDLE_VALUE);
     }
 
-    if (hFile == INVALID_HANDLE_VALUE) 
+    if (hFile == INVALID_HANDLE_VALUE)
         return false;
     CloseHandle(hFile);
     return true;
@@ -213,7 +213,7 @@ delete_file(WCHAR *filename)
         return ERROR_SUCCESS;
     else {
         return GetLastError();
-        /* 
+        /*
          * For memory mapped files - e.g. after an NtCreateSection() we get
          * (NTSTATUS) 0xc0000121 (3221225761) - An attempt has been made to
          * remove a file or directory that cannot be deleted.
@@ -227,12 +227,12 @@ int temprename = 0;
 int onboot = 0;
 int onclose = 0;
 
-/* 
+/*
  * Possible states of a file
- * {existing, not existing} x {in use, or not} x {DELETED, or not} 
+ * {existing, not existing} x {in use, or not} x {DELETED, or not}
  *        x {.used, or not} x {pending reboot removal, or not}
- * 
-reboot removal - MoveFileEx(MOVEFILE_DELAY_UNTIL_REBOOT) adds to PendingFileRenameOperations 
+ *
+reboot removal - MoveFileEx(MOVEFILE_DELAY_UNTIL_REBOOT) adds to PendingFileRenameOperations
 HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations
 
  * - not existing
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
     WCHAR filebuf[MAX_PATH];
     WCHAR dirbuf[MAX_PATH];
 
-    if (argc < 2) 
+    if (argc < 2)
         usage(argv[0]);
 
     while (argidx < argc) {

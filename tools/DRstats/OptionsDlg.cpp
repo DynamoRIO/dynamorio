@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -106,7 +106,7 @@ static const value_type hasvalue[] = {
     STRING,
     NUM_DECIMAL,
     NUM_DECIMAL,
-    NUM_DECIMAL, 
+    NUM_DECIMAL,
     NUM_HEX,  // logmask
     NOVALUE,
     NOVALUE,
@@ -256,7 +256,7 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     // set controls based on opstring
     if (!CheckOpstring()) {
         MessageBox(_T("Invalid DYNAMORIO_OPTIONS string!\nThis dialog ")
-                   _T("may not work properly with it."), _T("Error"), 
+                   _T("may not work properly with it."), _T("Error"),
                    MB_OK | MYMBFLAGS);
     }
 
@@ -282,10 +282,10 @@ BEGIN_MESSAGE_MAP(COptionsDlg, CDialog)
     return TRUE;
 }
 
-void COptionsDlg::OnOK() 
+void COptionsDlg::OnOK()
 {
     UpdateData(TRUE); // TRUE means read from controls
-        
+
     // set options string
     BOOL res = SetEnvironmentVariable(_T("DYNAMORIO_OPTIONS"), m_opstring);
     assert(res);
@@ -293,7 +293,7 @@ void COptionsDlg::OnOK()
     CDialog::OnOK();
 }
 
-void COptionsDlg::OnChangeOptionsEdit() 
+void COptionsDlg::OnChangeOptionsEdit()
 {
     if (CheckOpstring()) {
         m_OKButton.EnableWindow(TRUE);
@@ -311,12 +311,12 @@ is_quote(TCHAR ch)
 static BOOL
 is_whitespace(TCHAR ch)
 {
-    return (ch == _T(' ') || ch == _T('\t') || 
+    return (ch == _T(' ') || ch == _T('\t') ||
             ch == _T('\n') || ch == _T('\r'));
 }
 
 // returns the space delimited or quote-delimited word
-// starting at strpos in the string str 
+// starting at strpos in the string str
 // maximum word length: MAX_PATH*2
 static BOOL
 getword(TCHAR *str, TCHAR **strpos, TCHAR *result)
@@ -468,7 +468,7 @@ expand_ws_quotes(CString str, int &start, int &end)
                         int end = (pos - opstring.GetBuffer(0));
                         BOOL ok;
                         expand_ws_quotes(opstring, start, end);
-                        opstring = opstring.Left(start) + 
+                        opstring = opstring.Left(start) +
                             opstring.Right(opstring.GetLength() - end);
                         // update pos
                         pos = opstring.GetBuffer(0) + start;
@@ -542,7 +542,7 @@ BOOL COptionsDlg::CheckOpstring()
                             int len = _tcslen(value);
                             for (j=0; j<len; j++) {
                                 if ((hasvalue[i] == NUM_DECIMAL && !_istdigit(value[j])) ||
-                                    (hasvalue[i] == NUM_HEX && 
+                                    (hasvalue[i] == NUM_HEX &&
                                      ((j == 0 && value[j] != _T('0')) ||
                                       (j == 1 && value[j] != _T('x') && value[j] != _T('X')) ||
                                       (j > 1 && !_istxdigit(value[j]))))) {
@@ -607,7 +607,7 @@ void COptionsDlg::CheckOption(int param)
             RemoveOption(param);
             OnChangeOptionsEdit();
         }
-        if (!m_opstring.IsEmpty() && 
+        if (!m_opstring.IsEmpty() &&
             m_opstring.GetAt(m_opstring.GetLength()-1) != _T(' ')) {
             m_opstring += CString(_T(" "));
         }
@@ -633,7 +633,7 @@ void COptionsDlg::RemoveOption(int param)
     BOOL found = find_param(m_opstring.GetBuffer(0), param, start, end);
     if (found) {
         expand_ws_quotes(m_opstring, start, end);
-        m_opstring = m_opstring.Left(start) + 
+        m_opstring = m_opstring.Left(start) +
             m_opstring.Right(m_opstring.GetLength() - end);
         UpdateData(FALSE); // FALSE means set controls
     }
@@ -672,9 +672,9 @@ BOOL COptionsDlg::UpdateValue(int param)
 
 static TCHAR szFilter[] = _T("Dynamic-Linked Libraries (*.dll)|*.dll|All Files (*.*)|*.*||");
 
-void COptionsDlg::OnBrowseInstrlibname() 
+void COptionsDlg::OnBrowseInstrlibname()
 {
-    CFileDialog fileDlg(TRUE, _T(".dll"), NULL, 
+    CFileDialog fileDlg(TRUE, _T(".dll"), NULL,
                         // hide the "open as read-only" checkbox
                         OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY,
                         szFilter);
@@ -694,7 +694,7 @@ void COptionsDlg::OnBrowseInstrlibname()
     }
 }
 
-void COptionsDlg::OnInstrlibname() 
+void COptionsDlg::OnInstrlibname()
 {
     UpdateData(TRUE); // TRUE means read from controls
     if (CheckLibraryExists(m_InstrLibName.GetBuffer(0), TRUE))
@@ -705,7 +705,7 @@ void COptionsDlg::OnInstrlibname()
     }
 }
 
-void COptionsDlg::OnChangeEditInstrlibname() 
+void COptionsDlg::OnChangeEditInstrlibname()
 {
     if (UpdateValue(INSTRLIBNAME)) {
         OnChangeOptionsEdit();
@@ -728,7 +728,7 @@ BOOL COptionsDlg::CheckLibraryExists(TCHAR *libname, BOOL notify)
     return TRUE;
 }
 
-void COptionsDlg::OnLoggingButton() 
+void COptionsDlg::OnLoggingButton()
 {
     UpdateData(TRUE); // get values from controls
     int level = _ttoi(m_LogLevel);
@@ -779,19 +779,19 @@ void COptionsDlg::OnHotThreshold() { CheckOption(HOT_THRESHOLD); }
 void COptionsDlg::OnCacheBBMax() { CheckOption(CACHE_BB_MAX); }
 void COptionsDlg::OnCacheTraceMax() { CheckOption(CACHE_TRACE_MAX); }
 void COptionsDlg::OnLoglevel() { CheckOption(LOGLEVEL); }
-void COptionsDlg::OnLogmask() { CheckOption(LOGMASK); } 
-void COptionsDlg::OnProfPcs() { CheckOption(PROF_PCS); } 
-void COptionsDlg::OnStats() { CheckOption(STATS); } 
-void COptionsDlg::OnNullcalls() { CheckOption(NULLCALLS); } 
-void COptionsDlg::OnNolink() { CheckOption(NOLINK); } 
-void COptionsDlg::OnNoasynch() { CheckOption(NOASYNCH); } 
-void COptionsDlg::OnTraceDumpOrigins() { CheckOption(TRACEDUMP_ORIGINS); } 
+void COptionsDlg::OnLogmask() { CheckOption(LOGMASK); }
+void COptionsDlg::OnProfPcs() { CheckOption(PROF_PCS); }
+void COptionsDlg::OnStats() { CheckOption(STATS); }
+void COptionsDlg::OnNullcalls() { CheckOption(NULLCALLS); }
+void COptionsDlg::OnNolink() { CheckOption(NOLINK); }
+void COptionsDlg::OnNoasynch() { CheckOption(NOASYNCH); }
+void COptionsDlg::OnTraceDumpOrigins() { CheckOption(TRACEDUMP_ORIGINS); }
 
 
 
 // remind to pick trace dump too
 
-void COptionsDlg::OnProfCounts() { 
+void COptionsDlg::OnProfCounts() {
 
     CButton *button = (CButton *) GetDlgItem(IDC_NOTIFY);
 
@@ -819,14 +819,14 @@ void COptionsDlg::OnProfCounts() {
 
     }
 
-    CheckOption(PROF_COUNTS); 
+    CheckOption(PROF_COUNTS);
 
-} 
+}
 
 
 
 // mutually exclusive
-void COptionsDlg::OnTraceDumpText() { 
+void COptionsDlg::OnTraceDumpText() {
 
     CButton *text = (CButton *) GetDlgItem(IDC_TRACEDUMP_TEXT);
 
@@ -846,13 +846,13 @@ void COptionsDlg::OnTraceDumpText() {
 
     } else {
 
-        CheckOption(TRACEDUMP_TEXT); 
+        CheckOption(TRACEDUMP_TEXT);
 
     }
 
-} 
+}
 
-void COptionsDlg::OnTraceDumpBinary() { 
+void COptionsDlg::OnTraceDumpBinary() {
 
     CButton *text = (CButton *) GetDlgItem(IDC_TRACEDUMP_TEXT);
 
@@ -872,11 +872,11 @@ void COptionsDlg::OnTraceDumpBinary() {
 
     } else {
 
-        CheckOption(TRACEDUMP_BINARY); 
+        CheckOption(TRACEDUMP_BINARY);
 
     }
 
-} 
+}
 
 
 
@@ -886,7 +886,7 @@ void COptionsDlg::OnTraceDumpBinary() {
 
 // but would be nice if env var brought in from cmd line showed up
 
-void COptionsDlg::OnNotify() { 
+void COptionsDlg::OnNotify() {
 
     TCHAR msg[MAX_PATH];
 
@@ -904,7 +904,7 @@ void COptionsDlg::OnNotify() {
 
         if (res == IDYES) {
 
-            CheckOption(NOTIFY); 
+            CheckOption(NOTIFY);
 
         } else {
 
@@ -914,16 +914,16 @@ void COptionsDlg::OnNotify() {
 
     } else {
 
-        CheckOption(NOTIFY); 
+        CheckOption(NOTIFY);
 
     }
 
-} 
+}
 
 
 
 // set env var not just for this process but permanently for this user
-void COptionsDlg::OnSetPermanent() 
+void COptionsDlg::OnSetPermanent()
 {
     // it takes a while to broadcast the "we've changed env vars" message,
     // so set a wait cursor
@@ -932,7 +932,7 @@ void COptionsDlg::OnSetPermanent()
     TCHAR msg[MAX_PATH];
     HKEY hk;
     int res;
-        
+
     // current user only
     res = RegOpenKeyEx(HKEY_CURRENT_USER, _T("Environment"), 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
@@ -942,7 +942,7 @@ void COptionsDlg::OnSetPermanent()
 
     UpdateData(TRUE); // get values from controls
     TCHAR *val = m_opstring.GetBuffer(0);
-    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ, 
+    res = RegSetValueEx(hk, _T("DYNAMORIO_OPTIONS"), 0, REG_SZ,
                         (LPBYTE) val, _tcslen(val)+1);
     assert(res == ERROR_SUCCESS);
 
@@ -963,21 +963,21 @@ void COptionsDlg::OnSetPermanent()
     OnOK();
 }
 
-void COptionsDlg::OnChangeEditCacheBbMax() 
+void COptionsDlg::OnChangeEditCacheBbMax()
 {
     if (UpdateValue(CACHE_BB_MAX)) {
         OnChangeOptionsEdit();
     }
 }
 
-void COptionsDlg::OnChangeEditCacheTraceMax() 
+void COptionsDlg::OnChangeEditCacheTraceMax()
 {
     if (UpdateValue(CACHE_TRACE_MAX)) {
         OnChangeOptionsEdit();
     }
 }
 
-void COptionsDlg::OnChangeEditHotThreshold() 
+void COptionsDlg::OnChangeEditHotThreshold()
 {
     if (UpdateValue(HOT_THRESHOLD)) {
         OnChangeOptionsEdit();

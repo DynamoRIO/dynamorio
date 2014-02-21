@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -51,7 +51,7 @@ main(int argc, char **argv)
         fprintf(stderr, "usage: %s <window caption> <timeout (sec)>\n", argv[0]);
         exit(1);
     }
-    
+
     wait_tot = 0;
     wait_max = atoi(argv[2]) * 1000;
 
@@ -62,7 +62,7 @@ main(int argc, char **argv)
             Sleep(SLEEP_INTERVAL_MS);
         }
         else {
-            res = SendMessageTimeout(hw, WM_CLOSE, 0, 0, SMTO_NORMAL, 
+            res = SendMessageTimeout(hw, WM_CLOSE, 0, 0, SMTO_NORMAL,
                                      TIMEOUT_MS, NULL);
             printf("Close message sent.\n");
             if (res == 0) {
@@ -70,7 +70,7 @@ main(int argc, char **argv)
                 res = GetLastError();
                 /* msdn lies! claims GetLastError returns 0 for timeout case, yet
                  * it in fact returns ERROR_TIMEOUT (no surprise) just check for
-                 * both, not too suprising, I suppose, as I think they have some 
+                 * both, not too suprising, I suppose, as I think they have some
                  * typos in the flag descriptions for the function also */
                 if (res == 0 || res == ERROR_TIMEOUT) {
                     printf("Window timed out without response\n");

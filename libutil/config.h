@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -32,18 +32,18 @@
 
 
 /*
- * 
+ *
  * configuartion interface definitions
  *
  *
  * this is intended to serve as a replacement for the cluttered
  *  policy.c code for reading and writing core parameters. OOP
- *  style has been kept in mind to allow easy porting to c++ 
+ *  style has been kept in mind to allow easy porting to c++
  *  if/when we decide to make that switch.
  *
  * usage:
  *  a ConfigGroup is more or less equivalent to a registry key: it can
- *  hold name-value pairs and 'children' ConfigGroups. ConfigGroup 
+ *  hold name-value pairs and 'children' ConfigGroups. ConfigGroup
  *  paths are ":" separated, and for registry purposes are assumed to
  *  be rooted at HKLM/Software/Determina. the idea is that if we move
  *  away from the registry (eg, due to moving to another platform or
@@ -51,9 +51,9 @@
  *  usable, and the only change would be in {read,write}_config_group.
  *
  *  there are also direct-access single-parameter config
- *  functions; these allow for arbitray registry read/write. however, 
+ *  functions; these allow for arbitray registry read/write. however,
  *  unless otherwise specified with the 'absolute' parameter, these
- *  are still based at the determina key. 
+ *  are still based at the determina key.
  *
  *
  */
@@ -66,7 +66,7 @@
 
 #ifdef __cplusplus
 extern "C"{
-#endif 
+#endif
 
 #define MAX_PARAM_LEN 1024
 #define CONFIG_PATH_SEPARATOR L':'
@@ -103,7 +103,7 @@ typedef struct ConfigGroup_ {
 /* group config management */
 
 DWORD
-get_key_handle(HKEY *key, HKEY parent, const WCHAR *path, 
+get_key_handle(HKEY *key, HKEY parent, const WCHAR *path,
                BOOL absolute, DWORD flags);
 
 DWORD
@@ -115,10 +115,10 @@ new_config_group(const WCHAR *name);
 ConfigGroup *
 copy_config_group(ConfigGroup *config, BOOL deep);
 
-/* name is the subkey name from the system registry root (e.g., 
+/* name is the subkey name from the system registry root (e.g.,
  *  HKLM/Software/Determina). */
 DWORD
-read_config_group(ConfigGroup **configptr, const WCHAR *name, 
+read_config_group(ConfigGroup **configptr, const WCHAR *name,
                   BOOL read_children_recursively);
 
 void
@@ -134,7 +134,7 @@ WCHAR *
 get_config_group_parameter(ConfigGroup *config, const WCHAR *name);
 
 void
-set_config_group_parameter(ConfigGroup *config, 
+set_config_group_parameter(ConfigGroup *config,
                            const WCHAR *name, const WCHAR *value);
 
 void
@@ -188,18 +188,18 @@ set_config_group_parameter_scrambled(ConfigGroup *config, const WCHAR *name,
 /* single parameter config functions */
 
 DWORD
-set_config_parameter(const WCHAR *path, BOOL absolute, 
+set_config_parameter(const WCHAR *path, BOOL absolute,
                      const WCHAR *name, const WCHAR *value);
 
 DWORD
-get_config_parameter(const WCHAR *path, BOOL absolute, 
+get_config_parameter(const WCHAR *path, BOOL absolute,
                      const WCHAR *name, WCHAR *value, int maxlen);
 
 DWORD
 read_reg_string(HKEY subkey, const WCHAR *keyname, WCHAR *value, int valchars);
 
 /* if value is NULL, the value will be deleted */
-DWORD 
+DWORD
 write_reg_string(HKEY subkey, const WCHAR *keyname, const WCHAR *value);
 
 /* identifies processes relative to a ConfigGroup */
@@ -211,7 +211,7 @@ is_parent_of_qualified_config_group(ConfigGroup *config);
 
 /* tries both with and without no_strip */
 ConfigGroup *
-get_qualified_config_group(ConfigGroup *config, 
+get_qualified_config_group(ConfigGroup *config,
                            const WCHAR *exename, const WCHAR *cmdline);
 
 /* some list management and utility routines */
@@ -225,10 +225,10 @@ new_file_list(SIZE_T initial_chars);
 void
 free_file_list(WCHAR *list);
 
-/* 
- * given a ;-separated list and a filename, return a pointer to 
- *  the filename in the list, if it appears. comparisons are 
- *  case insensitive and independent of path; eg, 
+/*
+ * given a ;-separated list and a filename, return a pointer to
+ *  the filename in the list, if it appears. comparisons are
+ *  case insensitive and independent of path; eg,
  *     get_entry_location("c:\\foo\\bar.dll;blah;...", "D:\\Bar.DLL")
  *  would return a pointer to the beginning of the list.
  */
@@ -240,26 +240,26 @@ is_in_file_list(const WCHAR *list, const WCHAR *filename, WCHAR separator);
 
 /* frees the old list and returns a newly alloc'ed one */
 WCHAR *
-add_to_file_list(WCHAR *list, const WCHAR *filename, 
-                 BOOL check_for_duplicates, BOOL add_to_front, 
+add_to_file_list(WCHAR *list, const WCHAR *filename,
+                 BOOL check_for_duplicates, BOOL add_to_front,
                  BOOL overwrite_existing, WCHAR separator);
 
 void
 remove_from_file_list(WCHAR *list, const WCHAR *filename, WCHAR separator);
 
 BOOL
-blacklist_filter(WCHAR *list, const WCHAR *blacklist, 
+blacklist_filter(WCHAR *list, const WCHAR *blacklist,
                  BOOL check_only, WCHAR separator);
 
 BOOL
-whitelist_filter(WCHAR *list, const WCHAR *whitelist, 
+whitelist_filter(WCHAR *list, const WCHAR *whitelist,
                  BOOL check_only, WCHAR separator);
 
 DWORD
-set_autoinjection_ex(BOOL inject, DWORD flags, 
-                     const WCHAR *blacklist, 
-                     const WCHAR *whitelist, DWORD *list_error, 
-                     const WCHAR *custom_preinject_name, 
+set_autoinjection_ex(BOOL inject, DWORD flags,
+                     const WCHAR *blacklist,
+                     const WCHAR *whitelist, DWORD *list_error,
+                     const WCHAR *custom_preinject_name,
                      WCHAR *current_list, SIZE_T maxchars);
 
 DWORD

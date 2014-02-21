@@ -8,7 +8,7 @@
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; 
+ * License as published by the Free Software Foundation;
  * version 2.1 of the License, and no later version.
 
  * This library is distributed in the hope that it will be useful,
@@ -154,7 +154,7 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
                                                        OPSZ_lea)));
         }
     } else if (opnd_is_base_disp(memref)) {
-        /* special handling for xlat instr, [%ebx,%al] 
+        /* special handling for xlat instr, [%ebx,%al]
          * - save %eax
          * - movzx %al => %eax
          * - lea [%ebx, %eax] => dst
@@ -166,7 +166,7 @@ drutil_insert_get_mem_addr(void *drcontext, instrlist_t *bb, instr_t *where,
             if (scratch != DR_REG_XAX && dst != DR_REG_XAX) {
                 /* we do not have to save xax if it is saved by caller */
                 PRE(bb, where,
-                    INSTR_CREATE_mov_ld(drcontext, 
+                    INSTR_CREATE_mov_ld(drcontext,
                                         opnd_create_reg(scratch),
                                         opnd_create_reg(DR_REG_XAX)));
             }
@@ -321,7 +321,7 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          *    jecxz  zero
          *    jmp    iter
          *  zero:
-         *    mov    $0x00000001 -> %ecx 
+         *    mov    $0x00000001 -> %ecx
          *    jmp    pre_loop
          *  iter:
          *    movs   %ds:(%esi) %esi %edi -> %es:(%edi) %esi %edi

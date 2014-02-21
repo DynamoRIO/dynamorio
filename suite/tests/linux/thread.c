@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -96,7 +96,7 @@ int main()
 
     /* waste some time */
     nanosleep(&sleeptime, NULL);
-    
+
     child_exit = true;
     /* we want deterministic printf ordering */
     while (!child_done)
@@ -116,7 +116,7 @@ int run(void *arg)
 {
     int i = 0;
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
-     * clone system call we could get kernel to do this for us. 
+     * clone system call we could get kernel to do this for us.
      */
     child = nolibc_syscall(SYS_gettid, 0);
     nolibc_syscall(SYS_set_tid_address, 1, &child);
@@ -152,10 +152,10 @@ int run(void *arg)
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack)
 {
-    pid_t newpid; 
+    pid_t newpid;
     int flags;
     void *my_stack;
-    
+
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
@@ -164,11 +164,11 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
          * CLONE_CHILD_CLEARTID to get that.  Since we're using library call
          * instead of raw system call we don't have child_tidptr argument,
          * so we set the location in the child itself via set_tid_address(). */
-        CLONE_CHILD_CLEARTID | 
+        CLONE_CHILD_CLEARTID |
         CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     newpid = clone(fcn, my_stack, flags, arg);
     /* this is really a tid since we passed CLONE_THREAD: child has same pid as us */
-  
+
     if (newpid == -1) {
         fprintf(stderr, "smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
@@ -179,7 +179,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     return newpid;
 }
 
-static void 
+static void
 delete_thread(pid_t pid, void *stack)
 {
     pid_t result;
@@ -209,13 +209,13 @@ stack_alloc(int size)
     q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
     assert(q);
     stack_redzone_start = (size_t) q;
-#endif 
+#endif
 
     p = mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
     assert(p);
 #ifdef DEBUG
     memset(p, 0xab, size);
-#endif 
+#endif
 
     /* stack grows from high to low addresses, so return a ptr to the top of the
        allocated region */
@@ -232,11 +232,11 @@ stack_free(void *p, int size)
 
 #ifdef DEBUG
     memset((void *)sp, 0xcd, size);
-#endif 
+#endif
     munmap((void *)sp, size);
 
 #if STACK_OVERFLOW_PROTECT
     sp = sp - PAGE_SIZE;
     munmap((void*) sp, PAGE_SIZE);
-#endif 
+#endif
 }

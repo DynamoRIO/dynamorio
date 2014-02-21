@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -62,7 +62,7 @@
  * Should go through each module's (non-zero) image sections meaning
  * [module_base,+modulesize) and look for any address pointing to the
  * code section(s) [baseof_code_section,+sizeof_code_section) for each
- * code section.  
+ * code section.
  *
  * FIXME: (optimization) Since there can be multiple code sections we
  * have to do this multiple times for each one in a module.  While
@@ -82,19 +82,19 @@ DECLARE_CXTSWPROT_VAR(mutex_t rct_module_lock, INIT_LOCK_FREE(rct_module_lock));
 /* look in text[start,end) memory range for any reference to values
  *  in referto[start,end) address range
  * Caller is responsible for ensuring that [start,end) is readable.
- * 
+ *
  * TODO: add any such addresses to an OUT parameter hashtable
  * returns number of added references (for diagnostic purposes)
  */
 uint
 find_address_references(dcontext_t *dcontext,
-                        app_pc text_start, app_pc text_end, 
+                        app_pc text_start, app_pc text_end,
                         app_pc referto_start, app_pc referto_end
                         )
 {
     uint references_found = 0;  /* only for debugging  */
     DEBUG_DECLARE(uint references_already_known = 0;)
-    
+
     app_pc cur_addr;
     app_pc last_addr = text_end - sizeof(app_pc); /* inclusive */
 
@@ -154,10 +154,10 @@ find_address_references(dcontext_t *dcontext,
 
     LOG(GLOBAL, LOG_RCT, 2,
         "find_address_references: scanned %u addresses, touched %u pages, "
-        "added %u new, %u duplicate ind targets\n", 
+        "added %u new, %u duplicate ind targets\n",
         (last_addr - text_start), (last_addr - text_start) / PAGE_SIZE,
         references_found, references_already_known);
-    
+
     return references_found;
 }
 
@@ -192,9 +192,9 @@ rct_check_ref_and_add(dcontext_t *dcontext, app_pc ref,
     }
 
     /* indeed points to a code section */
-    DOLOG(3, LOG_RCT, { 
+    DOLOG(3, LOG_RCT, {
         char symbuf[MAXIMUM_SYMBOL_LENGTH];
-        LOG(GLOBAL, LOG_RCT, 3, 
+        LOG(GLOBAL, LOG_RCT, 3,
             "rct_check_ref_and_add:  "PFX" addr taken reference at "PFX"\n",
             ref, addr);
         print_symbolic_address(ref, symbuf, sizeof(symbuf), true);
@@ -262,11 +262,11 @@ int
 rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 {
     bool is_ind_call = EXIT_IS_CALL(dcontext->last_exit->flags);
-    security_violation_t indirect_branch_violation = is_ind_call ? 
+    security_violation_t indirect_branch_violation = is_ind_call ?
         INDIRECT_CALL_RCT_VIOLATION : INDIRECT_JUMP_RCT_VIOLATION;
     int res = 0;
     bool cache = true;
-    DEBUG_DECLARE(const char *ibranch_type = 
+    DEBUG_DECLARE(const char *ibranch_type =
                   is_ind_call ? "call" : "jmp";)
     ASSERT(is_ind_call || EXIT_IS_JMP(dcontext->last_exit->flags));
 
@@ -279,7 +279,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
     STATS_INC(rct_ind_branch_validations);
 
     DOSTATS({
-        /* since the exports are now added to the global hashtable, 
+        /* since the exports are now added to the global hashtable,
          * we have to check this first to collect these stats
          */
         /* FIXME: we need symbols at loglevel 0 for this to work */
@@ -290,7 +290,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
                 STATS_INC(rct_ind_jmp_exports);
 
             if (DYNAMO_OPTION(IAT_convert)) {
-                LOG(THREAD, LOG_RCT, 2, 
+                LOG(THREAD, LOG_RCT, 2,
                     "RCT: address taken export or IAT conversion missed for "PFX, target_addr);
                 /* the module entry point is in fact hit here */
                 /* FIXME: investigate if an export is really not used via IAT or a variation of register */
@@ -306,7 +306,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         LOG(THREAD, LOG_RCT, 1, "RCT: bad ind %s target: "PFX", source "PFX"\n",
             ibranch_type, target_addr, src_addr);
 
-        DOLOG(2, LOG_RCT, { 
+        DOLOG(2, LOG_RCT, {
             char symbuf[MAXIMUM_SYMBOL_LENGTH];
             print_symbolic_address(target_addr, symbuf, sizeof(symbuf), true);
             LOG(THREAD, LOG_SYMBOLS, 2, "\t%s\n", symbuf);
@@ -328,22 +328,22 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
              * after call location (normally a target of return) to be
              * targeted.
              * Instances in ole32.dll abound.
-             * 
+             *
              * 77a7f057 e8ac2ffdff       call    ole32!IIDFromString+0xf6 (77a52008)
              * ole32!IIDFromString+0x107:
              * 77a52022 8b08             mov     ecx,[eax]
              * 77a52024 8b4004           mov     eax,[eax+0x4]
              * 77a52027 ffe0             jmp     eax
-             * 
+             *
              * We would need to ensure that ret_after_call is turned
              * on, FIXME: should turn into a security_option_t that needs
              * to be at least OPTION_ENABLED
              */
-            
+
             if (DYNAMO_OPTION(ret_after_call)) {
                 if (is_address_after_call(dcontext, target_addr)) {
-                    LOG(THREAD, LOG_RCT, 1, 
-                        "RCT: bad ind jump targeting an after call site: "PFX"\n", 
+                    LOG(THREAD, LOG_RCT, 1,
+                        "RCT: bad ind jump targeting an after call site: "PFX"\n",
                         target_addr);
                     STATS_INC(rct_ind_jmp_allowed_to_ac);
                     /* the current thread's indirect jmp IBL table will cache this */
@@ -392,7 +392,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
         is_code_section = rct_analyze_module_at_violation(dcontext, target_addr);
         mutex_unlock(&rct_module_lock);
 
-        /* In fact, we have to let all regions that are not modules - so 
+        /* In fact, we have to let all regions that are not modules - so
          * .A and .B attacks will still be marked as such instead of failing here.
          */
         if (!is_code_section) {
@@ -405,7 +405,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 
             /* ASLR: check if is in wouldbe region, if so report as failure */
             if (aslr_is_possible_attack(target_addr)) {
-                LOG(THREAD, LOG_RCT, 1, 
+                LOG(THREAD, LOG_RCT, 1,
                     "RCT: ASLR: wouldbe a preferred DLL, "PFX" --BAD\n", target_addr);
                 STATS_INC(aslr_rct_ind_wouldbe);
                 /* fall through and report */
@@ -461,7 +461,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
 
         LOG(THREAD, LOG_RCT, 1,
             "RCT: BAD[%d]  problem target="PFX" src fragment="PFX" type=%s\n",
-            GLOBAL_STAT(rct_ind_call_violations) + GLOBAL_STAT(rct_ind_jmp_violations), 
+            GLOBAL_STAT(rct_ind_call_violations) + GLOBAL_STAT(rct_ind_jmp_violations),
             target_addr, src_addr, ibranch_type);
 
         /* FIXME: case 4331, as a minimal change for 2.1, this
@@ -488,11 +488,11 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             else
                 STATS_INC(rct_ind_jmp_violations);
         });
-        SYSLOG_INTERNAL_WARNING_ONCE("indirect %s targeting unknown "PFX, 
+        SYSLOG_INTERNAL_WARNING_ONCE("indirect %s targeting unknown "PFX,
                                      EXIT_IS_CALL(dcontext->last_exit->flags)
                                      ? "call" : "jmp", target_addr);
         /* does not return when OPTION_BLOCK is enforced */
-        if (security_violation(dcontext, target_addr, indirect_branch_violation, 
+        if (security_violation(dcontext, target_addr, indirect_branch_violation,
                                is_ind_call ? DYNAMO_OPTION(rct_ind_call) : DYNAMO_OPTION(rct_ind_jump)) ==
             indirect_branch_violation) {
             /* running in detect mode */
@@ -504,7 +504,7 @@ rct_ind_branch_check(dcontext_t *dcontext, app_pc target_addr, app_pc src_addr)
             /* we'll cache violation target */
         }
 
-    exempted:                  
+    exempted:
         /* Exempted or bad in detect mode, either way should add the
          * violating address so future references to it in other
          * threads do not fail.
@@ -571,7 +571,7 @@ rct_exit(void)
     if (!(TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
           TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))))
         return;
-    
+
     DELETE_LOCK(rct_module_lock);
 }
 

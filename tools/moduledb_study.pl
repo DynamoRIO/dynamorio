@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -66,7 +66,7 @@ while (<FILE>) {
     $target_addr = "-";
     $target_prop = "-";
     $id = "-";
-    
+
     if ($_ =~ /^(bug|case)-?_?\s?(\d+)/i) {
         $case_num = $2;
     } elsif ($_ =~ /^([^\/]*)\//) {
@@ -106,7 +106,7 @@ while (<FILE>) {
 # grep -iEv " ....\.....\.[abcef] " results_uniq.txt > results_other.txt
 
 # 1129 unique violations (however many are core bugs!)
-# gathered from determina bugs folder, does not include zipped up forensics files 
+# gathered from determina bugs folder, does not include zipped up forensics files
 # 37 .O or .P
 # 31 .A (stack) (mostly bugs)
 # 471 .C/E/F

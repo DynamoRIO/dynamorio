@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 DR_API
-/** 
+/**
  * Decodes only enough of the instruction at address \p pc to determine its size.
  * Returns that size.
  * If \p num_prefixes is non-NULL, returns the number of prefix bytes.
@@ -50,12 +50,12 @@ DR_API
  * control-transfer relative addressing), or 0 if none.
  * May return 0 size for certain invalid instructions.
  */
-int 
+int
 decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos));
 
 DR_API
-/** 
+/**
  * Decodes only enough of the instruction at address \p pc to determine its size.
  * Returns the address of the byte following the instruction.
  * Returns NULL on decoding an invalid instruction.
@@ -69,7 +69,7 @@ byte *
 decode_next_pc(dcontext_t *dcontext, byte *pc);
 
 DR_UNS_API
-/** 
+/**
  * Decodes the size of the instruction at address \p pc.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
@@ -87,12 +87,12 @@ byte *
 decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr);
 
 DR_UNS_API
-/** 
+/**
  * Decodes only enough of the instruction at address \p pc to determine
  * its size, its effects on the 6 arithmetic eflags, and whether it is
  * a control-transfer instruction.  If it is, the operands fields of
  * \p instr are filled in.  If not, only the raw bits fields of \p instr are
- * filled in. 
+ * filled in.
  *
  * Fills in the PREFIX_SEG_GS and PREFIX_SEG_FS prefix flags for all instrs.
  * Does NOT fill in any other prefix flags unless this is a cti instr
@@ -107,7 +107,7 @@ DR_UNS_API
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
- * Returns the address of the byte following the instruction.  
+ * Returns the address of the byte following the instruction.
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
  */
 #ifdef UNSUPPORTED_API

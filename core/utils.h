@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -87,13 +87,13 @@
            if (DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) {                            \
                REPORT_CURIOSITY(x);                                                   \
            }                                                                          \
-       } while (0)  
+       } while (0)
 #   define ASSERT_CURIOSITY_ONCE(x) do {                                              \
            if (DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) {                            \
                DO_ONCE({REPORT_CURIOSITY(x);});                                       \
            }                                                                          \
-       } while (0)  
-# else 
+       } while (0)
+# else
 /* cast to void to avoid gcc warning "statement with no effect" */
 #   define ASSERT(x) \
         ((void)((DEBUG_CHECKS(CHKLVL_ASSERTS) && !(x)) ? \
@@ -207,7 +207,7 @@ void external_error(const char *file, int line, const char *msg);
     ASSERT((val) < (1 << ((width)+1)) && "truncating to "#width" bits");
 #define CLIENT_ASSERT_BITFIELD_TRUNCATE(width, val, msg) \
     CLIENT_ASSERT((val) < (1 << ((width)+1)), msg);
-                                               
+
 /* thread synchronization */
 #define LOCK_FREE_STATE -1     /* allows a quick >=0 test for contention */
 #define LOCK_SET_STATE (LOCK_FREE_STATE + 1)  /* set when requested by a single thread */
@@ -314,8 +314,8 @@ typedef struct _recursive_lock_t {
 typedef struct _read_write_lock_t {
     mutex_t lock;
     /* FIXME: could be merged w/ lock->state if want to get more sophisticated...
-     * we could use the lock->state as a 32-bit counter, incremented 
-     * by readers, and with the MSB bit (sign) set by writers 
+     * we could use the lock->state as a 32-bit counter, incremented
+     * by readers, and with the MSB bit (sign) set by writers
      */
     volatile int num_readers;
     /* we store the writer so that writers can be readers */
@@ -339,7 +339,7 @@ enum {
 
     LOCK_RANK(trace_building_lock), /* < bb_building_lock, < table_rwlock */
 
-    /* decode exception -> check if should_intercept requires all_threads 
+    /* decode exception -> check if should_intercept requires all_threads
      * FIXME: any other locks that could be interrupted by exception that
      * could be app's fault?
      */
@@ -350,7 +350,7 @@ enum {
 #if defined(WINDOWS) && defined(STACK_GUARD_PAGE)
     LOCK_RANK(exception_stack_lock), /* < all_threads_lock */
 #endif
-    /* FIXME: grabbed on an exception, which could happen anywhere! 
+    /* FIXME: grabbed on an exception, which could happen anywhere!
      * possible deadlock if already held */
     LOCK_RANK(all_threads_lock),  /* < global_alloc_lock */
 
@@ -366,7 +366,7 @@ enum {
     LOCK_RANK(protect_info), /* < cache and heap traversal locks */
 
 #if defined(CLIENT_SIDELINE) && defined(CLIENT_INTERFACE)
-    LOCK_RANK(sideline_mutex), 
+    LOCK_RANK(sideline_mutex),
 #endif
 
     LOCK_RANK(shared_cache_flush_lock), /* < shared_cache_count_lock,
@@ -401,12 +401,12 @@ enum {
 #endif
 
 #ifdef HOT_PATCHING_INTERFACE
-    /* This lock's rank needs to be after bb_building_lock because 
-     * build_bb_ilist() is where injection takes place, which means the 
-     * bb lock has been acquired before any hot patching related work is done 
+    /* This lock's rank needs to be after bb_building_lock because
+     * build_bb_ilist() is where injection takes place, which means the
+     * bb lock has been acquired before any hot patching related work is done
      * on a bb.
      */
-    LOCK_RANK(hotp_vul_table_lock), /* > bb_building_lock, 
+    LOCK_RANK(hotp_vul_table_lock), /* > bb_building_lock,
                                      * < dynamo_areas, < heap_unit_lock. */
 #endif
     LOCK_RANK(coarse_info_lock), /* < special_heap_lock, < global_alloc_lock,
@@ -506,7 +506,7 @@ enum {
 #ifdef WINDOWS
     LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(drwinapi_localheap_lock), /* < global_alloc_lock */
-#endif    
+#endif
 #ifdef CLIENT_INTERFACE
     LOCK_RANK(client_aux_libs),
 # ifdef WINDOWS
@@ -521,10 +521,10 @@ enum {
     /* N.B.: the order of allunits < global_alloc < heap_unit is relied on
      * in the {fcache,heap}_low_on_memory routines.  IMPORTANT - any locks
      * added between the allunits_lock and heap_unit_lock must have special
-     * handling in the fcache_low_on_memory() routine. 
+     * handling in the fcache_low_on_memory() routine.
      */
     LOCK_RANK(allunits_lock),  /* < global_alloc_lock */
-    LOCK_RANK(fcache_unit_areas), /* > allunits_lock, 
+    LOCK_RANK(fcache_unit_areas), /* > allunits_lock,
                                      < dynamo_areas, < global_alloc_lock */
     IF_NO_MEMQUERY_(LOCK_RANK(all_memory_areas))    /* < dynamo_areas */
     IF_UNIX_(LOCK_RANK(set_thread_area_lock)) /* no constraints */
@@ -549,7 +549,7 @@ enum {
     LOCK_RANK(do_threshold_mutex),  /* FIXME: NOT TESTED */
     LOCK_RANK(threads_killed_lock),  /* FIXME: NOT TESTED */
     LOCK_RANK(child_lock),  /* FIXME: NOT TESTED */
-    
+
 #ifdef SIDELINE
     LOCK_RANK(sideline_lock), /* FIXME: NOT TESTED */
     LOCK_RANK(do_not_delete_lock),/* FIXME: NOT TESTED */
@@ -567,7 +567,7 @@ enum {
                                                        * < report_buf_lock (for assert) */
 #endif
     LOCK_RANK(report_buf_lock),
-    /* FIXME: if we crash while holding the all_threads_lock, snapshot_lock 
+    /* FIXME: if we crash while holding the all_threads_lock, snapshot_lock
      * (for loglevel 1+, logmask LOG_MEMSTATS), or any lock below this
      * line (except the profile_dump_lock, and possibly others depending on
      * options) we will deadlock
@@ -602,7 +602,7 @@ enum {
     /* shared_itimer_lock is used in timer signal handling, which could happen at
      * anytime, so we put it at the innermost.
      */
-    LOCK_RANK(shared_itimer_lock), 
+    LOCK_RANK(shared_itimer_lock),
 #endif
     LOCK_RANK(innermost_lock), /* innermost internal lock, head of all locks list */
 };
@@ -620,7 +620,7 @@ bool thread_owns_one_lock(dcontext_t *dcontext, mutex_t *lock);
 bool thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
 bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2);
 
-/* We need the (mutex_t) type specifier for direct initialization, 
+/* We need the (mutex_t) type specifier for direct initialization,
    but not when defining compound structures, hence NO_TYPE */
 #  define INIT_LOCK_NO_TYPE(name, rank) {LOCK_FREE_STATE,               \
                                          KSYNCH_TYPE_STATIC_INIT,  \
@@ -632,15 +632,15 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 #endif /* DEADLOCK_AVOIDANCE */
 
 /* Structure assignments and initialization don't work the same in gcc and cl
-   in gcc it is ok to have assignment {gcc; var = (mutex_t) {0}; } 
-      and so it helped to have the type specifier.  
-      Windows however doesn't like that at all even for initialization, 
+   in gcc it is ok to have assignment {gcc; var = (mutex_t) {0}; }
+      and so it helped to have the type specifier.
+      Windows however doesn't like that at all even for initialization,
       so I have to go and add explicit initialized temporaries to be assigned to a variable
       i.e. {cl; {mutex_t temp = {0}; var = temp; }; }
       }
 */
 #ifdef WINDOWS
-#  define STRUCTURE_TYPE(x) 
+#  define STRUCTURE_TYPE(x)
 #else
 /* FIXME: gcc 4.1.1 complains "initializer element is not constant"
  * if we have our old (x) here; presumably some older gcc needed it;
@@ -708,7 +708,7 @@ bool thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, 
 #define DELETE_RECURSIVE_LOCK(rec_lock) mutex_delete(&(rec_lock).lock)
 #define DELETE_READWRITE_LOCK(rwlock) mutex_delete(&(rwlock).lock)
 /* mutexes need to release any kernel objects that were created */
-void mutex_delete(mutex_t *lock); 
+void mutex_delete(mutex_t *lock);
 
 /* basic synchronization functions */
 void mutex_lock(mutex_t *mutex);
@@ -731,9 +731,9 @@ void spinmutex_delete(spin_mutex_t *spin_lock);
 /* tests if a lock is held, but doesn't grab it */
 /* note that this is not a synchronizing function, its intended uses are :
  * 1. for synch code to guarantee that a thread it has suspened isn't holding
- * a lock (note that a return of true doesn't mean that the suspended thread 
+ * a lock (note that a return of true doesn't mean that the suspended thread
  * is holding the lock, could be some other thread)
- * 2. for when you want to assert that you hold a lock, while you can't 
+ * 2. for when you want to assert that you hold a lock, while you can't
  * actually do that, you can assert with this function that the lock is held
  * by someone
  * 3. read_{un,}lock use this function to check the state of write lock mutex
@@ -764,13 +764,13 @@ struct _broadcast_event_t;
 typedef struct _broadcast_event_t broadcast_event_t;
 broadcast_event_t * create_broadcast_event(void);
 void destroy_broadcast_event(broadcast_event_t *be);
-/* NOTE : to avoid races a signaler should always do the required action to 
- * make any wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the 
+/* NOTE : to avoid races a signaler should always do the required action to
+ * make any wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the
  * event false BEFORE signaling the event
  */
 void signal_broadcast_event(broadcast_event_t *be);
-/* the wait macro, we force people to use a while loop since our current 
- * implementation has a race (ATOMIC_INC, else clause ATOMIC_DEC, in the 
+/* the wait macro, we force people to use a while loop since our current
+ * implementation has a race (ATOMIC_INC, else clause ATOMIC_DEC, in the
  * middle someone could signal thinking we are waiting)
  *
  * event is the broadcast event
@@ -904,21 +904,21 @@ int atomic_swap(volatile int *addr, int value);
  */
 /* bits=entries: 8=256, 12=4096, 13=8192, 14=16384, 16=65536 */
 
-/* Our default hash function is a bitwise & with a mask (HASH_FUNC_BITS) 
+/* Our default hash function is a bitwise & with a mask (HASH_FUNC_BITS)
  * to select index bits, and maybe offset to ignore least significant bits.
  * (as we're dealing with pcs here that is generally enough, but for larger
- *  table sizes a more complicated function is sometimes needed so the 
+ *  table sizes a more complicated function is sometimes needed so the
  *  HASH_FUNC macro supports other hashing functions)
  * These macros would be typed as follows:
  *   extern uint HASH_FUNC(uint val, table* table);
- *      where table is any struct that contains 
+ *      where table is any struct that contains
  *      hash_func, hash_mask and hash_offset elements
  *   extern uint HASH_FUNC_BITS(uint val, int num_bits);
  *   extern uint HASH_MASK(int num_bits);
  *   extern uint HASHTABLE_SIZE(int num_bits);
  */
 
-/* FIXME - xref 8139 which is best 2654435769U 2654435761U or 0x9e379e37 
+/* FIXME - xref 8139 which is best 2654435769U 2654435761U or 0x9e379e37
  * FIXME PR 212574 (==8139): would we want the 32-bit one for smaller index values?
  */
 #define PHI_2_32  2654435769U /* (sqrt(5)-1)/2 * (2^32) */
@@ -942,7 +942,7 @@ int atomic_swap(volatile int *addr, int value);
        >> (table)->hash_mask_offset))
 
 #ifdef X86
-  /* no instruction alignment -> use the lsb! 
+  /* no instruction alignment -> use the lsb!
    * for 64-bit we assume the mask is taking out everything beyond uint range
    */
 # define HASH_FUNC_BITS(val, num_bits) ((uint)((val) & (HASH_MASK(num_bits))))
@@ -1104,7 +1104,7 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #define LOGDIR_MAX_NUM          1000
 #define LOGDIR_FORMAT_STRING    "%s.%03d"
 #define LOGDIR_FORMAT_ARGS(num) "dynamorio", num
- /* longest message we would put in a log or messagebox 
+ /* longest message we would put in a log or messagebox
   * 512 is too short for internal exception w/ app + options + callstack
   */
 /* We define MAX_LOG_LENGTH_MINUS_ONE for splitting long buffers.
@@ -1188,7 +1188,7 @@ bool is_region_memset_to_char(byte *addr, size_t size, byte val);
 /* calculates intersection of two regions defined as open ended intervals
  * [region1_start, region1_start + region1_len) \intersect
  * [region2_start, region2_start + region2_len)
- * 
+ *
  * intersection_len is set to 0 if the regions do not overlap
  * otherwise returns the intersecting region as
  * [intersection_start, intersection_start + intersection_len)
@@ -1237,7 +1237,7 @@ const char *get_short_name(const char *exename);
         }                                                       \
 }
 
-/* This is more heavy-weight and includes its own static mutex 
+/* This is more heavy-weight and includes its own static mutex
  * The counter is only incremented if it is less than the threshold
  */
 /* Self-protection case 8075: can't use pragma at local scope.  We put
@@ -1276,11 +1276,11 @@ extern mutex_t do_threshold_mutex;
         }                                                               \
 }
 
-/* TRY/EXCEPT and TRY/FINALLY 
+/* TRY/EXCEPT and TRY/FINALLY
  * usage notes:
  * any automatic variables that you want to use in the except block
  * should be declared as volatile - see case 5891
- * 
+ *
  * Note we do not have language support - do not use return within a
  * TRY block!  otherwise we can't rollback or execute FINALLY.
  *
@@ -1491,7 +1491,7 @@ enum {LONGJMP_EXCEPTION = 1};
     } while (0)
 #define XSTATS_INC(stat)                                                 \
         XSTATS_WITH_DC(stats_inc__dcontext,                              \
-                      XSTATS_INC_DC(stats_inc__dcontext, stat)) 
+                      XSTATS_INC_DC(stats_inc__dcontext, stat))
 
 #define XSTATS_DEC_DC(dcontext, stat) do {                              \
         DO_THREAD_STATS(dcontext, THREAD_STAT(dcontext, stat) -= 1);    \
@@ -1499,7 +1499,7 @@ enum {LONGJMP_EXCEPTION = 1};
     } while (0)
 #define XSTATS_DEC(stat)                                                 \
         XSTATS_WITH_DC(stats_dec__dcontext,                              \
-                      XSTATS_DEC_DC(stats_dec__dcontext, stat)) 
+                      XSTATS_DEC_DC(stats_dec__dcontext, stat))
 
 #define XSTATS_ADD_DC(dcontext, stat, value) do {                                       \
         stats_int_t stats_add_dc__value = (stats_int_t) (value);                        \
@@ -1509,7 +1509,7 @@ enum {LONGJMP_EXCEPTION = 1};
     } while (0)
 #define XSTATS_ADD(stat, value)                                             \
         XSTATS_WITH_DC(stats_add__dcontext,                                 \
-                       XSTATS_ADD_DC(stats_add__dcontext, stat, value)) 
+                       XSTATS_ADD_DC(stats_add__dcontext, stat, value))
 #define XSTATS_SUB(stat, value) XSTATS_ADD(stat, -(stats_int_t)(value))
 #define XSTATS_ADD_ASSIGN_DC(dcontext, stat, var, value) do {               \
         stats_int_t stats_add_assign_dc__value = (stats_int_t) (value);     \
@@ -1566,7 +1566,7 @@ enum {LONGJMP_EXCEPTION = 1};
         XSTATS_ADD_ASSIGN_DC(dcontext, stat_cur, stats_add_max__temp, value); \
         XSTATS_MAX_HELPER(dcontext, stat_max, stats_add_max__temp,            \
                          THREAD_STAT(dcontext, stat_cur));                    \
-    } while (0) 
+    } while (0)
 #define XSTATS_ADD_MAX(stat_max, stat_cur, value)                             \
         XSTATS_WITH_DC(stats_add_max__dcontext,                               \
                       XSTATS_ADD_MAX_DC(stats_add_max__dcontext, stat_max,    \
@@ -1584,7 +1584,7 @@ enum {LONGJMP_EXCEPTION = 1};
     } while (0)
 #define XSTATS_RESET(stat)                                               \
         XSTATS_WITH_DC(stats_reset__dcontext,                            \
-                      XSTATS_RESET_DC(stats_reset__dcontext, stat)) 
+                      XSTATS_RESET_DC(stats_reset__dcontext, stat))
 
 /* common to both release and debug build */
 #define RSTATS_INC XSTATS_INC
@@ -1616,15 +1616,15 @@ enum {LONGJMP_EXCEPTION = 1};
 #   define DOSTATS(statement) do { statement } while (0)
     /* FIXME: move to stats.h */
     /* Note : stats macros are called in places where it is not safe to hold any lock
-     * (such as special_heap_create_unit, others?), if ever go back to using a mutex 
+     * (such as special_heap_create_unit, others?), if ever go back to using a mutex
      * to protect the stats need to update such places
-     */  
-    /* global and thread local stats, can be used as lvalues, 
+     */
+    /* global and thread local stats, can be used as lvalues,
      * not used if not DEBUG */
     /* We assume below that all stats are aligned and thus reading and writing
      * stats are atomic operations on Intel x86 */
     /* In general should prob. be using stats_add_[peak, max] instead of
-     * stats_[peak/max] since they tie the adjustment of the stat to the 
+     * stats_[peak/max] since they tie the adjustment of the stat to the
      * setting of the max, otherwise you're open to race conditions involving
      * multiple threads adjusting the same stats and setting peak/max FIXME
      */
@@ -1825,11 +1825,11 @@ enum {LONGJMP_EXCEPTION = 1};
 #define _ARGUMENT_COUNT2(_,x0,x1,x2,x3,x4, argc,...) argc
 
 /* write to the system event log facilities - using syslogd or EventLog */
-/* For true portability we have to get the message strings as well as 
-   the argument count out of the .mc files.  It will be nice to get them 
-   compile time type checked by way of having the format strings as 
-   static arguments for LOGging.  (As for the explicit number of substitions, 
-   we can easily count args with macros, but for now we'll at least have to 
+/* For true portability we have to get the message strings as well as
+   the argument count out of the .mc files.  It will be nice to get them
+   compile time type checked by way of having the format strings as
+   static arguments for LOGging.  (As for the explicit number of substitions,
+   we can easily count args with macros, but for now we'll at least have to
    lookup the number of arguments in events.mc.)
 */
 #include "event_strings.h"
@@ -1848,7 +1848,7 @@ report_app_problem(dcontext_t *dcontext, uint appfault_flag,
 
 void
 notify(syslog_event_type_t priority, bool internal, bool synch,
-            IF_WINDOWS_(uint message_id) uint substitution_nam, const char *prefix, 
+            IF_WINDOWS_(uint message_id) uint substitution_nam, const char *prefix,
             const char *fmt, ...);
 
 #define SYSLOG_COMMON(synch, type, id, sub, ...) \
@@ -1857,7 +1857,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define SYSLOG_INTERNAL_COMMON(synch, type, ...) \
     notify(type, true, synch, IF_WINDOWS_(MSG_INTERNAL_##type) 0, #type, __VA_ARGS__)
 
-/* For security messages use passed in fmt string instead of eventlog fmt 
+/* For security messages use passed in fmt string instead of eventlog fmt
  * string for LOG/stderr/msgbox to avoid breaking our regression suite,
  * NOTE assumes actual id passed, not name of id less MSG_ (so can use array
  * of id's in vmareas.c, another reason need separate fmt string)
@@ -1872,7 +1872,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define SYSLOG(type, id, sub, ...) \
     SYSLOG_COMMON(true, type, id, sub, __VA_ARGS__)
 #define SYSLOG_NO_OPTION_SYNCH(type, id, sub, ...) \
-    SYSLOG_COMMON(false, type, id, sub, __VA_ARGS__) 
+    SYSLOG_COMMON(false, type, id, sub, __VA_ARGS__)
 
 #if defined(INTERNAL) && !defined(STANDALONE_DECODER)
 # define SYSLOG_INTERNAL(type, ...) \
@@ -1905,7 +1905,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating
- * dynamic options), but lot of work to get all in eventlog and currently only 
+ * dynamic options), but lot of work to get all in eventlog and currently only
  * really triggered by internal options */
 /* FIXME : could leave out the asserts, this is a recoverable error */
 #define USAGE_ERROR(...)                                                     \
@@ -2004,7 +2004,7 @@ under_internal_exception(void);
 enum {
     DUMP_NO_QUOTING   = 0x01000, // no quoting for C string replay
     DUMP_OCTAL        = 0x02000, // hex otherwise
-    DUMP_NO_CHARS     = 0x04000, // no printable characters 
+    DUMP_NO_CHARS     = 0x04000, // no printable characters
     DUMP_RAW          = 0x08000, // do not keep as a string
     DUMP_DWORD        = 0x10000, // dump as 4-byte chunks
     DUMP_ADDRESS      = 0x20000, // prepend address before each line of output
@@ -2077,7 +2077,7 @@ void MD5Final(unsigned char digest[16], struct MD5Context *ctx);
 bool get_md5_for_file(const char *file, char *hash_buf /* OUT */);
 #endif
 const char *get_application_md5(void);
-void get_md5_for_region(const byte *region_start, uint len, 
+void get_md5_for_region(const byte *region_start, uint len,
                         unsigned char digest[MD5_RAW_BYTES] /* OUT */);
 bool md5_digests_equal(const byte digest1[MD5_RAW_BYTES],
                        const byte digest2[MD5_RAW_BYTES]);
@@ -2144,20 +2144,20 @@ bool isdigit(int c);
 
 /* a little utiliy for printing a float that is formed by dividing 2 ints,
  * gives back high and low parts for printing, also supports percentages
- * Usage : given a, b (uint[64]); d_int()==divide_uint64_print(); 
- *         uint c, d tmp; parameterized on precision p and width w 
+ * Usage : given a, b (uint[64]); d_int()==divide_uint64_print();
+ *         uint c, d tmp; parameterized on precision p and width w
  * note that %f is eqv. to %.6f, 3rd ex. is a percentage ex.
  * "%.pf", a/(float)b => d_int(a, b, false, p, &c, &d);  "%u.%.pu", c,d
  * "%w.pf", a/(float)b => d_int(a, b, false, p, &c, &d); "%(w-p)u.%.pu", c,d
  * "%.pf%%", 100*(a/(float)b) => d_int(a, b, true, p, &c, &d); "%u.%.pu%%", c,d
  */
 void
-divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, 
+divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
                     uint precision, uint *top, uint *bottom);
 
 #if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
 /* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!! 
+ * preserve floating point state to call this function!!
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
  *         parameterized on precision p width w
  * note that %f is eqv. to %.6f

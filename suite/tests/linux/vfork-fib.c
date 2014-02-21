@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
     if (argc < 3) {  // start calculation
         if (2 == argc)  // vfork-fib 10
             n = atoi(argv[1]);
-        else 
+        else
             n = N;
 
         printf("parent fib(%d)=%d\n", n, fib(n));
@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 
     if (do_vfork) {                /* default */
         pf("using vfork()\n");
-        child1 = vfork(); 
+        child1 = vfork();
     } else {
         pf("using fork()\n");
         child1 = fork();
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
         arg[2] = carg;
 
 #if  0
-        pf("execing %d %s %s=%s %s\n", 
+        pf("execing %d %s %s=%s %s\n",
                3, arg[0], carg, arg[1], arg[2]);
 #endif
         result = execve(arg[0], arg, env);
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 
         if (do_vfork) {                /* default */
             pf("second child using vfork()\n");
-            child2 = vfork(); 
+            child2 = vfork();
         } else {
             pf("second child using fork()\n");
             child2 = fork();
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
             arg[2] = carg;
             result = execve(arg[0], arg, env);
             if (result < 0) perror("ERROR in execve");
-        } 
+        }
 
         while(children > 0) {
             pf("parent waiting for %d children\n", children);
@@ -152,7 +152,7 @@ int main(int argc, char** argv)
             //printf("child %d has exited with status=%d %d\n", result, status, WEXITSTATUS(status));
             sum+=WEXITSTATUS(status);
 
-            if (children == 2 && result == child1) 
+            if (children == 2 && result == child1)
                 pf("first child before second\n");
             else
                 pf("second child before first\n");
@@ -174,12 +174,12 @@ int main(int argc, char** argv)
         pf("child1 has exited with status=%d %d\n", status, WEXITSTATUS(status));
         sum+=WEXITSTATUS(status);
 #endif
-    } 
+    }
 
 #ifdef DEBUG
     printf("\tfib(%d)=%d [%d] %s\n", n, sum, fib(n), sum == fib(n) ? "OK" : "BAD");
 #else
-    if (argc == 1) 
+    if (argc == 1)
         printf("\tfib(%d)=%d [%d] %s\n", n, sum, fib(n), sum == fib(n) ? "OK" : "BAD");
 #endif
     _exit(sum);

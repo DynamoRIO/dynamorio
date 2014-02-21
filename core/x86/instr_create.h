@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -104,7 +104,7 @@
 /** Create an absolute address operand. */
 # define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_abs_addr(addr, size)
-#endif 
+#endif
 
 #ifdef X64
 /** Create an 8-byte immediate integer operand. */
@@ -2544,7 +2544,7 @@
  * opcode OP_xxx and the given explicit register operand, automatically
  * supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param f The opnd_t explicit destination + source operand for the instruction, which 
+ * \param f The opnd_t explicit destination + source operand for the instruction, which
  * must be a floating point register (opnd_create_reg()).
  */
 #define INSTR_CREATE_faddp(dc, f) \
@@ -3396,7 +3396,7 @@
     opnd_create_reg(DR_REG_XSI), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
       OPSZ_8_short2), \
-    opnd_create_reg(DR_REG_XSI)) 
+    opnd_create_reg(DR_REG_XSI))
 #define INSTR_CREATE_movs_1(dc) \
   instr_create_3dst_3src((dc), OP_movs, \
     opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_1), \
@@ -3816,7 +3816,7 @@ INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg)
 #endif
 }
 /* lea's target is 32-bit but address register is 64: so we eliminate the
- * displacement and put in rex.w 
+ * displacement and put in rex.w
  */
 static inline instr_t *
 INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -98,7 +98,7 @@ typedef union _version_number_t {
 typedef struct _module_names_t {
     const char *module_name; /**< On windows this name comes from the PE header exports
                               * section (NULL if the module has no exports section).  On
-                              * Linux the name will come from the ELF DYNAMIC program 
+                              * Linux the name will come from the ELF DYNAMIC program
                               * header (NULL if the module has no SONAME entry). */
     const char *file_name; /**< The file name used to load this module. Note - on Windows
                             * this is not always available. */
@@ -122,10 +122,10 @@ typedef struct _module_names_t {
  *
  * The name precedence order is as follows,
  *      Choice #1: PE exports name.
- *      Choice #2: executable qualified name (This would be the last choice 
+ *      Choice #2: executable qualified name (This would be the last choice
  *                  except historically it's been #2 so we'll stick with that).
  *      Choice #3: .rsrc original filename, already strduped.
- *      Choice #4: file name. 
+ *      Choice #4: file name.
  */
 #define GET_MODULE_NAME(mod_names)                                          \
     (((mod_names)->module_name != NULL) ? (mod_names)->module_name :        \
@@ -285,7 +285,7 @@ bool module_has_text_relocs(app_pc base, bool at_map);
 
 
 /**************************************************************************************/
-/* Moved from os_shared.h to use typedefs here, in <os>/module.c 
+/* Moved from os_shared.h to use typedefs here, in <os>/module.c
  * Should clean up and see if these can be shared/obsoleted by the os shared mod list. */
 bool os_get_module_info_all_names(const app_pc pc,
                                   /* FIXME PR 215890: does ELF64 use 64-bit timestamp
@@ -307,7 +307,7 @@ generic_func_t
 get_proc_address(module_base_t lib, const char *name);
 
 #ifdef UNIX
-/* if we add any more values, switch to a globally-defined dr_export_info_t 
+/* if we add any more values, switch to a globally-defined dr_export_info_t
  * and use it here
  */
 generic_func_t
@@ -404,7 +404,7 @@ typedef struct {
 
 void
 module_calculate_digest(/*OUT*/ module_digest_t *digest,
-                        app_pc module_base, 
+                        app_pc module_base,
                         size_t module_size,
                         bool full_digest,
                         bool short_digest,
@@ -414,7 +414,7 @@ module_calculate_digest(/*OUT*/ module_digest_t *digest,
 
 /* actually in utils.c since os-independent */
 bool
-module_digests_equal(const module_digest_t *calculated_digest, 
+module_digests_equal(const module_digest_t *calculated_digest,
                      const module_digest_t *matching_digest,
                      bool check_short, bool check_full);
 
@@ -462,7 +462,7 @@ typedef struct _privmod_t {
 /* We need to load client libs prior to having heap */
 #define PRIVMOD_STATIC_NUM 8
 /* It should have more entries than the PRIVMOD_STATIC_NUM,
- * as it may also contains the extension libraries and 
+ * as it may also contains the extension libraries and
  * externally loaded libraries, as well as our rpath-file search paths.
  */
 #define SEARCH_PATHS_NUM   (3*PRIVMOD_STATIC_NUM)
@@ -470,7 +470,7 @@ typedef struct _privmod_t {
 extern recursive_lock_t privload_lock;
 extern char search_paths[SEARCH_PATHS_NUM][MAXIMUM_PATH];
 extern uint search_paths_idx;
-extern vm_area_vector_t *modlist_areas; 
+extern vm_area_vector_t *modlist_areas;
 
 /***************************************************************************
  * Public functions
@@ -546,13 +546,13 @@ privload_next_module(privmod_t *mod);
 privmod_t *
 privload_first_module(void);
 
-/* os specific loader initialization prologue before finalize the load, 
+/* os specific loader initialization prologue before finalize the load,
  * will also acquire privload_lock.
  */
 void
 os_loader_init_prologue(void);
 
-/* os specific loader initialization epilogue after finalize the load, 
+/* os specific loader initialization epilogue after finalize the load,
  * will release privload_lock.
  */
 void

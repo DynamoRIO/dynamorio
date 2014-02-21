@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -50,16 +50,16 @@
 
 /* NOTE - Vista Beta 2 has different syscall numbers than Vista final,
  * the #s here are for for Vista Final (see cvs code attic for Beta
- * 2). 
- */ 
+ * 2).
+ */
 
 /* We expect x64 2003 and x64 XP to have the same system call numbers but
  * that has not been verified
  */
 
-/* for NT SP4, SP5, SP6, and SP6a 
+/* for NT SP4, SP5, SP6, and SP6a
  * Metasploit's table claims SP4 has additional syscalls, though our
- * investigation disagrees (see case 5616) -- even if so they are appended 
+ * investigation disagrees (see case 5616) -- even if so they are appended
  * and so don't affect the numbering of any of these.
  */
 

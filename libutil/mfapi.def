@@ -62,4 +62,4 @@ EXPORTS
    get_platform
    get_installation_path
    get_product_name
- 
+

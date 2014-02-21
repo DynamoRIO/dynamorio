@@ -81,7 +81,7 @@ static void *allmem_info_dup(void *data);
 static bool allmem_should_merge(bool adjacent, void *data1, void *data2);
 static void *allmem_info_merge(void *dst_data, void *src_data);
 
-/* HACK to make all_memory_areas->lock recursive 
+/* HACK to make all_memory_areas->lock recursive
  * protected for both read and write by all_memory_areas->lock
  * FIXME: provide general rwlock w/ write portion recursive
  * FIXME: eliminate duplicate code (see dynamo_areas_recursion)
@@ -129,7 +129,7 @@ memcache_lock(void)
     if (self_owns_write_lock(&all_memory_areas->lock)) {
         all_memory_areas_recursion++;
         /* we have a 5-deep path:
-         *   global_heap_alloc | heap_create_unit | get_guarded_real_memory | 
+         *   global_heap_alloc | heap_create_unit | get_guarded_real_memory |
          *   heap_low_on_memory | release_guarded_real_memory
          */
         ASSERT_CURIOSITY(all_memory_areas_recursion <= 4);
@@ -165,7 +165,7 @@ static void *
 allmem_info_dup(void *data)
 {
     allmem_info_t *src = (allmem_info_t *) data;
-    allmem_info_t *dst = 
+    allmem_info_t *dst =
         HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, allmem_info_t, ACCT_MEM_MGT, PROTECTED);
     ASSERT(src != NULL);
     *dst = *src;
@@ -430,7 +430,7 @@ memcache_query_memory(const byte *pc, OUT dr_mem_info_t *out_info)
         size_t from_os_size;
         uint from_os_prot;
         if (get_memory_info_from_os(pc, &from_os_base_pc, &from_os_size,
-                                    &from_os_prot) && 
+                                    &from_os_prot) &&
             /* maps file shows our reserved-but-not-committed regions, which
              * are holes in all_memory_areas
              */
@@ -503,11 +503,11 @@ memcache_handle_mmap(dcontext_t *dcontext, app_pc base, size_t size,
              * app_memory_protection_change() again just in case.
              */
             DEBUG_DECLARE(uint res =)
-                app_memory_protection_change(dcontext, base, size, memprot, 
+                app_memory_protection_change(dcontext, base, size, memprot,
                                              &new_memprot, NULL);
             ASSERT_NOT_IMPLEMENTED(res != PRETEND_APP_MEM_PROT_CHANGE &&
                                    res != SUBSET_APP_MEM_PROT_CHANGE);
-                   
+
         }
         memcache_lock();
     }

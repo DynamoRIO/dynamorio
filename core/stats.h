@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -70,7 +70,7 @@ typedef struct {
      * to use essentially a single running timer that gets reset every
      * time we enter a new level, and then we add up all outstanding
      * times.  This allows us to be more selective not to time spent
-     * waiting or when context switched.  
+     * waiting or when context switched.
      *
      * It in effect lets use as a drop-in replacement a sampling based
      * counter for time in self.  If we could add an action, every
@@ -89,7 +89,7 @@ typedef struct {
     /* VTune also keeps self_wait time, but we do not propagate that time up */
 } kstat_variable_t;
 
-/* All kstat variables - expanded as a structure instead of an array 
+/* All kstat variables - expanded as a structure instead of an array
  * referenced by index allows easy to read debugger pretty prints
  */
 typedef struct {
@@ -127,12 +127,12 @@ typedef struct {
 } thread_kstats_t;
 
 extern timestamp_t
-kstat_ignore_context_switch; 
+kstat_ignore_context_switch;
 
 #define KSTAT_THREAD_NO_PV_START(dc) do {                                       \
     dcontext_t *cur_dcontext = (dc);                                         \
     if (cur_dcontext != NULL && cur_dcontext->thread_kstats != NULL) {          \
-        kstat_stack_t *ks = &cur_dcontext->thread_kstats->stack_kstats;    
+        kstat_stack_t *ks = &cur_dcontext->thread_kstats->stack_kstats;
 
 #define KSTAT_THREAD_NO_PV_END()                \
     }                                           \
@@ -161,7 +161,7 @@ kstat_ignore_context_switch;
 
 /* optional - serialize instruction stream before measurement on my
  * laptop the overhead of an empty inner block is 95 cycles without
- * serialization vs 222 cycles with serialization, 
+ * serialization vs 222 cycles with serialization,
  * too much overhead for little extra stability */
 #define KSTAT_SERIALIZE_INSTRUCTIONS() /* no SERIALIZE_INSTRUCTIONS() */
 
@@ -212,7 +212,7 @@ kstat_ignore_context_switch;
         &cur_dcontext->thread_kstats->vars_kstats.logging) {            \
         LOG(THREAD_GET, LOG_STATS, 1, "ks %s:%d\n"__FILE__, __LINE__);  \
         kstats_dump_stack(cur_dcontext);                                \
-    } 
+    }
 #endif
 
 /* Most of these could be static inline's but DEBUG builds aren't
@@ -285,7 +285,7 @@ kstat_ignore_context_switch;
     (kstack)->depth--;                                                          \
 } while (0)
 
-/* FIXME: we may have to add a type argument to KSTAT_DEF saying whether 
+/* FIXME: we may have to add a type argument to KSTAT_DEF saying whether
  * a variable should be propagated or not - here we assume all are propagated
  */
 #define kstat_stop_rewind_var(kstack, pvar) do {                \
@@ -293,7 +293,7 @@ kstat_ignore_context_switch;
 } while (kstack->node[kstack->depth /* the removed */].var != pvar)
 
 /* This is essentially rewind-until, stopping BEFORE deleting pvar
- * FIXME: we may have to add a type argument to KSTAT_DEF saying whether 
+ * FIXME: we may have to add a type argument to KSTAT_DEF saying whether
  * a variable should be propagated or not - here we assume all are propagated
  */
 #define kstat_stop_longjmp_var(kstack, pvar)                                  \

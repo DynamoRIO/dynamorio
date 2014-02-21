@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -45,15 +45,15 @@
 
 int attack_status = ATTACK_NONE;
 
-DWORD 
+DWORD
 WINAPI
 heap_attack(LPVOID param);
 
-DWORD 
+DWORD
 WINAPI
 stack_attack(LPVOID param);
 
-DWORD 
+DWORD
 WINAPI
 ls_attack(LPVOID param);
 
@@ -95,7 +95,7 @@ main(int argc, char **argv)
         timeout = atoi(argv[1]);
 
     Sleep(timeout);
-    
+
     if (argc >= 3) {
         int i, count = 1;
         int attack = atoi(argv[2]);
@@ -104,7 +104,7 @@ main(int argc, char **argv)
             usage();
             exit (-1);
         }
-        
+
         if (argc >= 4)
             count = atoi(argv[3]);
 
@@ -202,7 +202,7 @@ unsigned char test_compiled_with_debug[] = {
     0xC3,
     0x00, 0x00, 0x00, 0x00 };
 
-        
+
 void test(void(*f)(int),  int i)
 {
     (f)(i);
@@ -237,21 +237,21 @@ unsigned char sendfunc[] = {
     0x8B, 0xE5,
     0x5D,
     0xC3,
-    0x00, 0x00, 0x00, 0x00 };    
+    0x00, 0x00, 0x00, 0x00 };
 
 
-void set_attack(int i) 
+void set_attack(int i)
 {
     attack_status = i;
 }
 
 
-void fool_opt_compiler(unsigned char * foo) 
+void fool_opt_compiler(unsigned char * foo)
 {
     foo[0] =1;
 }
 
-DWORD 
+DWORD
 WINAPI
 stack_attack(LPVOID param)
 {
@@ -267,14 +267,14 @@ stack_attack(LPVOID param)
 
     for(i=0; i<sizeof(sendfunc); i++)
         myfunc[i] = sendfunc[i];
-    
+
     ((void(*)(void(*)(int),int))((void *)myfunc))(set_attack, ATTACK_STACK);
     fool_opt_compiler(myfunc);
     return ERROR_SUCCESS;
 }
 
 
-DWORD 
+DWORD
 WINAPI
 heap_attack(LPVOID param)
 {
@@ -286,19 +286,19 @@ heap_attack(LPVOID param)
         i = 0;
 
     myfunc = (unsigned char *) malloc(sizeof(sendfunc));
-    
+
     if(myfunc == NULL)
         MessageBox(NULL, L"ERROR", L"Memory allocation problem", MB_OK);
 
     for(i=0; i<sizeof(sendfunc); i++)
         myfunc[i] = sendfunc[i];
-    
+
     ((void(*)(void(*)(int),int))((void *)myfunc))(set_attack, ATTACK_HEAP);
     free(myfunc);
     return ERROR_SUCCESS;
 }
 
-DWORD 
+DWORD
 WINAPI
 ls_attack(LPVOID param)
 {

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -128,10 +128,10 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
 #endif
     if (IF_X64_ELSE(!x64, x64 && !is_wow64_process(NT_CURRENT_PROCESS)))
         return DR_MARKER_ERROR;
-    
+
     if (hook_func == NULL)
         return DR_MARKER_ERROR;
-    
+
     if (!READ_FUNC(process, hook_func, buf, 5, &res) || res != 5)
         return DR_MARKER_ERROR;
 
@@ -155,7 +155,7 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
         /* jmp offset + EIP (after jmp = landing_pad + size of jmp (5 bytes)) */
         target = (void *)PAGE_START(*(int *)&buf[1] + (ptr_int_t)landing_pad + 5);
     }
-    
+
     if (!READ_FUNC(process, target, marker, sizeof(dr_marker_t), &res) ||
         res != sizeof(dr_marker_t)) {
         return DR_MARKER_NOT_FOUND;
@@ -164,7 +164,7 @@ read_and_verify_dr_marker_common(HANDLE process, dr_marker_t *marker, bool x64)
     if (dr_marker_verify(process, marker)) {
         return DR_MARKER_FOUND;
     }
-    
+
     return DR_MARKER_NOT_FOUND; /* probably some other hooker */
 }
 
@@ -237,7 +237,7 @@ init_dr_marker(dr_marker_t *marker)
 # endif
     /* make sure we set one of the above flags and not more then one */
     ASSERT(TESTANY(DR_MARKER_BUILD_TYPES, marker->flags) &&
-           ((DR_MARKER_BUILD_TYPES & marker->flags) & 
+           ((DR_MARKER_BUILD_TYPES & marker->flags) &
             ((DR_MARKER_BUILD_TYPES & marker->flags) - 1)) == 0);
     /* TODO : add any additional flags? */
     marker->build_num = BUILD_NUMBER;

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -346,9 +346,9 @@ any piece of code prior to its execution.  The client's hook receives
 three parameters:
 
 \code
-dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb, 
+dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
                           bool for_trace, bool translating);
-\endcode 
+\endcode
 
  - \c drcontext is a pointer to the input program's machine context.
    Clients should not inspect or modify the context; it is provided as
@@ -384,7 +384,7 @@ instrlist_first(), \ref instrlist_last(), and \ref instr_get_next()
 routines.  For example:
 
 \code
-dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb, 
+dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
                           bool for_trace, bool translating)
 {
   instr_t *instr, *next;
@@ -443,7 +443,7 @@ internal operation requires that we impose the following limitations:
    conditional.
  - A non-meta conditional branch must be the final instruction in the
    block.
- - There can only be one indirect branch (call, jump, or return) in 
+ - There can only be one indirect branch (call, jump, or return) in
    a basic block, and it must be the final non-meta branch in the block.
  - The exit control-flow of a block ending in a system call cannot be
    changed.
@@ -474,7 +474,7 @@ to those of the basic block hook:
 \code
 dr_emit_flags_t new_trace(void *drcontext, void *tag, instrlist_t *trace,
                           bool translating);
-\endcode 
+\endcode
 
  - \c drcontext is a pointer to the input program's machine context.
    Clients should not inspect or modify the context; it is provided as
@@ -656,7 +656,7 @@ a buffer.  These include disassemble(), opnd_disassemble(),
 instr_disassemble(), instrlist_disassemble(), disassemble_with_info(),
 disassemble_from_copy(), and disassemble_to_buffer().
 
-The style of disassembly can be controlled through the 
+The style of disassembly can be controlled through the
 \ref op_syntax_intel "-syntax_intel" (for Intel-style disassembly) and
 \ref op_syntax_att "-syntax_att" (for AT&T-style disassembly) runtime
 options, or the disassemble_set_syntax() function.  The default disassembly
@@ -802,7 +802,7 @@ The values stored in these spill slots remain valid until the next non-meta
 \code dr_read_saved_reg(), dr_write_saved_reg() \endcode
 
 For longer term persistence DynamoRIO also provides a generic dedicated
-thread-local storage field for use by clients, making it easy to write 
+thread-local storage field for use by clients, making it easy to write
 thread-aware clients.  From C code, use:
 
 \code dr_get_tls_field(), dr_set_tls_field() \endcode
@@ -979,7 +979,7 @@ properly translate a code cache address the client must use
 instr_set_translation() (chainable via INSTR_XL8()) in the basic block and
 trace creation callbacks to set the corresponding application address for
 each added meta instruction that can fault, each modified instruction, and
-each added non-meta instruction.  The 
+each added non-meta instruction.  The
 translation value is the application address that should be presented to
 the application as the faulting address, or the application address that
 should be restarted after a suspend.  Currently the translation address

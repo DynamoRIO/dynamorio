@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,9 +41,9 @@
 
 ## example use:
 # just collect all links to select a few suspicious ones
-# $ ./procdb.pl -s bug_8704/iexplore.exe.1608.00000000.xml 
+# $ ./procdb.pl -s bug_8704/iexplore.exe.1608.00000000.xml
 #   ...
-#   wget -O -  http://www.processlibrary.com/directory/files/wscntfy/ | grep -A 5 'Description:' 
+#   wget -O -  http://www.processlibrary.com/directory/files/wscntfy/ | grep -A 5 'Description:'
 
 # normal use:
 # $ ./procdb.pl bug_8704/iexplore.exe.1608.00000000.xml > processes.out
@@ -168,7 +168,7 @@ sub is_known_exe
     return 0 unless exists $known_exe_description { $exe };
 
     # known should be only once
-    if (defined $seen_known{ $exe } && 
+    if (defined $seen_known{ $exe } &&
         $seen_known{ $exe } == 1) {
         # test with svchost.exe which may also be the Welchia worm
         print "WARNING: second appearance of $exe\n";
@@ -215,7 +215,7 @@ sub process_file($) {
         # Start of process list
         if (/^<process-list> <!\[CDATA\[/) {
             $processing = 1;
-        } 
+        }
         elsif (/]]> <\/process-list>/) {
             $processing = 0;
         } elsif ($processing) {

@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -46,7 +46,7 @@ This section is divided into the following subsections:
  - \ref sec_changes
 \endif
  - \ref sec_limits
-\ifnot vmsafe 
+\ifnot vmsafe
  - \ref sec_future
 \endif
 
@@ -66,11 +66,11 @@ The following are part of the DynamoRIO release distribution:
 \endif
 
  - Four different DynamoRIO libraries: debug and release for each of
-   32-bit and 64-bit. 
+   32-bit and 64-bit.
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - Four different IA-32/AMD64 decoding static libraries: debug and release
-   for each of 32-bit and 64-bit. 
+   for each of 32-bit and 64-bit.
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - The DynamoRIO configuration and execution libraries and command-line
@@ -113,7 +113,7 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 \endhtmlonly
 \section sec_changes Changes Since Prior Releases
 
-The current version is \DR_VERSION.  
+The current version is \DR_VERSION.
 The changes between version \DR_VERSION and 4.2.0 include the
 following minor compatibility changes:
 
@@ -135,7 +135,7 @@ Further non-compatibility-affecting changes include:
  - Added Mach-O support to drsyms.
  - Added INSTR_CREATE_cmpxchg_8() for 64-bit cmpxchg
  - Changed the default -stderr_mask on Windows to 0xC (for both release
-   and debug), and the default -msgbox_mask on Windows release builds 
+   and debug), and the default -msgbox_mask on Windows release builds
    to 0xC, for better error reporting.  For interactive runs, then,
    the user should explicitly pass -msgbox_mask 0.
  - Added a flags output parameter to #drsym_info_t.
@@ -322,7 +322,7 @@ Further non-compatibility-affecting changes include:
  - Added preliminary Windows 8 support, though private kernelbase.dll is
    not yet supported
  - Added persistent cache support for clients via
-   dr_register_persist_ro(), dr_register_persist_rx(), 
+   dr_register_persist_ro(), dr_register_persist_rx(),
    dr_register_persist_rw(), dr_register_persist_patch(), and
    #DR_EMIT_PERSISTABLE.  However, dr_register_persist_patch() is
    still experimental, is in flux, and is subject to change in
@@ -450,7 +450,7 @@ features:
 
  - Added a private loader on Linux for better support for C++ clients and
    third-party library usage by clients
- - Added Linux support for \p drsyms to enable symbol processing in 
+ - Added Linux support for \p drsyms to enable symbol processing in
    Linux clients
  - Added \p drutil Extension which provides memory address retrieval
    and string loop expansion (note: LGPL license)
@@ -605,7 +605,7 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Added PEB isolation (Issue 249) and dr_get_app_PEB()
  - Added drsym_enumerate_symbols() to the \p drsyms Extension
  - Added limited support for printing to the cmd window (Issue 261) via the
-   \p drsyms Extension: drsym_write_to_console() and drsym_using_console() 
+   \p drsyms Extension: drsym_write_to_console() and drsym_using_console()
  - Renamed the REG_ constants to DR_REG_ to avoid conflicts with system
    headers (Issue 34).  Clients should set(DynamoRIO_REG_COMPATIBILITY ON)
    prior to configure_DynamoRIO_client() to use the old constants and avoid
@@ -624,7 +624,7 @@ The changes between version 2.1.0 and 2.0.0 are:
  - Fixed handling of "data32 rex.w call"
  - Fixed Issue 320: a problem with thread-private cache resizing
  - Fixed Issue 319: decode movlhps and movhlps properly
- - Fixed Issue 139: add xmm0-7 preservation for 32-bit Linux applications, 
+ - Fixed Issue 139: add xmm0-7 preservation for 32-bit Linux applications,
    which may have noticeable impacts on clients calling clean calls:
    e.g., pushing bbs over the max size limit or having a noticeable
    performance hit.
@@ -690,7 +690,7 @@ The changes between version 1.5.0 and 1.4.0 are:
  - Made it easier for clients to use faults to push rare events out of
    instrumentation paths:
    - Added access to the pre-translated context and the code fragment
-     information for both 
+     information for both
      dr_register_signal_event() and dr_register_exception_event()
      This changed the return type for exception event callbacks.
    - Added a signal/exception event on a fault in non-code-cache
@@ -748,7 +748,7 @@ The changes between version 1.3.2 and 1.3.1 are:
 
  - Added support for Linux execve of cross-architectural executables
    (e.g., 32-bit process performing execve of 64-bit executable)
-   - Also, libdrpreload.so is now kept in the same libXX/{debug,release} 
+   - Also, libdrpreload.so is now kept in the same libXX/{debug,release}
      directory as libdynamorio.so
  - instr_convert_short_meta_jmp_to_long() now returns the longer version of
    the taken jump, to use when setting the target of a jecxz or loop*
@@ -820,7 +820,7 @@ The changes between the 0.9.6 release builds 9602 and 9601 are:
    processors.
  - 64-bit bug fixes
  - Added several convenience routines:
-   - get_register_name() 
+   - get_register_name()
    - reg_to_pointer_sized()
    - reg_is_gpr()
    - reg_is_segment()
@@ -846,7 +846,7 @@ support, multiple clients, state translation, trace contents, and Linux
 module events and fast system calls:
 
  - 64-bit applications and clients are now supported.  This changed
-   several function signatures: 
+   several function signatures:
    - instr_encode()
    - decode_next_pc()
    - decode_sizeof()
@@ -1001,7 +1001,7 @@ application restart.
 in.  Mixing API from different modes can lead to unspecified results and is
 not supported.
   - Probe API allows only one registration of probes, which must occur in
-    dr_init().  
+    dr_init().
   - Probes can be specified only with library names and offsets from the base
     of the library in memory (\ref DR_PROBE_ADDR_LIB_OFFS).
   - When a probe callback finishes execution it can't request DynamoRIO to
@@ -1072,7 +1072,7 @@ not supported.
     to enable prioritizing memory usage and the \ref op_speed "-opt_speed option"
     to prioritize performance at the cost of more complex basic blocks that
     cross control transfers.
-  - The performance \if vmsafe of Code Manipulation Mode and Memory 
+  - The performance \if vmsafe of Code Manipulation Mode and Memory
     Firewall Mode \endif when starting up large desktop applications
     may be noticeably worse than native.  Upcoming releases will
     address this issue. \if vmsafe Note that Probe Mode incurs
@@ -1103,7 +1103,7 @@ not supported.
     the -syswide_on feature.
   - On Windows 7 and Windows Server 2008 R2, the digital signature
     requirement for AppInit_DLLs libraries is disabled when systemwide
-    injection is requested (-syswide_on).  This can be a security concern.    
+    injection is requested (-syswide_on).  This can be a security concern.
   - On Windows 8, system wide injection (-syswide_on) is not yet supported.
   - Cygwin processes may not work with DynamoRIO due to cygwin's
     implementation of fork being incompatible with DynamoRIO.
@@ -1166,7 +1166,7 @@ not supported.
   - On Linux, the private loader will fail to load libpthread.so.  Therefore
     clients and the libraries they use cannot link against libpthread.so.
 
-\ifnot vmsafe 
+\ifnot vmsafe
 ***************************************************************************
 \htmlonly
 <table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>

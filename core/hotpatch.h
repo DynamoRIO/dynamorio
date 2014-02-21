@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -44,14 +44,14 @@
 /*----------------------------------------------------------------------------*/
 /* Exported data types */
 
-/* This type identifies a patch point that was matched during offset lookup. 
+/* This type identifies a patch point that was matched during offset lookup.
  * It describes the module, set and vulnerability the matching patch point
- * belongs to. 
+ * belongs to.
  */
 typedef struct {
     /* Array index of the matching vulnerability in hotp_vul_table. */
     int vul_index;
-    
+
     /* Array index of the matching set in hotp_vul_table[vul_index]. */
     int set_index;
     int module_index;  /* Matching module index in the matching set. */
@@ -89,9 +89,9 @@ bool hotp_inject(dcontext_t *dcontext, instrlist_t *ilist);
  * patching.
  * FIXME: have another wrapper for just_check case; keeps it clean.
  */
-void hotp_process_image(const app_pc base, const bool loaded, 
+void hotp_process_image(const app_pc base, const bool loaded,
                         const bool own_hot_patch_lock, const bool just_check,
-                        bool *needs_processing, const thread_record_t **all_threads, 
+                        bool *needs_processing, const thread_record_t **all_threads,
                         const int num_threads);
 
 bool
@@ -132,17 +132,17 @@ read_write_lock_t *hotp_get_lock(void);
 void hotp_print_diagnostics(file_t diagnostics_file);
 bool hotp_only_in_tramp(const app_pc eip);
 void hotp_only_detach_helper(void);
-void hotp_only_mem_prot_change(const app_pc start, const size_t size, 
+void hotp_only_mem_prot_change(const app_pc start, const size_t size,
                                const bool remove, const bool inject);
 void hotp_spill_before_notify(dcontext_t *dcontext,
                               fragment_t **frag_spill /* OUT */,
                               fragment_t *new_frag, const app_pc new_frag_tag,
-                              app_pc *new_tag_spill /* OUT */, 
+                              app_pc *new_tag_spill /* OUT */,
                               const app_pc new_tag,
                               priv_mcontext_t *cxt_spill /* OUT */,
                               const void *new_cxt, cxt_type_t cxt_type);
 void hotp_restore_after_notify(dcontext_t *dcontext,
-                               const fragment_t *old_frag, 
+                               const fragment_t *old_frag,
                                const app_pc old_next_tag,
                                const priv_mcontext_t *old_cxt);
 

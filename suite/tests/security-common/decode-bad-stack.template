@@ -7,7 +7,7 @@ Bad instr about to happen
 #   else
 #     if -+kill_thread
        SEC_VIO_THREAD
-#     else  
+#     else
        SEC_VIO_STOP
 #     endif
 #   endif

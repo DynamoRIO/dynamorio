@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -129,7 +129,7 @@ os_module_area_init(module_area_t *ma, app_pc base, size_t view_size,
     LOG(GLOBAL, LOG_SYMBOLS, 2,
         "%s: hashtab="PFX", dynsym="PFX", dynstr="PFX", strsz="SZFMT", symsz="SZFMT"\n",
         __func__, ma->os_data.hashtab, ma->os_data.dynsym, ma->os_data.dynstr,
-        ma->os_data.dynstr_size, ma->os_data.symentry_size); 
+        ma->os_data.dynstr_size, ma->os_data.symentry_size);
 #endif
 
 #ifdef LINUX /* on Mac the entire dyld shared cache has split __TEXT and __DATA */
@@ -212,7 +212,7 @@ print_modules(file_t f, bool dump_xml)
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
         module_area_t *ma = module_iterator_next(mi);
-        print_file(f, dump_xml ? 
+        print_file(f, dump_xml ?
                    "\t<so range=\""PFX"-"PFX"\" "
                    "entry=\""PFX"\" base_address="PFX"\n"
                    "\tname=\"%s\" />\n" :
@@ -621,7 +621,7 @@ redirect_calloc(size_t nmemb, size_t size)
 {
     void *buf = NULL;
     size = size * nmemb;
-    
+
     buf = redirect_malloc(size);
     if (buf != NULL)
         memset(buf, 0, size);

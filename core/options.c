@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,7 +35,7 @@
 
 /*
  * options.c
- * 
+ *
  * Options definition and handling of corresponding command line options
  *
  */
@@ -87,10 +87,10 @@ typedef char bool;
  * may want to use some of these, NOTE build environments outside of the
  * core can't handle VARARG macros! */
 # define ASSERT(x)
-/* right now all OPTION_PARSE_ERROR's have 6 arguments 
+/* right now all OPTION_PARSE_ERROR's have 6 arguments
  * once libutil, etc. are all using vc8 we can use ...
  */
-# define OPTION_PARSE_ERROR(a, b, c, d, e, f) 
+# define OPTION_PARSE_ERROR(a, b, c, d, e, f)
 
 static void ignore_varargs_function(char *format, ...) { }
 /* right now all FATAL_USAGE_ERROR's have 4 arguments */
@@ -106,7 +106,7 @@ static void ignore_varargs_function(char *format, ...) { }
 
 #ifndef EXPOSE_INTERNAL_OPTIONS
 /* default values for internal options are kept in a separate struct */
-#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) default_value, 
+#  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) default_value,
 #  define OPTION_COMMAND(type, name, default_value, command_line_option, \
                          statement, description, flag, pcache) /* nothing */
 /* read only source for default internal option values and names
@@ -122,13 +122,13 @@ const internal_options_t default_internal_options = {
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
-#else 
+#else
 /* DON'T FIXME: In order to support easy switching of an internal
    option into user accessible one we could waste some memory by
    allocating fields in options_t even for INTERNAL options.  That would
    let us have INTERNAL_OPTION be a more flexible macro that can use
    either the constant value, or the dynamically set variable
-   depending on the option declaration in optionsx.h.  However, 
+   depending on the option declaration in optionsx.h.  However,
    it increases the code size of this file (there is also a minor increase
    in other object files since more option fields need longer than 8-bit offsets)
    For now we can live without this.
@@ -178,7 +178,7 @@ options_t temp_options = {
 };
 
 /* dynamo_options and temp_options, the two writable option structures,
- * are both protected by this lock, which is kept outside of the protected 
+ * are both protected by this lock, which is kept outside of the protected
  * section to ease bootstrapping issues
  */
 DECLARE_CXTSWPROT_VAR(read_write_lock_t options_lock, INIT_READWRITE_LOCK(options_lock));
@@ -205,14 +205,14 @@ set_dynamo_options_defaults(options_t *options)
 /* For all other purposes OPTION_COMMAND_INTERNAL should be equivalent to either OPTION_COMMAND or nothing */
 #ifdef EXPOSE_INTERNAL_OPTIONS
 #  define OPTION_COMMAND_INTERNAL OPTION_COMMAND
-#else 
+#else
 #  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, statement, description, flag, pcache) /* nothing */
 #endif
 
 /* PARSING HANDLER */
 /* returns the space delimited or quote-delimited word
  * starting at strpos in the string str, or NULL if none
- * wordbuf is a caller allocated buffer of size wordbuflen that will hold 
+ * wordbuf is a caller allocated buffer of size wordbuflen that will hold
      the copied word from the original string, since it assumes it cannot modify it
  */
 static char*
@@ -249,7 +249,7 @@ getword_common(const char *str, const char **strpos, char *wordbuf, uint wordbuf
             }
         } else {
             /* if not quoted, end on whitespace */
-            if (*pos == ' ' || *pos == '\t' || 
+            if (*pos == ' ' || *pos == '\t' ||
                 *pos == '\n' || *pos == '\r')
                 break;
         }
@@ -300,7 +300,7 @@ parse_word(const char *str, const char **strpos, char *wordbuf, uint wordbuflen)
 
 static void
 parse_bool(bool *var, void *value)
-{ 
+{
     *var = *(bool*)value;
 }
 
@@ -315,7 +315,7 @@ parse_uint(uint *var, void *value)
         *var = num;
     } else {
         /* var should be pre-initialized to default */
-        OPTION_PARSE_ERROR(ERROR_OPTION_BAD_NUMBER_FORMAT, 4, 
+        OPTION_PARSE_ERROR(ERROR_OPTION_BAD_NUMBER_FORMAT, 4,
                            get_application_name(), get_application_pid(), opt,
                            IF_DEBUG_ELSE("Terminating", "Continuing"));
     }
@@ -323,7 +323,7 @@ parse_uint(uint *var, void *value)
 
 static void
 parse_uint_size(uint *var, void *value)
-{ 
+{
     char unit;
     int num;
     int factor = 0;
@@ -339,9 +339,9 @@ parse_uint_size(uint *var, void *value)
         case 'k': factor = 1024; break;
         case 'M': // Mega (bytes)
         case 'm': factor = 1024*1024; break;
-        default: 
+        default:
             /* var should be pre-initialized to default */
-            OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4, 
+            OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER, 4,
                                get_application_name(), get_application_pid(),
                                (char *)value, IF_DEBUG_ELSE("Terminating", "Continuing"));
             return;
@@ -352,7 +352,7 @@ parse_uint_size(uint *var, void *value)
 
 static void
 parse_uint_time(uint *var, void *value)
-{ 
+{
     char unit;
     int num;
     int factor = 0;
@@ -364,11 +364,11 @@ parse_uint_time(uint *var, void *value)
         switch (unit) {
         case 's': factor = 1000; break; // seconds in milliseconds
         case 'm': factor = 1000*60; break; // minutes in milliseconds
-        default: 
+        default:
             /* var should be pre-initialized to default */
-            OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_TIME_SPECIFIER, 4, 
-                               get_application_name(), get_application_pid(), 
-                               (char *)value, IF_DEBUG_ELSE("Terminating", "Continuing")); 
+            OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN_TIME_SPECIFIER, 4,
+                               get_application_name(), get_application_pid(),
+                               (char *)value, IF_DEBUG_ELSE("Terminating", "Continuing"));
             return;
         }
     }
@@ -385,18 +385,18 @@ parse_uint_addr(ptr_uint_t *var, void *value)
         *var = num;
     } else {
         /* var should be pre-initialized to default */
-        OPTION_PARSE_ERROR(ERROR_OPTION_BAD_NUMBER_FORMAT, 4, 
+        OPTION_PARSE_ERROR(ERROR_OPTION_BAD_NUMBER_FORMAT, 4,
                            get_application_name(), get_application_pid(), opt,
                            IF_DEBUG_ELSE("Terminating", "Continuing"));
     }
 }
 
 static inline void
-parse_pathstring_t(pathstring_t *var, void *value) { 
+parse_pathstring_t(pathstring_t *var, void *value) {
     strncpy(*var, (char*)value, MAX_PATH_OPTION_LENGTH-1);
     if (strlen((char *)value) > MAX_PATH_OPTION_LENGTH) {
         OPTION_PARSE_ERROR(ERROR_OPTION_TOO_LONG_TO_PARSE, 4,
-                           get_application_name(), get_application_pid(), 
+                           get_application_name(), get_application_pid(),
                            (char *)value, IF_DEBUG_ELSE("Terminating", "Continuing"));
     }
     /* truncate if max (strncpy doesn't put NULL) */
@@ -404,7 +404,7 @@ parse_pathstring_t(pathstring_t *var, void *value) {
 }
 
 static void
-parse_liststring_t(liststring_t *var, void *value) { 
+parse_liststring_t(liststring_t *var, void *value) {
     /* Case 5727: append by default (separating via ';') for liststring_t, as
      * opposed to what we do for all other option types where the final
      * specifier overwrites all previous.  The special prefix '#' can be used to
@@ -428,7 +428,7 @@ parse_liststring_t(liststring_t *var, void *value) {
          * should we change the message to "option is too long, truncating"?
          */
         OPTION_PARSE_ERROR(ERROR_OPTION_TOO_LONG_TO_PARSE, 4,
-                           get_application_name(), get_application_pid(), 
+                           get_application_name(), get_application_pid(),
                            *var, IF_DEBUG_ELSE("list Terminating", "Continuing"));
     }
     /* truncate if max (strncpy doesn't put NULL, even though strncat does) */
@@ -510,7 +510,7 @@ set_dynamo_options_common(options_t *options, const char *optstr, bool for_this_
 
     /* we only report the first bad option */
     if (got_badopt) {
-        OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN, 4, get_application_name(), 
+        OPTION_PARSE_ERROR(ERROR_OPTION_UNKNOWN, 4, get_application_name(),
                            get_application_pid(), badopt,
                            IF_DEBUG_ELSE("Terminating", "Continuing"));
     }
@@ -535,8 +535,8 @@ set_dynamo_options_other_process(options_t *options, const char *optstr)
 
 /* max==0 means no max and 0 is an ok value */
 /* if option is incompatible, will try to touch up the option
- * by assigning min to make it valid returns true if changed the 
- * option value 
+ * by assigning min to make it valid returns true if changed the
+ * option value
  */
 bool
 check_param_bounds(uint *val, uint min, uint max, const char *name)
@@ -551,7 +551,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
                         name, min, *val, new_val);
         } else {
             new_val = min;
-            USAGE_ERROR("%s must be >= %d and <= %d, resetting from %d to %d", 
+            USAGE_ERROR("%s must be >= %d and <= %d, resetting from %d to %d",
                         name, min, max, *val, new_val);
         }
         *val = new_val;
@@ -576,7 +576,7 @@ check_param_bounds(uint *val, uint min, uint max, const char *name)
  * size of the release build dll by ~7kb.
  */
 static void
-PRINT_STRING_bool(char *optionbuff, bool value, const char *option) 
+PRINT_STRING_bool(char *optionbuff, bool value, const char *option)
 {
     snprintf(optionbuff, MAX_OPTION_LENGTH, "-%s%s ",
              value ? "" : "no_", option);
@@ -585,7 +585,7 @@ static void
 PRINT_STRING_uint(char *optionbuff, uint value, const char *option)
 {
     /* FIXME: 0x100 hack to get logmask printed in hex,
-     * loglevel etc in decimal */ 
+     * loglevel etc in decimal */
     snprintf(optionbuff, MAX_OPTION_LENGTH,
              (value > 0x100 ? "-%s 0x%x " : "-%s %d "), option, value);
 }
@@ -635,7 +635,7 @@ get_dynamo_options_string(options_t *options, char *opstr, int len, bool minimal
             NULL_TERMINATE_BUFFER(optionbuff);                          \
             strncat(opstr, optionbuff, len-strlen(opstr)-1);            \
         }                                                               \
-    }   
+    }
 #include "optionsx.h"
 #undef OPTION_COMMAND
 
@@ -666,7 +666,7 @@ get_pcache_dynamo_options_string(options_t *options, char *opstr, int len,
             NULL_TERMINATE_BUFFER(optionbuff);                          \
             strncat(opstr, optionbuff, len-strlen(opstr)-1);            \
         }                                                               \
-    }   
+    }
 #include "optionsx.h"
 #undef OPTION_COMMAND
 
@@ -687,7 +687,7 @@ has_pcache_dynamo_options(options_t *options, op_pcache_t pcache_effect)
             DIFF_##type(options->name,default_options.name)) {          \
             return true;                                                \
         }                                                               \
-    }   
+    }
 #include "optionsx.h"
 #undef OPTION_COMMAND
     return false;
@@ -820,14 +820,14 @@ check_option_compatibility_helper(int recurse_count)
         /* user was probably trying to make the threshold very high, set it to
          * max
          */
-        /* from derek : this could wreak havoc w/ trace building fencepost 
+        /* from derek : this could wreak havoc w/ trace building fencepost
          * cases... in the case where if head gets hot but somebody
          * else is building trace w/ it you wait, and end up inc-ing counter
          * again, in which case would wrap around and not be hot!
          * (THCI already has problem w/ that b/c it only checks for == not >=
          * (to avoid eflags))
          */
-        /* FIXME : we may want to set to USHRT_MAX-10 or some such, same with 
+        /* FIXME : we may want to set to USHRT_MAX-10 or some such, same with
          * check above */
         dynamo_options.trace_threshold = USHRT_MAX;
         changed_options = true;
@@ -838,13 +838,13 @@ check_option_compatibility_helper(int recurse_count)
         changed_options = true;
     }
     if (INTERNAL_OPTION(alt_hash_func) >= HASH_FUNCTION_ENUM_MAX) {
-        USAGE_ERROR("Invalid selection (%d) for shared cache hash func, must be < %d", 
-                    INTERNAL_OPTION(alt_hash_func), 
+        USAGE_ERROR("Invalid selection (%d) for shared cache hash func, must be < %d",
+                    INTERNAL_OPTION(alt_hash_func),
                     HASH_FUNCTION_ENUM_MAX);
         SET_DEFAULT_VALUE(alt_hash_func);
         changed_options = true;
     }
-    if (DYNAMO_OPTION(inline_bb_ibl) && 
+    if (DYNAMO_OPTION(inline_bb_ibl) &&
         DYNAMO_OPTION(shared_bbs) &&
         !DYNAMO_OPTION(atomic_inlined_linking)) {
         USAGE_ERROR("-inline_bb_ibl requires -atomic_inlined_linking when -shared_bbs");
@@ -884,7 +884,7 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
 #ifdef PROFILE_LINKCOUNT
-    if (DYNAMO_OPTION(profile_counts) && 
+    if (DYNAMO_OPTION(profile_counts) &&
         TESTANY(SELFPROT_LOCAL|SELFPROT_GLOBAL, DYNAMO_OPTION(protect_mask))) {
         /* May not be able to write to some linkstubs! */
         USAGE_ERROR("-prof_counts incompatible with heap write protection");
@@ -892,7 +892,7 @@ check_option_compatibility_helper(int recurse_count)
 #endif
 
     /****************************************************************************
-     * warn of unfinished and untested self-protection options 
+     * warn of unfinished and untested self-protection options
      * FIXME: update once these features are complete
      */
 #ifdef UNIX
@@ -985,7 +985,7 @@ check_option_compatibility_helper(int recurse_count)
         SET_DEFAULT_VALUE(sideline);
         changed_options = true;
     }
-#endif 
+#endif
 
 #ifdef UNIX
 # ifndef HAVE_TLS
@@ -1247,7 +1247,7 @@ check_option_compatibility_helper(int recurse_count)
         USAGE_ERROR("CUSTOM_EXIT_STUBS requires -indirect_stubs, enabling");
         dynamo_options.indirect_stubs = true;
         changed_options = true;
-# endif        
+# endif
 #ifdef HASHTABLE_STATISTICS
         if ((!DYNAMO_OPTION(shared_traces) && DYNAMO_OPTION(inline_trace_ibl)) ||
             (!DYNAMO_OPTION(shared_bbs) && DYNAMO_OPTION(inline_bb_ibl))) {
@@ -1404,7 +1404,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 
 #ifdef WINDOWS
-# ifdef PROGRAM_SHEPHERDING   
+# ifdef PROGRAM_SHEPHERDING
     if (DYNAMO_OPTION(IAT_convert) && !DYNAMO_OPTION(emulate_IAT_writes)) {
         /* FIXME: case 1948 we should in fact depend on emulate_IAT_read */
         USAGE_ERROR("-IAT_convert requires -emulate_IAT_writes, enabling");
@@ -1451,7 +1451,7 @@ check_option_compatibility_helper(int recurse_count)
         USAGE_ERROR("-native_exec_hook_conflict invalid or unsupported value");
         SET_DEFAULT_VALUE(native_exec_hook_conflict);
         changed_options = true;
-    }    
+    }
 # ifdef CLIENT_INTERFACE
     if (INTERNAL_OPTION(private_peb) && !INTERNAL_OPTION(private_loader)) {
         /* The private peb is set up in loader.c */
@@ -1496,8 +1496,8 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.hot_patching = true;
         changed_options = true;
     }
-    /* -hotp_only can't rely on interp to identify/trap system calls as app 
-     * image will be patched directly, i.e., no interp.  -native_exec_syscalls 
+    /* -hotp_only can't rely on interp to identify/trap system calls as app
+     * image will be patched directly, i.e., no interp.  -native_exec_syscalls
      * is needed to gain control for important app system calls.
      */
     if (DYNAMO_OPTION(hotp_only) && !DYNAMO_OPTION(native_exec_syscalls)) {
@@ -1537,7 +1537,7 @@ check_option_compatibility_helper(int recurse_count)
     }
 # endif /* KSTATS */
 # ifdef CLIENT_INTERFACE
-    /* Probe API needs hot_patching.  Also, for the time being at least, 
+    /* Probe API needs hot_patching.  Also, for the time being at least,
      * liveshields shouldn't be on when probe api is on.
      */
     if (DYNAMO_OPTION(probe_api)) {
@@ -1624,7 +1624,7 @@ check_option_compatibility_helper(int recurse_count)
              INJECT_LOCATION_LdrDefault &&
              (get_os_version() == WINDOWS_VERSION_NT ||
               get_os_version() == WINDOWS_VERSION_2000))) {
-            /* we will be using INJECT_LOCATION_LdrpLoadImportModule for 
+            /* we will be using INJECT_LOCATION_LdrpLoadImportModule for
              * child processes */
             if (!dr_early_injected ||
                 dr_early_injected_location !=
@@ -1662,13 +1662,13 @@ check_option_compatibility_helper(int recurse_count)
         /* We won't follow into child processes.  Won't affect the current
          * proccess so only a warning. */
         SYSLOG_INTERNAL_WARNING("Vista+ requires -vista_inject_at_create_process "
-                                "to follow into child processes"); 
+                                "to follow into child processes");
     }
 #ifdef PROCESS_CONTROL
     if (IS_PROCESS_CONTROL_ON() && !DYNAMO_OPTION(follow_systemwide)) {
-        /* Process control can happen even in slisted processes, so 
-         * thin_client need not be true.  To reliably control all processes, 
-         * dr must exist in all of them, so follow_systemwide and runall must 
+        /* Process control can happen even in slisted processes, so
+         * thin_client need not be true.  To reliably control all processes,
+         * dr must exist in all of them, so follow_systemwide and runall must
          * be true.
          */
         USAGE_ERROR("-process_controls needs -follow_systemwide");
@@ -1691,7 +1691,7 @@ check_option_compatibility_helper(int recurse_count)
          * exceeds the limit, so leaving it to the user to fix it.
 
          * If thin_client is specified, it will override client, low, and all
-         * the options shown below.  The check for client/low check will only 
+         * the options shown below.  The check for client/low check will only
          * fix those options that won't be fixed by the subsequent if, i.e.,
          * vm* options, that is why there is no else if
          */
@@ -1750,7 +1750,7 @@ check_option_compatibility_helper(int recurse_count)
 
 #ifdef CLIENT_INTERFACE
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) &&
-        !(INTERNAL_OPTION(code_api) || INTERNAL_OPTION(probe_api) 
+        !(INTERNAL_OPTION(code_api) || INTERNAL_OPTION(probe_api)
           IF_PROG_SHEP(|| DYNAMO_OPTION(security_api)))) {
         USAGE_ERROR("-client_lib requires at least one API flag");
     }
@@ -1848,7 +1848,7 @@ check_option_compatibility_helper(int recurse_count)
     if (INTERNAL_OPTION(mangle_app_seg)) {
         /* i#107: -mangle_app_seg use a fragment flag FRAG_HAS_MOV_SEG
          * that shares the same value with FRAG_DYNGEN_RESTRICTED used
-         * in DGC_DIAGNOSTICS, so they cannot be used together. 
+         * in DGC_DIAGNOSTICS, so they cannot be used together.
          */
         USAGE_ERROR("-mangle_app_seg not compatible with DGC_DIAGNOSTICS; "
                     "disabling\n");
@@ -1899,7 +1899,7 @@ check_option_compatibility_helper(int recurse_count)
             changed_options = true;
         }
     }
-    
+
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */
     /* case 7626: don't short-circuit checks, as later ones may be needed */
@@ -1932,12 +1932,12 @@ check_option_compatibility()
 /* returns true if changed any options */
 static bool
 check_dynamic_option_compatibility()
-{ 
+{
     ASSERT_OWN_OPTIONS_LOCK(true, &options_lock);
-    /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid 
+    /* NOTE : use non-synch form of USAGE_ERROR  in here to avoid
      * infinite recursion */
     return false; /* nothing to check for yet */
-} 
+}
 
 /* initialize dynamo options */
 int
@@ -2049,11 +2049,11 @@ synchronize_dynamic_options()
 
 #ifdef EXPOSE_INTERNAL_OPTIONS
     if (updated) {
-        get_dynamo_options_string(&dynamo_options, 
+        get_dynamo_options_string(&dynamo_options,
                                   new_option_string, sizeof(new_option_string), true);
-        SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_INFORMATION, 
-                                        "Updated options = \"%s\"%s", 
-                                        new_option_string, 
+        SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_INFORMATION,
+                                        "Updated options = \"%s\"%s",
+                                        new_option_string,
                                         compatibility_fixup ?
                                         " after required compatibility fixups!" : "");
         write_unlock(&options_lock);
@@ -2070,10 +2070,10 @@ synchronize_dynamic_options()
  * using this to read the current process's options; we just guard against it
  * because it is already done in other places like init and dynamic option
  * update.
- * Return value : Pointer to the global temp_options struct; so don't try to 
+ * Return value : Pointer to the global temp_options struct; so don't try to
  *                  free it!
- * Note         : The CALLER IS RESPONSIBLE for unlocking the options_lock 
- *                  (write lock held) and shouldn't rely on the returned 
+ * Note         : The CALLER IS RESPONSIBLE for unlocking the options_lock
+ *                  (write lock held) and shouldn't rely on the returned
  *                  pointer after that.
  */
 const options_t *
@@ -2082,7 +2082,7 @@ get_process_options(HANDLE process_handle)
     uint err;
 
     /* Shouldn't be using this for the current process. */
-    ASSERT(process_handle != NT_CURRENT_PROCESS && 
+    ASSERT(process_handle != NT_CURRENT_PROCESS &&
            process_handle != NT_CURRENT_THREAD && process_handle != NULL);
     ASSERT(!READWRITE_LOCK_HELD(&options_lock));
 
@@ -2091,7 +2091,7 @@ get_process_options(HANDLE process_handle)
 
     /* Making an assumption that the core will be the same for the parent and
      * child if set_dynamo_options_default is to work correctly.  I think it is
-     * reasonable.  FIXME: match parent & child cores & then use set default, 
+     * reasonable.  FIXME: match parent & child cores & then use set default,
      * what otherwise?
      */
     set_dynamo_options_defaults(&temp_options);

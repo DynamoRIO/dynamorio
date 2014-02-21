@@ -4,18 +4,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -119,21 +119,21 @@ alias dhome='echo $DYNAMORIO_HOME'
 alias dops='echo $DYNAMORIO_OPTIONS'
 function usetree {
     export DYNAMORIO_HOME=$DYNAMORIO_TREEROOT/$1;
-    iecho "DYNAMORIO_HOME=$DYNAMORIO_HOME"; 
+    iecho "DYNAMORIO_HOME=$DYNAMORIO_HOME";
 }
 function useops {
     export DYNAMORIO_OPTIONS="$*";
-    iecho "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS"; 
+    iecho "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS";
 }
 
-function synchin { 
+function synchin {
     mkdir -p $DYNAMORIO_TREEROOT/$1/src/;
     rsync -auzv ${USERNAME}@${CVSSERVER}:~/dr/trees/$1/src/ $DYNAMORIO_TREEROOT/$1/src/;
     cdt $1;
 }
 function synchout {
     cdt $1;
-    rsync -auzv . ${USERNAME}@${CVSSERVER}:~/dr/trees/$1/src/; 
+    rsync -auzv . ${USERNAME}@${CVSSERVER}:~/dr/trees/$1/src/;
 }
 
 function runreg {
@@ -148,24 +148,24 @@ function cdb { cd ${DYNAMORIO_BENCHMARKS}/spec2000/*/$1; }
 function cdlog { cd `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`; }
 function dtail {
     echo `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`;
-    tail -$1 `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`/*[Ee][Xx][Ee]*; 
+    tail -$1 `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`/*[Ee][Xx][Ee]*;
 }
 
-function diag2line { 
-    dhome; 
-    grep -E 'Call stack|frame ptr|Unrecoverable' $1 | grep -B 50 'the application' | grep -v 'Call stack' | awk '{print $NF}' | xargs address_query.pl $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.dll; 
+function diag2line {
+    dhome;
+    grep -E 'Call stack|frame ptr|Unrecoverable' $1 | grep -B 50 'the application' | grep -v 'Call stack' | awk '{print $NF}' | xargs address_query.pl $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.dll;
 }
 function diag2linelast { diag2line `ls -t1 ${DYNAMORIO_LOGDIR}/*.html | head -1`; }
 
 function cvslatest {
     one=`cvs log $1 | grep '^revision' | head -1 | awk '{print $2}'`;
     two=`cvs log $1 | grep '^revision' | head -2 | tail -1 | awk '{print $2}'`;
-    cvs diff -r $two -r $one $1; 
+    cvs diff -r $two -r $one $1;
 }
 function cvslatestr {
     one=`cvs log -r$1 $2 | grep '^revision' | head -1 | awk '{print $2}'`;
     two=`cvs log -r$1 $2 | grep '^revision' | head -2 | tail -1 | awk '{print $2}'`;
-    cvs diff -r $two -r $one $2; 
+    cvs diff -r $two -r $one $2;
 }
 
 function ldump { ldmp $1 `cygpath -w "${DYNAMORIO_TOOLS}/dummy.exe"`; }
@@ -192,7 +192,7 @@ function setkey {
         debug=$2;
     fi
     # stop agent and set to not restart on reboot
-    if ( svccntrl scnodemgr -show | grep -iq node ) then 
+    if ( svccntrl scnodemgr -show | grep -iq node ) then
         net stop scnodemgr;
         svccntrl scnodemgr -manual;
     fi
@@ -201,7 +201,7 @@ function setkey {
     drcontrol -app $1 -options "${DYNAMORIO_OPTIONS}";
     # avoid double entries -- assume not testing compat w/ AppInit
     drcontrol -preinject CLEAR
-    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key, 
+    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key,
     # which is sometimes messed up from regression suite runs:
     PRELIB=$DYNAMORIO_HOME/lib/drpreinject.dll
     if test -e $PRELIB ; then
@@ -219,7 +219,7 @@ function resetreg {
         debug=$1;
     fi
     # stop agent and set to not restart on reboot
-    if ( svccntrl scnodemgr -show | grep -iq node ) then 
+    if ( svccntrl scnodemgr -show | grep -iq node ) then
         net stop scnodemgr;
         svccntrl scnodemgr -manual;
     fi
@@ -239,14 +239,14 @@ function resetreg {
     ### if ignore RUNUNDER this will re-make reg keys from scc file:
     ###    # now re-build reg setup
     ###    drcontrol -reset;
-    ###    for i in `grep -i exe /c/Program\ Files/Determina/SecureCore/config/default.scc`; do 
+    ###    for i in `grep -i exe /c/Program\ Files/Determina/SecureCore/config/default.scc`; do
     ###        # pull exe name out of [HKEY_LOCAL_MACHINE\<...>\inetinfo.exe]
-    ###        j=${i##*\\}; 
-    ###        drcontrol -add ${j/]/}; 
+    ###        j=${i##*\\};
+    ###        drcontrol -add ${j/]/};
     ###    done;
     # avoid double entries -- assume not testing compat w/ AppInit
     drcontrol -preinject CLEAR
-    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key, 
+    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key,
     # which is sometimes messed up from regression suite runs:
     PRELIB=$DYNAMORIO_HOME/lib/drpreinject.dll
     if test -e $PRELIB ; then

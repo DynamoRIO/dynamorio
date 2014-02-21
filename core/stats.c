@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -37,7 +37,7 @@
  * stats.c - statistics related functionality
  */
 
-/* 
+/*
  * Note that timer numbers from TSC cannot fully adjust for thread
  * context switches.  We truly want a virtual time stamp counter that
  * is thread specific, yet without OS support that's not possible.  If
@@ -64,7 +64,7 @@
 
 #ifdef KSTATS
 
-#ifdef KSTAT_UNIT_TEST 
+#ifdef KSTAT_UNIT_TEST
 /* FIXME: add a Makefile rule for this */
 kstat_variables_t tkv;
 kstat_stack_t ks;
@@ -97,7 +97,7 @@ kstats_evaluate_expressions(kstat_variables_t *kvars)
         kstat_merge_var(&kvars->name, &kvars->var1);    \
         kstat_merge_var(&kvars->name, &kvars->var2);
 #define KSTAT_DEF(desc, name)   /* nothing to do */
-#include "kstatsx.h"    
+#include "kstatsx.h"
 #undef KSTAT_SUM
 #undef KSTAT_DEF
 }
@@ -121,7 +121,7 @@ kstat_init_variables(kstat_variables_t *ks)
  * we shouldn't be doing anything like that.
  */
 enum {KSTAT_OUTLIER_THRESHOLD_MS = 1}; /* 1 ms for now */
-timestamp_t kstat_ignore_context_switch; 
+timestamp_t kstat_ignore_context_switch;
 
 static timestamp_t
 kstat_frequency_per_msec;
@@ -165,7 +165,7 @@ kstat_report(file_t outf, kstat_variables_t *ks)
 #define KSTAT_DEF(desc, name)                   \
     if (ks->name.num_self)                      \
         kstat_print_individual(outf, &ks->name, #name, desc);
-#include "kstatsx.h"                                          
+#include "kstatsx.h"
 #undef KSTAT_DEF
 }
 
@@ -194,7 +194,7 @@ kstat_init()
     kstat_frequency_per_msec = get_timer_frequency();
     kstat_ignore_context_switch = KSTAT_OUTLIER_THRESHOLD_MS * kstat_frequency_per_msec;
 
-    LOG(GLOBAL, LOG_STATS, 1, "Processor speed: "UINT64_FORMAT_STRING"MHz\n", 
+    LOG(GLOBAL, LOG_STATS, 1, "Processor speed: "UINT64_FORMAT_STRING"MHz\n",
         kstat_frequency_per_msec/1000);
 
     /* FIXME: There is no check for TSC feature and whether CR4.TSD is set
@@ -233,7 +233,7 @@ kstat_exit()
 #ifndef DEBUG
     os_close(process_kstats_outfile);
 #endif
-}    
+}
 
 static void
 kstat_calibrate()
@@ -245,7 +245,7 @@ kstat_calibrate()
     kstats_calibrated = true; /* slight innocent race */
 
     /* FIXME: once we calculate the overhead of calibrate_empty we can
-     * subtract that from every self_time measurement.  
+     * subtract that from every self_time measurement.
      * FIXME: The cost of
      * overhead_nested-overhead_empty should be subtracted from each
      * subpath_time.
@@ -267,7 +267,7 @@ kstat_thread_init(dcontext_t *dcontext)
 
     /* allocated on thread heap - use global if timing initialization matters */
     new_thread_kstats = HEAP_TYPE_ALLOC(dcontext, thread_kstats_t, ACCT_STATS, UNPROTECTED);
-    LOG(THREAD, LOG_STATS, 2, "thread_kstats="PFX" size=%d\n", new_thread_kstats, 
+    LOG(THREAD, LOG_STATS, 2, "thread_kstats="PFX" size=%d\n", new_thread_kstats,
         sizeof(thread_kstats_t));
     /* initialize any thread stats bookkeeping fields before assigning to dcontext */
     kstat_init_variables(&new_thread_kstats->vars_kstats);
@@ -298,9 +298,9 @@ kstat_merge_var(kstat_variable_t *destination, kstat_variable_t *source)
     destination->total_self += source->total_self;
     destination->total_sub += source->total_sub;
     destination->total_outliers += source->total_outliers;
-    if (destination->min_cum > source->min_cum) 
+    if (destination->min_cum > source->min_cum)
         destination->min_cum = source->min_cum;
-    if (destination->max_cum < source->max_cum) 
+    if (destination->max_cum < source->max_cum)
         destination->max_cum = source->max_cum;
 }
 
@@ -309,7 +309,7 @@ static void
 kstat_merge(kstat_variables_t *destinationvars, kstat_variables_t *sourcevars)
 {
 #define KSTAT_DEF(desc, name) kstat_merge_var(&destinationvars->name, &sourcevars->name);
-#include "kstatsx.h"    
+#include "kstatsx.h"
 #undef KSTAT_DEF
 }
 
@@ -322,7 +322,7 @@ dump_thread_kstats(dcontext_t *dcontext)
     /* add thread id's in case outfile is rerouted to process_kstats_outfile */
     print_file(dcontext->thread_kstats->outfile_kstats, "Thread %d KSTATS {\n",
                dcontext->thread_kstats->thread_id);
-    kstat_report(dcontext->thread_kstats->outfile_kstats, 
+    kstat_report(dcontext->thread_kstats->outfile_kstats,
                  &dcontext->thread_kstats->vars_kstats);
     print_file(dcontext->thread_kstats->outfile_kstats, "} KSTATS\n");
 }
@@ -416,7 +416,7 @@ kstat_test()
     KSTOP_NOT_PROPAGATED(wait_event);
     printf("test %d\n", __LINE__);
 
-    { 
+    {
         uint i;
         for (i=0; i<100000; i++) {
             KSTART(bb);
@@ -424,7 +424,7 @@ kstat_test()
         }
     }
 
-    { 
+    {
         uint i,j,k;
         for (i=0; i<100; i++) {
             KSTART(iloop);
@@ -457,7 +457,7 @@ int main()
     kstat_thread_init();
 
     kstat_test();
-    
+
     kstat_thread_exit();
     kstat_exit();
 }

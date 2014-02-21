@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -38,8 +38,8 @@
 #include "tools.h" /* for print() */
 
 /* patterns.c
- * test for case 7357: ensure code origins patterns disallow other code on 
- * page and self-modifying and cross-modified patterns 
+ * test for case 7357: ensure code origins patterns disallow other code on
+ * page and self-modifying and cross-modified patterns
  * - case 4020 scenarios:
        * other code on the page
        * same thread changes pattern
@@ -47,7 +47,7 @@
        * another thread changes pattern, also allowed before 4020 fix
        * pattern code itself changes pattern, also allowed before 4020 and
          only fixed by 4020 due to luck
- * - -trampoline_displaced_code 
+ * - -trampoline_displaced_code
  * - -trampoline_dirjmp
  */
 
@@ -59,7 +59,7 @@
 00364f90 8bec             mov     ebp,esp
 00364f92 e9c5835b7c jmp ntdll!LdrQueryImageFileExecutionOptions+0x5 (7c91d35c)
 */
-unsigned char datacode[] = 
+unsigned char datacode[] =
 "\x8b\xff"                   /* mov     edi,edi */
 "\x55"                       /* push    ebp */
 "\x8b\xec"                   /* mov     ebp,esp */
@@ -81,10 +81,10 @@ unsigned char datacode[] =
 /* another match for -trampoline_displaced_code but that is capable
  * of modifying itself.
  * example of mov immed to abs addr:
-      0x24722535   c7 05 78 41 6d 24 b4 mov    $0x151b88b4 -> 0x246d4178 
+      0x24722535   c7 05 78 41 6d 24 b4 mov    $0x151b88b4 -> 0x246d4178
                    88 1b 15
 */
-unsigned char datacode2[] = 
+unsigned char datacode2[] =
 "\xc7\x05\x00\x00\x00\x00\x00\x00\x00\x00" /* mov $immed, abs-addr */
 "\xe9\x00\x00\x00\x00"       /* jmp     image_target2+10 */
 ;

@@ -55,7 +55,7 @@
 #include <asm/ldt.h>
 
 #ifdef X64
-/* Linux GDT layout in x86_64: 
+/* Linux GDT layout in x86_64:
  * #define GDT_ENTRY_TLS_MIN 12
  * #define GDT_ENTRY_TLS_MAX 14
  * #define GDT_ENTRY_TLS 1
@@ -71,10 +71,10 @@
 /* Linux GDT layout in x86_32
  * 6 - TLS segment #1 0x33 [ glibc's TLS segment ]
  * 7 - TLS segment #2 0x3b [ Wine's %fs Win32 segment ]
- * 8 - TLS segment #3 0x43 
+ * 8 - TLS segment #3 0x43
  * FS and GS is not hardcode.
  */
-#endif 
+#endif
 #define GDT_ENTRY_TLS_MIN_32 6
 #define GDT_ENTRY_TLS_MIN_64 12
 /* when x86-64 emulate i386, it still use 12-14, so using ifdef x64
@@ -411,7 +411,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
      *    we're limited here to a 32-bit base.  (Strangely, the kernel's
      *    include/asm-x86_64/ldt.h implies that the base is ignored: but it doesn't
      *    seem to be.)
-     * 
+     *
      * 3) Steal a gdt entry via SYS_set_thread_area.  There is a 3rd unused entry
      *    (after pthreads and wine) we could use.  The kernel swaps for us, and with
      *    CLONE_TLS the kernel will set up the entry for a new thread for us.  Xref
@@ -437,7 +437,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     if (res >= 0) {
         LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: cur gs base is "PFX"\n", cur_gs);
         /* If we're a non-initial thread, gs will be set to the parent thread's value */
-        if (cur_gs == NULL || is_dynamo_address(cur_gs) || 
+        if (cur_gs == NULL || is_dynamo_address(cur_gs) ||
             /* By resolving i#107, we can handle gs conflicts between app and dr. */
             INTERNAL_OPTION(mangle_app_seg)) {
             res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_GS, segment);
@@ -449,7 +449,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 if (!dynamo_initialized && read_selector(SEG_TLS) == 0)
                     tls_using_msr = true;
                 if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-                    res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS, 
+                    res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS,
                                             os_tls->os_seg_info.dr_fs_base);
                     /* Assuming set fs must be successful if set gs succeeded. */
                     ASSERT(res >= 0);
@@ -567,7 +567,7 @@ tls_thread_free(tls_type_t tls_type, int index)
         clear_ldt_struct(&desc, index);
         DEBUG_DECLARE(int res = )
             dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-        ASSERT(res >= 0);        
+        ASSERT(res >= 0);
     }
 #ifdef X64
     else if (tls_type == TLS_TYPE_ARCH_PRCTL) {
@@ -589,7 +589,7 @@ tls_get_fs_gs_segment_base(uint seg)
     uint index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
         __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
-    
+
     if (seg != SEG_FS && seg != SEG_GS)
         return (byte *) POINTER_MAX;
 
@@ -707,7 +707,7 @@ tls_clear_descriptor(int index)
     ASSERT(tls_global_type != TLS_TYPE_LDT);
     clear_ldt_struct(&desc, index);
     res = dynamorio_syscall(SYS_set_thread_area, 1, &desc);
-    return(res >= 0);        
+    return(res >= 0);
 }
 
 int
@@ -765,9 +765,9 @@ os_set_dr_seg(dcontext_t *dcontext, reg_id_t seg)
 {
     int res;
     os_thread_data_t *ostd = dcontext->os_field;
-    res = dynamorio_syscall(SYS_arch_prctl, 2, 
+    res = dynamorio_syscall(SYS_arch_prctl, 2,
                             seg == SEG_GS ? ARCH_SET_GS : ARCH_SET_FS,
-                            seg == SEG_GS ? 
+                            seg == SEG_GS ?
                             ostd->dr_gs_base : ostd->dr_fs_base);
     ASSERT(res >= 0);
 }

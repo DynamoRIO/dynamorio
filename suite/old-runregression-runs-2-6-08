@@ -4,18 +4,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -137,7 +137,7 @@
         # patch proof - prevent hooking of targeted victim modules
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-patch_proof_default_list secur32.dll -patch_proof_list 'kernel32.dll'\\\"",
         # patch proof - blanket protect policy
-        # FIXME: case 6635 0) 'kernel32.dll;advapi32.dll' 
+        # FIXME: case 6635 0) 'kernel32.dll;advapi32.dll'
         # FIXME: case 6635 2) gen_expect should use subst to match * here
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-patch_proof_list '*=ALL'\\\"",
         # case 6640
@@ -167,7 +167,7 @@
 
 ### These will be run with debug builds on both Linux and Windows
 @common_debug_runs = (
-        # runallbuthotp is to handle PR 234043 
+        # runallbuthotp is to handle PR 234043
         "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -probe_api\\\"",
         "SHORT::ONLY::runos runsecurity runrunall::DYNAMORIO_OPTIONS=\\\"-security\\\"",
         "SHORT::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop\\\"",
@@ -249,7 +249,7 @@ if ($on_linux) {
         "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-client -aslr_cache 0\\\"", # winlogon, spoolsv run in this
         "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
         # pcache tests: per-user so each app will merge w/ previous, plus merge
-        # w/ at-unload persists from earlier -desktop run 
+        # w/ at-unload persists from earlier -desktop run
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
         # run again so each must use the merged pcaches
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
@@ -282,10 +282,10 @@ if ($on_linux) {
         # reverse of the default options
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-ignore_syscalls\\\"",
         # test internal detach, mainly looking for asserts or
-        # exceptions/hangs as we don't verify that we really 
+        # exceptions/hangs as we don't verify that we really
         # detach, FIXME verify somehow
-        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -internal_detach_mask 0x1\\\"", 
-        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_hide\\\"", 
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -internal_detach_mask 0x1\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_hide\\\"",
         # test sygate compatibility
         "DYNAMORIO_OPTIONS=\\\"-security -sygate\\\"",
         # reset
@@ -332,13 +332,13 @@ if ($on_linux) {
                     );
 }
 
-#FIXME: options that need product runs 
+#FIXME: options that need product runs
 #               dynamic_options
 
 #FIXME: internal options to be added to internal runs
 #               nolink
 #               tracedump_threshold
-#               thread_stats global_stats 
+#               thread_stats global_stats
 #               thread_stats_interval 1000
 #               global_stats_interval 1000
 #               hashtable_ibl_stats
@@ -382,7 +382,7 @@ $external_debug_build = "BUILD::DEBUG=1 INTERNAL=0";
 ### profiling
 ### FIXME: add tests of client interface routines, including app start/stop interface?
 ### (i.e., re-activate api/startstop test and add new tests)
-# 
+#
 ### would only want to run for this build
     "BUILD::ADD_DEFINES=\"${D}PROFILE_LINKCOUNT ${D}LINKCOUNT_64_BITS\"",
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_inline_trace_ibl\\\"",
@@ -392,8 +392,8 @@ $external_debug_build = "BUILD::DEBUG=1 INTERNAL=0";
         "ONLY::all::DYNAMORIO_OPTIONS=\\\"-tracedump_binary -tracedump_origins -no_inline_trace_ibl\\\" TEST_MINS=20",
         "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-tracedump_text -tracedump_origins -no_inline_trace_ibl\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
 ### client interface
-# We have some client interface tests working for Windows only, so the following 
-# build is currently placed in the os-specific sections above.  Once these 
+# We have some client interface tests working for Windows only, so the following
+# build is currently placed in the os-specific sections above.  Once these
 # tests are verified to work with Linux, we should move all client interface
 # entries to here.
 #    "BUILD::CLIENT_INTERFACE=1",

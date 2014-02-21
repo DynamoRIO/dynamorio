@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,7 +59,7 @@ their execution frequency. We start with an empty DynamoRIO client.
 \code
 #include "dr_api.h"
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* empty */
@@ -86,7 +86,7 @@ idempotent so DynamoRIO default translation will work fine.
 + event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 +                   bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
 +     /* register events */
@@ -99,7 +99,7 @@ dr_init(client_id_t id)
 + {
 +     /* empty */
 + }
-+ 
++
 + static dr_emit_flags_t
 + event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 +                   bool for_trace, bool translating)
@@ -125,7 +125,7 @@ their average size.  Next we will add the dynamic execution counts.
 + # define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
 + #endif
 
-+ typedef struct bb_counts { 
++ typedef struct bb_counts {
 +    uint64 blocks;
 +    uint64 total_size;
 + } bb_counts;
@@ -139,13 +139,13 @@ static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);
-+ 
++
 +     /* initialize lock */
 +     as_built_lock = dr_mutex_create();
 }
@@ -165,7 +165,7 @@ event_exit(void)
 +     DR_ASSERT(len > 0);
 +     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0'; /* NUll terminate */
 +     DISPLAY_STRING(msg);
-+ 
++
 +      /* free mutex */
 +      dr_mutex_destroy(as_built_lock);
 }
@@ -176,7 +176,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
 +     uint num_instructions = 0;
 +     instr_t *instr;
-+ 
++
 +     /* count the number of instructions in this block */
 +     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
 +         num_instructions++;
@@ -209,7 +209,7 @@ other approaches next.
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
 #endif
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -228,7 +228,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 + static void
 + clean_call(uint instruction_count);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -295,7 +295,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 +     /* insert clean call */
 +     dr_insert_clean_call(drcontext, bb, instrlist_first(bb), clean_call, false, 1,
 +                          OPND_CREATE_INT32(num_instructions));
-+ 
++
     return DR_EMIT_DEFAULT;
 }
 \endcode
@@ -303,9 +303,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 [ \ref API_tutorial_bbdynsize3 "prev" | \subpage API_tutorial_bbdynsize5 "next" ]
 
 \page API_tutorial_bbdynsize5
-In this variation we use inlined atomic instructions to adjust the counters.  On 
-a single core box this form should be quite fast, but on a multi-core box the 
-cache line locking for atomic operations will slow things dramatically.  We'll 
+In this variation we use inlined atomic instructions to adjust the counters.  On
+a single core box this form should be quite fast, but on a multi-core box the
+cache line locking for atomic operations will slow things dramatically.  We'll
 look at forms more suitable for multi-core further on.
 
 \code
@@ -317,7 +317,7 @@ look at forms more suitable for multi-core further on.
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
 #endif
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -333,7 +333,7 @@ static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -401,7 +401,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 +         LOCK(INSTR_CREATE_adc(drcontext,
 +                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks + 4, OPSZ_4),
 +                               OPND_CREATE_INT8(0))));
-+ 
++
 +     instrlist_meta_preinsert(bb, where,
 +         LOCK(INSTR_CREATE_add(drcontext,
 +                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size, OPSZ_4),
@@ -420,7 +420,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 +                               OPND_CREATE_INT_32OR8(num_instructions))));
 + #endif
 +     dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
-+ 
++
     return DR_EMIT_DEFAULT;
 }
 \endcode
@@ -428,7 +428,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 [ \ref API_tutorial_bbdynsize4 "prev" | \subpage API_tutorial_bbdynsize6 "next" ]
 
 \page API_tutorial_bbdynsize6
-Next up we add an optimization to only save and restore the flags if we can't find a spot 
+Next up we add an optimization to only save and restore the flags if we can't find a spot
 within the block where the flags are dead.
 
 \code
@@ -443,7 +443,7 @@ within the block where the flags are dead.
 + #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 + #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -464,7 +464,7 @@ static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -575,12 +575,12 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 [ \ref API_tutorial_bbdynsize5 "prev" | \subpage API_tutorial_bbdynsize7 "next" ]
 
 \page API_tutorial_bbdynsize7
-We now have a pretty fast implementation, probably about as fast as we can get 
-on a single core machine.  However, on multi-core systems the cache 
-line locking for the atomic operations becomes a bottle neck.  To get around that 
+We now have a pretty fast implementation, probably about as fast as we can get
+on a single core machine.  However, on multi-core systems the cache
+line locking for the atomic operations becomes a bottle neck.  To get around that
 we can use thread-private counts and aggregate them.  With thread-private counts
 no locked instructions are needed, however the extra indirection does has its
-own cost of extra added instructions to spill a register and get the tls pointer 
+own cost of extra added instructions to spill a register and get the tls pointer
 so on single core this will be slower.
 
 \code
@@ -596,7 +596,7 @@ so on single core this will be slower.
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -621,7 +621,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 + static void
 + event_thread_exit(void *drcontext);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -662,7 +662,7 @@ event_exit(void)
 +     dr_mutex_destroy(count_lock);
 }
 
-+ static void 
++ static void
 + event_thread_init(void *drcontext)
 + {
 +     /* create an instance of our data structure for this thread */
@@ -671,8 +671,8 @@ event_exit(void)
 +     dr_set_tls_field(drcontext, counts);
 +     memset(counts, 0, sizeof(bb_counts));
 + }
-+ 
-+ static void 
++
++ static void
 + event_thread_exit(void *drcontext)
 + {
 +     bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
@@ -695,7 +695,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     /* count the number of instructions in this block */
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-        /* Since it doesn't matter where we insert, look for a place 
+        /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
         uint flags = instr_get_arith_flags(instr);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
@@ -764,10 +764,10 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 [ \ref API_tutorial_bbdynsize6 "prev" | \subpage API_tutorial_bbdynsize8 "next" ]
 
 \page API_tutorial_bbdynsize8
-Our final optimization is to note that if we're running with thread-private caches 
-(i.e. with the -thread_private option to DynamoRIO) we can use absolute addressing 
-on the per-thread counters instead of indirecting via TLS which should greatly speed 
-things up.  The downside to -thread_private is that on applications with many threads 
+Our final optimization is to note that if we're running with thread-private caches
+(i.e. with the -thread_private option to DynamoRIO) we can use absolute addressing
+on the per-thread counters instead of indirecting via TLS which should greatly speed
+things up.  The downside to -thread_private is that on applications with many threads
 memory use can get quite high, potentially enough to impact performance of the system.
 
 \code
@@ -783,7 +783,7 @@ memory use can get quite high, potentially enough to impact performance of the s
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -808,7 +808,7 @@ event_thread_init(void *drcontext);
 static void
 event_thread_exit(void *drcontext);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -849,7 +849,7 @@ event_exit(void)
     dr_mutex_destroy(count_lock);
 }
 
-static void 
+static void
 event_thread_init(void *drcontext)
 {
     /* create an instance of our data structure for this thread */
@@ -859,7 +859,7 @@ event_thread_init(void *drcontext)
     memset(counts, 0, sizeof(bb_counts));
 }
 
-static void 
+static void
 event_thread_exit(void *drcontext)
 {
     bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
@@ -882,7 +882,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     /* count the number of instructions in this block */
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-        /* Since it doesn't matter where we insert, look for a place 
+        /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
         uint flags = instr_get_arith_flags(instr);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
@@ -918,7 +918,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_meta_preinsert(bb, where,
         INSTR_CREATE_add(drcontext,
 !                          dr_using_all_private_caches() ?
-!                            OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) : 
+!                            OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) :
 !                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)),
                          OPND_CREATE_INT8(1)));
     instrlist_meta_preinsert(bb, where,
@@ -969,8 +969,8 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 [ \ref API_tutorial_bbdynsize7 "prev" | \subpage API_tutorial_bbdynsize9 "next" ]
 
 \page API_tutorial_bbdynsize9
-The final multi-core optimized version.  If we are single core then the LOCK version 
-is probably faster unless we are running with -thread_private in which case it's probably 
+The final multi-core optimized version.  If we are single core then the LOCK version
+is probably faster unless we are running with -thread_private in which case it's probably
 close to equivalent.
 
 \code
@@ -986,7 +986,7 @@ close to equivalent.
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
 
-typedef struct bb_counts { 
+typedef struct bb_counts {
    uint64 blocks;
    uint64 total_size;
 } bb_counts;
@@ -1011,7 +1011,7 @@ event_thread_init(void *drcontext);
 static void
 event_thread_exit(void *drcontext);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -1052,7 +1052,7 @@ event_exit(void)
     dr_mutex_destroy(count_lock);
 }
 
-static void 
+static void
 event_thread_init(void *drcontext)
 {
     /* create an instance of our data structure for this thread */
@@ -1062,7 +1062,7 @@ event_thread_init(void *drcontext)
     memset(counts, 0, sizeof(bb_counts));
 }
 
-static void 
+static void
 event_thread_exit(void *drcontext)
 {
     bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
@@ -1085,7 +1085,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     /* count the number of instructions in this block */
     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
-        /* Since it doesn't matter where we insert, look for a place 
+        /* Since it doesn't matter where we insert, look for a place
          * where the eflags are dead. */
         uint flags = instr_get_arith_flags(instr);
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
@@ -1121,7 +1121,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_meta_preinsert(bb, where,
         INSTR_CREATE_add(drcontext,
                          dr_using_all_private_caches() ?
-                           OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) : 
+                           OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) :
                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)),
                          OPND_CREATE_INT8(1)));
     instrlist_meta_preinsert(bb, where,

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -75,7 +75,7 @@ enum {
  * For -shared_bbs, will return TRACE_HEAD_OBTAINED_LOCK if the
  * change_linking_lock is not already held (meaning from_l->fragment is
  * private) and the to_tag is FRAG_SHARED and TRACE_HEAD_YES is being returned,
- * since the change_linking_lock must be held and the TRACE_HEAD_YES result 
+ * since the change_linking_lock must be held and the TRACE_HEAD_YES result
  * re-verified.  In that case the caller must free the change_linking_lock.
  */
 uint should_be_trace_head(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l,
@@ -165,7 +165,7 @@ typedef struct _monitor_data_t {
     trace_bb_build_t *blk_info;     /* info for all basic blocks making up trace */
     uint           blk_info_length; /* length of blk_info array */
     uint           emitted_size;    /* calculated final trace size once emitted */
-    fragment_t *     last_copy;     /* private copy of shared bb for trace building only 
+    fragment_t *     last_copy;     /* private copy of shared bb for trace building only
                                      * equals the previous last_fragment that was shared
                                      */
     fragment_t *     last_fragment;   /* for restoring (can't just use last_exit) */

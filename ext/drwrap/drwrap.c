@@ -8,7 +8,7 @@
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; 
+ * License as published by the Free Software Foundation;
  * version 2.1 of the License, and no later version.
 
  * This library is distributed in the hope that it will be useful,
@@ -218,7 +218,7 @@ fast_safe_read(void *base, size_t size, void *out_buf)
 
 /* We need to know whether we've inserted instrumentation at the call site .
  * The separate post_call_table tells us whether we've set up the return site
- * for instrumentation. 
+ * for instrumentation.
  */
 #define CALL_SITE_TABLE_HASH_BITS 10
 static hashtable_t call_site_table;
@@ -1119,14 +1119,14 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
     if (stacksz == OPSZ_4 IF_X64(&& x86)) {
         instrlist_append
             (bb, INSTR_XL8(INSTR_CREATE_push_imm
-                           (drcontext, OPND_CREATE_INT32(pushval)), pc)); 
+                           (drcontext, OPND_CREATE_INT32(pushval)), pc));
     }
 #ifdef X64
     else if (!x86 && stacksz == OPSZ_8) {
         /* needs 2 steps */
         instrlist_append
             (bb, INSTR_XL8(INSTR_CREATE_push_imm
-                           (drcontext, OPND_CREATE_INT32((int)pushval)), pc)); 
+                           (drcontext, OPND_CREATE_INT32((int)pushval)), pc));
         /* first push sign-extended so may not need 2nd */
         if ((ptr_uint_t)pushval >= 0x80000000) {
             instrlist_append
@@ -1590,7 +1590,7 @@ drwrap_in_callee(void *arg1, reg_t xsp)
                "stack pointer off: may miss post-wrap points");
     }
 #endif
-    
+
     if (TEST(DRWRAP_NO_FRILLS, global_flags)) {
         if (!wrap->enabled) {
             dr_recurlock_lock(wrap_lock);
@@ -1631,7 +1631,7 @@ drwrap_in_callee(void *arg1, reg_t xsp)
             /* was there a request to skip? */
             if (pt->skip[pt->wrap_level])
                 break;
-        } 
+        }
         dr_recurlock_unlock(wrap_lock);
     }
     if (pt->skip[pt->wrap_level]) {
@@ -1748,7 +1748,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
                 unwound_all = false;
             /* note that at this point wrap might be deleted */
         }
-    } 
+    }
     if (disabled_count > DISABLED_COUNT_FLUSH_THRESHOLD) {
         /* Lazy removal and flushing.  To be non-lazy requires storing
          * info inside unwrap and/or limiting when unwrap can be called.
@@ -1801,7 +1801,7 @@ drwrap_after_callee_func(void *drcontext, per_thread_t *pt, dr_mcontext_t *mc,
         dr_set_mcontext(drcontext, wrapcxt.mc);
 
     if (do_flush) {
-        /* handle delayed flushes while holding no lock 
+        /* handle delayed flushes while holding no lock
          * XXX: optimization: combine nearby addresses to reduce # flushes
          */
         uint i;

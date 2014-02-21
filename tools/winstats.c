@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,9 +35,9 @@
  * This file is part of RIO, a research tool that is being supplied
  * "as is" without any accompanying services or improvements from MIT.
  * MIT makes no representations or warranties, express or implied.
- * Permission is hereby granted for non-commercial use of RIO provided 
- * that you preserve this copyright notice, and you do not mention 
- * the copyright holders in advertising related to RIO without 
+ * Permission is hereby granted for non-commercial use of RIO provided
+ * that you preserve this copyright notice, and you do not mention
+ * the copyright holders in advertising related to RIO without
  * their permission.
  */
 /*
@@ -137,7 +137,7 @@ BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
     /*    GenerateConsoleCtrlEvent(dwCtrlType, phandle);*/
     return TRUE;
 }
-#endif 
+#endif
 
 int usage(char *us)
 {
@@ -269,7 +269,7 @@ main(int argc, char *argv[], char *envp[])
         debugbox(app_cmdline);
         return 1;
     }
-    
+
     /* Launch the application process. */
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
@@ -304,7 +304,7 @@ main(int argc, char *argv[], char *envp[])
 
         /* resume the suspended app process so its main thread can run */
         ResumeThread(pi.hThread);
-    
+
         /* detach from the app process */
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -202,12 +202,12 @@ pcprof_dump_callstack(dcontext_t *dcontext, app_pc cur_pc, app_pc ebp, file_t ou
     if (cur_pc != NULL) {
         print_file(outfile, "\tcurrent pc = "PFX"\n", cur_pc);
     }
-    /* only DR routines 
+    /* only DR routines
      * cannot call is_readable b/c that asks for memory -> livelock
      */
     while (pc != NULL && ((byte*)pc >= dcontext->dstack - DYNAMORIO_STACK_SIZE) &&
            (byte*)pc < (app_pc)dcontext->dstack) {
-        print_file(outfile, 
+        print_file(outfile,
             "\tframe ptr "PFX" => parent "PFX", ret = "PFX"\n", pc, *pc, *(pc+1));
         num++;
         /* yes I've seen weird recursive cases before */
@@ -228,7 +228,7 @@ pcprof_dump_callstack(dcontext_t *dcontext, app_pc cur_pc, app_pc ebp, file_t ou
  */
 static void
 pcprofile_alarm(dcontext_t *dcontext, priv_mcontext_t *mcontext)
-{               
+{
     thread_pc_info_t *info = (thread_pc_info_t *) dcontext->pcprofile_field;
     pc_profile_entry_t *entry;
     fragment_t *fragment;
@@ -321,7 +321,7 @@ pcprofile_add_entry(thread_pc_info_t *info, void *pc, int whereami)
     return e;
 }
 
-/* Lookup an entry by pc and return a pointer to the corresponding entry 
+/* Lookup an entry by pc and return a pointer to the corresponding entry
  * Returns NULL if no such entry exists */
 static pc_profile_entry_t *
 pcprofile_lookup(thread_pc_info_t *info, void *pc)
@@ -405,7 +405,7 @@ pcprofile_reset(thread_pc_info_t *info)
         info->where[i] = 0;
 }
 
-/* Print the profile results 
+/* Print the profile results
  * FIXME: It would be nice to print counts integrated with fragment listings
  * That would require re-ordering *_exit() sequence (fragments are deleted first)
  * Instead of doing that, can use a script to combine these tag+offsets with
@@ -419,9 +419,9 @@ pcprofile_results(thread_pc_info_t *info)
     int i, total = 0;
     pc_profile_entry_t *e;
 
-    for (i = 0; i < WHERE_LAST; i++) 
+    for (i = 0; i < WHERE_LAST; i++)
         total += info->where[i];
-    
+
     print_file(info->file, "DynamoRIO library: "PFX"-"PFX"\n",
                get_dynamorio_dll_start(), get_dynamorio_dll_end());
 #ifdef CLIENT_INTERFACE
@@ -583,5 +583,5 @@ pcprofile_results(thread_pc_info_t *info)
             }
             e = e->next;
         }
-    }    
+    }
 }

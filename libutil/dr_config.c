@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -137,7 +137,7 @@ get_next_token(TCHAR* ptr, TCHAR *token)
             }
         }
     }
-    
+
     /* otherwise copy until the next space character */
     else {
         while (*ptr != L' ' && *ptr != L'\0') {
@@ -197,7 +197,7 @@ add_client_lib(opt_info_t *opt_info, client_id_t id, size_t pri,
                const TCHAR *path, const TCHAR *opts)
 {
     size_t i;
-    
+
     if (opt_info->num_clients >= MAX_CLIENT_LIBS) {
         return DR_FAILURE;
     }
@@ -250,7 +250,7 @@ add_extra_option(opt_info_t *opt_info, const TCHAR *opt)
         if (idx >= MAX_NUM_OPTIONS) {
             return DR_FAILURE;
         }
-        
+
         len = MIN(DR_MAX_OPTIONS_LENGTH-1, _tcslen(opt));
         opt_info->extra_opts[idx] = malloc
             ((len+1) * sizeof(opt_info->extra_opts[idx][0]));
@@ -446,7 +446,7 @@ get_config_file_name(const char *process_name,
     dir_len = strlen(fname);
     if (pid > 0) {
         /* <root>/appname.<pid>.1config */
-        _snprintf(fname + dir_len, fname_len - dir_len, "/%s.%d.1%s", 
+        _snprintf(fname + dir_len, fname_len - dir_len, "/%s.%d.1%s",
                   process_name, pid, get_config_sfx(dr_platform));
     } else {
         /* <root>/appname.config */
@@ -656,7 +656,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
     TCHAR *ptr, token[DR_MAX_OPTIONS_LENGTH], tmp[DR_MAX_OPTIONS_LENGTH];
     opt_info_t null_opt_info = {0,};
     size_t len;
-    
+
     *opt_info = null_opt_info;
 
     if (!read_config_param(IF_REG_ELSE(proc_policy, f), PARAM_STR(DYNAMORIO_VAR_OPTIONS),
@@ -680,9 +680,9 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
     ptr = tmp;
     while (ptr != NULL) {
         ptr = get_next_token(ptr, token);
-        
+
         /*
-         * look for the mode 
+         * look for the mode
          */
         if (_tcscmp(token, _TEXT("-code_api")) == 0) {
             if (opt_info->mode != DR_MODE_NONE) {
@@ -714,8 +714,8 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
             opt_info->mode = DR_MODE_PROBE;
         }
 #endif
-        
-        /* 
+
+        /*
          * look for client options
          */
         else if (_tcscmp(token, _TEXT("-client_lib")) == 0) {
@@ -763,7 +763,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
             id = _tcstoul(id_str, NULL, 16);
 
             /* add the client info to our opt_info structure */
-            if (add_client_lib(opt_info, id, opt_info->num_clients, 
+            if (add_client_lib(opt_info, id, opt_info->num_clients,
                                path_str, opt_str) != DR_SUCCESS) {
                 goto error;
             }
@@ -893,7 +893,7 @@ get_policy(dr_platform_t dr_platform)
 }
 
 /* As a sub policy only the parent policy (from get_policy()) need be freed */
-static ConfigGroup * 
+static ConfigGroup *
 get_proc_policy(ConfigGroup *policy, const char *process_name)
 {
     ConfigGroup *res = NULL;
@@ -904,7 +904,7 @@ get_proc_policy(ConfigGroup *policy, const char *process_name)
         res = get_child(wbuf, policy);
     }
     return res;
-}                
+}
 #endif /* PARAMS_IN_REGISTRY */
 
 static bool
@@ -1102,7 +1102,7 @@ dr_register_process(const char *process_name,
 #endif
 
 #ifdef WINDOWS
-    /* If on win2k, copy drearlyhelper?.dll to system32 
+    /* If on win2k, copy drearlyhelper?.dll to system32
      * FIXME: this requires admin privs!  oh well: only issue is early inject
      * on win2k...
      */
@@ -1147,7 +1147,7 @@ dr_unregister_process(const char *process_name,
     NULL_TERMINATE_BUFFER(wbuf);
     remove_child(wbuf, policy);
     policy->should_clear = TRUE;
-    
+
     /* write the registry */
     if (write_config_group(policy) != ERROR_SUCCESS) {
         status = DR_FAILURE;
@@ -1177,7 +1177,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
 {
     TCHAR autoinject[MAX_CONFIG_VALUE];
     opt_info_t opt_info;
-    
+
     if (dr_mode != NULL)
         *dr_mode = DR_MODE_NONE;
     if (dr_root_dir != NULL)
@@ -1197,7 +1197,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
     /* up to caller to fill in! */
 #endif
 
-    if (dr_root_dir != NULL && 
+    if (dr_root_dir != NULL &&
         read_config_param(IF_REG_ELSE(proc_policy, f),
                           PARAM_STR(DYNAMORIO_VAR_AUTOINJECT),
                           autoinject, BUFFER_SIZE_ELEMENTS(autoinject))) {
@@ -1220,7 +1220,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
             dr_root_dir[0] = '\0';
         }
     }
-    
+
     if (read_options(&opt_info, IF_REG_ELSE(proc_policy, f)) != DR_SUCCESS) {
         /* note: read_options() frees any memory it allocates if it fails */
         return;
@@ -1245,7 +1245,7 @@ read_process_policy(IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f),
             *debug = false;
         }
     }
-         
+
     if (dr_options != NULL) {
         uint i;
         size_t len_remain = DR_MAX_OPTIONS_LENGTH-1, cur_off = 0;
@@ -1404,7 +1404,7 @@ dr_process_is_registered(const char *process_name,
     if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
         goto exit;
     result = true;
-    
+
     read_process_policy(IF_REG_ELSE(proc_policy, f), NULL,
                         dr_root_dir, dr_mode, debug, dr_options);
 
@@ -1440,7 +1440,7 @@ dr_client_iterator_start(const char *process_name,
 #endif
     dr_client_iterator_t *iter = (dr_client_iterator_t *)
         malloc(sizeof(dr_client_iterator_t));
-    
+
     iter->valid = false;
     iter->cur = 0;
     if (IF_REG_ELSE(proc_policy == NULL, f == NULL))
@@ -1484,7 +1484,7 @@ dr_client_iterator_next(dr_client_iterator_t *iter,
         _snprintf(client_options, len, TSTR_FMT, client_opt->opts);
         client_options[len] = '\0';
     }
-    
+
     iter->cur++;
 }
 
@@ -1519,7 +1519,7 @@ dr_num_registered_clients(const char *process_name,
 
     num = opt_info.num_clients;
     free_opt_info(&opt_info);
-    
+
  exit:
 #ifdef PARAMS_IN_REGISTRY
     if (policy != NULL)

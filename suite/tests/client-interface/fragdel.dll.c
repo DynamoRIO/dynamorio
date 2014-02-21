@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,14 +73,14 @@ dr_emit_flags_t bb_event(void* drcontext, app_pc tag, instrlist_t* bb, bool for_
         instr_t* instr = instrlist_first(bb);
 
         dr_prepare_for_call(drcontext, bb, instr);
-    
+
         MINSERT(bb, instr, INSTR_CREATE_push_imm
                 (drcontext, OPND_CREATE_INT32((ptr_uint_t)tag)));
         MINSERT(bb, instr, INSTR_CREATE_push_imm
                 (drcontext, OPND_CREATE_INT32((ptr_uint_t)drcontext)));
         MINSERT(bb, instr, INSTR_CREATE_call
                 (drcontext, opnd_create_pc((void*)delete_fragment)));
-        
+
         dr_cleanup_after_call(drcontext, bb, instr, 8);
     }
     return DR_EMIT_DEFAULT;

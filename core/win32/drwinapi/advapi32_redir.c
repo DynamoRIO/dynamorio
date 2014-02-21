@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -221,7 +221,7 @@ redirect_RegOpenKeyExW(
         /* lpSubKey can only be NULL if using a special key */
         (lpSubKey == NULL && !key_is_special(hKey)))
         return ERROR_INVALID_PARAMETER;
-    
+
     res = special_to_handle(hKey, &parent_key);
     if (!NT_SUCCESS(res))
         return ntstatus_to_last_error(res);
@@ -327,7 +327,7 @@ redirect_RegQueryValueExW(
 
     kvpi = (KEY_VALUE_PARTIAL_INFORMATION *) buf;
     kvpi_sz = BUFFER_SIZE_BYTES(buf);
-    
+
     res = nt_query_value_key(key, &us, KeyValuePartialInformation,
                              kvpi, kvpi_sz, &res_sz);
     /* while loop in case of race */

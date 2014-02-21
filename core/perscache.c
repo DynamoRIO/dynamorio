@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -384,7 +384,7 @@ static file_t perscache_user_directory = INVALID_FILE;
 void
 perscache_init(void)
 {
-    if (DYNAMO_OPTION(use_persisted) && 
+    if (DYNAMO_OPTION(use_persisted) &&
         DYNAMO_OPTION(persist_per_user) &&
         DYNAMO_OPTION(validate_owner_dir)) {
         char dir[MAXIMUM_PATH];
@@ -392,7 +392,7 @@ perscache_init(void)
         /* case 8812 we need to hold a handle to the user directory
          * from startup (we could delay until we open our first pcache file)
          */
-        if (get_persist_dir(dir, BUFFER_SIZE_ELEMENTS(dir), 
+        if (get_persist_dir(dir, BUFFER_SIZE_ELEMENTS(dir),
                             true /* note we MUST always create directory
                                   * even if never persisting */
                              )) {
@@ -406,7 +406,7 @@ perscache_init(void)
 
             /* note that now that we have the actual handle open, we can validate */
             /* see os_current_user_directory() for details */
-            if (perscache_user_directory != INVALID_FILE && 
+            if (perscache_user_directory != INVALID_FILE &&
                 !os_validate_user_owned(perscache_user_directory)) {
                 SYSLOG_INTERNAL_ERROR("%s is OWNED by an impostor!"
                                       " Persistent cache use is disabled.",
@@ -416,7 +416,7 @@ perscache_init(void)
                 /* we could also turn off use_persisted */
             } else {
                 /* either FAT32 or we are the proper owner */
-            
+
                 /* FIXME: we have to verify that the final permissions and
                  * sharing attributes for cache/ and for the current
                  * directory, do NOT allow anyone to rename our directory
@@ -503,7 +503,7 @@ coarse_units_freeze_all(bool in_place)
     ASSERT(own_synch IF_WINDOWS(|| doing_detach));
     STATS_INC(coarse_freezes);
     if (own_synch) {
-        /* Called from nudge threads from the code cache, so 
+        /* Called from nudge threads from the code cache, so
          * if the calling fragment could be coarse, we have to
          * terminate this thread.  Case 8711 does not allow calls from
          * coarse fragments so we're fine for now.
@@ -526,7 +526,7 @@ coarse_units_freeze_all(bool in_place)
             ASSERT(threads == NULL);
             ASSERT(!dynamo_all_threads_synched);
             STATS_INC(coarse_freeze_abort);
-            LOG(GLOBAL, LOG_CACHE, 2, 
+            LOG(GLOBAL, LOG_CACHE, 2,
                 "coarse_unit_freeze: aborting due to thread synch failure\n");
             SYSLOG_INTERNAL_WARNING("coarse freeze aborted due to thread synch failure");
             KSTOP(coarse_freeze_all);
@@ -535,7 +535,7 @@ coarse_units_freeze_all(bool in_place)
     }
     ASSERT(dynamo_all_threads_synched);
     ASSERT(OWN_MUTEX(&all_threads_synch_lock) && OWN_MUTEX(&thread_initexit_lock));
-    
+
     DOSTATS({
         SYSLOG_INTERNAL_INFO("freezing all coarse units @ "SSZFMT" fragments",
                              GLOBAL_STAT(num_fragments));
@@ -694,7 +694,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     ASSERT(info != NULL);
     ASSERT_OWN_RECURSIVE_LOCK(true, &change_linking_lock);
 
-    /* trigger lazy initialize to avoid deadlock on calling 
+    /* trigger lazy initialize to avoid deadlock on calling
      * coarse_cti_is_intra_fragment() during shifting
      */
     fragment_coarse_create_entry_pclookup_table(dcontext, info);
@@ -787,7 +787,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
      * persisting) otherwise
      */
     freeze_info->unlink = !in_place;
-    
+
     freeze_info->cache_cur_pc = freeze_info->cache_start_pc;
     freeze_info->stubs_cur_pc = freeze_info->stubs_start_pc;
 
@@ -805,7 +805,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
          * but leaving some release-build code just in case.
         */
         ASSERT_NOT_REACHED();
-        coarse_stubs_set_end_pc(frozen, freeze_info->stubs_cur_pc); 
+        coarse_stubs_set_end_pc(frozen, freeze_info->stubs_cur_pc);
     }
     frozen->cache_end_pc = freeze_info->cache_cur_pc;
 
@@ -870,7 +870,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
 /* Transfers a coarse stub to a new location.
  * If freeze_info->dst_info is non-NULL,
  *   shifts any unlinked stubs to point at the prefixes in freeze_info->dst_info.
- * If freeze_info->unlink is true, 
+ * If freeze_info->unlink is true,
  *   points any linked stubs at freeze_info->dst_info->fcache_return_prefix if
  *   freeze_info->dst_info is non-NULL, else
  *   freeze_info->src_info->fcache_return_prefix.  If trace_head, points at
@@ -1090,8 +1090,8 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
         /* We already remangled if a short-rewrite */
         DODEBUG({
             /* We mangled 2-byte jecxz/loop* into 9-byte sequence */
-            freeze_info->app_code_size -= 7; 
-            freeze_info->added_jecxz_mangle += 7; 
+            freeze_info->app_code_size -= 7;
+            freeze_info->added_jecxz_mangle += 7;
         });
     }
     tgt = opnd_get_pc(instr_get_target(instr));
@@ -1112,10 +1112,10 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
             freeze_info->added_indbr_mangle += 6 /* save ecx */;
             if (tgt == freeze_info->src_info->ibl_ret_prefix) {
                 /* ret imm goes from 3 bytes to 1+4=5 bytes
-                   L3  c2 18 00             ret    $0x0018 %esp (%esp) -> %esp 
+                   L3  c2 18 00             ret    $0x0018 %esp (%esp) -> %esp
                    =>
-                   L4  67 64 89 0e e8 0e    addr16 mov    %ecx -> %fs:0xee8 
-                   L4  59                   pop    %esp (%esp) -> %ecx %esp 
+                   L4  67 64 89 0e e8 0e    addr16 mov    %ecx -> %fs:0xee8
+                   L4  59                   pop    %esp (%esp) -> %ecx %esp
                    L4  8d 64 24 18          lea    0x18(%esp) -> %esp
                 */
                 /* guaranteed to be able to read 5 bytes back */
@@ -1130,7 +1130,7 @@ transfer_coarse_fragment(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info
                 /* jmp*: change to mov is no size difference */
             }
             freeze_info->added_indbr_stub +=
-                coarse_indirect_stub_size(freeze_info->src_info) ; 
+                coarse_indirect_stub_size(freeze_info->src_info) ;
         });
         tgt = redirect_to_tgt_ibl_prefix(dcontext, freeze_info, tgt);
         ASSERT(dynamo_all_threads_synched); /* thus NOT_HOT_PATCHABLE */
@@ -1223,7 +1223,7 @@ coarse_unit_shift_jmps_internal(dcontext_t *dcontext, coarse_info_t *info,
             if (tgt < bounds_start || tgt >= bounds_end) {
                 ssize_t shift;
                 if (is_cache) {
-                    /* break down into whether targeting stubs or not 
+                    /* break down into whether targeting stubs or not
                      * ok to use new prefix start, which is where old padding was
                      */
                     if (tgt >= info->fcache_return_prefix &&
@@ -1235,7 +1235,7 @@ coarse_unit_shift_jmps_internal(dcontext_t *dcontext, coarse_info_t *info,
                     /* Shifting jmps from stubs
                      * We started with [cache | padding | stubs | padding]
                      * We then allocate new memory and copy there [cache | stubs]
-                     * Thus, the stubs have a double shift: once for padding bet 
+                     * Thus, the stubs have a double shift: once for padding bet
                      * cache and stubs, and once for shift of whole alloc.
                      * This doesn't work if stubs target cache, but we assert on
                      * that in transfer_coarse_stub().
@@ -1335,7 +1335,7 @@ coarse_merge_process_stub(dcontext_t *dcontext, coarse_freeze_info_t *freeze_inf
     trace_head =
         coarse_is_trace_head_in_own_unit(dcontext, old_stub_tgt, old_stub,
                                          src_body, true, freeze_info->src_info) ||
-        (dst_stub != NULL && 
+        (dst_stub != NULL &&
          coarse_is_trace_head_in_own_unit(dcontext, old_stub_tgt, dst_stub,
                                           dst_body, true, freeze_info->dst_info));
     /* Should only be adding w/ no source cti if a trace head or for the stub
@@ -1993,7 +1993,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
      * from duplicate prefix space, and from eliminated inter-unit stubs, so
      * we must set end pc.
      */
-    coarse_stubs_set_end_pc(merged, freeze_info.stubs_cur_pc); 
+    coarse_stubs_set_end_pc(merged, freeze_info.stubs_cur_pc);
 
     LOG(THREAD, LOG_CACHE, 2, "merged size: stubs "SZFMT" => "SZFMT" bytes, "
         "cache "SZFMT" ("SZFMT" align) => "SZFMT" ("SZFMT" align) bytes\n",
@@ -2074,7 +2074,7 @@ coarse_unit_merge(dcontext_t *dcontext, coarse_info_t *info1, coarse_info_t *inf
             pc = disassemble_with_bytes(dcontext, pc, THREAD);
         } while (pc < merged->stubs_end_pc);
     });
-    
+
     /* FIXME case 9687: mark cache as read-only */
 
     if (in_place) {
@@ -2143,8 +2143,8 @@ perscache_dirname(char *directory /* OUT */, uint directory_len)
     /* Support specifying the pcache dir from either a config param (historical
      * from ASLR piggyback) or runtime option, though config param gets precedence.
      */
-    const char *param_name = DYNAMO_OPTION(persist_per_user) ? 
-        PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT) : 
+    const char *param_name = DYNAMO_OPTION(persist_per_user) ?
+        PARAM_STR(DYNAMORIO_VAR_PERSCACHE_ROOT) :
         PARAM_STR(DYNAMORIO_VAR_PERSCACHE_SHARED);
     retval = get_parameter(param_name, directory, directory_len);
     if (IS_GET_PARAMETER_FAILURE(retval)) {
@@ -2209,7 +2209,7 @@ coarse_unit_check_persist_space(file_t fd_in/*OPTIONAL*/, size_t size_needed)
     if (fd == INVALID_FILE) {
         /* Use directory to get handle on proper volume */
         char dir[MAXIMUM_PATH];
-        if (get_persist_dir(dir, BUFFER_SIZE_ELEMENTS(dir), 
+        if (get_persist_dir(dir, BUFFER_SIZE_ELEMENTS(dir),
                             true /* note we MUST always create directory
                                   * even if never persisting */
                             )) {
@@ -2282,7 +2282,7 @@ get_persist_filename(char *filename /*OUT*/, uint filename_max /* max #chars */,
     const char *name;
     uint hash;
     char dir[MAXIMUM_PATH];
-    
+
     os_get_module_info_lock();
     if (!os_get_module_info(modbase, &checksum, &timestamp, &size,
                             &name, &code_size, &file_version)) {
@@ -2455,7 +2455,7 @@ persist_calculate_module_digest(module_digest_t *digest, app_pc modbase, size_t 
         MD5Final(digest->full_MD5, &code_md5_cxt);
     }
     if (TEST(PERSCACHE_MODULE_MD5_SHORT, validation_option)) {
-        /* Examine only the image header and the footer (if non-writable) 
+        /* Examine only the image header and the footer (if non-writable)
          * FIXME: if view_size < modsize, better to skip the footer than have it
          * cover a data section?  Should be ok w/ PERSCACHE_MODULE_MD5_AT_LOAD.
          */
@@ -2746,7 +2746,7 @@ coarse_unit_calculate_persist_info(dcontext_t *dcontext, coarse_info_t *info)
          * have flushed the unit on any new hotp
          */
         ASSERT_OWN_READ_LOCK(DYNAMO_OPTION(hot_patching), hotp_get_lock());
-        info->hotp_ppoint_vec_num = 
+        info->hotp_ppoint_vec_num =
             hotp_num_matched_patch_points(info->base_pc, info->end_pc);
         if (info->hotp_ppoint_vec_num > 0) {
             info->hotp_ppoint_vec =
@@ -2880,7 +2880,7 @@ coarse_unit_merge_persist_info(dcontext_t *dcontext, coarse_info_t *dst,
             memcpy(dst->hotp_ppoint_vec, info2->hotp_ppoint_vec,
                    dst->hotp_ppoint_vec_num*sizeof(app_rva_t));
         }
-    } else {        
+    } else {
         /* We expect <= 5 entries in each array so quadratic and two passes
          * shouldn't be a perf issue.
          */
@@ -2962,7 +2962,7 @@ coarse_unit_set_persist_data(dcontext_t *dcontext, coarse_info_t *info,
         ASSERT(option_string != NULL);
         pers->flags |= PERSCACHE_EXEMPTION_OPTIONS;
     }
-   
+
 #ifdef BUILD_NUMBER
     pers->build_number = BUILD_NUMBER;
 #else
@@ -3505,7 +3505,7 @@ coarse_unit_persist(dcontext_t *dcontext, coarse_info_t *info)
             goto coarse_unit_persist_exit; /* logs, stats in write_persist_file */
     }
 
-    /* Write the cache + stubs.  We omit the guard pages of course. 
+    /* Write the cache + stubs.  We omit the guard pages of course.
      * FIXME: when freezing and persisting at once, more efficient to
      * make our cache+stubs mmap backed by the file from the start.
      */
@@ -3607,7 +3607,7 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
     ASSERT(option_string != NULL);
 
     if (os_tls_offset(0) != pers->tls_offs_base) {
-        /* Bail out 
+        /* Bail out
          * WARNING: if we ever change our -tls_align default from 1 we should
          * consider implications on platform-independence of persisted caches.
          * FIXME: should we have release-build notification so we can know
@@ -3619,7 +3619,7 @@ persist_check_option_compat(dcontext_t *dcontext, coarse_persisted_info_t *pers,
         SYSLOG_INTERNAL_WARNING_ONCE("persistent cache tls offset mismatch");
         return false;
     }
-    
+
     if (!TEST(PERSCACHE_SUPPORT_TRACES, pers->flags) && !DYNAMO_OPTION(disable_traces)) {
         /* We bail out; the consequences of continuing are huge performance
          * problems akin to -no_link_ibl.
@@ -3696,20 +3696,20 @@ pcache_dir_check_permissions(dcontext_t *dcontext, const char *filename)
         snprintf(pcache_dir_check_temp, BUFFER_SIZE_ELEMENTS(pcache_dir_check_temp),
                  "%.*s", file_parent - filename, filename);
         /* `dirname pcache_dir_check_temp` */
-        per_user_len = 
-            double_strrchr(pcache_dir_check_temp, DIRSEP, ALT_DIRSEP) - 
+        per_user_len =
+            double_strrchr(pcache_dir_check_temp, DIRSEP, ALT_DIRSEP) -
             pcache_dir_check_temp;
     } else {
         per_user_len = file_parent - filename;
     }
-    snprintf(pcache_dir_check_root, BUFFER_SIZE_ELEMENTS(pcache_dir_check_root), "%.*s", 
+    snprintf(pcache_dir_check_root, BUFFER_SIZE_ELEMENTS(pcache_dir_check_root), "%.*s",
              per_user_len, filename);
     snprintf(pcache_dir_check_temp, BUFFER_SIZE_ELEMENTS(pcache_dir_check_temp),
              "%s-bumped", pcache_dir_check_root);
-    LOG(THREAD, LOG_CACHE, 3, "  attempting rename %s -> %s\n", 
+    LOG(THREAD, LOG_CACHE, 3, "  attempting rename %s -> %s\n",
         pcache_dir_check_root, pcache_dir_check_temp);
     ASSERT(!os_rename_file(pcache_dir_check_root, pcache_dir_check_temp,
-                           false) && 
+                           false) &&
            "directory can be bumped!");
     mutex_unlock(&pcache_dir_check_lock);
 }
@@ -3744,18 +3744,18 @@ persist_get_name_and_open(dcontext_t *dcontext, app_pc modbase,
             return fd;
         }
         LOG(THREAD, LOG_CACHE, 1, "  persisted filename = %s\n", filename);
-        
+
         if (DYNAMO_OPTION(validate_owner_dir)) {
             ASSERT(DYNAMO_OPTION(persist_per_user));
             if (perscache_user_directory == INVALID_FILE) {
                 /* there is no alternative location to test - currently
-                 * only single per-user directories supported 
+                 * only single per-user directories supported
                  */
-                LOG(THREAD, LOG_CACHE, 1, 
+                LOG(THREAD, LOG_CACHE, 1,
                     "  directory is unsafe, cannot use persistent cache\n");
                 return fd;
             }
-            
+
             DOCHECK(1, {
                 pcache_dir_check_permissions(dcontext, filename);
             });
@@ -3846,7 +3846,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
             goto coarse_unit_load_exit;
         }
     } else {
-        ASSERT(!DYNAMO_OPTION(validate_owner_dir) || 
+        ASSERT(!DYNAMO_OPTION(validate_owner_dir) ||
                perscache_user_directory != INVALID_FILE);
         /* note that if have a directory handle open, there is no need to
          * validate file with DYNAMO_OPTION(validate_owner_file) here.
@@ -4025,7 +4025,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
         (pers->stubs_len + pers->ibl_jmp_prefix_len + pers->ibl_call_prefix_len
          + pers->ibl_ret_prefix_len + pers->trace_head_return_prefix_len
          + pers->fcache_return_prefix_len);
-    
+
     if (TEST(PERSCACHE_MAP_RW_SEPARATE, pers->flags) &&
         DYNAMO_OPTION(persist_map_rw_separate)) {
         size_t ro_size;
@@ -4052,7 +4052,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
                                                " Persistent cache may be compromised, "
                                                "not using.",
                                                filename);
-                    
+
                 }
             }
         }
@@ -4138,7 +4138,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
 
     info->stubs_end_pc = pc;
     pc -= stubs_and_prefixes_len;
-    info->fcache_return_prefix = pc;        
+    info->fcache_return_prefix = pc;
     rwx_pc = info->fcache_return_prefix;
     ASSERT(ALIGNED(rwx_pc, PAGE_SIZE));
     /* To patch up the prefixes, it's just as easy to re-emit them all as
@@ -4230,7 +4230,7 @@ coarse_unit_load(dcontext_t *dcontext, app_pc start, app_pc end,
              */
             info->rct_table = rct_table_resurrect(GLOBAL_DCONTEXT, pc, RCT_RCT);
             ASSERT(info->rct_table != NULL);
-            if (for_execution && 
+            if (for_execution &&
                 (TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_call)) ||
                  TEST(OPTION_ENABLED, DYNAMO_OPTION(rct_ind_jump))) &&
                 (DYNAMO_OPTION(use_persisted_rct) ||

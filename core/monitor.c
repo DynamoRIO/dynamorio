@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -63,7 +63,7 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
 /* SPEC2000 applu has a trace head entry fragment of size 40K! */
 /* streamit's fft had a 944KB bb (ridiculous unrolling) */
 /* no reason to have giant traces, second half will become 2ndary trace */
-/* The instrumentation easily makes trace large, 
+/* The instrumentation easily makes trace large,
  * so we should make the buffer size bigger, if a client is used.*/
 #ifdef CLIENT_INTERFACE
 # define MAX_TRACE_BUFFER_SIZE  MAX_FRAGMENT_SIZE
@@ -205,13 +205,13 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
      * CANNOT_BE_TRACE during emit (since we don't yet have a good way to handle
      * inserted nops during tracing). This can happen for UNIX syscall fence exits and
      * CLIENT_INTERFACE added exits.  However, it depends on the starting alignment of
-     * the fragment! So it's possible to have a fragment that is ok turn into a 
+     * the fragment! So it's possible to have a fragment that is ok turn into a
      * fragment that isn't when re-emitted here.  We could keep the ilist around and
      * use that to extend the trace later (instead of decoding the TEMP bb), but better
      * to come up with a general fix for tracing through nops.
      */
     /* PR 299808: this can happen even more easily now that we re-pass the bb
-     * to the client.  FRAG_MUST_END_TRACE is handled in internal_extend_trace. 
+     * to the client.  FRAG_MUST_END_TRACE is handled in internal_extend_trace.
      */
     if (TEST(FRAG_CANNOT_BE_TRACE, md->last_fragment->flags)) {
         delete_private_copy(dcontext);
@@ -268,7 +268,7 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
                 instr_is_cti(instrlist_last(md->unmangled_bb_ilist));
         } else
             md->blk_info[md->num_blks].final_cti = false;
-        
+
         instrlist_init(md->unmangled_bb_ilist); /* clear fields to make destroy happy */
         instrlist_destroy(dcontext, md->unmangled_bb_ilist);
         md->unmangled_bb_ilist = NULL;
@@ -328,7 +328,7 @@ trace_abort_and_delete(dcontext_t *dcontext)
     /* case 8083: we have to explicitly remove last copy since it can't be
      * removed in trace_abort (at least until -safe_translate_flushed is on)
      */
-    delete_private_copy(dcontext);    
+    delete_private_copy(dcontext);
 }
 
 void
@@ -553,7 +553,7 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
      * in the future.
      */
     if (TEST(FRAG_SHARED, md->trace_flags) && DYNAMO_OPTION(shared_bbs)) {
-        /* Look in the shared BB table only since we're only interested 
+        /* Look in the shared BB table only since we're only interested
          * if a shared BB is present. */
         fragment_t *bb = fragment_lookup_shared_bb(dcontext, md->trace_tag);
         /* FRAG_TRACE_BUILDING may not be set if the BB was regenerated, so
@@ -616,7 +616,7 @@ reset_trace_state(dcontext_t *dcontext, bool grab_link_lock)
 #endif
 }
 
-bool 
+bool
 monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f)
 {
     monitor_data_t *md;
@@ -630,7 +630,7 @@ monitor_delete_would_abort_trace(dcontext_t *dcontext, fragment_t *f)
 }
 
 /* called when a fragment is deleted */
-void 
+void
 monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
 {
     monitor_data_t *md;
@@ -645,7 +645,7 @@ monitor_remove_fragment(dcontext_t *dcontext, fragment_t *f)
             ASSERT_NOT_REACHED();
             return;             /* safe default */
         }
-    }    
+    }
     md = (monitor_data_t *) dcontext->monitor_field;
     if (md->last_copy == f) {
         md->last_copy = NULL; /* no other action required */
@@ -710,7 +710,7 @@ unlink_ibt_trace_head(dcontext_t *dcontext, fragment_t *f)
         thread_record_t **threads;
         int num_threads;
         int i;
- 
+
         ASSERT_NOT_IMPLEMENTED(false);
         /* fragment_prepare_for_removal will unlink from shared ibt; we cannot
          * remove completely here */
@@ -777,7 +777,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
     /* must unlink incoming links so that the counter will increment */
     LOG(THREAD, LOG_MONITOR, 4, "unlinking incoming for new trace head F%d ("PFX")\n",
         f->id, f->tag);
-    
+
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         /* For coarse trace heads, trace headness depends on the path taken
          * (more specifically, on the entrance stub taken).  If we don't have
@@ -858,7 +858,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
      * re-link), since combined they aren't atomic, separate atomic
      * steps w/ ok intermediate (go back to DR) is fine
      */
-    /* must re-link incoming links to point to trace_head_incr routine 
+    /* must re-link incoming links to point to trace_head_incr routine
      * FIXME: we get called in the middle of linking new fragments, so
      * we end up linking some incoming links twice (no harm done except
      * a waste of time) -- how fix it?
@@ -901,7 +901,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
     from_flags = from_f->flags;
 
     /* A trace head is either
-     *   1) a link from a trace, or 
+     *   1) a link from a trace, or
      *   2) a backward direct branch
      * Watch out -- since we stop building traces at trace heads,
      * too many can hurt performance, especially if bbs do not follow
@@ -932,7 +932,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
  * For -shared_bbs, will return TRACE_HEAD_OBTAINED_LOCK if the
  * change_linking_lock is not already held (meaning from_l->fragment is
  * private) and the to_tag is FRAG_SHARED and TRACE_HEAD_YES is being returned,
- * since the change_linking_lock must be held and the TRACE_HEAD_YES result 
+ * since the change_linking_lock must be held and the TRACE_HEAD_YES result
  * re-verified.  In that case the caller must free the change_linking_lock.
  * If trace_sysenter_exit = true, control flow rules are not checked, i.e., the
  * from_l and to_tag params are not checked. This is provided to capture
@@ -987,7 +987,7 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
  * For -shared_bbs, will return TRACE_HEAD_OBTAINED_LOCK if the
  * change_linking_lock is not already held (meaning from_l->fragment is
  * private) and the to_tag is FRAG_SHARED and TRACE_HEAD_YES is being returned,
- * since the change_linking_lock must be held and the TRACE_HEAD_YES result 
+ * since the change_linking_lock must be held and the TRACE_HEAD_YES result
  * re-verified.  In that case the caller must free the change_linking_lock.
  */
 uint
@@ -1191,7 +1191,7 @@ get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     uint add_size = f->size - fragment_prefix_size(f->flags) +
-        trace_exit_stub_size_diff(dcontext, f) + 
+        trace_exit_stub_size_diff(dcontext, f) +
         (PAD_FRAGMENT_JMPS(md->trace_flags) ? extend_trace_pad_bytes(f) : 0);
     /* we estimate the size change from mangling the previous block to
      * connect to this block if we were to add it
@@ -1220,7 +1220,7 @@ get_and_check_add_size(dcontext_t *dcontext, fragment_t *f, uint *res_add_size,
     if (res_prev_mangle_size != NULL)
         *res_prev_mangle_size = prev_mangle_size;
     return ok;
-}        
+}
 
 /* propagate flags from a non-head bb component of a trace to the trace itself */
 static inline uint
@@ -1247,7 +1247,7 @@ trace_flags_from_trace_head_flags(uint head_flags)
 }
 
 /* Be careful with the case where the current fragment f to be executed
- * has the same tag as the one we're emitting as a trace. 
+ * has the same tag as the one we're emitting as a trace.
  */
 static fragment_t *
 end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
@@ -1351,29 +1351,29 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
             /* otherwise last_exit is the last trace BB and next_tag
              * is the current IBL target that we'll always speculate */
             if (LINKSTUB_INDIRECT(dcontext->last_exit->flags)) {
-                LOG(THREAD, LOG_MONITOR, 2, 
-                    "Last trace IBL exit (trace "PFX", next_tag "PFX")\n", 
+                LOG(THREAD, LOG_MONITOR, 2,
+                    "Last trace IBL exit (trace "PFX", next_tag "PFX")\n",
                     tag, dcontext->next_tag);
                 ASSERT_CURIOSITY(dcontext->next_tag != NULL);
                 if (DYNAMO_OPTION(speculate_last_exit)) {
                     app_pc speculate_next_tag = dcontext->next_tag;
-#ifdef SPECULATE_LAST_EXIT_STUDY 
+#ifdef SPECULATE_LAST_EXIT_STUDY
                     /* for a performance study: add overhead on
                      * all IBLs that never hit by comparing to a 0xbad tag */
                     speculate_next_tag = 0xbad;
 #endif
-                    md->emitted_size += 
-                        append_trace_speculate_last_ibl(dcontext, trace, 
-                                                        speculate_next_tag, 
+                    md->emitted_size +=
+                        append_trace_speculate_last_ibl(dcontext, trace,
+                                                        speculate_next_tag,
                                                         false);
                 } else {
 #ifdef HASHTABLE_STATISTICS
-                    ASSERT(INTERNAL_OPTION(stay_on_trace_stats) || 
+                    ASSERT(INTERNAL_OPTION(stay_on_trace_stats) ||
                            INTERNAL_OPTION(speculate_last_exit_stats));
                     DOSTATS({
-                        md->emitted_size += 
-                            append_ib_trace_last_ibl_exit_stat(dcontext, trace, 
-                                INTERNAL_OPTION(speculate_last_exit_stats) ? 
+                        md->emitted_size +=
+                            append_ib_trace_last_ibl_exit_stat(dcontext, trace,
+                                INTERNAL_OPTION(speculate_last_exit_stats) ?
                                 dcontext->next_tag : NULL);
                     });
 #endif
@@ -1400,7 +1400,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     /* WARNING: if you change how optimizations are performed, you
      * must change recreate_app_state in x86/arch.c as well
      */
-    
+
 #ifdef INTERNAL
     if (dynamo_options.optimize
 #  ifdef SIDELINE
@@ -1546,7 +1546,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
             }
         }
     }
-            
+
     /* Prevent deletion of last_fragment, which may be in the same
      * cache as our trace (esp. w/ a MUST_END_TRACE trace head, since then the
      * last_fragment can be another trace) from clobbering our trace!
@@ -1574,7 +1574,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
                                 true/*link*/);
     }
     ASSERT(trace_f != NULL);
-    /* our estimate should be conservative 
+    /* our estimate should be conservative
      * if externally mangled, all bets are off for now --
      * FIXME: would be nice to gracefully handle opt or client
      * making the trace too big, and pass back an error msg?
@@ -1585,7 +1585,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         md->emitted_size, trace_f->size);
     ASSERT(trace_f->size <= md->emitted_size || externally_mangled);
     /* our calculations should be exact, actually */
-    /* with -pad_jmps not exact anymore, we should be able to figure out 
+    /* with -pad_jmps not exact anymore, we should be able to figure out
      * by how much though FIXME */
     ASSERT_CURIOSITY(trace_f->size == md->emitted_size || externally_mangled ||
                      PAD_FRAGMENT_JMPS(trace_f->flags));
@@ -1695,8 +1695,8 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     }
 }
 
-/* Note: The trace being built currently can be emitted in 
- * internal_extend_trace() rather than the next time into monitor_cache_enter() 
+/* Note: The trace being built currently can be emitted in
+ * internal_extend_trace() rather than the next time into monitor_cache_enter()
  * if fragment results in a system call (sysenter) or callback (int 2b), i.e.,
  * is marked FRAG_MUST_END_TRACE.
  */
@@ -1781,7 +1781,7 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
     });
     /* trace_t extended;  prepare bb for execution to find where to go next. */
 
-    /* For FRAG_MUST_END_TRACE fragments emit trace immediately to prevent 
+    /* For FRAG_MUST_END_TRACE fragments emit trace immediately to prevent
      * trace aborts due to syscalls and callbacks.  See case 3541.
      */
     if (TEST(FRAG_MUST_END_TRACE, f->flags)) {
@@ -2349,7 +2349,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
            selection mode, and initialize the instrlist_t for the new
            trace fragment with this block fragment.  Leave the
            trace head entry locked so no one else tries to build
-           a trace from it.  Assume that a trace would never 
+           a trace from it.  Assume that a trace would never
            contain just one block, and thus we don't have to check
            for end of trace condition here. */
         /* unprotect local heap */
@@ -2410,7 +2410,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             return f;
         }
         f = internal_extend_trace(dcontext, f, NULL, add_size);
-        
+
         /* re-protect local heap */
         SELF_PROTECT_LOCAL(dcontext, READONLY);
         KSTOP(trace_building);
@@ -2418,7 +2418,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
         /* Not yet hot */
         KSWITCH(monitor_enter_thci);
     }
-    
+
     /* release rest of state */
     dcontext->whereami = WHERE_DISPATCH;
     return f;
@@ -2451,12 +2451,12 @@ trace_abort(dcontext_t *dcontext)
     if (!is_self_flushing()) {
         if (!is_couldbelinking(dcontext)) {
             prevlinking = false;
-            enter_couldbelinking(dcontext, NULL, 
+            enter_couldbelinking(dcontext, NULL,
                                  false/*not a cache transition*/);
         }
     }
 
-    /* must relink unlinked trace-extending fragment 
+    /* must relink unlinked trace-extending fragment
      * cannot use last_exit, must use our own last_fragment just for this
      * purpose, b/c may not exit cache from last_fragment
      * (e.g., if hit sigreturn!)
@@ -2476,7 +2476,7 @@ trace_abort(dcontext_t *dcontext)
     instrlist_clear(dcontext, trace);
 
     if (md->trace_vmlist != NULL) {
-        vm_area_destroy_list(dcontext, md->trace_vmlist);     
+        vm_area_destroy_list(dcontext, md->trace_vmlist);
         md->trace_vmlist = NULL;
     }
     STATS_INC(num_aborted_traces);

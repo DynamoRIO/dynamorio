@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +53,7 @@
 
 /* we only have a global count */
 static uint64 global_count;
-/* A simple clean call that will be automatically inlined because it has only 
+/* A simple clean call that will be automatically inlined because it has only
  * one argument and contains no calls to other functions.
  */
 static void inscount(uint num_instrs) { global_count += num_instrs; }
@@ -61,7 +61,7 @@ static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -82,7 +82,7 @@ dr_init(client_id_t id)
 #endif
 }
 
-static void 
+static void
 event_exit(void)
 {
 #ifdef SHOW_RESULTS
@@ -103,7 +103,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 {
     instr_t *instr;
     uint num_instrs;
-    
+
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
 # ifdef VERBOSE_VERBOSE
@@ -117,7 +117,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         num_instrs++;
     }
 
-    dr_insert_clean_call(drcontext, bb, instrlist_first(bb), 
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
                          (void *)inscount, false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
 

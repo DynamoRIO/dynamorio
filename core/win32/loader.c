@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -156,7 +156,7 @@ HANDLE WINAPI RtlCreateHeap(ULONG flags, void *base, size_t reserve_sz,
 BOOL WINAPI RtlDestroyHeap(HANDLE base);
 
 
-void 
+void
 os_loader_init_prologue(void)
 {
     app_pc ntdll = get_ntdll_base();
@@ -193,7 +193,7 @@ os_loader_init_prologue(void)
             (GLOBAL_DCONTEXT, RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
         if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
             RtlInitializeCriticalSection(private_peb->FastPebLock);
-        
+
         /* Start with empty values, regardless of what app libs did prior to us
          * taking over.  FIXME: if we ever have attach will have to verify this:
          * can priv libs always live in their own universe that starts empty?
@@ -384,7 +384,7 @@ os_loader_thread_init_prologue(dcontext_t *dcontext)
         LOG(THREAD, LOG_LOADER, 2, "app rpc="PFX", priv rpc="PFX"\n",
             dcontext->app_nt_rpc, dcontext->priv_nt_rpc);
         /* For swapping teb fields (detach, reset i#25) we'll need to
-         * know the teb base from another thread 
+         * know the teb base from another thread
          */
         dcontext->teb_base = (byte *) get_tls(SELF_TIB_OFFSET);
         swap_peb_pointer(dcontext, true/*to priv*/);
@@ -681,7 +681,7 @@ privload_remove_areas(privmod_t *privmod)
     vmvector_remove(modlist_areas, privmod->base, privmod->base + privmod->size);
 }
 
-void 
+void
 privload_unmap_file(privmod_t *mod)
 {
     unmap_file(mod->base, mod->size);
@@ -753,7 +753,7 @@ privload_map_and_relocate(const char *filename, size_t *size OUT, bool reachable
      * to have app execute from their .text.  We do want other
      * privately-loaded libs to be on the DR-areas list (though that
      * means that if we mess up and the app executes their code, we throw
-     * an app exception: FIXME: should we raise a better error message?     
+     * an app exception: FIXME: should we raise a better error message?
      */
     *size = 0; /* map at full size */
     if (dynamo_heap_initialized) {
@@ -1054,7 +1054,7 @@ privload_process_one_import(privmod_t *mod, privmod_t *impmod,
         IMAGE_IMPORT_BY_NAME *name = (IMAGE_IMPORT_BY_NAME *)
             RVA_TO_VA(mod->base, (lookup->u1.AddressOfData & ~(IMAGE_ORDINAL_FLAG)));
         /* FIXME optimization i#233:
-         * - try name->Hint first 
+         * - try name->Hint first
          * - build hashtables for quick lookup instead of repeatedly walking
          *   export tables
          */
@@ -1187,7 +1187,7 @@ privload_call_entry(privmod_t *privmod, uint reason)
              */
             LOG(GLOBAL, LOG_LOADER, 1,
                 "%s: ignoring failure of kernel32!_BaseDllInitialize\n", __FUNCTION__);
-            res = TRUE;    
+            res = TRUE;
         }
         return CAST_TO_bool(res);
     }
@@ -1473,15 +1473,15 @@ privload_init_search_paths(void)
 
     privload_add_drext_path();
     /* Get SystemRoot from CurrentVersion reg key */
-    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY, 
+    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY,
                                    DIAGNOSTICS_SYSTEMROOT_REG_KEY,
                                    KeyValueFullInformation,
-                                   &diagnostic_value_info, 
-                                   sizeof(diagnostic_value_info), 0);    
+                                   &diagnostic_value_info,
+                                   sizeof(diagnostic_value_info), 0);
     if (value_result == REG_QUERY_SUCCESS) {
         snprintf(systemroot, BUFFER_SIZE_ELEMENTS(systemroot), "%S",
-                 (wchar_t*)(diagnostic_value_info.NameAndData  + 
-                            diagnostic_value_info.DataOffset - 
+                 (wchar_t*)(diagnostic_value_info.NameAndData  +
+                            diagnostic_value_info.DataOffset -
                             DECREMENT_FOR_DATA_OFFSET));
         NULL_TERMINATE_BUFFER(systemroot);
     } else
@@ -1674,7 +1674,7 @@ typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
 static kernel32_AttachConsole_t kernel32_AttachConsole;
 
 bool
-privload_console_share(app_pc priv_kernel32) 
+privload_console_share(app_pc priv_kernel32)
 {
     app_pc pc;
     instr_t instr;
@@ -1695,7 +1695,7 @@ privload_console_share(app_pc priv_kernel32)
      * XXX: if an app attempts to create/attach to a console w/o first freeing itself
      * from this console, it will fail since a process can only associate w/ one console.
      * The solution here would be to monitor such attempts by the app and free the console
-     * that is setup here. 
+     * that is setup here.
      */
     if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
         kernel32_AttachConsole = (kernel32_AttachConsole_t)
@@ -1705,7 +1705,7 @@ privload_console_share(app_pc priv_kernel32)
             return false;
         }
     }
-    /* xref i#440: Noping out the call to ConsoleConnectInternal is enough to get console 
+    /* xref i#440: Noping out the call to ConsoleConnectInternal is enough to get console
      * support for wow64. We have this check after in case of GUI app.
      */
     if (is_wow64_process(NT_CURRENT_PROCESS)) {
@@ -1756,7 +1756,7 @@ privload_console_share(app_pc priv_kernel32)
                     pc = opnd_get_pc(instr_get_target(&instr));
                     /* First instruction following the jnz is a mov which references
                      * ConsolePortMemoryRemoteDelta as src.
-                     * 
+                     *
                      * 85ff         test edi,edi
                      * 0f8564710000 jne kernel32!ConsoleClientCallServer+0x49 (759dbcb4)
                      *
@@ -1906,7 +1906,7 @@ privload_set_security_cookie(privmod_t *mod)
         ASSERT_CURIOSITY(*cookie_ptr == 0);
         return true;
     }
-    
+
     /* Generate a new cookie using:
      *   SystemTimeHigh ^ SystemTimeLow ^ ProcessId ^ ThreadId ^ TickCount ^
      *   PerformanceCounterHigh ^ PerformanceCounterLow
@@ -1943,7 +1943,7 @@ privload_set_security_cookie(privmod_t *mod)
     *cookie_ptr = cookie;
     return true;
 }
-    
+
 void
 privload_os_finalize(privmod_t *mod)
 {
@@ -1952,7 +1952,7 @@ privload_os_finalize(privmod_t *mod)
      */
     privload_set_security_cookie(mod);
 
-    /* FIXME: not supporting TLS today in Windows: 
+    /* FIXME: not supporting TLS today in Windows:
      * covered by i#233, but we don't expect to see it for dlls, only exes
      */
 }
@@ -1977,7 +1977,7 @@ add_mod_to_drmarker(dr_marker_t *marker, const char *path, const char *modname,
      * Sample:
      *   .block{.sympath+ c:\src\dr\git\build_x86_dbg\api\samples\bin};
      *   .reload bbcount.dll=74ad0000;.echo "Loaded bbcount.dll";
-     * 
+     *
      */
 #define WINDBG_ADD_PATH ".block{.sympath+ "
     if (*sofar + strlen(WINDBG_ADD_PATH) + (last_dir - path) < WINDBG_CMD_MAX_LEN) {

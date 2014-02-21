@@ -71,7 +71,7 @@ olecli32.dll at randomized base
 olecli32.dll at preferred base
 #endif
 all should be good
-#if defined(RUNREGRESSION_Vista) 
+#if defined(RUNREGRESSION_Vista)
 GLE: 126
 error: hmod 0x00000000, target_mod 0x00000000
 #else
@@ -149,7 +149,7 @@ wldap32.dll at randomized base
 wldap32.dll at preferred base
 #endif
 all should be good
-#if defined(RUNREGRESSION_2000) 
+#if defined(RUNREGRESSION_2000)
 GLE: 126
 error: hmod 0x00000000, target_mod 0x00000000
 #else
@@ -276,7 +276,7 @@ all should be good
 GLE: 126
 error: hmod 0x00000000, target_mod 0x00000000
 #endif
-#if defined(RUNREGRESSION_2000) 
+#if defined(RUNREGRESSION_2000)
 41 checked
 #if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
 #if (defined(client)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && defined(aslr_cache))

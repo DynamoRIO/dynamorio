@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,7 +68,7 @@
 
 #include "../fcache.h" /* for in_fcache */
 
-#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE) 
+#if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -177,7 +177,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     if (disp != 0 || (base == REG_NULL && index == REG_NULL) ||
         opnd_is_disp_encode_zero(opnd)) {
         if (DYNAMO_OPTION(syntax_intel)) {
-            /* windbg negates if top byte is 0xff 
+            /* windbg negates if top byte is 0xff
              * for x64 udis86 negates if at all negative
              */
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
@@ -189,7 +189,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (disp >= INT8_MIN && disp <= INT8_MAX &&
             !opnd_is_disp_force_full(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%02x", disp);
-        else if (opnd_is_disp_short_addr(opnd))                    
+        else if (opnd_is_disp_short_addr(opnd))
             print_to_buffer(buf, bufsz, sofar, "0x%04x", disp);
         else /* there are no 64-bit displacements */
             print_to_buffer(buf, bufsz, sofar, "0x%08x", disp);
@@ -208,7 +208,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             print_to_buffer(buf, bufsz, sofar, ")");
         }
     }
-    
+
     if (DYNAMO_OPTION(syntax_intel))
         print_to_buffer(buf, bufsz, sofar, "]");
     print_to_buffer(buf, bufsz, sofar, "%s", postop_suffix());
@@ -250,7 +250,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             PRESERVE_FLOATING_POINT_STATE({
                 uint top; uint bottom;
                 const char *sign;
-                double_print(opnd_get_immed_float(opnd), 6, 
+                double_print(opnd_get_immed_float(opnd), 6,
                              &top, &bottom, &sign);
                 print_to_buffer(buf, bufsz, sofar, "%s%s%u.%.6u%s",
                                 immed_prefix(), sign, top, bottom, postop_suffix());
@@ -380,7 +380,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         bool prev_flag = false;
                         if (dcontext != GLOBAL_DCONTEXT) {
                             prev_flag = dcontext->in_opnd_disassemble;
-                            dcontext->in_opnd_disassemble = true; 
+                            dcontext->in_opnd_disassemble = true;
                         }
 #endif /* shouldn't be any logging so no disasm in the middle of sensitive ops */
                         fragment = fragment_pclookup_with_linkstubs(dcontext, target,
@@ -426,7 +426,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                         "$"PFX" <entrance stub for "PFX"> ",
                                         target, entrance_stub_target_tag(target, NULL));
                         printed = true;
-                    }                        
+                    }
                 }
             } else if (dynamo_initialized && !SHARED_FRAGMENTS_ENABLED() &&
                        !standalone_library) {
@@ -499,7 +499,7 @@ opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile)
 size_t
 opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd,
                            char *buf, size_t bufsz)
-                           
+
 {
     size_t sofar = 0;
     internal_opnd_disassemble(buf, bufsz, &sofar, dcontext, opnd);
@@ -596,7 +596,7 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         /* last resort: arbitrarily pick 4 bytes */
         next_pc = pc + 4;
     }
-    
+
     if (with_pc)
         print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
 
@@ -974,7 +974,7 @@ instr_opcode_name_suffix(instr_t *instr)
 }
 
 /*
- * Prints the instruction instr to file outfile. 
+ * Prints the instruction instr to file outfile.
  * Does not print addr16 or data16 prefixes for other than just-decoded instrs,
  * and does not check that the instruction has a valid encoding.
  * Prints each operand with leading zeros indicating the size.
@@ -1122,7 +1122,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 }
 
 /*
- * Prints the instruction instr to file outfile. 
+ * Prints the instruction instr to file outfile.
  * Does not print addr16 or data16 prefixes for other than just-decoded instrs,
  * and does not check that the instruction has a valid encoding.
  * Prints each operand with leading zeros indicating the size.
@@ -1187,7 +1187,7 @@ exit_stub_type_desc(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     CLIENT_ASSERT(false, "unknown exit stub type");
     return "<unknown>";
 }
-                       
+
 /* Disassemble and pretty-print the generated code for fragment f.
  * Header and body control whether header info and code itself are printed
  */
@@ -1217,11 +1217,11 @@ common_disassemble_fragment(dcontext_t *dcontext,
                    f->tag, f->flags,
                    IF_X64_ELSE(FRAG_IS_32(f->flags) ? "32-bit, " : "", ""),
                    TEST(FRAG_COARSE_GRAIN, f->flags) ? "coarse, " : "",
-                   (TEST(FRAG_SHARED, f->flags) ? "shared, " : 
+                   (TEST(FRAG_SHARED, f->flags) ? "shared, " :
                     (SHARED_FRAGMENTS_ENABLED() ?
                      (TEST(FRAG_TEMP_PRIVATE, f->flags) ? "private temp, " : "private, ") : "")),
-                   (TEST( FRAG_IS_TRACE, f->flags)) ? "trace, " : 
-                   (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, " : "", 
+                   (TEST( FRAG_IS_TRACE, f->flags)) ? "trace, " :
+                   (TEST(FRAG_IS_TRACE_HEAD, f->flags)) ? "tracehead, " : "",
                    f->size,
                    (TEST(FRAG_CANNOT_BE_TRACE, f->flags)) ?", cannot be trace":"",
                    (TEST(FRAG_MUST_END_TRACE, f->flags)) ?", must end trace":"",
@@ -1566,7 +1566,7 @@ internal_dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar,
             print_symbolic_address((app_pc)*(pc+1), symbolbuf, sizeof(symbolbuf), false);
             symbol_name = symbolbuf;
         });
-        
+
         print_to_buffer(buf, bufsz, sofar, TEST(CALLSTACK_USE_XML, flags) ?
                         "\t\t" : "\t");
         if (TEST(CALLSTACK_FRAME_PTR, flags)) {

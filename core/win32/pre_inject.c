@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -44,7 +44,7 @@
  *   (uses this instead of fixed path off DYNAMORIO_HOME to make
  *   it easy to switch between libraries used systemwide)
  *
- * see inject_shared.c for discussion of variables used to 
+ * see inject_shared.c for discussion of variables used to
  *  determine injection
  */
 
@@ -67,7 +67,7 @@
 #include "../config.h"
 
 /* case 191729:
- * Avoid warning C4996: '_snwprintf' was declared deprecated 
+ * Avoid warning C4996: '_snwprintf' was declared deprecated
  * We do not want to use the suggested replacement _snwprintf_s as it comes
  * from msvcr80.dll (though we could statically link w/ the libc version
  * I suppose).
@@ -77,7 +77,7 @@
 /* allow converting between data and function pointers */
 #pragma warning(disable : 4055)
 
-/* FIXME : assert stuff, internal error, display_message duplicated from 
+/* FIXME : assert stuff, internal error, display_message duplicated from
  * pre_inject, share? */
 
 /* for asserts, copied from utils.h */
@@ -90,7 +90,7 @@ void internal_error(char *file, int line, char *msg);
 #ifdef DEBUG
 # ifdef INTERNAL
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, #x)
-# else 
+# else
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
 # endif /* INTERNAL */
 #else
@@ -121,11 +121,11 @@ void display_verbose_message(char *format, ...);
 #endif
 
 static void
-display_error_helper(wchar_t *msg) 
+display_error_helper(wchar_t *msg)
 {
     wchar_t title_buf[MAX_PATH + 64];
     _snwprintf(title_buf, BUFFER_SIZE_ELEMENTS(title_buf),
-              L_PRODUCT_NAME L" Notice: %hs(%hs)", 
+              L_PRODUCT_NAME L" Notice: %hs(%hs)",
               get_application_name(), get_application_pid());
     NULL_TERMINATE_BUFFER(title_buf);
     nt_messagebox(msg, title_buf);
@@ -136,13 +136,13 @@ internal_error(char *file, int line, char *expr)
 {
 #ifdef INTERNAL
 # define FILENAME_LENGTH L""
-#else 
+#else
 /* truncate file name to first character */
-# define FILENAME_LENGTH L".1"   
+# define FILENAME_LENGTH L".1"
 #endif
     wchar_t buf[512];
     _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-              L"Preinject Error %" FILENAME_LENGTH L"hs:%d %hs\n", 
+              L"Preinject Error %" FILENAME_LENGTH L"hs:%d %hs\n",
               file, line, expr);
     NULL_TERMINATE_BUFFER(buf);
     display_error_helper(buf);
@@ -150,7 +150,7 @@ internal_error(char *file, int line, char *expr)
 }
 
 #ifdef DEBUG
-void 
+void
 display_error(char *msg)
 {
     wchar_t buf[512];
@@ -205,7 +205,7 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
 #endif
             ) {
             /* OK really going to load dr now, verify that we are injecting
-             * early enough (i.e. user32.dll is statically linked).  This 
+             * early enough (i.e. user32.dll is statically linked).  This
              * presumes preinject is only used with app_init injection which is
              * currently the case. FIXME - should we also check_sole_thread
              * here?  We can't really handle more then one thread when dr is
@@ -230,8 +230,8 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
                 /* FIXME - would be really nice to communicate this back to
                  * the controller. */
 #ifdef DEBUG
-                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), 
-                          PRODUCT_NAME" Error: improper injection - "PRODUCT_NAME" (%s) can't inject into process %s (%s) (user32.dll not statically linked)\n", 
+                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                          PRODUCT_NAME" Error: improper injection - "PRODUCT_NAME" (%s) can't inject into process %s (%s) (user32.dll not statically linked)\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -252,8 +252,8 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
                 /* ok, early injection should always beat this */
 #if VERBOSE
                 /* can't readily tell what was expected */
-                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), 
-                          PRODUCT_NAME" ok if early injection, otherwise ERROR: double injection, "PRODUCT_NAME" (%s) is already loaded in process %s (%s), continuing\n", 
+                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                          PRODUCT_NAME" ok if early injection, otherwise ERROR: double injection, "PRODUCT_NAME" (%s) is already loaded in process %s (%s), continuing\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -261,8 +261,8 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
             } else {
                 /* if GetModuleHandle finds us but we don't have a marker
                  * we may have failed somehow */
-                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), 
-                          PRODUCT_NAME" Error: failed injection, "PRODUCT_NAME" (%s) is loaded but not initialized in process %s (%s), continuing\n", 
+                _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                          PRODUCT_NAME" Error: failed injection, "PRODUCT_NAME" (%s) is loaded but not initialized in process %s (%s), continuing\n",
                           path, get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(msg);
                 display_error(msg);
@@ -275,7 +275,7 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
     if (dll == NULL) {
 #ifdef DEBUG
         int err = GetLastError();
-        _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), 
+        _snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
                   PRODUCT_NAME" Error %d loading %s\n", err, path);
         NULL_TERMINATE_BUFFER(msg);
         display_error(msg);
@@ -345,10 +345,10 @@ parameters_present(IF_NOT_X64(bool x64_in_wow64))
     char path[MAX_PATH];
     int retval;
 
-    /* We should do some sanity checking on our parameters, 
+    /* We should do some sanity checking on our parameters,
        to make sure we can really inject in applications.
-       War story: When renaming the product from DynamoRIO to SecureCore 
-       we'd start injecting and then failing to load a dll for all apps. 
+       War story: When renaming the product from DynamoRIO to SecureCore
+       we'd start injecting and then failing to load a dll for all apps.
     */
 #ifndef X64
     if (x64_in_wow64) {
@@ -365,7 +365,7 @@ parameters_present(IF_NOT_X64(bool x64_in_wow64))
 }
 
 /* forward declaration */
-BOOL APIENTRY 
+BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved);
 
 void

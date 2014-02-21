@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -259,7 +259,7 @@ math(EXPR PROCESSOR_COUNT "${PROCESSOR_COUNT} + 2")
 
 # CTest goes and does our builds and then wants to configure
 # and build again and complains there's no top-level setting of
-# CTEST_BINARY_DIRECTORY: 
+# CTEST_BINARY_DIRECTORY:
 #   "CMake Error: Some required settings in the configuration file were missing:"
 # but we don't want to do another build so we just ignore the error.
 set(CTEST_CMAKE_COMMAND "${CMAKE_EXECUTABLE_NAME}")
@@ -392,7 +392,7 @@ endfunction(get_default_config)
 #   - returns the build dir in "last_package_build_dir"
 #   - prepends to "cpack_projects" for project "${cpack_project_name}"
 #     (set by outer file)
-function(testbuild_ex name is64 initial_cache test_only_in_long 
+function(testbuild_ex name is64 initial_cache test_only_in_long
     add_to_package build_args)
   set(CTEST_BUILD_NAME "${name}")
 
@@ -469,7 +469,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           string(REGEX REPLACE "VC([/\\\\])([Bb][Ii][Nn])" "VC\\1\\2\\1amd64"
             newpath "$ENV{PATH}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
-          string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64" 
+          string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64"
             newpath "${newpath}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
@@ -479,7 +479,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
             newlib "$ENV{LIB}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64": grrr
           string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
-            "\\1x64" 
+            "\\1x64"
             newlib "${newlib}")
           # Win8 SDK uses um/x86 and um/x64
           string(REGEX REPLACE
@@ -636,7 +636,7 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
     set(last_package_build_dir "${CTEST_BINARY_DIRECTORY}" PARENT_SCOPE)
     # prepend rather than append to get debug first, so we take release
     # files preferentially in case of overlap
-    set(cpack_projects 
+    set(cpack_projects
       "\"${CTEST_BINARY_DIRECTORY};${cpack_project_name};ALL;/\"\n  ${cpack_projects}"
       PARENT_SCOPE)
 

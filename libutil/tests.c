@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -94,7 +94,7 @@ main()
     HANDLE *dummy = NULL; /* see LAUNCH_APP_WAIT_HANDLE macro */
     BOOL restricted = RESTRICTED_BOOL;
     int numtests = 0, passed = 0;
-    
+
     set_debuglevel(DL_WARN);
     set_abortlevel(DL_WARN);
 
@@ -103,7 +103,7 @@ main()
     get_testdir(coredir, MAX_PATH);
     CHECKED_OPERATION(setup_installation(coredir, TRUE));
 
-    _snwprintf(mp_cfg_file, MAX_PATH, L"%s\\conf\\mp-defs.cfg", 
+    _snwprintf(mp_cfg_file, MAX_PATH, L"%s\\conf\\mp-defs.cfg",
                get_dynamorio_home());
     DO_ASSERT(file_exists(mp_cfg_file));
 
@@ -150,11 +150,11 @@ main()
     /* restore original drhome */
     CHECKED_OPERATION(setup_installation(old_drhome, TRUE));
 
-    printf("\nTest results: %s [%d/%d tests passed]\n", 
+    printf("\nTest results: %s [%d/%d tests passed]\n",
            passed == numtests ? "PASS" : "FAIL", passed, numtests);
 
     if (passed == numtests)
         return 0;
-    else 
+    else
         return -1;
 }

@@ -7,7 +7,7 @@
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; 
+ * License as published by the Free Software Foundation;
  * version 2.1 of the License, and no later version.
 
  * This library is distributed in the hope that it will be useful,
@@ -215,7 +215,7 @@ DR_EXPORT
  *   calling convention used by \p original.
  * @param[in] user_data  Data made available when \p replacement is
  *   executed.
- * @param[in] override  Whether to replace any existing replacement for \p 
+ * @param[in] override  Whether to replace any existing replacement for \p
  *   original.
  *
  * \note The mechanism used for a native replacement results in a \p

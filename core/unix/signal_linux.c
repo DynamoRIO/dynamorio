@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -149,7 +149,7 @@ bool can_always_delay[] = {
     /* SIGILL     4 */            false,
     /* SIGTRAP    5 */            false,
     /* SIGABRT/SIGIOT 6 */        false,
-    /* SIGBUS     7 */            false, 
+    /* SIGBUS     7 */            false,
     /* SIGFPE     8 */            false,
     /* SIGKILL    9 */             true,
     /* SIGUSR1   10 */             true,
@@ -221,7 +221,7 @@ sysnum_is_not_restartable(int sysnum)
      * + Socket interfaces: supposed to restart if no timeout has been set
      *   but we never restart for simplicity for now.
      */
-    return (sysnum == SYS_pause || 
+    return (sysnum == SYS_pause ||
             sysnum == SYS_rt_sigsuspend ||
             sysnum == SYS_rt_sigtimedwait ||
             IF_X64(sysnum == SYS_epoll_wait_old ||)
@@ -397,7 +397,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
                XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside struct _xstate */
-            memcpy(&xstate->ymmh.ymmh_space[i * 4], 
+            memcpy(&xstate->ymmh.ymmh_space[i * 4],
                    ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
         }
@@ -405,7 +405,7 @@ save_xmm(dcontext_t *dcontext, sigframe_rt_t *frame)
         memcpy(&sc->fpstate->_xmm[i], &get_mcontext(dcontext)->ymm[i], XMM_REG_SIZE);
         if (YMM_ENABLED()) {
             /* i#637: ymm top halves are inside struct _xstate */
-            memcpy(&xstate->ymmh.ymmh_space[i * 4], 
+            memcpy(&xstate->ymmh.ymmh_space[i * 4],
                    ((void *)&get_mcontext(dcontext)->ymm[i]) + XMM_REG_SIZE,
                    YMMH_REG_SIZE);
         }

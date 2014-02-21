@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -122,7 +122,7 @@ typedef struct _os_thread_data_t {
     int fork_num_threads;
 
     /* We would use event_t's here except we can't use mutexes in
-     * our signal handler 
+     * our signal handler
      */
     /* Any function that sets these flags must also notify possibly waiting
      * thread(s). See i#96/PR 295561.
@@ -201,10 +201,10 @@ void signal_thread_init(dcontext_t *dcontext);
 void signal_thread_exit(dcontext_t *dcontext, bool other_thread);
 void handle_clone(dcontext_t *dcontext, uint flags);
 bool handle_sigaction(dcontext_t *dcontext, int sig,
-                      const kernel_sigaction_t *act, 
+                      const kernel_sigaction_t *act,
                       kernel_sigaction_t *oact, size_t sigsetsize);
 void handle_post_sigaction(dcontext_t *dcontext, int sig,
-                           const kernel_sigaction_t *act, 
+                           const kernel_sigaction_t *act,
                            kernel_sigaction_t *oact, size_t sigsetsize);
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
 bool handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -37,7 +37,7 @@
  * ntdll.h
  * Routines for calling Windows system calls via the ntdll.dll wrappers.
  * We return a bool instead of NTSTATUS, for most cases.
- * 
+ *
  * New routines however should return the raw NTSTATUS and leave to
  * the callers to report or act on some specific failure.  Should use
  * NT_SUCCESS to verify success, luckily here 0 indicates success, so
@@ -63,12 +63,12 @@
  * such that doing so causes problems.
  */
 /* We used to dynamically get the proc address but that led to some untimely
- *  loader lock acquisitions by kernel32.GetProcAddress  (Bug 411).  
+ *  loader lock acquisitions by kernel32.GetProcAddress  (Bug 411).
  *  This should serve as an example why using kernel32 functions is not safe.
 */
 
 /* A simple wrapper to define ntdll entry points used inside our functions.
-   Since there is no official header file exporting these, 
+   Since there is no official header file exporting these,
    we encapsulate signatures obtained from other sources.
  */
 #define GET_NTDLL(NtFunction, signature)                             \
@@ -114,7 +114,7 @@ typedef struct ALIGN_VAR(8) _UNICODE_STRING_64 {
 #define DIRECTORY_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | 0xF)
 
 /* module information filled by the loader */
-typedef struct _PEB_LDR_DATA {  
+typedef struct _PEB_LDR_DATA {
     ULONG Length;
     BOOLEAN Initialized;
     PVOID SsHandle;
@@ -143,7 +143,7 @@ typedef struct _LDR_MODULE {
     ULONG TimeDateStamp;
 } LDR_MODULE, *PLDR_MODULE;
 
-/* This macro is defined so that 32-bit dlls can be handled in 64-bit DR. 
+/* This macro is defined so that 32-bit dlls can be handled in 64-bit DR.
  * Not all IMAGE_OPTIONAL_HEADER fields are affected, only ImageBase,
  * LoaderFlags, NumberOfRvaAndSizes, SizeOf{Stack,Heap}{Commit,Reserve},
  * and DataDirectory, of which we use only ImageBase and DataDirectory.
@@ -389,9 +389,9 @@ typedef unsigned __int64 uint64;
 /* note for NtSetInformationProcess when setting can set either
  * working set or the other values: only when both
  * MinimumWorkingSetSize and MaximumWorkingSetSize are non-zero
- * working set is adjusted, and the other values are ignored. 
+ * working set is adjusted, and the other values are ignored.
  * (Nebbett p.141)
- * 
+ *
  * Job and working set note from MSDN "Processes can still empty their
  * working sets using the SetProcessWorkingSetSize function, even when
  * JOB_OBJECT_LIMIT_WORKINGSET is used.  However, you cannot use
@@ -399,9 +399,9 @@ typedef unsigned __int64 uint64;
  * set size."
  */
 
-/* PageFaultHistory Information 
- * NtQueryInformationProcess ProcessWorkingSetWatch 
- */ 
+/* PageFaultHistory Information
+ * NtQueryInformationProcess ProcessWorkingSetWatch
+ */
 typedef struct _PROCESS_WS_WATCH_INFORMATION {
     PVOID FaultingPc;
     PVOID FaultingVa;
@@ -465,7 +465,7 @@ typedef struct _PROCESS_ACCESS_TOKEN {
 /* End of Job Limits */
 #endif /* !NOT_DYNAMORIO_CORE && !NOT_DYNAMORIO_CORE_PROPER */
 
-/* OS dependent SEH frame supported by ntdll.dll 
+/* OS dependent SEH frame supported by ntdll.dll
    referred to in WINNT.H as _EXCEPTION_REGISTRATION_RECORD */
 typedef struct _EXCEPTION_REGISTRATION {
      struct _EXCEPTION_REGISTRATION* prev;
@@ -483,7 +483,7 @@ typedef struct _GDI_TEB_BATCH
  * later updated to win8 pdb info.
  */
 typedef struct _TEB {                               /* offset: 32bit / 64bit */
-    /* We lay out NT_TIB, which is declared in winnt.h */    
+    /* We lay out NT_TIB, which is declared in winnt.h */
     PEXCEPTION_REGISTRATION   ExceptionList;                /* 0x000 / 0x000 */
     PVOID                     StackBase;                    /* 0x004 / 0x008 */
     PVOID                     StackLimit;                   /* 0x008 / 0x010 */
@@ -805,7 +805,7 @@ typedef struct _SYSTEM_THREADS {
     ULONG Padding;
 } SYSTEM_THREADS, *PSYSTEM_THREADS;
 
-typedef struct _SYSTEM_PROCESSES { 
+typedef struct _SYSTEM_PROCESSES {
     ULONG NextEntryDelta;
     ULONG ThreadCount;
     LARGE_INTEGER WorkingSetPrivateSize; /* Vista+ */
@@ -858,7 +858,7 @@ typedef enum { /* NOTE - these are speculative */
     THREAD_INFO_ELEMENT_TEB             = 0x4, /* buffer is TEB * - OUT */
     THREAD_INFO_ELEMENT_NT_PATH_TO_EXE  = 0x5, /* buffer is wchar * path to exe
                                                 * [ i.e. L"\??\c:\foo.exe" ] - IN */
-    THREAD_INFO_ELEMENT_EXE_STUFF       = 0x6, /* buffer is exe_stuff_t (see above) 
+    THREAD_INFO_ELEMENT_EXE_STUFF       = 0x6, /* buffer is exe_stuff_t (see above)
                                                 * - INOUT */
     THREAD_INFO_ELEMENT_UNKNOWN_1       = 0x9, /* Unknown - ptr_uint_t sized
                                                 * [ observed 1 ] - IN */
@@ -880,7 +880,7 @@ typedef struct _exe_stuff_t { /* NOTE - this is speculative */
 
 typedef struct _create_proc_thread_info_t { /* NOTE - this is speculative */
     size_t struct_size; /* observed 0x34 or 0x44 (0x68 on 64-bit) = sizeof(this struct) */
-    /* Observed - first thread_info_elm_t always 
+    /* Observed - first thread_info_elm_t always
      * flags = 0x20005
      * buffer_size = varies (sizeof buffer string in bytes)
      * buffer = wchar * : nt path to executable i.e. "\??\c:\foo.exe" - IN */
@@ -1205,7 +1205,7 @@ typedef struct _KUSER_SHARED_DATA {
 /***************************************************************************
  * convenience enums
  */
-typedef enum {MEMORY_RESERVE_ONLY = MEM_RESERVE, 
+typedef enum {MEMORY_RESERVE_ONLY = MEM_RESERVE,
               MEMORY_COMMIT = MEM_RESERVE|MEM_COMMIT
 } memory_commit_status_t;
 
@@ -1228,8 +1228,8 @@ close_handle(HANDLE h);
 /* from winddk.h used by cygwin */
 #define DUPLICATE_SAME_ATTRIBUTES   0x00000004
 NTSTATUS
-duplicate_handle(HANDLE source_process, HANDLE source, HANDLE target_process, 
-                 HANDLE *target, ACCESS_MASK access, uint attributes, 
+duplicate_handle(HANDLE source_process, HANDLE source, HANDLE target_process,
+                 HANDLE *target, ACCESS_MASK access, uint attributes,
                  uint options);
 
 ACCESS_MASK
@@ -1282,7 +1282,7 @@ query_virtual_memory(const byte *pc, MEMORY_BASIC_INFORMATION *mbi, size_t mbile
 NTSTATUS
 get_mapped_file_name(const byte *pc, PWSTR buf, USHORT buf_bytes);
 
-/* for allocating in another process, 
+/* for allocating in another process,
  * keep in mind base is now IN/OUT value, a NULL value means no preference
  * will bump size up to PAGE_SIZE multiple */
 NTSTATUS
@@ -1292,7 +1292,7 @@ nt_remote_allocate_virtual_memory(HANDLE process, void **base, size_t size,
 NTSTATUS
 nt_remote_free_virtual_memory(HANDLE process, void *base);
 
-/* will bump size up to PAGE_SIZE multiple 
+/* will bump size up to PAGE_SIZE multiple
  * keep in mind base is now IN/OUT value, a NULL value means no preference
  */
 NTSTATUS
@@ -1315,16 +1315,16 @@ nt_remote_protect_virtual_memory(HANDLE process,
                        void *base, size_t size, uint prot, uint *old_prot);
 
 bool
-nt_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
+nt_read_virtual_memory(HANDLE process, const void *base, void *buffer,
                        size_t buffer_length, size_t *bytes_read);
 
 bool
-nt_write_virtual_memory(HANDLE process, void *base, const void *buffer, 
+nt_write_virtual_memory(HANDLE process, void *base, const void *buffer,
                         size_t buffer_length, size_t *bytes_written);
 
 /* returns raw NTSTATUS */
 NTSTATUS
-nt_raw_read_virtual_memory(HANDLE process, const void *base, void *buffer, 
+nt_raw_read_virtual_memory(HANDLE process, const void *base, void *buffer,
                            size_t buffer_length, size_t *bytes_read);
 
 /* returns raw NTSTATUS */
@@ -1357,7 +1357,7 @@ nt_thread_iterator_next(HANDLE hprocess, HANDLE cur_thread, HANDLE *next_thread,
 bool
 nt_terminate_thread(HANDLE hthread, NTSTATUS exit_code);
 
-bool 
+bool
 nt_terminate_process(HANDLE hprocess, NTSTATUS exit_code);
 
 NTSTATUS
@@ -1424,7 +1424,7 @@ get_section_address(HANDLE h);
 /* Section attributes as described in Nebbett, p. 105.
  * Some are documented in the SDK CreateFileMapping */
 /* from wnet/winnt.h, new in Win2003 */
-#define SEC_LARGE_PAGES           0x80000000     
+#define SEC_LARGE_PAGES           0x80000000
 /* SEC_VLM in VC98/winnt.h but in DDK, apparently not implemented on x86 */
 #ifndef SEC_VLM /* not defined in VC8 headers */
 # define SEC_VLM                  0x02000000
@@ -1465,7 +1465,7 @@ typedef enum _reg_query_value_result {
 } reg_query_value_result_t;
 
 reg_query_value_result_t
-reg_query_value(PCWSTR hkey, PCWSTR subkey, 
+reg_query_value(PCWSTR hkey, PCWSTR subkey,
                 KEY_VALUE_INFORMATION_CLASS key_class, PVOID info, ULONG info_size,
                 ACCESS_MASK rights);
 
@@ -1536,11 +1536,11 @@ query_seg_descriptor(HANDLE hthread, DESCRIPTOR_TABLE_ENTRY *entry);
 NTSTATUS
 query_win32_start_addr(HANDLE hthread, PVOID start_addr);
 
-NTSTATUS 
+NTSTATUS
 query_system_info(SYSTEM_INFORMATION_CLASS info_class, int info_size, PVOID info);
 
 bool
-query_full_attributes_file(PCWSTR filename,                           
+query_full_attributes_file(PCWSTR filename,
                            PFILE_NETWORK_OPEN_INFORMATION info);
 
 /* access mask flags, from ntddk.h rest are in winnt.h so no need to replicate
@@ -1618,8 +1618,8 @@ query_full_attributes_file(PCWSTR filename,
 #define FILE_USE_FILE_POINTER_POSITION  0xfffffffe
 
 #if _MSC_VER <= 1200
-/* from ntstatus.h, NtFsControlFile typically returns this, if not using 
- * overlapped (i.e. asynch io) then TransactNamedPipe specifically checks for 
+/* from ntstatus.h, NtFsControlFile typically returns this, if not using
+ * overlapped (i.e. asynch io) then TransactNamedPipe specifically checks for
  * this value to determine whether or not it should wait on the pipe, this is
  * the only return code it specifically checks for */
 # define STATUS_PENDING 0x103
@@ -1706,7 +1706,7 @@ query_full_attributes_file(PCWSTR filename,
 /*  A non close operation has been requested of a file object with a delete pending. */
 #define STATUS_DELETE_PENDING            ((NTSTATUS)0xC0000056L)
 
-/* The volume for a file has been externally altered such that the opened file 
+/* The volume for a file has been externally altered such that the opened file
  * is no longer valid.
  */
 #define STATUS_FILE_INVALID              ((NTSTATUS)0xC0000098L)
@@ -1741,7 +1741,7 @@ query_full_attributes_file(PCWSTR filename,
  *  virtual memory paging file. For more information, see Help.
  */
 #define STATUS_COMMITMENT_LIMIT          ((NTSTATUS)0xC000012DL)
-/* Seen both when reaching the Commit limit (memory + page file size), 
+/* Seen both when reaching the Commit limit (memory + page file size),
  * as well as when a process in a Job reaches its ProcessMemoryLimit
  */
 
@@ -1838,7 +1838,7 @@ query_full_attributes_file(PCWSTR filename,
 #endif
 
 NTSTATUS
-nt_create_file(OUT HANDLE *file_handle, 
+nt_create_file(OUT HANDLE *file_handle,
                const wchar_t *filename, HANDLE dir_handle OPTIONAL,
                size_t alloc_size, ACCESS_MASK rights, uint attributes, uint sharing,
                uint create_disposition, uint create_options);
@@ -1863,11 +1863,11 @@ NTSTATUS
 nt_flush_file_buffers(HANDLE file_handle);
 
 bool
-read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read, 
+read_file(HANDLE file_handle, void *buffer, uint num_bytes_to_read,
           IN uint64* file_byte_offset OPTIONAL,
           OUT size_t *num_bytes_read);
 bool
-write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write, 
+write_file(HANDLE file_handle, const void *buffer, uint num_bytes_to_write,
            OPTIONAL uint64* file_byte_offset,
            OUT size_t *num_bytes_written);
 
@@ -1875,34 +1875,34 @@ bool
 close_file(HANDLE hfile);
 
 /* from DDK2003SP1/3790.1830/inc/ddk/wnet/ntddk.h */
-typedef struct _FILE_STANDARD_INFORMATION {                 
-    LARGE_INTEGER AllocationSize;                           
-    LARGE_INTEGER EndOfFile;                                
-    ULONG NumberOfLinks;                                    
-    BOOLEAN DeletePending;                                  
-    BOOLEAN Directory;                                      
-} FILE_STANDARD_INFORMATION, *PFILE_STANDARD_INFORMATION;   
+typedef struct _FILE_STANDARD_INFORMATION {
+    LARGE_INTEGER AllocationSize;
+    LARGE_INTEGER EndOfFile;
+    ULONG NumberOfLinks;
+    BOOLEAN DeletePending;
+    BOOLEAN Directory;
+} FILE_STANDARD_INFORMATION, *PFILE_STANDARD_INFORMATION;
 
 typedef struct _FILE_INTERNAL_INFORMATION {
     LARGE_INTEGER IndexNumber;
 } FILE_INTERNAL_INFORMATION, *PFILE_INTERNAL_INFORMATION;
-                                                  
-typedef struct _FILE_POSITION_INFORMATION {                 
-    LARGE_INTEGER CurrentByteOffset;                        
-} FILE_POSITION_INFORMATION, *PFILE_POSITION_INFORMATION;   
-                                                            
-typedef struct _FILE_ALIGNMENT_INFORMATION {                
-    ULONG AlignmentRequirement;                             
-} FILE_ALIGNMENT_INFORMATION, *PFILE_ALIGNMENT_INFORMATION; 
-                                                            
+
+typedef struct _FILE_POSITION_INFORMATION {
+    LARGE_INTEGER CurrentByteOffset;
+} FILE_POSITION_INFORMATION, *PFILE_POSITION_INFORMATION;
+
+typedef struct _FILE_ALIGNMENT_INFORMATION {
+    ULONG AlignmentRequirement;
+} FILE_ALIGNMENT_INFORMATION, *PFILE_ALIGNMENT_INFORMATION;
+
 #define MAX_FILE_NAME_LENGTH MAX_PATH
-typedef struct _FILE_NAME_INFORMATION {                     
+typedef struct _FILE_NAME_INFORMATION {
     ULONG FileNameLength;       /* length in _bytes_ */
     WCHAR FileName[MAX_FILE_NAME_LENGTH];
     /* NOTE that the official structure is FileName[1] so that
      * callers control the length they are interested in */
 } FILE_NAME_INFORMATION, *PFILE_NAME_INFORMATION;
-                                                            
+
 typedef struct _FILE_RENAME_INFORMATION {
     BOOLEAN ReplaceIfExists;
     HANDLE RootDirectory;
@@ -1910,22 +1910,22 @@ typedef struct _FILE_RENAME_INFORMATION {
     WCHAR FileName[MAX_FILE_NAME_LENGTH];
 } FILE_RENAME_INFORMATION, *PFILE_RENAME_INFORMATION;
 
-typedef struct _FILE_ATTRIBUTE_TAG_INFORMATION {               
-    ULONG FileAttributes;                                       
-    ULONG ReparseTag;                                           
-} FILE_ATTRIBUTE_TAG_INFORMATION, *PFILE_ATTRIBUTE_TAG_INFORMATION;  
-                                                                
-typedef struct _FILE_DISPOSITION_INFORMATION {                  
-    BOOLEAN DeleteFile;                                         
-} FILE_DISPOSITION_INFORMATION, *PFILE_DISPOSITION_INFORMATION; 
-                                                                
-typedef struct _FILE_END_OF_FILE_INFORMATION {                  
-    LARGE_INTEGER EndOfFile;                                    
-} FILE_END_OF_FILE_INFORMATION, *PFILE_END_OF_FILE_INFORMATION; 
-                                                                
-typedef struct _FILE_VALID_DATA_LENGTH_INFORMATION {                                    
-    LARGE_INTEGER ValidDataLength;                                                      
-} FILE_VALID_DATA_LENGTH_INFORMATION, *PFILE_VALID_DATA_LENGTH_INFORMATION;             
+typedef struct _FILE_ATTRIBUTE_TAG_INFORMATION {
+    ULONG FileAttributes;
+    ULONG ReparseTag;
+} FILE_ATTRIBUTE_TAG_INFORMATION, *PFILE_ATTRIBUTE_TAG_INFORMATION;
+
+typedef struct _FILE_DISPOSITION_INFORMATION {
+    BOOLEAN DeleteFile;
+} FILE_DISPOSITION_INFORMATION, *PFILE_DISPOSITION_INFORMATION;
+
+typedef struct _FILE_END_OF_FILE_INFORMATION {
+    LARGE_INTEGER EndOfFile;
+} FILE_END_OF_FILE_INFORMATION, *PFILE_END_OF_FILE_INFORMATION;
+
+typedef struct _FILE_VALID_DATA_LENGTH_INFORMATION {
+    LARGE_INTEGER ValidDataLength;
+} FILE_VALID_DATA_LENGTH_INFORMATION, *PFILE_VALID_DATA_LENGTH_INFORMATION;
 
 
 /* event synchronization, using both automatic and manual events */
@@ -1952,7 +1952,7 @@ create_iocompletion(void);
 HANDLE
 open_pipe(PCWSTR pipename, HANDLE hsync);
 
-size_t 
+size_t
 nt_pipe_transceive(HANDLE hpipe, void *input, uint input_size,
                    void *output, uint output_size, uint timeout_ms);
 
@@ -1980,7 +1980,7 @@ nt_query_performance_counter(PLARGE_INTEGER counter, PLARGE_INTEGER frequency);
 
 #ifdef WINDOWS_PC_SAMPLE
 HANDLE
-nt_create_profile(HANDLE process_handle, void  *start, uint size, uint *buffer, 
+nt_create_profile(HANDLE process_handle, void  *start, uint size, uint *buffer,
                uint buffer_size, uint shift);
 
 void
@@ -2022,10 +2022,10 @@ create_thread_have_stack(HANDLE hProcess, bool target_64bit, void *start_addr,
 /* NOTE : this isn't equivalent to nt_get_context(NT_CURRENT_THREAD, cxt)
  * (where the returned context is undefined) so use this to get the context
  * of the current thread */
-/* FIXME : no support for float/mmx/sse/debug, 
+/* FIXME : no support for float/mmx/sse/debug,
  *         also if integer or control does both
  * Xref PR 264138 where we have to preserve xmm registers: however, no
- * current uses need to get our own xmm registers, so we don't.  
+ * current uses need to get our own xmm registers, so we don't.
  * PR 266070: If any future use uses this context to either set a
  * priv_mcontext_t or passes it to nt_set_context() we'll have to add
  * the xmm regs.
@@ -2141,24 +2141,24 @@ typedef enum replaces_cor_hdr_numeric_defines_t
     COR_VTABLEGAP_NAME_LENGTH           =8,
 
 // Maximum size of a NativeType descriptor.
-    NATIVE_TYPE_MAX_CB                  =1,   
+    NATIVE_TYPE_MAX_CB                  =1,
     COR_ILMETHOD_SECT_SMALL_MAX_DATASIZE=0xFF,
 
 // #defines for the MIH FLAGS
     IMAGE_COR_MIH_METHODRVA             =0x01,
-    IMAGE_COR_MIH_EHRVA                 =0x02,    
+    IMAGE_COR_MIH_EHRVA                 =0x02,
     IMAGE_COR_MIH_BASICBLOCK            =0x08,
 
 // V-table constants
-    COR_VTABLE_32BIT                    =0x01,          // V-table slots are 32-bits in size.   
-    COR_VTABLE_64BIT                    =0x02,          // V-table slots are 64-bits in size.   
+    COR_VTABLE_32BIT                    =0x01,          // V-table slots are 32-bits in size.
+    COR_VTABLE_64BIT                    =0x02,          // V-table slots are 64-bits in size.
     COR_VTABLE_FROM_UNMANAGED           =0x04,          // If set, transition from unmanaged.
     COR_VTABLE_CALL_MOST_DERIVED        =0x10,          // Call most derived method described by
 
 // EATJ constants
     IMAGE_COR_EATJ_THUNK_SIZE           =32,            // Size of a jump thunk reserved range.
 
-// Max name lengths    
+// Max name lengths
     //@todo: Change to unlimited name lengths.
     MAX_CLASS_NAME                      =1024,
     MAX_PACKAGE_NAME                    =1024,
@@ -2168,15 +2168,15 @@ typedef enum replaces_cor_hdr_numeric_defines_t
 typedef struct IMAGE_COR20_HEADER
 {
     // Header versioning
-    DWORD                   cb;              
+    DWORD                   cb;
     WORD                    MajorRuntimeVersion;
     WORD                    MinorRuntimeVersion;
-    
+
     // Symbol table and startup information
-    IMAGE_DATA_DIRECTORY    MetaData;        
-    DWORD                   Flags;           
+    IMAGE_DATA_DIRECTORY    MetaData;
+    DWORD                   Flags;
     DWORD                   EntryPointToken;
-    
+
     // Binding information
     IMAGE_DATA_DIRECTORY    Resources;
     IMAGE_DATA_DIRECTORY    StrongNameSignature;
@@ -2188,7 +2188,7 @@ typedef struct IMAGE_COR20_HEADER
 
     // Precompiled image info (internal use only - set to zero)
     IMAGE_DATA_DIRECTORY    ManagedNativeHeader;
-    
+
 } IMAGE_COR20_HEADER, *PIMAGE_COR20_HEADER;
 
 #endif // __IMAGE_COR20_HEADER_DEFINED__
@@ -2202,7 +2202,7 @@ NTSTATUS
 nt_initialize_shared_directory(HANDLE *shared_directory /* OUT */, bool permanent);
 
 NTSTATUS
-nt_open_object_directory(HANDLE *shared_directory /* OUT */, 
+nt_open_object_directory(HANDLE *shared_directory /* OUT */,
                          PCWSTR object_directory_name,
                          bool allow_creation);
 
@@ -2253,12 +2253,12 @@ nt_open_section(OUT PHANDLE SectionHandle,
 
 NTSTATUS
 nt_create_module_file(OUT HANDLE* file_handle,
-                      const wchar_t *file_path, 
+                      const wchar_t *file_path,
                       IN HANDLE root_directory_handle OPTIONAL,
                       ACCESS_MASK desired_access_rights,
                       uint file_special_attributes,
                       uint file_sharing_flags,
-                      uint create_disposition, 
+                      uint create_disposition,
                       size_t allocation_size);
 
 NTSTATUS
@@ -2295,8 +2295,8 @@ nt_query_security_object(IN HANDLE Handle,
 GET_NTDLL(RtlEnterCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
 GET_NTDLL(RtlLeaveCriticalSection, (IN OUT RTL_CRITICAL_SECTION *crit));
 
-GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle, 
-                                  IN BOOLEAN Alertable, 
+GET_NTDLL(NtWaitForSingleObject, (IN HANDLE ObjectHandle,
+                                  IN BOOLEAN Alertable,
                                   IN PLARGE_INTEGER TimeOut));
 
 GET_NTDLL(NtFsControlFile, (IN HANDLE               FileHandle,

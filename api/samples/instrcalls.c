@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -64,7 +64,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 
 static client_id_t my_id;
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     my_id = id;
@@ -134,7 +134,7 @@ event_thread_init(void *drcontext)
 
     /* store it in the slot provided in the drcontext */
     dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
-    dr_log(drcontext, LOG_ALL, 1, 
+    dr_log(drcontext, LOG_ALL, 1,
            "instrcalls: log for thread "TIDFMT" is instrcalls.%03d\n",
            dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 }
@@ -226,7 +226,7 @@ at_return(app_pc instr_addr, app_pc target_addr)
 #endif
 }
 
-static dr_emit_flags_t 
+static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {

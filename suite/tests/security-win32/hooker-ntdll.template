@@ -7,7 +7,7 @@ there be witches! what happened to my write?
 hooked LdrLoadDll
 #endif
 restored old code
-VirtualProtect(LdrLoadDll[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(LdrLoadDll[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
 #else
@@ -23,76 +23,76 @@ there be witches! what happened to my write?
 hooked LdrLoadDll
 #endif
 restored old code
-VirtualProtect(LdrLoadDll[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(LdrLoadDll[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
-#else 
+#else
 old permissions ...prev=00000040)
-#endif 
+#endif
 ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 there be witches! what happened to my write?
-#else 
+#else
 hooked NtFlushInstructionCache
-#endif 
+#endif
 restored old code
-VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
-#else 
+#else
 old permissions ...prev=00000040)
-#endif 
+#endif
 ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 there be witches! what happened to my write?
-#else 
+#else
 hooked NtFlushInstructionCache
-#endif 
+#endif
 restored old code
-VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(NtFlushInstructionCache[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
-#else 
+#else
 old permissions ...prev=00000040)
-#endif 
+#endif
 ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 there be witches! what happened to my write?
-#else 
+#else
 hooked NtFlushWriteBuffer
-#endif 
+#endif
 restored old code
-VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
-#else 
+#else
 old permissions ...prev=00000040)
-#endif 
+#endif
 ok: can't write
 all should be good
 ok: can't write
 VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 there be witches! what happened to my write?
-#else 
+#else
 hooked NtFlushWriteBuffer
-#endif 
+#endif
 restored old code
-VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000 
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
 #if !defined(handle_ntdll_modify) && !defined(thin_client)
 old permissions ...prev=00000020)
-#else 
+#else
 old permissions ...prev=00000040)
-#endif 
+#endif
 ok: can't write
 all should be good
 hooking done with

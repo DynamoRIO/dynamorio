@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 char sysroot[MAX_PATH];
 
 static void
-myload(char* lib, bool append_to_sysroot) 
+myload(char* lib, bool append_to_sysroot)
 {
     HANDLE file, mapping;
     SIZE_T size = 0, size_to_map;
@@ -90,7 +90,7 @@ myload(char* lib, bool append_to_sysroot)
     print("mapping size = "PFX"\n", size);
 #endif
     UnmapViewOfFile(map_addr);
-    
+
     /* FIXME - for additional tests we could call into the section, we could also map
      * at offset and call into as well.  FIXME - check what happes when we ask for
      * non-page multiple (esp if file and/or section alignment is < page. */
@@ -107,13 +107,13 @@ int main()
     HANDLE hToken = NULL;
     TOKEN_PRIVILEGES Priv;
     DWORD res;
-    if  (!OpenThreadToken(GetCurrentThread(), 
-                          TOKEN_QUERY|TOKEN_ADJUST_PRIVILEGES, 
-                          FALSE, 
+    if  (!OpenThreadToken(GetCurrentThread(),
+                          TOKEN_QUERY|TOKEN_ADJUST_PRIVILEGES,
+                          FALSE,
                           &hToken)) {
         /* can't get thread token, try process token instead */
-        if(!OpenProcessToken(GetCurrentProcess(), 
-                             TOKEN_QUERY|TOKEN_ADJUST_PRIVILEGES, 
+        if(!OpenProcessToken(GetCurrentProcess(),
+                             TOKEN_QUERY|TOKEN_ADJUST_PRIVILEGES,
                              &hToken)) {
             print("error opening token, code=%d\n", GetLastError());
         }

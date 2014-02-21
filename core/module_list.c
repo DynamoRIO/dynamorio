@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -165,14 +165,14 @@ modules_reset_list(void)
     vmvector_iterator_t vmvi;
     /* need to free each entry */
     os_get_module_info_write_lock();
-    /* note our iterator doesn't support remove, 
+    /* note our iterator doesn't support remove,
      * anyways we need to free all entries here */
     vmvector_iterator_start(loaded_module_areas, &vmvi);
     while (vmvector_iterator_hasnext(&vmvi)) {
         app_pc start, end;
         module_area_t *ma = (module_area_t*)vmvector_iterator_next(&vmvi, &start, &end);
         ASSERT(ma != NULL);
-#ifdef WINDOWS        
+#ifdef WINDOWS
         ASSERT(ma->start == start && ma->end == end);
 #else
         ASSERT(ma->start <= start && ma->end >= end);
@@ -260,7 +260,7 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
         module_area_t *ma =
             module_area_create(base, view_size, at_map, filepath _IF_UNIX(inode));
         ASSERT(ma != NULL);
-        
+
         LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 1, "module %s ["PFX","PFX"] added\n",
             (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
             GET_MODULE_NAME(&ma->names), base, base+view_size);
@@ -276,7 +276,7 @@ module_list_add(app_pc base, size_t view_size, bool at_map, const char *filepath
         native_exec_module_load(ma, at_map);
     } else {
         /* already added! */
-        /* only possible for manual NtMapViewOfSection, loader 
+        /* only possible for manual NtMapViewOfSection, loader
          * can't be doing this to us */
         ASSERT_CURIOSITY(false && "image load race");
         /* do nothing */
@@ -293,7 +293,7 @@ module_list_remove(app_pc base, size_t view_size)
     bool inform_client = false;
 #endif
     module_area_t *ma;
-    
+
     /* note that vmvector_lookup doesn't protect the custom data,
      * and we need to bracket a lookup and remove in an unlikely
      * application race (note we pre-process unmap)
@@ -303,7 +303,7 @@ module_list_remove(app_pc base, size_t view_size)
     ASSERT(vmvector_overlap(loaded_module_areas, base, base+view_size));
     ma = (module_area_t*)vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
-    
+
     LOG(GLOBAL, LOG_INTERP|LOG_VMAREAS, 2, "module_list_remove %s\n",
         (GET_MODULE_NAME(&ma->names) == NULL) ? "<no name>" :
         GET_MODULE_NAME(&ma->names));
@@ -358,7 +358,7 @@ os_module_set_flag_value(app_pc module_base, uint flag, bool set)
         else
             ma->flags &= ~flag;
         found = true;
-    } 
+    }
     if (!own_lock)
         os_get_module_info_write_unlock();
     return found;
@@ -386,7 +386,7 @@ os_module_get_flag(app_pc module_base, uint flag)
     if (ma != NULL) {
         /* interface is for just one flag so no documentation of ANY vs ALL */
         has_flag = TESTANY(flag, ma->flags);
-    } 
+    }
     os_get_module_info_unlock();
     return has_flag;
 }
@@ -452,10 +452,10 @@ bool
 os_get_module_name(const app_pc pc, /* OUT */ const char **name)
 {
     module_area_t *ma;
-    
+
     ASSERT(os_get_module_info_locked());
     ma = module_pc_lookup(pc);
-    
+
     if (ma != NULL)
         *name = GET_MODULE_NAME(&ma->names);
     else
@@ -505,7 +505,7 @@ os_module_get_view_size(app_pc mod_base)
     ma = module_pc_lookup(mod_base);
     if (ma != NULL) {
         view_size = ma->end - ma->start;
-    } 
+    }
     os_get_module_info_unlock();
     return view_size;
 }
@@ -576,7 +576,7 @@ module_iterator_stop(module_iterator_t *mi)
 
 /* add only the intersection of the two regions to the running MD5 sum */
 static void
-region_intersection_MD5update(struct MD5Context *ctx, 
+region_intersection_MD5update(struct MD5Context *ctx,
                               app_pc region1_start, size_t region1_len,
                               app_pc region2_start, size_t region2_len)
 {
@@ -584,11 +584,11 @@ region_intersection_MD5update(struct MD5Context *ctx,
     size_t intersection_len;
     ASSERT(ctx != NULL);
     region_intersection(&intersection_start, &intersection_len,
-                        region1_start, region1_len, 
+                        region1_start, region1_len,
                         region2_start, region2_len);
     if (intersection_len != 0) {
         LOG(GLOBAL, LOG_SYSCALLS, 2,
-            "adding to short hash region "PFX"-"PFX"\n", 
+            "adding to short hash region "PFX"-"PFX"\n",
             intersection_start, intersection_start + intersection_len);
         MD5Update(ctx, intersection_start, intersection_len);
     }
@@ -597,7 +597,7 @@ region_intersection_MD5update(struct MD5Context *ctx,
 /* keeps track of both short and full digests on each region */
 static
 void
-module_calculate_digest_helper(struct MD5Context * md5_full_cxt /* OPTIONAL */, 
+module_calculate_digest_helper(struct MD5Context * md5_full_cxt /* OPTIONAL */,
                                struct MD5Context * md5_short_cxt /* OPTIONAL */,
                                app_pc region_start, size_t region_len,
                                app_pc start_header, size_t len_header,
@@ -606,17 +606,17 @@ module_calculate_digest_helper(struct MD5Context * md5_full_cxt /* OPTIONAL */,
     ASSERT(md5_full_cxt != NULL || md5_short_cxt != NULL);
     LOG(GLOBAL, LOG_VMAREAS, 2, "\t%s: segment "PFX"-"PFX"\n",
         __FUNCTION__, region_start, region_start + region_len);
-    if (md5_full_cxt != NULL) 
+    if (md5_full_cxt != NULL)
         MD5Update(md5_full_cxt, region_start, region_len);
     if (md5_short_cxt == NULL)
         return;
     if (len_header != 0) {
-        region_intersection_MD5update(md5_short_cxt, 
+        region_intersection_MD5update(md5_short_cxt,
                                       region_start, region_len,
                                       start_header, len_header);
     }
     if (len_footer != 0) {
-        region_intersection_MD5update(md5_short_cxt, 
+        region_intersection_MD5update(md5_short_cxt,
                                       region_start, region_len,
                                       start_footer, len_footer);
     }
@@ -645,7 +645,7 @@ ensure_section_readable(app_pc module_base, app_pc seg_start,
     size_t intersection_len;
 
     region_intersection(&intersection_start, &intersection_len,
-                        view_start, view_len, 
+                        view_start, view_len,
                         seg_start, ALIGN_FORWARD(seg_len, PAGE_SIZE));
     if (intersection_len == 0)
         return true;
@@ -667,10 +667,10 @@ ensure_section_readable(app_pc module_base, app_pc seg_start,
 #ifdef WINDOWS
     /* Preserve COW flags */
     ok = protect_virtual_memory(intersection_start, intersection_len,
-                                PAGE_READONLY, 
+                                PAGE_READONLY,
                                 old_prot);
     ASSERT(ok);
-    ASSERT_CURIOSITY(*old_prot == PAGE_NOACCESS || 
+    ASSERT_CURIOSITY(*old_prot == PAGE_NOACCESS ||
                      *old_prot == PAGE_WRITECOPY); /* expecting unmodifed even
                                                     * if writable */
 #else
@@ -696,7 +696,7 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start,
     ASSERT(!TESTANY(OS_IMAGE_EXECUTE|OS_IMAGE_READ|OS_IMAGE_WRITE, seg_chars));
 
     region_intersection(&intersection_start, &intersection_len,
-                        view_start, view_len, 
+                        view_start, view_len,
                         seg_start, ALIGN_FORWARD(seg_start + seg_len, PAGE_SIZE));
     if (intersection_len == 0)
         return true;
@@ -704,7 +704,7 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start,
 #ifdef WINDOWS
     /* Preserve COW flags */
     ok = protect_virtual_memory(intersection_start, intersection_len,
-                                restore_prot, 
+                                restore_prot,
                                 &old_prot);
     ASSERT(ok);
     ASSERT(old_prot == PAGE_READONLY);
@@ -734,7 +734,7 @@ restore_unreadable_section(app_pc module_base, app_pc seg_start,
  */
 void
 module_calculate_digest(OUT module_digest_t *digest,
-                        app_pc module_base, 
+                        app_pc module_base,
                         size_t module_size,
                         bool full_digest,
                         bool short_digest,
@@ -773,7 +773,7 @@ module_calculate_digest(OUT module_digest_t *digest,
     ASSERT(module_size != 0);
 
     LOG(GLOBAL, LOG_VMAREAS, 2,
-        "module_calculate_digest: module "PFX"-"PFX"\n", 
+        "module_calculate_digest: module "PFX"-"PFX"\n",
         module_base, module_base + module_size);
 
     if (short_digest_size == 0) {
@@ -790,14 +790,14 @@ module_calculate_digest(OUT module_digest_t *digest,
      * module_dump_pe_file(), and in fact we could avoid a second
      * traversal and associated cache pollution on producing a file if
      * we provide this functionality in module_dump_pe_file().  Of
-     * course for verification we still need this separately 
+     * course for verification we still need this separately
      */
 
     ASSERT(get_module_base(module_base) == module_base);
 
     if (short_digest)
         MD5Init(&md5_short_cxt);
-    if (full_digest) 
+    if (full_digest)
         MD5Init(&md5_full_cxt);
 
     /* first region to consider is module header.  on linux this is
@@ -837,15 +837,15 @@ module_calculate_digest(OUT module_digest_t *digest,
          *      0 file pointer to raw data
          */
         if (region_len == 0) {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "skipping empty physical segment @"PFX"\n", 
+            LOG(GLOBAL, LOG_VMAREAS, 1, "skipping empty physical segment @"PFX"\n",
                 region_start);
-            /* note that such sections will still get 0-filled 
+            /* note that such sections will still get 0-filled
              * but we only look at raw bytes */
             continue;
         }
         if (!TESTANY(sec_char_include, seg_chars) ||
             TESTANY(sec_char_exclude, seg_chars)) {
-            LOG(GLOBAL, LOG_VMAREAS, 2, "skipping non-matching segment @"PFX"\n", 
+            LOG(GLOBAL, LOG_VMAREAS, 2, "skipping non-matching segment @"PFX"\n",
                 region_start);
             continue;
         }
@@ -861,7 +861,7 @@ module_calculate_digest(OUT module_digest_t *digest,
                                        short_digest ? &md5_short_cxt : NULL,
                                        region_start, region_len,
                                        header_start, header_len,
-                                       footer_start, footer_len);                                   
+                                       footer_start, footer_len);
         if (!readable) {
             DEBUG_DECLARE(bool ok = )
                 restore_unreadable_section(module_base, region_start, region_len,
@@ -871,13 +871,13 @@ module_calculate_digest(OUT module_digest_t *digest,
         }
     }
 
-    if (short_digest) 
+    if (short_digest)
         MD5Final(digest->short_MD5, &md5_short_cxt);
-    if (full_digest) 
+    if (full_digest)
         MD5Final(digest->full_MD5, &md5_full_cxt);
 
     DOCHECK(1, {
-        if (full_digest && short_digest && 
+        if (full_digest && short_digest &&
             (short_digest_size == 0 ||
              short_digest_size * 2 > module_size)) {
             ASSERT(md5_digests_equal(digest->short_MD5, digest->full_MD5));

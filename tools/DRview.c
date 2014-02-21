@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -255,7 +255,7 @@ main(int argc, char **argv)
 {
     int nprocs, argidx=1;
 
-    if (argc < 2) 
+    if (argc < 2)
         usage();
 
     while (argidx < argc) {
@@ -414,7 +414,7 @@ main(int argc, char **argv)
     }
     else
         fp=stdout;
- 
+
     /* Invoke DLL routine when -listdlls combined with either -listall or -pid or -exe */
     if (listdlls && (listall || pid || exe || listdr))
     {
@@ -462,7 +462,7 @@ get_status_string(char *buf, UINT maxchars,
     case HOTP_INJECT_DETECT :
         statptr = "Injected Detector";
         break;
-    case HOTP_INJECT_IN_PROGRESS : 
+    case HOTP_INJECT_IN_PROGRESS :
         statptr = "Injection in progress";
         break;
     case HOTP_INJECT_PENDING :
@@ -492,7 +492,7 @@ get_status_string(char *buf, UINT maxchars,
     }
 
     if (statptr == NULL || modeptr == NULL) {
-        _snprintf(buf, maxchars, 
+        _snprintf(buf, maxchars,
                   "[Status ERROR: Status=%d, Mode=%d]", status, mode);
     }
     else {
@@ -514,7 +514,7 @@ pw_callback(process_info_t *pi, void **param)
     WCHAR buf[MAX_CMDLINE];
     DWORD version;
     BOOL under_dr;
-    
+
     WCHAR qual_name[MAX_CMDLINE];
     if (exe)
         generate_process_name(pi, qual_name, BUFFER_SIZE_ELEMENTS(qual_name));
@@ -531,7 +531,7 @@ pw_callback(process_info_t *pi, void **param)
             case DLL_DEBUG : resstr=NAME" debug"; reschar='D'; break;
             case DLL_CUSTOM : resstr=NAME" custom"; reschar='C'; break;
             case DLL_NONE : resstr="native"; reschar='N'; break;
-            case DLL_UNKNOWN : 
+            case DLL_UNKNOWN :
             default : resstr="<error>"; reschar='?';
             }
 
@@ -548,7 +548,7 @@ pw_callback(process_info_t *pi, void **param)
                     WCHAR qual_name[MAX_CMDLINE];
                     WCHAR *name_to_use = pi->ProcessName;
 #ifdef X64
-                    HANDLE hproc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, 
+                    HANDLE hproc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE,
                                                (DWORD) pi->ProcessID);
                     if (is_wow64(hproc)) {
                         if (!no32)
@@ -588,7 +588,7 @@ pw_callback(process_info_t *pi, void **param)
                 }
                 if (qname) {
                     WCHAR cmdline[MAX_CMDLINE];
-                    res = get_process_cmdline(pi->ProcessID, 
+                    res = get_process_cmdline(pi->ProcessID,
                                               cmdline, BUFFER_SIZE_ELEMENTS(cmdline));
                     NULL_TERMINATE_BUFFER(cmdline);
                     if (res == ERROR_SUCCESS) {
@@ -600,9 +600,9 @@ pw_callback(process_info_t *pi, void **param)
                     if (res == ERROR_SUCCESS)
                         fprintf(fp, "\tQname: %S%s%S\n", pi->ProcessName,
                                 buf[0] == L'\0' ? "" : "-", buf);
-                    else 
+                    else
                         fprintf(fp, "\t<Qname err %d>\n", res);
-                    
+
                 }
                 if (under_dr && hotp) {
                     hotp_policy_status_table_t *status_tbl = NULL;
@@ -610,7 +610,7 @@ pw_callback(process_info_t *pi, void **param)
                     if (res == ERROR_SUCCESS) {
                         uint j;
                         hotp_policy_status_t *cur;
-                        fprintf(fp, "\tHotpatching:\n", res); 
+                        fprintf(fp, "\tHotpatching:\n", res);
                         for (j = 0; j < status_tbl->num_policies; j++) {
                             char status_buf[MAX_PATH];
                             cur = &(status_tbl->policy_status_array[j]);
@@ -649,7 +649,7 @@ pw_callback(process_info_t *pi, void **param)
                 }
                 count++;
             }
-        } 
+        }
     return TRUE;
 }
 
@@ -670,8 +670,8 @@ dllw_callback(module_info_t *mi, void **param)
   */
 
   if ( listdlls && ((pid && mi->ProcessID == pid) ||
-                    ((exe_match || 
-                      (exe && save_pid == mi->ProcessID && 
+                    ((exe_match ||
+                      (exe && save_pid == mi->ProcessID &&
                        (!exe_present || wcscmp(save_module, mi->BaseDllName) == 0)))) ||
                     (listall || listdr)))
     {
@@ -692,7 +692,7 @@ dllw_callback(module_info_t *mi, void **param)
         if (!(listdr && (res==DLL_NONE || res==DLL_UNKNOWN))) {
             if (wcsstr(mi->BaseDllName, L".exe") || wcsstr(mi->BaseDllName, L".EXE"))
             {
-                wcsncpy(save_module, mi->BaseDllName, 
+                wcsncpy(save_module, mi->BaseDllName,
                         sizeof(save_module)/sizeof(save_module[0]));
                 save_module[(sizeof(save_module)/sizeof(save_module[0]))-1] = L'\0';
                 if (!nopid && !showmem)

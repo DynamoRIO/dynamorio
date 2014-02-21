@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -62,12 +62,12 @@ vbpop()
 {
     print("in vbpop\n");
 #ifdef UNIX
-    __asm__ volatile ( 
+    __asm__ volatile (
             "push    $bad_target\n"
             "jmp     some_func\n"
        "some_func:\n"
             "call bar\n"
-            // this call needed to get the RET in its own fragment 
+            // this call needed to get the RET in its own fragment
             // otherwise we actually match the loose pattern in at_vbjmp_exception()
             // which is very similar to what's happening here in at_vbpop_exception()
             "ret\n"
@@ -92,7 +92,7 @@ void
 vbjmp()
 {
 #ifdef UNIX
-    __asm__ volatile ( 
+    __asm__ volatile (
             "mov     $0x38,%eax\n"
             "cmp     $0xc033,%ax\n"
             "mov     $0x1d6600,%edx\n"
@@ -113,7 +113,7 @@ vbjmp()
 int main(int argc, char *argv[])
 {
     int i;
-    unsigned char original670[] = 
+    unsigned char original670[] =
 "\xb8\x38\x00\x00\x00"       /* mov     eax,0x38 */
 "\x66\x3d\x33\xc0"           /* cmp     ax,0xc033 */
 "\xba\x00\x66\x1d\x00"       /* mov     edx,0x1d6600 */

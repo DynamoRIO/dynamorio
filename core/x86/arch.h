@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -37,7 +37,7 @@
 
 /* file "arch.h" -- internal x86-specific definitions
  *
- * References: 
+ * References:
  *   "Intel Architecture Software Developer's Manual", 1999.
  */
 
@@ -72,7 +72,7 @@ mixed_mode_enabled(void)
 }
 #endif
 
-/* dcontext_t field offsets 
+/* dcontext_t field offsets
  * N.B.: DO NOT USE offsetof(dcontext_t) anywhere else if passing to the
  * dcontext operand construction routines!
  * Otherwise we will have issues w/ the upcontext offset game below
@@ -138,7 +138,7 @@ mixed_mode_enabled(void)
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
 
-#ifdef TRACE_HEAD_CACHE_INCR 
+#ifdef TRACE_HEAD_CACHE_INCR
 # define TRACE_HEAD_PC_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, trace_head_pc))
 #endif
 
@@ -188,7 +188,7 @@ typedef enum {
     IBL_TRACE_CMP_UNLINKED,
 #endif
     IBL_LINKED,
-    
+
     IBL_TEMPLATE, /* a template is presumed to be always linked */
     IBL_LINK_STATE_END
 } ibl_entry_point_type_t;
@@ -197,7 +197,7 @@ typedef enum {
 /* combinations of routines which are in turn  x {unlinked, linked} */
 typedef enum {
     /* FIXME: have a separate flag for private vs shared */
-    IBL_BB_SHARED, 
+    IBL_BB_SHARED,
     IBL_SOURCE_TYPE_START = IBL_BB_SHARED,
     IBL_TRACE_SHARED,
     IBL_BB_PRIVATE,
@@ -300,16 +300,16 @@ cache_pc get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_t
                             ibl_source_fragment_type_t source_fragment_type,
                             ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode));
 cache_pc get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
-                         ibl_source_fragment_type_t source_fragment_type, 
+                         ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type);
-cache_pc get_ibl_routine_template(dcontext_t *dcontext, 
-                                  ibl_source_fragment_type_t source_fragment_type, 
+cache_pc get_ibl_routine_template(dcontext_t *dcontext,
+                                  ibl_source_fragment_type_t source_fragment_type,
                                   ibl_branch_type_t branch_type
                                   _IF_X64(gencode_mode_t mode));
 bool get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type);
 bool get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                              _IF_X64(gencode_mode_t *mode_out));
-const char *get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, 
+const char *get_ibl_routine_name(dcontext_t *dcontext, cache_pc target,
                                  const char **ibl_brtype_name);
 cache_pc get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry);
 cache_pc get_private_ibl_routine(dcontext_t *dcontext, cache_pc current_entry);
@@ -321,7 +321,7 @@ ibl_source_fragment_type_t
 get_source_fragment_type(dcontext_t *dcontext, uint fragment_flags);
 
 const char *get_target_delete_entry_name(dcontext_t *dcontext,
-                                         cache_pc target, 
+                                         cache_pc target,
                                          const char **ibl_brtype_name);
 
 #define GET_IBL_TARGET_TABLE(branch_type, target_trace_table)               \
@@ -397,7 +397,7 @@ insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool precise,
                      reg_id_t scratch, instr_t **inlined_tgt_instr);
 void
-insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, 
+insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *where, reg_id_t reg);
 uint
 prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
@@ -483,15 +483,15 @@ typedef struct patch_entry_t {
                  /* offset from dcontext->fragment_field (usually pt->trace.field),
                   * or an absolute address */
     ushort patch_flags; /* whether to use the address of location or its value */
-    short  instr_offset; /* desired offset within instruction, 
+    short  instr_offset; /* desired offset within instruction,
                             negative offsets are from end of instruction */
 } patch_entry_t;
 
 enum {
-    MAX_PATCH_ENTRIES = 
+    MAX_PATCH_ENTRIES =
 #ifdef HASHTABLE_STATISTICS
 6 +     /* will need more only for statistics */
-#endif  
+#endif
     7, /* we use 5 normally, 7 w/ -atomic_inlined_linking and inlining */
     /* Patch entry flags */
     /* Patch offset entries for dynamic updates from input variables */
@@ -500,7 +500,7 @@ enum {
     PATCH_UNPROT_STAT       = 0x04, /* address is (unprot_ht_statistics_t offs << 16) | (stats offs) */
     /* Patch offset markers update an output variable in encode_with_patch_list */
     PATCH_MARKER            = 0x08, /* if set use only as a static marker */
-    PATCH_ASSEMBLE_ABSOLUTE = 0x10, /* if set retrieve an absolute pc into given target address, 
+    PATCH_ASSEMBLE_ABSOLUTE = 0x10, /* if set retrieve an absolute pc into given target address,
                                       otherwise relative to start pc */
     PATCH_OFFSET_VALID      = 0x20, /* if set use patch_entry_t.where.offset;
                                      * else patch_entry_t.where.instr */
@@ -527,7 +527,7 @@ add_patch_marker(patch_list_t *patch, instr_t *instr, ushort patch_flags,
                  short instr_offset, ptr_uint_t *target_offset /* OUT */);
 
 int
-encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch, 
+encode_with_patch_list(dcontext_t *dcontext, patch_list_t *patch,
                        instrlist_t *ilist, cache_pc start_pc);
 
 #ifdef X64
@@ -580,12 +580,12 @@ typedef struct ibl_code_t {
 
 #ifdef HASHTABLE_STATISTICS
     /* need two offsets to get to stats, since in unprotected memory */
-    uint unprot_stats_offset; 
-    uint hashtable_stats_offset; 
+    uint unprot_stats_offset;
+    uint hashtable_stats_offset;
     /* e.g. offsetof(per_thread_t, trace) + offsetof(ibl_table_t, bb_ibl_stats) */
     /* Note hashtable statistics are associated with the hashtable for easier use when sharing IBL routines */
     uint entry_stats_to_lookup_table_offset; /* offset to (entry_stats - lookup_table)  */
-#endif 
+#endif
 } ibl_code_t;
 
 /* special ibls */
@@ -778,7 +778,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 /* PR 244737: thread-private uses shared gencode on x64 */
 #define USE_SHARED_GENCODE_ALWAYS() IF_X64_ELSE(true, false)
 /* PR 212570: on linux we need a thread-shared do_syscall for our vsyscall hook,
- * if we have TLS and support sysenter (PR 361894) 
+ * if we have TLS and support sysenter (PR 361894)
  */
 #define USE_SHARED_GENCODE()                                         \
     (USE_SHARED_GENCODE_ALWAYS() || IF_UNIX(IF_HAVE_TLS_ELSE(true, false) ||) \
@@ -820,7 +820,7 @@ ibl_code_t *get_ibl_routine_code_ex(dcontext_t *dcontext, ibl_branch_type_t bran
                                     uint fragment_flags _IF_X64(gencode_mode_t mode));
 
 /* in emit_utils.c but not exported to non-x86 files */
-byte * emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc, 
+byte * emit_inline_ibl_stub(dcontext_t *dcontext, byte *pc,
                             ibl_code_t *ibl_code, bool target_trace_table);
 byte * emit_fcache_enter(dcontext_t *dcontext, generated_code_t *code, byte *pc);
 byte * emit_fcache_return(dcontext_t *dcontext, generated_code_t *code, byte *pc);
@@ -897,7 +897,7 @@ byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte 
 #endif
 
 #ifdef UNIX
-byte * 
+byte *
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc);
 
 cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
@@ -906,7 +906,7 @@ cache_pc get_new_thread_start(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #ifdef TRACE_HEAD_CACHE_INCR
 byte *emit_trace_head_incr(dcontext_t *dcontext, byte *pc,
                            byte *fcache_return_pc);
-byte * 
+byte *
 emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_pc);
 #endif
 
@@ -952,7 +952,7 @@ instr_t *find_next_self_loop(dcontext_t *dcontext, app_pc tag, instr_t *instr);
 void replace_inst(dcontext_t *dcontext, instrlist_t *ilist, instr_t *old, instr_t *new);
 void remove_redundant_loads(dcontext_t *dcontext, app_pc tag,
                             instrlist_t *trace);
-void remove_dead_code(dcontext_t *dcontext, app_pc tag, 
+void remove_dead_code(dcontext_t *dcontext, app_pc tag,
                       instrlist_t *trace);
 
 #ifdef CHECK_RETURNS_SSE2

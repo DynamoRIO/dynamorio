@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -458,7 +458,7 @@ signal_thread_init(dcontext_t *dcontext)
                                       true /* persistent */);
 
 #ifdef HAVE_SIGALTSTACK
-    /* set up alternate stack 
+    /* set up alternate stack
      * i#552 we may terminate the process without freeing the stack, so we
      * stack_alloc it to exempt from the memory leak check.
      */
@@ -476,7 +476,7 @@ signal_thread_init(dcontext_t *dcontext)
     kernel_sigemptyset(&info->app_sigblocked);
 
     ASSIGN_INIT_LOCK_FREE(info->child_lock, child_lock);
-    
+
     /* someone must call signal_thread_inherit() to finish initialization:
      * for first thread, called from initial setup; else, from new_thread_setup
      * or share_siginfo_after_take_over.
@@ -528,7 +528,7 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
     /* i#754: set stack to be XSTATE aligned for saving YMM registers */
     ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
     *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
- 
+
     return (void *) record;
 }
 
@@ -550,14 +550,14 @@ set_clone_record_fields(void *record, reg_t app_thread_xsp, app_pc continuation_
  * it from the base of the dstack.  The dstack is then set as the app stack.
  *
  * CAUTION: don't use a lot of stack in this routine as it gets invoked on the
- *          dstack from new_thread_setup - this is because this routine assumes 
- *          no more than a page of dstack has been used so far since the clone 
+ *          dstack from new_thread_setup - this is because this routine assumes
+ *          no more than a page of dstack has been used so far since the clone
  *          system call was done.
  */
 void *
 get_clone_record(reg_t xsp)
 {
-    clone_record_t *record; 
+    clone_record_t *record;
     byte *dstack_base;
 
     /* xsp should be in a dstack, i.e., dynamorio heap.  */
@@ -665,9 +665,9 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         LOG(THREAD, LOG_ASYNCH, 1,
             "continuation pc is "PFX"\n", continuation_pc);
         LOG(THREAD, LOG_ASYNCH, 1,
-            "parent tid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n", 
+            "parent tid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n",
             record->caller_id, record->clone_sysnum,
-            record->clone_sysnum == SYS_vfork ? "vfork" : 
+            record->clone_sysnum == SYS_vfork ? "vfork" :
             IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :) "unexpected",
             record->clone_flags);
         if (record->clone_sysnum == SYS_vfork) {
@@ -784,7 +784,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         }
 
         signal_info_init_sigaction(dcontext, info);
-                
+
         info->shared_itimer = false; /* we'll set to true if a child is created */
         init_itimer(dcontext, true/*first*/);
 
@@ -830,7 +830,7 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
 #endif
             /* i#61/PR 211530: the signal we use for nudges */
             intercept_signal(dcontext, info, NUDGESIG_SIGNUM);
-        
+
             /* process any handlers app registered before our init */
             for (i=1; i<=MAX_SIGNUM; i++) {
                 if (info->we_intercept[i]) {
@@ -923,7 +923,7 @@ signal_fork_init(dcontext_t *dcontext)
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     int i;
     /* Child of fork is a single thread in a new process so should
-     * start over w/ no sharing (xref i#190/PR 452178) 
+     * start over w/ no sharing (xref i#190/PR 452178)
      */
     if (info->shared_app_sigaction) {
         info->shared_app_sigaction = false;
@@ -1136,7 +1136,7 @@ set_our_handler_sigact(kernel_sigaction_t *act, int sig)
     kernel_sigdelset(&act->mask, SUSPEND_SIGNAL);
     /* i#193/PR 287309: we need to NOT suppress further SIGSEGV, for decode faults,
      * for try/except, and for !HAVE_MEMINFO probes.
-     * Just like SUSPEND_SIGNAL, if app sends repeated SEGV, could run out of 
+     * Just like SUSPEND_SIGNAL, if app sends repeated SEGV, could run out of
      * alt stack: seems too corner-case to be worth increasing stack size.
      */
     kernel_sigdelset(&act->mask, SIGSEGV);
@@ -1206,7 +1206,7 @@ intercept_signal(dcontext_t *dcontext, thread_sig_info_t *info, int sig)
         }
 #endif
     }
-    
+
     LOG(THREAD, LOG_ASYNCH, 3, "\twe intercept signal %d\n", sig);
     info->we_intercept[sig] = true;
 }
@@ -1226,7 +1226,7 @@ handle_clone(dcontext_t *dcontext, uint flags)
         /* separate process not sharing memory */
         if ((flags & CLONE_SIGHAND) != 0) {
             /* FIXME: how deal with this?
-             * "man clone" says: "Since Linux 2.6.0-test6, flags must also 
+             * "man clone" says: "Since Linux 2.6.0-test6, flags must also
              * include CLONE_VM if CLONE_SIGHAND is specified"
              */
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: !CLONE_VM but CLONE_SIGHAND!\n");
@@ -1292,7 +1292,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
     /* i#1035: app may pass invalid signum to find MAX_SIGNUM */
     if (sig <= MAX_SIGNUM && act != NULL) {
         /* app is installing a new action */
-        
+
         while (info->num_unstarted_children > 0) {
             /* must wait for children to start and copy our state
              * before we modify it!
@@ -1350,7 +1350,7 @@ handle_sigaction(dcontext_t *dcontext, int sig, const kernel_sigaction_t *act,
             /* cancel the syscall */
             return false;
         }
-        /* now hand kernel our master handler instead of app's 
+        /* now hand kernel our master handler instead of app's
          * FIXME: double-check we're dealing w/ all possible mask, flag
          * differences between app & our handler
          */
@@ -1753,14 +1753,14 @@ translate_sigcontext(dcontext_t *dcontext,  sigcontext_t *sc, bool avoid_failure
 {
     bool success = false;
     priv_mcontext_t mcontext;
- 
+
     sigcontext_to_mcontext(&mcontext, sc);
     /* FIXME: if cannot find exact match, we're in trouble!
      * probably ok to delay, since that indicates not a synchronous
-     * signal. 
+     * signal.
      */
-    /* FIXME : in_fcache() (called by recreate_app_state) grabs fcache 
-     * fcache_unit_areas.lock, we could deadlock! Also on initexit_lock 
+    /* FIXME : in_fcache() (called by recreate_app_state) grabs fcache
+     * fcache_unit_areas.lock, we could deadlock! Also on initexit_lock
      * == PR 205795/1317
      */
     /* For safe recreation we need to either be couldbelinking or hold the
@@ -1769,7 +1769,7 @@ translate_sigcontext(dcontext_t *dcontext,  sigcontext_t *sc, bool avoid_failure
      */
     mutex_lock(&thread_initexit_lock);
     /* PR 214962: we assume we're going to relocate to this stored context,
-     * so we restore memory now 
+     * so we restore memory now
      */
     if (translate_mcontext(dcontext->thread_record, &mcontext,
                            true/*restore memory*/, f)) {
@@ -1876,13 +1876,13 @@ sig_has_restorer(thread_sig_info_t *info, int sig)
          *   0xffffe420 <__kernel_sigreturn+0>:      pop    %eax
          *   0xffffe421 <__kernel_sigreturn+1>:      mov    $0x77,%eax
          *   0xffffe426 <__kernel_sigreturn+6>:      int    $0x80
-         *   
+         *
          *   0xffffe440 <__kernel_rt_sigreturn+0>:   mov    $0xad,%eax
          *   0xffffe445 <__kernel_rt_sigreturn+5>:   int    $0x80
          */
         static const byte SIGRET_NONRT[8] =
           {0x58, 0xb8, 0x77, 0x00, 0x00, 0x00, 0xcd, 0x80};
-        static const byte SIGRET_RT[8] = 
+        static const byte SIGRET_RT[8] =
           {0xb8, 0xad, 0x00, 0x00, 0x00, 0xcd, 0x80};
         byte buf[MAX(sizeof(SIGRET_NONRT), sizeof(SIGRET_RT))]= {0};
         if (safe_read(info->app_sigaction[sig]->restorer, sizeof(buf), buf) &&
@@ -1988,7 +1988,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
             LOG(THREAD, LOG_ASYNCH, 3,
                 "\tnot inside alt stack, so using base xsp "PFX"\n", sp);
         }
-    } 
+    }
     /* now get frame pointer: need to go down to first field of frame */
     sp -= get_app_frame_size(info, sig);
 #ifdef LINUX
@@ -2107,7 +2107,7 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
         if (f_old->pretcode == f_old->retcode)
             f_new->pretcode = f_new->retcode;
         /* else, pointing at vsyscall, or we set it to dynamorio_sigreturn in
-         * master_signal_handler 
+         * master_signal_handler
          */
         LOG(THREAD, LOG_ASYNCH, level, "\tleaving pretcode with old value\n");
 #    endif
@@ -2394,18 +2394,18 @@ send_signal_to_client(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         si.raw_mcontext_valid = true;
         sigcontext_to_mcontext(dr_mcontext_as_priv_mcontext(si.raw_mcontext), raw_sc);
         /* i#207: fragment tag and fcache start pc on fault. */
-        /* FIXME: we should avoid the fragment_pclookup since it is expensive 
-         * and since we already did the work of a lookup when translating 
+        /* FIXME: we should avoid the fragment_pclookup since it is expensive
+         * and since we already did the work of a lookup when translating
          */
         if (fragment == NULL)
             fragment = fragment_pclookup(dcontext, si.raw_mcontext->pc, &wrapper);
         if (fragment != NULL && !hide_tag_from_client(fragment->tag)) {
             si.fault_fragment_info.tag = fragment->tag;
             si.fault_fragment_info.cache_start_pc = FCACHE_ENTRY_PC(fragment);
-            si.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE, 
+            si.fault_fragment_info.is_trace = TEST(FRAG_IS_TRACE,
                                                     fragment->flags);
-            si.fault_fragment_info.app_code_consistent = 
-                !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED, 
+            si.fault_fragment_info.app_code_consistent =
+                !TESTANY(FRAG_WAS_DELETED|FRAG_SELFMOD_SANDBOXED,
                          fragment->flags);
         }
     } else
@@ -2854,7 +2854,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 /* PR 213040: we can't unlink coarse.  If we fail to translate
                  * we'll switch back to delaying, below.
                  */
-                if (sig_is_alarm_signal(sig) && 
+                if (sig_is_alarm_signal(sig) &&
                     info->sigpending[sig] != NULL &&
                     info->sigpending[sig]->next != NULL &&
                     info->skip_alarm_xl8 > 0) {
@@ -3059,7 +3059,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
             execute_default_from_cache(dcontext, sig, frame, &sc_orig);
             ASSERT_NOT_REACHED();
         }
-        
+
         /* Happened in DR, do not translate context.  Record for later processing
          * at a safe point with a clean app state.
          */
@@ -3100,7 +3100,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
              *  since don't want to pass dynamo pc context to app handler.
              *  only copy frame for synchronous signals?  those only
              *  happen while in cache?  but for asynch, we would have to
-             *  construct our own frame...kind of a pain.  
+             *  construct our own frame...kind of a pain.
              */
             copy_frame_to_pending(dcontext, sig, frame _IF_CLIENT(access_address));
 
@@ -3549,7 +3549,7 @@ master_signal_handler_C(byte *xsp)
         sig, *((byte **)xsp));
     LOG(THREAD, LOG_ASYNCH, level+1,
         "siginfo: pid = %d, status = %d, errno = %d, si_code = %d\n",
-        siginfo->si_pid, siginfo->si_status, siginfo->si_errno, 
+        siginfo->si_pid, siginfo->si_status, siginfo->si_errno,
         siginfo->si_code);
     DOLOG(level+1, LOG_ASYNCH, { dump_sigcontext(dcontext, sc); });
 
@@ -3560,7 +3560,7 @@ master_signal_handler_C(byte *xsp)
      * or if we explicitly point at dynamorio_sigreturn.  I couldn't figure
      * out why it kept putting 0x440 there.  So we fix the issue w/ this
      * hardcoded return.
-     * This hack causes vmkernel to kill the process on sigreturn due to 
+     * This hack causes vmkernel to kill the process on sigreturn due to
      * vmkernel's non-standard sigreturn semantics.  PR 404712.
      */
     *((byte **)xsp) = (byte *) dynamorio_sigreturn;
@@ -3836,13 +3836,13 @@ master_signal_handler_C(byte *xsp)
         break;
     }
 #endif
-    
+
     default: {
         record_pending_signal(dcontext, sig, ucxt, frame, false _IF_CLIENT(NULL));
         break;
     }
     } /* end switch */
-    
+
     LOG(THREAD, LOG_ASYNCH, level, "\tmaster_signal_handler %d returning now\n\n", sig);
 
     /* restore protections */
@@ -3869,7 +3869,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
                                                  * interruption point */);
 
 #ifdef CLIENT_INTERFACE
-    dr_signal_action_t action = 
+    dr_signal_action_t action =
         send_signal_to_client(dcontext, sig, our_frame, sc_orig, access_address,
                               false/*not blocked*/, f);
     if (!handle_client_action_from_cache(dcontext, sig, action, our_frame, sc_orig,
@@ -4100,7 +4100,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
     /* now that we've made all our changes and given the client a
      * chance to make changes, copy the frame to the appropriate stack
-     * location and convert to non-rt if necessary 
+     * location and convert to non-rt if necessary
      */
     copy_frame_to_stack(dcontext, sig, frame, xsp);
     /* now point at the app's frame */
@@ -4134,7 +4134,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 #endif
     /* Clear eflags DF (signal handler should match function entry ABI) */
     mcontext->xflags &= ~EFLAGS_DF;
-    /* Make sure handler is next thing we execute */       
+    /* Make sure handler is next thing we execute */
     dcontext->next_tag = (app_pc) handler;
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
@@ -4347,7 +4347,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
                 KSTOP_REWIND_UNTIL(thread_measured);
                 /* We try to raise the same signal in app's context so a correct
                  * coredump can be generated. However, the client might change
-                 * the code in a way that the corresponding app code won't 
+                 * the code in a way that the corresponding app code won't
                  * raise the signal, so we first check if the app instr is the
                  * same as instr in the cache, and raise the signal (by return).
                  * Otherwise, we kill the process instead.
@@ -4522,7 +4522,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
         /* use si_signo instead of sig, less likely to be clobbered by app */
         sig = frame->info.si_signo;
 #ifndef X64
-        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d (did == param %d)\n", 
+        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d (did == param %d)\n",
             sig, frame->sig);
         if (frame->sig != sig)
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: app sig handler clobbered sig param\n");
@@ -4550,7 +4550,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
          * wasn't copied to stack by us.
          */
         sig = frame->sig_noclobber;
-        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d (did == param %d)\n", 
+        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d (did == param %d)\n",
             sig, frame->sig);
         if (frame->sig != sig)
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: app sig handler clobbered sig param\n");
@@ -4675,7 +4675,7 @@ is_signal_restorer_code(byte *pc, size_t *len)
     /* b8 s4 s3 s2 s1 cd 80 XX */
     static const uint rt_1w = reverse(0xb8000000 | (reverse(SYS_RT_SIGRET) >> 8));
     static const uint rt_2w = reverse((reverse(SYS_RT_SIGRET) << 24) | 0x00cd8000);
-    /* test rt first as it's the most common 
+    /* test rt first as it's the most common
      * only 7 bytes here so we ignore the last one (becomes msb since little-endian)
      */
     if (*((uint *)pc) == rt_1w && (*((uint *)(pc+4)) & 0x00ffffff) == rt_2w) {
@@ -4862,7 +4862,7 @@ bool
 at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragment)
 {
     /* There is a known exception in signal restorers and the Linux dynamic symbol resoulution */
-    /* The latter we assume it is the only other recurring known exception, 
+    /* The latter we assume it is the only other recurring known exception,
        so the first time we pattern match to help make sure it is indeed _dl_runtime_resolve
        (since with LD_BIND_NOW it will never be called).  After that we compare with the known value. */
 
@@ -4872,7 +4872,7 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
     LOG(THREAD, LOG_INTERP, 1, "RCT: testing for KNOWN exception "PFX" "PFX"\n",
         target_pc, source_fragment);
 
-    /* Check if this is a signal return.   
+    /* Check if this is a signal return.
        FIXME: we should really get that from the frame itself.
        Since currently grabbing restorer only when copying a frame,
        this will work with nested signals only if they all have same restorer
@@ -5105,7 +5105,7 @@ handle_alarm(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt)
     /* This alarm could have interrupted an app thread making an itimer syscall */
     if (info->shared_itimer) {
         if (self_owns_recursive_lock(info->shared_itimer_lock)) {
-            /* What can we do?  We just go ahead and hope conflicting writes work out. 
+            /* What can we do?  We just go ahead and hope conflicting writes work out.
              * We don't re-acquire in case app was in middle of acquiring.
              */
         } else if (try_recursive_lock(info->shared_itimer_lock) ||
@@ -5441,7 +5441,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     /* i#96/PR 295561: use futex(2) if available */
     while (ksynch_get_value(&ostd->wakeup) == 0) {
         /* Waits only if the wakeup flag is not set as 1. Return value
-         * doesn't matter because the flag will be re-checked. 
+         * doesn't matter because the flag will be re-checked.
          */
         ksynch_wait(&ostd->wakeup, 0);
         if (ksynch_get_value(&ostd->wakeup) == 0) {
@@ -5456,7 +5456,7 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ostd->suspended_sigcxt = NULL;
 
     /* Notify os_thread_resume that it can return now, which (assuming
-     * suspend_count is back to 0) means it's then safe to re-suspend. 
+     * suspend_count is back to 0) means it's then safe to re-suspend.
      */
     ksynch_set_value(&ostd->suspended, 0); /* reset prior to signalling os_thread_resume */
     ksynch_set_value(&ostd->resumed, 1);

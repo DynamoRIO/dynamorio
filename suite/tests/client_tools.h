@@ -79,7 +79,7 @@
 # define IF_WINDOWS(x) x
 #else
 # define IF_WINDOWS_ELSE(x, y) y
-# define IF_WINDOWS(x) 
+# define IF_WINDOWS(x)
 #endif
 
 #endif /* DR_CLIENT_TOOLS_H */

@@ -5,18 +5,18 @@
 
 ;// Redistribution and use in source and binary forms, with or without
 ;// modification, are permitted provided that the following conditions are met:
-;// 
+;//
 ;// * Redistributions of source code must retain the above copyright notice,
 ;//   this list of conditions and the following disclaimer.
-;// 
+;//
 ;// * Redistributions in binary form must reproduce the above copyright notice,
 ;//   this list of conditions and the following disclaimer in the documentation
 ;//   and/or other materials provided with the distribution.
-;// 
+;//
 ;// * Neither the name of VMware, Inc. nor the names of its contributors may be
 ;//   used to endorse or promote products derived from this software without
 ;//   specific prior written permission.
-;// 
+;//
 ;// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 ;// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 ;// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 
 ;// TODO: We have to figure how to get all of this export something nice for Linux syslog
 
-;// DO not use TABS or COMMAS (,) in the messages 
+;// DO not use TABS or COMMAS (,) in the messages
 ;// ADD NEW MESSAGES AT THE END
 
 MessageIdTypedef=uint
@@ -61,7 +61,7 @@ FacilityNames=(
 )
 
 ;// default
-;//FIXME: can't override - I still want to change the name of the .BIN files 
+;//FIXME: can't override - I still want to change the name of the .BIN files
 ;//LanguageNames=(English=1:EVMSG001)
 
 ;//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -88,7 +88,7 @@ Language=English
 ;// Info messages
 ;// NOTE: All message regarding applications should have app name and pid as the
 ;// first 2 arguments - otherwise controller will break.
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INFO_PROCESS_START
@@ -98,7 +98,7 @@ MD5: %3!s!
 .
 
 ;// Avoid the MD5 output for CLIENT_INTERFACE
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INFO_PROCESS_START_CLIENT
@@ -108,7 +108,7 @@ Starting application %1!s! (%2!s!)
 
 ;// Info messages
 ;// empty MessageId value means previous +1
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INFO_PROCESS_STOP
@@ -117,7 +117,7 @@ Stopping application %1!s! (%2!s!)
 .
 
 ;// Info messages
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INFO_DETACHING
@@ -127,50 +127,50 @@ Detaching from application %1!s! (%2!s!)
 
 ;//;;;;;;;;;;;;;;;;;;; Security
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_SEC_VIOLATION_TERMINATED
 Language=English
-A security violation was intercepted in application %1!s! (%2!s!).  
-Threat ID: %3!s!.  
+A security violation was intercepted in application %1!s! (%2!s!).
+Threat ID: %3!s!.
 Program terminated.
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_SEC_VIOLATION_CONTINUE
 Language=English
-A security violation was intercepted in application %1!s! (%2!s!).  
-Threat ID: %3!s!.  
+A security violation was intercepted in application %1!s! (%2!s!).
+Threat ID: %3!s!.
 Running in test mode - program continuing.
 Your system may have been compromised.
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_SEC_VIOLATION_THREAD
 Language=English
 A security violation was intercepted in application %1!s! (%2!s!).
-Threat ID: %3!s!.  
-Program continuing after terminating faulty thread. 
+Threat ID: %3!s!.
+Program continuing after terminating faulty thread.
 Some application functionality may be lost.
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_SEC_VIOLATION_EXCEPTION
 Language=English
 A security violation was intercepted in application %1!s! (%2!s!).
-Threat ID: %3!s!.  
+Threat ID: %3!s!.
 Program continuing after throwing an exception.
 Application may terminate.
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_CRITICAL
@@ -178,7 +178,7 @@ Language=English
 Application %1!s! (%2!s!).  Internal Critical Error: %3!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_ERROR
@@ -186,7 +186,7 @@ Language=English
 Application %1!s! (%2!s!).  Internal Error: %3!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_WARNING
@@ -194,7 +194,7 @@ Language=English
 Application %1!s! (%2!s!).  Internal Warning: %3!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = DRCore
 SymbolicName = MSG_INTERNAL_SYSLOG_INFORMATION
@@ -202,7 +202,7 @@ Language=English
 Application %1!s! (%2!s!).  Internal Information: %3!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_EXCEPTION
@@ -210,7 +210,7 @@ Language=English
 Application %1!s! (%2!s!).  Platform exception at PC %3!s!.  Please report this.  Program aborted. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_EXCEPTION
@@ -218,7 +218,7 @@ Language=English
 Application %1!s! (%2!s!).  Client exception at PC %3!s!.  Program aborted. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_APP_EXCEPTION
@@ -226,7 +226,7 @@ Language=English
 Application %1!s! (%2!s!).  Application exception at PC %3!s!.  %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_OUT_OF_MEMORY
@@ -234,7 +234,7 @@ Language=English
 Application %1!s! (%2!s!).  Out of memory.  Program aborted. Status %3!s! 0x%4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_UNSUPPORTED_APPLICATION
@@ -242,7 +242,7 @@ Language=English
 Application %1!s! (%2!s!) is not supported due to dll %3!s!.  Program aborted.
 .
 
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_WARNING_REPORT_THRESHOLD
@@ -250,7 +250,7 @@ Language=English
 Application %1!s! (%2!s!) has reached its report threshold.  No more violations will be logged.
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_UNABLE_TO_CREATE_BASEDIR
@@ -258,7 +258,7 @@ Language=English
 Application %1!s! (%2!s!) unable to create directory %3!s! for forensics file
 .
 
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_WARNING_EMPTY_OR_NONEXISTENT_LOGDIR_KEY
@@ -266,7 +266,7 @@ Language=English
 Application %1!s! (%2!s!) has no directory specified for forensics files
 .
 
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_UNSUPPORTED_OS_VERSION
@@ -274,7 +274,7 @@ Language=English
 Application %1!s! (%2!s!) is running on an unsupported operating system (%3!s!)
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_SEC_FORENSICS
@@ -282,7 +282,7 @@ Language=English
 Forensics file for security violation in application %1!s! (%2!s!) created at %3!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_TOO_LONG_TO_PARSE
@@ -290,7 +290,7 @@ Language=English
 Application %1!s! (%2!s!) option %3!s! is too long to parse. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_BAD_NUMBER_FORMAT
@@ -298,7 +298,7 @@ Language=English
 Application %1!s! (%2!s!). Option parsing error : unrecognized number format %3!s!. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN_SIZE_SPECIFIER
@@ -306,7 +306,7 @@ Language=English
 Application %1!s! (%2!s!). Option parsing error : unrecognized size factor %3!s!. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN_TIME_SPECIFIER
@@ -314,7 +314,7 @@ Language=English
 Application %1!s! (%2!s!). Option parsing error : unrecognized time factor %3!s!. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_OPTION_UNKNOWN
@@ -322,7 +322,7 @@ Language=English
 Application %1!s! (%2!s!). Option parsing error : unknown option %3!s!. %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_CONFIG_FILE_INVALID
@@ -330,7 +330,7 @@ Language=English
 Application %1!s! (%2!s!). Config file parsing error : invalid line %3!s!.
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_BAD_OS_VERSION
@@ -338,7 +338,7 @@ Language=English
 Application %1!s! (%2!s!) %3!s! does not run on %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_OPTION_VERIFICATION_RECURSION
@@ -346,7 +346,7 @@ Language=English
 Application %1!s! (%2!s!) bad option string, unable to continue.
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_TAMPERED_NTDLL
@@ -355,7 +355,7 @@ Application %1!s! (%2!s!). System library ntdll.dll has been tampered with, unab
 .
 
 ;#ifdef CHECK_RETURNS_SSE2
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CHECK_RETURNS_SSE2_XMM_USED
@@ -363,7 +363,7 @@ Language=English
 Application %1!s! (%2!s!). Check returns using SSE2 assumption violated, app is using the xmm registers
 .
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CHECK_RETURNS_SSE2_REQUIRES_SSE2
@@ -373,7 +373,7 @@ Application %1!s! (%2!s!). Check returns using SSE2 requires that the processor 
 
 ;#endif
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_EXTERNAL_ERROR
@@ -381,7 +381,7 @@ Language=English
 Application %1!s! (%2!s!) %3!s! usage error : %4!s!
 .
 
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_LDMP
@@ -390,12 +390,12 @@ Core dump file for application %1!s! (%2!s!) created at %3!s!
 .
 
 ;#ifdef HOT_PATCHING_INTERFACE
-MessageId = 
+MessageId =
 Severity = Informational
 Facility = Security
 SymbolicName = MSG_HOT_PATCH_VIOLATION
 Language=English
-A security violation was intercepted in application %1!s! (%2!s!).  
+A security violation was intercepted in application %1!s! (%2!s!).
 Threat ID: %3!s!.
 .
 
@@ -409,7 +409,7 @@ A LiveShield Sentry failure was intercepted in application %1!s! (%2!s!) at addr
 
 ;#endif
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_ERROR_REGISTRY_PARAMETER_TOO_LONG
@@ -418,16 +418,16 @@ Application %1!s! (%2!s!). Error reading registry : registry parameter %3!s! exc
 .
 
 ;// FIXME - do we want a more cryptic error messages (such as the out of memory one) that
-;// requires going back to Determina for resolution, or do we want the message to be 
+;// requires going back to Determina for resolution, or do we want the message to be
 ;// potentially actionable by the customer? FIXME - warning or error?
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_LOW_ON_VMM_MEMORY
 Language=English
 Application %1!s! (%2!s!).  Potentially thrashing on low virtual memory; suggest increasing the -vm_size option for this application.
 .
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_LOW_ON_COMMITTABLE_MEMORY
@@ -509,7 +509,7 @@ Application %1!s! (%2!s!). Basic block or trace instrumentation exceeded maximum
 .
 ;#endif
 
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_SYSENTER_NOT_SUPPORTED
@@ -549,14 +549,14 @@ Max number of modules with tls variables exceeded.
 ;#endif
 
 ;#if defined(UNIX) && defined(CLIENT_INTERFACE)
-MessageId = 
+MessageId =
 Severity = Warning
 Facility = DRCore
 SymbolicName = MSG_UNDEFINED_SYMBOL
 Language=English
 WARNING! symbol lookup error: %1!s! undefined symbol %2!s!
 .
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_UNDEFINED_SYMBOL_REFERENCE
@@ -566,7 +566,7 @@ ERROR: using undefined symbol!
 ;#endif
 
 ;#ifdef UNIX
-MessageId = 
+MessageId =
 Severity = Error
 Facility = DRCore
 SymbolicName = MSG_FIXED_MAP_OVERLAPS_DR

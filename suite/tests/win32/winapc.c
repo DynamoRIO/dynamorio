@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,7 +57,7 @@ run_func(void * arg)
     /* now the alertable system call */
     res = SleepEx(100, 1);
     /* is going to return 192 since received apc during sleep call
-     * well technically 192 is io completion interruption, but seems to 
+     * well technically 192 is io completion interruption, but seems to
      * report that for any interrupting APC */
     printf("SleepEx returned %d\n", res);
     printf("Apc arg = %d\n", (int) apc_arg);
@@ -96,7 +96,7 @@ main()
     res = QueueUserAPC(apc_func, hThread, 37);
     printf("QueueUserAPC returned %d\n", res);
     fflush(stdout);
-    
+
     synch_1 = FALSE;
 
     WaitForSingleObject((HANDLE)hThread, INFINITE);

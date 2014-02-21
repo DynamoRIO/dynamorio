@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -49,18 +49,18 @@ WCHAR *msg_id_keys[] = {
 };
 
 msg_id
-get_msgkey_id(WCHAR *msgk) 
+get_msgkey_id(WCHAR *msgk)
 {
     msg_id id = -1;
 
-    DO_DEBUG(DL_FINEST, 
+    DO_DEBUG(DL_FINEST,
              printf("trying to ID %S\n", msgk);
              );
-    
+
     while (++id != MSGKEY_BAD_FIELD)
         if(0 == wcscmp(msg_id_keys[id], msgk))
             break;
-    
+
     return id;
 }
 
@@ -146,7 +146,7 @@ parse_policy(char *policy_definition,
     while(!parsing_done) {
 
         if (mfield != MSGKEY_BEGIN_BLOCK) {
-            DO_DEBUG(DL_ERROR, 
+            DO_DEBUG(DL_ERROR,
                      printf("BEGIN_BLOCK not found, instead %S\n", namebuf);
                      );
             return ERROR_PARSE_ERROR;
@@ -170,7 +170,7 @@ parse_policy(char *policy_definition,
             return ERROR_PARSE_ERROR;
         }
 
-        DO_DEBUG(DL_FINEST, 
+        DO_DEBUG(DL_FINEST,
                  printf("'%S' is the app being parsed\n", app->name);
                  );
 
@@ -191,25 +191,25 @@ parse_policy(char *policy_definition,
                 DO_DEBUG(DL_VERB,
                          printf("mf=%s\n", modes_file);
                          );
-                polstr = 
+                polstr =
                     get_message_block_size(polstr,
                                            msg_id_keys[MSGKEY_END_MP_MODES],
                                            &modes_file_size);
                 if (modes_file_size == 0xffffffff)
                     return ERROR_PARSE_ERROR;
-                
+
                 continue;
             }
 
-            DO_DEBUG(DL_VERB, 
-                     printf("option setting: %S, %S=%S\n", 
+            DO_DEBUG(DL_VERB,
+                     printf("option setting: %S, %S=%S\n",
                             app_name, namebuf, valuebuf);
                      );
 
             set_config_group_parameter(app, namebuf, valuebuf);
-            
+
         } //for(;;)
-        
+
         /* FIXME:
          * strictly speaking, this isn't parsing, and so it's
          *  kind of messy to be doing this here. (eg: notice that
@@ -222,8 +222,8 @@ parse_policy(char *policy_definition,
             WCHAR modes_filename[MAX_PATH];
             int j;
 
-            modes_path = 
-                get_config_group_parameter(app, 
+            modes_path =
+                get_config_group_parameter(app,
                                            L_DYNAMORIO_VAR_HOT_PATCH_MODES);
             if (modes_path == NULL) {
                 DO_DEBUG(DL_ERROR,
@@ -239,7 +239,7 @@ parse_policy(char *policy_definition,
             for (j = 0; engines[j] != 0; j++) {
                 _snwprintf(modes_filename, MAX_PATH, L"%s\\%d\\%S",
                            modes_path, engines[j], HOTP_MODES_FILENAME);
-                res = write_file_contents_if_different(modes_filename, 
+                res = write_file_contents_if_different(modes_filename,
                                                        modes_file, &changed);
             }
 
@@ -272,12 +272,12 @@ parse_policy(char *policy_definition,
 /* timeout for nudge reset operation */
 #define DEFAULT_RESET_TIMEOUT_MS 30*1000
 
-/* to mitigate the possibility of bringing the system to a halt, wait 
+/* to mitigate the possibility of bringing the system to a halt, wait
  * 2 seconds between process resets. */
 #define DEFAULT_RESET_DELAY_MS 2*1000
 
 DWORD
-policy_import(char *policy_definition, BOOL synchronize_system, 
+policy_import(char *policy_definition, BOOL synchronize_system,
               BOOL *inject_flag, DWORD *warning)
 {
     ConfigGroup *policy;
@@ -301,8 +301,8 @@ policy_import(char *policy_definition, BOOL synchronize_system,
         return res;
 
     /* note global protect is optional */
-    global_protect = 
-        get_config_group_parameter(options, 
+    global_protect =
+        get_config_group_parameter(options,
                                    msg_id_keys[MSGKEY_GLOBAL_PROTECT]);
 
 
@@ -311,7 +311,7 @@ policy_import(char *policy_definition, BOOL synchronize_system,
         if (_wtoi(global_protect)) {
             if (inject_flag != NULL)
                 *inject_flag = TRUE;
-            else 
+            else
                 set_autoinjection();
         }
         else {
@@ -325,7 +325,7 @@ policy_import(char *policy_definition, BOOL synchronize_system,
                      *  preinject in permanently, and only remove it at
                      *  uninstall.  this is ok for global protect = OFF
                      *  since that message will come with an empty list of
-                     *  apps, so nothing will be run under dr. 
+                     *  apps, so nothing will be run under dr.
                      * but for slightly saner platforms we prefer to take
                      *  the safe route of clearing out the appinit value. */
                     unset_autoinjection();
@@ -354,14 +354,14 @@ policy_import(char *policy_definition, BOOL synchronize_system,
                                                     L_DYNAMORIO_VAR_OPTIONS);
         if (global_options == NULL ||
             wcsstr(global_options, L"-thin_client") == NULL) {
-            res = detach_all_not_in_config_group(policy, 
+            res = detach_all_not_in_config_group(policy,
                                                  DETACH_RECOMMENDED_TIMEOUT);
         }
         if (res != ERROR_SUCCESS) {
             DO_DEBUG(DL_WARN,
                      printf("error %d doing consistency detach!\n", res);
                      );
-            
+
             if (warning && *warning != ERROR_SUCCESS)
                 *warning = res;
         }
@@ -375,7 +375,7 @@ policy_import(char *policy_definition, BOOL synchronize_system,
          * sleep - parameterize the sleep and check its uses to see if it can
          * be made generic.  02-Nov-06: Bharath. */
         /* FIXME: Also, there are two layers of delaying/sleeping one at
-         * reset_threadproc() level and one at the process_walk level for 
+         * reset_threadproc() level and one at the process_walk level for
          * nudges.  Why wasn't one enough?  02-Nov-06e: Bharath */
         /* FIXME: return value from generic_nudge_all and
          * hotp_notify_all_modes_update (and hotp_notify_all_defs_update else
@@ -390,13 +390,13 @@ policy_import(char *policy_definition, BOOL synchronize_system,
                                 DEFAULT_RESET_TIMEOUT_MS, 0);
 
 
-        /* FIXME: for now we do this at every policy update, but 
+        /* FIXME: for now we do this at every policy update, but
          *  maybe should be more efficient? */
         res = hotp_notify_all_modes_update(DETACH_RECOMMENDED_TIMEOUT);
 
         if (res != ERROR_SUCCESS) {
 
-            DO_DEBUG(DL_WARN, 
+            DO_DEBUG(DL_WARN,
                      printf("Hotpatch nudge failed! %d\n", res);
                      );
 
@@ -409,7 +409,7 @@ policy_import(char *policy_definition, BOOL synchronize_system,
     free_config_group(options);
     free_config_group(policy);
 
-    DO_DEBUG(DL_INFO, 
+    DO_DEBUG(DL_INFO,
              printf("Processed policy update.\n");
              );
 
@@ -464,12 +464,12 @@ append_policy_block(char *policy_buffer, SIZE_T maxchars, SIZE_T *accumlen,
 {
     NameValuePairNode *nvpn = NULL;
 
-    msg_append(policy_buffer, maxchars, 
+    msg_append(policy_buffer, maxchars,
                msg_id_keys[MSGKEY_BEGIN_BLOCK], accumlen);
     msg_append(policy_buffer, maxchars, L_NEWLINE, accumlen);
 
     if (0 == wcscmp(cfg->name, L_PRODUCT_NAME)) {
-        msg_append(policy_buffer, maxchars, 
+        msg_append(policy_buffer, maxchars,
                    msg_id_keys[MSGKEY_GLOBAL], accumlen);
         msg_append(policy_buffer, maxchars, L_NEWLINE, accumlen);
     }
@@ -484,8 +484,8 @@ append_policy_block(char *policy_buffer, SIZE_T maxchars, SIZE_T *accumlen,
                        nvpn->name, nvpn->value);
     }
 
-    msg_append(policy_buffer, maxchars, 
-               msg_id_keys[MSGKEY_END_BLOCK], accumlen);    
+    msg_append(policy_buffer, maxchars,
+               msg_id_keys[MSGKEY_END_BLOCK], accumlen);
     msg_append(policy_buffer, maxchars, L_NEWLINE, accumlen);
 }
 
@@ -536,7 +536,7 @@ load_policy(WCHAR *filename, BOOL synchronize_system, DWORD *warning)
 
     res = read_file_contents(filename, NULL, 0, &len);
     DO_ASSERT(res == ERROR_MORE_DATA);
-    
+
     policy = (char *) malloc(len);
     res = read_file_contents(filename, policy, len, NULL);
     if (res != ERROR_SUCCESS)
@@ -559,12 +559,12 @@ save_policy(WCHAR *filename)
     res = policy_export(NULL, 0, &len);
     if (res != ERROR_MORE_DATA && res != ERROR_SUCCESS)
         return res;
-    
+
     policy = (char *) malloc(len);
     policy[0] = '\0';
 
     res = policy_export(policy, len, NULL);
-    
+
     if (res == ERROR_SUCCESS) {
         res = write_file_contents(filename, policy, TRUE);
     }
@@ -587,30 +587,30 @@ test_sample_mfp(ConfigGroup *globals, ConfigGroup *config)
 
     if (globals != NULL) {
         DO_ASSERT_WSTR_EQ(L"77777",
-                          get_config_group_parameter(globals, 
+                          get_config_group_parameter(globals,
                                                      L"POLICY_VERSION"));
     }
 
-    DO_ASSERT_WSTR_EQ(L"1", 
-                      get_config_group_parameter(config, 
+    DO_ASSERT_WSTR_EQ(L"1",
+                      get_config_group_parameter(config,
                                                  L"DYNAMORIO_RUNUNDER"));
-    DO_ASSERT_WSTR_EQ(L"", 
-                      get_config_group_parameter(config, 
+    DO_ASSERT_WSTR_EQ(L"",
+                      get_config_group_parameter(config,
                                                  L"DYNAMORIO_OPTIONS"));
-    DO_ASSERT(NULL != 
-              wcsstr(get_config_group_parameter(config, 
+    DO_ASSERT(NULL !=
+              wcsstr(get_config_group_parameter(config,
                                                 L"DYNAMORIO_AUTOINJECT"),
                      L"\\lib\\77777\\dynamorio.dll"));
-    
+
     chld = get_child(L"svchost.exe-bitsgroup", config);
     DO_ASSERT(chld != NULL);
 
     DO_ASSERT_WSTR_EQ(L"17",
                       get_config_group_parameter(chld, L"DYNAMORIO_RUNUNDER"));
-    DO_ASSERT_WSTR_EQ(L"-report_max 0 -kill_thread -kill_thread_max 1000", 
+    DO_ASSERT_WSTR_EQ(L"-report_max 0 -kill_thread -kill_thread_max 1000",
                       get_config_group_parameter(chld, L"DYNAMORIO_OPTIONS"));
     DO_ASSERT(NULL !=
-              wcsstr(get_config_group_parameter(chld, 
+              wcsstr(get_config_group_parameter(chld,
                                                 L"DYNAMORIO_AUTOINJECT"),
                      L"\\lib\\77777\\dynamorio.dll"));
 }
@@ -632,10 +632,10 @@ main()
     res = read_file_contents(sample, NULL, 0, &len);
     DO_ASSERT(res == ERROR_MORE_DATA);
     DO_ASSERT(len > 1000);
-    
+
     policy = (char *) malloc(len);
     res = read_file_contents(sample, policy, len, NULL);
-    DO_ASSERT(res == ERROR_SUCCESS);    
+    DO_ASSERT(res == ERROR_SUCCESS);
 
 
     /* parse_policy_line tests */
@@ -684,7 +684,7 @@ main()
     }
 
     /* parse policy tests */
-    { 
+    {
         ConfigGroup *config, *globals;
 
         res = parse_policy(policy, &config, &globals, FALSE);
@@ -704,7 +704,7 @@ main()
     }
 
     /* import policy tests */
-    { 
+    {
         DWORD warning;
         ConfigGroup *config;
 
@@ -733,7 +733,7 @@ main()
         res = policy_export(NULL, 0, &len);
         DO_ASSERT(res == ERROR_MORE_DATA);
         DO_ASSERT(len > 1000);
-    
+
         outpol = (char *) malloc(len);
         outpol[0] = '\0';
         res = policy_export(outpol, len, NULL);
@@ -759,7 +759,7 @@ main()
         CHECKED_OPERATION(read_config_group(&c, L_PRODUCT_NAME, TRUE));
         test_sample_mfp(NULL, c);
         free_config_group(c);
-        
+
         delete_file_rename_in_use(L"test2.mfp");
         CHECKED_OPERATION(save_policy(L"test2.mfp"));
     }

@@ -13,7 +13,7 @@ Process calc.exe, running SC profile
 Process calc.exe, running SC release
 #  endif
 # endif
-#if defined(no_coarse_units) || defined(client) || defined(low) || defined(hotp_only) || defined(thin_client) 
+#if defined(no_coarse_units) || defined(client) || defined(low) || defined(hotp_only) || defined(thin_client)
 No persisted caches found
 #endif
 #if defined(DEBUG)

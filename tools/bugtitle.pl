@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -47,25 +47,25 @@
 ##
 ## > bugtitle.pl bug_4106_dllhost/dllhost.exe.2964.00000000.html
 ## CRASH 7100d818 (21113 dllhost.exe) place_fragment:fcache.c(1476)
-## 
+##
 ## > bugtitle.pl bug_3749_connon/CanoScan_N650U_N656U_CSUv571a.exe.3424.00000000.html
 ## VIOLATION NZHB.5166.B (21131 CanoScan_N650U_N656U_CSUv571a.exe)  symcjit.dll --->  HEAP section
-## 
+##
 ## > bugtitle.pl SmaService.exe.2104.00000000.xml
 ## VIOLATION NGSU.4493.B (30216 SmaService.exe) 0x7c2e4e8d (ADVAPI32.dll .text rx) => 0x0017b356 (heap rw)
 ##
-## > bugtitle.pl codemod.exe.1416.00000000.xml  
+## > bugtitle.pl codemod.exe.1416.00000000.xml
 ## VIOLATION QXMA.5800.A (custom codemod.exe) 0x004013ee (codemod.exe .text rx) => 0x0012ff60 (stack rw)
-## 
+##
 ## > bugtitle.pl /work/studies/dgc/detectmode-nonativeexec/dotnet-serialization.exe/serialization.exe.136.00000172.xml
 ## VIOLATION QKNR.0769.C (custom serialization.exe) 0x791d721e (mscorwks.dll .text rx) => 0x7999cb28 (NULL|mscorlib.dll .text rx)
-## 
+##
 ## > bugtitle.pl bug_4243_deadlock/inetinfo.exe.2020.00000000.html
 ## TIMEOUT (21129 inetinfo.exe)
-## 
-## > bugtitle.pl sqlservr.exe.3048.00000000.xml 
+##
+## > bugtitle.pl sqlservr.exe.3048.00000000.xml
 ## OUT OF MEMORY (30118 sqlservr.exe) MB: 2047 RAM, 8 avail, 2169(^2215)/3940 commit
-## 
+##
 ## > bugtitle.pl bug_3749_connon/build_21132/CanoScan_N650U_N656U_CSUv571a.exe.4064.00000000.html
 ## ASSERT (21132 CanoScan_N650U_N656U_CSUv571a.exe) win32/os.c:3263 is_native_thread_state_valid(trec->dcontext, (app_pc)cxt->Eip, (byte *)cxt->Esp)
 ##
@@ -216,7 +216,7 @@ sub process_file($) {
                 $suffix =~ s/(\s)\s+/\1/g;
                 $suffix =~ s/^\s+//;
             } # else we hit the source and target-properties below
-        } 
+        }
         elsif (/Threat ID:\s*([^\s\<]+)/) {
             $threat = $1;
             $prefix .= " $threat";
@@ -294,10 +294,10 @@ sub process_file($) {
         }
         elsif (/^Timeout expired/) {
             $prefix = "TIMEOUT";
-        } 
+        }
         elsif (/^Out of memory/) {
             $prefix = "OUT OF MEMORY";
-        } 
+        }
         elsif (($analyze || $prefix =~ /MEMORY/) && /<basic-information>/) {
             $_ = <IN>;
             /\d+ \d+ \d+ (\d+) \d+ \d+ \d+/;
@@ -333,16 +333,16 @@ sub process_file($) {
             # matching drview names (e.g. PagefileUsage is Priv) */
             print "KB: " .
                 $PeakVirtualSize/1024 . " PVSz," .
-                $VirtualSize/1024 . " VSz," . 
-                $PeakPagefileUsage/1024 . " PPriv," . 
-                $PagefileUsage/1024 . " Priv," . 
-                $PeakWorkingSetSize/1024 . " PWSS," . 
-                $WorkingSetSize/1024 . " WSS," . 
-                $PageFaultCount/1 . " Fault," . 
+                $VirtualSize/1024 . " VSz," .
+                $PeakPagefileUsage/1024 . " PPriv," .
+                $PagefileUsage/1024 . " Priv," .
+                $PeakWorkingSetSize/1024 . " PWSS," .
+                $WorkingSetSize/1024 . " WSS," .
+                $PageFaultCount/1 . " Fault," .
                 $QuotaPeakPagedPoolUsage/1024 . " PPage,"  .
                 $QuotaPagedPoolUsage/1024 . " Page," .
-                $QuotaPeakNonPagedPoolUsage/1024 . " PNonP," . 
-                $QuotaNonPagedPoolUsage/1024 . " NonP" . 
+                $QuotaPeakNonPagedPoolUsage/1024 . " PNonP," .
+                $QuotaNonPagedPoolUsage/1024 . " NonP" .
                 "\n" if ($verbose);
 
             # note that pre 4.3 core writes these counters as %d  (case 10481)
@@ -358,8 +358,8 @@ sub process_file($) {
             }
 
             # all in MB
-            $suffix .= sprintf("MB: %u VSz, %u Priv, %u PWSS; ", 
-                               $VirtualSize/1024/1024, 
+            $suffix .= sprintf("MB: %u VSz, %u Priv, %u PWSS; ",
+                               $VirtualSize/1024/1024,
                                $PagefileUsage/1024/1024,
                                $PeakWorkingSetSize/1024/1024);
         }
@@ -387,9 +387,9 @@ sub process_file($) {
                 # FIXME: grab path from reg keys and try that path on local host?
                 $build_num = "custom";
             }
-            
+
         }
-        
+
         # Process Name
         #
         # violation

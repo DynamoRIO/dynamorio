@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,7 +73,7 @@
  *     FIXME: to support structs we'll need lhs like AUX_ENTRY_SET_TO_SENTINEL
  *   (up to caller to ever set an entry to invalid)
  *   HTLOCK_RANK
- *     table_rwlock will work for most users.  
+ *     table_rwlock will work for most users.
  *     Needs higher rank than memory alloc locks.
  * optional for main table:
  *    bool TAGS_ARE_EQUAL(table, tag1, tag2)
@@ -125,7 +125,7 @@
  *    static void
  *    HTNAME(hashtable_,NAME_KEY,_study_custom)
  *         (dcontext_t *dcontext,
- *          HTNAME(,NAME_KEY,_table_t) *htable, 
+ *          HTNAME(,NAME_KEY,_table_t) *htable,
  *          uint entries_inc);
  *   #endif
  *
@@ -177,10 +177,10 @@ typedef struct HTNAME(_,NAME_KEY,_table_t) {
     /* entries used from shared private IBL routines copy come first:
      * used to be lookuptable, now table for case 7691 */
     /* preferred location of a given tag is then at
-     * lookuptable[(hash_func(tag) & hash_mask) >> hash_offset] 
+     * lookuptable[(hash_func(tag) & hash_mask) >> hash_offset]
      */
     ptr_uint_t      hash_mask;   /* mask selects the index bits of hash value */
-#ifdef HASHTABLE_USE_LOOKUPTABLE 
+#ifdef HASHTABLE_USE_LOOKUPTABLE
     AUX_ENTRY_TYPE *lookuptable; /* allocation aligned within lookuptable_unaligned */
 #endif
     ENTRY_TYPE     *table; /* hash_bits-bit addressed hash table */
@@ -277,12 +277,12 @@ HTNAME(hashtable_,NAME_KEY,_free_entry)
 #ifdef DEBUG
 static void
 HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
-                                   HTNAME(,NAME_KEY,_table_t) *htable, 
+                                   HTNAME(,NAME_KEY,_table_t) *htable,
                                    uint entries_inc);
 
 static void
 HTNAME(hashtable_,NAME_KEY,_study_custom)(dcontext_t *dcontext,
-                                          HTNAME(,NAME_KEY,_table_t) *htable, 
+                                          HTNAME(,NAME_KEY,_table_t) *htable,
                                           uint entries_inc);
 
 # ifdef HASHTABLE_ENTRY_STATS
@@ -319,7 +319,7 @@ HTNAME(hashtable_,NAME_KEY,_table_aligned_size)(uint table_capacity, uint flags)
     return size;
 }
 
-#ifdef HASHTABLE_USE_LOOKUPTABLE 
+#ifdef HASHTABLE_USE_LOOKUPTABLE
 /* get size in bytes padded for later cache alignment */
 static inline
 size_t
@@ -335,7 +335,7 @@ HTNAME(hashtable_,NAME_KEY,_lookuptable_aligned_size)(uint table_capacity)
 static void
 HTNAME(hashtable_,NAME_KEY,_init_internal)
      (dcontext_t *dcontext, HTNAME(,NAME_KEY,_table_t) *table,
-      uint bits, uint load_factor_percent, hash_function_t func, 
+      uint bits, uint load_factor_percent, hash_function_t func,
       uint hash_mask_offset _IFLOOKUP(bool use_lookup))
 {
     uint i;
@@ -348,13 +348,13 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
     table->hash_mask = HASH_MASK(table->hash_bits) << hash_mask_offset;
     table->capacity = HASHTABLE_SIZE(table->hash_bits);
 
-    /* 
+    /*
      * add an extra null_fragment at end to allow critical collision path
      * not to worry about table overwrap
      * FIXME: case 2147 to stay at power of 2 should use last element instead
      */
     table->capacity++;
-    sentinel_index = table->capacity-1;    
+    sentinel_index = table->capacity-1;
 
     table->entries = 0;
     table->unlinked_entries = 0;
@@ -390,7 +390,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
         (dcontext, alloc_size HEAPACCT(HASHTABLE_WHICH_HEAP(table->table_flags)));
     if (TEST(HASHTABLE_ALIGN_TABLE, table->table_flags)) {
         ASSERT(ALIGNED(table->table_unaligned, 4)); /* guaranteed by heap_alloc */
-        table->table = (ENTRY_TYPE *) 
+        table->table = (ENTRY_TYPE *)
             ALIGN_FORWARD(table->table_unaligned, proc_get_cache_line_size());
         ASSERT(ALIGNED(table->table, proc_get_cache_line_size()));
         ASSERT(ALIGNED(table->table, sizeof(ENTRY_TYPE)));
@@ -402,7 +402,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
     table->table[sentinel_index] = ENTRY_SENTINEL;
 
     table->ref_count = 0;
-#ifdef HASHTABLE_USE_LOOKUPTABLE 
+#ifdef HASHTABLE_USE_LOOKUPTABLE
     if (use_lookup) {
         /* We need to allocate aligned size, yet there is no point in
          * calling heap_mmap for small sizes.  Instead we use normal
@@ -413,16 +413,16 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
         size_t lookup_table_allocation =
             HTNAME(hashtable_,NAME_KEY,_lookuptable_aligned_size)(table->capacity);
 
-        table->lookup_table_unaligned = 
+        table->lookup_table_unaligned =
             TABLE_MEMOP(table->table_flags, alloc)
             (dcontext, lookup_table_allocation
              HEAPACCT(HASHTABLE_WHICH_HEAP(table->table_flags)));
         ASSERT(ALIGNED(table->lookup_table_unaligned, 4)); /* guaranteed by heap_alloc */
 
-        table->lookuptable = (AUX_ENTRY_TYPE*) 
-            ALIGN_FORWARD(table->lookup_table_unaligned, 
+        table->lookuptable = (AUX_ENTRY_TYPE*)
+            ALIGN_FORWARD(table->lookup_table_unaligned,
                           proc_get_cache_line_size());
-                                           
+
         /* When the table is used for IBL, for correctness we need to
          * make sure it's allocated at a 4 byte aligned address. This
          * is required so that writes to the start_pc field during a
@@ -447,7 +447,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
         LOG(THREAD, LOG_HTABLE, 2,
             "hashtable_"KEY_STRING"_init %s lookup unaligned="PFX" "
             "aligned="PFX" allocated=%d\n",
-            table->name, table->lookup_table_unaligned, 
+            table->name, table->lookup_table_unaligned,
             table->lookuptable, lookup_table_allocation);
 
         /* set all to null_fragment {tag : 0, start_pc : 0} */
@@ -475,7 +475,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
         table->hash_mask,
         table->hash_mask_offset,
         table->load_factor_percent, table->resize_threshold,
-        table->name, 
+        table->name,
         "table", table->table,
         IFLOOKUP_ELSE(use_lookup ? "lookup":"", ""),
         IFLOOKUP_ELSE(table->lookuptable, NULL),
@@ -493,7 +493,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
             if (table->entry_stats != NULL) { /* resize */
                 /* assuming resize is always doubling the table */
                 /* FIXME: too error prone we should pass old capacity
-                 * somewhere if case 2147 changes the table size 
+                 * somewhere if case 2147 changes the table size
                  */
                 uint old_capacity = HASHTABLE_SIZE(table->hash_bits-1) + 1 /* sentinel */;
                 /* make sure we've printed the old stats, now losing them */
@@ -530,7 +530,7 @@ HTNAME(hashtable_,NAME_KEY,_init_internal)
 static void
 HTNAME(hashtable_,NAME_KEY,_init)(dcontext_t *dcontext,
                                   HTNAME(,NAME_KEY,_table_t) *table,
-                                  uint bits, 
+                                  uint bits,
                                   uint load_factor_percent, hash_function_t func,
                                   uint hash_offset
                                   /* FIXME: turn this bool into a HASHTABLE_ flag */
@@ -565,8 +565,8 @@ HTNAME(hashtable_,NAME_KEY,_resize)(dcontext_t *dcontext,
                                     HTNAME(,NAME_KEY,_table_t) *table)
 {
     HTNAME(hashtable_,NAME_KEY,_init_internal)
-        (dcontext, table, table->hash_bits, 
-         table->load_factor_percent, table->hash_func, 
+        (dcontext, table, table->hash_bits,
+         table->load_factor_percent, table->hash_func,
          table->hash_mask_offset
          /* keep using lookup if used so far */
          _IFLOOKUP(table->lookuptable != 0));
@@ -636,7 +636,7 @@ HTNAME(hashtable_,NAME_KEY,_free)(dcontext_t *dcontext,
  * the htable.
  * Shared fragment IBTs: Unlinked lookup table entries are marked with
  * unlinked_fragment and
- * are expected to target a target_delete_entry. 
+ * are expected to target a target_delete_entry.
  */
 #ifdef DEBUG
 static inline void
@@ -742,7 +742,7 @@ HTNAME(hashtable_,NAME_KEY,_lookup)(dcontext_t *dcontext, ptr_uint_t tag,
          */
         if (TAGS_ARE_EQUAL(htable, ftag, tag)) {
 #ifdef HASHTABLE_STATISTICS
-            if (collision_len > 0) 
+            if (collision_len > 0)
                 HTABLE_STAT_INC(htable,collision_hit);
             HTABLE_STAT_INC(htable,hit);
 #endif
@@ -859,27 +859,27 @@ HTNAME(hashtable_,NAME_KEY,_add)(dcontext_t *dcontext, ENTRY_TYPE e,
         }
         DODEBUG({++cluster_len;});
         hindex = HASH_INDEX_WRAPAROUND(hindex + 1, table);
-    } while (1); 
+    } while (1);
 
     /* FIXME: case 4814 we may want to flush the table if we are running into a too long
      * collision cluster
      */
     DOLOG(1, LOG_HTABLE, {
         if (cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2))
-            LOG(THREAD_GET, LOG_HTABLE, 
-                cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2 + 1) ? 
+            LOG(THREAD_GET, LOG_HTABLE,
+                cluster_len > HASHTABLE_SIZE((1+table->hash_bits)/2 + 1) ?
                     1U : 2U,
                 "hashtable_"KEY_STRING"_add: long collision sequence len=%u"
-                "for "PFX" %s table[%u] capacity=%d entries=%d)\n", 
+                "for "PFX" %s table[%u] capacity=%d entries=%d)\n",
                 cluster_len, ENTRY_TAG(e), table->name, hindex,
                 table->capacity, table->entries);
     });
 
-    /* If we had uniformly distributed hash functions, expected max length is 
+    /* If we had uniformly distributed hash functions, expected max length is
      * sqrt(capacity.\pi/8) see Knuth vol.3, FIXME we double below because this
      * sometimes ASSERTS for the shared_future_table at the 10 to 11 bits
      * transition (seems to be fine at larger sizes)
-     * bug2241 we add an additional 64 to handle problems in private future 
+     * bug2241 we add an additional 64 to handle problems in private future
      * tables at small sizes, for bug2271 we disable for tables using the
      * _NONE hash function (currently private bb and trace) when we have no
      * shared fragments
@@ -889,7 +889,7 @@ HTNAME(hashtable_,NAME_KEY,_add)(dcontext_t *dcontext, ENTRY_TYPE e,
         (table->hash_func != HASH_FUNCTION_NONE || SHARED_FRAGMENTS_ENABLED())) {
         uint max_cluster_len =
             HASHTABLE_SIZE((1+table->hash_bits)/2 + 1 /* double */) + 64;
-        if (!(cluster_len <= max_cluster_len)) { 
+        if (!(cluster_len <= max_cluster_len)) {
             DO_ONCE({ /* once reach this may fire many times in a row */
                 /* always want to know which table this is */
                 SYSLOG_INTERNAL_WARNING("cluster length assert: %s cluster=%d vs %d,"
@@ -919,7 +919,7 @@ HTNAME(hashtable_,NAME_KEY,_add)(dcontext_t *dcontext, ENTRY_TYPE e,
     table->table[hindex] = e;
     ASSERT(!ENTRY_IS_INVALID(table->table[hindex]));
     LOG(THREAD_GET, LOG_HTABLE, 4,
-        "hashtable_"KEY_STRING"_add: added "PFX" to %s at table[%u]\n", 
+        "hashtable_"KEY_STRING"_add: added "PFX" to %s at table[%u]\n",
         ENTRY_TAG(e), table->name, hindex);
 
     return resized;
@@ -958,7 +958,7 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
         return false;
 
     /* check flush threshold to see if we'd want to flush hashtable */
-    if (table->entries > table->groom_threshold && 
+    if (table->entries > table->groom_threshold &&
         table->groom_threshold > 0) {
         HTNAME(hashtable_,NAME_KEY,_groom_table)(dcontext, table);
         /* FIXME Grooming a table in-place doesn't work for a shared IBT table.
@@ -996,7 +996,7 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
     /* Pretend we had full # entries; we'll lower later */
     table->entries += add_now + add_later;
 
-    /* check resize threshold to see if a larger hashtable is needed 
+    /* check resize threshold to see if a larger hashtable is needed
      * or that we may want to reset the table.
      *
      * For an IBT table, the # unlinked entries needs to be checked also.
@@ -1026,7 +1026,7 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
             /* study before resizing */
             HTNAME(hashtable_,NAME_KEY,_study)(dcontext, table, add_now+add_later);
         });
- 
+
 #ifdef HASHTABLE_STATISTICS
 # ifdef HASHTABLE_ENTRY_STATS
         if (table->entry_stats != NULL) {
@@ -1050,7 +1050,7 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
          * a same-size realloc to eliminate the unlinked entries. Also,
          * if we've reached the max size, do a same-size realloc.
          *
-         * Otherwise, double the table size. 
+         * Otherwise, double the table size.
          */
         if (lockless &&
             (table->entries <= table->resize_threshold ||
@@ -1076,14 +1076,14 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
          * recursive calls to this routine from
          * fragment_add_to_hashtable -- see warning below
          */
-        table->entries = 0; 
-        table->unlinked_entries = 0; 
+        table->entries = 0;
+        table->unlinked_entries = 0;
         ASSERT(table->ref_count == 0);
 
         /* can't just memcpy, must rehash */
         /* for open address table rehash should first find an empty slot and start
            from there so that we make sure that entries that used to find a hit on the first lookup
-           continue to do so instead of creating even longer collision parking lots 
+           continue to do so instead of creating even longer collision parking lots
            FIXME: can we do better?
         */
         for (i = 0; i < old_capacity; i++) {
@@ -1148,13 +1148,13 @@ HTNAME(hashtable_,NAME_KEY,_check_size)(dcontext_t *dcontext,
             "%s hashtable resized at %d entries from capacity %d to %d\n",
             table->name, table->entries, old_capacity, table->capacity);
 
-        /* Since readers now synchronize with writers of shared htables, 
+        /* Since readers now synchronize with writers of shared htables,
          * we can now delete old htable even when sharing.
          */
 
         DODEBUG({
             LOG(THREAD, LOG_HTABLE, 1, "Rehashed %s table\n", table->name);
-            /* study after rehashing 
+            /* study after rehashing
              * ok to become reader for study while a writer
              */
             HTNAME(hashtable_,NAME_KEY,_study)(dcontext, table, add_now);
@@ -1247,7 +1247,7 @@ HTNAME(hashtable_,NAME_KEY,_lookup_for_removal)(ENTRY_TYPE fr,
     *rhindex = 0; /* to make sure always initialized */
     return NULL;
 }
-    
+
 #ifdef HASHTABLE_USE_LOOKUPTABLE
 /* FIXME: figure out what weight function I tipped off so now this is too much to inline */
 static INLINE_FORCED void
@@ -1257,7 +1257,7 @@ HTNAME(hashtable_,NAME_KEY,_update_lookup)(HTNAME(,NAME_KEY,_table_t) *htable,
     if (htable->lookuptable != NULL) {
         AUX_ENTRY_SET_TO_ENTRY(htable->lookuptable[hindex], htable->table[hindex]);
         LOG(THREAD_GET, LOG_HTABLE, 4, "hashtable_"KEY_STRING"_update_lookup:"
-            "updated "PFX" at table[%u]\n", 
+            "updated "PFX" at table[%u]\n",
             AUX_ENTRY_TAG(htable->lookuptable[hindex]), hindex);
     }
 }
@@ -1279,7 +1279,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
     bool wrapped = false;
     /* Assumptions:
        We have to move the htable->table and lookuptable elements.
-       It is OK to do so since the address of these structures is never passed back to clients, 
+       It is OK to do so since the address of these structures is never passed back to clients,
        instead, all clients can only hold onto a fragment_t* itself, not to the indirection here.
     */
     LOG(THREAD_GET, LOG_HTABLE, 4,
@@ -1297,7 +1297,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
 #endif
         do {
             /* positive probing to get the rest in the same cache line
-               also gains from +1 unit stride HW prefetching 
+               also gains from +1 unit stride HW prefetching
             */
             hindex = HASH_INDEX_WRAPAROUND(hindex + 1, htable);
 
@@ -1307,7 +1307,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
              * probing. See the comment after fragment_update_lookup()
              * for the implications.
              */
-            if (ENTRY_IS_EMPTY(htable->table[hindex])) 
+            if (ENTRY_IS_EMPTY(htable->table[hindex]))
                 return wrapped;
 
             preferred = HASH_FUNC(ENTRY_TAG(htable->table[hindex]), htable);
@@ -1323,7 +1323,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
 
         LOG(THREAD_GET, LOG_HTABLE, 3,
             "hashtable_"KEY_STRING"_remove_helper_open_address: moving "PFX" "
-            "from table[%u] into table[%u], preferred=%u\n", 
+            "from table[%u] into table[%u], preferred=%u\n",
             ENTRY_TAG(htable->table[hindex]), hindex, hole, preferred);
 
         /* need to move current entry into the hole */
@@ -1351,7 +1351,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)
         if (ENTRY_IS_INVALID(htable->table[hole])) {
             htable->lookuptable[hole] = htable->lookuptable[hindex];
             ASSERT(!AUX_ENTRY_IS_EMPTY(htable->lookuptable[hole]));
-            LOG(THREAD_GET, LOG_HTABLE, 4, "   re-set "PFX" at table[%u]\n", 
+            LOG(THREAD_GET, LOG_HTABLE, 4, "   re-set "PFX" at table[%u]\n",
                 AUX_ENTRY_TAG(htable->lookuptable[hindex]), hole);
         }
 #endif
@@ -1367,7 +1367,7 @@ HTNAME(hashtable_,NAME_KEY,_remove_helper)(HTNAME(,NAME_KEY,_table_t) *htable,
     /* Non-trivial for open addressed scheme */
     /* just setting elements to null will make unreachable any following elements */
     /* better solution is to move entries that would become unreachable  */
-    int iwrapped = 
+    int iwrapped =
         HTNAME(hashtable_,NAME_KEY,_remove_helper_open_address)(htable, hindex, prevg);
     bool wrapped = CAST_TO_bool(iwrapped);
 
@@ -1415,7 +1415,7 @@ HTNAME(hashtable_,NAME_KEY,_replace)
     /* replace requires write lock only because we have readers who
      * need global consistency and replace requires two local writes!
      */
-    ASSERT_TABLE_SYNCHRONIZED(htable, WRITE); 
+    ASSERT_TABLE_SYNCHRONIZED(htable, WRITE);
     ASSERT(!TEST(HASHTABLE_READ_ONLY, htable->table_flags));
     if (TEST(HASHTABLE_READ_ONLY, htable->table_flags))
         return false;
@@ -1482,13 +1482,13 @@ HTNAME(hashtable_,NAME_KEY,_clear)(dcontext_t *dcontext,
 }
 
 /* removes all entries within a specified range of tags
- * 
+ *
  * should generalize hashtable_reset to do this in all cases,
  * yet we haven't had an instance where this is necessary
  *
  * FIXME: note that we don't do a full type dispatch here, while
  * hashtable_reset is not properly moving elements hence can't be used
- * for removing subsets, and is inefficient!  
+ * for removing subsets, and is inefficient!
  */
 static uint
 HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext_t *dcontext,
@@ -1519,7 +1519,7 @@ HTNAME(hashtable_,NAME_KEY,_range_remove)(dcontext_t *dcontext,
     /* Deletion in hashtable_NAME_KEY_remove_helper has to move entries
      * in order to keep all reachable.  We go in reverse order to
      * efficiently delete all entries */
-    i = table->capacity - 1 - 1 /* sentinel */; 
+    i = table->capacity - 1 - 1 /* sentinel */;
     while (i >= 0) {
         e = table->table[i];
         if (!ENTRY_IS_EMPTY(e)
@@ -1666,10 +1666,10 @@ HTNAME(hashtable_,NAME_KEY,_groom_table)(dcontext_t *dcontext,
 
     /* FIXME: we may want to do this more often - so that we can catch
      * phases and that we don't even have to resize if working set
-     * does in fact fit here.  In that case we may want to 
-     * do have a step function, 
+     * does in fact fit here.  In that case we may want to
+     * do have a step function,
      * e.g. (groom 50, resize 80, groom step 10) translating into
-     * 50 - groom, 60 - groom, 70 - groom, 80 - resize 
+     * 50 - groom, 60 - groom, 70 - groom, 80 - resize
      */
 
     STATS_INC(num_ibt_groomed);
@@ -1717,7 +1717,7 @@ HTNAME(hashtable_,NAME_KEY,_groom_helper)(dcontext_t *dcontext,
  */
 static void
 HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
-                                   HTNAME(,NAME_KEY,_table_t) *table, 
+                                   HTNAME(,NAME_KEY,_table_t) *table,
                                    uint entries_inc/*amnt table->entries was pre-inced*/)
 {
     /* hashtable sparseness study */
@@ -1762,15 +1762,15 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
         if (i < hindex) {
             len = i + (table->capacity - hindex - 1) + 1; /* counting the sentinel */
             overwraps++;
-            LOG(THREAD, LOG_HTABLE|LOG_STATS, 2, 
+            LOG(THREAD, LOG_HTABLE|LOG_STATS, 2,
                 "WARNING: hashtable_"KEY_STRING"_study: overwrap[%d] of "
-                "len=%d, F tag="PFX",i=%d,hindex=%d\n", 
+                "len=%d, F tag="PFX",i=%d,hindex=%d\n",
                 overwraps, len, ENTRY_TAG(e), i, hindex);
         }
         else {
             len = i - hindex + 1;
         }
-        
+
         if (ENTRY_IS_INVALID(e)) {
             ASSERT(lockless_access);
             LOG(THREAD, LOG_HTABLE|LOG_STATS, 2,
@@ -1815,7 +1815,7 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
     /* static average length is supposed to be under 5 even up
      * to load factors of 90% see Knuth vol.3 or in CLR (p.238-9 in
      * first edition) but of course only if we had uniformly
-     * distributed hash functions 
+     * distributed hash functions
      */
     /* for bug 2271 we make more lenient for non trace tables using the
      * _NONE hash function (i.e. private bb) when we are !SHARED_FRAGMENTS_ENABLED().
@@ -1857,7 +1857,7 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
     }
 
 #ifdef HASHTABLE_STATISTICS
-    print_hashtable_stats(dcontext, entries_inc == 0 ? "Total" : "Current", 
+    print_hashtable_stats(dcontext, entries_inc == 0 ? "Total" : "Current",
                           name,
                           "fragment_lookup", "", &table->drlookup_stats);
 #endif
@@ -1911,7 +1911,7 @@ HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext_t *dcontext,
 # if defined(HASHTABLE_STATISTICS) && defined(HASHTABLE_ENTRY_STATS)
             LOG(THREAD, LOG_HTABLE, 1,
                 "%6x "PFX" %3d %c  %8d  %3d\n",
-                i, ENTRY_TAG(htable->table[i]), 
+                i, ENTRY_TAG(htable->table[i]),
                 collision_len + 1, (preferred <= i) ? ' ' : 'O' /* overwrap */,
                 htable->entry_stats ? htable->entry_stats[i].hits : 0,
                 htable->entry_stats ? htable->entry_stats[i].age : 0
@@ -1919,7 +1919,7 @@ HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext_t *dcontext,
 # else /* !(HASHTABLE_STATISTICS && HASHTABLE_ENTRY_STATS) */
             LOG(THREAD, LOG_HTABLE, 1,
                 "%6x "PFX" %3d %c \n",
-                i, ENTRY_TAG(htable->table[i]), 
+                i, ENTRY_TAG(htable->table[i]),
                 collision_len + 1, (preferred <= i) ? ' ' : 'O' /* overwrap */
                 );
 # endif /* (HASHTABLE_STATISTICS && HASHTABLE_ENTRY_STATS) */
@@ -1948,12 +1948,12 @@ HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext_t *dcontext,
             cache_lines_used++;
         if (cache_lines_used) {
             LOG(THREAD, LOG_HTABLE, 1, "%s %d%% cache density, cache_lines_used=%d "
-                "(%dKB), minimum needed %d (%dKB)\n", 
+                "(%dKB), minimum needed %d (%dKB)\n",
                 htable->name,
                 100 * htable->entries * entry_size /
                 (cache_lines_used * cache_line_size),
                 cache_lines_used, cache_lines_used*cache_line_size/1024,
-                htable->entries*entry_size/cache_line_size, 
+                htable->entries*entry_size/cache_line_size,
                 htable->entries*entry_size/1024);
         }
     }
@@ -1970,7 +1970,7 @@ HTNAME(hashtable_,NAME_KEY,_load_statistics)(dcontext_t *dcontext,
         "%s hashtable: %d entries, %d unlinked entries, %d capacity,"
         " %d%% load\n",
         table->name,
-        table->entries, table->unlinked_entries, table->capacity, 
+        table->entries, table->unlinked_entries, table->capacity,
         (100 * table->entries) / table->capacity);
 }
 #endif
@@ -2015,7 +2015,7 @@ HTNAME(hashtable_,NAME_KEY,_dump_entry_stats)(dcontext_t *dcontext,
 
             LOG(THREAD, LOG_HTABLE, htable->entry_stats[i].hits ? 1U: 2U, /* only hits */
                 "%6x "PFX" %3d %c %8d   %3d\n",
-                i, ENTRY_TAG(htable->table[i]), 
+                i, ENTRY_TAG(htable->table[i]),
                 collision_len + 1, (preferred <= i) ? ' ' : 'O' /* overwrap */,
                 htable->entry_stats[i].hits, htable->entry_stats[i].age
                 );

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 #include <Aclapi.h>
 #include <stdio.h>
 
-/* detach.c(74) : warning C4055: 'type cast' : from data pointer 
+/* detach.c(74) : warning C4055: 'type cast' : from data pointer
  *  'void *' to function pointer 'unsigned long (__stdcall *)(void *)'
  * (cf. drmarker.h)
  */
@@ -264,9 +264,9 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
                            DACL_SECURITY_INFORMATION,
                            NULL, NULL, NULL, NULL, &sd);
     DO_ASSERT(code == ERROR_SUCCESS);
- 
+
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, sd);
-  
+
     stack.ExpandableStackBottom =
         VirtualAllocEx(hProcess, NULL,
                        /* we leave the top page MEM_FREE: we could reserve it instead
@@ -283,18 +283,18 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
      * 3rd to last page of this region (xpsp2)). */
     stack.ExpandableStackBottom =
         ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
-    stack.ExpandableStackBase = 
+    stack.ExpandableStackBase =
         ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
     /* PR 252008: WOW64's initial APC uses the stack base, ignoring CONTEXT.Esp,
      * so we put an extra page in place for the nudge arg.  It should be
      * freed w/ no problems since the Bottom's region is freed.
      * An alternative is a separate allocation and setting NUDGE_FREE_ARG,
-     * but the caller is the one who knows the structure of the arg.            
+     * but the caller is the one who knows the structure of the arg.
      */
     if (wow64)
         stack.ExpandableStackBase = ((byte*)stack.ExpandableStackBase) - PAGE_SIZE;
 
-    stack.ExpandableStackLimit = 
+    stack.ExpandableStackLimit =
         ((byte *)stack.ExpandableStackBase) - stack_commit;
     num_commit_bytes = stack_commit + PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
@@ -375,7 +375,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
         if (!res || written != sizeof(buf)) {
             goto error;
         }
-    }                           
+    }
     if (context.CXT_XIP == 0) {
         DO_ASSERT(false);
         goto error;
@@ -384,8 +384,8 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
     /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
      * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
      * specify the security descriptor. */
-    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, 
-                                   hProcess, &cid, &context, &stack, 
+    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
+                                   hProcess, &cid, &context, &stack,
                                    (byte)(suspended ? TRUE : FALSE)))) {
         goto error;
     }
@@ -428,7 +428,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr,
 
 /* 64kb, same as allocation granularity so is as small as we can get */
 #define STACK_RESERVE 0x10000
-/* 12kb, matches current core stack size, note can expand to 
+/* 12kb, matches current core stack size, note can expand to
  * STACK_RESERVE - (5 * PAGE_SIZE), i.e. 44kb */
 #define STACK_COMMIT 0x3000
 
@@ -462,7 +462,7 @@ create_remote_thread(HANDLE hProc, PTHREAD_START_ROUTINE pfnThreadRtn,
 
 /* define this here so that clients don't need to know about dr_marker_t */
 DWORD
-get_dr_marker(process_id_t ProcessID, dr_marker_t *marker, 
+get_dr_marker(process_id_t ProcessID, dr_marker_t *marker,
               hotp_policy_status_table_t **hotp_status, int *found);
 
 DWORD
@@ -491,25 +491,25 @@ nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_ar
      * hit if process turns out not to be running under DR, but we avoid the
      * race of the process exiting and it's id getting recycled, the os won't
      * recycle the id till we free our handle */
-    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION + 
-                           PROCESS_VM_WRITE + 
-                           PROCESS_VM_READ + 
-                           PROCESS_VM_OPERATION + 
-                           PROCESS_CREATE_THREAD + 
+    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION +
+                           PROCESS_VM_WRITE +
+                           PROCESS_VM_READ +
+                           PROCESS_VM_OPERATION +
+                           PROCESS_CREATE_THREAD +
                            READ_CONTROL +
-                           SYNCHRONIZE, 
+                           SYNCHRONIZE,
                            FALSE, (DWORD)pid);
     res = GetLastError();
     if (hProcess == NULL) {
         if (allow_upgraded_perms) {
             acquire_privileges();
-            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION + 
-                                   PROCESS_VM_WRITE + 
-                                   PROCESS_VM_READ + 
-                                   PROCESS_VM_OPERATION + 
+            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION +
+                                   PROCESS_VM_WRITE +
+                                   PROCESS_VM_READ +
+                                   PROCESS_VM_OPERATION +
                                    PROCESS_CREATE_THREAD +
                                    READ_CONTROL +
-                                   SYNCHRONIZE, 
+                                   SYNCHRONIZE,
                                    FALSE, (DWORD)pid);
             res = GetLastError();
             release_privileges();
@@ -574,7 +574,7 @@ nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_ar
          *   kernel doesn't free the stack.
          * As such we are left with two options: free the app stack here (nudgee free) or
          * have the nudge thread creator free the app stack (nudger free). We use
-         * nudge flags to specify which we are using. */ 
+         * nudge flags to specify which we are using. */
         if (TEST(NUDGE_NUDGER_FREE_STACK, nudge_arg->flags) && remote_stack != NULL) {
             VirtualFreeEx(hProcess, remote_stack, 0, MEM_RELEASE);
         }
@@ -588,8 +588,8 @@ nudge_dr(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms, nudge_ar
     return res;
 }
 
-/* Detaches from the specified process by creating a thread in the target 
- * process that directly targets the detach routine.  
+/* Detaches from the specified process by creating a thread in the target
+ * process that directly targets the detach routine.
  */
 DWORD
 detach(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
@@ -600,7 +600,7 @@ detach(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms)
 
 /* generic nudge DR, action mask determines which actions will be executed */
 DWORD
-generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask, 
+generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask,
               client_id_t client_id /* optional */, uint64 client_arg /* optional */,
               DWORD timeout_ms)
 {
@@ -614,16 +614,16 @@ generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask,
 }
 
 /* Loads the specified dll in process pid and waits on the loading thread, does
- * not free the dll once the loading thread exits. Usual usage is for the 
- * loaded dll to do something in its DllMain. If you do not want the dll to 
- * stay loaded its DllMain should return false. To unload a dll from a process 
- * later, inject another dll whose dll main unloads that dll and then returns 
+ * not free the dll once the loading thread exits. Usual usage is for the
+ * loaded dll to do something in its DllMain. If you do not want the dll to
+ * stay loaded its DllMain should return false. To unload a dll from a process
+ * later, inject another dll whose dll main unloads that dll and then returns
  * false. If loading_thread != NULL returns a handle to the loading thread (dll
- * could call FreeLibraryAndExitThread on itself in its dll main to return a 
- * value out via the exit code). inject_dll provides no way to pass arguments 
+ * could call FreeLibraryAndExitThread on itself in its dll main to return a
+ * value out via the exit code). inject_dll provides no way to pass arguments
  * in to the dll. */
 DWORD
-inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
+inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
            DWORD timeout_ms, PHANDLE loading_thread)
 {
     DWORD res;
@@ -637,36 +637,36 @@ inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
     if (loading_thread != NULL)
         *loading_thread = NULL;
 
-    file_tmp = CreateFile(dll_name, 0, 0, NULL, OPEN_EXISTING, 
+    file_tmp = CreateFile(dll_name, 0, 0, NULL, OPEN_EXISTING,
                           FILE_ATTRIBUTE_NORMAL, NULL);
     if (file_tmp == INVALID_HANDLE_VALUE)
         return ERROR_FILE_NOT_FOUND;
     CloseHandle(file_tmp);
-        
-    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION + 
-                           PROCESS_VM_WRITE + 
-                           PROCESS_VM_READ + 
-                           PROCESS_VM_OPERATION + 
+
+    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION +
+                           PROCESS_VM_WRITE +
+                           PROCESS_VM_READ +
+                           PROCESS_VM_OPERATION +
                            PROCESS_CREATE_THREAD +
                            READ_CONTROL +
-                           SYNCHRONIZE, 
+                           SYNCHRONIZE,
                            FALSE, (DWORD)pid);
     if (hProcess == NULL) {
         if (allow_upgraded_perms) {
             acquire_privileges();
-            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION + 
-                                   PROCESS_VM_WRITE + 
-                                   PROCESS_VM_READ + 
-                                   PROCESS_VM_OPERATION + 
+            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION +
+                                   PROCESS_VM_WRITE +
+                                   PROCESS_VM_READ +
+                                   PROCESS_VM_OPERATION +
                                    PROCESS_CREATE_THREAD +
                                    READ_CONTROL +
-                                   SYNCHRONIZE, 
+                                   SYNCHRONIZE,
                                    FALSE, (DWORD)pid);
             release_privileges();
             if (hProcess == NULL) {
                 return GetLastError();
             }
-        } else { 
+        } else {
             return GetLastError();
         }
     }
@@ -687,7 +687,7 @@ inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
         res = GetLastError();
         goto exit;
     }
-    
+
     res = WaitForSingleObject(hThread, timeout_ms);
     if (res == WAIT_FAILED) {
         res = GetLastError();

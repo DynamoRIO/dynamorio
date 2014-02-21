@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,21 +73,21 @@ unsigned int get_symbol_offset_from_map(const char *map_file, const char *symbol
 
     fd = dr_open_file(map_file, DR_FILE_READ);
     if (fd == INVALID_FILE)
-        goto _get_module_offset_exit; 
+        goto _get_module_offset_exit;
 
     /* This seems to be the easiest way to get the size of the file. */
     if (!dr_file_seek(fd, 0, DR_SEEK_END))
-        goto _get_module_offset_exit; 
+        goto _get_module_offset_exit;
     file_sz = (ssize_t) dr_file_tell(fd);
     if (file_sz <= 0)
-        goto _get_module_offset_exit; 
+        goto _get_module_offset_exit;
     if (!dr_file_seek(fd, 0, DR_SEEK_SET))
-        goto _get_module_offset_exit; 
+        goto _get_module_offset_exit;
 
     /* Read the whole file. */
     buf = dr_global_alloc(file_sz + 1);
     if (buf == NULL)
-        goto _get_module_offset_exit; 
+        goto _get_module_offset_exit;
     dr_read_file(fd, buf, file_sz);
     buf[file_sz] = '\0';
 

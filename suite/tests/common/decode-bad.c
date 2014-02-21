@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -82,7 +82,7 @@ signal_handler(int sig)
             /* add this so output matches test on windows, FIXME : would like to test
              * this on linux too, but won't work now (bug 651, 832) */
             print("eax=1 ebx=2 ecx=3 edx=4 edi=5 esi=6 ebp=7\n");
-        } else 
+        } else
             print("Bad instruction, instance %d\n", count);
         SIGLONGJMP(mark, count);
     }
@@ -114,7 +114,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
         print("Invalid lock sequence, instance %d\n", count);
         /* FIXME : add CXT_XFLAGS (currently comes back incorrect), eip, esp? */
         print("eax="SZFMT" ebx="SZFMT" ecx="SZFMT" edx="SZFMT" "
-              "edi="SZFMT" esi="SZFMT" ebp="SZFMT"\n", 
+              "edi="SZFMT" esi="SZFMT" ebp="SZFMT"\n",
               cxt->CXT_XAX, cxt->CXT_XBX, cxt->CXT_XCX, cxt->CXT_XDX,
               cxt->CXT_XDI, cxt->CXT_XSI, cxt->CXT_XBP);
         SIGLONGJMP(mark, count);
@@ -135,7 +135,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
           pExceptionInfo->ExceptionRecord->ExceptionCode);
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
         print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress, 
+            pExceptionInfo->ExceptionRecord->ExceptionAddress,
             (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
             pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
     }
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     dynamorio_app_init();
     dynamorio_app_start();
 #endif
-  
+
 #ifdef UNIX
     intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
@@ -337,11 +337,11 @@ GLOBAL_LABEL(FUNCNAME:)
         /* case 8840 we crash after going through this bb */
         /* ud2 */
         RAW(0f) RAW(0b)
-        RAW(20) RAW(0f) 
+        RAW(20) RAW(0f)
 #if 0
-        RAW(8c) RAW(c6) 
+        RAW(8c) RAW(c6)
 #endif
-        RAW(ff) RAW(ff) 
+        RAW(ff) RAW(ff)
         RAW(ff) RAW(d9)
         ret
         END_FUNC(FUNCNAME)

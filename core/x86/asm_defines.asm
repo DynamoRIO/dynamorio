@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -86,7 +86,7 @@
 # define END_PROLOG /* nothing */
 /* PR 212290: avoid text relocations.
  * @GOT returns the address and is for extern vars; @GOTOFF gets the value.
- * Note that using ## to paste => 
+ * Note that using ## to paste =>
  *   "error: pasting "initstack_mutex" and "@" does not give a valid preprocessing token"
  * but whitespace separation seems fine.
  */
@@ -128,11 +128,11 @@ ASSUME fs:_DATA @N@\
 # define RAW(n) DB HEX(n) @N@
 # ifdef X64
 /* 64-bit SEH directives */
-/* Declare non-leaf function (adjusts stack; makes calls; saves non-volatile regs): */  
+/* Declare non-leaf function (adjusts stack; makes calls; saves non-volatile regs): */
 #  define DECLARE_FUNC_SEH(symbol) symbol PROC FRAME
-/* Push a non-volatile register in prolog: */  
+/* Push a non-volatile register in prolog: */
 #  define PUSH_SEH(reg) push reg @N@ .pushreg reg
-/* Push a volatile register or an immed in prolog: */  
+/* Push a volatile register or an immed in prolog: */
 #  define PUSH_NONCALLEE_SEH(reg) push reg @N@ .allocstack 8
 #  define END_PROLOG .endprolog
 # else
@@ -230,7 +230,7 @@ ASSUME fs:_DATA @N@\
 # define PTRSZ DWORD
 /* Arguments are passed on stack right-to-left. */
 # define ARG1 DWORD [4 + esp] /* includes ret addr */
-# define ARG2 DWORD [8 + esp] 
+# define ARG2 DWORD [8 + esp]
 # define ARG3 DWORD [12 + esp]
 # define ARG4 DWORD [16 + esp]
 # define ARG5 DWORD [20 + esp]

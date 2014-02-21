@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -143,7 +143,7 @@ auto_setup(ptr_uint_t appstack)
         return;
     }
 
-    /* For apps injected using follow_children, this is where control should be 
+    /* For apps injected using follow_children, this is where control should be
      * allowed to go native for hotp_only & thin_client.
      */
     if (RUNNING_WITHOUT_CODE_CACHE())
@@ -177,7 +177,7 @@ auto_setup(ptr_uint_t appstack)
     if (addr != NULL) {
         size_t size = *((size_t*)pappstack);
         heap_error_code_t error_code;
-        /* since this is rx it was added to our exec list, remove now 
+        /* since this is rx it was added to our exec list, remove now
          * ASSUMPTION: no fragments in the region so no need to flush
          */
         /* flushing would align for us but we have to do it ourselves here */
@@ -229,8 +229,8 @@ native_get_retstack_idx(priv_mcontext_t *mc)
  * the pc stored in the clone_record_t * stored at mc->pc.
  * Assumes that it is called on the dstack.
  *
- * CAUTION: don't add a lot of stack variables in this routine or call a lot 
- *          of functions before get_clone_record() because get_clone_record() 
+ * CAUTION: don't add a lot of stack variables in this routine or call a lot
+ *          of functions before get_clone_record() because get_clone_record()
  *          makes assumptions about the usage of stack being less than a page.
  */
 void

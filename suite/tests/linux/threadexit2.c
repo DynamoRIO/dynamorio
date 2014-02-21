@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -110,7 +110,7 @@ int main()
             nanosleep(&sleeptime, NULL);
         }
     }
-    
+
     child_exit[0] = true;
     while (!child_done[0])
         nanosleep(&sleeptime, NULL);
@@ -132,7 +132,7 @@ int run(void *arg)
     int threadnum = (int)(long) arg;
     int i = 0;
     /* for CLONE_CHILD_CLEARTID for signaling parent.  if we used raw
-     * clone system call we could get kernel to do this for us. 
+     * clone system call we could get kernel to do this for us.
      */
     child[threadnum] = nolibc_syscall(SYS_gettid, 0);
     nolibc_syscall(SYS_set_tid_address, 1, &child[threadnum]);
@@ -175,10 +175,10 @@ int run(void *arg)
 static pid_t
 create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
 {
-    pid_t newpid; 
+    pid_t newpid;
     int flags;
     void *my_stack;
-    
+
     my_stack = stack_alloc(THREAD_STACK_SIZE);
     /* need SIGCHLD so parent will get that signal when child dies,
      * else have errors doing a wait */
@@ -187,7 +187,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
          * CLONE_CHILD_CLEARTID to get that.  Since we're using library call
          * instead of raw system call we don't have child_tidptr argument,
          * so we set the location in the child itself via set_tid_address(). */
-        CLONE_CHILD_CLEARTID | 
+        CLONE_CHILD_CLEARTID |
         CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     if (same_group)
         flags |= CLONE_THREAD;
@@ -198,7 +198,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
      */
     newpid = clone(fcn, my_stack, flags, arg);
     /* this is really a tid if we passed CLONE_THREAD: child has same pid as us */
-  
+
     if (newpid == -1) {
         nolibc_print("smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
@@ -209,7 +209,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack, bool same_group)
     return newpid;
 }
 
-static void 
+static void
 delete_thread(pid_t pid, void *stack)
 {
     pid_t result;

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -134,8 +134,8 @@ const char * const reg_names[] = {
     "st0",  "st1",  "st2",  "st3",  "st4",  "st5",  "st6",  "st7",
     "es",   "cs",   "ss",   "ds",   "fs",   "gs",
     "dr0",  "dr1",  "dr2",  "dr3",  "dr4",  "dr5",  "dr6",  "dr7",
-    "dr8",  "dr9",  "dr10", "dr11", "dr12", "dr13", "dr14", "dr15", 
-    "cr0",  "cr1",  "cr2",  "cr3",  "cr4",  "cr5",  "cr6",  "cr7", 
+    "dr8",  "dr9",  "dr10", "dr11", "dr12", "dr13", "dr14", "dr15",
+    "cr0",  "cr1",  "cr2",  "cr3",  "cr4",  "cr5",  "cr6",  "cr7",
     "cr8",  "cr9",  "cr10", "cr11", "cr12", "cr13", "cr14", "cr15",
     "<invalid>",
     "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7",
@@ -215,7 +215,7 @@ const char * const size_names[] = {
     "<invalid>"/* was cr12 */, "<invalid>"/* was cr13 */,
     "<invalid>"/* was cr14 */, "<invalid>"/* was cr15 */,
     "<invalid>"/* was <invalid> */,
-    "OPSZ_NA", 
+    "OPSZ_NA",
     "OPSZ_lea",
     "OPSZ_1",
     "OPSZ_2",
@@ -306,11 +306,11 @@ type_instr_uses_reg_bits(int type)
 {
     switch (type) {
     case TYPE_C:
-    case TYPE_D: 
+    case TYPE_D:
     case TYPE_G:
-    case TYPE_P: 
+    case TYPE_P:
     case TYPE_S:
-    case TYPE_V: 
+    case TYPE_V:
         return true;
     default:
         return false;
@@ -322,9 +322,9 @@ type_uses_modrm_bits(int type)
 {
     switch (type) {
     case TYPE_E:
-    case TYPE_M: 
+    case TYPE_M:
     case TYPE_Q:
-    case TYPE_R: 
+    case TYPE_R:
     case TYPE_W:
     case TYPE_INDIR_E:
     case TYPE_P_MODRM:
@@ -509,7 +509,7 @@ resolve_var_x64_size(decode_info_t *di/*x86_mode is IN*/,
     case OPSZ_4x8: return (X64_MODE(di) ? OPSZ_8 : OPSZ_4);
     case OPSZ_4_short2xi4: return (X64_MODE(di) && proc_get_vendor() == VENDOR_INTEL ?
                                   OPSZ_4 : OPSZ_4_short2);
-    case OPSZ_4x8_short2: return (X64_MODE(di) ? 
+    case OPSZ_4x8_short2: return (X64_MODE(di) ?
                                   (addr_short4 ? OPSZ_8_short4 : OPSZ_8_short2) :
                                   OPSZ_4_short2);
     case OPSZ_4x8_short2xi8: return (X64_MODE(di) ? (proc_get_vendor() == VENDOR_INTEL ?
@@ -580,7 +580,7 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
 
     /* First set/check rex.w or data prefix, if necessary
      * if identical size then don't need to set or check anything */
-    if (size_op != size_template) { 
+    if (size_op != size_template) {
         switch (size_op) {
         case OPSZ_1:
             if (size_template == OPSZ_2_short1) {
@@ -806,7 +806,7 @@ static bool
 reg_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             reg_id_t reg, int optype, opnd_size_t opsize, bool addr)
 {
-    /* It's ok to have an operand of type mmx or xmm but half-size (e.g., movddup) */ 
+    /* It's ok to have an operand of type mmx or xmm but half-size (e.g., movddup) */
     if (opsize == OPSZ_4_of_8 &&
         (optype == TYPE_P || optype == TYPE_Q || optype == TYPE_P_MODRM))
         return (reg >= REG_START_MMX && reg <= REG_STOP_MMX);
@@ -892,14 +892,14 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         }
         LOG(THREAD, LOG_EMIT, ENC_LEVEL,
             "\tvs. template type %s with size %s (%d bytes)\n",
-            type_names[optype], 
+            type_names[optype],
             template_optype_is_reg(optype) ?
             reg_names[opsize] : size_names[opsize],
             template_optype_is_reg(optype) ?
             opnd_size_in_bytes(reg_get_size(opsize)) : opnd_size_in_bytes(opsize));
     });
     switch (optype) {
-    case TYPE_NONE: 
+    case TYPE_NONE:
         return opnd_is_null(opnd);
     case TYPE_REG:
         return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == opsize);
@@ -912,7 +912,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     case TYPE_VAR_REG:
         /* for TYPE_*REG*, opsize is really reg_id_t */
         return (opnd_is_reg(opnd) &&
-                reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4_rex8_short2, 
+                reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4_rex8_short2,
                             false/*!addr*/) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, true
                                                       _IF_X64(false) _IF_X64(true)
@@ -950,7 +950,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, reg_get_size(opsize),
                             false/*!addr*/) &&
-                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) && 
+                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, false
                                                       _IF_X64(false) _IF_X64(false)
                                                       _IF_X64(true/*extendable*/)));
@@ -958,7 +958,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4_rex8_short2,
                             false/*!addr*/) &&
-                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) && 
+                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, true
                                                       _IF_X64(false) _IF_X64(true)
                                                       _IF_X64(true/*extendable*/)));
@@ -966,7 +966,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4x8_short2,
                             false/*!addr*/) &&
-                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) && 
+                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, true
                                                       _IF_X64(true) _IF_X64(true)
                                                       _IF_X64(true/*extendable*/)));
@@ -974,7 +974,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return (opnd_is_reg(opnd) &&
                 reg_size_ok(di, opnd_get_reg(opnd), optype, OPSZ_4_rex8,
                             false/*!addr*/) &&
-                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) && 
+                reg_set_ext_prefixes(di, opnd_get_reg(opnd), PREFIX_REX_B) &&
                 opnd_get_reg(opnd) == resolve_var_reg(di, opsize, false, false
                                                       _IF_X64(false) _IF_X64(true)
                                                       _IF_X64(true/*extendable*/)));
@@ -989,9 +989,9 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         return mem_size_ok(di, opnd, optype, opsize);
     case TYPE_E:
     case TYPE_Q:
-    case TYPE_W: 
+    case TYPE_W:
     case TYPE_INDIR_E:
-        return (mem_size_ok(di, opnd, optype, opsize) || 
+        return (mem_size_ok(di, opnd, optype, opsize) ||
                 (opnd_is_reg(opnd) &&
                  reg_size_ok(di, opnd_get_reg(opnd), optype, opsize, false/*!addr*/) &&
                  reg_rm_selectable(opnd_get_reg(opnd))));
@@ -1063,7 +1063,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
          * so we don't need to choose among templates now: we'll complain
          * at emit time if we have reachability issues. */
         return (opnd_is_near_pc(opnd) || opnd_is_near_instr(opnd));
-    case TYPE_A: 
+    case TYPE_A:
         {
             CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
 #ifdef IA32_ON_IA64
@@ -1305,7 +1305,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     return true;
 }
 
-/* Does not check operands beyond 2 dsts and 3 srcs! 
+/* Does not check operands beyond 2 dsts and 3 srcs!
  * Modifies in's prefixes to reflect whether operand or data size
  * prefixes are required.
  * Assumes caller has set di->x86_mode (i.e., ignores in's mode).
@@ -1457,7 +1457,7 @@ encode_immed(decode_info_t * di, byte *pc)
             CLIENT_ASSERT((size == OPSZ_4_short2 && !TEST(PREFIX_DATA, di->prefixes)) ||
                           (size == OPSZ_4) || IF_X64_ELSE((size == OPSZ_8), false),
                           "encode error: immediate has invalid size");
-            /* we want val to be pc of target instr 
+            /* we want val to be pc of target instr
              * immed is the difference between us and target
              * HACK: di->modrm was set with the number of instruction bytes
              * prior to this immed
@@ -1769,7 +1769,7 @@ static void
 encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 {
     switch (optype) {
-    case TYPE_NONE: 
+    case TYPE_NONE:
     case TYPE_REG:
     case TYPE_XREG:
     case TYPE_VAR_REG:
@@ -1942,7 +1942,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             }
             return;
         }
-    case TYPE_A: 
+    case TYPE_A:
         {
             ptr_uint_t target;
 
@@ -1965,7 +1965,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
                 return;
             }
 #endif
-            
+
             CLIENT_ASSERT(!X64_MODE(di), "x64 has no type A instructions");
             CLIENT_ASSERT(opsize == OPSZ_6_irex10_short4 || opsize == OPSZ_6 ||
                           opsize == OPSZ_4 ||
@@ -2101,7 +2101,7 @@ static byte
 encode_vex_final_prefix_byte(byte cur_byte, decode_info_t *di,
                              const instr_info_t *info)
 {
-    cur_byte |= 
+    cur_byte |=
         (di->vex_vvvv << 3) |
         (TEST(PREFIX_VEX_L, di->prefixes) ? 0x04 : 0x00);
     /* we override OPCODE_SUFFIX for vex to mean "requires vex.L" */
@@ -2202,7 +2202,7 @@ encode_vex_prefixes(byte *field_ptr, decode_info_t *di, const instr_info_t *info
     return field_ptr;
 }
 
-/* special-case (==fast) encoder for cti instructions 
+/* special-case (==fast) encoder for cti instructions
  * this routine cannot handle indirect branches or rets or far jmp/call;
  * it can handle loop/jecxz but it does NOT check for data16!
  */
@@ -2231,11 +2231,11 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
 
     /* output opcode */
     /* first opcode byte */
-    *pc = (byte)((info->opcode & 0x00ff0000) >> 16); 
+    *pc = (byte)((info->opcode & 0x00ff0000) >> 16);
     pc++;
     /* second opcode byte, if there is one */
     if (TEST(OPCODE_TWOBYTES, info->opcode)) {
-        *pc = (byte)((info->opcode & 0x0000ff00) >> 8); 
+        *pc = (byte)((info->opcode & 0x0000ff00) >> 8);
         pc++;
     }
     ASSERT(!TEST(OPCODE_THREEBYTES, info->opcode)); /* no cti has 3 opcode bytes */
@@ -2288,7 +2288,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
 
 /* PR 251479: support general re-relativization.
  * Takes in a level 0-3 instruction and encodes it by copying its
- * raw bytes to dst_pc. For x64, if it is marked as having a rip-relative 
+ * raw bytes to dst_pc. For x64, if it is marked as having a rip-relative
  * displacement, that displacement is re-relativized to reach
  * its current target from the encoded location.
  * Returns NULL on failure to encode (due to reachability).
@@ -2371,11 +2371,11 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
 
 /* Encodes instrustion instr.  The parameter copy_pc points
  * to the address of this instruction in the fragment cache.
- * Checks for and fixes pc-relative instructions.  
+ * Checks for and fixes pc-relative instructions.
  * N.B: if instr is a jump with an instr_t target, the caller MUST set the note
  * field in the target instr_t prior to calling instr_encode on the jump instr.
- * 
- * Returns the pc after the encoded instr, or NULL if the instruction cannot be encoded.  
+ *
+ * Returns the pc after the encoded instr, or NULL if the instruction cannot be encoded.
  * Note that if instr_is_label(instr) will encoded as a 0-byte instruction.
  * If a pc-relative operand cannot reach its target:
  *   If reachable == NULL, we assert and encoding fails (returning NULL);
@@ -2419,7 +2419,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             return encode_cti(instr, copy_pc, final_pc, check_reachable
                               _IF_DEBUG(assert_reachable));
         }
-    } 
+    }
 
     /* else really encode */
     info = instr_get_instr_info(instr);
@@ -2482,7 +2482,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     /* instr_t* operand support */
     di.cur_note = (ptr_int_t) instr->note;
 
-    /* operands 
+    /* operands
      * we can ignore extra operands here, since all extra operands
      * are hardcoded
      */
@@ -2564,7 +2564,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             /* if OPCODE_{MODRM,SUFFIX} there can be no prefix-opcode byte */
             !TESTANY(OPCODE_MODRM|OPCODE_SUFFIX, info->opcode)) {
             /* prefix byte is part of opcode */
-            *field_ptr = (byte)(info->opcode >> 24); 
+            *field_ptr = (byte)(info->opcode >> 24);
             field_ptr++;
         }
 
@@ -2601,13 +2601,13 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             field_ptr++;
         }
         /* first opcode byte */
-        *field_ptr = (byte)((info->opcode & 0x00ff0000) >> 16); 
+        *field_ptr = (byte)((info->opcode & 0x00ff0000) >> 16);
         field_ptr++;
     }
 
     /* second opcode byte, if there is one */
     if (TEST(OPCODE_TWOBYTES, info->opcode)) {
-        *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8); 
+        *field_ptr = (byte)((info->opcode & 0x0000ff00) >> 8);
         field_ptr++;
     }
     /* /n: part of opcode is in reg of modrm byte */
@@ -2626,7 +2626,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     /* opcode depends on entire modrm byte */
     if (!TEST(REQUIRES_VEX, info->flags) && TEST(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
-        *field_ptr = (byte)(info->opcode >> 24); 
+        *field_ptr = (byte)(info->opcode >> 24);
         field_ptr++;
         di.mod = 5; /* prevent modrm output from opnds below */
     }
@@ -2686,7 +2686,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         /* none of these have immeds, currently (and presumably never will have) */
         ASSERT_CURIOSITY(di.size_immed == OPSZ_NA && di.size_immed2 == OPSZ_NA);
         /* modrm is encoded in prefix byte */
-        *field_ptr = (byte)(info->opcode >> 24); 
+        *field_ptr = (byte)(info->opcode >> 24);
         field_ptr++;
     }
 
@@ -2736,16 +2736,16 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
                     *(cache_pc+i+1)==orig &&
                     *(((byte *)instr_get_raw_bits(instr))+i+1)==ours) {
                     i++; /* skip next */
-                } else if (i==0 && 
+                } else if (i==0 &&
                            ((ours==0x3a && orig==0x38) ||
                             (ours==0x3b && orig==0x39) ||
                             (ours==0x03 && orig==0x01) ||
                             (ours==0x33 && orig==0x31))) {
                     /* Gv, Ev vs Ev, Gv equivalent when both opnds regs */
                     i++; /* skip next */
-                } else if ((i==1 || i==2) && 
-                           ((ours | 0x3c)==0x3c) && 
-                           ((orig | 0x7c)==0x7c) && 
+                } else if ((i==1 || i==2) &&
+                           ((ours | 0x3c)==0x3c) &&
+                           ((orig | 0x7c)==0x7c) &&
                            *(((byte *)instr_get_raw_bits(instr))+i+2)==0x0) {
                     /* mod=0, rm=4, no disp same as mod=1, rm=4, disp=0 */
                     /* I see these for (%esp) */
@@ -2756,7 +2756,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
                     /* fadd st0, st0 => st0: two ways to do it */
                     i++; /* skip rest */
                 } else {
-                    LOG(THREAD, LOG_EMIT, 3, 
+                    LOG(THREAD, LOG_EMIT, 3,
                         "Error: encoding does not match original bits!\n");
                     for (i=0; i<len; i++) {
                         ours = *(cache_pc+i);

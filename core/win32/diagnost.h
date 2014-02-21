@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -48,7 +48,7 @@
 #define DIAGNOSTICS_CONTROL_REG_KEY L"\\Registry\\Machine\\System\\CurrentControlSet\\Control"
 #define DIAGNOSTICS_TEST_REG_KEY L"\\Registry\\Machine\\Software"
 #define DIAGNOSTICS_OS_REG_KEY L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion"
-#define DIAGNOSTICS_OS_HOTFIX_REG_KEY L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Hotfix"  
+#define DIAGNOSTICS_OS_HOTFIX_REG_KEY L"\\Registry\\Machine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Hotfix"
 #define DIAGNOSTICS_BIOS_REG_KEY L"\\Registry\\Machine\\Hardware\\Description\\System"
 #define DIAGNOSTICS_SYSTEMROOT_REG_KEY L"SystemRoot"
 #define DIAGNOSTICS_DESCRIPTION_KEY L"DeviceDesc"
@@ -73,9 +73,9 @@
 
 #define DIAGNOSTICS_BYTES_PER_LINE 32
 
- /* The DataOffset field in KEY_VALUE_FULL_INFORMATION uses the size of the structure as 
+ /* The DataOffset field in KEY_VALUE_FULL_INFORMATION uses the size of the structure as
    part of the offset.  When offsetting into the NameAndData member (see below), these
-   bytes are not present, and must be decremented.  The 2 WCHARs readjusts back for the 
+   bytes are not present, and must be decremented.  The 2 WCHARs readjusts back for the
    null-terminated Name[1] (which IS included in NameAndData).  Confusing, no? */
 #define DECREMENT_FOR_DATA_OFFSET (sizeof(KEY_VALUE_FULL_INFORMATION) - (sizeof(WCHAR) * 2))
 
@@ -86,16 +86,16 @@ typedef struct _DIAGNOSTICS_INFORMATION {
     SYSTEM_TIME_OF_DAY_INFORMATION stime_info;
     SYSTEM_PROCESSOR_TIMES sptime_info;
     SYSTEM_GLOBAL_FLAG global_flag;
-} DIAGNOSTICS_INFORMATION, *PDIAGNOSTICS_INFORMATION; 
+} DIAGNOSTICS_INFORMATION, *PDIAGNOSTICS_INFORMATION;
 
 /* FIXME: combine this definition and KEY_VALUE_INFORMATION_CLASS from ntdll.h */
-/* The properly-sized name & data field for KEY_VALUE_FULL_INFORMATION 
-   are not included in the KEY_VALUE_FULL_INFORMATION structure, but 
-   needed to receive the data after calling NtEnumerateValueKey().  
-   This structure includes a buffer (NameAndData) for the largest reasonable 
+/* The properly-sized name & data field for KEY_VALUE_FULL_INFORMATION
+   are not included in the KEY_VALUE_FULL_INFORMATION structure, but
+   needed to receive the data after calling NtEnumerateValueKey().
+   This structure includes a buffer (NameAndData) for the largest reasonable
    size for both variable items; anything longer will simply be discarded).
    The variable name field in NameAndData will always be null-terminated,
-   and the variable data field in NameAndData will always begin at 
+   and the variable data field in NameAndData will always begin at
    (DataOffset - DECREMENT_FOR_DATAOFFSET). */
 typedef struct _DIAGNOSTICS_KEY_VALUE_FULL_INFORMATION {
     ULONG   TitleIndex;
@@ -111,7 +111,7 @@ typedef struct _DIAGNOSTICS_KEY_NAME_INFORMATION {
     LARGE_INTEGER   LastWriteTime;
     ULONG   TitleIndex;
     ULONG   NameLength; /* in BYTES (including NULL term) */
-    WCHAR   Name[DIAGNOSTICS_MAX_KEY_NAME_SIZE];       
+    WCHAR   Name[DIAGNOSTICS_MAX_KEY_NAME_SIZE];
 } DIAGNOSTICS_KEY_NAME_INFORMATION, *PDIAGNOSTICS_KEY_NAME_INFORMATION;
 
 #endif /* #ifndef _DIAGNOST_H_ */

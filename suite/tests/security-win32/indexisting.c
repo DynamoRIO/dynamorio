@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,13 +68,13 @@ int f7(int a)
     return 7*a;
 }
 
-int 
+int
 bar(int a, fmult f)
 {
     int x = f2(a);
     int y = f3(a);
     int z = f(a);
-    
+
     print("%d\n", z);
     return z;
 }
@@ -82,7 +82,7 @@ bar(int a, fmult f)
 /*  Writable yet initialized data indeed needs to be processed.*/
 fmult farr[2] = {f2, f7};
 
-static void 
+static void
 test_good_indcalls()
 {
     foo('a', true); //a
@@ -136,8 +136,8 @@ test_PLT_with_indcalls(int table_index)
         call eax   // THIS indirect call should succeed at going only to the first instruction
                    // in this pseudo jump-table
         jmp after_plt_call
-    plt_ind_call_table: 
-        jmp good     // label address taken 
+    plt_ind_call_table:
+        jmp good     // label address taken
         jmp precious //  this address is not address taken
         jmp good2    //  this address is not address taken
 
@@ -159,13 +159,13 @@ test_PLT_with_indjumps(int table_index)
         add eax, table_index
 
         push offset after_plt_call // in fact desired location
-/* FIXME: note however that we're not going to like this with a .C violation! 
+/* FIXME: note however that we're not going to like this with a .C violation!
  * unless we start allowing all addresses added with 'push offset'
  */
         jmp eax   // THIS indirect call should succeed at going only to the first instruction
                   // in this pseudo jump-table
     plt_ind_call_table:
-        jmp good   
+        jmp good
         jmp precious
         jmp good2
 
@@ -176,7 +176,7 @@ test_PLT_with_indjumps(int table_index)
 
 /* TODO: need to add a test that a jump instead of a return is OK */
 
-__declspec( naked ) 
+__declspec( naked )
 int
 jmp_instead_of_ret()
 {

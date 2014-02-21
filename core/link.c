@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -517,7 +517,7 @@ linkstub_fragment(dcontext_t *dcontext, linkstub_t *l)
      * adding secondary flags fields.
      */
     if (TEST(LINK_FRAG_OFFS_AT_END, l->flags)) {
-        /* For traces and unusual bbs, we store an offset to the 
+        /* For traces and unusual bbs, we store an offset to the
          * fragment_t at the end of the linkstub_t list.
          */
         post_linkstub_t *post;
@@ -565,7 +565,7 @@ linkstub_owned_by_fragment(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
                 * linkstubs during linking
                 */
                TEST(FRAG_COARSE_GRAIN, f->flags));
-        /* Coarse-grain temp fragment_t's also have temp fake linkstub_t's */ 
+        /* Coarse-grain temp fragment_t's also have temp fake linkstub_t's */
         if (TEST(FRAG_COARSE_GRAIN, f->flags))
             return true;
         else {
@@ -1070,7 +1070,7 @@ linkstub_shares_next_stub(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
     if (!INTERNAL_OPTION(cbr_single_stub))
         return NULL;
     nxt = LINKSTUB_NEXT_EXIT(l);
-    if (nxt != NULL && 
+    if (nxt != NULL &&
         /* avoid stub computation for indirect, which fails if fcache is freed */
         LINKSTUB_DIRECT(nxt->flags) && LINKSTUB_DIRECT(l->flags) &&
         EXIT_STUB_PC(dcontext, f, nxt) == EXIT_STUB_PC(dcontext, f, l)) {
@@ -1119,7 +1119,7 @@ linkstubs_shift(dcontext_t *dcontext, fragment_t *f, ssize_t shift)
     }
 }
 
-/* returns true if the exit l can be linked to the fragment f 
+/* returns true if the exit l can be linked to the fragment f
  * if mark_new_trace_head is false, this routine does not change any state.
  */
 bool
@@ -1132,7 +1132,7 @@ is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *from_l, fragme
     if (!monitor_is_linkable(dcontext, from_f, from_l, to_f,
                              have_link_lock, mark_new_trace_head))
         return false;
-    /* cannot link between shared and private caches 
+    /* cannot link between shared and private caches
      * N.B.: we assume this in other places, like our use of fragment_lookup_same_sharing()
      * for linking, so if we change this we need to change more than this routine here
      */
@@ -1186,7 +1186,7 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
     if (INTERNAL_OPTION(nolink) || TEST(LINK_LINKED, l->flags))
         return;
     if (LINKSTUB_DIRECT(l->flags)) {
-        LOG(THREAD, LOG_LINKS, 4, "    linking F%d("PFX")."PFX" -> F%d("PFX")="PFX"\n", 
+        LOG(THREAD, LOG_LINKS, 4, "    linking F%d("PFX")."PFX" -> F%d("PFX")="PFX"\n",
             f->id, f->tag, EXIT_CTI_PC(f, l),
             targetf->id, targetf->tag, FCACHE_ENTRY_PC(targetf));
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -1218,7 +1218,7 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
             link_indirect_exit(dcontext, f, l, hot_patch);
     } else
         ASSERT_NOT_REACHED();
-    
+
     l->flags |= LINK_LINKED;
 }
 
@@ -1333,7 +1333,7 @@ incoming_link_exists(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     return incoming_find_link(dcontext, f, l, targetf) != NULL;
 }
 
-/* Removes the link from l to targetf from the incoming table 
+/* Removes the link from l to targetf from the incoming table
  * N.B.: may end up deleting targetf!
  * If l is a fake linkstub_t, then f must be coarse-grain, and this
  * routine searches targetf's incoming links for a match (since the
@@ -1385,7 +1385,7 @@ incoming_remove_link_nosearch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l
                 STATS_INC(num_trace_private_fut_del);
                 return;
             }
-        } 
+        }
         *inlist = (common_direct_linkstub_t *) dl->next_incoming;
     }
     dl->next_incoming = NULL;
@@ -1429,7 +1429,7 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
     return false;
 }
 
-/* Removes the link from l to targetf from the incoming table 
+/* Removes the link from l to targetf from the incoming table
  * N.B.: may end up deleting targetf!
  * If l is a fake linkstub_t, then f must be coarse-grain, and this
  * routine searches targetf's incoming links for a match (since the
@@ -1453,16 +1453,16 @@ incoming_remove_link(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
             return;
         DODEBUG({
             ASSERT(targetf != NULL && targetf->tag == EXIT_TARGET_TAG(dcontext, f, l));
-            LOG(THREAD, LOG_LINKS, 1, 
+            LOG(THREAD, LOG_LINKS, 1,
                 "incoming_remove_link: no link from F%d("PFX")."PFX" -> "
                 "F%d("PFX")\n",
-                f->id, f->tag, EXIT_CTI_PC(f, l), 
+                f->id, f->tag, EXIT_CTI_PC(f, l),
                 targetf->id, EXIT_TARGET_TAG(dcontext, f, l));
         });
         ASSERT_NOT_REACHED();
     }
 }
- 
+
 /* Adds the link from l to targetf to the list of incoming links
  * for targetf.
  */
@@ -1518,14 +1518,14 @@ add_private_check_shared(dcontext_t *dcontext, fragment_t *f, linkstub_t *l)
         targetf = (fragment_t *)
             fragment_create_and_add_future(dcontext, target_tag, FRAG_SHARED);
     }
-    
+
     if (!TEST(FRAG_IS_TRACE_HEAD, targetf->flags)) {
         uint th = should_be_trace_head(dcontext, f, l, target_tag, targetf->flags,
                                        true/* have linking lock*/);
         if (TEST(TRACE_HEAD_YES, th)) {
             if (TEST(FRAG_IS_FUTURE, targetf->flags)) {
                 LOG(THREAD, LOG_LINKS, 4,
-                    "    marking future ("PFX") as trace head\n", 
+                    "    marking future ("PFX") as trace head\n",
                     target_tag);
                 targetf->flags |= FRAG_IS_TRACE_HEAD;
             } else {
@@ -1675,7 +1675,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
             app_pc target_tag = EXIT_TARGET_TAG(dcontext, f, l);
             if (target_tag == f->tag)
                 targetf = f;
-            else {              
+            else {
                 /* only want fragments in same shared/private cache */
                 targetf = fragment_link_lookup_same_sharing(dcontext, target_tag,
                                                             NULL, f->flags);
@@ -1724,7 +1724,7 @@ incoming_remove_fragment(dcontext_t *dcontext, fragment_t *f)
         else
             ASSERT(fragment_lookup_private_future(dcontext, f->tag) == NULL);
     });
-    future = fragment_create_and_add_future(dcontext, f->tag, 
+    future = fragment_create_and_add_future(dcontext, f->tag,
                                 /* make sure future is in proper shared/private table.
                                  * Do not keep FRAG_TEMP_PRIVATE as getting here means
                                  * there was a real future here before the private, so our
@@ -1790,7 +1790,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
             link_branch(dcontext, in_f, l, f, HOT_PATCHABLE);
         } else {
             LOG(THREAD, LOG_LINKS, 4, "    not linking F%d("PFX")."PFX" -> F%d("PFX")"
-                " is not linkable!\n", 
+                " is not linkable!\n",
                 in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l),
                 f->id, f->tag);
         }
@@ -1849,7 +1849,7 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                     if (new_fragment)
                         add_incoming(dcontext, f, l, g, false);
                     LOG(THREAD, LOG_LINKS, 4, "    not linking F%d("PFX")."PFX" -> "
-                        "F%d("PFX" == "PFX")%s%s%s\n", 
+                        "F%d("PFX" == "PFX")%s%s%s\n",
                         f->id, f->tag, EXIT_CTI_PC(f, l),
                         g->id, g->tag, target_tag,
                         ((g->flags & FRAG_IS_TRACE_HEAD)!=0)?
@@ -1861,7 +1861,7 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                 if (new_fragment)
                     add_future_incoming(dcontext, f, l);
                 LOG(THREAD, LOG_LINKS, 4,
-                    "    future-linking F%d("PFX")."PFX" -> ("PFX")\n", 
+                    "    future-linking F%d("PFX")."PFX" -> ("PFX")\n",
                     f->id, f->tag, EXIT_CTI_PC(f, l),
                     target_tag);
             }
@@ -1998,7 +1998,7 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
         /* make sure existing flags and flags from build are compatible */
         /* trace head and frag cannot be trace head incompatible */
         if ((f->flags & FRAG_CANNOT_BE_TRACE) != 0 &&
-            (f->flags & FRAG_IS_TRACE_HEAD) != 0) { 
+            (f->flags & FRAG_IS_TRACE_HEAD) != 0) {
             f->flags &= ~FRAG_IS_TRACE_HEAD;
             LOG(THREAD, LOG_MONITOR, 2,
                 "fragment marked as trace head before being built, but now "
@@ -2045,7 +2045,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext,
                             fragment_t *old_f, fragment_t *new_f)
 {
     linkstub_t *l;
-    bool have_link_lock = 
+    bool have_link_lock =
         (TEST(FRAG_SHARED, old_f->flags) || TEST(FRAG_SHARED, new_f->flags)) &&
         !INTERNAL_OPTION(single_thread_in_DR);
     cache_pc old_stub = NULL;
@@ -2261,7 +2261,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext,
                         } else {
                             LOG(THREAD, LOG_LINKS, 4,
                                 "    not linking F%d("PFX")."PFX" -> F%d("PFX")"
-                                " is not linkable!\n", 
+                                " is not linkable!\n",
                                 in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l),
                                 new_f->id, new_f->tag);
                             add_incoming(dcontext, in_f, l, new_f, false/*!linked*/);
@@ -2348,7 +2348,7 @@ shift_links_to_new_fragment(dcontext_t *dcontext,
                     link_branch(dcontext, in_f, l, new_f, HOT_PATCHABLE);
                 } else {
                     LOG(THREAD, LOG_LINKS, 4, "    not linking F%d("PFX")."PFX" -> "
-                        "F%d("PFX" == "PFX") (self-link already linked)\n", 
+                        "F%d("PFX" == "PFX") (self-link already linked)\n",
                         in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l),
                         new_f->id, new_f->tag);
                 }
@@ -2357,12 +2357,12 @@ shift_links_to_new_fragment(dcontext_t *dcontext,
                 ASSERT(keep);
                 LOG(THREAD, LOG_LINKS, 4,
                     "    not linking F%d("PFX")."PFX" -> F%d("PFX")"
-                    "(src not outgoing-linked)\n", 
+                    "(src not outgoing-linked)\n",
                     in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l),
                     new_f->id, new_f->tag);
             } else {
                 LOG(THREAD, LOG_LINKS, 4, "    not linking F%d("PFX")."PFX" -> "
-                    "F%d("PFX" == "PFX")\n", 
+                    "F%d("PFX" == "PFX")\n",
                     in_f->id, in_f->tag, EXIT_CTI_PC(in_f, l),
                     new_f->id, new_f->tag);
             }
@@ -3135,7 +3135,7 @@ link_new_coarse_grain_fragment(dcontext_t *dcontext, fragment_t *f)
                 self_stub, f->tag);
         }
     }
-        
+
     /* we add here rather than in emit() caller since we have self_stub ptr */
     if (orig_stub == NULL)
         fragment_coarse_add(dcontext, info, f->tag, self_stub);
@@ -3433,7 +3433,7 @@ coarse_stub_lookup_by_target(dcontext_t *dcontext, coarse_info_t *info,
 }
 
 /* Coarse-grain lazy linking: if either source or target is coarse.
- * 
+ *
  * We don't keep the bookkeeping around (viz., future fragments) to support
  * proactive linking.  Lazy linking does mean that we need some source info,
  * unfortunately.  We use a per-unit fcache_return miss path to identify source
@@ -3483,10 +3483,10 @@ coarse_lazy_link(dcontext_t *dcontext, fragment_t *targetf)
                 DODEBUG({ temp_sourcef.start_pc = stub; });
                 temp_sourcef.flags = FRAG_SHARED | FRAG_COARSE_GRAIN |
                     FRAG_LINKED_OUTGOING | FRAG_LINKED_INCOMING;
-                
+
                 set_fake_direct_linkstub(&temp_linkstub, dcontext->next_tag, NULL);
                 temp_linkstub.cdl.l.flags &= ~LINK_LINKED;
-                
+
                 /* FIXME: we have targetf, we should use it here
                  * FIXME: Our source f has no tag, so we pass in info -- fragile!
                  */

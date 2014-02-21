@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,8 +35,8 @@
 
 /*
  * inject_shared.h
- * 
- * Prototypes of facilities shared between the core library, the preinject library 
+ *
+ * Prototypes of facilities shared between the core library, the preinject library
  * and the drinject executable.
  */
 
@@ -59,20 +59,20 @@ typedef enum {
 
 /* value is a buffer allocated by the caller to hold the resulting value.
  *
- * The same parameter is looked up first in the application specific registry 
- * subtree and then in the global registry tree.  
+ * The same parameter is looked up first in the application specific registry
+ * subtree and then in the global registry tree.
  */
 int
-get_process_parameter(HANDLE phandle, 
+get_process_parameter(HANDLE phandle,
                       const wchar_t *name, char *value, int maxlen);
 
 /* Only the process specific registry value is set.  */
-int 
+int
 set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value);
 
 /* Get parameter for current process, using registry view matching the
  * build of DR (so 64-bit DR looks at 64-bit registry, even for WO64 process).
- * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents 
+ * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents
  * intact (may not be true if GET_PARAMETER_BUF_TOO_SMALL is returned).
  */
 int
@@ -84,14 +84,14 @@ get_parameter_ex(const wchar_t *name, char *value, int maxlen, bool ignore_cache
 
 #ifdef X64
 /* Get parameter for current process name from 32-bit registry view.
- * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents 
+ * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents
  * intact (may not be true if GET_PARAMETER_BUF_TOO_SMALL is returned).
  */
 int
 get_parameter_32(const wchar_t *name, char *value, int maxlen);
 #else
 /* Get parameter for current process name from 64-bit registry view.
- * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents 
+ * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents
  * intact (may not be true if GET_PARAMETER_BUF_TOO_SMALL is returned).
  */
 int
@@ -99,7 +99,7 @@ get_parameter_64(const wchar_t *name, char *value, int maxlen);
 #endif
 
 /* Get parameter for current processes root app key (not qualified app key).
- * For ex. would get parameter from svchost.exe instead of svchost.exe-netsvc. 
+ * For ex. would get parameter from svchost.exe instead of svchost.exe-netsvc.
  * If return value is not GET_PARAMETER_SUCCESS leaves original buffer contents
  * intact (may not be true if GET_PARAMETER_BUF_TOO_SMALL is returned).
  */
@@ -143,7 +143,7 @@ is_safe_mode(void);
 bool
 systemwide_inject_enabled(void);
 
-void 
+void
 check_for_run_once(HANDLE process, int rununder_mask);
 
 #ifndef X64
@@ -174,7 +174,7 @@ const wchar_t*
 w_get_short_name(const wchar_t *exename);
 
 /* in case we ever want to build as unicode app, normally set by the compiler,
- * if we want to build unicode we will have to set, however, since we 
+ * if we want to build unicode we will have to set, however, since we
  * preprocess with gcc, this is the define used in the windows headers */
 #ifdef _UNICODE
 # define double_tcsrchr double_wcsrchr
@@ -183,7 +183,7 @@ w_get_short_name(const wchar_t *exename);
 #endif
 
 int
-wchar_to_char(char *cdst, size_t buflen, 
+wchar_to_char(char *cdst, size_t buflen,
               PCWSTR wide_src, size_t bytelen);
 
 void

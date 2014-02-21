@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -62,7 +62,7 @@ if (UNIX)
   # simpler to install all and exclude
   DR_install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_BIN}"
-    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE 
+    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     PATTERN "run_in_bg*" EXCLUDE
     PATTERN "runstats*" EXCLUDE
@@ -83,7 +83,7 @@ if (UNIX)
   DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
     DESTINATION "${INSTALL_LIB}"
     RENAME "libdynamorio.so.${soversion}-gdb.py"
-    PERMISSIONS OWNER_READ OWNER_EXECUTE 
+    PERMISSIONS OWNER_READ OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
   set(tool_cflags "")
@@ -103,17 +103,17 @@ else (UNIX)
 
   set(RESOURCES ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
 
-  set(tgts 
-    DRview 
-    DRcontrol 
-    DRkill 
+  set(tgts
+    DRview
+    DRcontrol
+    DRkill
     closewnd
-    winstats 
-    svccntrl 
+    winstats
+    svccntrl
     DRload
-    balloon 
-    dummy 
-    create_process 
+    balloon
+    dummy
+    create_process
     )
   if (NOT X64)
     # FIXME i#118: ldmp not yet 64-bit

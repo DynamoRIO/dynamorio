@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -146,7 +146,7 @@
  */
 #endif
 /** Cross-platform maximum file path length. */
-#define MAXIMUM_PATH      260 
+#define MAXIMUM_PATH      260
 
 /* DR_API EXPORT END */
 /* DR_API EXPORT VERBATIM */
@@ -275,8 +275,8 @@ typedef pid_t process_id_t;
 typedef HANDLE file_t;
 /** The sentinel value for an invalid file_t. */
 #  define INVALID_FILE INVALID_HANDLE_VALUE
-/* dr_get_stdout_file and dr_get_stderr_file return errors as 
- * INVALID_HANDLE_VALUE.  We leave INVALID_HANDLE_VALUE as is, 
+/* dr_get_stdout_file and dr_get_stderr_file return errors as
+ * INVALID_HANDLE_VALUE.  We leave INVALID_HANDLE_VALUE as is,
  * since it equals INVALID_FILE
  */
 /** The file_t value for standard output. */
@@ -372,7 +372,7 @@ typedef struct _instr_t instr_t;
 # ifndef SSIZE_T_MAX
 #  define SSIZE_T_MAX LLONG_MAX
 # endif
-# define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX) 
+# define POINTER_MAX_32BIT ((ptr_uint_t)UINT_MAX)
 #else
 # define POINTER_MAX UINT_MAX
 # ifndef SSIZE_T_MAX
@@ -428,7 +428,7 @@ typedef struct _instr_t instr_t;
 
 #ifdef WINDOWS
 # define IF_WINDOWS(x) x
-# define IF_WINDOWS_(x) x, 
+# define IF_WINDOWS_(x) x,
 # define _IF_WINDOWS(x) , x
 # define IF_WINDOWS_ELSE_0(x) (x)
 # define IF_WINDOWS_ELSE(x,y) (x)
@@ -488,7 +488,7 @@ typedef struct _instr_t instr_t;
 # define IF_VMX86(x) x
 # define IF_VMX86_ELSE(x,y) x
 # define _IF_VMX86(x) , x
-# define IF_NOT_VMX86(x) 
+# define IF_NOT_VMX86(x)
 #else
 # define IF_VMX86(x)
 # define IF_VMX86_ELSE(x,y) y
@@ -640,7 +640,7 @@ typedef enum {
                                 "non-internal option argument "#opt, false), \
                                 DYNAMO_OPTION(opt)))
 #else
-  /* Use only for experimental non-release options, 
+  /* Use only for experimental non-release options,
      default value is assumed and command line options are ignored */
   /* We could use IS_OPTION_INTERNAL(opt) ? to determine whether an option is defined as INTERNAL in
      optionsx.h and have that be the only place to modify to transition between internal and external options.
@@ -655,7 +655,7 @@ typedef enum {
 #ifndef DR_DO_NOT_DEFINE_uint32
  typedef unsigned int uint32;
 #endif
-/* Note: Linux paths are longer than the 260 limit on Windows, 
+/* Note: Linux paths are longer than the 260 limit on Windows,
    yet we can't afford the 4K of PATH_MAX from <limits.h> */
 typedef uint64 timestamp_t;
 #  define NAKED
@@ -694,7 +694,7 @@ typedef int ssize_t;
 #  endif
 /* VC6 doesn't define the standard ULLONG_MAX */
 #  if _MSC_VER <= 1200 && !defined(ULLONG_MAX)
-#    define ULLONG_MAX _UI64_MAX 
+#    define ULLONG_MAX _UI64_MAX
 #  endif
 typedef uint64 timestamp_t;
 #  define NAKED __declspec( naked )
@@ -908,7 +908,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #define DYNAMORIO_VAR_RUNUNDER_ID   DYNAMORIO_RUNUNDER
 #define DYNAMORIO_VAR_CMDLINE_ID    DYNAMORIO_CMDLINE
 #define DYNAMORIO_VAR_ONCRASH_ID    DYNAMORIO_ONCRASH
-#define DYNAMORIO_VAR_SAFEMARKER_ID DYNAMORIO_SAFEMARKER 
+#define DYNAMORIO_VAR_SAFEMARKER_ID DYNAMORIO_SAFEMARKER
 /* NT only, value should be all CAPS and specifies a boot option to match */
 
 #define DYNAMORIO_VAR_CACHE_ROOT_ID   DYNAMORIO_CACHE_ROOT
@@ -1032,7 +1032,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define L_EVENTLOG_REGISTRY_KEY L"\\Registry\\Machine\\"L_EXPAND_LEVEL(EVENTLOG_REGISTRY_SUBKEY)
 #  define L_EVENT_LOG_KEY LCONCAT(L_EVENTLOG_REGISTRY_KEY,EVENTLOG_NAME)
 #  define L_EVENT_LOG_SUBKEY LCONCAT(L_EVENTLOG_REGISTRY_SUBKEY,EVENTLOG_NAME)
-#  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)      
+#  define L_EVENT_LOG_NAME L_EXPAND_LEVEL(EVENTLOG_NAME)
 #  define L_EVENT_SOURCE_NAME L_EXPAND_LEVEL(EVENTSOURCE_NAME)
 #  define L_EVENT_SOURCE_KEY LCONCAT(L_EVENT_LOG_KEY, EVENTSOURCE_NAME)
 #  define L_EVENT_SOURCE_SUBKEY LCONCAT(L_EVENT_LOG_SUBKEY, EVENTSOURCE_NAME)
@@ -1041,7 +1041,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #  define EVENT_SOURCE_KEY LCONCAT(EVENT_LOG_KEY,EVENTSOURCE_NAME)
 /* Log key values (NOTE the values here are the values our installer uses,
  * not sure what all of them mean).  FIXME would be nice if these were
- * shared with the installer config file. Only used by DRcontrol (via 
+ * shared with the installer config file. Only used by DRcontrol (via
  * share/config.c) to set up new eventlogs (mainly for vista where our
  * installer doesn't work yet xref case 8482).*/
 #  define L_EVENT_FILE_VALUE_NAME L"File"
@@ -1141,9 +1141,9 @@ enum DLL_TYPE {
 # define UNIT_TEST_EXE_NAME ("unit_tests" IF_WINDOWS(".exe"))
 #endif
 
-/* DYNAMORIO_RUNUNDER controls the injection technique and process naming, 
+/* DYNAMORIO_RUNUNDER controls the injection technique and process naming,
  *  it is a bitmask of the values below:
- * RUNUNDER_ON: 
+ * RUNUNDER_ON:
  *  take over the app indicated by the corresponding app-specific
  *  subkey; when this is a global param, it only acts as a default for
  *  subkeys which don't explicitly set RUNUNDER. indicates current
@@ -1155,17 +1155,17 @@ enum DLL_TYPE {
  *
  * RUNUNDER_EXPLICIT:
  *  indicates that the app will use the alternate injection technique
- *  currently via -follow_explicit_children, but might change to drinject 
+ *  currently via -follow_explicit_children, but might change to drinject
  *  in the per-executable debugger registry key at some point
  *
  *
  * RUNUNDER_COMMANDLINE_MATCH:
  *  indicates that the process command line must exactly match the
  *  value in the DYNAMORIO_CMDLINE app-specific subkey, or else no
- *  takeover will be done.  Note that only a single instance of 
+ *  takeover will be done.  Note that only a single instance of
  *  a given executable name can be controlled this way.
  *
- * RUNUNDER_COMMANDLINE_DISPATCH: 
+ * RUNUNDER_COMMANDLINE_DISPATCH:
  *  marks that the processes with this executable name should be
  *  differentiated by their canonicalized commandline.  For example,
  *  different dllhost instances will get their own different subkeys,
@@ -1182,10 +1182,10 @@ enum DLL_TYPE {
  *  /v then this flag is needed.
  *
  * RUNUNDER_ONCE:
- *  is used by staging mode to specify that the executable corresponding 
- *  to the current process shouldn't run under DR the next time, i.e., 
+ *  is used by staging mode to specify that the executable corresponding
+ *  to the current process shouldn't run under DR the next time, i.e.,
  *  turn off its RUNUNDER_ON flag after checking it for the current process.
- *  This is needed to prevent perpetual crash-&-boot cycles due to DR failure.  
+ *  This is needed to prevent perpetual crash-&-boot cycles due to DR failure.
  *  See case 3702.
  **/
 enum {
@@ -1219,7 +1219,7 @@ enum {
 /* To use as an iterator define NUDGE_DEF(name, comment) */
 
 /* CAUTION: DO NOT change ordering of the nudge definitions for non-NYI, i.e.,
- *          implemented nudges.  These numbers correspond to specific masks 
+ *          implemented nudges.  These numbers correspond to specific masks
  *          that are used by the nodemanager/drcontrol (thus QA).  Will lead to
  *          a lot of unwanted confusion.
  */
@@ -1257,7 +1257,7 @@ enum {
      */
 
 typedef enum {
-#define NUDGE_DEF(name, comment) NUDGE_DR_##name, 
+#define NUDGE_DEF(name, comment) NUDGE_DR_##name,
     NUDGE_DEFINITIONS()
 #undef NUDGE_DEF
     NUDGE_DR_PARAMETRIZED_END
@@ -1270,7 +1270,7 @@ typedef enum {
 #define NUDGE_ARG_VERSION_1 1
 #define NUDGE_ARG_CURRENT_VERSION NUDGE_ARG_VERSION_1
 
-/* nudge_arg_t flags 
+/* nudge_arg_t flags
  * On Linux only 2 bits for these
  */
 enum {
@@ -1306,7 +1306,7 @@ typedef struct {
     client_id_t client_id; /* unique ID identifying client */
     uint64 client_arg; /* argument for a client nudge */
 #ifdef WIN32
-    /* Add future arguments for nudge actions here. 
+    /* Add future arguments for nudge actions here.
      * There is no room for more Linux arguments.
      */
 #endif
@@ -1362,7 +1362,7 @@ typedef enum {
     /* All the invalid states listed below may arise statically (at the
      * time of parsing the probes, i.e., inside dr_register_probes() or
      * dynamically (i.e., when modules are loaded or unloaded)).
-     */ 
+     */
 
     /** The numeric virtual address specified for the probe insertion location
      * or the callback function is invalid.
@@ -1459,7 +1459,7 @@ typedef enum {
      */
     HOTP_INJECT_DETECT = 100,
 
-    /* One or more patch points in a vulnerability have been patched, but not 
+    /* One or more patch points in a vulnerability have been patched, but not
      * all, yet.  N/A to probes as they can't group multiple patch points.
      */
     HOTP_INJECT_IN_PROGRESS = 101,
@@ -1476,7 +1476,7 @@ typedef enum {
     HOTP_INJECT_NO_MATCH = DR_PROBE_STATUS_LIB_NOT_SEEN,
 
     /*
-    TODO: must distinguish between no match & vulnerable vs. no match & not 
+    TODO: must distinguish between no match & vulnerable vs. no match & not
           vulnerable; future work if needed.
     HOTP_INJECT_NO_MATCH_VULNERABLE,
     HOTP_INJECT_NO_MATCH_NOT_VULNERABLE,
@@ -1490,7 +1490,7 @@ typedef enum {
 typedef dr_probe_status_t hotp_inject_status_t;
 
 
-/* Modes are at a policy level, not a vulnerability level, even though the 
+/* Modes are at a policy level, not a vulnerability level, even though the
  * core organizes things at the vulnerability level.
  */
 typedef enum {
@@ -1501,15 +1501,15 @@ typedef enum {
 
 /* This structure is used to form a table that contains the status of all
  * active policies.  This is separated out into a separate table, as opposed
- * to being part of the hotp_vul_info_t and thus part of the global 
- * vulnerability table, because the node manager will be directly reading 
- * this information from the core's memory.  Thus, this structure serves 
- * as a container to expose only that data which will be needed by the node 
+ * to being part of the hotp_vul_info_t and thus part of the global
+ * vulnerability table, because the node manager will be directly reading
+ * this information from the core's memory.  Thus, this structure serves
+ * as a container to expose only that data which will be needed by the node
  * manager from the core regarding hot patches.
  */
 typedef struct {
     /* polciy_id is the same as the one in hotp_vul_t.  Duplicated because can't
-     * have this pointing to the hopt_vul_t structure because the node manager 
+     * have this pointing to the hopt_vul_t structure because the node manager
      * will have to chase the pointer for each element to read it rather than a
      * single block of memory.
      */
@@ -1518,9 +1518,9 @@ typedef struct {
 
     /* This is the same as the one in hotp_vul_t.  Duplicated for the same
      * reason policy_id (see above) was.  Can't have the hotp_vul_t structure
-     * pointing here too because that struct/table needs to be initialized for 
-     * the policy status table to be created; catch-22.  
-     * Fix for case 5484, where the node manager wasn't able to tell if an 
+     * pointing here too because that struct/table needs to be initialized for
+     * the policy status table to be created; catch-22.
+     * Fix for case 5484, where the node manager wasn't able to tell if an
      * inject status was for a policy that was turned on or off.
      */
     hotp_policy_mode_t mode;
@@ -1715,15 +1715,15 @@ typedef struct _priv_mcontext_t {
  */
 /* Xref i#139:
  * XMM register preservation will cause extra runtime overhead.
- * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows 
- * that DR with xmm preservation adds negligible overhead over DR without 
+ * We test it over 32-bit SPEC2006 on a 64-bit Debian Linux, which shows
+ * that DR with xmm preservation adds negligible overhead over DR without
  * xmm preservation.
- * It means xmm preservation would have little performance impact over 
- * DR base system. This is mainly because DR's own operations' overhead 
+ * It means xmm preservation would have little performance impact over
+ * DR base system. This is mainly because DR's own operations' overhead
  * is much higher than the context switch overhead.
- * However, if a program is running with a DR client which performs many 
+ * However, if a program is running with a DR client which performs many
  * clean calls (one or more per basic block), xmm preservation may
- * have noticable impacts, i.e. pushing bbs over the max size limit, 
+ * have noticable impacts, i.e. pushing bbs over the max size limit,
  * and could have a noticeable performance hit.
  */
 /* We now save everything but we keep separate NUM_XMM_SLOTS vs NUM_XMM_SAVED

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,7 +40,7 @@ To build need to align to 0x2000 to get non-committed pages as padding
 cl /nologo /Zi /I. tools.c /Od /MTd win32/secalign.dll.c kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /link /subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib /align:0x2000 /driver
 
 new link.exe has /section, accomplishes same thing, still need /driver:
-"/c/Program Files/Microsoft Visual Studio 8/VC/bin/link.exe" win32/secalign.dll.obj /subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib /section:.text,,align=0x2000 /driver 
+"/c/Program Files/Microsoft Visual Studio 8/VC/bin/link.exe" win32/secalign.dll.obj /subsystem:console /dll /out:win32/secalign.dll.dll /implib:win32/secalign.dll.lib /section:.text,,align=0x2000 /driver
 */
 
 #include "tools.h"
@@ -62,7 +62,7 @@ make_a_lib(int arg)
     return 1;
 }
 
-BOOL APIENTRY 
+BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     switch (reason_for_call) {

@@ -2,7 +2,7 @@ testing hook pattern
 #if (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_trampoline_displaced_code) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_trampoline) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap))
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -13,7 +13,7 @@ testing non-pattern-match on same page
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -25,7 +25,7 @@ testing non-pattern-match in same region
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -37,7 +37,7 @@ testing hook pattern again
 #if (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_trampoline_displaced_code) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_trampoline) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap))
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -48,7 +48,7 @@ testing non-pattern-match in same region by another thread
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -60,7 +60,7 @@ testing different pattern match in same region
 #if (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_trampoline_dirjmp) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_trampoline) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap))
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -72,7 +72,7 @@ testing pattern match that modifies itself to be a non-match
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(executable_if_x) && !defined(B) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else

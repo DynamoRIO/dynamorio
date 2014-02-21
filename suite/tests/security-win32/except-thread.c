@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -58,10 +58,10 @@ call_bad_code(LPVOID parm)
     /* Now we should start getting different results with code origins,
        because the addresses are normally readable, but now we impose our own policy
 
-       -detect_mode should behave normally 
+       -detect_mode should behave normally
           no exceptions are triggered
 
-       -throw_exception -no_detect_mode 
+       -throw_exception -no_detect_mode
           should behave similarly to the handling of unreadable memory above
           (fake) exceptions should be generated claiming that badfunc is not executable
      */
@@ -77,11 +77,11 @@ call_bad_code(LPVOID parm)
             __except (
                       exception = *((GetExceptionInformation())->ExceptionRecord),
                       context = (GetExceptionInformation())->ContextRecord,
-                      print("DATA VIOLATION: Inside first filter eax=%x\n", 
+                      print("DATA VIOLATION: Inside first filter eax=%x\n",
                              context->CXT_XAX),
 #ifdef DUMP_REGISTER_STATE
                       dump_exception_info(&exception, context),
-#else 
+#else
                       print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no"),
                       print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no"),
 #endif
@@ -91,7 +91,7 @@ call_bad_code(LPVOID parm)
             print("DATA: At statement after 1st try-except\n");
             __try {
                 initialize_registry_context();
-                ((funcptr)badfunc)(); 
+                ((funcptr)badfunc)();
                 print("DATA: Inside 2nd try\n");
             } __except (EXCEPTION_CONTINUE_SEARCH) {
                 print("DATA: This should NOT be printed\n");
@@ -110,7 +110,7 @@ call_bad_code(LPVOID parm)
         print("DATA: Expected execution violation!\n");
 #ifdef DUMP_REGISTER_STATE
         dump_exception_info(&exception, context);
-#else 
+#else
         print("Address match : %s\n", (exception.ExceptionAddress == (PVOID)badfunc && context->CXT_XIP == (ptr_uint_t)badfunc) ? "yes" : "no");
         print("Exception match : %s\n", (exception.ExceptionCode == 0xc0000005 && exception.ExceptionInformation[0] == 0 && exception.ExceptionInformation[1] == (ptr_uint_t)badfunc) ? "yes" : "no");
 #endif
@@ -131,7 +131,7 @@ main()
 #endif
 
     badfunc = (char *) ALIGN_FORWARD(badfuncbuf, 512);
-    
+
     /* FIXME: make this fancier */
     badfunc[0] = 0xc3; /* ret */
 
@@ -142,7 +142,7 @@ main()
 
     call_bad_code(0);
     print("THREAD0: After calling more bad code here\n");
-        
+
 #ifdef USE_DYNAMO
     dynamorio_app_stop();
     dynamorio_app_exit();

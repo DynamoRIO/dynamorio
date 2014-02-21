@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -32,23 +32,23 @@
 
 /* case 2525 - hooker for LdrLoadDll or NtProtectVirtualMemory */
 
-/* one should use a CALL and the other should use a JMP 
+/* one should use a CALL and the other should use a JMP
 *   just to be sure
-* 
-*  FIXME: need to get this test also to be done like initapc.dll.c so that 
+*
+*  FIXME: need to get this test also to be done like initapc.dll.c so that
 *  this all happens BEFORE we take control
 **/
 
 #include "tools.h"
 #include <windows.h>
 
-#define NAKED __declspec( naked ) 
+#define NAKED __declspec( naked )
 
 /* check for some unexpected behaviours with size = 5 and size = 0x1000, or even 0x2000 */
 enum {HOOK_SIZE = 0x1000};
 
 /*
- * NTSTATUS LdrLoadDll(LPCWSTR path_name, DWORD flags, 
+ * NTSTATUS LdrLoadDll(LPCWSTR path_name, DWORD flags,
  *                     PUNICODE_STRING libname, HMODULE* hModule)
 */
 
@@ -116,9 +116,9 @@ do_hook(const char* hookfn, int args, int use_call)
         args += 1;                /* clean up addr of CALL */
 
     switch (args) {
-    case 4: 
+    case 4:
         trampoline_target = hooker4; break;
-    case 5: 
+    case 5:
         trampoline_target = hooker5; break;
     default:
         print("BAD args\n");
@@ -131,21 +131,21 @@ do_hook(const char* hookfn, int args, int use_call)
     __except (EXCEPTION_EXECUTE_HANDLER) {
         print("ok: can't write\n");
     }
-    
-    res = VirtualProtect(hooktarget, 
+
+    res = VirtualProtect(hooktarget,
                          size,
                          PAGE_EXECUTE_READWRITE,
                          &prev);
-    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE="PFMT" prev="PFMT"\n", 
+    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE="PFMT" prev="PFMT"\n",
           hookfn, (hooktarget /* disabled */,0), size, (res /* eax noisy */, 0) , GetLastError(), prev);
 
 #ifdef VERBOSE
-    print("before hooking %s = %02x %02x %02x %02x %02x\n", 
-          hookfn, 
+    print("before hooking %s = %02x %02x %02x %02x %02x\n",
+          hookfn,
           hooktarget[0], hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
 #endif
 
-    pc_rel_target =  (DWORD)trampoline_target - ((DWORD)hooktarget + 5); /* target = offset + cur pc + size*/ 
+    pc_rel_target =  (DWORD)trampoline_target - ((DWORD)hooktarget + 5); /* target = offset + cur pc + size*/
 
     __try {
         *hooktarget = use_call ? op_CALL : op_JMP;
@@ -153,8 +153,8 @@ do_hook(const char* hookfn, int args, int use_call)
 
         /* now let's get smart here and see if hook worked */
 #ifdef VERBOSE
-        print("after  hooking %s = %02x %02x %02x %02x %02x\n", 
-              hookfn, 
+        print("after  hooking %s = %02x %02x %02x %02x %02x\n",
+              hookfn,
               hooktarget[0], hooktarget[1], hooktarget[2], hooktarget[3], hooktarget[4]);
 #endif
         if (*(DWORD*)(hooktarget+1) != pc_rel_target)
@@ -175,11 +175,11 @@ do_hook(const char* hookfn, int args, int use_call)
 
 
     /* restore page permissoins now, could be optional */
-    res = VirtualProtect(hooktarget, 
+    res = VirtualProtect(hooktarget,
                          size,
                          PAGE_EXECUTE_READ,
                          &prev);
-    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READ,...) = %d GLE="PFMT" \n", 
+    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READ,...) = %d GLE="PFMT"\n",
           hookfn, (hooktarget /* disabled */,0), size, (res /* eax noisy */, 0) , GetLastError());
     print("old permissions ...prev="PFMT")\n", prev);
 
@@ -198,7 +198,7 @@ int
 main()
 {
     INIT();
-    
+
     print("ready to hook\n");
 
     do_hook("LdrLoadDll", 4, 1);
@@ -214,7 +214,7 @@ main()
     do_hook("NtFlushWriteBuffer", 4, 1);
     do_hook("NtFlushWriteBuffer", 4, 0);
 
-    /* we have 4 writes to ntdll memory 
+    /* we have 4 writes to ntdll memory
      * on each of 6 calls to do_hook
      * should get app_modify_ntdll_writes = 24
      * FIXME: how to scrape a log for this?

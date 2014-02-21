@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,7 +59,7 @@ next_token_sep(char *start, SIZE_T *len, char sep)
         curtok += 1;
         return curtok;
     }
-        
+
     /* determine the next token */
     while (curtok[0] != '\0' && *len == 0) {
         *len = strcspn(curtok, seps);
@@ -92,15 +92,15 @@ get_message_block_size(char *start, WCHAR *end_delimiter_w, SIZE_T *size)
     endptr = strstr(start, end_delimiter);
 
     if (endptr == NULL) {
-        DO_DEBUG(DL_WARN, 
+        DO_DEBUG(DL_WARN,
                  printf("No %s end delimiter!\n", end_delimiter);
                  );
         *size = 0xffffffff;
         return NULL;
     }
     else {
-        DO_DEBUG(DL_VERB, 
-                 printf("Block size %d for %s:\n", 
+        DO_DEBUG(DL_VERB,
+                 printf("Block size %d for %s:\n",
                         endptr - start, end_delimiter);
                  );
         *size = endptr - start;
@@ -132,7 +132,7 @@ parse_line_sep(char *start, char sep, BOOL *done,
 
     curtok = next_token_sep(start, &toklen, sep);
 
-    DO_DEBUG(DL_FINEST, 
+    DO_DEBUG(DL_FINEST,
              printf("curtok (tl=%d):\n%s",
                     toklen, curtok);
              );
@@ -145,8 +145,8 @@ parse_line_sep(char *start, char sep, BOOL *done,
     _snwprintf(param, MIN(toklen, maxchars-1), L"%S", curtok);
     param[MIN(toklen, maxchars-1)] = L'\0';
 
-    DO_DEBUG(DL_FINEST, 
-             printf("curtok: %s, nc=%d (%d or %d?)\n", 
+    DO_DEBUG(DL_FINEST,
+             printf("curtok: %s, nc=%d (%d or %d?)\n",
                     curtok, curtok[toklen + 1], '\r', '\n');
              );
 
@@ -171,7 +171,7 @@ parse_line_sep(char *start, char sep, BOOL *done,
             prefix = get_dynamorio_home();
         else
             prefix = L"";
-        
+
         _snwprintf(value, MIN(toklen + wcslen(prefix), maxchars - 1),
                    L"%s%S", prefix, curtok);
         value[MIN(toklen + wcslen(prefix), maxchars - 1)] = L'\0';
@@ -179,8 +179,8 @@ parse_line_sep(char *start, char sep, BOOL *done,
 
  parse_line_out:
 
-    DO_DEBUG(DL_FINEST, 
-             printf("parsed line: %S(%d)=%S\n", 
+    DO_DEBUG(DL_FINEST,
+             printf("parsed line: %S(%d)=%S\n",
                     param, toklen, value);
              );
 
@@ -190,7 +190,7 @@ parse_line_sep(char *start, char sep, BOOL *done,
 
 /* first argument is where to start searching from.
  * returns a value which is the right place to start searching
- *  from for the next token. 
+ *  from for the next token.
  * a line is either a single token, or an NVP (separated by =). */
 char *
 parse_line(char *start, BOOL *done,
@@ -208,11 +208,11 @@ msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
     if (data == NULL)
         return;
 
-    if (msg_buffer != NULL && 
+    if (msg_buffer != NULL &&
         strlen(msg_buffer) + wcslen(data) < maxchars) {
         SIZE_T oldsz = strlen(msg_buffer);
         DO_DEBUG(DL_FINEST,
-                 printf("msg_buffer: %s, os=%d, data=%S\n", 
+                 printf("msg_buffer: %s, os=%d, data=%S\n",
                         msg_buffer, oldsz, data);
                  );
         _snprintf(msg_buffer + oldsz, maxchars - oldsz, "%S", data);
@@ -228,14 +228,14 @@ msg_append(char *msg_buffer, SIZE_T maxchars, WCHAR *data, SIZE_T *accumlen)
 }
 
 /* ok this is annoying.
- * 
+ *
  * apparently there's a bug in MS's CRT that causes \r\n to get
  *  converted to \r\r\n.
- * 
+ *
  * see the unit tests below for an example of this bug.
  *
  * i guess we're ok with \r\r\n since notepad handles it fine. that's
- *  preferable to just \n which notepad can't handle. 
+ *  preferable to just \n which notepad can't handle.
  */
 
 void
@@ -251,9 +251,9 @@ msg_append_nvp(char *msg_buffer, SIZE_T maxchars, SIZE_T *accumlen,
     msg_append(msg_buffer, maxchars, L_EQUALS, accumlen);
 
     /* relativize any paths to DRHOME */
-    if (0 == wcsncmp(value, get_dynamorio_home(), 
+    if (0 == wcsncmp(value, get_dynamorio_home(),
                      wcslen(get_dynamorio_home())))
-        msg_append(msg_buffer, maxchars, 
+        msg_append(msg_buffer, maxchars,
                    value + wcslen(get_dynamorio_home()), accumlen);
     else
         msg_append(msg_buffer, maxchars, value, accumlen);
@@ -284,10 +284,10 @@ main()
     res = read_file_contents(sample, NULL, 0, &len);
     DO_ASSERT(res == ERROR_MORE_DATA);
     DO_ASSERT(len > 1000);
-    
+
     policy = (char *) malloc(len);
     res = read_file_contents(sample, policy, len, NULL);
-    DO_ASSERT(res == ERROR_SUCCESS);    
+    DO_ASSERT(res == ERROR_SUCCESS);
 
 
     /* next_token tests */
@@ -297,7 +297,7 @@ main()
 
         line = testline;
         tok = next_token(line, &len);
-    
+
         DO_ASSERT(line == tok);
         DO_ASSERT(len == strlen("GLOBAL_PROTECT"));
 
@@ -433,13 +433,13 @@ main()
 
         res = write_file_contents(outfn, str, TRUE);
         DO_ASSERT(res == ERROR_SUCCESS);
-        
+
         res = read_file_contents(outfn, buf, MAX_PATH, NULL);
         DO_ASSERT(res == ERROR_SUCCESS);
 
         DO_ASSERT(0 == strcmp(buf, str));
 
-        /* this passes: but check out the file in emacs! 
+        /* this passes: but check out the file in emacs!
          * apparently the bug works both ways. */
     }
 

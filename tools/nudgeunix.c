@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -52,7 +52,7 @@ extern bool
 create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
                             client_id_t client_id, uint64 client_arg);
 
-static const char *usage_str = 
+static const char *usage_str =
     "usage: nudgeunix [-help] [-v] [-pid <pid>] [-type <type>] [-client <ID> <arg>]\n"
     "       -help              Display this usage information\n"
     "       -v                 Display version information\n"
@@ -131,7 +131,7 @@ main(int argc, const char *argv[])
                     fprintf(stderr, "ERROR: unknown -nudge %s\n", argv[arg_offs+1]);
                     return usage();
                 }
-            }   
+            }
 
             arg_offs += 2;
         } else

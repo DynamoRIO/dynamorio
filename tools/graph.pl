@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -34,13 +34,13 @@
 # Need to have: perl-GD and perl-GIFgraph
 
 # For linux, on balrog (RH7.2), I had to do:
-# rpm -Uvh gd-2.0.1-4.i386.rpm gd-devel-2.0.1-4.i386.rpm 
-# rpm -ivh perl-5.6.1-14.i686.rpm 
-# rpm -Uvh perl-GD-1.33-3.i686.rpm 
-# rpm -ivh --oldpackage db3-3.1.17-7.i386.rpm 
-# rpm -ivh perl-modules-5.6.1-14.i686.rpm 
-# rpm -Uvh perl-GD-TextUtil-0.80-2.i386.rpm 
-# rpm -Uvh perl-GD-Graph-1.33-3.i686.rpm 
+# rpm -Uvh gd-2.0.1-4.i386.rpm gd-devel-2.0.1-4.i386.rpm
+# rpm -ivh perl-5.6.1-14.i686.rpm
+# rpm -Uvh perl-GD-1.33-3.i686.rpm
+# rpm -ivh --oldpackage db3-3.1.17-7.i386.rpm
+# rpm -ivh perl-modules-5.6.1-14.i686.rpm
+# rpm -Uvh perl-GD-TextUtil-0.80-2.i386.rpm
+# rpm -Uvh perl-GD-Graph-1.33-3.i686.rpm
 # rpm -ivh perl-GIFgraph-1.20-4.i386.rpm
 
 # Installing GIFgraph For win32:
@@ -65,7 +65,7 @@ use GD;
 #  y_max_value=1.4
 #  y_tick_number=14
 #  y_number_format=%3.1f
-#  
+#
 #  apsi    0.994019        0.994626
 #  art     1.23069         1.08014
 #  bzip2   0.928           0.825924
@@ -224,7 +224,7 @@ $my_graph->set_x_label_font(gdMediumBoldFont);
 $my_graph->set_y_label_font(gdMediumBoldFont);
 $my_graph->set_legend_font(gdMediumBoldFont);
 if ($sep_slim) {
-    $my_graph->set(dclrs => 
+    $my_graph->set(dclrs =>
            [ qw(pink lred lgreen lblue lyellow lpurple cyan lorange) ]);
 }
 if (defined($lg_cols)) {

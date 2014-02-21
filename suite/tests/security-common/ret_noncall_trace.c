@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,24 +31,24 @@
  * DAMAGE.
  */
 
-/* Description:        This test is intended to check if the -ibl_table_per_type 
+/* Description:        This test is intended to check if the -ibl_table_per_type
  *   option works, which is done by generating a bogus-return-address-security-
  *   violation.  The nature of the violation is  such that it won't be caught
  *   by DR unless the -ibl_table_per_type option is turned on.  The program
  *   tries to return to a fragment that is classified as a tracehead and isn't
  *   the return site of a call.
- *   
- * Assumption: This test program will always be compiled /Od on Windows and 
+ *
+ * Assumption: This test program will always be compiled /Od on Windows and
  *   with default optimization on Linux.
  *
- * Notes: If the compilers change, their default optimization levels are 
- *   changed or if this code is optimized, the offset 6, used in next_num() for 
- *   saved_eip will change.  The change may be different on Windows and Linux.  
+ * Notes: If the compilers change, their default optimization levels are
+ *   changed or if this code is optimized, the offset 6, used in next_num() for
+ *   saved_eip will change.  The change may be different on Windows and Linux.
  *   The offset value in the code has to be modified.
  */
 
 #include "tools.h"
- 
+
 #define NUM_TIMES 100
 #define INNER_LOOP_COUNT 4
 #define MAX_SUM (NUM_TIMES * (NUM_TIMES + 1) / 2 * INNER_LOOP_COUNT)

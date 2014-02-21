@@ -72,7 +72,7 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
         if (mod != NULL &&
             strstr(dr_module_preferred_name(mod), "appdll") != NULL) {
             size_t modoffs = pc - mod->start;
-            dr_fprintf(STDERR, "appdll pc appeared in bb event: 0x%08lx %s\n", 
+            dr_fprintf(STDERR, "appdll pc appeared in bb event: 0x%08lx %s\n",
                        modoffs, dr_module_preferred_name(mod));
         }
         dr_free_module_data(mod);

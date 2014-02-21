@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,8 +41,8 @@
  *
  */
 
-/* This file is included multiple times 
-   - in globals.h once for structure definition, 
+/* This file is included multiple times
+   - in globals.h once for structure definition,
    - in options.c, four times: for initialization, option parsing and enumeration
    - TODO: should also be included in the GUI
 */
@@ -96,7 +96,7 @@
 #define PCL_OPTION(type, name, description)                              \
     PCL_OPTION_DEFAULT(type, name, 0, description)
 
-/* Dynamic option shortcut definitions, 
+/* Dynamic option shortcut definitions,
    CHECK: if most options end up being dynamic just add a flag to the above */
 #define DYNAMIC_OPTION_DEFAULT(type, name, value, description)          \
     OPTION_COMMAND(type, name, value, #name, {}, description, DYNAMIC, OP_PCACHE_NOP)
@@ -110,16 +110,16 @@
 #define DYNAMIC_PCL_OPTION(type, name, description)                     \
     DYNAMIC_PCL_OPTION_DEFAULT(type, name, 0, description)
 
-/* Shortcut for defining alias command line options to set another option to a constant value, 
+/* Shortcut for defining alias command line options to set another option to a constant value,
    Note we can't read the real type/description, and aliases are not transitive */
 #define OPTION_ALIAS(new_alias, real_internal_name, real_value, dynamic_flag, pcache)   \
     OPTION_COMMAND(bool, new_alias##_aka_##real_internal_name, false, #new_alias,       \
     { if (options->new_alias##_aka_##real_internal_name)                                \
         options->real_internal_name = real_value;                                       \
     },                                                                                  \
-    #new_alias " is an alias for " #real_internal_name, dynamic_flag, pcache) 
+    #new_alias " is an alias for " #real_internal_name, dynamic_flag, pcache)
 
-/* OPTION_COMMAND_INTERNAL is parsed separately in options.h to 
+/* OPTION_COMMAND_INTERNAL is parsed separately in options.h to
    define constants with default values that are used by INTERNAL_OPTION */
    /* FIXME: dynamic internal options not yet supported */
 #define OPTION_DEFAULT_INTERNAL(type, name, value, description) \
@@ -260,13 +260,13 @@
     /* log control fields will be kept in dr_statistics_t structure so they can be updated,
      yet we'll also have the initial value in options_t at the cost of 8 bytes */
     OPTION_COMMAND(uint, stats_logmask, 0, "logmask", {
-        if (stats != NULL && for_this_process) 
-            stats->logmask = options->stats_logmask; 
+        if (stats != NULL && for_this_process)
+            stats->logmask = options->stats_logmask;
     }, "set mask for logging from specified modules", DYNAMIC, OP_PCACHE_NOP)
 
     OPTION_COMMAND(uint, stats_loglevel, 0, "loglevel", {
         if (stats != NULL && for_this_process)
-            stats->loglevel = options->stats_loglevel; 
+            stats->loglevel = options->stats_loglevel;
     },"set level of detail for logging", DYNAMIC, OP_PCACHE_NOP)
     /* Note that these are not truly DYNAMIC, and they don't get synchronized before each LOG */
     OPTION_DEFAULT(uint, checklevel, 2, "level of asserts/consistency checks (PR 211887)")
@@ -330,7 +330,7 @@
      * client option strings to matter, so we check this separately
      * from the general -persist_check_options
      */
-    OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING, 
+    OPTION_DEFAULT_INTERNAL(liststring_t, client_lib, EMPTY_STRING,
                             ";-separated string containing client "
                             "lib paths, IDs, and options")
     /* If we revive hotpatching should use this there as well: but for now
@@ -357,7 +357,7 @@
     /* Heap isolation for private dll copies.  Valid only with -private_loader. */
     OPTION_DEFAULT_INTERNAL(bool, privlib_privheap, true,
                             "redirect heap usage by private libraries to DR heap")
-    /* PEB and select TEB field isolation for private dll copies (i#249).  
+    /* PEB and select TEB field isolation for private dll copies (i#249).
      * Valid only with -private_loader.
      */
     OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
@@ -429,12 +429,12 @@
         }
      }, "enable Code Manipulation API", STATIC, OP_PCACHE_NOP)
 
-    /* PR 200418: Probe API.  Note that the code manip API is off by 
+    /* PR 200418: Probe API.  Note that the code manip API is off by
      * default, so -probe_api by itself will give users the lightweight
      * and more restricted version of the probe API.  If users want the
-     * flexibility to place a probe anywhere, or if they also want code 
-     * manipulation ability, they'll have to enable the code manip API 
-     * as well.  For simplicity, we assume they're willing to accept 
+     * flexibility to place a probe anywhere, or if they also want code
+     * manipulation ability, they'll have to enable the code manip API
+     * as well.  For simplicity, we assume they're willing to accept
      * any associated performance hit (e.g., turning off elision), when
      * enabling the code manip API.
      */
@@ -485,7 +485,7 @@
 
     PC_OPTION_INTERNAL(bool, bb_prefixes, "give all bbs a prefix")
     /* If a client registers a bb hook, we force a full decode.  This option
-     * requests a full decode regardless of whether there is a bb hook. 
+     * requests a full decode regardless of whether there is a bb hook.
      * Note that there is no way to make this available for non-CI builds
      * yet be exposed in non-internal CI builds, so we make it CI-only.
      */
@@ -526,7 +526,7 @@
     OPTION_DEFAULT(bool, cleancall_ignore_eflags, true,
                    "skip eflags clear code with assumption that clean call does not rely on cleared eflags")
     /* i#107: To handle app using same segment register that DR uses, we should
-     * mangle the app's segment usage. 
+     * mangle the app's segment usage.
      * It cannot be used with DGC_DIAGNOSTICS.
      */
     OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, true),
@@ -568,7 +568,7 @@
            */
     OPTION_DEFAULT_INTERNAL(uint, syslog_internal_mask, 0, /* PR 232126: re-enable: SYSLOG_ALL */
           "log only specified internal message types")
-     
+
     OPTION_DEFAULT(bool, syslog_init, false, "initialize syslog, unnecessary if correctly installed") /* PR 232126: re-enable for product: true */
 #ifdef WINDOWS
     DYNAMIC_OPTION(uint, internal_detach_mask, "indicates what events the core should detach from the app on")
@@ -647,7 +647,7 @@
          */
         "Warn on unsupported (but workable) operating system versions greater than max_supported_os_version")
 
-    OPTION_DEFAULT(uint, os_aslr, 
+    OPTION_DEFAULT(uint, os_aslr,
         /* case 8225 - for now we disable our own ASLR.
          * we do not disable persistent caches b/c they're off by default
          * anyway and if someone turns them on then up to him/her to understand
@@ -661,7 +661,7 @@
     /* case 10509: we only use this on <= win2k as it significantly impacts boot time */
     OPTION_DEFAULT(uint_time, svchost_timeout, 1000, "timeout (in ms) on an untimely unloaded library on Windows NT or Windows 2000") /* case 374 */
 
-    OPTION_DEFAULT(uint_time, deadlock_timeout, 
+    OPTION_DEFAULT(uint_time, deadlock_timeout,
         IF_DEBUG_ELSE_0(60)*3*1000, /* disabled in release */
         "timeout (in ms) before assuming a deadlock had occurred (0 to disable)")
 
@@ -682,9 +682,9 @@
         "stack and thread-private generated code share an allocation region")
 
     OPTION_DEFAULT(uint, spinlock_count_on_SMP, 1000U, "spinlock loop cycles on SMP")
-        /* This is a true spinlock where on an SMP we check for availability in a tight loop instead 
-           of yielding and waiting on a kernel object. 
-           See Robbins for a discussion on a good value for the above - 
+        /* This is a true spinlock where on an SMP we check for availability in a tight loop instead
+           of yielding and waiting on a kernel object.
+           See Robbins for a discussion on a good value for the above -
            it should be based on expectations on how long does it take to finish a task. */
 
     /* i#1111: try to improve startup-time performance by avoiding the bb lock
@@ -703,7 +703,7 @@
     /* replace dynamorio_app_init & _start w/ empty functions */
 
     OPTION_COMMAND_INTERNAL(uint, trace_threshold, 50U, "trace_threshold",
-          { options->disable_traces = options->trace_threshold == 0; }, 
+          { options->disable_traces = options->trace_threshold == 0; },
           "hot threshold value for trace creation", STATIC, OP_PCACHE_NOP)
             /* Override the default threshold for hot trace selection. */
     /* PR 200418: Traces are off by default for the BT API.  We now have
@@ -850,10 +850,10 @@
     /* control inlining of fast path of indirect branch lookup routines */
     /* NOTE : Since linking inline_indirect branches is not atomic (see bug 751)
      * don't turn this on (need atomic linking for trace building in a shared
-     * cache) without turning on atomic_inlined_linking, 
-     * should be ok for traces since ?think? only need atomic unlinking 
+     * cache) without turning on atomic_inlined_linking,
+     * should be ok for traces since ?think? only need atomic unlinking
      * there (for flushing), reconsider esp. if we go to a shared trace cache
-     */ 
+     */
     OPTION_DEFAULT(bool, inline_bb_ibl, false, "inline head of ibl routine in basic blocks")
     /* Default TRUE as it's needed for shared_traces (which is on by default) */
     /* PR 361894: if no TLS available, we fall back to thread-private */
@@ -927,7 +927,7 @@
     /* PR 361894: if no TLS available, we fall back to thread-private */
     OPTION_DEFAULT(bool, shared_trace_ibl_routine, IF_HAVE_TLS_ELSE(true, false),
                    "share ibl routine for traces")
-    OPTION_DEFAULT(bool, speculate_last_exit, false, 
+    OPTION_DEFAULT(bool, speculate_last_exit, false,
         "enable speculative linking of trace last IB exit")
 
     OPTION_DEFAULT(uint, max_trace_bbs, 128, "maximum number of basic blocks in a trace")
@@ -941,7 +941,7 @@
      /*  1 == HASH_FUNCTION_MULTIPLY_PHI */
     OPTION_DEFAULT_INTERNAL(uint, alt_hash_func, 1, "use to select alternate hashing functions for all fragment tables except those that have in cache lookups")
 
-    OPTION_DEFAULT(uint, ibl_hash_func_offset, 0, 
+    OPTION_DEFAULT(uint, ibl_hash_func_offset, 0,
         /* Ignore LSB bits for ret and indjmp hashtables (use ibl_indcall_hash_offset
          * for indcall hashtables).
          * This may change the hash function distribution and for offsets
@@ -950,13 +950,13 @@
         "mask out lower bits in IBL table hash function")
 
     /* PR 263331: call* targets on x64 are often 16-byte aligned so ignore LSB 4 */
-    OPTION_DEFAULT(uint, ibl_indcall_hash_offset, IF_X64_ELSE(4, 0), 
+    OPTION_DEFAULT(uint, ibl_indcall_hash_offset, IF_X64_ELSE(4, 0),
         /* Ignore LSB bits for indcall hashtables. */
         "mask out lower bits in indcall IBL table hash function")
 
     OPTION_DEFAULT_INTERNAL(uint, shared_bb_load,
-        /* FIXME: since resizing is costly (no delete) this used to be up to 65 but that 
-         * hurt us lot (case 1677) when we hit a bad hash function distribution - 
+        /* FIXME: since resizing is costly (no delete) this used to be up to 65 but that
+         * hurt us lot (case 1677) when we hit a bad hash function distribution -
          * My current theory is that since modules addresses are 64KB
          * aligned we are doing bad on the 16-bit capacity.
          */
@@ -1167,11 +1167,11 @@
     /* adaptive working set */
     OPTION_DEFAULT(bool, finite_bb_cache, true, "adaptive working set bb cache management")
     OPTION_DEFAULT(bool, finite_trace_cache, true, "adaptive working set trace cache management")
-    OPTION_DEFAULT(bool, finite_shared_bb_cache, false, 
+    OPTION_DEFAULT(bool, finite_shared_bb_cache, false,
         "adaptive working set shared bb cache management")
-    OPTION_DEFAULT(bool, finite_shared_trace_cache, false, 
+    OPTION_DEFAULT(bool, finite_shared_trace_cache, false,
         "adaptive working set shared trace cache management")
-    OPTION_DEFAULT(bool, finite_coarse_bb_cache, false, 
+    OPTION_DEFAULT(bool, finite_coarse_bb_cache, false,
         "adaptive working set shared bb cache management")
     OPTION_DEFAULT(uint_size, cache_bb_unit_upgrade, (64*1024),
         "bb cache units are always upgraded to this size, in KB or MB")
@@ -1203,7 +1203,7 @@
         /* doesn't mean much for shared sizing, so default 100 makes
          * regen param a percentage */
         "#regen per #replaced ratio for sizing shared bb cache")
-    OPTION_DEFAULT(uint, cache_shared_trace_regen, 10, 
+    OPTION_DEFAULT(uint, cache_shared_trace_regen, 10,
         "#regen per #replaced ratio for sizing shared trace cache")
     OPTION_DEFAULT(uint, cache_shared_trace_replace, 100,
         /* doesn't mean much for shared sizing, so default 100 makes
@@ -1263,7 +1263,7 @@
     OPTION_DEFAULT(bool, switch_to_os_at_vmm_reset_limit, true,
         "if we hit the reset_at_vmm_*_limit switch to requesting from the os (so we'll "
         "only actually reset once the os is out and we're at the limit)")
-    OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit, true, 
+    OPTION_DEFAULT(bool, reset_at_switch_to_os_at_vmm_limit, true,
         "schedule a reset the first (and only the first) time we switch to the os "
         "allocations from -switch_to_os_at_vmm_reset_limit above")
     OPTION_DEFAULT(uint, reset_at_vmm_percent_free_limit, 10,
@@ -1275,7 +1275,7 @@
     OPTION_DEFAULT(bool, reset_at_vmm_full, true,
         "reset all caches the first time vmm heap runs out of space")
     OPTION_DEFAULT(uint, reset_at_commit_percent_free_limit, 0,
-        "reset all less then this % of the commit limit remains free (0 disables)") 
+        "reset all less then this % of the commit limit remains free (0 disables)")
     OPTION_DEFAULT(uint_size, reset_at_commit_free_limit, (32 * 1024 * 1024),
          "reset all when less then this much free committable memory remains")
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
@@ -1300,7 +1300,7 @@
     /* FIXME: due to incomplete implementation for detaching we will leave memory behind */
     OPTION_DEFAULT_INTERNAL(bool, skip_out_of_vm_reserve_curiosity, false,
         "skip the assert curiosity on out of vm_reserve (for regression tests)")
-    OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory") 
+    OPTION_DEFAULT(bool, vm_reserve, true, "reserve virtual memory")
     /* FIXME - on 64bit probably will need more space */
     OPTION_DEFAULT(uint_size, vm_size, 128*1024*1024,
         "maximum virtual memory reserved, in KB or MB")
@@ -1316,7 +1316,7 @@
                                  IF_WINDOWS_ELSE(0x16000000, 0x46000000)),
                    "preferred base address hint (ignored for 64-bit linux)")
      /* FIXME: we need to find a good location with no conflict with DLLs or apps allocations */
-    OPTION_DEFAULT(uint_addr, vm_max_offset, 
+    OPTION_DEFAULT(uint_addr, vm_max_offset,
                    IF_VMX86_ELSE(IF_X64_ELSE(0x18000000,0x05800000),0x10000000),
                    "base address maximum random jitter")
     OPTION_DEFAULT(bool, vm_allow_not_at_base, true, "if we can't allocate vm heap at "
@@ -1341,7 +1341,7 @@
 #endif
      /* FIXME: the lower 16 bits are ignored - so this here gives us
       * 12bits of randomness.  Could make it larger if we verify as
-      * collision free the whole range [vm_base, * vm_base+vm_size+vm_max_offset) 
+      * collision free the whole range [vm_base, * vm_base+vm_size+vm_max_offset)
       */
     OPTION_INTERNAL(bool, vm_use_last, "use the vm reservation only as a last resort")
 
@@ -1359,7 +1359,7 @@
         OPTION_STRING("wmiprvse.exe"),
         "silently die on reachinig commit limit in these ;-separated executables")
 
-    OPTION_DEFAULT(uint_time, oom_timeout, 
+    OPTION_DEFAULT(uint_time, oom_timeout,
         5*1000, /* 5s */
         /* 5 second x 2 -> adds at least 10 seconds before we terminate
          * when out of memory, but gives us a chance to not die */
@@ -1367,14 +1367,14 @@
          * a memory hog on the machine would die by the time we retry.
          * Applies only to committed memory, for reservations sleeping
          * is futile (other than artificial ballooning).
-         * 
+         *
          * Note: Two of these timeouts on the same thread's request
          * and we'll terminate - we will also try freeing up our own
          * memory after the first timeout.
          */
         "short sleep (in ms) and retry after a commit failure")
 
-    /* The follow children options control when we inject into a child. We inject if 
+    /* The follow children options control when we inject into a child. We inject if
      * any one of the three says we should, see their descriptions for more details. */
     DYNAMIC_OPTION_DEFAULT(bool, follow_children, true,
         "inject into all spawned processes unless preinjector is set up to inject into them or they have app-specific RUNUNDER_OFF")
@@ -1502,8 +1502,8 @@
          */
         "TLS slots preferred alignment")
     /* We mark as pcache-affecting though we have other explicit checks */
-    PC_OPTION_DEFAULT(uint, tls_flags, 1|2 /* TLS_FLAG_BITMAP_TOP_DOWN | 
-                                          * TLS_FLAG_CACHE_LINE_START */, 
+    PC_OPTION_DEFAULT(uint, tls_flags, 1|2 /* TLS_FLAG_BITMAP_TOP_DOWN |
+                                          * TLS_FLAG_CACHE_LINE_START */,
         "TLS allocation choices")
     PC_OPTION_DEFAULT(bool, alt_teb_tls, true,
         "Use other parts of the TEB for TLS once out of real TLS slots")
@@ -1544,23 +1544,23 @@
 
     /* attack handling options */
     DYNAMIC_PCL_OPTION(bool, detect_mode, "only report security violations - will execute attackers code!")
-    OPTION_COMMAND(uint, detect_mode_max, 0, "detect_mode_max", 
-                   { options->detect_mode = true; }, 
+    OPTION_COMMAND(uint, detect_mode_max, 0, "detect_mode_max",
+                   { options->detect_mode = true; },
                   "max number of security violations to allow in detect_mode - will revert to "
-                  "next higher-priority handling option after the max", DYNAMIC, 
+                  "next higher-priority handling option after the max", DYNAMIC,
                   OP_PCACHE_NOP)
     DYNAMIC_OPTION(bool, diagnose_violation_mode, "on a security violations, report whether a trampoline")
     DYNAMIC_OPTION_DEFAULT(uint, report_max, 20, "max number of security violations to report, (0 is infinitely many)")
 
     /* alternatives to kill application */
     DYNAMIC_OPTION(bool, kill_thread, "kill offending thread only, WARNING: application may hang")
-    OPTION_COMMAND(uint, kill_thread_max, 10, "kill_thread_max", 
-                   { options->kill_thread = true; }, 
-                   "max number of threads to kill before killing process", DYNAMIC, 
+    OPTION_COMMAND(uint, kill_thread_max, 10, "kill_thread_max",
+                   { options->kill_thread = true; },
+                   "max number of threads to kill before killing process", DYNAMIC,
                    OP_PCACHE_NOP)
     DYNAMIC_OPTION(bool, throw_exception, "throw exception on security violations, WARNING: application may die")
     OPTION_COMMAND(uint, throw_exception_max, 10, "throw_exception_max",
-                   { options->throw_exception = true; }, 
+                   { options->throw_exception = true; },
                    "max number of exceptions before killing thread or process", DYNAMIC,
                    OP_PCACHE_NOP)
     DYNAMIC_OPTION_DEFAULT(uint, throw_exception_max_per_thread, 10, "max number of exceptions per single thread")
@@ -1608,9 +1608,9 @@
     /* allow simple hook displacement of original code */
     PC_OPTION_DEFAULT(bool, trampoline_displaced_code, true,
         "allow hook-displaced code trampoline")
-    PC_OPTION_DEFAULT(bool, executable_if_driver, true, 
+    PC_OPTION_DEFAULT(bool, executable_if_driver, true,
         "allow execution from a kernel-mode address (case 9022)")
-    PC_OPTION_DEFAULT(bool, driver_rct, true, 
+    PC_OPTION_DEFAULT(bool, driver_rct, true,
        /* marked as VM_DRIVER_ADDRESS */
         "allow any RCT if source is from a kernel-mode address (case 9022/9096)")
 
@@ -1618,7 +1618,7 @@
     PCL_OPTION(bool, executable_if_text,  "allow execution from text sections of modules, subsumes -executable_if_rx_text")
     PCL_OPTION(bool, executable_if_dot_data,  "allow execution from .data sections of modules")
     PCL_OPTION(bool, executable_if_dot_data_x,  "allow execution from .data sections of modulesif marked x")
-    /* ..x means care about execute permission, but not read or write; 
+    /* ..x means care about execute permission, but not read or write;
      * .-x means care about execute with no write permission. See case 3287.
      */
     PCL_OPTION(bool, executable_if_x, "allow execution from regions marked ..x")
@@ -1632,24 +1632,24 @@
     /* each exempt list has a corresponding boolean for easy disabling */
     PCL_OPTION_DEFAULT(bool, exempt_text, true, "allow execution from exempt text sections")
     PCL_OPTION_DEFAULT(liststring_t, exempt_text_list, EMPTY_STRING, "allow execution from text sections of these ;-separated modules")
-    PC_OPTION_DEFAULT(liststring_t, exempt_mapped_image_text_default_list, 
+    PC_OPTION_DEFAULT(liststring_t, exempt_mapped_image_text_default_list,
         /* case 9385 - loaded in unknown thread  */
-        OPTION_STRING("LVPrcInj.dll"), 
+        OPTION_STRING("LVPrcInj.dll"),
         "allow execution from text sections in MEM_IMAGE mappings"
         " of these ;-separated modules, default")
-    PCL_OPTION_DEFAULT(liststring_t, exempt_mapped_image_text_list, EMPTY_STRING, 
+    PCL_OPTION_DEFAULT(liststring_t, exempt_mapped_image_text_list, EMPTY_STRING,
         "allow execution from text sections in MEM_IMAGE mappings"
         " of these ;-separated modules, append")
 
     PCL_OPTION_DEFAULT(bool, exempt_dot_data, true, "allow execution from exempt .data sections")
-    /* xref case 4244 on SM2USER.dll */ 
+    /* xref case 4244 on SM2USER.dll */
     /* FIXME case 9799: since default not split out, anything on this list
      * by default will not have shared pcaches for any process w/ ANY non-default
      * exemption lists */
     PCL_OPTION_DEFAULT(liststring_t, exempt_dot_data_list, OPTION_STRING("SM2USER.dll"), "allow execution from .data sections of these ;-separated modules")
     PCL_OPTION_DEFAULT(bool, exempt_dot_data_x, true, "allow execution from exempt .data sections if marked x")
     /* Case 7345: allow all kdb*.dlls for shark; later on (porpoise?) implement
-     * -executable_if_dot_data_rx, turn it on by default and set this exempt 
+     * -executable_if_dot_data_rx, turn it on by default and set this exempt
      * list to empty.
      */
     /* FIXME case 9799: since default not split out, anything on this list
@@ -1689,12 +1689,12 @@
     /* PR 276529: ntdll64!RtlRestoreContext uses iret as a general jmp* */
     PC_OPTION_DEFAULT(bool, iret_rct, IF_X64_ELSE(true, false),
         "allow ntdll64!RtlRestoreContext iret")
-    /* case 7319, from SQL2005 cases 6541 and 6534 
+    /* case 7319, from SQL2005 cases 6541 and 6534
      * off by default as case 7266 has us currently running these dlls natively
      */
     PC_OPTION(bool, xdata_rct, "allow ret to .xdata NtFlush targets")
     PC_OPTION_DEFAULT(bool, exempt_rct, true, "allow rct in exempt modules")
-    /* case 9725 slsvc.exe->heap .C (software licensing service on Vista) 
+    /* case 9725 slsvc.exe->heap .C (software licensing service on Vista)
      * FIXME slsvc.exe is also in exempt_rct_to_default_list for slsvc.exe -> slsvc.exe
      * .C violations which would be covered here if it weren't for case 285. */
     PC_OPTION_DEFAULT(liststring_t, exempt_rct_default_list,
@@ -1704,29 +1704,29 @@
         "allow rct within these ;-separated modules or to DGC, append")
 
     /* exempt_rct_from_{default,}_list are less strict than exempt_rct_list */
-    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_from_default_list, 
+    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_from_default_list,
         EMPTY_STRING, "allow rct from these ;-separated modules")
-    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_from_list, 
+    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_from_list,
         EMPTY_STRING, "allow rct from these ;-separated modules, append")
 
     /* exempt_rct_to_{default,}_list are less strict than exempt_rct_list */
      /* case 1690 dpcdll.dll, licdll.dll; case 1158 mso.dll */
      /* case 1214 winlogon.exe */
-     /* case 5912 .F sysfer.dll, 
+     /* case 5912 .F sysfer.dll,
       * FIXME: should be in exempt_rct_default_list, case 285 */
-     /* case 6076 blackd.exe: .F iss-pam1.dll ---> iss-pam1.dll, 
+     /* case 6076 blackd.exe: .F iss-pam1.dll ---> iss-pam1.dll,
       * FIXME: should be in exempt_rct_default_list, case 285 */
-     /* case 5051 w3wp.exe: .C jmail.dll ---> jmail.dll, 
+     /* case 5051 w3wp.exe: .C jmail.dll ---> jmail.dll,
       * FIXME: should be in exempt_rct_default_list, case 285 */
      /* case 6412, 7659: .E msvbvm50.dll;msvbvm60.dll;vbe6.dll */
      /* case 9385 LVPrcInj.dll loaded by unknown thread */
      /* case 9716 slc.dll (software licensing dll) on Vista .C */
      /* case 9724 slsvc.exe->slsvc.exe (software licensing service) on Vista .C
       * FIXME: should be only in exempt_rct_default_list, case 285 */
-    PC_OPTION_DEFAULT(liststring_t, exempt_rct_to_default_list, 
+    PC_OPTION_DEFAULT(liststring_t, exempt_rct_to_default_list,
         OPTION_STRING("dpcdll.dll;licdll.dll;mso.dll;winlogon.exe;sysfer.dll;iss-pam1.dll;jmail.dll;msvbvm50.dll;msvbvm60.dll;vbe6.dll;LVPrcInj.dll;slc.dll;slsvc.exe"),
         "allow rct to these ;-separated modules")
-    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_to_list, 
+    PCL_OPTION_DEFAULT(liststring_t, exempt_rct_to_list,
         EMPTY_STRING, "allow rct to these ;-separated modules, append")
 
      /* case 2144 - FIXME: should we have a general exemption for .A and .B as well? */
@@ -1738,7 +1738,7 @@
     /* note indirect call and indirect jump will always just throw an exception */
 
      /* case 5329 - leaving for bug-compatibility with previous releases */
-    PC_OPTION(bool, rct_sticky, 
+    PC_OPTION(bool, rct_sticky,
          "leaves all RCT tables on unmap, potential memory leak")
      /* case 9331 - FIXME: still leaking on DGC */
     PC_OPTION_DEFAULT(bool, rac_dgc_sticky, true,
@@ -1755,7 +1755,7 @@
 
     PC_OPTION_DEFAULT(bool, rct_modified_entry, true,
         "if not within module, lookup image entry point"
-        "in LDR list for already mapped modules, and at MapViewOfSection for late") 
+        "in LDR list for already mapped modules, and at MapViewOfSection for late")
      /* expected to be overwritten by mscoree.dll */
 
 #   ifdef RCT_IND_BRANCH
@@ -1800,19 +1800,19 @@
     OPTION_COMMAND(bool, X, false, "X", {
 IF_RETURN_AFTER_CALL(options->ret_after_call = false;)
 IF_WINDOWS(options->executable_if_flush = false;)
-        options->executable_if_alloc = false; 
-        options->executable_if_trampoline = false; 
-        options->executable_if_hook = false; 
+        options->executable_if_alloc = false;
+        options->executable_if_trampoline = false;
+        options->executable_if_hook = false;
         options->executable_if_x = true;
 IF_RCT_IND_BRANCH(options->rct_ind_call = OPTION_DISABLED;)
 IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
-    }, "duplicate Microsoft's nx: allow x memory only and don't enforce RCT", DYNAMIC, 
+    }, "duplicate Microsoft's nx: allow x memory only and don't enforce RCT", DYNAMIC,
     OP_PCACHE_GLOBAL/*since is not only a relaxation*/)
 
 #endif /* PROGRAM_SHEPHERDING */
 
     OPTION_DEFAULT(bool, enable_block_mod_load, true,
-         "switch for enabling the block module from being loaded feature, if enabled the modules to block from loading are specified by the block_mod_load_list[_default] options") 
+         "switch for enabling the block module from being loaded feature, if enabled the modules to block from loading are specified by the block_mod_load_list[_default] options")
     /* dynamorio.dll : on this list to prevent non early_inject follow
      * children from double injecting if the process is already under dr */
      /* entapi.dll;hidapi.dll : case 2871 for Entercept/VirusScan */
@@ -1860,9 +1860,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
 #ifdef WINDOWS
     OPTION_DEFAULT(bool, hide, true, "remove DR dll from module lists")
-    OPTION_DEFAULT(uint, hide_from_query, 
-        3 /* HIDE_FROM_QUERY_BASE_SIZE|HIDE_FROM_QUERY_TYPE_PROTECT */, 
-        "mask to control what option to take to hide dr when the app does a query virtual memory call on our dll base") 
+    OPTION_DEFAULT(uint, hide_from_query,
+        3 /* HIDE_FROM_QUERY_BASE_SIZE|HIDE_FROM_QUERY_TYPE_PROTECT */,
+        "mask to control what option to take to hide dr when the app does a query virtual memory call on our dll base")
 
     OPTION_DEFAULT(bool, track_module_filenames, true,
         "track module file names by watching section creation")
@@ -2104,10 +2104,10 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
       * these don't affect pcaches since the trampoline bbs won't be coarse-grain.
       */
     OPTION_DEFAULT(bool, native_exec, true, "attempt to execute certain libraries natively (WARNING: lots of issues with this, use at own risk)")
-     /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM, 
+     /* initially populated w/ all dlls we've needed to get .NET, MS JVM, Sun JVM,
       * Symantec JVM, and Panda AV working, but with very limited workload testing so far
       */
-    OPTION_DEFAULT(liststring_t, native_exec_default_list, 
+    OPTION_DEFAULT(liststring_t, native_exec_default_list,
                    /* case 3453, case 1962 .NET 1.0, 1.1 : mscorsvr.dll;mscorwks.dll;aspnet_isapi.dll */
                    /* case 6189 .NET 2.0: mscorwks_ntdef.dll(PE name of mscorwks.dll);aspnet_isapi.dll */
                    /* case 3453 MS JVM: msjava.dll;msawt.dll, Sun JVM: jvm.dll */
@@ -2115,8 +2115,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                    /* case 3762 Panda AV: pavdll.dll */
                    OPTION_STRING("mscorsvr.dll;mscorwks.dll;aspnet_isapi.dll;mscorwks_ntdef.dll;msjava.dll;msawt.dll;jvm.dll;symcjit.dll;pavdll.dll"),
                    "execute these ;-separated modules natively")
-    /* easy way to add dlls w/o having to re-specify default list, while keeping 
-     * default list visible and settable at global level 
+    /* easy way to add dlls w/o having to re-specify default list, while keeping
+     * default list visible and settable at global level
      */
     OPTION_DEFAULT(liststring_t, native_exec_list, EMPTY_STRING,
                    "execute these ;-separated modules natively")
@@ -2131,7 +2131,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      * FIXME - for case 6765 turn this into a liststring_t so we can consider native exec
      * for other potentially problematic sections like .aspack, .pcle, and .sforce */
     OPTION_DEFAULT(bool, native_exec_dot_pexe, true,
-        "if module has .pexe section (proxy for strange int 3 behavior), execute it natively")    
+        "if module has .pexe section (proxy for strange int 3 behavior), execute it natively")
     OPTION_DEFAULT(bool, native_exec_retakeover, false,
         "attempt to re-takeover when a native module calls out to a non-native module")
     /* XXX i#1238-c#1: we do not support inline optimization in Windows. */
@@ -2164,12 +2164,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT_INTERNAL(bool, unsafe_IAT_ignore_hooker, false, "ignore IAT writes")
 
     /* compatibility options */
-    OPTION_DEFAULT(uint, thread_policy, 
+    OPTION_DEFAULT(uint, thread_policy,
         OPTION_DISABLED|OPTION_NO_BLOCK|OPTION_NO_REPORT|OPTION_NO_CUSTOM,
          "thread delivered to a writable region allowed or squashed (optionally silently)")
     /* custom bit off restricts thread_policy to VSE shellcode, on makes it general */
 #ifdef WINDOWS
-    OPTION_DEFAULT(uint, apc_policy, 
+    OPTION_DEFAULT(uint, apc_policy,
         OPTION_DISABLED|OPTION_NO_BLOCK|OPTION_NO_REPORT|OPTION_NO_CUSTOM,
          "APC delivered to a writable region allowed or squashed (optionally silently)")
     /* custom bit off restricts apc_policy to VSE shellcode, on makes it general */
@@ -2181,7 +2181,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "restore NtTestAlert to a pristine state at load by clearing away any hooks")
     OPTION_DEFAULT(uint, hook_conflict, 1 /* HOOKED_TRAMPOLINE_SQUASH */, /* case 2525 */
         "action on conflict with existing non Nt* hooks: die, squash or chain")
-    OPTION_DEFAULT(uint, native_exec_hook_conflict, 
+    OPTION_DEFAULT(uint, native_exec_hook_conflict,
         /* i#467: for CI builds, better to let the app run correctly, even if
          * DR missing something while native.  Native intercept matters only
          * for AppInit, or tools that go native, or future attach: all rare
@@ -2197,13 +2197,13 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, dr_sygate_sysenter, false,
         "Perform dr int system calls in a sygate compatible fashion (indirected via ntdll)")
      /* Turn off sygate compatibility int syscall indirection for app system
-      * calls.  Dr system calls will still indirect as controlled by 
+      * calls.  Dr system calls will still indirect as controlled by
       * above options. */
     OPTION_DEFAULT(bool, sygate_int, false,
         "Perform app int system calls in Sygate compatible fashion (indirected via ntdll)")
     OPTION_DEFAULT(bool, sygate_sysenter, false,
         "Perform app sysenter system calls in Sygate compatible fashion (indirected via ntdll)")
-    OPTION_DEFAULT(bool, native_exec_hook_create_thread, true, 
+    OPTION_DEFAULT(bool, native_exec_hook_create_thread, true,
         "if using native_exec hooks, decides whether or not to hook CreateThread (disable for Sygate compatibility)")
     OPTION_COMMAND(bool, sygate, false, "sygate", {
             options->dr_sygate_int = true;
@@ -2228,7 +2228,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
      /* Address Space Layout Randomization */
      /* FIXME: case 2491 for stacks/heaps/PEBs/TEBs, sharing */
-    OPTION_DEFAULT(uint, aslr, 0 /* ASLR_DISABLED */, 
+    OPTION_DEFAULT(uint, aslr, 0 /* ASLR_DISABLED */,
         "address space layout randomization, from aslr_option_t")
     OPTION_ALIAS(R, aslr, 0 /* ASLR_DISABLED */, STATIC, OP_PCACHE_NOP)
 
@@ -2242,7 +2242,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
          * 2+ would also have a chance to deal with unlikely races
          */
         "private ASLR attempts for a good fit after failure, 0 fallback to native")
-         
+
     OPTION_DEFAULT(uint, aslr_cache, 0, /* ASLR_DISABLED */
         "address space layout process shared and persistent cache, from aslr_cache_t")
 #endif
@@ -2254,14 +2254,14 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
          * Examples: 1m, 10M
          */
 #ifdef WINDOWS
-    OPTION_DEFAULT_INTERNAL(uint, aslr_internal, 0 /* ASLR_INTERNAL_DEFAULT */, 
+    OPTION_DEFAULT_INTERNAL(uint, aslr_internal, 0 /* ASLR_INTERNAL_DEFAULT */,
         "address space layout randomization, internal flags from aslr_internal_option_t")
 
      /* FIXME: we need to find a good location to allow growth for other allocations */
     OPTION_DEFAULT(uint_addr, aslr_dll_base, 0x40000000, "starting DLL base addresses")
 
      /* limit for ASLR_RANGE_BOTTOM_UP, or starting point for ASLR_RANGE_TOP_DOWN */
-     /* FIXME: case 6739 - what to do when reaching top, 
+     /* FIXME: case 6739 - what to do when reaching top,
       *
       * FIXME: how is STATUS_ILLEGAL_DLL_RELOCATION determined, we
       * have to know stay out of the way since loader fails app if it
@@ -2282,7 +2282,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      /* FIXME: the lower 16 bits are ignored (Windows/x86
       * AllocationGranularity is 64KB).  FIXME: This here gives us 8 bits of
       * randomness.  Could make it larger if necessary. */
-    OPTION_DEFAULT(uint_addr, aslr_parent_offset,              0x01000000, 
+    OPTION_DEFAULT(uint_addr, aslr_parent_offset,              0x01000000,
         "maximum random jitter for parent reservation")
      /* ASLR_HEAP activates, though affect real stack reservations as
       * well This here gives us 12 bits of randomness.  Could make it
@@ -2295,9 +2295,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "random jitter for reservation after executable (smaller)")
 
      /* ASLR_HEAP_FILL activates */
-     /* FIXME: too little (4 bits) randomness between heap reservations, 
+     /* FIXME: too little (4 bits) randomness between heap reservations,
       * vs too much fragmentation */
-    OPTION_DEFAULT(uint_addr, aslr_reserve_pad,                0x00100000, 
+    OPTION_DEFAULT(uint_addr, aslr_reserve_pad,                0x00100000,
         "random jitter between reservations (tiny)")
 
     /* FIXME: plan for 4.3 only after aslr_safe_save is checked in
@@ -2309,7 +2309,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "size of file header and footer to check, in KB or MB")
         /* used for checksum comparison of file header and footer,
          * note that if this value is changed previously persisted
-         * files will not be accepted.  
+         * files will not be accepted.
          * 0 turns into a full file digest
          */
         /* default size is in Kilobytes, Examples: 1024, 1024k, 1m */
@@ -2322,24 +2322,24 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
          */
         /* default size is in Kilobytes, Examples: 1024, 1024k, 1m */
 
-    OPTION_DEFAULT(liststring_t, exempt_aslr_default_list, 
+    OPTION_DEFAULT(liststring_t, exempt_aslr_default_list,
         /* user32.dll - case 6620 on STATUS_ILLEGAL_DLL_RELOCATION. Not
          *              clear whether loader is just whining, or there
-         *              is a good reason it shouldn't be rebased.  
+         *              is a good reason it shouldn't be rebased.
          *       FIXME: without early injection affects only RU=5 processes that load it late,
          *              SHOWSTOPPER on XP.
          *       FIXME: Hopefully shouldn't be necessary for all KnownDlls, investigate full list.
-         * ole32.dll - case 7746 on Win2000 and case 7743 
+         * ole32.dll - case 7746 on Win2000 and case 7743
          *      on NT complaining about STATUS_ILLEGAL_DLL_RELOCATION
-         * sfc.dll - case 8705 
-         *      update.exe targeting directly 
+         * sfc.dll - case 8705
+         *      update.exe targeting directly
          *      sfc.dll!MySfcTerminateWatcherThread in winlogon.exe
-         * kbdus.dll,kbdbg.dll - case 6671 FIXME: list not complete, 
+         * kbdus.dll,kbdbg.dll - case 6671 FIXME: list not complete,
          *              FIXME: case 6740: we don't actually support kbd*.dll
          * kernel32.dll - with early injection this one also complains of being
          *                rebased.
          */
-        OPTION_STRING("kernel32.dll;user32.dll;ole32.dll;sfc.dll;kbdus.dll;kbdbu.dll;kbd*.dll"), 
+        OPTION_STRING("kernel32.dll;user32.dll;ole32.dll;sfc.dll;kbdus.dll;kbdbu.dll;kbd*.dll"),
         "exempt from randomization these ;-separated modules")
     OPTION_DEFAULT(liststring_t, exempt_aslr_list,
         /* Note that allows '*' as a stress option */
@@ -2355,12 +2355,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         /* see case 7794 exempt from both private and shared */
         /* note that these names are matched to PE name for private,
          * but to file names for ASLR cache */
-        OPTION_STRING("mshtml.dll;msi.dll;mso.dll;shell32.dll"), 
+        OPTION_STRING("mshtml.dll;msi.dll;mso.dll;shell32.dll"),
         "exempt from randomization these ;-separated modules")
 
     /* case 9495 - include or exclude list for DLLs to share and
      * persist. Note that one cannot use simultaneously an include and
-     * exclude list, so to remove an entry from either need to provide the 
+     * exclude list, so to remove an entry from either need to provide the
      * whole list as '#advapi32.dll'
      */
     OPTION_DEFAULT(uint, aslr_cache_list, 1, /* ASLR_CACHE_LIST_INCLUDE */
@@ -2410,7 +2410,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         /* exempt from shared ASLR but still apply private ASLR */
         OPTION_STRING("mso.dll;xpsp2res.dll"),
         "exclude from shared cache these ;-separated modules")
-    OPTION_DEFAULT(bool, aslr_safe_save, true, 
+    OPTION_DEFAULT(bool, aslr_safe_save, true,
         /* see case 9696 */
         "ASLR DLL safe file creation in temporary file before rename")
 
@@ -2477,7 +2477,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                     options->aslr_cache= 0x192; /* ASLR_CACHE_DEFAULT */
                 }
 
-                /* case 2491 ASLR_SHARED_CONTENTS | 
+                /* case 2491 ASLR_SHARED_CONTENTS |
                  * ASLR_SHARED_ANONYMOUS_CONSUMER | ASLR_SHARED_FILE_PRODUCER,
                  */
 
@@ -2486,7 +2486,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                 IF_KSTATS(options->kstats = false); /* Cases 6837 & 8869. */
                 options->thin_client = false;   /* Case 9037. */
            } else {
-               /* 
+               /*
                 * case 8283 -no_client.  Note that this will work well
                 * only for simple sequences of -client -no_client, as
                 * we do not attempt to actually recover and is very
@@ -2494,11 +2494,11 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
                 */
                 IF_HOTP(options->hotp_only = false;)
                 /* coordinate with hotp_only any additional option changes */
-                IF_RETURN_AFTER_CALL(options->ret_after_call = 
+                IF_RETURN_AFTER_CALL(options->ret_after_call =
                                      DEFAULT_OPTION_VALUE(ret_after_call);)
-                IF_RCT_IND_BRANCH(options->rct_ind_call = 
+                IF_RCT_IND_BRANCH(options->rct_ind_call =
                                   DEFAULT_OPTION_VALUE(rct_ind_call);)
-                IF_RCT_IND_BRANCH(options->rct_ind_jump = 
+                IF_RCT_IND_BRANCH(options->rct_ind_jump =
                                   DEFAULT_OPTION_VALUE(rct_ind_jump);)
                 options->vm_size = DEFAULT_OPTION_VALUE(vm_size);
                 IF_GBOP(options->gbop = DEFAULT_OPTION_VALUE(gbop);)
@@ -2516,10 +2516,10 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(uint, gbop, 0 /* GBOP_DISABLED */,
         "GBOP control, from GBOP_OPTION")
     OPTION_ALIAS(O, gbop, 0 /* GBOP_DISABLED */, STATIC, OP_PCACHE_NOP)
-    DYNAMIC_OPTION_DEFAULT(uint, gbop_frames, 0, 
+    DYNAMIC_OPTION_DEFAULT(uint, gbop_frames, 0,
         "GBOP stack backtrace frame depth") /* >0 NYI */
 
-    OPTION_DEFAULT(uint, gbop_include_set, 
+    OPTION_DEFAULT(uint, gbop_include_set,
          0x1 /* GBOP_SET_NTDLL_BASE */
         |0x2 /* KERNEL32 BASE */
         |0x4 /* MSVCRT BASE */
@@ -2551,9 +2551,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
          * or '*' as a stress test option to exclude all hooks.
          */
         EMPTY_STRING, "disable GBOP hook for these ;-separated module!func descriptors, append")
-    OPTION_DEFAULT(liststring_t, exempt_gbop_from_default_list, 
+    OPTION_DEFAULT(liststring_t, exempt_gbop_from_default_list,
         EMPTY_STRING, "allow GBOP violations from these ;-separated modules")
-    OPTION_DEFAULT(liststring_t, exempt_gbop_from_list, 
+    OPTION_DEFAULT(liststring_t, exempt_gbop_from_list,
         EMPTY_STRING, "allow GBOP violations from these ;-separated modules, append")
 
    /* FIXME: case 7127 - can make all gbop options dynamic, though
@@ -2564,7 +2564,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     /* FIXME: temporary fix for case 9467 - option to disable if not needed */
     OPTION_DEFAULT(bool, mute_nudge, true, "mute nudges for thin_clients")
 #endif /* WINDOWS */
-     
+
     /* Pseudo Random Number Generator seed affects all random number users:
      * (currently vm_max_offset, aslr_dll_offset, aslr_dll_pad) */
     OPTION_DEFAULT(uint, prng_seed, 0 /* get a good seed from the OS */,
@@ -2573,7 +2573,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     /* FIXME PR 215179 on enabling pad_jmps in all builds */
 #if defined(PROFILE_LINKCOUNT) || defined(TRACE_HEAD_CACHE_INCR) || defined(CUSTOM_EXIT_STUBS)
     OPTION_DEFAULT(bool, pad_jmps, false, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
-#else 
+#else
     OPTION_DEFAULT(bool, pad_jmps, true, "nop pads jmps in the cache that we might need to patch so that the offset doesn't cross a L1 cache line boundary (necessary for atomic linking/unlinking on an mp machine)")
 #endif
     /* FIXME PR 215179 on getting rid of this tracing restriction. */
@@ -2581,15 +2581,15 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, true, "mark bbs that require added nops "
                    "for multiple hot patchable exits with CANNOT_BE_TRACE, since tracing "
                    "through fragments with inserted nops isn't well supported (see PR "
-                   "215179 on fixing this)") 
+                   "215179 on fixing this)")
 #else
     OPTION_DEFAULT(bool, pad_jmps_mark_no_trace, false, "mark bbs that require added nops "
                    "for multiple hot patchable exits with CANNOT_BE_TRACE, since tracing "
                    "through fragments with inserted nops isn't well supported (see PR "
-                   "215179 on fixing this)") 
+                   "215179 on fixing this)")
 #endif
     OPTION_DEFAULT_INTERNAL(bool, pad_jmps_return_excess_padding, true, "if -pad_jmps returns any excess requested memory to fcache")
-    OPTION_DEFAULT_INTERNAL(bool, pad_jmps_shift_bb, true, 
+    OPTION_DEFAULT_INTERNAL(bool, pad_jmps_shift_bb, true,
         "if -pad_jmps shifts the start_pc for padding the first jmp of a bb instead of inserting a nop")
     OPTION_DEFAULT_INTERNAL(bool, pad_jmps_shift_trace, true,
         "if -pad_jmps shifts the start_pc for padding the first jmp of a trace instead of inserting a nop")
@@ -2606,13 +2606,13 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "add a loop to slow down the IBL hit path")
 
      /* Stress Testing Options */
-    OPTION_DEFAULT_INTERNAL(bool, stress_recreate_pc, false, 
+    OPTION_DEFAULT_INTERNAL(bool, stress_recreate_pc, false,
         "stress test recreate pc after each trace or bb")
     OPTION_COMMAND_INTERNAL(bool, stress_recreate_state, false, "stress_recreate_state",
-    { if (options->stress_recreate_state) 
+    { if (options->stress_recreate_state)
         options->stress_recreate_pc = true;
     }, "stress test recreate state after each trace or bb", STATIC, OP_PCACHE_NOP)
-    OPTION_DEFAULT_INTERNAL(bool, detect_dangling_fcache, false, 
+    OPTION_DEFAULT_INTERNAL(bool, detect_dangling_fcache, false,
         "detect any execution of a freed fragment")
     OPTION_DEFAULT_INTERNAL(bool, stress_detach_with_stacked_callbacks, false,
         "detach once a thread has 2 levels of nested callbacks (for internal testing)")
@@ -2622,12 +2622,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
         "transparency violation).  Used for internal testing.")
 
      /* for stress testing can use 1 */
-    OPTION_DEFAULT_INTERNAL(uint, vmarea_initial_size, 100, 
+    OPTION_DEFAULT_INTERNAL(uint, vmarea_initial_size, 100,
         "initial vmarea vector size")
     /* FIXME: case 4471 should start smaller and double instead */
-    OPTION_DEFAULT_INTERNAL(uint, vmarea_increment_size, 100, 
+    OPTION_DEFAULT_INTERNAL(uint, vmarea_increment_size, 100,
         "incremental vmarea vector size")
-    OPTION_INTERNAL(uint_addr, stress_fake_userva, 
+    OPTION_INTERNAL(uint_addr, stress_fake_userva,
         "pretend system address space starts at this address (case 9022)")
 
     /* degenerate options: only used for run-once testing (case 3990) */
@@ -2653,11 +2653,11 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT_INTERNAL(bool, unsafe_ignore_eflags_ibl, false,
         "do not preserve EFLAGS in ibl proper, unsafe")
 
-    OPTION_DEFAULT(liststring_t, ignore_assert_list, 
+    OPTION_DEFAULT(liststring_t, ignore_assert_list,
         EMPTY_STRING, "convert into warnings these ;-separated assert identifiers")
      /* Should be an exact match of message after Internal Error.
       * Most common ones look like 'x86/arch.c:142', but could also
-      * look like 'Not implemented @x86/arch.c:142' or 
+      * look like 'Not implemented @x86/arch.c:142' or
       * 'Bug #4809 @x86/arch.c:145;Ignore message @x86/arch.c:146'
       */
 
@@ -2754,7 +2754,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             options->native_exec = false;
 
             /* FIXME: add other options we should turn off */
-            /* FIXME: coordinate with -client any other option changes _required_ 
+            /* FIXME: coordinate with -client any other option changes _required_
              * for -hotp_only */
         }
     }, "enable hot patching only mode, i.e., no code cache", STATIC, OP_PCACHE_NOP)
@@ -2765,7 +2765,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
      * same as -hot_patching.  The same applies to gbop too, i.e., excluded
      * when probe_api is turned on; gbop & livshields can co-exist as before.
      */
-    OPTION_COMMAND(bool, liveshields, false, "liveshields", { 
+    OPTION_COMMAND(bool, liveshields, false, "liveshields", {
         if (options->liveshields) {
             options->hot_patching = true;
             options->hotp_diagnostics = true;
@@ -2804,21 +2804,21 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
 
     /* thin_client mode is just a light weight mode in which the core
      * executes where there is no code cache, hotp_only, gbop or aslr.
-     * It hooks one or two system calls, enough to follow into child 
+     * It hooks one or two system calls, enough to follow into child
      * processes.  Though it is intended to be used for process_control
      * today, it has value independent of process_control.  One example
-     * is to inflate/switch the core to hotp_only, gbop or aslr on the 
+     * is to inflate/switch the core to hotp_only, gbop or aslr on the
      * fly for any unprotected process, which I think would be very handy.
      * Case 8576.
      */
     OPTION_COMMAND(bool, thin_client, false, "thin_client", {
         if (options->thin_client) {
-            /* Will be running native mostly, so need native_exec_syscalls 
+            /* Will be running native mostly, so need native_exec_syscalls
              * to hook syscalls to follow children.
              */
             options->native_exec_syscalls = true;
 
-            /* thin_client is just that, thin; so no hot patching, gbopping 
+            /* thin_client is just that, thin; so no hot patching, gbopping
              * or aslring here.
              */
             IF_HOTP(options->hot_patching = false;)
@@ -2826,7 +2826,7 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
             IF_GBOP(options->gbop = 0;)
             IF_WINDOWS(options->aslr = 0;)
 
-            /* similarly, client/low/medium modes are incompatible with 
+            /* similarly, client/low/medium modes are incompatible with
              * thin_client; though check_options_compatibility() enforces this,
              * this is a special case as the user may legitimately set both
              * -client and -thin_client.  Mostly for debugging; case 9037. */
@@ -2841,8 +2841,8 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
              */
             options->vm_size = 4*1024*1024;
 
-            /* Don't randomize the core heap; cygwin app's stack & heaps 
-             * will move, causing them to crash.  Also memory 
+            /* Don't randomize the core heap; cygwin app's stack & heaps
+             * will move, causing them to crash.  Also memory
              * contiguity expected by .NET apps would be broken.  The
              * problem is when we inflate we still won't be randomized!
              */

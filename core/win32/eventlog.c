@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -65,7 +65,7 @@ typedef struct eventlog_state_t {
 } eventlog_state_t;
 
 /* writes a message to the Windows Event Log */
-static void os_eventlog(syslog_event_type_t priority, uint message_id, 
+static void os_eventlog(syslog_event_type_t priority, uint message_id,
                         uint substitutions_num, char **arguments,
                         size_t size_data, char *raw_data);
 
@@ -78,9 +78,9 @@ static void os_eventlog(syslog_event_type_t priority, uint message_id,
 
 /* addsource.reg:
 Windows Registry Editor Version 5.00
-                                                                                
+
 [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Eventlog\Araksha]
-                                                                                 
+
 [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Eventlog\Araksha\DynamoRIO]
 "TypesSupported"=dword:00000007
 "EventMessageFile"="C:\\cygwin\\home\\vlk\\exports\\x86_win32_dbg\\dynamorio.dll"
@@ -108,7 +108,7 @@ set_event_source_registry_values()
 
     res = reg_set_dword_key_value(heventsource,
                                   L"TypesSupported", // which messages can go in
-                                  EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | 
+                                  EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE |
                                   EVENTLOG_INFORMATION_TYPE);
 
     res |= reg_set_dword_key_value(heventsource,
@@ -119,10 +119,10 @@ set_event_source_registry_values()
        system variable that can be resolved at the time of use of the
        entry. For example: EventMessageFile="%WINDIR%\\dynamorio.dll"
     */
- 
+
     //FIXME: I'd rather set the full REG_EXPAND_SZ to be prepared
-    res |= reg_set_key_value(heventsource, 
-                             L"EventMessageFile",  
+    res |= reg_set_key_value(heventsource,
+                             L"EventMessageFile",
                              /* should be the name of our DLL (or RLL if we put in
                               * a separate file) */
                              wide_message_file);
@@ -132,11 +132,11 @@ set_event_source_registry_values()
                              wide_message_file);
 
     /* we don't use these
-       DisplayNameFile 
-       DisplayNameID 
-       ParameterMessageFile 
+       DisplayNameFile
+       DisplayNameID
+       ParameterMessageFile
     */
-        
+
     reg_close_key(heventsource);
 
     return 1;
@@ -146,7 +146,7 @@ set_event_source_registry_values()
 static int
 init_registry_source(void)
 {
-    static int initialized = 0; 
+    static int initialized = 0;
     /* FIXME: we assume no one should have access to modify after we check */
     /* FIXME: may want to register for notifications .. */
     /* FIXME: if we fail we'll do this over and over for each event .. */
@@ -163,27 +163,27 @@ init_registry_source(void)
         if (!heventsource) {    /* we're not in */
             /* test and create eventlog key  */
             heventlog = reg_open_key(L_EVENT_LOG_KEY, KEY_READ | KEY_WRITE);
-            // KEY_READ == KEY_QUERY_VALUE | KEY_NOTIFY | 
+            // KEY_READ == KEY_QUERY_VALUE | KEY_NOTIFY |
             //             KEY_ENUMERATE_SUB_KEYS seems too strong
 
             if (!heventlog) {
-                heventlogroot = reg_open_key(L_EVENTLOG_REGISTRY_KEY, 
+                heventlogroot = reg_open_key(L_EVENTLOG_REGISTRY_KEY,
                                              KEY_READ | KEY_WRITE);
                 if (!heventlogroot) {
-                    LOG(GLOBAL, LOG_TOP, 1, "WARNING: Registration failure.  Could not open root %ls.", 
+                    LOG(GLOBAL, LOG_TOP, 1, "WARNING: Registration failure.  Could not open root %ls.",
                         L_EVENTLOG_REGISTRY_KEY);
-                    return 0;   
+                    return 0;
                 }
                 heventlog = reg_create_key(heventlogroot, L_EVENT_LOG_NAME,
                                            KEY_ALL_ACCESS);
             }
             if (!heventlog) {
                 LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not create event log key %s.", EVENTLOG_NAME);
-                return 0;       
+                return 0;
             }
 
             /* obviously we'll need SET_VALUE later but to keep the logic simple we take minimal here */
-            heventsource = reg_create_key(heventlog, L_EVENT_SOURCE_NAME, KEY_QUERY_VALUE); 
+            heventsource = reg_create_key(heventlog, L_EVENT_SOURCE_NAME, KEY_QUERY_VALUE);
             if (heventlog) {
                 reg_close_key(heventlog);
             }
@@ -194,9 +194,9 @@ init_registry_source(void)
         }
         if (!heventsource) {
             LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not create event source key %s.", EVENTSOURCE_NAME);
-            return 0;   
+            return 0;
         }
-        
+
         reg_close_key(heventsource);
         initialized = set_event_source_registry_values();
     }
@@ -222,8 +222,8 @@ void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions
     for(arg = 0; arg < substitutions_num; arg++) {
         arg_arr[arg] = va_arg(vargs, char*);
     }
-    
-    /* don't need to check syslog, mask, caller is responsible for 
+
+    /* don't need to check syslog, mask, caller is responsible for
      * checking the mask and synchronizing the options
      */
     os_eventlog(priority, message_id, substitutions_num, arg_arr, size_data, other_data);
@@ -231,7 +231,7 @@ void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions
 
 /* Here starts the gross hack for direct message passing to the EventLog service */
 
-/* Macros for adding variable length fields to a message buffer 
+/* Macros for adding variable length fields to a message buffer
    p should point to the current position in the string appended to
    pend points to the first location after the end of the buffer  */
 /* Modifies p */
@@ -264,10 +264,10 @@ void os_syslog(syslog_event_type_t priority, uint message_id, uint substitutions
 /* Example "\011\0\012\0""03B\0""\12\0\0\0DynamoRio\0\0\0"
    CHECK: Is this a documented M$ string representation?
    It seems like there is a lot of redundancy in the encoding,
-   but it maybe useful in later reincarnations of the message. 
+   but it maybe useful in later reincarnations of the message.
    This is in fact a plain UNICODE_STRING.
 */
-static inline 
+static inline
 char*
 append_string(char **pp /* INOUT */, char *pend, char *str)
 {
@@ -289,13 +289,13 @@ append_string(char **pp /* INOUT */, char *pend, char *str)
 #define HEADER_SIZE 24
 #define HEADER_OFFSET 28
 
-static inline 
+static inline
 char*
-prepend_header(char *p, char *pend, 
+prepend_header(char *p, char *pend,
                char *header, int length, int sequence,
                DWORD unknown)
 {
-    if (!p) 
+    if (!p)
         return NULL;
     VARFIELD(&p, pend, header, 8);
     FIELD(p, pend, DWORD, length);
@@ -389,7 +389,7 @@ RPC_VERSION_BOGUS   /* Version: Should be 5, but we set it to a bogus value
 
 #define EVENTLOG_NAMED_PIPE L"\\??\\PIPE\\EVENTLOG"
 
-// debugging facility 
+// debugging facility
 
 #ifdef DEBUG
 #define PRINT(form, arg) LOG(GLOBAL, LOG_TOP, 3, form, arg)
@@ -402,7 +402,7 @@ print_buffer_as_bytes (unsigned char *buf, size_t len)
     for (i=0; i<len; i++) {
         if (isdigit (buf[i]) && nonprint) {
             PRINT ("%s", "\"\""); // to make \01 into \0""1
-        }         
+        }
         if (buf[i] == '\\')
             PRINT ("%s", "\\");
 
@@ -437,7 +437,7 @@ eventlog_register(eventlog_state_t *evconnection)
     ASSERT_OWN_MUTEX(true, &evconnection->eventlog_mutex);
 
     evconnection->eventlog_completion = create_iocompletion();
-    evconnection->eventlog_pipe = open_pipe(EVENTLOG_NAMED_PIPE, 
+    evconnection->eventlog_pipe = open_pipe(EVENTLOG_NAMED_PIPE,
                                             evconnection->eventlog_completion);
 
     if (!evconnection->eventlog_pipe) {
@@ -455,14 +455,14 @@ eventlog_register(eventlog_state_t *evconnection)
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
 
     evconnection->request_length = sizeof(hello_message) - 1;
-    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe, 
-                                              hello_message, 
-                                              evconnection->request_length, 
-                                              evconnection->outbuf, 
+    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe,
+                                              hello_message,
+                                              evconnection->request_length,
+                                              evconnection->outbuf,
                                               sizeof(evconnection->outbuf),
                                               DYNAMO_OPTION(eventlog_timeout));
     DOLOG(2, LOG_TOP, {
-        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\"\n", 
+        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\"\n",
             evconnection->request_length, evconnection->outlen);
         LOG(GLOBAL, LOG_TOP, 3, "char hello[] = ");
         print_buffer_as_bytes((byte*)hello_message, evconnection->request_length);
@@ -472,7 +472,7 @@ eventlog_register(eventlog_state_t *evconnection)
 
     if (evconnection->outlen != HELLO_RESPONSE_LENGTH) {
         LOG(GLOBAL, LOG_TOP, 1,
-            "eventlog_register: Mismatch on HELLO_RESPONSE outlen="SZFMT"\n", 
+            "eventlog_register: Mismatch on HELLO_RESPONSE outlen="SZFMT"\n",
             evconnection->outlen);
         goto failed_to_register;
     }
@@ -481,11 +481,11 @@ eventlog_register(eventlog_state_t *evconnection)
 
     evconnection->message_seq = 1; /* we start counting from source registration */
     p = evconnection->buf + HEADER_OFFSET;
-    append_string(&p, evconnection->buf + sizeof(evconnection->buf),  
+    append_string(&p, evconnection->buf + sizeof(evconnection->buf),
                   EVENTSOURCE_NAME);
 
 #define REPORT_IN_LOG "Application"
-    /* CHECK: I don't quite get how the log name here matters for Event Viewer, 
+    /* CHECK: I don't quite get how the log name here matters for Event Viewer,
        since the source is registered only under EVENTLOG_NAME subtree,
        TODO: yet we may want to have our own event file, and it may matter then.*/
     append_string(&p, evconnection->buf + sizeof(evconnection->buf),
@@ -496,21 +496,21 @@ eventlog_register(eventlog_state_t *evconnection)
 
     IF_X64(ASSERT_TRUNCATE(evconnection->request_length, int, p - evconnection->buf));
     evconnection->request_length = (int) (p - evconnection->buf);
-    p = prepend_header(evconnection->buf, 
-                       evconnection->buf + sizeof(evconnection->buf), 
-                       REPORT EVENTLOG, evconnection->request_length, 
+    p = prepend_header(evconnection->buf,
+                       evconnection->buf + sizeof(evconnection->buf),
+                       REPORT EVENTLOG, evconnection->request_length,
                        evconnection->message_seq, REGISTER_UNKNOWN_HEADER);
-    ASSERT(p);    
+    ASSERT(p);
     evconnection->message_seq++;
 
-    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe, 
-                                              evconnection->buf, 
-                                              evconnection->request_length, 
-                                              evconnection->outbuf, 
+    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe,
+                                              evconnection->buf,
+                                              evconnection->request_length,
+                                              evconnection->outbuf,
                                               sizeof(evconnection->outbuf),
                                               DYNAMO_OPTION(eventlog_timeout));
     DOLOG(2, LOG_TOP, {
-        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\n", 
+        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\n",
             evconnection->request_length, evconnection->outlen);
         LOG(GLOBAL, LOG_TOP, 3, "char reg[] = ");
         print_buffer_as_bytes((byte*)evconnection->buf, evconnection->request_length);
@@ -527,7 +527,7 @@ eventlog_register(eventlog_state_t *evconnection)
     }
 
     // we can parse the output to verify its contents, yet we care only about the nonce
-    memcpy(evconnection->nonce, &evconnection->outbuf[HEADER_OFFSET], 
+    memcpy(evconnection->nonce, &evconnection->outbuf[HEADER_OFFSET],
            NONCE_LENGTH);
 
     return 1;
@@ -547,16 +547,16 @@ failed_to_register:
 
 /* get computer name, (cached) */
 char*
-get_computer_name() 
+get_computer_name()
 {
     static char computer_name[MAX_COMPUTERNAME_LENGTH + 5]; /* 15 + 5 */
 
     /* returns the Windows name of the current computer just like GetComputerName() */
     if (!computer_name[0]) {
-        char buf[sizeof(KEY_VALUE_PARTIAL_INFORMATION)+ 
-                 sizeof(wchar_t)*(MAX_COMPUTERNAME_LENGTH + 1)]; // wide 
+        char buf[sizeof(KEY_VALUE_PARTIAL_INFORMATION)+
+                 sizeof(wchar_t)*(MAX_COMPUTERNAME_LENGTH + 1)]; // wide
         KEY_VALUE_PARTIAL_INFORMATION* kvpi = (KEY_VALUE_PARTIAL_INFORMATION*)buf;
-        
+
         if (reg_query_value(L"\\Registry\\Machine\\System\\CurrentControlSet"
                             L"\\Control\\ComputerName\\ActiveComputerName",
                             L"ComputerName",
@@ -574,7 +574,7 @@ get_computer_name()
                 SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             } else
                 ASSERT(!DATASEC_PROTECTED(DATASEC_RARELY_PROT));
-            snprintf(computer_name, sizeof(computer_name) - 1, "%*ls", 
+            snprintf(computer_name, sizeof(computer_name) - 1, "%*ls",
                      kvpi->DataLength / sizeof(wchar_t) - 1,
                      (wchar_t*)kvpi->Data);
             /* computer_name is static so last element is zeroed */
@@ -588,9 +588,9 @@ get_computer_name()
 /* must hold the eventlog mutex */
 static int
 eventlog_report(eventlog_state_t *evconnection,
-                WORD severity, WORD category, DWORD message_id, 
+                WORD severity, WORD category, DWORD message_id,
                 void *pSID,
-                uint substitutions_num, size_t raw_data_size, 
+                uint substitutions_num, size_t raw_data_size,
                 char **substitutions, char *raw_data)
 {
     char *p;
@@ -601,27 +601,27 @@ eventlog_report(eventlog_state_t *evconnection,
     ASSERT_OWN_MUTEX(true, &evconnection->eventlog_mutex);
 
     p = evconnection->buf + HEADER_OFFSET;
-    VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), 
+    VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf),
              evconnection->nonce, NONCE_LENGTH);
     p -= 4;                     /* overwrite timestamp? */
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, sec);
     FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD, severity);
     FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD, category);
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, message_id);
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD,
           substitutions_num);
 
     /* FIXME: should write this constant in hex instead - \333 is not meaningful anyways
      * with the following broken code we've been writing
      * $SG23701 DB     0dbH, 'w', 00H
      *   which is 0x77db.
-     * We should either keep using the magic value that has worked, 
+     * We should either keep using the magic value that has worked,
      * or figure out what should have really been written there.
      */
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf),  WORD,
           *(WORD*)"\333w"); /* FIXME: ReservedFlags? */
     IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(raw_data_size)));
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
           (DWORD)raw_data_size);
     append_string(&p, evconnection->buf + sizeof(evconnection->buf),
                   get_computer_name());
@@ -631,8 +631,8 @@ eventlog_report(eventlog_state_t *evconnection,
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), void*, pSID);
     if (pSID) {
         // FIXME: dump a SID in binary format
-        // FIXME: the actual structure order seems to be 
-        // WORD(sub_authorities_num), 
+        // FIXME: the actual structure order seems to be
+        // WORD(sub_authorities_num),
         // 48 bit authority value,
         // sub_authorities_num * ( 48 bit sub-authority values)
     }
@@ -640,18 +640,18 @@ eventlog_report(eventlog_state_t *evconnection,
     // FIXME: these don't seem to be either offsets nor pointers
     // but are some function of the number of substitutions
 
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
           *(DWORD*)"\230y\23\0"); /* FIXME pointer placeholder */
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
           substitutions_num);
     for(i=0; i<substitutions_num; i++) {
         /* FIXME unknown pointer placeholder */
-        FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, 
-              *(DWORD*)"\210y\23\0"); 
+        FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
+              *(DWORD*)"\210y\23\0");
     }
 
     for(i=0; i<substitutions_num; i++) {
-        append_string(&p, evconnection->buf + sizeof(evconnection->buf), 
+        append_string(&p, evconnection->buf + sizeof(evconnection->buf),
                       substitutions[i]);
     }
 
@@ -659,14 +659,14 @@ eventlog_report(eventlog_state_t *evconnection,
     /* FIXME: This used to be type DWORD: I'm guessing that it should be widened */
     IF_X64(ASSERT_NOT_TESTED());
     FIELD(p, evconnection->buf + sizeof(evconnection->buf), char*, raw_data);
-    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD, 
+    FIELD(p, evconnection->buf + sizeof(evconnection->buf), DWORD,
           raw_data_size);
     LOG(GLOBAL, LOG_TOP, 3, "datalen=%d data= %*s\n", raw_data_size,
         raw_data_size, raw_data);
     if (raw_data_size) {
-        VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), raw_data, 
+        VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), raw_data,
                  raw_data_size); /* now the data */
-        PADDING(&p, evconnection->buf + sizeof(evconnection->buf), 
+        PADDING(&p, evconnection->buf + sizeof(evconnection->buf),
                 raw_data_size, sizeof(DWORD));
     }
 
@@ -675,25 +675,25 @@ eventlog_report(eventlog_state_t *evconnection,
     VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), "\0\0\0\0", 4);
     VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), "\0\0\0\0", 4);
     VARFIELD(&p, evconnection->buf + sizeof(evconnection->buf), "\0\0\0\0", 4);
-    
+
     IF_X64(ASSERT_TRUNCATE(evconnection->request_length, int, p - evconnection->buf));
     evconnection->request_length = (int) (p - evconnection->buf);
-    p = prepend_header(evconnection->buf, 
-                       evconnection->buf + sizeof(evconnection->buf), 
-                       REPORT EVENTLOG, evconnection->request_length, 
+    p = prepend_header(evconnection->buf,
+                       evconnection->buf + sizeof(evconnection->buf),
+                       REPORT EVENTLOG, evconnection->request_length,
                        evconnection->message_seq, REPORT_UNKNOWN_HEADER);
-    ASSERT(p);    
+    ASSERT(p);
 
     evconnection->message_seq++;
     evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe,
-                                              evconnection->buf, 
-                                              evconnection->request_length, 
-                                              evconnection->outbuf, 
+                                              evconnection->buf,
+                                              evconnection->request_length,
+                                              evconnection->outbuf,
                                               sizeof(evconnection->outbuf),
                                               DYNAMO_OPTION(eventlog_timeout));
 
     DOLOG(2, LOG_TOP, {
-        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\n", 
+        LOG(GLOBAL, LOG_TOP, 3, "inlen= %d; outlen = "SZFMT"\n",
             evconnection->request_length, evconnection->outlen);
         LOG(GLOBAL, LOG_TOP, 3, "char report[] = ");
         print_buffer_as_bytes((byte*)evconnection->buf, evconnection->request_length);
@@ -707,7 +707,7 @@ eventlog_report(eventlog_state_t *evconnection,
     /* the only expected message length, we're lenient on contents */
     if (evconnection->outlen != REPORT_RESPONSE_LENGTH) {
         LOG(GLOBAL, LOG_TOP, 1,
-            "WARNING: Mismatch on REPORT_RESPONSE outlen=:"SZFMT"\n", 
+            "WARNING: Mismatch on REPORT_RESPONSE outlen=:"SZFMT"\n",
             evconnection->outlen);
         return 0;
     }
@@ -729,23 +729,23 @@ eventlog_deregister(eventlog_state_t *evconnection)
              evconnection->nonce, NONCE_LENGTH);
     IF_X64(ASSERT_TRUNCATE(evconnection->request_length, int, p - evconnection->buf));
     evconnection->request_length = (int) (p - evconnection->buf);
-    p = prepend_header(evconnection->buf, 
-                       evconnection->buf + sizeof(evconnection->buf), 
-                       REPORT EVENTLOG, evconnection->request_length, 
+    p = prepend_header(evconnection->buf,
+                       evconnection->buf + sizeof(evconnection->buf),
+                       REPORT EVENTLOG, evconnection->request_length,
                        evconnection->message_seq, DEREGISTER_UNKNOWN_HEADER);
     ASSERT(p);
 
 
-    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe, 
-                                              evconnection->buf, 
-                                              evconnection->request_length, 
-                                              evconnection->outbuf, 
+    evconnection->outlen = nt_pipe_transceive(evconnection->eventlog_pipe,
+                                              evconnection->buf,
+                                              evconnection->request_length,
+                                              evconnection->outbuf,
                                               sizeof(evconnection->outbuf),
                                               DYNAMO_OPTION(eventlog_timeout));
 
     if (evconnection->outlen != /*DE*/REGISTER_RESPONSE_LENGTH) {
         LOG(GLOBAL, LOG_TOP, 1,
-            "WARNING: Mismatch on DEREGISTER_RESPONSE outlen="SZFMT"\n", 
+            "WARNING: Mismatch on DEREGISTER_RESPONSE outlen="SZFMT"\n",
             evconnection->outlen);
     }
 
@@ -760,8 +760,8 @@ eventlog_deregister(eventlog_state_t *evconnection)
     return res;
 }
 
-/* Getting a new handle may be not very performant, and also may fail 
- * at unexpected times we cache session state across messages and across 
+/* Getting a new handle may be not very performant, and also may fail
+ * at unexpected times we cache session state across messages and across
  * threads */
 static eventlog_state_t *shared_eventlog_connection;
 /* we use this if we have to syslog prior to heap being initialized */
@@ -805,12 +805,12 @@ eventlog_alloc()
     }
 }
 
-void 
-eventlog_init() 
+void
+eventlog_init()
 {
     uint res;
 
-    /* TODO: Check a persistent (registry) counter for the current application 
+    /* TODO: Check a persistent (registry) counter for the current application
      whether to report to the system log on this run, decrement it if present */
 
     /* syslog_mask is dynamic, so even if 0 now we init in case it changes later */
@@ -843,24 +843,24 @@ eventlog_init()
     mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
 }
 
-void 
+void
 eventlog_fast_exit(void)
 {
     uint res = 1;               /* maybe nothing to do */
     mutex_lock(&shared_eventlog_connection->eventlog_mutex);
-    if (shared_eventlog_connection->eventlog_pipe) 
+    if (shared_eventlog_connection->eventlog_pipe)
         res = eventlog_deregister(shared_eventlog_connection);
     shared_eventlog_connection->eventlog_pipe = 0;
     mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
     DOLOG(1, LOG_TOP, if (!res) {
-        LOG(GLOBAL, LOG_TOP, 1, "WARNING: DeregisterEventSource failed.\n"); 
+        LOG(GLOBAL, LOG_TOP, 1, "WARNING: DeregisterEventSource failed.\n");
     });
 }
 
-void 
+void
 eventlog_slow_exit()
 {
-    ASSERT_CURIOSITY(shared_eventlog_connection->eventlog_pipe == 0 && 
+    ASSERT_CURIOSITY(shared_eventlog_connection->eventlog_pipe == 0 &&
                      "call after eventlog_fast_exit");
     /* syslog_mask is dynamic, so even if 0 now we init in case it changes later */
     DELETE_LOCK(shared_eventlog_connection->eventlog_mutex);
@@ -878,8 +878,8 @@ eventlog_slow_exit()
 
 /* writes a message to the Windows Event Log */
 static
-void 
-os_eventlog(syslog_event_type_t priority, uint message_id, 
+void
+os_eventlog(syslog_event_type_t priority, uint message_id,
             uint substitutions_num, char **arguments,
             size_t size_data, char *raw_data)
 {
@@ -905,7 +905,7 @@ os_eventlog(syslog_event_type_t priority, uint message_id,
         eventlog_alloc();
     mutex_lock(&shared_eventlog_connection->eventlog_mutex);
     if (!shared_eventlog_connection->eventlog_pipe) {
-        /* Retry to open connection, since may have been unable 
+        /* Retry to open connection, since may have been unable
            to do that early on for system services started before EventLog */
         res = eventlog_register(shared_eventlog_connection);
         if (!res) {
@@ -922,7 +922,7 @@ os_eventlog(syslog_event_type_t priority, uint message_id,
         // TODO: add current user SID (thread maybe impersonated)
         res = eventlog_report(shared_eventlog_connection,
                               (WORD)native_priority,
-                              category,             
+                              category,
                               message_id,
                               NULL, /* pSID */
                               (WORD)substitutions_num,
@@ -931,9 +931,9 @@ os_eventlog(syslog_event_type_t priority, uint message_id,
                               raw_data);
     }
     mutex_unlock(&shared_eventlog_connection->eventlog_mutex);
-    
+
     DOLOG(1, LOG_TOP, if (!res) {
-        LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not report event 0x%x. \n", message_id); 
+        LOG(GLOBAL, LOG_TOP, 1, "WARNING: Could not report event 0x%x. \n", message_id);
     });
 }
 

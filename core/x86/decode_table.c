@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -47,7 +47,7 @@
  * All code below based on tables in the ``Intel Architecture Software
  * Developer's Manual,'' Volume 2: Instruction Set Reference, 2001.
  * Updated with information from later Intel manuals and AMD manuals.
- * 
+ *
  * I added many new types not present in the Intel tables: see decode.h
  *
  * I don't list %eflags as a source or dest operand, but the particular
@@ -227,7 +227,7 @@ const instr_info_t * const op_instr[] =
     /* OP_punpckhqdq  */   &prefix_extensions[45][2],
     /* OP_movd        */   &prefix_extensions[46][0],
     /* OP_movq        */   &prefix_extensions[112][0],
-    /* OP_movdqu      */   &prefix_extensions[112][1], 
+    /* OP_movdqu      */   &prefix_extensions[112][1],
     /* OP_movdqa      */   &prefix_extensions[112][2],
     /* OP_pshufw      */   &prefix_extensions[47][0],
     /* OP_pshufd      */   &prefix_extensions[47][2],
@@ -1383,7 +1383,7 @@ const instr_info_t * const op_instr[] =
 
 /* my own codes
  * size m = 32 or 16 bit depending on addr size attribute
- * B=ds:eDI, Z=xlat's mem, K=float in mem, i_==indirect 
+ * B=ds:eDI, Z=xlat's mem, K=float in mem, i_==indirect
  */
 #define Mb  TYPE_M, OPSZ_1
 #define Md  TYPE_M, OPSZ_4
@@ -1641,7 +1641,7 @@ const instr_info_t * const op_instr[] =
 #define tvexw (ptr_int_t)&vex_W_extensions
 #define txop (ptr_int_t)&xop_extensions
 
-/* point at this when you need a canonical invalid instr 
+/* point at this when you need a canonical invalid instr
  * type is OP_INVALID so can be copied to instr->opcode
  */
 const instr_info_t invalid_instr =
@@ -2185,7 +2185,7 @@ const instr_info_t second_byte[] = {
   /* is jump to absolute pc address, not realitve like all other jumps */
   /* is like the pointer type except no segement change, no modrm byte */
   /* should be 0x0fb800? no! 01 signals to encoder is 2 byte instruction */
-  {OP_jmpe_abs,  0x0fb810, "jmpe", xx, xx, Av, xx, xx, no, x, END_LIST}, 
+  {OP_jmpe_abs,  0x0fb810, "jmpe", xx, xx, Av, xx, xx, no, x, END_LIST},
 #else
   {OP_popcnt,0xf30fb810, "popcnt", Gv, xx, Ev, xx, xx, mrm|reqp, fW6, END_LIST},
 #endif
@@ -2662,8 +2662,8 @@ const instr_info_t extensions[][8] = {
 };
 
 /****************************************************************************
- * Two-byte instructions that differ depending on presence of 
- * prefixes, indexed in this order: 
+ * Two-byte instructions that differ depending on presence of
+ * prefixes, indexed in this order:
  *   none, 0xf3, 0x66, 0xf2
  * A second set is used for vex-encoded instructions, indexed in the
  * same order by prefix.
@@ -2703,11 +2703,11 @@ const instr_info_t prefix_extensions[][8] = {
      */
     {OP_movlps, 0x0f1210, "movlps", Vq_dq, xx, Wq, xx, xx, mrm, x, tpe[3][0]}, /*"movhlps" if reg-reg */
     {OP_movsldup, 0xf30f1210, "movsldup", Vps, xx, Wps, xx, xx, mrm, x, END_LIST},
-    {OP_movlpd, 0x660f1210, "movlpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[3][2]}, 
+    {OP_movlpd, 0x660f1210, "movlpd", Vq_dq, xx, Mq, xx, xx, mrm, x, tpe[3][2]},
     {OP_movddup, 0xf20f1210, "movddup", Vpd, xx, Wq_dq, xx, xx, mrm, x, END_LIST},
     {OP_vmovlps,    0x0f1210, "vmovlps", Vq_dq, xx, Hq_dq, Wq, xx, mrm|vex|reqL0, x, tpe[3][4]}, /*"vmovhlps" if reg-reg */
     {OP_vmovsldup,0xf30f1210, "vmovsldup", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]}, 
+    {OP_vmovlpd,  0x660f1210, "vmovlpd", Vq_dq, xx, Hq_dq, Mq, xx, mrm|vex, x, tpe[3][6]},
     {OP_vmovddup, 0xf20f1210, "vmovddup", Vvd, xx, Wvq_dq, xx, xx, mrm|vex, x, END_LIST},
   },
   /* prefix extension 3 */
@@ -3706,7 +3706,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID,    0xf20ff610, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   /* prefix extension 93 */
-  { 
+  {
     {OP_maskmovq,     0x0ff710, "maskmovq", Bq, xx, Pq, Nq, xx, mrm, x, END_LIST}, /* Intel table says "Ppi, Qpi" */
     {INVALID,       0xf30ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {OP_maskmovdqu, 0x660ff710, "maskmovdqu", Bdq, xx, Vdq, Udq, xx, mrm, x, END_LIST},
@@ -5760,7 +5760,7 @@ const instr_info_t float_high_modrm[][64] = {
         {INVALID, 0xd9d610, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xd9d710, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         /* Undocumented.  On sandpile.org as "fstp1".  We assume an alias for fstp
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fstp, 0xd9d810, "fstp", st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* d8 = [0x18] */
         {OP_fstp, 0xd9d910, "fstp", st1, xx, st0, xx, xx, mrm, x, END_LIST},
@@ -5936,7 +5936,7 @@ const instr_info_t float_high_modrm[][64] = {
         {INVALID, 0xdbfe10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdbff10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
    },
-    { /* dc = [4] */ 
+    { /* dc = [4] */
         {OP_fadd, 0xdcc010, "fadd", st0, xx, st0, st0, xx, mrm, x, tfh[4][0x01]}, /* c0 = [0x00] */
         {OP_fadd, 0xdcc110, "fadd", st1, xx, st0, st1, xx, mrm, x, tfh[4][0x02]},
         {OP_fadd, 0xdcc210, "fadd", st2, xx, st0, st2, xx, mrm, x, tfh[4][0x03]},
@@ -5954,7 +5954,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fmul, 0xdcce10, "fmul", st6, xx, st0, st6, xx, mrm, x, tfh[4][0x0f]},
         {OP_fmul, 0xdccf10, "fmul", st7, xx, st0, st7, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fcom2".  We assume an alias for fcom
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fcom, 0xdcd010, "fcom", xx, xx, st0, st0, xx, mrm, x, END_LIST}, /* d0 = [0x10] */
         {OP_fcom, 0xdcd110, "fcom", xx, xx, st0, st1, xx, mrm, x, END_LIST},
@@ -5965,7 +5965,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fcom, 0xdcd610, "fcom", xx, xx, st0, st6, xx, mrm, x, END_LIST},
         {OP_fcom, 0xdcd710, "fcom", xx, xx, st0, st7, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fcomp3".  We assume an alias for fcomp
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fcomp, 0xdcd810, "fcomp", xx, xx, st0, st0, xx, mrm, x, END_LIST}, /* d8 = [0x18] */
         {OP_fcomp, 0xdcd910, "fcomp", xx, xx, st0, st1, xx, mrm, x, END_LIST},
@@ -6018,7 +6018,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_ffree, 0xddc610, "ffree", st6, xx, xx, xx, xx, mrm, x, tfh[5][0x07]},
         {OP_ffree, 0xddc710, "ffree", st7, xx, xx, xx, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fxch4".  We assume an alias for fxch
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fxch, 0xddc810, "fxch", st0, st0, st0, st0, xx, mrm, x, END_LIST}, /* c8 = [0x08] */
         {OP_fxch, 0xddc910, "fxch", st0, st1, st0, st1, xx, mrm, x, END_LIST},
@@ -6095,7 +6095,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fmulp, 0xdece10, "fmulp", st6, xx, st0, st6, xx, mrm, x, tfh[6][0x0f]},
         {OP_fmulp, 0xdecf10, "fmulp", st7, xx, st0, st7, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fcomp5".  We assume an alias for fcomp
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fcomp, 0xded010, "fcomp", xx, xx, st0, st0, xx, mrm, x, END_LIST}, /* d0 = [0x10] */
         {OP_fcomp, 0xded110, "fcomp", xx, xx, st0, st1, xx, mrm, x, END_LIST},
@@ -6159,7 +6159,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_ffreep, 0xdfc610, "ffreep", st6, xx, xx, xx, xx, mrm, x, tfh[7][0x07]},
         {OP_ffreep, 0xdfc710, "ffreep", st7, xx, xx, xx, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fxch7".  We assume an alias for fxch
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fxch, 0xdfc810, "fxch", st0, st0, st0, st0, xx, mrm, x, END_LIST}, /* c8 = [0x08] */
         {OP_fxch, 0xdfc910, "fxch", st0, st1, st0, st1, xx, mrm, x, END_LIST},
@@ -6170,7 +6170,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fxch, 0xdfce10, "fxch", st0, st6, st0, st6, xx, mrm, x, END_LIST},
         {OP_fxch, 0xdfcf10, "fxch", st0, st7, st0, st7, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fstp8".  We assume an alias for fstp
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fstp, 0xdfd010, "fstp", st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* d0 = [0x10] */
         {OP_fstp, 0xdfd110, "fstp", st1, xx, st0, xx, xx, mrm, x, END_LIST},
@@ -6181,7 +6181,7 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fstp, 0xdfd610, "fstp", st6, xx, st0, xx, xx, mrm, x, END_LIST},
         {OP_fstp, 0xdfd710, "fstp", st7, xx, st0, xx, xx, mrm, x, END_LIST},
         /* Undocumented.  On sandpile.org as "fstp9".  We assume an alias for fstp
-         * and do not include in the encode chain. 
+         * and do not include in the encode chain.
          */
         {OP_fstp, 0xdfd810, "fstp", st0, xx, st0, xx, xx, mrm, x, END_LIST}, /* d8 = [0x18] */
         {OP_fstp, 0xdfd910, "fstp", st1, xx, st0, xx, xx, mrm, x, END_LIST},
@@ -6227,7 +6227,7 @@ const instr_info_t float_high_modrm[][64] = {
 };
 
 /****************************************************************************
- * Suffix extensions: 3DNow! and 3DNow!+ 
+ * Suffix extensions: 3DNow! and 3DNow!+
  * Since there are only 24 of them, we save space by having a
  * table of 256 indices instead of 256 instr_info_t structs.
  */

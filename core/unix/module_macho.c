@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -523,7 +523,7 @@ module_has_text_relocs_ex(app_pc base, os_privmod_data_t *pd)
 }
 
 bool
-module_read_os_data(app_pc base, 
+module_read_os_data(app_pc base,
                     OUT ptr_int_t *load_delta,
                     OUT os_module_data_t *os_data,
                     OUT char **soname)
@@ -553,7 +553,7 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
     return;
 }
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
- 
+
 ptr_uint_t
 module_get_text_section(app_pc file_map, size_t file_size)
 {

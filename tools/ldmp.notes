@@ -1,7 +1,7 @@
 to use ldmp.exe to view an ldmp file
 
 ldmp <ldmp file> <dummy executable> > map_file
-once finished open the map file (this file has the mappings of old thread ids and TEB's to the new one (the contents of the TEB are copied over, just the location changes) and also the PEB as well as any error msgs), we expect an error aroudn the vsyscall page since the os won't let us write there, for this reason I recommend running ldmp on the same platform (xpsp2, 03, 2000 etc.) that the .ldmp file was created on.  Read the process id and attach windbg NON-INVASIVELY (otherwise will crash) to that process.  At this point you can take a dump with 
+once finished open the map file (this file has the mappings of old thread ids and TEB's to the new one (the contents of the TEB are copied over, just the location changes) and also the PEB as well as any error msgs), we expect an error aroudn the vsyscall page since the os won't let us write there, for this reason I recommend running ldmp on the same platform (xpsp2, 03, 2000 etc.) that the .ldmp file was created on.  Read the process id and attach windbg NON-INVASIVELY (otherwise will crash) to that process.  At this point you can take a dump with
 .dump /mFfu <out file>
 and continue on your merry way.
 

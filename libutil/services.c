@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -30,11 +30,11 @@
  * DAMAGE.
  */
 
-/* 
+/*
  * services.c
  *
  * helper methods dealing with services
- *  
+ *
  */
 
 #include "share.h"
@@ -70,7 +70,7 @@ get_service_strings()
     SC_HANDLE sch;
     QUERY_SERVICE_CONFIG *scfg;
     BYTE buffer[SVC_BUFSZ];
-    
+
     /* now read in the service information */
     scfg = (QUERY_SERVICE_CONFIG *)buffer;
 
@@ -78,15 +78,15 @@ get_service_strings()
                        &needed, &nsvcs, &next);
     infobuf = (ENUM_SERVICE_STATUS *)malloc(needed);
 
-    bRes = EnumServicesStatus(scmdb, 
-                              SERVICE_WIN32, 
-                              SERVICE_STATE_ALL, 
-                              infobuf, 
-                              needed, 
-                              &needed, 
-                              &nsvcs, 
+    bRes = EnumServicesStatus(scmdb,
+                              SERVICE_WIN32,
+                              SERVICE_STATE_ALL,
+                              infobuf,
+                              needed,
+                              &needed,
+                              &nsvcs,
                               &next);
-    
+
     if(!bRes)
         return GetLastError();
 
@@ -97,7 +97,7 @@ get_service_strings()
     for(i = 0; i < nsvcs; i++) {
         services[i].svch = i;
         services[i].service_name = wcsdup(infobuf[i].lpServiceName);
-        
+
         sch = OpenService(scmdb, services[i].service_name,
                           SERVICE_QUERY_CONFIG);
         if (QueryServiceConfig(sch, scfg, SVC_BUFSZ, &needed)) {
@@ -242,13 +242,13 @@ service_status(ServiceHandle service)
 {
     SERVICE_STATUS ss;
 
-    SC_HANDLE hsvc = OpenService(scmdb, 
+    SC_HANDLE hsvc = OpenService(scmdb,
                                  services[service].service_name,
                                  SERVICE_QUERY_STATUS);
 
     QueryServiceStatus(hsvc, &ss);
     CloseServiceHandle(hsvc);
-    
+
     return ss.dwCurrentState;
 }
 
@@ -290,8 +290,8 @@ add_dependent_service(ServiceHandle service, ServiceHandle requiredService)
         memcpy(dep, scfg->lpDependencies, size * sizeof(WCHAR));
     }
 
-    wcsncpy(&dep[size], services[requiredService].service_name, 
-            MAX_PATH - size); 
+    wcsncpy(&dep[size], services[requiredService].service_name,
+            MAX_PATH - size);
 
     size += wcslen(services[requiredService].service_name) + 1;
 
@@ -299,7 +299,7 @@ add_dependent_service(ServiceHandle service, ServiceHandle requiredService)
         CloseServiceHandle(hsvc);
         return ERROR_INSUFFICIENT_BUFFER;
     }
-        
+
     dep[size + 1] = L'\0';
 
     cscres = ChangeServiceConfig(hsvc,
@@ -313,7 +313,7 @@ add_dependent_service(ServiceHandle service, ServiceHandle requiredService)
                                  NULL,
                                  NULL,
                                  NULL);
-    
+
     CloseServiceHandle(hsvc);
 
     if (!cscres)
@@ -344,7 +344,7 @@ reset_dependent_services(ServiceHandle service)
                                  NULL,
                                  NULL,
                                  NULL);
-    
+
     CloseServiceHandle(hsvc);
 
     if (!cscres)
@@ -375,7 +375,7 @@ set_service_start_type(ServiceHandle service, DWORD dwStartType)
                                  NULL,
                                  NULL,
                                  NULL);
-    
+
     CloseServiceHandle(hsvc);
 
     if (!cscres)
@@ -396,13 +396,13 @@ get_service_start_type(ServiceHandle service)
 /* QueryServiceConfig2 and ChangeServiceConfig2 are not supported
  *  on NT, so we load these dynamically.
  */
-typedef BOOL (WINAPI *QueryServiceConfig2Func)(SC_HANDLE hService, 
+typedef BOOL (WINAPI *QueryServiceConfig2Func)(SC_HANDLE hService,
                                                DWORD dwInfoLevel,
                                                LPBYTE lpBuffer,
                                                DWORD cbBufSize,
                                                LPDWORD pcbBytesNeeded);
 
-typedef BOOL (WINAPI *ChangeServiceConfig2Func)(SC_HANDLE hService, 
+typedef BOOL (WINAPI *ChangeServiceConfig2Func)(SC_HANDLE hService,
                                                 DWORD dwInfoLevel,
                                                 LPVOID lpInfo);
 
@@ -412,7 +412,7 @@ typedef BOOL (WINAPI *ChangeServiceConfig2Func)(SC_HANDLE hService,
  *  install. plus, we get the additional benefit that we always make
  *  sure this is set, even if it gets turned off somehow. in the
  *  future we can have a controller-configurable parameter that
- *  controls whether we always enforce auto-restart of the service. 
+ *  controls whether we always enforce auto-restart of the service.
  *
  * if fatal_error_encountered, turn this shit off so we don't spin
  *  wheels and write one eventlog message every minute. */
@@ -420,9 +420,9 @@ DWORD
 set_service_restart_type(WCHAR *svcname, BOOL disable)
 {
     SC_HANDLE scmdb = NULL, service = NULL;
-    SC_ACTION restart_action = 
+    SC_ACTION restart_action =
         { SC_ACTION_RESTART, SERVICE_RESTART_DELAY_MS };
-    SERVICE_FAILURE_ACTIONS failure_actions = 
+    SERVICE_FAILURE_ACTIONS failure_actions =
         { 0,   /* dwResetPeriod: we only have one failure action, so
                   just keep at zero*/
           L"", /* we don't force server reboot on failure */
@@ -432,10 +432,10 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
         };
     /* if this buffer size is exceeded then the QueryServiceConfig
      *  will fail with ERROR_INSUFFICIENT_BUFFER, in which case we can
-     *  be sure that someone mucked our settings. */ 
+     *  be sure that someone mucked our settings. */
     BYTE current_actions_buffer[sizeof(SERVICE_FAILURE_ACTIONS) +
                                 5*sizeof(SC_ACTION)] = { 0 };
-    SERVICE_FAILURE_ACTIONS * current_actions = 
+    SERVICE_FAILURE_ACTIONS * current_actions =
         (SERVICE_FAILURE_ACTIONS *)&current_actions_buffer;
     DWORD res = ERROR_SUCCESS, needed;
     QueryServiceConfig2Func qscf;
@@ -453,11 +453,11 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
         return ERROR_NOT_SUPPORTED;
     }
 
-    qscf = (QueryServiceConfig2Func) 
+    qscf = (QueryServiceConfig2Func)
         GetProcAddress(advapi, "QueryServiceConfig2W");
-    cscf = (ChangeServiceConfig2Func) 
+    cscf = (ChangeServiceConfig2Func)
         GetProcAddress(advapi, "ChangeServiceConfig2W");
-    
+
     if (qscf == NULL || cscf == NULL) {
         return ERROR_NOT_SUPPORTED;
     }
@@ -472,7 +472,7 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
         res = GetLastError();
         goto autorestart_out;
     }
-    
+
     service = OpenService(scmdb,
                           svcname,
                           SERVICE_ALL_ACCESS);
@@ -482,7 +482,7 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
         goto autorestart_out;
     }
 
-    if ((*qscf)(service, 
+    if ((*qscf)(service,
                 SERVICE_CONFIG_FAILURE_ACTIONS,
                 (LPBYTE) current_actions,
                 sizeof(current_actions_buffer),
@@ -496,13 +496,13 @@ set_service_restart_type(WCHAR *svcname, BOOL disable)
             goto autorestart_out;
 
         /* if not, change the configuration */
-        if (!(*cscf)(service, 
+        if (!(*cscf)(service,
                      SERVICE_CONFIG_FAILURE_ACTIONS,
                      (LPVOID) &failure_actions)) {
             res = GetLastError();
             goto autorestart_out;
         }
-        
+
     }
     else {
         res = GetLastError();
@@ -561,7 +561,7 @@ main()
 
     c1 = get_service_name(sh1);
     DO_ASSERT_WSTR_EQ(sn1, (WCHAR *)c1);
-    
+
     c1 = get_service_display_name(sh1);
     DO_ASSERT_WSTR_EQ(s1, (WCHAR *)c1);
 
@@ -581,14 +581,14 @@ main()
 
     res = set_service_start_type(sh1, SERVICE_DEMAND_START);
     DO_ASSERT(res == ERROR_SUCCESS);
-    
+
     res = reload_service_info();
     DO_ASSERT(res == ERROR_SUCCESS);
     DO_ASSERT(SERVICE_DEMAND_START == get_service_start_type(sh1));
 
     res = set_service_start_type(sh1, SERVICE_AUTO_START);
     DO_ASSERT(res == ERROR_SUCCESS);
-    
+
     DO_ASSERT(SERVICE_AUTO_START == get_service_start_type(sh1));
 
     res = set_service_start_type(sh1, type);
@@ -604,7 +604,7 @@ main()
     res = add_dependent_service(sh1, sh2);
     DO_ASSERT(res == ERROR_SUCCESS);
 #endif
-    
+
     res = services_cleanup();
     DO_ASSERT(res == ERROR_SUCCESS);
 

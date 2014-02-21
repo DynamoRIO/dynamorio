@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -90,14 +90,14 @@ struct _coarse_info_t {
 #endif
 
     void *cache; /* opaque type internal to fcache.c */
-    
+
     /* For frozen units, htable holds body pcs, while th_htable holds stub pcs.
      * FIXME case 8628: split these into a body table and a stub table for
      * non-frozen units.
      */
     void *htable; /* opaque htable mapping app pc -> stub/cache entry point */
     void *th_htable; /* opaque htable mapping trace head app pc -> cache entry point */
-    
+
     /* cache pclookups to avoid htable walk (i#658) */
     void *pclookup_last_htable; /* opaque htable caching recent non-entry pclookups */
 
@@ -131,7 +131,7 @@ struct _coarse_info_t {
     uint flags; /* corresponds to PERSCACHE_ flags for persisted files */
     cache_pc mmap_pc; /* start of persisted mmapped file; size is mmap_size */
     /* if this is >0, we mapped the file in two different views:
-     * 1) [mmap_pc,mmap_pc+mmap_ro_size) 
+     * 1) [mmap_pc,mmap_pc+mmap_ro_size)
      * 2) [mmap_pc+mmap_ro_size,mmap_pc+mmap_size)
      */
     size_t mmap_ro_size;
@@ -205,7 +205,7 @@ struct _coarse_info_t {
     app_pc persist_base;
     /* persisted base minus cur base */
     ssize_t mod_shift;
-    
+
     /* Only add a field here if it should be preserved across coarse_unit_reset_free */
 
 }; /* typedef as "coarse_info_t" is in globals.h */
@@ -370,7 +370,7 @@ enum {
     /* Checks on our own generated file */
     PERSCACHE_GENFILE_MD5_SHORT      = 0x00000004, /* header */
     PERSCACHE_GENFILE_MD5_COMPLETE   = 0x00000008, /* entire file */
-    /* When to calculate gen-side module md5's 
+    /* When to calculate gen-side module md5's
      * In 4.4 this will be stored at 1st execution, not load time (case 10601)
      */
     PERSCACHE_MODULE_MD5_AT_LOAD     = 0x00000010, /* else, at persist time */

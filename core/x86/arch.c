@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -63,7 +63,7 @@ void interp_init(void);
 void interp_exit(void);
 
 /* Thread-shared generated routines.
- * We don't allocate the shared_code statically so that we can mark it 
+ * We don't allocate the shared_code statically so that we can mark it
  * executable.
  */
 generated_code_t *shared_code = NULL;
@@ -115,7 +115,7 @@ reg_spill_tls_offs(reg_id_t reg)
 /* routine can be used for dumping both thread private and the thread shared routines */
 static void
 dump_emitted_routines(dcontext_t *dcontext, file_t file,
-                      const char *code_description, 
+                      const char *code_description,
                       generated_code_t *code, byte *emitted_pc)
 {
     byte *last_pc;
@@ -198,7 +198,7 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
                 print_file(file, "clean_call_restore:\n");
             last_pc = disassemble_with_bytes(dcontext, last_pc, file);
         } while (last_pc < emitted_pc);
-        print_file(file, "%s routines size: "SSZFMT" / "SSZFMT"\n\n", 
+        print_file(file, "%s routines size: "SSZFMT" / "SSZFMT"\n\n",
                    code_description, emitted_pc - code->gen_start_pc,
                    code->commit_end_pc - code->gen_start_pc);
     }
@@ -222,7 +222,7 @@ dump_emitted_routines_to_file(dcontext_t *dcontext, const char *filename,
         dump_emitted_routines(dcontext, file, label, code, stop_pc);
         close_log_file(file);
     } else
-        ASSERT_NOT_REACHED();            
+        ASSERT_NOT_REACHED();
 }
 #endif /* INTERNAL */
 
@@ -285,7 +285,7 @@ release_final_page(generated_code_t *code)
         code->commit_end_pc -= leftover;
     }
     LOG(THREAD_GET, LOG_EMIT, 1,
-        "Generated code "PFX": %d header, "SZFMT" gen, "SZFMT" commit/%d reserve\n", 
+        "Generated code "PFX": %d header, "SZFMT" gen, "SZFMT" commit/%d reserve\n",
         code, sizeof(*code), code->gen_end_pc - code->gen_start_pc,
         (ptr_uint_t)code->commit_end_pc - (ptr_uint_t)code, GENCODE_RESERVE_SIZE);
 }
@@ -335,7 +335,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     /* Generated code immediately follows struct */
     gencode->gen_start_pc = ((byte *)gencode) + sizeof(*gencode);
     gencode->commit_end_pc = ((byte *)gencode) + GENCODE_COMMIT_SIZE;
-    for (branch_type = IBL_BRANCH_TYPE_START; 
+    for (branch_type = IBL_BRANCH_TYPE_START;
          branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
         gencode->trace_ibl[branch_type].initialized = false;
         gencode->bb_ibl[branch_type].initialized = false;
@@ -373,7 +373,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     if (USE_SHARED_TRACE_IBL()) {
         /* expected to be false for private trace IBL routine  */
         pc = emit_ibl_routines(GLOBAL_DCONTEXT, gencode,
-                               pc, gencode->fcache_return, 
+                               pc, gencode->fcache_return,
                                DYNAMO_OPTION(shared_traces) ?
                                IBL_TRACE_SHARED : IBL_TRACE_PRIVATE, /* source_fragment_type */
                                true, /* thread_shared */
@@ -392,14 +392,14 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     if (DYNAMO_OPTION(coarse_units)) {
         pc = emit_ibl_routines(GLOBAL_DCONTEXT, gencode, pc,
                                /* ibl routines use regular fcache_return */
-                               gencode->fcache_return, 
+                               gencode->fcache_return,
                                IBL_COARSE_SHARED, /* source_fragment_type */
                                /* thread_shared */
                                IF_X64_ELSE(true, SHARED_FRAGMENTS_ENABLED()),
                                !DYNAMO_OPTION(bb_ibl_targets), /*target_trace_table*/
                                gencode->coarse_ibl);
     }
-                                   
+
 #ifdef WINDOWS_PC_SAMPLE
     gencode->ibl_routines_end = pc;
 #endif
@@ -512,14 +512,14 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     }
 #endif
 #ifdef WINDOWS_PC_SAMPLE
-    if (dynamo_options.profile_pcs && 
-        dynamo_options.prof_pcs_gencode >= 2 && 
+    if (dynamo_options.profile_pcs &&
+        dynamo_options.prof_pcs_gencode >= 2 &&
         dynamo_options.prof_pcs_gencode <= 32) {
-        gencode->profile = 
+        gencode->profile =
             create_profile(gencode->gen_start_pc, pc,
                            dynamo_options.prof_pcs_gencode, NULL);
         start_profile(gencode->profile);
-    } else 
+    } else
         gencode->profile = NULL;
 #endif
 
@@ -533,7 +533,7 @@ static void
 far_ibl_set_targets(ibl_code_t src_ibl[], ibl_code_t tgt_ibl[])
 {
     ibl_branch_type_t branch_type;
-    for (branch_type = IBL_BRANCH_TYPE_START; 
+    for (branch_type = IBL_BRANCH_TYPE_START;
          branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
         if (src_ibl[branch_type].initialized) {
             /* selector was set in emit_far_ibl (but at that point we didn't have
@@ -593,7 +593,7 @@ arch_init()
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void*));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
-    ASSERT(sizeof(unprotected_context_t) == sizeof(priv_mcontext_t) + 
+    ASSERT(sizeof(unprotected_context_t) == sizeof(priv_mcontext_t) +
            IF_WINDOWS_ELSE(IF_X64_ELSE(8, 4), 8) +
            IF_CLIENT_INTERFACE_ELSE(5 * sizeof(reg_t), 0));
 
@@ -601,7 +601,7 @@ arch_init()
 
 #ifdef CHECK_RETURNS_SSE2
     if (proc_has_feature(FEATURE_SSE2)) {
-        FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_REQUIRES_SSE2, 2, 
+        FATAL_USAGE_ERROR(CHECK_RETURNS_SSE2_REQUIRES_SSE2, 2,
                           get_application_name(), get_application_pid());
     }
 #endif
@@ -687,7 +687,7 @@ arch_extract_profile(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
         /* Break out the IBL code by trace/BB and opcode types.
          * Not worth showing far_ibl hits since should be quite rare.
          */
-        for (branch_type = IBL_BRANCH_TYPE_START; 
+        for (branch_type = IBL_BRANCH_TYPE_START;
              branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
 
             byte *start;
@@ -779,7 +779,7 @@ arch_exit(IF_WINDOWS_ELSE_NP(bool detach_stacked_callbacks, void))
 
 static byte *
 emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
-                              byte *pc, 
+                              byte *pc,
                               byte *fcache_return_pc,
                               bool target_trace_table,
                               bool inline_ibl_head,
@@ -818,7 +818,7 @@ emit_ibl_routine_and_template(dcontext_t *dcontext, generated_code_t *code,
 }
 
 static byte *
-emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc, 
+emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                   byte *fcache_return_pc,
                   ibl_source_fragment_type_t source_fragment_type,
                   bool thread_shared,
@@ -826,7 +826,7 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                   ibl_code_t ibl_code_routines[])
 {
     ibl_branch_type_t branch_type;
-    /* emit separate routines for each branch type 
+    /* emit separate routines for each branch type
        The goal is to have routines that target different fragment tables
        so that we can control for example return targets for RAC,
        or we can control inlining if some branch types have better hit ratios.
@@ -842,7 +842,7 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     bool inline_ibl_head =  (IS_IBL_TRACE(source_fragment_type)) ?
         DYNAMO_OPTION(inline_trace_ibl) : DYNAMO_OPTION(inline_bb_ibl);
 
-    for (branch_type = IBL_BRANCH_TYPE_START; 
+    for (branch_type = IBL_BRANCH_TYPE_START;
          branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
 #ifdef HASHTABLE_STATISTICS
         /* ugly asserts but we'll stick with uints to save space */
@@ -863,11 +863,11 @@ emit_ibl_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint
                       (offsetof(unprot_ht_statistics_t, bb_ibl_stats[branch_type]))));
         ibl_code_routines[branch_type].hashtable_stats_offset = (uint)
-            ((IS_IBL_TRACE(source_fragment_type)) ? 
+            ((IS_IBL_TRACE(source_fragment_type)) ?
              offsetof(unprot_ht_statistics_t, trace_ibl_stats[branch_type])
              : offsetof(unprot_ht_statistics_t, bb_ibl_stats[branch_type]));
 #endif
-        pc = emit_ibl_routine_and_template(dcontext, code, pc, 
+        pc = emit_ibl_routine_and_template(dcontext, code, pc,
                                            fcache_return_pc,
                                            target_trace_table,
                                            inline_ibl_head, thread_shared,
@@ -977,7 +977,7 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
                                &code->do_vmkuw_syscall_offs);
 # endif
 #endif /* UNIX */
-    
+
     return pc;
 }
 
@@ -1024,7 +1024,7 @@ arch_thread_init(dcontext_t *dcontext)
     /* Generated code immediately follows struct */
     code->gen_start_pc = ((byte *)code) + sizeof(*code);
     code->commit_end_pc = ((byte *)code) + GENCODE_COMMIT_SIZE;
-    for (branch_type = IBL_BRANCH_TYPE_START; 
+    for (branch_type = IBL_BRANCH_TYPE_START;
          branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
         code->trace_ibl[branch_type].initialized = false;
         code->bb_ibl[branch_type].initialized = false;
@@ -1044,10 +1044,10 @@ arch_thread_init(dcontext_t *dcontext)
     code->fcache_enter_return_end = pc;
 #endif
 
-    /* Currently all ibl routines target the trace hashtable 
+    /* Currently all ibl routines target the trace hashtable
        and we don't yet support basic blocks as targets of an IBL.
        However, having separate routines at least enables finer control
-       over the indirect exit stubs.  
+       over the indirect exit stubs.
        This way we have inlined IBL stubs for trace but not in basic blocks.
 
        TODO: After separating the IBL routines, now we can retarget them to separate
@@ -1063,10 +1063,10 @@ arch_thread_init(dcontext_t *dcontext)
     */
     if (!DYNAMO_OPTION(disable_traces) && DYNAMO_OPTION(shared_trace_ibl_routine)) {
         if (!DYNAMO_OPTION(shared_traces)) {
-            /* copy all bookkeeping information from shared_code into thread private 
+            /* copy all bookkeeping information from shared_code into thread private
                needed by get_ibl_routine*() */
             ibl_branch_type_t branch_type;
-            for (branch_type = IBL_BRANCH_TYPE_START; 
+            for (branch_type = IBL_BRANCH_TYPE_START;
                  branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
                 code->trace_ibl[branch_type] =
                     SHARED_GENCODE(code->gencode_mode)->trace_ibl[branch_type];
@@ -1074,13 +1074,13 @@ arch_thread_init(dcontext_t *dcontext)
         } /* FIXME: no private traces supported right now w/ -shared_traces */
     } else if (PRIVATE_TRACES_ENABLED()) {
         /* shared_trace_ibl_routine should be false for private (performance test only) */
-        pc = emit_ibl_routines(dcontext, code, pc, code->fcache_return, 
+        pc = emit_ibl_routines(dcontext, code, pc, code->fcache_return,
                                IBL_TRACE_PRIVATE, /* source_fragment_type */
                                DYNAMO_OPTION(shared_trace_ibl_routine), /* thread_shared */
                                true, /* target_trace_table */
                                code->trace_ibl);
     }
-    pc = emit_ibl_routines(dcontext, code, pc, code->fcache_return, 
+    pc = emit_ibl_routines(dcontext, code, pc, code->fcache_return,
                            IBL_BB_PRIVATE, /* source_fragment_type */
                            /* need thread-private for selfmod regardless of sharing */
                            false, /* thread_shared */
@@ -1174,12 +1174,12 @@ arch_thread_init(dcontext_t *dcontext)
     }
 #endif
 #ifdef WINDOWS_PC_SAMPLE
-    if (dynamo_options.profile_pcs && dynamo_options.prof_pcs_gencode >= 2 && 
+    if (dynamo_options.profile_pcs && dynamo_options.prof_pcs_gencode >= 2 &&
         dynamo_options.prof_pcs_gencode <= 32) {
-        code->profile = create_profile(code->gen_start_pc, pc, 
+        code->profile = create_profile(code->gen_start_pc, pc,
                                        dynamo_options.prof_pcs_gencode, NULL);
         start_profile(code->profile);
-    } else 
+    } else
         code->profile = NULL;
 #endif
 
@@ -1188,7 +1188,7 @@ arch_thread_init(dcontext_t *dcontext)
      * though for hotp_only we don't patch.
      */
 #ifdef HOT_PATCHING_INTERFACE
-    if (DYNAMO_OPTION(hotp_only)) 
+    if (DYNAMO_OPTION(hotp_only))
 #endif
         protect_generated_code(code, READONLY);
 }
@@ -1257,7 +1257,7 @@ arch_patch_syscall(dcontext_t *dcontext, byte *target)
 }
 #endif
 
-void 
+void
 update_generated_hashtable_access(dcontext_t *dcontext)
 {
     update_indirect_branch_lookup(dcontext);
@@ -1303,7 +1303,7 @@ get_source_fragment_type(dcontext_t *dcontext, uint fragment_flags)
 }
 
 #ifdef WINDOWS
-bool 
+bool
 is_shared_syscall_routine(dcontext_t *dcontext, cache_pc pc)
 {
     if (DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
@@ -1325,7 +1325,7 @@ is_shared_syscall_routine(dcontext_t *dcontext, cache_pc pc)
 }
 #endif
 
-bool 
+bool
 is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc)
 {
 #ifdef WINDOWS
@@ -1347,13 +1347,13 @@ get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
 
     ASSERT(is_ibl);
     ASSERT(IS_IBL_BB(ibl_type.source_fragment_type));
-    
+
     return
 #ifdef WINDOWS
         DYNAMO_OPTION(shared_syscalls) &&
         is_shared_syscall_routine(dcontext, current_entry) ? current_entry :
 #endif
-        get_ibl_routine(dcontext, ibl_type.link_state, 
+        get_ibl_routine(dcontext, ibl_type.link_state,
                         (ibl_type.source_fragment_type == IBL_BB_PRIVATE) ?
                         IBL_TRACE_PRIVATE : IBL_TRACE_SHARED,
                         ibl_type.branch_type);
@@ -1361,7 +1361,7 @@ get_trace_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
 
 /* Shifts the current ibl routine from IBL_BB_SHARED to IBL_BB_PRIVATE,
  * preserving other properties.
- * There seems to be no need for the opposite transformation 
+ * There seems to be no need for the opposite transformation
  */
 cache_pc
 get_private_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
@@ -1372,14 +1372,14 @@ get_private_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
 
     ASSERT(is_ibl);
     ASSERT(IS_IBL_BB(ibl_type.source_fragment_type));
-    
-    return get_ibl_routine(dcontext, ibl_type.link_state, 
+
+    return get_ibl_routine(dcontext, ibl_type.link_state,
                            IBL_BB_PRIVATE, ibl_type.branch_type);
 }
 
 /* Shifts the current ibl routine from IBL_BB_PRIVATE to IBL_BB_SHARED,
  * preserving other properties.
- * There seems to be no need for the opposite transformation 
+ * There seems to be no need for the opposite transformation
  */
 cache_pc
 get_shared_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
@@ -1390,8 +1390,8 @@ get_shared_ibl_routine(dcontext_t *dcontext, cache_pc current_entry)
 
     ASSERT(is_ibl);
     ASSERT(IS_IBL_BB(ibl_type.source_fragment_type));
-    
-    return get_ibl_routine(dcontext, ibl_type.link_state, 
+
+    return get_ibl_routine(dcontext, ibl_type.link_state,
                            IBL_BB_SHARED, ibl_type.branch_type);
 }
 
@@ -1416,7 +1416,7 @@ get_alternate_ibl_routine(dcontext_t *dcontext, cache_pc current_entry,
         is_shared_syscall_routine(dcontext, current_entry))
         return current_entry;
 #endif
-    return get_ibl_routine_ex(dcontext, ibl_type.link_state, 
+    return get_ibl_routine_ex(dcontext, ibl_type.link_state,
                               get_source_fragment_type(dcontext, flags),
                               ibl_type.branch_type _IF_X64(mode));
 }
@@ -1466,7 +1466,7 @@ get_linked_entry(dcontext_t *dcontext, cache_pc unlinked_entry)
                               /* for -unsafe_ignore_eflags_{ibl,trace} the trace cmp
                                * entry and unlink are both identical, so we may mix
                                * them up but will have no problems */
-                              get_linked_type(ibl_type.link_state), 
+                              get_linked_type(ibl_type.link_state),
                               ibl_type.source_fragment_type, ibl_type.branch_type
                               _IF_X64(mode));
 }
@@ -1480,7 +1480,7 @@ get_trace_cmp_entry(dcontext_t *dcontext, cache_pc linked_entry)
         get_ibl_routine_type(dcontext, linked_entry, &ibl_type);
     IF_WINDOWS(ASSERT(linked_entry != shared_syscall_routine(dcontext)));
     ASSERT(is_ibl && ibl_type.link_state == IBL_LINKED);
-    return get_ibl_routine(dcontext, IBL_TRACE_CMP, 
+    return get_ibl_routine(dcontext, IBL_TRACE_CMP,
                            ibl_type.source_fragment_type, ibl_type.branch_type);
 }
 #endif
@@ -1531,7 +1531,7 @@ in_generated_routine(dcontext_t *dcontext, cache_pc pc)
     /* FIXME: what about inlined IBL stubs */
 }
 
-bool 
+bool
 in_context_switch_code(dcontext_t *dcontext, cache_pc pc)
 {
     return (pc >= (cache_pc)fcache_enter_routine(dcontext) &&
@@ -1547,14 +1547,14 @@ in_indirect_branch_lookup_code(dcontext_t *dcontext, cache_pc pc)
     ibl_source_fragment_type_t source_fragment_type;
     ibl_branch_type_t branch_type;
 
-    for (source_fragment_type = IBL_SOURCE_TYPE_START; 
-         source_fragment_type < IBL_SOURCE_TYPE_END; 
+    for (source_fragment_type = IBL_SOURCE_TYPE_START;
+         source_fragment_type < IBL_SOURCE_TYPE_END;
          source_fragment_type++) {
-        for (branch_type = IBL_BRANCH_TYPE_START; 
-             branch_type < IBL_BRANCH_TYPE_END; 
+        for (branch_type = IBL_BRANCH_TYPE_START;
+             branch_type < IBL_BRANCH_TYPE_END;
              branch_type++) {
             if (pc >= get_ibl_routine(dcontext, IBL_LINKED, source_fragment_type, branch_type) &&
-                pc <  get_ibl_routine(dcontext, IBL_UNLINKED, source_fragment_type, branch_type)) 
+                pc <  get_ibl_routine(dcontext, IBL_UNLINKED, source_fragment_type, branch_type))
                 return true;
         }
     }
@@ -1570,7 +1570,7 @@ fcache_enter_routine(dcontext_t *dcontext)
 }
 
 /* exported to dispatch.c */
-fcache_enter_func_t 
+fcache_enter_func_t
 get_fcache_enter_private_routine(dcontext_t *dcontext)
 {
     return fcache_enter_routine(dcontext);
@@ -1763,15 +1763,15 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
 
     /* a decent compiler should inline these nested loops */
     /* iterate in order <linked, unlinked> */
-    for (link_state = IBL_LINKED; 
+    for (link_state = IBL_LINKED;
          /* keep in mind we need a signed comparison when going downwards */
-         (int)link_state >= (int)IBL_UNLINKED; link_state-- ) { 
+         (int)link_state >= (int)IBL_UNLINKED; link_state-- ) {
         /* it is OK to compare to IBL_BB_PRIVATE even when !SHARED_FRAGMENTS_ENABLED() */
-        for (source_fragment_type = IBL_SOURCE_TYPE_START; 
-             source_fragment_type < IBL_SOURCE_TYPE_END; 
+        for (source_fragment_type = IBL_SOURCE_TYPE_START;
+             source_fragment_type < IBL_SOURCE_TYPE_END;
              source_fragment_type++) {
-            for (branch_type = IBL_BRANCH_TYPE_START; 
-                 branch_type < IBL_BRANCH_TYPE_END; 
+            for (branch_type = IBL_BRANCH_TYPE_START;
+                 branch_type < IBL_BRANCH_TYPE_END;
                  branch_type++) {
 #ifdef X64
                 for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
@@ -1817,7 +1817,7 @@ get_ibl_routine_type_ex(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
                 break;
             }
 #endif
-        }        
+        }
         return true;
     }
 #endif
@@ -1833,7 +1833,7 @@ get_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type)
 }
 
 /* returns false if target is not an IBL template
-   if type is not NULL it is set to the type of the found routine 
+   if type is not NULL it is set to the type of the found routine
 */
 static bool
 get_ibl_routine_template_type(dcontext_t *dcontext, cache_pc target, ibl_type_t *type
@@ -1845,11 +1845,11 @@ get_ibl_routine_template_type(dcontext_t *dcontext, cache_pc target, ibl_type_t 
     gencode_mode_t mode;
 #endif
 
-    for (source_fragment_type = IBL_SOURCE_TYPE_START; 
-         source_fragment_type < IBL_SOURCE_TYPE_END; 
+    for (source_fragment_type = IBL_SOURCE_TYPE_START;
+         source_fragment_type < IBL_SOURCE_TYPE_END;
          source_fragment_type++) {
-        for (branch_type = IBL_BRANCH_TYPE_START; 
-             branch_type < IBL_BRANCH_TYPE_END; 
+        for (branch_type = IBL_BRANCH_TYPE_START;
+             branch_type < IBL_BRANCH_TYPE_END;
              branch_type++) {
 #ifdef X64
             for (mode = GENCODE_X64; mode <= GENCODE_X86_TO_X64; mode++) {
@@ -1878,7 +1878,7 @@ get_ibl_routine_template_type(dcontext_t *dcontext, cache_pc target, ibl_type_t 
 const char *
 get_branch_type_name(ibl_branch_type_t branch_type)
 {
-    static const char *const ibl_brtype_names[IBL_BRANCH_TYPE_END] = 
+    static const char *const ibl_brtype_names[IBL_BRANCH_TYPE_END] =
         {"ret", "indcall", "indjmp"};
     return ibl_brtype_names[branch_type];
 }
@@ -1900,7 +1900,7 @@ get_ibl_branch_type(instr_t *instr)
 
 
 /* returns a symbolic name if target is an IBL routine or an IBL template,
- * otherwise returns NULL 
+ * otherwise returns NULL
  */
 const char *
 get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brtype_name)
@@ -1990,7 +1990,7 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
         }
     }
     /* ibl_type is valid and will give routine or template name, and qualifier */
-    
+
     *ibl_brtype_name = get_branch_type_name(ibl_type.branch_type);
     return ibl_routine_names IF_X64([mode])
         [ibl_type.source_fragment_type][ibl_type.link_state];
@@ -1998,8 +1998,8 @@ get_ibl_routine_name(dcontext_t *dcontext, cache_pc target, const char **ibl_brt
 
 static inline
 ibl_code_t*
-get_ibl_routine_code_internal(dcontext_t *dcontext, 
-                              ibl_source_fragment_type_t source_fragment_type, 
+get_ibl_routine_code_internal(dcontext_t *dcontext,
+                              ibl_source_fragment_type_t source_fragment_type,
                               ibl_branch_type_t branch_type
                               _IF_X64(gencode_mode_t mode))
 {
@@ -2021,7 +2021,7 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
         return &(get_shared_gencode(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
     case IBL_BB_PRIVATE:
         return &(get_emitted_routines_code(dcontext _IF_X64(mode))->bb_ibl[branch_type]);
-    case IBL_TRACE_SHARED: 
+    case IBL_TRACE_SHARED:
         if (!USE_SHARED_TRACE_IBL())
             return NULL;
         return &(get_shared_gencode(dcontext _IF_X64(mode))->trace_ibl[branch_type]);
@@ -2040,13 +2040,13 @@ get_ibl_routine_code_internal(dcontext_t *dcontext,
 }
 
 
-cache_pc 
+cache_pc
 get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                    ibl_source_fragment_type_t source_fragment_type,
                    ibl_branch_type_t branch_type _IF_X64(gencode_mode_t mode))
 {
-    ibl_code_t *ibl_code = 
-        get_ibl_routine_code_internal(dcontext, 
+    ibl_code_t *ibl_code =
+        get_ibl_routine_code_internal(dcontext,
                                       source_fragment_type, branch_type _IF_X64(mode));
     if (ibl_code == NULL || !ibl_code->initialized)
         return NULL;
@@ -2073,7 +2073,7 @@ get_ibl_routine_ex(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
     return NULL;
 }
 
-cache_pc 
+cache_pc
 get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                 ibl_source_fragment_type_t source_fragment_type,
                 ibl_branch_type_t branch_type)
@@ -2082,9 +2082,9 @@ get_ibl_routine(dcontext_t *dcontext, ibl_entry_point_type_t entry_type,
                               branch_type _IF_X64(GENCODE_FROM_DCONTEXT));
 }
 
-cache_pc 
-get_ibl_routine_template(dcontext_t *dcontext, 
-                         ibl_source_fragment_type_t source_fragment_type, 
+cache_pc
+get_ibl_routine_template(dcontext_t *dcontext,
+                         ibl_source_fragment_type_t source_fragment_type,
                          ibl_branch_type_t branch_type
                          _IF_X64(gencode_mode_t mode))
 {
@@ -2327,7 +2327,7 @@ is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc)
 bool
 is_after_syscall_address(dcontext_t *dcontext, cache_pc pc)
 {
-#ifdef WINDOWS 
+#ifdef WINDOWS
     if (pc == after_shared_syscall_addr(dcontext))
         return true;
     if (pc == after_do_syscall_addr(dcontext))
@@ -2404,7 +2404,7 @@ get_pinsrw_entry(dcontext_t *dcontext)
 #endif
 
 /* exported beyond x86/ */
-fcache_enter_func_t 
+fcache_enter_func_t
 get_fcache_enter_shared_routine(dcontext_t *dcontext)
 {
     return fcache_enter_shared_routine(dcontext);
@@ -2475,9 +2475,9 @@ set_fcache_target(dcontext_t *dcontext, cache_pc value)
  * FIXME: However, we still do not properly translate for:
  * - PR 303413: properly translate native_exec and windows sysenter mangling faults
  * - PR 208037/i#399: flushed fragments (need -safe_translate_flushed)
- * - PR 213251: hot patch fragments (b/c nudge can change whether patched => 
- *     should store translations for all hot patch fragments) 
- * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead 
+ * - PR 213251: hot patch fragments (b/c nudge can change whether patched =>
+ *     should store translations for all hot patch fragments)
+ * - PR 372021: restore eflags if within window of ibl or trace-cmp eflags-are-dead
  * - i#751: fault translation has not been tested for x86_to_x64
  */
 
@@ -2755,8 +2755,8 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
          * syscall mangling.
          *
          * The main scenarios are:
-         * 
-         * 1) call*: "spill ecx; mov->ecx; push retaddr": 
+         *
+         * 1) call*: "spill ecx; mov->ecx; push retaddr":
          *    ecx restore handled above
          * 2) far direct call: "push cs; push retaddr"
          *    if fail on 2nd push need to undo 1st push
@@ -2896,7 +2896,7 @@ translate_restore_clean_call(dcontext_t *tdcontext, translate_walk_t *walk)
  */
 /* Use THREAD_GET instead of THREAD so log messages go to calling thread */
 static recreate_success_t
-recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *info, 
+recreate_app_state_from_info(dcontext_t *tdcontext, const translation_info_t *info,
                              byte *start_cache, byte *end_cache,
                              priv_mcontext_t *mc, bool just_pc _IF_DEBUG(uint flags))
 {
@@ -3069,7 +3069,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
         int len = instr_length(tdcontext, inst);
 
         /* All we care about is that we are not going to skip over a
-         * bundle of app instructions. 
+         * bundle of app instructions.
          */
         ASSERT(!instr_is_level_0(inst));
 
@@ -3104,7 +3104,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
 # endif
 #endif
 
-        LOG(THREAD_GET, LOG_INTERP, 5, "cache pc "PFX" vs "PFX"\n", 
+        LOG(THREAD_GET, LOG_INTERP, 5, "cache pc "PFX" vs "PFX"\n",
             cpc, target_cache);
         if (cpc >= target_cache) {
             if (cpc > target_cache) {
@@ -3212,17 +3212,17 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
         /* we only use translation pointers, never just raw bit pointers */
         if (instr_get_translation(inst) != NULL) {
             prev_ok = inst;
-            DOLOG(5, LOG_INTERP, loginst(get_thread_private_dcontext(), 
+            DOLOG(5, LOG_INTERP, loginst(get_thread_private_dcontext(),
                                          5, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
             if (instr_ok_to_mangle(inst)) {
-                /* we really want the pc after the translation target since we'll 
+                /* we really want the pc after the translation target since we'll
                  * use this if we pass up the target without hitting it:
                  * unless this is a meta instr in which case we assume the
                  * real instr is ahead (FIXME: there could be cases where
                  * we want the opposite: how know?)
                  */
-                /* FIXME: do we need to check for readability first? 
+                /* FIXME: do we need to check for readability first?
                  * in normal usage all translation targets should have been decoded
                  * already while building the bb ilist
                  */
@@ -3287,7 +3287,7 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
     return ilist;
 }
 
-/* The esp in mcontext must either be valid or NULL (if null will be unable to 
+/* The esp in mcontext must either be valid or NULL (if null will be unable to
  * recreate on XP and 03 at vsyscall_after_syscall and on sygate 2k at after syscall).
  * Returns true if successful.  Whether successful or not, attempts to modify
  * mcontext with recreated state. If just_pc only translates the pc
@@ -3302,7 +3302,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 {
     recreate_success_t res = (just_pc ? RECREATE_SUCCESS_PC : RECREATE_SUCCESS_STATE);
 #ifdef WINDOWS
-    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && 
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         mcontext->pc == vsyscall_after_syscall &&
         mcontext->xsp != 0) {
         ASSERT(get_os_version() >= WINDOWS_VERSION_XP);
@@ -3313,18 +3313,18 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                                      (mcontext->xsp+
                                       (DYNAMO_OPTION(sygate_sysenter) ? 4 : 0)))) {
             /* no translation needed, ignoring sysenter stack hacks */
-            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app no translation needed (at vsyscall)\n");
             return res;
         } else {
             /* this is a dynamo system call! */
-            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app at dynamo system call\n");
             return RECREATE_FAILURE;
         }
     }
 #else
-    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && 
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER &&
         /* Even when the main syscall method is sysenter, we also have a
          * do_int_syscall and do_clone_syscall that use int, so check only
          * the main syscall routine.
@@ -3340,12 +3340,12 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
          is_after_main_do_syscall_addr(tdcontext, mcontext->pc + SYSENTER_LENGTH))) {
 # ifdef MACOS
         if (!just_pc) {
-            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app: restoring xdx (at sysenter)\n");
             mcontext->xdx = tdcontext->app_xdx;
         }
 # else
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
             "recreate_app no translation needed (at syscall)\n");
 # endif
         return res;
@@ -3357,7 +3357,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                                                    mcontext->pc + INT_LENGTH))) {
             /* suspended inside kernel at syscall
              * all registers have app values for syscall */
-            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+            LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                 "recreate_app pc = after_syscall, translating\n");
 #ifdef WINDOWS
             if (DYNAMO_OPTION(sygate_int) &&
@@ -3370,13 +3370,13 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                  * routines) */
                 if (!in_generated_routine(tdcontext, *(app_pc *)mcontext->xsp)) {
                     /* this must be a dynamo system call! */
-                    LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+                    LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                         "recreate_app at dynamo system call\n");
                     return RECREATE_FAILURE;
                 }
-                ASSERT(*(app_pc *)mcontext->xsp == 
+                ASSERT(*(app_pc *)mcontext->xsp ==
                        after_do_syscall_code(tdcontext) ||
-                       *(app_pc *)mcontext->xsp == 
+                       *(app_pc *)mcontext->xsp ==
                        after_shared_syscall_code(tdcontext));
                 if (!just_pc) {
                     /* This is an int system call and since for sygate
@@ -3394,19 +3394,19 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 mcontext->pc = POST_SYSCALL_PC(tdcontext);
             return res;
     } else if (mcontext->pc == get_reset_exit_stub(tdcontext)) {
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
             "recreate_app at reset exit stub => using next_tag "PFX"\n",
             tdcontext->next_tag);
         /* context is completely native except the pc */
         mcontext->pc = tdcontext->next_tag;
         return res;
     } else if (in_generated_routine(tdcontext, mcontext->pc)) {
-        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+        LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
             "recreate_app state at untranslatable address in "
             "generated routines for thread "TIDFMT"\n", tdcontext->owning_thread);
         return RECREATE_FAILURE;
     } else if (in_fcache(mcontext->pc)) {
-        /* FIXME: what if pc is in separate direct stub??? 
+        /* FIXME: what if pc is in separate direct stub???
          * do we have to read the &l from the stub to find linkstub_t and thus
          * fragment_t owner?
          */
@@ -3465,25 +3465,25 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
             }
         }
         if (ilist == NULL && (f == NULL || FRAGMENT_TRANSLATION_INFO(f) == NULL)) {
-            /* It is problematic if this routine fails.  Many places assume that 
+            /* It is problematic if this routine fails.  Many places assume that
              * recreate_app_pc() will work.
              */
             ASSERT(!INTERNAL_OPTION(safe_translate_flushed));
             res = RECREATE_FAILURE;
             goto recreate_app_state_done;
         }
-        
+
         LOG(THREAD_GET, LOG_INTERP, 2,
             "recreate_app : pc is in F%d("PFX")%s\n", f->id, f->tag,
             ((f->flags & FRAG_IS_TRACE) != 0)?" (trace)":"");
-        
+
         DOLOG(2, LOG_SYNCH, {
             if (ilist != NULL) {
                 LOG(THREAD_GET, LOG_SYNCH, 2, "ilist for recreation:\n");
                 instrlist_disassemble(tdcontext, f->tag, ilist, THREAD_GET);
             }
         });
-        
+
         /* if pc is in an exit stub, we find the corresponding exit instr */
         cti_pc = NULL;
         for (l = FRAGMENT_EXIT_STUBS(f); l; l = LINKSTUB_NEXT_EXIT(l)) {
@@ -3504,7 +3504,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
              */
             if (!just_pc) {
                 /* FIXME : translate from exit stub */
-                LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2, 
+                LOG(THREAD_GET, LOG_INTERP|LOG_SYNCH, 2,
                     "recreate_app_helper -- can't full recreate state, pc "PFX" "
                     "is in exit stub\n", mcontext->pc);
                 res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
@@ -3515,7 +3515,7 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                 " "PFX"\n", mcontext->pc, cti_pc);
             mcontext->pc = cti_pc;
         }
-       
+
         /* Recreate in same mode as original fragment */
         IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags) ||
                                                   FRAG_IS_X86_TO_X64(f->flags)));
@@ -3588,20 +3588,20 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
 }
 
 /* Assumes that pc is a pc_recreatable place (i.e. in_fcache(), though could do
- * syscalls with esp, also see FIXME about separate stubs in 
+ * syscalls with esp, also see FIXME about separate stubs in
  * recreate_app_state_internal()), ASSERTs otherwise.
  * If caller knows which fragment pc belongs to, caller should pass in f
  * to avoid work and avoid lock rank issues as pclookup acquires shared_cache_lock;
  * else, pass in NULL for f.
- * NOTE - If called by a thread other than the tdcontext owner, caller must 
+ * NOTE - If called by a thread other than the tdcontext owner, caller must
  * ensure tdcontext remains valid.  Caller also must ensure that it is safe to
- * allocate memory from tdcontext (for instr routines), i.e. caller owns 
+ * allocate memory from tdcontext (for instr routines), i.e. caller owns
  * tdcontext or the owner of tdcontext is suspended.  Also if tdcontext is
  * !couldbelinking then caller must own the thread_initexit_lock in case
  * recreate_fragment_ilist() is called.
  * NOTE - If this function is unable to translate the pc, but the pc is
  * in_fcache() then there is an assert curiosity and the function returns NULL.
- * This can happen only from the pc being in a fragment that is pending 
+ * This can happen only from the pc being in a fragment that is pending
  * deletion (ref case 3559 others).  Most callers don't check the returned
  * value and wouldn't have a way to recover even if they did. FIXME
  */
@@ -3636,10 +3636,10 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
         ASSERT_CURIOSITY(res && "Unable to translate pc");
         mc.pc = NULL;
     }
-    
+
     LOG(THREAD_GET, LOG_INTERP, 2,
         "recreate_app_pc -- translation is "PFX"\n", mc.pc);
-    
+
 #if defined(CLIENT_INTERFACE) && defined(WINDOWS)
     if (swap_peb)
         swap_peb_pointer(tdcontext, false/*to app*/);
@@ -3653,7 +3653,7 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
  * a best-effort translation.
  * If it fails to restore the full machine state, but does restore the pc,
  * returns RECREATE_SUCCESS_PC.
- * If it successfully restores the full machine state, 
+ * If it successfully restores the full machine state,
  * returns RECREATE_SUCCESS_STATE.  Only for full success does it
  * consider the restore_memory parameter, which, if true, requests restoration
  * of any memory values that were shifted (primarily due to clients) (otherwise,
@@ -3668,14 +3668,14 @@ recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f)
  *
  * FIXME: does not undo stack mangling for sysenter
  */
-/* NOTE - Can be called with a thread suspended at an arbitrary place by synch 
- * routines so must not call mutex_lock (or call a function that does) unless 
- * the synch routines have checked that lock.  Currently only fcache_unit_areas.lock 
- * is used (for in_fcache in recreate_app_state_internal()) 
- * (if in_fcache succeeds then assumes other locks won't be a problem). 
- * NOTE - If called by a thread other than the tdcontext owner, caller must 
+/* NOTE - Can be called with a thread suspended at an arbitrary place by synch
+ * routines so must not call mutex_lock (or call a function that does) unless
+ * the synch routines have checked that lock.  Currently only fcache_unit_areas.lock
+ * is used (for in_fcache in recreate_app_state_internal())
+ * (if in_fcache succeeds then assumes other locks won't be a problem).
+ * NOTE - If called by a thread other than the tdcontext owner, caller must
  * ensure tdcontext remains valid.  Caller also must ensure that it is safe to
- * allocate memory from tdcontext (for instr routines), i.e. caller owns 
+ * allocate memory from tdcontext (for instr routines), i.e. caller owns
  * tdcontext or the owner of tdcontext is suspended.  Also if tdcontext is
  * !couldbelinking then caller must own the thread_initexit_lock in case
  * recreate_fragment_ilist() is called.  We assume that when tdcontext is
@@ -3817,7 +3817,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     bool last_contig;
     app_pc last_translation = NULL;
     cache_pc cpc;
-    
+
     LOG(THREAD, LOG_FRAGMENT, 3, "record_translation_info: F%d("PFX")."PFX"\n",
         f->id, f->tag, f->start_pc);
 
@@ -3970,7 +3970,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     /* exit stubs can be examined after app code is gone, so we don't need
      * to store any info on them here
      */
-    
+
     /* free the instrlist_t elements */
     if (existing_ilist == NULL)
         instrlist_clear_and_destroy(dcontext, ilist);
@@ -3986,7 +3986,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
     DOLOG(3, LOG_INTERP, {
         translation_info_print(info, f->start_pc, THREAD);
     });
-    
+
     return info;
 }
 
@@ -4144,7 +4144,7 @@ get_global_do_syscall_entry()
     return NULL;
 }
 
-/* used only by cleanup_and_terminate to avoid the sysenter 
+/* used only by cleanup_and_terminate to avoid the sysenter
  * sygate hack version */
 byte *
 get_cleanup_and_terminate_global_do_syscall_entry()
@@ -4185,22 +4185,22 @@ unhook_vsyscall(void)
  *     0xffffe401 <__kernel_vsyscall+1>:       push   %edx
  *     0xffffe402 <__kernel_vsyscall+2>:       push   %ebp
  *     0xffffe403 <__kernel_vsyscall+3>:       mov    %esp,%ebp
- *     0xffffe405 <__kernel_vsyscall+5>:       sysenter 
+ *     0xffffe405 <__kernel_vsyscall+5>:       sysenter
  *   nops for alignment of return point:
- *     0xffffe407 <__kernel_vsyscall+7>:       nop    
- *     0xffffe408 <__kernel_vsyscall+8>:       nop    
- *     0xffffe409 <__kernel_vsyscall+9>:       nop    
- *     0xffffe40a <__kernel_vsyscall+10>:      nop    
- *     0xffffe40b <__kernel_vsyscall+11>:      nop    
- *     0xffffe40c <__kernel_vsyscall+12>:      nop    
- *     0xffffe40d <__kernel_vsyscall+13>:      nop    
+ *     0xffffe407 <__kernel_vsyscall+7>:       nop
+ *     0xffffe408 <__kernel_vsyscall+8>:       nop
+ *     0xffffe409 <__kernel_vsyscall+9>:       nop
+ *     0xffffe40a <__kernel_vsyscall+10>:      nop
+ *     0xffffe40b <__kernel_vsyscall+11>:      nop
+ *     0xffffe40c <__kernel_vsyscall+12>:      nop
+ *     0xffffe40d <__kernel_vsyscall+13>:      nop
  *   system call restart point:
  *     0xffffe40e <__kernel_vsyscall+14>:      jmp    0xffffe403 <__kernel_vsyscall+3>
  *   system call normal return point:
  *     0xffffe410 <__kernel_vsyscall+16>:      pop    %ebp
  *     0xffffe411 <__kernel_vsyscall+17>:      pop    %edx
  *     0xffffe412 <__kernel_vsyscall+18>:      pop    %ecx
- *     0xffffe413 <__kernel_vsyscall+19>:      ret    
+ *     0xffffe413 <__kernel_vsyscall+19>:      ret
  *
  * For randomized vsyscall page locations we can mark the page +w and
  * write to it.  For now, for simplicity, we focus only on that case;
@@ -4376,7 +4376,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
             SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
             /* FIXME : using the raw-bits as the app pc for the instr is
              * not really supported, but places in monitor assume it as well */
-            ASSERT(instr_raw_bits_valid(instr) && 
+            ASSERT(instr_raw_bits_valid(instr) &&
                    !instr_has_allocated_bits(instr));
             /* Some places (such as clean_syscall_wrapper) assume that only int system
              * calls are used in older versions of windows. */
@@ -4384,11 +4384,11 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                               "Expected int syscall method on NT and 2000"));
             /* Used by SYSCALL_PC in win32/os.c for non int system calls */
             IF_WINDOWS(app_sysenter_instr_addr = instr_get_raw_bits(instr));
-            /* we expect, only on XP and later or on recent linux kernels, 
+            /* we expect, only on XP and later or on recent linux kernels,
              * indirected syscalls through a certain page, which we record here
              * FIXME: don't allow anyone to make this region writable?
              */
-            /* FIXME : we need to verify that windows lays out all of the 
+            /* FIXME : we need to verify that windows lays out all of the
              * syscall stuff as expected on AMD chips: xref PR 205898.
              */
             /* FIXME: bootstrapping problem...would be nicer to read ahead and find
@@ -4404,7 +4404,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
                     ASSERT(vsyscall_page_start == VSYSCALL_PAGE_START_BOOTSTRAP_VALUE);
                 }
                 if (vsyscall_after_syscall == VSYSCALL_AFTER_SYSCALL_BOOTSTRAP_VALUE) {
-                    /* for XP sp0,1 and 03 the ret is immediately after the 
+                    /* for XP sp0,1 and 03 the ret is immediately after the
                      * sysenter instruction */
                     vsyscall_after_syscall = instr_get_raw_bits(instr) +
                         instr_length(dcontext, instr);
@@ -4473,7 +4473,7 @@ check_syscall_method(dcontext_t *dcontext, instr_t *instr)
 #  ifndef HAVE_TLS
             if (DYNAMO_OPTION(hook_vsyscall)) {
                 /* PR 361894: we use TLS for our vsyscall hook (PR 212570) */
-                FATAL_USAGE_ERROR(SYSENTER_NOT_SUPPORTED, 2, 
+                FATAL_USAGE_ERROR(SYSENTER_NOT_SUPPORTED, 2,
                                   get_application_name(), get_application_pid());
             }
 #  endif
@@ -4516,7 +4516,7 @@ get_syscall_method(void)
 bool
 does_syscall_ret_to_callsite(void)
 {
-    return (syscall_method == SYSCALL_METHOD_INT || 
+    return (syscall_method == SYSCALL_METHOD_INT ||
             syscall_method == SYSCALL_METHOD_SYSCALL
             IF_WINDOWS(|| syscall_method == SYSCALL_METHOD_WOW64)
             /* The app is reported to be at whatever's in edx, so
@@ -4646,7 +4646,7 @@ dr_mcontext_init(dr_mcontext_t *mc)
 void
 dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 {
-    print_file(f, dump_xml ? 
+    print_file(f, dump_xml ?
                "\t<priv_mcontext_t value=\"@"PFX"\""
                "\n\t\txax=\""PFX"\"\n\t\txbx=\""PFX"\""
                "\n\t\txcx=\""PFX"\"\n\t\txdx=\""PFX"\""
@@ -4658,7 +4658,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                "\n\t\tr12=\""PFX"\"\n\t\tr13=\""PFX"\""
                "\n\t\tr14=\""PFX"\"\n\t\tr15=\""PFX"\""
 #endif
-               : 
+               :
                "priv_mcontext_t @"PFX"\n"
                "\txax = "PFX"\n\txbx = "PFX"\n\txcx = "PFX"\n\txdx = "PFX"\n"
                "\txsi = "PFX"\n\txdi = "PFX"\n\txbp = "PFX"\n\txsp = "PFX"\n"
@@ -4667,9 +4667,9 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
                "\tr12 = "PFX"\n\tr13 = "PFX"\n\tr14 = "PFX"\n\tr15 = "PFX"\n"
 #endif
                ,
-               context, 
+               context,
                context->xax, context->xbx, context->xcx, context->xdx,
-               context->xsi, context->xdi, context->xbp, context->xsp 
+               context->xsi, context->xdi, context->xbp, context->xsp
 #ifdef X64
                , context->r8,  context->r9,  context->r10,  context->r11,
                context->r12, context->r13, context->r14,  context->r15
@@ -4702,7 +4702,7 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
         });
     }
-    print_file(f, dump_xml ? 
+    print_file(f, dump_xml ?
                "\n\t\teflags=\""PFX"\"\n\t\tpc=\""PFX"\" />\n"
                :
                "\teflags = "PFX"\n\tpc     = "PFX"\n",

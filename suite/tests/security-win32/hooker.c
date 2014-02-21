@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -56,7 +56,7 @@ const char* hookfn = "VirtualProtect"; /* and then next page */
 const char* faraway_hook = "RegOpenKeyA";
 /* FIXME: a lot better will be in one another module */
 
-#define NAKED __declspec( naked ) 
+#define NAKED __declspec( naked )
 
 /* FIXME: not fully fleshed out to add in regression suite need to
  * find a function with the same prologue or actually do some real
@@ -95,7 +95,7 @@ hooker1()
 enum {HOOK_SIZE = 0x1000};
 
 
-/* FIXME: we have to test this on something other than kernel32!VirtualProtect for DEP 
+/* FIXME: we have to test this on something other than kernel32!VirtualProtect for DEP
  * machines, for now keeping here
  */
 void
@@ -103,12 +103,12 @@ unset_x(DWORD* hooktarget, DWORD prot)
 {
     DWORD prev;
     DWORD size = HOOK_SIZE; /* although 5 bytes would have been just fine */
-    int res = VirtualProtect(hooktarget, 
+    int res = VirtualProtect(hooktarget,
                              size,
                              prot,
                              &prev);
     DWORD gle = GetLastError();
-    print("VirtualProtect(%s["PFX"],%d,"PFX",prev) = %d GLE="PFMT" prev="PFMT"\n", 
+    print("VirtualProtect(%s["PFX"],%d,"PFX",prev) = %d GLE="PFMT" prev="PFMT"\n",
           hookfn, (hooktarget /* disabled */,0), size, prot, res, gle, prev);
 
     /* we don't touch anything here */
@@ -122,12 +122,12 @@ hook(DWORD* hooktarget)
     DWORD prev;
     DWORD size = HOOK_SIZE; /* although 5 bytes would have been just fine */
     DWORD prot = PAGE_EXECUTE_READWRITE;
-    int res = VirtualProtect(hooktarget, 
+    int res = VirtualProtect(hooktarget,
                              size,
                              prot,
                              &prev);
     DWORD gle = GetLastError();
-    print("VirtualProtect(%s["PFX"],%d,"PFX",prev) = %d GLE="PFMT" prev="PFMT"\n", 
+    print("VirtualProtect(%s["PFX"],%d,"PFX",prev) = %d GLE="PFMT" prev="PFMT"\n",
           hookfn, (hooktarget /* disabled */,0), size, prot, res, gle, prev);
 
     /* pretend hooking - actually a NOP */
@@ -149,12 +149,12 @@ ret_hook(DWORD* hooktarget)
     *hooktarget = 0x900010c2;     /* ret 0x10; nop  */
 
     /* prev should remain unchanged */
-    res = VirtualProtect(hooktarget, 
+    res = VirtualProtect(hooktarget,
                          size,
                          PAGE_EXECUTE_READWRITE,
                          &prev);
     /* FIXME: eax may be garbage - but seems to be the same as GLE */
-    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE="PFMT" prev="PFMT"\n", 
+    print("VirtualProtect(%s["PFX"],%d,PAGE_EXECUTE_READWRITE,prev) = %d GLE="PFMT" prev="PFMT"\n",
           hookfn, (hooktarget /* disabled */,0), size, (res /* eax noisy */, 0) , GetLastError(), prev);
 
     *hooktarget = old_code;
@@ -179,7 +179,7 @@ prot_string(uint prot)
 
 
 bool
-prot_is_executable(uint prot) 
+prot_is_executable(uint prot)
 {
     prot &= ~(PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
     return (prot == PAGE_EXECUTE || prot == PAGE_EXECUTE_READ ||
@@ -192,13 +192,13 @@ query(DWORD* hooktarget)
     MEMORY_BASIC_INFORMATION mbi;
     DWORD res = VirtualQuery(hooktarget, &mbi, sizeof(mbi));
     if ( res == sizeof(mbi)) {
-        print("VirtualQuery("PFX") = %d GLE="PFMT" prev="PFMT" %s\n",       
+        print("VirtualQuery("PFX") = %d GLE="PFMT" prev="PFMT" %s\n",
               (hooktarget /* disabled */,0), res, GetLastError(), mbi.Protect, prot_string(mbi.Protect));
         /* at least confirm EXECUTABLE */
-        print(" DEP => %s\n", prot_is_executable(mbi.Protect) ? 
+        print(" DEP => %s\n", prot_is_executable(mbi.Protect) ?
               "ok" : "NOT EXECUTABLE");
     } else {
-        print("VirtualQuery("PFX") = %d GLE="PFMT"\n", 
+        print("VirtualQuery("PFX") = %d GLE="PFMT"\n",
               (hooktarget /* disabled */,0), res , GetLastError());
 
     }
@@ -214,7 +214,7 @@ main()
     DWORD* unset_hook = (DWORD*)GetProcAddress(far_dll, faraway_hook);
 
     INIT();
-    
+
 #ifdef NDEP
     assert(far_dll != NULL);
     assert(unset_hook != NULL);

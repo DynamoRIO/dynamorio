@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -91,7 +91,7 @@ typedef struct _USER_STACK {
 
 /* 64kb, same as allocation granularity so is as small as we can get */
 #define STACK_RESERVE 0x10000
-/* 12kb, matches current core stack size, note can expand to 
+/* 12kb, matches current core stack size, note can expand to
  * STACK_RESERVE - (5 * PAGE_SIZE), i.e. 44kb */
 #define STACK_COMMIT 0x3000
 
@@ -100,7 +100,7 @@ typedef struct _USER_STACK {
  * possible, could try to share. */
 /* stack_reserve and stack commit must be multiples of PAGE_SIZE and reserve
  * should be at least 5 pages larger then commit */
-/* NOTE - For !target_kernel32 : 
+/* NOTE - For !target_kernel32 :
  *  target thread routine can't exit by by returning, instead it must call
  *    ExitThread or the like
  *  caller or target thread routine is responsible for informing csrss (if
@@ -173,9 +173,9 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
                            DACL_SECURITY_INFORMATION,
                            NULL, NULL, NULL, NULL, &sd);
     assert(code == ERROR_SUCCESS);
- 
+
     InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, NULL, sd);
-  
+
     stack.ExpandableStackBottom = VirtualAllocEx(hProcess, NULL,
                                                  stack_reserve - PAGE_SIZE,
                                                  MEM_RESERVE, PAGE_READWRITE);
@@ -187,10 +187,10 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
      * 3rd to last page of this region (xpsp2)). */
     stack.ExpandableStackBottom =
         ((byte *)stack.ExpandableStackBottom) + PAGE_SIZE;
-    stack.ExpandableStackBase = 
+    stack.ExpandableStackBase =
         ((byte *)stack.ExpandableStackBottom) + stack_reserve - (2*PAGE_SIZE);
 
-    stack.ExpandableStackLimit = 
+    stack.ExpandableStackLimit =
         ((byte *)stack.ExpandableStackBase) - stack_commit;
     num_commit_bytes = stack_commit + PAGE_SIZE;
     p = ((byte *)stack.ExpandableStackBase) - num_commit_bytes;
@@ -229,7 +229,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
         if (!res || written != sizeof(buf)) {
             goto error;
         }
-    }                           
+    }
     if (context.CXT_XIP == 0) {
         goto error;
     }
@@ -237,8 +237,8 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     /* NOTE - CreateThread passes NULL for object attributes so despite Nebbet
      * must be optional (checked NTsp6a, XPsp2). We don't pass NULL so we can
      * specify the security descriptor. */
-    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa, 
-                                   hProcess, &cid, &context, &stack, 
+    if (!NT_SUCCESS(NtCreateThread(&hThread, THREAD_ALL_ACCESS, &oa,
+                                   hProcess, &cid, &context, &stack,
                                    (byte)(suspended ? TRUE : FALSE)))) {
         goto error;
     }
@@ -295,7 +295,7 @@ nt_create_thread(HANDLE hProcess, PTHREAD_START_ROUTINE start_addr, void *arg,
     /* since these are used as a bitmask only 30 types can be supported */
 
 typedef enum {
-#define NUDGE_DEF(name, comment) NUDGE_DR_##name, 
+#define NUDGE_DEF(name, comment) NUDGE_DR_##name,
     NUDGE_DEFINITIONS()
 #undef NUDGE_DEF
     NUDGE_DR_PARAMETRIZED_END
@@ -408,7 +408,7 @@ int main()
             nt_create_thread(GetCurrentProcess(), (threadfunc_t) nudge_target,
                              arg, STACK_RESERVE, STACK_COMMIT, false, NULL, false);
         WaitForSingleObject(detach_thread, INFINITE);
-        
+
         assert(get_nudge_target() == NULL);
         print("Running natively now\n");
     }

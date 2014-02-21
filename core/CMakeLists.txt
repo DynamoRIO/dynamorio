@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -87,7 +87,7 @@ endif (UNIX)
 if (WIN32 AND NOT X64)
   # PR 219380: to avoid __ftol2_sse from libc
   # FIXME: There is no supported way to suppress a "command line" warning
-  # used to do: 
+  # used to do:
   #   $(BUILD)/io.obj: FILTER_CC = 2>&1 | $(GREP) -v "D9035 : option 'QIfist'";
   # we just live with it for now:
   #   [ 20%] Building C object core/CMakeFiles/dynamorio.dir/io.c.obj
@@ -261,7 +261,7 @@ else (UNIX)
     io.c
     )
   set(PRELOAD_NAME drpreinject)
-  set(INJECTOR_SRCS 
+  set(INJECTOR_SRCS
     win32/injector.c
     win32/inject.c
     win32/ntdll.c
@@ -462,7 +462,7 @@ if (UNIX)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       VERBATIM # recommended: p260
       )
-    set(dynamorio_link_flags 
+    set(dynamorio_link_flags
       "${dynamorio_link_flags} -Xlinker --version-script -Xlinker ${export_list}")
   endif (NOT HAVE_FVISIBILITY)
 
@@ -549,7 +549,7 @@ if (UNIX)
     set(COMPAT_SYMLINKS ${COMPAT_SYMLINKS} PARENT_SCOPE)
   endfunction (generate_soversions)
 
-  string(REGEX REPLACE 
+  string(REGEX REPLACE
     "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
   set_target_properties(dynamorio PROPERTIES
     VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
@@ -682,21 +682,21 @@ else (UNIX)
   else (X64)
     set(LD_FLAGS "${LD_FLAGS} /machine:I386")
   endif (X64)
-  set(dynamorio_link_flags 
+  set(dynamorio_link_flags
     "${LD_FLAGS} ${ntimp_flags} ${dynamorio_link_flags} /dll /incremental:no")
-  set(dynamorio_link_flags 
+  set(dynamorio_link_flags
     "${dynamorio_link_flags} ${NOLIBC_DLL_ENTRY} ${FORWARD_TO_NTDLL}")
   # cmake does /out, /implib, and /pdb for us, but we do want map file
   get_target_property(drout dynamorio LOCATION${location_suffix})
   get_filename_component(drpath ${drout} PATH)
   get_filename_component(drname ${drout} NAME_WE)
-  set(dynamorio_link_flags 
+  set(dynamorio_link_flags
     "${dynamorio_link_flags} /map:\"${drpath}/${drname}.map\" /mapinfo:exports")
   # export functions in x86.asm where we can't just say __declspec(dllexport))
-  set(dynamorio_link_flags 
+  set(dynamorio_link_flags
     "${dynamorio_link_flags} /export:dynamo_auto_start /export:dynamorio_app_take_over")
   if (APP_EXPORTS)
-    set(dynamorio_link_flags 
+    set(dynamorio_link_flags
       "${dynamorio_link_flags} /export:dr_app_start /export:dr_app_take_over")
     set(dynamorio_link_flags
       "${dynamorio_link_flags} /export:dr_app_running_under_dynamorio")
@@ -843,7 +843,7 @@ endif (BUILD_TESTS)
 
 # Do not put core/ into the include dirs as our link.h will conflict
 # with /usr/include/link.h!
-include_directories(BEFORE 
+include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_DIRNAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}

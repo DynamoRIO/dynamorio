@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -77,7 +77,7 @@ __pragma optimize("", on)
 
 
 int
-TrapIfDebugger() 
+TrapIfDebugger()
 {
     int trapped = 0;
     __try {
@@ -88,7 +88,7 @@ TrapIfDebugger()
 }
 
 int
-TrapIfDebuggerVerbose() 
+TrapIfDebuggerVerbose()
 {
     EXCEPTION_RECORD exception;
     CONTEXT *context;
@@ -105,9 +105,9 @@ TrapIfDebuggerVerbose()
                 dump_exception_info((GetExceptionInformation())->ExceptionRecord,
                                     context),
                 trapped = 1,
-                print("in filter\n"), 
-                (GetExceptionInformation())->ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT ? 
-                /* breakpoint - continue next */ SKIP_INT3, EXCEPTION_CONTINUE_EXECUTION : 
+                print("in filter\n"),
+                (GetExceptionInformation())->ExceptionRecord->ExceptionCode == STATUS_BREAKPOINT ?
+                /* breakpoint - continue next */ SKIP_INT3, EXCEPTION_CONTINUE_EXECUTION :
                 /* not ours */ EXCEPTION_CONTINUE_SEARCH) {
         print("handler NOT REACHED\n");
     }
@@ -133,7 +133,7 @@ invalid_handle()
     return dbg;
 }
 
-#define name_status(x, s) if ((x) == (s)) print(#s); 
+#define name_status(x, s) if ((x) == (s)) print(#s);
 
 # include <windows.h>
 /* top-level exception handler */
@@ -155,7 +155,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
     longjmp(mark, count);
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
     int i,j;

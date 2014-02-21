@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -74,7 +74,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 {
     instr_t *instr, *next_instr;
 
-    /* 
+    /*
      * Callback on entry to each basic block.  Dynamically verify that
      * when the last executed BB ends in a cbr, the target (or
      * fallthrough) matches next addr of the next executed BB.
@@ -98,7 +98,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
             instr_t* jmp_ft;
             app_pc targ, fall, instr_addr;
             opnd_t opnd;
-                
+
             /*
              * Build the callback sequence for the not-taken case
              */
@@ -106,42 +106,42 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
             fall = (app_pc)decode_next_pc(drcontext, (byte *)instr_addr);
 
             dr_prepare_for_call(drcontext, bb, NULL);
-                    
+
             MINSERT(bb, NULL, INSTR_CREATE_push_imm
                     (drcontext, OPND_CREATE_INT32((ptr_uint_t)fall)));
             MINSERT(bb, NULL, INSTR_CREATE_call
                     (drcontext, opnd_create_pc((void*)at_not_taken)));
-                    
+
             dr_cleanup_after_call(drcontext, bb, NULL, 4);
 
             /* jump to the original fallthrough block (this should not
              * be a meta-instruction). */
             jmp_ft = INSTR_XL8(INSTR_CREATE_jmp(drcontext, opnd_create_pc(fall)), fall);
             instrlist_preinsert(bb, NULL, jmp_ft);
-                    
-            /* 
-             * Build the callback sequence for the taken case 
+
+            /*
+             * Build the callback sequence for the taken case
              */
             opnd = instr_get_target(instr);
-            ASSERT(opnd_is_pc(opnd));                
+            ASSERT(opnd_is_pc(opnd));
             targ = opnd_get_pc(opnd);
-                    
+
             dr_prepare_for_call(drcontext, bb, NULL);
-                    
+
             MINSERT(bb, NULL, INSTR_CREATE_push_imm
                     (drcontext, OPND_CREATE_INT32((ptr_uint_t)targ)));
             MINSERT(bb, NULL, INSTR_CREATE_call
                     (drcontext, opnd_create_pc((void*)at_taken)));
-                    
+
             dr_cleanup_after_call(drcontext, bb, NULL, 4);
-                    
+
             /* jump to the original target block (this should
              * not be a meta-instruction). */
             instrlist_preinsert(bb, NULL,
                                 INSTR_XL8(INSTR_CREATE_jmp
                                           (drcontext, opnd_create_pc(targ)), targ));
-                    
-            /* 
+
+            /*
              * Redirect the cbr to jump to our 'taken' callback.
              * The fallthrough will hit the 'not-taken' callback.
              */

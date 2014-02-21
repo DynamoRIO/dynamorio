@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -129,12 +129,12 @@
 #    $(D)FRAGMENT_SIZES_STUDY
 #    $(D)FOOL_CPUID
 #    ($(D)NATIVE_RETURN: deprecated and now removed, along with:
-#       NATIVE_RETURN_CALLDEPTH, NATIVE_RETURN_RET_IN_TRACES, 
+#       NATIVE_RETURN_CALLDEPTH, NATIVE_RETURN_RET_IN_TRACES,
 #       and NATIVE_RETURN_TRY_TO_PUT_APP_RETURN_PC_ON_STACK)
 #    $(D)LOAD_DYNAMO_DEBUGBREAK
 # profiling
-#    $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS 
-#    $(D)PROFILE_RDTSC 
+#    $(D)PROFILE_LINKCOUNT $(D)LINKCOUNT_64_BITS
+#    $(D)PROFILE_RDTSC
 #    ($(D)PAPI - now deprecated)
 #    $(D)WINDOWS_PC_SAMPLE - on for all Windows builds
 #    $(D)KSTATS - on for INTERNAL, DEBUG, and PROFILE builds, use KSTATS=1 for
@@ -153,7 +153,7 @@
 # optimization of application
 #    $(D)SIDELINE
 #    $(D)SIDELINE_COUNT_STUDY
-#    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS 
+#    $(D)LOAD_TO_CONST - around loadtoconst.c, $(D)LTC_STATS
 
 # optimization of dynamo
 #    $(D)AVOID_EFLAGS  (uses instructions that don't modify flags) (defines ASSUME_NORMAL_EFLAGS)
@@ -171,7 +171,7 @@
 #    $(D)CUSTOM_TRACES -- optional part of CLIENT_INTERFACE
 #      has some sub-features that are aggressive and not supported by default:
 #      $(D)CUSTOM_TRACES_RET_REMOVAL = support for removing inlined rets
-#      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called 
+#      $(D)CLIENT_SIDELINE = allows adaptive interface methods to be called
 #                            from other threads safetly, performance hit
 #                            requires CLIENT_INTERFACE
 #    $(D)UNSUPPORTED_API -- part of 0.9.4 MIT API but not supported in current API
@@ -188,14 +188,14 @@
 #    $(D)HEAP_ACCOUNTING (on for DEBUG)
 
 #    $(D)INTERNAL for features that are not intended to reach customer hands
-#    $(D)VERBOSE=1 for verbose debugging or in situations where normal DEBUG 
+#    $(D)VERBOSE=1 for verbose debugging or in situations where normal DEBUG
 
 # statistics
 #    $(D)HASHTABLE_STATISTICS - IBL table statistics
 
 # target platforms
 #    $(D)WINDOWS (avoid using _WIN32 used by cl)
-#    $(D)UNIX 
+#    $(D)UNIX
 #    note that in many cases we use the else of WINDOWS to mean UNIX and vice versa
 #    we're just starting to add VMKERNEL and MACOS support
 #    $(D)X86

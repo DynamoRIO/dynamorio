@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -75,7 +75,7 @@ struct {int num;char *name;} papi_events[]={
     {PIII_EMON_KNI_PREF_DISPATCHED<<8,"Prefetch NTA dispatched"},
     {PIII_EMON_KNI_PREF_MISS<<8,"Prefetch NTA miss all caches"}
 };
-    
+
 
 
 
@@ -87,20 +87,20 @@ void hardware_perfctr_init()
     ASSERT(NUM_EVENTS==(sizeof(papi_events)/8));
 
 #ifdef UNIX
-    ASSERT(!INTERNAL_OPTION(profile_pcs)); 
+    ASSERT(!INTERNAL_OPTION(profile_pcs));
 #endif
 
     LOG(GLOBAL, LOG_TOP, 1,"Initializing PAPI\n");
 
-    
+
     if (PAPI_library_init(PAPI_VER_CURRENT) !=PAPI_VER_CURRENT) {
             LOG(GLOBAL, LOG_TOP, 1,"Error initializing PAPI.\n");
     }
-    
+
     if (NUM_EVENTS > 2) {
         LOG(GLOBAL, LOG_TOP, 3,"Initializing PAPI multiplexing\n");
         if (PAPI_multiplex_init() != PAPI_OK) {
-            if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0) 
+            if (stats->loglevel > 0 && (stats->logmask & LOG_TOP) != 0)
                 LOG(GLOBAL, LOG_TOP, 1,"Error initializing PAPI multiplexing\n");
         }
     }
@@ -109,13 +109,13 @@ void hardware_perfctr_init()
     }
 
 
-    
+
     if (NUM_EVENTS>2) {
         if (PAPI_set_multiplex(&perfctr_eventset)!=PAPI_OK) {
             LOG(GLOBAL, LOG_TOP, 1,"Error setting multiplexed eventset in PAPI\n");
         }
     }
-    
+
     for (a=0;a<NUM_EVENTS;a++) {
         if (PAPI_add_event(&perfctr_eventset,papi_events[a].num)!=PAPI_OK) {
                 LOG(GLOBAL, LOG_TOP, 1,"Error adding events in PAPI\n");
@@ -125,10 +125,10 @@ void hardware_perfctr_init()
     if (PAPI_start(perfctr_eventset)!=PAPI_OK) {
         LOG(GLOBAL, LOG_TOP, 1,"Error starting hardware performance counters\n");
     }
-    
+
 }
 
-        
+
 void hardware_perfctr_exit()
 {
     int a;
@@ -148,7 +148,7 @@ void hardware_perfctr_exit()
         LOG(GLOBAL, LOG_TOP, 1, "Counter %d = %llu (%s)\n",
             a+1, val_array[a], papi_events[a].name);
     }
-    
+
 }
 
 void perfctr_update_gui()

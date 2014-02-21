@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -43,7 +43,7 @@
    * Instead, a piece of shared memory with the key base name below holds the
    * total number of DR instances.
    */
-# define DR_SHMEM_KEY "DynamoRIOStatistics" 
+# define DR_SHMEM_KEY "DynamoRIOStatistics"
 #elif defined(UNIX)
 # define DYNAMORIO_MAGIC_STRING "DYNAMORIO_MAGIC_STRING"
 # define DYNAMORIO_MAGIC_STRING_LEN 16 /*include trailing \0*/
@@ -75,7 +75,7 @@ typedef struct _dr_statistics_t {
     char process_name[MAXIMUM_PATH]; /* process name */
     uint logmask;               /* what to log */
     uint loglevel;              /* how much detail to log */
-    char logdir[MAXIMUM_PATH];  /* full path of logging directory */ 
+    char logdir[MAXIMUM_PATH];  /* full path of logging directory */
     uint64 perfctr_vals[NUM_EVENTS];
     uint num_stats;
 #ifdef NOT_DYNAMORIO_CORE
@@ -103,19 +103,19 @@ typedef struct {
      * The basic idea of transactional stats is that uncommitted changes are not visible to readers.
      * Some invariants between statistics, i.e. A=B+C should hold at the dump/committed points.
      *
-     * The plan is: 
+     * The plan is:
      *   1) delta accessed w/o lock only by the owning thread,
      *   2) on dump any other thread which only reads the committed values while holding the commit lock,
      *   3) The owning thread is the single writer to the committed values to apply the deltas,
      *      while holding the commit lock.
      *
-     * Used for other threads to be able to request thread local stats, 
+     * Used for other threads to be able to request thread local stats,
      * and also for the not fully explained self-interruption on linux?
      */
 #ifdef DEBUG
-# define STATS_DEF(desc, name) stats_int_t name##_thread;  
+# define STATS_DEF(desc, name) stats_int_t name##_thread;
 #else
-# define RSTATS_DEF(desc, name) stats_int_t name##_thread;  
+# define RSTATS_DEF(desc, name) stats_int_t name##_thread;
 #endif
 # include "statsx.h"
 } thread_local_statistics_t;

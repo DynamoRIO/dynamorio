@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -62,7 +62,7 @@
  * that a potential security violation is being allowed.  Clicking on the stack attack
  * button should produce a message that a potential security violation is being blocked
  * by killing the process.
- * 
+ *
  * Use 'drdeploy.exe -nudge VIPA_text.exe' to nudge the process to re-read the
  * configuration file.
  *
@@ -142,7 +142,7 @@ static table_entry_t * get_entry_for_address(app_pc addr);
 static void read_table();
 static void free_table();
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     VDISPLAY_FUNC(NAME" initializing.");
@@ -151,7 +151,7 @@ dr_init(client_id_t id)
     dr_register_security_event(event_security_violation);
     dr_register_nudge_event(event_nudge, id);
     dr_register_exit_event(event_exit);
-    
+
     /* read the client options */
     table_def_file_name = dr_get_options(id);
     if (table_def_file_name == NULL ||
@@ -236,7 +236,7 @@ event_security_violation(void *drcontext, void *source_tag,
             allow = true;
         }
     }
-    
+
     /* check our target relaxations */
     entry = get_entry_for_address(target_pc);
     if (entry != NULL) {
@@ -248,9 +248,9 @@ event_security_violation(void *drcontext, void *source_tag,
             allow = true;
         }
     }
-    
+
 #endif
-    
+
     switch (violation) {
     case DR_RCO_STACK_VIOLATION:
         violation_str = "stack execution violation";
@@ -276,7 +276,7 @@ event_security_violation(void *drcontext, void *source_tag,
         *action = DR_VIOLATION_ACTION_CONTINUE;
 
     /* could use dr_write_forensics_report() here to log additional information */
-    
+
     DISPLAY_FUNC("WARNING - possible security violation \"%s\" detected, %s.",
                  violation_str, allow ? "allowing" : "blocking");
 }

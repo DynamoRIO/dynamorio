@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -69,7 +69,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
     static byte copy_buf2_i[2*PAGE_SIZE+100];
     static byte buf1_i[2*PAGE_SIZE+100];
     static byte buf2_i[2*PAGE_SIZE+100];
-    
+
     byte *copy1 = (byte *)ALIGN_FORWARD(copy_buf1_i, PAGE_SIZE);
     byte *copy2 = (byte *)ALIGN_FORWARD(copy_buf2_i, PAGE_SIZE);
     byte *buf1 = (byte *)ALIGN_FORWARD(buf1_i, PAGE_SIZE);
@@ -96,16 +96,16 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
          * the stream to be 4-byte immeds or 4-byte displacements with pointer like
          * values.  For now just using decode_sizeof to get the size of the instuction
          * and based on that determine how much to chop off the end (instruction format
-         * is [...][disp][imm]) to remove the potential relocation.  With better 
+         * is [...][disp][imm]) to remove the potential relocation.  With better
          * information from decode_sizeof (it knows whether an immed/disp is present or
          * not and what offset it would be etc.) we could keep more of the bytes but
-         * this works for testing. What we'll miss unless we get really lucky is 
+         * this works for testing. What we'll miss unless we get really lucky is
          * relocs in read only data (const string arrays, for dr the const decode
          * tables full of pointers for ex.). */
 
         /* How the assumptions work out.  The assumption that we quickly get to the
          * appropriate instruction frame seems valid.  Most cases we synchronize very
-         * quickly, usually just a couple of bytes and very rarely more then 20. 
+         * quickly, usually just a couple of bytes and very rarely more then 20.
          * I Haven't seen any relocations in instructions that weren't caught
          * below.  However, so far only matching ~60% of sibling pages because of
          * read only data relocations interspersed in the text sections. Instruction
@@ -123,7 +123,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
             } else if (size <= 4) {
                 num_bytes += size; /* no 4-byte disp or imm */
             } else if (size <= 6 ) {
-                num_bytes += size - 4; /* could have 4-byte disp or immed */ 
+                num_bytes += size - 4; /* could have 4-byte disp or immed */
             } else if (size <= 7) {
                 num_bytes += size - 5; /* could have 4-byte disp and upto 1-byte immed
                                         * or 4-byte immed */
@@ -196,7 +196,7 @@ compare_pages(void *drcontext, byte *start1, byte *start2, uint start_offset)
 #define PAGE_PROTECTION_QUALIFIERS (PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE)
 
 bool
-prot_is_writable(uint prot) 
+prot_is_writable(uint prot)
 {
     prot &= ~PAGE_PROTECTION_QUALIFIERS;
     return (prot == PAGE_READWRITE || prot == PAGE_WRITECOPY ||
@@ -219,14 +219,14 @@ get_IAT_section_bounds(app_pc module_base, app_pc *iat_start, app_pc *iat_end)
     *iat_end = module_base + dir->VirtualAddress + dir->Size;
     return true;
 }
- 
+
 int
 usage(char *name)
 {
     printf("Usage: %s [-v] [-vv] [-no_second_pass] [-second_pass_offset <val>] [-no_assume_IAT_written] [-spin_for_debugger] <dll>\n", name);
     return -1;
 }
- 
+
 int
 main(int argc, char *argv[])
 {
@@ -270,11 +270,11 @@ main(int argc, char *argv[])
             return usage(argv[0]);
         }
         arg_offs++;
-    }   
+    }
     input_file = argv[arg_offs++];
     if (arg_offs != argc)
         return usage(argv[0]);
-    
+
     _snprintf(reloc_file, sizeof(reloc_file), "%s.reloc.dll", input_file);
     reloc_file[sizeof(reloc_file)-1] = '\0';
     if (!CopyFile(input_file, reloc_file, FALSE)) {
@@ -308,7 +308,7 @@ main(int argc, char *argv[])
         VERBOSE_PRINT("Rebase Error %d (0x%x) = %s\n", error, error, msg);
         return 1;
     }
-    
+
     dll_1 = (byte *)ALIGN_BACKWARD(LoadLibraryExA(orig_file, NULL,
                                                   DONT_RESOLVE_DLL_REFERENCES),
                                    PAGE_SIZE);
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
         VERBOSE_PRINT( "Error loading %s\n", input_file);
         return 1;
     }
-    
+
     /* Handle the first page specially since I'm seeing problems with a handful of
      * dlls that aren't really getting rebased. mcupdate_GenuineIntel.dll for ex.
      * (which does have relocations etc.) not sure what's up, but it's only a couple of
@@ -336,7 +336,7 @@ main(int argc, char *argv[])
         if (assume_header_match)
             /* We could modify the hash function to catch header pages. */
             matched_pages++;
-        else 
+        else
             unmatched_pages++;
     }
     p1 += PAGE_SIZE;
@@ -381,7 +381,7 @@ main(int argc, char *argv[])
                 if (compare_pages(drcontext, p1, p2, 0)) {
                     VVERBOSE_PRINT("Matched page\n");
                     matched_pages++;
-                } else { 
+                } else {
                     VVERBOSE_PRINT("Failed to match page\n");
                     if (use_second_pass &&
                         compare_pages(drcontext, p1, p2, second_pass_offset)) {
@@ -403,7 +403,7 @@ main(int argc, char *argv[])
     }
 
     VERBOSE_PRINT("%d exact match, %d not exact match\n%d hash_match, %d second_hash_match, %d hash_mismatch\n",
-                  exact_match_pages, exact_no_match_pages, matched_pages, second_matched_pages, unmatched_pages); 
+                  exact_match_pages, exact_no_match_pages, matched_pages, second_matched_pages, unmatched_pages);
 
     printf("%s : %d pages - %d w %d res %d IAT = %d same %d differ : %d hash differ %d first hash differ : %d%% found, %d%% found first hash\n",
            input_file, writable_pages + reserved_pages + IAT_pages + exact_match_pages + exact_no_match_pages,
@@ -542,7 +542,7 @@ modify_instr_for_relocations(void *drcontext, instr_t *inst,
     if (limmed != 0)
         *immed = limmed;
     if (ldisp != 0)
-        *disp = ldisp; 
+        *disp = ldisp;
 }
 
 #endif

@@ -51,7 +51,7 @@
 #include "monitor.h"
 
 #define PRE instrlist_preinsert
-/* list of native_exec module regions 
+/* list of native_exec module regions
  */
 vm_area_vector_t *native_exec_areas;
 
@@ -281,7 +281,7 @@ call_to_native(app_pc *app_sp)
      * XXX: Doing a vmvector binary search on every call to native is expensive.
      */
     if (DYNAMO_OPTION(native_exec_retakeover) && !is_native_pc(*app_sp)) {
-        /* We try to use stub for fast return-from-native handling, if fails 
+        /* We try to use stub for fast return-from-native handling, if fails
          * (e.g., on Windows or optimization disabled), fall back to use the stack.
          */
         if (!prepare_return_from_native_via_stub(dcontext, app_sp))

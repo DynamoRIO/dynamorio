@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* 
+/*
  *
  * processes.h
  *
@@ -43,7 +43,7 @@
 
 #ifdef __cplusplus
 extern "C"{
-#endif 
+#endif
 
 #include "lib/dr_stats.h" // from src tree
 
@@ -109,7 +109,7 @@ typedef BOOL (*dllwalk_callback)(module_info_t *mi, void **param);
 
 /*
  * generic process information methods
- */ 
+ */
 
 
 DWORD
@@ -122,7 +122,7 @@ DWORD
 process_walk(processwalk_callback pwcb, void **param);
 
 DWORD
-get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, 
+get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len,
                              WCHAR *cmdline_buf, int cmdline_len);
 
 DWORD
@@ -135,7 +135,7 @@ get_process_cmdline(process_id_t pid, WCHAR *buf, int len);
 
 /*
  * heavy-duty kill
- */ 
+ */
 
 DWORD
 terminate_process(process_id_t pid);
@@ -147,7 +147,7 @@ terminate_process_by_exe(WCHAR *exename);
 
 /*
  * DR process status / drmarker functions
- */ 
+ */
 
 int
 under_dynamorio(process_id_t ProcessID);
@@ -163,15 +163,15 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num);
  * for internal convenience, may pass NULL for config, in which case
  *  status is the only well-defined output parameter. */
 DWORD
-check_status_and_pending_restart(ConfigGroup *config, process_id_t pid, 
-                                 BOOL *pending_restart, 
+check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
+                                 BOOL *pending_restart,
                                  int *status, ConfigGroup **process_cfg);
 
 /* pending_restart is required OUT parameter */
 DWORD
 is_anything_pending_restart(ConfigGroup *c, BOOL *pending_restart);
 
-/* hotpatch status: the returned pointer must be freed with 
+/* hotpatch status: the returned pointer must be freed with
  *  free_hotp_status_table below. */
 DWORD
 get_hotp_status(process_id_t pid, hotp_policy_status_table_t **hotp_status);
@@ -191,16 +191,16 @@ free_dynamorio_stats(dr_statistics_t *stats);
  */
 
 /* Loads the specified dll in process pid and waits on the loading thread, does
- * not free the dll once the loading thread exits. Usual usage is for the 
- * loaded dll to do something in its DllMain. If you do not want the dll to 
- * stay loaded its DllMain should return false. To unload a dll from a process 
- * later, inject another dll whose dll main unloads that dll and then returns 
+ * not free the dll once the loading thread exits. Usual usage is for the
+ * loaded dll to do something in its DllMain. If you do not want the dll to
+ * stay loaded its DllMain should return false. To unload a dll from a process
+ * later, inject another dll whose dll main unloads that dll and then returns
  * false. If loading_thread != NULL returns a handle to the loading thread (dll
- * could call FreeLibraryAndExitThread on itself in its dll main to return a 
- * value out via the exit code). inject_dll provides no way to pass arguments 
+ * could call FreeLibraryAndExitThread on itself in its dll main to return a
+ * value out via the exit code). inject_dll provides no way to pass arguments
  * in to the dll. */
 DWORD
-inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms, 
+inject_dll(process_id_t pid, const WCHAR *dll_name, BOOL allow_upgraded_perms,
            DWORD timeout_ms, PHANDLE loading_thread);
 /* pending_restart is required OUT parameter */
 DWORD
@@ -208,7 +208,7 @@ detach_all_not_in_config_group(ConfigGroup *c, DWORD timeout_ms);
 
 /* generic nudge DR, action mask determines which actions will be executed */
 DWORD
-generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask, 
+generic_nudge(process_id_t pid, BOOL allow_upgraded_perms, DWORD action_mask,
               client_id_t id /* optional */, uint64 client_arg /* optional */,
               DWORD timeout_ms);
 

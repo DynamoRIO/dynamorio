@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -91,31 +91,31 @@ extern "C"
  *  APPINITBLACKLIST=<string>
  *  GLOBAL_PROTECT=<boolean>
  *  <application_block>*
- * 
+ *
  * <application_block> ::==
  *  BEGIN_BLOCK
  *  <app_specifier>
  *  [ <hot_patch_block> ]
  *  <dynamorio_option_line>*
  *  END_BLOCK
- * 
+ *
  * <app_specifier> ::== [ GLOBAL | APP_NAME=<string> ]
- * 
+ *
  * <dynamorio_option_line> ::== <dynamorio_option>=<string>
- * 
- * <dynamorio_option> ::== 
+ *
+ * <dynamorio_option> ::==
  *  [ DYNAMORIO_OPTIONS |
  *    DYNAMORIO_AUTOINJECT |
  *    DYNAMORIO_RUNUNDER |
  *    DYNAMORIO_HOT_PATCH_MODES |
  *    DYNAMORIO_HOT_PATCH_POLICIES ]
- * 
+ *
  * <hot_patch_block> ::==
  *  BEGIN_MP_MODES
  *  <num_hot_patch_lines>
  *  <hot_patch_line>*
  *  END_MP_MODES
- * 
+ *
  * <num_hot_patch_lines> ::== (int)
  *
  * <hot_patch_line> ::==
@@ -126,79 +126,79 @@ extern "C"
  * <patch_id>: provided by Determina
  *
  * <boolean> ::== [ 0 | 1 ]
- * 
- * 
- * 
+ *
+ *
+ *
  * details:
- * 
+ *
  * (1) the APPINITFLAGS, together with the APPINITBLACKLIST and
  * APPINITWHITELIST, controls how our bootstrap dll is added to the
  * AppInit_DLLs registry key. the value of the flags should be a sum
  * of the APPINIT_* flags as defined in share/config.h
- * 
+ *
  * The APPINITBLACKLIST and APPINITWHITELIST values are only used if
  * specified by the flags. we'll provide the whitelist/blacklist.
- * 
- * 
+ *
+ *
  * (2) GLOBAL_PROTECT: OPTIONAL: if this is 0, then protection is
  * disabled (and all application blocks are optional). in normal
  * situations this will be 1. if this is not specified, then the
  * current setting is kept (see also enable_protection)
- * 
- * 
+ *
+ *
  * (3) there must be a GLOBAL block, which should come first, and it
  * must have DYNAMORIO_RUNUNDER=1 set as an option. for consistency it
  * should set DYNAMORIO_OPTIONS to blank (DYNAMORIO_OPTIONS=).
- * 
- * 
+ *
+ *
  * (4) the APP_NAME must be a valid "application id". this is usually
  * the .exe filename, but can also be "qualified". we will provide a
  * complete list of supported applications.
- * 
- * 
+ *
+ *
  * (5) some applications will also require special values for
  * DYNAMORIO_RUNUNDER; we will provide this information as well.
- * 
- * 
+ *
+ *
  * (6) DYNAMORIO_AUTOINJECT must be specified for every non-global
  * application block, and it should be of the format
  * "\lib\NNNNN\dynamorio.dll", where NNNNN is the version number of
  * the core dll being used. in general, any value that starts with a
  * "\" will have the local installation path prepended when using the
  * actual value (eg, it indicates a relative installation path).
- * 
- * 
+ *
+ *
  * (7) DYNAMORIO_OPTIONS is a string consisting of protection options
  * to our core. the variability in this will depend on the level of
  * configurability desired in your UI; but the majority of the options
  * will not need to change. probably the only configuration necessary
  * will be whether an app should be on or off; and this should be
  * controlled by including or excluding the corresponding app block.
- * 
- * 
- * (8) to enable hot patching, there are three additional 
+ *
+ *
+ * (8) to enable hot patching, there are three additional
  *     requirements:
- *    (a) the global DYNAMORIO_HOT_PATCH_DEFS option should be 
- *        declared, and point to the relative subpath of the hot patch 
- *        definitions file (provided with the update package). Typically 
+ *    (a) the global DYNAMORIO_HOT_PATCH_DEFS option should be
+ *        declared, and point to the relative subpath of the hot patch
+ *        definitions file (provided with the update package). Typically
  *        this should just be "\config" -- the engine version and
- *        file name is standard. Of course this file must exist in the 
+ *        file name is standard. Of course this file must exist in the
  *        proper place: "\config\30000\hotp-defs.cfg".
  *    (b) similary, each app must provide the DYNAMORIO_HOT_PATCH_MODES
  *        subpath for the hotp modes file. Typically this will be the
- *        config directory followed by the app name, e.g., 
- *        "\config\detertest.exe". The modes files are created by the 
+ *        config directory followed by the app name, e.g.,
+ *        "\config\detertest.exe". The modes files are created by the
  *        import process and should NOT be created manually.
- *    (c) Each app that requires patches must specify a list of patch 
+ *    (c) Each app that requires patches must specify a list of patch
  *        id's and their "modes".  The mode codes are 0 = Off, 1 =
  *        Detect Only, 2 = Protect.  Typically only modes 0 and 2 will
  *        be used. As indicated above, the first line must be the number
- *        of patches specified. The list of patch id's and their 
- *        descriptions is provided by Determina in the patch update 
+ *        of patches specified. The list of patch id's and their
+ *        descriptions is provided by Determina in the patch update
  *        packages.
- * 
+ *
  * See sample.mfp for an example policy string.
- * 
+ *
  */
 
 
@@ -209,7 +209,7 @@ extern "C"
  *
  * if synchronize_system, then any processes were under Determina
  *  but are now configured to be off will be detached. otherwise,
- *  no changes will be made to any running processes. 
+ *  no changes will be made to any running processes.
  *
  * if inject_flag is not NULL, it will return whether or not injection
  *  should be turned on, e.g., with the enable_protection()
@@ -219,21 +219,21 @@ extern "C"
  *  protection based on the policy.
  *
  * if warning is not NULL, it will be set to an error
- *   code indicating if a non-critical error (such as detach) was 
+ *   code indicating if a non-critical error (such as detach) was
  *   encountered.
  *
  * note that unlike other methods, the policy definition is a char
- *   (not WCHAR) -- this is because (presumably) the policy 
- *   definition is being read from an ASCII file or a network 
+ *   (not WCHAR) -- this is because (presumably) the policy
+ *   definition is being read from an ASCII file or a network
  *   connection. */
 DWORD
-policy_import(char *policy_definition, BOOL synchronize_system, 
+policy_import(char *policy_definition, BOOL synchronize_system,
               BOOL *inject_flag, DWORD *warning);
 
 /* returns a policy definition string based on the current registry
- *  configuration. 
+ *  configuration.
  * may return ERROR_MORE_DATA, in which case the call should
- *  be re-tried with a larger buffer. 
+ *  be re-tried with a larger buffer.
  * again note char buffer. */
 DWORD
 policy_export(char *policy_buffer, SIZE_T maxchars, SIZE_T *needed);
@@ -263,7 +263,7 @@ clear_policy();
 
 /* enable Determina protection on the system. note that this is not
  *  required if implicitly invoked in policy_import. */
-DWORD 
+DWORD
 enable_protection();
 
 /* checks the current protection status. */
@@ -289,11 +289,11 @@ disable_protection();
  *   Forces preinject dll to the back of the AppInit_DLLs list.
  *
  * APPINIT_USE_BLACKLIST
- *   Will read blacklist from blacklist config parameter and 
+ *   Will read blacklist from blacklist config parameter and
  *     validate against it.
  *
  * APPINIT_USE_WHITELIST
- *   Will read whitelist from whitelist config parameter and 
+ *   Will read whitelist from whitelist config parameter and
  *     validate against it.
  *
  * APPINIT_CHECK_LISTS_ONLY
@@ -307,9 +307,9 @@ disable_protection();
  * APPINIT_BAIL_ON_LIST_VIOLATION
  *   If set, the preinjector will not be added to the
  *     list, thus effectively disabling Determina.
- * 
  *
- * The following flags apply only for platforms which 
+ *
+ * The following flags apply only for platforms which
  *   require preinject to be in SYSTEM32 (ie, NT4 for now).
  *
  * APPINIT_SYS32_USE_LENGTH_WORKAROUND
@@ -318,15 +318,15 @@ disable_protection();
  *     other dlls which may be in the list.
  *
  * APPINIT_SYS32_FAIL_ON_LENGTH_ERROR
- *   If existing entries + preinject name 
+ *   If existing entries + preinject name
  *    exceeds the 31-character limit, leave key
  *    untouched and report an error.
  *
  * APPINIT_SYS32_CLEAR_OTHERS
  *   If set, any other appinit entries are
  *    cleared, regardless of length. otherwise,
- *    all entries are left intact, and an 
- *    operation that results in too long of 
+ *    all entries are left intact, and an
+ *    operation that results in too long of
  *    a string will be truncated but succeed
  *    unless APPINIT_SYS32_FAIL_ON_LENGTH_ERROR
  *    is set.
@@ -363,10 +363,10 @@ disable_protection();
  *  violation is reported.
  */
 DWORD
-enable_protection_ex(BOOL inject, DWORD flags, 
-                     const WCHAR *blacklist, 
-                     const WCHAR *whitelist, DWORD *list_error, 
-                     const WCHAR *custom_preinject_name, 
+enable_protection_ex(BOOL inject, DWORD flags,
+                     const WCHAR *blacklist,
+                     const WCHAR *whitelist, DWORD *list_error,
+                     const WCHAR *custom_preinject_name,
                      WCHAR *current_list, SIZE_T maxchars);
 
 
@@ -374,17 +374,17 @@ enable_protection_ex(BOOL inject, DWORD flags,
  *    process status     *
  *************************/
 
-/* generic process walk callback routine; the callback should 
+/* generic process walk callback routine; the callback should
  *  return FALSE to abort the walk. optionally takes a parameter
  *  which can be passed to the enumerate_processes method. */
-typedef BOOL (*process_callback)(ULONG pid, WCHAR *process_name, 
+typedef BOOL (*process_callback)(ULONG pid, WCHAR *process_name,
                                  void **param);
 
-/* helper method: for each running processes on the system, 
+/* helper method: for each running processes on the system,
  *  executes the callback with the specified info. (everything is
- *  synchronous here.) 
- * note that this is much cleaner than the Win32 api's tlhelp32 
- *  interface, which should NEVER be used! */ 
+ *  synchronous here.)
+ * note that this is much cleaner than the Win32 api's tlhelp32
+ *  interface, which should NEVER be used! */
 DWORD
 enumerate_processes(process_callback pcb, void **param);
 
@@ -400,10 +400,10 @@ enumerate_processes(process_callback pcb, void **param);
 DWORD
 inject_status(process_id_t pid, DWORD *status, DWORD *build);
 
-/* returns TRUE if the indicated process is configured for 
- *  protection, yet is not running under Determina (this means it 
+/* returns TRUE if the indicated process is configured for
+ *  protection, yet is not running under Determina (this means it
  *  must be restarted before protection will take effect).
- * returns FALSE if the process is under Determina or not configured 
+ * returns FALSE if the process is under Determina or not configured
  *  for protection. (or in the case of any error.)
  * note this is fairly expensive because it needs to load the current
  *  policy from the registry and check against it. a more efficient
@@ -429,10 +429,10 @@ is_any_process_pending_restart();
 #define NUDGE_NO_DELAY 0
 
 /* this is recommended for all hotp notification methods. */
-#define NUDGE_RECOMMENDED_PAUSE 100 
+#define NUDGE_RECOMMENDED_PAUSE 100
 
 
-/* detach from indicated process -- if allow_upgraded_perms, then 
+/* detach from indicated process -- if allow_upgraded_perms, then
  *  attempt to acquire necessary privileges (usually necessary) */
 DWORD
 detach(process_id_t pid, BOOL allow_upgraded_perms, DWORD timeout_ms);
@@ -471,7 +471,7 @@ hotp_notify_all_modes_update(DWORD timeout_ms);
 DWORD
 hotp_notify_all_defs_update(DWORD timeout_ms);
 
-/* get modes update for all running processes matching exe name. 
+/* get modes update for all running processes matching exe name.
  *  timeout is per process */
 DWORD
 hotp_notify_exe_modes_update(WCHAR *exename, DWORD timeout_ms);
@@ -497,7 +497,7 @@ hotp_notify_exe_modes_update(WCHAR *exename, DWORD timeout_ms);
 #define ELM_ERR_WARN  2
 #define ELM_ERR_CLEARED 3
 
-typedef void (*eventlog_formatted_callback)(unsigned int mID, 
+typedef void (*eventlog_formatted_callback)(unsigned int mID,
                                             unsigned int type,
                                             WCHAR *message,
                                             DWORD timestamp);
@@ -513,8 +513,8 @@ typedef void (*eventlog_error_callback)(unsigned int errcode,
  * pass -1 to retrieve all event records. */
 DWORD
 start_eventlog_monitor(BOOL use_formatted_callback,
-                       eventlog_formatted_callback cb_format, 
-                       eventlog_raw_callback cb_raw, 
+                       eventlog_formatted_callback cb_format,
+                       eventlog_raw_callback cb_raw,
                        eventlog_error_callback cb_err,
                        DWORD next_record);
 
@@ -535,7 +535,7 @@ is_violation_event(DWORD eventType);
 const WCHAR *
 next_message_string(const WCHAR *prev_string);
 
-/* helper method for getting the (pathless) executable name out 
+/* helper method for getting the (pathless) executable name out
  *  of an EVENTLOGRECORD */
 const WCHAR *
 get_event_exename(EVENTLOGRECORD *pevlr);
@@ -545,7 +545,7 @@ UINT
 get_event_pid(EVENTLOGRECORD *pevlr);
 
 /* helper method for getting the Threat ID out of an EVENTLOGRECORD.
- * If the event type does not have a Threat ID parameter (e.g., for 
+ * If the event type does not have a Threat ID parameter (e.g., for
  * information events), then this will return NULL. */
 const WCHAR *
 get_event_threatid(EVENTLOGRECORD *pevlr);

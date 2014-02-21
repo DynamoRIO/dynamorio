@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -223,7 +223,7 @@ intercept_signal(int sig, handler_t handler)
 #endif
     assert(rc == 0);
     act.sa_flags = SA_ONSTACK;
-    
+
     /* arm the signal */
     rc = sigaction(sig, &act, NULL);
     assert(rc == 0);
@@ -261,9 +261,9 @@ print_stats(struct timeval *start, struct timeval *end,
        comes out as zero.  Dividing by zero causes problems, so we first
        check the time value.  If it is zero, then we take `evasive action'
        instead of calculating a value.  */
-    
+
     r = end->tv_sec * 1000 + end->tv_usec / 1000;
-    
+
     v = ru->ru_utime.tv_sec * 1000 + ru->ru_utime.TV_MSEC +
         ru->ru_stime.tv_sec * 1000 + ru->ru_stime.TV_MSEC;
 
@@ -418,13 +418,13 @@ int main(int argc, char *argv[])
         } while (result != child);
         gettimeofday(&end, (struct timezone *) 0);
         info("child has exited\n");
-    
+
         /* turn off timer */
         t.it_interval.tv_usec = 0;
         t.it_value.tv_usec = 0;
         rc = setitimer(ITIMER_REAL, &t, NULL);
         assert(rc == 0);
-        
+
         if (!silent)
             print_stats(&start, &end, &ru, status);
         return (status == 0 ? 0 : 1);

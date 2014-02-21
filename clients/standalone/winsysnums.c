@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -253,7 +253,7 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
                opnd_get_base(instr_get_target(instr)) == REG_EDX &&
                opnd_get_index(instr_get_target(instr)) == REG_NULL &&
                opnd_get_disp(instr_get_target(instr)) == 0))) ||
-            /* wow case 
+            /* wow case
              * we don't require found_ecx b/c win8 does not use ecx
              */
             (expect_wow && found_eax &&
@@ -480,7 +480,7 @@ process_exports(void *dcontext, char *dllname)
                                         dir->Name, NULL),
                   dir->Base, dir->NumberOfNames, dir->AddressOfNames);
 
-    /* don't limit functions to lie in .text -- 
+    /* don't limit functions to lie in .text --
      * for ntdll, some exported routines have their code after .text, inside
      * ECODE section!
      */

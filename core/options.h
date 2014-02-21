@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,7 +68,7 @@ typedef enum {
     /* If set, app action (i.e., bad behavior) is disallowed and remediation
      * action (kill thread, kill process, throw exception) is performed.
      * Note: detect_mode will override this flag.
-     * FIXME: app_thread_policy_helper seems to be the one place where 
+     * FIXME: app_thread_policy_helper seems to be the one place where
      * detect_mode doesn't override this; case 9088 tracks this; xref case 8451
      * for an explanation of why this seemed to leave as such.
      */
@@ -184,7 +184,7 @@ enum option_is_internal {
 #  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
                                   statement, description, flag, pcache)           \
     type name;
-#else 
+#else
 #  define OPTION_COMMAND_INTERNAL(type, name, default_value, command_line_option, \
                                   statement, description, flag, pcache) /* nothing */
 #endif
@@ -252,13 +252,13 @@ extern const internal_options_t default_internal_options;
 /* checks for incompatible option values */
 /* max==0 means no max and 0 is an ok value */
 /* if option is incompatible, will try to touch up the option
- * by assigning min to make it valid returns true if changed the 
- * option value 
+ * by assigning min to make it valid returns true if changed the
+ * option value
  */
 bool
 check_param_bounds(uint *val, uint min, uint max, const char *name);
 
-int 
+int
 options_init(void);
 
 /* only frees a lock, does not destroy any options info other exit
@@ -279,7 +279,7 @@ get_process_options(HANDLE process_handle);
         (dynamo_options.dynamic_options && synchronize_dynamic_options()),      \
          dynamo_options.x)
 
-/* 
+/*
  * if minimal then the options string only contains values different than
  *  the defaults, otherwise it explicitly lists all options being used
 */
@@ -348,7 +348,7 @@ set_dynamo_options(options_t *options, const char *optstr);
 /* are any IBT tables (potentially) shared? */
 #define SHARED_IBT_TABLES_ENABLED() \
     (DYNAMO_OPTION(shared_bb_ibt_tables) || DYNAMO_OPTION(shared_trace_ibt_tables))
- 
+
 #define TRACEDUMP_ENABLED()                 \
      (!DYNAMO_OPTION(disable_traces) &&     \
       (INTERNAL_OPTION(tracedump_text) ||   \
@@ -391,12 +391,12 @@ extern read_write_lock_t options_lock;
 
 /* full access to string requires read lock */
 static inline void
-string_option_read_lock() { 
-    read_lock(&options_lock); 
+string_option_read_lock() {
+    read_lock(&options_lock);
 }
 static inline void
-string_option_read_unlock() { 
-    read_unlock(&options_lock); 
+string_option_read_unlock() {
+    read_unlock(&options_lock);
 }
 
 typedef enum {

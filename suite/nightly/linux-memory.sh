@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +53,7 @@ email=$prefix".email"
 
 if [ -e $log ]; then echo "Error: $log already exists"; exit -1; fi
 
-ssh ${remotehost} "rm -rf ${remotetree}/src" > $log 2>&1 
+ssh ${remotehost} "rm -rf ${remotetree}/src" > $log 2>&1
 ${rsynclinkref} ${remotescript} ${remotehost}:${remotepath} >> $log 2>&1
 curdir=`pwd`;
 pushd ${localtree} >> $log 2>&1
@@ -62,7 +62,7 @@ cvs -d $CVSROOT co src tools >> $curdir/$log 2>&1
 popd >> $log 2>&1
 ${rsyncout} ${localtree}/src ${remotehost}:${remotetree} >> $log 2>&1
 ${rsyncout} ${localtree}/tools ${remotehost}:${remotetools} >> $log 2>&1
-ssh ${remotehost} "${remotepath}/${remotescript}" >> $log 2>&1 
+ssh ${remotehost} "${remotepath}/${remotescript}" >> $log 2>&1
 
 # create summary for mailing
 echo "From: $mailto" > $email

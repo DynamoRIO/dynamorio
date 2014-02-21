@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -92,7 +92,7 @@ static uint stepping = 0;
 static features_t features = {0, 0, 0, 0};
 
 /* The brand string is a 48-character, null terminated string.
- * Declare as a 12-element uint so the compiler won't complain 
+ * Declare as a 12-element uint so the compiler won't complain
  * when we store GPRs to it.  Initialization is "unknown" .
  */
 static uint brand_string[12] = {0x6e6b6e75, 0x006e776f};
@@ -163,9 +163,9 @@ get_cache_sizes_intel(uint max_val)
      */
     CLIENT_ASSERT((cache_codes[0] & 0xff) == 1, "cpuid error");
     cache_codes[0] &= ~0xff;
-    
-    /* Cache codes are stored in consecutive bytes in the 
-     * GP registers.  For each register, a 1 in bit 31 
+
+    /* Cache codes are stored in consecutive bytes in the
+     * GP registers.  For each register, a 1 in bit 31
      * indicates that the codes should be ignored... zero
      * all four bytes when that happens
      */
@@ -173,7 +173,7 @@ get_cache_sizes_intel(uint max_val)
         if (cache_codes[i] & 0x80000000)
             cache_codes[i] = 0;
     }
-    
+
     /* Table 3-17, pg 3-171 of IA-32 instruction set reference lists
      * all codes.  Omitting L3 cache characteristics for now...
      */
@@ -309,7 +309,7 @@ get_processor_specific_info(void)
     model  = (res_eax >>  4) & 0xf;
     stepping = res_eax & 0xf;
 
-    /* Pages 3-164 and 3-165 of the IA-32 instruction set 
+    /* Pages 3-164 and 3-165 of the IA-32 instruction set
      * reference instruct us to adjust the family and model
      * numbers as follows.
      */
@@ -402,7 +402,7 @@ proc_init(void)
 #endif
 
 #ifdef DEBUG
-    /* FIXME: This is a small subset of processor features.  If we 
+    /* FIXME: This is a small subset of processor features.  If we
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
     */
@@ -624,14 +624,14 @@ DR_API
  * which must be 512 bytes for processors with the FXSR feature, and
  * 108 bytes for those without (where this routine does not support
  * 16-bit operand sizing).
- * 
+ *
  * DynamoRIO does NOT save the application's floating-point, MMX, or SSE state
  * on context switches!  Thus if a client performs any floating-point operations
  * in its main routines called by DynamoRIO, the client must save and restore
  * the floating-point/MMX/SSE state.
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
- * return number of bytes written 
+ * return number of bytes written
  *
  * XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
  * we can try to support it in the future.
@@ -670,7 +670,7 @@ DR_API
  * and 108 bytes for those without (where this routine does not
  * support 16-bit operand sizing).
  */
-void 
+void
 proc_restore_fpstate(byte *buf)
 {
     /* MUST be 16-byte aligned */

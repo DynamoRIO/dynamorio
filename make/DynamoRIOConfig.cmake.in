@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -555,7 +555,7 @@ function (configure_DynamoRIO_common target is_client x64_var defs_var)
       # avoid SElinux text relocation security violations by explicitly requesting PIC
       # i#157, when enable private loader, symbols from default libraries and startfiles
       # are required, so -nostartfiles and -nodefaultlibs should be removed
-      set(tgt_link_flags 
+      set(tgt_link_flags
         "${tgt_link_flags} -fPIC -shared")
       if (NOT CMAKE_COMPILER_IS_CLANG)
         set(tgt_link_flags
@@ -820,7 +820,7 @@ function (configure_DynamoRIO_decoder target)
 
   get_target_property(cur_cflags ${target} COMPILE_FLAGS)
   if (NOT cur_cflags)
-    set(cur_cflags "") 
+    set(cur_cflags "")
   endif (NOT cur_cflags)
   DynamoRIO_extra_cflags(cur_cflags "${cur_cflags}" ${tgt_cxx})
   set_target_properties(${target} PROPERTIES COMPILE_FLAGS "${cur_cflags}")

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -334,7 +334,7 @@ test(void *foo, int val)
 }
 
 static int
-call(Code_Snippet func, int val) 
+call(Code_Snippet func, int val)
 {
     switch(func){
     case CODE_INC:
@@ -356,7 +356,7 @@ page_align(char *buf)
 }
 
 static char *
-copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func) 
+copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func)
 {
     void *start;
     size_t len = size(func);
@@ -388,7 +388,7 @@ copy_to_buf_normal(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet f
 }
 
 static char *
-copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func) 
+copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func)
 {
     char* buf_back = buf;
     switch(func) {
@@ -409,7 +409,7 @@ copy_to_buf_cross_page(char *buf, size_t buf_len, size_t *copied_len, Code_Snipp
 
 static char *
 copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
-            Copy_Mode mode) 
+            Copy_Mode mode)
 {
     switch(mode) {
     case COPY_NORMAL:
@@ -423,9 +423,9 @@ copy_to_buf(char *buf, size_t buf_len, size_t *copied_len, Code_Snippet func,
     return buf;
 }
 
-#ifndef UNIX 
+#ifndef UNIX
 /****************************************************************************
- * ntdll.dll interface 
+ * ntdll.dll interface
  * cleaner to use ntdll.lib but too lazy to add to build process
  *
  * WARNING: the Native API is an undocumented API and
@@ -554,7 +554,7 @@ void *
 reserve_memory(int size);
 
 static void
-test_print(void *buf, int n) 
+test_print(void *buf, int n)
 {
     print("%d\n", test(buf, n));
 }
@@ -599,7 +599,7 @@ get_windows_version(void);
 bool
 is_wow64(HANDLE hProcess);
 
-static LONG WINAPI 
+static LONG WINAPI
 our_exception_filter(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     /* use EXCEPTION_CONTINUE_SEARCH to let it go all the way  */
@@ -676,8 +676,8 @@ get_drmarker_field(uint offset)
 /* For hot patch testing only.  Only defined for Windows - hot patching hasn't
  * been implemented for Linux yet.
  * TODO: need to parameterize it with number or string to annotate a patch
- *      point - needed to handle multiple patch points automatically for 
- *      defs.cfg generation; another option would be to maintain a counter 
+ *      point - needed to handle multiple patch points automatically for
+ *      defs.cfg generation; another option would be to maintain a counter
  *      that increments with each use of the macro.
  */
 #define INSERT_HOTP_PATCH_POINT()   \

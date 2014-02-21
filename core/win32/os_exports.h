@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -177,7 +177,7 @@ int debugbox(char *msg);
 int os_countdown_messagebox(char *message, int time_in_milliseconds);
 
 /* raise an exception in the application context */
-void os_raise_exception(dcontext_t *dcontext, 
+void os_raise_exception(dcontext_t *dcontext,
                         EXCEPTION_RECORD* pexcrec, CONTEXT* pcontext);
 int exception_frame_chain_depth(dcontext_t *dcontext);
 
@@ -325,7 +325,7 @@ enum {
     /* via -hide_from_query_mem controls what dr does when the app does
      * a query virtual memory call on the dynmorio.dll base */
     HIDE_FROM_QUERY_TYPE_PROTECT   = 0x1, /* to PRIVATE, NO_ACCESS */
-    HIDE_FROM_QUERY_BASE_SIZE      = 0x2, /* shift reported allocation a page, 
+    HIDE_FROM_QUERY_BASE_SIZE      = 0x2, /* shift reported allocation a page,
                                            * and expand size to whole dll */
     HIDE_FROM_QUERY_RETURN_INVALID = 0x4, /* return STATUS_INVALID_ADDRESS to
                                            * the app */
@@ -363,25 +363,25 @@ enum {
 
 enum {
     /* Does not override attack handling options (i.e. kill_thread etc. still
-     * do their thing) only detaches if the we were going to kill the 
+     * do their thing) only detaches if the we were going to kill the
      * process */
     DETACH_UNHANDLED_VIOLATION   = 0x01, /* FIXME : separate A, B, C etc.? */
     /* Subset of DETACH_UNHANDLED_VIOLATION, detaches if we see an unsupported
      * module */
     DETACH_UNSUPPORTED_MODULE    = 0x02,
-    
+
     /* Anything below this line is unsafe and will likely fail */
     /* FIXME : this detaches on any internal process terminate, including from
      * a security violation (which we may want to allow to kill the process, as
-     * opposed to an internal error in future), in future may also want to 
+     * opposed to an internal error in future), in future may also want to
      * further break it up into internal_exception, assertion, etc. */
     DETACH_ON_TERMINATE          = 0x010,
     /* safer then w/cleanup, leaves dr memory behind */
     DETACH_ON_TERMINATE_NO_CLEAN = 0x020,
 
     /* **** FIMXE : following NYI **** */
-    /* don't kill faulting thread, make a best guess at its app context 
-     * note this could turn the kill thread on the faulting thread to a 
+    /* don't kill faulting thread, make a best guess at its app context
+     * note this could turn the kill thread on the faulting thread to a
      * throw exception if we get the context wrong */
     DETACH_ON_TERMINATE_NO_KILL  = 0x040,
     /* the following two options try to help prevent hangs when detaching on
@@ -442,7 +442,7 @@ bool os_module_free_IAT_code(app_pc addr);
 void print_module_section_info(file_t file, app_pc addr);
 /* here rather than os_shared.h since this is win32-specific */
 /* Returns true if addr is in a xdata section and if so returns in sec_start and sec_end
- * the bounds of the section containing addr (MERGED with adjacent xdata sections). 
+ * the bounds of the section containing addr (MERGED with adjacent xdata sections).
  * sec_start and sec_end are optional. */
 bool is_in_xdata_section(app_pc module_base, app_pc addr,
                          app_pc *start_pc, app_pc *end_pc);

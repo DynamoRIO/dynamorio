@@ -87,13 +87,13 @@ mutex_get_contended_event(mutex_t *lock);
 
 /* These return 0 on success: */
 
-ptr_int_t 
+ptr_int_t
 ksynch_wait(KSYNCH_TYPE *var, int mustbe);
 
-ptr_int_t 
+ptr_int_t
 ksynch_wake(KSYNCH_TYPE *var);
 
-ptr_int_t 
+ptr_int_t
 ksynch_wake_all(KSYNCH_TYPE *var);
 
 #endif /* _KSYNCH_H_ */

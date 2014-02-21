@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -54,11 +54,11 @@ typedef struct _os_module_data_t {
     /* To compute the base address, one determines the memory address associated with
      * the lowest p_vaddr value for a PT_LOAD segment. One then obtains the base
      * address by truncating the memory load address to the nearest multiple of the
-     * maximum page size and subtracting the truncated lowest p_vaddr value. 
+     * maximum page size and subtracting the truncated lowest p_vaddr value.
      * Thus, this is not the load address but the base address used in
      * address references within the file.
      */
-    app_pc base_address; 
+    app_pc base_address;
     size_t alignment; /* the alignment between segments */
 
     /* Fields for pcaches (PR 295534) */
@@ -148,7 +148,7 @@ redirect_calloc(size_t nmemb, size_t size);
 void *
 redirect_malloc(size_t size);
 
-void  
+void
 redirect_free(void *ptr);
 
 void *

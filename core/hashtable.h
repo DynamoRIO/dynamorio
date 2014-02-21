@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -49,7 +49,7 @@
  */
 /* Is the table itself shared? */
 #define HASHTABLE_SHARED                0x00000001
-/* Are the entries in the table shared? 
+/* Are the entries in the table shared?
  * FIXME: right now this is never used independently from LOCKLESS_ACCESS,
  * perhaps get rid of it
  */
@@ -108,7 +108,7 @@
      NONPERSISTENT_HEAP_TYPE_##op(dc, type, which))
 
 /* table capacity includes a sentinel so this is equivalent to
- * hash_index % (ftable->capacity - 1) 
+ * hash_index % (ftable->capacity - 1)
  */
 #define HASH_INDEX_WRAPAROUND(hash_index,ftable) \
     ((hash_index) & (uint)(ftable->hash_mask >> ftable->hash_mask_offset))
@@ -136,7 +136,7 @@ typedef struct _hashtable_statistics_t {
     uint unlinked_count_stat; /* number of times unlinked */
 
     /* Stay on trace check combined with hashtable lookups gives the
-     * dynamic count of indirect branches 
+     * dynamic count of indirect branches
      * FIXME: case 4817 where bb's could also cache one target
      * or see the CGO03 paper for multiple cached locations with similar stats
      */
@@ -152,7 +152,7 @@ typedef struct _hashtable_statistics_t {
     uint ib_trace_last_ibl_exit; /* hash table lookup for last exit - not cached */
     /* FIXME: add last and ovfl flag here as well */
 
-    /* case 4817: add counter on extra check for converting IB into conditional 
+    /* case 4817: add counter on extra check for converting IB into conditional
      * and add its success rate
      */
     uint ib_trace_last_ibl_speculate_success; /* stay-on-trace check success on last exit */
@@ -201,7 +201,7 @@ typedef struct _generic_entry_t {
 #undef HASHTABLEX_HEADER
 
 generic_table_t *
-generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent, 
+generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
                     uint table_flags, void (*free_payload_func)(void*)
                     _IF_DEBUG(const char *table_name));
 
@@ -281,9 +281,9 @@ strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *k
 #ifdef HASHTABLE_STATISTICS
 /* caller is responsible for any needed synchronization */
 void
-print_hashtable_stats(dcontext_t *dcontext, 
+print_hashtable_stats(dcontext_t *dcontext,
                       const char *is_final_str, const char *is_trace_str,
-                      const char *lookup_routine_str, 
+                      const char *lookup_routine_str,
                       const char *brtype_str,
                       hashtable_statistics_t *lookup_stats);
 #endif

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,18 +31,18 @@
  */
 
 /* single RET - many targets */
-/* 
+/*
  * ok - we have 10s for PLAIN_RET
  * - and 26s for the pop ecx/jmp ecx scheme
  * for a single call bar
- *  
+ *
  *  How to make the difference worse - consider this is going to a single place only?
  * for 3 consecutive call bar
  *   16s RET, vs 41s on POP/JMP ECX = 2.56 same ratio
  *   17s POP/PUSH/RET;  foo_with_extras
 
 *    68s wow a PUSH/JMP paired with RET is 1m8.571s  PLAIN_RET but fancy_CALL
-*    48s for a PUSH/JMP paired with a POP/JMP   0m48.597s  -- same ratio here - 
+*    48s for a PUSH/JMP paired with a POP/JMP   0m48.597s  -- same ratio here -
         so an extra CALL doesn't hurt as bad as an extra RET!
 
 
@@ -83,7 +83,7 @@ $ cl /O2  /Zi foo.c -I.. /link /incremental:no user32.lib
 #define PLAIN_CALL
 
 
-int 
+int
 foo(int n) {                    /* CFI */
     __asm {
         /* pay ecx penalty for both cases */
@@ -125,7 +125,7 @@ bar:
     return 5;
 }
 
-int 
+int
 foo_second(int n) {
     __asm {
         /* pay ecx penalty for both cases */
@@ -162,7 +162,7 @@ bar:
     return 5;
 }
 
-int 
+int
 foo_with_extras(int n) {
     __asm {
         /* pay ecx penalty for both cases */
@@ -190,7 +190,7 @@ bar:
 }
 
 
-int 
+int
 foo_first(int n) {
     __asm {
         /* pay ecx penalty for both cases */
@@ -217,10 +217,10 @@ bar:
 
 
 int
-main(int argc, char** argv) 
+main(int argc, char** argv)
 {
     int i, t;
-    
+
     /* now a little more realistic depths that fit in the RSB */
     for (i=0; i<=ITER; i++) {
         t = foo(DEPTH);
@@ -254,6 +254,6 @@ main(int argc, char** argv)
 
     print("foo(%d)=%d\n", DEPTH, t);
 
-    if (argc > 5) 
+    if (argc > 5)
         MessageBeep(0);
 }

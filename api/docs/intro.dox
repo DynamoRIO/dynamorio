@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -39,8 +39,8 @@
 \if vmsafe
 \mainpage VMsafe In-Process API
 \section VMsafe_intro Introduction
-This document describes a component of the VMsafe model that provides control 
-at a process level and explains how to use it.   For the rest of the document 
+This document describes a component of the VMsafe model that provides control
+at a process level and explains how to use it.   For the rest of the document
 this component shall be referred to as the VMsafe In-Process Runtime or VIPER.
 
 VIPER allows a user specified (via a Guest Agent) in-process agent (referred to
@@ -100,7 +100,7 @@ sections:
 - \subpage API_BT
   <br>DynamoRIO's full runtime code manipulation interface.
 
-\ifnot vmsafe 
+\ifnot vmsafe
 - \subpage page_standalone
   <br>DynamoRIO can be used as a standalone library for IA-32/AMD64
   disassembly, decoding, encoding, and general instruction manipulation.
@@ -224,7 +224,7 @@ Other publications describing DynamoRIO include:
   Maintaining Consistency and Bounding Capacity of Software Code Caches</a>.<br>
   International Symposium on Code Generation and Optimization (CGO-05), March 2005. <br>
 
-- Gregory Sullivan, Derek Bruening, Iris Baron, Timothy Garnett, and 
+- Gregory Sullivan, Derek Bruening, Iris Baron, Timothy Garnett, and
   Saman Amarasinghe. <br>
   <a href="http://www.burningcutlery.com/derek/docs/IVME03.pdf">
   Dynamic Native Optimization of Interpreters</a>. <br>
@@ -268,7 +268,7 @@ for DynamoRIO which map to the three API's provided by DynamoRIO
 (see below).  Depending upon the mode chosen the usage model will
 change.
 
-In addition to registering the processes for which control is desired, the 
+In addition to registering the processes for which control is desired, the
 guest agent can also unregister them as needed using dr_unregister_process().
 The guest agent can also send update messages to processes currently
 initialized with DynamoRIO and a client using dr_nudge_process().
@@ -293,7 +293,7 @@ drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 \c dr_inject.h.  On Linux, the tools are named \c drconfig, \c drrun, and \c
 drinject.
 
-\ifnot vmsafe 
+\ifnot vmsafe
 When using DynamoRIO as a third-party disassembly library (see \ref
 page_standalone), no deployment is needed, as DynamoRIO does not control a
 target application when used as a regular library.
@@ -399,8 +399,8 @@ Note that on Windows NT a reboot is required after using -syswide_on or -syswide
 
 DynamoRIO uses the
 <tt>\\HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows NT\\CurrentVersion\\AppInit_DLLs</tt>
-key 
-(for 32-bit on 64-bit Windows (WOW64), 
+key
+(for 32-bit on 64-bit Windows (WOW64),
 <tt>\\HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs</tt>)
 for -syswide_on to inject into new processes without having to directly
 launch them \c drrun.exe or \c drinject.exe.  For injection to work, the
@@ -538,7 +538,7 @@ registration is important.  For a given event, the \em first
 registered callback is called \em last.  This scheme gives precedence
 to the first registered callback since that callback is given the final
 opportunity to modify the instruction stream or influence DynamoRIO's
-operation. 
+operation.
 
 
 \section tool_frontend End-User Tools
@@ -619,7 +619,7 @@ and \p drconfiglib.
 This section gives an overview of how to use DynamoRIO, divided into the
 following sub-sections:
 
-\if vmsafe 
+\if vmsafe
  - \ref dr_api
  - \ref dr_modes
  - \ref sec_events
@@ -934,9 +934,9 @@ In general, these routines match their standard C library counterparts.  However
 warned that some of these may be more limited.  In particular, _vsnprintf
 and _snprintf do not support floating-point values.  DynamoRIO provides
 its own dr_snprintf() that does support floating-point values, but does
-not support printing wide characters.  When printing floating-point values 
+not support printing wide characters.  When printing floating-point values
 be sure to \ref sec_trans_floating_point
-"save the application's floating point state" 
+"save the application's floating point state"
 so as to avoid corrupting it.
 
 ***************************************************************************
@@ -1039,8 +1039,8 @@ With private loading, clients use a separate copy of each library
 from any copy used by the application.
 
 If the private loader is deliberately disabled, for transparency reasons
-(see \ref transparency), clients should be 
-self-contained and should not share libraries with the application.  
+(see \ref transparency), clients should be
+self-contained and should not share libraries with the application.
 Without the private loader, 64-bit clients must take care to try and load
 themselves within reachable range of DynamoRIO's code caches by setting a
 preferred base address, although this may not always be honored by the
@@ -1174,7 +1174,7 @@ on Windows (see \ref sec_alertable).  While most non-graphical
 non-alertable Windows API routines are supported, native threading libraries
 such as \p libpthread.so on Linux are known to cause problems.
 
-Currently we provide a private loader for both Windows and Linux.  
+Currently we provide a private loader for both Windows and Linux.
 Clients must either link statically to all libraries or load them using
 our private loader, which will happen automatically for shared libraries
 loaded in a typical manner.
@@ -1262,7 +1262,7 @@ convenient to develop C++ clients that use the \em new and \em delete
 operators (as long as those operators are implemented using malloc and
 free).  In particular, heap allocation is required to use the C++
 Standard Template Library containers. When developing a C++ client,
-we recommend linking statically to the C++ runtime library if not using 
+we recommend linking statically to the C++ runtime library if not using
 the provided private loader.
 
 On Linux, this is most easily accomplished by specifying the path to the
@@ -1365,16 +1365,16 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    the client may need to reduce the -opt_cleancall level to preserve correct
    execution.
    The clean call will only be optimized if it is a leaf function.
-   Currently, the callee will be inlined only if it is small, has at most 
+   Currently, the callee will be inlined only if it is small, has at most
    one argument, and has no control flow other than for the PIC base.
    Compiling the client with optimizations makes clean call sequences more likely
    to be optimized.
    The optimization results (e.g. whether the inserted clean call is inlined or not,
    and which registers were saved on each context switch) are logged.
    Users can run DynamoRIO debug build with the runtime option
-   "-loglevel 2 -logmask 0x02000000" (the logmask is optional but reduces the 
-   logfile size significantly) and grep for 
-   "CLEANCALL" in the log file to retrieve the information 
+   "-loglevel 2 -logmask 0x02000000" (the logmask is optional but reduces the
+   logfile size significantly) and grep for
+   "CLEANCALL" in the log file to retrieve the information
    about clean call optimization.
    There are four optimization levels.
    By default, the clean call optimization level is 2.
@@ -1393,7 +1393,7 @@ are specified via \c drconfig, \c drrun, or dr_register_process().  See
    Note that dr_insert_mbr_instrumentation() is not supported when -opt_speed
    is specified.
 
- - \b -stack_size \e \<number\>: \anchor op_stack_size 
+ - \b -stack_size \e \<number\>: \anchor op_stack_size
    DynamoRIO's per-thread stack is limited to 56KB by default (this may
    seem small, but this is much larger than its size when no client is
    present).  This parameter can be used to increase the size; however,
@@ -1452,14 +1452,14 @@ Options available only in Code Manipulation mode and Memory Firewall mode
    code cache, at the risk of running out memory due to the smaller space
    of available memory.
 
- - \b -max_bb_instrs: 
+ - \b -max_bb_instrs:
    DynamoRIO stops building a basic block if it hits this application
    instruction count limit before hitting control flow or other block
    termination conditions.  The default value is 1024; lower it if
    extensive client instrumentation is running into code cache size
    limit asserts.
 
- - \b -max_trace_bbs: 
+ - \b -max_trace_bbs:
    DynamoRIO will not build a trace with larger than this number of
    constituent basic block.  The default value is 128; lower it if
    extensive client instrumentation is running into code cache size
@@ -1683,19 +1683,19 @@ networking).  Thus, if a crash occurs in a Windows service under
 DynamoRIO, rebooting in safe mode will allow recovery.
 
  - If the client library doesn't seem to function for a given process, it is
-   likely that the client library wasn't loaded due to errors.  
+   likely that the client library wasn't loaded due to errors.
 
    \par
-   One of the common situations where this happens is when the target 
-   application runs as a different user than the user who created the client 
-   library.  This results in the application process not having the right 
+   One of the common situations where this happens is when the target
+   application runs as a different user than the user who created the client
+   library.  This results in the application process not having the right
    permissions to access the client library.
 
-   \par 
-   Try running the process under the debug mode of DynamoRIO (see 
+   \par
+   Try running the process under the debug mode of DynamoRIO (see
    dr_register_process()), where diagnostic messages are raised on errors like
-   client library permissions.  To see all messages, set the notification 
-   options like -msgbox_mask and -stderr_mask options to 0xf (see \ref 
+   client library permissions.  To see all messages, set the notification
+   options like -msgbox_mask and -stderr_mask options to 0xf (see \ref
    sec_options).  This will alert you to the problem.
 
  - DynamoRIO asserts of the form "<file>:1234" can be suppressed with
@@ -1871,7 +1871,7 @@ never an issue.  This should be fixed in a future release.
 \section sec_standalone_shared DynamoRIO Shared Library Issues
 
 Since the DynamoRIO library on Windows includes or forwards
-implementations of certain C library routines (see 
+implementations of certain C library routines (see
 \ref subsec_forwards "C library utilities"), standalone applications
 linking to both DynamoRIO and the C library may experience linker errors
 when building and floating point problems when running.  To avoid these

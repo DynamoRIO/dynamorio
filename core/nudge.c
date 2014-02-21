@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -77,16 +77,16 @@ nudge_terminate_on_dstack(dcontext_t *dcontext)
  * CAUTION: generic_nudge_target is added to global_rct_ind_targets table.  If this
  * function is renamed or cloned, update rct_known_targets_init accordingly.
  */
-void 
+void
 generic_nudge_target(nudge_arg_t *arg)
 {
     /* Fix for case 5130; volatile forces a 'call' instruction to be generated
-     * rather than 'jmp' during optimization.  FIXME: need a standardized & 
+     * rather than 'jmp' during optimization.  FIXME: need a standardized &
      * better way of stopping core from emulating itself.
      */
     volatile bool nudge_result;
 
-    /* needed to make sure dr has a specific target to lookup and avoid 
+    /* needed to make sure dr has a specific target to lookup and avoid
      * interpreting when taking over new threads; see must_not_be_inlined().
      */
     nudge_result = generic_nudge_handler(arg);
@@ -128,7 +128,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
      *  On Vista we don't use NtCreateThreadEx to create the nudge threads so the kernel
      *  doesn't free the stack.
      * As such we are left with two options: free the app stack here (nudgee free) or
-     * have the nudge thread creator free the app stack (nudger free).  Going with 
+     * have the nudge thread creator free the app stack (nudger free).  Going with
      * nudgee free means we leak exit race nudge stacks whereas if we go with nudger free
      * for external nudges then we'll leak timed out nudge stacks (for internal nudges
      * we pretty much have to do nudgee free).  A nudge_arg_t flag is used to specify
@@ -192,7 +192,7 @@ nudge_thread_cleanup(dcontext_t *dcontext, bool exit_process, uint exit_code)
  * Notes: This function returns a boolean mainly to fix case 5130; it is not
  *        really necessary.
  */
-bool 
+bool
 generic_nudge_handler(nudge_arg_t *arg_dont_use)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -225,7 +225,7 @@ generic_nudge_handler(nudge_arg_t *arg_dont_use)
 
     /* FIXME - would be nice to inform nudge creator if we need to nop the nudge. */
 
-    /* Fix for case 5702.  If a nudge thread comes in during process exit, 
+    /* Fix for case 5702.  If a nudge thread comes in during process exit,
      * don't process it, i.e., nop it. FIXME - this leaks the app stack and nudge arg
      * if the nudge was supposed to free them. */
     if (dynamo_exited)
@@ -282,11 +282,11 @@ void
 handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
 {
     uint nudge_action_mask = arg->nudge_action_mask;
-    
+
     /* Future version checks would go here. */
     ASSERT_CURIOSITY(arg->version == NUDGE_ARG_CURRENT_VERSION);
 
-    /* Nudge shouldn't start with any locks held.  Do this assert after the 
+    /* Nudge shouldn't start with any locks held.  Do this assert after the
      * dynamo_exited check, other wise the locks may be deleted. */
     ASSERT_OWN_NO_LOCKS();
 
@@ -387,9 +387,9 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
          * on (white or black list) & off.  FIXME - the nudge mask should specify this,
          * but doesn't hurt to do it again. */
         synchronize_dynamic_options();
-        if (IS_PROCESS_CONTROL_ON()) 
+        if (IS_PROCESS_CONTROL_ON())
             process_control();
-        
+
         /* If process control is enforced then control won't come back.  If
          * either -detect_mode is on or if there was nothing to enforce, control
          * comes back in which case it is safe to let remaining nudges be
@@ -409,10 +409,10 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
     if (TEST(NUDGE_GENERIC(violation), nudge_action_mask)) {
         nudge_action_mask &= ~NUDGE_GENERIC(violation);
         /* Use nudge mechanism to trigger a security violation at an
-         * arbitrary time. Note - is only useful for testing kill process attack 
+         * arbitrary time. Note - is only useful for testing kill process attack
          * handling as this is not an app thread (we injected it). */
         /* see bug 652 for planned improvements */
-        security_violation(dcontext, dcontext->next_tag, 
+        security_violation(dcontext, dcontext->next_tag,
                            ATTACK_SIM_NUDGE_VIOLATION, OPTION_BLOCK|OPTION_REPORT);
     }
 #endif
@@ -428,7 +428,7 @@ handle_nudge(dcontext_t *dcontext, nudge_arg_t *arg)
             SYSLOG_INTERNAL_WARNING("nudge reset ignored since resets are disabled");
         }
     }
-#ifdef WINDOWS    
+#ifdef WINDOWS
     /* The detach handler is last since in the common case it doesn't return. */
     if (TEST(NUDGE_GENERIC(detach), nudge_action_mask)) {
         dcontext->free_app_stack = false;

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,7 +59,7 @@
 
 #if VERBOSE
 #define pf(fmt, args...) printf(fmt , ## args)
-#else 
+#else
 #define pf(...) /* C99 requires ... to mean at least one argument */
 #endif /* VERBOSE */
 
@@ -86,7 +86,7 @@ int nothing = 0;
 /* Tells whether or not to take over a process.  PR 212034.  We use env vars to
  * decide this; longer term we want to switch to config files.
  *
- * If include list exists then it acts as a white list, i.e., take over 
+ * If include list exists then it acts as a white list, i.e., take over
  * only if pname is on it, not otherwise.  If the list doesn't exist then
  * act normal, i.e., take over.  Ditto but reversed for exclude list as it is a
  * blacklist.  If both lists exist, then white list gets preference.
@@ -99,7 +99,7 @@ take_over(const char *pname)
     int rununder;
     bool app_specific, from_env;
 # ifdef INTERNAL
-    /* HACK just for our benchmark scripts: 
+    /* HACK just for our benchmark scripts:
      * do not take over a process whose executable is named "texec"
      */
     if (strcmp(pname, "texec") == 0) {
@@ -183,7 +183,7 @@ _init(int argc, char **argv, char **envp)
         return 0;
     /* i#46: Get env from loader directly. */
     dynamorio_set_envp(envp);
-    /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so 
+    /* FIXME i#287/PR 546544: now load DYNAMORIO_AUTOINJECT DR .so
      * and only LD_PRELOAD the preload lib itself
      */
     init = dynamorio_app_init();

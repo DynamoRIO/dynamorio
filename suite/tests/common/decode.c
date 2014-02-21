@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -118,7 +118,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 #if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
         print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress, 
+            pExceptionInfo->ExceptionRecord->ExceptionAddress,
             (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
             pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
 #endif
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
     dynamorio_app_init();
     dynamorio_app_start();
 #endif
-  
+
 #ifdef UNIX
     /* our modrm16 tests clobber esp so we need an alternate stack */
     sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
         print("Should not get here\n");
     }
 
-    /* case 6962: far call/jmp tests 
+    /* case 6962: far call/jmp tests
      * Note that DR currently gets the target address wrong for all of these
      * since we skip the segment and only care about the address:
      * not going to fix that anytime soon.
@@ -522,7 +522,7 @@ GLOBAL_LABEL(FUNCNAME:)
          * Ugh, SEH64 fails when going through a register: I don't see why.
          * I don't see any documentation saying I can't do a mov imm into
          * a volatile register.  Not worth my time: just splitting.
-         */ 
+         */
 #ifdef WINDOWS
         PUSH_NONCALLEE_SEH(HEX(deadbeef))
 #else

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -48,7 +48,7 @@
 
 #ifdef PROCESS_CONTROL
 # include "moduledb.h"   /* for process control macros */
-#endif 
+#endif
 
 #ifdef UNIX
 # include <sys/types.h>
@@ -81,7 +81,7 @@ extern void sideline_exit(void);
 #endif
 
 /* use for soft errors that can handle some cleanup: assertions and apichecks
- * performs some cleanup and then calls os_terminate 
+ * performs some cleanup and then calls os_terminate
  */
 static void
 soft_terminate()
@@ -104,7 +104,7 @@ soft_terminate()
 }
 
 #if defined(INTERNAL) || defined(DEBUG)
-/* checks whether an assert statement should be ignored, 
+/* checks whether an assert statement should be ignored,
  * produces a warning if so and returns true,
  * otherwise returns false
  */
@@ -156,7 +156,7 @@ internal_error(const char *file, int line, const char *expr)
          * or 'Bug #4809 @x86/arch.c:145;Ignore message
          * @x86/arch.c:146'
          */
-        snprintf(assert_stmt, BUFFER_SIZE_ELEMENTS(assert_stmt), 
+        snprintf(assert_stmt, BUFFER_SIZE_ELEMENTS(assert_stmt),
                  "%s:%d", file, line);
         NULL_TERMINATE_BUFFER(assert_stmt);
         ASSERT_CURIOSITY((strlen(assert_stmt) + 1) !=
@@ -198,7 +198,7 @@ external_error(const char *file, int line, const char *msg)
         /* this syslog is before any core dump, unlike our other reports, but
          * not worth fixing
          */
-        SYSLOG(SYSLOG_ERROR, EXTERNAL_ERROR, 4, get_application_name(), 
+        SYSLOG(SYSLOG_ERROR, EXTERNAL_ERROR, 4, get_application_name(),
                get_application_pid(), PRODUCT_NAME, msg);
         report_dynamorio_problem(NULL, DUMPCORE_FATAL_USAGE_ERROR, NULL, NULL,
                                  "Usage error: %s (%s, line %d)", msg, file, line);
@@ -210,8 +210,8 @@ external_error(const char *file, int line, const char *msg)
 /* SYNCHRONIZATION */
 
 #ifdef DEADLOCK_AVOIDANCE
-/* Keeps the head of a linked list of all mutexes currently 
-   held by a thread.  We also require a LIFO lock unlock order 
+/* Keeps the head of a linked list of all mutexes currently
+   held by a thread.  We also require a LIFO lock unlock order
    to keep things simpler (and stricter).
 */
 struct _thread_locks_t {
@@ -281,11 +281,11 @@ dump_owned_locks(dcontext_t *dcontext)
     mutex_t *cur_lock;
     uint depth = 0;
     cur_lock = dcontext->thread_owned_locks->last_lock;
-    LOG(THREAD, LOG_THREADS, 1, "Owned locks for thread "TIDFMT" dcontext="PFX"\n", 
+    LOG(THREAD, LOG_THREADS, 1, "Owned locks for thread "TIDFMT" dcontext="PFX"\n",
         dcontext->owning_thread, dcontext);
     while (cur_lock != &outermost_lock) {
         depth++;
-        LOG(THREAD, LOG_THREADS, 1, DUMP_LOCK_INFO_ARGS(depth, cur_lock, 
+        LOG(THREAD, LOG_THREADS, 1, DUMP_LOCK_INFO_ARGS(depth, cur_lock,
                                                         cur_lock->prev_owned_lock));
         ASSERT(cur_lock->owner == dcontext->owning_thread);
         cur_lock = cur_lock->prev_owned_lock;
@@ -321,7 +321,7 @@ thread_owns_two_locks(dcontext_t *dcontext, mutex_t *lock1, mutex_t *lock2)
     if (!INTERNAL_OPTION(deadlock_avoidance))
         return true; /* can't verify since we aren't keeping track of owned locks */
     cur_lock = dcontext->thread_owned_locks->last_lock;
-    return (cur_lock == lock1 && 
+    return (cur_lock == lock1 &&
             cur_lock->prev_owned_lock == lock2 &&
             lock2->prev_owned_lock == &outermost_lock);
 }
@@ -336,7 +336,7 @@ thread_owns_first_or_both_locks_only(dcontext_t *dcontext, mutex_t *lock1, mutex
     if (!INTERNAL_OPTION(deadlock_avoidance))
         return true; /* can't verify since we aren't keeping track of owned locks */
     cur_lock = dcontext->thread_owned_locks->last_lock;
-    return (cur_lock == lock1 && 
+    return (cur_lock == lock1 &&
             (cur_lock->prev_owned_lock == &outermost_lock ||
              (cur_lock->prev_owned_lock == lock2 &&
               lock2->prev_owned_lock == &outermost_lock)));
@@ -375,7 +375,7 @@ dump_process_locks()
         ASSERT(cur_lock->next_process_lock != cur_lock || cur_lock == &innermost_lock);
     } while (cur_lock != &innermost_lock);
     mutex_unlock(&innermost_lock);
-    LOG(GLOBAL, LOG_STATS, 1, "Currently live process locks: %d, acquired %d, contended %d (current only)\n", 
+    LOG(GLOBAL, LOG_STATS, 1, "Currently live process locks: %d, acquired %d, contended %d (current only)\n",
         depth, total_acquired, total_contended);
 }
 
@@ -392,7 +392,7 @@ locks_not_closed()
     static const bool allow_do_threshold_leaks = false;
 
     /* we assume that we would have removed them from the process list in mutex_close */
-    
+
     /* locks assigned with do_threshold_mutex are 'leaked' because it
      * is too much hassle to find a good place to DELETE them -- though we
      * now use a global mutex for DEADLOCK_AVOIDANCE so that's not the case.
@@ -431,7 +431,7 @@ locks_thread_init(dcontext_t *dcontext)
     thread_locks_t *new_thread_locks;
     new_thread_locks = (thread_locks_t *)
         UNPROTECTED_GLOBAL_ALLOC(sizeof(thread_locks_t) HEAPACCT(ACCT_OTHER));
-    LOG(THREAD, LOG_STATS, 2, "thread_locks="PFX" size=%d\n", new_thread_locks, 
+    LOG(THREAD, LOG_STATS, 2, "thread_locks="PFX" size=%d\n", new_thread_locks,
         sizeof(thread_locks_t));
     /* initialize any thread bookkeeping fields before assigning to dcontext */
     new_thread_locks->last_lock = &outermost_lock;
@@ -460,7 +460,7 @@ static void
 add_process_lock(mutex_t *lock)
 {
     /* add to global locks circular double linked list */
-    LOG(THREAD_GET, LOG_THREADS, 5, "add_process_lock" 
+    LOG(THREAD_GET, LOG_THREADS, 5, "add_process_lock"
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     mutex_lock(&innermost_lock);
     if (lock->prev_process_lock != NULL) {
@@ -491,7 +491,7 @@ add_process_lock(mutex_t *lock)
 static void
 remove_process_lock(mutex_t *lock)
 {
-    LOG(THREAD_GET, LOG_THREADS, 3, "remove_process_lock" 
+    LOG(THREAD_GET, LOG_THREADS, 3, "remove_process_lock"
         DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     STATS_ADD(total_acquired, lock->count_times_acquired);
     STATS_ADD(total_contended, lock->count_times_contended);
@@ -541,7 +541,7 @@ mutex_collect_callstack(mutex_t *lock)
         if (skip) {
             skip--;
             continue;
-        }            
+        }
         lock->callstack[depth] = our_ret;
         depth++;
     }
@@ -551,7 +551,7 @@ mutex_collect_callstack(mutex_t *lock)
 enum {LOCK_NOT_OWNABLE, LOCK_OWNABLE};
 
 /* if not acquired only update statistics,
-   if not ownable (i.e. read lock) only check against previous locks, 
+   if not ownable (i.e. read lock) only check against previous locks,
    but don't add to thread owned list
  */
 static void
@@ -560,7 +560,7 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
     if (acquired) {
         lock->count_times_acquired++;
         /* CHECK: everything here works without mutex_trylock's */
-        LOG(GLOBAL, LOG_THREADS, 6, "acquired lock "PFX" %s rank=%d, %s dcontext, tid:%d, %d time\n", 
+        LOG(GLOBAL, LOG_THREADS, 6, "acquired lock "PFX" %s rank=%d, %s dcontext, tid:%d, %d time\n",
             lock, lock->name, lock->rank,
             get_thread_private_dcontext() ? "valid" : "not valid",
             get_thread_id(),
@@ -604,9 +604,9 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                     if (TEST(DUMPCORE_DEADLOCK, DYNAMO_OPTION(dumpcore_mask)))
                         os_dump_core("rank order violation");
                     /* report rank order violation */
-                    SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_CRITICAL, 
+                    SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_CRITICAL,
                                                     "rank order violation %s acquired after %s in tid:%x",
-                                                    lock->name, 
+                                                    lock->name,
                                                     dcontext->thread_owned_locks->last_lock->name, get_thread_id());
                     dump_owned_locks(dcontext);
                 }
@@ -622,7 +622,7 @@ deadlock_avoidance_lock(mutex_t *lock, bool acquired, bool ownable)
                 });
             }
         }
-        if (INTERNAL_OPTION(mutex_callstack) != 0 && 
+        if (INTERNAL_OPTION(mutex_callstack) != 0 &&
             ownable &&
             get_thread_private_dcontext() != NULL) {
 #ifdef MUTEX_CALLSTACK
@@ -649,11 +649,11 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
         os_thread_yield();
     }
 
-    LOG(GLOBAL, LOG_THREADS, 6, "released lock "PFX" %s rank=%d, %s dcontext, tid:%d \n", 
+    LOG(GLOBAL, LOG_THREADS, 6, "released lock "PFX" %s rank=%d, %s dcontext, tid:%d \n",
         lock, lock->name, lock->rank,
         get_thread_private_dcontext() ? "valid" : "not valid",
         get_thread_id());
-    LOG(THREAD_GET, LOG_THREADS, 6, "released lock "PFX" %s rank=%d\n", 
+    LOG(THREAD_GET, LOG_THREADS, 6, "released lock "PFX" %s rank=%d\n",
         lock, lock->name, lock->rank);
     if (!ownable)
         return;
@@ -664,9 +664,9 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
         {
             dcontext_t *dcontext = get_thread_private_dcontext();
             if (dcontext == NULL) {
-#ifdef DEBUG                
+#ifdef DEBUG
                 /* thread_initexit_lock and all_threads_synch_lock
-                 * are unlocked after tearing down thread structures 
+                 * are unlocked after tearing down thread structures
                  */
 # if defined(UNIX) && !defined(HAVE_TLS)
                 extern mutex_t tls_lock;
@@ -696,7 +696,7 @@ deadlock_avoidance_unlock(mutex_t *lock, bool ownable)
     lock->owner = INVALID_THREAD_ID;
     lock->owning_dcontext = NULL;
 }
-#define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) deadlock_avoidance_lock(lock, acquired, ownable) 
+#define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) deadlock_avoidance_lock(lock, acquired, ownable)
 #define DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable) deadlock_avoidance_unlock(lock, ownable)
 #else
 #  define DEADLOCK_AVOIDANCE_LOCK(lock, acquired, ownable) /* do nothing */
@@ -736,7 +736,7 @@ utils_init()
 
     /* allow reproducing PRNG sequence
      * (of course, thread scheduling may still affect requests) */
-    random_seed = (DYNAMO_OPTION(prng_seed) == 0) ? 
+    random_seed = (DYNAMO_OPTION(prng_seed) == 0) ?
         os_random_seed() : DYNAMO_OPTION(prng_seed);
     /* logged only at end, preserved so can be looked up in a dump */
     DODEBUG(initial_random_seed = random_seed;);
@@ -845,8 +845,8 @@ mutex_lock(mutex_t *lock)
     if (INTERNAL_OPTION(spin_yield_mutex)) {
         spinmutex_lock((spin_mutex_t *)lock);
         return;
-    } 
-    
+    }
+
     /* we may want to first spin the lock for a while if we are on a multiprocessor machine */
     /* option is external only so that we can set it to 0 on a uniprocessor */
     if (spinlock_count) {
@@ -905,9 +905,9 @@ mutex_trylock(mutex_t *lock)
     if (INTERNAL_OPTION(spin_yield_mutex)) {
         return spinmutex_trylock((spin_mutex_t *)lock);
     }
-    
+
     /* preserve old value in case not LOCK_FREE_STATE */
-    acquired = atomic_compare_exchange(&lock->lock_requests, 
+    acquired = atomic_compare_exchange(&lock->lock_requests,
                                        LOCK_FREE_STATE, LOCK_SET_STATE);
     /* if old value was free, that means we just obtained lock
        old value may be >=0 when several threads are trying to acquire lock,
@@ -932,11 +932,11 @@ mutex_unlock(mutex_t *lock)
 
     ASSERT(lock->lock_requests > LOCK_FREE_STATE && "lock not owned");
     DEADLOCK_AVOIDANCE_UNLOCK(lock, ownable);
-    
-    if (atomic_dec_and_test(&lock->lock_requests)) 
+
+    if (atomic_dec_and_test(&lock->lock_requests))
         return;
-    /* if we were not the last one to hold the lock, 
-       (i.e. final value is not LOCK_FREE_STATE) 
+    /* if we were not the last one to hold the lock,
+       (i.e. final value is not LOCK_FREE_STATE)
        we need to notify another waiting thread */
     mutex_notify_released_lock(lock);
 }
@@ -950,7 +950,7 @@ mutex_delete(mutex_t *lock)
     LOG(THREAD_GET, LOG_THREADS, 2, "mutex_delete" DUMP_LOCK_INFO_ARGS(0, lock, lock->prev_process_lock));
     remove_process_lock(lock);
     lock->deleted = true;
-#endif    
+#endif
     ASSERT(lock->lock_requests == LOCK_FREE_STATE);
 
     if (ksynch_var_initialized(&lock->contended_event)) {
@@ -968,7 +968,7 @@ mutex_mark_as_app(mutex_t *lock)
 }
 #endif
 
-static inline 
+static inline
 void
 own_recursive_lock(recursive_lock_t *lock)
 {
@@ -984,7 +984,7 @@ void
 acquire_recursive_lock(recursive_lock_t *lock)
 {
     /* we no longer use the pattern of implementing acquire_lock as a
-       busy try_lock 
+       busy try_lock
     */
 
     /* ASSUMPTION: reading owner field is atomic */
@@ -1038,7 +1038,7 @@ self_owns_recursive_lock(recursive_lock_t *lock)
    wrapping mutex_t'es !INTERNAL_OPTION(fast_rwlock).
 */
 
-/* 
+/*
    FIXME: Since we are using multiple words to contain the state,
    we still have to keep looping on contention events.
 
@@ -1066,19 +1066,19 @@ self_owns_recursive_lock(recursive_lock_t *lock)
    continues execution.  There is no fairness to the readers that are
    blocked vs any new readers that will grab the lock immediately, and
    for that matter vs any new writers.
-    
+
    FIXME: Keep in mind that a successful wait on the kernel events in read
    locks should not be used as a guarantee that the current thread can
    proceed with a granted request.  We should rather keep looping to
    verify that we are back on the fast path.
 
    Due to the two reasons above we still have unbound loops in the
-   rwlock primitives. It also lets the Linux implementation just yield.  
+   rwlock primitives. It also lets the Linux implementation just yield.
 */
 
 void read_lock(read_write_lock_t *rw)
 {
-    /* wait for writer here if lock is held 
+    /* wait for writer here if lock is held
      * FIXME: generalize DEADLOCK_AVOIDANCE to both detect
      * order violations and gather contention stats for
      * this mutex-less synch
@@ -1088,7 +1088,7 @@ void read_lock(read_write_lock_t *rw)
             while (mutex_testlock(&rw->lock)) {
                 /* contended read */
                 /* am I the writer?
-                 * ASSUMPTION: reading field is atomic 
+                 * ASSUMPTION: reading field is atomic
                  * For linux get_thread_id() is expensive -- we
                  * should either address that through special handling
                  * of native and new thread cases, or switch this
@@ -1125,7 +1125,7 @@ void read_lock(read_write_lock_t *rw)
         while (mutex_testlock(&rw->lock)) {
             /* contended read */
             /* am I the writer?
-             * ASSUMPTION: reading field is atomic 
+             * ASSUMPTION: reading field is atomic
              * For linux get_thread_id() is expensive -- we
              * should either address that through special handling
              * of native and new thread cases, or switch this
@@ -1144,7 +1144,7 @@ void read_lock(read_write_lock_t *rw)
             DEADLOCK_AVOIDANCE_LOCK(&rw->lock, false, LOCK_NOT_OWNABLE);
 
             ATOMIC_INC(int, rw->num_pending_readers);
-            /* if we get interrupted before we have incremented this counter? 
+            /* if we get interrupted before we have incremented this counter?
                Then no signal will be send our way, so we shouldn't be waiting then
             */
             if (mutex_testlock(&rw->lock)) {
@@ -1159,13 +1159,13 @@ void read_lock(read_write_lock_t *rw)
             /* Even if we didn't wait another reader may be waiting for notification */
             if (!atomic_dec_becomes_zero(&rw->num_pending_readers)) {
                 /* If we were not the last pending reader,
-                   we need to notify another waiting one so that 
+                   we need to notify another waiting one so that
                    it can get out of the contention path.
                 */
                 rwlock_notify_readers(rw);
                 /* Keep in mind that here we don't guarantee that after blocking
                    we have an automatic right to claim the lock.
-                */ 
+                */
             }
         }
         /* fast path */
@@ -1212,8 +1212,8 @@ void write_lock(read_write_lock_t *rw)
     }
 
     mutex_lock(&rw->lock);
-    /* We still do this in a loop, since the event signal doesn't guarantee 
-       that num_readers is 0 when unblocked. 
+    /* We still do this in a loop, since the event signal doesn't guarantee
+       that num_readers is 0 when unblocked.
      */
     while (rw->num_readers > 0) {
         /* contended write */
@@ -1253,7 +1253,7 @@ void read_unlock(read_write_lock_t *rw)
         return;
     }
 
-    /* if we were the last reader to hold the lock, (i.e. final value is 0) 
+    /* if we were the last reader to hold the lock, (i.e. final value is 0)
        we may need to notify a waiting writer */
 
     /* unfortunately even on the hot path (of a single reader) we have
@@ -1266,15 +1266,15 @@ void read_unlock(read_write_lock_t *rw)
             /* test that it was not this thread owning both write and read lock */
             if (rw->writer != get_thread_id()) {
                 /* we're assuming the writer has been forced to wait,
-                   but since we can't tell whether it did indeed wait this 
+                   but since we can't tell whether it did indeed wait this
                    notify may leave signaled the event for the next turn
 
                    If the writer has grabbed the mutex and checked
                    when num_readers==0 and has gone assuming to be the
                    rwlock owner.  In that case the above
                    rwlock_notify_writer will give the wrong signal to
-                   the next writer.  
-                   --ok since writers still have to loop 
+                   the next writer.
+                   --ok since writers still have to loop
                 */
                 rwlock_notify_writer(rw);
             }
@@ -1346,8 +1346,8 @@ destroy_broadcast_event(broadcast_event_t *be)
     global_heap_free(be, sizeof(broadcast_event_t) HEAPACCT(ACCT_OTHER));
 }
 
-/* NOTE : to avoid races a signaler should always do the required action to 
- * make any do_wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the 
+/* NOTE : to avoid races a signaler should always do the required action to
+ * make any do_wait_condition(s) for the WAIT_FOR_BROADCAST_EVENT(s) on the
  * event false BEFORE signaling the event
  */
 void
@@ -1358,20 +1358,20 @@ signal_broadcast_event(broadcast_event_t *be)
         signal_event(be->event);
 }
 
-/* Note : waiting on a broadcast event is done through the 
+/* Note : waiting on a broadcast event is done through the
  * WAIT_FOR_BROADCAST_EVENT macro, don't use the helper functions below
  */
-void 
-intend_wait_broadcast_event_helper(broadcast_event_t *be) 
+void
+intend_wait_broadcast_event_helper(broadcast_event_t *be)
 {
     ATOMIC_INC(int, be->num_waiting);
 }
-void 
+void
 unintend_wait_broadcast_event_helper(broadcast_event_t *be)
 {
     ATOMIC_DEC(int, be->num_waiting);
 }
-void 
+void
 wait_broadcast_event_helper(broadcast_event_t *be)
 {
     wait_for_event(be->event);
@@ -1403,14 +1403,14 @@ hash_value(ptr_uint_t val, hash_function_t func, ptr_uint_t mask, uint bits)
         case HASH_FUNCTION_LOWER_BSWAP:
             {
                 IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-                return (((val & 0xFFFF0000)) | 
-                        ((val & 0x000000FF) << 8) | 
+                return (((val & 0xFFFF0000)) |
+                        ((val & 0x000000FF) << 8) |
                         ((val & 0x0000FF00) >> 8));
             }
         case HASH_FUNCTION_BSWAP_XOR:
             {
                 IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-                return (val ^ (((val & 0x000000FF) << 24)  | 
+                return (val ^ (((val & 0x000000FF) << 24)  |
                                ((val & 0x0000FF00) << 8)   |
                                ((val & 0x00FF0000) >> 8)   |
                                ((val & 0xFF000000) >> 24)));
@@ -1434,7 +1434,7 @@ hash_value(ptr_uint_t val, hash_function_t func, ptr_uint_t mask, uint bits)
                 IF_X64(ASSERT_NOT_IMPLEMENTED(false));
                 return val ^ (val >> 12) ^ (val << 12);
             }
-#endif            
+#endif
         case HASH_FUNCTION_STRING:
         case HASH_FUNCTION_STRING_NOCASE:
             {
@@ -1528,14 +1528,14 @@ bitmap_find_set_block(bitmap_t b, uint bitmap_size)
     uint i = 0;
     uint last_index = BITMAP_INDEX(bitmap_size);
 
-    while (b[i] == 0 && i < last_index) 
+    while (b[i] == 0 && i < last_index)
         i++;
     if (i == last_index)
         return BITMAP_NOT_FOUND;
     return i*BITMAP_DENSITY + bitmap_find_first_set_bit(b[i]);
 }
 
-/* Looks for a sequence of free blocks 
+/* Looks for a sequence of free blocks
  * Returns -1 if no such sequence is found!
 
  * Considering the fact that the majority of our allocations will be
@@ -1549,11 +1549,11 @@ bitmap_find_set_block_sequence(bitmap_t b, uint bitmap_size, uint requested)
     uint first = bitmap_find_set_block(b, bitmap_size);
     if (first == BITMAP_NOT_FOUND)
         return BITMAP_NOT_FOUND;
-    
+
     do {
         /* now check if there is room for the requested number of bits */
         uint hole_size = 1;
-        while (hole_size < requested && 
+        while (hole_size < requested &&
                bitmap_test(b, first + hole_size)) {
             hole_size++;
         }
@@ -1568,7 +1568,7 @@ bitmap_find_set_block_sequence(bitmap_t b, uint bitmap_size, uint requested)
     return BITMAP_NOT_FOUND;
 }
 
-void 
+void
 bitmap_initialize_free(bitmap_t b, uint bitmap_size)
 {
     memset(b, 0xff, BITMAP_INDEX(bitmap_size) * sizeof(bitmap_element_t));
@@ -1641,9 +1641,9 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free)
     for (i=0; i < last_index; i++) {
         current += bitmap_count_set_bits(b[i]);
     }
-    
+
     LOG(GLOBAL, LOG_HEAP, 3, "bitmap_check_consistency(b="PFX", bitmap_size=%d)"
-        " expected=%d current=%d\n", 
+        " expected=%d current=%d\n",
         b, bitmap_size, expect_free, current);
     return expect_free == current;
 }
@@ -1653,7 +1653,7 @@ bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free)
 /* LOGGING */
 
 file_t
-get_thread_private_logfile() 
+get_thread_private_logfile()
 {
 #ifdef DEBUG
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -1670,7 +1670,7 @@ DECLARE_FREQPROT_VAR(static bool do_once_do_file_write, false);
 #endif
 
 /*  FIXME: add buffering? */
-void 
+void
 do_file_write(file_t f, const char *fmt, va_list ap)
 {
     ssize_t size;
@@ -1690,7 +1690,7 @@ do_file_write(file_t f, const char *fmt, va_list ap)
         return;
     size = vsnprintf(logbuf, BUFFER_SIZE_ELEMENTS(logbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(logbuf); /* always NULL terminate */
-    /* note that we can't print %f on windows with NOLIBC (returns error 
+    /* note that we can't print %f on windows with NOLIBC (returns error
      * size == -1), use double_print() or divide_uint64_print() as needed */
     DOCHECK(1, {
         /* we have our own do-once to avoid infinite recursion w/ protect_data_section */
@@ -1713,20 +1713,20 @@ do_file_write(file_t f, const char *fmt, va_list ap)
  * also could be smarter about overflow conditions (i.e. for calculating
  * bottom or top) but we never call with numbers that big, also truncates
  * instead of rounding
- * Usage : given a, b (uint[64]); d_int()==divide_uint64_print(); 
- *         uint c, d tmp; parameterized on precision p and width w 
+ * Usage : given a, b (uint[64]); d_int()==divide_uint64_print();
+ *         uint c, d tmp; parameterized on precision p and width w
  * note that %f is eqv. to %.6f, 3rd ex. is a percentage ex.
  * "%.pf", a/(float)b => d_int(a, b, false, p, &c, &d);  "%u.%.pu", c,d
  * "%w.pf", a/(float)b => d_int(a, b, false, p, &c, &d); "%(w-p-1)u.%.pu", c,d
  * "%.pf%%", 100*(a/(float)b) => d_int(a, b, true, p, &c, &d); "%u.%.pu%%", c,d
  */
 void
-divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage, 
+divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
                     uint precision, uint *top, uint *bottom)
 {
     uint i, precision_multiple, multiple = percentage ? 100 : 1;
 #ifdef HOT_PATCHING_INTERFACE
-    /* case 6657: hotp_only does not have many of the DR stats, so 
+    /* case 6657: hotp_only does not have many of the DR stats, so
      * numerator and/or denominator may be 0 */
     ASSERT(denominator != 0 || DYNAMO_OPTION(hotp_only));
 #else
@@ -1741,7 +1741,7 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
         precision_multiple *= 10;
     ASSERT_TRUNCATE(*bottom, uint, (((precision_multiple * multiple * numerator) / denominator)
                                     - (precision_multiple * *top)));
-    /* FUNNY: if I forget the above ) I crash the preprocessor: cc1 internal compiler error 
+    /* FUNNY: if I forget the above ) I crash the preprocessor: cc1 internal compiler error
      * couldn't reproduce in a smaller set to file a bug against gcc version 3.3.3 (cygwin special)
      */
     *bottom = (uint) (((precision_multiple * multiple * numerator) / denominator)
@@ -1751,7 +1751,7 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
 #if (defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE) || \
      defined(STANDALONE_UNIT_TEST))
 /* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
- * preserve floating point state to call this function!! 
+ * preserve floating point state to call this function!!
  * FIXME : truncates instead of rounding, also negative with width looks funny,
  *         finally width can be one off if negative
  * Usage : given double/float a; uint c, d and char *s tmp; dp==double_print
@@ -1762,7 +1762,7 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
  */
 void
 double_print(double val, uint precision, uint *top, uint *bottom,
-             const char **sign) 
+             const char **sign)
 {
     uint i, precision_multiple;
     ASSERT(top != NULL && bottom != NULL && sign != NULL);
@@ -1801,7 +1801,7 @@ print_symbolic_address(app_pc tag, char *buf, int max_chars, bool exact_only) {
 # endif
 #endif /* DEBUG */
 
-void 
+void
 print_file(file_t f, const char *fmt, ...)
 {
     va_list ap;
@@ -1854,14 +1854,14 @@ print_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT, const char *fmt, .
  * calls that passes the va_list (-> less efficient)?
  * For now I'm assuming this routine changes little.
  */
-void 
+void
 print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 {
     va_list ap;
 
 #ifdef DEBUG
     /* FIXME: now the LOG macro checks these, remove here? */
-    if (logfile == INVALID_FILE || 
+    if (logfile == INVALID_FILE ||
         (stats != NULL &&
          ((stats->logmask & mask) == 0 ||
           stats->loglevel < level)))
@@ -1869,7 +1869,7 @@ print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 #else
     return;
 #endif
-    
+
     KSTART(logging);
     va_start(ap, fmt);
     do_file_write(logfile, fmt, ap);
@@ -1878,7 +1878,7 @@ print_log(file_t logfile, uint mask, uint level, const char *fmt, ...)
 }
 
 #ifdef WINDOWS
-static void 
+static void
 do_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num, ...)
 {
     va_list ap;
@@ -1895,9 +1895,9 @@ do_syslog(syslog_event_type_t priority, uint message_id, uint substitutions_num,
  *   -msgbox_mask controls sending to an interactive pop-up window, or
  *      a wait for a keypress on linux
  */
-void 
-notify(syslog_event_type_t priority, bool internal, bool synch, 
-       IF_WINDOWS_(uint message_id) uint substitution_num, const char *prefix, 
+void
+notify(syslog_event_type_t priority, bool internal, bool synch,
+       IF_WINDOWS_(uint message_id) uint substitution_num, const char *prefix,
        const char *fmt, ...)
 {
     char msgbuf[MAX_LOG_LENGTH];
@@ -1916,7 +1916,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
     LOG(GLOBAL, LOG_ALL, 1, "%s: %s\n", prefix, msgbuf);
     /* so can skip synchronizing when failure is in option parsing to avoid
      * infinite recursion, still could be issue with exception, but separate
-     * recursive bailout will at least kill us then, FIXME, note will use 
+     * recursive bailout will at least kill us then, FIXME, note will use
      * default masks below if original parse */
     if (synch)
         synchronize_dynamic_options(); /* TODO: dynamic THREAD mask */
@@ -1926,7 +1926,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
     if (TEST(priority, dynamo_options.syslog_mask)) {
         if (internal) {
             if (TEST(priority, INTERNAL_OPTION(syslog_internal_mask)))
-                do_syslog(priority, message_id, 3, get_application_name(), 
+                do_syslog(priority, message_id, 3, get_application_name(),
                           get_application_pid(), msgbuf);
         } else {
             va_start(ap, fmt);
@@ -1934,7 +1934,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
             va_end(ap);
         }
     }
-#else 
+#else
     /* syslog not yet implemented on linux, FIXME */
 #endif
 
@@ -1964,7 +1964,7 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * REPORTING DYNAMORIO PROBLEMS
  * Including assertions, curiosity asserts, API usage errors,
  * deadlock timeouts, internal exceptions, and the app modifying our memory.
- * 
+ *
  * The following constants are for the pieces of a buffer we will send
  * to the event log, to diagnostics, and to stderr/msgbox/logfile.
  * It's static to avoid adding 500+ bytes to the stack on a critical
@@ -1975,12 +1975,12 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * passed-in custom string fmt, subsequent are the options and call
  * stack, which are always appended:
  *   Platform exception at PC 0x15003075
- *   0xc0000005 0x00000000 0x15003075 0x15003075 0x00000001 0x00000037 
+ *   0xc0000005 0x00000000 0x15003075 0x15003075 0x00000001 0x00000037
  *   Registers: eax 0x00000000 ebx 0x00000000 ecx 0x177c9040 edx 0x177c9040
  *           esi 0x00000b56 edi 0x0000015f esp 0x177e3eb0 eflags 0x00010246
  *   Base: 0x15000000
  *   internal version, custom build
- *   -loglevel 2 -msgbox_mask 12 -stderr_mask 12 
+ *   -loglevel 2 -msgbox_mask 12 -stderr_mask 12
  *   0x00342ee8 0x150100f2
  *   0x00342f64 0x15010576
  *   0x00342f84 0x1503d77b
@@ -2081,7 +2081,7 @@ under_internal_exception()
  */
 void
 report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
-                         app_pc exception_addr, app_pc report_ebp, 
+                         app_pc exception_addr, app_pc report_ebp,
                          const char *fmt, ...)
 {
     /* WARNING: this routine is called for fatal errors, and
@@ -2128,7 +2128,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     len = snprintf(curbuf, REPORT_LEN_VERSION, "\n%s, %s\n",
                        VERSION_NUMBER_STRING, BUILD_NUMBER_STRING);
     curbuf += (len == -1 ? REPORT_LEN_VERSION : (len < 0 ? 0 : len));
-                
+
     ASSERT_ROOM(reportbuf, curbuf, REPORT_LEN_OPTIONS);
     /* leave room for newline */
     get_dynamo_options_string(&dynamo_options, curbuf, REPORT_LEN_OPTIONS-1, true);
@@ -2191,7 +2191,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
                                    /* skip the prefix since the event log string
                                     * already has it */
                                    reportbuf + REPORT_EXCEPTION_SKIP_PREFIX);
-        } 
+        }
 #ifdef CLIENT_INTERFACE
         else {
             SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 4,
@@ -2202,7 +2202,7 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
 #endif
     } else if (dumpcore_flag == DUMPCORE_ASSERTION) {
         /* We need to report ASSERTS in DEBUG=1 INTENERAL=0 builds since we're still
-         * going to kill the process. Xref PR 232783. internal_error() already 
+         * going to kill the process. Xref PR 232783. internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,
                                get_application_name(), get_application_pid(),
@@ -2239,8 +2239,8 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
     mutex_unlock(&report_buf_lock);
 
     if (dumpcore_flag != DUMPCORE_CURIOSITY) {
-        /* print out stats, can't be done inside the report_buf_lock 
-         * because of non-trivial lock rank order violation on the 
+        /* print out stats, can't be done inside the report_buf_lock
+         * because of non-trivial lock rank order violation on the
          * snapshot_lock */
         DOLOG(1, LOG_ALL, {
             dump_global_stats(false);
@@ -2415,7 +2415,7 @@ is_region_memset_to_char(byte *addr, size_t size, byte val)
     return true;
 }
 
-/* returns pointer to first char of string that matches either c1 or c2 
+/* returns pointer to first char of string that matches either c1 or c2
  * or NULL if can't find */
 char *
 double_strchr(char *string, char c1, char c2)
@@ -2430,7 +2430,7 @@ double_strchr(char *string, char c1, char c2)
 }
 
 #ifndef WINDOWS
-/* returns pointer to last char of string that matches either c1 or c2 
+/* returns pointer to last char of string that matches either c1 or c2
  * or NULL if can't find */
 const char *
 double_strrchr(const char *string, char c1, char c2)
@@ -2450,7 +2450,7 @@ double_strrchr(const char *string, char c1, char c2)
 
 #ifdef WINDOWS
 /* Just like wcslen, but if the string is >= MAX characters long returns MAX
- * whithout interrogating past str+MAX.  NOTE - this matches most library 
+ * whithout interrogating past str+MAX.  NOTE - this matches most library
  * implementations, but does NOT work the same way as the strnlen etc.
  * functions in the hotpatch2 module (they return MAX+1 for strings > MAX).
  * The hotpatch2 module implementation is scheduled to be changed. FIXME -
@@ -2513,7 +2513,7 @@ str_case_prefix(const char *str, const char *pfx)
 }
 
 static bool
-check_filter_common(const char *filter, const char *short_name, bool wildcards) 
+check_filter_common(const char *filter, const char *short_name, bool wildcards)
 {
     const char *next, *prev;
     /* FIXME: can we shrink this?  not using full paths here */
@@ -2546,13 +2546,13 @@ check_filter_common(const char *filter, const char *short_name, bool wildcards)
 }
 
 bool
-check_filter(const char *filter, const char *short_name) 
+check_filter(const char *filter, const char *short_name)
 {
     return check_filter_common(filter, short_name, false/*no wildcards*/);
 }
 
 bool
-check_filter_with_wildcards(const char *filter, const char *short_name) 
+check_filter_with_wildcards(const char *filter, const char *short_name)
 {
     return check_filter_common(filter, short_name, true/*allow wildcards*/);
 }
@@ -2635,7 +2635,7 @@ create_log_dir(int dir_type)
                 basedir_initialized = true;
                 /* skip creating dir basedir if is empty */
                 if (basedir[0] == '\0') {
-                    SYSLOG(SYSLOG_WARNING, 
+                    SYSLOG(SYSLOG_WARNING,
                            WARNING_EMPTY_OR_NONEXISTENT_LOGDIR_KEY, 2,
                            get_application_name(), get_application_pid());
                 } else {
@@ -2659,13 +2659,13 @@ create_log_dir(int dir_type)
                         res = os_create_dir(basedir, CREATE_DIR_ALLOW_EXISTING);
                         /* check for success */
                         if (!res) {
-                            SYSLOG(SYSLOG_ERROR, 
+                            SYSLOG(SYSLOG_ERROR,
                                    ERROR_UNABLE_TO_CREATE_BASEDIR, 3,
-                                   get_application_name(), 
-                                   get_application_pid(), 
+                                   get_application_name(),
+                                   get_application_pid(),
                                    basedir);
-                            /* everything should work out fine, individual log 
-                             * dirs will also fail to open and just won't be 
+                            /* everything should work out fine, individual log
+                             * dirs will also fail to open and just won't be
                              * logged to */
                         }
                     }
@@ -2683,7 +2683,7 @@ create_log_dir(int dir_type)
             /* skip creating if basedir is empty */
             if (*base != '\0') {
                 if (!get_unique_logfile("", logdir, sizeof(logdir), true, NULL)) {
-                    SYSLOG_INTERNAL_WARNING("Unable to create log directory %s", 
+                    SYSLOG_INTERNAL_WARNING("Unable to create log directory %s",
                                             logdir);
                 }
             }
@@ -2691,7 +2691,7 @@ create_log_dir(int dir_type)
 
     SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
     release_recursive_lock(&logdir_mutex);
-    
+
 #ifdef DEBUG
     if (stats != NULL) {
         /* if null, we're trying to report an error (probably via a core dump),
@@ -2708,17 +2708,17 @@ create_log_dir(int dir_type)
 #endif /* DEBUG */
 }
 
-/* Copies the name of the specified directory into buffer, returns true if 
+/* Copies the name of the specified directory into buffer, returns true if
  * the specified buffer has been initialized (if it hasn't then no copying is
  * done).
- * Will not copy more than *buffer_length bytes and does not ensure null 
+ * Will not copy more than *buffer_length bytes and does not ensure null
  * termination.
  * buffer can be NULL
  * buffer_length can be NULL, but only if buffer is NULL
- * on return (if it is not NULL) *buffer_length will hold the length of the 
- * specified directory's name (including the terminating NULL, i.e. the number 
+ * on return (if it is not NULL) *buffer_length will hold the length of the
+ * specified directory's name (including the terminating NULL, i.e. the number
  * of chars written to the buffer assuming the buffer was not NULL and large
- * enough) 
+ * enough)
  */
 bool
 get_log_dir(log_dir_t dir_type, char *buffer, uint *buffer_length)
@@ -2775,9 +2775,9 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
     }
     NULL_TERMINATE_BUFFER(name);
     /* skip if logdir empty */
-    if (name[0] == '\0') 
+    if (name[0] == '\0')
         return INVALID_FILE;
-    snprintf(&name[strlen(name)], BUFFER_SIZE_ELEMENTS(name) - strlen(name), 
+    snprintf(&name[strlen(name)], BUFFER_SIZE_ELEMENTS(name) - strlen(name),
              "%c%s.%d."TIDFMT".html", DIRSEP, basename,
              get_thread_num(get_thread_id()), get_thread_id());
     NULL_TERMINATE_BUFFER(name);
@@ -2789,18 +2789,18 @@ open_log_file(const char *basename, char *finalname_with_path, uint maxlen)
         file = os_open_protected(name, flags|OS_OPEN_REQUIRE_NEW);
     if (file == INVALID_FILE) {
         SYSLOG_INTERNAL_WARNING_ONCE("Cannot create log file %s", name);
-        /* everything should work out fine, log statements will just fail to 
+        /* everything should work out fine, log statements will just fail to
          * write since invalid handle */
     }
     /* full path is often too long, so just print final dir and file name */
 #ifdef UNIX
-    if (!post_execve) 
+    if (!post_execve)
 #endif
         {
             /* Note that we won't receive a message for the global logfile
              * since the caller won't have set it yet.  However, we will get
              * all thread log files logged here. */
-            LOG(GLOBAL, LOG_THREADS, 1, 
+            LOG(GLOBAL, LOG_THREADS, 1,
                 "created log file %d=%s\n", file,
                 double_strrchr(name, DIRSEP, ALT_DIRSEP) + 1);
         }
@@ -2818,11 +2818,11 @@ close_log_file(file_t f)
 }
 
 /* Generalize further as needed
- * Creates a unique file or directory of the form 
+ * Creates a unique file or directory of the form
  * BASEDIR/[app_name].[pid].<unique num of up to 8 digits>[file_type]
  * If the filename_buffer is not NULL, the filename of the obtained file
  * is copied there. For creating a directory the file argument is expected
- * to be null.  Return true if the requested file or directory was created 
+ * to be null.  Return true if the requested file or directory was created
  * and, in the case of a file, returns a handle to file in the file argument.
  */
 bool
@@ -2832,9 +2832,9 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
     char buf[MAXIMUM_PATH];
     uint size = BUFFER_SIZE_ELEMENTS(buf), counter = 0, base_offset;
     bool success = false;
-    ASSERT((open_directory && file == NULL) || 
+    ASSERT((open_directory && file == NULL) ||
            (!open_directory && file != NULL));
-    if (!open_directory) 
+    if (!open_directory)
         *file = INVALID_FILE;
     create_log_dir(BASE_DIR);
     if (get_log_dir(BASE_DIR, buf, &size)) {
@@ -2844,7 +2844,7 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
         buf[base_offset++] = DIRSEP;
         size = BUFFER_SIZE_ELEMENTS(buf) - base_offset;
         do {
-            snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s", 
+            snprintf(&(buf[base_offset]), size, "%s.%s.%.8d%s",
                      get_app_name_for_path(), get_application_pid(),
                      counter, file_type);
             NULL_TERMINATE_BUFFER(buf);
@@ -2854,12 +2854,12 @@ get_unique_logfile(const char *file_type, char *filename_buffer, uint maxlen,
                 *file = os_open(buf, OS_OPEN_REQUIRE_NEW|OS_OPEN_WRITE);
                 success = (*file != INVALID_FILE);
             }
-        } while (!success && counter++ < 99999999 && 
+        } while (!success && counter++ < 99999999 &&
                  os_file_exists(buf, open_directory));
         DOLOG(1, LOG_ALL, {
             if (!success)
                 LOG(GLOBAL, LOG_ALL, 1, "Failed to create unique logfile %s\n", buf);
-            else 
+            else
                 LOG(GLOBAL, LOG_ALL, 1, "Created unique logfile %s\n", buf);
         });
     }
@@ -2955,7 +2955,7 @@ stats_thread_init(dcontext_t *dcontext)
 
     new_thread_stats =
         HEAP_TYPE_ALLOC(dcontext, thread_local_statistics_t, ACCT_STATS, UNPROTECTED);
-    LOG(THREAD, LOG_STATS, 2, "thread_stats="PFX" size=%d\n", new_thread_stats, 
+    LOG(THREAD, LOG_STATS, 2, "thread_stats="PFX" size=%d\n", new_thread_stats,
         sizeof(thread_local_statistics_t));
     /* initialize any thread stats bookkeeping fields before assigning to dcontext */
     memset(new_thread_stats, 0x0, sizeof(thread_local_statistics_t));
@@ -2991,8 +2991,8 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
     /* Each use of THREAD causes cl to make two implicit local variables
      * (without optimizations on) (culprit is the ? : syntax).  Since the
      * number of locals sums over scopes, this leads to stack usage
-     * of ~3kb for this function due to the many LOGs.  
-     * Instead we use THREAD once here and use a local below, cutting stack 
+     * of ~3kb for this function due to the many LOGs.
+     * Instead we use THREAD once here and use a local below, cutting stack
      * usage to 12 bytes, ref bug 2203 */
     file_t logfile = THREAD;
     if (!THREAD_STATS_ON(dcontext))
@@ -3000,7 +3000,7 @@ dump_thread_stats(dcontext_t *dcontext, bool raw)
 
     /* FIXME: for now we'll have code duplication with dump_global_stats()
      * with the only difference being THREAD vs GLOBAL, e.g. LOG(GLOBAL and GLOBAL_STAT
-     * Keep in sync or make a template statistics dump macro for both cases. 
+     * Keep in sync or make a template statistics dump macro for both cases.
      */
     LOG(logfile, LOG_STATS, 1, "(Begin) Thread statistics @%d global, %d thread fragments ",
         GLOBAL_STAT(num_fragments), THREAD_STAT(dcontext, num_fragments));
@@ -3081,7 +3081,7 @@ dump_global_stats(bool raw)
 }
 
 /* prints elapsed time since program startup to the given logfile */
-/* TODO: should also print absolute timestamp 
+/* TODO: should also print absolute timestamp
    TODO: and relative time from thread start */
 void
 print_timestamp(file_t logfile)
@@ -3104,12 +3104,12 @@ print_timestamp(file_t logfile)
 
 #endif /* DEBUG */
 
-static void 
+static void
 dump_buffer_as_ascii(file_t logfile, char *buffer, size_t len)
 {
     size_t i;
     for (i = 0; i < len; i++) {
-        print_file(logfile, "%c", 
+        print_file(logfile, "%c",
                    isprint_fast(buffer[i]) ? buffer[i] : '.');
     }
 }
@@ -3132,9 +3132,9 @@ dump_buffer_as_bytes (file_t logfile, void *buffer, size_t len, int flags)
     int nonprint = 0;
     size_t line_start = 0;
 
-    if (!raw) 
+    if (!raw)
         print_file(logfile, "%s", "\"");
-    
+
     for (i=0; i + (dword ? 4 : 1) <= len; i += (dword ? 4 : 1)) {
         if (i > 0 && 0 == i % per_line) {
             if (append_ascii) {
@@ -3153,12 +3153,12 @@ dump_buffer_as_bytes (file_t logfile, void *buffer, size_t len, int flags)
         if (replayable) {
             if (isdigit_fast(buf[i]) && nonprint) {
                 print_file(logfile, "%s", "\"\""); // to make \01 into \0""1
-            }         
+            }
             if (buf[i] == '"') {
                 print_file(logfile, "%s", "\\\"");
                 continue;
             }
-            if (buf[i] == '\\') 
+            if (buf[i] == '\\')
                 print_file(logfile, "%s", "\\");
         }
 
@@ -3190,7 +3190,7 @@ dump_buffer_as_bytes (file_t logfile, void *buffer, size_t len, int flags)
          * may extend beyond valid len, but we'll print as ASCII any
          * bytes included in valid len even if not printed in hex.
          */
-        for (i = ALIGN_BACKWARD(buf + len, size); 
+        for (i = ALIGN_BACKWARD(buf + len, size);
              i < empty; i += size) {
             if (dword) {
                 print_file(logfile, "%8c ", ' ');
@@ -3242,7 +3242,7 @@ static bool
 is_valid_xml_cdata_string(const char *str)
 {
     /* check for end CDATA tag */
-    /* FIXME - optimization,combine the two walks of the string into a 
+    /* FIXME - optimization,combine the two walks of the string into a
      * single walk.*/
     return (strstr(str, "]]>") == NULL && is_valid_xml_string(str)) ;
 }
@@ -3270,7 +3270,7 @@ is_valid_xml_attribute_string(const char *str)
 /* NOTE - string should not include the <![CDATA[   ]]> markup as one thing
  * this routine checks for is an inadvertant ending sequence ]]> (in which
  * case the first ] will be escaped). We escape using \%03d, note that since
- * we don't escape \ , '\003' and "\003" will be indistinguishable (FIXME), 
+ * we don't escape \ , '\003' and "\003" will be indistinguishable (FIXME),
  * but given that these should really be normal ascii strings we'll live with
  * that. */
 void
@@ -3336,7 +3336,7 @@ size_t
 get_random_offset(size_t max_offset)
 {
     /* These linear congruential constants taken from
-     * http://remus.rutgers.edu/~rhoads/Code/random.c 
+     * http://remus.rutgers.edu/~rhoads/Code/random.c
      * FIXME: Look up Knuth's recommendations in vol. 2
      */
     enum {
@@ -3360,7 +3360,7 @@ get_random_offset(size_t max_offset)
     /* process-shared random sequence */
     mutex_lock(&prng_lock);
     /* FIXME: this is not getting the best randomness
-     * see srand() comments why taking higher order bits is usually better 
+     * see srand() comments why taking higher order bits is usually better
      * j=1+(int) (10.0*rand()/(RAND_MAX+1.0));
      * but I want to do it without floating point
      */
@@ -3368,7 +3368,7 @@ get_random_offset(size_t max_offset)
 
     random_seed = LCM_A*(random_seed % LCM_Q) - LCM_R*(random_seed / LCM_Q);
     mutex_unlock(&prng_lock);
-    LOG(GLOBAL, LOG_ALL, 2, "get_random_offset: value=%d (mod %d), new rs=%d\n", 
+    LOG(GLOBAL, LOG_ALL, 2, "get_random_offset: value=%d (mod %d), new rs=%d\n",
         value, max_offset, random_seed);
     return value;
 }
@@ -3386,9 +3386,9 @@ get_random_seed(void)
 }
 
 /* NOTE - month is zero indexed */
-static const uint days_per_month_normal[12] = 
+static const uint days_per_month_normal[12] =
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-static const uint days_per_month_leap[12] = 
+static const uint days_per_month_leap[12] =
     {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 static bool
@@ -3399,7 +3399,7 @@ year_is_leap_year(uint year)
 
 /* millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
- */ 
+ */
 void
 convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
 {
@@ -3441,11 +3441,11 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
     time %= 365;
     leap_year = year_is_leap_year(year);
     dr_time->year = year;
-    
+
     /* time is now num. of days since the first of the year */
     month = 1;
     while (month <= 12) {
-        uint days_in_month = leap_year ? 
+        uint days_in_month = leap_year ?
             days_per_month_leap[month-1] :
             days_per_month_normal[month-1];
         if (time >= days_in_month) {
@@ -3461,7 +3461,7 @@ convert_millis_to_date(uint64 millis, dr_time_t *dr_time OUT)
 
 /* millis is the number of milliseconds since Jan 1, 1601 (this is
  * the current UTC time).
- */ 
+ */
 void
 convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
 {
@@ -3471,7 +3471,7 @@ convert_date_to_millis(const dr_time_t *dr_time, uint64 *millis OUT)
     /* first get days this year */
     days = dr_time->day - 1 /*1-based*/;
     for (month = 1; month < dr_time->month; month++) {
-        uint days_in_month = leap_year ? 
+        uint days_in_month = leap_year ?
             days_per_month_leap[month-1] :
             days_per_month_normal[month-1];
         days += days_in_month;
@@ -3832,7 +3832,7 @@ MD5Transform(uint32 state[4], const unsigned char block[MD5_BLOCK_LENGTH])
 /*----------------------------------------------------------------------------*/
 
 bool
-module_digests_equal(const module_digest_t *calculated_digest, 
+module_digests_equal(const module_digest_t *calculated_digest,
                      const module_digest_t *matching_digest,
                      bool check_short, bool check_full)
 {
@@ -3871,7 +3871,7 @@ read_entire_file(const char *file, size_t *buf_len /* OUT */ HEAPACCT(which_heap
     fd = os_open((char *)file, OS_OPEN_READ);
     if (fd == INVALID_FILE )
         return NULL;
-   
+
     if (!os_get_file_size(file, &buf_len64)) {
         os_close(fd);
         return NULL;
@@ -3879,7 +3879,7 @@ read_entire_file(const char *file, size_t *buf_len /* OUT */ HEAPACCT(which_heap
     ASSERT_TRUNCATE(*buf_len, uint, buf_len64);
 
     /* Though only 1 byte is needed for the \0 at the end of the buffer,
-     * 4 may be allocated to work around case 8048.  FIXME: remove 
+     * 4 may be allocated to work around case 8048.  FIXME: remove
      * alignment after case is resolved.
      */
     *buf_len = (uint) ALIGN_FORWARD((buf_len64 + 1), 4);
@@ -3947,7 +3947,7 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
  * While this may be ok for fcache mode, it is probably not for hotp_only mode,
  * and definitely not for thin_client mode.  The main use of thin_client today
  * is process_control, which means that MD5 will be computed in thin_client
- * mode. 
+ * mode.
  *
  * The options for this memory issue are to mmap the memory and unmap it after
  * use rather than use the heap or to use a moderate sized buffer and read the
@@ -3965,10 +3965,10 @@ check_low_disk_threshold(file_t f, uint64 new_file_size)
  *
  * FIXME: use nt_map_view_of_section with SEC_MAPPED && !SEC_IMAGE.
  */
-#define MD5_FILE_READ_BUF_SIZE  (4 * PAGE_SIZE) 
+#define MD5_FILE_READ_BUF_SIZE  (4 * PAGE_SIZE)
 
 /* Reads 'file', computes MD5 hash for it, which is returned in hash_buf
- * when successful and true is returned.  On failure false is returned and 
+ * when successful and true is returned.  On failure false is returned and
  * hash_buf contents invalid.
  * Note: Reads in file in 16k chunks to avoid private/committed memory
  * increase.
@@ -3989,7 +3989,7 @@ get_md5_for_file(const char *file, char *hash_buf /* OUT */)
     fd = os_open((char *)file, OS_OPEN_READ);
     if (fd == INVALID_FILE)
         return false;
-    
+
     MD5Init(&md5_cxt);
     file_buf = (char *) heap_alloc(GLOBAL_DCONTEXT, MD5_FILE_READ_BUF_SIZE
                                    HEAPACCT(ACCT_OTHER));
@@ -4010,7 +4010,7 @@ get_md5_for_file(const char *file, char *hash_buf /* OUT */)
 
     heap_free(GLOBAL_DCONTEXT, file_buf, MD5_FILE_READ_BUF_SIZE HEAPACCT(ACCT_OTHER));
     os_close(fd);
-    return true; 
+    return true;
 }
 #endif /* PROCESS_CONTROL */
 
@@ -4018,8 +4018,8 @@ get_md5_for_file(const char *file, char *hash_buf /* OUT */)
 /* Note: this function isn't under PROCESS_CONTROL even though that is what
  *       uses this because md5 for the executable may be needed in future.
  *       Also, this avoids having to define 2 types of process start events.
- *       Further, if we decide to remove process control in future leaving the 
- *       md5 in the start event will prevent needless backward compatibility 
+ *       Further, if we decide to remove process control in future leaving the
+ *       md5 in the start event will prevent needless backward compatibility
  *       problems caused by removing md5 from it.
  */
 const char *
@@ -4042,7 +4042,7 @@ get_application_md5(void)
              * and later we'll use another stack buffer to convert char to wchar to
              * open the file.  That said this is only done once (either at startup or
              * for process_control nudge [app_stack]) so as long as the stack doesn't
-             * overflow it doesn't really matter. */ 
+             * overflow it doesn't really matter. */
             char exe_name[MAXIMUM_PATH];
             snprintf(exe_name, BUFFER_SIZE_ELEMENTS(exe_name), "%ls",
                      get_own_unqualified_name());
@@ -4083,7 +4083,7 @@ get_application_md5(void)
  * constant value.
  */
 void
-get_md5_for_region(const byte *region_start, uint len, 
+get_md5_for_region(const byte *region_start, uint len,
                    unsigned char digest[MD5_RAW_BYTES] /* OUT */)
 {
     struct MD5Context md5_cxt;
@@ -4091,7 +4091,7 @@ get_md5_for_region(const byte *region_start, uint len,
     ASSERT(region_start != NULL);
     ASSERT_CURIOSITY(len != 0);
 
-    if (region_start != NULL && len != 0) 
+    if (region_start != NULL && len != 0)
         MD5Update(&md5_cxt, region_start, len);
     MD5Final(digest, &md5_cxt);
     ASSERT_NOT_TESTED();
@@ -4106,9 +4106,9 @@ md5_digests_equal(const byte digest1[MD5_RAW_BYTES], const byte digest2[MD5_RAW_
 /* calculates intersection of two regions defined as open ended intervals
  * [region1_start, region1_start + region1_len) \intersect
  * [region2_start, region2_start + region2_len)
- * 
+ *
  * intersection_len is set to 0 if the regions do not overlap
- * otherwise returns the intersecting region 
+ * otherwise returns the intersecting region
  * [intersection_start, intersection_start + intersection_len)
  */
 void
@@ -4118,7 +4118,7 @@ region_intersection(app_pc *intersection_start /* OUT */,
                     const app_pc region2_start, size_t region2_len)
 {
     /* intersection */
-    app_pc intersection_end = MIN(region1_start + region1_len, 
+    app_pc intersection_end = MIN(region1_start + region1_len,
                                   region2_start + region2_len);
     ASSERT(intersection_start != NULL);
     ASSERT(intersection_len != NULL);
@@ -4127,7 +4127,7 @@ region_intersection(app_pc *intersection_start /* OUT */,
     /* set length as long as result is a proper intersecting region,
      * max(0, intersection_end - intersection_start) if signed
      */
-    *intersection_len = 
+    *intersection_len =
         (intersection_end > *intersection_start) ?
         (intersection_end - *intersection_start) : 0;
 }
@@ -4326,7 +4326,7 @@ dr_wstrdup(const wchar_t *str HEAPACCT(which_heap_t which))
     int res;
     if (str == NULL)
         return NULL;
-    /* FIXME: should have a max length and truncate? 
+    /* FIXME: should have a max length and truncate?
      * I'm assuming we're using not directly on external inputs.
      * If we do put in a max length, should do the same for dr_strdup.
      */

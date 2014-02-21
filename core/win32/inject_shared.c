@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,8 +35,8 @@
 
 /*
  * inject_shared.c
- * 
- * Facilities shared between the core library, the preinject library 
+ *
+ * Facilities shared between the core library, the preinject library
  * and the drinject executable.
  *
  * getting parameters from registry keys
@@ -75,7 +75,7 @@ extern void display_error(char *msg);
 #  endif
 #  ifdef INTERNAL
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, #x)
-#  else 
+#  else
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
 #  endif /* INTERNAL */
 # elif !defined(NOT_DYNAMORIO_CORE)
@@ -111,7 +111,7 @@ ignore_assert(const char *assert_stmt, const char *expr)
 
 void
 report_dynamorio_problem(dcontext_t *unused_dcontext, uint unused_dumpcore_flag,
-                         app_pc unused_exception_addr, app_pc unused_report_ebp, 
+                         app_pc unused_exception_addr, app_pc unused_report_ebp,
                          const char *unused_fmt, ...)
 {
     /* FIXME: not supporting here - cannot print the message but
@@ -142,7 +142,7 @@ notcore_mutex_unlock(int *thelock)
 }
 
 void
-display_verbose_message(char *format, ...) 
+display_verbose_message(char *format, ...)
 {
     char char_msg_buf[512];
     wchar_t msg_buf[512];
@@ -168,7 +168,7 @@ display_verbose_message(char *format, ...)
             if (!title_set) { /* handle race */
                 title_set_in_progress = true;
                 title_sz = _snwprintf(title_buf, BUFFER_SIZE_ELEMENTS(title_buf),
-                                      L_PRODUCT_NAME L" Notice: %hs(%hs)", 
+                                      L_PRODUCT_NAME L" Notice: %hs(%hs)",
                                       get_application_name(), get_application_pid());
                 NULL_TERMINATE_BUFFER(title_buf);
                 if (title_sz < 0) /* at max count: print all but NULL to stderr */
@@ -193,7 +193,7 @@ display_verbose_message(char *format, ...)
 }
 #endif
 
-/* returns pointer to last char of string that matches either c1 or c2 
+/* returns pointer to last char of string that matches either c1 or c2
  * or NULL if can't find */
 const char *
 double_strrchr(const char *string, char c1, char c2)
@@ -209,7 +209,7 @@ double_strrchr(const char *string, char c1, char c2)
 }
 
 int
-wchar_to_char(char *cdst, size_t buflen, 
+wchar_to_char(char *cdst, size_t buflen,
               PCWSTR wide_src, size_t bytelen)
 {
     int res;
@@ -225,17 +225,17 @@ wchar_to_char(char *cdst, size_t buflen,
     return res;
 }
 
-/* Description: Sets the value data for a value name that belongs to a given 
+/* Description: Sets the value data for a value name that belongs to a given
  *              registry key.
- * Input:       keyname - fully qualified name of the registry key to 
+ * Input:       keyname - fully qualified name of the registry key to
  *                        which valuename belongs to.
  *              valuename - name of the value for which the data is to be set.
  *              value - data that is to be set for valuename.
  * Output:      None.
  * Return value:SET_PARAMETER_SUCCESS if valuename is changed/created.
- *              SET_PARAMETER_FAILURE if keyname is invalid or if valuename 
+ *              SET_PARAMETER_FAILURE if keyname is invalid or if valuename
  *              can't be changed or created.
- * Notes:       If valuename doesn't exist, it will be created with value as 
+ * Notes:       If valuename doesn't exist, it will be created with value as
  *              data.  Implemented as part of case 3702.
  */
 static int
@@ -271,7 +271,7 @@ static int
 get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
                        char *value, /* OUT */
                        int maxlen /* up to MAX_REGISTRY_PARAMETER */,
-                       reg_platform_t whichreg) 
+                       reg_platform_t whichreg)
 {
     int retval = GET_PARAMETER_FAILURE;
     KEY_VALUE_PARTIAL_INFORMATION *kvpi;
@@ -291,7 +291,7 @@ get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
     /* Only for core; injectors shouldn't use this and don't have heap mgt.
      * Even if core is using, can't use this till heap is initialized. */
     if (maxlen > MAX_REGISTRY_PARAMETER && dynamo_heap_initialized) {
-        /* Only process control hashlist reads may read more chars than 
+        /* Only process control hashlist reads may read more chars than
          * MAX_REGISTRY_PARAMETER.  Case 9252.
          */
 #ifdef PROCESS_CONTROL
@@ -310,7 +310,7 @@ get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
 
     kvpi = (KEY_VALUE_PARTIAL_INFORMATION*)buf;
 
-    result = reg_query_value(keyname, 
+    result = reg_query_value(keyname,
                              valuename,
                              KeyValuePartialInformation,
                              kvpi,
@@ -318,12 +318,12 @@ get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
                              whichreg == REGISTRY_64 ? KEY_WOW64_64KEY :
                              (whichreg == REGISTRY_32 ? KEY_WOW64_32KEY :0));
     if (result == REG_QUERY_SUCCESS) {
-        snprintf(value, maxlen - 1, "%*ls", 
+        snprintf(value, maxlen - 1, "%*ls",
                  kvpi->DataLength / sizeof(wchar_t) - 1,
                  (wchar_t*)kvpi->Data);
         value[maxlen - 1] = '\0'; /* make sure it is terminated */
 #if VERBOSE
-        display_verbose_message("got registry value of %hs for value %ls in key %ls", 
+        display_verbose_message("got registry value of %hs for value %ls in key %ls",
                                 value, valuename, keyname);
 #endif VERBOSE
         retval = GET_PARAMETER_SUCCESS;
@@ -343,7 +343,7 @@ get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
 
 #if VERBOSE
     if (IS_GET_PARAMETER_FAILURE(retval)) {
-        display_verbose_message("didn't get registry value %ls in key %ls", 
+        display_verbose_message("didn't get registry value %ls in key %ls",
                                 valuename, keyname);
     }
 #endif /* VERBOSE */
@@ -355,11 +355,11 @@ get_registry_parameter(PCWSTR keyname, PCWSTR valuename,
     return retval;
 }
 
-/* reads remote process PEB.Ldr field 
- * returns 
- *   -1 if can't read remote process, 
+/* reads remote process PEB.Ldr field
+ * returns
+ *   -1 if can't read remote process,
  *    0 if PEB.Ldr is NULL
- *    1 if PEB.Ldr has been initialized 
+ *    1 if PEB.Ldr has been initialized
  */
 int
 get_remote_process_ldr_status(HANDLE process_handle)
@@ -371,7 +371,7 @@ get_remote_process_ldr_status(HANDLE process_handle)
     LPVOID peb_base = get_peb(process_handle);
 
     /* Read process PEB */
-    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base, 
+    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base,
                                  &peb, sizeof(peb), &nbytes);
     if (!res) {
         /* xref case 9800 - the app handle may not always have sufficient rights
@@ -388,16 +388,16 @@ get_remote_process_ldr_status(HANDLE process_handle)
 
 static bool is_windows_version_vista_plus(void); /* forward decl */
 
-/* 
+/*
  * this assumes it will be called on process initialization, when
  *  the PEB apparently uses offsets in the ProcessParameters block
  *  instead of direct pointers.
- * image name and cmdline combined into one call to reduce 
- *  read process memory calls (whether this is actually true depends on 
+ * image name and cmdline combined into one call to reduce
+ *  read process memory calls (whether this is actually true depends on
  *  usage)
  */
-void 
-get_process_imgname_cmdline(HANDLE process_handle, 
+void
+get_process_imgname_cmdline(HANDLE process_handle,
                             wchar_t *image_name, int max_image_wchars,
                             wchar_t *command_line, int max_cmdl_wchars)
 {
@@ -407,33 +407,33 @@ get_process_imgname_cmdline(HANDLE process_handle,
     PEB peb;
     LPVOID peb_base = get_peb(process_handle);
     RTL_USER_PROCESS_PARAMETERS process_parameters;
-    void *param_location; 
+    void *param_location;
     /* It is supposed to be at process_parameters.ImagePathName.Buffer */
 
     /* Read process PEB */
-    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base, 
+    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base,
                                  &peb, sizeof(peb), &nbytes);
     /* FIXME: is this always possible?
        although we assume we can even do WriteProcessMemory for an explicit inject */
     if (!res) {
         display_error("Warning: could not read process memory!");
-        if (image_name) 
+        if (image_name)
             image_name[0] = L'\0';
-        if (command_line) 
+        if (command_line)
             command_line[0] = L'\0';
         return;
     }
 
     /* Follow on to process parameters */
     res = nt_read_virtual_memory(process_handle, (LPVOID)peb.ProcessParameters,
-                                 &process_parameters, 
+                                 &process_parameters,
                                  sizeof(process_parameters), &nbytes);
-    
 
-    /* apparently {ImagePathName,CommandLine}.Buffer contains the offset 
+
+    /* apparently {ImagePathName,CommandLine}.Buffer contains the offset
      * from the beginning of the ProcessParameters structure during
      * process init on os versions prior to Vista */
-    
+
     if (image_name) {
         if (is_windows_version_vista_plus()) {
             param_location = process_parameters.ImagePathName.Buffer;
@@ -461,14 +461,14 @@ get_process_imgname_cmdline(HANDLE process_handle,
         if (is_windows_version_vista_plus()) {
             param_location = process_parameters.CommandLine.Buffer;
         } else {
-            param_location = (void*)((ptr_uint_t)process_parameters.CommandLine.Buffer 
+            param_location = (void*)((ptr_uint_t)process_parameters.CommandLine.Buffer
                                      + (ptr_uint_t)peb.ProcessParameters);
         }
-        
+
         len = process_parameters.CommandLine.Length;
         if (len >  2*(max_cmdl_wchars - 1))
             len = 2*(max_cmdl_wchars - 1);
-        
+
         /* Read the image file name in our memory too */
         res = nt_read_virtual_memory(process_handle, (LPVOID)param_location,
                                      command_line, len, &nbytes);
@@ -487,7 +487,7 @@ int
 get_rununder_value(const char *runvalue)
 {
     /* For now we allow only decimal, but with more flags it will be easier to work on hex.
-       FIXME: share the logic in parse_uint() from after options.c -r 1.4 
+       FIXME: share the logic in parse_uint() from after options.c -r 1.4
        to allow both hex and decimal values
     */
     return atoi(runvalue);
@@ -497,7 +497,7 @@ get_rununder_value(const char *runvalue)
 
 /* need some definitions for get_commandline_qualifier below */
 #  include <windows.h>
-#  include <globals_shared.h> 
+#  include <globals_shared.h>
 
 #define DIRSEP '\\'
 #define ALT_DIRSEP '/'
@@ -523,7 +523,7 @@ const wchar_t*
 w_get_short_name(const wchar_t *exename)
 {
     const wchar_t *exe;
-    exe = double_wcsrchr(exename, L_EXPAND_LEVEL(DIRSEP), 
+    exe = double_wcsrchr(exename, L_EXPAND_LEVEL(DIRSEP),
                          L_EXPAND_LEVEL(ALT_DIRSEP));
     if (exe == NULL)
         exe = exename;
@@ -532,10 +532,10 @@ w_get_short_name(const wchar_t *exename)
     return exe;
 }
 
-/* 
+/*
    We derive an application specific name to differentiate instances
    based on the canonicalized commandline of the process.
-   Originally we did that only for svchost, but now it is for anything 
+   Originally we did that only for svchost, but now it is for anything
      marked with RUNUNDER_COMMANDLINE_DISPATCH.
    The current scheme asks for adding all alphanumeric characters from
    the original commandline after skipping the executable name itself.
@@ -548,8 +548,8 @@ w_get_short_name(const wchar_t *exename)
    max_derived_length is in number of elements, so most callers should
    simply use BUFFER_SIZE_ELEMENTS on the buffer passed as derived_name
 
-    Returns 1 if group command line qualifier present 
-      (normally should be 1 if called for matching executables, 
+    Returns 1 if group command line qualifier present
+      (normally should be 1 if called for matching executables,
       but on an empty commandline we do return 0)
 */
 bool
@@ -576,12 +576,12 @@ get_commandline_qualifier(const wchar_t *command_line,
         *derived_name = L'\0';
         return 0;
     }
-    
+
     do {
         /* Skip any leading delimiters before each argument, e.g. "svchost.exe   -k          netsvcs" */
         while (*cmdptr && !iswalnum(*cmdptr))
             cmdptr++;
-        if (!*cmdptr) 
+        if (!*cmdptr)
             break;
 
         /* Skip sequence of alphanums unless no_strip */
@@ -589,16 +589,16 @@ get_commandline_qualifier(const wchar_t *command_line,
             while (*cmdptr && iswalnum(*cmdptr))
                 cmdptr++;
             no_strip = true;
-            if (!*cmdptr) 
+            if (!*cmdptr)
                 break;
         }
 
         /* copy out all valid characters */
         while (*cmdptr && iswalnum(*cmdptr)) {
-            if (derived_ptr == derived_end) 
+            if (derived_ptr == derived_end)
                 goto out;
             *derived_ptr++ = *cmdptr++;
-        }        
+        }
 
         /* We do not add any normalized delimiters, e.g. "/t /e /st" is the same as "/test",
            since currently there is no need to be that punctual. */
@@ -616,7 +616,7 @@ get_commandline_qualifier(const wchar_t *command_line,
 
 /* types for get_process_qualified_name results */
 typedef enum {
-    QUALIFIED_FULL_NAME, 
+    QUALIFIED_FULL_NAME,
     QUALIFIED_SHORT_NAME,
     UNQUALIFIED_FULL_NAME,
     UNQUALIFIED_SHORT_NAME,
@@ -672,7 +672,7 @@ commandline_qualifier_needed(const wchar_t *process_short_name,
 }
 
 /* Returns the executable image path appended with the command line qualifier (if
- * requested in name_type) into the user provided buffer.  If short is requested in 
+ * requested in name_type) into the user provided buffer.  If short is requested in
  * name_type only the executable name portion is added, otherwise the full path is used.
  *
  * max_exename_length is in number of elements, so most callers should
@@ -712,7 +712,7 @@ get_process_qualified_name(HANDLE process_handle,
         /* get foreign process subkey */
         /* to avoid another buffer and save stack space, we do this in stages */
         /* just get image name first */
-        get_process_imgname_cmdline(process_handle, other_process_img_or_cmd /* image name */, 
+        get_process_imgname_cmdline(process_handle, other_process_img_or_cmd /* image name */,
                                     BUFFER_SIZE_ELEMENTS(other_process_img_or_cmd),
                                     NULL, 0);
         full_name = other_process_img_or_cmd;
@@ -720,7 +720,7 @@ get_process_qualified_name(HANDLE process_handle,
 
     /* CHECK: can we safely assume that all UNICODE_STRINGs we read do have a final 0? */
     short_name = w_get_short_name(full_name);
-    wcsncpy(w_exename, (NAME_TYPE_IS_SHORT(name_type)) ? short_name : full_name, 
+    wcsncpy(w_exename, (NAME_TYPE_IS_SHORT(name_type)) ? short_name : full_name,
             max_exename_length);
     w_exename[max_exename_length - 1] = 0;          /* always NULL terminate */
 
@@ -746,8 +746,8 @@ get_process_qualified_name(HANDLE process_handle,
                                       own_peb->ProcessParameters->CommandLine.Buffer);
         } else {
             /* get only command line from other process */
-            get_process_imgname_cmdline(process_handle, NULL, 0, 
-                                        other_process_img_or_cmd, 
+            get_process_imgname_cmdline(process_handle, NULL, 0,
+                                        other_process_img_or_cmd,
                                         BUFFER_SIZE_ELEMENTS(other_process_img_or_cmd));
             process_commandline = other_process_img_or_cmd;
         }
@@ -761,7 +761,7 @@ get_process_qualified_name(HANDLE process_handle,
         /* append "qualifier" which already has a '-' and may in fact be only '-' if
          * no qualifier was found (we still want the '-' to separate out the registry
          * entries xref 9119) */
-        wcsncat(w_exename, cmdline_qualifier, 
+        wcsncat(w_exename, cmdline_qualifier,
                 max_exename_length - wcslen(w_exename) - 1);
     }
     w_exename[max_exename_length - 1] = 0;          /* always NULL terminate */
@@ -811,7 +811,7 @@ get_own_short_qualified_name()
     static wchar_t short_qualified_name[MAXIMUM_PATH];
 
     if (!short_qualified_name[0]) {
-        get_process_qualified_name(NULL, short_qualified_name, 
+        get_process_qualified_name(NULL, short_qualified_name,
                                    BUFFER_SIZE_ELEMENTS(short_qualified_name),
                                    QUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
         ASSERT(short_qualified_name[0]);
@@ -826,7 +826,7 @@ get_own_short_unqualified_name()
     static wchar_t short_unqualified_name[MAXIMUM_PATH];
 
     if (!short_unqualified_name[0]) {
-        get_process_qualified_name(NULL, short_unqualified_name, 
+        get_process_qualified_name(NULL, short_unqualified_name,
                                    BUFFER_SIZE_ELEMENTS(short_unqualified_name),
                                    UNQUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
         ASSERT(short_unqualified_name[0]);
@@ -841,7 +841,7 @@ get_own_short_unqualified_name()
  */
 
 static int
-get_subkey_parameter(HANDLE process_handle, const wchar_t *uname, 
+get_subkey_parameter(HANDLE process_handle, const wchar_t *uname,
                      char *value, int maxlen, bool use_qualified,
                      reg_platform_t whichreg)
 {
@@ -851,16 +851,16 @@ get_subkey_parameter(HANDLE process_handle, const wchar_t *uname,
     ASSERT(wcslen(app_specific_base) < BUFFER_SIZE_ELEMENTS(app_specific_base));
 
     if (process_handle == NULL) {
-        wcsncat(app_specific_base, 
+        wcsncat(app_specific_base,
                 use_qualified ?
                 get_own_short_qualified_name() : get_own_short_unqualified_name(),
                 BUFFER_ROOM_LEFT_W(app_specific_base));
     } else {
-        /* instead of using another buffer for the temporary, 
+        /* instead of using another buffer for the temporary,
            we just append to the current one */
-        get_process_qualified_name(process_handle, 
+        get_process_qualified_name(process_handle,
                                    app_specific_base + wcslen(app_specific_base),
-                                   BUFFER_ROOM_LEFT_W(app_specific_base), 
+                                   BUFFER_ROOM_LEFT_W(app_specific_base),
                                    use_qualified ?
                                    QUALIFIED_SHORT_NAME : UNQUALIFIED_SHORT_NAME,
                                    whichreg);
@@ -887,24 +887,24 @@ get_subkey_parameter(HANDLE process_handle, const wchar_t *uname,
 /* value is a buffer allocated by the caller to hold the
  * resulting value. If not successful leaves original buffer contents intact.
  *
- * The same parameter is looked up first in the application specific registry 
- * subtree and then in the global registry tree.  We no longer look for 
+ * The same parameter is looked up first in the application specific registry
+ * subtree and then in the global registry tree.  We no longer look for
  * environment variables.
  */
 static int
-get_process_parameter_internal(HANDLE phandle, const wchar_t *name, 
+get_process_parameter_internal(HANDLE phandle, const wchar_t *name,
                                char *value, int maxlen, bool use_qualified,
                                reg_platform_t whichreg)
 {
     int err, err2;
-    
+
 #if VERBOSE
     display_verbose_message("get_parameter:%ls", name);
 #endif VERBOSE
-    
+
     /* first check app specific options */
     err = get_subkey_parameter(phandle, name, value, maxlen, use_qualified, whichreg);
-    
+
     if (err != GET_PARAMETER_SUCCESS) {
         err2 = get_registry_parameter(DYNAMORIO_REGISTRY_BASE, name,
                                       value, maxlen, whichreg);
@@ -915,7 +915,7 @@ get_process_parameter_internal(HANDLE phandle, const wchar_t *name,
             if (err != GET_PARAMETER_NOAPPSPECIFIC)
                 err = GET_PARAMETER_SUCCESS;
         }
-        else if (err == GET_PARAMETER_BUF_TOO_SMALL || 
+        else if (err == GET_PARAMETER_BUF_TOO_SMALL ||
                  err2 == GET_PARAMETER_BUF_TOO_SMALL) {
             /* On error, buffer too small takes precedence. */
             err = GET_PARAMETER_BUF_TOO_SMALL;
@@ -975,7 +975,7 @@ get_unqualified_parameter(const wchar_t *name, char *value, int maxlen)
                                           REGISTRY_DEFAULT);
 }
 
-/* Description: Modifies the value name corresponding to a DR parameter.  This 
+/* Description: Modifies the value name corresponding to a DR parameter.  This
  *              value name should belong to the registry key associated with the
  *              executable for the given process under DYNAMORIO_REGISTRY_BASE.
  * Input:       phandle - handle for the process whose registry value is to be
@@ -985,8 +985,8 @@ get_unqualified_parameter(const wchar_t *name, char *value, int maxlen)
  * Output:      None.
  * Return value:SET_PARAMETER_SUCCESS if name is changed.
  *              SET_PARAMETER_FAILURE if not.
- * Notes:       If called with an incorrect parameter name, a value with that 
- *              parameter name will be created in the registry for the current 
+ * Notes:       If called with an incorrect parameter name, a value with that
+ *              parameter name will be created in the registry for the current
  *              executable name under DYNAMORIO_REGISTRY_BASE.  Implemented as
  *              part of case 3702.
  */
@@ -995,8 +995,8 @@ set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value)
 {
     wchar_t app_specific_base[MAXIMUM_PATH] = DYNAMORIO_REGISTRY_BASE L"\\";
 
-    /* Even though DYNAMORIO_REGISTRY_BASE is a constant, we need to null 
-     * terminate because windows compiler doesn't complain or null terminate 
+    /* Even though DYNAMORIO_REGISTRY_BASE is a constant, we need to null
+     * terminate because windows compiler doesn't complain or null terminate
      * the array if the constant is longer than the array size!
      */
     NULL_TERMINATE_BUFFER(app_specific_base);
@@ -1008,11 +1008,11 @@ set_process_parameter(HANDLE phandle, const wchar_t *name, const char *value)
         wcsncat(app_specific_base, get_own_short_qualified_name(),
                 BUFFER_ROOM_LEFT_W(app_specific_base));
     } else {
-        /* instead of using another buffer for the temporary, 
+        /* instead of using another buffer for the temporary,
            we just append to the current one */
-        get_process_qualified_name(phandle, 
+        get_process_qualified_name(phandle,
                                    app_specific_base + wcslen(app_specific_base),
-                                   BUFFER_ROOM_LEFT_W(app_specific_base), 
+                                   BUFFER_ROOM_LEFT_W(app_specific_base),
                                    QUALIFIED_SHORT_NAME,
                                    false/*no cross-arch set needed yet*/);
     }
@@ -1049,7 +1049,7 @@ get_process_parameter_ex(HANDLE phandle, const char *name, char *value, int maxl
 #  endif
     } else
         pid = process_id_from_handle(phandle);
-    get_process_qualified_name(phandle, short_unqual_name, 
+    get_process_qualified_name(phandle, short_unqual_name,
                                BUFFER_SIZE_ELEMENTS(short_unqual_name),
                                UNQUALIFIED_SHORT_NAME, REGISTRY_DEFAULT);
     NULL_TERMINATE_BUFFER(short_unqual_name);
@@ -1114,7 +1114,7 @@ is_nt_or_custom_safe_mode()
                                         REGISTRY_DEFAULT);
         if (IS_GET_PARAMETER_SUCCESS(retval))
             safemarker = safemarker_override_buf;
-        
+
         /* note that match is case sensitive, yet ntldr always
          * converts the boot.ini options in all CAPS, so the value in
          * DYNAMORIO_SAFEMARKER should always be all CAPS as well
@@ -1151,11 +1151,11 @@ is_windows_version_vista_plus()
 
 /* verify safe mode registry key on Win2000+ */
 bool
-is_safe_mode() 
+is_safe_mode()
 {
     char buf[sizeof(KEY_VALUE_PARTIAL_INFORMATION)+ sizeof(uint)];
     KEY_VALUE_PARTIAL_INFORMATION* kvpi = (KEY_VALUE_PARTIAL_INFORMATION*)buf;
-    
+
     enum {
         MINIMAL = 1,
         NETWORK = 2,
@@ -1198,7 +1198,7 @@ systemwide_inject_enabled()
 {
     /* FIXME: is it better to memoize the result for multiple uses in os.c? */
     /* There is always going to be a TOCTOU race condition anyways. */
-    char appinit[MAXIMUM_PATH]; 
+    char appinit[MAXIMUM_PATH];
     int retval;
 
     retval = get_registry_parameter(INJECT_ALL_HIVE_L INJECT_ALL_KEY_L,
@@ -1246,7 +1246,7 @@ check_commandline_match(HANDLE process)
          * stack space */
         char *cmdline_to_match = (char *)w_process_cmdline;
         /* we expect an app-specific parameter only */
-        if ((GET_PARAMETER_SUCCESS == 
+        if ((GET_PARAMETER_SUCCESS ==
              get_subkey_parameter(process, L_DYNAMORIO_VAR_CMDLINE,
                                   cmdline_to_match, MAX_PATH, true, REGISTRY_DEFAULT)) &&
             NULL != strstr(process_cmdline, cmdline_to_match))
@@ -1305,14 +1305,14 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
     if (IS_GET_PARAMETER_FAILURE(err))
         return INJECT_FALSE;
 #endif
-    
+
     rununder_mask = get_rununder_value(runvalue);
     if (NULL != mask)
         if (IS_GET_PARAMETER_SUCCESS(err))
             *mask = rununder_mask;
         else
             *mask = 0;
-    
+
     /* if there is no app-specific subkey, then we should compare
        against runall */
     if (err == GET_PARAMETER_NOAPPSPECIFIC) {
@@ -1335,12 +1335,12 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
 
 #ifdef PARAMS_IN_REGISTRY /* config files don't support cmdline match */
             if (rununder_mask & RUNUNDER_COMMANDLINE_MATCH) {
-                
-                /* if the commandline matches, return INJECT_TRUE 
+
+                /* if the commandline matches, return INJECT_TRUE
                  * if the commandline doesn't match and runall is on,
                  *  return INJECT_TRUE
                  * else return INJECT_FALSE */
-                
+
                 if (check_commandline_match(process)) {
                     inject_mask |= INJECT_TRUE;
                 } else {
@@ -1354,9 +1354,9 @@ systemwide_should_inject_common(HANDLE process, int *mask, reg_platform_t whichr
                             inject_mask |= INJECT_TRUE;
                     }
                 }
-                
+
                 return inject_mask;
-                
+
             } else /* just normal injection */
 #endif
                 return (inject_mask | INJECT_TRUE);
@@ -1384,18 +1384,18 @@ systemwide_should_preinject(HANDLE process, int *mask)
     return systemwide_should_inject_common(process, mask, REGISTRY_DEFAULT, false);
 }
 
-/* Description: If RUNUNDER_ONCE flag exists in the given mask, the RUNUNDER_ON 
- *              flag for the registry value DYNAMORIO_RUNUNDER is cleared for 
+/* Description: If RUNUNDER_ONCE flag exists in the given mask, the RUNUNDER_ON
+ *              flag for the registry value DYNAMORIO_RUNUNDER is cleared for
  *              the given process, so that the application won't start under
  *              DR during the next invocation.
- * Input:       process - handle of the process whose registry value should be 
+ * Input:       process - handle of the process whose registry value should be
  *                        modified.
  *              rununder_mask - contains the process' DYNAMORIO_RUNUNDER mask.
  * Output:      None.
  * Return value:None.
  * Notes:       See case 3702.
  */
-void 
+void
 check_for_run_once(HANDLE process, int rununder_mask)
 {
 #ifdef PARAMS_IN_REGISTRY
@@ -1409,18 +1409,18 @@ check_for_run_once(HANDLE process, int rununder_mask)
         NULL_TERMINATE_BUFFER(mask_string);
         ASSERT(size >= 0 && size < BUFFER_SIZE_ELEMENTS(mask_string) - 1);
 
-        /* All registry keys set up by our product are writable only by 
+        /* All registry keys set up by our product are writable only by
          * SYSTEM and Admin users.  If another user runs an executable with
-         * RUNUNDER_ONCE, the core won't turn of RUNUNDER_ON because registry 
+         * RUNUNDER_ONCE, the core won't turn of RUNUNDER_ON because registry
          * write will fail.  This is an EV limitation: RUNUNDER_ONCE won't work
          * for non privileged processes.  Will be fixed in 2.5.  See case 4249.
          */
         if (set_process_parameter(process, L_DYNAMORIO_VAR_RUNUNDER,
                                   mask_string) !=
             SET_PARAMETER_SUCCESS) {
-            /* FIXME: Till 2.5 ASSERT_NOT_REACHED/display_error should actually 
-             * be ASSERT_CURIOSITY.  Defining ASSERT_CURIOSITY for core, 
-             * drinject.exe and drpreinject.dll is an ugly redefinition hack; 
+            /* FIXME: Till 2.5 ASSERT_NOT_REACHED/display_error should actually
+             * be ASSERT_CURIOSITY.  Defining ASSERT_CURIOSITY for core,
+             * drinject.exe and drpreinject.dll is an ugly redefinition hack;
              * better not do it just for case 4249.
              */
             display_error("Can't enforce RUNUNDER_ONCE.");
@@ -1440,7 +1440,7 @@ int
 test(char *name, char *filter, int expected)
 {
     int res = check_filter(name, filter);
-    printf("check_filter(\"%s\", \"%s\") = %s\n", 
+    printf("check_filter(\"%s\", \"%s\") = %s\n",
            name, filter, res ? "true" : "false");
     if (res != expected)
         printf("FAILURE!\n");
@@ -1460,7 +1460,7 @@ nametest(const char *commandline,
 
     ret = get_commandline_qualifier(wcommandline,
                                     derived, BUFFER_SIZE_ELEMENTS(derived), true);
-    printf("get_commandline_qualifier(\"%s\") => \"%ls\" [%d]\n", 
+    printf("get_commandline_qualifier(\"%s\") => \"%ls\" [%d]\n",
            commandline, derived, ret);
 
     if (wcscmp(derived, expect))
@@ -1469,7 +1469,7 @@ nametest(const char *commandline,
     ret = get_commandline_qualifier(wcommandline,
                                     derived, BUFFER_SIZE_ELEMENTS(derived),
                                     REGISTRY_DEFAULT);
-    printf("get_commandline_qualifier(\"%s\") => \"%ls\" [%d]\n", 
+    printf("get_commandline_qualifier(\"%s\") => \"%ls\" [%d]\n",
            commandline, derived, ret);
 }
 
@@ -1494,7 +1494,7 @@ main()
 
     /* short name lots of spaces */
     nametest("svchost.exe   -k    netsvc    ", "");
-    
+
     /* a real example: in fact the service executable name for RpcSs doesn't have a .exe in it */
     nametest("system32\svchost -k rpcss    ", "");
 

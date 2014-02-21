@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -55,7 +55,7 @@ configurable and should be suitable for most applications.  Some
 applications or modules may use code constructs that violate these
 policies and in these cases a client can be used to exempt these
 violations.  The client is also given control over the remediation
-taken when a violation occurs.  Most standard windows services 
+taken when a violation occurs.  Most standard windows services
 (other than winlogon.exe: see \ref limits_winlogon "Limitations") and
 applications shouldn't receive violations in
 and of themselves. However, poorly written 3rd party plugins (such as
@@ -83,14 +83,14 @@ remediation actions taken :
 
 \code
 void security_violation(void *drcontext, void *source_tag,
-                        app_pc source_pc, app_pc target_pc, 
+                        app_pc source_pc, app_pc target_pc,
                         dr_security_violation_type_t violation,
                         dr_mcontext_t *mcontext,
                         dr_security_violation_action_t *action);
-\endcode 
+\endcode
 
  - \c drcontext is a pointer to the input program's binary translation
-   context. It is critical for correct program execution that the 
+   context. It is critical for correct program execution that the
    input program's context remains intact. Thus, the user is not expected
    to inspect or modify the context and it is passed as an opaque pointer
    (i.e., <tt>void *</tt>).
@@ -119,7 +119,7 @@ void security_violation(void *drcontext, void *source_tag,
    dr_security_violation_action_t enum in dr_events.h and include such
    actions as continuing as if no violation occurred, throwing an
    exception at the target, etc.  See the enum for a fuller
-   description of possible remediations. 
+   description of possible remediations.
 
 ***************************************************************************
 \htmlonly

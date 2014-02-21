@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -55,7 +55,7 @@ typedef struct _IO_COUNTERS {
 typedef IO_COUNTERS *PIO_COUNTERS;
 
 /* FIXME: this is really screwed up: they have added a field in the
- * object and 
+ * object and
  * LastErrorValue: (Win32) 0x18 (24) - The program issued a command but the command length is incorrect.
  */
 typedef struct _NEW_JOBOBJECT_BASIC_LIMIT_INFORMATION {
@@ -83,7 +83,7 @@ typedef struct _JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
 
 #endif
 
-void 
+void
 StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
                             SIZE_T pagefile_limit)
 {
@@ -138,7 +138,7 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
     jobext.ProcessMemoryLimit = pagefile_limit;
     jobext.BasicLimitInformation.LimitFlags = 0x00000100 /* JOB_OBJECT_LIMIT_PROCESS_MEMORY */;
 
-    ok = SetInformationJobObject(hjob, 
+    ok = SetInformationJobObject(hjob,
                                  9 /* FIXME: JobObjectExtendedLimitInformation */,
                                  &jobext, sizeof(jobext));
     if (!ok) {
@@ -147,14 +147,14 @@ StartRestrictedProcess(LPTSTR app_name, LPTSTR app_cmdline,
 
     // Spawn the process that is to be in the job
     // Note: You must first spawn the process and then place the process in the job.
-    //        This means that the process's thread must be initially suspended so that 
+    //        This means that the process's thread must be initially suspended so that
     //        it can't execute any code outside of the job's restrictions.
-    CreateProcess(app_name, app_cmdline, 
-                  NULL, NULL, FALSE, 
+    CreateProcess(app_name, app_cmdline,
+                  NULL, NULL, FALSE,
                   CREATE_SUSPENDED, NULL, NULL, &si, &pi);
 
     // Place the process in the job.
-    // Note: if this process spawns any children, the children are 
+    // Note: if this process spawns any children, the children are
     //        automatically associated with the same job
     AssignProcessToJobObject(hjob, pi.hProcess);
 
@@ -221,14 +221,14 @@ main(int argc, char *argv[], char *envp[])
     }
 
     /* FIXME: watch out for the usual /Program BUG */
-    _snwprintf(full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name), L"%hs", 
+    _snwprintf(full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name), L"%hs",
               argv[arg_offs]);
 
     /* FIXME: only one argument taken */
-    _snwprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), L"%hs %hs", 
+    _snwprintf(app_cmdline, BUFFER_SIZE_ELEMENTS(app_cmdline), L"%hs %hs",
               argv[arg_offs], argv[arg_offs + 1]);
 
-    StartRestrictedProcess(NULL/* FIXME: full_app_name */, 
+    StartRestrictedProcess(NULL/* FIXME: full_app_name */,
                            app_cmdline,
                            pagelimit);
     fprintf(FP, "done\n");

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -66,7 +66,7 @@
 #define DYNAMORIO_ENTRY "dynamo_auto_start"
 
 #ifdef DEBUG
-/* for asserts, we import globals.h now (for pragmas) so don't need to 
+/* for asserts, we import globals.h now (for pragmas) so don't need to
  * duplicate assert defines, declarations */
 extern void display_error(char *msg);
 #else
@@ -98,7 +98,7 @@ inject_init()
     inject_initialized = true;
 }
 
-/* change this if load_dynamo changes 
+/* change this if load_dynamo changes
  * 128 is more than enough room even with all debugging code in there
  */
 #define SIZE_OF_LOAD_DYNAMO 128
@@ -131,7 +131,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
      * to use Nt functions (which we can link) rather then kernel32 functions
      * (which we have to look up).  We could also use module.c code to safely
      * walk the exports of kernel32.dll (we can cache its mod handle when it
-     * is loaded). */ 
+     * is loaded). */
     if (!inject_initialized) {
         SYSLOG_INTERNAL_WARNING("Using late inject follow children from early injected process, unsafe LdrLock usage");
         SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
@@ -146,7 +146,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
     {
         reg_t app_xsp;
         if (thandle != NULL) {
-            /* grab the context of the app's main thread */                 
+            /* grab the context of the app's main thread */
             /* we can't use proc_has_feature() so no CONTEXT_DR_STATE */
             cxt->ContextFlags = CONTEXT_DR_STATE_ALLPROC;
             if (!NT_SUCCESS(nt_get_context(thandle, cxt))) {
@@ -165,7 +165,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
 
         /* get allocation, this will be freed by os_heap_free, so make sure
          * is compatible allocation method */
-        if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(phandle, &load_dynamo_code, 
+        if (!NT_SUCCESS(nt_remote_allocate_virtual_memory(phandle, &load_dynamo_code,
                                                           SIZE_OF_LOAD_DYNAMO,
                                                           PAGE_EXECUTE_READWRITE,
                                                           MEMORY_COMMIT))) {
@@ -180,7 +180,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
 
         /* Xref PR 252745 & PR 252008 - we can use the app's stack to hold our data
          * even on WOW64 and 64-bit since we're using set context to set xsp. */
-   
+
         /* copy the DYNAMORIO_ENTRY string to the app's stack */
         _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s", DYNAMORIO_ENTRY);
         NULL_TERMINATE_BUFFER(buf);
@@ -188,7 +188,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         /* keep esp at pointer-sized alignment */
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_entry_esp = cxt->CXT_XSP;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      buf, nbytes, &nbytes)) {
             display_error("WriteMemory failed");
             goto error;
@@ -201,7 +201,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         /* keep esp at pointer-sized byte alignment */
         cxt->CXT_XSP -= ALIGN_FORWARD(nbytes, XSP_SZ);
         dynamo_path_esp = cxt->CXT_XSP;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      buf, nbytes, &nbytes)) {
             display_error("WriteMemory failed");
             goto error;
@@ -278,7 +278,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
 
         /* push the address of the DYNAMORIO_ENTRY string on the app's stack */
         cxt->CXT_XSP -= XSP_SZ;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      &dynamo_entry_esp, sizeof(dynamo_entry_esp),
                                      &nbytes)) {
             display_error("WriteMemory failed");
@@ -289,7 +289,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         ASSERT(addr_getprocaddr);
         addr = addr_getprocaddr;
         cxt->CXT_XSP -= XSP_SZ;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      &addr, sizeof(addr), &nbytes)) {
             display_error("WriteMemory failed");
             goto error;
@@ -297,7 +297,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
 
         /* push the address of the dynamorio_path string on the app's stack */
         cxt->CXT_XSP -= XSP_SZ;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      &dynamo_path_esp, sizeof(dynamo_path_esp),
                                      &nbytes)) {
             display_error("WriteMemory failed");
@@ -308,7 +308,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         ASSERT(addr_loadlibrarya);
         addr = addr_loadlibrarya;
         cxt->CXT_XSP -= XSP_SZ;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      &addr, sizeof(addr), &nbytes)) {
             display_error("WriteMemory failed");
             goto error;
@@ -319,7 +319,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
         ASSERT(addr_debugbreak);
         addr = addr_debugbreak;
         cxt->CXT_XSP -= XSP_SZ;
-        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP, 
+        if (!nt_write_virtual_memory(phandle, (LPVOID)cxt->CXT_XSP,
                                      &addr, sizeof(addr), &nbytes)) {
             display_error("WriteMemory failed");
             goto error;
@@ -327,7 +327,7 @@ inject_into_thread(HANDLE phandle, CONTEXT *cxt, HANDLE thandle,
 #endif
 
         /* make the code R-X now */
-        if (!nt_remote_protect_virtual_memory(phandle, load_dynamo_code, 
+        if (!nt_remote_protect_virtual_memory(phandle, load_dynamo_code,
                                               SIZE_OF_LOAD_DYNAMO,
                                               PAGE_EXECUTE_READ, &old_prot)) {
             display_error("Failed to make injection code R-X");
@@ -598,7 +598,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
                                            PAGE_SIZE, PAGE_READONLY,
                                            &old_prot);
     ASSERT(res);
-        
+
 #define INSERT_INT(value)         \
   ASSERT(CHECK_TRUNCATE_TYPE_int((ptr_int_t)(value))); \
   *(int *)cur_local_pos = (int)(value); \
@@ -871,7 +871,7 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
          * to bad memory instead TOTRY, whatever we do should fixup here */
         ASSERT_NOT_IMPLEMENTED(false);
     }
-        
+
     /* call LdrLoadDll to load dr library */
     *cur_local_pos++ = PUSH_EAX; /* need slot for OUT hmodule*/
     MOV_ESP_TO_EAX();

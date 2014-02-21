@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -222,7 +222,7 @@ int __cdecl _tmain (int argc, TCHAR **argv)
    LARGE_INTEGER duetime;
 
    if(argc<2) {
-       _ftprintf(stderr,_T("Usage: %s [<exeName> | <pid> | all] [num_samples] [interval] [outputfile]\n"), argv[0]);        
+       _ftprintf(stderr,_T("Usage: %s [<exeName> | <pid> | all] [num_samples] [interval] [outputfile]\n"), argv[0]);
        return -1;
    }
 
@@ -245,7 +245,7 @@ int __cdecl _tmain (int argc, TCHAR **argv)
        pid = 0;
        _tcscpy(basename, _T("_Total"));
    }
-   
+
    if(argc>2) {
        NUM_SAMPLES=_ttoi(argv[2]);
        if(argc>3)
@@ -258,13 +258,13 @@ int __cdecl _tmain (int argc, TCHAR **argv)
                          argv[4]);
                return -1;
            }
-       }           
+       }
    }
 
    _ftprintf(stderr,
              _T("Monitoring %s, pid=%d. Using %d samples at %dms interval\n"),
              basename, pid, NUM_SAMPLES, INTERVAL_MS);
-   
+
    pdhStatus = PdhOpenQuery (0, 0, &hQuery);
    pCounterHandle = (HCOUNTER *)malloc(NCOUNTERS*sizeof(HCOUNTER));
 
@@ -272,7 +272,7 @@ int __cdecl _tmain (int argc, TCHAR **argv)
        _stprintf(szPathBuffer,_T("\\Process(%s)\\%s"), basename, counters[i]);
        pdhStatus = PdhAddCounter (hQuery,
                                   szPathBuffer,
-                                  0, 
+                                  0,
                                   &pCounterHandle[i]);
    }
 
@@ -293,26 +293,26 @@ int __cdecl _tmain (int argc, TCHAR **argv)
 
        //first wait is instantaneous
        WaitForSingleObject(htimer, INTERVAL_MS * 2);
-       
+
        pdhStatus = PdhCollectQueryData (hQuery);
-       
+
        for(i=0; i<NCOUNTERS; ++i) {
            // Get the current value of this counter.
            pdhStatus = PdhGetFormattedCounterValue (pCounterHandle[i],
                                                     PDH_FMT_DOUBLE,
                                                     &ctrType,
                                                     &fmtValue);
-           
+
            if (pdhStatus == ERROR_SUCCESS) {
-               _ftprintf (fp, formatstrings[i], use_kb[i] ? 
+               _ftprintf (fp, formatstrings[i], use_kb[i] ?
                           fmtValue.doubleValue / 1024 : fmtValue.doubleValue);
            } else {
                goto processgone;
            }
        }
-       _ftprintf(fp, _T("\n"));       
+       _ftprintf(fp, _T("\n"));
    }
-   
+
  processgone:
 
    pdhStatus = PdhCloseQuery (hQuery);

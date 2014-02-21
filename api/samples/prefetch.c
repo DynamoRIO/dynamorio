@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -50,7 +50,7 @@ static dr_emit_flags_t event_bb(void *drcontext, void *tag, instrlist_t *bb,
 static void *count_mutex;  /* for multithread support */
 static int prefetches_removed = 0, prefetchws_removed = 0;
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     dr_register_exit_event(event_exit);
@@ -66,7 +66,7 @@ dr_init(client_id_t id)
     count_mutex = dr_mutex_create();
 }
 
-static void 
+static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "Removed %d prefetches and %d prefetchws.\n",

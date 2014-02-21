@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -50,7 +50,7 @@ typedef unsigned char* app_pc;
 #endif
 
 #ifdef NIGHTLY_REGRESSION
-#  define SAFE_NATIVE 
+#  define SAFE_NATIVE
 enum {TOTAL_THREADS = 2};
 #else
 // #define SAFE_NATIVE  // brutal NtTerminateProcess(0
@@ -62,8 +62,8 @@ enum {TOTAL_THREADS = 200};
 #define ALL_RACES /* anything goes: start/stop */
 
 #ifdef SAFE_NATIVE
-/* nothing fancy: 
- * start up some threads and then exit the process 
+/* nothing fancy:
+ * start up some threads and then exit the process
  */
 enum {ROUNDS = 1};
 #else
@@ -163,7 +163,7 @@ main()
     for (round = 0; round < ROUNDS; round++) {
 #ifdef VERBOSE
         print("round %d\n", round);
-#endif        
+#endif
         if (round > 0) {
             /* clean up first */
             NtTerminateProcess(0 /* everyone but me */, 666);
@@ -177,7 +177,7 @@ main()
 
         for (t = 0; t < TOTAL_THREADS; t++) {
             thread[t] = (HANDLE)create_thread(executor);
-            if (thread[t] == NULL) 
+            if (thread[t] == NULL)
                 print("GLE: %d\n", GetLastError());
             assert(thread[t] != NULL);
         }
@@ -227,13 +227,13 @@ kernel32!InterlockedIncrement:
 7c80978c 8d4900           lea     ecx,[ecx]
 
 
-when setting THREADS=1000 
+when setting THREADS=1000
 ---------------------------
 threadexit.exe - Illegal System DLL Relocation
 ---------------------------
-The system DLL user32.dll was relocated in memory. The application will not run properly. The relocation occurred because the DLL Dynamically Allocated Memory occupied an address range reserved for Windows system DLLs. The vendor supplying the DLL should be contacted for a new DLL. 
+The system DLL user32.dll was relocated in memory. The application will not run properly. The relocation occurred because the DLL Dynamically Allocated Memory occupied an address range reserved for Windows system DLLs. The vendor supplying the DLL should be contacted for a new DLL.
 ---------------------------
-OK   
+OK
 ---------------------------
 Assertion failed: thread[t] != NULL, file win32/threadexit.c, line 180
 

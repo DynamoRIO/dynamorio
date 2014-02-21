@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -149,10 +149,10 @@ shared_memory_init(void)
      */
     shared_map_count =
         CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
-                           PAGE_READWRITE, 0, sizeof(client_stats), 
+                           PAGE_READWRITE, 0, sizeof(client_stats),
                            is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L);
     DR_ASSERT(shared_map_count != NULL);
-    shared_view_count = 
+    shared_view_count =
         MapViewOfFile(shared_map_count, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 0);
     DR_ASSERT(shared_view_count != NULL);
     shared_count = (int *) shared_view_count;
@@ -173,12 +173,12 @@ shared_memory_init(void)
         _snwprintf(shared_keyname, KEYNAME_MAXLEN, L"%s.%03d",
                    is_NT ? CLIENT_SHMEM_KEY_NT_L : CLIENT_SHMEM_KEY_L, num);
         shared_map = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL,
-                                        PAGE_READWRITE, 0, 
-                                        sizeof(client_stats), 
+                                        PAGE_READWRITE, 0,
+                                        sizeof(client_stats),
                                         shared_keyname);
-        if (shared_map != NULL && GetLastError() == ERROR_ALREADY_EXISTS) { 
-            dr_close_file(shared_map); 
-            shared_map = NULL; 
+        if (shared_map != NULL && GetLastError() == ERROR_ALREADY_EXISTS) {
+            dr_close_file(shared_map);
+            shared_map = NULL;
         }
         if (shared_map != NULL)
             break;
@@ -196,7 +196,7 @@ shared_memory_init(void)
 static void
 shared_memory_exit(void)
 {
-    int pos; 
+    int pos;
     stats->exited = true;
     /* close down statistics */
     UnmapViewOfFile(shared_view);
@@ -219,7 +219,7 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 
 static client_id_t my_id;
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     uint i;
@@ -246,7 +246,7 @@ dr_init(client_id_t id)
 # define IF_WINDOWS(x) /* nothing */
 #endif
 
-static void 
+static void
 event_exit(void)
 {
     file_t f;
@@ -303,7 +303,7 @@ insert_inc(void *drcontext, instrlist_t *bb, instr_t *where,
     instrlist_meta_preinsert(bb, where, inc);
 }
 
-static dr_emit_flags_t 
+static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {

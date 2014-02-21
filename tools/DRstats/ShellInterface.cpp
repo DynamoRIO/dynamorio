@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -89,38 +89,38 @@ CShellInterface::~CShellInterface()
 
 /*static */BOOL CShellInterface::m_bInitialized = FALSE;
 
-/*static */BOOL CShellInterface::ResolveLinkFile(TCHAR *name, TCHAR *resolution, 
+/*static */BOOL CShellInterface::ResolveLinkFile(TCHAR *name, TCHAR *resolution,
                                                  TCHAR *arguments, TCHAR *working_dir, HWND hwnd)
 {
     assert(m_bInitialized);
-    HRESULT hres; 
-    IShellLink* psl; 
-    WIN32_FIND_DATA wfd; 
- 
-    *resolution = 0; // assume failure 
- 
+    HRESULT hres;
+    IShellLink* psl;
+    WIN32_FIND_DATA wfd;
+
+    *resolution = 0; // assume failure
+
     // Get a pointer to the IShellLink interface.
     hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
                              IID_IShellLink, (void **)&psl);
     if (SUCCEEDED (hres)) {
         IPersistFile *ppf;
-                
+
         // Get a pointer to the IPersistFile interface.
         hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-                
+
         if (SUCCEEDED (hres)) {
 #ifndef UNICODE
             WORD wsz [MAX_PATH]; // buffer for Unicode string
-                        
+
             // Ensure that the string consists of Unicode TCHARacters.
             MultiByteToWideChar(CP_ACP, 0, name, -1, wsz, MAX_PATH);
 #else
             TCHAR *wsz = name;
 #endif
-                        
+
             // Load the shortcut.
             hres = ppf->Load(wsz, STGM_READ);
-                        
+
             if (SUCCEEDED(hres)) {
                 // Resolve the shortcut.
                 hres = psl->Resolve(hwnd, SLR_ANY_MATCH);
@@ -172,108 +172,108 @@ retrieved, which is shown later in the example. Failing to load the link
 information causes the calls to the IShellLink::GetPath and
 IShellLink::GetDescription member functions to fail.
  */
-HRESULT ResolveIt(HWND hwnd, LPCSTR lpszLinkFile, LPSTR lpszPath) 
-{ 
-    HRESULT hres; 
-    IShellLink* psl; 
-    TCHAR szGotPath[MAX_PATH]; 
-    TCHAR szDescription[MAX_PATH]; 
-    WIN32_FIND_DATA wfd; 
-    
-    *lpszPath = 0; // assume failure 
-    
-    // Get a pointer to the IShellLink interface. 
-    hres = CoCreateInstance(&CLSID_ShellLink, NULL, 
-                            CLSCTX_INPROC_SERVER, &IID_IShellLink, &psl); 
-    if (SUCCEEDED(hres)) { 
-        IPersistFile* ppf; 
-        
-        // Get a pointer to the IPersistFile interface. 
-        hres = psl->lpVtbl->QueryInterface(psl, &IID_IPersistFile, 
-                                           &ppf); 
-        if (SUCCEEDED(hres)) { 
-            WORD wsz[MAX_PATH]; 
-            
-            // Ensure that the string is Unicode. 
-            MultiByteToWideChar(CP_ACP, 0, lpszLinkFile, -1, wsz, 
-                                MAX_PATH); 
- 
-            // Load the shortcut. 
-            hres = ppf->lpVtbl->Load(ppf, wsz, STGM_READ); 
-            if (SUCCEEDED(hres)) { 
- 
-                // Resolve the link. 
-                hres = psl->lpVtbl->Resolve(psl, hwnd, SLR_ANY_MATCH); 
-                if (SUCCEEDED(hres)) { 
-                    
-                    // Get the path to the link target. 
-                    hres = psl->lpVtbl->GetPath(psl, szGotPath, 
-                                                MAX_PATH, (WIN32_FIND_DATA *)&wfd, 
-                                                SLGP_SHORTPATH ); 
+HRESULT ResolveIt(HWND hwnd, LPCSTR lpszLinkFile, LPSTR lpszPath)
+{
+    HRESULT hres;
+    IShellLink* psl;
+    TCHAR szGotPath[MAX_PATH];
+    TCHAR szDescription[MAX_PATH];
+    WIN32_FIND_DATA wfd;
+
+    *lpszPath = 0; // assume failure
+
+    // Get a pointer to the IShellLink interface.
+    hres = CoCreateInstance(&CLSID_ShellLink, NULL,
+                            CLSCTX_INPROC_SERVER, &IID_IShellLink, &psl);
+    if (SUCCEEDED(hres)) {
+        IPersistFile* ppf;
+
+        // Get a pointer to the IPersistFile interface.
+        hres = psl->lpVtbl->QueryInterface(psl, &IID_IPersistFile,
+                                           &ppf);
+        if (SUCCEEDED(hres)) {
+            WORD wsz[MAX_PATH];
+
+            // Ensure that the string is Unicode.
+            MultiByteToWideChar(CP_ACP, 0, lpszLinkFile, -1, wsz,
+                                MAX_PATH);
+
+            // Load the shortcut.
+            hres = ppf->lpVtbl->Load(ppf, wsz, STGM_READ);
+            if (SUCCEEDED(hres)) {
+
+                // Resolve the link.
+                hres = psl->lpVtbl->Resolve(psl, hwnd, SLR_ANY_MATCH);
+                if (SUCCEEDED(hres)) {
+
+                    // Get the path to the link target.
+                    hres = psl->lpVtbl->GetPath(psl, szGotPath,
+                                                MAX_PATH, (WIN32_FIND_DATA *)&wfd,
+                                                SLGP_SHORTPATH );
                     if (!SUCCEEDED(hres))
-                        HandleErr(hres); // application-defined function 
- 
-                    // Get the description of the target. 
-                    hres = psl->lpVtbl->GetDescription(psl, 
-                                                       szDescription, MAX_PATH); 
-                    if (!SUCCEEDED(hres)) 
-                        HandleErr(hres); 
-                    lstrcpy(lpszPath, szGotPath); 
-                } 
-            } 
-            // Release the pointer to the IPersistFile interface. 
-            ppf->lpVtbl->Release(ppf); 
-        } 
-        // Release the pointer to the IShellLink interface. 
-        psl->lpVtbl->Release(psl); 
-    } 
-    return hres; 
-} 
+                        HandleErr(hres); // application-defined function
+
+                    // Get the description of the target.
+                    hres = psl->lpVtbl->GetDescription(psl,
+                                                       szDescription, MAX_PATH);
+                    if (!SUCCEEDED(hres))
+                        HandleErr(hres);
+                    lstrcpy(lpszPath, szGotPath);
+                }
+            }
+            // Release the pointer to the IPersistFile interface.
+            ppf->lpVtbl->Release(ppf);
+        }
+        // Release the pointer to the IShellLink interface.
+        psl->lpVtbl->Release(psl);
+    }
+    return hres;
+}
 
 /* From MSDN's MFC sample:
 "SHORTCUT: A SampleThat Manipulates Shortcuts"
 */
 
-HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink, 
+HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
                                                                   LPSTR pszDesc)
 {
     HRESULT hres;
     IShellLink *psl;
-    
-    // Create an IShellLink object and get a pointer to the IShellLink 
+
+    // Create an IShellLink object and get a pointer to the IShellLink
     // interface (returned from CoCreateInstance).
     hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
                              IID_IShellLink, (void **)&psl);
     if (SUCCEEDED (hres)) {
         IPersistFile *ppf;
-        
-        // Query IShellLink for the IPersistFile interface for 
+
+        // Query IShellLink for the IPersistFile interface for
         // saving the shortcut in persistent storage.
         hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-        if (SUCCEEDED (hres)) { 
+        if (SUCCEEDED (hres)) {
             WORD wsz [MAX_PATH]; // buffer for Unicode string
-            
+
             // Set the path to the shortcut target.
             hres = psl->SetPath (pszShortcutFile);
-            
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox ("SetPath failed!");
-            
+
             // Set the description of the shortcut.
             hres = psl->SetDescription (pszDesc);
-            
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox ("SetDescription failed!");
-            
+
             // Ensure that the string consists of ANSI TCHARacters.
             MultiByteToWideChar (CP_ACP, 0, pszLink, -1, wsz, MAX_PATH);
-            
+
             // Save the shortcut via the IPersistFile::Save member function.
             hres = ppf->Save (wsz, TRUE);
-            
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox ("Save failed!");
-            
+
             // Release the pointer to IPersistFile.
             ppf->Release ();
         }
@@ -281,23 +281,23 @@ HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
         psl->Release ();
     }
     return hres;
-} 
+}
 
 
-void ResolveShortCut::OnOK () 
+void ResolveShortCut::OnOK ()
 {
     TCHAR szFile [MAX_PATH];
-    
+
     // Get the selected item in the list box.
     DlgDirSelect (szFile, IDC_LIST1);
-    
+
     // Find out whether it is a LNK file.
     if (_tcsstr (szFile, ".lnk") != NULL)
         // Make the call to ResolveShortcut::ResolveIt here.
         ResolveIt (m_hWnd, szFile);
-    
+
     CDialog::OnOK ();
-} 
+}
 
 HRESULT ResolveShortCut::ResolveIt (HWND hwnd, LPCSTR pszShortcutFile)
 {
@@ -306,26 +306,26 @@ HRESULT ResolveShortCut::ResolveIt (HWND hwnd, LPCSTR pszShortcutFile)
     TCHAR szGotPath [MAX_PATH];
     TCHAR szDescription [MAX_PATH];
     WIN32_FIND_DATA wfd;
-        
+
     // Get a pointer to the IShellLink interface.
     hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
                              IID_IShellLink, (void **)&psl);
     if (SUCCEEDED (hres)) {
         IPersistFile *ppf;
-                
+
         // Get a pointer to the IPersistFile interface.
         hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-                
+
         if (SUCCEEDED (hres)) {
             WORD wsz [MAX_PATH]; // buffer for Unicode string
-                        
+
             // Ensure that the string consists of Unicode TCHARacters.
             MultiByteToWideChar (CP_ACP, 0, pszShortcutFile, -1, wsz,
                                  MAX_PATH);
-                        
+
             // Load the shortcut.
             hres = ppf->Load (wsz, STGM_READ);
-                        
+
             if (SUCCEEDED (hres)) {
                 // Resolve the shortcut.
                 hres = psl->Resolve (hwnd, SLR_ANY_MATCH);

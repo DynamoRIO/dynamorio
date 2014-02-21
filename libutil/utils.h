@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +53,7 @@
 
 #ifdef __cplusplus
 extern "C"{
-#endif 
+#endif
 
 const TCHAR *
 get_dynamorio_home(void);
@@ -68,7 +68,7 @@ void
 set_dr_platform(dr_platform_t platform);
 
 /* return DR_PLATFORM_32BIT or DR_PLATFORM_64BIT */
-dr_platform_t 
+dr_platform_t
 get_dr_platform(void);
 
 /* XXX: Rest are unported. */
@@ -82,7 +82,7 @@ get_exename_from_path(const WCHAR *path);
 
 BOOL
 get_commandline_qualifier(const WCHAR* command_line,
-                          WCHAR* derived_name, 
+                          WCHAR* derived_name,
                           UINT max_derived_length /* in elements */,
                           BOOL no_strip);
 
@@ -92,7 +92,7 @@ acquire_shutdown_privilege();
 DWORD
 reboot_system();
 
-/* grokked from the core. 
+/* grokked from the core.
  * FIXME: shareme!
  * if NULL is passed for directory, then it is ignored and no directory
  *  check is done, and filename_base is assumed to be absolute.
@@ -103,7 +103,7 @@ BOOL
 get_unique_filename(const WCHAR* directory,
                     const WCHAR* filename_base,
                     const WCHAR* file_type,
-                    WCHAR* filename_buffer, 
+                    WCHAR* filename_buffer,
                     UINT maxlen);
 
 DWORD
@@ -155,7 +155,7 @@ destroy_root_key();
 BOOL
 check_opstring(const WCHAR *opstring);
 
-/* acquires the privileges necessary to perform tasks like detach, 
+/* acquires the privileges necessary to perform tasks like detach,
  *  nudge, etc. */
 DWORD
 acquire_privileges();
@@ -177,7 +177,7 @@ DWORD
 write_file_contents_if_different(WCHAR *path, char *contents, BOOL *changed);
 
 DWORD
-read_file_contents(WCHAR *path, char *contents, 
+read_file_contents(WCHAR *path, char *contents,
                    SIZE_T maxchars, SIZE_T *needed);
 
 DWORD
@@ -186,7 +186,7 @@ setup_installation(const WCHAR *path, BOOL overwrite);
 DWORD
 setup_cache_shared_directories(const WCHAR *cache_root);
 DWORD
-setup_cache_shared_registry(const WCHAR *cache_root, 
+setup_cache_shared_registry(const WCHAR *cache_root,
                             ConfigGroup *policy);
 
 DWORD
@@ -198,7 +198,7 @@ typedef struct _VIOLATION_INFO {
     const WCHAR  *report; /* OUT, Filename of generated report file. NULL if error.*/
     WCHAR         buf[MAX_PATH]; /* space for filename */
 } VIOLATION_INFO;
-  
+
 /* Takes in a MSG_SEC_FORENSICS event log record pevlr and generates a report file
  * (info->report) as specified by the flags field in info.  On success returns
  * ERROR_SUCCESS, else returns a failure code. */
@@ -241,7 +241,7 @@ get_violation_info(EVENTLOGRECORD *pevlr, /* INOUT */ VIOLATION_INFO *info);
 typedef struct _CANARY_INFO {
     DWORD         run_flags; /* tests to run */
     DWORD         info_flags; /* info to gather, NYI */
-    int           canary_code; /* canary return code, like an NTSTATUS */ 
+    int           canary_code; /* canary return code, like an NTSTATUS */
     const WCHAR  *report; /* OUT, filename of generated report file */
     const WCHAR  *url; /* OUT, url string to use for querying determina */
     const WCHAR  *msg; /* OUT, msg to display to user */
@@ -259,7 +259,7 @@ typedef struct _CANARY_INFO {
 
 /* Returns TRUE if the canary tests succeeded and protection should be enabled. Returns
  * FALSE if one of the canary tests failed and therefore protection should not be
- * enabled. Flags fields of info are used to specify which tests to run and what 
+ * enabled. Flags fields of info are used to specify which tests to run and what
  * information to gather, other fields are used to return additional information
  * to the caller. */
 BOOL
@@ -428,7 +428,7 @@ get_testdir(WCHAR *buf, UINT maxchars);
 
 /* quick helpers for unit tests */
 BOOL
-check_for_event(DWORD type, WCHAR *exename, ULONG pid, 
+check_for_event(DWORD type, WCHAR *exename, ULONG pid,
                 WCHAR *s3, WCHAR *s4, UINT maxchars);
 void
 reset_last_event();
@@ -447,7 +447,7 @@ show_all_events();
     if (res != ERROR_SUCCESS)                   \
         return res;                             \
 }
- 
+
 # endif /* DEBUG */
 
 /* alignment helpers, alignment must be power of 2 */

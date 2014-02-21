@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -100,7 +100,7 @@ static bool event_filter_syscall(void *drcontext, int sysnum);
 static bool event_pre_syscall(void *drcontext, int sysnum);
 static void event_post_syscall(void *drcontext, int sysnum);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     drmgr_init();
@@ -123,7 +123,7 @@ dr_init(client_id_t id)
 #endif
 }
 
-static void 
+static void
 show_results(void)
 {
 #ifdef SHOW_RESULTS
@@ -140,7 +140,7 @@ show_results(void)
 #endif /* SHOW_RESULTS */
 }
 
-static void 
+static void
 event_exit(void)
 {
     show_results();
@@ -167,7 +167,7 @@ event_thread_context_init(void *drcontext, bool new_depth)
     memset(data, 0, sizeof(*data));
 }
 
-static void 
+static void
 event_thread_context_exit(void *drcontext, bool thread_exit)
 {
 #ifdef SHOW_RESULTS
@@ -203,7 +203,7 @@ event_pre_syscall(void *drcontext, int sysnum)
 #endif
 #ifdef SHOW_RESULTS
     dr_fprintf(STDERR, "[%d] "PFX" "PFX" "PFX"\n",
-               sysnum, 
+               sysnum,
                dr_syscall_get_param(drcontext, 0),
                dr_syscall_get_param(drcontext, 1),
                dr_syscall_get_param(drcontext, 2));
@@ -293,7 +293,7 @@ event_post_syscall(void *drcontext, int sysnum)
 #endif
             dr_syscall_set_sysnum(drcontext, write_sysnum);
             dr_syscall_set_param(drcontext, 0, (reg_t) STDOUT);
-            for (i = 1; i < SYS_MAX_ARGS; i++) 
+            for (i = 1; i < SYS_MAX_ARGS; i++)
                 dr_syscall_set_param(drcontext, i, data->param[i]);
 #ifdef WINDOWS
             if (dr_is_wow64()) {

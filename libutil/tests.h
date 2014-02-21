@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,9 +40,9 @@
 #  include "win32/events.h"
 
 
-/* nudge tends to hang/timeout if you nudge right after the 
- *  process starts. so in order to let the basic tests pass, 
- *  they all sleep for at least this long before trying to 
+/* nudge tends to hang/timeout if you nudge right after the
+ *  process starts. so in order to let the basic tests pass,
+ *  they all sleep for at least this long before trying to
  *  nudge.
  * of course this should be fixed and then we should create
  *  stress tests to address this specifically. */
@@ -52,7 +52,7 @@
 #define LAUNCH_TIMEOUT 1000
 
 #define WAIT_FOR_APP(hProc) DO_ASSERT(WAIT_OBJECT_0 == WaitForSingleObject(hProc, TEST_TIMEOUT*2))
- 
+
 #define LONG_WAIT_FOR_APP(hProc) DO_ASSERT(WAIT_OBJECT_0 == WaitForSingleObject(hProc, TEST_TIMEOUT*20))
 
 #define DO_TEST(name, appstr, block) DO_TEST_HP(name, appstr, TRUE, block)
@@ -136,7 +136,7 @@ DO_TEST(detach_exe,
             VERIFY_UNDER_DR(pid1);
             VERIFY_UNDER_DR(pid2);
             VERIFY_UNDER_DR(pid3);
-            CHECKED_OPERATION(detach_exe(L"tester_1.exe", 
+            CHECKED_OPERATION(detach_exe(L"tester_1.exe",
                                          DETACH_RECOMMENDED_TIMEOUT));
             VERIFY_NOT_UNDER_DR(pid1);
             VERIFY_UNDER_DR(pid2);
@@ -152,7 +152,7 @@ DO_TEST(detach_exe,
 
 /* detach_all */
 DO_TEST(detach_all,
-        TESTER_1_BLOCK 
+        TESTER_1_BLOCK
         TESTER_2_BLOCK,
         {
             UINT pid1;
@@ -179,7 +179,7 @@ DO_TEST(detach_all,
 
 /* consistency_detach */
 DO_TEST(consistency_detach,
-        TESTER_1_BLOCK 
+        TESTER_1_BLOCK
         TESTER_2_BLOCK,
         {
             UINT pid1;
@@ -317,11 +317,11 @@ DO_TEST(check_nudge,
             VERIFY_UNDER_DR(pid);
             Sleep(NUDGE_LET_PROCESS_START_WAIT);
             CHECKED_OPERATION(hotp_notify_modes_update(pid, TRUE, TEST_TIMEOUT));
-            DO_ASSERT(ERROR_SUCCESS != 
-                      get_config_parameter(L_PRODUCT_NAME, 
+            DO_ASSERT(ERROR_SUCCESS !=
+                      get_config_parameter(L_PRODUCT_NAME,
                                            FALSE,
                                            L_DYNAMORIO_VAR_NUDGE,
-                                           nudge_code_buf, 
+                                           nudge_code_buf,
                                            MAX_PATH));
             TERMINATE_PROCESS(pid);
         }
@@ -334,7 +334,7 @@ DO_TEST(hotp_protect,
             UINT pid;
             char fc[MAX_PATH];
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 100", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "10", 2));
         }
@@ -347,7 +347,7 @@ DO_TEST(hotp_detect,
             UINT pid;
             char fc[MAX_PATH];
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 100", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
         }
@@ -362,10 +362,10 @@ DO_TEST_HP(hotp_defs_nudge,
             char fc[MAX_PATH];
             HANDLE hProc;
             hotp_policy_status_table_t *status_table = NULL;
-            
+
             /* first launch app w/o hotpatch */
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 10", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
 
@@ -373,9 +373,9 @@ DO_TEST_HP(hotp_defs_nudge,
             LAUNCH_APP_HANDLE(L"tester_1.exe 2000", &pid, &hProc);
             Sleep(LAUNCH_TIMEOUT);
             VERIFY_UNDER_DR(pid);
-            
+
             /* make sure nothing's there */
-            DO_ASSERT(ERROR_DRMARKER_ERROR == 
+            DO_ASSERT(ERROR_DRMARKER_ERROR ==
                       get_hotp_status(pid, &status_table));
 
             /* load the new config -- this time with hot patching*/
@@ -387,7 +387,7 @@ DO_TEST_HP(hotp_defs_nudge,
             VERIFY_UNDER_DR(pid);
             WAIT_FOR_APP(hProc);
 
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "10", 2));
         }
@@ -402,7 +402,7 @@ DO_TEST(hotp_modes_nudge,
 
             /* first launch app w/hotpatch protect */
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 10", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "10", 2));
 
@@ -420,7 +420,7 @@ DO_TEST(hotp_modes_nudge,
             VERIFY_UNDER_DR(pid);
             WAIT_FOR_APP(hProc);
 
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
         }
@@ -429,7 +429,7 @@ DO_TEST(hotp_modes_nudge,
 /* nudge twice to make sure we don't die */
 DO_TEST_HP(hotp_nudge_twice,
         TESTER_1_BLOCK,
-        FALSE, 
+        FALSE,
         {
             UINT pid;
             char fc[MAX_PATH];
@@ -437,7 +437,7 @@ DO_TEST_HP(hotp_nudge_twice,
 
             /* first launch app w/o hotpatch */
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 10", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
 
@@ -457,7 +457,7 @@ DO_TEST_HP(hotp_nudge_twice,
             VERIFY_UNDER_DR(pid);
             WAIT_FOR_APP(hProc);
 
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
         }
@@ -470,7 +470,7 @@ DO_TEST(hotp_protect_status,
             UINT pid;
             HANDLE hProc;
             hotp_policy_status_table_t *status_table = NULL;
-            
+
             LAUNCH_APP_HANDLE(L"tester_1.exe 10 2500", &pid, &hProc);
             Sleep(LAUNCH_TIMEOUT);
             VERIFY_UNDER_DR(pid);
@@ -498,7 +498,7 @@ DO_TEST(hotp_pending_status,
             UINT pid;
             HANDLE hProc;
             hotp_policy_status_table_t *status_table = NULL;
-            
+
             LAUNCH_APP_HANDLE(L"tester_1.exe 2500", &pid, &hProc);
             Sleep(LAUNCH_TIMEOUT);
             VERIFY_UNDER_DR(pid);
@@ -526,7 +526,7 @@ DO_TEST(hotp_detect_status,
             UINT pid;
             HANDLE hProc;
             hotp_policy_status_table_t *status_table = NULL;
-            
+
             LAUNCH_APP_HANDLE(L"tester_1.exe 10 2500", &pid, &hProc);
             Sleep(LAUNCH_TIMEOUT);
             VERIFY_UNDER_DR(pid);
@@ -556,7 +556,7 @@ DO_TEST(hotp_modes_nudge_all,
 
             /* first launch app w/hotpatch protect */
             LAUNCH_APP_AND_WAIT(L"tester_1.exe 10", &pid);
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "10", 2));
 
@@ -573,8 +573,8 @@ DO_TEST(hotp_modes_nudge_all,
             CHECKED_OPERATION(hotp_notify_all_modes_update(TEST_TIMEOUT));
             VERIFY_UNDER_DR(pid);
             WAIT_FOR_APP(hProc);
-            
-            CHECKED_OPERATION(read_file_contents(L"tester.out", 
+
+            CHECKED_OPERATION(read_file_contents(L"tester.out",
                                                  fc, MAX_PATH, NULL));
             DO_ASSERT(0 == strncmp(fc, "00", 2));
         }

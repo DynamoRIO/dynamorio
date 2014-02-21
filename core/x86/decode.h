@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -56,7 +56,7 @@
  * whole-instruction level, but rather on individual operands (of
  * course with multiple operands they must all match).
  * The rep and repne prefixes are encoded directly into the opcodes.
- * 
+ *
  */
 #define PREFIX_LOCK          0x01 /**< Makes the instruction's memory accesses atomic. */
 #define PREFIX_JCC_NOT_TAKEN 0x02 /**< Branch hint: conditional branch is taken. */
@@ -87,8 +87,8 @@
 #define PREFIX_REPNE          0x2000 /* 0xf2 */
 
 /* PREFIX_SEG_* is set by decode or decode_cti and is only a hint
- * to the caller.  Is ignored by encode in favor of the segment 
- * reg specified in the applicable opnds.  We rely on it being set during 
+ * to the caller.  Is ignored by encode in favor of the segment
+ * reg specified in the applicable opnds.  We rely on it being set during
  * bb building.
  */
 #define PREFIX_SEG_FS         0x4000
@@ -548,7 +548,7 @@ enum {
     OPSZ_4x8,  /**< Full register size with no variation by prefix.
                 *   Used for control and debug register moves. */
     OPSZ_6x10, /**< Intel 's': 6-byte (10-byte for 64-bit mode) table base + limit */
-    /** 
+    /**
      * Stack operands not only vary by operand size specifications but also
      * by 32-bit versus 64-bit processor mode.
      */
@@ -803,7 +803,7 @@ DR_API
  * Given an OP_ constant, returns the first byte of its opcode when
  * encoded as an IA-32 instruction.
  */
-byte 
+byte
 decode_first_opcode_byte(int opcode);
 
 DR_API

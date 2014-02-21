@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -96,7 +96,7 @@ static byte buf[8192];
 
 /* we can encode+fast-decode some instrs cross-platform but we
  * leave that testing to the regression run on that platform
- */ 
+ */
 
 /* these are shared among all test_all_opcodes_*() routines: */
 #define MEMARG(sz) (opnd_create_base_disp(REG_XCX, REG_NULL, 0, 0x37, sz))
@@ -238,7 +238,7 @@ test_disp_control_helper(void *dc, int disp,
     decode(dc, buf, instr);
     ASSERT(instr_num_srcs(instr) == 1 &&
            opnd_is_base_disp(instr_get_src(instr, 0)) &&
-           BOOLS_MATCH(encode_zero_disp, 
+           BOOLS_MATCH(encode_zero_disp,
                        opnd_is_disp_encode_zero(instr_get_src(instr, 0))) &&
            BOOLS_MATCH(force_full_disp,
                        opnd_is_disp_force_full(instr_get_src(instr, 0))) &&
@@ -252,13 +252,13 @@ static void
 test_disp_control(void *dc)
 {
     /*
-    0x004275b4   8b 0b                mov    (%ebx) -> %ecx 
-    0x004275b4   8b 4b 00             mov    $0x00(%ebx) -> %ecx 
-    0x004275b4   8b 8b 00 00 00 00    mov    $0x00000000 (%ebx) -> %ecx 
-    0x004275b4   8b 4b 7f             mov    $0x7f(%ebx) -> %ecx 
-    0x004275b4   8b 8b 7f 00 00 00    mov    $0x0000007f (%ebx) -> %ecx 
-    0x00430258   67 8b 4f 7f          addr16 mov    0x7f(%bx) -> %ecx 
-    0x00430258   67 8b 8f 7f 00       addr16 mov    0x007f(%bx) -> %ecx 
+    0x004275b4   8b 0b                mov    (%ebx) -> %ecx
+    0x004275b4   8b 4b 00             mov    $0x00(%ebx) -> %ecx
+    0x004275b4   8b 8b 00 00 00 00    mov    $0x00000000 (%ebx) -> %ecx
+    0x004275b4   8b 4b 7f             mov    $0x7f(%ebx) -> %ecx
+    0x004275b4   8b 8b 7f 00 00 00    mov    $0x0000007f (%ebx) -> %ecx
+    0x00430258   67 8b 4f 7f          addr16 mov    0x7f(%bx) -> %ecx
+    0x00430258   67 8b 8f 7f 00       addr16 mov    0x007f(%bx) -> %ecx
     */
     test_disp_control_helper(dc, 0, false, false, false, 2);
     test_disp_control_helper(dc, 0, true,  false, false, 3);
@@ -326,12 +326,12 @@ static void
 test_indirect_cti(void *dc)
 {
     /*
-    0x004275f4   ff d1                call   %ecx %esp -> %esp (%esp) 
-    0x004275f4   66 ff d1             data16 call   %cx %esp -> %esp (%esp) 
-    0x004275f4   67 ff d1             addr16 call   %ecx %sp -> %sp (%sp) 
-    0x00427794   ff 19                lcall  (%ecx) %esp -> %esp (%esp) 
-    0x00427794   66 ff 19             data16 lcall  (%ecx) %esp -> %esp (%esp) 
-    0x00427794   67 ff 1f             addr16 lcall  (%bx) %sp -> %sp (%sp) 
+    0x004275f4   ff d1                call   %ecx %esp -> %esp (%esp)
+    0x004275f4   66 ff d1             data16 call   %cx %esp -> %esp (%esp)
+    0x004275f4   67 ff d1             addr16 call   %ecx %sp -> %sp (%sp)
+    0x00427794   ff 19                lcall  (%ecx) %esp -> %esp (%esp)
+    0x00427794   66 ff 19             data16 lcall  (%ecx) %esp -> %esp (%esp)
+    0x00427794   67 ff 1f             addr16 lcall  (%bx) %sp -> %sp (%sp)
     */
     instr_t *instr;
     instr = INSTR_CREATE_call_ind(dc, opnd_create_reg(REG_XCX));
@@ -373,17 +373,17 @@ test_indirect_cti(void *dc)
     test_instr_encode(dc, instr, 3);
 
     /* case 10710: make sure we can encode these guys
-         0x00428844   0e                   push   %cs %esp -> %esp (%esp) 
-         0x00428844   1e                   push   %ds %esp -> %esp (%esp) 
-         0x00428844   16                   push   %ss %esp -> %esp (%esp) 
-         0x00428844   06                   push   %es %esp -> %esp (%esp) 
-         0x00428844   0f a0                push   %fs %esp -> %esp (%esp) 
-         0x00428844   0f a8                push   %gs %esp -> %esp (%esp) 
-         0x00428844   1f                   pop    %esp (%esp) -> %ds %esp 
-         0x00428844   17                   pop    %esp (%esp) -> %ss %esp 
-         0x00428844   07                   pop    %esp (%esp) -> %es %esp 
-         0x00428844   0f a1                pop    %esp (%esp) -> %fs %esp 
-         0x00428844   0f a9                pop    %esp (%esp) -> %gs %esp 
+         0x00428844   0e                   push   %cs %esp -> %esp (%esp)
+         0x00428844   1e                   push   %ds %esp -> %esp (%esp)
+         0x00428844   16                   push   %ss %esp -> %esp (%esp)
+         0x00428844   06                   push   %es %esp -> %esp (%esp)
+         0x00428844   0f a0                push   %fs %esp -> %esp (%esp)
+         0x00428844   0f a8                push   %gs %esp -> %esp (%esp)
+         0x00428844   1f                   pop    %esp (%esp) -> %ds %esp
+         0x00428844   17                   pop    %esp (%esp) -> %ss %esp
+         0x00428844   07                   pop    %esp (%esp) -> %es %esp
+         0x00428844   0f a1                pop    %esp (%esp) -> %fs %esp
+         0x00428844   0f a9                pop    %esp (%esp) -> %gs %esp
      */
 #ifndef X64
     test_instr_encode(dc, INSTR_CREATE_push(dc, opnd_create_reg(SEG_CS)), 1);
@@ -406,8 +406,8 @@ static void
 test_cti_prefixes(void *dc)
 {
     /* case 10689: test decoding jmp/call w/ 16-bit prefixes
-     *   0x00428844   66 e9 ab cd          data16 jmp    $0x55f3 
-     *   0x00428844   67 e9 ab cd ef 12    addr16 jmp    $0x133255f5 
+     *   0x00428844   66 e9 ab cd          data16 jmp    $0x55f3
+     *   0x00428844   67 e9 ab cd ef 12    addr16 jmp    $0x133255f5
      */
     buf[0] = 0x66;
     buf[1] = 0xe9;
@@ -461,32 +461,32 @@ static void
 test_modrm16(void *dc)
 {
     /*
-     *   0x00428964   67 8b 18             addr16 mov    (%bx,%si,1) -> %ebx 
-     *   0x00428964   67 8b 19             addr16 mov    (%bx,%di,1) -> %ebx 
-     *   0x00428964   67 8b 1a             addr16 mov    (%bp,%si,1) -> %ebx 
-     *   0x00428964   67 8b 1b             addr16 mov    (%bp,%di,1) -> %ebx 
-     *   0x00428964   67 8b 1c             addr16 mov    (%si) -> %ebx 
-     *   0x00428964   67 8b 1d             addr16 mov    (%di) -> %ebx 
-     *   0x004289c4   8b 1d 7f 00 00 00    mov    0x7f -> %ebx 
-     *   0x004289c4   67 8b 1e 7f 00       addr16 mov    0x7f -> %ebx 
-     *   0x004289c4   67 8b 5e 00          addr16 mov    (%bp) -> %ebx 
-     *   0x004289c4   67 8b 1f             addr16 mov    (%bx) -> %ebx 
-     *   0x004289c4   67 8b 58 7f          addr16 mov    0x7f(%bx,%si,1) -> %ebx 
-     *   0x004289c4   67 8b 59 7f          addr16 mov    0x7f(%bx,%di,1) -> %ebx 
-     *   0x004289c4   67 8b 5a 7f          addr16 mov    0x7f(%bp,%si,1) -> %ebx 
-     *   0x004289c4   67 8b 5b 7f          addr16 mov    0x7f(%bp,%di,1) -> %ebx 
-     *   0x004289c4   67 8b 5c 7f          addr16 mov    0x7f(%si) -> %ebx 
-     *   0x004289c4   67 8b 5d 7f          addr16 mov    0x7f(%di) -> %ebx 
-     *   0x004289c4   67 8b 5e 7f          addr16 mov    0x7f(%bp) -> %ebx 
-     *   0x004289c4   67 8b 5f 7f          addr16 mov    0x7f(%bx) -> %ebx 
-     *   0x004289c4   67 8b 98 80 00       addr16 mov    0x0080(%bx,%si,1) -> %ebx 
-     *   0x004289c4   67 8b 99 80 00       addr16 mov    0x0080(%bx,%di,1) -> %ebx 
-     *   0x004289c4   67 8b 9a 80 00       addr16 mov    0x0080(%bp,%si,1) -> %ebx 
-     *   0x004289c4   67 8b 9b 80 00       addr16 mov    0x0080(%bp,%di,1) -> %ebx 
-     *   0x004289c4   67 8b 9c 80 00       addr16 mov    0x0080(%si) -> %ebx 
-     *   0x004289c4   67 8b 9d 80 00       addr16 mov    0x0080(%di) -> %ebx 
-     *   0x004289c4   67 8b 9e 80 00       addr16 mov    0x0080(%bp) -> %ebx 
-     *   0x004289c4   67 8b 9f 80 00       addr16 mov    0x0080(%bx) -> %ebx 
+     *   0x00428964   67 8b 18             addr16 mov    (%bx,%si,1) -> %ebx
+     *   0x00428964   67 8b 19             addr16 mov    (%bx,%di,1) -> %ebx
+     *   0x00428964   67 8b 1a             addr16 mov    (%bp,%si,1) -> %ebx
+     *   0x00428964   67 8b 1b             addr16 mov    (%bp,%di,1) -> %ebx
+     *   0x00428964   67 8b 1c             addr16 mov    (%si) -> %ebx
+     *   0x00428964   67 8b 1d             addr16 mov    (%di) -> %ebx
+     *   0x004289c4   8b 1d 7f 00 00 00    mov    0x7f -> %ebx
+     *   0x004289c4   67 8b 1e 7f 00       addr16 mov    0x7f -> %ebx
+     *   0x004289c4   67 8b 5e 00          addr16 mov    (%bp) -> %ebx
+     *   0x004289c4   67 8b 1f             addr16 mov    (%bx) -> %ebx
+     *   0x004289c4   67 8b 58 7f          addr16 mov    0x7f(%bx,%si,1) -> %ebx
+     *   0x004289c4   67 8b 59 7f          addr16 mov    0x7f(%bx,%di,1) -> %ebx
+     *   0x004289c4   67 8b 5a 7f          addr16 mov    0x7f(%bp,%si,1) -> %ebx
+     *   0x004289c4   67 8b 5b 7f          addr16 mov    0x7f(%bp,%di,1) -> %ebx
+     *   0x004289c4   67 8b 5c 7f          addr16 mov    0x7f(%si) -> %ebx
+     *   0x004289c4   67 8b 5d 7f          addr16 mov    0x7f(%di) -> %ebx
+     *   0x004289c4   67 8b 5e 7f          addr16 mov    0x7f(%bp) -> %ebx
+     *   0x004289c4   67 8b 5f 7f          addr16 mov    0x7f(%bx) -> %ebx
+     *   0x004289c4   67 8b 98 80 00       addr16 mov    0x0080(%bx,%si,1) -> %ebx
+     *   0x004289c4   67 8b 99 80 00       addr16 mov    0x0080(%bx,%di,1) -> %ebx
+     *   0x004289c4   67 8b 9a 80 00       addr16 mov    0x0080(%bp,%si,1) -> %ebx
+     *   0x004289c4   67 8b 9b 80 00       addr16 mov    0x0080(%bp,%di,1) -> %ebx
+     *   0x004289c4   67 8b 9c 80 00       addr16 mov    0x0080(%si) -> %ebx
+     *   0x004289c4   67 8b 9d 80 00       addr16 mov    0x0080(%di) -> %ebx
+     *   0x004289c4   67 8b 9e 80 00       addr16 mov    0x0080(%bp) -> %ebx
+     *   0x004289c4   67 8b 9f 80 00       addr16 mov    0x0080(%bx) -> %ebx
      */
     test_modrm16_helper(dc, REG_BX, REG_SI,      0, 3);
     test_modrm16_helper(dc, REG_BX, REG_DI,      0, 3);
@@ -522,11 +522,11 @@ static void
 test_size_changes(void *dc)
 {
     /*
-     *   0x004299d4   67 51                addr16 push   %ecx %sp -> %sp (%sp) 
-     *   0x004299d4   66 51                data16 push   %cx %esp -> %esp (%esp) 
-     *   0x004299d4   66 67 51             data16 addr16 push   %cx %sp -> %sp (%sp) 
-     *   0x004298a4   e3 fe                jecxz  $0x004298a4 %ecx 
-     *   0x004298a4   67 e3 fd             addr16 jecxz  $0x004298a4 %cx 
+     *   0x004299d4   67 51                addr16 push   %ecx %sp -> %sp (%sp)
+     *   0x004299d4   66 51                data16 push   %cx %esp -> %esp (%esp)
+     *   0x004299d4   66 67 51             data16 addr16 push   %cx %sp -> %sp (%sp)
+     *   0x004298a4   e3 fe                jecxz  $0x004298a4 %ecx
+     *   0x004298a4   67 e3 fd             addr16 jecxz  $0x004298a4 %cx
      *   0x080a5260   67 e2 fd             addr16 loop   $0x080a5260 %cx -> %cx
      *   0x080a5260   67 e1 fd             addr16 loope  $0x080a5260 %cx -> %cx
      *   0x080a5260   67 e0 fd             addr16 loopne $0x080a5260 %cx -> %cx
@@ -574,14 +574,14 @@ test_size_changes(void *dc)
     test_instr_encode(dc, instr, 3);
 
     /*
-     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi 
-     *   0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di -> %si %di 
-     *   0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi 
-     *   0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al 
-     *   0x004ee0b8   67 d7                addr16 xlat   %ds:(%bx,%al,1) -> %al 
-     *   0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 -> %ds:(%edi) 
-     *   0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 -> %ds:(%di) 
-     *   0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 -> %ds:(%edi) 
+     *   0x004ee0b8   a6                   cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi
+     *   0x004ee0b8   67 a6                addr16 cmps   %ds:(%si) %es:(%di) %si %di -> %si %di
+     *   0x004ee0b8   66 a7                data16 cmps   %ds:(%esi) %es:(%edi) %esi %edi -> %esi %edi
+     *   0x004ee0b8   d7                   xlat   %ds:(%ebx,%al,1) -> %al
+     *   0x004ee0b8   67 d7                addr16 xlat   %ds:(%bx,%al,1) -> %al
+     *   0x004ee0b8   0f f7 c1             maskmovq %mm0 %mm1 -> %ds:(%edi)
+     *   0x004ee0b8   67 0f f7 c1          addr16 maskmovq %mm0 %mm1 -> %ds:(%di)
+     *   0x004ee0b8   66 0f f7 c1          maskmovdqu %xmm0 %xmm1 -> %ds:(%edi)
      *   0x004ee0b8   67 66 0f f7 c1       addr16 maskmovdqu %xmm0 %xmm1 -> %ds:(%di)
      */
     test_instr_encode(dc, INSTR_CREATE_cmps_1(dc), 1);
@@ -614,7 +614,7 @@ test_size_changes(void *dc)
                                   opnd_create_reg(REG_MM1));
     test_instr_encode(dc, instr, 3);
     instr = instr_create_1dst_2src
-        (dc, OP_maskmovq, 
+        (dc, OP_maskmovq,
          opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
                                    REG_NULL, 0, 0, OPSZ_8),
          opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1));
@@ -624,7 +624,7 @@ test_size_changes(void *dc)
                                     opnd_create_reg(REG_XMM1));
     test_instr_encode(dc, instr, 4);
     instr = instr_create_1dst_2src
-        (dc, OP_maskmovdqu, 
+        (dc, OP_maskmovdqu,
          opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
                                    REG_NULL, 0, 0, OPSZ_16),
          opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1));
@@ -747,8 +747,8 @@ test_x86_mode(void *dc)
 static void
 test_x64_abs_addr(void *dc)
 {
-    /* 48 a1 ef be ad de ef be ad de    mov    0xdeadbeefdeadbeef -> %rax 
-     * 48 a3 ef be ad de ef be ad de    mov    %rax -> 0xdeadbeefdeadbeef 
+    /* 48 a1 ef be ad de ef be ad de    mov    0xdeadbeefdeadbeef -> %rax
+     * 48 a3 ef be ad de ef be ad de    mov    %rax -> 0xdeadbeefdeadbeef
      */
     instr_t *instr;
     opnd_t abs_addr = opnd_create_abs_addr((void*)0xdeadbeefdeadbeef, OPSZ_8);

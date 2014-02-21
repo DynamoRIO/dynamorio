@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -76,7 +76,7 @@
 # undef printf
 # define VERBOSE_PRINT printf
 #else
-# define DO_VERBOSE(x) 
+# define DO_VERBOSE(x)
 # define VERBOSE_PRINT(...)
 #endif
 #define FP stderr
@@ -102,7 +102,7 @@ static BOOL use_environment = TRUE; /* FIXME : for now default to using
 static const char *ops_param;
 static double wallclock; /* in seconds */
 
-/* FIXME : assert stuff, internal error, display_message duplicated from 
+/* FIXME : assert stuff, internal error, display_message duplicated from
  * pre_inject, share? */
 
 /* for asserts, copied from utils.h */
@@ -117,7 +117,7 @@ void internal_error(const char *file, int line, const char *msg);
 void display_error(char *msg);
 # ifdef INTERNAL
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, #x)
-# else 
+# else
 #   define ASSERT(x)         if (!(x)) internal_error(__FILE__, __LINE__, "")
 # endif /* INTERNAL */
 #else
@@ -130,11 +130,11 @@ extern char *get_application_name(void);
 extern char *get_application_pid(void);
 
 static void
-display_error_helper(wchar_t *msg) 
+display_error_helper(wchar_t *msg)
 {
     wchar_t title_buf[MAX_PATH + 64];
-    _snwprintf(title_buf, BUFFER_SIZE_ELEMENTS(title_buf), 
-              L_PRODUCT_NAME L" Notice: %hs(%hs)", 
+    _snwprintf(title_buf, BUFFER_SIZE_ELEMENTS(title_buf),
+              L_PRODUCT_NAME L" Notice: %hs(%hs)",
               get_application_name(), get_application_pid());
     NULL_TERMINATE_BUFFER(title_buf);
 
@@ -154,13 +154,13 @@ internal_error(const char *file, int line, const char *expr)
 {
 #ifdef INTERNAL
 # define FILENAME_LENGTH L""
-#else 
+#else
 /* truncate file name to first character */
-# define FILENAME_LENGTH L".1"   
+# define FILENAME_LENGTH L".1"
 #endif
     wchar_t buf[512];
-    _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), 
-              L"Injector Error %" FILENAME_LENGTH L"hs:%d %hs\n", 
+    _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
+              L"Injector Error %" FILENAME_LENGTH L"hs:%d %hs\n",
               file, line, expr);
     NULL_TERMINATE_BUFFER(buf);
     display_error_helper(buf);
@@ -168,7 +168,7 @@ internal_error(const char *file, int line, const char *expr)
 }
 
 #ifdef DEBUG
-void 
+void
 display_error(char *msg)
 {
 # ifdef DISABLED /* going with msgbox always! */
@@ -191,7 +191,7 @@ BOOL WINAPI HandlerRoutine(DWORD dwCtrlType   //  control signal type
     /*    GenerateConsoleCtrlEvent(dwCtrlType, phandle);*/
     return TRUE;
 }
-#endif 
+#endif
 
 /*************************************************************************/
 
@@ -297,13 +297,13 @@ dr_inject_print_stats(void *data, int elapsed_secs, bool showstats, bool showmem
 }
 
 /*************************************************************************/
-/* Following code handles the copying of environment variables to the 
+/* Following code handles the copying of environment variables to the
  * registry (the -env option, default on) and unsetting them later
  *
  * FIXME : race conditions with someone else modifying this registry key,
  *         doesn't restore registry if -no_wait
  * NOTE : doesn't propagate if using debug injection method (by design)
- *         
+ *
  */
 
 static BOOL created_product_reg_key;
@@ -337,7 +337,7 @@ static HKEY product_name_key;
  DO_ENV_VARS();
 
 static void
-set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path) 
+set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
 {
 #undef TEMP_CMD
 #define TEMP_CMD(name, NAME)                     \
@@ -351,7 +351,7 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
     int rununder_int_value;
 
     /* get environment variable values if they are set */
-#undef TEMP_CMD    
+#undef TEMP_CMD
 #define TEMP_CMD(name, NAME)                                                  \
  name##_value[0] = '\0';  /* to be pedantic */                                \
  len = GetEnvironmentVariable(_TEXT(DYNAMORIO_VAR_##NAME), name##_value,      \
@@ -380,7 +380,7 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
     rununder_int_value |= RUNUNDER_ON | RUNUNDER_EXPLICIT;
 
     do_rununder = true;
-    _itot(rununder_int_value, rununder_value, 
+    _itot(rununder_int_value, rununder_value,
           10 /* FIXME : is the radix abstracted somewhere */);
 
     /* for follow_children, we set DYNAMORIO_AUTOINJECT (unless
@@ -393,29 +393,29 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
 
     /* FIXME : doesn't support svchost-* yet */
     ASSERT(_tcsicmp(_TEXT(SVCHOST_EXE_NAME), image_name));
-    res = RegCreateKeyEx(DYNAMORIO_REGISTRY_HIVE, 
-                         _TEXT(DYNAMORIO_REGISTRY_KEY), 0,  NULL, 
+    res = RegCreateKeyEx(DYNAMORIO_REGISTRY_HIVE,
+                         _TEXT(DYNAMORIO_REGISTRY_KEY), 0,  NULL,
                          REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL,
                          &product_name_key, &disp);
     ASSERT(res == ERROR_SUCCESS);
     if (disp == REG_CREATED_NEW_KEY) {
         created_product_reg_key = TRUE;
     }
-    res = RegCreateKeyEx(product_name_key, image_name, 0, NULL, 
-                         REG_OPTION_NON_VOLATILE, KEY_QUERY_VALUE|KEY_SET_VALUE, 
+    res = RegCreateKeyEx(product_name_key, image_name, 0, NULL,
+                         REG_OPTION_NON_VOLATILE, KEY_QUERY_VALUE|KEY_SET_VALUE,
                          NULL, &image_name_key, &disp);
     ASSERT(res == ERROR_SUCCESS);
     if (disp == REG_CREATED_NEW_KEY) {
         created_image_reg_key = TRUE;
     }
-    
+
     DO_VERBOSE({
         printf("created product key? %s\ncreated image key? %s\n",
-               created_product_reg_key ? "yes" : "no", 
+               created_product_reg_key ? "yes" : "no",
                created_image_reg_key ? "yes" : "no");
         fflush(stdout);
     });
- 
+
     /* Now set values */
 #undef TEMP_CMD
 #define TEMP_CMD(name, NAME)                                                  \
@@ -438,7 +438,7 @@ set_registry_from_env(const TCHAR *image_name, const TCHAR *dll_path)
            overwrote_##name##_value  ? "overwrote" : "created", #name,        \
            name##_value, overwrote_##name##_value ? old_##name##_value : ""));\
  }
-    
+
     DO_ENV_VARS();
 
     DO_VERBOSE({fflush(stdout);});
@@ -476,7 +476,7 @@ unset_registry_from_env(const TCHAR *image_name)
         VERBOSE_PRINT(("deleted image reg key\n"));
     }
     if (created_product_reg_key) {
-        res = RegDeleteKey(DYNAMORIO_REGISTRY_HIVE, 
+        res = RegDeleteKey(DYNAMORIO_REGISTRY_HIVE,
                            _TEXT(DYNAMORIO_REGISTRY_KEY));
         ASSERT(res == ERROR_SUCCESS);
         VERBOSE_PRINT(("deleted product reg key\n"));
@@ -493,7 +493,7 @@ unset_registry_from_env(const TCHAR *image_name)
 /* The following code handles checking for, setting and unsetting of the
  * debug key injection method
  *
- * This whole section can go away once we have our own version of create 
+ * This whole section can go away once we have our own version of create
  * process that doesn't check the debugger key FIXME
  */
 
@@ -501,7 +501,7 @@ static HKEY debugger_key;
 static TCHAR debugger_key_full_name[MAX_PATH];
 static TCHAR debugger_key_value[3*MAX_PATH];
 static DWORD debugger_key_value_size = BUFFER_SIZE_BYTES(debugger_key_value);
-static BOOL (*debug_stop_function)(int); 
+static BOOL (*debug_stop_function)(int);
 
 DYNAMORIO_EXPORT
 bool
@@ -510,32 +510,32 @@ using_debugger_key_injection(const TCHAR *image_name)
     int res;
 
     debug_stop_function = (BOOL (*)(int))
-        (GetProcAddress(GetModuleHandle(TEXT("Kernel32")), 
+        (GetProcAddress(GetModuleHandle(TEXT("Kernel32")),
                         "DebugActiveProcessStop"));
-    
-    _sntprintf(debugger_key_full_name, 
+
+    _sntprintf(debugger_key_full_name,
                BUFFER_SIZE_ELEMENTS(debugger_key_full_name), _TEXT("%hs\\%s"),
                DEBUGGER_INJECTION_KEY, image_name);
     NULL_TERMINATE_BUFFER(debugger_key_full_name);
 
     VERBOSE_PRINT(("debugger key %s\n", debugger_key_full_name));
 
-    res = RegOpenKeyEx(DEBUGGER_INJECTION_HIVE, debugger_key_full_name, 
+    res = RegOpenKeyEx(DEBUGGER_INJECTION_HIVE, debugger_key_full_name,
                        0, KEY_QUERY_VALUE + KEY_SET_VALUE, &debugger_key);
-    if (ERROR_SUCCESS != res) 
+    if (ERROR_SUCCESS != res)
         return false;
     res = RegQueryValueEx(debugger_key, _TEXT(DEBUGGER_INJECTION_VALUE_NAME),
-                          NULL, NULL, (BYTE *) debugger_key_value, 
+                          NULL, NULL, (BYTE *) debugger_key_value,
                           &debugger_key_value_size);
-    if (ERROR_SUCCESS != res || 
-        /* FIXME : it would be better to check if our commandline matched 
+    if (ERROR_SUCCESS != res ||
+        /* FIXME : it would be better to check if our commandline matched
          * what was in the registry value, instead of looking for drinject */
         _tcsstr(debugger_key_value, _TEXT(DRINJECT_NAME)) == 0) {
         RegCloseKey(debugger_key);
         return false;
     }
 
-    /* since returning true, we don't close the debugger_key (it will be 
+    /* since returning true, we don't close the debugger_key (it will be
      * needed by the unset and restore functions). The restore function will
      * close it */
 
@@ -546,9 +546,9 @@ static
 void unset_debugger_key_injection()
 {
     if (debug_stop_function == NULL) {
-        int res = RegDeleteValue(debugger_key, 
+        int res = RegDeleteValue(debugger_key,
                                  _TEXT(DEBUGGER_INJECTION_VALUE_NAME));
-        VERBOSE_PRINT(("Successfully deleted debugger registry value? %s\n", 
+        VERBOSE_PRINT(("Successfully deleted debugger registry value? %s\n",
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
         if (ERROR_SUCCESS != res) {
             ASSERT(FALSE);
@@ -563,10 +563,10 @@ void restore_debugger_key_injection(int id, BOOL started)
 {
     int res;
     if (debug_stop_function == NULL) {
-        res = RegSetValueEx(debugger_key, 
-                            _TEXT(DEBUGGER_INJECTION_VALUE_NAME), 0, REG_SZ, 
+        res = RegSetValueEx(debugger_key,
+                            _TEXT(DEBUGGER_INJECTION_VALUE_NAME), 0, REG_SZ,
                             (BYTE *) debugger_key_value, debugger_key_value_size);
-        VERBOSE_PRINT(("Successfully restored debugger registry value? %s\n", 
+        VERBOSE_PRINT(("Successfully restored debugger registry value? %s\n",
                        (ERROR_SUCCESS == res) ? "yes" : "no"));
     } else {
         if (started) {
@@ -588,7 +588,7 @@ static const TCHAR *
 get_image_name(const TCHAR *app_name)
 {
     const TCHAR *name_start = double_tcsrchr(app_name, _TEXT('\\'), _TEXT('/'));
-    if (name_start == NULL) 
+    if (name_start == NULL)
         name_start = app_name;
     else
         name_start++;
@@ -653,7 +653,7 @@ append_app_arg_and_space(char *buf, size_t bufsz, size_t *sofar, const char *arg
      * some processes directly parse the command line (note that WinMain is not
      * passed argv[]) and can't handle quotes (of course they have to handle
      * quotes on args with spaces).
-     * 
+     *
      * XXX: by taking argv[], we're already losing transparency: most front-ends
      * will pass us their main() argv[], which has already lost quotes.  Thus
      * the child process will not see the same quotes in the cmdline.
@@ -772,7 +772,7 @@ dr_inject_process_create(const char *app_name, const char **argv,
             BUFFER_SIZE_ELEMENTS(info->image_name));
 
     /* FIXME, won't need to check this, or unset/restore debugger_key_injection
-     * if we have our own version of CreateProcess that doesn't check the 
+     * if we have our own version of CreateProcess that doesn't check the
      * debugger key */
     info->using_debugger_injection = using_debugger_key_injection(info->image_name);
 
@@ -811,24 +811,24 @@ dr_inject_process_inject(void *data, bool force_injection,
     /* force_injection prevents overriding of inject based on registry */
     if (!force_injection) {
         int inject_flags = systemwide_should_inject(info->pi.hProcess, NULL);
-        bool syswide_will_inject = systemwide_inject_enabled() && 
-            TEST(INJECT_TRUE, inject_flags) && 
+        bool syswide_will_inject = systemwide_inject_enabled() &&
+            TEST(INJECT_TRUE, inject_flags) &&
             !TEST(INJECT_EXPLICIT, inject_flags);
-        bool should_not_takeover = TEST(INJECT_EXCLUDED, inject_flags) && 
+        bool should_not_takeover = TEST(INJECT_EXCLUDED, inject_flags) &&
             info->using_debugger_injection;
         /* case 10794: to support follow_children we inject even if
          * syswide_will_inject.  we use RUNUNDER_EXPLICIT to avoid
          * user32 injection from happening, to get consistent injection.
-         * (if we didn't things would work but we'd have 
+         * (if we didn't things would work but we'd have
          * a warning "<Blocking load of module dynamorio.dll>" on the 2nd
          * injection)
          */
         inject = !should_not_takeover;
         if (!inject) {
-            /* we should always be injecting (we set the registry above) 
-             * unless we are using debugger_key_injection, in which 
-             * case we use what is in the registry (whoever wrote the registry 
-             * should take care of late or nonexistent user32 loading in the 
+            /* we should always be injecting (we set the registry above)
+             * unless we are using debugger_key_injection, in which
+             * case we use what is in the registry (whoever wrote the registry
+             * should take care of late or nonexistent user32 loading in the
              * rununder value) */
             ASSERT(info->using_debugger_injection);
             display_error("application is excluded from injection\n");

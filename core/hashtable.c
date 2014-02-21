@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -93,14 +93,14 @@ hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
                                 uint old_capacity, generic_entry_t **old_table,
                                 generic_entry_t **old_table_unaligned,
                                 uint old_ref_count, uint old_table_flags)
-{ /* nothing */ 
+{ /* nothing */
 }
 
 # ifdef DEBUG
 static void
-hashtable_generic_study_custom(dcontext_t *dcontext, generic_table_t *htable, 
+hashtable_generic_study_custom(dcontext_t *dcontext, generic_table_t *htable,
                               uint entries_inc/*amnt table->entries was pre-inced*/)
-{ /* nothing */ 
+{ /* nothing */
 }
 # endif
 
@@ -116,7 +116,7 @@ hashtable_generic_free_entry(dcontext_t *dcontext, generic_table_t *htable,
 /* Wrapper routines to implement our generic_entry_t and free-func layer */
 
 generic_table_t *
-generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent, 
+generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
                     uint table_flags, void (*free_payload_func)(void*)
                     _IF_DEBUG(const char *table_name))
 {
@@ -395,11 +395,11 @@ strhash_hash_remove(dcontext_t *dcontext, strhash_table_t *htable, const char *k
 
 /* caller is responsible for any needed synchronization */
 void
-print_hashtable_stats(dcontext_t *dcontext, 
+print_hashtable_stats(dcontext_t *dcontext,
                       const char *is_final_str, const char *is_trace_str,
-                      const char *lookup_routine_str, 
+                      const char *lookup_routine_str,
                       const char *brtype_str,
-                      hashtable_statistics_t *lookup_stats) 
+                      hashtable_statistics_t *lookup_stats)
 {
     uint64 hits_stat = lookup_stats->hit_stat;
     uint64 total_lookups;
@@ -411,8 +411,8 @@ print_hashtable_stats(dcontext_t *dcontext,
     total_lookups= hits_stat + lookup_stats->miss_stat + lookup_stats->collision_hit_stat;
 
     DOLOG(1, LOG_FRAGMENT|LOG_STATS, {
-        uint miss_top=0; uint miss_bottom=0; 
-        uint hit_top=0; uint hit_bottom=0; 
+        uint miss_top=0; uint miss_bottom=0;
+        uint hit_top=0; uint hit_bottom=0;
         uint col_top=0; uint col_bottom=0;
         if (total_lookups > 0) {
             divide_uint64_print(lookup_stats->miss_stat, total_lookups, false,
@@ -421,7 +421,7 @@ print_hashtable_stats(dcontext_t *dcontext,
         if (hits_stat > 0) {
             divide_uint64_print(lookup_stats->collision_hit_stat, hits_stat,
                                 false, 4, &hit_top, &hit_bottom);
-            divide_uint64_print(hits_stat + lookup_stats->collision_stat, 
+            divide_uint64_print(hits_stat + lookup_stats->collision_stat,
                                 hits_stat, false, 4, &col_top, &col_bottom);
         }
         LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
@@ -458,24 +458,24 @@ print_hashtable_stats(dcontext_t *dcontext,
                 lookup_stats->unlinked_count_stat);
         }
         if (lookup_stats->ib_stay_on_trace_stat) {
-            uint ontrace_top=0; uint ontrace_bottom=0; 
-            uint lastexit_top=0; uint lastexit_bottom=0; 
-            uint speculate_lastexit_top=0; uint speculate_lastexit_bottom=0; 
+            uint ontrace_top=0; uint ontrace_bottom=0;
+            uint lastexit_top=0; uint lastexit_bottom=0;
+            uint speculate_lastexit_top=0; uint speculate_lastexit_bottom=0;
             /* indirect branch lookups */
-            uint64 total_dynamic_ibs = 
-                total_lookups + lookup_stats->ib_stay_on_trace_stat + 
+            uint64 total_dynamic_ibs =
+                total_lookups + lookup_stats->ib_stay_on_trace_stat +
                 (DYNAMO_OPTION(speculate_last_exit) ? lookup_stats->ib_trace_last_ibl_speculate_success : 0);
 
             /* FIXME: add ib_stay_on_trace_stat_ovfl here */
 
             if (total_dynamic_ibs > 0) {
-                divide_uint64_print(lookup_stats->ib_stay_on_trace_stat, 
+                divide_uint64_print(lookup_stats->ib_stay_on_trace_stat,
                                     total_dynamic_ibs, false,
                                     4, &ontrace_top, &ontrace_bottom);
-                divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit, 
+                divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit,
                                     total_dynamic_ibs, false,
                                     4, &lastexit_top, &lastexit_bottom);
-                divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success, 
+                divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                     total_dynamic_ibs, false,
                                     4, &speculate_lastexit_top, &speculate_lastexit_bottom);
             }
@@ -504,26 +504,26 @@ print_hashtable_stats(dcontext_t *dcontext,
         if (lookup_stats->ib_trace_last_ibl_exit > 0) {
             /* ignoring indirect branches that stayed on trace */
             /* FIXME: add ib_stay_on_trace_stat_ovfl here */
-            uint speculate_only_lastexit_top=0; uint speculate_only_lastexit_bottom=0; 
-            uint lastexit_ibl_top=0; uint lastexit_ibl_bottom=0; 
-            uint speculate_lastexit_ibl_top=0; uint speculate_lastexit_ibl_bottom=0; 
+            uint speculate_only_lastexit_top=0; uint speculate_only_lastexit_bottom=0;
+            uint lastexit_ibl_top=0; uint lastexit_ibl_bottom=0;
+            uint speculate_lastexit_ibl_top=0; uint speculate_lastexit_ibl_bottom=0;
 
             uint64 total_dynamic_ibl_no_trace = total_lookups + lookup_stats->ib_trace_last_ibl_exit;
             if (total_dynamic_ibl_no_trace > 0) {
-                divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit, 
+                divide_uint64_print(lookup_stats->ib_trace_last_ibl_exit,
                                     total_dynamic_ibl_no_trace, false,
                                     4, &lastexit_ibl_top, &lastexit_ibl_bottom);
-                divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success, 
+                divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                     total_dynamic_ibl_no_trace, false,
                                     4, &speculate_lastexit_ibl_top, &speculate_lastexit_ibl_bottom);
             }
 
             /* ib_trace_last_ibl_exit includes all ib_trace_last_ibl_speculate_success */
-            divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success, 
+            divide_uint64_print(lookup_stats->ib_trace_last_ibl_speculate_success,
                                 lookup_stats->ib_trace_last_ibl_exit, false,
                                 4, &speculate_only_lastexit_top, &speculate_only_lastexit_bottom);
 
-            
+
             LOG(THREAD, LOG_FRAGMENT|LOG_STATS, 1,
                 "%s %s table %s%s last trace exit speculation hit: %u, speculation miss: %u, lastexit%%=%u.%.4u(%%IBL), lastexit_succ%%=%u.%.4u(%%IBL), spec hit%%=%u.%.4u(%%last exit)\n",
                 is_final_str, is_trace_str, lookup_routine_str, brtype_str,

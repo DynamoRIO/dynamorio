@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,7 +68,7 @@ static void event_thread_exit(void *drcontext);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* register events */
@@ -110,13 +110,13 @@ display_results(per_thread_t *data, const char *thread_note)
 #endif /* SHOW_RESULTS */
 }
 
-static void 
+static void
 event_exit(void)
 {
     display_results(&global_count, "");
 }
 
-static void 
+static void
 event_thread_init(void *drcontext)
 {
     /* create an instance of our data structure for this thread */
@@ -131,7 +131,7 @@ event_thread_init(void *drcontext)
            dr_get_thread_id(drcontext));
 }
 
-static void 
+static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
@@ -175,7 +175,7 @@ insert_counter_update(void *drcontext, instrlist_t *bb, instr_t *where, int offs
     if (dr_using_all_private_caches()) {
         per_thread_t *data = (per_thread_t *) dr_get_tls_field(drcontext);
         /* private caches - we can use an absolute address */
-        instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc(drcontext, 
+        instrlist_meta_preinsert(bb, where, INSTR_CREATE_inc(drcontext,
             OPND_CREATE_ABSMEM(((byte *)&data) + offset, OPSZ_4)));
     } else {
         /* shared caches - we must indirect via thread local storage */
@@ -199,18 +199,18 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
-    
+
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
 # ifdef VERBOSE_VERBOSE
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
 #endif
-    
+
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         /* grab next now so we don't go over instructions we insert */
         next_instr = instr_get_next(instr);
-        
+
         /* instrument calls and returns -- ignore far calls/rets */
         if (instr_is_call_direct(instr)) {
             insert_counter_update(drcontext, bb, instr,
@@ -223,7 +223,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                   offsetof(per_thread_t, num_returns));
         }
     }
-    
+
 #if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
     dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
     instrlist_disassemble(drcontext, tag, bb, STDOUT);

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -51,7 +51,7 @@
  */
 
 /* around whole file: */
-#ifdef STEAL_REGISTER 
+#ifdef STEAL_REGISTER
 
 
 /* In the following functions, edi is assumed to be a pointer to the
@@ -62,7 +62,7 @@
 /* x86 notes:
  * cti instruction reg usage:
  *   jmp,jcc direct: 'J' = immed only = no regs used
- *   jmp indirect:   'E' = either single reg or base or base + index 
+ *   jmp indirect:   'E' = either single reg or base or base + index
  *                       = max 2 regs
  *   ret/lret: 'I' = immed only = no regs used
  *   jcxz and loop*: 'J' + ecx = uses ecx only
@@ -197,7 +197,7 @@ expand_popa(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 /* Handle implicit references to edi.  This routine assumes that
  * edi is both read and written, that no explicit operands exist
  * in the instruction, and that ebx is not used. */
-/* 
+/*
 example:
   0x00405178   f3 a5                repz movs  %ds:%esi,%es:%edi
 becomes
@@ -382,23 +382,23 @@ becomes:
   0x0142fec6   0f b6 03             movzx (%ebx),%eax
   0x0142fec9   8b 5f 04             mov   0x4(%edi),%ebx
 new example:
-  0x00403de3   8b 3e                mov   (%esi) -> %edi 
-  0x00403de5   2b f8                sub   %eax %edi -> %edi 
+  0x00403de3   8b 3e                mov   (%esi) -> %edi
+  0x00403de5   2b f8                sub   %eax %edi -> %edi
 becomes:
-  0x0536e663   89 5f 04             mov   %ebx -> 0x4(%edi) 
-  0x0536e666   8b 1e                mov   (%esi) -> %ebx 
-  0x0536e668   2b d8                sub   %eax %ebx -> %ebx 
-  0x0536e66a   89 5f 14             mov   %ebx -> 0x14(%edi) 
-  0x0536e66d   8b 5f 04             mov   0x4(%edi) -> %ebx 
+  0x0536e663   89 5f 04             mov   %ebx -> 0x4(%edi)
+  0x0536e666   8b 1e                mov   (%esi) -> %ebx
+  0x0536e668   2b d8                sub   %eax %ebx -> %ebx
+  0x0536e66a   89 5f 14             mov   %ebx -> 0x14(%edi)
+  0x0536e66d   8b 5f 04             mov   0x4(%edi) -> %ebx
 here's a good example of reg steal + indirect jmp mangling:
-  0x77f831ff   ff 24 bd c0 32 f8 77 jmp   0x77f832c0(,%edi,4) 
+  0x77f831ff   ff 24 bd c0 32 f8 77 jmp   0x77f832c0(,%edi,4)
 becomes:
-  0x052de580   89 57 0c             mov   %edx -> 0xc(%edi) 
-  0x052de583   89 5f 04             mov   %ebx -> 0x4(%edi) 
-  0x052de586   8b 5f 14             mov   0x14(%edi) -> %ebx 
-  0x052de589   8b 14 bd c0 32 f8 77 mov   0x77f832c0(,%edi,4) -> %edx 
-  0x052de590   8b 5f 04             mov   0x4(%edi) -> %ebx 
-  0x052de593   e9 00 00 00 00       jmp   0x52de598 <exit stub 0> 
+  0x052de580   89 57 0c             mov   %edx -> 0xc(%edi)
+  0x052de583   89 5f 04             mov   %ebx -> 0x4(%edi)
+  0x052de586   8b 5f 14             mov   0x14(%edi) -> %ebx
+  0x052de589   8b 14 bd c0 32 f8 77 mov   0x77f832c0(,%edi,4) -> %edx
+  0x052de590   8b 5f 04             mov   0x4(%edi) -> %ebx
+  0x052de593   e9 00 00 00 00       jmp   0x52de598 <exit stub 0>
 */
 /*
  * end of examples
@@ -458,7 +458,7 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
         return;
 #endif
 #endif
-        
+
     /* special cases */
     switch (instr_get_opcode(instr)) {
     case OP_pusha:
@@ -484,7 +484,7 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
             restore_state(dcontext, instr, ilist);
         return;
     }
-    
+
     /* if we get to here we know we're going to change the operands,
      * possibly by directly writing to operand bytes, so we have to explicitly
      * set original bits invalid:
@@ -601,23 +601,23 @@ steal_reg(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 
 /*
 sequence to study for better stealing:
-  0x77fca2da   0f b7 38             movzx  (%eax) -> %edi 
-  0x77fca2dd   2b fb                sub    %ebx %edi -> %edi 
-  0x77fca2df   89 7d a8             mov    %edi -> 0xffffffa8(%ebp) 
+  0x77fca2da   0f b7 38             movzx  (%eax) -> %edi
+  0x77fca2dd   2b fb                sub    %ebx %edi -> %edi
+  0x77fca2df   89 7d a8             mov    %edi -> 0xffffffa8(%ebp)
 becomes:
-  0x0265e0cd   89 5f 04             mov    %ebx -> 0x4(%edi) 
-  0x0265e0d0   0f b7 18             movzx  (%eax) -> %ebx 
-  0x0265e0d3   89 5f 14             mov    %ebx -> 0x14(%edi) 
-  0x0265e0d6   8b 5f 04             mov    0x4(%edi) -> %ebx 
-  0x0265e0d9   89 77 10             mov    %esi -> 0x10(%edi) 
-  0x0265e0dc   8b 77 14             mov    0x14(%edi) -> %esi 
-  0x0265e0df   2b f3                sub    %ebx %esi -> %esi 
-  0x0265e0e1   89 77 14             mov    %esi -> 0x14(%edi) 
-  0x0265e0e4   8b 77 10             mov    0x10(%edi) -> %esi 
-  0x0265e0e7   89 5f 04             mov    %ebx -> 0x4(%edi) 
-  0x0265e0ea   8b 5f 14             mov    0x14(%edi) -> %ebx 
-  0x0265e0ed   89 5d a8             mov    %ebx -> 0xffffffa8(%ebp) 
-  0x0265e0f0   8b 5f 04             mov    0x4(%edi) -> %ebx 
+  0x0265e0cd   89 5f 04             mov    %ebx -> 0x4(%edi)
+  0x0265e0d0   0f b7 18             movzx  (%eax) -> %ebx
+  0x0265e0d3   89 5f 14             mov    %ebx -> 0x14(%edi)
+  0x0265e0d6   8b 5f 04             mov    0x4(%edi) -> %ebx
+  0x0265e0d9   89 77 10             mov    %esi -> 0x10(%edi)
+  0x0265e0dc   8b 77 14             mov    0x14(%edi) -> %esi
+  0x0265e0df   2b f3                sub    %ebx %esi -> %esi
+  0x0265e0e1   89 77 14             mov    %esi -> 0x14(%edi)
+  0x0265e0e4   8b 77 10             mov    0x10(%edi) -> %esi
+  0x0265e0e7   89 5f 04             mov    %ebx -> 0x4(%edi)
+  0x0265e0ea   8b 5f 14             mov    0x14(%edi) -> %ebx
+  0x0265e0ed   89 5d a8             mov    %ebx -> 0xffffffa8(%ebp)
+  0x0265e0f0   8b 5f 04             mov    0x4(%edi) -> %ebx
 */
 
 

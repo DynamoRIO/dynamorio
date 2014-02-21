@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -82,35 +82,35 @@ CShellInterface::~CShellInterface()
     m_bInitialized = FALSE;
 }
 
-/*static*/ BOOL CShellInterface::CreateLinkFile(LPCTSTR pszShortcutFile, 
+/*static*/ BOOL CShellInterface::CreateLinkFile(LPCTSTR pszShortcutFile,
                                                 LPTSTR pszLink, LPTSTR pszDesc)
 {
     HRESULT hres;
     IShellLink *psl;
-        
-    // Create an IShellLink object and get a pointer to the IShellLink 
+
+    // Create an IShellLink object and get a pointer to the IShellLink
     // interface (returned from CoCreateInstance).
     hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
                              IID_IShellLink, (void **)&psl);
     if (SUCCEEDED (hres)) {
         IPersistFile *ppf;
-                
-        // Query IShellLink for the IPersistFile interface for 
+
+        // Query IShellLink for the IPersistFile interface for
         // saving the shortcut in persistent storage.
         hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-        if (SUCCEEDED (hres)) { 
+        if (SUCCEEDED (hres)) {
             // Set the path to the shortcut target.
             hres = psl->SetPath (pszShortcutFile);
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (_T("SetPath failed!"));
-                        
+
             // Set the description of the shortcut.
             hres = psl->SetDescription (pszDesc);
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (_T("SetDescription failed!"));
-                        
+
 #ifndef UNICODE
             // Ensure that the string consists of ANSI characters.
             WORD wsz [MAX_PATH]; // buffer for Unicode string
@@ -122,10 +122,10 @@ CShellInterface::~CShellInterface()
             hres = ppf->Save (pszLink, TRUE);
 #endif
 
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (_T("Save failed!"));
-                        
+
             // Release the pointer to IPersistFile.
             ppf->Release ();
         }
@@ -181,46 +181,46 @@ CShellInterface::~CShellInterface()
    except that sample had ansi strings
 */
 
-HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink, 
+HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
                                   LPSTR pszDesc)
 {
     HRESULT hres;
     IShellLink *psl;
-        
-    // Create an IShellLink object and get a pointer to the IShellLink 
+
+    // Create an IShellLink object and get a pointer to the IShellLink
     // interface (returned from CoCreateInstance).
     hres = CoCreateInstance (CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
                              IID_IShellLink, (void **)&psl);
     if (SUCCEEDED (hres)) {
         IPersistFile *ppf;
-                
-        // Query IShellLink for the IPersistFile interface for 
+
+        // Query IShellLink for the IPersistFile interface for
         // saving the shortcut in persistent storage.
         hres = psl->QueryInterface (IID_IPersistFile, (void **)&ppf);
-        if (SUCCEEDED (hres)) { 
+        if (SUCCEEDED (hres)) {
             WORD wsz [MAX_PATH]; // buffer for Unicode string
-                        
+
             // Set the path to the shortcut target.
             hres = psl->SetPath (pszShortcutFile);
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (_T("SetPath failed!"));
-                        
+
             // Set the description of the shortcut.
             hres = psl->SetDescription (pszDesc);
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (_T("SetDescription failed!"));
-                        
+
             // Ensure that the string consists of ANSI characters.
             MultiByteToWideChar (CP_ACP, 0, pszLink, -1, wsz, MAX_PATH);
-                        
+
             // Save the shortcut via the IPersistFile::Save member function.
             hres = ppf->Save (wsz, TRUE);
-                        
+
             if (! SUCCEEDED (hres))
                 AfxMessageBox (“Save failed!”);
-                        
+
             // Release the pointer to IPersistFile.
             ppf->Release ();
         }
@@ -228,5 +228,5 @@ HRESULT CreateShortCut::CreateIt (LPCSTR pszShortcutFile, LPSTR pszLink,
         psl->Release ();
     }
     return hres;
-} 
+}
 #endif

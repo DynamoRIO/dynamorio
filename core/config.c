@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -270,7 +270,7 @@ set_config_from_env(config_info_t *cfg)
         }
     }
 }
- 
+
 static void
 process_config_line(char *line, config_info_t *cfg, bool app_specific, bool overwrite)
 {
@@ -474,7 +474,7 @@ config_read(config_info_t *cfg, const char *appname_in, process_id_t pid, const 
     if (check_global) {
         /* 4) <global>/appname.config */
         if (f_app == INVALID_FILE) {
-            snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app), 
+            snprintf(cfg->fname_app, BUFFER_SIZE_ELEMENTS(cfg->fname_app),
                      "%s%s/%s.%s",
                      global, GLOBAL_CONFIG_SUBDIR, appname, sfx);
             NULL_TERMINATE_BUFFER(cfg->fname_app);
@@ -718,7 +718,7 @@ get_parameter_ex(const char *name, char *value, int maxlen, bool ignore_cache)
          * does: caller should use get_config_val_ex instead
          */
         return GET_PARAMETER_SUCCESS;
-    } 
+    }
     return GET_PARAMETER_FAILURE;
 }
 

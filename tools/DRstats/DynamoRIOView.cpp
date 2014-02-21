@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -261,7 +261,7 @@ pw_callback_under_dr(process_info_t *pi, void **param)
     case DLL_DEBUG : resstr=_T("SC debug"); reschar=_T('D'); break;
     case DLL_CUSTOM : resstr=_T("SC custom"); reschar=_T('C'); break;
     case DLL_NONE : resstr=_T("native"); reschar=_T('N'); break;
-    case DLL_UNKNOWN : 
+    case DLL_UNKNOWN :
     default : resstr=_T("<error>"); reschar=_T('?');
     }
     under_dr = !(res == DLL_NONE || res == DLL_UNKNOWN);
@@ -297,7 +297,7 @@ void CDynamoRIOView::EnumerateInstances()
     GetDocument()->SetTitle(pname);
 }
 
-void CDynamoRIOView::OnSelchangeList() 
+void CDynamoRIOView::OnSelchangeList()
 {
     TCHAR buf[128];
 
@@ -415,7 +415,7 @@ uint CDynamoRIOView::PrintClientStats(TCHAR *c, TCHAR *max)
     char (*names)[CLIENTSTAT_NAME_MAX_LEN] =
         (char (*)[CLIENTSTAT_NAME_MAX_LEN]) m_clientStats->data;
     stats_int_t *vals = (stats_int_t *)
-        ((char*)m_clientStats->data + 
+        ((char*)m_clientStats->data +
          m_clientStats->num_stats*CLIENTSTAT_NAME_MAX_LEN*sizeof(char));
     /* account for struct alignment */
     vals = (stats_int_t *) ALIGN_FORWARD(vals, sizeof(stats_int_t));
@@ -545,7 +545,7 @@ BOOL CDynamoRIOView::Refresh()
 }
 
 #ifndef DRSTATS_DEMO
-void CDynamoRIOView::OnChangeLogging() 
+void CDynamoRIOView::OnChangeLogging()
 {
     if (m_stats == NULL) {
         MessageBox(_T("No instance is selected"), _T("Error"), MB_OK | MYMBFLAGS);
@@ -573,7 +573,7 @@ void CDynamoRIOView::OnChangeLogging()
     UpdateData(FALSE);  // write to screen
 }
 
-void CDynamoRIOView::OnLogDirExplore() 
+void CDynamoRIOView::OnLogDirExplore()
 {
     if (m_stats == NULL) {
         MessageBox(_T("No instance is selected"), _T("Error"), MB_OK | MYMBFLAGS);
@@ -588,7 +588,7 @@ void CDynamoRIOView::OnLogDirExplore()
         return;
     }
 
-    HINSTANCE res = ShellExecute(m_hWnd, _T("explore"), 
+    HINSTANCE res = ShellExecute(m_hWnd, _T("explore"),
                                  m_LogDir, NULL, NULL, SW_SHOWNORMAL);
     if ((int)res <= 32) {
         TCHAR msg[MAX_PATH*2];
@@ -598,7 +598,7 @@ void CDynamoRIOView::OnLogDirExplore()
 }
 #endif /* DRSTATS_DEMO */
 
-void CDynamoRIOView::OnEditCopystats() 
+void CDynamoRIOView::OnEditCopystats()
 {
     if (m_ProcessList.GetCurSel() == 0) {
         MessageBox(_T("No instance selected"), _T("Error"), MB_OK | MYMBFLAGS);
@@ -653,39 +653,39 @@ void CDynamoRIOView::OnEditCopystats()
 
     size_t len = _tcslen(buf);
 
-    // Allocate a global memory object for the text. 
-    HGLOBAL hglbCopy = GlobalAlloc(GMEM_DDESHARE, 
-                                   (len + 1) * sizeof(TCHAR)); 
-    if (hglbCopy == NULL) { 
-        CloseClipboard(); 
+    // Allocate a global memory object for the text.
+    HGLOBAL hglbCopy = GlobalAlloc(GMEM_DDESHARE,
+                                   (len + 1) * sizeof(TCHAR));
+    if (hglbCopy == NULL) {
+        CloseClipboard();
         return;
-    } 
+    }
 
-    // Lock the handle and copy the text to the buffer. 
-    LPTSTR lptstrCopy = (LPTSTR) GlobalLock(hglbCopy); 
-    memcpy(lptstrCopy, buf, (len + 1) * sizeof(TCHAR)); 
-    lptstrCopy[len] = (TCHAR) 0;    // null TCHARacter 
-    GlobalUnlock(hglbCopy); 
+    // Lock the handle and copy the text to the buffer.
+    LPTSTR lptstrCopy = (LPTSTR) GlobalLock(hglbCopy);
+    memcpy(lptstrCopy, buf, (len + 1) * sizeof(TCHAR));
+    lptstrCopy[len] = (TCHAR) 0;    // null TCHARacter
+    GlobalUnlock(hglbCopy);
 
-    // Place the handle on the clipboard. 
+    // Place the handle on the clipboard.
     SetClipboardData(
 #ifdef UNICODE
                      CF_UNICODETEXT,
 #else
                      CF_TEXT,
 #endif
-                     hglbCopy); 
+                     hglbCopy);
 
     CloseClipboard();
 }
 
-void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar) 
+void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 {
     int minpos;
     int maxpos;
     if (pScrollBar == NULL)
         return;
-    pScrollBar->GetScrollRange(&minpos, &maxpos); 
+    pScrollBar->GetScrollRange(&minpos, &maxpos);
     maxpos = pScrollBar->GetScrollLimit();
     int curpos = pScrollBar->GetScrollPos();
 
@@ -714,7 +714,7 @@ void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 
     case SB_PAGEUP:    // Scroll one page up.
         {
-            // Get the page size. 
+            // Get the page size.
             SCROLLINFO   info;
             pScrollBar->GetScrollInfo(&info, SIF_ALL);
             if (curpos > minpos)
@@ -724,7 +724,7 @@ void CDynamoRIOView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar *pScrollBar)
 
     case SB_PAGEDOWN:      // Scroll one page down.
         {
-            // Get the page size. 
+            // Get the page size.
             SCROLLINFO   info;
             pScrollBar->GetScrollInfo(&info, SIF_ALL);
             if (curpos < maxpos)

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -189,7 +189,7 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
             _stprintf(msg, _T("Failed to resolve link file"));
             MessageBox(NULL, msg, _T("Error"), MB_OK | MYMBFLAGS);
             return FALSE;
-        }       
+        }
     } else {
         _stprintf(app_name, _T("%s"), lpszPathName);
 
@@ -284,7 +284,7 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
         launch_name = m_injector_path;
         // note that we want target app name as part of cmd line
         TCHAR * dll_path = CDynamoRIOApp::GetDllPath();
-        _stprintf(launch_cmdline, _T("\"%s\" \"%s\" %s"), 
+        _stprintf(launch_cmdline, _T("\"%s\" \"%s\" %s"),
                   m_injector_path, dll_path, app_cmdline);
 
         // be robust
@@ -329,7 +329,7 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
         return FALSE;
     }
 #endif // 0
-    
+
     // Launch the application process
     STARTUPINFO         si;
     PROCESS_INFORMATION pi;
@@ -368,10 +368,10 @@ BOOL CDynamoRIODoc::RunApplication(LPCTSTR lpszPathName)
         Sleep(10);
         i++;
     }
-    
+
     // don't call SetTitle -- View sets it to what's being viewed
     // SetTitle(lpszPathName);
-    
+
     return TRUE;
 }
 #endif /* !DRSTATS_DEMO */
@@ -407,7 +407,7 @@ void CDynamoRIODoc::Dump(CDumpContext& dc) const
 // CDynamoRIODoc commands
 
 
-BOOL CDynamoRIODoc::SaveModified() 
+BOOL CDynamoRIODoc::SaveModified()
 {
 #ifndef DRSTATS_DEMO
     CDynamoRIOApp::AboutToExit();

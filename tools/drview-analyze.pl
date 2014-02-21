@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -39,7 +39,7 @@
 # smss.exe      216 N    -1  0%   0%    33   6    8456    4296     1720     156    1972     400     999    13     5    15     1
 #
 
-# takes variable and current value, 
+# takes variable and current value,
 # returns result in global last and delta
 sub calculate_delta
 {
@@ -58,7 +58,7 @@ sub calculate_delta
     }
 
     # we should count only positive values
-    # this way monotonically growing functions will also 
+    # this way monotonically growing functions will also
     if ($delta{$var} > 0 ) {
         $churn{$exe,$pid,$var} += $delta{$var};
     }
@@ -110,14 +110,14 @@ while ($line = <>) {
         if ($verbose) {
             print "$hour:$min:$sec\n";
         }
-    } 
+    }
     elsif ($line =~ /System load is -?(\d+)%/) {
         # TODO: fix the -
         $sysload = $1;
         if ($verbose) {
             print "Sysload $sysload\n";
         }
-    } 
+    }
     elsif ($line =~
 /Name          PID DR  Bld CPU User  Hndl Thr    PVSz     VSz    PPriv    Priv    PWSS     WSS   Fault PPage  Page PNonP  NonP/
                ) {
@@ -127,15 +127,15 @@ while ($line = <>) {
         if ($newset) {
             print "\n";
         }
-        
-        ($exe, $pid, $underdr, $build, 
-         $cpuPCT, $userPCT, 
-         $handles, $threads, 
-         $peak_virtsz, $virtsz, 
-         $peak_privsz, $privsz, 
-         $peak_workset, $workset, 
-         $faults, 
-         $peak_paged_pool, $paged_pool, 
+
+        ($exe, $pid, $underdr, $build,
+         $cpuPCT, $userPCT,
+         $handles, $threads,
+         $peak_virtsz, $virtsz,
+         $peak_privsz, $privsz,
+         $peak_workset, $workset,
+         $faults,
+         $peak_paged_pool, $paged_pool,
          $peak_nonpaged_pool, $nonpaged_pool)
             = split(/\s+/, $line);
 

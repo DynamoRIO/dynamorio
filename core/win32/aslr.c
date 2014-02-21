@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -54,7 +54,7 @@ enum {ASLR_MAP_GRANULARITY = 64*1024}; /* 64KB - OS allocation granularity */
 
 /* A signature appended to relocated files in our DLL cache providing
  * stronger consistency check between source and target.
- * 
+ *
  * Note that this uses another page or sector on disk but at least we
  * don't waste another file and directory entry and any additional
  * security descriptors.  Raw reads of data after the end of a
@@ -74,7 +74,7 @@ typedef struct {
      * consistency by making sure that any failed file write
      * immediately terminates further work, such incomplete file
      * prefixes should never be published under well-known name.
-     * 
+     *
      */
     uint magic;
     /* although old files should be invalidated anyways, in case we'd
@@ -96,7 +96,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t aslr_lock, INIT_LOCK_FREE(aslr_lock));
 /* We keep these vars on the heap for selfprot (case 8074). */
 typedef struct _aslr_last_dll_bounds_t {
     app_pc end;
-    /* used by ASLR_RANGE_BOTTOM_UP to capture failures 
+    /* used by ASLR_RANGE_BOTTOM_UP to capture failures
      * FIXME: should allow UnmapViewOfSection to rewind last DLL */
     app_pc start;
 } aslr_last_dll_bounds_t;
@@ -131,7 +131,7 @@ vm_area_vector_t *aslr_heap_pad_areas;
 /* shared Object directory for publishing Sections */
 HANDLE shared_object_directory = INVALID_HANDLE_VALUE;
 
-/* file_t directory of relocated DLL cache - shared 
+/* file_t directory of relocated DLL cache - shared
  * FIXME: should have one according to starting user SID
  */
 HANDLE relocated_dlls_filecache_initial = INVALID_HANDLE_VALUE;
@@ -158,7 +158,7 @@ aslr_publish_file(const wchar_t *module_name);
 static void
 aslr_process_worklist(void);
 
-static HANDLE 
+static HANDLE
 open_relocated_dlls_filecache_directory(void);
 static void
 aslr_get_known_dll_path(wchar_t *w_known_dll_path, /* OUT */
@@ -181,7 +181,7 @@ aslr_init(void)
     /* big delta should be harder to guess or brute force */
     size_t big_delta;
     ASSERT(ALIGNED(DYNAMO_OPTION(aslr_dll_base), ASLR_MAP_GRANULARITY));
-    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_DLL|ASLR_STACK|ASLR_HEAP|ASLR_HEAP_FILL), 
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_DLL|ASLR_STACK|ASLR_HEAP|ASLR_HEAP_FILL),
                                     DYNAMO_OPTION(aslr)));
     ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_SHARED_INITIALIZE|ASLR_SHARED_INITIALIZE_NONPERMANENT|
                                       ASLR_SHARED_CONTENTS|
@@ -192,8 +192,8 @@ aslr_init(void)
                                       ASLR_AVOID_NET20_NATIVE_IMAGES|
                                       ASLR_SHARED_PER_USER
                                       ), DYNAMO_OPTION(aslr_cache)));
-    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_PERSISTENT_PARANOID 
-                                      | ASLR_PERSISTENT_SOURCE_DIGEST 
+    ASSERT_NOT_IMPLEMENTED(!TESTANY(~(ASLR_PERSISTENT_PARANOID
+                                      | ASLR_PERSISTENT_SOURCE_DIGEST
                                       | ASLR_PERSISTENT_TARGET_DIGEST
                                       | ASLR_PERSISTENT_SHORT_DIGESTS
                                       | ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY
@@ -208,12 +208,12 @@ aslr_init(void)
                                     DYNAMO_OPTION(aslr_action)));
     /* FIXME: NYI ASLR_AVOID_AREAS|ASLR_RESERVE_AREAS|
      * ASLR_DETECT_READ|ASLR_DETECT_WRITE|
-     * ASLR_HANDLING|ASLR_NORMALIZE_ID 
+     * ASLR_HANDLING|ASLR_NORMALIZE_ID
      */
 
-    ASSERT_CURIOSITY(!TEST(ASLR_RANDOMIZE_EXECUTABLE, 
+    ASSERT_CURIOSITY(!TEST(ASLR_RANDOMIZE_EXECUTABLE,
                           DYNAMO_OPTION(aslr_cache))
-                     || TEST(ASLR_ALLOW_ORIGINAL_CLOBBER, 
+                     || TEST(ASLR_ALLOW_ORIGINAL_CLOBBER,
                              DYNAMO_OPTION(aslr_cache))
                      && "case 8902 - need to duplicate handle in child");
     /* case 8902 tracks the extra work if we want to support this
@@ -232,17 +232,17 @@ aslr_init(void)
     aslr_last_dll_bounds->end = (app_pc) ALIGN_FORWARD(DYNAMO_OPTION(aslr_dll_base)
                                                        + big_delta,
                                                        ASLR_MAP_GRANULARITY);
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: -aslr "PFX", dll end="PFX", "
-        "base="PFX", offset="PFX" -> delta="PFX", pad="PFX"\n", 
+        "base="PFX", offset="PFX" -> delta="PFX", pad="PFX"\n",
         DYNAMO_OPTION(aslr),
-        aslr_last_dll_bounds->end, 
+        aslr_last_dll_bounds->end,
         DYNAMO_OPTION(aslr_dll_base), DYNAMO_OPTION(aslr_dll_offset), big_delta,
         DYNAMO_OPTION(aslr_dll_pad));
 
     VMVECTOR_ALLOC_VECTOR(aslr_wouldbe_areas, GLOBAL_DCONTEXT,
                           /* allow overlap due to conflicting DLLs */
-                          VECTOR_SHARED | VECTOR_NEVER_MERGE_ADJACENT, 
+                          VECTOR_SHARED | VECTOR_NEVER_MERGE_ADJACENT,
                           aslr_areas);
     VMVECTOR_ALLOC_VECTOR(aslr_heap_pad_areas, GLOBAL_DCONTEXT,
                           VECTOR_SHARED | VECTOR_NEVER_MERGE,
@@ -260,7 +260,7 @@ aslr_init(void)
         /* we only reserve a random padding from the beginning of memory
          * and let the OS handle all other allocations normally
          */
-        app_pc big_front_pad_base = 
+        app_pc big_front_pad_base =
             aslr_reserve_initial_heap_pad(NULL /* earliest possible */,
                                           DYNAMO_OPTION(aslr_heap_reserve_offset));
 
@@ -288,14 +288,14 @@ aslr_init(void)
 
         /* FIXME: though just grabbing big and small usually works
          * should just fill in any space in front of the
-         * executable, 
+         * executable,
          *
          * FIXME: add a random pad after the executable to make sure
          * no heap allocation will eventually be at a predictable
          * location.
          */
 
-        app_pc small_pad_after_executable_base = 
+        app_pc small_pad_after_executable_base =
             aslr_reserve_initial_heap_pad(NULL /* FIXME: should be after executable */,
                                           DYNAMO_OPTION(aslr_heap_exe_reserve_offset));
     }
@@ -306,7 +306,7 @@ aslr_init(void)
      */
     if (TEST(ASLR_SHARED_INITIALIZE, DYNAMO_OPTION(aslr_cache))) {
         HANDLE initialize_directory;
-        NTSTATUS res = nt_initialize_shared_directory(&initialize_directory, 
+        NTSTATUS res = nt_initialize_shared_directory(&initialize_directory,
                                                       true /* permanent */);
         /* we currently don't need to do anything else with this
          * handle, unless we can't make the object permanent then may
@@ -337,9 +337,9 @@ aslr_init(void)
              * release builds as well
              */
             ASSERT_CURIOSITY(res == STATUS_PRIVILEGE_NOT_HELD);
-            if (TEST(ASLR_SHARED_INITIALIZE_NONPERMANENT, 
+            if (TEST(ASLR_SHARED_INITIALIZE_NONPERMANENT,
                      DYNAMO_OPTION(aslr_cache))) {
-                NTSTATUS res = nt_initialize_shared_directory(&initialize_directory, 
+                NTSTATUS res = nt_initialize_shared_directory(&initialize_directory,
                                                               false /* temporary */);
                 ASSERT(NT_SUCCESS(res) && "unable to initialize");
                 /* must 'leak' initialize_directory to persist
@@ -350,7 +350,7 @@ aslr_init(void)
         }
     }
 
-    if (TESTANY(ASLR_SHARED_SUBSCRIBER|ASLR_SHARED_PUBLISHER, 
+    if (TESTANY(ASLR_SHARED_SUBSCRIBER|ASLR_SHARED_PUBLISHER,
                 DYNAMO_OPTION(aslr_cache))) {
         /* Open shared DLL object directory '\Determina\SharedCache' */
         /* publisher will ask for permission to create objects in that
@@ -378,7 +378,7 @@ aslr_init(void)
 
     if (DYNAMO_OPTION(track_module_filenames) ||
         TESTANY(ASLR_SHARED_SUBSCRIBER | ASLR_SHARED_ANONYMOUS_CONSUMER |
-                ASLR_SHARED_PUBLISHER /* just in case */, 
+                ASLR_SHARED_PUBLISHER /* just in case */,
                 DYNAMO_OPTION(aslr_cache))) {
         /* we'll need to match sections from \KnownDlls, note that all
          * direct or indirect consumers have to handle NtOpenSection()
@@ -390,14 +390,14 @@ aslr_init(void)
         ASSERT(NT_SUCCESS(res));
 
         /* open the \KnowdnDlls\KnownDllPath directory */
-        aslr_get_known_dll_path(known_dll_path, 
+        aslr_get_known_dll_path(known_dll_path,
                                 BUFFER_SIZE_ELEMENTS(known_dll_path));
     }
 
     if (TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_ANONYMOUS_CONSUMER,
                 DYNAMO_OPTION(aslr_cache))) {
         /* Open shared cache file directory */
-        relocated_dlls_filecache_initial = 
+        relocated_dlls_filecache_initial =
             open_relocated_dlls_filecache_directory();
 
         /* FIXME: may need to open one shared and in addition one
@@ -418,7 +418,7 @@ aslr_init(void)
      * only state that needs to be set up is the above random number,
      * which we can just always initialize here.  Yet not enough for
      * the product:
-     *  o we can't really undo changes, so not very useful to begin with, but 
+     *  o we can't really undo changes, so not very useful to begin with, but
      *    at least DLLs after a change can be controlled
      *  o not planning on synchronizing options, yet may allow nudge to do so
      *  o post_syscall mappings does attempt to handle dynamic changes, not tested
@@ -465,7 +465,7 @@ aslr_exit(void)
     aslr_last_dll_bounds = NULL;
 
     /* always release lock in case -aslr was dynamically changed
-     * although currently it is not dynamic 
+     * although currently it is not dynamic
      */
     DELETE_LOCK(aslr_lock);
 }
@@ -495,7 +495,7 @@ aslr_get_next_base(void)
 
     size_t jitter = get_random_offset(DYNAMO_OPTION(aslr_dll_pad));
     app_pc returned_base;
-    /* 
+    /*
      * FIXME: [minor security] Although DLLs are definitely not loaded
      * racily, if we are using this for other potentially racy
      * allocations from the same region we may have races.  The
@@ -518,9 +518,9 @@ aslr_get_next_base(void)
     returned_base = aslr_last_dll_bounds->start; /* for racy callers */
     mutex_unlock(&aslr_lock);
 
-    LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: next dll recommended="PFX"\n",  returned_base);
-    return returned_base; 
+    return returned_base;
 }
 
 /* preverify the range is available, leaving possibility of failure
@@ -535,7 +535,7 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
 {
     bool available = true;
     app_pc current_base = requested_base;
-    
+
     ASSERT(ALIGNED(current_base, ASLR_MAP_GRANULARITY));
     /* currently march forward through OS allocated regions */
 
@@ -584,10 +584,10 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
             } else {
                 /* we can take this, unless someone beats us */
                 available = true;
-            } 
+            }
         }
     } while (!available);
-    
+
     if (requested_base != current_base) {
         /* update our expectations, so that aslr_update_view_size()
          * doesn't get surprised */
@@ -610,12 +610,12 @@ aslr_get_fitting_base(app_pc requested_base, size_t view_size)
  * just a hint for what we have tried
  */
 static app_pc
-aslr_update_failed(bool request_new, 
+aslr_update_failed(bool request_new,
                    app_pc requested_base,
                    size_t needed_size)
 {
     app_pc new_base = NULL;     /* default to native preferred base */
-    LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_update_failed for "PFX"\n",  aslr_last_dll_bounds->start);
 
     if (request_new) {
@@ -661,7 +661,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
     if (TEST(ASLR_INTERNAL_SAME_STRESS, INTERNAL_OPTION(aslr_internal))) {
         return;
     }
-    
+
     /* NOTE we don't have a lock for the actual system call so we can
      * get out of order here
      */
@@ -673,7 +673,7 @@ aslr_update_view_size(app_pc view_base, size_t view_size)
         ASSERT_CURIOSITY(false && "racy ASLR mapping");
         /* when the last known request is not the same we just bump to
          * largest value to resynch, although it is more likely that a
-         * collision would have prevented one from reaching here 
+         * collision would have prevented one from reaching here
          */
         aslr_last_dll_bounds->end = MAX(aslr_last_dll_bounds->end, view_base + view_size);
         ASSERT_NOT_TESTED();
@@ -691,18 +691,18 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
          * not yet added to loaded_module_areas */
         app_pc preferred_base;
         if (our_shared_file) {
-            DEBUG_DECLARE(app_pc our_relocated_preferred_base = 
+            DEBUG_DECLARE(app_pc our_relocated_preferred_base =
                           get_module_preferred_base(base););
             ASSERT(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
             ASSERT(dcontext->aslr_context.original_section_base != ASLR_INVALID_SECTION_BASE);
 
-            ASSERT_CURIOSITY(our_relocated_preferred_base == base 
+            ASSERT_CURIOSITY(our_relocated_preferred_base == base
                              && "useless conflicting shared");
 
             LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
                 "ASLR: SHARED: mapped base "PFX", preferred random "PFX
-                ", original "PFX"\n", base, 
-                our_relocated_preferred_base, 
+                ", original "PFX"\n", base,
+                our_relocated_preferred_base,
                 dcontext->aslr_context.original_section_base);
 
             preferred_base = dcontext->aslr_context.original_section_base;
@@ -729,15 +729,15 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
              */
 
             DOLOG(0, LOG_SYSCALLS, {
-                if (vmvector_overlap(aslr_wouldbe_areas, 
+                if (vmvector_overlap(aslr_wouldbe_areas,
                                      preferred_base, preferred_base + size)) {
                     LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
-                        "aslr: conflicting preferred range "PFX"-"PFX" currently "PFX, 
+                        "aslr: conflicting preferred range "PFX"-"PFX" currently "PFX,
                         preferred_base, preferred_base + size, base);
                 }
             });
 
-            vmvector_add(aslr_wouldbe_areas, preferred_base, preferred_base + size, 
+            vmvector_add(aslr_wouldbe_areas, preferred_base, preferred_base + size,
                          base /* current mapping of DLL */);
         } else {
             /* FIXME: shouldn't happen for ASLR_DLL */
@@ -766,14 +766,14 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
              */
             DOLOG(0, LOG_SYSCALLS, {
                 /* case 7797 any conflicting natively DLLs may hit this */
-                if (!vmvector_overlap(aslr_wouldbe_areas, 
+                if (!vmvector_overlap(aslr_wouldbe_areas,
                                       preferred_base, preferred_base + size)) {
                     LOG(THREAD_GET, LOG_SYSCALLS|LOG_VMAREAS, 1,
                         "ASLR: unmap missing preferred range "PFX"-"PFX", "
                         "probably conflict?", preferred_base, preferred_base + size);
                 }
             });
-            
+
             /* doublecheck unsafe base, since PE still mapped in,
              * however preferred base from PE is not what we want in ASLR shared
              * see case 8507
@@ -785,25 +785,25 @@ aslr_track_randomized_dlls(dcontext_t *dcontext, app_pc base, size_t size, bool 
             /* FIXME: if multiple DLLs preferred regions overlap we
              * wouldn't know not to remove a hole, need refcounting, but
              * since whole notification is best effort, not doing that */
-            vmvector_remove(aslr_wouldbe_areas, 
+            vmvector_remove(aslr_wouldbe_areas,
                             preferred_base, preferred_base + size);
         }
     }
 }
 
 /* PRE hook for NtMapViewOfSection */
-void 
+void
 aslr_pre_process_mapview(dcontext_t *dcontext)
 {
     reg_t *param_base = dcontext->sys_param_base;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    
+
     HANDLE section_handle = (HANDLE) sys_param(dcontext, param_base, 0);
     HANDLE process_handle = (HANDLE) sys_param(dcontext, param_base, 1);
     void **pbase_unsafe = (void *) sys_param(dcontext, param_base, 2);
     uint zerobits = (uint) sys_param(dcontext, param_base, 3);
     size_t commit_size = (size_t) sys_param(dcontext, param_base, 4);
-    LARGE_INTEGER *psection_offs_unsafe = 
+    LARGE_INTEGER *psection_offs_unsafe =
         (LARGE_INTEGER *) sys_param(dcontext, param_base, 5); /* OPTIONAL */
     size_t *pview_size_unsafe = (size_t *) sys_param(dcontext, param_base, 6);
     uint inherit_disposition = (uint) sys_param(dcontext, param_base, 7);
@@ -813,11 +813,11 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
     app_pc requested_base;
     size_t requested_size;
     app_pc modified_base = 0;
-        
+
     /* flag currently used only for MapViewOfSection */
     dcontext->aslr_context.sys_aslr_clobbered = false;
 
-    if (!safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) || 
+    if (!safe_read(pbase_unsafe, sizeof(requested_base), &requested_base) ||
         !safe_read(pview_size_unsafe, sizeof(requested_size), &requested_size)) {
         /* we expect the system call to fail */
         DODEBUG(dcontext->expect_last_syscall_to_fail = true;);
@@ -826,7 +826,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
 
     DOLOG(1, LOG_SYSCALLS, {
         uint queried_section_attributes = 0;
-        bool attrib_ok = 
+        bool attrib_ok =
             get_section_attributes(section_handle, &queried_section_attributes, NULL);
 
         /* Unfortunately, the loader creates sections that do not have
@@ -834,8 +834,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
          * being able to use this
          *
          * windbg> !handle 0 f section
-         * GrantedAccess 0xe: 
-         *    None, MapWrite,MapRead,MapExecute 
+         * GrantedAccess 0xe:
+         *    None, MapWrite,MapRead,MapExecute
          * vs
          * GrantedAccess 0xf001f:
          *      Delete,ReadControl,WriteDac,WriteOwner
@@ -858,30 +858,30 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                                      * could also be IMAGE_SCN_MEM_EXECUTE , or MEM_LARGE_PAGES
                                      */
                                     | GENERIC_EXECUTE
-                                    ), 
+                                    ),
                                     queried_section_attributes));
 
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "syscall: pre NtMapViewOfSection *base="PFX" *size="PIFX" prot=%s\n"
             "         sh="PIFX" zero=%d commit=%d &secoffs="PIFX" inherit=%d type=0x%x;"
             "%s%x\n",
-            requested_base, requested_size, prot_string(prot), 
+            requested_base, requested_size, prot_string(prot),
             section_handle, zerobits, commit_size, psection_offs_unsafe, inherit_disposition,
-            allocation_type, 
+            allocation_type,
             attrib_ok ? "attrib=0x" : "unknown ", queried_section_attributes);
     });
 
     /* Reversing notes: on XP SP2
      *
      * o Protect - all modules are first attempted with --x- but
-     *   DLLs that need rebasing are remapped as rw-- 
-     * 
+     *   DLLs that need rebasing are remapped as rw--
+     *
      * intercept_load_dll: I:\Program Files\Dell\QuickSet\dadkeyb.dll (always conflicts)
      * syscall: NtMapViewOfSection *base=0x00000000 *size=0x0 prot=--x-
      *          sh=1832 zero=0 commit=0 &secoffs=0 inherit=1 type=0
      * syscall: NtMapViewOfSection 0x00980000 size=0x12000 prot=--x- => 0
      * syscall: NtUnmapViewOfSection 0x00980000 size=0x12000
-     * 
+     *
      * syscall: NtMapViewOfSection *base=0x00000000 *size=0x0 prot=rw--
      *          sh=1836 zero=0 commit=0 &secoffs=0 inherit=1 type=0
      * syscall: NtMapViewOfSection 0x00980000 size=0x13000 prot=rw-- => 0x40000003
@@ -904,7 +904,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
         /* * SectionOffset is NULL for the loader,
          * kernel32!MapViewOfFileEx (on Windows XP and Win2k)
          * always passes the psection_offs_unsafe as a stack
-         * variable, since offset is user exposed.  
+         * variable, since offset is user exposed.
          * DLL loading on the other hand doesn't need this argument.
          */
         ASSERT_NOT_IMPLEMENTED(!TEST(ASLR_MAPPED, DYNAMO_OPTION(aslr)));
@@ -915,8 +915,8 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
              * should be able to tell MEM_IMAGE from
              * MEM_MAPPED.  Can do only if tracking
              * NtCreateSection(), or better yet should just
-             * NtQuerySection() which would work for 
-             * NtCreateSection(), but the loader uses NtOpenSection() 
+             * NtQuerySection() which would work for
+             * NtCreateSection(), but the loader uses NtOpenSection()
              * without SECTION_QUERY.
              *
              * FIXME: see if using queried_section_attributes would
@@ -947,7 +947,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
 
             /* only nodemgr and services have been observed to use
              * ViewUnmap, in nodemgr it is on Module32Next from the
-             * ToolHelp.  
+             * ToolHelp.
 
              * FIXME: unclear whether we'll want to do something
              * different for ViewShare handle inheritance if we go
@@ -976,11 +976,11 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
             /* assumption: loader never suggests base in 1st map */
             if (requested_base == 0) {
                 DODEBUG({
-                    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) && 
+                    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
                         dcontext->aslr_context.randomized_section_handle !=
                         section_handle) {
                         STATS_INC(aslr_dlls_not_shared);
-                        
+
                         ASSERT_CURIOSITY(dcontext->aslr_context.
                                          last_app_section_handle == section_handle);
                         /* note that unusual uses of sections other than the loader can trigger this */
@@ -1004,9 +1004,9 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                         }
                     }
                 });
-                
+
                 if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
-                    dcontext->aslr_context.randomized_section_handle == 
+                    dcontext->aslr_context.randomized_section_handle ==
                     section_handle) {
                     /* shared DLL mapping at presumably randomized location,
                      * leave base unset for preferred mapping
@@ -1024,7 +1024,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                     /* FIXME: we may want to take a hint from prot and expected size */
                     modified_base = aslr_get_next_base();
 
-                    if (!TEST(ASLR_INTERNAL_RANGE_NONE, 
+                    if (!TEST(ASLR_INTERNAL_RANGE_NONE,
                               INTERNAL_OPTION(aslr_internal))) {
                         /* really modify base now */
                         /* note that pbase_unsafe is an IN/OUT argument,
@@ -1067,7 +1067,7 @@ aslr_pre_process_mapview(dcontext_t *dcontext)
                 ASSERT_CURIOSITY(aslr_last_dll_bounds->start == 0 || /* given up */
                                  aslr_last_dll_bounds->start ==
                                  requested_base  /* may be race? */
-                                 || TEST(ASLR_SHARED_CONTENTS, 
+                                 || TEST(ASLR_SHARED_CONTENTS,
                                          DYNAMO_OPTION(aslr_cache))
                                  /* not keeping keep track for shared */);
                 /* FIXME: for ASLR_SHARED_CONTENTS would be at the
@@ -1152,7 +1152,7 @@ aslr_get_module_mapping_size(HANDLE section_handle,
 {
     NTSTATUS res;
     app_pc base = (app_pc)0x0;  /* default mapping */
-    size_t commit_size = 0;       
+    size_t commit_size = 0;
     SIZE_T view_size = 0;       /* we need to know full size */
     uint type = 0;              /* commit is default */
 
@@ -1244,19 +1244,19 @@ aslr_post_process_mapview(dcontext_t *dcontext)
     DOCHECK(1, {
         uint section_attributes;
         get_section_attributes(section_handle, &section_attributes, NULL);
-        ASSERT_CURIOSITY(section_attributes == 0 || 
+        ASSERT_CURIOSITY(section_attributes == 0 ||
                          TESTALL(SEC_IMAGE | SEC_FILE, section_attributes));
         ASSERT_CURIOSITY(section_attributes == 0 || /* no Query access */
                          !TESTANY(~(SEC_IMAGE | SEC_FILE | GENERIC_EXECUTE),
                                   section_attributes));
     });
 
-    ASSERT_CURIOSITY(status == STATUS_SUCCESS || 
-                     status == STATUS_IMAGE_NOT_AT_BASE || 
+    ASSERT_CURIOSITY(status == STATUS_SUCCESS ||
+                     status == STATUS_IMAGE_NOT_AT_BASE ||
                      status == STATUS_CONFLICTING_ADDRESSES);
 
     /* handle shared DLL ASLR mapping */
-    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) && 
+    if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
         dcontext->aslr_context.randomized_section_handle == section_handle) {
         if (NT_SUCCESS(status)) {
             if (status == STATUS_SUCCESS) {
@@ -1280,14 +1280,14 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                  * often do we get the correct base so we can measure
                  * the effectiveness of the randomization mapping  */
                 STATS_INC(aslr_dlls_shared_map_rebased);
-            } else 
+            } else
                 ASSERT_NOT_REACHED();
 
             /* if successful, we'll use the original base from our records,
              * not from mapped PE, so we can detect attacks.
              *
              * case 8507 similarly we have to register to fool hotpatching's
-             * timestamp/checksum.  Saved on section create or open 
+             * timestamp/checksum.  Saved on section create or open
              * aslr_context.original_section_{base,checksum,timestamp}.
              */
 
@@ -1295,7 +1295,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             if (TEST(ASLR_TRACK_AREAS, DYNAMO_OPTION(aslr_action))) {
                 ASSERT(NT_SUCCESS(status));
 
-                /* we assume that since syscall succeeded these dereferences are safe 
+                /* we assume that since syscall succeeded these dereferences are safe
                  * FIXME : could always be multi-thread races though */
                 size = *view_size; /* ignore commit_size? */
                 base = *((app_pc *)pbase_unsafe);
@@ -1337,11 +1337,11 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             ASSERT_NOT_IMPLEMENTED(false);
         }
 
-        dcontext->aslr_context.randomized_section_handle = 
+        dcontext->aslr_context.randomized_section_handle =
             INVALID_HANDLE_VALUE;
         dcontext->aslr_context.sys_aslr_clobbered = false;
         return;
-    } else if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) && 
+    } else if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
         dcontext->aslr_context.randomized_section_handle != section_handle) {
         /* flag that private mapping should be processed in
          * update_module_list()
@@ -1363,9 +1363,9 @@ aslr_post_process_mapview(dcontext_t *dcontext)
      * non-atomic interposition on system calls.
      *
      * Three approaches to solving them:
-     * 1) keep track of handles from file to section - 
+     * 1) keep track of handles from file to section -
      *     may be able to do exemption on file name
-     * 2) presyscall 
+     * 2) presyscall
      *     o may grab a lock to deal with in-process races
      *     o extra map/unmap - can figure out FIXED or PE name
      * 3) postsyscall undo and redo
@@ -1440,7 +1440,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                     app_pc base_requested = 0;
                     size_t size_needed;
 
-                    TRY_EXCEPT(dcontext, { 
+                    TRY_EXCEPT(dcontext, {
                         base_requested = *pbase_unsafe;
                     }, { /* nothing */ });
 
@@ -1476,8 +1476,8 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                         SYSLOG_INTERNAL_WARNING_ONCE("ASLR conflict at "PFX
                                                      ", retrying at "PFX,
                                                      *pbase_unsafe, retry_base);
-                
-                        /* we'll give it another shot at the new address 
+
+                        /* we'll give it another shot at the new address
                          * although it may still fail there due to races,
                          * so we have to be ready to retry the original app
                          */
@@ -1502,7 +1502,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                  * WARNING: WS2HELP overlaps Msi
                  * ModLoad: 43b40000 43b40000   I:\WINDOWS\system32\WS2HELP.dll
                  * ModLoad: 71aa0000 71aa8000   I:\WINDOWS\system32\WS2HELP.dll
-                 * 
+                 *
                  * WARNING: WSOCK32 overlaps IMAGEHLP
                  * WARNING: WSOCK32 overlaps urlmon
                  * WARNING: WSOCK32 overlaps appHelp
@@ -1546,7 +1546,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
 
             /* we have to be able to handle failure of new base */
             ASSERT(retry_base == 0 || dcontext->aslr_context.sys_aslr_clobbered);
-            ASSERT(*pbase_unsafe == retry_base); /* retry at base, 
+            ASSERT(*pbase_unsafe == retry_base); /* retry at base,
                                                   * unsafe ASSERT can take a risk */
             /* retry with new mapping base - passing arguments */
             retry_result = aslr_retry_map_syscall(dcontext, param_base);
@@ -1571,7 +1571,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                 if (!NT_SUCCESS(status)) {
                     STATS_INC(aslr_error_on_retry);
                 } else {
-                    if (status == STATUS_SUCCESS) 
+                    if (status == STATUS_SUCCESS)
                         STATS_INC(aslr_retry_at_base);
                     else if (status == STATUS_IMAGE_NOT_AT_BASE)
                         STATS_INC(aslr_retry_not_at_base);
@@ -1583,13 +1583,13 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             /* we retry further only if we tried a different base, and
              * otherwise leave to the application as it was
              */
-        } while (!NT_SUCCESS(status) && 
+        } while (!NT_SUCCESS(status) &&
                  (retries_left > 0));
 
         /* last retry is native, implication */
         ASSERT(!(retries_left == 0) ||
                !dcontext->aslr_context.sys_aslr_clobbered);
-        ASSERT(!dcontext->aslr_context.sys_aslr_clobbered || 
+        ASSERT(!dcontext->aslr_context.sys_aslr_clobbered ||
                NT_SUCCESS(status));
     }
 
@@ -1599,7 +1599,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             /* really handle success later, after safe read of base and size */
 
             /* verify that we always get a (success) code */
-            /* STATUS_IMAGE_NOT_AT_BASE ((NTSTATUS)0x40000003L) 
+            /* STATUS_IMAGE_NOT_AT_BASE ((NTSTATUS)0x40000003L)
              *
              * FIXME: I presume the loader maps MEM_MAPPED as
              * MapViewOfSection(--x) and it maybe just reads the PE
@@ -1608,7 +1608,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              */
 
             /* Note the confusing mapping of MEM_MAPPED as --x, and of MEM_IMAGE as rw-! */
-            ASSERT_CURIOSITY(prot == PAGE_EXECUTE && status == STATUS_SUCCESS || 
+            ASSERT_CURIOSITY(prot == PAGE_EXECUTE && status == STATUS_SUCCESS ||
                              prot == PAGE_READWRITE && status == STATUS_IMAGE_NOT_AT_BASE);
             /* FIXME: case 6736 is hitting this as well - assumed
              * SEC_RESERVE 0x4000000, prot = RW, inherit_disposition = ViewUnmap
@@ -1619,7 +1619,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * going to fail above, or loader will fail when presented
              * with them.
              *
-             * FIXME: -exempt_aslr_list needs to be handled here 
+             * FIXME: -exempt_aslr_list needs to be handled here
              * FIXME: need to reset all IN/OUT arguments
              */
         }
@@ -1628,20 +1628,20 @@ aslr_post_process_mapview(dcontext_t *dcontext)
     /* note this is failure after retrying at default base */
     /* so if it fails it is not our fault
      */
-    if (!NT_SUCCESS(status)) { 
+    if (!NT_SUCCESS(status)) {
         ASSERT_NOT_TESTED();
         LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "ASLR: retry failed NtMapViewOfSection prot=%s => "PFX"\n",
             prot_string(prot), reg_eax);
         ASSERT_CURIOSITY(false);
-        
+
         /* directly pass retried result to the application */
         return;
     }
-    
+
     ASSERT(NT_SUCCESS(status));
 
-    /* we assume that since syscall succeeded these dereferences are safe 
+    /* we assume that since syscall succeeded these dereferences are safe
      * FIXME : could always be multi-thread races though */
     size = *view_size; /* ignore commit_size? */
     base = *((app_pc *)pbase_unsafe);
@@ -1653,7 +1653,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
     /* verify if need to exempt, only if we are still processing our randomization */
     /* we are exempting only after the fact here */
     /* keep in synch with is_aslr_exempted_file_name() */
-    if (dcontext->aslr_context.sys_aslr_clobbered && 
+    if (dcontext->aslr_context.sys_aslr_clobbered &&
         (!IS_STRING_OPTION_EMPTY(exempt_aslr_default_list) ||
          !IS_STRING_OPTION_EMPTY(exempt_aslr_list) ||
          !IS_STRING_OPTION_EMPTY(exempt_aslr_extra_list))) {
@@ -1685,7 +1685,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * properly!
              */
             /*
-             * 0:000> !vprot 0x43ab0000 
+             * 0:000> !vprot 0x43ab0000
              *   BaseAddress:       43ab0000
              *   AllocationBase:    43ab0000
              *   AllocationProtect: 00000010  PAGE_EXECUTE
@@ -1754,7 +1754,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                 }
 
                 module_characteristics = get_module_characteristics(base);
-                if (TEST(IMAGE_FILE_DLL, module_characteristics) && 
+                if (TEST(IMAGE_FILE_DLL, module_characteristics) &&
                     TEST(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
                     /* Note that we still privately ASLR EXEs that are
                      * presumed to not be executable but only loaded
@@ -1777,7 +1777,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                          *  LDRP_IMAGE_NOT_AT_BASE
                          */
                         SYSLOG_INTERNAL_INFO("ASLR note randomizing mapped EXE %s",
-                                             module_name != NULL ? module_name : 
+                                             module_name != NULL ? module_name :
                                              "noname");
                     }
                 });
@@ -1791,7 +1791,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                      */
                     /* FIXME: case 8490 on moving out */
                     aslr_track_randomized_dlls(dcontext, base, size, true /* Map */,
-                                               false /* Original File */); 
+                                               false /* Original File */);
                 }
 
                 if (alloc && module_name != NULL)
@@ -1799,7 +1799,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
             } else {
                 ASSERT(mbi.Type == MEM_MAPPED);
                 /* FIXME: case 5325 still have to call get_dll_short_name()
-                 * alternative that knows to use our ImageRvaToVa() FIXME: case 6766 
+                 * alternative that knows to use our ImageRvaToVa() FIXME: case 6766
                  * to get the PE name and properly exempt these mappings
                  */
                 /* Note: Although ntdll!LdrpCheckForLoadedDll maps DLL
@@ -1807,7 +1807,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
                  * it in fact doesn't depend on this mapping to be at
                  * the normal DLL location.  We will not exempt here.
                  */
-                LOG(THREAD, LOG_SYSCALLS, 1, 
+                LOG(THREAD, LOG_SYSCALLS, 1,
                     "ASLR: NtMapViewOfSection "PFX" module not mapped as image!\n", base);
                 STATS_INC(app_mmap_PE_as_MAPPED);
                 /* FIXME: we do not check nor set exempt here! */
@@ -1817,12 +1817,12 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * mappings that are not PEs?  Reversing note: seen in
              * notepad help, and currently rebased even for ASLR_DLL
              *
-             * <?xml version="1.0" ...> 
-             * <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"> 
-             * <assemblyIdentity processorArchitecture="*" version="5.1.0.0" 
-             * type="win32" name="Microsoft.Windows.Shell.shell32"/>     
-             * <description>Windows Shell</description>  
-             * 
+             * <?xml version="1.0" ...>
+             * <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+             * <assemblyIdentity processorArchitecture="*" version="5.1.0.0"
+             * type="win32" name="Microsoft.Windows.Shell.shell32"/>
+             * <description>Windows Shell</description>
+             *
              * 00b664e4 7c91659e ntdll!LdrGetDllHandleEx+0x258
              * 00b66500 7c801d1f ntdll!LdrGetDllHandle+0x18
              * 00b66568 7c816f55 kernel32!LoadLibraryExW+0x161 "I:\WINDOWS\WindowsShell.manifest"
@@ -1830,7 +1830,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * 00b66894 7d58f157 kernel32!CreateActCtxW+0x69e
              * 00b66acc 7d58f0a8 mshtml!DllGetClassObject+0x1291
             */
-            LOG(THREAD, LOG_SYSCALLS, 1, 
+            LOG(THREAD, LOG_SYSCALLS, 1,
                 "ASLR: NtMapViewOfSection "PFX" not a module!\n", base);
             STATS_INC(app_mmap_not_PE_rebased);
         }
@@ -1850,7 +1850,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
              * it will just have some wasted memory, we can continue
              */
 
-            /* here we reset IN/OUT arguments in our current param_base 
+            /* here we reset IN/OUT arguments in our current param_base
              * (currently only pbase_unsafe and view_size),
              * then retry just as above to remap at good base. */
             safe_write(pbase_unsafe, sizeof(redo_base), &redo_base);
@@ -1894,7 +1894,7 @@ aslr_post_process_mapview(dcontext_t *dcontext)
 }
 
 /* PRE hook for NtUnmapViewOfSection */
-void aslr_pre_process_unmapview(dcontext_t *dcontext, 
+void aslr_pre_process_unmapview(dcontext_t *dcontext,
                                 app_pc base, size_t size)
 {
     reg_t *param_base = dcontext->sys_param_base;
@@ -1907,14 +1907,14 @@ void aslr_pre_process_unmapview(dcontext_t *dcontext,
          * really removed.  We need to preserve all our data across
          * system call.
          */
-        aslr_track_randomized_dlls(dcontext, base, size, false /* Unmap */, 
+        aslr_track_randomized_dlls(dcontext, base, size, false /* Unmap */,
                                    false);
     }
 
     /* FIXME: need to mark in our range or vmmap that memory
      * is available Note that the loader always does a
-     * MapViewOfSection(--x);UnmapViewOfSection();MapViewOfSection(rw-); 
-     * so we'll leave a growing hole in case of DLL churn - 
+     * MapViewOfSection(--x);UnmapViewOfSection();MapViewOfSection(rw-);
+     * so we'll leave a growing hole in case of DLL churn -
      * case 6739 about virtual memory reclamation
      * case 6729 on committed memory leaks and optimizations this also affects
      */
@@ -1934,7 +1934,7 @@ aslr_post_process_unmapview(dcontext_t *dcontext)
 }
 
 #ifdef DEBUG
-/* doublecheck wouldbe areas subset of loaded module preferred ranges 
+/* doublecheck wouldbe areas subset of loaded module preferred ranges
  * by removing all known loaded modules preferred ranges
  * returns true if vmvector_empty(aslr_wouldbe_areas)
  * Call once only!
@@ -1950,8 +1950,8 @@ aslr_doublecheck_wouldbe_areas(void)
         size = (ma->end - ma->start);
 
         /* not all modules are randomized, ok not to find an overlapping one */
-        vmvector_remove(aslr_wouldbe_areas, 
-                        ma->os_data.preferred_base, 
+        vmvector_remove(aslr_wouldbe_areas,
+                        ma->os_data.preferred_base,
                         ma->os_data.preferred_base + size);
     }
     module_iterator_stop(iter);
@@ -1969,14 +1969,14 @@ aslr_is_possible_attack(app_pc target_addr)
     /* FIXME: case 7017 case 6287 check aslr_heap_pad_areas - less
      * clear that this is an attack rather than stray execution, so
      * we'd want that check under a different flag.
-     * 
+     *
      * FIXME: case TOFILE: should have a flag to detect any read/write
      * exceptions in the aslr_wouldbe_areas or aslr_heap_pad_areas
      * areas and make sure they are incompatibilities or real
      * application bugs, although maybe present only with
      * randomization so considered incompatibilities.
      */
-    return TESTALL(ASLR_TRACK_AREAS | ASLR_DETECT_EXECUTE, DYNAMO_OPTION(aslr_action)) && 
+    return TESTALL(ASLR_TRACK_AREAS | ASLR_DETECT_EXECUTE, DYNAMO_OPTION(aslr_action)) &&
         vmvector_overlap(aslr_wouldbe_areas, target_addr, target_addr + 1);
 }
 
@@ -1985,7 +1985,7 @@ app_pc
 aslr_possible_preferred_address(app_pc target_addr)
 {
     if (TESTALL(ASLR_TRACK_AREAS | ASLR_DETECT_EXECUTE, DYNAMO_OPTION(aslr_action))) {
-        app_pc wouldbe_module_current_base = 
+        app_pc wouldbe_module_current_base =
             vmvector_lookup(aslr_wouldbe_areas, target_addr);
         app_pc wouldbe_preferred_base;
         if (wouldbe_module_current_base == NULL) {
@@ -2001,14 +2001,14 @@ aslr_possible_preferred_address(app_pc target_addr)
          * base of the wouldbe area, from which we got this */
         /* but we anyways doublecheck with the loaded_module_areas as well */
         /* FIXME: such an interface is being added on the Marlin branch, use when ready */
-        wouldbe_preferred_base = 
+        wouldbe_preferred_base =
             get_module_preferred_base_safe(wouldbe_module_current_base);
         ASSERT(vmvector_lookup(aslr_wouldbe_areas, wouldbe_preferred_base)
                == wouldbe_module_current_base ||
                /* FIXME case 10727: if serious then let's fix this */
                check_filter("win32.reload-race.exe",
                             get_short_name(get_application_name())));
-        return target_addr - wouldbe_preferred_base 
+        return target_addr - wouldbe_preferred_base
             + wouldbe_module_current_base;
     } else {
         ASSERT_NOT_TESTED();
@@ -2027,7 +2027,7 @@ aslr_reserve_remote_random_pad(HANDLE process_handle, size_t pad_size)
     size_t early_reservation_size = ALIGN_FORWARD(early_reservation_delta,
                                                 ASLR_MAP_GRANULARITY);
     ASSERT(!is_phandle_me(process_handle));
-    
+
     res = nt_remote_allocate_virtual_memory(child_handle,
                                             &early_reservation_base,
                                             early_reservation_size, PAGE_NOACCESS,
@@ -2035,9 +2035,9 @@ aslr_reserve_remote_random_pad(HANDLE process_handle, size_t pad_size)
     ASSERT(NT_SUCCESS(res));
     /* not a critical failure if reservation has failed */
 
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: initial padding in child "PIFX", pad base="PFX", size="PIFX", res=0x%x\n",
-        child_handle, 
+        child_handle,
         early_reservation_base, early_reservation_size, res);
 
     /* FIXME: case 7017 should pass the early
@@ -2084,12 +2084,12 @@ aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle)
     /* Remotely injected threads should not need this since will get
      * their padding from the general ASLR_HEAP in the child.
      */
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: check if thread is in new child "PIFX"\n", process_handle);
 
     if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
         DYNAMO_OPTION(aslr_parent_offset) > 0 &&
-        should_inject_into_process(get_thread_private_dcontext(), 
+        should_inject_into_process(get_thread_private_dcontext(),
                                    process_handle,
                                    NULL, NULL)) {
         /* Case 9173: ensure we only do this once, as 3rd party
@@ -2101,7 +2101,7 @@ aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle)
             SYSLOG_INTERNAL_WARNING_ONCE("extra memory allocations for child "PIFX
                                          " %d: hooker?", process_handle, pid);
         } else {
-            bool ok = aslr_reserve_remote_random_pad(process_handle, 
+            bool ok = aslr_reserve_remote_random_pad(process_handle,
                                                      DYNAMO_OPTION(aslr_parent_offset));
             ASSERT(ok);
             if (ok)
@@ -2111,7 +2111,7 @@ aslr_maybe_pad_stack(dcontext_t *dcontext, HANDLE process_handle)
         DODEBUG({
             if (TEST(ASLR_STACK, DYNAMO_OPTION(aslr)) &&
                 DYNAMO_OPTION(aslr_parent_offset) > 0) {
-                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
                     "ASLR: child not configured for protection, not padding\n");
             }
         });
@@ -2145,7 +2145,7 @@ aslr_force_dynamorio_rebase(HANDLE process_handle)
 
     ASSERT(!is_phandle_me(process_handle));
 
-    res = nt_remote_allocate_virtual_memory(process_handle, 
+    res = nt_remote_allocate_virtual_memory(process_handle,
                                             &preferred_base,
                                             1*PAGE_SIZE, LOADBLOCK_PAGE_PROTECT,
                                             MEM_RESERVE);
@@ -2163,7 +2163,7 @@ aslr_force_dynamorio_rebase(HANDLE process_handle)
         /* random padding to have the loader load us in a not so
          * determinstic location */
         DEBUG_DECLARE(ok = )
-            aslr_reserve_remote_random_pad(process_handle, 
+            aslr_reserve_remote_random_pad(process_handle,
                                            DYNAMO_OPTION(aslr_parent_offset));
         ASSERT(ok);
     } else {
@@ -2180,14 +2180,14 @@ void
 aslr_free_dynamorio_loadblock(void)
 {
     /* we don't want the l-roadblock to be a tombstone and get in the
-     * way of other allocations, so we'll try to clean it up.  
+     * way of other allocations, so we'll try to clean it up.
      */
 
     /* we also need to make sure that we have the preferred_base base
      * collected earlier */
     app_pc preferred_base = get_dynamorio_dll_preferred_base();
     NTSTATUS res;
-    MEMORY_BASIC_INFORMATION mbi;    
+    MEMORY_BASIC_INFORMATION mbi;
 
     /* note that parent may have had different settings */
     ASSERT(DYNAMO_OPTION(aslr_dr));
@@ -2206,7 +2206,7 @@ aslr_free_dynamorio_loadblock(void)
          * will make very unlikely we'd accidentally free something
          * else. */
         if (mbi.RegionSize == PAGE_SIZE &&
-            mbi.State == MEM_RESERVE && 
+            mbi.State == MEM_RESERVE &&
             mbi.Type == MEM_PRIVATE &&
             mbi.AllocationProtect == LOADBLOCK_PAGE_PROTECT) {
             LOG(GLOBAL, LOG_SYSCALLS|LOG_THREADS, 1, "\t freeing loadblock at preferred base\n");
@@ -2227,8 +2227,8 @@ aslr_free_dynamorio_loadblock(void)
 
 /* post processing of successful application reservations */
 void
-aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext, 
-                                          app_pc last_allocation_base, 
+aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
+                                          app_pc last_allocation_base,
                                           size_t last_allocation_size)
 {
     ASSERT(ALIGNED(last_allocation_base, PAGE_SIZE));
@@ -2253,18 +2253,18 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
          * really keeping the reservation ourselves.
          */
         heap_error_code_t error_code;
-        size_t heap_pad_delta = 
+        size_t heap_pad_delta =
             get_random_offset(DYNAMO_OPTION(aslr_reserve_pad));
         size_t heap_pad_size = ALIGN_FORWARD(heap_pad_delta,
                                              ASLR_MAP_GRANULARITY);
         app_pc heap_pad_base;
-        app_pc append_heap_pad_base = (app_pc) 
+        app_pc append_heap_pad_base = (app_pc)
             ALIGN_FORWARD(last_allocation_base + last_allocation_size,
                           ASLR_MAP_GRANULARITY);
-        bool immediate_taken = 
+        bool immediate_taken =
             get_memory_info(append_heap_pad_base, NULL, NULL, NULL);
         /* there may be an allocation immediately tracking us, or a
-         * hole too small for our request.  
+         * hole too small for our request.
          *
          * FIXME: get_memory_info() should provide size of hole, but
          * can't change the interface on Linux easily, so not using
@@ -2285,7 +2285,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
             LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "ASLR: ASLR_HEAP: giving up since next region "PFX" is taken\n",
                 append_heap_pad_base);
-            
+
             return;
         }
 
@@ -2295,14 +2295,14 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
          */
         heap_pad_base = os_heap_reserve(append_heap_pad_base,
                                         heap_pad_size,
-                                        &error_code, 
+                                        &error_code,
                                         false/*ignored on Windows*/);
         if (heap_pad_base == NULL) {
             /* unable to get preferred, let the os pick a spot */
             /* FIXME - remove this - no real reason to reserve if we can't get our
              * preferred, but the old os_heap_reserve implementation automatically
              * tried again for us and the code below assumes so. */
-            heap_pad_base = os_heap_reserve(NULL, heap_pad_size, &error_code, 
+            heap_pad_base = os_heap_reserve(NULL, heap_pad_size, &error_code,
                                             false/*ignored on Windows*/);
         }
 
@@ -2310,7 +2310,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
             "ASLR: ASLR_HEAP: reserved pad base="PFX", size="PIFX", err=%x, after "PFX"\n",
             heap_pad_base, heap_pad_size, error_code, append_heap_pad_base);
 
-        ASSERT_CURIOSITY(NT_SUCCESS(error_code) || 
+        ASSERT_CURIOSITY(NT_SUCCESS(error_code) ||
                          check_filter("win32.oomtest.exe",
                                       get_short_name(get_application_name())));
         /* not critical functionality loss if we have failed to
@@ -2331,13 +2331,13 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
              */
             if (heap_pad_base != append_heap_pad_base) {
                 size_t existing_size = 0;
-                bool now_immediate_taken = 
+                bool now_immediate_taken =
                     get_memory_info(append_heap_pad_base, NULL, &existing_size, NULL);
                 /* FIXME: possible to simply not have enough room in current hole */
                 /* or somebody else already got the immediate next region */
                 ASSERT_CURIOSITY(!now_immediate_taken && "racy allocate");
 
-                /* FIXME: get_memory_info() DOESN'T fill in size when MEM_FREE, 
+                /* FIXME: get_memory_info() DOESN'T fill in size when MEM_FREE,
                  * this DOESN'T actually check existing_size it's just 0 */
                 if (!now_immediate_taken && existing_size < heap_pad_size) {
                     /* FIXME: should we at least fill the hole? */
@@ -2356,33 +2356,33 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
                     heap_pad_base, heap_pad_size, error_code);
                 ASSERT(NT_SUCCESS(error_code));
             } else {
-                /* register this allocation 
+                /* register this allocation
                  * 1) so that we can lookup free from original base and return the memory
-                 * 
+                 *
                  * 2) so that we can detect attempted execution from it and flag
                  */
-                ASSERT(!vmvector_overlap(aslr_heap_pad_areas, 
-                                         heap_pad_base, 
+                ASSERT(!vmvector_overlap(aslr_heap_pad_areas,
+                                         heap_pad_base,
                                          heap_pad_base + heap_pad_size));
                 /* FIXME: case 7017 should check the reservation region
                  * for detecting attacks targeting predictable heaps or
                  * brute force heap fill style attacks */
-                vmvector_add(aslr_heap_pad_areas, 
-                             heap_pad_base, 
+                vmvector_add(aslr_heap_pad_areas,
+                             heap_pad_base,
                              heap_pad_base + heap_pad_size,
                              last_allocation_base /* tag to match reservations */);
-                ASSERT(vmvector_overlap(aslr_heap_pad_areas, 
-                                        heap_pad_base, 
+                ASSERT(vmvector_overlap(aslr_heap_pad_areas,
+                                        heap_pad_base,
                                         heap_pad_base + heap_pad_size));
-                ASSERT(vmvector_lookup(aslr_heap_pad_areas, 
+                ASSERT(vmvector_lookup(aslr_heap_pad_areas,
                                        heap_pad_base) == last_allocation_base);
                 STATS_ADD_PEAK(aslr_heap_total_reservation, heap_pad_size/1024);
                 STATS_ADD_PEAK(aslr_heap_pads, 1);
                 STATS_INC(ever_aslr_heap_pads);
             }
         } else {
-            SYSLOG_INTERNAL_WARNING("ASLR_HEAP_FILL: error "PIFX" on ("PFX","PFX")\n", 
-                                    error_code, append_heap_pad_base, 
+            SYSLOG_INTERNAL_WARNING("ASLR_HEAP_FILL: error "PIFX" on ("PFX","PFX")\n",
+                                    error_code, append_heap_pad_base,
                                     append_heap_pad_base + heap_pad_size);
 
             /* FIXME: should try to flag if out of memory - could be
@@ -2410,7 +2410,7 @@ aslr_post_process_allocate_virtual_memory(dcontext_t *dcontext,
  * If application system call fails not a critical failure that we have freed a pad.
  */
 void
-aslr_pre_process_free_virtual_memory(dcontext_t *dcontext, 
+aslr_pre_process_free_virtual_memory(dcontext_t *dcontext,
                                      app_pc freed_base, size_t freed_size)
 {
     /* properly adjusted base and size for next allocation unit */
@@ -2432,9 +2432,9 @@ aslr_pre_process_free_virtual_memory(dcontext_t *dcontext,
          * fails to pad (e.g. due to a MEM_MAPPED) allocation, yet the
          * later MEM_RESERVE|MEM_COMMIT has a second chance.  Rare, so
          * leaving for now. */
-        ASSERT_CURIOSITY(vmvector_lookup(aslr_heap_pad_areas, 
+        ASSERT_CURIOSITY(vmvector_lookup(aslr_heap_pad_areas,
                                          expected_pad_base) == freed_base);
-        
+
         /* need to remove atomically to make sure that nobody else is
          * freeing the same region at this point, otherwise on an
          * application double free race, we may attempt to double free
@@ -2443,8 +2443,8 @@ aslr_pre_process_free_virtual_memory(dcontext_t *dcontext,
         vmvector_remove_containing_area(aslr_heap_pad_areas, expected_pad_base,
                                         &heap_pad_base, &heap_pad_end);
         ASSERT(heap_pad_base == expected_pad_base);
-        ASSERT_CURIOSITY(!vmvector_overlap(aslr_heap_pad_areas, 
-                                           expected_pad_base, 
+        ASSERT_CURIOSITY(!vmvector_overlap(aslr_heap_pad_areas,
+                                           expected_pad_base,
                                            expected_pad_base + 1));
 
         /* have to free it up, even if we picked the wrong pad we
@@ -2460,8 +2460,8 @@ aslr_pre_process_free_virtual_memory(dcontext_t *dcontext,
         STATS_DEC(aslr_heap_pads);
     } else {
         /* no overlap */
-        ASSERT_CURIOSITY(!vmvector_overlap(aslr_heap_pad_areas, 
-                                           expected_pad_base, 
+        ASSERT_CURIOSITY(!vmvector_overlap(aslr_heap_pad_areas,
+                                           expected_pad_base,
                                            expected_pad_base + 1));
     }
 }
@@ -2474,27 +2474,27 @@ static
 app_pc
 aslr_reserve_initial_heap_pad(app_pc preferred_base, size_t reserve_offset)
 {
-    size_t heap_initial_delta = 
+    size_t heap_initial_delta =
         get_random_offset(reserve_offset);
     heap_error_code_t error_code;
     size_t heap_reservation_size = ALIGN_FORWARD(heap_initial_delta,
                                                ASLR_MAP_GRANULARITY);
-    app_pc heap_reservation_base = os_heap_reserve(preferred_base, 
-                                                   heap_reservation_size, 
-                                                   &error_code, 
+    app_pc heap_reservation_base = os_heap_reserve(preferred_base,
+                                                   heap_reservation_size,
+                                                   &error_code,
                                                    false/*ignored on Windows*/);
     if (heap_reservation_base == NULL) {
         /* unable to get a preferred, let the os pick a spot */
         /* FIXME - remove this - no real reason to reserve if we can't get our
          * preferred, but the old os_heap_reserve implementation automatically
          * tried again for us and the code below assumes so. */
-        heap_reservation_base = os_heap_reserve(NULL, heap_reservation_size, &error_code, 
+        heap_reservation_base = os_heap_reserve(NULL, heap_reservation_size, &error_code,
                                                 false/*ignored on Windows*/);
     }
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: ASLR_HEAP: requested random offset="PFX",\n"
         "ASLR: reservation base="PFX", real size="PFX", err=0x%x\n",
-        reserve_offset, 
+        reserve_offset,
         heap_reservation_base, heap_reservation_size, error_code);
 
     ASSERT_CURIOSITY(NT_SUCCESS(error_code));
@@ -2507,21 +2507,21 @@ aslr_reserve_initial_heap_pad(app_pc preferred_base, size_t reserve_offset)
         STATS_ADD_PEAK(aslr_heap_pads, 1);
         STATS_INC(ever_aslr_heap_pads);
 
-        ASSERT(!vmvector_overlap(aslr_heap_pad_areas, 
-                                 heap_reservation_base, 
+        ASSERT(!vmvector_overlap(aslr_heap_pad_areas,
+                                 heap_reservation_base,
                                  heap_reservation_base + heap_reservation_size));
         /* FIXME: case 7017 should check the reservation region
          * for detecting attacks targeting predictable heaps or
          * brute force heap fill style attacks */
-        vmvector_add(aslr_heap_pad_areas, 
-                     heap_reservation_base, 
+        vmvector_add(aslr_heap_pad_areas,
+                     heap_reservation_base,
                      heap_reservation_base + heap_reservation_size,
                      preferred_base);
         /* Note breaking invariant for custom field - this is not
          * base of previous allocation but initial padding or
          * executable are not supposed to be freed, and in case
          * there was a smaller region in front of our pad that
-         * gets freed we still get to keep it 
+         * gets freed we still get to keep it
          */
     }
     return heap_reservation_base;
@@ -2542,7 +2542,7 @@ static
 void
 aslr_free_heap_pads(void)
 {
-    
+
     DEBUG_DECLARE(uint count_freed = 0;)
 
     vmvector_iterator_t vmvi;
@@ -2553,7 +2553,7 @@ aslr_free_heap_pads(void)
         app_pc heap_pad_base = start; /* assuming not overlapping */
         size_t heap_pad_size = (end - start);
         heap_error_code_t error_code;
-        
+
         os_heap_free(heap_pad_base, heap_pad_size, &error_code);
         LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
             "ASLR: ASLR_HEAP: final cleanup pad base="PFX", size="PIFX
@@ -2614,7 +2614,7 @@ open_relocated_dlls_filecache_directory(void)
     HANDLE directory_handle;
     int retval;
     bool per_user = TEST(ASLR_SHARED_PER_USER, DYNAMO_OPTION(aslr_cache));
-    
+
     /* FIXME: note a lot of overlap with code in os_create_dir() yet
      * that assumes we'll deal with file names, while I want to avoid
      * further string concatenation.  It also goes through a lot more
@@ -2629,22 +2629,22 @@ open_relocated_dlls_filecache_directory(void)
      * DYNAMORIO_VAR_CACHE_ROOT (\cache) in addition to the a per USER
      * subdirectory \cache\SID
      */
-    retval = get_parameter((per_user ? 
+    retval = get_parameter((per_user ?
                             PARAM_STR(DYNAMORIO_VAR_CACHE_ROOT) :
                             PARAM_STR(DYNAMORIO_VAR_CACHE_SHARED)),
                            base_directory, sizeof(base_directory));
-    if (IS_GET_PARAMETER_FAILURE(retval) || 
+    if (IS_GET_PARAMETER_FAILURE(retval) ||
         strchr(base_directory, DIRSEP) == NULL) {
         SYSLOG_INTERNAL_ERROR(" %s not set!"
-                              " ASLR sharing ineffective.\n", 
-                              (per_user ? 
+                              " ASLR sharing ineffective.\n",
+                              (per_user ?
                                DYNAMORIO_VAR_CACHE_ROOT :
                                DYNAMORIO_VAR_CACHE_SHARED));
         return INVALID_HANDLE_VALUE;
     }
     NULL_TERMINATE_BUFFER(base_directory);
 
-    LOG(GLOBAL, LOG_ALL, 1, "ASLR_SHARED: Opening file cache directory %s\n", 
+    LOG(GLOBAL, LOG_ALL, 1, "ASLR_SHARED: Opening file cache directory %s\n",
         base_directory);
 
     if (per_user) {
@@ -2652,7 +2652,7 @@ open_relocated_dlls_filecache_directory(void)
          * ASLR_SHARED_INHERIT almost every process will need to
          * create some non-exempt from sharing DLLs
          */
-        bool res = os_current_user_directory(base_directory, 
+        bool res = os_current_user_directory(base_directory,
                                              BUFFER_SIZE_ELEMENTS(base_directory),
                                              true /* create if missing */);
         if (!res) {
@@ -2663,7 +2663,7 @@ open_relocated_dlls_filecache_directory(void)
     }
 
     /* now using potentially modified base_directory per-user */
-    snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), GLOBAL_NT_PREFIX L"%hs", 
+    snwprintf(wbuf, BUFFER_SIZE_ELEMENTS(wbuf), GLOBAL_NT_PREFIX L"%hs",
               base_directory);
     NULL_TERMINATE_BUFFER(wbuf);
 
@@ -2672,7 +2672,7 @@ open_relocated_dlls_filecache_directory(void)
      * with FILE_OPEN_IF (if we did it would inherit the permissions
      * of the parent which are too restrictive).
      */
-    directory_handle = create_file(wbuf, true /* is_dir */, 
+    directory_handle = create_file(wbuf, true /* is_dir */,
                                    READ_CONTROL /* generic rights */,
                                    FILE_SHARE_READ
                                    /* case 10255: allow persisted cache files
@@ -2682,12 +2682,12 @@ open_relocated_dlls_filecache_directory(void)
     if (directory_handle == INVALID_HANDLE_VALUE) {
         SYSLOG_INTERNAL_ERROR("%s=%s is invalid!"
                               " ASLR sharing is ineffective.\n",
-                              (per_user ? 
+                              (per_user ?
                                DYNAMORIO_VAR_CACHE_ROOT :
                                DYNAMORIO_VAR_CACHE_SHARED), base_directory);
     } else {
         /* note that now that we have the actual handle open, we can validate */
-        if (per_user && 
+        if (per_user &&
             (DYNAMO_OPTION(validate_owner_dir) || DYNAMO_OPTION(validate_owner_file))) {
             /* see os_current_user_directory() for details */
             if (!os_validate_user_owned(directory_handle)) {
@@ -2695,7 +2695,7 @@ open_relocated_dlls_filecache_directory(void)
                  * it will get reported */
                 SYSLOG_INTERNAL_ERROR("%s -> %s is OWNED by an impostor!"
                                       " ASLR sharing is disabled.",
-                                      (per_user ? 
+                                      (per_user ?
                                        DYNAMORIO_VAR_CACHE_ROOT :
                                        DYNAMORIO_VAR_CACHE_SHARED),
                                       base_directory);
@@ -2802,35 +2802,35 @@ aslr_module_append_signature(HANDLE produced_file,
      * but unlikely we'd care to do this
      */
     DOLOG(1, LOG_SYSCALLS|LOG_VMAREAS, {
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "ASLR: aslr_module_append_signature:");
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "\n\t source.full :");
         /* FIXME: should abstract out the md5sum style printing from
          * get_md5_for_file() */
-        dump_buffer_as_bytes(GLOBAL, 
-                             persistent_digest->original_source.full_MD5, 
+        dump_buffer_as_bytes(GLOBAL,
+                             persistent_digest->original_source.full_MD5,
                              MD5_RAW_BYTES, DUMP_RAW);
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "\n\t source.short:");
-        dump_buffer_as_bytes(GLOBAL, 
-                             persistent_digest->original_source.short_MD5, 
+        dump_buffer_as_bytes(GLOBAL,
+                             persistent_digest->original_source.short_MD5,
                              MD5_RAW_BYTES, DUMP_RAW);
 
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "\n\t target.full :");
-        dump_buffer_as_bytes(GLOBAL, 
-                             persistent_digest->relocated_target.full_MD5, 
+        dump_buffer_as_bytes(GLOBAL,
+                             persistent_digest->relocated_target.full_MD5,
                              MD5_RAW_BYTES, DUMP_RAW);
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "\n\t target.short:");
-        dump_buffer_as_bytes(GLOBAL, 
-                             persistent_digest->relocated_target.short_MD5, 
+        dump_buffer_as_bytes(GLOBAL,
+                             persistent_digest->relocated_target.short_MD5,
                              MD5_RAW_BYTES, DUMP_RAW);
         LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "\n");
     });
 
-    ok = write_file(produced_file, 
+    ok = write_file(produced_file,
                     persistent_digest, sizeof(aslr_persistent_digest_t),
                     produced_file_pointer,
                     &num_written);
@@ -2847,7 +2847,7 @@ aslr_module_read_signature(HANDLE randomized_file,
 {
     size_t num_read;
     bool ok;
-    ok = read_file(randomized_file, 
+    ok = read_file(randomized_file,
                    persistent_digest, sizeof(*persistent_digest),
                    randomized_file_pointer,
                    &num_read);
@@ -2883,9 +2883,9 @@ aslr_module_read_signature(HANDLE randomized_file,
      *
      *  <metadata>  <!- not really going be in xml -->
      *    name=""
-     *    <original> 
+     *    <original>
      *     <checksum md5|crc32|sha1= /> <-- staleness -->
-     *    <rebased> 
+     *    <rebased>
      *     <checksum md5|crc32|sha1= /> <-- corruption -->
      *  </metadata>
      *  <hash>md5(metadata)</hash>
@@ -2931,15 +2931,15 @@ aslr_get_section_digest(OUT module_digest_t *digest,
                         bool short_digest_only)
 {
     NTSTATUS res;
-    app_pc base = (app_pc)0x0; 
-    size_t commit_size = 0;       
+    app_pc base = (app_pc)0x0;
+    size_t commit_size = 0;
 
-    SIZE_T view_size = 0;         
+    SIZE_T view_size = 0;
     /* full file view, since even our short digest includes both
      * header and footer */
 
     uint type = 0;              /* commit not needed for original DLL */
-    uint prot = PAGE_READONLY; 
+    uint prot = PAGE_READONLY;
 
     res = nt_raw_MapViewOfSection(section_handle, /* 0 */
                                   NT_CURRENT_PROCESS, /* 1 */
@@ -2971,7 +2971,7 @@ aslr_get_section_digest(OUT module_digest_t *digest,
 
 /* returns a private image section.
  * a simple wrapper around nt_create_section() with common attributes
- * on success callers need to close_handle() after use 
+ * on success callers need to close_handle() after use
  */
 static inline
 bool
@@ -2982,7 +2982,7 @@ aslr_create_private_module_section(OUT HANDLE private_section,
     res = nt_create_section(private_section,
                             SECTION_ALL_ACCESS, /* FIXME: maybe less privileges needed */
                             NULL, /* full file size */
-                            PAGE_EXECUTE, 
+                            PAGE_EXECUTE,
                             /* PAGE_EXECUTE gives us COW in readers
                              * but can't share any changes.
                              * Unmodified pages are always shared.
@@ -3001,19 +3001,19 @@ aslr_create_private_module_section(OUT HANDLE private_section,
                             NULL /* unnamed */, 0, NULL, NULL);
     ASSERT_CURIOSITY(NT_SUCCESS(res) && "create failed - maybe invalid PE");
     /* seen STATUS_INVALID_IMAGE_FORMAT when testing non-aligned PE base */
-    if (!NT_SUCCESS(res)) 
+    if (!NT_SUCCESS(res))
         return false;
     return true;
 }
 
-static 
+static
 bool
 aslr_get_file_digest(OUT module_digest_t *digest,
                      HANDLE relocated_file_handle,
                      bool short_only)
 {
     /* Keep in mind that we have to create a private section mapping
-     * before we publish it for other consumers to use 
+     * before we publish it for other consumers to use
      * in aslr_publish_section_handle
      */
 
@@ -3024,19 +3024,19 @@ aslr_get_file_digest(OUT module_digest_t *digest,
      */
 
     /* see comments in aslr_get_original_metadata() about sharing some
-     * of the extraneous mappings 
+     * of the extraneous mappings
      */
     HANDLE private_section;
     bool ok;
-    
+
     ok = aslr_create_private_module_section(&private_section,
                                             relocated_file_handle);
     if (!ok)
         return false;
 
-    ok = aslr_get_section_digest(digest, private_section, 
+    ok = aslr_get_section_digest(digest, private_section,
                                  short_only);
-                            
+
     close_handle(private_section);
     /* Note: we may need to keep this handle OPEN if that is to
      * guarantee that the file cannot be overwritten.  Assuming that
@@ -3069,11 +3069,11 @@ aslr_compare_in_place(IN HANDLE original_section,
     NTSTATUS res;
 
     HANDLE section_handle = original_section;
-    app_pc base = (app_pc)0x0; 
-    size_t commit_size = 0;       
+    app_pc base = (app_pc)0x0;
+    size_t commit_size = 0;
     SIZE_T view_size = 0;         /* full file view */
     uint type = 0;              /* commit not needed for original DLL */
-    uint prot = PAGE_READWRITE; 
+    uint prot = PAGE_READWRITE;
     /* PAGE_READWRITE would allow us to update the backing section */
     /* PAGE_WRITECOPY - will only provide the current mapping */
 
@@ -3131,7 +3131,7 @@ aslr_compare_in_place(IN HANDLE original_section,
     }
 
     ok = (*original_mapped_size == suspect_mapped_size) &&
-        module_contents_compare(*original_mapped_base, 
+        module_contents_compare(*original_mapped_base,
                                 suspect_mapped_base, *original_mapped_size,
                                 false /* not relocated */,
                                 suspect_preferred_base - original_preferred_base,
@@ -3164,8 +3164,8 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
     bool ok;
     NTSTATUS res;
 
-    size_t validation_prefix = (TEST(ASLR_PERSISTENT_PARANOID_PREFIX, 
-                                     DYNAMO_OPTION(aslr_validation)) ? 
+    size_t validation_prefix = (TEST(ASLR_PERSISTENT_PARANOID_PREFIX,
+                                     DYNAMO_OPTION(aslr_validation)) ?
                                 DYNAMO_OPTION(aslr_section_prefix) : POINTER_MAX);
 
     /* create a private section for suspect  */
@@ -3246,8 +3246,8 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
              */
         }
     });
-    
-   if (TEST(ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY, 
+
+   if (TEST(ASLR_PERSISTENT_PARANOID_TRANSFORM_EXPLICITLY,
              DYNAMO_OPTION(aslr_validation))) {
         KSTART(aslr_validate_relocate);
         /* note we're transforming our good section into the relocated one
@@ -3272,7 +3272,7 @@ aslr_module_verify_relocated_contents(HANDLE original_file_handle,
         if (ok) {
             KSTART(aslr_compare);
             ok = (relocated_original_size == suspect_size) &&
-                module_contents_compare(relocated_original_mapped_base, 
+                module_contents_compare(relocated_original_mapped_base,
                                         suspect_base, relocated_original_size,
                                         true /* already relocated */,
                                         0,
@@ -3353,7 +3353,7 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
     aslr_persistent_digest_t persistent_digest;
 
     module_digest_t calculated_digest;
-    bool short_only = 
+    bool short_only =
         TEST(ASLR_PERSISTENT_SHORT_DIGESTS, DYNAMO_OPTION(aslr_validation));
 
     bool ok;
@@ -3378,7 +3378,7 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
      * size.
      */
 
-    adjusted_file_size = 
+    adjusted_file_size =
         randomized_file_size - sizeof(aslr_persistent_digest_t);
 
     /*
@@ -3435,7 +3435,7 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
             return false;
         }
     }
-    
+
     if (TEST(ASLR_PERSISTENT_PARANOID,
              DYNAMO_OPTION(aslr_validation))) {
         ok = aslr_module_verify_relocated_contents(app_file_handle,
@@ -3464,13 +3464,13 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
          * non-exclusive mode but that is very unlikely, so we'll
          * assume our section can be used without a race
          */
-        ok = aslr_get_file_digest(&calculated_digest, 
+        ok = aslr_get_file_digest(&calculated_digest,
                                   app_file_handle, short_only);
         if (!ok) {
             ASSERT_NOT_TESTED();
             return false;
         }
-            
+
         if (!module_digests_equal(&persistent_digest.original_source,
                                   &calculated_digest, short_only, !short_only)) {
             SYSLOG_INTERNAL_WARNING("aslr_verify_file_checksum: "
@@ -3486,13 +3486,13 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
          * process from crashing on a bad DLL for extra safety we
          * may need to wrap this call in a try/except block.
          */
-        ok = aslr_get_file_digest(&calculated_digest, 
+        ok = aslr_get_file_digest(&calculated_digest,
                                   randomized_file_handle, short_only);
         if (!ok) {
             ASSERT_NOT_TESTED();
             return false;
         }
-            
+
         if (!module_digests_equal(&persistent_digest.relocated_target,
                                   &calculated_digest, short_only, !short_only)) {
             SYSLOG_INTERNAL_ERROR("aslr_verify_file_checksum: "
@@ -3512,17 +3512,17 @@ aslr_verify_file_checksum(IN HANDLE app_file_handle,
 }
 
 /* used by section publishers for providing our alternative file
- * backing in current user DLL file cache, 
- * 
+ * backing in current user DLL file cache,
+ *
  * returns true if module_name exists and is not stale.  Caller should
- * close file on success.  
+ * close file on success.
  */
 static bool
-aslr_open_relocated_dll_file(OUT HANDLE *relocated_file, 
+aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
                              IN HANDLE original_file,
                              const wchar_t *module_name)
 {
-    HANDLE relocated_dlls_directory = 
+    HANDLE relocated_dlls_directory =
         get_relocated_dlls_filecache_directory(false);
     NTSTATUS res;
     HANDLE new_file = INVALID_HANDLE_VALUE;
@@ -3536,15 +3536,15 @@ aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
      * asking for ASLR_PERSISTENT we want only freshly produced and
      * still open by publisher file.  In that case may want to try
      * exclusive access first - and if we can get it then the file is
-     * not freshly produced.  
-     * 
+     * not freshly produced.
+     *
      * Alternatively, even if we allow persistence we may use the file
      * creation time to decide that a file has been created too long
      * ago (aslr_module_get_times()), or that is has been used too
      * many times (e.g. brute forcing a process).  Although such
      * measures improve resistance to brute force attack only as much
      * as one bit of randomness.
-     * 
+     *
      * If we do want to refuse loading a file on brute forcing, best
      * recourse is to switch to private ASLR.  If the file is too old,
      * but borderline old, such that some processes are still using
@@ -3552,7 +3552,7 @@ aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
      * to to supersede the existing produced file or published section
      * we should just wait until next reboot and use private ASLR in
      * the mean time as well.  Could also use alternative bases.
-     * 
+     *
      * Probably, best is to not bother with the above directly, but
      * instead use a reaper process (nodemgr.exe) which will regularly
      * schedule for removal files in FIFO, both for capacity
@@ -3596,7 +3596,7 @@ aslr_open_relocated_dll_file(OUT HANDLE *relocated_file,
             LOG(GLOBAL, LOG_ALL, 1, "aslr_open_relocated_dll_file: DLL not found\n");
         } else {
             if (res == STATUS_ACCESS_DENIED) {
-                ASSERT_CURIOSITY(false && 
+                ASSERT_CURIOSITY(false &&
                                  "insufficient permissions, or non-executable file");
             } else if (res == STATUS_SHARING_VIOLATION) {
                 ASSERT_NOT_TESTED();
@@ -3659,7 +3659,7 @@ aslr_check_low_disk_threshold(uint64 new_file_size)
      * another threshold.
      */
     bool ok;
-    HANDLE producer_directory = 
+    HANDLE producer_directory =
         get_relocated_dlls_filecache_directory(true);
 
     ok = check_low_disk_threshold(producer_directory, new_file_size);
@@ -3681,13 +3681,13 @@ aslr_check_low_disk_threshold(uint64 new_file_size)
 /* used by file producers for providing our alternative file backing */
 /* callers should close the handle */
 static bool
-aslr_create_relocated_dll_file(OUT HANDLE *new_file, 
-                               const wchar_t *unique_name, 
+aslr_create_relocated_dll_file(OUT HANDLE *new_file,
+                               const wchar_t *unique_name,
                                uint64 original_file_size,
-                               bool persistent 
+                               bool persistent
                                /* hint whether file is persistent */)
 {
-    HANDLE our_relocated_dlls_directory = 
+    HANDLE our_relocated_dlls_directory =
         get_relocated_dlls_filecache_directory(true);
     uint attributes;
     size_t allocation_size = 0x0;
@@ -3740,7 +3740,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
         retry = false;
         attempts++;
 
-        res = nt_create_module_file(new_file, unique_name, 
+        res = nt_create_module_file(new_file, unique_name,
                                     our_relocated_dlls_directory,
                                     READ_CONTROL |
                                     FILE_READ_DATA | FILE_WRITE_DATA,
@@ -3758,9 +3758,9 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
          * (STATUS_CANNOT_DELETE) .  Rogue users getting in our way
          * can always just open exclusively.
          */
-        
+
         if (NT_SUCCESS(res)) {
-            ASSERT_CURIOSITY(os_validate_user_owned(*new_file) && 
+            ASSERT_CURIOSITY(os_validate_user_owned(*new_file) &&
                              "DLL loaded while impersonating?");
             return true;
         }
@@ -3772,7 +3772,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
         if (res == STATUS_OBJECT_NAME_COLLISION) {
             bool deleted;
 
-            ASSERT_CURIOSITY(attempts == 1 && 
+            ASSERT_CURIOSITY(attempts == 1 &&
                              "ln attack, in use, or race with another producer");
             /* the file could legally be in use only if valid for a
              * different core version */
@@ -3813,7 +3813,7 @@ aslr_create_relocated_dll_file(OUT HANDLE *new_file,
  * in aslr_post_process_mapview()
  */
 static bool
-is_aslr_exempted_file_name(const wchar_t *short_file_name) 
+is_aslr_exempted_file_name(const wchar_t *short_file_name)
 {
     if (!IS_STRING_OPTION_EMPTY(exempt_aslr_default_list) ||
         !IS_STRING_OPTION_EMPTY(exempt_aslr_list) ||
@@ -3832,8 +3832,8 @@ is_aslr_exempted_file_name(const wchar_t *short_file_name)
         if (IS_LISTSTRING_OPTION_FORALL(exempt_aslr_list))
             return true;
 
-        wchar_to_char(file_name, BUFFER_SIZE_ELEMENTS(file_name), 
-                      short_file_name, 
+        wchar_to_char(file_name, BUFFER_SIZE_ELEMENTS(file_name),
+                      short_file_name,
                       wcslen(short_file_name) * sizeof(wchar_t) /* size in bytes */);
         NULL_TERMINATE_BUFFER(file_name);
 
@@ -3843,7 +3843,7 @@ is_aslr_exempted_file_name(const wchar_t *short_file_name)
          */
 
         /* we're using the same exemption list as private ASLR, though we
-         * may separate these 
+         * may separate these
          */
         if (check_list_default_and_append(dynamo_options.exempt_aslr_default_list,
                                           dynamo_options.exempt_aslr_list,
@@ -3919,7 +3919,7 @@ get_file_short_name(IN HANDLE file_handle, IN OUT FILE_NAME_INFORMATION *name_in
  * produced name is guaranteed to have no backslashes,
  */
 static bool
-calculate_publish_name(wchar_t *generated_name /* OUT */, 
+calculate_publish_name(wchar_t *generated_name /* OUT */,
                        uint max_name_length /* in elements */,
                        HANDLE file_handle, HANDLE section_handle)
 {
@@ -3945,19 +3945,19 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
      * SeChangeNotifyPrivilege so we can always expect a full path.
      * Since we will only use it for a hash, even that is OK as long
      * as all users get it the same way.
-     * 
-     * - FileStandardInformation - EndOfFile as a byte offset 
+     *
+     * - FileStandardInformation - EndOfFile as a byte offset
      *
      * Other more restrained sources we could have used -
      * file: FileBasicInformation - can use create/access/times, however
      * requires FILE_READ_ATTRIBUTES; FileInternalInformation - gives
      * us a unique file ID but is valid only on NTFS
-     * 
+     *
      * Section: SectionBasicInformation.Size or
      * SectionImageInformation.EntryPoint can also be used for an
      * image if we had Query access but we don't have that on
      * KnownDlls until we map them in.
-     * 
+     *
      * Mapped PE: PE name, timestamp, checksum - none is reliable
      * enough by itself. We could use add a hash of the PE header
      * (like FX!32) or the short MD5 module_digest_t.  Yet for most
@@ -3990,7 +3990,7 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
         ASSERT(false && "bad handle?");
         return false;           /* can't generate name */
     }
-    
+
     short_name = get_file_short_name(file_handle, &name_info);
     if (short_name == NULL) {
         ASSERT(false);
@@ -3998,11 +3998,11 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
     }
 
     /* name hash over the wide char as bytes (many will be 0's but OK) */
-    name_hash = crc32((char*)name_info.FileName, 
+    name_hash = crc32((char*)name_info.FileName,
                       name_info.FileNameLength);
 
     /* xor over the file size as bytes */
-    final_hash = name_hash ^ 
+    final_hash = name_hash ^
         (standard_info.EndOfFile.LowPart ^ standard_info.EndOfFile.HighPart);
 
     LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 2,
@@ -4018,15 +4018,15 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
         return false; /* exempted, shouldn't publish */
     }
 
-    _snwprintf(generated_name, max_name_length, 
+    _snwprintf(generated_name, max_name_length,
                L"%s-"L_PFMT, short_name, final_hash);
 
-    if (TEST(ASLR_INTERNAL_SHARED_NONUNIQUE, 
+    if (TEST(ASLR_INTERNAL_SHARED_NONUNIQUE,
              INTERNAL_OPTION(aslr_internal))) {
         /* stress testing: temporarily testing multiple file sections by unique
          * within process name */
         static int unique = 0;
-        _snwprintf(generated_name, max_name_length, 
+        _snwprintf(generated_name, max_name_length,
                    L"unique-7ababcd-%d", unique++);
     }
 
@@ -4037,9 +4037,9 @@ calculate_publish_name(wchar_t *generated_name /* OUT */,
 }
 
 /* assumes mapped_module_base's header page is writable */
-static 
+static
 bool
-aslr_write_header(app_pc mapped_module_base, size_t module_size, 
+aslr_write_header(app_pc mapped_module_base, size_t module_size,
                   app_pc new_preferred_base,
                   uint new_checksum, uint new_timestamp)
 {
@@ -4047,7 +4047,7 @@ aslr_write_header(app_pc mapped_module_base, size_t module_size,
     IMAGE_NT_HEADERS *nt_hdr;
 
     ASSERT(is_readable_pe_base(mapped_module_base));
-    ASSERT_CURIOSITY(new_preferred_base != mapped_module_base && 
+    ASSERT_CURIOSITY(new_preferred_base != mapped_module_base &&
            "usually relocated at original address");
     /* note that mapped_module_base is not necessarily the original
      * preferred image base for DLLs with poorly chosen base */
@@ -4062,13 +4062,13 @@ aslr_write_header(app_pc mapped_module_base, size_t module_size,
      * that is loaded into a critical Windows process.
      */
 
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_write_header checksum old "PFX", new "PFX"\n",
         nt_hdr->OptionalHeader.CheckSum, new_checksum);
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_write_header ImageBase old "PFX", new "PFX"\n",
         OPT_HDR(nt_hdr, ImageBase), mapped_module_base);
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_write_header TimeDateStamp old "PFX", new "PFX"\n",
         nt_hdr->FileHeader.TimeDateStamp, new_timestamp);
 
@@ -4109,7 +4109,7 @@ aslr_write_header(app_pc mapped_module_base, size_t module_size,
 }
 
 /* returns true if successful, caller is responsible for unmapping the
- * mapped view if mapped_base is set. 
+ * mapped view if mapped_base is set.
  * If search_fitting_base then new_base is set to the new random base.
  *
  * Returned view is writable, but is not intended to be used for
@@ -4131,7 +4131,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
     bool success;
     NTSTATUS res;
     HANDLE section_handle = unmodified_section;
-    app_pc base = (app_pc)0x0; 
+    app_pc base = (app_pc)0x0;
     /* we won't necessarily use this mapping's base, no need to
      * require it to be at new_base.  If producer is going to be a
      * consumer it better choose a good new_base that will work. */
@@ -4141,12 +4141,12 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
      * to pass a mapping here earlier if we had read the image size to
      * support ASLR_RANGE_TOP_DOWN */
 
-    size_t commit_size = 0;       
+    size_t commit_size = 0;
     /* commit_size for an explicit anonymous mapping
      * will need to match section size */
     SIZE_T view_size = 0;         /* full file view */
     uint type = 0;              /* commit not needed for original DLL */
-    uint prot = PAGE_READWRITE; 
+    uint prot = PAGE_READWRITE;
     /* PAGE_READWRITE would allow us to update the backing section */
     /* PAGE_WRITECOPY - will only provide the current mapping */
 
@@ -4210,19 +4210,19 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
     /* check for PE already done by get_module_preferred_base() */
     module_characteristics = get_module_characteristics(base);
     if (TEST(IMAGE_FILE_RELOCS_STRIPPED, module_characteristics)) {
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "ASLR: aslr_generate_relocated_section skipping non-relocatable module\n");
         goto unmap_and_exit;
     }
     if (!TEST(IMAGE_FILE_DLL, module_characteristics)) {
         if (TEST(ASLR_RANDOMIZE_EXECUTABLE, DYNAMO_OPTION(aslr_cache))) {
             /* note that we have no problem randomizing an executable with
-             * relocations, when we're in the parent 
+             * relocations, when we're in the parent
              */
             SYSLOG_INTERNAL_INFO("randomizing executable with .reloc");
         } else {
-            /* FIXME: minor perf: every time we're starting an executable 
-             * we'd be wasting a lot of work until we get here, 
+            /* FIXME: minor perf: every time we're starting an executable
+             * we'd be wasting a lot of work until we get here,
              * see if any other mapping already exists
              */
             SYSLOG_INTERNAL_INFO("skipping executable, though it has .reloc");
@@ -4272,7 +4272,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
                                 UINT_MAX/*all secs*/, 0/*all secs*/);
     }
 
-    success = module_rebase(base, view_size, 
+    success = module_rebase(base, view_size,
                             *new_base - original_preferred_base, false/*batch +w*/);
 
     /* need to perform all actions usually taken by rebase.exe note
@@ -4295,7 +4295,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
 
     /* windbg will not be happy with our mapped images having
      * incorrect timestamp and checksum
-     * 
+     *
      * May be better solution is to set IMAGE_NOT_AT_BASE in the
      * MODULEITEM which hopefully will be used by the loader for any
      * binding requests.  We cannot return STATUS_IMAGE_NOT_AT_BASE
@@ -4320,7 +4320,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
      *
      * FIXME: case 8508: As an optimization we could bind all of our cached DLLs
      * to our randomized version to recoup any losses.
-     * see "Optimizing DLL Load Time Performance"by Matt Pietrek 
+     * see "Optimizing DLL Load Time Performance"by Matt Pietrek
      *   http://msdn.microsoft.com/msdnmag/issues/0500/hood/
      * to measure if that is at all worth it on current machines.
      *
@@ -4355,7 +4355,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
         new_timestamp = aslr_timestamp_transformation(old_timestamp);
         /* coordinate any changes here with aslr_compare_header() */
 
-        aslr_write_header(*mapped_base, *mapped_size, 
+        aslr_write_header(*mapped_base, *mapped_size,
                           *new_base,
                           old_checksum, new_timestamp);
         /* FIXME: we need to somehow preserve original_preferred_base
@@ -4371,7 +4371,7 @@ aslr_generate_relocated_section(IN HANDLE unmodified_section,
     return false;
 }
 
-#ifdef DEBUG 
+#ifdef DEBUG
 /* UNUSED */
 /* keeping this scaffolding code to still compile to allow
  * experimentation with any new mapping and sharing features that may
@@ -4407,8 +4407,8 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
      * memory with readers.  If a particular reader needs private
      * writes they can use map<PAGE_WRITECOPY> (can even track the
      * pages that have transitioned from PAGE_WRITECOPY into
-     * PAGE_READWRITE to find which ones have been touched.  
-     * 
+     * PAGE_READWRITE to find which ones have been touched.
+     *
      * Note if we could use SEC_COMMIT for mapping DLLs we'd always
      * need PAGE_WRITECOPY to allow hotp or other hookers to modify
      * privately.  We may also depend on CoW for a shared DR cache if
@@ -4421,7 +4421,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
     res = nt_create_section(&new_published_handle,
                             SECTION_ALL_ACCESS, /* FIXME: maybe less privileges needed */
                             NULL, /* full file size */
-                            PAGE_EXECUTE_READWRITE, 
+                            PAGE_EXECUTE_READWRITE,
                             /* PAGE_EXECUTE_READWRITE - gives us true overwrite ability */
                             /* PAGE_EXECUTE gives us COW but not sharing */
                             /* PAGE_EXECUTE_WRITECOPY is still COW,
@@ -4434,7 +4434,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
                             /* file_handle for file backed */
 
                             /* object name attributes */
-                            mostly_unique_name, 
+                            mostly_unique_name,
                             (permanent ? OBJ_PERMANENT : 0),
                             object_directory, dacl);
 
@@ -4461,7 +4461,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
             /* for testing purposes we're just touching the checksum
              * to verify sharing and private pages */
             /* FIXME: note that we want unique value for testing only! */
-            relocated = aslr_write_header(mapped_base, mapped_size, 
+            relocated = aslr_write_header(mapped_base, mapped_size,
                                           mapped_base,
                                           (uint) win32_pid, 1);
         }
@@ -4487,9 +4487,9 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
             /* for testing purposes just touching the checksum to verify
              * sharing and private pages */
             /* FIXME: note that we want unique value for testing only! */
-            relocated = aslr_write_header(mapped_base, mapped_size, 
+            relocated = aslr_write_header(mapped_base, mapped_size,
                                           mapped_base,
-                                          (uint) win32_pid, 2); 
+                                          (uint) win32_pid, 2);
         }
 
         if (!relocated) {
@@ -4532,7 +4532,7 @@ aslr_experiment_with_section_handle(IN HANDLE file_handle,
  * unmap the returned private view on success.
  */
 static bool
-aslr_file_relocate_cow(IN HANDLE original_file_handle, 
+aslr_file_relocate_cow(IN HANDLE original_file_handle,
                        OUT app_pc *relocated_module_mapped_base,
                        OUT size_t *relocated_module_size,
                        OUT app_pc *random_preferred_module_base,
@@ -4543,7 +4543,7 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
     res = nt_create_section(&relocated_section,
                             SECTION_ALL_ACCESS, /* FIXME: maybe less privileges needed */
                             NULL, /* full file size */
-                            PAGE_EXECUTE, 
+                            PAGE_EXECUTE,
                             /* PAGE_EXECUTE gives us COW in readers
                              * but can't share any changes.
                              * Unmodified pages are always shared.
@@ -4559,7 +4559,7 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
                              * original_file_handle can't be pagefile - since we can't open
                              * such section as a SEC_IMAGE later.
                              */
-                            original_file_handle, 
+                            original_file_handle,
 
                             /* process private - no security needed */
                             /* object name attributes */
@@ -4570,7 +4570,7 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
          * to a random new address relocating and possibly updating
          * all other fields that need to change
          */
- 
+
         /* FIXME: have to pick a random address, yet such that we can
          * share across processes
          */
@@ -4590,7 +4590,7 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
          */
         bool relocated;
         *random_preferred_module_base = aslr_get_next_base();
-        *relocated_module_mapped_base = NULL; 
+        *relocated_module_mapped_base = NULL;
         /* note that if the producer is not using this mapping of the
          * DLL, we don't care about it really being mapped where we
          * want it in other processes, so relocated_module_mapped_base
@@ -4598,12 +4598,12 @@ aslr_file_relocate_cow(IN HANDLE original_file_handle,
          * we do want the random_preferred_module_base to fit at least
          * in the current producer's layout, so once we map the module
          * and know its size we may choose a different base. */
-        relocated = 
+        relocated =
             aslr_generate_relocated_section(relocated_section,
                                             random_preferred_module_base,
                                             true, /* search to avoid conflict */
                                             relocated_module_mapped_base,
-                                            relocated_module_size, 
+                                            relocated_module_size,
                                             original_digest);
         if (!relocated) {
             ASSERT(*relocated_module_mapped_base == NULL);
@@ -4636,7 +4636,7 @@ bool
 aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
 {
     NTSTATUS res;
-    
+
     FILE_BASIC_INFORMATION basic_info;
 
     /* FileBasicInformation A FILE_BASIC_INFORMATION structure. The
@@ -4649,7 +4649,7 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
      * aslr_recreate_known_dll_file() either,
      */
 
-    /* It looks like files are 
+    /* It looks like files are
      * Type             File
      * Attributes       0
      * GrantedAccess    0x100020:
@@ -4664,10 +4664,10 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
      * be duplicated so that it has both the GENERIC_READ and
      * GENERIC_WRITE access right.
      */
-    ASSERT_CURIOSITY(TESTALL(FILE_READ_ATTRIBUTES|SYNCHRONIZE, 
+    ASSERT_CURIOSITY(TESTALL(FILE_READ_ATTRIBUTES|SYNCHRONIZE,
                              nt_get_handle_access_rights(read_attrib_handle)));
 
-    /* FIXME: the only possibility left is to try to reopen the file 
+    /* FIXME: the only possibility left is to try to reopen the file
      * starting with full path, but we don't really have that.
      * For now giving up on this route for original files.
      */
@@ -4680,7 +4680,7 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
         ASSERT(false && "insufficient privilege or bad handle?");
         return false;           /* can't read times */
     }
-    
+
     /* the LastAccessTime and FileAttributes aren't useful to us The
      * other three times are interesting - most likely LastWriteTime
      * by itself is sufficient for normal use.  Still interesting
@@ -4688,24 +4688,24 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
      * notably ChangeTime which is not exposed through Win32 makes a
      * good candidate.
      *
-     * DDK 
-     *   CreationTime 
-     *        Specifies the time that the file was created. 
-     *   LastWriteTime 
-     *        Specifies the time that the file was last written to. 
-     *   ChangeTime 
-     *        Specifies the last time the file was changed. 
-     *   
+     * DDK
+     *   CreationTime
+     *        Specifies the time that the file was created.
+     *   LastWriteTime
+     *        Specifies the time that the file was last written to.
+     *   ChangeTime
+     *        Specifies the last time the file was changed.
+     *
      *  rumors and speculations that: this is the time the MFT entry is changed
      * FIXME: should test
-     * 
+     *
      * http://www.cygwin.com/ml/cygwin/2005-04/msg00492.html
      * " Windows NT supports a fourth timestamp which is inaccessible from the
      *   Win32 API.  The NTFS filesystem actually implements it.  It behaves
      *   as a ctime in a POSIX-like fashion.  Cygwin's st_ctime stat member now
      *   contains this ChangeTime, if it's available.
      * "
-     * 
+     *
      * "ctime attribute keeps track of when the content or meta information
      * about the file has changed - the owner, group, file permission,
      * etc. Ctime may also be used as an approximation of when a file was
@@ -4718,7 +4718,7 @@ aslr_module_get_times(HANDLE file_handle, uint64 *last_write_time)
 
 /* given original application file and hashed name, returns a handle
  * to a relocated version of the file, caller should close_handle().
- * 
+ *
  * otherwise returns INVALID_HANDLE_VALUE if not found
  */
 /*
@@ -4756,7 +4756,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
      * doing.
      */
 
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_produce_randomized_file for %ls\n",
         mostly_unique_name);
 
@@ -4779,7 +4779,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
          * plan.  Any data that is not in a PE section is not going
          * the be mapped in memory by later SEC_IMAGE, so we can
          * ignore that.
-         * 
+         *
          * copy+rebase: Alternatively, we can copy the whole file to disk (as
          * SEC_COMMIT) and then relocate that one again as SEC_COMMIT
          * in the private copy (with no COW) - easy file copy, harder
@@ -4787,7 +4787,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
          */
         bool ok;
         app_pc relocated_module_mapped_base; /* mapping in current process */
-        size_t module_size; 
+        size_t module_size;
         app_pc new_preferred_module_base; /* new random preferred base */
 
         uint64 randomized_file_size;
@@ -4807,31 +4807,31 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
              * one syscall here.  [perf minor] We may want to memoize
              * the value and decide to never try again.
              */
-            return false; 
+            return false;
         }
 
         ok = aslr_file_relocate_cow(original_file_handle,
-                                    &relocated_module_mapped_base, 
+                                    &relocated_module_mapped_base,
                                     &module_size,
                                     &new_preferred_module_base,
                                     &aslr_digest.original_source);
 
         if (ok) {
             NTSTATUS res;
-            bool persistent = 
+            bool persistent =
                 TEST(ASLR_PERSISTENT, DYNAMO_OPTION(aslr_cache));
-            
+
             /* note that SEC_IMAGE is larger than the real file size,
              * but could use module_size to be slightly more conservative */
 
             /* note we test whether we can create a file after we've
              * done a lot of work, but in fact as close as possible to
              * actually producing the file is good */
-            ok = aslr_create_relocated_dll_file(produced_file, 
-                                                mostly_unique_name, 
+            ok = aslr_create_relocated_dll_file(produced_file,
+                                                mostly_unique_name,
                                                 original_file_size,
                                                 persistent);
-            
+
             if (ok) {
                 /* FIXME: case 8459 now that we have a private copy of
                  * the file we can also apply any other binary
@@ -4842,7 +4842,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
                  */
 
                 ok = module_dump_pe_file(*produced_file,
-                                         relocated_module_mapped_base, 
+                                         relocated_module_mapped_base,
                                          module_size);
             } else {
                 *produced_file = INVALID_HANDLE_VALUE;
@@ -4859,7 +4859,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
             }
 
             /* we do not use the private section mapping any more */
-            res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, 
+            res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS,
                                             relocated_module_mapped_base);
             ASSERT(NT_SUCCESS(res));
 
@@ -4867,7 +4867,7 @@ aslr_produce_randomized_file(IN HANDLE original_file_handle,
                 /* not all file contents are mapped in memory - see if
                  * there is more to preserve to appease aslr_verify_file_checksum() */
                 /* FIXME: case 8496 tracks possibly removing that part */
-                ok = aslr_module_force_size(original_file_handle, *produced_file, 
+                ok = aslr_module_force_size(original_file_handle, *produced_file,
                                             mostly_unique_name,
                                             &randomized_file_size);
                 ASSERT(ok);
@@ -4950,12 +4950,12 @@ aslr_get_unique_wide_name(const wchar_t *origname, const wchar_t *key,
                           wchar_t *newname /*OUT*/, uint newname_max /* max #wchars */)
 {
     /* note this routine is a copy of get_unique_name but for
-     * wchar_t should keep in synch any improvements 
+     * wchar_t should keep in synch any improvements
      */
     uint timestamp = (uint) get_random_offset(UINT_MAX);
     DEBUG_DECLARE(int trunc =) /* for DEBUG and INTERNAL */
     _snwprintf(newname, newname_max,
-               L"%s-%d-%010u-%s", origname, 
+               L"%s-%d-%010u-%s", origname,
                get_process_id(), timestamp, key);
 
     ASSERT(trunc > 0 && trunc < (int)newname_max &&
@@ -4975,7 +4975,7 @@ aslr_rename_temporary_file(const wchar_t *mostly_unique_name_target,
                            IN HANDLE produced_temporary_file,
                            const wchar_t *temporary_unique_name)
 {
-    HANDLE our_relocated_dlls_directory = 
+    HANDLE our_relocated_dlls_directory =
         get_relocated_dlls_filecache_directory(true);
     ASSERT(our_relocated_dlls_directory != INVALID_HANDLE_VALUE);
 
@@ -4985,7 +4985,7 @@ aslr_rename_temporary_file(const wchar_t *mostly_unique_name_target,
      * validation:
      * 1) it corresponds to the correct application file
      * 2) we accept the risk of not allowing byte patching within files
-     * 3) FIXME: case 10378 files are internally consistent - e.g. out of disk errors 
+     * 3) FIXME: case 10378 files are internally consistent - e.g. out of disk errors
      * 4) files are completely flushed on disk
      * 5) the file that we are renaming has been freshly produced
      */
@@ -5002,8 +5002,8 @@ aslr_rename_temporary_file(const wchar_t *mostly_unique_name_target,
      * names and the per-user directory paths.
      */
     if (!os_rename_file_in_directory(our_relocated_dlls_directory,
-                                     temporary_unique_name, 
-                                     mostly_unique_name_target, 
+                                     temporary_unique_name,
+                                     mostly_unique_name_target,
                                      false/*do not replace*/)) {
         SYSLOG_INTERNAL_WARNING_ONCE("aslr_rename_temporary_file failed");
         return false;
@@ -5031,16 +5031,16 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                             bool anonymous,
                             OUT HANDLE *new_section_handle)
 {
-    HANDLE object_directory = 
+    HANDLE object_directory =
         shared_object_directory; /* publish in shared or private view */
     HANDLE new_published_handle;
     NTSTATUS res;
     PSECURITY_DESCRIPTOR dacl = NULL;
     HANDLE randomized_file_handle = NULL;
 
-    bool permanent = false; 
+    bool permanent = false;
     /* Whether published handle should be left after all consumers
-     * unmap their views. 
+     * unmap their views.
      * Note that in asynchronous
      * consumer/publisher it should always be persisted until reboot.
      *
@@ -5067,7 +5067,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
     *new_section_handle = INVALID_HANDLE_VALUE;
 
     if (object_directory == INVALID_HANDLE_VALUE && !anonymous) {
-        /* FIXME: currently this could be evaluated in caller, yet 
+        /* FIXME: currently this could be evaluated in caller, yet
          * in the future may have multiple possible locations to try
          */
         return false;
@@ -5110,7 +5110,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
         if (DYNAMO_OPTION(aslr_safe_save)) {
             /* we first create the randomized file version in a
              * temporary file */
-            aslr_get_unique_wide_name(mostly_unique_name, 
+            aslr_get_unique_wide_name(mostly_unique_name,
                                       L"tmp",
                                       temporary_more_unique_name,
                                       BUFFER_SIZE_ELEMENTS(temporary_more_unique_name));
@@ -5119,7 +5119,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
             randomized_file_name = mostly_unique_name;
         }
 
-        if (aslr_produce_randomized_file(original_file_handle, 
+        if (aslr_produce_randomized_file(original_file_handle,
                                          randomized_file_name,
                                          &produced_file_handle)) {
             /* TOFILE: note that currently we cannot cleanly hand-off
@@ -5145,7 +5145,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                     randomized_file_handle = NULL;
                 }
                 /* produced_file_handle is closed regardless of success */
-                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
                     "ASLR: aslr_publish_section_handle: renamed %ls to %ls\n",
                     temporary_more_unique_name, mostly_unique_name);
 
@@ -5155,7 +5155,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                  */
                 close_handle(produced_file_handle);
             }
-            
+
             if (aslr_open_relocated_dll_file(&randomized_file_handle,
                                              original_file_handle,
                                              mostly_unique_name)) {
@@ -5165,7 +5165,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
             }
         }
     } else {
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "ASLR: aslr_publish_section_handle existing copy of %ls\n",
             mostly_unique_name);
         /* more visibility only when logging */
@@ -5175,7 +5175,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
         });
     }
 
-    if (TEST(ASLR_INTERNAL_SHARED_APPFILE, 
+    if (TEST(ASLR_INTERNAL_SHARED_APPFILE,
              INTERNAL_OPTION(aslr_internal))) {
         ASSERT_CURIOSITY(randomized_file_handle == NULL);
         /* stress testing: temporarily testing application file
@@ -5185,7 +5185,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
          */
         ASSERT_NOT_TESTED();
         duplicate_handle(NT_CURRENT_PROCESS, original_file_handle, NT_CURRENT_PROCESS,
-                         &randomized_file_handle, 0, 0, 
+                         &randomized_file_handle, 0, 0,
                          DUPLICATE_SAME_ACCESS|DUPLICATE_SAME_ATTRIBUTES);
     }
 
@@ -5200,28 +5200,28 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                              * SECTION_ALL_ACCESS rights after
                              * creating the object */
                             SECTION_QUERY | /* optional */
-                            SECTION_MAP_WRITE | 
-                            SECTION_MAP_READ |  
+                            SECTION_MAP_WRITE |
+                            SECTION_MAP_READ |
                             SECTION_MAP_EXECUTE,
                             NULL, /* full file size */
-                            PAGE_EXECUTE, 
-                            /* PAGE_EXECUTE 
+                            PAGE_EXECUTE,
+                            /* PAGE_EXECUTE
                              * gives us COW in readers but not sharing */
-                            /* PAGE_EXECUTE_READWRITE 
+                            /* PAGE_EXECUTE_READWRITE
                              * - gives us true overwrite ability only in SEC_COMMIT*/
                             /* PAGE_EXECUTE_WRITECOPY is still COW,
                              * though it also needs FILE_READ_DATA
                              * privileges to at all create the section
                              * which loader doesn't use */
                             SEC_IMAGE, /* PE file mapping */
-                            randomized_file_handle, 
+                            randomized_file_handle,
                             /* NULL for page file backed */
                             /* object name attributes */
                             /* if anonymous sections is not named after all */
 
                             anonymous ? NULL : mostly_unique_name,
                             (permanent ? OBJ_PERMANENT : 0),
-                            anonymous ? NULL : object_directory, 
+                            anonymous ? NULL : object_directory,
                             anonymous ? NULL : dacl);
     /* we can close the file handle whether check section was created or not */
     close_handle(randomized_file_handle);
@@ -5243,7 +5243,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
          * DLL.  However, a lot more problematic is the commit memory
          * leak if a process is producing temporary DLLs (like
          * ASP.NET) that are later not needed.
-         * 
+         *
          * Maybe the right thing to do is to close the handle right
          * after the publisher opens it as a subscriber as well.  That
          * way a section will exist - though I am not sure whether it
@@ -5287,7 +5287,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
                  * maybe truncated due to power loss */
                 /* FIXME: if persistent we should request producer to redo,
                  * otherwise someone should have caught this as stale.
-                 * Producer while writing should be exclusive. 
+                 * Producer while writing should be exclusive.
                  */
                 ASSERT_CURIOSITY(false && "bad PE file");
             } else if (res == STATUS_ACCESS_DENIED) {
@@ -5309,7 +5309,7 @@ aslr_publish_section_handle(IN HANDLE original_file_handle,
  * section of the produced file and never looks at the file again, so
  * there is no attack vector.
  */
- 
+
 /* preserve state about not having to aslr privately this section */
 static void
 aslr_set_randomized_handle(dcontext_t *dcontext,
@@ -5338,7 +5338,7 @@ aslr_set_randomized_handle(dcontext_t *dcontext,
      * are also expected to crash.
      */
 
-    /* FIXME: case 1272: now can also add to module list 
+    /* FIXME: case 1272: now can also add to module list
      * (short filename: already added in syscall routines)
      * full path (except for volume name)
      * original base
@@ -5405,8 +5405,8 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
      */
     bool ok;
     NTSTATUS res;
-    app_pc base = (app_pc)0x0; 
-    size_t commit_size = 0;       
+    app_pc base = (app_pc)0x0;
+    size_t commit_size = 0;
 
     SIZE_T view_size = 0;         /* full file view */
     /* FIXME: we really only need the header, if that makes things
@@ -5414,7 +5414,7 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
      */
 
     uint type = 0;              /* commit not needed for original DLL */
-    uint prot = PAGE_READONLY; 
+    uint prot = PAGE_READONLY;
 
     res = nt_raw_MapViewOfSection(original_app_section_handle, /* 0 */
                                   NT_CURRENT_PROCESS, /* 1 */
@@ -5441,7 +5441,7 @@ aslr_get_original_metadata(HANDLE original_app_section_handle,
 
     res = nt_raw_UnmapViewOfSection(NT_CURRENT_PROCESS, base);
     ASSERT(NT_SUCCESS(res));
-    
+
     return ok;
 }
 
@@ -5493,8 +5493,8 @@ aslr_replace_section_handle(IN HANDLE original_app_section_handle,
         close_handle(new_relocated_handle);
         return false;
     }
-                                   
-    aslr_set_randomized_handle(dcontext, 
+
+    aslr_set_randomized_handle(dcontext,
                                new_relocated_handle,
                                original_preferred_base,
                                original_checksum,
@@ -5504,7 +5504,7 @@ aslr_replace_section_handle(IN HANDLE original_app_section_handle,
      * transparent behavior with regards to attempts to
      * modify a DLL while in use.
      * Note that each consumer will keep a handle and only when all
-     * are done with it the file would be replacable.  
+     * are done with it the file would be replacable.
      */
     if (!TEST(ASLR_ALLOW_ORIGINAL_CLOBBER, DYNAMO_OPTION(aslr_cache))) {
         /* Since we'll keep the app handle after mangling
@@ -5561,12 +5561,12 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
                               const wchar_t *mostly_unique_name,
                               OUT HANDLE *new_relocated_handle)
 {
-    HANDLE object_directory = 
+    HANDLE object_directory =
         shared_object_directory; /* publish in shared or private view */
     NTSTATUS res;
 
     if (object_directory == INVALID_HANDLE_VALUE) {
-        /* FIXME: currently this could be evaluated in caller, yet 
+        /* FIXME: currently this could be evaluated in caller, yet
          * in the future may have multiple possible locations to try
          */
         return false;
@@ -5574,7 +5574,7 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
 
     /* open our candidate section based on expected name */
 
-    /* note on XP SP2 that when the loader creates a section it typically has 
+    /* note on XP SP2 that when the loader creates a section it typically has
      * the following access flags and attributes
      * 0:000> !handle 750 f
      * Handle 750
@@ -5602,16 +5602,16 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
      */
    res = nt_open_section(new_relocated_handle,
                          SECTION_QUERY | /* optional */
-                         SECTION_MAP_WRITE | 
-                         SECTION_MAP_READ |  
+                         SECTION_MAP_WRITE |
+                         SECTION_MAP_READ |
                          SECTION_MAP_EXECUTE,
-                         mostly_unique_name, 0, 
+                         mostly_unique_name, 0,
                          object_directory);
     if (NT_SUCCESS(res)) {
         /* FIXME: now should for sure check whether this new mapping is
          * related to the original file.
          */
-        
+
         if (!aslr_verify_section_backing(original_app_section_handle,
                                         *new_relocated_handle)) {
             ASSERT(false && "stale published section");
@@ -5628,12 +5628,12 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
             uint original_section_attributes = 0;
             LARGE_INTEGER new_section_size;
             LARGE_INTEGER original_section_size;
-            bool new_attrib_ok = 
-                get_section_attributes(*new_relocated_handle, 
+            bool new_attrib_ok =
+                get_section_attributes(*new_relocated_handle,
                                        &new_section_attributes,
                                        &new_section_size);
-            bool original_attrib_ok = 
-                get_section_attributes(original_app_section_handle, 
+            bool original_attrib_ok =
+                get_section_attributes(original_app_section_handle,
                                        &original_section_attributes,
                                        &original_section_size);
             /* if we don't have Query access (e.g. for KnownDlls) we
@@ -5642,7 +5642,7 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
                 SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing on KnownDll %ls", mostly_unique_name);
             }
 
-            ASSERT(new_section_attributes == 
+            ASSERT(new_section_attributes ==
                    original_section_attributes
                    || !original_attrib_ok);
             ASSERT(new_section_size.QuadPart == original_section_size.QuadPart
@@ -5652,7 +5652,7 @@ aslr_subscribe_section_handle(IN HANDLE original_app_section_handle,
                                  mostly_unique_name);
         });
 
-        return aslr_replace_section_handle(original_app_section_handle, 
+        return aslr_replace_section_handle(original_app_section_handle,
                                            *new_relocated_handle);
     } else {
         if (res == STATUS_OBJECT_NAME_NOT_FOUND) {
@@ -5679,14 +5679,14 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
     HANDLE new_published_handle;
 
     ASSERT(TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)));
-    ASSERT(TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER | 
-                   ASLR_SHARED_ANONYMOUS_CONSUMER, 
+    ASSERT(TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER |
+                   ASLR_SHARED_ANONYMOUS_CONSUMER,
                    DYNAMO_OPTION(aslr_cache)));
 
-    /* Obtain our unique name - 
+    /* Obtain our unique name -
      * based on file name and path hash
      */
-    ok = calculate_publish_name(mostly_unique_name, 
+    ok = calculate_publish_name(mostly_unique_name,
                                 BUFFER_SIZE_ELEMENTS(mostly_unique_name),
                                 file_handle, old_app_section_handle);
 
@@ -5695,7 +5695,7 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
      * in aslr_verify_section_backing()
      */
     if (!ok) {
-        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+        LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
             "ASLR: shared: exempted DLL\n");
         return false;
     }
@@ -5720,11 +5720,11 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
     }
 
     /* if we are a publisher, publish relocated section */
-    if (TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_ANONYMOUS_CONSUMER, 
+    if (TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_ANONYMOUS_CONSUMER,
                 DYNAMO_OPTION(aslr_cache)) &&
-        aslr_publish_section_handle(file_handle, 
+        aslr_publish_section_handle(file_handle,
                                     mostly_unique_name,
-                                    TEST(ASLR_SHARED_ANONYMOUS_CONSUMER, 
+                                    TEST(ASLR_SHARED_ANONYMOUS_CONSUMER,
                                          DYNAMO_OPTION(aslr_cache)),
                                     &new_published_handle)) {
         /* anonymous publisher==subscriber */
@@ -5736,7 +5736,7 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
             /* note handle may be closed on error,
              * otherwise we'll just return the private handle
              */
-            return aslr_replace_section_handle(old_app_section_handle, 
+            return aslr_replace_section_handle(old_app_section_handle,
                                                *new_relocated_handle);
         }
 
@@ -5758,7 +5758,7 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
              * just return a handle from aslr_publish_section_handle()
              */
             if (aslr_subscribe_section_handle(old_app_section_handle,
-                                              file_handle, 
+                                              file_handle,
                                               mostly_unique_name,
                                               new_relocated_handle)) {
                 return true;
@@ -5786,7 +5786,7 @@ aslr_post_process_create_section_internal(IN HANDLE old_app_section_handle,
  *  full paths, or expect all important files to be only in %system32%
  *  (which precludes IE or Office DLLs from being preprocessed).
  *  Alternatively a work queue (ASLR_SHARED_WORKLIST) to publish can
- *  be generated by previous runs.  
+ *  be generated by previous runs.
  */
 bool
 aslr_publish_file(const wchar_t *module_name)
@@ -5807,7 +5807,7 @@ aslr_publish_file(const wchar_t *module_name)
     if (!NT_SUCCESS(res)) {
         return false;
     }
-    ok = calculate_publish_name(mostly_unique_name, 
+    ok = calculate_publish_name(mostly_unique_name,
                                 BUFFER_SIZE_ELEMENTS(mostly_unique_name),
                                 file, NULL);
     if (!ok) {
@@ -5832,7 +5832,7 @@ aslr_get_known_dll_path(wchar_t *known_dll_path_buffer, /* OUT */
     uint bytes_length;
 
     /* FIXME: for now we don't keep the link_target_name, but just
-     * open a file directory.   
+     * open a file directory.
      * FIXME: We may not need the hash for full path, if we later
      * query the file handles.
      */
@@ -5848,14 +5848,14 @@ aslr_get_known_dll_path(wchar_t *known_dll_path_buffer, /* OUT */
     link_target_name.MaximumLength = (ushort)
         (sizeof(link_target_name_prefixed) -
          wcslen(link_target_name_prefixed) * sizeof(wchar_t));
-    link_target_name.Buffer = link_target_name_prefixed + 
+    link_target_name.Buffer = link_target_name_prefixed +
         wcslen(link_target_name_prefixed);
     bytes_length = link_target_name.MaximumLength;
 
     ASSERT(known_dlls_object_directory != NULL);
 
     res = nt_get_symlink_target(known_dlls_object_directory,
-                                KNOWN_DLL_PATH_SYMLINK, 
+                                KNOWN_DLL_PATH_SYMLINK,
                                 &link_target_name,
                                 &bytes_length);
     ASSERT(NT_SUCCESS(res));
@@ -5866,8 +5866,8 @@ aslr_get_known_dll_path(wchar_t *known_dll_path_buffer, /* OUT */
         known_dll_path_buffer[0] = 0;
         return;
     }
-    
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "ASLR: aslr_get_known_dll_path KnownDllPath = %ls\n",
         link_target_name.Buffer);
 
@@ -5877,8 +5877,8 @@ aslr_get_known_dll_path(wchar_t *known_dll_path_buffer, /* OUT */
             max_length_characters);
     known_dll_path_buffer[max_length_characters - 1] = 0;
 
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
-        "ASLR: known_dll_path = %ls\n", 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
+        "ASLR: known_dll_path = %ls\n",
         known_dll_path_buffer);
 }
 
@@ -5911,7 +5911,7 @@ aslr_is_handle_KnownDlls(HANDLE directory_handle)
     uint returned_byte_length;
 
     name_info.ObjectName.Length = 0;
-    name_info.ObjectName.MaximumLength = 
+    name_info.ObjectName.MaximumLength =
         sizeof(name_info.object_name_buffer);
     name_info.object_name_buffer[0] = L'\0';
     name_info.ObjectName.Buffer = name_info.object_name_buffer;
@@ -5926,18 +5926,18 @@ aslr_is_handle_KnownDlls(HANDLE directory_handle)
     if (!NT_SUCCESS(res) || /* xref 9984 */ name_info.ObjectName.Buffer == NULL) {
         return false;
     }
-    ASSERT_CURIOSITY(name_info.ObjectName.Buffer == name_info.object_name_buffer); 
+    ASSERT_CURIOSITY(name_info.ObjectName.Buffer == name_info.object_name_buffer);
 
-    if (wcscmp(name_info.ObjectName.Buffer, 
+    if (wcscmp(name_info.ObjectName.Buffer,
                KNOWN_DLLS_OBJECT_DIRECTORY) == 0) {
         return true;
     } else {
         return false;
-    }        
+    }
 }
 
 bool
-aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr, 
+aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
                              OUT HANDLE *recreated_file)
 {
     /* NOTE: we are making the assumption that all KnownDlls and their
@@ -5974,16 +5974,16 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
      * manipulation.  For now trusting the loader not to change the
      * object name in a race.
      */
-    
-    _snwprintf(dll_full_file_name, BUFFER_SIZE_ELEMENTS(dll_full_file_name), 
+
+    _snwprintf(dll_full_file_name, BUFFER_SIZE_ELEMENTS(dll_full_file_name),
                L"%s\\%s", known_dll_path, obj_attr->ObjectName->Buffer);
     NULL_TERMINATE_BUFFER(dll_full_file_name);
 
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
-        "ASLR: aslr_recreate_known_dll_file = %ls\n", 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
+        "ASLR: aslr_recreate_known_dll_file = %ls\n",
         dll_full_file_name);
 
-    res = nt_create_module_file(recreated_file, dll_full_file_name, 
+    res = nt_create_module_file(recreated_file, dll_full_file_name,
                                 NULL /* absolute path name */,
                                 FILE_EXECUTE | FILE_READ_DATA,
                                 FILE_ATTRIBUTE_NORMAL,
@@ -5998,7 +5998,7 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
      * been modified the proper semantics is to still use the original
      * file!  While the file may not be modifiable it may have been
      * superseded. */
-    
+
     /* FIXME: case 8503 need to verify that the file that we have
      * opened is the same as the one in KnownDlls - e.g. it may have
      * been modified, in that case we cannot use the current file and
@@ -6014,7 +6014,7 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
      * producers this may be a good additional sanity check.
      */
 
-    SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing assuming KnownDll file %ls hasn't changed", 
+    SYSLOG_INTERNAL_WARNING_ONCE("ASLR sharing assuming KnownDll file %ls hasn't changed",
                                  dll_full_file_name);
     /* FIXME: since we currently don't really care about anything
      * other than the name itself, it is safe to ignore potential
@@ -6028,7 +6028,7 @@ aslr_recreate_known_dll_file(OBJECT_ATTRIBUTES *obj_attr,
  * NtOpenSection doesn't have a file_handle to the original file the
  * section was created from, and instead it passes a file handle to a
  * reopened expected matching original
- * 
+ *
  * returns true if application section is replaced with our own
  */
 bool
@@ -6050,8 +6050,8 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext,
     ASSERT(file_handle != NULL && file_handle != INVALID_HANDLE_VALUE);
 
     if (TEST(ASLR_SHARED_CONTENTS, DYNAMO_OPTION(aslr_cache)) &&
-        TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER | 
-                ASLR_SHARED_ANONYMOUS_CONSUMER, 
+        TESTANY(ASLR_SHARED_PUBLISHER | ASLR_SHARED_SUBSCRIBER |
+                ASLR_SHARED_ANONYMOUS_CONSUMER,
                 DYNAMO_OPTION(aslr_cache))) {
         HANDLE new_section = NULL;
 
@@ -6067,7 +6067,7 @@ aslr_post_process_create_or_open_section(dcontext_t *dcontext,
                 /* we can just close the handle to the original file */
                 close_handle(safe_section_handle);
             } else {
-                ASSERT(safe_section_handle == 
+                ASSERT(safe_section_handle ==
                        dcontext->aslr_context.original_image_section_handle);
             }
 
@@ -6088,7 +6088,7 @@ static void
 aslr_process_worklist(void)
 {
     ASSERT_NOT_IMPLEMENTED(false);
-    /* FIXME: case 8505 worklist - synchronous or asynchronous communication 
+    /* FIXME: case 8505 worklist - synchronous or asynchronous communication
      *
      * This should use either an option string that lists all files
      * that we'd want to publish, or better yet a global registry key
@@ -6097,7 +6097,7 @@ aslr_process_worklist(void)
      *
      * FIXME: a more complicated worklist based on IPC with message
      * passing/writable shared memory will require a lot more work.
-     * 
+     *
      * For a portable worklist scheme we may use files.  Though on
      * Windows the registry may be lighter weight.  In fact, both the
      * registry and file system allow notification on additions with
@@ -6113,14 +6113,14 @@ aslr_process_worklist(void)
  *   Detection is not based on controlling the PC under DR, but on
  * running natively and expecting select hook locations to be targeted
  * by injected shellcode or manipulated activation records.
- * 
+ *
  * o BOP can be bypassed by setting up the stack frame to look as
  *   whatever would pass any policies whether from user or kernel mode.
  *
- * o usermode BOP can simply be bypassed by directly going to the kernel 
+ * o usermode BOP can simply be bypassed by directly going to the kernel
  *
  * o usermode BOP can also easily be bypassed if hooks go just after our hooks
- * 
+ *
  * o Simplest bypass is to use a non-hooked routine, and for shallow
  *   hookers simply a level higher
  *
@@ -6137,7 +6137,7 @@ aslr_process_worklist(void)
  * interesting data.
  */
 
-/* FIXME: scramble this table so that an attacker can't search for it in 
+/* FIXME: scramble this table so that an attacker can't search for it in
  *          memory and overwrite it with what they want.
  */
 
@@ -6165,7 +6165,7 @@ static const gbop_hook_desc_t gbop_hooks[] = {
  * be the number of entries in that set */
 #define GBOP_DEFINE_HOOK(module, symbol) +1
 #define GBOP_DEFINE_HOOK_MODULE(module_name, set_name)                  \
-    GBOP_DEFINE_##module_name ## _ ## set_name##_HOOKS(unused), 
+    GBOP_DEFINE_##module_name ## _ ## set_name##_HOOKS(unused),
 
 /* size of array is determined by number of modules in GBOP_ALL_HOOKS,
  * end is demarcated by GBOP_HOOK_LIST_END_SENTINEL
@@ -6215,13 +6215,13 @@ gbop_get_hook(uint condensed_index)
 
     ASSERT(condensed_index < gbop_num_hooks);
     LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "gbop_get_hook: %d hook\n", condensed_index);
-   
+
      /* skip earlier sets and expand from condensed index not including disabled sets */
-    while (condensed_index >= gbop_hooks_set_sizes[set_index] || 
+    while (condensed_index >= gbop_hooks_set_sizes[set_index] ||
            !gbop_hooks_set_enabled[set_index]) {
         if (gbop_hooks_set_enabled[set_index]) {
             condensed_index -= gbop_hooks_set_sizes[set_index];
-        } else 
+        } else
             ASSERT_NOT_TESTED();
 
         real_index += gbop_hooks_set_sizes[set_index];
@@ -6231,7 +6231,7 @@ gbop_get_hook(uint condensed_index)
     }
     real_index += condensed_index;
     ASSERT(real_index < gbop_num_hooks);
-    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, 
+    LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1,
         "gbop_get_hook: => %d real, %s!%s\n", real_index,
         gbop_hooks[real_index].mod_name, gbop_hooks[real_index].func_name);
 
@@ -6261,7 +6261,7 @@ gbop_get_num_hooks(void)
         while (gbop_hooks_set_sizes[set_index] != GBOP_HOOK_LIST_END_SENTINEL) {
             if (TEST((1 << set_index), DYNAMO_OPTION(gbop_include_set))) {
                 gbop_hooks_set_enabled[set_index] = 1;
-                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "gbop_get_num_hooks: 0x%x => %d enabled \n", 
+                LOG(GLOBAL, LOG_SYSCALLS|LOG_VMAREAS, 1, "gbop_get_num_hooks: 0x%x => %d enabled \n",
                     (1 << set_index),
                     gbop_hooks_set_sizes[set_index]);
                 total_size += gbop_hooks_set_sizes[set_index];
@@ -6350,7 +6350,7 @@ gbop_exclude_filter(const gbop_hook_desc_t *gbop_hook)
     return false;
 }
 
-/* NOTE: Assumes x86 
+/* NOTE: Assumes x86
  * NOTE: CTI sizes do not include prefixes, and assumes prefixes
  *       do not change the opcode (cf. ff)
  */
@@ -6526,16 +6526,16 @@ check_exempt_gbop_addr(app_pc violating_source_addr)
         const char *source_module_name;
         os_get_module_info_lock();
         os_get_module_name(violating_source_addr, &source_module_name);
-        LOG(THREAD_GET, LOG_INTERP, 2, 
-            "check_exempt_gbop_addr: source_fragment="PFX" module_name=%s\n", 
-            violating_source_addr, source_module_name != NULL ? 
+        LOG(THREAD_GET, LOG_INTERP, 2,
+            "check_exempt_gbop_addr: source_fragment="PFX" module_name=%s\n",
+            violating_source_addr, source_module_name != NULL ?
             source_module_name : "<none>");
         /* note check_list_default_and_append will grab string_option_read_lock */
         if (source_module_name != NULL
             && check_list_default_and_append(dynamo_options.exempt_gbop_from_default_list,
                                              dynamo_options.exempt_gbop_from_list,
                                              source_module_name)) {
-            LOG(THREAD_GET, LOG_INTERP, 1, 
+            LOG(THREAD_GET, LOG_INTERP, 1,
                 "GBOP: exception from exempt source module --ok\n");
             os_get_module_info_unlock();
             return true;
@@ -6545,10 +6545,10 @@ check_exempt_gbop_addr(app_pc violating_source_addr)
     return false;
 }
 
-/* CAUTION: this routine is called by hotp_only_gbop_detector, which means 
- *          that it has to adhere to all limitations prescribed for hot patch 
- *          code, i.e., no system calls, no calls to dr code, allocating 
- *          memory, holding locks or changing whereami.  If any of those need 
+/* CAUTION: this routine is called by hotp_only_gbop_detector, which means
+ *          that it has to adhere to all limitations prescribed for hot patch
+ *          code, i.e., no system calls, no calls to dr code, allocating
+ *          memory, holding locks or changing whereami.  If any of those need
  *          to be done, the code should be carefully examined.
  * FIXME: as of now this function hasn't been examined as stated above.
  */
@@ -6561,7 +6561,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
     /* FIXME: optional: check PC -- should check PC if this is done in
      * kernel mode, otherwise we can detect only locations we have
      * hooked */
-    
+
     /* optional: adjust ESP to TOS (needs FPO information).  Here we
      * assume that we have hooked at function entry points, or at
      * least early enough that [ESP] still points to the return
@@ -6597,7 +6597,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
          * interesting only if counting on exception on return).
          */
         app_pc suspect_shellcode_addr = purported_ret_addr - 1;
-    
+
         bool source_page_ok = false;
         /* collect all properties for single shot diagnostics */
         bool is_exec = false;
@@ -6623,7 +6623,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
 
         ASSERT(DYNAMO_OPTION(gbop) != GBOP_DISABLED);
         ASSERT(TESTANY(GBOP_IS_EXECUTABLE | GBOP_IS_X | GBOP_IS_IMAGE
-                       | GBOP_IS_FUTURE_EXEC, 
+                       | GBOP_IS_FUTURE_EXEC,
                        DYNAMO_OPTION(gbop)));
 
         /* You cannot have GBOP_CHECK_INSTR_TYPE w/o one of
@@ -6645,7 +6645,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
                                         DYNAMO_OPTION(gbop)));
         /* FIXME: NYI: GBOP_IS_JMP | GBOP_IS_HOTPATCH_JMP
          * GBOP_EMULATE_SOURCE | GBOP_IS_RET_TO_ENTRY
-         * GBOP_WHEN_NATIVE_EXEC 
+         * GBOP_WHEN_NATIVE_EXEC
          * GBOP_DIAGNOSE_SOURCE
          */
 
@@ -6665,7 +6665,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
         }
 
 #ifdef PROGRAM_SHEPHERDING
-        if (!is_exec && 
+        if (!is_exec &&
             TEST(GBOP_IS_FUTURE_EXEC, DYNAMO_OPTION(gbop))) {
             /* is_future_exec is cheaper to evaluate policy
              * than the the policies that use query_virtual_memory()
@@ -6735,8 +6735,8 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
             });
         }
 
-        /* Is the bad address on the stack?  Case 8085.  Have to save, use and 
-         * restore mcontext esp because is_address_on_stack() directly gets 
+        /* Is the bad address on the stack?  Case 8085.  Have to save, use and
+         * restore mcontext esp because is_address_on_stack() directly gets
          * the esp from the mcontext to find the stack base & size.
          * Note: The app stack can change when we walk the frames (app. may
          *       switch stacks), so compute on_stack for each frame walked.
@@ -6780,7 +6780,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
             if (!check_exempt_gbop_addr(*violating_source_addr)) {
                 return false; /* bad source memory type */
             }
-            LOG(THREAD_GET, LOG_VMAREAS, 1, 
+            LOG(THREAD_GET, LOG_VMAREAS, 1,
                 "GBOP: exempted bad source memory properties\n");
             /* continuing in case we're walking stack frames */
         }
@@ -6792,9 +6792,9 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
             if (!check_exempt_gbop_addr(*violating_source_addr)) {
                 return false; /* bad source instruction type */
             }
-            LOG(THREAD_GET, LOG_VMAREAS, 1, 
+            LOG(THREAD_GET, LOG_VMAREAS, 1,
                 "GBOP: exempted bad source instruction type\n");
-            SYSLOG_INTERNAL_WARNING("GBOP exempted instr type @"PFX"\n", 
+            SYSLOG_INTERNAL_WARNING("GBOP exempted instr type @"PFX"\n",
                                     *violating_source_addr);
             /* continuing in case we're walking stack frames */
         }
@@ -6809,7 +6809,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
              * - it's ok to skip frames if we follow EBP,
              * - can also use SEH frames as a guideline to where function
              *   frames should be, but those may have been overwritten as well
-             * - see windbg "Manually Walking a Stack" for manual ones, though 
+             * - see windbg "Manually Walking a Stack" for manual ones, though
              *   kb isn't doing much
              * - look at gdb source code to see if they have a good heuristic
              */
@@ -6826,7 +6826,7 @@ gbop_check_valid_caller(app_pc reg_ebp, app_pc reg_esp, app_pc cur_pc,
  * routines, but not for any additional hotpatch hooks */
 void
 gbop_validate_and_act(app_state_at_intercept_t *state,
-                      byte fpo_adjustment,                      
+                      byte fpo_adjustment,
                       app_pc hooked_target)
 {
     /* FIXME: while the 'extra' hook locations (hotpatched) from
@@ -6848,8 +6848,8 @@ gbop_validate_and_act(app_state_at_intercept_t *state,
     }
 
     STATS_INC(gbop_validations);
-    if (!gbop_check_valid_caller((app_pc)state->mc.xbp, 
-                                 (app_pc)state->mc.xsp + fpo_adjustment, 
+    if (!gbop_check_valid_caller((app_pc)state->mc.xbp,
+                                 (app_pc)state->mc.xsp + fpo_adjustment,
                                  hooked_target,
                                  &bad_addr)) {
         dcontext_t *dcontext = get_thread_private_dcontext();
@@ -6862,9 +6862,9 @@ gbop_validate_and_act(app_state_at_intercept_t *state,
 
         STATS_INC(gbop_violations);
         /* FIXME: should provide the failure depth or simpy first bad
-         * target to report 
+         * target to report
          */
-        LOG(THREAD_GET, LOG_ASYNCH, 1, "GBOP invalid source to "PFX"!\n", 
+        LOG(THREAD_GET, LOG_ASYNCH, 1, "GBOP invalid source to "PFX"!\n",
             hooked_target);
         SYSLOG_INTERNAL_ERROR("GBOP: execution attempt to "PFX" from bad "PFX"\n",
                               hooked_target, bad_addr);
@@ -6874,7 +6874,7 @@ gbop_validate_and_act(app_state_at_intercept_t *state,
          */
 
         /* FIXME: case 7946 action - standard attack handling,
-         * or alternative handling return error - easy for the ntdll!Nt*, 
+         * or alternative handling return error - easy for the ntdll!Nt*,
          * not so easy for the other entry points - will need to cleanup arguments,
          * and probably not going to lead to more than crashes anyways.
          * xref case 846 about competitors silently eating these
@@ -6882,14 +6882,14 @@ gbop_validate_and_act(app_state_at_intercept_t *state,
         /* FIXME: may want to return after_intercept_action_t in that
          * case to be able to modify the target to go to the function
          * exit.  However, that also requires knowing a correct
-         * address viable only as a liveshield update.  A better solution 
+         * address viable only as a liveshield update.  A better solution
          * is to pass the number of arguments and just clean those up.
          */
         /* FIXME: need to test separately the handling of nt syscalls,
          * LdrLoadDll and the 'extra' hooks
          */
 
-        /* FIXME: reporting for gbop should be via one path; today it is 
+        /* FIXME: reporting for gbop should be via one path; today it is
          * different for core gbop hooks and hotp_only gbop hooks; case 8096.
          * changes here must be kept in synch with hotp_event_notify till then.
          */

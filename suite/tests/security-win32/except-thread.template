@@ -26,12 +26,12 @@ DATA VIOLATION: Inside first filter eax=0
 	record=00000000, params=2
 	PC 0x00423400 tried to read address 0x00423400
 	pc=0x00423400 eax=0x00000000
-  ContextFlags=0x0001003f 
-  Edi=0x00420220 Esi=0x7ffdf000 Ebx=0x00000000 
+  ContextFlags=0x0001003f
+  Edi=0x00420220 Esi=0x7ffdf000 Ebx=0x00000000
 @&@&
-  Eax=0x00000000 
-  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b 
-  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023 
+  Eax=0x00000000
+  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
   <floating point area>
   SegGs=0x00000000 SegFs=0x00000038 SegEs=0x00000023 SegDs=0x00000023
 # else
@@ -52,18 +52,18 @@ DATA: Expected execution violation!
 	record=00000000, params=2
 	PC 0x00423400 tried to read address 0x00423400
 	pc=0x00423400 eax=0x00000000
-  ContextFlags=0x0001003f 
-  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0052ffa4 
+  ContextFlags=0x0001003f
+  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0052ffa4
 @&@&
-  Eax=0x00000000 
-  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b 
-  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023 
+  Eax=0x00000000
+  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
   <floating point area>
   SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023
 #   else
 Address match : yes
 Exception match : yes
-#   endif 
+#   endif
 DATA: After exception handler
 #  endif
 #  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && !defined(kill_thread)
@@ -87,18 +87,18 @@ DATA VIOLATION: Inside first filter eax=0
 	record=00000000, params=2
 	PC 0x00423400 tried to read address 0x00423400
 	pc=0x00423400 eax=0x00000000
-  ContextFlags=0x0001003f 
-  Edi=0x0012eb0c Esi=0x00420220 Ebx=0x7ffdf000 
+  ContextFlags=0x0001003f
+  Edi=0x0012eb0c Esi=0x00420220 Ebx=0x7ffdf000
 @&@&
-  Eax=0x00000000 
-  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b 
-  EFlags & 0xFFFF=0x00000216 Esp=0x0012fee0 SegSs=0x00000023 
+  Eax=0x00000000
+  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000216 Esp=0x0012fee0 SegSs=0x00000023
   <floating point area>
   SegGs=0x00000000 SegFs=0x00000038 SegEs=0x00000023 SegDs=0x00000023
 #  else
 Address match : yes
 Exception match : yes
-#  endif 
+#  endif
 DATA VIOLATION: Inside first handler
 DATA: At statement after 1st try-except
    SEC_VIO_EXCEPTION
@@ -109,18 +109,18 @@ DATA: Expected execution violation!
 	record=00000000, params=2
 	PC 0x00423400 tried to read address 0x00423400
 	pc=0x00423400 eax=0x00000000
-  ContextFlags=0x0001003f 
-  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0012ff50 
-  
-  Eax=0x00000000 
-  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b 
-  EFlags & 0xFFFF=0x00000206 Esp=0x0012fee0 SegSs=0x00000023 
+  ContextFlags=0x0001003f
+  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0012ff50
+
+  Eax=0x00000000
+  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000206 Esp=0x0012fee0 SegSs=0x00000023
   <floating point area>
   SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023
 #  else
 Address match : yes
 Exception match : yes
-#  endif 
+#  endif
 DATA: After exception handler
 THREAD0: After calling more bad code here
   STOP

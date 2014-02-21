@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -83,7 +83,7 @@ while (1) {
     elsif ($val =~ /Run/) {
 
         parserunlog($nmbr, "long");
-        
+
         # read in the summary lines
         $val=<IN>;
         if ($val =~ /SPEC:/) {
@@ -108,7 +108,7 @@ close(OUT);
 
 # summaries go to stdout
 
-# 
+#
 # windows summary
 #
 print "\n====================== Regression Suite Core Errors ======================\n\n";
@@ -165,12 +165,12 @@ sub parserunlog
 
     if($type =~ "short") {
         $runlogdir = shift;
-    }   
-    
+    }
+
     my $file;
     my $rlval;
     $file = sprintf("%s/runlog.%03d", $runlogdir, $nmbr);
-    
+
     open(RLIN,"<$file") or die ("Cannot open input file \"$file\" : $!");
 
     if($type =~ "long") {
@@ -203,7 +203,7 @@ sub parserunlog
                 $rlval="done";
             }
         } while ($rlval !~ "done");
-        
+
         if ($specfail > 0) {
             print OUT "failed, ";
         }
@@ -224,13 +224,13 @@ sub parserunlog
         else {
             print OUT "    TESTS: ";
         }
-        
+
         $utpass=0;
         $utfail=0;
         my $pass;
-        
+
         while ($val=<RLIN>) {
-            
+
             if ($val =~ /^----- /) {
                 $next = <RLIN>;
                 @tmp=split(' ', $val);
@@ -262,24 +262,24 @@ sub parserunlog
                 }
             }
         }
-        
+
         if ($type =~ "long") {
             print OUT $utfail, " unit tests ";
         }
-        
+
         if ($type =~ "long" || $utfail > 0) {
             print OUT  "failed. ";
         }
-        
+
         if($type =~ "long") {
             print OUT "\n--------------------------------------\npassed tests:  ";
-            
+
             for ($j=0; $j<$utpass; $j++) {
                 print OUT $pass[$j], ", ";
             }
             print OUT "\n";
         }
-        
+
         print OUT $utpass, " tests passed.\n";
     }
 

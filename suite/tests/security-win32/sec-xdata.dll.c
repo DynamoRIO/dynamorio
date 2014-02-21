@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -46,9 +46,9 @@ code_buf good_code_buffer = {0};
 #pragma comment(linker, "/SECTION:.xdata,ERW")
 #pragma data_seg(".xdata")
 /* NOTE - compilers are stupid, without the "= {0}" this will be put in the regular
- * .data section and now .xdata section will be made. wtf??? */ 
+ * .data section and now .xdata section will be made. wtf??? */
 char good_xdata_buf[1024] = {0};
-#pragma data_seg() 
+#pragma data_seg()
 
 
 /* our Makefile expects a .lib */
@@ -60,14 +60,14 @@ make_a_lib(int arg)
 }
 
 
-BOOL APIENTRY 
+BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     char *code;
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
         code = copy_to_buf(good_xdata_buf, sizeof(good_xdata_buf),
-                           NULL, CODE_INC, COPY_NORMAL); 
+                           NULL, CODE_INC, COPY_NORMAL);
         test_print(code, 0);
         break;
     }

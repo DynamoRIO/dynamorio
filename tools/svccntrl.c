@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -55,15 +55,15 @@ BOOL show_svcs_cb(ServiceHandle service, void **param)
     static const char *unknown="<unknown>";
     const char *typename;
     DWORD type = get_service_start_type(service);
-    typename = (type == SERVICE_AUTO_START ? automatic : 
-                            (type == SERVICE_DEMAND_START ? manual : 
+    typename = (type == SERVICE_AUTO_START ? automatic :
+                            (type == SERVICE_DEMAND_START ? manual :
                              (type == SERVICE_DISABLED ? disabled :
                               unknown)));
     printf("%S %s\n", get_service_name(service), typename);
     return TRUE;
 }
 
-BOOL 
+BOOL
 finddispname_cb(ServiceHandle svc, void **param)
 {
     if (!wcsicmp(longbuff, get_service_display_name(svc))) {
@@ -73,17 +73,17 @@ finddispname_cb(ServiceHandle svc, void **param)
     return TRUE;
 }
 
-void 
-usage() 
+void
+usage()
 {
     fprintf(stderr,"Usage:\nsvcctrl svcname [ -auto | -manual | -restart | -disabled ] [-help] [-show] [-dep svc2] [-depreset] [-v]\n");
     exit(1);
 }
 
 void
-help() 
+help()
 {
-    
+
     fprintf(stderr, "Options:\n");
     fprintf(stderr, " -auto\\tt\tset the service to run automatically\n");
     fprintf(stderr, " -manual\t\tset the service to manual control\n");
@@ -113,7 +113,7 @@ get_svc(char *buf)
     return svc;
 }
 
-int 
+int
 main(int argc, char **argv)
 {
     int res=0,
@@ -174,10 +174,10 @@ main(int argc, char **argv)
         argidx++;
     }
 
-    if (argc < 3) 
+    if (argc < 3)
         usage();
-  
-    if ( sauto + sman + sdis + show + srestart != 1 && 
+
+    if ( sauto + sman + sdis + show + srestart != 1 &&
          dep == NULL && !depreset) {
         fprintf(stderr, "Bad combination of options.\n");
         usage();
@@ -189,7 +189,7 @@ main(int argc, char **argv)
         enumerate_services(&show_svcs_cb, NULL);
     }
     else {
-       
+
         _snwprintf(w_buf, MAX_PATH, L"%S", svcname);
 
         if (srestart) {
@@ -225,7 +225,7 @@ main(int argc, char **argv)
         }
         else {
             svc = get_svc(svcname);
-            
+
             if (svc == INVALID_SERVICE_HANDLE) {
                 fprintf(stderr, "Invalid service: %s\n", svcname);
             } else {
@@ -237,7 +237,7 @@ main(int argc, char **argv)
                     fprintf(stderr, "There was an error setting the configuration\n");
             }
         }
-        
+
     }
 
     services_cleanup();

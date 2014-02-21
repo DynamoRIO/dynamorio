@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -150,7 +150,7 @@ across the call; this is the most convenient method for saving the state.
 
 The state can alternatively be saved explicitly from C code using:
 
-\code 
+\code
 proc_save_fpstate(byte *buf)
 proc_restore_fpstate(byte *buf)
 \endcode
@@ -176,7 +176,7 @@ The XMM (128-bit) registers are saved by DynamoRIO on context switches and
 clean calls only for a 64-bit Windows kernel (whether in a 32-bit process
 (WOW64) or a 64-bit process) or for 32-bit and 64-bit Linux applications. For a
 64-bit Windows kernel, xmm0 through xmm5 are preserved; for a 64-bit Linux
-application, xmm0 through xmm15 are preserved; for a 32-bit Linux application, 
+application, xmm0 through xmm15 are preserved; for a 32-bit Linux application,
 xmm0 through xmm7 are preserved. For all other platforms, it
 is up to the client to preserve the xmm registers, and for 64-bit Windows
 kernels, to preserve the rest of the xmm registers beyond xmm5, if any code
@@ -231,7 +231,7 @@ library and loads a new one in its place, or modifies its own code,
 DynamoRIO must change its code cache to reflect those changes to avoid
 incorrectly executing stale code.  If the client needs to modify
 application code, it should do so through the basic block event, rather
-than directly.  
+than directly.
 \if future
 FIXME: if we provide routine to modify app memory should
 talk about it here.
@@ -308,7 +308,7 @@ debugger will see the wrong eip value when breaking in and execution
 break points will not work correctly (and in fact can lead to
 corruption of the DynamoRIO code cache).  Debugging Tools for Windows and
 \p gdb are known to work with DynamoRIO with the exception of the
-issues noted above. 
+issues noted above.
 
 ***************************************************************************
 \section sec_trans_alertable Alertable System Calls

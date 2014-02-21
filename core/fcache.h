@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -41,7 +41,7 @@
 #ifndef _FCACHE_H_
 #define _FCACHE_H_ 1
 
-/* who's in the "trace" cache? 
+/* who's in the "trace" cache?
  * when we have private traces we put temp-private bbs there (to avoid
  * perf hit in speccpu of having separate priv bb cache that's not
  * normally used)
@@ -74,7 +74,7 @@ enum {
     RESET_PENDING_DELETION = 0x008,
 };
 
-/* protects all reset triggers: reset_pending and reset_at_nth_thread_triggered 
+/* protects all reset triggers: reset_pending and reset_at_nth_thread_triggered
  * resets are not queued up -- one wins and the rest are canceled
  */
 extern mutex_t reset_pending_lock;
@@ -137,7 +137,7 @@ dcontext_t * get_dcontext_for_fragment(fragment_t *f);
 /* for adaptive working set */
 bool fragment_lookup_deleted(dcontext_t *dcontext, app_pc tag);
 
-/* Returns the fragment_t whose body (not cache slot) contains lookup_pc */  
+/* Returns the fragment_t whose body (not cache slot) contains lookup_pc */
 fragment_t *
 fcache_fragment_pclookup(dcontext_t *dcontext, cache_pc lookup_pc, fragment_t *wrapper);
 

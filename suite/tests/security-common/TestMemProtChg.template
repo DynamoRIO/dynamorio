@@ -269,7 +269,7 @@ starting up
 43981
 6
 3
-#else 
+#else
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
    STOP
@@ -942,7 +942,7 @@ starting stack tests
 43981
 6
 3
-#else 
+#else
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
    STOP

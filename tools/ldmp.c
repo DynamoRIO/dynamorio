@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -155,7 +155,7 @@ typedef struct _THREAD_BASIC_INFORMATION { // Information Class 0
     KPRIORITY BasePriority;
 } THREAD_BASIC_INFORMATION, *PTHREAD_BASIC_INFORMATION;
 
-typedef enum {MEMORY_RESERVE_ONLY = MEM_RESERVE, 
+typedef enum {MEMORY_RESERVE_ONLY = MEM_RESERVE,
               MEMORY_COMMIT = MEM_RESERVE|MEM_COMMIT
 } memory_commit_status_t;
 
@@ -236,7 +236,7 @@ typedef struct _DESCRIPTOR_TABLE_ENTRY {
 
 /************************************************************************/
 static bool
-nt_remote_allocate_virtual_memory(HANDLE process, void **base, uint size, 
+nt_remote_allocate_virtual_memory(HANDLE process, void **base, uint size,
                                   uint prot, memory_commit_status_t commit)
 {
     NTSTATUS res;
@@ -248,7 +248,7 @@ nt_remote_allocate_virtual_memory(HANDLE process, void **base, uint size,
                                         IN ULONG Protect));
     uint sz = size;
     assert(ALIGNED(*base, PAGE_SIZE));
-    res = NtAllocateVirtualMemory(process, base, 0 /* zero bits */, &sz, 
+    res = NtAllocateVirtualMemory(process, base, 0 /* zero bits */, &sz,
                                   commit, prot);
     assert(sz >= size);
     return NT_SUCCESS(res);
@@ -282,7 +282,7 @@ query_process_info(HANDLE h, PROCESS_BASIC_INFORMATION *info)
                                           OUT PULONG ReturnLength OPTIONAL));
     int got;
     memset(info, 0, sizeof(PROCESS_BASIC_INFORMATION));
-    res = NtQueryInformationProcess(h, ProcessBasicInformation, info, 
+    res = NtQueryInformationProcess(h, ProcessBasicInformation, info,
                                     sizeof(PROCESS_BASIC_INFORMATION), &got);
     assert(!NT_SUCCESS(res) || got == sizeof(PROCESS_BASIC_INFORMATION));
     return NT_SUCCESS(res);
@@ -315,16 +315,16 @@ wchar_to_unicode(PUNICODE_STRING dst, PCWSTR src)
 }
 
 static uint
-remove_writecopy(uint prot) 
+remove_writecopy(uint prot)
 {
     uint other = prot & (PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
     prot &= ~(PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
 
     switch (prot) {
-    case PAGE_READONLY:         
-    case PAGE_READWRITE:                
-    case PAGE_EXECUTE:          
-    case PAGE_EXECUTE_READ:     
+    case PAGE_READONLY:
+    case PAGE_READWRITE:
+    case PAGE_EXECUTE:
+    case PAGE_EXECUTE_READ:
     case PAGE_EXECUTE_READWRITE:
         break;
     case PAGE_WRITECOPY:
@@ -338,16 +338,16 @@ remove_writecopy(uint prot)
 }
 
 static bool
-prot_is_readable(uint prot) 
+prot_is_readable(uint prot)
 {
     prot &= ~(PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
 
     switch (prot) {
-    case PAGE_READONLY:         
-    case PAGE_READWRITE:        
-    case PAGE_WRITECOPY:        
-    case PAGE_EXECUTE:          
-    case PAGE_EXECUTE_READ:     
+    case PAGE_READONLY:
+    case PAGE_READWRITE:
+    case PAGE_WRITECOPY:
+    case PAGE_EXECUTE:
+    case PAGE_EXECUTE_READ:
     case PAGE_EXECUTE_READWRITE:
     case PAGE_EXECUTE_WRITECOPY: return true;
     }
@@ -355,7 +355,7 @@ prot_is_readable(uint prot)
 }
 
 static bool
-prot_is_writable(uint prot) 
+prot_is_writable(uint prot)
 {
     prot &= ~(PAGE_GUARD | PAGE_NOCACHE | PAGE_WRITECOMBINE);
     return (prot == PAGE_READWRITE || prot == PAGE_WRITECOPY ||
@@ -466,7 +466,7 @@ is_pending_mapped_addr(char *addr)
 #define FAIL ((char *)-1)
 
 static char *
-get_mapped_addr(char *old) 
+get_mapped_addr(char *old)
 {
     int i;
     for (i = 0; i < map_count; i++) {
@@ -490,11 +490,11 @@ get_original_addr(char *new)
 /* NOTE - sum users implicitly assume this is exactly 1 page */
 static char buf[4096];
 
-/* Note, because of my sloppy file format, type may or may not have a 
+/* Note, because of my sloppy file format, type may or may not have a
  * description string, so we skip it and just eat the line, we can't do
  * anything with the type information anyways */
 static bool
-read_mbi(FILE *file, MEMORY_BASIC_INFORMATION *mbi) 
+read_mbi(FILE *file, MEMORY_BASIC_INFORMATION *mbi)
 {
     int res;
     char *resc;
@@ -503,8 +503,8 @@ read_mbi(FILE *file, MEMORY_BASIC_INFORMATION *mbi)
     res = fscanf(file, "\nBaseAddress=0x%08x\nAllocationBase=0x%08x\n"
                  "AllocationProtect=0x%08x %*s\nRegionSize=0x%08x\n"
                  "State=0x%08x %*s\nProtect=0x%08x %*s\n",
-                 &(mbi->BaseAddress), &(mbi->AllocationBase), 
-                 &(mbi->AllocationProtect), &(mbi->RegionSize), 
+                 &(mbi->BaseAddress), &(mbi->AllocationBase),
+                 &(mbi->AllocationProtect), &(mbi->RegionSize),
                  &(mbi->State), &(mbi->Protect));
     if (res != 6)
         return false;
@@ -539,21 +539,21 @@ print_descriptor(DESCRIPTOR_TABLE_ENTRY *entry)
                                   "Code E/RO, conf, acc"};
 
     LDT_ENTRY *descr = &entry->Descriptor;
-    
-    uint base = (descr->BaseLow | 
-                 (descr->HighWord.Bits.BaseMid << 16) | 
+
+    uint base = (descr->BaseLow |
+                 (descr->HighWord.Bits.BaseMid << 16) |
                  (descr->HighWord.Bits.BaseHi << 24));
-            
+
     uint limit = descr->LimitLow | (descr->HighWord.Bits.LimitHi << 16);
     if (descr->HighWord.Bits.Granularity == 1) {
         limit = limit << 12 | 0xfff;
     }
-    
+
     PRINT("\t%04x ", entry->Selector);
     PRINT("%08x ", base);
     PRINT("%08x ", limit);
 
-    /* The definition for LDT_ENTRY combines the S and type fields 
+    /* The definition for LDT_ENTRY combines the S and type fields
      * into a five bit field. */
     if (TEST(0x10, descr->HighWord.Bits.Type)) {
         PRINT("%s ", types[descr->HighWord.Bits.Type & 0xf]);
@@ -607,7 +607,7 @@ insert_entry(uint selector, uint word1, uint word2, DESCRIPTOR_TABLE_ENTRY entri
                 return;
             }
         }
-    }       
+    }
 }
 
 /* macro to read descriptor info and insert it in a table */
@@ -641,7 +641,7 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
         cxt.ContextFlags = CONTEXT_INTEGER|CONTEXT_CONTROL;
         /* initialize, unsafe but should be ok right? */
         GetThreadContext(GetCurrentThread(), &cxt);
-        InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE, 
+        InitializeObjectAttributes(&oa, NULL, OBJ_CASE_INSENSITIVE,
                                    NULL, NULL);
     }
 
@@ -698,7 +698,7 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
             pos = ftell(file);
             res = fscanf(file, "Win32StartAddr=0x%08x\n", &win32_start_addr);
             if (res != 1) {
-                /* set start addr to 0 so we know right away if the thread 
+                /* set start addr to 0 so we know right away if the thread
                  * doesn't have a start address in the ldmp.
                  */
                 win32_start_addr = 0;
@@ -752,7 +752,7 @@ read_threads(FILE *file, bool create, HANDLE hProc) {
                 WARN("\tnew thread's register state is invalid\n\n");
             CloseHandle(hThread);
         } else {
-            /* prevent this region from being copied over till we know 
+            /* prevent this region from being copied over till we know
              * where to put it */
             add_pending_mapped_addr(teb);
         }
@@ -790,7 +790,7 @@ create_process(char *path)
                                 IN ULONG Protect,
                                 IN ULONG Attributes,
                                 IN HANDLE FileHandle));
-    
+
     /* convert to absolute path which is required for create_process() */
     _snwprintf(wpath, BUFFER_SIZE_ELEMENTS(wpath), L"%hs", path);
     NULL_TERMINATE_BUFFER(wpath);
@@ -846,10 +846,10 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
             uint allocation_size = 0;
             char *target;
             fpos_t last_mbi_pos; /* for unknown TEB backing out */
-            
+
             /* we can't handle write copy flag! remove it */
             allocation_protect = remove_writecopy(allocation_protect);
-            INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n", 
+            INFO(2, "allocation base = 0x%08x, protect = 0x%08x\n",
                 allocation_base, allocation_protect);
 
             do {
@@ -858,7 +858,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 if (prot_is_readable(mbi.Protect)) {
                     /* FIXME : hack, rc1 core doesn't check for guard page so
                      * sometimes memory is copied and sometimes it isn't if
-                     * is guard! (why?), post rc1 should check 
+                     * is guard! (why?), post rc1 should check
                      * MEM_COMMIT && !guard && is_readable */
                     assert(mbi.State == MEM_COMMIT);
                     if (!TEST(PAGE_GUARD, mbi.Protect)) {
@@ -884,14 +884,14 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 }
                 res = fgetpos(file, &last_mbi_pos);
                 assert(res == 0);
-            } while (read_mbi(file, &mbi) && 
+            } while (read_mbi(file, &mbi) &&
                      mbi.State != MEM_FREE &&
                      mbi.AllocationBase == allocation_base);
-            
+
             /* see if we should copy over this allocation */
             target = get_mapped_addr(allocation_base);
             do_copy = (just_mapped && target != FAIL) ||
-                (!just_mapped && target == FAIL && 
+                (!just_mapped && target == FAIL &&
                  !is_pending_mapped_addr(allocation_base));
             if (!do_copy) {
                 res = fsetpos(file, &last_mbi_pos);
@@ -899,31 +899,31 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 continue;
             }
 
-            /* get allocation */    
+            /* get allocation */
             if (target == FAIL) {
                 if (!ALIGNED(allocation_base, ALLOCATION_GRANULARITY)) {
                     /* probably a TEB for a thread that wasn't in the all
                      * threads list at time of ldmp */
                     WARN("Probable TEB for unknown thread region (or x64 PEB/TEB?) "
-                         "addr 0x%08x size 0x%08x\n", 
+                         "addr 0x%08x size 0x%08x\n",
                          allocation_base, allocation_size);
                 }
                 target = allocation_base;
                 /* FIXME : why can't we use VirtualAllocEx? it fails with
                  * code 487 == INVALID_ADDRESS */
-                res = nt_remote_allocate_virtual_memory(hProc, &target, 
+                res = nt_remote_allocate_virtual_memory(hProc, &target,
                                                         allocation_size,
-                                                        allocation_protect, 
+                                                        allocation_protect,
                                                         MEMORY_COMMIT);
                 if (!res) {
                     target = NULL;
-                    res = nt_remote_allocate_virtual_memory(hProc, &target, 
+                    res = nt_remote_allocate_virtual_memory(hProc, &target,
                                                             allocation_size,
                                                             allocation_protect,
                                                             MEMORY_COMMIT);
                 }
                 if (!res) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n", 
+                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x, SKIPPING\n",
                            allocation_base, allocation_size);
                     res = fsetpos(file, &last_mbi_pos);
                     assert(res == 0);
@@ -932,7 +932,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
 
                 assert(target != NULL);
                 if (target != allocation_base) {
-                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n", 
+                    WARN("ERROR: unable to allocate memory at 0x%08x size 0x%08x\n\t will be copied to 0x%08x instead\n",
                            allocation_base, allocation_size, target);
                 }
                 INFO(2, "target = 0x%08x, base = 0x%08x\n", target, allocation_base);
@@ -953,7 +953,7 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 if ((uint)mbi.BaseAddress > (uint)highest_address_copied)
                     highest_address_copied = mbi.BaseAddress;
                 if (mbi.State == MEM_RESERVE) {
-                    res = VirtualFreeEx(hProc, TARGET_ADDR, mbi.RegionSize, 
+                    res = VirtualFreeEx(hProc, TARGET_ADDR, mbi.RegionSize,
                                         MEM_DECOMMIT);
                     if (!res && TARGET_ADDR == (char *)0x7ffe1000) {
                         WARN("unable to make post vsyscall/shared user data page 0x7ffe1000 reserve, skipping\n");
@@ -966,12 +966,12 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                 } else {
                     uint old_prot;
                     assert(mbi.State = MEM_COMMIT);
-                    if (!TEST(PAGE_GUARD, mbi.Protect) && 
+                    if (!TEST(PAGE_GUARD, mbi.Protect) &&
                         prot_is_readable(mbi.Protect)) {
                         uint i;
                         /* copy over memory */
-                        res = VirtualProtectEx(hProc, TARGET_ADDR, 
-                                               mbi.RegionSize, PAGE_READWRITE, 
+                        res = VirtualProtectEx(hProc, TARGET_ADDR,
+                                               mbi.RegionSize, PAGE_READWRITE,
                                                &old_prot);
                         if (!res && TARGET_ADDR == (char *)0x7ffe0000) {
                             WARN("unable to copy over vsyscall/shared user data page 0x7ffe0000, skipping\n");
@@ -1012,8 +1012,8 @@ copy_memory(FILE *file, bool just_mapped, HANDLE hProc)
                         }
 #endif
                     }
-                    res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize, 
-                                           remove_writecopy(mbi.Protect), 
+                    res = VirtualProtectEx(hProc, TARGET_ADDR, mbi.RegionSize,
+                                           remove_writecopy(mbi.Protect),
                                            &old_prot);
                     assert(res);
                 }
@@ -1038,8 +1038,8 @@ usage(const char *msg)
     exit(-1);
 }
 
-/* creates a debuggable process that matches (roughly) the process that was 
- * used to generate the .ldmp file, prints out a mapping of thread_ids from 
+/* creates a debuggable process that matches (roughly) the process that was
+ * used to generate the .ldmp file, prints out a mapping of thread_ids from
  * the dump to the new process.
  * ldmp.exe <.ldmp file> <windows path to dummy.exe (absolute, local drive)> */
 DWORD __cdecl
@@ -1105,7 +1105,7 @@ main(DWORD argc, char *argv[], char *envp[])
         assert(length < sizeof(buf));
         if (length >= sizeof(buf))
             length = sizeof(buf)-1;
-        res = fread(buf, 1, length, file); 
+        res = fread(buf, 1, length, file);
         assert(res == length);
         buf[length] = '\0';
         /* Remember that buf has a newline as its first char */
@@ -1125,7 +1125,7 @@ main(DWORD argc, char *argv[], char *envp[])
         INFO(1, "\ndynamorio.dll=0x%08x\n", drbase);
         /* or more likely */
         INFO(1, "\nRun this command, or attach non-invasively from an existing windbg:\n"
-             "windbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n\n", 
+             "windbg -pv -p %d -c '.reload dynamorio.dll=0x%08x'\n\n",
              info.UniqueProcessId, drbase);
     }
 
@@ -1175,9 +1175,9 @@ main(DWORD argc, char *argv[], char *envp[])
 
     /* copy over directly corresponding (non-mapped) memory regions */
     copy_memory(file, false, hProc);
-    
-    /* now create threads (can't do this before since we have no control over 
-     * where the teb's are placed and they might conflict with one of the 
+
+    /* now create threads (can't do this before since we have no control over
+     * where the teb's are placed and they might conflict with one of the
      * copied over regions above */
     res = fsetpos(file, &thread_start_pos);
     assert(res == 0);

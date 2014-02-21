@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -61,7 +61,7 @@ $debugger = "";
 $verbose = 0;
 $raw = 0;
 $interactive = 0;
-# lines to eb 
+# lines to eb
 $u_lines = 3;
 $backward = 0;
 while ($#ARGV >= 0) {
@@ -177,7 +177,7 @@ sub process_file($) {
         }
         print OUT ".logopen $logfile\n";
     }
-    
+
     open(IN, "< $file") || die "Error: couldn't open $file\n";
     while (<IN>) {
         if (/^((source)|(target)): 0x([0-9a-fA-F]+)/) {
@@ -222,7 +222,7 @@ sub run_debugger($) {
     my ($runfile, $tgt1, $tgt2) = @_;
 
     $cmd = "\$><$winscript";
-  
+
     # put quotes around debugger to handle spaces
     $cmdline = "\"$debugger\" -c \"$cmd\" $app";
     print "$cmdline\n" if ($verbose);

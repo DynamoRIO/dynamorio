@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -43,7 +43,7 @@
 ###   message line 1
 ###   message line 2
 ###   must end with a dot on a line by itself
-###   . 
+###   .
 ###
 ### Stops parsing the file when it sees a line beginning w/ "=====", so
 ### put global comments at the bottom -- and w/ the new "make diff*" targets
@@ -64,7 +64,7 @@
 ###   .
 ###   vmareas.c:
 ###   fixed vector split/merge bugs by redoing split code
-###  
+###
 ###   + VMAREAS_UNIT_TEST vector add/merge/split/delete tests
 ###   .
 ###   linux/os.c:
@@ -73,20 +73,20 @@
 ###   ===========================================================================
 ###   toemail:
 ###   Two items in this diff:
-###  
+###
 ###   1) Fixes case 3415
-###  
+###
 ###   2) Adds support for easily building a standalone core unit test (case 3136)
-###  
+###
 ###   To build the vmareas vector test, add this to Makefile.mydefines:
-###  
+###
 ###   STANDALONE_UNIT_TEST=1
 ###   ADD_DEFINES += $(D)VMAREAS_UNIT_TEST
-###  
+###
 ###   Now the make default target will build ../build/x86_linux_dbg/drtest
 ###   (will add .exe suffix on windows).  Could copy that somewhere more
 ###   convenient but I didn't bother.
-###  
+###
 ###   I added support for logfiles for easier debugging.
 
 $usage = "Usage: $0 [-v] [-n] [-q] <msgfile>\n";
@@ -167,7 +167,7 @@ while (<MSGFILE>) {
             } else {
                 print "cvs commit -F $cvs_msgfile $file\n";
                 # record output so we can print a version summary at the end
-                
+
                 # somehow pipe ends up sitting there for ~40 seconds so we use a tmp file
                 #open(COM, "cvs commit -F $cvs_msgfile $file 2>&1 |") || die "Couldn't run cvs commit\n";
                 system("cvs commit -F $cvs_msgfile $file 2>&1 > $cvs_output");

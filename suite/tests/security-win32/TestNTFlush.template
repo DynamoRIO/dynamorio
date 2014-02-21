@@ -82,7 +82,7 @@ starting tests
 // case 3947 only if looking at data sections
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0)
 # if !defined(detect_mode)
-// OPTION_REPORT=8 is on by default unless overriden 
+// OPTION_REPORT=8 is on by default unless overriden
 #  if !defined(rct_ind_call___3)
      SEC_VIO_AUTO_STOP
 #  endif
@@ -95,7 +95,7 @@ starting tests
 # endif
 # endif
 2
-// FIXME: case 3947 
+// FIXME: case 3947
 # if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
    SEC_VIO_CONT
 # endif
@@ -212,10 +212,10 @@ about to exit
 //  To better understand the behavior of the two stack tests, here is a
 //  collection of output from the test w/ verbose printing enabled and
 //  from the logfiles:
-//  
+//
 //  ===========================================================================
 //  buf_stack (aligned):
-//  
+//
 //  starting tests
 //  wrote code 0x0012fee4-0x0012feef
 //  flushed 0x0012fee4-0x0012feef (0xb bytes)
@@ -280,10 +280,10 @@ about to exit
 //  || new executable vm area: 0x0012fee4-0x0012ff15 WFSD unexpected vm area
 //  4660
 //  about to exit
-//  
+//
 //  ===========================================================================
 //  buf_stack2 (cross page):
-//  
+//
 //  starting tests
 //  wrote code 0x0012dffe-0x0012e009
 //  flushed 0x0012dffe-0x0012e009 (0xb bytes)
@@ -323,7 +323,7 @@ about to exit
 //  executing self-mod code 0x0012dff0-0x0012e021
 //  >>   exec of selfmod has no msgs since it's not same bb, so don't notice code has
 //  >>   changed like do if it has same start addr, and it's still within same future
-//  >>   region that was added to exec list 
+//  >>   region that was added to exec list
 //  >> WARNING: code on stack 0x0012cee4-0x0012fee4 @tag 0x0012dfff written to
 //  >>   this is the actual selfmod write!
 //  || removing executable vm area: 0x0012cee4-0x0012fee4
@@ -355,5 +355,5 @@ about to exit
 //  || new executable vm area: 0x0012e000-0x00130000 W-SD unexpected vm area
 //  4660
 //  about to exit
-//  
+//
 //  ===========================================================================

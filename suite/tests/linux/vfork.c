@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -99,7 +99,7 @@ int main(int argc, char** argv)
         print("parent is running natively\n");
 
     print("trying vfork() #1\n");
-    child = vfork(); 
+    child = vfork();
     if (child < 0) {
         perror("ERROR on fork");
     } else if (child > 0) {
@@ -111,11 +111,11 @@ int main(int argc, char** argv)
         print("child has exited\n");
     } else {
         do_execve(argv[1]);
-    }   
+    }
 
     /* do 2 in a row to test i#237/PR 498284 */
     print("trying vfork() #2\n");
-    child = vfork(); 
+    child = vfork();
     if (child < 0) {
         perror("ERROR on fork");
     } else if (child > 0) {
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
         print("child has exited\n");
     } else {
         do_execve(argv[1]);
-    }   
+    }
 
     /* i#1010: clone() after vfork reuses our private fds.  Have to run this
      * manually with -loglevel N to trigger this.

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -60,7 +60,7 @@
 #include <unistd.h>     /* __environ */
 
 /* Written during initialization only */
-/* FIXME: i#460, the path lookup itself is a complicated process, 
+/* FIXME: i#460, the path lookup itself is a complicated process,
  * so we just list possible common but in-complete paths for now.
  */
 #define SYSTEM_LIBRARY_PATH_VAR "LD_LIBRARY_PATH"
@@ -213,10 +213,10 @@ void
 os_loader_exit(void)
 {
     if (libdr_opd != NULL) {
-        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, 
-                        libdr_opd->os_data.segments, 
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT,
+                        libdr_opd->os_data.segments,
                         module_segment_t,
-                        libdr_opd->os_data.alloc_segments, 
+                        libdr_opd->os_data.alloc_segments,
                         ACCT_OTHER, PROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, libdr_opd,
                        os_privmod_data_t, ACCT_OTHER, PROTECTED);
@@ -227,9 +227,9 @@ void
 os_loader_thread_init_prologue(dcontext_t *dcontext)
 {
     if (!privmod_initialized) {
-        /* Because TLS is not setup at loader_init, we cannot call 
+        /* Because TLS is not setup at loader_init, we cannot call
          * loaded libraries' init functions there, so have to postpone
-         * the invocation until here. 
+         * the invocation until here.
          */
         acquire_recursive_lock(&privload_lock);
         privmod_t *mod = privload_first_module();
@@ -258,9 +258,9 @@ privload_add_areas(privmod_t *privmod)
     uint   i;
 
     /* create and init the os_privmod_data for privmod.
-     * The os_privmod_data can only be created after heap is ready and 
+     * The os_privmod_data can only be created after heap is ready and
      * should be done before adding in vmvector_add,
-     * so it can be either right before calling to privload_add_areas 
+     * so it can be either right before calling to privload_add_areas
      * in the privload_load_finalize, or in here.
      * We prefer here because it avoids changing the code in
      * loader_shared.c, which affects windows too.
@@ -268,7 +268,7 @@ privload_add_areas(privmod_t *privmod)
     privload_create_os_privmod_data(privmod);
     opd = (os_privmod_data_t *) privmod->os_privmod_data;
     for (i = 0; i < opd->os_data.num_segments; i++) {
-        vmvector_add(modlist_areas, 
+        vmvector_add(modlist_areas,
                      opd->os_data.segments[i].start,
                      opd->os_data.segments[i].end,
                      (void *)privmod);
@@ -283,7 +283,7 @@ privload_remove_areas(privmod_t *privmod)
 
     /* walk the program header to remove areas */
     for (i = 0; i < opd->os_data.num_segments; i++) {
-        vmvector_remove(modlist_areas, 
+        vmvector_remove(modlist_areas,
                         opd->os_data.segments[i].start,
                         opd->os_data.segments[i].end);
     }
@@ -291,9 +291,9 @@ privload_remove_areas(privmod_t *privmod)
      * do not delete here, non-symmetry.
      * This is because we still need the information in os_privmod_data
      * to unmap the segments in privload_unmap_file, which happens after
-     * privload_remove_areas. 
-     * The create of os_privmod_data should be done when mapping the file 
-     * into memory, but the heap is not ready at that time, so postponed 
+     * privload_remove_areas.
+     * The create of os_privmod_data should be done when mapping the file
+     * into memory, but the heap is not ready at that time, so postponed
      * until privload_add_areas.
      */
 }
@@ -304,11 +304,11 @@ privload_unmap_file(privmod_t *privmod)
     /* walk the program header to unmap files, also the tls data */
     uint i;
     os_privmod_data_t *opd = (os_privmod_data_t *) privmod->os_privmod_data;
-    
+
     /* unmap segments */
     for (i = 0; i < opd->os_data.num_segments; i++) {
-        unmap_file(opd->os_data.segments[i].start, 
-                   opd->os_data.segments[i].end - 
+        unmap_file(opd->os_data.segments[i].start,
+                   opd->os_data.segments[i].end -
                    opd->os_data.segments[i].start);
     }
     /* free segments */
@@ -502,8 +502,8 @@ privload_call_entry(privmod_t *privmod, uint reason)
         }
         if (opd->init_array != NULL) {
             uint i;
-            for (i = 0; 
-                 i < opd->init_arraysz / sizeof(opd->init_array[i]); 
+            for (i = 0;
+                 i < opd->init_arraysz / sizeof(opd->init_array[i]);
                  i++) {
                 if (opd->init_array[i] != NULL) /* be paranoid */
                     privload_call_lib_func(opd->init_array[i]);
@@ -646,7 +646,7 @@ privload_search_rpath(privmod_t *mod, const char *name,
 }
 
 static bool
-privload_locate(const char *name, privmod_t *dep, 
+privload_locate(const char *name, privmod_t *dep,
                 char *filename OUT /* buffer size is MAXIMUM_PATH */,
                 bool *reachable INOUT)
 {
@@ -696,13 +696,13 @@ privload_locate(const char *name, privmod_t *dep,
     lib_paths = ld_library_path;
     while (lib_paths != NULL) {
         char *end = strstr(lib_paths, ":");
-        if (end != NULL) 
+        if (end != NULL)
             *end = '\0';
         snprintf(filename, MAXIMUM_PATH, "%s/%s", lib_paths, name);
         if (end != NULL) {
             *end = ':';
             end++;
-        } 
+        }
         /* NULL_TERMINATE_BUFFER(filename) */
         filename[MAXIMUM_PATH - 1] = 0;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
@@ -720,7 +720,7 @@ privload_locate(const char *name, privmod_t *dep,
         filename[MAXIMUM_PATH - 1] = 0;
         LOG(GLOBAL, LOG_LOADER, 2, "%s: looking for %s\n",
             __FUNCTION__, filename);
-        if (os_file_exists(filename, false/*!is_dir*/) && 
+        if (os_file_exists(filename, false/*!is_dir*/) &&
             module_file_has_module_header(filename))
             return true;
     }
@@ -756,15 +756,15 @@ get_private_library_address(app_pc modbase, const char *name)
     if (dynamo_heap_initialized) {
         /* opd is initialized */
         os_privmod_data_t *opd = (os_privmod_data_t *) mod->os_privmod_data;
-        res = get_proc_address_from_os_data(&opd->os_data, 
-                                            opd->load_delta, 
+        res = get_proc_address_from_os_data(&opd->os_data,
+                                            opd->load_delta,
                                             name, NULL);
         release_recursive_lock(&privload_lock);
         return res;
     } else {
         /* opd is not initialized */
         /* get_private_library_address is first called on looking up
-         * USES_DR_VERSION_NAME right after loading client_lib, 
+         * USES_DR_VERSION_NAME right after loading client_lib,
          * The os_privmod_data is not setup yet then because the heap
          * is not initialized, so it is possible opd to be NULL.
          * For this case, we have to compute the temporary os_data instead.
@@ -792,12 +792,12 @@ static void
 privload_call_modules_entry(privmod_t *mod, uint reason)
 {
     if (reason == DLL_PROCESS_INIT) {
-        /* call the init function in the reverse order, to make sure the 
+        /* call the init function in the reverse order, to make sure the
          * dependent libraries are inialized first.
          * We recursively call privload_call_modules_entry to call
          * the privload_call_entry in the reverse order.
-         * The stack should be big enough since it loaded all libraries 
-         * recursively. 
+         * The stack should be big enough since it loaded all libraries
+         * recursively.
          * XXX: we can change privmod to be double-linked list to avoid
          * recursion.
          */
@@ -826,7 +826,7 @@ privload_call_lib_func(fp_t func)
     /* FIXME: i#475
      * The regular loader always passes argc, argv and env to libaries,
      * (see libc code elf/dl-init.c), which might be ignored by those
-     * routines. 
+     * routines.
      * we create dummy argc and argv, and passed with the real __environ.
      */
     dummy_argv[0] = dummy_str;
@@ -861,7 +861,7 @@ privload_relocate_mod(privmod_t *mod)
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
     /* If module has tls block need update its tls offset value */
-    if (opd->tls_block_size != 0) 
+    if (opd->tls_block_size != 0)
         privload_mod_tls_init(mod);
 
     if (opd->rel != NULL) {
@@ -876,7 +876,7 @@ privload_relocate_mod(privmod_t *mod)
     }
     if (opd->jmprel != NULL) {
         if (opd->pltrel == DT_REL) {
-            module_relocate_rel(mod->base, opd, (ELF_REL_TYPE *)opd->jmprel, 
+            module_relocate_rel(mod->base, opd, (ELF_REL_TYPE *)opd->jmprel,
                                 (ELF_REL_TYPE *)(opd->jmprel + opd->pltrelsz));
         } else if (opd->pltrel == DT_RELA) {
             module_relocate_rela(mod->base, opd, (ELF_RELA_TYPE *)opd->jmprel,
@@ -885,17 +885,17 @@ privload_relocate_mod(privmod_t *mod)
     }
     /* special handling on I/O file */
     if (strstr(mod->name, "libc.so") == mod->name) {
-        privmod_stdout = 
+        privmod_stdout =
             (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
                                                               opd->load_delta,
                                                               LIBC_STDOUT_NAME,
                                                               NULL);
-        privmod_stdin = 
+        privmod_stdin =
             (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
                                                               opd->load_delta,
                                                               LIBC_STDIN_NAME,
                                                               NULL);
-        privmod_stderr = 
+        privmod_stderr =
             (struct _IO_FILE **)get_proc_address_from_os_data(&opd->os_data,
                                                               opd->load_delta,
                                                               LIBC_STDERR_NAME,
@@ -941,15 +941,15 @@ privload_delete_os_privmod_data(privmod_t *privmod)
 
 /* XXX i#1285: implement TLS for MacOS private loader */
 
-/* The description of Linux Thread Local Storage Implementation on x86 arch 
- * Following description is based on the understanding of glibc-2.11.2 code 
+/* The description of Linux Thread Local Storage Implementation on x86 arch
+ * Following description is based on the understanding of glibc-2.11.2 code
  */
 /* TLS is achieved via memory reference using segment register on x86.
  * Each thread has its own memory segment whose base is pointed by [%seg:0x0],
- * so different thread can access thread private memory via the same memory 
- * reference opnd [%seg:offset]. 
+ * so different thread can access thread private memory via the same memory
+ * reference opnd [%seg:offset].
  */
-/* In Linux, FS and GS are used for TLS reference. 
+/* In Linux, FS and GS are used for TLS reference.
  * In current Linux libc implementation, %gs/%fs is used for TLS access
  * in 32/64-bit x86 architecture, respectively.
  */
@@ -964,19 +964,19 @@ privload_delete_os_privmod_data(privmod_t *privmod)
 /* There are two possible TLS memory, static TLS and dynamic TLS.
  * Static TLS is the memory allocated in the TLS segment, and can be accessed
  * via direct [%seg:offset].
- * Dynamic TLS is the memory allocated dynamically when the process 
- * dynamically loads a shared library (e.g. via dl_open), which has its own TLS 
+ * Dynamic TLS is the memory allocated dynamically when the process
+ * dynamically loads a shared library (e.g. via dl_open), which has its own TLS
  * but cannot fit into the TLS segment created at beginning.
- * 
- * DTV (dynamic thread vector) is the data structure used to maintain and 
- * reference those modules' TLS. 
- * Each module has a id, which is the index into the DTV to check 
+ *
+ * DTV (dynamic thread vector) is the data structure used to maintain and
+ * reference those modules' TLS.
+ * Each module has a id, which is the index into the DTV to check
  * whether its tls is static or dynamic, and where it is.
  */
 
 /* The maxium number modules that we support to have TLS here.
  * Because any libraries having __thread variable will have tls segment.
- * we pick 64 and hope it is large enough. 
+ * we pick 64 and hope it is large enough.
  */
 #define MAX_NUM_TLS_MOD 64
 typedef struct _tls_info_t {
@@ -1014,8 +1014,8 @@ static tls_info_t tls_info;
  */
 static size_t tcb_size = IF_X64_ELSE(0x900, 0x490);
 
-/* thread control block header type from 
- * nptl/sysdeps/x86_64/tls.h and nptl/sysdeps/i386/tls.h 
+/* thread control block header type from
+ * nptl/sysdeps/x86_64/tls.h and nptl/sysdeps/i386/tls.h
  */
 typedef struct _tcb_head_t {
     void *tcb;
@@ -1060,8 +1060,8 @@ privload_mod_tls_init(privmod_t *mod)
     tls_info.mods[tls_info.num_mods] = mod;
     opd->tls_modid = tls_info.num_mods;
     offset = (opd->tls_modid == 0) ? APP_LIBC_TLS_SIZE : tls_info.offset;
-    /* decide the offset of each module in the TLS segment from 
-     * thread pointer.  
+    /* decide the offset of each module in the TLS segment from
+     * thread pointer.
      * Because the tls memory is located before thread pointer, we use
      * [tp - offset] to get the tls block for each module later.
      * so the first_byte that obey the alignment is calculated by
@@ -1073,7 +1073,7 @@ privload_mod_tls_init(privmod_t *mod)
      *    using ALIGN_FORWARD()
      * 2. add first_byte to make the first byte with right alighment.
      */
-    offset = first_byte + 
+    offset = first_byte +
         ALIGN_FORWARD(offset + opd->tls_block_size + first_byte,
                       opd->tls_align);
     opd->tls_offset = offset;
@@ -1104,14 +1104,14 @@ privload_tls_init(void *app_tp)
     dr_tcb = (tcb_head_t *) dr_tp;
     LOG(GLOBAL, LOG_LOADER, 2, "%s: adjust thread pointer to "PFX"\n",
         __FUNCTION__, dr_tp);
-    /* We copy the whole tcb to avoid initializing it by ourselves. 
+    /* We copy the whole tcb to avoid initializing it by ourselves.
      * and update some fields accordingly.
      */
-    /* DynamoRIO shares the same libc with the application, 
+    /* DynamoRIO shares the same libc with the application,
      * so as the tls used by libc. Thus we need duplicate
      * those tls with the same offset after switch the segment.
      * This copy can be avoided if we remove the DR's dependency on
-     * libc. 
+     * libc.
      */
     if (app_tp != NULL &&
         !safe_read_ex(app_tp - APP_LIBC_TLS_SIZE, APP_LIBC_TLS_SIZE + tcb_size,
@@ -1137,13 +1137,13 @@ privload_tls_init(void *app_tp)
         /* now copy the tls memory from the image */
         dest = dr_tp - tls_info.offs[i];
         memcpy(dest, opd->tls_image, opd->tls_image_size);
-        /* set all 0 to the rest of memory. 
+        /* set all 0 to the rest of memory.
          * tls_block_size refers to the size in memory, and
-         * tls_image_size refers to the size in file. 
-         * We use the same way as libc to name them. 
+         * tls_image_size refers to the size in file.
+         * We use the same way as libc to name them.
          */
         ASSERT(opd->tls_block_size >= opd->tls_image_size);
-        memset(dest + opd->tls_image_size, 0, 
+        memset(dest + opd->tls_image_size, 0,
                opd->tls_block_size - opd->tls_image_size);
     }
     return dr_tp;
@@ -1174,7 +1174,7 @@ redirect___tls_get_addr(tls_index_t *ti)
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) - 
+    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 
@@ -1182,14 +1182,14 @@ static void *
 redirect____tls_get_addr()
 {
     tls_index_t *ti;
-    /* XXX: in some version of ___tls_get_addr, ti is passed via xax 
+    /* XXX: in some version of ___tls_get_addr, ti is passed via xax
      * How can I generalize it?
      */
     asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
-    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) - 
+    return (os_get_dr_seg_base(NULL, LIB_SEG_TLS) -
             tls_info.offs[ti->ti_module] + ti->ti_offset);
 }
 

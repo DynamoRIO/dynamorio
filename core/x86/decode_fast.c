@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -60,8 +60,8 @@
    instructions so that we can determine the length of the decode
    instruction.  All code below based on tables in the ``Intel
    Architecture Software Developer's Manual,'' Volume 2: Instruction
-   Set Reference, 1999. 
-   This decoder assumes that we are running in 32-bit, flat-address mode.  
+   Set Reference, 1999.
+   This decoder assumes that we are running in 32-bit, flat-address mode.
 */
 
 /* NOTE that all of the tables in this file are indexed by the (primary
@@ -77,17 +77,17 @@ static const byte fixed_length[256] = {
     1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 1 */
     1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 2 */
     1,1,1,1, 2,5,1,1, 1,1,1,1, 2,5,1,1,  /* 3 */
-                                                
+
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 4 */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 5 */
     1,1,1,1, 1,1,1,1, 5,5,2,2, 1,1,1,1,  /* 6 */
     2,2,2,2, 2,2,2,2, 2,2,2,2, 2,2,2,2,  /* 7 */
-                                                
+
     2,5,2,2, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 8 */
     1,1,1,1, 1,1,1,1, 1,1,7,1, 1,1,1,1,  /* 9 */
     5,5,5,5, 1,1,1,1, 2,5,1,1, 1,1,1,1,  /* A */
     2,2,2,2, 2,2,2,2, 5,5,5,5, 5,5,5,5,  /* B */
-                                                
+
     2,2,3,1, 1,1,2,5, 4,1,3,1, 1,2,1,1,  /* C */
     1,1,1,1, 2,2,1,1, 1,1,1,1, 1,1,1,1,  /* D */
     2,2,2,2, 2,2,2,2, 5,5,7,2, 1,1,1,1,  /* E */
@@ -100,24 +100,24 @@ static const byte fixed_length[256] = {
    indexed by the 1st (primary) opcode byte.  Entries with non-zero
    values indicate opcodes with a variable-length immediate field.  We
    use this table if we've seen a operand-size prefix byte to adjust
-   the fixed_length from dword to word. 
+   the fixed_length from dword to word.
  */
 static const signed char immed_adjustment[256] = {
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 0 */
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 1 */
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 2 */
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 3 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0, -2,-2, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-                                                                
+
      0,-2, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2, -2,-2,-2,-2,  /* B */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0,-2,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2,  0, 0, 0, 0,  /* E */
@@ -131,17 +131,17 @@ static const signed char immed_adjustment_intel64[256] = {
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 1 */
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 2 */
      0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  /* 3 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0, -2,-2, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-                                                                
+
      0,-2, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2, 0,  0, 0, 0, 0,  /* 9 */
      0, 0, 0, 0,  0, 0, 0, 0,  0,-2, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0, -2,-2,-2,-2, -2,-2,-2,-2,  /* B */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0,-2,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0,-2,-2,  0, 0, 0, 0,  /* E */
@@ -159,17 +159,17 @@ static const signed char disp_adjustment[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
     -2,-2,-2,-2,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* B */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
@@ -187,17 +187,17 @@ static const char x64_adjustment[256] = {
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 1 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 3 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 5 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 7 */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 8 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 9 */
      4, 4, 4, 4,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* A */
      0, 0, 0, 0,  0, 0, 0, 0, -4,-4,-4,-4, -4,-4,-4,-4,  /* B */
-                                                                
+
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* C */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* D */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* E */
@@ -240,17 +240,17 @@ static const byte variable_length[256] = {
     m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 1 */
     m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 2 */
     m,m,m,m, 0,0,0,0, m,m,m,m, 0,0,0,0,   /* 3 */
-                                                 
+
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 4 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 5 */
     0,0,m,m, 0,0,0,0, 0,m,0,m, 0,0,0,0,   /* 6 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 7 */
-                                                 
+
     m,m,m,m, m,m,m,m, m,m,m,m, m,m,m,m,   /* 8 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* 9 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* A */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* B */
-                                                 
+
     m,m,0,0, m,m,m,m, 0,0,0,0, 0,0,0,0,   /* C */
     m,m,m,m, 0,0,0,0, f,f,f,f, f,f,f,f,   /* D */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,   /* E */
@@ -265,7 +265,7 @@ static const byte variable_length[256] = {
 
 /* Data table for the additional fixed part of a two-byte opcode.
  * This table is indexed by the 2nd opcode byte.  Zero entries are
- * reserved/bad opcodes. 
+ * reserved/bad opcodes.
  * N.B.: none of these (except IA32_ON_IA64) need adjustment
  * for data16 or addr16.
  */
@@ -273,12 +273,12 @@ static const byte escape_fixed_length[256] = {
     1,1,1,1, 0,1,1,1, 1,1,0,1, 0,1,1,2,  /* 0 */ /* 0f0f has extra suffix opcode byte */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 1 */
     1,1,1,1, 0,0,0,0, 1,1,1,1, 1,1,1,1,  /* 2 */
-    1,1,1,1, 1,1,0,1, 1,0,1,0, 0,0,0,0,  /* 3 */ 
+    1,1,1,1, 1,1,0,1, 1,0,1,0, 0,0,0,0,  /* 3 */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 4 */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 5 */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 6 */
     2,2,2,2, 1,1,1,1, 1,1,0,0, 1,1,1,1,  /* 7 */
-                                                
+
     5,5,5,5, 5,5,5,5, 5,5,5,5, 5,5,5,5,  /* 8 */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* 9 */
     1,1,1,1, 2,1,0,0, 1,1,1,1, 2,1,1,1,  /* A */
@@ -290,7 +290,7 @@ static const byte escape_fixed_length[256] = {
 #else
     1,1,1,1, 1,1,1,1, 1,1,2,1, 1,1,1,1,  /* B */
 #endif
-                
+
     1,1,2,1, 2,2,2,1, 1,1,1,1, 1,1,1,1,  /* C */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* D */
     1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1,  /* E */
@@ -347,7 +347,7 @@ static const byte threebyte_38_fixed_length[256] = {
     1,1,1,1, 1,1,1,1, 1,1,1,1, 0,0,0,0,  /* 0 */
     1,0,0,0, 1,1,0,1, 0,0,0,0, 1,1,1,0,  /* 1 */
     1,1,1,1, 1,1,0,0, 1,1,1,1, 0,0,0,0,  /* 2 */
-    1,1,1,1, 1,1,0,1, 1,1,1,1, 1,1,1,1,  /* 3 */ 
+    1,1,1,1, 1,1,0,1, 1,1,1,1, 1,1,1,1,  /* 3 */
     1,1,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
@@ -368,7 +368,7 @@ static const byte threebyte_3a_fixed_length[256] = {
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1,  /* 0 */
     0,0,0,0, 1,1,1,1, 1,1,1,1, 1,1,1,0,  /* 1 */
     1,1,1,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */ 
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
     0,1,1,1, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
     1,1,1,1, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
@@ -389,7 +389,7 @@ static const byte threebyte_38_vex_extra[256] = {
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 0 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 1 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 2 */
-    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */ 
+    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 3 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 4 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 5 */
     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  /* 6 */
@@ -598,7 +598,7 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
         *num_prefixes = sz;
     if (word_operands) {
 #ifdef X64
-        /* for x64 Intel, always 64-bit addr ("f64" in Intel table) 
+        /* for x64 Intel, always 64-bit addr ("f64" in Intel table)
          * FIXME: what about 2-byte jcc?
          */
         if (X64_MODE_DC(dcontext) && proc_get_vendor() == VENDOR_INTEL)
@@ -705,7 +705,7 @@ sizeof_3byte_3a(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_r
 /* Two-byte opcode map (Tables A-4 and A-5).  You use this routine
  * when you have identified the primary opcode as 0x0f.  You pass this
  * routine the next byte to determine the number of extra bytes in the
- * entire instruction. 
+ * entire instruction.
  * May return 0 size for certain invalid instructions.
  */
 static int
@@ -780,10 +780,10 @@ sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_
         }
         CLIENT_ASSERT(false, "internal decoding error on addr16 prefix");
     }
-    
+
     /* for x64, addr16 simply truncates the computed address: there is
      * no change in disp sizes */
-    
+
     if (mod == 3)       /* register operand */
         return 1;
 
@@ -799,7 +799,7 @@ sizeof_modrm(dcontext_t *dcontext, byte *pc, bool addr16 _IF_X64(byte **rip_rel_
             if (mod == 0)
                 l += 4; /* disp32(,index,s) */
         }
-    }   
+    }
 
     return l;
 }
@@ -954,7 +954,7 @@ static const int escape_eflags_6[256] = {
 
 /* This routine converts a signed 8-bit offset into a target pc.  The
  * formal parameter pc should point to the beginning of the branch
- * instruction containing the offset and having length len in bytes. 
+ * instruction containing the offset and having length len in bytes.
  * The x86 architecture calculates offsets from the beginning of the
  * instruction following the branch. */
 static app_pc
@@ -979,7 +979,7 @@ convert_8bit_offset(byte *pc, byte offset, uint len)
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.
- * Returns the address of the byte following the instruction.  
+ * Returns the address of the byte following the instruction.
  * Returns NULL on decoding an invalid instr and sets opcode to OP_INVALID.
  */
 byte *

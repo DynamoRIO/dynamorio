@@ -220,7 +220,7 @@ memquery_library_bounds(const char *name, app_pc *start/*IN/OUT*/, app_pc *end/*
 /* PR 361594: os-independent alternative to /proc/maps */
 
 #define VSYSCALL_PAGE_SO_NAME "linux-gate.so"
-/* For now we assume no OS config has user addresses above this value 
+/* For now we assume no OS config has user addresses above this value
  * We just go to max 32-bit (64-bit not supported yet: want lazy probing),
  * if don't have any kind of mmap iterator
  */
@@ -298,7 +298,7 @@ dl_iterate_get_areas_cb(struct dl_phdr_info *info, size_t size, void *data)
     return 0; /* keep iterating */
 }
 
-/* helper for find_vm_areas_via_probe() and get_memory_info_from_os() 
+/* helper for find_vm_areas_via_probe() and get_memory_info_from_os()
  * returns the passed-in pc if the probe was successful; else, returns
  * where the next probe should be (to skip DR memory).
  * if the probe was successful, returns in prot the results.
@@ -332,8 +332,8 @@ probe_address(dcontext_t *dcontext, app_pc pc_in,
         return base;
     }
 #endif
-    /* Only for find_vm_areas_via_probe(), skip modules added by 
-     * dl_iterate_get_areas_cb.  Subsequent probes are about gettting 
+    /* Only for find_vm_areas_via_probe(), skip modules added by
+     * dl_iterate_get_areas_cb.  Subsequent probes are about gettting
      * info from OS, so do the actual probe.  See PR 410907.
      */
     if (!dynamo_initialized && get_memory_info(pc, &base, &size, prot))

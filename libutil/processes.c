@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -73,7 +73,7 @@ under_dynamorio(process_id_t ProcessID)
 }
 
 DWORD
-read_hotp_status(const HANDLE hproc, const void *table_ptr, 
+read_hotp_status(const HANDLE hproc, const void *table_ptr,
                  hotp_policy_status_table_t **hotp_status)
 {
     UINT crc_and_size[2];
@@ -83,7 +83,7 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
     DO_ASSERT(table_ptr != NULL);
 
     /* first, read the size and crc */
-    if (!ReadProcessMemory(hproc, table_ptr, &crc_and_size, 
+    if (!ReadProcessMemory(hproc, table_ptr, &crc_and_size,
                            sizeof(crc_and_size), &len) ||
         len != sizeof(crc_and_size)) {
         return GetLastError();
@@ -111,7 +111,7 @@ read_hotp_status(const HANDLE hproc, const void *table_ptr,
      *  and we may be changing it anyway (case 5346) -- so just
      *  don't do a check for now. */
     /* verify crc: crc starts at size elt, see globals_shared.h */
-    if ((*hotp_status)->crc != 
+    if ((*hotp_status)->crc !=
         crc32((char *)*hotp_status + sizeof(UINT), size - sizeof(UINT))) {
         free(*hotp_status);
         *hotp_status = NULL;
@@ -144,7 +144,7 @@ free_hotp_status_table(hotp_policy_status_table_t *hotp_status)
 }
 
 DWORD
-get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker, 
+get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker,
                      hotp_policy_status_table_t **hotp_status, int *found)
 {
     DWORD res = ERROR_SUCCESS;
@@ -163,7 +163,7 @@ get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker,
         *found = read_and_verify_dr_marker(hproc, marker);
         if (*found == DR_MARKER_FOUND && hotp_status != NULL &&
             marker->dr_hotp_policy_status_table != NULL) {
-            res = read_hotp_status(hproc, 
+            res = read_hotp_status(hproc,
                                    marker->dr_hotp_policy_status_table,
                                    hotp_status);
         }
@@ -190,11 +190,11 @@ get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker,
 
 #define NUM_DR_MARKER_RETRIES 2
 
-/* we retry in case synchronization issues (crc failure, in the 
- *  middle of a detach, etc) cause this to fail. 
+/* we retry in case synchronization issues (crc failure, in the
+ *  middle of a detach, etc) cause this to fail.
  * NOTE: this is redefined in detach.c to avoid include issues! */
 DWORD
-get_dr_marker(process_id_t ProcessID, dr_marker_t *marker, 
+get_dr_marker(process_id_t ProcessID, dr_marker_t *marker,
               hotp_policy_status_table_t **hotp_status, int *found)
 {
     DWORD res = ERROR_SUCCESS;
@@ -287,7 +287,7 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num)
     dr_marker_t marker;
     DWORD err;
     int res;
-    
+
     err = get_dr_marker(ProcessID, &marker, NULL, &res);
 
     if (err != ERROR_SUCCESS || res == DR_MARKER_ERROR)
@@ -302,7 +302,7 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num)
          * first.  Perhaps we should just get rid of the notion of profile builds. */
         if (TEST(DR_MARKER_PROFILE_BUILD, marker.flags))
             return DLL_PROFILE;
-        if (TEST(DR_MARKER_RELEASE_BUILD, marker.flags)) 
+        if (TEST(DR_MARKER_RELEASE_BUILD, marker.flags))
             return DLL_RELEASE;
         if (TEST(DR_MARKER_DEBUG_BUILD, marker.flags))
             return DLL_DEBUG;
@@ -313,8 +313,8 @@ under_dynamorio_ex(process_id_t ProcessID, DWORD *build_num)
 }
 
 DWORD
-check_status_and_pending_restart(ConfigGroup *config, process_id_t pid, 
-                                 BOOL *pending_restart, 
+check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
+                                 BOOL *pending_restart,
                                  int *status, ConfigGroup **process_cfg)
 {
     WCHAR *rununder_param = NULL;
@@ -336,17 +336,17 @@ check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
         rununder = 0;
     }
     else {
-        rununder_param = get_config_group_parameter(process_config, 
+        rununder_param = get_config_group_parameter(process_config,
                                                     L_DYNAMORIO_VAR_RUNUNDER);
         if (rununder_param == NULL)
-            rununder_param = 
+            rununder_param =
                 get_config_group_parameter(config,
                                            L_DYNAMORIO_VAR_RUNUNDER);
-        
+
         /* bad news; just abort */
         if (rununder_param == NULL)
             return ERROR_OPTION_NOT_FOUND;
-        
+
         rununder = _wtoi(rununder_param) & RUNUNDER_ON;
     }
 
@@ -358,13 +358,13 @@ check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
     if (stat == DLL_UNKNOWN)
         return ERROR_DETACH_ERROR;
 
-    *pending_restart = 
+    *pending_restart =
         (rununder && stat == DLL_NONE) ||
         (!rununder && stat != DLL_NONE);
 
     DO_DEBUG(DL_VERB,
-             printf("  -> ru=%d, stat=%d, pr=%d, c=0x%x, pc=0x%x, pxru=%S\n", 
-                    rununder, stat, *pending_restart, config, 
+             printf("  -> ru=%d, stat=%d, pr=%d, c=0x%x, pc=0x%x, pxru=%S\n",
+                    rununder, stat, *pending_restart, config,
                     process_config, rununder_param);
              );
 
@@ -419,7 +419,7 @@ typedef struct process_status_info_s {
 
 
 /* the param is a process_status_info_t* */
-BOOL 
+BOOL
 system_info_cb(process_info_t *pi, void **param)
 {
     int status;
@@ -433,10 +433,10 @@ system_info_cb(process_info_t *pi, void **param)
         return TRUE;
 
     res = check_status_and_pending_restart(sinfo->policy, pi->ProcessID,
-                                           &is_pending, 
+                                           &is_pending,
                                            &status, &process_config);
 
-    /* for the walk methods, only record process-specific errors, 
+    /* for the walk methods, only record process-specific errors,
      *  but ignore and keep trying the rest. */
     if (res != ERROR_SUCCESS) {
         sinfo->process_nonfatal_res = res;
@@ -444,7 +444,7 @@ system_info_cb(process_info_t *pi, void **param)
     }
 
     DO_DEBUG(DL_VERB,
-             printf("  pid=%d, type=%d, name=%S, ip=%d, sta=%d:\n", 
+             printf("  pid=%d, type=%d, name=%S, ip=%d, sta=%d:\n",
                     pi->ProcessID, sinfo->callback_type, pi->ProcessName,
                     is_pending, status);
              );
@@ -484,14 +484,14 @@ system_info_cb(process_info_t *pi, void **param)
     case CB_NUDGE_DEFS:
         /* fall through and use the same code. */
     case CB_NUDGE_MODES:
-        /* FIXME: we used to only nudge apps that have the 
+        /* FIXME: we used to only nudge apps that have the
          *  DYNAMORIO_HOTPATCH_MODES key set; but this is dangerous
          *  if, e.g., hotpatching was on and then turned off. so
          *  we just nudge anything under DR, at least for now. */
         if (status != DLL_NONE) {
             if (sinfo->callback_type == CB_NUDGE_DEFS)
                 res = hotp_notify_defs_update(pi->ProcessID, TRUE, sinfo->timeout_ms);
-            
+
             if (sinfo->callback_type == CB_NUDGE_MODES)
                 res = hotp_notify_modes_update(pi->ProcessID, TRUE, sinfo->timeout_ms);
 
@@ -502,8 +502,8 @@ system_info_cb(process_info_t *pi, void **param)
     case CB_NUDGE_GENERIC:
         /* generic nudge available under HOT_PATCHING_INTERFACE */
         if (status != DLL_NONE) {
-            res = generic_nudge(pi->ProcessID, TRUE, 
-                                sinfo->nudge_action_mask, 
+            res = generic_nudge(pi->ProcessID, TRUE,
+                                sinfo->nudge_action_mask,
                                 0, /* client ID arbitrary */
                                 sinfo->nudge_client_arg,
                                 sinfo->timeout_ms);
@@ -519,7 +519,7 @@ system_info_cb(process_info_t *pi, void **param)
         sinfo->res = ERROR_INVALID_PARAMETER;
         return FALSE;
     }
-    
+
     return TRUE;
 }
 
@@ -545,10 +545,10 @@ execute_sysinfo_walk(process_status_info_t *sinfo)
         return sinfo->res;
 
     /* FIXME: report status_info.process_nonfatal_res? */
- 
+
     return ERROR_SUCCESS;
 }
-    
+
 /* pending_restart is required OUT parameter */
 DWORD
 is_anything_pending_restart(ConfigGroup *c, BOOL *pending_restart)
@@ -678,15 +678,15 @@ get_process_peb(HANDLE process_handle, PEB *peb)
     SIZE_T got;
     DWORD res;
     GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
-                                          IN PROCESSINFOCLASS ProcessInformationClass, 
-                                          IN PVOID ProcessInformation, 
-                                          IN ULONG ProcessInformationLength, 
+                                          IN PROCESSINFOCLASS ProcessInformationClass,
+                                          IN PVOID ProcessInformation,
+                                          IN ULONG ProcessInformationLength,
                                           OUT PULONG ReturnLength OPTIONAL));
 
     if (NtQueryInformationProcess == NULL) {
         return GetLastError();
     }
-        
+
     res = NtQueryInformationProcess(process_handle, ProcessBasicInformation,
                                     &info, sizeof(PROCESS_BASIC_INFORMATION),
                                     &got);
@@ -751,9 +751,9 @@ get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WC
 
     /* Follow on to process parameters */
     res = ReadProcessMemory(process_handle, (LPVOID)peb.ProcessParameters,
-                            &process_parameters, sizeof(process_parameters), 
+                            &process_parameters, sizeof(process_parameters),
                             &nbytes);
-    
+
     if (!res) {
         error = GetLastError();
         goto exit;
@@ -765,22 +765,22 @@ get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WC
          *  Buffer from an offset to a pointer...
          */
         void *cmdline_location = (void*)(process_parameters.CommandLine.Buffer);
-        
+
         int cmdlen = process_parameters.CommandLine.Length;
         cmdlen = (cmdlen > cmdline_len - 1) ? cmdline_len - 1 : cmdlen;
-        
+
         res = ReadProcessMemory(process_handle, (LPVOID)cmdline_location,
                                 cmdline_buf, cmdlen, &nbytes);
-        
+
         if (!res) {
             error = GetLastError();
             goto exit;
         }
-        
+
         cmdline_buf[cmdlen/sizeof(WCHAR)] = 0;
-        
+
     }
-    
+
     if (name_buf != NULL) {
         /* note that Buffer is a pointer here, compare win32/os.c
          * it seems that something during process initialization converts
@@ -788,23 +788,23 @@ get_process_name_and_cmdline(process_id_t pid, WCHAR *name_buf, int name_len, WC
          */
         WCHAR buf[MAX_PATH];
         void *name_location = (void*)(process_parameters.ImagePathName.Buffer);
-        
+
         int namelen = process_parameters.ImagePathName.Length;
         namelen = (namelen > name_len - 1) ? name_len - 1 : namelen;
-        
+
         res = ReadProcessMemory(process_handle, (LPVOID)name_location,
                                 buf, sizeof(buf), &nbytes);
-        
+
         if (!res) {
             error = GetLastError();
             goto exit;
         }
-        
+
         buf[MAX_PATH-1] = L'\0';
 
         // return just the executable name
         wcsncpy(name_buf, w_get_short_name(buf), namelen/sizeof(WCHAR));
-        
+
         name_buf[namelen/sizeof(WCHAR)] = 0;
     }
 
@@ -823,7 +823,7 @@ get_process_cmdline(process_id_t pid, WCHAR *buf, int len)
 DWORD
 get_process_name(process_id_t pid, WCHAR *buf, int len)
 {
-    return get_process_name_and_cmdline(pid, buf, len, NULL, 0);   
+    return get_process_name_and_cmdline(pid, buf, len, NULL, 0);
 }
 
 #define MAX_PROCESS_WALK_BUFFER_LENGTH 0x1000000
@@ -836,8 +836,8 @@ process_walk(processwalk_callback pwcb, void **param)
     unsigned long got, proc_bytes = 4096 /* is doubled till large enough */;
     DWORD res;
     GET_NTDLL(NtQuerySystemInformation, (IN SYSTEM_INFORMATION_CLASS SystemInformationClass,
-                                         IN OUT PVOID SystemInformation, 
-                                         IN ULONG SystemInformationLength, 
+                                         IN OUT PVOID SystemInformation,
+                                         IN ULONG SystemInformationLength,
                                          OUT PULONG ReturnLength OPTIONAL));
 
     if (NtQuerySystemInformation == NULL) {
@@ -852,7 +852,7 @@ process_walk(processwalk_callback pwcb, void **param)
             return ERROR_NOT_ENOUGH_MEMORY;
         proc_base = malloc(proc_bytes);
         if (proc_base == NULL)
-            return ERROR_NOT_ENOUGH_MEMORY; 
+            return ERROR_NOT_ENOUGH_MEMORY;
         proc_snap = (SYSTEM_PROCESSES *)proc_base;
         res = NtQuerySystemInformation(SystemProcessesAndThreadsInformation,
                                        proc_snap, proc_bytes, &got);
@@ -880,10 +880,10 @@ process_walk(processwalk_callback pwcb, void **param)
             //callback with the info
             if( ! (*pwcb)(&info, param) )
                 break;
-            
+
             if (proc_snap->NextEntryDelta == 0) {
                 proc_snap = NULL;
-            } else { 
+            } else {
                 proc_snap = (SYSTEM_PROCESSES *)
                     (((char *)proc_snap) + proc_snap->NextEntryDelta);
             }
@@ -901,7 +901,7 @@ typedef struct cb_helper_ {
     void ** param;
 } cb_helper_t;
 
-BOOL 
+BOOL
 translate_cb(process_info_t *pi, void **param)
 {
     cb_helper_t * cbht = (cb_helper_t *) param;
@@ -933,9 +933,9 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
 
     // use a read process memory implementation (like psapi) since toolhelp
     // is too invasive and not available on all platforms
-    
+
     acquire_privileges();
-    hproc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION, FALSE, 
+    hproc = OpenProcess(PROCESS_VM_READ|PROCESS_QUERY_INFORMATION, FALSE,
                         (DWORD)ProcessID);
     res = GetLastError();
     release_privileges();
@@ -953,7 +953,7 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
     }
 
     // arbitrary - use the InLoadOrderList since it has simplest offsets
-    first = (LIST_ENTRY *)(((char *)peb.LoaderData) + 
+    first = (LIST_ENTRY *)(((char *)peb.LoaderData) +
                            offsetof(PEB_LDR_DATA, InLoadOrderModuleList));
     // prime the loop
     mod.InLoadOrderModuleList.Flink = ldr.InLoadOrderModuleList.Flink;
@@ -962,7 +962,7 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
         module_info_t info;
         BOOL callback_ret_val;
 
-        res = ReadProcessMemory(hproc, mod.InLoadOrderModuleList.Flink, &mod, 
+        res = ReadProcessMemory(hproc, mod.InLoadOrderModuleList.Flink, &mod,
                                 sizeof(mod), &nbytes);
         if (!res || nbytes != sizeof(mod)) {
             res = GetLastError();
@@ -977,13 +977,13 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
         info.TlsIndex = mod.TlsIndex;
         info.TimeDateStamp = mod.TimeDateStamp;
         info.ProcessID = ProcessID;
-        
+
         // now copy over the strings
 
         // allocate length + sizeof(wchar) [for null termination]
         info.FullDllName = (WCHAR *)malloc(mod.FullDllName.Length + sizeof(WCHAR));
-        res = ReadProcessMemory(hproc, mod.FullDllName.Buffer, 
-                                info.FullDllName, mod.FullDllName.Length, 
+        res = ReadProcessMemory(hproc, mod.FullDllName.Buffer,
+                                info.FullDllName, mod.FullDllName.Length,
                                 &nbytes);
         if (!res || nbytes != mod.FullDllName.Length) {
             res = GetLastError();
@@ -994,8 +994,8 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
 
         // allocate length + sizeof(wchar) [for null termination]
         info.BaseDllName = (WCHAR *)malloc(mod.BaseDllName.Length + sizeof(WCHAR));
-        res = ReadProcessMemory(hproc, mod.BaseDllName.Buffer, 
-                                info.BaseDllName, mod.BaseDllName.Length, 
+        res = ReadProcessMemory(hproc, mod.BaseDllName.Buffer,
+                                info.BaseDllName, mod.BaseDllName.Length,
                                 &nbytes);
         if (!res || nbytes != mod.BaseDllName.Length) {
             res = GetLastError();
@@ -1010,12 +1010,12 @@ dll_walk_proc(process_id_t ProcessID, dllwalk_callback dwcb, void **param)
         // free strings
         free(info.FullDllName);
         free(info.BaseDllName);
-        
+
         // now check the callback return value for early loop exit
         if (!callback_ret_val)
             break;
 
-    } while (mod.InLoadOrderModuleList.Flink != first && 
+    } while (mod.InLoadOrderModuleList.Flink != first &&
              i++ < MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD);
 
     if (i >= MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD)
@@ -1037,8 +1037,8 @@ BOOL
 dll_walk_all_cb(process_info_t *pi, void **param)
 {
     dll_walk_all_cb_info_t *info = (dll_walk_all_cb_info_t *)param;
-    // will instantly silently crash if we try to peer into 
-    // system-idle process (pid 0) with upgraded permissions 
+    // will instantly silently crash if we try to peer into
+    // system-idle process (pid 0) with upgraded permissions
     if (pi->ProcessID != 0)
         dll_walk_proc(pi->ProcessID, info->dwcb, info->param);
     return true;
@@ -1063,7 +1063,7 @@ terminate_process(process_id_t pid)
     hproc = OpenProcess(PROCESS_TERMINATE, FALSE, (DWORD)pid);
     release_privileges();
 
-    if (!hproc) 
+    if (!hproc)
         return GetLastError();
 
     if(!TerminateProcess(hproc,(UINT) -1))
@@ -1092,7 +1092,7 @@ kill_callback(process_info_t *pi, void **param)
         if (khs->res != ERROR_SUCCESS)
             return FALSE;
     }
-    
+
     return TRUE;
 }
 

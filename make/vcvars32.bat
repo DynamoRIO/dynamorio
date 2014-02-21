@@ -5,18 +5,18 @@ REM **********************************************************
 REM
 REM Redistribution and use in source and binary forms, with or without
 REM modification, are permitted provided that the following conditions are met:
-REM 
+REM
 REM * Redistributions of source code must retain the above copyright notice,
 REM   this list of conditions and the following disclaimer.
-REM 
+REM
 REM * Redistributions in binary form must reproduce the above copyright notice,
 REM   this list of conditions and the following disclaimer in the documentation
 REM   and/or other materials provided with the distribution.
-REM 
+REM
 REM * Neither the name of VMware, Inc. nor the names of its contributors may be
 REM   used to endorse or promote products derived from this software without
 REM   specific prior written permission.
-REM 
+REM
 REM THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 REM AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 REM IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE

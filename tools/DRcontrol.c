@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,11 +59,11 @@ typedef unsigned char byte;
 //helper from config.c, not defined in confg.h
 void dump_config_group(char *, char *, ConfigGroup *, BOOL);
 
-void 
-usage() 
+void
+usage()
 {
     fprintf(stderr,
-            "Usage:\nDRControl [-help] [-create path] [-destroy] [-exists] [-reset] \n" 
+            "Usage:\nDRControl [-help] [-create path] [-destroy] [-exists] [-reset] \n"
             "\t[-app name] [-add name] [-remove name] [-run N] [-options string] \n"
             "\t[-detach pid] [-detachexe name] [-detachall] [-drlib dll]\n"
             "\t[-preinject {ON|OFF|CLEAR|LIST|REPORT|LOAD_ON|LOAD_OFF|dll}]\n"
@@ -82,7 +82,7 @@ usage()
 }
 
 void
-help() 
+help()
 {
     fprintf(stderr, "Configuration Options:\n");
     fprintf(stderr, " -create path\t\tcreate a registry and log dir setup, using 'path' as\n\t\t\tDYNAMORIO_HOME (does not change an existing setup)\n");
@@ -154,7 +154,7 @@ checked_operation(char *label, DWORD res)
 }
 
 
-int 
+int
 main(int argc, char **argv)
 {
     int res=0,
@@ -172,7 +172,7 @@ main(int argc, char **argv)
         nudge=0,                /* generic nudge with argument */
         nudge_action_mask=0,    /* generic nudge action mask */
         delay_ms_all=           /* delay between acting on processes */
-                NUDGE_NO_DELAY,         
+                NUDGE_NO_DELAY,
         timeout_ms=             /* timeout for finishing a nudge on a single process */
                 DETACH_RECOMMENDED_TIMEOUT,
         runval=0,
@@ -188,9 +188,9 @@ main(int argc, char **argv)
     int verbose = 0;
 
     char *create=NULL,
-        *addapp=NULL, 
-        *appdump=NULL, 
-        *removeapp=NULL, 
+        *addapp=NULL,
+        *appdump=NULL,
+        *removeapp=NULL,
         *opstring=NULL,
         *drdll=NULL,
         *preinject=NULL,
@@ -209,13 +209,13 @@ main(int argc, char **argv)
         *canary_fault_ops=NULL;
 
     dr_platform_t dr_platform = DR_PLATFORM_DEFAULT;
-    
+
     int argidx=1;
 
     WCHAR wbuf[MAX_PATH];
     ConfigGroup *policy = NULL, *working_group;
 
-    if (argc < 2) 
+    if (argc < 2)
         usage();
 
     while (argidx < argc) {
@@ -299,7 +299,7 @@ main(int argc, char **argv)
                     printf("unknown -nudge %s\n", argv[argidx]);
                     usage();
                 }
-            }   
+            }
 
             nudge=1;
         }
@@ -452,7 +452,7 @@ main(int argc, char **argv)
         }
         argidx++;
     }
-  
+
     /* PR 244206: set the registry view before any registry access */
     set_dr_platform(dr_platform);
 
@@ -501,7 +501,7 @@ main(int argc, char **argv)
         }
         printf("Registry setup doesn't exist\n");
         return 1;
-    }    
+    }
 
     if (save) {
         _snwprintf(wbuf, MAX_PATH, L"%S", save);
@@ -538,11 +538,11 @@ main(int argc, char **argv)
             all = 1;
 
         if (all)
-            checked_operation("nudge all", 
+            checked_operation("nudge all",
                               generic_nudge_all(nudge_action_mask, nudge_client_arg,
                                                 timeout_ms, delay_ms_all));
         else
-            checked_operation("nudge", 
+            checked_operation("nudge",
                               generic_nudge(pid, TRUE,
                                             nudge_action_mask,
                                             0, /* client ID (ignored here) */
@@ -552,12 +552,12 @@ main(int argc, char **argv)
     }
 
     if (detachall) {
-        checked_operation("detach all", 
+        checked_operation("detach all",
                           detach_all(timeout_ms));
         goto finished;
     }
     if (detachpid) {
-        checked_operation("detach", 
+        checked_operation("detach",
                           detach(detachpid, TRUE, timeout_ms));
         goto finished;
     }
@@ -565,41 +565,41 @@ main(int argc, char **argv)
     if (detach_exename) {
         _snwprintf(wbuf, MAX_PATH, L"%S", detach_exename);
         NULL_TERMINATE_BUFFER(wbuf);
-        checked_operation("detach-exe", 
+        checked_operation("detach-exe",
                           detach_exe(wbuf, timeout_ms));
         goto finished;
     }
 
-    
+
     if (hotp_nudge_pid) {
-        checked_operation("hot patch update", 
+        checked_operation("hot patch update",
                           hotp_notify_defs_update(hotp_nudge_pid, TRUE,
                                                   timeout_ms));
         goto finished;
     }
 
     if (hotp_modes_nudge_pid) {
-        checked_operation("hot patch modes update", 
+        checked_operation("hot patch modes update",
                           hotp_notify_modes_update(hotp_modes_nudge_pid, TRUE,
                                                    timeout_ms));
         goto finished;
     }
 
     if (hotp_nudge_all) {
-        checked_operation("hot patch nudge all", 
+        checked_operation("hot patch nudge all",
                           hotp_notify_all_defs_update(timeout_ms));
         goto finished;
     }
 
     if (hotp_modes_nudge_all) {
-        checked_operation("hot patch modes nudge all", 
+        checked_operation("hot patch modes nudge all",
                           hotp_notify_all_modes_update(timeout_ms));
         goto finished;
     }
 
     checked_operation("read config",
                       read_config_group(&policy, L_PRODUCT_NAME, TRUE));
-    
+
     if (reset) {
         remove_children(policy);
         policy->should_clear = TRUE;
@@ -619,8 +619,8 @@ main(int argc, char **argv)
             checked_operation("set autoinject", set_autoinjection());
         }
         else if (0 == strcmp(preinject, "CLEAR")) {
-            checked_operation("clear autoinject", 
-                              set_autoinjection_ex(FALSE, 
+            checked_operation("clear autoinject",
+                              set_autoinjection_ex(FALSE,
                                                    APPINIT_USE_WHITELIST,
                                                    NULL,
                                                    L"",
@@ -632,10 +632,10 @@ main(int argc, char **argv)
         else if (0 == strcmp(preinject, "LIST")) {
             WCHAR list[MAX_PARAM_LEN];
             checked_operation("read appinit",
-                              get_config_parameter(INJECT_ALL_KEY_L, 
-                                                   TRUE, 
-                                                   INJECT_ALL_SUBKEY_L, 
-                                                   list, 
+                              get_config_parameter(INJECT_ALL_KEY_L,
+                                                   TRUE,
+                                                   INJECT_ALL_SUBKEY_L,
+                                                   list,
                                                    MAX_PARAM_LEN));
             printf("%S\n", list);
             if (is_vista()) {
@@ -646,10 +646,10 @@ main(int argc, char **argv)
         else if (0 == strcmp(preinject, "REPORT")) {
             WCHAR list[MAX_PARAM_LEN], *entry, *sep;
             checked_operation("read appinit",
-                              get_config_parameter(INJECT_ALL_KEY_L, 
-                                                   TRUE, 
-                                                   INJECT_ALL_SUBKEY_L, 
-                                                   list, 
+                              get_config_parameter(INJECT_ALL_KEY_L,
+                                                   TRUE,
+                                                   INJECT_ALL_SUBKEY_L,
+                                                   list,
                                                    MAX_PARAM_LEN));
             entry = get_entry_location(list, L_EXPAND_LEVEL(INJECT_DLL_8_3_NAME),
                                        APPINIT_SEPARATOR_CHAR);
@@ -673,7 +673,7 @@ main(int argc, char **argv)
         else {
             _snwprintf(wbuf, MAX_PATH, L"%S", preinject);
             NULL_TERMINATE_BUFFER(wbuf);
-            checked_operation("set custom autoinject", 
+            checked_operation("set custom autoinject",
                               set_autoinjection_ex(TRUE, APPINIT_OVERWRITE,
                                                    NULL, NULL, NULL, wbuf,
                                                    NULL, 0));
@@ -729,11 +729,11 @@ main(int argc, char **argv)
             add_config_group(policy, working_group);
         }
     }
-    
+
     if (run) {
         _snwprintf(wbuf, MAX_PATH, L"%d", runval);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_RUNUNDER, wbuf);
     }
 
@@ -743,39 +743,39 @@ main(int argc, char **argv)
         set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_OPTIONS, wbuf);
     }
-    
+
     if (drdll) {
         _snwprintf(wbuf, MAX_PATH, L"%S", drdll);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_AUTOINJECT, wbuf);
     }
 
     if (drhome) {
         _snwprintf(wbuf, MAX_PATH, L"%S", drhome);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_HOME, wbuf);
     }
 
     if (modes) {
         _snwprintf(wbuf, MAX_PATH, L"%S", modes);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_HOT_PATCH_MODES, wbuf);
     }
 
     if (defs) {
         _snwprintf(wbuf, MAX_PATH, L"%S", defs);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_HOT_PATCH_POLICIES, wbuf);
     }
 
     if (logdir) {
         _snwprintf(wbuf, MAX_PATH, L"%S", logdir);
         NULL_TERMINATE_BUFFER(wbuf);
-        set_config_group_parameter(working_group, 
+        set_config_group_parameter(working_group,
                                    L_DYNAMORIO_VAR_LOGDIR, wbuf);
     }
 

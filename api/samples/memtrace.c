@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -33,7 +33,7 @@
 
 /* Code Manipulation API Sample:
  * memtrace.c
- * 
+ *
  * Collects the instruction address, data address, and size of every
  * memory reference and dumps the results to a file.
  *
@@ -63,7 +63,7 @@
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
 
-/* Each mem_ref_t includes the type of reference (read or write), 
+/* Each mem_ref_t includes the type of reference (read or write),
  * the address referenced, and the size of the reference.
  */
 typedef struct _mem_ref_t {
@@ -74,10 +74,10 @@ typedef struct _mem_ref_t {
 } mem_ref_t;
 
 /* Control the format of memory trace: readable or hexl */
-#define READABLE_TRACE 
+#define READABLE_TRACE
 /* Max number of mem_ref a buffer can have */
 #define MAX_NUM_MEM_REFS 8192
-/* The size of memory buffer for holding mem_refs. When it fills up, 
+/* The size of memory buffer for holding mem_refs. When it fills up,
  * we dump data from the buffer to the file.
  */
 #define MEM_BUF_SIZE (sizeof(mem_ref_t) * MAX_NUM_MEM_REFS)
@@ -87,7 +87,7 @@ typedef struct {
     char   *buf_ptr;
     char   *buf_base;
     /* buf_end holds the negative value of real address of buffer end. */
-    ptr_int_t buf_end; 
+    ptr_int_t buf_end;
     void   *cache;
     file_t  log;
     uint64  num_refs;
@@ -117,13 +117,13 @@ static void clean_call(void);
 static void memtrace(void *drcontext);
 static void code_cache_init(void);
 static void code_cache_exit(void);
-static void instrument_mem(void        *drcontext, 
-                           instrlist_t *ilist, 
-                           instr_t     *where, 
-                           int          pos, 
+static void instrument_mem(void        *drcontext,
+                           instrlist_t *ilist,
+                           instr_t     *where,
+                           int          pos,
                            bool         write);
 
-DR_EXPORT void 
+DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* Specify priority relative to other instrumentation operations: */
@@ -194,7 +194,7 @@ event_exit()
 # define IF_WINDOWS(x) /* nothing */
 #endif
 
-static void 
+static void
 event_thread_init(void *drcontext)
 {
     char logname[MAXIMUM_PATH];
@@ -226,10 +226,10 @@ event_thread_init(void *drcontext)
                       "memtrace.%d.log", dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     NULL_TERMINATE(logname);
-    data->log = dr_open_file(logname, 
+    data->log = dr_open_file(logname,
                              DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     DR_ASSERT(data->log != INVALID_FILE);
-    dr_log(drcontext, LOG_ALL, 1, 
+    dr_log(drcontext, LOG_ALL, 1,
            "memtrace: log for thread "TIDFMT" is memtrace.%03d\n",
            dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 #ifdef SHOW_RESULTS
@@ -359,7 +359,7 @@ code_cache_init(void)
     byte         *end;
 
     drcontext  = dr_get_current_drcontext();
-    code_cache = dr_nonheap_alloc(PAGE_SIZE, 
+    code_cache = dr_nonheap_alloc(PAGE_SIZE,
                                   DR_MEMPROT_READ  |
                                   DR_MEMPROT_WRITE |
                                   DR_MEMPROT_EXEC);
@@ -392,7 +392,7 @@ code_cache_exit(void)
  * and jump to our own code cache to call the clean_call when the buffer is full.
  */
 static void
-instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where, 
+instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
                int pos, bool write)
 {
     instr_t *instr, *call, *restore, *first, *second;
@@ -401,12 +401,12 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     reg_id_t reg2 = DR_REG_XCX; /* reg2 must be ECX or RCX for jecxz */
     per_thread_t *data;
     app_pc pc;
-    
+
     data = drmgr_get_tls_field(drcontext, tls_index);
 
     /* Steal the register for memory reference address *
-     * We can optimize away the unnecessary register save and restore 
-     * by analyzing the code and finding the register is dead. 
+     * We can optimize away the unnecessary register save and restore
+     * by analyzing the code and finding the register is dead.
      */
     dr_save_reg(drcontext, ilist, where, reg1, SPILL_SLOT_2);
     dr_save_reg(drcontext, ilist, where, reg2, SPILL_SLOT_3);
@@ -418,14 +418,14 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* use drutil to get mem address */
     drutil_insert_get_mem_addr(drcontext, ilist, where, ref, reg1, reg2);
-    
+
     /* The following assembly performs the following instructions
      * buf_ptr->write = write;
      * buf_ptr->addr  = addr;
      * buf_ptr->size  = size;
      * buf_ptr->pc    = pc;
      * buf_ptr++;
-     * if (buf_ptr >= buf_end_ptr) 
+     * if (buf_ptr >= buf_end_ptr)
      *    clean_call();
      */
     drmgr_insert_read_tls_field(drcontext, tls_index, ilist, where, reg2);
@@ -469,8 +469,8 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);
-    opnd2 = opnd_create_base_disp(reg2, DR_REG_NULL, 0, 
-                                  sizeof(mem_ref_t), 
+    opnd2 = opnd_create_base_disp(reg2, DR_REG_NULL, 0,
+                                  sizeof(mem_ref_t),
                                   OPSZ_lea);
     instr = INSTR_CREATE_lea(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
@@ -484,7 +484,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
 
     /* we use lea + jecxz trick for better performance
      * lea and jecxz won't disturb the eflags, so we won't insert
-     * code to save and restore application's eflags. 
+     * code to save and restore application's eflags.
      */
     /* lea [reg2 - buf_end] => reg2 */
     opnd1 = opnd_create_reg(reg1);
@@ -495,7 +495,7 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd2 = opnd_create_base_disp(reg1, reg2, 1, 0, OPSZ_lea);
     instr = INSTR_CREATE_lea(drcontext, opnd1, opnd2);
     instrlist_meta_preinsert(ilist, where, instr);
-    
+
     /* jecxz call */
     call  = INSTR_CREATE_label(drcontext);
     opnd1 = opnd_create_instr(call);
@@ -509,8 +509,8 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     instrlist_meta_preinsert(ilist, where, instr);
 
     /* clean call */
-    /* We jump to lean procedure which performs full context switch and 
-     * clean call invocation. This is to reduce the code cache size. 
+    /* We jump to lean procedure which performs full context switch and
+     * clean call invocation. This is to reduce the code cache size.
      */
     instrlist_meta_preinsert(ilist, where, call);
     /* mov restore DR_REG_XCX */

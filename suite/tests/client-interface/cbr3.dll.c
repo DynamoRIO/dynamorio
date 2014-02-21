@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -206,7 +206,7 @@ void insert(hash_table_t table, app_pc addr, cbr_state_t state)
 }
 
 /*
- * End hash table implementation 
+ * End hash table implementation
  */
 
 static void at_taken(app_pc src, app_pc targ)
@@ -214,7 +214,7 @@ static void at_taken(app_pc src, app_pc targ)
     dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
     void *drcontext = dr_get_current_drcontext();
 
-    /* 
+    /*
      * Record the fact that we've seen the taken case.
      */
     elem_t *elem = lookup(table, src);
@@ -223,7 +223,7 @@ static void at_taken(app_pc src, app_pc targ)
 
     dr_fprintf(STDERR, "cbr taken\n");
 
-    /* 
+    /*
      * Remove the bb from the cache so it will be re-built the next
      * time it is executed.  Since the flush will remove the fragment
      * we're already in, redirect execution to the target.
@@ -240,7 +240,7 @@ static void at_not_taken(app_pc src, app_pc fall)
     dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
     void *drcontext = dr_get_current_drcontext();
 
-    /* 
+    /*
      * Record the fact that we've seen the fallthrough case.
      */
     elem_t *elem = lookup(table, src);
@@ -249,7 +249,7 @@ static void at_not_taken(app_pc src, app_pc fall)
 
     dr_fprintf(STDERR, "cbr not taken\n");
 
-    /* 
+    /*
      * Remove the bb from the cache so it will be re-built the next
      * time it is executed.  Since the flush will remove the fragment
      * we're already in, redirect execution to the target.
@@ -268,7 +268,7 @@ bool instrument = false;        /* insert instrumentation? */
 dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
-    
+
     app_pc bb_addr = dr_fragment_app_pc(tag);
     if (bb_addr == start_pc) {
         instrument = true;
@@ -298,12 +298,12 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
             cbr_state_t state;
             bool insert_taken, insert_not_taken;
-            
+
             /* First look up the state of this branch so we
              * know what instrumentation to insert, if any.
              */
             elem_t *elem = lookup(table, src);
-            
+
             if (elem == NULL) {
                 state = CBR_NONE;
                 insert(table, src, CBR_NONE);
@@ -311,15 +311,15 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
             else {
                 state = elem->state;
             }
-            
+
             insert_taken = (state & CBR_TAKEN) == 0;
             insert_not_taken = (state & CBR_NOT_TAKEN) == 0;
-            
+
             if (insert_taken || insert_not_taken) {
                 app_pc fall = (app_pc)decode_next_pc(drcontext, (byte *)src);
                 app_pc targ = instr_get_branch_target_pc(instr);
-                
-                /* 
+
+                /*
                  * Redirect the cbr to jump to the 'taken' callout.
                  * We'll insert a 'not-taken' callout at fallthrough
                  * address.
@@ -335,19 +335,19 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                     instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
                 }
                 instr_set_target(instr, opnd_create_instr(label));
-                
+
                 if (insert_not_taken) {
                     /*
                      * Callout for the not-taken case
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL, 
+                    dr_insert_clean_call(drcontext, bb, NULL,
                                          (void*)at_not_taken,
-                                         false /* don't save fp state */, 
+                                         false /* don't save fp state */,
                                          2 /* 2 args for at_not_taken */,
                                          OPND_CREATE_INTPTR((ptr_uint_t)src),
                                          OPND_CREATE_INTPTR((ptr_uint_t)fall));
                 }
-                
+
                 /*
                  * Jump to the original fall-through address.
                  * (This should not be a meta-instruction).
@@ -355,13 +355,13 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                 instrlist_preinsert
                     (bb, NULL, INSTR_XL8
                      (INSTR_CREATE_jmp(drcontext, opnd_create_pc(fall)), fall));
-                
+
                 /* label goes before the 'taken' callout */
                 MINSERT(bb, NULL, label);
-                
+
                 if (insert_taken) {
-                    /* 
-                     * Callout for the taken case 
+                    /*
+                     * Callout for the taken case
                      */
                     dr_insert_clean_call(drcontext, bb, NULL,
                                          (void*)at_taken,
@@ -370,8 +370,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
                                          OPND_CREATE_INTPTR((ptr_uint_t)src),
                                          OPND_CREATE_INTPTR((ptr_uint_t)targ));
                 }
-                
-                /* 
+
+                /*
                  * Jump to the original target block (this should
                  * not be a meta-instruction).
                  */
@@ -406,7 +406,7 @@ void dr_init(client_id_t id)
 
     start_pc = (app_pc)dr_get_proc_address(prog->handle, "start_instrument");
     stop_pc = (app_pc)dr_get_proc_address(prog->handle, "stop_instrument");
-    
+
     ASSERT(start_pc != NULL && stop_pc != NULL);
     dr_free_module_data(prog);
 

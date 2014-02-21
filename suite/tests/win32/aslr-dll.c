@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -86,21 +86,21 @@ do_check(const char* hook_dll, const char* hookfn)
 
     if (hooktarget == NULL) {
         print("error: couldn't find %s!%s\n", hook_dll, hookfn);
-    } else 
+    } else
         print("%s!%s ok\n", hook_dll, hookfn);
 
     if (target_mod != NULL)
         preferred = get_module_preferred_base(target_mod);
 #if VERBOSE
-    print("%s at "PFX", preferred "PFX"\n", hook_dll, target_mod, 
+    print("%s at "PFX", preferred "PFX"\n", hook_dll, target_mod,
           preferred);
     print("%s!%s "PFX"\n", hook_dll, hookfn, hooktarget);
 #endif
-    print("%s at %s base\n", hook_dll, 
+    print("%s at %s base\n", hook_dll,
           (preferred == target_mod) ? "preferred" : "randomized");
 
     num_checks++;
-    if (preferred == target_mod) 
+    if (preferred == target_mod)
         num_at_base++;
 
     print("all should be good\n");
@@ -110,7 +110,7 @@ int
 main()
 {
     INIT();
-    
+
     do_check("kernel32.dll", "GetProcessHeaps");
     do_check("kernel32.dll", "Sleep");
 
@@ -128,7 +128,7 @@ main()
     do_check("comdlg32.dll", "GetOpenFileNameW");
     do_check("gdi32.dll", "GdiPlayEMF");
     do_check("imagehlp.dll", "ImageRvaToVa");
-    // imagehlp!ImageDirectoryEntryToDataEx 
+    // imagehlp!ImageDirectoryEntryToDataEx
     do_check("kernel32.dll", "findexport");
     do_check("lz32.dll", "findexport");
     do_check("ole32.dll", "findexport");
@@ -180,7 +180,7 @@ main()
 
 
 
-/* KnownDlls 
+/* KnownDlls
 
 
 in Registry

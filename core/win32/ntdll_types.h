@@ -294,10 +294,10 @@ typedef struct _FILE_BASIC_INFORMATION {
     LARGE_INTEGER ChangeTime;
     ULONG FileAttributes;
 } FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;
-                                                            
+
 /* FileSystem types for nt_query_volume_info */
 /* should be available in ntifs.h from IFS.
- * This version is from reactos/0.2.9/include/ndk/iotypes.h 
+ * This version is from reactos/0.2.9/include/ndk/iotypes.h
  */
 typedef enum _FS_INFORMATION_CLASS {
     FileFsVolumeInformation=1,
@@ -416,7 +416,7 @@ typedef enum _EVENT_TYPE {
 } EVENT_TYPE, *PEVENT_TYPE;
 
 /* we don't actually use this but for cleanliness sake, is from ntddk.h */
-typedef 
+typedef
 VOID
 (NTAPI *PIO_APC_ROUTINE) (
                           IN PVOID ApcContext,

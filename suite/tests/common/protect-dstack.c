@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -75,7 +75,7 @@ void evil_copy(void *start, int count, ptr_int_t value);
 # else
 # define GET_DCONTEXT(var)                                                \
     asm("movl %%fs:"STRINGIFY(DCONTEXT_TLS_OFFSET)", %%eax" : : : "eax"); \
-    asm("movl %%eax, %0" : "=m"((var))); 
+    asm("movl %%eax, %0" : "=m"((var)));
 # endif
 #else
 unsigned int dcontext_tls_offset;
@@ -84,7 +84,7 @@ unsigned int dcontext_tls_offset;
 # define GET_DCONTEXT(var)                   \
     var = (void *) IF_X64_ELSE(__readgsqword,__readfsdword)(dcontext_tls_offset);
 
-/*     0:001> dt getdc owning_thread    
+/*     0:001> dt getdc owning_thread
  *        +0x05c owning_thread
  */
 # define OWNING_THREAD_OFFSET_IN_DCONTEXT IF_X64_ELSE(0x218,0x19c)
@@ -123,7 +123,7 @@ our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 # if VERBOSE
         /* DR gets the target addr wrong for far call/jmp so we don't print it */
         print("\tPC "PFX" tried to %s address "PFX"\n",
-            pExceptionInfo->ExceptionRecord->ExceptionAddress, 
+            pExceptionInfo->ExceptionRecord->ExceptionAddress,
             (pExceptionInfo->ExceptionRecord->ExceptionInformation[0]==0)?"read":"write",
             pExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
 # endif
@@ -149,7 +149,7 @@ evil()
      * set some funny flags -- clear them all here
      */
     clear_eflags();
-    /* don't trusk stack -- hopefully enough there to call SIGLONGJMP 
+    /* don't trusk stack -- hopefully enough there to call SIGLONGJMP
      * certainly can't return from this function since not called
      */
     SIGLONGJMP(mark, 2);
@@ -165,7 +165,7 @@ main()
     int tls_offs;
     ptr_int_t owning_thread;
     INIT();
-    
+
 #ifdef USE_DYNAMO
     dynamorio_app_init();
     dynamorio_app_start();
@@ -180,7 +180,7 @@ main()
 #ifdef WINDOWS
     /* brute force loop over all TLS entries,
      * and see whether owning_thread is GetCurrentThreadId()
-     *     0:001> dt getdc owning_thread    
+     *     0:001> dt getdc owning_thread
      *        +0x05c owning_thread : 0xed8
      *
      *      0:001> dt _TEB TLS64
@@ -188,7 +188,7 @@ main()
      */
     for (tls_offs = 63; tls_offs >=0; tls_offs--) {
         enum {offsetof_TLS64_in_TEB = IF_X64_ELSE(0x1480, 0xe10)};
-        dcontext_tls_offset = offsetof_TLS64_in_TEB + 
+        dcontext_tls_offset = offsetof_TLS64_in_TEB +
             tls_offs*sizeof(void*);
         GET_DCONTEXT(dcontext);
 #if VERBOSE
@@ -196,7 +196,7 @@ main()
 #endif
         where = SIGSETJMP(mark);
         if (where == 0) {
-            owning_thread = *(ptr_int_t *)(((char *)dcontext) + 
+            owning_thread = *(ptr_int_t *)(((char *)dcontext) +
                                            OWNING_THREAD_OFFSET_IN_DCONTEXT);
             /* we didn't crash reading, is it really thread ID? */
 #if VERBOSE

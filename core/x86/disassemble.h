@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -48,7 +48,7 @@
  * "<RAW>  <raw 0x00007f85922c0877-0x00007f85922c0882 == 48 63 f8 48 89 d6 b8 05 00 ...>"
  */
 #define MAX_INSTR_DIS_SZ  96
-/* Here's a pretty long one, 
+/* Here's a pretty long one,
  * "  0x00007f859277d63a  48 83 05 4e 63 21 00 add    $0x0000000000000001 <rel> 0x00007f8592993990 -> <rel> 0x00007f8592993990 \n                     01 "
  */
 #define MAX_PC_DIS_SZ    192
@@ -97,7 +97,7 @@ void
 disassemble_set_syntax(dr_disasm_flags_t flags);
 
 DR_API
-/** 
+/**
  * Decodes and then prints the instruction at address \p pc to file \p outfile.
  * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
  * "-syntax_intel" runtime option is specified.
@@ -176,7 +176,7 @@ disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc,
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 DR_API
 /**
- * Prints the instruction \p instr to file \p outfile. 
+ * Prints the instruction \p instr to file \p outfile.
  * Does not print address-size or data-size prefixes for other than
  * just-decoded instrs, and does not check that the instruction has a
  * valid encoding.  Prints each operand with leading zeros indicating
@@ -184,7 +184,7 @@ DR_API
  * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
  * "-syntax_intel" runtime option is specified.
  */
-void 
+void
 instr_disassemble(dcontext_t *dcontext, instr_t *instr, file_t outfile);
 
 DR_API
@@ -212,7 +212,7 @@ DR_API
  * The default is to use AT&T-style syntax, unless the \ref op_syntax_intel
  * "-syntax_intel" runtime option is specified.
  */
-void 
+void
 opnd_disassemble(dcontext_t *dcontext, opnd_t opnd, file_t outfile);
 
 DR_API

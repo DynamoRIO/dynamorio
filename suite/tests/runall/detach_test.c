@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -222,7 +222,7 @@ window_func(void * arg)
     char *winName = "foobar";
     WNDCLASS wndclass = {0, wnd_callback, 0, 0, NULL/* WinMain hwnd would be here */,
                          NULL, NULL, NULL, NULL, winName};
-    
+
     if (!RegisterClass(&wndclass)) {
         print("Unable to create window class\n");
         return 0;
@@ -261,7 +261,7 @@ main()
 
     print("creating window\n");
     ht_window = CreateThread(NULL, 0, window_func, NULL, 0, &tid);
-    if (ht_window == NULL) { 
+    if (ht_window == NULL) {
         print("Error creating window thread\n");
         return -1;
     }
@@ -271,7 +271,7 @@ main()
     print("detach_callback start\n");
 
     ht_selfsuspend = CreateThread(NULL, 0, &ThreadProcSelfSuspend, NULL, 0, &tid);
-    if (ht_selfsuspend == NULL) { 
+    if (ht_selfsuspend == NULL) {
         print("Error creating self-suspend thread\n");
         return -1;
     }
@@ -292,7 +292,7 @@ main()
 
     action_exit = TRUE;
     ht_exit = CreateThread(NULL, 0, &ThreadProcDoTest, (void *)2, 0, &tid);
-    if (ht_exit == NULL) { 
+    if (ht_exit == NULL) {
         print("Error creating exit thread\n");
         return -1;
     }

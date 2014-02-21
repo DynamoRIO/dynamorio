@@ -7,18 +7,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -117,7 +117,7 @@ while ($#ARGV >= 0) {
 # "v5.8.8 built for MSWin32-x86-multi-thread" maintains modtime, and
 # even doing utime() after the copy() wasn't updating.
 # With the old time we have a rebuild of header files on every make.
-# So just doing my own copy rather than waste any more time on 
+# So just doing my own copy rather than waste any more time on
 # perl variant issues.  This gives us consistent line endings with
 # the generated files, as well.
 sub copy_file
@@ -168,13 +168,13 @@ if ($header) {
     }
 }
 
-# I used to just do 
+# I used to just do
 #   open(FIND, "find . -name \\*.h |")
 # but there are dependencies between header files, and certain orders
 # look nicer than others, so we have an explicit list here:
 # Also, we now send output to multiple files, and their names are indicated
 # by comments in the header files.
-@headers = 
+@headers =
     (
      "$core/instrlist.h",
      "$core/lib/globals_shared.h", # defs
@@ -206,18 +206,18 @@ $copyright = q+/* **********************************************************
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -312,7 +312,7 @@ if ($header) {
             $app =~ s/DR_APP_API [a-z]+ ([A-Za-z_]+)\(void\);/\1;/g;
             print OUT $app;
         }
-        # dynamorio_app_init and dynamorio_app_take_over are used 
+        # dynamorio_app_init and dynamorio_app_take_over are used
         # by the linux injector
         print OUT "dynamorio_app_init;\n";
         print OUT "dynamorio_app_take_over;\n";
@@ -393,7 +393,7 @@ sub process_header_line($)
             print OUT "$l\n";
         }
         next;
-    } 
+    }
 
     # to handle defines (yes a hack...need a better solution):
     # only a define on immediately prior line to DR_API or to

@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -121,7 +121,7 @@ set(vmap_run_list
   "DEBUG::-checklevel 4"
 
   # pcache tests: per-user so each app will merge w/ previous, plus merge
-  # w/ at-unload persists from earlier -desktop run 
+  # w/ at-unload persists from earlier -desktop run
   "WIN::ONLY::^runall::-desktop -coarse_freeze_at_exit"
   # run again so each must use the merged pcaches
   # FIXME: order is alpha: need unique name sorted next
@@ -273,7 +273,7 @@ if (UNIX)
   # we should probably move the -O from top level into core/CMakeLists.txt
   string(REGEX REPLACE "-O[0-9]? " " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   # i#720: cmake fails to find 32-bit libraries in Ubuntu 11.10.
-  # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle 
+  # This is because cmake uses CMAKE_LIBRARY_ARCHITECTURE to handle
   # multi-arch compilation, whose value is x86_64-linux-gnu or i386-linux-gnu
   # for 64/32-bit. However, in Ubuntu 11.10, some of the 32-bit libraries
   # like libm.so, libdl.so, and libpthread.so are in /usr/lib32 or /lib32
@@ -678,7 +678,7 @@ function(tobuild_appdll test source)
     string(REGEX REPLACE "\\.(c|cpp)$" ".appdll.\\1" dll_source "${source}")
     set(lib_srcs ${dll_source})
     set_cflags(${dll_source}) # sets srccode var
-    
+
     if ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
       # we rely on the asm rule doing preprocessing for us, so we just make
       # a copy and set the ASM_CODE_ONLY define
@@ -689,7 +689,7 @@ function(tobuild_appdll test source)
         "_asm" "${asm_defs}" "${asm_deps}")
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-    
+
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
     # so far these are all dynamically loaded so we don't bother
@@ -869,7 +869,7 @@ function(template2expect outexpect template runops)
   string(REGEX REPLACE
     "(-D[^ ]+) +([^-][^ ]*)"
     "\\1___\\2" rundefs "${rundefs}")
-  
+
   if ("${CMAKE_SYSTEM_VERSION}" STRLESS "5.0")
     set(rundefs "${rundefs} -DRUNREGRESSION_NT")
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "5.1")
@@ -912,7 +912,7 @@ function(template2expect outexpect template runops)
   # on linux
   string(REGEX REPLACE "(\r?\n)//[^\n]*" "" cpp_out "${cpp_out}")
   string(REGEX REPLACE "^//[^\n]*" "" cpp_out "${cpp_out}")
-  
+
   # remove blank lines left by cpp directives
   string(REGEX REPLACE
     "(\r?\n)+"
@@ -1117,7 +1117,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     if (UNIX)
       # swap from drrun to run_in_bg to run the test in the background
       set(tmpfile "${CMAKE_CURRENT_BINARY_DIR}/${test}-out")
-      string(REGEX REPLACE "^.*(${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)" 
+      string(REGEX REPLACE "^.*(${MAIN_RUNTIME_OUTPUT_DIRECTORY}/drrun)"
         "${MAIN_RUNTIME_OUTPUT_DIRECTORY}/run_in_bg;-out;${tmpfile};\\1"
         rundr "${rundr}")
       # Remove timeout args to drrun to ensure that it doesn't fork the app.
@@ -1234,7 +1234,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # turn regex chars into literals
     # \\] somehow messes up the match though $expect looks identical
     # some tests do have ']' so we replace it in a separate step below
-    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])" 
+    string(REGEX REPLACE "([\\^\\$\\.\\*\\+\\?\\|\\(\\)\\[])"
       "\\\\\\1" expect "${expect}")
     string(REGEX REPLACE "\\]"
       "\\\\]" expect "${expect}")
@@ -1243,7 +1243,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   if (WIN32)
     # libc print => CRLF, dr_printf => plain newline: match both
     string(REGEX REPLACE "\n" "\r?\n" expect "${expect}")
-  endif (WIN32)    
+  endif (WIN32)
 
   if (is_runcmp)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect" "${expect}")
@@ -1656,7 +1656,7 @@ if (UNIX)
       add_exe(linux.execve32 linux/execve.c)
     endif (X64)
   endif (TEST_SUITE OR TEST_32BIT_PATH)
-    
+
   # helper app for execve-null
   add_exe(linux.execve-sub linux/execve-sub.c)
   tobuild_ops(linux.execve-null linux/execve-null.c ""
@@ -1845,7 +1845,7 @@ else (UNIX)
   if (NOT X64)
     # FIXME i#16: these tests need to be fixed to compile for x64
 
-    # fpe compiles, but pops up an unhandled exception box 
+    # fpe compiles, but pops up an unhandled exception box
     tobuild(win32.fpe win32/fpe.c)
 
     tobuild(win32.except win32/except.c)
@@ -1920,7 +1920,7 @@ else (UNIX)
   #tobuild_runall(runall.calc-reset runall/calc-reset.runall "")
   #tobuild_runall(runall.calc runall/calc.runall "")
   #tobuild_runall(runall.detach_test runall/detach_test.runall "")
-  ## case 9423 covers re-enabling 
+  ## case 9423 covers re-enabling
   ##tobuild_runall(runall.earlythread runall/earlythread.runall "")
   #tobuild_runall(runall.initapc runall/initapc.runall "")
   #tobuild_runall(runall.notepad runall/notepad.runall "")
@@ -1962,7 +1962,7 @@ else (UNIX)
       add_exe(win32.mixedmode win32/mixedmode.c)
     endif (X64)
   endif (TEST_SUITE OR TEST_32BIT_PATH OR NOT X64)
-   
+
 endif (UNIX)
 
 tobuild(security-common.codemod security-common/codemod.c)
@@ -2009,7 +2009,7 @@ if (X64)
   torunonly(float_vmbase security-common.selfmod security-common/selfmod.c
     "-vm_base 0x30000000000 -no_vm_base_near_app" "")
   if (CLIENT_INTERFACE)
-    torunonly_ci(client.float_vmbase security-common.selfmod 
+    torunonly_ci(client.float_vmbase security-common.selfmod
       client.dr_options.dll security-common/selfmod.c
       # I picked dr_options b/c it has no output, but it requires
       # -thread_private:

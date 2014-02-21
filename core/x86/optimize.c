@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,7 +57,7 @@
 #include <string.h> /* for memset */
 
 /* IMPORTANT INSTRUCTIONS FOR WRITING OPTIMIZATIONS:
- * 
+ *
  * 1) can assume that all instructions are fully decoded -- that is,
  *    instr_operands_valid(instr) will return true
  * 2) optimizations MUST BE DETERMINISTIC!  they are re-executed to
@@ -105,9 +105,9 @@ static reg_id_t find_dead_register_across_instrs(instr_t *start,instr_t *end);
 static bool is_nop(instr_t *inst);
 void remove_inst(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst);
 
-/* for using a 24 entry bool array to represent some property about 
+/* for using a 24 entry bool array to represent some property about
  * about normal registers and sub register (eax -> dl) */
-/* propagates the value into all sub registers, doesn't propagate up 
+/* propagates the value into all sub registers, doesn't propagate up
  * into enclosing registers, index value is checked for bounds */
 static void propagate_down(bool *reg_rep, int index, bool value);
 /* checks the 24 entry array and returns true if it and all sub
@@ -128,7 +128,7 @@ void logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *
 /****************************************************************************/
 /* master routine */
 
-void 
+void
 optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     /* we have un-truncation-check 32-bit casts for opnd_get_immed_int(), for
@@ -206,7 +206,7 @@ optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (dynamo_options.instr_counts) {
         instr_counts(dcontext, tag, trace, false);
     }
-    
+
 #ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "\nafter optimization:\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
@@ -273,12 +273,12 @@ print_optimization_stats()
 {
     if (dynamo_options.rlr) {
         uint top, bottom;
-        LOG(GLOBAL, LOG_OPTS, 1, 
+        LOG(GLOBAL, LOG_OPTS, 1,
             "%u loads examined for rlr\n", opt_stats_t.loads_examined);
         divide_uint64_print(opt_stats_t.loads_removed_from_stores +
-                            opt_stats_t.loads_removed_from_loads, 
+                            opt_stats_t.loads_removed_from_loads,
                             opt_stats_t.loads_examined,
-                            true, 2, &top, &bottom); 
+                            true, 2, &top, &bottom);
         LOG(GLOBAL, LOG_OPTS,1,"%u.%.2u%% of examined loads removed\n",
             top, bottom);
         divide_uint64_print(opt_stats_t.ctis_in_load_removal,
@@ -288,7 +288,7 @@ print_optimization_stats()
         LOG(GLOBAL, LOG_OPTS, 1,"%u loads removed from loads\n"
             "%u loads removed from stores\n"
             "%u ctis traversed.  %u.%.4u ctis / load\n",
-            opt_stats_t.loads_removed_from_loads, 
+            opt_stats_t.loads_removed_from_loads,
             opt_stats_t.loads_removed_from_stores,
             opt_stats_t.ctis_in_load_removal, top, bottom);
         LOG(GLOBAL, LOG_OPTS, 1,"%d rlr's had problems because a reg. was overwritten\n",
@@ -329,7 +329,7 @@ print_optimization_stats()
         LOG(GLOBAL, LOG_OPTS, 1, "Stack Adjustment Combiner - stats\n");
         LOG(GLOBAL, LOG_OPTS, 1, "   %d stack adjustments removed\n", opt_stats_t.num_stack_adjust_removed);
     }
-    
+
     if (dynamo_options.remove_dead_code) {
         LOG(GLOBAL, LOG_OPTS, 1, "Dead Code Elimination - stats\n");
         LOG(GLOBAL, LOG_OPTS, 1, "   %d dead instructions removed\n", opt_stats_t.dead_loads_removed);
@@ -372,7 +372,7 @@ generate_antialias_check(dcontext_t *dcontext, instrlist_t *pre_loop,
         return true; /* guaranteed non-alias */
     /* FIXME: get pre-loop values of registers */
     /* FIXME: get unroll factor -- pass to opnd_defines_use too */
-    /* assumption: ebx and ecx are saved at start of pre_loop, restored at end 
+    /* assumption: ebx and ecx are saved at start of pre_loop, restored at end
      * FIXME: op1/op2 may use ebx/ecx!
      */
     lea1 = op1;
@@ -633,7 +633,7 @@ identify_for_loop(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         instrlist_disassemble(dcontext, tag, &pre_loop, THREAD);
 #endif
 
-    /* now look for "load, arithop, store" pattern 
+    /* now look for "load, arithop, store" pattern
      * THIS IS A HACK -- just want to identify loop in mmx.c
      */
     inst = instrlist_first(trace);
@@ -729,7 +729,7 @@ now do not have a pre-loop and do unaligned simd
                         instr_create_save_to_dcontext(dcontext, REG_EAX, XAX_OFFSET));
     instrlist_preinsert(trace, inst,
                         instr_create_save_to_dcontext(dcontext, REG_EDX, XDX_OFFSET));
-    /* FIXME: get termination index var & lower/upper bound 
+    /* FIXME: get termination index var & lower/upper bound
      * hardcoding to mmx.c loop for now
      */
     instrlist_preinsert(trace, inst,
@@ -847,7 +847,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     if (opnd_get_pc(instr_get_target(branch)) != tag)
         return;
 
-    /* eflags: for simplicity require that eflags be written before read 
+    /* eflags: for simplicity require that eflags be written before read
      * only need to look at arith flags
      */
 #ifdef DEBUG
@@ -992,7 +992,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             return;
         }
     }
-    /* FIXME: detect loop invariants, and allow them as constants 
+    /* FIXME: detect loop invariants, and allow them as constants
      * requires adding extra instructions to compute bounds
      */
     if (!opnd_is_immed_int(instr_get_src(cmp, 1))) {
@@ -1034,7 +1034,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instr_invert_cbr(temp);
     instr_set_target(temp, opnd_create_instr(recovery_cmp));
     instrlist_prepend(trace, temp);
-    
+
     /* now stick cmp in front of it */
     cmp_vs = (int) opnd_get_immed_int(instr_get_src(cmp, 1));
     if (counting_up)
@@ -1051,7 +1051,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     /* now change end-of-unrolled-loop jcc to be a jmp to top cmp */
     instr_set_opcode(branch, OP_jmp);
     instr_set_target(branch, opnd_create_instr(instrlist_first(trace)));
-    
+
     /* remove end-of-unrolled-loop cmp */
     instrlist_remove(trace, cmp);
     instr_destroy(dcontext, cmp);
@@ -1078,9 +1078,9 @@ static int test1;
 static int test2;
 static int test3;
 
-static void 
+static void
 test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
-{       
+{
     uint * i64_code;
     uint * i64_code_start;
     int check = 0;
@@ -1106,11 +1106,11 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         ASSERT(check <= 4);
         i64_code_start = i64_code;
         /* emit itanium instruction */
-        /* instruction byte order is */ 
+        /* instruction byte order is */
         /* little endian, IA-32 is also little endian so set there */
         /* use reg 1 since jmpe will leave a return address there */
         /* branch nop is easy, is just 001000000.. for 41 bits */
-        
+
         /* first instruction bundle */
         /* just move */
         /*
@@ -1142,7 +1142,7 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         *i64_code = 0x20000200;
         i64_code++;
         *i64_code = 0x00800010;
-        
+
 
         /* add testing prefix to trace */
         inst = instrlist_first(trace);
@@ -1164,7 +1164,7 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_ECX), OPND_CREATE_INT32(1)));
         instrlist_preinsert(trace, inst,
                             INSTR_CREATE_mov_st(dcontext, opnd_create_base_disp(REG_NULL, REG_NULL, 1, (int)&test1, OPSZ_4_short2), opnd_create_reg(REG_ECX)));
-        
+
         /* test jmpe */
         instrlist_preinsert(trace, inst,
                             INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EBX), OPND_CREATE_INT32((int)i64_code_start)));
@@ -1181,7 +1181,7 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
         /* cleanup */
 #ifdef DEBUG
-        instrlist_preinsert(trace, inst, 
+        instrlist_preinsert(trace, inst,
                             INSTR_CREATE_sahf(dcontext));
         instrlist_preinsert(trace, inst,
                             instr_create_restore_from_dcontext(dcontext, REG_EAX, XAX_OFFSET));
@@ -1216,7 +1216,7 @@ test_i64(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 /* maby extend it later to gather more statistics, size distribution          */
 /* op distribution, etc. if ever desired */
 
-static void 
+static void
 instr_counts(dcontext_t *dcontext, app_pc tag, instrlist_t *trace, bool pre)
 {
 #ifdef DEBUG
@@ -1280,10 +1280,10 @@ typedef struct _prop_state_t {
     byte stack_address_state[NUM_STACK_SLOTS];
     /* add esp offsets in the future ? */
     bool lost_scope_count;
-} prop_state_t; 
+} prop_state_t;
 
 
-static void 
+static void
 set_stack_val(prop_state_t *state, int disp, int val, byte flags)
 {
 #ifdef DEBUG
@@ -1309,11 +1309,11 @@ set_stack_val(prop_state_t *state, int disp, int val, byte flags)
         state->stack_scope[i] = state->cur_scope;
         state->stack_address_state[i] = flags;
     }
-    
-    LOG(THREAD, LOG_OPTS, 3, " stack cache add: "PFX"  val "PFX"  scope depth %d flags 0x%02x\n", disp, val, state->cur_scope, flags);
-} 
 
-static void 
+    LOG(THREAD, LOG_OPTS, 3, " stack cache add: "PFX"  val "PFX"  scope depth %d flags 0x%02x\n", disp, val, state->cur_scope, flags);
+}
+
+static void
 update_stack_val(prop_state_t *state, int disp, int val)
 {
 #ifdef DEBUG
@@ -1337,7 +1337,7 @@ update_stack_val(prop_state_t *state, int disp, int val)
 }
 
 #if 0 /* not used */
-static bool 
+static bool
 check_stack_val(prop_state_t *state, int disp, int val, bool valid)
 {
     int i;
@@ -1356,7 +1356,7 @@ check_stack_val(prop_state_t *state, int disp, int val, bool valid)
 }
 #endif
 
-static void 
+static void
 clear_stack_val(prop_state_t *state, int address)
 {
 #ifdef DEBUG
@@ -1375,7 +1375,7 @@ clear_stack_val(prop_state_t *state, int address)
 }
 
 /* adds an address value pair to the constant address cache */
-static void 
+static void
 set_address_val(prop_state_t *state, int address, int val, byte flags)
 {
 #ifdef DEBUG
@@ -1400,11 +1400,11 @@ set_address_val(prop_state_t *state, int address, int val, byte flags)
         state->address_state[i] = flags;
     }
     LOG(THREAD, LOG_OPTS, 3, " load const cache add: "PFX"  val "PFX"  flags 0x%02x\n", address, val, flags);
-} 
+}
 
 /* updates and address value pair in the constant address cache if the address is
  * already there, else adds it */
-static void 
+static void
 update_address_val(prop_state_t *state, int address, int val)
 {
 #ifdef DEBUG
@@ -1427,7 +1427,7 @@ update_address_val(prop_state_t *state, int address, int val)
 }
 
 /* removes the address from the constant address cache */
-static void 
+static void
 clear_address_val(prop_state_t *state, int address)
 {
 #ifdef DEBUG
@@ -1443,17 +1443,17 @@ clear_address_val(prop_state_t *state, int address)
 }
 
 /* gets the value of a const address to an immutable region in memory
- * assumes that const_add_const_mem has already been called on this 
+ * assumes that const_add_const_mem has already been called on this
  * and returned true
  */
 
-static int 
+static int
 get_immutable_value(opnd_t address, prop_state_t *state, int size)
 {
     int result;
-    
+
     switch(size) {
-    case OPSZ_1: 
+    case OPSZ_1:
         {
             char *ptr_byte = ((char*)(ptr_int_t)opnd_get_disp(address));
             IF_X64(ASSERT_NOT_IMPLEMENTED(false));
@@ -1461,7 +1461,7 @@ get_immutable_value(opnd_t address, prop_state_t *state, int size)
             break;
         }
     case OPSZ_2:
-        { 
+        {
             short *ptr_byte = ((short*)(ptr_int_t)opnd_get_disp(address));
             IF_X64(ASSERT_NOT_IMPLEMENTED(false));
             result = *ptr_byte;
@@ -1479,7 +1479,7 @@ get_immutable_value(opnd_t address, prop_state_t *state, int size)
             /* can't handle size, log is usually quadwords for floats */
 #ifdef DEBUG
             dcontext_t *dcontext = state->dcontext;
-            logopnd(state->dcontext, 3, address, "Couldn't handle size in get_immutable_value"); 
+            logopnd(state->dcontext, 3, address, "Couldn't handle size in get_immutable_value");
             LOG(THREAD, LOG_OPTS, 3, "Address size was %d\n", size);
 #endif
             /* should never get here, since const_address_const_mem should fail */
@@ -1492,19 +1492,19 @@ get_immutable_value(opnd_t address, prop_state_t *state, int size)
 }
 
 
-/* returns true if the opnd is a stack  address (ebp) 
+/* returns true if the opnd is a stack  address (ebp)
  * i.e. is memory access with ebp as reg base and null as index reg */
-static bool 
+static bool
 opnd_is_stack_address(opnd_t address)
 {
-    return (opnd_is_near_base_disp(address) && 
-            (opnd_get_base(address) == REG_EBP) && 
+    return (opnd_is_near_base_disp(address) &&
+            (opnd_get_base(address) == REG_EBP) &&
             (opnd_get_index(address) == REG_NULL));
 }
 
 /* true if addresses (which must be a constant address) is an
  * immutable region of memory */
-static bool 
+static bool
 const_address_const_mem(opnd_t address, prop_state_t *state, bool prefix_data)
 {
     bool success = false;
@@ -1520,7 +1520,7 @@ const_address_const_mem(opnd_t address, prop_state_t *state, bool prefix_data)
         /* can't handle size, is usually quadwords for floats */
 #ifdef DEBUG
         dcontext_t *dcontext = state->dcontext;
-        logopnd(state->dcontext, 3, address, "Couldn't handle size in const_address_const_mem"); 
+        logopnd(state->dcontext, 3, address, "Couldn't handle size in const_address_const_mem");
         LOG(THREAD, LOG_OPTS, 3, "Address size was %d\n", size);
 #endif
         return false;
@@ -1539,14 +1539,14 @@ const_address_const_mem(opnd_t address, prop_state_t *state, bool prefix_data)
 /* takes an opnd and returns a simplified version, simplifies address and
  * regs based on the information in propState
  */
-static opnd_t 
+static opnd_t
 propagate_address(opnd_t old, prop_state_t *state)
 {
     reg_id_t base_reg, index_reg, seg;
     int disp, scale;
     opnd_size_t size;
     bool modified;
-    
+
     if (!opnd_is_memory_reference(old))
         return old;
     IF_X64(ASSERT_NOT_IMPLEMENTED(false)); /* rel and abs mem refs NYI */
@@ -1563,7 +1563,7 @@ propagate_address(opnd_t old, prop_state_t *state)
         seg = opnd_get_segment(old);
     }
 
-    if (index_reg < 8 /* rules out underflow */ && 
+    if (index_reg < 8 /* rules out underflow */ &&
         ((state->reg_state[index_reg] & PS_VALID_VAL) != 0)) {
 
         disp += (state->reg_vals[index_reg] * scale);
@@ -1572,8 +1572,8 @@ propagate_address(opnd_t old, prop_state_t *state)
     } else {
         index_reg += REG_START_32;
     }
- 
-    if (base_reg < 8 /* rules out underflow */ && 
+
+    if (base_reg < 8 /* rules out underflow */ &&
         ((state->reg_state[base_reg] & PS_VALID_VAL) != 0)) {
 
         disp += state->reg_vals[base_reg];
@@ -1588,7 +1588,7 @@ propagate_address(opnd_t old, prop_state_t *state)
     } else {
         base_reg += REG_START_32;
     }
-    
+
     if (!modified)
         return old;
 
@@ -1596,14 +1596,14 @@ propagate_address(opnd_t old, prop_state_t *state)
         /* return base disp */
         return opnd_create_base_disp(base_reg, index_reg, scale, disp, size);
     }
-    
+
     /* return far base disp */
     return opnd_create_far_base_disp(seg, base_reg, index_reg, scale, disp, size);
 }
 
 /* attempts to simplify the opnd with propagated information */
 
-static opnd_t 
+static opnd_t
 propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
 {
 
@@ -1632,7 +1632,7 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
                 immed = state->reg_vals[reg] & 0x0000ffff;
                 /* sign extend if negative */
                 if ((immed & 0x00008000) != 0)
-                    immed |= 0xffff0000; 
+                    immed |= 0xffff0000;
                 return opnd_create_immed_int(immed, OPSZ_2);
             } else
                 return old;
@@ -1684,7 +1684,7 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
         // check stack value
         disp = opnd_get_disp(old);
         for (i = 0; i < NUM_STACK_SLOTS; i++) {
-            if (state->stack_offsets_ebp[i] == disp && 
+            if (state->stack_offsets_ebp[i] == disp &&
                 state->cur_scope == state->stack_scope[i] &&
                 (state->stack_address_state[i] & PS_VALID_VAL) != 0) {
                 LOG(THREAD, LOG_OPTS, 3, "  at stack depth %d ", state->cur_scope);
@@ -1694,7 +1694,7 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
             }
         }
     }
-    
+
     if (opnd_is_constant_address(old) && cp_global_aggr > 0) {
         if (const_address_const_mem(old, state, prefix_data)) {
 #ifdef DEBUG
@@ -1702,7 +1702,7 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
             opt_stats_t.num_const_add_const_mem++;
 #endif
             immed = get_immutable_value(old, state, size);
-            return opnd_create_immed_int(immed, size);      
+            return opnd_create_immed_int(immed, size);
         } else {
             // check for constant address
             disp = opnd_get_disp(old);
@@ -1718,9 +1718,9 @@ propagate_opnd(opnd_t old, prop_state_t *state, bool prefix_data)
     return old;
 }
 
-/* checks an eflags and eflags_valid to see if a particular flag flag is valid 
+/* checks an eflags and eflags_valid to see if a particular flag flag is valid
  * and has appropriate value */
-static bool 
+static bool
 check_flag_val(uint flag, int val, uint eflags, uint eflags_valid)
 {
     if ((eflags_valid & flag) != 0) {
@@ -1734,12 +1734,12 @@ check_flag_val(uint flag, int val, uint eflags, uint eflags_valid)
 
 /* checks and eflags and an eflags_valid and checks to see that the two given flags
  * are both valid and set either same (if same is true) or different (if same is false) */
-static bool 
+static bool
 compare_flag_vals(uint flag1, uint flag2, bool same, uint eflags, uint eflags_valid)
 {
     if (((eflags_valid & flag1) != 0) &&
         ((eflags_valid & flag2) != 0)) {
-        if ((same && (((flag1 & eflags) != 0) == 
+        if ((same && (((flag1 & eflags) != 0) ==
                       ((flag2 & eflags) != 0))) ||
             ((!same) && (((flag1 & eflags) != 0) !=
                          ((flag2 & eflags) != 0)))) {
@@ -1751,7 +1751,7 @@ compare_flag_vals(uint flag1, uint flag2, bool same, uint eflags, uint eflags_va
 
 /* returns true if, given the passed in flag information the jump
  * will never be taken */
-static bool 
+static bool
 removable_jmp(instr_t *inst, uint eflags, uint eflags_valid)
 {
     int opcode = instr_get_opcode(inst);
@@ -1830,7 +1830,7 @@ removable_jmp(instr_t *inst, uint eflags, uint eflags_valid)
 
 /* takes in an eflags, eflags_valid and eflags_invalid and propagates the information
  * forward simplifying instructions and eliminating jumps where possible, returns false
- * if it reaches a non simplifiable instruction depends on the any of the eflags_valid 
+ * if it reaches a non simplifiable instruction depends on the any of the eflags_valid
  * or eflags_invalid before all flags in valid and invalid are overwritten by instructions */
 static bool
 do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint eflags_invalid, prop_state_t *state)
@@ -1857,7 +1857,7 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
 #endif
                 remove_inst(state->dcontext, state->trace, inst);
                 inst = next_inst;
-                next_inst = instr_get_next(inst);       
+                next_inst = instr_get_next(inst);
             } else {
                 if (INTERNAL_OPTION(unsafe_ignore_eflags_trace) &&
                     instr_get_opcode(inst) == OP_jecxz)
@@ -1875,11 +1875,11 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
         // FIXME cmov's other setcc's cmc
         // don't bother to change to xor for zeroing, is not more efficient for 1 byte
         /* TODO : add set[n]be set[n]l set[n]le, skip p since never used and might not
-         * be setting it right 
+         * be setting it right
          */
         opcode = instr_get_opcode(inst);
         if (((opcode == OP_seto) || (opcode == OP_setno)) && ((eflags_valid & EFLAGS_READ_OF) != 0)) {
-            if (((eflags & EFLAGS_READ_OF) != 0 && opcode == OP_seto) || 
+            if (((eflags & EFLAGS_READ_OF) != 0 && opcode == OP_seto) ||
                 ((eflags & EFLAGS_READ_OF) == 0 && opcode == OP_setno)) {
                 temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
             } else {
@@ -1897,7 +1897,7 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
             replace = true;
         }
         if (((opcode == OP_setb) || (opcode == OP_setnb)) && ((eflags_valid & EFLAGS_READ_CF) != 0)) {
-            if (((eflags & EFLAGS_READ_CF) != 0 && opcode == OP_setb) || 
+            if (((eflags & EFLAGS_READ_CF) != 0 && opcode == OP_setb) ||
                 ((eflags & EFLAGS_READ_CF) == 0 && opcode == OP_setnb)) {
                 temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
             } else {
@@ -1906,7 +1906,7 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
             replace = true;
         }
         if (((opcode == OP_sets) || (opcode == OP_setns)) && ((eflags_valid & EFLAGS_READ_SF) != 0)) {
-            if (((eflags & EFLAGS_READ_SF) != 0 && opcode == OP_sets) || 
+            if (((eflags & EFLAGS_READ_SF) != 0 && opcode == OP_sets) ||
                 ((eflags & EFLAGS_READ_SF) == 0 && opcode == OP_setns)) {
                 temp = INSTR_CREATE_mov_st(state->dcontext, instr_get_dst(inst, 0), OPND_CREATE_INT8(1));
             } else {
@@ -1964,10 +1964,10 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
  * is any dependency on the eflags written, gives up at CTI's
  * return true if no dependency found
  */
-static bool 
+static bool
 forward_check_eflags(instr_t *inst, prop_state_t *state)
 {
-    return do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL), state); 
+    return do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL), state);
 }
 
 static instr_t *
@@ -1991,7 +1991,7 @@ make_to_imm_store(instr_t *inst, int value, prop_state_t *state)
             LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst));
         }
         if (do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(replacement)), state)) {
-            /* check size prefixes, ignore lock and addr prefix */ 
+            /* check size prefixes, ignore lock and addr prefix */
             replace_inst(dcontext, state->trace, inst, replacement);
             return replacement;
         } else {
@@ -2004,13 +2004,13 @@ make_to_imm_store(instr_t *inst, int value, prop_state_t *state)
     replacement = INSTR_CREATE_mov_st(state->dcontext, dst,  opnd_create_immed_int(value, opnd_get_size(dst)));
     /* handle prefixes, imm->reg (data) imm->mem (data & addr) */
     if (instr_get_prefix_flag(inst, PREFIX_DATA)) {
-        instr_set_prefix_flag(replacement, PREFIX_DATA); 
-        LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst)); 
+        instr_set_prefix_flag(replacement, PREFIX_DATA);
+        LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst));
     }
     if (instr_get_prefix_flag(inst, PREFIX_ADDR) && opnd_is_memory_reference(dst)) {
         instr_set_prefix_flag(replacement, PREFIX_ADDR);
         LOG(THREAD, LOG_OPTS, 3, "carrying addr prefix over %d\n", instr_get_prefixes(inst));
-    }  
+    }
     replace_inst(dcontext, state->trace, inst, replacement);
     return replacement;
 }
@@ -2034,7 +2034,7 @@ make_to_nop(prop_state_t *state, instr_t *inst, const char *pre,
 
 /* uses < 0 as short for if top bit is set */
 /* calculates zf pf sf flags from some result immed */
-static int 
+static int
 calculate_zf_pf_sf(int immed)
 {
     int result = 0;
@@ -2065,11 +2065,11 @@ prop_simplify(instr_t *inst, prop_state_t *state)
     opnd_t temp_opnd;
     uint eflags, eflags_valid, eflags_invalid;
     dcontext_t *dcontext = state->dcontext;
-    
+
     num_src = instr_num_srcs(inst);
     num_dst = instr_num_dsts(inst);
     opcode = instr_get_opcode(inst);
-    
+
     if (opcode == OP_lea) {
         temp_opnd = instr_get_src(inst, 0);
         if (opnd_is_constant_address(temp_opnd)) {
@@ -2077,7 +2077,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
         }
         return inst;
     }
-    
+
     if ((num_src == 1) && (num_dst == 1) && opnd_is_immed_int(instr_get_src(inst, 0))) {
         immed1 = (int) opnd_get_immed_int(instr_get_src(inst, 0));
         switch(opcode) {
@@ -2100,7 +2100,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
             }
         case OP_movsx:
             {
-                /* already sign extended */ 
+                /* already sign extended */
                 immed3 = immed1;
                 inst = make_to_imm_store(inst, immed3, state);
                 break;
@@ -2173,7 +2173,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 /* NOTE : this hardcodes indirect branch stuff */
                 instr_t *inst2, *inst3;
                 LOG(THREAD, LOG_OPTS, 3, "Found removable jeczx inst noping it and removing 2 prev, and next three instructions\n");
-                replacement = INSTR_CREATE_nop(state->dcontext);    
+                replacement = INSTR_CREATE_nop(state->dcontext);
                 replace_inst(state->dcontext, state->trace, inst, replacement);
                 inst = replacement;
 
@@ -2190,10 +2190,10 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 /* remove prev inst */
                 inst2 = instr_get_prev(inst);
                 inst3 = instr_get_prev(inst2);
-                if (instr_get_opcode(inst2) == OP_nop || 
-                    ((instr_get_opcode(inst2) == OP_mov_imm || 
+                if (instr_get_opcode(inst2) == OP_nop ||
+                    ((instr_get_opcode(inst2) == OP_mov_imm ||
                       instr_get_opcode(inst2) == OP_mov_st ||
-                      is_zeroing_instr(inst2)) && 
+                      is_zeroing_instr(inst2)) &&
                      opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX)) {
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
@@ -2219,10 +2219,10 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     inst2 = instr_get_prev(inst2);
                 }
                 inst3 = instr_get_prev(inst2);
-                if (instr_get_opcode(inst2) == OP_nop || 
-                    ((instr_get_opcode(inst2) == OP_mov_imm || 
+                if (instr_get_opcode(inst2) == OP_nop ||
+                    ((instr_get_opcode(inst2) == OP_mov_imm ||
                       instr_get_opcode(inst2) == OP_mov_st ||
-                      is_zeroing_instr(inst2)) && 
+                      is_zeroing_instr(inst2)) &&
                      opnd_get_reg(instr_get_dst(inst2, 0)) == REG_ECX)) {
                     loginst(dcontext, 3, inst2, "removing ");
                     instrlist_remove(state->trace, inst2);
@@ -2294,7 +2294,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                     break;
                 }
             }
-            return inst; 
+            return inst;
         } else {
             immed2 = (int) opnd_get_immed_int(instr_get_src(inst, 1));
             switch(num_dst) {
@@ -2309,7 +2309,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                             // should be relying on it we can set it to zero
                             eflags = calculate_zf_pf_sf(immed3);
                             if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
-                                replacement = INSTR_CREATE_nop(state->dcontext);    
+                                replacement = INSTR_CREATE_nop(state->dcontext);
                                 replace_inst(dcontext, state->trace, inst, replacement);
                                 inst = replacement;
                             }
@@ -2331,7 +2331,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                                 eflags = eflags | EFLAGS_READ_AF;
                             eflags_valid = EFLAGS_READ_CF | EFLAGS_READ_PF | EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_OF | EFLAGS_READ_AF;
                             if (do_forward_check_eflags(inst, eflags, eflags_valid, 0, state)) {
-                                replacement = INSTR_CREATE_nop(state->dcontext);    
+                                replacement = INSTR_CREATE_nop(state->dcontext);
                                 replace_inst(state->dcontext, state->trace, inst, replacement);
                                 inst = replacement;
                             }
@@ -2402,7 +2402,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                             } else if (size == OPSZ_4) {
                                 immed3 = immed2;
                                 if (neg) {
-                                    for (i = 0; i < (immed1 & 0x1F); i++) 
+                                    for (i = 0; i < (immed1 & 0x1F); i++)
                                         immed3 = (immed3 >> 1) | 0x80000000;
                                 } else {
                                     immed3 = immed3 >> (immed1 & 0x1f);
@@ -2426,7 +2426,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                                 }
                                 else {
                                     immed3 = immed2;
-                                    for (i = 0; i < (immed1 & 0x1F); i++) 
+                                    for (i = 0; i < (immed1 & 0x1F); i++)
                                         immed3 = (immed3 >> 1) & 0x7fffffff;
                                 }
                             } else
@@ -2452,14 +2452,14 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 {
                     // mul divide xchg xadd
                 }
-            default: 
+            default:
                 {
                     // unable to simlify this instruction
                 }
             }
         }
         return inst;
-    } 
+    }
 
     // cpuid
 
@@ -2467,7 +2467,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
 }
 
 /* initializes all the trace constant stuff and add */
-static void 
+static void
 get_trace_constant(prop_state_t *state)
 {
     /* can add all dynamo addresses here, they are never aliased so always */
@@ -2507,12 +2507,12 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                 } else {
                     state->reg_state[reg] = PS_VALID_VAL;
                     state->reg_vals[reg] = val;
-                } 
+                }
             } else {
                 reg = opnd_get_reg(opnd) - REG_START_16;
                 if (reg < 8 /* rules out underflow */) {
                     /* if resetting to same value then just nop the instruction */
-                    if (intrace && 
+                    if (intrace &&
                         ((state->reg_state[reg] & PS_VALID_VAL) != 0 ||
                          ((state->reg_state[reg] & PS_LVALID_VAL) != 0 &&
                           (state->reg_state[reg] & PS_HVALID_VAL) != 0)) &&
@@ -2526,7 +2526,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                     reg = opnd_get_reg(opnd) - REG_START_8;
                     if (reg < 4 /* rules out underflow */) {
                         /* if resetting to same value then just nop the instruction */
-                        if (intrace && 
+                        if (intrace &&
                             ((state->reg_state[reg] & PS_VALID_VAL) != 0 ||
                              (state->reg_state[reg] & PS_LVALID_VAL) != 0) &&
                             (state->reg_vals[reg] & 0x000000ff) == (val & 0x000000ff)) {
@@ -2539,7 +2539,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                         reg -= 4;
                         if (reg < 4 /* rules out underflow */) {
                             /* if resetting to same value then just nop the instruction */
-                            if (intrace && 
+                            if (intrace &&
                                 ((state->reg_state[reg] & PS_VALID_VAL) != 0 ||
                                  (state->reg_state[reg] & PS_HVALID_VAL) != 0) &&
                                 (state->reg_vals[reg] & 0x0000ff00) == ((val << 8) & 0x0000ff00)) {
@@ -2602,7 +2602,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
             for (i = 0; i < 8; i++)
                 state->reg_state[i] = 0;
         }
-        // update for regs written to, actually if xh then don't need to 
+        // update for regs written to, actually if xh then don't need to
         // invalidate xl and vice versa, but to much work to check for that probably unlikely occurrence
         for (i = 0; i < 8; i++) {
             if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i)) {
@@ -2641,7 +2641,7 @@ typedef struct _start_list_element_t {
 
 /*************************************************************************/
 
-/*This track the scopes. The number indicates the depth of the nested 
+/*This track the scopes. The number indicates the depth of the nested
   scopes. Also checks for stack constant instructions */
 instr_t *
 handle_stack(prop_state_t *state, instr_t *inst)
@@ -2649,39 +2649,39 @@ handle_stack(prop_state_t *state, instr_t *inst)
     dcontext_t *dcontext = state->dcontext;
     int i;
     if (instr_get_opcode(inst) == OP_enter ||
-        ((instr_get_opcode(inst) == OP_mov_st || instr_get_opcode(inst) == OP_mov_ld) && 
+        ((instr_get_opcode(inst) == OP_mov_st || instr_get_opcode(inst) == OP_mov_ld) &&
          opnd_is_reg(instr_get_src(inst, 0)) &&
          opnd_get_reg(instr_get_src(inst, 0)) == REG_ESP &&
          opnd_is_reg(instr_get_dst(inst, 0)) &&
          opnd_get_reg(instr_get_dst(inst, 0)) == REG_EBP)) {
         state->cur_scope++;
         LOG(THREAD, LOG_OPTS, 3, "Adjust scope up to %d\n", state->cur_scope);
-        return inst; 
+        return inst;
     }
     if (instr_get_opcode(inst) == OP_leave ||
         (instr_get_opcode(inst) == OP_pop &&
          opnd_is_reg(instr_get_dst(inst, 0)) &&
-         opnd_get_reg(instr_get_dst(inst, 0)) == REG_EBP)) { 
+         opnd_get_reg(instr_get_dst(inst, 0)) == REG_EBP)) {
         state->cur_scope--;
 
         for (i = 0; i < NUM_STACK_SLOTS; i++) {
-            if (state->stack_scope[i] > state->cur_scope && 
+            if (state->stack_scope[i] > state->cur_scope &&
                 state->stack_address_state[i] != 0) {
                 state->stack_address_state[i] = 0;
             }
         }
         LOG(THREAD, LOG_OPTS, 3, "Adjust scope down to %d\n", state->cur_scope);
-        return inst; 
+        return inst;
     }
     if (instr_writes_to_reg(inst, REG_EBP)) {
-        loginst(dcontext, 2, inst, "Lost stack scope count"); 
+        loginst(dcontext, 2, inst, "Lost stack scope count");
         state->lost_scope_count = true;
         for (i = 0; i< NUM_STACK_SLOTS; i++) {
             state->stack_address_state[i] = 0;
         }
     }
     return inst;
-}  
+}
 
 
 
@@ -2708,10 +2708,10 @@ handle_stack(prop_state_t *state, instr_t *inst)
  * Hard
  *   size issues
  *   any floating point stuff? probably not feasible or worthwhile
- */ 
+ */
 
 /* performs constant prop, loops through all the instruction updating the
- * prop state for each one, propagating information collected so far into 
+ * prop state for each one, propagating information collected so far into
  * opnds and and calling simplify on the results */
 static void
 constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
@@ -2720,7 +2720,7 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     int num_src, num_dst, i;
     opnd_t opnd, prop_opnd;
     instr_t *inst, *backup;
-    
+
     bool is_zeroing;
     /* FIXME: this is a data race!
      * and why set this for every trace?  options are static!
@@ -2784,7 +2784,7 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 instr_set_src(inst, i, prop_opnd);
             }
         }
-        // propagate to dsts, just simplify addresses 
+        // propagate to dsts, just simplify addresses
         num_dst = instr_num_dsts(inst);
         for (i = 0; i < num_dst; i++) {
             opnd = instr_get_dst(inst, i);
@@ -2837,7 +2837,7 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             state.hint = NULL;
         }
     }
-    
+
 #ifdef DEBUG
     LOG(THREAD, LOG_OPTS, 3, "done constant prop\n");
     if (stats->loglevel >= 3 && (stats->logmask & LOG_OPTS) != 0)
@@ -2857,10 +2857,10 @@ constant_propagation(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
  * but one would not expect a program to use the flags set zeroing a register
  * for a conditional jmp
  *
- * should also catch the adobe case where we for ex. 
+ * should also catch the adobe case where we for ex.
  * xor zero eax, load into ah, use eax, xor zero eax, load into ah ...
- * 
- * relies to some degree on the enum in instr.h 
+ *
+ * relies to some degree on the enum in instr.h
  */
 static void
 remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
@@ -2868,7 +2868,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     instr_t *inst, *next_inst;
     int i, cur_reg, num_dsts;
     /* keeps track if actually necessary to mark off dst of non zeroing instructions */
-    bool check_dsts; 
+    bool check_dsts;
     bool zeroed[24];
     opnd_t dst;
     check_dsts = false;
@@ -2879,7 +2879,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         next_inst = instr_get_next(inst);
         if (is_zeroing_instr(inst)) {
             cur_reg = opnd_get_reg(instr_get_dst(inst,0)) - REG_START_32;
-            /* if zeroed (and also of all sub registers) then kill the inst 
+            /* if zeroed (and also of all sub registers) then kill the inst
              * otherwise mark reg and sub regs as zeroed  */
             if (check_down(zeroed, cur_reg)) {
                 /* is ok to remove instruction reg and subregs already zero */
@@ -2890,12 +2890,12 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 remove_inst(dcontext, trace, inst);
             }
             else {
-                propagate_down(zeroed, cur_reg, true); 
+                propagate_down(zeroed, cur_reg, true);
                 check_dsts = true;
             }
         }
         else {
-            /* non-zeroing instruction, check for registers being written 
+            /* non-zeroing instruction, check for registers being written
              * and mark them non-zero if necessary */
             if (check_dsts) {
                 num_dsts = instr_num_dsts(inst);
@@ -2904,7 +2904,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     if (opnd_is_reg(dst)) {
                         cur_reg = opnd_get_reg(dst) - REG_START_32;
                         propagate_down(zeroed, cur_reg, false);
-                    }   
+                    }
                 }
                 check_dsts = false;
                 for (i = 0; i < 24; i++)
@@ -2921,7 +2921,7 @@ remove_unnecessary_zeroing(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
  * relies to some degree on the ordering of enum reg in instr.h
  */
 
-#define NUM_ADD_CACHE 16 
+#define NUM_ADD_CACHE 16
 #define ADD_KEEP 0x01
 #define ADD_DEAD 0x02
 
@@ -2953,8 +2953,8 @@ static bool
 address_is_dead(dcontext_t *dcontext, int address, int *adds, byte *flags)
 {
     int i = 0;
-    for (; i < NUM_ADD_CACHE; i++) 
-        if (adds[i] == address && (flags[i] & ADD_DEAD) != 0) 
+    for (; i < NUM_ADD_CACHE; i++)
+        if (adds[i] == address && (flags[i] & ADD_DEAD) != 0)
             return true;
     return false;
 }
@@ -3050,12 +3050,12 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     bool free[24];
     int addresses[NUM_ADD_CACHE];
     byte address_state[NUM_ADD_CACHE];
-    
+
     int stack_scope[NUM_STACK_SLOTS];
     int stack_offsets_ebp[NUM_STACK_SLOTS];
     byte stack_state[NUM_STACK_SLOTS];
     int scope = 0; /* good as any default */
-    
+
     int i, j, dst_reg, opcode, num_dsts, num_srcs, src_reg;
     uint eflags;
     bool killinst;
@@ -3090,7 +3090,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         prev_inst = instr_get_prev(inst);
         loginst(dcontext,3,inst,"remove_dead_code working on:");
         if (instr_is_cti(inst) || instr_is_interrupt(inst)) {
-            /* perhaps to a bit of multi-trace search here to see if really 
+            /* perhaps to a bit of multi-trace search here to see if really
              * necessary to mark all flags and regs as live when hit cti? */
             eflags = EFLAGS_READ_ALL;
             for (i = 0; i < 24; i++)
@@ -3116,23 +3116,23 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             if (instr_get_opcode(inst) == OP_jmp && prev_inst != NULL &&
                 instr_get_prev(prev_inst) != NULL &&
                 instr_get_opcode(instr_get_prev(inst)) == OP_jecxz)
-                prev_inst = instr_get_prev(instr_get_prev(prev_inst)); 
+                prev_inst = instr_get_prev(instr_get_prev(prev_inst));
         } else {
             // default to removing instruction, then see if we need it
             killinst = true;
             opcode = instr_get_opcode(inst);
             num_dsts = instr_num_dsts(inst);
             num_srcs = instr_num_srcs(inst);
-            
-            /* This track the scopes. The number indicates the depth of the 
-             * nested scopes. If it is 0, then we are in the original scope 
+
+            /* This track the scopes. The number indicates the depth of the
+             * nested scopes. If it is 0, then we are in the original scope
              * and stack optimization can be done.
              */
-            
-            if (opcode == OP_leave || 
+
+            if (opcode == OP_leave ||
                 (opcode == OP_pop &&
                  opnd_is_reg(instr_get_dst(inst, 0)) &&
-                 opnd_get_reg(instr_get_dst(inst, 0))== REG_EBP)) { 
+                 opnd_get_reg(instr_get_dst(inst, 0))== REG_EBP)) {
                 scope++;
                 LOG(THREAD, LOG_OPTS, 3, "cur scope + to %d\n", scope);
             } else {
@@ -3148,20 +3148,20 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         if ((stack_scope[i] > scope) && (stack_state[i] != 0)) {
                             stack_state[i] = 0;
                         }
-                    }    
+                    }
                 } else {
                     if (instr_writes_to_reg(inst, REG_EBP)) {
                         LOG(THREAD, LOG_OPTS, 2, "dead code lost count of scope nesting, clearing cache\n");
-                        for (i = 0; i < NUM_STACK_SLOTS; i++)  
+                        for (i = 0; i < NUM_STACK_SLOTS; i++)
                             stack_state[i] = 0;
                     }
                 }
             }
-            
+
             /* only eliminate instructions that have a destination or are known to eliminable */
             /* believe? that any instr with at least 1 dst has no other effects beside that */
             /* dst and eflags.  Allow test, cmp, sahf to be killed */
-            killinst = killinst && !((num_dsts == 0) && (opcode != OP_sahf) && 
+            killinst = killinst && !((num_dsts == 0) && (opcode != OP_sahf) &&
                                      (opcode != OP_cmp) && (opcode != OP_test));
             /* check that all destinations are dead, (also not mem etc.) */
             for (i = 0; (i < num_dsts) && killinst; i++) {
@@ -3193,8 +3193,8 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 }
             }
             /* check flags if might still be killable */
-            killinst = killinst && 
-                ((EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL) & 
+            killinst = killinst &&
+                ((EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL) &
                   eflags) == 0);
             /* always kill if nop */
             killinst = killinst || is_nop(inst);
@@ -3214,7 +3214,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             else {
                 /* can't be killed so add dependencies */
                 /* add flag constraints */
-                eflags &= ~EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & 
+                eflags &= ~EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) &
                                                 EFLAGS_WRITE_ALL);
                 eflags |= instr_get_eflags(inst) & EFLAGS_READ_ALL;
                 // mark destinations as free
@@ -3227,12 +3227,12 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     }
                     else {
                         if (opnd_is_constant_address(dst)) {
-                            address_set_dead(dcontext, opnd_get_disp(dst), 
+                            address_set_dead(dcontext, opnd_get_disp(dst),
                                              addresses, address_state, true);
                         } else {
                             if (opnd_is_stack_address(dst)) {
-                                stack_address_set_dead(dcontext, opnd_get_disp(dst), scope, stack_offsets_ebp, stack_state, stack_scope, true); 
-                            } 
+                                stack_address_set_dead(dcontext, opnd_get_disp(dst), scope, stack_offsets_ebp, stack_state, stack_scope, true);
+                            }
                             /* reg used in address mark as unfree */
                             for (j=opnd_num_regs_used(dst)-1; j>=0; j--) {
                                 dst_reg = opnd_get_reg_used(dst, j) - REG_START_32;
@@ -3241,19 +3241,19 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         }
                     }
                 }
-                // don't propagate srcs if zeroing instr 
+                // don't propagate srcs if zeroing instr
                 // mark sources as needed
                 if (!is_zeroing_instr(inst)) {
                     for (i = 0; i < num_srcs; i++) {
                         /* mark src regs and sub regs not free */
                         src = instr_get_src(inst, i);
                         if (opnd_is_constant_address(src)) {
-                            address_set_dead(dcontext, opnd_get_disp(src), 
+                            address_set_dead(dcontext, opnd_get_disp(src),
                                              addresses, address_state, false);
                         } else {
                             if (opnd_is_stack_address(src)) {
-                                stack_address_set_dead(dcontext, opnd_get_disp(src), scope, stack_offsets_ebp, stack_state, stack_scope, false); 
-                            } 
+                                stack_address_set_dead(dcontext, opnd_get_disp(src), scope, stack_offsets_ebp, stack_state, stack_scope, false);
+                            }
                             for (j=opnd_num_regs_used(src)-1; j>=0; j--) {
                                 src_reg = opnd_get_reg_used(src, j) - REG_START_32;
                                 propagate_down(free, src_reg, false);
@@ -3273,7 +3273,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
 /***************************************************************************/
 /* from Tim */
-/* attempts to combine multiple adjustments of the esp register into a 
+/* attempts to combine multiple adjustments of the esp register into a
  * single adjustment, might eventually be useful for locations, or as a
  * tool for inlining, but is inspired by ocaml and tinyvm code which have
  * a lot of manipulation of the stack without much actual use of it once
@@ -3283,7 +3283,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
  * in general have to worry about amount of space allocated on the stack etc.
  */
 
-static bool 
+static bool
 is_stack_adjustment(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
@@ -3293,16 +3293,16 @@ is_stack_adjustment(instr_t *inst)
              opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP &&
              opnd_is_immed_int(instr_get_src(inst, 0))) ||
 
-            (opcode == OP_lea && 
-             opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP && 
-             ((opnd_get_base(instr_get_src(inst, 0)) == REG_ESP && 
+            (opcode == OP_lea &&
+             opnd_get_reg(instr_get_dst(inst, 0)) == REG_ESP &&
+             ((opnd_get_base(instr_get_src(inst, 0)) == REG_ESP &&
                opnd_get_index(instr_get_src(inst, 0)) == REG_NULL ) ||
               (opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
                opnd_get_index(instr_get_src(inst, 0)) == REG_ESP &&
                opnd_get_scale(instr_get_src(inst, 0)) == 1))));
 }
 
-static int 
+static int
 get_stack_adjustment(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
@@ -3316,7 +3316,7 @@ get_stack_adjustment(instr_t *inst)
         return -1;
 }
 
-static void 
+static void
 set_stack_adjustment(instr_t *inst, int adjust)
 {
     int opcode = instr_get_opcode(inst);
@@ -3333,9 +3333,9 @@ set_stack_adjustment(instr_t *inst, int adjust)
         temp_opnd = OPND_CREATE_INT8(adjust);
     instr_set_src(inst, 0, temp_opnd);
 }
-        
 
-static void 
+
+static void
 stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     instr_t *inst, *next, *first_adjust, *last_adjust;
@@ -3354,13 +3354,13 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         loginst(dcontext,3,inst,"stack adjust considering");
 #endif
         if (first_adjust == NULL) {
-            if (is_stack_adjustment(inst)) { 
+            if (is_stack_adjustment(inst)) {
                 first_adjust = inst;
                 first_off = get_stack_adjustment(inst);
                 cur_off = first_off;
                 LOG(THREAD, LOG_OPTS, 3, "  found starting stack adjust, offset %d\n", cur_off);
                 max_off = 1000000; /* something large */
-            } 
+            }
         } else {
             /* see if we can fold in another adjustment */
             if (is_stack_adjustment(inst)) {
@@ -3386,10 +3386,10 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             /* could mangle pushes and pops instead of restoring, is */
             /* helpfull?, check for store to ecx_off, might mangle indirect */
             /* macro's by inserting a clean up instruction */
-            if (!instr_uses_reg(inst, REG_ESP) && !instr_is_cti(inst) && 
+            if (!instr_uses_reg(inst, REG_ESP) && !instr_is_cti(inst) &&
                 !instr_is_interrupt(inst) && !instr_is_call(inst)) {
                 /* skip writes to constant address, presume that they will never be stack */
-                if ((opcode == OP_mov_st || opcode == OP_mov_imm) && 
+                if ((opcode == OP_mov_st || opcode == OP_mov_imm) &&
                     opnd_is_constant_address(instr_get_dst(inst, 0))) {
                     LOG(THREAD, LOG_OPTS, 3, "store to constant mem, skipping\n");
                     continue;
@@ -3401,7 +3401,7 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     /* space then that */
                     LOG(THREAD, LOG_OPTS, 3, "write to memory");
                     if (cur_off < max_off) {
-                        LOG(THREAD, LOG_OPTS, 3, "\ncurrent offset %d, less than max offset %d, setting max offset to current offset\n", cur_off, max_off); 
+                        LOG(THREAD, LOG_OPTS, 3, "\ncurrent offset %d, less than max offset %d, setting max offset to current offset\n", cur_off, max_off);
                         max_off = cur_off;
                     }
                 }
@@ -3409,9 +3409,9 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 continue;
             }
             /* fixing up */
-            LOG(THREAD, LOG_OPTS, 3, "reached stopping point, clean up\n"); 
+            LOG(THREAD, LOG_OPTS, 3, "reached stopping point, clean up\n");
             if (max_off < cur_off) {
-                LOG(THREAD, LOG_OPTS, 3, "  max offset is less than current off set, set and fix\n"); 
+                LOG(THREAD, LOG_OPTS, 3, "  max offset is less than current off set, set and fix\n");
                 /* need to be sure to allocate enough space on stack at beginning */
                 loginst(dcontext, 3, first_adjust, "  replacing initial adjustment");
                 set_stack_adjustment(first_adjust, max_off);
@@ -3435,7 +3435,7 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 #endif
                     remove_inst(dcontext, trace, first_adjust);
                     if (last_adjust != NULL)
-                        remove_inst(dcontext, trace, last_adjust); 
+                        remove_inst(dcontext, trace, last_adjust);
                 } else {
                     /* change adjustment if necessary */
                     if (first_off != cur_off) {
@@ -3454,7 +3454,7 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         loginst(dcontext, 3, last_adjust, "  removing last adjustment");
 #endif
                         remove_inst(dcontext, trace, last_adjust);
-                    } 
+                    }
                 }
             }
             last_adjust = NULL;
@@ -3476,7 +3476,7 @@ stack_adjust_combiner(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
  */
 
 /* checks to see if the eflags are written before they are read */
-static bool 
+static bool
 check_eflags_cr(instr_t *inst)
 {
     uint eflags = EFLAGS_READ_6;
@@ -3702,7 +3702,7 @@ remove_return(dcontext_t *dcontext, instrlist_t *trace, instr_t *inst)
 /* for some reason can't get instr_same / opnd_same to work for the below so
  *  just write it out, returns true if the next instruction is likely the pop
  *  of a return */
-static bool 
+static bool
 is_return(dcontext_t *dcontext, instr_t *inst)
 {
     instr_t *pop = instr_get_next(inst);
@@ -3717,8 +3717,8 @@ is_return(dcontext_t *dcontext, instr_t *inst)
         if (jecxz == NULL)
             return false;
         if (instr_get_opcode(jecxz) == OP_lea)
-            jecxz = instr_get_next(jecxz); 
-        return (jecxz != NULL && 
+            jecxz = instr_get_next(jecxz);
+        return (jecxz != NULL &&
                 instr_get_opcode(pop) == OP_pop &&
                 opnd_get_reg(instr_get_dst(pop, 0)) == REG_ECX &&
                 instr_get_opcode(jecxz) == OP_jecxz);
@@ -3738,18 +3738,18 @@ is_return(dcontext_t *dcontext, instr_t *inst)
             cmp = instr_get_next(lea);
         if (cmp == NULL)
             return false;
-        jne = instr_get_next(cmp); 
-        return (jne != NULL && 
+        jne = instr_get_next(cmp);
+        return (jne != NULL &&
                 instr_get_opcode(pop) == OP_pop &&
                 opnd_get_reg(instr_get_dst(pop, 0)) == REG_ECX &&
-                instr_get_opcode(cmp) == OP_cmp && 
+                instr_get_opcode(cmp) == OP_cmp &&
                 instr_get_opcode(jne) == OP_jne);
     }
 }
 
 /* checks to see if the address pushed by the push instruction matches the
  * address in the cmp following the pop */
-static bool 
+static bool
 check_return(dcontext_t *dcontext, instr_t *inst, instr_t *push)
 {
     if (!INTERNAL_OPTION(unsafe_ignore_eflags_trace)) {
@@ -3781,7 +3781,7 @@ check_return(dcontext_t *dcontext, instr_t *inst, instr_t *push)
 
 /* attempts to match calls with returns for the purpose of removing the return check
  * instructions */
-static void 
+static void
 call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
     instr_t *a[CALL_RETURN_STACK_SIZE];
@@ -3837,7 +3837,7 @@ call_return_matching(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #endif
 }
-    
+
 /****************************************************************************/
 
 /* peephole driver
@@ -3888,7 +3888,7 @@ peephole_optimize(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
     }
 }
 
-/* replaces inc with add 1, dec with sub 1 
+/* replaces inc with add 1, dec with sub 1
  * if cannot replace (eflags constraints), leaves original instruction alone
  * returns true if successful, false if not
  */
@@ -3915,7 +3915,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
             ok_to_replace = true;
             break;
         }
-        /* test is down here b/c we want to look at 1st exit 
+        /* test is down here b/c we want to look at 1st exit
          * if direct branch, look at top of target
          * N.B.: indirect branches: we'll hit lahf first, which reads CF,
          *   which will stop us from replacing, which is what we want
@@ -3980,7 +3980,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
 
 /****************************************************************************/
 /* josh's load removal optimization */
-#define MAX_DIST 40  
+#define MAX_DIST 40
 void
 remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 {
@@ -4016,7 +4016,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         else {
             continue;
         }
-        
+
         /* to simply things for debugging, just worry about cases where the read
            is indirect off the base pointer. this should be removed later */
         if (opnd_get_base(mem_read)!=REG_EBP||opnd_get_index(mem_read)!=REG_NULL)
@@ -4042,7 +4042,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 opnd_t writeopnd=instr_get_dst(first_mem_access,0);
 
                 //takes care of push/pop. should i make this if (!pushorpop?)
-                if (opnd_is_memory_reference(writeopnd)) { 
+                if (opnd_is_memory_reference(writeopnd)) {
                     loginst(dcontext,3,first_mem_access,"this instr writes to memory");
                     if (opnd_same_address(writeopnd,mem_read)) {
 
@@ -4071,7 +4071,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     // attempted quick fix for gcc bug for CGO paper 1/10/03 Tim
                     // if size/alignment issues really are to blame then a more through
                     // look at the optimization should be made
-                    else if (opnd_is_near_base_disp(writeopnd) && 
+                    else if (opnd_is_near_base_disp(writeopnd) &&
                              opnd_is_near_base_disp(mem_read) &&
                              (opnd_get_base(mem_read) == opnd_get_base(writeopnd)) &&
                              (opnd_get_index(mem_read) == opnd_get_index(writeopnd))) {
@@ -4091,12 +4091,12 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 }
             }
             //check if the move reads from that location
-            
+
             else if (instr_reads_memory(first_mem_access)) {
                 opnd_t readopnd=instr_get_src(first_mem_access,0);
 
                 //takes care of push/pop. should i make this if (!pushorpop?)
-                if (opnd_is_memory_reference(readopnd)) { 
+                if (opnd_is_memory_reference(readopnd)) {
                     loginst(dcontext,3,first_mem_access,"this instr reads from memory");
                     if (opnd_same_address(readopnd,mem_read)) {
                         //if the writing instruction was a store, then its OK
@@ -4116,7 +4116,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 }
             }
 
-        }    
+        }
         /* if it reached top of trace, or something wrote to ebp */
         if (!first_mem_access) {
             LOG(THREAD, LOG_OPTS, 3,"reached top of trace, or an add or other non-move wrote to memory\n");
@@ -4130,7 +4130,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
         ASSERT(instr_num_dsts(first_mem_access)==1&&instr_num_srcs(first_mem_access)==1);
 
-        
+
         ctis=0; //for stats of how many ctis are traversed
         orig_reg=opnd_get_reg(orig_reg_opnd);
         LOG(THREAD, LOG_OPTS, 3,"original register=%s\n",reg_names[orig_reg]);
@@ -4161,9 +4161,9 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             continue;
 
         if (reg_write_checker==instr) {
-            /* if reg_write_checker reached instr, then nothing overwrites the 
+            /* if reg_write_checker reached instr, then nothing overwrites the
                register, its OK to do optimization */
-            
+
             //replace load with register read
             bool ok = instr_replace_src_opnd(instr,mem_read,orig_reg_opnd);
             ASSERT(ok);
@@ -4213,7 +4213,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 copy_to_dead_instr=INSTR_CREATE_mov_ld(dcontext,dead_reg_opnd,orig_reg_opnd);
                 instrlist_postinsert(trace,first_mem_access,copy_to_dead_instr);
                 loginst(dcontext,3,copy_to_dead_instr,"inserted this to save val. in dead register");
-                
+
                 instr_replace_src_opnd(instr,mem_read,dead_reg_opnd);
                 loginst(dcontext,3,instr,"modified this instr to use the new dead register");
 #ifdef DEBUG
@@ -4223,7 +4223,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                     opt_stats_t.loads_removed_from_stores++;
                 else
                     opt_stats_t.loads_removed_from_loads++;
-#endif          
+#endif
 
             }
 
@@ -4253,7 +4253,7 @@ find_dead_register_across_instrs(instr_t *start,instr_t *end)
 }
 
 #if 0 /* not used */
-static int 
+static int
 find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
 {
 
@@ -4267,7 +4267,7 @@ find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
     int max=0;
 
     int num_of_instr=0;
-    
+
     for (instr=start;instr!=end;instr=instr_get_next(instr)) {
         num_of_instr++;
     }
@@ -4276,7 +4276,7 @@ find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
     for (a=REG_EAX;a<=REG_EDI;a++) {
         count=0;
         if (is_dead_register(a,start)) {
-            for (instr=start;instr!=end;instr=instr_get_next(instr)) {       
+            for (instr=start;instr!=end;instr=instr_get_next(instr)) {
                 count++;
                 if (instr_uses_reg(instr,a)) {
                     reg_dead_count[a]=count;
@@ -4288,7 +4288,7 @@ find_dead_register_across_instrs_H(instr_t *start,instr_t *end)
                 }
             }
         }
-        if (instr==end)   
+        if (instr==end)
             return a;
     }
     if (max>=num_of_instr/2)
@@ -4319,7 +4319,7 @@ prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
     instr=instrlist_first(trace);
     while (instr!=NULL) {
-        
+
         if (instr_reads_memory(instr) &&
             instr_get_opcode(instr)!=OP_prefetchnta) {
 
@@ -4358,7 +4358,7 @@ prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                 if ((tracewalker==instr)||(tracewalker==loopinstr)) {
                     insertprefetch=false;
                     break;
-                }                   
+                }
                 tracewalker=tracewalker->prev;
             }
 
@@ -4366,7 +4366,7 @@ prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                                  (tracewalker->next==instr)))
                 insertprefetch=false;
 
-            if (insertprefetch) { 
+            if (insertprefetch) {
 #ifdef DEBUG
                 LOG(THREAD, LOG_OPTS, 3,"in trace "PFX" inserting prefetch for:",tag);
                 if (stats->loglevel>=3)
@@ -4384,17 +4384,17 @@ prefetch_optimize_trace(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
         }
         instr=instr_get_next(instr);
-        
+
     }
 }
 
-/* Removed josh's attempt at using the SSE2 xmm registers to hold some local vars - 
-   you can find it in the attic optimize.c 1.95 
+/* Removed josh's attempt at using the SSE2 xmm registers to hold some local vars -
+   you can find it in the attic optimize.c 1.95
 
    The -spill_xmm optimization never speeded anything up - probably because on a
    P4 xmm<->reg operations were three times more expensive than a
    cache hit in memory, on a Pentium M the cost ratio may be reversed
-   and the optimization may be worth keeping in mind.  
+   and the optimization may be worth keeping in mind.
    Of course, transparency and memory aliasing problems don't make it very appealing.
 */
 
@@ -4419,7 +4419,7 @@ is_load_from_ecxoff(dcontext_t *dcontext, instr_t *inst)
             opnd_get_disp(instr_get_src(inst, 0)) == opnd_get_disp(opnd_create_dcontext_field(dcontext, XCX_OFFSET)));
 }
 
-/* returns true if the opnd is a constant address 
+/* returns true if the opnd is a constant address
  * i.e. is memory access with null base and index registers */
 bool
 opnd_is_constant_address(opnd_t address)
@@ -4428,7 +4428,7 @@ opnd_is_constant_address(opnd_t address)
 }
 
 /* checks to see if the instr zeros a reg (and does nothing else) */
-static bool 
+static bool
 is_zeroing_instr(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
@@ -4438,11 +4438,11 @@ is_zeroing_instr(instr_t *inst)
     return false;
 }
 
-static bool 
+static bool
 is_dead_register(reg_id_t reg,instr_t *where)
 {
     //something tells me its a bad call to mess with these...
-    if (reg==REG_EBP||reg==REG_ESP)  
+    if (reg==REG_EBP||reg==REG_ESP)
         return false;
 
     while (!instr_is_cti(where)) {
@@ -4451,7 +4451,7 @@ is_dead_register(reg_id_t reg,instr_t *where)
         else if (instr_writes_to_reg(where,reg))
             return true;
         //!instr_writes_to_reg(...).  probably writing to mem indirectly through reg
-        else if (instr_reg_in_dst(where,reg)) 
+        else if (instr_reg_in_dst(where,reg))
             return false;
 
         where=instr_get_next(where);
@@ -4460,7 +4460,7 @@ is_dead_register(reg_id_t reg,instr_t *where)
 }
 
 #if 0 /* not used */
-static int 
+static int
 find_dead_register(instr_t *where)
 {
     int a;
@@ -4471,11 +4471,11 @@ find_dead_register(instr_t *where)
     return REG_NULL;
 }
 
-/* checks to see if, starting at inst, the value in reg 
- * is dead (is written to before it is next read), 
+/* checks to see if, starting at inst, the value in reg
+ * is dead (is written to before it is next read),
  * could later recurse into other traces/fragments but right now
  * assumes everything is live at a CTI */
-static bool 
+static bool
 is_dead_reg(dcontext_t *dcontext, instr_t *start_inst, int reg)
 {
     instr_t *inst, *next_inst;
@@ -4531,7 +4531,7 @@ instruction_affects_mem_access(instr_t *instr,opnd_t mem_access)
 }
 
 /* a simplistic check to see if a write could overwrite some arbitrary place*/
-static bool 
+static bool
 safe_write(instr_t *mem_writer)
 {
     opnd_t mem_write=instr_get_dst(mem_writer,0);
@@ -4611,7 +4611,7 @@ replace_self_loop_with_instr(dcontext_t *dcontext, app_pc tag,
         }
         in=instr_get_next(in);
     }
-    
+
 }
 
 
@@ -4635,7 +4635,7 @@ get_decision_instr(instr_t *jmp)
     return NULL;
 }
 
-static void 
+static void
 propagate_down(bool *reg_rep, int index, bool value)
 {
     if ((index >= 0) && (index < 24)) {
@@ -4652,12 +4652,12 @@ propagate_down(bool *reg_rep, int index, bool value)
     }
 }
 
-static bool 
+static bool
 check_down(bool *reg_rep, int index)
 {
     return ((index >= 0) && (index < 24) && reg_rep[index] &&
             ((index >= 12) || (reg_rep[index+8] &&
-                               ((index < 8) || reg_rep[index+12]) && 
+                               ((index < 8) || reg_rep[index+12]) &&
                                ((index >= 4) || (reg_rep[index+16] &&
                                                  reg_rep[index+20])))));
 }
@@ -4665,21 +4665,21 @@ check_down(bool *reg_rep, int index)
 /* return true, if this instr is a nop, of one of a class of nops */
 /* does not check for all types of nops, since there are many */
 /* these seem to be the most common */
-static bool 
+static bool
 is_nop(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
     if (opcode == OP_nop)
         return true;
-    if ((opcode == OP_mov_ld || opcode == OP_mov_st || opcode == OP_xchg) && 
-        opnd_same(instr_get_src(inst, 0), instr_get_dst(inst, 0))) 
+    if ((opcode == OP_mov_ld || opcode == OP_mov_st || opcode == OP_xchg) &&
+        opnd_same(instr_get_src(inst, 0), instr_get_dst(inst, 0)))
         return true;
-    if (opcode == OP_lea && 
-        opnd_get_disp(instr_get_src(inst, 0)) == 0 && 
+    if (opcode == OP_lea &&
+        opnd_get_disp(instr_get_src(inst, 0)) == 0 &&
         ((opnd_get_base(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
           opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) ||
-         (opnd_get_index(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) && 
-          opnd_get_base(instr_get_src(inst, 0)) == REG_NULL && 
+         (opnd_get_index(instr_get_src(inst, 0)) == opnd_get_reg(instr_get_dst(inst, 0)) &&
+          opnd_get_base(instr_get_src(inst, 0)) == REG_NULL &&
           opnd_get_scale(instr_get_src(inst, 0)) == 1)))
         return true;
     // other cases

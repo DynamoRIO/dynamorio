@@ -24,7 +24,7 @@ patch -p0 < ~/dr/git/src/ext/drsyms/libelftc-pecoff/libelftc-pecoff.patch
 
 3) Update Cygwin location, if not "c:/cygwin"
 
-perl -pi -e 's|c:/cygwin|f:/cygwin|' common/ar.h common/sys/param.h common/sys/queue.h 
+perl -pi -e 's|c:/cygwin|f:/cygwin|' common/ar.h common/sys/param.h common/sys/queue.h
 
 4) Build libdwarf/dwarf.{lib,pdb}:
 

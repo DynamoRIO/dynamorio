@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -108,7 +108,7 @@ typedef struct _pe_symbol_export_iterator_t {
 } pe_symbol_export_iterator_t;
 #endif
 
-/* This routine was moved here from os.c since we need it for 
+/* This routine was moved here from os.c since we need it for
  * get_proc_address_64 (via get_module_exports_directory_*()) for preinject
  * and drmarker, neither of which link os.c.
  */
@@ -116,13 +116,13 @@ typedef struct _pe_symbol_export_iterator_t {
  * from pc to pc+size-1 are readable and that reading from there won't
  * generate an exception.  this is a stronger check than
  * !not_readable() below.
- * FIXME : beware of multi-thread races, just because this returns true, 
- * doesn't mean another thread can't make the region unreadable between the 
+ * FIXME : beware of multi-thread races, just because this returns true,
+ * doesn't mean another thread can't make the region unreadable between the
  * check here and the actual read later.  See safe_read() as an alt.
  */
 /* throw-away buffer */
 DECLARE_NEVERPROT_VAR(static char is_readable_buf[4/*efficient read*/], {0});
-bool 
+bool
 is_readable_without_exception(const byte *pc, size_t size)
 {
     /* Case 7967: NtReadVirtualMemory is significantly faster than
@@ -153,7 +153,7 @@ is_readable_without_exception(const byte *pc, size_t size)
 
 /* returns NULL if exports directory doesn't exist
  * if exports_size != NULL returns also exports section size
- * assumes base_addr is a safe is_readable_pe_base() 
+ * assumes base_addr is a safe is_readable_pe_base()
  *
  * NOTE - only verifies readability of the IMAGE_EXPORT_DIRECTORY, does not verify target
  * readability of any RVAs it contains (for that use get_module_exports_directory_check
@@ -191,14 +191,14 @@ get_module_exports_directory_common(app_pc base_addr,
         ASSERT(len == sizeof(mbi));
         /* We do see MEM_MAPPED PE files: case 7947 */
         if (mbi.Type != MEM_IMAGE) {
-            LOG(THREAD_GET, LOG_SYMBOLS, 1, 
+            LOG(THREAD_GET, LOG_SYMBOLS, 1,
                 "get_module_exports_directory(base_addr="PFX"): !MEM_IMAGE\n",
                 base_addr);
             ASSERT_CURIOSITY(expdir == NULL || expdir->Size == 0);
         }
     });
 
-    LOG(THREAD_GET, LOG_SYMBOLS, 5, 
+    LOG(THREAD_GET, LOG_SYMBOLS, 5,
         "get_module_exports_directory(base_addr="PFX", expdir="PFX")\n",
         base_addr, expdir);
 
@@ -206,9 +206,9 @@ get_module_exports_directory_common(app_pc base_addr,
         ULONG size = expdir->Size;
         ULONG exports_vaddr = expdir->VirtualAddress;
 
-        LOG(THREAD_GET, LOG_SYMBOLS, 5, 
+        LOG(THREAD_GET, LOG_SYMBOLS, 5,
             "get_module_exports_directory(base_addr="PFX") expdir="PFX
-            " size=%d exports_vaddr=%d\n", 
+            " size=%d exports_vaddr=%d\n",
             base_addr, expdir, size, exports_vaddr);
 
         /* not all DLLs have exports - e.g. drpreinject.dll, or
@@ -228,7 +228,7 @@ get_module_exports_directory_common(app_pc base_addr,
                                  EXEMPT_TEST("win32.partial_map.exe"));
             }
         }
-    } else 
+    } else
         ASSERT_CURIOSITY(false && "no exports directory");
 
     return NULL;
@@ -292,7 +292,7 @@ get_module_exports_directory_check_common(app_pc base_addr,
  * NOTE - will return NULL for forwarded exports, exports pointing outside of
  * the module and for exports not in a code section (FIXME - is this the
  * behavior we want?). Name is case insensitive.
- */ 
+ */
 static generic_func_t
 get_proc_address_common(module_base_t lib, const char *name, uint ordinal
                         _IF_NOT_X64(bool ldr64), const char **forwarder OUT)
@@ -354,7 +354,7 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
     functions = (PULONG)(module_base + exports->AddressOfFunctions);
     ordinals = (PUSHORT)(module_base + exports->AddressOfNameOrdinals);
     fnames = (PULONG)(module_base + exports->AddressOfNames);
-    
+
     if (ordinal < UINT_MAX)
         ord = ordinal;
     else {
@@ -429,7 +429,7 @@ get_proc_address_common(module_base_t lib, const char *name, uint ordinal
         /* FIXME - is forwarded function, should we still return it
          * or return the target? Check - what does GetProcAddress do?
          * For now we return NULL. Looking up the target would require
-         * a get_module_handle call which might not be safe here. 
+         * a get_module_handle call which might not be safe here.
          * With current and planned usage we shouldn' be looking these
          * up anyways. */
         if (forwarder != NULL) {
@@ -676,7 +676,7 @@ get_ldr_module_by_name(wchar_t *name)
          * is prob. better (can't rename user32, and a random dll could have
          * user32.dll as a pe_name).  If wanted to be extra certain could
          * check FullDllName for %systemroot%/system32/user32.dll as that
-         * should ensure uniqueness. 
+         * should ensure uniqueness.
          */
         ASSERT(mod->BaseDllName.Length <= mod->BaseDllName.MaximumLength &&
                mod->BaseDllName.Buffer != NULL);
@@ -718,7 +718,7 @@ typedef struct ALIGN_VAR(8) _LIST_ENTRY_64 {
 /* UNICODE_STRING_64 is in ntdll.h */
 
 /* module information filled by the loader */
-typedef struct ALIGN_VAR(8) _PEB_LDR_DATA_64 {  
+typedef struct ALIGN_VAR(8) _PEB_LDR_DATA_64 {
     ULONG Length;
     BOOLEAN Initialized;
     PVOID SsHandle;
@@ -791,7 +791,7 @@ get_ldr_data_64(void)
 }
 
 /* Pass either name or base.
- * 
+ *
  * XXX: this can be racy, accessing app loader data structs!  Use with care.
  * Caller should synchronize w/ other threads, and avoid calling while app
  * holds the x64 loader lock.
@@ -817,7 +817,7 @@ get_ldr_module_64(wchar_t *name, byte *base)
          * is prob. better (can't rename user32, and a random dll could have
          * user32.dll as a pe_name).  If wanted to be extra certain could
          * check FullDllName for %systemroot%/system32/user32.dll as that
-         * should ensure uniqueness. 
+         * should ensure uniqueness.
          */
         ASSERT(mod->BaseDllName.Length <= mod->BaseDllName.MaximumLength &&
                mod->BaseDllName.Buffer != NULL);

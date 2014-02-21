@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -96,7 +96,7 @@ BEGIN_MESSAGE_MAP(CIgnoreDlg, CDialog)
     return TRUE;
 }
 
-void CIgnoreDlg::OnOK() 
+void CIgnoreDlg::OnOK()
 {
     UpdateData(TRUE); // read from controls
     BOOL res = SetEnvironmentVariable(_T("DYNAMORIO_IGNORE"), m_IgnoreList);
@@ -104,7 +104,7 @@ void CIgnoreDlg::OnOK()
     CDialog::OnOK();
 }
 
-void CIgnoreDlg::OnSetPermanent() 
+void CIgnoreDlg::OnSetPermanent()
 {
     // it takes a while to broadcast the "we've changed env vars" message,
     // so set a wait cursor
@@ -113,7 +113,7 @@ void CIgnoreDlg::OnSetPermanent()
     TCHAR msg[MAX_PATH];
     HKEY hk;
     DWORD res;
-        
+
     // current user only
     res = RegOpenKeyEx(HKEY_CURRENT_USER, _T("Environment"), 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
@@ -123,7 +123,7 @@ void CIgnoreDlg::OnSetPermanent()
 
     UpdateData(TRUE); // get values from controls
     TCHAR *val = m_IgnoreList.GetBuffer(0);
-    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ, 
+    res = RegSetValueEx(hk, _T("DYNAMORIO_IGNORE"), 0, REG_SZ,
                         (LPBYTE) val, (DWORD) _tcslen(val)+1);
     assert(res == ERROR_SUCCESS);
 

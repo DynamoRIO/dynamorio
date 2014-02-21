@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -95,7 +95,7 @@ static const wchar_t * const HKLM_entries[] = {
     L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services",
 };
 
-/* These are prefixed with \\Registry\\User\\<SSID>\\ in 
+/* These are prefixed with \\Registry\\User\\<SSID>\\ in
  * report_autostart_programs()
  */
 static const wchar_t * const HKCU_entries[] = {
@@ -113,10 +113,10 @@ static const wchar_t * const HKCU_entries[] = {
 };
 
 /* Extracts and logs the data field of DIAGNOSTIC_KEY_VALUE_FULL_INFORMATION.
- * Only REG_SZ, REG_EXPAND_SZ (w/o expanding), REG_MULTI_SZ (just the first 
+ * Only REG_SZ, REG_EXPAND_SZ (w/o expanding), REG_MULTI_SZ (just the first
  * string reported), REG_DWORD and REG_BINARY are currently supported.
  */
-static void 
+static void
 diagnostics_log_data(IN file_t diagnostics_file, IN uint log_mask)
 {
     uint i;
@@ -136,25 +136,25 @@ diagnostics_log_data(IN file_t diagnostics_file, IN uint log_mask)
             (diagnostic_value_info.Type == REG_EXPAND_SZ) ||
             (diagnostic_value_info.Type == REG_MULTI_SZ)) {
             snprintf(keyinfo_data, BUFFER_SIZE_ELEMENTS(keyinfo_data), "%S\n",
-                     diagnostic_value_info.NameAndData  + 
-                     diagnostic_value_info.DataOffset - 
+                     diagnostic_value_info.NameAndData  +
+                     diagnostic_value_info.DataOffset -
                      DECREMENT_FOR_DATA_OFFSET);
             NULL_TERMINATE_BUFFER(keyinfo_data);
             print_xml_cdata(diagnostics_file, keyinfo_data);
         }
         else if (diagnostic_value_info.Type == REG_DWORD) {
-            print_file(diagnostics_file, "0x%.8x\n", 
-                       *(uint *) (diagnostic_value_info.NameAndData  + 
-                       diagnostic_value_info.DataOffset - 
+            print_file(diagnostics_file, "0x%.8x\n",
+                       *(uint *) (diagnostic_value_info.NameAndData  +
+                       diagnostic_value_info.DataOffset -
                        DECREMENT_FOR_DATA_OFFSET));
         }
         else if (diagnostic_value_info.Type == REG_BINARY) {
             for (i = diagnostic_value_info.DataOffset - DECREMENT_FOR_DATA_OFFSET;
                  (i < diagnostic_value_info.DataOffset - DECREMENT_FOR_DATA_OFFSET +
-                      diagnostic_value_info.DataLength) && 
+                      diagnostic_value_info.DataLength) &&
                  (i < DIAGNOSTICS_MAX_NAME_AND_DATA_SIZE );
                  i++) {
-                    print_file(diagnostics_file, "%.2x ", 
+                    print_file(diagnostics_file, "%.2x ",
                         diagnostic_value_info.NameAndData[i]);
                     if ((i % DIAGNOSTICS_BYTES_PER_LINE)== 0)
                         print_file(diagnostics_file, "\n");
@@ -167,7 +167,7 @@ diagnostics_log_data(IN file_t diagnostics_file, IN uint log_mask)
 }
 
 /* Determines the location of the logging directory and create a new log file
- * that is sequentially higher than the previous log file.  The logging 
+ * that is sequentially higher than the previous log file.  The logging
  * directory is obtained from the produt settings in the registry, and the
  * file name is obtained by opening existing files until one is not found.
  */
@@ -197,7 +197,7 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
                     const char *label, uint flags)
 {
     byte *start, *end;
-   
+
     if (TEST(PRINT_MEM_BUF_START, flags)) {
         start = address;
         end = address + length;
@@ -225,7 +225,7 @@ print_memory_buffer(file_t diagnostics_file, byte *address, uint length,
                                  );
             print_file(diagnostics_file, "\n");
         } else {
-            print_file(diagnostics_file, 
+            print_file(diagnostics_file,
                        "Can\'t print 0x%.8x-0x%.8x (unreadable)\n", start, cur_end);
         }
         start = cur_end;
@@ -251,7 +251,7 @@ report_addr_info(file_t diagnostics_file, app_pc addr, const char *tag)
                "\t\tin_IAT=              \"%s\"\n"
                "\t\tpreferred_base=      \""PFX"\"\n",
                addr,
-               mod_name == NULL ? "(none)" : mod_name, 
+               mod_name == NULL ? "(none)" : mod_name,
                is_in_IAT(addr) ? "yes" : "no",
                get_module_preferred_base(addr));
     if (mod_name != NULL && mod_name != modname_buf)
@@ -262,7 +262,7 @@ report_addr_info(file_t diagnostics_file, app_pc addr, const char *tag)
 
     /* Dump memory permission and region information */
     dump_mbi_addr(diagnostics_file, addr, DUMP_XML);
-    
+
     /* Also dump 1 page around address */
     print_file(diagnostics_file, "\t\t><content>\n");
     print_memory_buffer(diagnostics_file, addr, PAGE_SIZE, tag,
@@ -276,7 +276,7 @@ report_src_info(file_t diagnostics_file, dcontext_t *dcontext)
     const char *name = "source";
     fragment_t *f = dcontext->last_fragment;
 
-    /* Note: last_fragment may span across different dlls because 
+    /* Note: last_fragment may span across different dlls because
      * DR's basic blocks span across unconditional direct branches.  If
      * recreate_app_pc() isn't used, current module may be wrong. Case 2152.
      * Make sure to check for LINKSTUB_FAKE() before recreating.
@@ -286,8 +286,8 @@ report_src_info(file_t diagnostics_file, dcontext_t *dcontext)
     ASSERT(dcontext->last_exit != NULL);
 
     print_file(diagnostics_file, "\t<%s-properties \n", name);
-     
-    report_addr_info(diagnostics_file, f->tag, name); 
+
+    report_addr_info(diagnostics_file, f->tag, name);
 
     /* Dump src fragment information: flags, bb_tags, cache dump etc. */
     print_file(diagnostics_file, "\t\t<cache-content\n"
@@ -347,7 +347,7 @@ static void
 report_preferred_target_info(file_t diagnostics_file, dcontext_t *dcontext)
 {
     const char *name = "preferred-target";
-    app_pc aslr_preferred_address =     
+    app_pc aslr_preferred_address =
         aslr_possible_preferred_address(dcontext->next_tag);
 
     /* no report if we don't have a preferred address */
@@ -382,7 +382,7 @@ report_vm_counters(file_t diagnostics_file, VM_COUNTERS *vmc)
 }
 
 /* Prints out dcontext information.  If the dcontext is from the current thread,
- * additional information is reported.  
+ * additional information is reported.
  * The conservative flag indicates we may have come here from a crash.  Print
  * information that do not need any allocations etc.
  */
@@ -398,7 +398,7 @@ report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
         return;
     }
 
-    print_file(diagnostics_file, 
+    print_file(diagnostics_file,
                "\t<whereami> %d </whereami>\n", dcontext->whereami);
     dump_mcontext(get_mcontext(dcontext), diagnostics_file, DUMP_XML);
     dump_callstack(NULL, (app_pc)get_mcontext(dcontext)->xbp, diagnostics_file,
@@ -419,9 +419,9 @@ report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
         /* Verify beginning and end of region (which span at most 2 pages) */
         print_file(diagnostics_file, "\t<stack>\n\t\t<content>\n",
                    (byte *) get_mcontext(dcontext)->xsp);
-        print_memory_buffer(diagnostics_file, 
-                            (byte *) get_mcontext(dcontext)->xsp, 
-                            PAGE_SIZE, 
+        print_memory_buffer(diagnostics_file,
+                            (byte *) get_mcontext(dcontext)->xsp,
+                            PAGE_SIZE,
                             "Current Stack",
                              PRINT_MEM_BUF_ASCII);
         print_file(diagnostics_file, "\t\t</content>\n\t</stack>\n");
@@ -432,8 +432,8 @@ report_dcontext_info(IN file_t diagnostics_file, IN dcontext_t *dcontext,
                    "\t<stack>\n\t\t<content>\n",
                    (byte *) get_mcontext(dcontext)->xsp);
         print_memory_buffer(diagnostics_file,
-                            (byte *) get_mcontext(dcontext)->xsp, 
-                            DIAGNOSTICS_MINI_DUMP_SIZE, 
+                            (byte *) get_mcontext(dcontext)->xsp,
+                            DIAGNOSTICS_MINI_DUMP_SIZE,
                             "Stack",
                             PRINT_MEM_BUF_ASCII);
         print_file(diagnostics_file, "\t\t</content>\n\t</stack>\n");
@@ -451,7 +451,7 @@ report_internal_data_structures(IN file_t diagnostics_file,
     dcontext_t *dcontext;
 
     print_file(diagnostics_file, "<internal-data-structures>\n"
-               "automatic_startup  : %d\ncontrol_all_threads: %d\n" 
+               "automatic_startup  : %d\ncontrol_all_threads: %d\n"
                "dynamo_initialized : %d\ndynamo_exited      : %d\n"
                "num_threads        : %d\ndynamorio.dll      = "PFX"\n",
                automatic_startup, control_all_threads,
@@ -471,15 +471,15 @@ report_internal_data_structures(IN file_t diagnostics_file,
             print_moduledb_exempt_lists(diagnostics_file);
         }
     }
-    
+
     print_last_deallocated(diagnostics_file);
 
     /* case 5442: always dump dcontext */
     dcontext = get_thread_private_dcontext();
     if (dcontext != NULL) {
-        print_memory_buffer(diagnostics_file, (byte *)dcontext, 
-                            sizeof(dcontext_t), "current dcontext", 
-                            PRINT_MEM_BUF_START|PRINT_MEM_BUF_NO_ALIGN); 
+        print_memory_buffer(diagnostics_file, (byte *)dcontext,
+                            sizeof(dcontext_t), "current dcontext",
+                            PRINT_MEM_BUF_START|PRINT_MEM_BUF_NO_ALIGN);
     }
 
     /* Include mini-call stacks for non-attack calls */
@@ -491,10 +491,10 @@ report_internal_data_structures(IN file_t diagnostics_file,
         GET_STACK_PTR(our_esp);
         GET_FRAME_PTR(our_ebp);
         /* dump whole stack */
-        print_file(diagnostics_file, "ebp="PFX" esp="PFX"\n", 
+        print_file(diagnostics_file, "ebp="PFX" esp="PFX"\n",
                    our_ebp, our_esp);
         print_memory_buffer(diagnostics_file, (byte *)
-                            ALIGN_BACKWARD(our_esp, PAGE_SIZE), 3*PAGE_SIZE, 
+                            ALIGN_BACKWARD(our_esp, PAGE_SIZE), 3*PAGE_SIZE,
                             "DR Stack", PRINT_MEM_BUF_START);
         /* application call stack is printed by report_dcontext_info */
     }
@@ -554,22 +554,22 @@ report_ntdll_info(IN file_t diagnostics_file)
     print_file(diagnostics_file, "<ntdll-file-information><![CDATA[\n");
 
     memset (&file_info, 0, sizeof(file_info));
-    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY, 
+    value_result = reg_query_value(DIAGNOSTICS_OS_REG_KEY,
                                    DIAGNOSTICS_SYSTEMROOT_REG_KEY,
                                    KeyValueFullInformation,
-                                   &diagnostic_value_info, 
-                                   sizeof(diagnostic_value_info), 0);    
+                                   &diagnostic_value_info,
+                                   sizeof(diagnostic_value_info), 0);
     if (value_result == REG_QUERY_SUCCESS) {
-        _snwprintf(filename, BUFFER_SIZE_ELEMENTS(filename), L"\\??\\%s\\%s", 
-                   (wchar_t*)(diagnostic_value_info.NameAndData  + 
-                              diagnostic_value_info.DataOffset - 
+        _snwprintf(filename, BUFFER_SIZE_ELEMENTS(filename), L"\\??\\%s\\%s",
+                   (wchar_t*)(diagnostic_value_info.NameAndData  +
+                              diagnostic_value_info.DataOffset -
                               DECREMENT_FOR_DATA_OFFSET),
                     DIAGNOSTICS_NTDLL_DLL_LOCATION);
         NULL_TERMINATE_BUFFER(filename);
         print_file(diagnostics_file, "%S\n", filename);
 
         if (query_full_attributes_file(filename, &file_info)) {
-            print_file(diagnostics_file, 
+            print_file(diagnostics_file,
                 "0x%.11x%.8x 0x%.11x%.8x 0x%.11x%.8x\n"
                 "0x%.11x%.8x 0x%.11x%.8x 0x%.11x%.8x\n"
                 "0x%.8x\n",
@@ -598,7 +598,7 @@ static void
 report_thread(file_t diagnostics_file, int num, thread_id_t id, dcontext_t *dcontext,
               bool conservative)
 {
-    print_file(diagnostics_file, 
+    print_file(diagnostics_file,
                "\n<thread id=\"%d\" current-thread=\"%s\" num=\"%d\">\n",
                id,
                ((dcontext == get_thread_private_dcontext()) ? "yes" : "no"),
@@ -631,19 +631,19 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
        be used in an attack.  Risk should be assessed. */
     if (conservative) {
         print_file(diagnostics_file, "name=                    \"%s\"\n",
-                   get_application_name());        
+                   get_application_name());
     } else {
         print_file(diagnostics_file, "name=                    \"%S\"\n",
                    sp->ProcessName.Buffer);
     }
-    print_file(diagnostics_file, "image-path=              \"%S\"\n", 
+    print_file(diagnostics_file, "image-path=              \"%S\"\n",
                peb->ProcessParameters->ImagePathName.Buffer);
     print_file(diagnostics_file, "full-qualified-name=     \"%s\"\n",
                get_application_name());
     print_file(diagnostics_file, "short-qualified-name=    \"%S\"\n",
                get_own_short_qualified_name());
-    print_file(diagnostics_file, "current-directory-path=  \"%S\"\n", 
-               peb->ProcessParameters->CurrentDirectoryPath.Buffer);        
+    print_file(diagnostics_file, "current-directory-path=  \"%S\"\n",
+               peb->ProcessParameters->CurrentDirectoryPath.Buffer);
     if (conservative) {
         print_file(diagnostics_file, "process-id=              \"%s\"\n",
                    get_application_pid());
@@ -653,7 +653,7 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
     }
     print_file(diagnostics_file,
                "being-debugged=          \"%s\"\n"
-               "image-base-address=      \"0x%.8x\"\n", 
+               "image-base-address=      \"0x%.8x\"\n",
                peb->BeingDebugged ? "yes" : "no",
                peb->ImageBaseAddress);
     print_file(diagnostics_file, "shell-info=              \"%S\"\n",
@@ -684,11 +684,11 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
      * problems for xml we dump it as a separate CDATA tag instead of an
      * attribute */
     print_file(diagnostics_file,
-               "><command-line><![CDATA[ %S\n]]></command-line>\n", 
+               "><command-line><![CDATA[ %S\n]]></command-line>\n",
                peb->ProcessParameters->CommandLine.Buffer);
 
     /* DllPath can get pretty large -- splitting it up here.
-     * FIXME: Splitting buffers can be generalized fairly simply (1 for wide, 
+     * FIXME: Splitting buffers can be generalized fairly simply (1 for wide,
      * 1 for ascii) if this kind of thing happens a lot */
     /* For xml can't be done as an additional in tag field since I've seen
      * quotes in the dll-path string. */
@@ -772,8 +772,8 @@ report_current_process(IN file_t diagnostics_file, IN PSYSTEM_PROCESSES sp,
         report_thread_list = false;
 #endif
     if (violation_type == ASLR_TARGET_VIOLATION) {
-        /* we should in fact be able to report the thread list, 
-         * if it wasn't the ASSERT, and to keep things mostly same 
+        /* we should in fact be able to report the thread list,
+         * if it wasn't the ASSERT, and to keep things mostly same
          */
         report_thread_list = false;
     }
@@ -840,8 +840,8 @@ get_system_processes(OUT uint *info_bytes_needed)
     process_info = (byte *) global_heap_alloc(*info_bytes_needed HEAPACCT(ACCT_OTHER));
     memset(process_info, 0, *info_bytes_needed);
     do {
-        result = query_system_info(SystemProcessesAndThreadsInformation, 
-                                   *info_bytes_needed, 
+        result = query_system_info(SystemProcessesAndThreadsInformation,
+                                   *info_bytes_needed,
                                    process_info);
         if (result == STATUS_INFO_LENGTH_MISMATCH) {
             global_heap_free(process_info, *info_bytes_needed HEAPACCT(ACCT_OTHER));
@@ -859,7 +859,7 @@ get_system_processes(OUT uint *info_bytes_needed)
 }
 
 /* Collects and displays all process information.  First displays all process
- * names.  Then displays additional information for the current process 
+ * names.  Then displays additional information for the current process
  */
 static void
 report_processes(IN file_t diagnostics_file, IN security_violation_t violation_type)
@@ -885,7 +885,7 @@ report_processes(IN file_t diagnostics_file, IN security_violation_t violation_t
         print_file(diagnostics_file, "<process-list> <![CDATA[ \n");
 
         /* Print out all process names here */
-        do {        
+        do {
             /* A NextEntryDelta of 0 indicates the last process in the structure */
             if (sp->NextEntryDelta == 0)
                 found_last_process = true;
@@ -905,7 +905,7 @@ report_processes(IN file_t diagnostics_file, IN security_violation_t violation_t
         found_current_process = false;
 
         /* Print out current process info */
-        do {        
+        do {
             /* A NextEntryDelta of 0 indicates the last process in the structure */
             if (sp->NextEntryDelta == 0)
                 found_last_process = true;
@@ -970,17 +970,17 @@ report_registry_settings_helper(file_t diagnostics_file, uint log_mask,
 
     if (log_mask & DIAGNOSTICS_REG_ALLKEYS) {
         int value_result;
-        print_file(diagnostics_file, "%S\n\n", diagnostic_keyname);            
+        print_file(diagnostics_file, "%S\n\n", diagnostic_keyname);
         current_enum_value = 0;
         do {
-            value_result = reg_enum_value(diagnostic_keyname, 
+            value_result = reg_enum_value(diagnostic_keyname,
                                           current_enum_value,
                                           KeyValueFullInformation,
-                                          &diagnostic_value_info, 
-                                          sizeof(diagnostic_value_info));    
+                                          &diagnostic_value_info,
+                                          sizeof(diagnostic_value_info));
             if (value_result) {
                 diagnostics_log_data(diagnostics_file, log_mask);
-                print_file(diagnostics_file, "\n"); 
+                print_file(diagnostics_file, "\n");
             }
             current_enum_value++;
         } while ((value_result) &&
@@ -988,33 +988,33 @@ report_registry_settings_helper(file_t diagnostics_file, uint log_mask,
     }
     else if (log_mask & DIAGNOSTICS_REG_HARDWARE) {
         reg_query_value_result_t value_result;
-        value_result = reg_query_value(diagnostic_keyname, 
+        value_result = reg_query_value(diagnostic_keyname,
                                        DIAGNOSTICS_DESCRIPTION_KEY,
                                        KeyValueFullInformation,
-                                       &diagnostic_value_info, 
-                                       sizeof(diagnostic_value_info), 0);    
+                                       &diagnostic_value_info,
+                                       sizeof(diagnostic_value_info), 0);
         if (value_result == REG_QUERY_SUCCESS) {
             diagnostics_log_data(diagnostics_file, log_mask);
 
             /* Try to get the manufacturer */
-            value_result = reg_query_value(diagnostic_keyname, 
+            value_result = reg_query_value(diagnostic_keyname,
                                            DIAGNOSTICS_MANUFACTURER_KEY,
                                            KeyValueFullInformation,
-                                           &diagnostic_value_info, 
-                                           sizeof(diagnostic_value_info), 0);    
-            if (value_result == REG_QUERY_SUCCESS) 
-                diagnostics_log_data(diagnostics_file, log_mask);
-            /* Try to get the friendly name */
-            value_result = reg_query_value(diagnostic_keyname, 
-                                           DIAGNOSTICS_FRIENDLYNAME_KEY,
-                                           KeyValueFullInformation,
-                                           &diagnostic_value_info, 
+                                           &diagnostic_value_info,
                                            sizeof(diagnostic_value_info), 0);
             if (value_result == REG_QUERY_SUCCESS)
                 diagnostics_log_data(diagnostics_file, log_mask);
-    
+            /* Try to get the friendly name */
+            value_result = reg_query_value(diagnostic_keyname,
+                                           DIAGNOSTICS_FRIENDLYNAME_KEY,
+                                           KeyValueFullInformation,
+                                           &diagnostic_value_info,
+                                           sizeof(diagnostic_value_info), 0);
+            if (value_result == REG_QUERY_SUCCESS)
+                diagnostics_log_data(diagnostics_file, log_mask);
+
             print_file(diagnostics_file, "\n");
-        } 
+        }
     }
 
     /* See if there are more subkeys to recursively call */
@@ -1022,21 +1022,21 @@ report_registry_settings_helper(file_t diagnostics_file, uint log_mask,
     if (log_mask & DIAGNOSTICS_REG_ALLSUBKEYS) {
         do {
             memset(&diagnostic_key_info, 0, sizeof(diagnostic_key_info));
-            key_result = reg_enum_key(diagnostic_keyname, 
-                                      current_enum_key, 
-                                      KeyBasicInformation, 
-                                      &diagnostic_key_info, 
+            key_result = reg_enum_key(diagnostic_keyname,
+                                      current_enum_key,
+                                      KeyBasicInformation,
+                                      &diagnostic_key_info,
                                       sizeof(diagnostic_key_info));
             current_enum_key++;
 
-            if ((*recursion_level < DIAGNOSTICS_MAX_RECURSION_LEVEL) && 
-                (*total_keys < DIAGNOSTICS_MAX_REG_KEYS) && 
+            if ((*recursion_level < DIAGNOSTICS_MAX_RECURSION_LEVEL) &&
+                (*total_keys < DIAGNOSTICS_MAX_REG_KEYS) &&
                 (key_result)) {
                 size_t index = wcslen(diagnostic_keyname);
 
                 /* append subkey name */
                 _snwprintf(&diagnostic_keyname[index],
-                           BUFFER_SIZE_ELEMENTS(diagnostic_keyname) - index, 
+                           BUFFER_SIZE_ELEMENTS(diagnostic_keyname) - index,
                            L"\\%s", diagnostic_key_info.Name);
                 NULL_TERMINATE_BUFFER(diagnostic_keyname);
 
@@ -1048,8 +1048,8 @@ report_registry_settings_helper(file_t diagnostics_file, uint log_mask,
                 /* remove subkey name */
                 diagnostic_keyname[index] = L'\0';
             }
-        } while ((*recursion_level < DIAGNOSTICS_MAX_RECURSION_LEVEL) && 
-                (*total_keys < DIAGNOSTICS_MAX_REG_KEYS) && 
+        } while ((*recursion_level < DIAGNOSTICS_MAX_RECURSION_LEVEL) &&
+                (*total_keys < DIAGNOSTICS_MAX_REG_KEYS) &&
                 (key_result));
     }
 }
@@ -1070,9 +1070,9 @@ report_autostart_programs(file_t diagnostics_file)
                                  (wchar_t *)HKLM_entries[i],
                                  (DIAGNOSTICS_REG_ALLKEYS |
                                   DIAGNOSTICS_REG_ALLSUBKEYS |
-                                  DIAGNOSTICS_REG_NAME | 
+                                  DIAGNOSTICS_REG_NAME |
                                   DIAGNOSTICS_REG_DATA));
-    }     
+    }
 
     /* HKEY_CURRENT_USER entries */
     result = get_current_user_SID(sid, sizeof(sid));
@@ -1088,7 +1088,7 @@ report_autostart_programs(file_t diagnostics_file)
                                      entry,
                                      (DIAGNOSTICS_REG_ALLKEYS |
                                       DIAGNOSTICS_REG_ALLSUBKEYS |
-                                      DIAGNOSTICS_REG_NAME | 
+                                      DIAGNOSTICS_REG_NAME |
                                       DIAGNOSTICS_REG_DATA));
         }
     }
@@ -1132,7 +1132,7 @@ report_intro(IN file_t diagnostics_file,
 
     if (name != NULL) {
         print_file(diagnostics_file,
-                   "<threat-id> Threat ID: %s </threat-id>\n", name);  
+                   "<threat-id> Threat ID: %s </threat-id>\n", name);
     }
 
     print_file(diagnostics_file, "</diagnostic-report>\n\n");
@@ -1193,8 +1193,8 @@ report_system_diagnostics(IN file_t diagnostics_file)
     report_processor_info(diagnostics_file);
 
     memset(&diag_info, 0, sizeof(diag_info));
-    result = query_system_info(SystemBasicInformation, 
-                               sizeof(SYSTEM_BASIC_INFORMATION), 
+    result = query_system_info(SystemBasicInformation,
+                               sizeof(SYSTEM_BASIC_INFORMATION),
                                &(diag_info.sbasic_info));
     if (NT_SUCCESS(result)) {
         print_file(diagnostics_file,
@@ -1215,8 +1215,8 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.sbasic_info.NumberProcessors);
     }
 
-    result = query_system_info(SystemPerformanceInformation, 
-                               sizeof(SYSTEM_PERFORMANCE_INFORMATION), 
+    result = query_system_info(SystemPerformanceInformation,
+                               sizeof(SYSTEM_PERFORMANCE_INFORMATION),
                                &(diag_info.sperf_info));
     if (NT_SUCCESS(result)) {
         /* FIXME: good we started with all, but we should cut most of the
@@ -1232,7 +1232,7 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.sperf_info.WriteTransferCount.LowPart,
                    diag_info.sperf_info.OtherTransferCount.HighPart,
                    diag_info.sperf_info.OtherTransferCount.LowPart);
-        print_file(diagnostics_file, 
+        print_file(diagnostics_file,
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
@@ -1273,7 +1273,7 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.sperf_info.MmSystemCachePage,
                    diag_info.sperf_info.PagedPoolPage,
                    diag_info.sperf_info.SystemDriverPage);
-        print_file(diagnostics_file, 
+        print_file(diagnostics_file,
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
                    "\t%.10d %.10d %.10d %.10d %.10d %.10d %.10d\n"
@@ -1316,11 +1316,11 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.sperf_info.SystemCalls);
     }
 
-    result = query_system_info(SystemTimeOfDayInformation, 
-                               sizeof(SYSTEM_TIME_OF_DAY_INFORMATION), 
+    result = query_system_info(SystemTimeOfDayInformation,
+                               sizeof(SYSTEM_TIME_OF_DAY_INFORMATION),
                                &(diag_info.stime_info));
     if (NT_SUCCESS(result)) {
-        print_file(diagnostics_file, 
+        print_file(diagnostics_file,
                    "<time-of-day-information>\n"
                    "\t0x%.11x%.8x 0x%.11x%.8x 0x%.11x%.8x %.10d\n"
                    "</time-of-day-information>\n",
@@ -1333,8 +1333,8 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.stime_info.CurrentTimeZoneId);
     }
 
-    result = query_system_info(SystemProcessorTimes, 
-                               sizeof(SYSTEM_PROCESSOR_TIMES), 
+    result = query_system_info(SystemProcessorTimes,
+                               sizeof(SYSTEM_PROCESSOR_TIMES),
                                &(diag_info.sptime_info));
     if (NT_SUCCESS(result)) {
         print_file(diagnostics_file,
@@ -1355,8 +1355,8 @@ report_system_diagnostics(IN file_t diagnostics_file)
                    diag_info.sptime_info.InterruptCount);
     }
 
-    result = query_system_info(SystemGlobalFlag, 
-                               sizeof(SYSTEM_GLOBAL_FLAG), 
+    result = query_system_info(SystemGlobalFlag,
+                               sizeof(SYSTEM_GLOBAL_FLAG),
                                &(diag_info.global_flag));
     if (NT_SUCCESS(result)) {
         print_file(diagnostics_file, "<global-flag> 0x%.8x </global-flag>\n",
@@ -1397,21 +1397,21 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
                                violation_type, true /*be conservative*/);
     else
         report_processes(diagnostics_file, violation_type);
-    
+
     report_system_diagnostics(diagnostics_file);
 
     mutex_lock(&reg_mutex);
     print_file(diagnostics_file, "<registry-settings>\n<![CDATA[\n");
     report_registry_settings(diagnostics_file,
-                             DYNAMORIO_REGISTRY_BASE, 
+                             DYNAMORIO_REGISTRY_BASE,
                              (DIAGNOSTICS_REG_ALLKEYS |
                               DIAGNOSTICS_REG_ALLSUBKEYS |
-                              DIAGNOSTICS_REG_NAME | 
+                              DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     report_registry_settings(diagnostics_file,
-                             DIAGNOSTICS_OS_REG_KEY, 
-                             (DIAGNOSTICS_REG_ALLKEYS | 
-                              DIAGNOSTICS_REG_NAME | 
+                             DIAGNOSTICS_OS_REG_KEY,
+                             (DIAGNOSTICS_REG_ALLKEYS |
+                              DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     /* delve deeper into OS reg key for our two injection method keys */
     report_registry_settings(diagnostics_file,
@@ -1426,30 +1426,30 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
                               DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     report_registry_settings(diagnostics_file,
-                             DIAGNOSTICS_BIOS_REG_KEY, 
-                             (DIAGNOSTICS_REG_ALLKEYS | 
-                              DIAGNOSTICS_REG_NAME | 
+                             DIAGNOSTICS_BIOS_REG_KEY,
+                             (DIAGNOSTICS_REG_ALLKEYS |
+                              DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     report_registry_settings(diagnostics_file,
-                             DIAGNOSTICS_HARDWARE_REG_KEY, 
-                             (DIAGNOSTICS_REG_HARDWARE | 
+                             DIAGNOSTICS_HARDWARE_REG_KEY,
+                             (DIAGNOSTICS_REG_HARDWARE |
                               DIAGNOSTICS_REG_ALLSUBKEYS |
                               DIAGNOSTICS_REG_DATA));
     report_registry_settings(diagnostics_file,
-                             DIAGNOSTICS_CONTROL_REG_KEY, 
+                             DIAGNOSTICS_CONTROL_REG_KEY,
                              (DIAGNOSTICS_REG_ALLKEYS |
-                              DIAGNOSTICS_REG_NAME | 
+                              DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     report_registry_settings(diagnostics_file,
-                             DIAGNOSTICS_OS_HOTFIX_REG_KEY, 
+                             DIAGNOSTICS_OS_HOTFIX_REG_KEY,
                              (DIAGNOSTICS_REG_ALLKEYS |
                               DIAGNOSTICS_REG_ALLSUBKEYS |
-                              DIAGNOSTICS_REG_NAME | 
+                              DIAGNOSTICS_REG_NAME |
                               DIAGNOSTICS_REG_DATA));
     print_file(diagnostics_file, "]]>\n</registry-settings>\n\n");
     report_ntdll_info(diagnostics_file);
     report_autostart_programs(diagnostics_file);
-    mutex_unlock(&reg_mutex);  
+    mutex_unlock(&reg_mutex);
 
     report_internal_data_structures(diagnostics_file, violation_type);
 
@@ -1459,7 +1459,7 @@ report_diagnostics_common(file_t diagnostics_file, const char *message, const ch
 /* Collects and displays all diagnostic information.
  * violation_type of NO_VIOLATION_* is diagnostics; other is forensics.
  */
-void 
+void
 report_diagnostics(IN const char *message,
                    IN const char *name, /* NULL if not a violation */
                    IN security_violation_t violation_type)
@@ -1472,7 +1472,7 @@ report_diagnostics(IN const char *message,
     if (!DYNAMO_OPTION(diagnostics))
         return;
 
-    open_diagnostics_file(&diagnostics_file, diagnostics_filename, 
+    open_diagnostics_file(&diagnostics_file, diagnostics_filename,
                           BUFFER_SIZE_ELEMENTS(diagnostics_filename));
 
     if (diagnostics_file == INVALID_FILE)
@@ -1490,8 +1490,8 @@ report_diagnostics(IN const char *message,
         os_close(diagnostics_file);
 
     /* write an event indicating the file was created */
-    SYSLOG(SYSLOG_INFORMATION, SEC_FORENSICS, 
-           3, get_application_name(), get_application_pid(), 
+    SYSLOG(SYSLOG_INFORMATION, SEC_FORENSICS,
+           3, get_application_name(), get_application_pid(),
            diagnostics_filename);
 }
 
@@ -1505,9 +1505,9 @@ append_diagnostics(file_t diagnostics_file, const char *message, const char *nam
     /* Begin Report */
     print_file(diagnostics_file, "<forensic-report title=\""PRODUCT_NAME" Forensic File\" "
                "version=\""DIAGNOSTICS_XML_FILE_VERSION"\" encoding=\"iso-8859-1\">\n");
-    
+
     report_diagnostics_common(diagnostics_file, message, name, violation_type);
-    
+
     /* End-of-file */
     print_file(diagnostics_file, "</forensic-report>\n");
 }

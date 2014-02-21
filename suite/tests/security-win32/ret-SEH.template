@@ -4,7 +4,7 @@ in foo level -1
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -17,7 +17,7 @@ in foo level 0
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C) && !defined(internal_detach_mask)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else
@@ -29,7 +29,7 @@ in foo level 1
 #if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_seh_rct) && !defined(C) && !defined(internal_detach_mask)
 # if !defined(detect_mode)
    SEC_VIO_AUTO_STOP
-#  if !defined(internal_detach_mask) 
+#  if !defined(internal_detach_mask)
     STOP
 #  endif
 # else

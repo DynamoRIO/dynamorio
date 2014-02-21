@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -34,7 +34,7 @@
 /* Copyright (c) 2003-2007 Determina Corp. */
 
 /*
- * os_shared.h - shared declarations for os facilities from unix/win32 
+ * os_shared.h - shared declarations for os facilities from unix/win32
  */
 
 #ifndef OS_SHARED_H
@@ -85,7 +85,7 @@ enum {
     HEAP_ERROR_SUCCESS = 0,
     /* os_heap_reserve_in_region() only, couldn't find a place to reserve within region */
     HEAP_ERROR_CANT_RESERVE_IN_REGION = 1,
-    /* os_heap_reserve() only, Linux only, mmap failed to reserve at preferred address */ 
+    /* os_heap_reserve() only, Linux only, mmap failed to reserve at preferred address */
     HEAP_ERROR_NOT_AT_PREFERRED = 2,
 };
 typedef uint heap_error_code_t;
@@ -111,13 +111,13 @@ bool os_raw_mem_free(void *p, size_t size, uint flags, heap_error_code_t *error_
 
 /* Reserve size bytes of virtual address space in one piece without committing swap
  * space for it.  If preferred is non-NULL then memory will be reserved at that address
- * only (if size bytes are unavailable at preferred then the allocation will fail). 
+ * only (if size bytes are unavailable at preferred then the allocation will fail).
  * The executable flag is for platforms that divide executable from data memory.
  */
 void *os_heap_reserve(void *preferred, size_t size, heap_error_code_t *error_code,
                       bool executable);
 /* Reserve size bytes of virtual address space in one piece entirely within the
- * address range specified without committing swap space for it. 
+ * address range specified without committing swap space for it.
  * The executable flag is for platforms that divide executable from data memory.
  */
 void *os_heap_reserve_in_region(void *start, void *end, size_t size,
@@ -131,7 +131,7 @@ void os_heap_decommit(void *p, size_t size, heap_error_code_t *error_code);
 void os_heap_free(void *p, size_t size, heap_error_code_t *error_code);
 
 /* prognosticate whether systemwide memory pressure based on
- * last_error_code and systemwide omens 
+ * last_error_code and systemwide omens
  *
  * Note it doesn't answer if the hog is current process, nor whether
  * it is our own fault in current process.
@@ -247,15 +247,15 @@ int get_num_processors(void);
 typedef enum {
     TERMINATE_PROCESS = 0x1,
     TERMINATE_THREAD  = 0x2, /* terminate thread (and process if last) */
-    /* Use of TERMINATE_THREAD mode is dangerous, 
+    /* Use of TERMINATE_THREAD mode is dangerous,
        and can result in the following problems (see MSDN):
-       * If the target thread owns a critical section, 
+       * If the target thread owns a critical section,
        the critical section will not be released.
-       * If the target thread is allocating memory from the heap, 
+       * If the target thread is allocating memory from the heap,
        the heap lock will not be released.
-       * If the target thread is executing certain kernel32 calls when it is terminated, 
+       * If the target thread is executing certain kernel32 calls when it is terminated,
        the kernel32 state for the thread's process could be inconsistent.
-       * If the target thread is manipulating the global state of a shared DLL, 
+       * If the target thread is manipulating the global state of a shared DLL,
        the state of the DLL could be destroyed, affecting other users of the DLL.
     */
     TERMINATE_CLEANUP = 0x4 /* cleanup our state before issuing terminal syscall */
@@ -340,7 +340,7 @@ void os_dump_core(const char *msg);
 
 int os_timeout(int time_in_milliseconds);
 
-void os_syslog(syslog_event_type_t priority, uint message_id, 
+void os_syslog(syslog_event_type_t priority, uint message_id,
                uint substitutions_num, va_list args);
 
 /* DR_API EXPORT TOFILE dr_tools.h */
@@ -350,7 +350,7 @@ void os_syslog(syslog_event_type_t priority, uint message_id,
  */
 
 #if defined(CLIENT_INTERFACE) || defined(HOT_PATCHING_INTERFACE)
-/** 
+/**
  * A handle to a loaded client auxiliary library.  This is a different
  * type than module_handle_t and is not necessarily the base address.
  */
@@ -505,18 +505,18 @@ osprot_replace_memprot(uint old_osprot, uint memprot);
 
 /* returns false if out of memory */
 bool set_protection(byte *pc, size_t size, uint prot);
-/* Change protections on memory region starting at pc of length size 
- * (padded to page boundaries).  This method is meant to be used on DR memory 
+/* Change protections on memory region starting at pc of length size
+ * (padded to page boundaries).  This method is meant to be used on DR memory
  * as part of protect from app and is safe with respect to stats and changing
  * the protection of the data segment. */
 /* returns false if out of memory */
 bool change_protection(byte *pc, size_t size, bool writable);
 #ifdef WINDOWS
-/* makes pc:pc+size (page_padded) writable preserving other flags 
+/* makes pc:pc+size (page_padded) writable preserving other flags
  * returns false if out of memory
  */
 bool make_hookable(byte *pc, size_t size, bool *changed_prot);
-/* if changed_prot makes pc:pc+size (page padded) unwritable preserving 
+/* if changed_prot makes pc:pc+size (page padded) unwritable preserving
  * other flags */
 void make_unhookable(byte *pc, size_t size, bool changed_prot);
 #endif
@@ -563,7 +563,7 @@ enum {
      * if !GLOBAL, DCONTEXT should not be used
      */
     SELFPROT_GLOBAL      = 0x008,
-    SELFPROT_DCONTEXT    = 0x010, /* means we split out unprotected_context_t -- 
+    SELFPROT_DCONTEXT    = 0x010, /* means we split out unprotected_context_t --
                                    * no actual protection unless SELFPROT_GLOBAL */
     SELFPROT_LOCAL       = 0x020,
     SELFPROT_CACHE       = 0x040, /* FIXME: thread-safe NYI when doing all units */
@@ -571,7 +571,7 @@ enum {
                                    * design, leaving as a bit in case we do more later */
     /* protect our generated thread-shared and thread-private code */
     SELFPROT_GENCODE     = 0x100,
-    /* FIXME: TEB page on Win32 
+    /* FIXME: TEB page on Win32
      * Other global structs, like thread-local callbacks on Win32?
      * PEB page?
      */
@@ -635,17 +635,17 @@ extern uint datasec_writable_cxtswprot;
 #define DECLARE_FREQPROT_VAR(var, ...)                        \
     START_DATA_SECTION(FREQ_PROTECTED_SECTION, "w")           \
     var VAR_IN_SECTION(FREQ_PROTECTED_SECTION) = __VA_ARGS__; \
-    END_DATA_SECTION() 
+    END_DATA_SECTION()
 
 #define DECLARE_CXTSWPROT_VAR(var, ...)                        \
     START_DATA_SECTION(CXTSW_PROTECTED_SECTION, "w")           \
     var VAR_IN_SECTION(CXTSW_PROTECTED_SECTION) = __VA_ARGS__; \
-    END_DATA_SECTION() 
+    END_DATA_SECTION()
 
 #define DECLARE_NEVERPROT_VAR(var, ...)                        \
     START_DATA_SECTION(NEVER_PROTECTED_SECTION, "w")           \
     var VAR_IN_SECTION(NEVER_PROTECTED_SECTION) = __VA_ARGS__; \
-    END_DATA_SECTION() 
+    END_DATA_SECTION()
 
 #define SELF_PROTECT_ON_CXT_SWITCH \
     (TESTANY(SELFPROT_ON_CXT_SWITCH, DYNAMO_OPTION(protect_mask)) \
@@ -763,10 +763,10 @@ bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
  * Windows we have a 64-bit offset.  We go with the widest here, a
  * 64-bit offset, to avoid limiting Windows.
  */
-/* When fixed==true, DR tries to allocate memory from the address specified 
- * by addr. 
- * In Linux, it has the same semantic as mmap system call with MAP_FIXED flags, 
- * If the memory region specified by addr and size overlaps pages of 
+/* When fixed==true, DR tries to allocate memory from the address specified
+ * by addr.
+ * In Linux, it has the same semantic as mmap system call with MAP_FIXED flags,
+ * If the memory region specified by addr and size overlaps pages of
  * any existing mapping(s), then the overlapped part of the existing mapping(s)
  * will be discarded. If the specified address cannot be used, it will fail
  * and returns NULL.
@@ -776,7 +776,7 @@ bool os_rename_file(const char *orig_name, const char *new_name, bool replace);
 byte *os_map_file(file_t f, size_t *size INOUT, uint64 offs, app_pc addr,
                   uint prot, map_flags_t map_flags);
 bool os_unmap_file(byte *map, size_t size);
-/* unlike set_protection, os_set_protection does not update 
+/* unlike set_protection, os_set_protection does not update
  * the allmem info in Linux. */
 bool os_set_protection(byte *pc, size_t length, uint prot/*MEMPROT_*/);
 
@@ -801,13 +801,13 @@ extern uint kilo_hertz;
 /* Despite the name, this enum is used for all types of critical events:
 es
  * asserts and crashes for all builds, and security violations for PROGRAM_SHEPHERDING builds
- * When a security_violation is being reported, enum value must be negative! 
+ * When a security_violation is being reported, enum value must be negative!
  */
 typedef enum {
 #ifdef PROGRAM_SHEPHERDING
     STACK_EXECUTION_VIOLATION       = -1,
     HEAP_EXECUTION_VIOLATION        = -2,
-    RETURN_TARGET_VIOLATION         = -3, 
+    RETURN_TARGET_VIOLATION         = -3,
     RETURN_DIRECT_RCT_VIOLATION     = -4, /* NYI DIRECT_CALL_CHECK */
     INDIRECT_CALL_RCT_VIOLATION     = -5,
     INDIRECT_JUMP_RCT_VIOLATION     = -6,
@@ -837,7 +837,7 @@ typedef enum {
      * numbers, and update get_security_violation_name() for the
      * appropriate letter obfuscation */
     ALLOWING_OK                     =  1,
-    ALLOWING_BAD                    =  2,    
+    ALLOWING_BAD                    =  2,
 #endif
     NO_VIOLATION_BAD_INTERNAL_STATE =  3,
     NO_VIOLATION_OK_INTERNAL_STATE  =  4
@@ -913,7 +913,7 @@ os_random_seed(void);
 /* module map/unmap processing relevant to the RCT policies */
 /* cf. rct_analyze_module_at_violation() which can be called lazily */
 void
-rct_process_module_mmap(app_pc module_base, size_t module_size, 
+rct_process_module_mmap(app_pc module_base, size_t module_size,
                         bool add, bool already_relocated);
 
 /* module boundary and code section analysis for RCT policies */
@@ -943,7 +943,7 @@ aslr_possible_preferred_address(app_pc target_addr);
 # define POST_SYSCALL_PC(dc) ((dc)->asynch_target)
 #endif
 
-/* This has been exposed from win32 module so that hotp_only_gateway can 
+/* This has been exposed from win32 module so that hotp_only_gateway can
  * return the right return code.
  */
 typedef enum {
@@ -973,7 +973,7 @@ typedef struct {
 } app_state_at_intercept_t;
 
 /* note that only points intercepted with DYNAMIC_DECISION (currently only
- * [un]load_dll) care about the return value */ 
+ * [un]load_dll) care about the return value */
 typedef after_intercept_action_t intercept_function_t(app_state_at_intercept_t *args);
 
 /* opcodes and encoding constants that we sometimes directly use */
@@ -990,14 +990,14 @@ enum {
 # endif
 };
 #else /* !X86 */
-#  error only X86 supported 
+#  error only X86 supported
 #endif /* X86 */
 
 #ifdef WINDOWS
 /* used for option early_inject_location */
 /* use 0 to supply an arbitrary address via -early_inject_address */
 /* NOTE - these enum values are passed between processes, don't change/reuse
- * any existing values. */ 
+ * any existing values. */
 /* NtMapViewOfSection doesn't work as a place to LoadDll (ldr can't handle the
  * re-entrancy), but might be a good place to takeover if we remote mapped in
  * and needed ntdll initialized (first MapView is for kernel32.dll fom what
@@ -1007,7 +1007,7 @@ enum {
  * section to invalid memory instead? TODO try). */
 /* see early_inject_init() in os.c for more notes on best location for each
  * os version */
-/* NOTE - be carefull changing this enum as it's shared across proccesses. 
+/* NOTE - be carefull changing this enum as it's shared across proccesses.
  * Also values <= LdrDefault are assumed to need address computation while
  * those > are assumed to not need it. */
 #define INJECT_LOCATION_IS_LDR(loc) (loc <= INJECT_LOCATION_LdrDefault)
@@ -1042,8 +1042,8 @@ set_drmarker_hotp_policy_status_table(void *new_table);
 
 /* Used for -hotp_only; can be exposed if needed elsewhere later on. */
 byte *
-hook_text(byte *hook_code_buf, const app_pc image_addr, 
-          intercept_function_t hook_func, const void *callee_arg, 
+hook_text(byte *hook_code_buf, const app_pc image_addr,
+          intercept_function_t hook_func, const void *callee_arg,
           const after_intercept_action_t action_after,
           const bool abort_if_hooked, const bool ignore_cti,
           byte **app_code_copy_p, byte **alt_exit_tgt_p);
@@ -1068,7 +1068,7 @@ os_check_option_compatibility(void);
  */
 # define LANDING_PAD_SIZE    (19 + MAX_HOOK_DISPLACED_LENGTH)
 #else
-/* 5 bytes each for the two relative jumps (one to the trampoline and the 
+/* 5 bytes each for the two relative jumps (one to the trampoline and the
  * other back to instruction after hook.  Plus displaced instr(s).
  */
 # define LANDING_PAD_SIZE    (10 + MAX_HOOK_DISPLACED_LENGTH)

@@ -5,18 +5,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,13 +31,13 @@
 
 ###########################################################################
 # Missing features:
-# i#77: make DRstats a subproject to support with different compiler from libutil 
+# i#77: make DRstats a subproject to support with different compiler from libutil
 # i#84: nmake adds space before 1st / in 1st arg to a command invoked with quotes
-# i#74: create source tarball via 'make package_source' 
+# i#74: create source tarball via 'make package_source'
 # i#68: replace perl with cmake scripts and CTest
 # i#70: symbol store support in core/Makefile and tools/Makefile
 # i#72: RHEL3 linker script has no __executable_start
-# i#60: re-add libutil/ unit tests 
+# i#60: re-add libutil/ unit tests
 #
 # Not filed:
 # * move info like "build core solely from DDK" from make/compiler.mk into
@@ -429,7 +429,7 @@ mark_as_advanced(
 set(PRODUCT_NAME "DynamoRIO")
 
 if (install_override)
-  set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports" 
+  set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/exports"
     CACHE PATH "install path" FORCE)
 endif (install_override)
 # for historical reasons we have a separate mirror var
@@ -511,7 +511,7 @@ else (UNIX)
       set(sdk_bindir "${sdk_dir}/bin")
     endif (X64)
   endif ()
-  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}" 
+  find_program(CMAKE_MC_COMPILER mc.exe HINTS "${sdk_bindir}"
     DOC "path to message compiler")
   if (NOT CMAKE_MC_COMPILER)
     message(FATAL_ERROR "message compiler not found: required to build")
@@ -969,9 +969,9 @@ endfunction (set_per_config_ouput_to_match_single_config)
 set_per_config_ouput_to_match_single_config()
 
 # set var needed by configure.cmake.h
-string(REGEX REPLACE 
+string(REGEX REPLACE
   "^([0-9]+)\\..*" "\\1" VERSION_NUMBER_MAJOR "${VERSION_NUMBER}")
-string(REGEX REPLACE 
+string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
@@ -1041,7 +1041,7 @@ else (EXISTS ${defines_file})
   file(WRITE ${defines_file} "${defines_tofile}")
 endif (EXISTS ${defines_file})
 
-include_directories(BEFORE 
+include_directories(BEFORE
   ${PROJECT_BINARY_DIR} # for configure.h, configure_defines.h, events.h, and event_strings.h
   )
 
@@ -1184,7 +1184,7 @@ endif (BUILD_CORE)
 if (BUILD_TOOLS OR BUILD_DRSTATS)
   add_subdirectory(libutil)
 endif (BUILD_TOOLS OR BUILD_DRSTATS)
-  
+
 if (BUILD_TOOLS)
   add_subdirectory(tools)
 endif (BUILD_TOOLS)
@@ -1319,8 +1319,8 @@ endif (CLIENT_INTERFACE OR APP_EXPORTS)
 ###########################################################################
 
 DR_install(FILES
-  ${PROJECT_SOURCE_DIR}/README 
-  ${PROJECT_SOURCE_DIR}/License.txt 
+  ${PROJECT_SOURCE_DIR}/README
+  ${PROJECT_SOURCE_DIR}/License.txt
   ${PROJECT_SOURCE_DIR}/ACKNOWLEDGEMENTS
   DESTINATION .)
 
@@ -1348,8 +1348,8 @@ DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}/
   WORLD_READ WORLD_EXECUTE
   FILES_MATCHING
   PATTERN "dynamorio.pdb"
-  PATTERN "libdynamorio.so.*debug" 
-  PATTERN "libdrpreload.so.debug" 
+  PATTERN "libdynamorio.so.*debug"
+  PATTERN "libdrpreload.so.debug"
   )
 if (BUILD_TOOLS OR WIN32)
   DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
@@ -1366,7 +1366,7 @@ if (BUILD_TOOLS OR WIN32)
 endif (BUILD_TOOLS OR WIN32)
 
 if (DO_DR_INSTALL AND BUILD_DOCS)
-  # cannot use DR_install because it breaks at ; 
+  # cannot use DR_install because it breaks at ;
   install(CODE "file(WRITE \"\${CMAKE_INSTALL_PREFIX}/docs/DynamoRIO.html\" \"<html>\n<head>\n<meta http-equiv=\\\"refresh\\\" content=\\\"0; URL=./html/index.html\\\">\n</head><body></body>\")")
 endif (DO_DR_INSTALL AND BUILD_DOCS)
 
@@ -1482,7 +1482,7 @@ DR_target_install(EXPORT ${exported_targets_name} DESTINATION ${target_dst})
 # CPACK_INSTALL_CMAKE_PROJECTS variable is set to point at all 4 builds,
 # "make package" will produce a package from all 4 installs.
 
-# FIXME i#74: create source tarball via 'make package_source' 
+# FIXME i#74: create source tarball via 'make package_source'
 # Just need to exclude exports/ (or move exports/ to ../?) and
 # other files inside source dir (or run on untouched source dir)
 # and update package.{sh,bat}.
@@ -1519,7 +1519,7 @@ set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README")
 set(CPACK_PACKAGE_VERSION "${VERSION_NUMBER}")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_NUMBER_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VERSION_NUMBER_MINOR}")
-string(REGEX REPLACE 
+string(REGEX REPLACE
   "^[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" CPACK_PACKAGE_VERSION_PATCH "${VERSION_NUMBER}")
 
 # CPack tarballs do not allow setting a different name for the base

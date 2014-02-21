@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -35,7 +35,7 @@
 
 /*
  * stackdump.c - support for dumping stack trace of DynamoRIO
- * 
+ *
  * based on code from David Spuler and idea from Castor Fu
  * basic idea:
  *   fork off a process which core dumps then run a debugger on it.
@@ -96,7 +96,7 @@ fork_syscall(void)
     /* FIXME: SYS_fork on dereksha is creating a child whose pid is
      * same as parent but has a different tid, and the abort() to dump
      * core kills the parent process -- looks just like a separate
-     * thread, not a separate process!  
+     * thread, not a separate process!
      *
      * When I use glibc fork() I get the proper behavior.
      * glibc 2.3.3 fork() calls clone() with flags = 0x01200011
@@ -119,7 +119,7 @@ fork_syscall(void)
 #   define CLONE_CHILD_SETTID 0x01000000   /* Store TID in userlevel buffer in
                                             * the child.  */
     /* i386/fork.c pass a 5th arg, &THREAD_SELF->tid, is it needed for SETTID? */
-    static uint tid; 
+    static uint tid;
     return dynamorio_syscall(SYS_clone, 4/* 5 */,
                              /* flags, newsp (if 0 -> cur esp), parent_tidptr, child_tidptr,
                               * something! */
@@ -242,7 +242,7 @@ stackdump(void)
         }
         close_syscall(fd);
 
-        /* avoid running the debugger under us! 
+        /* avoid running the debugger under us!
          * FIXME: just remove our libraries, instead of entire env var?
          */
         unsetenv("LD_PRELOAD");

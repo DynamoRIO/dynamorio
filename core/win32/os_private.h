@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -210,13 +210,13 @@ enum {
     SYS_MAX,
 };
 
-/* the offset from edx of the parameters to a system call, our current 
- * (FIXME - also potentially unreliable, since really is a function of os 
- * version and processor type) check is by the system entry method, 
- * if it's int then offset is 0, if it's sysenter or syscall then offset is 8 
- * will also have it default to 0 since I think 2k uses int regardless of 
+/* the offset from edx of the parameters to a system call, our current
+ * (FIXME - also potentially unreliable, since really is a function of os
+ * version and processor type) check is by the system entry method,
+ * if it's int then offset is 0, if it's sysenter or syscall then offset is 8
+ * will also have it default to 0 since I think 2k uses int regardless of
  * proccesor type */
-/* FIXME - if we are really paranoid then we should ensure that the offset 
+/* FIXME - if we are really paranoid then we should ensure that the offset
  * holds the return values the os would expect (i.e. the ntdll wrapper return
  * address for XP/2003), also if used before we know the syscall method will
  * default to 0! */
@@ -331,7 +331,7 @@ get_drmarker(void);
 #define IS_UNDER_DYN_HACK(val) ((byte)(val) == UNDER_DYN_HACK)
 
 byte *
-intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */, 
+intercept_syscall_wrapper(byte **ptgt_pc /* IN/OUT */,
                           intercept_function_t prof_func,
                           void *callee_arg, after_intercept_action_t action_after,
                           app_pc *skip_syscall_pc /* OUT */,
@@ -346,7 +346,7 @@ insert_trampoline(byte *tgt_pc, intercept_function_t prof_func, void *callee_arg
 void
 remove_trampoline(byte *our_pc, byte *tgt_pc);
 
-void 
+void
 remove_image_entry_trampoline(void);
 
 void
@@ -408,7 +408,7 @@ void dump_context_info(CONTEXT *context, file_t file, bool all);
 #ifdef CONTEXT_XSTATE
 # undef CONTEXT_XSTATE /* defined in VS2008+ */
 #endif
-/* i#437: 
+/* i#437:
  * http://msdn.microsoft.com/en-us/library/windows/desktop/hh134240(v=vs.85).aspx
  * Win 7 SP1 is the first version of Windows supporting the AVX API.
  * The value for CONTEXT_XSTATE is different between Win 7 and Win 7 SP1.
@@ -642,7 +642,7 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
 
 /* in <arch.s> (x86.asm for us) ************************************/
 
-void 
+void
 internal_dynamo_start(void);
 
 void
@@ -812,7 +812,7 @@ int
 loaded_modules_exports(void);
 
 int
-remove_module_info(app_pc start, size_t size); 
+remove_module_info(app_pc start, size_t size);
 
 int
 add_module_info(app_pc base_addr, size_t size);

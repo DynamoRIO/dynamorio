@@ -50,7 +50,7 @@ my_init(void)
 #else /* WINDOWS */
 # include <windows.h>
 
-BOOL APIENTRY 
+BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved)
 {
     if (reason_for_call == DLL_PROCESS_ATTACH)

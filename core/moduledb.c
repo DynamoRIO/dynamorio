@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -39,9 +39,9 @@
 #include "module_shared.h"
 #include <string.h>  /* for memset, strlen */
 
-/* An array of pointers to the various exempt lists indexed by the 
+/* An array of pointers to the various exempt lists indexed by the
  * moduledb_exempt_list_t enum.  We have the ugliness of an extra indirection
- * and dynamic sizing to move the array into the heap and avoid self 
+ * and dynamic sizing to move the array into the heap and avoid self
  * protection changes. */
 static char **exemption_lists = NULL;
 #define GET_EXEMPT_LIST(list) (exemption_lists[(list)])
@@ -182,7 +182,7 @@ moduledb_process_image(const char *name, app_pc base, bool add)
                                 BUFFER_SIZE_ELEMENTS(company_name));
     if (!got_company_name)
         company_name[0] = '\0';
-    
+
     if (got_company_name && company_name[0] != '\0' &&
         (!IS_STRING_OPTION_EMPTY(whitelist_company_names_default) ||
          !IS_STRING_OPTION_EMPTY(whitelist_company_names)) &&
@@ -196,7 +196,7 @@ moduledb_process_image(const char *name, app_pc base, bool add)
         /* FIXME - not all of our modules have the Company name
          * field set (drpreinject & liveshields don't), need to avoid
          * relaxing for those. Should add version info and also check
-         * nodgemgr and our other tools etc.  xref case 8723 */ 
+         * nodgemgr and our other tools etc.  xref case 8723 */
     }
     if (relax) {
         if (name == NULL || *name == '\0') {
@@ -247,7 +247,7 @@ moduledb_init()
 {
     uint exempt_array_size = (MODULEDB_EXEMPT_NUM_LISTS) * sizeof(char *);
     ASSERT(exemption_lists == NULL);
-    exemption_lists = (char **) 
+    exemption_lists = (char **)
         global_heap_alloc(exempt_array_size HEAPACCT(ACCT_OTHER));
     ASSERT(exemption_lists != NULL);
     memset(exemption_lists, 0, exempt_array_size);
@@ -323,14 +323,14 @@ print_moduledb_exempt_lists(file_t file)
 /***************************************************************************/
 /* Process control */
 
-/* Note: if the process control/lockdown feature increases in size, then 
+/* Note: if the process control/lockdown feature increases in size, then
  *       create a separate file; for now let it be here.
  */
 
 /* As of today, either the blacklist or the whitelist can be used, not both,
  * according to the PRD.  In that case there is no need to distinguish between
  * "not matched" and "no hashlist".  However, if we decide that both need to
- * co-exist (Windows sw restriction policies do a mix), then this is needed. 
+ * co-exist (Windows sw restriction policies do a mix), then this is needed.
  * The core is designed to be flexible to handle both.
  */
 enum {
@@ -358,7 +358,7 @@ enum {
 # define IS_PROCESS_CONTROL_MATCHED(x) \
      ((x) == PROCESS_CONTROL_MATCHED || (x) == PROCESS_CONTROL_HASHLIST_EMPTY)
 
-/* Records an event static that the hash list in reg_key is too long.  
+/* Records an event static that the hash list in reg_key is too long.
  * Note: the reg_key here is (char *) as opposed to (wchar_t *) because our
  *       syslogging can only handle regular chars!
  */
@@ -383,7 +383,7 @@ process_control_report_long_list(const char *reg_key)
  * If so it returns true, if not false.
  */
 static int
-process_control_match(const char *md5_hash, 
+process_control_match(const char *md5_hash,
 #ifdef PARAMS_IN_REGISTRY
                       const IF_WINDOWS_ELSE_NP(wchar_t, char) *reg_key
 #else
@@ -402,14 +402,14 @@ process_control_match(const char *md5_hash,
      */
     uint list_size = DYNAMO_OPTION(pc_num_hashes) * (MD5_STRING_LENGTH + 1);
 
-    /* Read the hash_list from the registry.  The hash_list is nothing but a 
+    /* Read the hash_list from the registry.  The hash_list is nothing but a
      * semicolon separated string, just like all core option string.
      */
     hash_list = heap_alloc(GLOBAL_DCONTEXT, list_size HEAPACCT(ACCT_OTHER));
 
     hash_list[0] = '\0';    /* be safe, in case there is no list */
     /* xref case 9119, we want the value from the unqualified key since our usage of
-     * this only depends on the exe (not its cmdline). */ 
+     * this only depends on the exe (not its cmdline). */
     res = get_unqualified_parameter(reg_key, hash_list, list_size);
     hash_list[list_size - 1] = '\0';    /* be safe */
 
@@ -453,7 +453,7 @@ process_control_match(const char *md5_hash,
  *      Though the regular whitelist mode can be used to do the same, there are
  * holes in it like the ones below that have to be manually fixed.
  *  1. support for anonymous hashes; would have to be disabled or not used.
- *  2. support exe names without hashes; same resolution as point #1. 
+ *  2. support exe names without hashes; same resolution as point #1.
  *  3. apps would be killed if there is no hashlist; would have to add empty
  *      global hashlists.
  *
@@ -487,7 +487,7 @@ process_control_whitelist(const char *md5_hash)
         threat_id = "WHIT.NOMA"; /* WHIT.NOMA = WHITe list NOt MAtched. */
 
         /* If there was no match on the anonymous list and if it was too
-         * long, then we can't decide to kill the process because we didn't 
+         * long, then we can't decide to kill the process because we didn't
          * search the full list.  Do no harm and ignore process control.  Case 9252.
          */
         if (anonymous == PROCESS_CONTROL_LONG_LIST) {
@@ -516,7 +516,7 @@ process_control_whitelist(const char *md5_hash)
     }
 
     /* If there was no match on the app specific list and if it was too
-     * long, then we can't decide to kill the process because we didn't search 
+     * long, then we can't decide to kill the process because we didn't search
      * the full list.  Do no harm and ignore process control.  Case 9252.
      */
     if (app_specific == PROCESS_CONTROL_LONG_LIST) {
@@ -524,15 +524,15 @@ process_control_whitelist(const char *md5_hash)
         return;
     }
 
-    /* At this point, it should either be not-matched or no-hashlist. 
+    /* At this point, it should either be not-matched or no-hashlist.
      * Note: No hashlist is equivalent to no match; for white list, this means
      * kill.
      */
-    ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED || 
+    ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED ||
             app_specific == PROCESS_CONTROL_NO_HASHLIST));
     /* Anonymous lists aren't applicable for integrity mode. */
     if (IS_PROCESS_CONTROL_MODE_WHITELIST()) {
-        ASSERT((anonymous == PROCESS_CONTROL_NOT_MATCHED || 
+        ASSERT((anonymous == PROCESS_CONTROL_NOT_MATCHED ||
                 anonymous == PROCESS_CONTROL_NO_HASHLIST));
     }
 
@@ -551,7 +551,7 @@ process_control_whitelist(const char *md5_hash)
      * convey, hence a constant string is used.
      */
     security_violation_internal(GLOBAL_DCONTEXT, NULL,
-                                PROCESS_CONTROL_VIOLATION, 
+                                PROCESS_CONTROL_VIOLATION,
                                 type_handling, threat_id,
                                 desired_action, NULL);
 
@@ -573,7 +573,7 @@ process_control_blacklist(const char *md5_hash)
 
     ASSERT(IS_PROCESS_CONTROL_MODE_BLACKLIST());
 
-    if (IS_PROCESS_CONTROL_MATCHED(app_specific) || 
+    if (IS_PROCESS_CONTROL_MATCHED(app_specific) ||
         IS_PROCESS_CONTROL_MATCHED(anonymous)) {
 #ifdef PROGRAM_SHEPHERDING
         /* Process control has its own detect_mode; case 10610. */
@@ -605,13 +605,13 @@ process_control_blacklist(const char *md5_hash)
     } else if (anonymous == PROCESS_CONTROL_LONG_LIST){         /* Case 9252. */
         process_control_report_long_list(DYNAMORIO_VAR_ANON_PROCESS_BLACKLIST);
     } else {
-        /* At this point, it should either be not-matched or no-hashlist. 
-         * Note: No hashlist is equivalent to no match; for black list, this 
+        /* At this point, it should either be not-matched or no-hashlist.
+         * Note: No hashlist is equivalent to no match; for black list, this
          * means don't kill.
          */
-        ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED || 
+        ASSERT((app_specific == PROCESS_CONTROL_NOT_MATCHED ||
                 app_specific == PROCESS_CONTROL_NO_HASHLIST) &&
-               (anonymous == PROCESS_CONTROL_NOT_MATCHED || 
+               (anonymous == PROCESS_CONTROL_NOT_MATCHED ||
                 anonymous == PROCESS_CONTROL_NO_HASHLIST));
     }
 }
@@ -642,7 +642,7 @@ process_control(void)
 
     /* Currently only one mode can be used; this is how our product is sold.
      * However, there is nothing preventing us from using all of them (just
-     * make each process control mode below a separate if) with a precedence 
+     * make each process control mode below a separate if) with a precedence
      * order.  That was how it was originally; however if there is a bug in EV,
      * we would accidentally run multiple modes at once.  So to safeguard
      * against that the if-else construct below is used.

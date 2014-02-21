@@ -51,7 +51,7 @@
 # error Linux-only
 #endif
 
-/* Does the kernel support SYS_futex syscall? Safe to initialize assuming 
+/* Does the kernel support SYS_futex syscall? Safe to initialize assuming
  * no futex support.
  */
 static bool kernel_futex_support = false;
@@ -66,7 +66,7 @@ ksynch_init(void)
     volatile int futex_for_test = 0;
     ptr_int_t res = dynamorio_syscall(SYS_futex, 6, &futex_for_test, FUTEX_WAKE, 1,
                                       NULL, NULL, 0);
-    kernel_futex_support = (res >= 0); 
+    kernel_futex_support = (res >= 0);
     ASSERT_CURIOSITY(kernel_futex_support);
 }
 
@@ -107,7 +107,7 @@ ksynch_free_var(volatile int *futex)
 
 /* Waits on the futex until woken if the kernel supports SYS_futex syscall
  * and the futex's value has not been changed from mustbe. Does not block
- * if the kernel doesn't support SYS_futex. Returns 0 if woken by another thread, 
+ * if the kernel doesn't support SYS_futex. Returns 0 if woken by another thread,
  * and negative value for all other cases.
  */
 ptr_int_t

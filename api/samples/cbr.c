@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -68,7 +68,7 @@
             dr_flush_file(STDOUT);                              \
             dr_abort();                                         \
         }                                                       \
-    } while (0)                             
+    } while (0)
 
 /* We need a table to store the state of each cbr (i.e., "seen taken
  * edge", "seen fallthrough edge", or "seen both").  We'll use a
@@ -225,7 +225,7 @@ void insert(hash_table_t table, app_pc addr, cbr_state_t state)
 }
 
 /*
- * End hash table implementation 
+ * End hash table implementation
  */
 
 /* Clean call for the 'taken' case */
@@ -234,7 +234,7 @@ static void at_taken(app_pc src, app_pc targ)
     dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
     void *drcontext = dr_get_current_drcontext();
 
-    /* 
+    /*
      * Record the fact that we've seen the taken case.
      */
     elem_t *elem = lookup(table, src);
@@ -259,7 +259,7 @@ static void at_not_taken(app_pc src, app_pc fall)
     dr_mcontext_t mcontext = {sizeof(mcontext),DR_MC_ALL,};
     void *drcontext = dr_get_current_drcontext();
 
-    /* 
+    /*
      * Record the fact that we've seen the not_taken case.
      */
     elem_t *elem = lookup(table, src);
@@ -283,7 +283,7 @@ static dr_emit_flags_t
 bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
-    
+
     for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
         next_instr = instr_get_next(instr);
 
@@ -299,12 +299,12 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             cbr_state_t state;
             bool insert_taken, insert_not_taken;
             app_pc src = instr_get_app_pc(instr);
-            
+
             /* First look up the state of this branch so we
              * know what instrumentation to insert, if any.
              */
             elem_t *elem = lookup(table, src);
-            
+
             if (elem == NULL) {
                 state = CBR_NEITHER;
                 insert(table, src, CBR_NEITHER);
@@ -312,14 +312,14 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
             else {
                 state = elem->state;
             }
-            
+
             insert_taken = (state & CBR_TAKEN) == 0;
             insert_not_taken = (state & CBR_NOT_TAKEN) == 0;
-            
+
             if (insert_taken || insert_not_taken) {
                 app_pc fall = (app_pc)decode_next_pc(drcontext, (byte *)src);
                 app_pc targ = instr_get_branch_target_pc(instr);
-                
+
                 /* Redirect the existing cbr to jump to a callout for
                  * the 'taken' case.  We'll insert a 'not-taken'
                  * callout at the fallthrough address.
@@ -335,19 +335,19 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                     instr = instr_convert_short_meta_jmp_to_long(drcontext, bb, instr);
                 }
                 instr_set_target(instr, opnd_create_instr(label));
-                
+
                 if (insert_not_taken) {
                     /* Callout for the not-taken case.  Insert after
-                     * the cbr (i.e., 3rd argument is NULL). 
+                     * the cbr (i.e., 3rd argument is NULL).
                      */
-                    dr_insert_clean_call(drcontext, bb, NULL, 
+                    dr_insert_clean_call(drcontext, bb, NULL,
                                          (void*)at_not_taken,
-                                         false /* don't save fp state */, 
+                                         false /* don't save fp state */,
                                          2 /* 2 args for at_not_taken */,
                                          OPND_CREATE_INTPTR(src),
                                          OPND_CREATE_INTPTR(fall));
                 }
-                
+
                 /* After the callout, jump to the original fallthrough
                  * address.  Note that this is an exit cti, and should
                  * not be a meta-instruction.  Therefore, we use
@@ -363,10 +363,10 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                 instrlist_preinsert(bb, NULL,
                                     INSTR_XL8(INSTR_CREATE_jmp
                                               (drcontext, opnd_create_pc(fall)), fall));
-                
+
                 /* label goes before the 'taken' callout */
                 MINSERT(bb, NULL, label);
-                
+
                 if (insert_taken) {
                     /* Callout for the taken case */
                     dr_insert_clean_call(drcontext, bb, NULL,
@@ -376,7 +376,7 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
                                          OPND_CREATE_INTPTR(src),
                                          OPND_CREATE_INTPTR(targ));
                 }
-                
+
                 /* After the callout, jump to the original target
                  * block (this should not be a meta-instruction).
                  */
@@ -411,7 +411,7 @@ void dr_exit(void)
                 }
                 else if (state == CBR_NOT_TAKEN) {
                     dr_printf(""PFX": not taken\n", iter->addr);
-                }                
+                }
                 else {
                     ASSERT(state == (CBR_TAKEN | CBR_NOT_TAKEN));
                     dr_printf(""PFX": both\n", iter->addr);

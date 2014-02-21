@@ -6,18 +6,18 @@
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice,
 #   this list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice,
 #   this list of conditions and the following disclaimer in the documentation
 #   and/or other materials provided with the distribution.
-# 
+#
 # * Neither the name of VMware, Inc. nor the names of its contributors may be
 #   used to endorse or promote products derived from this software without
 #   specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -44,7 +44,7 @@
 ###   (only with Dynamo's -prof_counts)
 ### -groups: attempts to group traces based on their links
 ### -exe exename: will look up line numbers in original
-###   code that traces came from 
+###   code that traces came from
 ###   (only with Dynamo's -dump_trace_origins flag)
 ###
 ### Several scalars below could overflow a 32-bit int, I assume
@@ -148,12 +148,12 @@ if ($pcs) {
     #    pc=0xf6e8c129   #=1     in DynamoRIO dispatch
     #    pc=0x179d102c   #=1     in trace #   251 @0x08048470 w/ offs 0x00000028
     #    pc=0x002c1192   #=1     in DynamoRIO interpreter
-    #    ...     
+    #    ...
     # Windows format:
     #    ...
     #    Dumping dynamorio.dll profile
     #    127 hits out of 596, 21.30%
-    #    ...     
+    #    ...
     #    Dumping global profile
     #    596 hits
     #    ...
@@ -416,7 +416,7 @@ $/) { chop; };
                 # get dcontext addr by examining prefix
                 # final instruction is always a restore to ecx
                 $trace{$tnum,$line-1} =~ /mov\s+(0x[0-9a-fA-F]*) -> \%ecx/;
-                $dcontext_ecx = hex($1); # 4 = ecx_offs - ebx_offs 
+                $dcontext_ecx = hex($1); # 4 = ecx_offs - ebx_offs
             }
             if (!$in_original && ($pcs || $stats) && $l =~ /^  (0x[0-9a-fA-F]+)/) {
                 $addr = $1; # keep in string form
@@ -459,7 +459,7 @@ $/) { chop; };
                 # look for ind br overhead by watching for "save ecx"
                 if (is_save_ecx($l)) {
                     $in_cmp = 1;
-                } 
+                }
                 if ($in_cmp) {
                     # assume ind br is a return if "save ecx" followed by a pop
                     if ($in_cmp == 2) {
@@ -548,7 +548,7 @@ $/) { chop; };
                 if ($cnt > hex("0xffffffff")) {
                     $stub_64bit = 1;
                 }
-            
+
                 if ($cnt > $max_stub) {
                     $max_stub = $cnt;
                 }
@@ -966,7 +966,7 @@ for ($t=$tnum-1; $t>=0; $t--) {
 
     if ($stats) {
         printf("Frag \# %5d = %2d/%2d bbs, %3d ibs, %5d ins, %5d bytes; %5.1f%% all, %5.1f%% half\n",
-               
+
                $id[$n], $bbs[$n], $bbs_noelide[$n], $ind_branches[$n], $bb_instrs[$n], $bb_bytes[$n],
                $completion_all[$n], $completion_half[$n]);
         if ($stats) {
@@ -1059,7 +1059,7 @@ for ($t=$tnum-1; $t>=0; $t--) {
             if ($l =~ /^END ORIGINAL CODE/) {
                 $in_origins = 0;
             }
-        }       
+        }
         print "$l\n";
         if ($have_times && $o==1) {
             $frac = 100 * $time[$n] / $total_time;
@@ -1080,9 +1080,9 @@ for ($t=$tnum-1; $t>=0; $t--) {
 }
 
 if ($stats) {
-    printf("Max all      = %3d bbs, %3d ibs, %5d ins, %5d bytes\n",            
+    printf("Max all      = %3d bbs, %3d ibs, %5d ins, %5d bytes\n",
            $max_bbs, $max_ibs, $max_ins, $max_bytes);
-    printf("Max top 10   = %3d bbs, %3d ibs, %5d ins, %5d bytes\n",            
+    printf("Max top 10   = %3d bbs, %3d ibs, %5d ins, %5d bytes\n",
            $max10_bbs, $max10_ibs, $max10_ins, $max10_bytes);
     printf("Ave all    = %4.1f bbs, %4.1f ibs, %5d ins, %5d bytes; %5.1f%% all, %5.1f%% half\n",
            $ave_bbs/$tnum, $ave_ibs/$tnum, $ave_ins/$tnum, $ave_bytes/$tnum,
@@ -1273,7 +1273,7 @@ sub is_exit_cti($) {
 ### OBSOLETE CODE
 ### This code ran objdump, read in resulting assembly code, and then
 ### used it to print out disassembly of trace:
-###   
+###
 ###   if ($have_exe && $dis) {
 ###       # disassemble exe, read in assembly code
 ###       system("objdump -d $exe > $exe.dis");
@@ -1309,7 +1309,7 @@ sub is_exit_cti($) {
 ###       close(OBJ);
 ###       system("rm -f $exe.dis");
 ###   }
-###   
+###
 ###             $l =~ /^\s(0x[0-9A-Fa-f]+)\.\.\.(0x[0-9A-Fa-f]+)/;
 ###             $start = $1;
 ###             $end = $2;
@@ -1327,7 +1327,7 @@ sub is_exit_cti($) {
 ###                 }
 ###                 print "\n";
 ###             }
-###   
+###
 ###   sub lookup_dis($, $) {
 ###       my ($start, $end) = @_;
 ###       my ($f, $i);
@@ -1357,6 +1357,6 @@ sub is_exit_cti($) {
 ###       }
 ###       return 0;
 ###   }
-###   
+###
 ### END OBSOLETE CODE
 

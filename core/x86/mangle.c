@@ -7,18 +7,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -171,7 +171,7 @@ static callee_info_t *
 callee_info_create(app_pc start, uint num_args)
 {
     callee_info_t *info;
-    
+
     info = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, callee_info_t,
                            ACCT_CLEANCALL, PROTECTED);
     callee_info_init(info);
@@ -220,7 +220,7 @@ callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, byte value)
 static void
 callee_info_table_init(void)
 {
-    callee_info_table = 
+    callee_info_table =
         generic_hash_create(GLOBAL_DCONTEXT,
                             INIT_HTABLE_SIZE_CALLEE,
                             80 /* load factor: not perf-critical */,
@@ -244,8 +244,8 @@ callee_info_table_lookup(void *callee)
     ci = generic_hash_lookup(GLOBAL_DCONTEXT, callee_info_table,
                              (ptr_uint_t)callee);
     TABLE_RWLOCK(callee_info_table, read, unlock);
-    /* We only delete the callee_info from the callee_info_table 
-     * when destroy the table on exit, so we can keep the ci 
+    /* We only delete the callee_info from the callee_info_table
+     * when destroy the table on exit, so we can keep the ci
      * without holding the lock.
      */
     return ci;
@@ -263,8 +263,8 @@ callee_info_table_add(callee_info_t *ci)
         generic_hash_add(GLOBAL_DCONTEXT, callee_info_table,
                          (ptr_uint_t)ci->start, (void *)ci);
     } else {
-        /* Have one in the table, free the new one and use existing one. 
-         * We cannot free the existing one in the table as it might be used by 
+        /* Have one in the table, free the new one and use existing one.
+         * We cannot free the existing one in the table as it might be used by
          * other thread without holding the lock.
          * Since we assume callee should never be changed, they should have
          * the same content of ci.
@@ -356,7 +356,7 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         * the taken-branch path made me choose the former solution.
         */
 
-        /* SUMMARY: 
+        /* SUMMARY:
          * expand 'shortjump foo' to:
                           shortjump taken
                           jmp-short nottaken
@@ -567,7 +567,7 @@ insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
  * Includes xmm0-5 for PR 264138.
  */
 uint
-insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci, 
+insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
                           uint alignment, instr_t *push_pc)
 {
@@ -746,7 +746,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
             if (!cci->xmm_skip[i]) {
                 PRE(ilist, instr, instr_create_1dst_1src
                     (dcontext, opcode, opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i),
-                     opnd_create_base_disp(REG_XSP, REG_NULL, 0, 
+                     opnd_create_base_disp(REG_XSP, REG_NULL, 0,
                                            PRE_XMM_PADDING + i*XMM_SAVED_REG_SIZE +
                                            offs_beyond_xmm,
                                            OPSZ_SAVED_XMM)));
@@ -763,7 +763,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                              offs_beyond_xmm)));
 }
 
-/* utility routines for inserting clean calls to an instrumentation routine 
+/* utility routines for inserting clean calls to an instrumentation routine
  * strategy is very similar to fcache_enter/return
  * FIXME: try to share code with fcache_enter/return?
  *
@@ -793,7 +793,7 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
  */
 
 void
-insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, 
+insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
                          instr_t *where, reg_id_t reg)
 {
     PRE(ilist, where, instr_create_restore_from_tls
@@ -803,7 +803,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
         PRE(ilist, where, INSTR_CREATE_mov_ld
-            (dcontext, opnd_create_reg(reg), 
+            (dcontext, opnd_create_reg(reg),
              OPND_CREATE_MEMPTR(reg, offsetof(dcontext_t, upcontext))));
     }
 }
@@ -823,14 +823,14 @@ clean_call_beyond_mcontext(void)
  * instrumentation routine should call proc_save_fpstate() and then
  * proc_restore_fpstate()
  * (This is because of expense:
- *   fsave takes 118 cycles!  
+ *   fsave takes 118 cycles!
  *   frstor (separated by 6 instrs from fsave) takes 89 cycles
  *   fxsave and fxrstor are not available on HP machine!
  *   supposedly they came out in PII
  *   on balrog: fxsave 91 cycles, fxrstor 173)
  *
  * For x64, changes the stack pointer by a multiple of 16.
- * 
+ *
  * NOTE: The client interface's get/set mcontext functions and the
  * hotpatching gateway rely on the app's context being available
  * on the dstack in a particular format.  Do not corrupt this data
@@ -893,7 +893,7 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
         /* restore xax before pushing the context on the dstack */
         PRE(ilist, instr, instr_create_restore_from_tls
-            (dcontext, REG_XAX, TLS_XAX_SLOT));  
+            (dcontext, REG_XAX, TLS_XAX_SLOT));
     }
     else {
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
@@ -1209,7 +1209,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         for (r = 0; r < opnd_num_regs_used(arg); r++) {
             reg_id_t used = opnd_get_reg_used(arg, r);
             int parm = reg_parameter_num(used);
-            /* See comments in loop above */ 
+            /* See comments in loop above */
             if ((parm == 0 && num_args > 1) || parm > (int)i ||
                  reg_overlap(used, REG_XSP)) {
                 int disp = 0;
@@ -1409,8 +1409,8 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 {
     instr_t *in = (instr == NULL) ? instrlist_last(ilist) : instr_get_prev(instr);
     bool direct;
-    uint stack_for_params = 
-        insert_parameter_preparation(dcontext, ilist, instr, 
+    uint stack_for_params =
+        insert_parameter_preparation(dcontext, ilist, instr,
                                      clean_call, num_args, args);
     IF_X64(ASSERT(ALIGNED(stack_for_params, 16)));
     /* If we need an indirect call, we use r11 as the last of the scratch regs.
@@ -1457,7 +1457,7 @@ insert_clean_call_with_arg_jmp_if_ret_true(dcontext_t *dcontext,
     /* fill in jcc target once have false path */
     jcc = INSTR_CREATE_jcc(dcontext, OP_jz, opnd_create_pc(NULL));
     PRE(ilist, instr, jcc);
-    
+
     /* if it falls through, then it's true, so restore and jmp to true tag
      * passed in by caller
      */
@@ -1898,10 +1898,10 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
     /* we use the next app instruction as return address as the client
      * or DR may change the instruction and so its length.
      */
-    if (instr_raw_bits_valid(instr) && 
+    if (instr_raw_bits_valid(instr) &&
         instr_get_translation(instr) == instr_get_raw_bits(instr)) {
         /* optimization, if nothing changes, use instr->length to avoid
-         * calling decode_next_pc. 
+         * calling decode_next_pc.
          */
         retaddr = curaddr + instr->length;
     } else {
@@ -1910,7 +1910,7 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
     return retaddr;
 }
 
-/* We spill to XCX(private dcontext) slot for private fragments, 
+/* We spill to XCX(private dcontext) slot for private fragments,
  * and to TLS MANGLE_XCX_SPILL_SLOT for shared fragments.
  * (Except for DYNAMO_OPTION(private_ib_in_tls), for which all use tls,
  *  but that has a performance hit because of the extra data cache line)
@@ -2028,7 +2028,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
 #endif
         return next_instr;
-    } 
+    }
 
     retaddr = get_call_return_address(dcontext, ilist, instr);
 
@@ -2055,7 +2055,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          */
         SYSLOG_INTERNAL_WARNING_ONCE("Encountered a far direct call");
         STATS_INC(num_far_dir_calls);
-        
+
         mangle_far_direct_helper(dcontext, ilist, instr, next_instr, flags);
 
         insert_push_cs(dcontext, ilist, instr, 0, pushsz);
@@ -2074,7 +2074,7 @@ mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef UNIX
 /***************************************************************************
  * Mangle the memory reference operand that uses fs/gs semgents,
- * get the segment base of fs/gs into reg, and 
+ * get the segment base of fs/gs into reg, and
  * replace oldop with newop using reg instead of fs/gs
  * The reg must not be used in the oldop, otherwise, the reg value
  * is corrupted.
@@ -2103,11 +2103,11 @@ mangle_seg_ref_opnd(dcontext_t *dcontext, instrlist_t *ilist,
     PRE(ilist, where,
         instr_create_restore_from_tls(dcontext, reg,
                                       os_get_app_seg_base_offset(seg)));
-    if (opnd_get_index(oldop) != REG_NULL && 
+    if (opnd_get_index(oldop) != REG_NULL &&
         opnd_get_base(oldop) != REG_NULL) {
-        /* if both base and index are used, use 
-         * lea [base, reg, 1] => reg 
-         * to get the base + seg_base into reg. 
+        /* if both base and index are used, use
+         * lea [base, reg, 1] => reg
+         * to get the base + seg_base into reg.
          */
         PRE(ilist, where,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(reg),
@@ -2261,7 +2261,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XCX,
                                  MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
-    
+
 #ifdef STEAL_REGISTER
     /* Steal edi if call uses it, using original call instruction */
     steal_reg(dcontext, instr, ilist);
@@ -2273,8 +2273,8 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
      * If it is possible, need to make sure stealing's use of ecx
      * doesn't conflict w/ our use
      */
-#endif    
-    
+#endif
+
     /* change: call /2, Ev -> movl Ev, %xcx */
     target = instr_get_src(instr, 0);
     if (instr_get_opcode(instr) == OP_call_far_ind) {
@@ -2304,7 +2304,7 @@ mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         instr_set_translation(instr, instr_get_raw_bits(instr));
     }
     instr_set_our_mangling(instr, true);
-    
+
 #ifdef CHECK_RETURNS_SSE2
     check_return_handle_call(dcontext, ilist, next_instr);
 #endif
@@ -2365,7 +2365,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                  MANGLE_XCX_SPILL_SLOT, XCX_OFFSET, REG_R9));
 
     /* see if ret has an immed int operand, assumed to be 1st src */
-            
+
     if (instr_num_srcs(instr) > 0 && opnd_is_immed_int(instr_get_src(instr, 0))) {
         /* if has an operand, return removes some stack space,
          * AFTER the return address is popped
@@ -2378,7 +2378,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XSP),
                              opnd_create_base_disp(REG_XSP, REG_NULL, 0, val, OPSZ_lea)));
     }
-            
+
     /* don't need to steal edi since return cannot use registers */
 
     /* the retaddr operand is always the final source for all OP_ret* instrs */
@@ -2472,7 +2472,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * ignore the CS (except mixed-mode WOW64) and SS segment changes
          * (see the comments there).
          */
-        
+
 #ifdef X64
         mangle_far_return_save_selector(dcontext, ilist, instr, flags);
 #endif
@@ -2485,7 +2485,7 @@ mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                              OPND_CREATE_INT8
                              (opnd_size_in_bytes(retsz))));
 
-        /* Next up is xflags, we use a popf. Popf should be setting the right flags 
+        /* Next up is xflags, we use a popf. Popf should be setting the right flags
          * (it's difficult to tell because in the docs iret lists the flags it does
          * set while popf lists the flags it doesn't set). The docs aren't entirely
          * clear, but any flag that we or a user mode program would care about should
@@ -2576,7 +2576,7 @@ mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 #ifdef UNIX
     /* i#107, mangle the memory reference opnd that uses segment register. */
     if (INTERNAL_OPTION(mangle_app_seg) && opnd_is_far_base_disp(target)) {
-        /* FIXME: we use REG_XCX to store segment base, which might be used 
+        /* FIXME: we use REG_XCX to store segment base, which might be used
          * in target and cause assertion failure in mangle_seg_ref_opnd.
          */
         ASSERT_BUG_NUM(107, !opnd_uses_reg(target, REG_XCX));
@@ -2722,7 +2722,7 @@ find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
  *
  * N.B.: mangle_clone_code() makes assumptions about this exact code layout
  *
- * CAUTION: don't use a lot of stack in the generated code because 
+ * CAUTION: don't use a lot of stack in the generated code because
  *          get_clone_record() makes assumptions about the usage of stack being
  *          less than a page.
  */
@@ -2962,7 +2962,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     /* special handling of system calls is performed in shared_syscall or
      * in do_syscall
      */
-    
+
     /* FIXME: for ignorable syscalls,
      * do we need support for exiting mid-fragment prior to a syscall
      * like we do on Linux, to bound time in cache?
@@ -2979,7 +2979,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
             if (DYNAMO_OPTION(shared_fragment_shared_syscalls)) {
 # ifdef X64
                 ASSERT(instr_raw_bits_valid(instr));
-                /* PR 244741: no 64-bit store-immed-to-mem 
+                /* PR 244741: no 64-bit store-immed-to-mem
                  * FIXME: would be nice to move this to the stub and
                  * use the dead rbx register!
                  */
@@ -3171,7 +3171,7 @@ mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
         }
     } while (!instr_is_syscall(&instr));
     if (skip_pc != NULL) {
-        /* signal happened after skip jmp: nothing we can do here 
+        /* signal happened after skip jmp: nothing we can do here
          *
          * FIXME PR 213040: we should tell caller difference between
          * "no syscalls" and "too-close syscall" and have it take
@@ -3471,11 +3471,11 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
  */
 #ifdef FOOL_CPUID
 
-/* values returned by cpuid for Mobile Pentium MMX processor (family 5, model 8) 
+/* values returned by cpuid for Mobile Pentium MMX processor (family 5, model 8)
  * minus mmx (==0x00800000 in CPUID_1_EDX)
  * FIXME: change model number to a Pentium w/o MMX!
  */
-#define CPUID_0_EAX 0x00000001 
+#define CPUID_0_EAX 0x00000001
 #define CPUID_0_EBX 0x756e6547
 #define CPUID_0_ECX 0x6c65746e
 #define CPUID_0_EDX 0x49656e69
@@ -3530,7 +3530,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     op = instr_get_dst(prev, 0);
     if (!opnd_is_reg(op) || opnd_get_reg(op) != REG_EAX)
         goto cpuid_give_up;
-    
+
     if (input == 0) {
         out_eax = CPUID_0_EAX;
         out_ebx = CPUID_0_EBX;
@@ -3556,7 +3556,7 @@ mangle_cpuid(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     PRE(ilist, instr,
         INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_EDX),
                              OPND_CREATE_INT32(out_edx)));
-    
+
     /* destroy the cpuid instruction */
     instrlist_remove(ilist, instr);
     instr_destroy(dcontext, instr);
@@ -3575,7 +3575,7 @@ mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr)
         bool remove = false;
         /* Case 8738: while for transparency it would be best to maintain all
          * prefixes, our patching and other routines make assumptions about
-         * the length of exit ctis.  Plus our elision removes the whole 
+         * the length of exit ctis.  Plus our elision removes the whole
          * instr in any case.
          */
         if (instr_is_cbr(instr)) {
@@ -3632,7 +3632,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
          * Table 3-59 "64-bit Mode LEA Operation with Address and Operand Size
          * Attributes" */
         /* FIXME PR 253446: optimization: we could leave this as rip-rel if it
-         * still reaches from the code cache. */         
+         * still reaches from the code cache. */
         if (reg_get_size(opnd_get_reg(dst)) == OPSZ_8) {
             /* PR 253327: there is no explicit addr32 marker; we assume
              * that decode or the user already zeroed out the top bits
@@ -3735,7 +3735,7 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                                   MANGLE_RIPREL_SPILL_SLOT));
             }
             STATS_INC(rip_rel_unreachable);
-        }        
+        }
     }
     return false;
 }
@@ -3755,7 +3755,7 @@ instr_get_seg_ref_dst_idx(instr_t *instr)
     /* must go to level 3 operands */
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
-        if (opnd_is_far_base_disp(opnd) && 
+        if (opnd_is_far_base_disp(opnd) &&
             (opnd_get_segment(opnd) == SEG_GS ||
              opnd_get_segment(opnd) == SEG_FS))
             return i;
@@ -3773,7 +3773,7 @@ instr_get_seg_ref_src_idx(instr_t *instr)
     /* must go to level 3 operands */
     for (i=0; i<instr_num_srcs(instr); i++) {
         opnd = instr_get_src(instr, i);
-        if (opnd_is_far_base_disp(opnd) && 
+        if (opnd_is_far_base_disp(opnd) &&
             (opnd_get_segment(opnd) == SEG_GS ||
              opnd_get_segment(opnd) == SEG_FS))
             return i;
@@ -3781,7 +3781,7 @@ instr_get_seg_ref_src_idx(instr_t *instr)
     return -1;
 }
 
-static ushort tls_slots[4] = 
+static ushort tls_slots[4] =
     {TLS_XAX_SLOT, TLS_XCX_SLOT, TLS_XDX_SLOT, TLS_XBX_SLOT};
 
 /* mangle the instruction OP_mov_seg, i.e. the instruction that
@@ -3801,8 +3801,8 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     STATS_INC(app_mov_seg_mangled);
     /* for update, we simply change it to a nop because we will
-     * update it when dynamorio entering code cache to execute 
-     * this basic block. 
+     * update it when dynamorio entering code cache to execute
+     * this basic block.
      */
     dst = instr_get_dst(instr, 0);
     if (opnd_is_reg(dst) && reg_is_segment(opnd_get_reg(dst))) {
@@ -3832,9 +3832,9 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 
     /* There are two possible mov_seg instructions:
      * 8C/r           MOV r/m16,Sreg   Move segment register to r/m16
-     * REX.W + 8C/r   MOV r/m64,Sreg   Move zero extended 16-bit segment 
+     * REX.W + 8C/r   MOV r/m64,Sreg   Move zero extended 16-bit segment
      *                                 register to r/m64
-     * Note, In 32-bit mode, the assembler may insert the 16-bit operand-size 
+     * Note, In 32-bit mode, the assembler may insert the 16-bit operand-size
      * prefix with this instruction.
      */
     /* we cannot replace the instruction but only change it. */
@@ -3896,7 +3896,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     reg_id_t scratch_reg = REG_XAX, seg = REG_NULL;
 
     /* exit cti won't be seg ref */
-    if (instr_is_exit_cti(instr)) 
+    if (instr_is_exit_cti(instr))
         return;
     /* mbr will be handled separatly */
     if (instr_is_mbr(instr))
@@ -3929,11 +3929,11 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     STATS_INC(app_seg_refs_mangled);
 
     DOLOG(3, LOG_INTERP, {
-        loginst(dcontext, 3, instr, "reference with fs/gs segment"); 
+        loginst(dcontext, 3, instr, "reference with fs/gs segment");
     });
     /* 2. decide the scratch reg */
     /* Opt: if it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
-    if (si >= 0 && 
+    if (si >= 0 &&
         instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
         instr_num_dsts(instr) == 1 && /* only one dest: a register */
         opnd_is_reg(instr_get_dst(instr, 0))) {
@@ -3951,7 +3951,7 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         }
     }
     if (spill) {
-        /* we pick a scratch register from XAX, XBX, XCX, or XDX 
+        /* we pick a scratch register from XAX, XBX, XCX, or XDX
          * that has direct TLS slots.
          */
         for (scratch_reg = REG_XAX; scratch_reg <= REG_XBX; scratch_reg++) {
@@ -3975,8 +3975,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     /* we need the whole spill...restore region to all be marked mangle */
     instr_set_our_mangling(instr, true);
     /* FIXME: i#107 we should check the bound and raise signal if out of bound. */
-    DOLOG(3, LOG_INTERP, { 
-        loginst(dcontext, 3, instr, "re-wrote app tls reference"); 
+    DOLOG(3, LOG_INTERP, {
+        loginst(dcontext, 3, instr, "re-wrote app tls reference");
     });
 
     if (spill) {
@@ -4013,7 +4013,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
      * -- convert indirect branches into 'save %xcx; lea EA, %xcx';
      * -- convert indirect calls as a combination of direct call and
      *    indirect branch conversion;
-     * -- ifdef STEAL_REGISTER, steal edi for our own use. 
+     * -- ifdef STEAL_REGISTER, steal edi for our own use.
      * -- ifdef UNIX, mangle seg ref and mov_seg
      */
 
@@ -4046,7 +4046,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
 #ifdef UNIX
         if (INTERNAL_OPTION(mangle_app_seg) && instr_ok_to_mangle(instr)) {
-            /* The instr might be changed by client, and we cannot rely on 
+            /* The instr might be changed by client, and we cannot rely on
              * PREFIX_SEG_FS/GS. So we simply call mangle_seg_ref on every
              * instruction and mangle it if necessary.
              */
@@ -4254,7 +4254,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
      *   if (xdi-xcx*opndsize < end_pc && xdi+xcx*opndsize > start_pc) => self-write
      * opndsize is 1,2, or 4 => use lea for mul
      *   lea (xdi,xcx,opndsize),xcx
-     * 
+     *
      *   save flags and xax
      *   save xbx
      *   lea (xdi,xcx,opndsize),xbx
@@ -4304,7 +4304,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
 
     if (next_app != NULL) {
         /* client may have inserted non-meta instrs, so use translation first
-         * (xref PR 472190) 
+         * (xref PR 472190)
          */
         if (instr_get_app_pc(next_app) != NULL)
             after_write = instr_get_app_pc(next_app);
@@ -4412,7 +4412,7 @@ static void
 sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t *next,
               opnd_t op, app_pc start_pc, app_pc end_pc /* end is open */)
 {
-    /* can only test for equality w/o modifying flags, so save them 
+    /* can only test for equality w/o modifying flags, so save them
      * if (addr < end_pc && addr+opndsize > start_pc) => self-write
      *   <write memory>
      *   save xbx
@@ -4452,7 +4452,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
 
     if (next_app != NULL) {
         /* client may have inserted non-meta instrs, so use translation first
-         * (xref PR 472190) 
+         * (xref PR 472190)
          */
         if (instr_get_app_pc(next_app) != NULL)
             after_write = instr_get_app_pc(next_app);
@@ -4467,7 +4467,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
              * CALL* already means that we're leaving the block and it cannot be a selfmod
              * instruction even though it writes to memory
              */
-            DOLOG(4, LOG_INTERP, { 
+            DOLOG(4, LOG_INTERP, {
                 loginst(dcontext, 4, next_app, "next app instr");
             });
             after_write = opnd_get_pc(instr_get_target(next_app));
@@ -4948,7 +4948,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                 instrlist_set_our_mangling(ilist, false); /* PR 267260 */
                 return false;
             }
-        
+
             /* don't mangle anything that mangle inserts! */
             next = instr_get_next_expanded(dcontext, ilist, instr);
             if (!instr_ok_to_mangle(instr))
@@ -4972,18 +4972,18 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                     if (instr_is_call_indirect(instr)) {
                         ASSERT(next != NULL && !instr_raw_bits_valid(next));
                         /* FIXME case 8165: why do we ever care about the last
-                         * instruction modifying anything? 
+                         * instruction modifying anything?
                          */
                         /* conversion of IAT calls (but not elision)
                          * transforms this into a direct CALL,
                          * in that case 'next' is a direct jmp
                          * fall through, so has no exit flags
                          */
-                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) || 
-                               (DYNAMO_OPTION(IAT_convert) && 
+                        ASSERT(EXIT_IS_CALL(instr_exit_branch_type(next)) ||
+                               (DYNAMO_OPTION(IAT_convert) &&
                                 TEST(INSTR_IND_CALL_DIRECT, instr->flags)));
 
-                        
+
                         LOG(THREAD, LOG_INTERP, 3, " ignoring CALL* at end of fragment\n");
                         /* This test could be done outside of this loop on
                          * destinations, but since it is rare it is faster
@@ -5241,7 +5241,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
                 TRY_EXCEPT(dcontext, {
                     tmp_pc = decode(dcontext, tgt_pc, &ins);
                 }, {
-                    ASSERT_CURIOSITY(false && 
+                    ASSERT_CURIOSITY(false &&
                                      "crashed while decoding clean call");
                     instr_free(dcontext, &ins);
                     return NULL;
@@ -5273,7 +5273,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
                     TRY_EXCEPT(dcontext, {
                         tmp_pc = decode(dcontext, tmp_pc, &ins);
                     }, {
-                        ASSERT_CURIOSITY(false && 
+                        ASSERT_CURIOSITY(false &&
                                          "crashed while decoding clean call");
                         instr_free(dcontext, &ins);
                         return NULL;
@@ -5285,7 +5285,7 @@ check_callee_instr(dcontext_t *dcontext, callee_info_t *ci, app_pc next_pc)
                     instr_free(dcontext, &ins);
                 }
                 LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: special PIC code at: "PFX"\n", 
+                    "CLEANCALL: special PIC code at: "PFX"\n",
                     cur_pc);
                 ci->bailout = false;
                 instr_free(dcontext, &ins);
@@ -5337,7 +5337,7 @@ check_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
             ASSERT(!instr_is_mbr(cti));
             tgt_pc = opnd_get_pc(instr_get_target(cti));
             for (tgt  = instrlist_first(ilist);
-                 tgt != NULL; 
+                 tgt != NULL;
                  tgt  = instr_get_next(tgt)) {
                 if (tgt_pc == instr_get_app_pc(tgt))
                     break;
@@ -5369,7 +5369,7 @@ decode_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
     ci->ilist = instrlist_create(GLOBAL_DCONTEXT);
     cur_pc = ci->start;
 
-    LOG(THREAD, LOG_CLEANCALL, 2, 
+    LOG(THREAD, LOG_CLEANCALL, 2,
         "CLEANCALL: decoding callee starting at: "PFX"\n", ci->start);
     ci->bailout = false;
     while (cur_pc != NULL) {
@@ -5395,7 +5395,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
          instr  = instr_get_next(instr)) {
         /* XXX: this is not efficient as instr_uses_reg will iterate over
          * every operands, and the total would be (NUM_REGS * NUM_OPNDS)
-         * for each instruction. However, since this will be only called 
+         * for each instruction. However, since this will be only called
          * once for each clean call callee, it will have little performance
          * impact unless there are a lot of different clean call callees.
          */
@@ -5404,7 +5404,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
             if (!ci->xmm_used[i] &&
                 instr_uses_reg(instr, (DR_REG_XMM0 + (reg_id_t)i))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: callee "PFX" uses XMM%d at "PFX"\n", 
+                    "CLEANCALL: callee "PFX" uses XMM%d at "PFX"\n",
                     ci->start, i, instr_get_app_pc(instr));
                 ci->xmm_used[i] = true;
                 ci->num_xmms_used++;
@@ -5419,7 +5419,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
                 (reg != DR_REG_XBP || !ci->xbp_is_fp) &&
                 instr_uses_reg(instr, reg)) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
-                    "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n", 
+                    "CLEANCALL: callee "PFX" uses REG %s at "PFX"\n",
                     ci->start, reg_names[reg],
                     instr_get_app_pc(instr));
                 ci->reg_used[i] = true;
@@ -5484,7 +5484,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         reg_id_t reg = regparms[i];
         if (!ci->reg_used[reg - DR_REG_XAX]) {
             LOG(THREAD, LOG_CLEANCALL, 2,
-                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n", 
+                "CLEANCALL: callee "PFX" uses REG %s for arg passing\n",
                 ci->start, reg_names[reg]);
             ci->reg_used[reg - DR_REG_XAX] = true;
             callee_info_reserve_slot(ci, SLOT_REG, reg);
@@ -5494,7 +5494,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
 
 /* We use push/pop pattern to detect callee saved registers,
  * and assume that the code later won't change those saved value
- * on the stack. 
+ * on the stack.
  */
 static void
 analyze_callee_save_reg(dcontext_t *dcontext, callee_info_t *ci)
@@ -5712,25 +5712,25 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
     /* a set of condition checks */
     if (INTERNAL_OPTION(opt_cleancall) < 2) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: opt_cleancall: %d.\n", 
+            "CLEANCALL: callee "PFX" cannot be inlined: opt_cleancall: %d.\n",
             ci->start, INTERNAL_OPTION(opt_cleancall));
         opt_inline = false;
     }
     if (ci->num_instrs > MAX_NUM_INLINE_INSTRS) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: num of instrs: %d.\n", 
+            "CLEANCALL: callee "PFX" cannot be inlined: num of instrs: %d.\n",
             ci->start, ci->num_instrs);
         opt_inline = false;
     }
     if (ci->bwd_tgt != NULL || ci->fwd_tgt != NULL) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: has control flow.\n", 
+            "CLEANCALL: callee "PFX" cannot be inlined: has control flow.\n",
             ci->start);
         opt_inline = false;
     }
     if (ci->num_xmms_used != 0) {
         LOG(THREAD, LOG_CLEANCALL, 1,
-            "CLEANCALL: callee "PFX" cannot be inlined: uses XMM.\n", 
+            "CLEANCALL: callee "PFX" cannot be inlined: uses XMM.\n",
             ci->start);
         opt_inline = false;
     }
@@ -5863,7 +5863,7 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
                     ci->has_locals = true;
                 } else if (!opnd_same(opnd, mem_ref)) {
                     /* Check if it is the same stack var as the one we saw.
-                     * If different, no inline. 
+                     * If different, no inline.
                      */
                     LOG(THREAD, LOG_CLEANCALL, 1,
                         "CLEANCALL: callee "PFX" cannot be inlined: "
@@ -5952,7 +5952,7 @@ analyze_callee_ilist(dcontext_t *dcontext, callee_info_t *ci)
 }
 
 static void
-analyze_clean_call_aflags(dcontext_t *dcontext, 
+analyze_clean_call_aflags(dcontext_t *dcontext,
                           clean_call_info_t *cci, instr_t *where)
 {
     callee_info_t *ci = cci->callee_info;
@@ -5964,7 +5964,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
     cci->skip_save_aflags  = !(ci->write_aflags || ci->read_aflags);
     /* XXX: this is a more aggressive optimization by analyzing the ilist
      * to be instrumented. The client may change the ilist, which violate
-     * the analysis result. For example, 
+     * the analysis result. For example,
      * I do not need save the aflags now if an instruction
      * after "where" updating all aflags, but later the client can
      * insert an instruction reads the aflags before that instruction.
@@ -6013,7 +6013,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
         } else {
             LOG(THREAD, LOG_CLEANCALL, 3,
                 "CLEANCALL: if inserting clean call "PFX
-                ", skip saving reg %s.\n", 
+                ", skip saving reg %s.\n",
                 info->start, reg_names[DR_REG_XAX + (reg_id_t)i]);
             cci->reg_skip[i] = true;
             cci->num_regs_skip++;
@@ -6029,7 +6029,7 @@ analyze_clean_call_regs(dcontext_t *dcontext, clean_call_info_t *cci)
     }
     /* i#987: args are passed via regs in 64-bit, which will clober those regs,
      * so we should not skip any regs that are used for arg passing.
-     * XXX: we do not support args passing via XMMs, 
+     * XXX: we do not support args passing via XMMs,
      * see docs for dr_insert_clean_call
      * XXX: we can elminate the arg passing instead since it is not used
      * if marked for skip. However, we have to handle cases like some args
@@ -6428,15 +6428,15 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
     cci->ilist = NULL;
     /* 4. restore registers */
     insert_inline_reg_restore(dcontext, cci, ilist, where);
-    /* XXX: the inlined code looks like this 
-     *   mov    %rax -> %gs:0x00 
-     *   mov    %rdi -> %gs:0x01 
-     *   mov    $0x00000003 -> %edi 
-     *   mov    <rel> 0x0000000072200c00 -> %rax 
-     *   movsxd %edi -> %rdi 
-     *   add    %rdi (%rax) -> (%rax) 
-     *   mov    %gs:0x00 -> %rax 
-     *   mov    %gs:0x01 -> %rdi 
+    /* XXX: the inlined code looks like this
+     *   mov    %rax -> %gs:0x00
+     *   mov    %rdi -> %gs:0x01
+     *   mov    $0x00000003 -> %edi
+     *   mov    <rel> 0x0000000072200c00 -> %rax
+     *   movsxd %edi -> %rdi
+     *   add    %rdi (%rax) -> (%rax)
+     *   mov    %gs:0x00 -> %rax
+     *   mov    %gs:0x01 -> %rdi
      *   ...
      * we can do some constant propagation optimization here,
      * leave it for higher optimization level.

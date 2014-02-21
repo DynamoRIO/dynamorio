@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -65,7 +65,7 @@ byte * find_prot_edge(const byte *start, uint prot_flag)
     do {
         last = base + size;
     } while (dr_query_memory(last, &base, &size, &prot) && TESTALL(prot_flag, prot));
-    
+
     if (last == start)
         dr_fprintf(STDERR, "error in find_prot_edge");
 
@@ -165,7 +165,7 @@ void dr_init(client_id_t id)
     /* test unaligned unmap */
     if (!dr_unmap_file(f_map + PAGE_SIZE, EXTRA_SIZE))
         dr_fprintf(STDERR, "unmap error\n");
-    
+
     /* leave file open and check in exit event that it's still open after
      * app tries to close it
      */
@@ -219,7 +219,7 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "read_only_buf region mismatch");
     if (base_pc + size < read_only_buf + sizeof(read_only_buf))
         dr_fprintf(STDERR, "read_only_buf size mismatch");
-    
+
     /* test the safe_read functions */
     /* TODO - extend test to cover racy writes and reads (won't work on Linux yet). */
     memset(safe_buf, 0xcd, sizeof(safe_buf));
@@ -238,7 +238,7 @@ void dr_init(client_id_t id)
     edge = find_prot_edge(mbuf, DR_MEMPROT_READ);
     bytes_read = 0xcdcdcdcd;
     if (dr_safe_read(edge - (PAGE_SIZE + 10), PAGE_SIZE+20, safe_buf, &bytes_read) ||
-        bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 || 
+        bytes_read == 0xcdcdcdcd || bytes_read > PAGE_SIZE+10 ||
         !memchk(safe_buf, 0, bytes_read)) {
         dr_fprintf(STDERR, "ERROR in overlap dr_safe_read()\n");
     }

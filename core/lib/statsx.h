@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,8 +40,8 @@
  *
  */
 
-/* This file is included multiple times 
-   - in dynamorio_stats.h once for structure definition, 
+/* This file is included multiple times
+   - in dynamorio_stats.h once for structure definition,
    - in utils.c - dump_global_stats, dump_thread_stats
    - TODO: should also be included in the GUI
 */
@@ -57,7 +57,7 @@
 */
 
 /* Add new statistics at the end so that older GUIs can still show old statistics */
-/* Try to avoid preprocessor directives in STATS - 
+/* Try to avoid preprocessor directives in STATS -
    shouldn't matter, and makes old GUIs compatible */
 /* Keep descriptions up to a reasonable length (column 62 max -- else will hit
  * a warning in gcc 4.1.2-2) */
@@ -468,7 +468,7 @@
     STATS_DEF("Fragments unlinked for flushing", num_flushed_fragments)
     STATS_DEF("Fragments deleted for any reason", num_fragments_deleted)
     STATS_DEF("Fragments unlinked for deletion", fragments_unlinked_for_deletion)
-    STATS_DEF("Fragments unlinked for deletion from list", 
+    STATS_DEF("Fragments unlinked for deletion from list",
               list_entries_unlinked_for_deletion)
     STATS_DEF("Shared fragments deleted no-flush, race", shared_delete_noflush_race)
     STATS_DEF("Trace component fragments deleted", trace_components_deleted)
@@ -1150,7 +1150,7 @@
     STATS_DEF("Policy read nudges", hotp_num_policy_nudge)
     STATS_DEF("Mode read nudges", hotp_num_mode_nudge)
     STATS_DEF("Hot patches injected", hotp_num_inject)
-    STATS_DEF("Fragments w/ direct cti should be hot patched", 
+    STATS_DEF("Fragments w/ direct cti should be hot patched",
               hotp_num_frag_direct_cti)
     STATS_DEF("Hot patches executed after mode was set to OFF",
               hotp_exec_mode_off)

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -70,7 +70,7 @@ stack_alloc(int size)
     q = mmap(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
     assert(q);
     stack_redzone_start = (size_t) q;
-#endif 
+#endif
 
     p = mmap(q, size, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
     assert(p);
@@ -88,7 +88,7 @@ stack_free(void *p, int size)
 #if STACK_OVERFLOW_PROTECT
     sp = sp - PAGE_SIZE;
     munmap(sp, PAGE_SIZE);
-#endif 
+#endif
 }
 
 /* Create a new thread. It should be passed "run_func", a function which
@@ -99,10 +99,10 @@ stack_free(void *p, int size)
 static thread_t
 create_thread(int (*run_func)(void *), void *arg, void **stack)
 {
-    thread_t newpid; 
+    thread_t newpid;
     int flags;
     void *my_stack;
-    
+
     if (*stack == NULL)
         my_stack = stack_alloc(THREAD_STACK_SIZE);
     else
@@ -111,7 +111,7 @@ create_thread(int (*run_func)(void *), void *arg, void **stack)
      * else have errors doing a wait */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     newpid = clone(run_func, my_stack, flags, arg);
-  
+
     if (newpid == -1) {
         print("smp.c: Error calling clone\n");
         stack_free(my_stack, THREAD_STACK_SIZE);
@@ -124,7 +124,7 @@ create_thread(int (*run_func)(void *), void *arg, void **stack)
     return newpid;
 }
 
-static void 
+static void
 delete_thread(thread_t pid, void *stack)
 {
     thread_t result;
@@ -164,7 +164,7 @@ create_thread(int (WINAPI *run_func)(void *), void *arg, void **stack)
     return (thread_t) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
 }
 
-void 
+void
 delete_thread(thread_t thread, void *stack)
 {
     VERBOSE_PRINT("Waiting for child to exit\n");

@@ -167,7 +167,7 @@ drtable_create(ptr_uint_t capacity, size_t entry_size, uint flags, bool synch,
 {
     drtable_t *table;
     size_t size;
-    
+
     DR_ASSERT(entry_size > 0 && entry_size < MAX_ENTRY_SIZE);
 
     table = dr_global_alloc(sizeof(*table));
@@ -387,7 +387,7 @@ drtable_dump_entries(void *tab, file_t log)
     ssize_t size;
     ptr_uint_t entries = 0;
     uint i;
-    
+
     DR_ASSERT(table != NULL && table->magic == DRTABLE_MAGIC);
     if (table->synch)
         drtable_lock(table);

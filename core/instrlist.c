@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -107,8 +107,8 @@ instrlist_clear_and_destroy(dcontext_t *dcontext, instrlist_t *ilist)
 }
 
 #ifdef CLIENT_INTERFACE
-/* Specifies the fall-through target of a basic block if its last 
- * instruction is a conditional branch instruction. 
+/* Specifies the fall-through target of a basic block if its last
+ * instruction is a conditional branch instruction.
  * It can only be called in basic block building event callbacks
  * and has NO EFFECT in other cases, e.g. trace.
  */
@@ -125,9 +125,9 @@ instrlist_get_fall_through_target(instrlist_t *bb)
     return bb->fall_through_bb;
 }
 
-/* Specifies the return target of a basic block if its last 
- * instruction is a call instruction. 
- * It can only be called in basic block building event callbacks 
+/* Specifies the return target of a basic block if its last
+ * instruction is a call instruction.
+ * It can only be called in basic block building event callbacks
  * and has NO EFFECT in other cases.
  */
 bool
@@ -217,7 +217,7 @@ instrlist_append(instrlist_t *ilist, instr_t *inst)
         instr_set_next(ilist->last, top);
         instr_set_prev(top, ilist->last);
         ilist->last = bot;
-    } 
+    }
     else {
         ilist->first = top;
         ilist->last = bot;
@@ -243,7 +243,7 @@ instrlist_prepend(instrlist_t *ilist, instr_t *inst)
         instr_set_next(bot, ilist->first);
         instr_set_prev(ilist->first, bot);
         ilist->first = top;
-    } 
+    }
     else {
         ilist->first = top;
         ilist->last = bot;
@@ -322,7 +322,7 @@ instrlist_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
     }
 }
 
-/* replace oldinst with newinst, remove oldinst from ilist, and return oldinst 
+/* replace oldinst with newinst, remove oldinst from ilist, and return oldinst
    (newinst can be a chain of insts) */
 instr_t*
 instrlist_replace(instrlist_t *ilist, instr_t *oldinst, instr_t *newinst)
@@ -376,7 +376,7 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
     }
 
     /* Fix up instr src if it is an instr and restore note field */
-    /* Note: we do not allows instruction update code cache, 
+    /* Note: we do not allows instruction update code cache,
      * which is very dangerous.
      * So we do not support instr as dst opnd and won't fix up here if any.
      */
@@ -400,7 +400,7 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
                               (opnd_get_segment_selector(op), tgt));
             } else
                 instr_set_src(copy, i,
-                              opnd_create_instr(tgt));     
+                              opnd_create_instr(tgt));
         }
     }
     for (inst = instrlist_first(old), copy = instrlist_first(newlist);
@@ -420,7 +420,7 @@ instrlist_clone(dcontext_t *dcontext, instrlist_t *old)
  * puts a whole list (prependee) onto the front of ilist
  * frees prependee when done because it will contain nothing useful
  */
-  
+
 void
 instrlist_prepend_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
                             instrlist_t *prependee)

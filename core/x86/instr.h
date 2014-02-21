@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -167,10 +167,10 @@ enum {
     DR_REG_DR0,  DR_REG_DR1,  DR_REG_DR2,  DR_REG_DR3,
     DR_REG_DR4,  DR_REG_DR5,  DR_REG_DR6,  DR_REG_DR7,
     DR_REG_DR8,  DR_REG_DR9,  DR_REG_DR10, DR_REG_DR11,
-    DR_REG_DR12, DR_REG_DR13, DR_REG_DR14, DR_REG_DR15, 
+    DR_REG_DR12, DR_REG_DR13, DR_REG_DR14, DR_REG_DR15,
     /* cr9-cr15 do not yet exist on current x64 hardware */
     DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
-    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7, 
+    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
@@ -228,35 +228,35 @@ extern const reg_id_t dr_reg_fixer[];
 /**< Number of general registers */
 #define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
 #define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
-#define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */  
+#define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
 #define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
-#define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */  
+#define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
 #define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
-#define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */  
+#define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
 #define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
-#define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */  
+#define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
 #define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
-#define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */  
+#define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
 #define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
 #define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
 #define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
 #define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
 #define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
-#define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */  
+#define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
 #define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
-#define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */  
+#define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
 #define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
-#define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */  
+#define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
 #define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
-#define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */  
+#define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
 #define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
-#define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */  
+#define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */
 #define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
-#define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */  
+#define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */
 #define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
-#define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */  
+#define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */
 /**
- * Last valid register enum value.  Note: DR_REG_INVALID is now smaller 
+ * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
 #define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
@@ -501,7 +501,7 @@ extern const reg_id_t dr_reg_fixer[];
 struct _opnd_t {
     byte kind;
     /* size field only used for immed_ints and addresses
-     * it holds a OPSZ_ field from decode.h 
+     * it holds a OPSZ_ field from decode.h
      * we need it so we can pick the proper instruction form for
      * encoding -- an alternative would be to split all the opcodes
      * up into different data size versions.
@@ -601,30 +601,30 @@ enum {
 DR_API
 INSTR_INLINE
 /** Returns an empty operand. */
-opnd_t 
+opnd_t
 opnd_create_null(void);
 
 DR_API
 INSTR_INLINE
 /** Returns a register operand (\p r must be a DR_REG_ constant). */
-opnd_t 
+opnd_t
 opnd_create_reg(reg_id_t r);
 
 DR_API
-/** 
+/**
  * Returns an immediate integer operand with value \p i and size
  * \p data_size; \p data_size must be a OPSZ_ constant.
  */
-opnd_t 
+opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t data_size);
 
 DR_API
-/** 
+/**
  * Returns an immediate float operand with value \p f.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
  */
-opnd_t 
+opnd_t
 opnd_create_immed_float(float f);
 
 /* not exported */
@@ -634,7 +634,7 @@ opnd_create_immed_float_for_opcode(uint opcode);
 DR_API
 INSTR_INLINE
 /** Returns a program address operand with value \p pc. */
-opnd_t 
+opnd_t
 opnd_create_pc(app_pc pc);
 
 DR_API
@@ -642,7 +642,7 @@ DR_API
  * Returns a far program address operand with value \p seg_selector:pc.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
-opnd_t 
+opnd_t
 opnd_create_far_pc(ushort seg_selector, app_pc pc);
 
 DR_API
@@ -651,7 +651,7 @@ DR_API
  * instr.  This operand can be used as an immediate integer or as a
  * direct call or jump target.  Its size is always #OPSZ_PTR.
  */
-opnd_t 
+opnd_t
 opnd_create_instr(instr_t *instr);
 
 DR_API
@@ -670,7 +670,7 @@ DR_API
  * Returns a far instr_t pointer address with value \p seg_selector:instr.
  * \p seg_selector is a segment selector, not a DR_SEG_ constant.
  */
-opnd_t 
+opnd_t
 opnd_create_far_instr(ushort seg_selector, instr_t *instr);
 
 DR_API
@@ -690,7 +690,7 @@ opnd_t
 opnd_create_mem_instr(instr_t *instr, short disp, opnd_size_t data_size);
 
 DR_API
-/** 
+/**
  * Returns a memory reference operand that refers to the address:
  * - disp(base_reg, index_reg, scale)
  *
@@ -701,12 +701,12 @@ DR_API
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 1, 2, 4, or 8.
  */
-opnd_t 
+opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
                       opnd_size_t data_size);
 
 DR_API
-/** 
+/**
  * Returns a memory reference operand that refers to the address:
  * - disp(base_reg, index_reg, scale)
  *
@@ -733,7 +733,7 @@ opnd_create_base_disp_ex(reg_id_t base_reg, reg_id_t index_reg, int scale,
                          bool disp_short_addr);
 
 DR_API
-/** 
+/**
  * Returns a far memory reference operand that refers to the address:
  * - seg : disp(base_reg, index_reg, scale)
  *
@@ -745,12 +745,12 @@ DR_API
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
  * \p scale must be either 1, 2, 4, or 8.
  */
-opnd_t 
+opnd_t
 opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, int scale,
                           int disp, opnd_size_t data_size);
 
 DR_API
-/** 
+/**
  * Returns a far memory reference operand that refers to the address:
  * - seg : disp(base_reg, index_reg, scale)
  *
@@ -794,7 +794,7 @@ DR_API
  * opnd_create_rel_addr() had been called) if it is used in any other
  * way.
  */
-opnd_t 
+opnd_t
 opnd_create_abs_addr(void *addr, opnd_size_t data_size);
 
 DR_API
@@ -815,7 +815,7 @@ DR_API
  * opnd_create_far_rel_addr() had been called) if it is used in any
  * other way.
  */
-opnd_t 
+opnd_t
 opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 
 /* DR_API EXPORT BEGIN */
@@ -854,7 +854,7 @@ DR_API
  *
  * \note For 64-bit DR builds only.
  */
-opnd_t 
+opnd_t
 opnd_create_rel_addr(void *addr, opnd_size_t data_size);
 
 DR_API
@@ -891,7 +891,7 @@ DR_API
  *
  * \note For 64-bit DR builds only.
  */
-opnd_t 
+opnd_t
 opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 /* DR_API EXPORT BEGIN */
 #endif
@@ -905,60 +905,60 @@ opnd_is_valid(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is an empty operand. */
-bool 
+bool
 opnd_is_null(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a register operand. */
-bool 
+bool
 opnd_is_reg(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /** Returns true iff \p opnd is an immediate (integer or float) operand. */
-bool 
+bool
 opnd_is_immed(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is an immediate integer operand. */
-bool 
+bool
 opnd_is_immed_int(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is an immediate float operand. */
-bool 
+bool
 opnd_is_immed_float(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /** Returns true iff \p opnd is a (near or far) program address operand. */
-bool 
+bool
 opnd_is_pc(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a near (i.e., default segment) program address operand. */
-bool 
+bool
 opnd_is_near_pc(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a far program address operand. */
-bool 
+bool
 opnd_is_far_pc(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /** Returns true iff \p opnd is a (near or far) instr_t pointer address operand. */
-bool 
+bool
 opnd_is_instr(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a near instr_t pointer address operand. */
-bool 
+bool
 opnd_is_near_instr(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a far instr_t pointer address operand. */
-bool 
+bool
 opnd_is_far_instr(opnd_t opnd);
 
 DR_API
@@ -968,7 +968,7 @@ opnd_is_mem_instr(opnd_t opnd);
 
 DR_API
 /** Returns true iff \p opnd is a (near or far) base+disp memory reference operand. */
-bool 
+bool
 opnd_is_base_disp(opnd_t opnd);
 
 DR_API
@@ -977,17 +977,17 @@ INSTR_INLINE
  * Returns true iff \p opnd is a near (i.e., default segment) base+disp memory
  * reference operand.
  */
-bool 
+bool
 opnd_is_near_base_disp(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /** Returns true iff \p opnd is a far base+disp memory reference operand. */
-bool 
+bool
 opnd_is_far_base_disp(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd uses vector indexing via a VSIB byte.  This
  * memory addressing form was introduced in Intel AVX2.
  */
@@ -995,30 +995,30 @@ bool
 opnd_is_vsib(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a (near or far) absolute address operand.
  * Returns true for both base-disp operands with no base or index and
- * 64-bit non-base-disp absolute address operands. 
+ * 64-bit non-base-disp absolute address operands.
  */
-bool 
+bool
 opnd_is_abs_addr(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a near (i.e., default segment) absolute address operand.
  * Returns true for both base-disp operands with no base or index and
- * 64-bit non-base-disp absolute address operands. 
+ * 64-bit non-base-disp absolute address operands.
  */
-bool 
+bool
 opnd_is_near_abs_addr(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a far absolute address operand.
  * Returns true for both base-disp operands with no base or index and
- * 64-bit non-base-disp absolute address operands. 
+ * 64-bit non-base-disp absolute address operands.
  */
-bool 
+bool
 opnd_is_far_abs_addr(opnd_t opnd);
 
 /* DR_API EXPORT BEGIN */
@@ -1026,32 +1026,32 @@ opnd_is_far_abs_addr(opnd_t opnd);
 /* DR_API EXPORT END */
 DR_API
 /**
- * Returns true iff \p opnd is a (near or far) pc-relative memory reference operand. 
+ * Returns true iff \p opnd is a (near or far) pc-relative memory reference operand.
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 opnd_is_rel_addr(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /**
  * Returns true iff \p opnd is a near (i.e., default segment) pc-relative memory
- * reference operand. 
+ * reference operand.
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 opnd_is_near_rel_addr(opnd_t opnd);
 
 DR_API
 INSTR_INLINE
 /**
- * Returns true iff \p opnd is a far pc-relative memory reference operand. 
+ * Returns true iff \p opnd is a far pc-relative memory reference operand.
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 opnd_is_far_rel_addr(opnd_t opnd);
 /* DR_API EXPORT BEGIN */
 #endif
@@ -1064,7 +1064,7 @@ DR_API
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 opnd_is_memory_reference(opnd_t opnd);
 
 DR_API
@@ -1086,7 +1086,7 @@ opnd_is_near_memory_reference(opnd_t opnd);
 /* accessor functions */
 
 DR_API
-/** 
+/**
  * Return the data size of \p opnd as a OPSZ_ constant.
  * If \p opnd is a register returns the result of opnd_reg_get_size()
  * called on the DR_REG_ constant.
@@ -1096,20 +1096,20 @@ opnd_size_t
 opnd_get_size(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Sets the data size of \p opnd.
  * Assumes \p opnd is an immediate integer, a memory reference,
  * or an instr_t pointer address operand.
  */
-void   
+void
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a register operand.
  * Returns the register it refers to (a DR_REG_ constant).
  */
-reg_id_t  
+reg_id_t
 opnd_get_reg(opnd_t opnd);
 
 DR_API
@@ -1118,25 +1118,25 @@ ptr_int_t
 opnd_get_immed_int(opnd_t opnd);
 
 DR_API
-/** 
- * Assumes \p opnd is an immediate float and returns its value. 
+/**
+ * Assumes \p opnd is an immediate float and returns its value.
  * The caller's code should use proc_save_fpstate() or be inside a
  * clean call that has requested to preserve the floating-point state.
  */
-float  
+float
 opnd_get_immed_float(opnd_t opnd);
 
 DR_API
 /** Assumes \p opnd is a (near or far) program address, returns its value. */
-app_pc 
+app_pc
 opnd_get_pc(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a far program address.
  * Returns \p opnd's segment, a segment selector (not a DR_SEG_ constant).
  */
-ushort    
+ushort
 opnd_get_segment_selector(opnd_t opnd);
 
 DR_API
@@ -1167,13 +1167,13 @@ opnd_get_base(opnd_t opnd);
 DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
- * Returns the displacement. 
+ * Returns the displacement.
  */
-int 
+int
 opnd_get_disp(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) base+disp memory reference; returns whether
  * encode_zero_disp has been specified for \p opnd.
  */
@@ -1181,7 +1181,7 @@ bool
 opnd_is_disp_encode_zero(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) base+disp memory reference; returns whether
  * force_full_disp has been specified for \p opnd.
  */
@@ -1189,7 +1189,7 @@ bool
 opnd_is_disp_force_full(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) base+disp memory reference; returns whether
  * disp_short_addr has been specified for \p opnd.
  */
@@ -1197,7 +1197,7 @@ bool
 opnd_is_disp_short_addr(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
  * Returns the index register (a DR_REG_ constant).
  */
@@ -1206,20 +1206,20 @@ opnd_get_index(opnd_t opnd);
 
 DR_API
 /** Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the scale. */
-int 
+int
 opnd_get_scale(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) memory reference of any type.
  * Returns \p opnd's segment (a DR_SEG_ constant), or DR_REG_NULL if it is a near
  * memory reference.
  */
-reg_id_t    
+reg_id_t
 opnd_get_segment(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes \p opnd is a (near or far) absolute or pc-relative memory reference,
  * or a base+disp memory reference with no base or index register.
  * Returns \p opnd's absolute address (which will be pc-relativized on encoding
@@ -1229,15 +1229,15 @@ void *
 opnd_get_addr(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Returns the number of registers referred to by \p opnd. This will only
  * be non-zero for register operands and memory references.
  */
-int 
+int
 opnd_num_regs_used(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Used in conjunction with opnd_num_regs_used(), this routine can be used
  * to iterate through all registers used by \p opnd.
  * The index values begin with 0 and proceed through opnd_num_regs_used(opnd)-1.
@@ -1253,7 +1253,7 @@ reg_check_reg_fixer(void);
 #endif
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the string name for \p reg.
  */
@@ -1261,7 +1261,7 @@ const char *
 get_register_name(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 16-bit version of \p reg.
  */
@@ -1269,7 +1269,7 @@ reg_id_t
 reg_32_to_16(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 8-bit version of \p reg (the least significant byte:
  * DR_REG_AL instead of DR_REG_AH if passed DR_REG_EAX, e.g.).  For 32-bit DR
@@ -1283,7 +1283,7 @@ reg_32_to_8(reg_id_t reg);
 #ifdef X64
 /* DR_API EXPORT END */
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 64-bit version of \p reg.
  *
@@ -1293,7 +1293,7 @@ reg_id_t
 reg_32_to_64(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 64-bit register constant.
  * Returns the 32-bit version of \p reg.
  *
@@ -1303,23 +1303,23 @@ reg_id_t
 reg_64_to_32(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Returns true iff \p reg refers to an extended register only available
  * in 64-bit mode and not in 32-bit mode (e.g., R8-R15, XMM8-XMM15, etc.)
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 reg_is_extended(reg_id_t reg);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * If \p sz == OPSZ_2, returns the 16-bit version of \p reg.
- * For 64-bit versions of this library, if \p sz == OPSZ_8, returns 
+ * For 64-bit versions of this library, if \p sz == OPSZ_8, returns
  * the 64-bit version of \p reg.
  * Returns \p DR_REG_NULL when trying to get the 8-bit subregister of \p
  * DR_REG_ESI, \p DR_REG_EDI, \p DR_REG_EBP, or \p DR_REG_ESP in 32-bit mode.
@@ -1343,7 +1343,7 @@ reg_id_t
 reg_resize_to_opsz(reg_id_t reg, opnd_size_t sz);
 
 DR_API
-/**  
+/**
  * Assumes that \p reg is a DR_REG_ register constant.
  * If reg is used as part of the calling convention, returns which
  * parameter ordinal it matches (0-based); otherwise, returns -1.
@@ -1352,7 +1352,7 @@ int
 reg_parameter_num(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a General Purpose Register,
  * i.e., rax, rcx, rdx, rbx, rsp, rbp, rsi, rdi, or a subset.
@@ -1361,7 +1361,7 @@ bool
 reg_is_gpr(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a segment (i.e., it's really a DR_SEG_
  * constant).
@@ -1370,80 +1370,80 @@ bool
 reg_is_segment(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
  * or a ymm (256-bit multimedia) register.
  */
-bool 
+bool
 reg_is_xmm(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a ymm (256-bit multimedia) register.
  */
-bool 
+bool
 reg_is_ymm(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an mmx (64-bit) register.
  */
-bool 
+bool
 reg_is_mmx(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a floating-point register.
  */
-bool 
+bool
 reg_is_fp(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a 32-bit general-purpose register.
  */
-bool 
+bool
 reg_is_32bit(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a register operand that refers to a 32-bit
  * general-purpose register.
  */
-bool 
+bool
 opnd_is_reg_32bit(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a 64-bit general-purpose register.
  */
-bool 
+bool
 reg_is_64bit(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a register operand that refers to a 64-bit
  * general-purpose register.
  */
-bool 
+bool
 opnd_is_reg_64bit(opnd_t opnd);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to a pointer-sized general-purpose register.
  */
-bool 
+bool
 reg_is_pointer_sized(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the pointer-sized version of \p reg.
  */
@@ -1451,11 +1451,11 @@ reg_id_t
 reg_to_pointer_sized(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Returns true iff \p opnd is a register operand that refers to a
  * pointer-sized general-purpose register.
  */
-bool 
+bool
 opnd_is_reg_pointer_sized(opnd_t opnd);
 
 /* not exported */
@@ -1466,16 +1466,16 @@ int
 opnd_get_reg_mcontext_offs(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p r1 and \p r2 are both DR_REG_ constants.
  * Returns true iff \p r1's register overlaps \p r2's register
  * (e.g., if \p r1 == DR_REG_AX and \p r2 == DR_REG_EAX).
  */
-bool 
+bool
 reg_overlap(reg_id_t r1, reg_id_t r2);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns \p reg's representation as 3 bits in a modrm byte
  * (the 3 bits are the lower-order bits in the return value).
@@ -1484,21 +1484,21 @@ byte
 reg_get_bits(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns the OPSZ_ constant corresponding to the register size.
  * Returns OPSZ_NA if reg is not a DR_REG_ constant.
  */
-opnd_size_t 
+opnd_size_t
 reg_get_size(reg_id_t reg);
 
 DR_API
-/** 
+/**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff \p opnd refers to reg directly or refers to a register
  * that overlaps \p reg (e.g., DR_REG_AX overlaps DR_REG_EAX).
  */
-bool 
+bool
 opnd_uses_reg(opnd_t opnd, reg_id_t reg);
 
 DR_API
@@ -1507,7 +1507,7 @@ void
 opnd_set_disp(opnd_t *opnd, int disp);
 
 DR_API
-/** 
+/**
  * Set the displacement and encoding controls of a memory reference operand:
  * - If \p encode_zero_disp, a zero value for \p disp will not be omitted;
  * - If \p force_full_disp, a small value for \p disp will not occupy only one byte.
@@ -1521,48 +1521,48 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
                  bool disp_short_addr);
 
 DR_API
-/** 
+/**
  * Assumes that both \p old_reg and \p new_reg are DR_REG_ constants.
  * Replaces all occurrences of \p old_reg in \p *opnd with \p new_reg.
  */
-bool 
+bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
 DR_API
-/** Returns true iff \p op1 and \p op2 are indistinguishable. 
+/** Returns true iff \p op1 and \p op2 are indistinguishable.
  *  If either uses variable operand sizes, the default size is assumed.
  */
-bool 
+bool
 opnd_same(opnd_t op1,opnd_t op2);
 
 DR_API
-/** 
+/**
  * Returns true iff \p op1 and \p op2 are both memory references and they
  * are indistinguishable, ignoring data size.
  */
-bool 
+bool
 opnd_same_address(opnd_t op1,opnd_t op2);
 
 DR_API
-/** 
+/**
  * Returns true iff there exists some register that is referred to (directly
  * or overlapping) by both \p op1 and \p op2.
  */
-bool 
+bool
 opnd_share_reg(opnd_t op1, opnd_t op2);
 
 DR_API
-/** 
+/**
  * Returns true iff \p def, considered as a write, affects \p use.
  * Is conservative, so if both \p def and \p use are memory references,
  * will return true unless it can disambiguate them based on their
  * registers and displacement.
  */
-bool 
+bool
 opnd_defines_use(opnd_t def, opnd_t use);
 
 DR_API
-/** 
+/**
  * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
  * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
  * to get a OPSZ_ constant.
@@ -1571,11 +1571,11 @@ DR_API
  * which may or may not match the actual size decided up on at
  * encoding time (that final size depends on other operands).
  */
-uint 
+uint
 opnd_size_in_bytes(opnd_size_t size);
 
 DR_API
-/** 
+/**
  * Returns the appropriate OPSZ_ constant for the given number of bytes.
  * Returns OPSZ_NA if there is no such constant.
  * The intended use case is something like "opnd_size_in_bytes(sizeof(foo))" for
@@ -1586,33 +1586,33 @@ opnd_size_t
 opnd_size_from_bytes(uint bytes);
 
 DR_API
-/** 
- * Shrinks all 32-bit registers in \p opnd to their 16-bit versions.  
+/**
+ * Shrinks all 32-bit registers in \p opnd to their 16-bit versions.
  * Also shrinks the size of immediate integers and memory references from
  * OPSZ_4 to OPSZ_2.
  */
-opnd_t 
+opnd_t
 opnd_shrink_to_16_bits(opnd_t opnd);
 
 /* DR_API EXPORT BEGIN */
 #ifdef X64
 /* DR_API EXPORT END */
 DR_API
-/** 
- * Shrinks all 64-bit registers in \p opnd to their 32-bit versions.  
+/**
+ * Shrinks all 64-bit registers in \p opnd to their 32-bit versions.
  * Also shrinks the size of immediate integers and memory references from
  * OPSZ_8 to OPSZ_4.
  *
  * \note For 64-bit DR builds only.
  */
-opnd_t 
+opnd_t
 opnd_shrink_to_32_bits(opnd_t opnd);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
 
 DR_API
-/** 
+/**
  * Returns the value of the register \p reg, selected from the passed-in
  * register values.  Supports only general-purpose registers.
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
@@ -1639,8 +1639,8 @@ void
 reg_set_value_priv(reg_id_t reg, priv_mcontext_t *mc, reg_t value);
 
 DR_API
-/** 
- * Returns the effective address of \p opnd, computed using the passed-in 
+/**
+ * Returns the effective address of \p opnd, computed using the passed-in
  * register values.  If \p opnd is a far address, ignores that aspect
  * except for TLS references on Windows (fs: for 32-bit, gs: for 64-bit)
  * or typical fs: or gs: references on Linux.  For far addresses the
@@ -1698,7 +1698,7 @@ opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
 enum {
 /* DR_API EXPORT END */
     /* these first flags are shared with the LINK_ flags and are
-     * used to pass on info to link stubs 
+     * used to pass on info to link stubs
      */
     /* used to determine type of indirect branch for exits */
     INSTR_DIRECT_EXIT           = LINK_DIRECT,
@@ -1730,7 +1730,7 @@ enum {
     INSTR_NI_SYSCALL_ALL        = LINK_NI_SYSCALL_ALL,
     /* meta-flag */
     EXIT_CTI_TYPES              = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT |
-                                   INSTR_RETURN_EXIT | INSTR_CALL_EXIT |     
+                                   INSTR_RETURN_EXIT | INSTR_CALL_EXIT |
                                    INSTR_JMP_EXIT |
                                    INSTR_FAR_EXIT |
                                    INSTR_BRANCH_SPECIAL_EXIT |
@@ -1772,7 +1772,7 @@ enum {
 
     /* Signifies that this instruction may need to be hot patched and should
      * therefore not cross a cache line. It is not necessary to set this for
-     * exit cti's or linkstubs since it is mainly intended for clients etc. 
+     * exit cti's or linkstubs since it is mainly intended for clients etc.
      * Handling of this flag is not yet implemented */
     INSTR_HOT_PATCHABLE         = 0x04000000,
 #ifdef DEBUG
@@ -2193,7 +2193,7 @@ instr_build(dcontext_t *dcontext, int opcode, int num_dsts, int num_srcs);
 
 DR_API
 /**
- * Convenience routine: calls 
+ * Convenience routine: calls
  * - instr_create(dcontext)
  * - instr_set_opcode(instr, opcode)
  * - instr_allocate_raw_bits(dcontext, instr, num_bytes)
@@ -2212,7 +2212,7 @@ DR_API
  * eflags, or operands.  It could be an uninitialized
  * instruction or the result of decoding an invalid sequence of bytes.
  */
-bool 
+bool
 instr_valid(instr_t *instr);
 
 DR_API
@@ -2222,15 +2222,15 @@ instr_get_app_pc(instr_t *instr);
 
 DR_API
 /** Returns \p instr's opcode (an OP_ constant). */
-int 
+int
 instr_get_opcode(instr_t *instr);
 
 DR_API
 /** Assumes \p opcode is an OP_ constant and sets it to be instr's opcode. */
-void 
+void
 instr_set_opcode(instr_t *instr, int opcode);
 
-const struct instr_info_t * 
+const struct instr_info_t *
 instr_get_instr_info(instr_t *instr);
 
 const struct instr_info_t *
@@ -2245,7 +2245,7 @@ INSTR_INLINE
  * (i.e., base, index, or segment registers) are not separately listed
  * as source operands.
  */
-int 
+int
 instr_num_srcs(instr_t *instr);
 
 DR_API
@@ -2253,7 +2253,7 @@ INSTR_INLINE
 /**
  * Returns the number of destination operands of \p instr.
  */
-int 
+int
 instr_num_dsts(instr_t *instr);
 
 DR_API
@@ -2262,21 +2262,21 @@ DR_API
  * operands yet.  Allocates storage for \p num_srcs source operands
  * and \p num_dsts destination operands.
  */
-void 
+void
 instr_set_num_opnds(dcontext_t *dcontext, instr_t *instr, int num_dsts, int num_srcs);
 
 DR_API
 /**
  * Returns \p instr's source operand at position \p pos (0-based).
  */
-opnd_t 
+opnd_t
 instr_get_src(instr_t *instr, uint pos);
 
 DR_API
 /**
  * Returns \p instr's destination operand at position \p pos (0-based).
  */
-opnd_t 
+opnd_t
 instr_get_dst(instr_t *instr, uint pos);
 
 DR_API
@@ -2285,7 +2285,7 @@ DR_API
  * Also calls instr_set_raw_bits_valid(\p instr, false) and
  * instr_set_operands_valid(\p instr, true).
  */
-void 
+void
 instr_set_src(instr_t *instr, uint pos, opnd_t opnd);
 
 DR_API
@@ -2294,7 +2294,7 @@ DR_API
  * Also calls instr_set_raw_bits_valid(\p instr, false) and
  * instr_set_operands_valid(\p instr, true).
  */
-void 
+void
 instr_set_dst(instr_t *instr, uint pos, opnd_t opnd);
 
 DR_API
@@ -2302,7 +2302,7 @@ DR_API
  * Assumes that \p cti_instr is a control transfer instruction
  * Returns the first source operand of \p cti_instr (its target).
  */
-opnd_t 
+opnd_t
 instr_get_target(instr_t *cti_instr);
 
 DR_API
@@ -2312,7 +2312,7 @@ DR_API
  * Also calls instr_set_raw_bits_valid(\p instr, false) and
  * instr_set_operands_valid(\p instr, true).
  */
-void 
+void
 instr_set_target(instr_t *cti_instr, opnd_t target);
 
 #ifdef AVOID_API_EXPORT
@@ -2320,12 +2320,12 @@ INSTR_INLINE  /* hot internally */
 #endif
 DR_API
 /** Returns true iff \p instr's operands are up to date. */
-bool 
+bool
 instr_operands_valid(instr_t *instr);
 
 DR_API
 /** Sets \p instr's operands to be valid if \p valid is true, invalid otherwise. */
-void 
+void
 instr_set_operands_valid(instr_t *instr, bool valid);
 
 DR_API
@@ -2335,7 +2335,7 @@ DR_API
  * to be valid.  However, calling instr_get_opcode() will attempt to
  * decode a valid opcode, hence the purpose of this routine.
  */
-bool 
+bool
 instr_opcode_valid(instr_t *instr);
 
 /******************************************************************
@@ -2343,43 +2343,43 @@ instr_opcode_valid(instr_t *instr);
  * get_arith_flags will make them valid if they're not.
  */
 
-bool 
+bool
 instr_arith_flags_valid(instr_t *instr);
 
 /* Sets instr's arithmetic flags (the 6 bottom eflags) to be valid if
  * valid is true, invalid otherwise. */
-void 
+void
 instr_set_arith_flags_valid(instr_t *instr, bool valid);
 
 /* Returns true iff instr's eflags are up to date. */
-bool 
+bool
 instr_eflags_valid(instr_t *instr);
 
 /* Sets instr's eflags to be valid if valid is true, invalid otherwise. */
-void 
+void
 instr_set_eflags_valid(instr_t *instr, bool valid);
 
 DR_API
 /** Returns \p instr's eflags use as EFLAGS_ constants or'ed together. */
-uint 
+uint
 instr_get_eflags(instr_t *instr);
 
 DR_API
 /** Returns the eflags usage of instructions with opcode \p opcode,
  * as EFLAGS_ constants or'ed together.
  */
-uint 
+uint
 instr_get_opcode_eflags(int opcode);
 
 DR_API
 /**
- * Returns \p instr's arithmetic flags (bottom 6 eflags) use 
+ * Returns \p instr's arithmetic flags (bottom 6 eflags) use
  * as EFLAGS_ constants or'ed together.
  * If \p instr's eflags behavior has not been calculated yet or is
  * invalid, the entire eflags use is calculated and returned (not
  * just the arithmetic flags).
  */
-uint 
+uint
 instr_get_arith_flags(instr_t *instr);
 
 /*
@@ -2391,12 +2391,12 @@ DR_API
  * Sets \p instr's raw bits to be \p length bytes starting at \p addr.
  * Does not set the operands invalid.
  */
-void 
+void
 instr_set_raw_bits(instr_t *instr, byte * addr, uint length);
 
 DR_API
 /** Sets \p instr's raw bits to be valid if \p valid is true, invalid otherwise. */
-void 
+void
 instr_set_raw_bits_valid(instr_t *instr, bool valid);
 
 #ifdef AVOID_API_EXPORT
@@ -2404,7 +2404,7 @@ INSTR_INLINE  /* internal inline */
 #endif
 DR_API
 /** Returns true iff \p instr's raw bits are a valid encoding of instr. */
-bool 
+bool
 instr_raw_bits_valid(instr_t *instr);
 
 #ifdef AVOID_API_EXPORT
@@ -2412,7 +2412,7 @@ INSTR_INLINE  /* internal inline */
 #endif
 DR_API
 /** Returns true iff \p instr has its own allocated memory for raw bits. */
-bool 
+bool
 instr_has_allocated_bits(instr_t *instr);
 
 #ifdef AVOID_API_EXPORT
@@ -2420,7 +2420,7 @@ INSTR_INLINE  /* internal inline */
 #endif
 DR_API
 /** Returns true iff \p instr's raw bits are not a valid encoding of \p instr. */
-bool 
+bool
 instr_needs_encoding(instr_t *instr);
 
 DR_API
@@ -2451,7 +2451,7 @@ DR_API
  * initialized with the bytes pointed to.
  * \p instr is then set to point to the allocated memory.
  */
-void 
+void
 instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes);
 
 DR_API
@@ -2467,7 +2467,7 @@ DR_API
  * Returns the supplied \p instr (for easy chaining).  Use
  * #instr_get_app_pc to see the current value of the translation.
  */
-instr_t * 
+instr_t *
 instr_set_translation(instr_t *instr, app_pc addr);
 
 DR_UNS_API
@@ -2478,9 +2478,9 @@ DR_UNS_API
  * decoding instructions from raw bytes (via decode(), e.g.); it is
  * set for instructions in instruction lists generated by DR (see
  * dr_register_bb_event()).
- * 
+ *
  */
-app_pc 
+app_pc
 instr_get_translation(instr_t *instr);
 
 DR_API
@@ -2520,7 +2520,7 @@ DR_API
  * Assumes that \p instr's raw bits are valid and have > \p pos bytes.
  * Returns a pointer to \p instr's raw byte at position \p pos (beginning with 0).
  */
-byte 
+byte
 instr_get_raw_byte(instr_t *instr, uint pos);
 
 DR_API
@@ -2529,7 +2529,7 @@ DR_API
  * and have > \p pos bytes.
  * Sets instr's raw byte at position \p pos (beginning with 0) to the value \p byte.
  */
-void 
+void
 instr_set_raw_byte(instr_t *instr, uint pos, byte byte);
 
 DR_API
@@ -2538,7 +2538,7 @@ DR_API
  * and have >= num_bytes bytes.
  * Copies the \p num_bytes beginning at start to \p instr's raw bits.
  */
-void 
+void
 instr_set_raw_bytes(instr_t *instr, byte *start, uint num_bytes);
 
 DR_API
@@ -2547,7 +2547,7 @@ DR_API
  * and have > pos+3 bytes.
  * Sets the 4 bytes beginning at position \p pos (0-based) to the value word.
  */
-void 
+void
 instr_set_raw_word(instr_t *instr, uint pos, uint word);
 
 DR_API
@@ -2555,7 +2555,7 @@ DR_API
  * Assumes that \p instr's raw bits are valid and have > \p pos + 3 bytes.
  * Returns the 4 bytes beginning at position \p pos (0-based).
  */
-uint 
+uint
 instr_get_raw_word(instr_t *instr, uint pos);
 
 DR_API
@@ -2572,7 +2572,7 @@ DR_API
  * Assumes that \p prefix is a PREFIX_ constant.
  * Returns true if \p instr's prefixes contain the flag \p prefix.
  */
-bool 
+bool
 instr_get_prefix_flag(instr_t *instr, uint prefix);
 
 /* NOT EXPORTED because we want to limit a client to seeing only the
@@ -2580,14 +2580,14 @@ instr_get_prefix_flag(instr_t *instr, uint prefix);
  * Assumes that prefix is a group of PREFIX_ constants or-ed together.
  * Sets instr's prefixes to be exactly those flags in prefixes.
  */
-void 
+void
 instr_set_prefixes(instr_t *instr, uint prefixes);
 
 /* NOT EXPORTED because we want to limit a client to seeing only the
  * handful of PREFIX_ flags we're exporting.
  * Returns instr's prefixes as PREFIX_ constants or-ed together.
  */
-uint 
+uint
 instr_get_prefixes(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
@@ -2610,7 +2610,7 @@ DR_API
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 instr_get_x86_mode(instr_t *instr);
 /* DR_API EXPORT BEGIN */
 #endif
@@ -2734,7 +2734,7 @@ DR_UNS_API
  * transfer instructions but a Level 1 decoding plus arithmetic eflags
  * information for all other instructions.
  */
-void 
+void
 instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist);
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 
@@ -2747,7 +2747,7 @@ DR_API
  * address sizes, to 16 bits.
  * Does not shrink DR_REG_ESI or DR_REG_EDI used in string instructions.
  */
-void 
+void
 instr_shrink_to_16_bits(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
@@ -2760,7 +2760,7 @@ DR_API
  *
  * \note For 64-bit DR builds only.
  */
-void 
+void
 instr_shrink_to_32_bits(instr_t *instr);
 /* DR_API EXPORT BEGIN */
 #endif
@@ -2782,7 +2782,7 @@ DR_API
  * Returns true iff at least one of \p instr's operands references a floating
  * point register.
  */
-bool 
+bool
 instr_uses_fp_reg(instr_t *instr);
 
 DR_API
@@ -2803,7 +2803,7 @@ DR_API
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands references \p reg.
  */
-bool 
+bool
 instr_reg_in_dst(instr_t *instr, reg_id_t reg);
 
 DR_API
@@ -2812,7 +2812,7 @@ DR_API
  * Returns true iff at least one of \p instr's destination operands is
  * a register operand for a register that overlaps \p reg.
  */
-bool 
+bool
 instr_writes_to_reg(instr_t *instr, reg_id_t reg);
 
 DR_API
@@ -2824,10 +2824,10 @@ DR_API
  *
  * Returns false for multi-byte nops with an operand using reg.
  */
-bool 
+bool
 instr_reads_from_reg(instr_t *instr, reg_id_t reg);
 
-DR_API 
+DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands is
@@ -2841,7 +2841,7 @@ DR_API
  * Replaces all instances of \p old_opnd in \p instr's source operands with
  * \p new_opnd (uses opnd_same() to detect sameness).
  */
-bool 
+bool
 instr_replace_src_opnd(instr_t *instr, opnd_t old_opnd, opnd_t new_opnd);
 
 DR_API
@@ -2849,7 +2849,7 @@ DR_API
  * Returns true iff \p instr1 and \p instr2 have the same opcode, prefixes,
  * and source and destination operands (uses opnd_same() to compare the operands).
  */
-bool 
+bool
 instr_same(instr_t *instr1, instr_t *instr2);
 
 DR_API
@@ -2863,7 +2863,7 @@ instr_reads_memory(instr_t *instr);
 
 DR_API
 /** Returns true iff any of \p instr's destination operands is a memory reference. */
-bool 
+bool
 instr_writes_memory(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
@@ -2871,11 +2871,11 @@ instr_writes_memory(instr_t *instr);
 /* DR_API EXPORT END */
 DR_API
 /**
- * Returns true iff any of \p instr's operands is a rip-relative memory reference. 
+ * Returns true iff any of \p instr's operands is a rip-relative memory reference.
  *
  * \note For 64-bit DR builds only.
  */
-bool 
+bool
 instr_has_rel_addr_reference(instr_t *instr);
 
 DR_API
@@ -2994,7 +2994,7 @@ DR_API
  * Performs address calculation in the same manner as
  * instr_compute_address_ex() with additional information
  * of which opnd is used for address computation returned
- * in \p pos. If \p pos is NULL, it is the same as 
+ * in \p pos. If \p pos is NULL, it is the same as
  * instr_compute_address_ex().
  */
 bool
@@ -3018,7 +3018,7 @@ uint
 instr_memory_reference_size(instr_t *instr);
 
 DR_API
-/** 
+/**
  * \return a pointer to user-controlled data fields in a label instruction.
  * These fields are available for use by clients for their own purposes.
  * Returns NULL if \p instr is not a label instruction.
@@ -3041,7 +3041,7 @@ DR_API
  * the instr at \p pc.  If the instruction is a repeating string instruction,
  * considers only one iteration.
  * Returns the pc of the following instruction.
- * If the instruction at \p pc does not reference memory, or is invalid, 
+ * If the instruction at \p pc does not reference memory, or is invalid,
  * returns NULL.
  */
 app_pc
@@ -3053,7 +3053,7 @@ DR_API
  * Returns true iff \p instr is an IA-32/AMD64 "mov" instruction: either OP_mov_st,
  * OP_mov_ld, OP_mov_imm, OP_mov_seg, or OP_mov_priv.
  */
-bool 
+bool
 instr_is_mov(instr_t *instr);
 
 DR_API
@@ -3061,27 +3061,27 @@ DR_API
  * Returns true iff \p instr's opcode is OP_call, OP_call_far, OP_call_ind,
  * or OP_call_far_ind.
  */
-bool 
+bool
 instr_is_call(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr's opcode is OP_call or OP_call_far. */
-bool 
+bool
 instr_is_call_direct(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr's opcode is OP_call. */
-bool 
+bool
 instr_is_near_call_direct(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr's opcode is OP_call_ind or OP_call_far_ind. */
-bool 
+bool
 instr_is_call_indirect(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr's opcode is OP_ret, OP_ret_far, or OP_iret. */
-bool 
+bool
 instr_is_return(instr_t *instr);
 
 DR_API
@@ -3089,7 +3089,7 @@ DR_API
  * Returns true iff \p instr is a control transfer instruction of any kind
  * This includes OP_jcc, OP_jcc_short, OP_loop*, OP_jecxz, OP_call*, and OP_jmp*.
  */
-bool 
+bool
 instr_is_cti(instr_t *instr);
 
 DR_API
@@ -3100,15 +3100,15 @@ DR_API
 #ifdef UNSUPPORTED_API
 /**
  * This routine does NOT try to decode an opcode in a Level 1 or Level
- * 0 routine, and can thus be called on Level 0 routines.  
+ * 0 routine, and can thus be called on Level 0 routines.
  */
 #endif
-bool 
+bool
 instr_is_cti_short(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr is one of OP_loop* or OP_jecxz. */
-bool 
+bool
 instr_is_cti_loop(instr_t *instr);
 
 DR_API
@@ -3124,10 +3124,10 @@ DR_API
 #ifdef UNSUPPORTED_API
 /**
  * This routine does NOT try to decode an opcode in a Level 1 or Level
- * 0 routine, and can thus be called on Level 0 routines.  
+ * 0 routine, and can thus be called on Level 0 routines.
  */
 #endif
-bool 
+bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc);
 
 byte *
@@ -3138,7 +3138,7 @@ DR_API
  * Returns true iff \p instr is a conditional branch: OP_jcc, OP_jcc_short,
  * OP_loop*, or OP_jecxz.
  */
-bool 
+bool
 instr_is_cbr(instr_t *instr);
 
 DR_API
@@ -3147,7 +3147,7 @@ DR_API
  * OP_call_ind, OP_ret, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or
  * OP_iret.
  */
-bool 
+bool
 instr_is_mbr(instr_t *instr);
 
 DR_API
@@ -3155,7 +3155,7 @@ DR_API
  * Returns true iff \p instr is an unconditional direct branch: OP_jmp,
  * OP_jmp_short, or OP_jmp_far.
  */
-bool 
+bool
 instr_is_ubr(instr_t *instr);
 
 DR_API
@@ -3163,7 +3163,7 @@ DR_API
  * Returns true iff \p instr is a near unconditional direct branch: OP_jmp,
  * or OP_jmp_short.
  */
-bool 
+bool
 instr_is_near_ubr(instr_t *instr);
 
 DR_API
@@ -3171,12 +3171,12 @@ DR_API
  * Returns true iff \p instr is a far control transfer instruction: OP_jmp_far,
  * OP_call_far, OP_jmp_far_ind, OP_call_far_ind, OP_ret_far, or OP_iret.
  */
-bool 
+bool
 instr_is_far_cti(instr_t *instr);
 
 DR_API
 /** Returns true if \p instr is an absolute call or jmp that is far. */
-bool 
+bool
 instr_is_far_abs_cti(instr_t *instr);
 
 DR_API
@@ -3185,11 +3185,11 @@ DR_API
  * source operand of 0x80 on linux or 0x2e on windows, or OP_sysenter,
  * or OP_syscall, or #instr_is_wow64_syscall() for WOW64.
  */
-bool 
+bool
 instr_is_syscall(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
-#ifdef WINDOWS 
+#ifdef WINDOWS
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -3213,7 +3213,7 @@ DR_API
  * OP_prefetchnt0, OP_prefetchnt1, OP_prefetchnt2, OP_prefetch, or
  * OP_prefetchw.
  */
-bool 
+bool
 instr_is_prefetch(instr_t *instr);
 
 DR_API
@@ -3223,12 +3223,12 @@ DR_API
  * Returns true and sets \p *value to the constant being moved for the following
  * cases: mov_imm, mov_st, and xor where the source equals the destination.
  */
-bool 
+bool
 instr_is_mov_constant(instr_t *instr, ptr_int_t *value);
 
 DR_API
 /** Returns true iff \p instr is a floating point instruction. */
-bool 
+bool
 instr_is_floating(instr_t *instr);
 
 bool
@@ -3253,32 +3253,32 @@ DR_API
  * @param[out] type  If the return value is true and \p type is
  *   non-NULL, the type of the floating point operation is written to \p type.
  */
-bool 
+bool
 instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type);
 
 DR_API
 /** Returns true iff \p instr is part of Intel's MMX instructions. */
-bool 
+bool
 instr_is_mmx(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr is part of Intel's SSE or SSE2 instructions. */
-bool 
+bool
 instr_is_sse_or_sse2(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr is a "mov $imm -> (%esp)". */
-bool 
+bool
 instr_is_mov_imm_to_tos(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr is a label meta-instruction. */
-bool 
+bool
 instr_is_label(instr_t *instr);
 
 DR_API
 /** Returns true iff \p instr is an "undefined" instruction (ud2) */
-bool 
+bool
 instr_is_undefined(instr_t *instr);
 
 DR_API
@@ -3288,7 +3288,7 @@ DR_API
  * Returns the first source operand if \p instr's operands are valid,
  * else if \p instr's raw bits are valid returns the first raw byte.
  */
-int 
+int
 instr_get_interrupt_number(instr_t *instr);
 
 DR_API
@@ -3298,7 +3298,7 @@ DR_API
  * e.g., changes OP_jb to OP_jnb.
  * Works on cti_short_rewrite as well.
  */
-void 
+void
 instr_invert_cbr(instr_t *instr);
 
 /* PR 266292 */
@@ -3320,7 +3320,7 @@ instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,
                                      instr_t *instr);
 
 DR_API
-/** 
+/**
  * Given \p eflags, returns whether or not the conditional branch, \p
  * instr, would be taken.
  */
@@ -3352,13 +3352,13 @@ bool
 instr_cmovcc_triggered(instr_t *instr, reg_t eflags);
 
 /* utility routines that are in optimize.c */
-opnd_t 
+opnd_t
 instr_get_src_mem_access(instr_t *instr);
 
-void 
+void
 loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string);
 
-void 
+void
 logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string);
 
 DR_API
@@ -3371,7 +3371,7 @@ DR_API
  * - mov reg, reg
  * - lea reg, (reg)
  */
-bool 
+bool
 instr_is_nop(instr_t *instr);
 
 DR_UNS_API
@@ -3414,7 +3414,7 @@ DR_API
  * on the thread-local heap with opcode \p opcode and three sources
  * (\p src1, \p src2, \p src3).
  */
-instr_t * 
+instr_t *
 instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
                        opnd_t src1, opnd_t src2, opnd_t src3);
 
@@ -3463,7 +3463,7 @@ DR_API
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
  */
-instr_t * 
+instr_t *
 instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
                        opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3,
                        opnd_t src4, opnd_t src5);
@@ -3534,7 +3534,7 @@ DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
- * (\p dst1, \p dst2, \p dst3) and three sources 
+ * (\p dst1, \p dst2, \p dst3) and three sources
  * (\p src1, \p src2, \p src3).
  */
 instr_t *
@@ -3546,7 +3546,7 @@ DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
- * (\p dst1, \p dst2, \p dst3) and four sources 
+ * (\p dst1, \p dst2, \p dst3) and four sources
  * (\p src1, \p src2, \p src3, \p src4).
  */
 instr_t *
@@ -3741,35 +3741,35 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */             
-#define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */            
-#define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */   
-#define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */              
-#define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */              
-#define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */              
-#define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */  
-#define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */         
-#define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */          
-#define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */            
-#define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */            
-#define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */             
-#define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */            
-#define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */   
-#define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */              
-#define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */              
-#define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */              
-#define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */  
-#define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */         
-#define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */          
-#define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */            
-#define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */            
+#define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
+#define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
+#define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+#define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */
+#define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */
+#define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */
+#define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+#define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */
+#define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */
+#define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */
+#define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */
+#define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */
+#define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */
+#define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
+#define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */
+#define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */
+#define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */
+#define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */
+#define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */
+#define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */
+#define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */
+#define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
 
-#define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */    
-#define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */   
+#define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
+#define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
-/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */ 
+/** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #define EFLAGS_READ_6    0x0000011f
-/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */ 
+/** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 #define EFLAGS_WRITE_6   0x0008f800
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */

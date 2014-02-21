@@ -102,7 +102,7 @@ memquery_file_backing(struct proc_regionwithpathinfo *info, app_pc addr)
                             PROC_PIDREGIONPATHINFO, (uint64_t)addr, info, sizeof(*info));
 #else
     res = dynamorio_syscall(SYS_proc_info, 7, PROC_INFO_PID_INFO, get_process_id(),
-                            PROC_PIDREGIONPATHINFO, 
+                            PROC_PIDREGIONPATHINFO,
                             /* represent 64-bit arg as 2 32-bit args */
                             addr, NULL,
                             info, sizeof(*info));

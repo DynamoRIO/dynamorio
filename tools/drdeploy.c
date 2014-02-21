@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -111,7 +111,7 @@ static bool nocheck;
 # define TOOLNAME "drinject"
 #endif
 
-const char *usage_str = 
+const char *usage_str =
 #ifdef DRCONFIG
     "usage: "TOOLNAME" [options]\n"
 #elif defined(DRRUN) || defined (DRINJECT)
@@ -601,16 +601,16 @@ list_process(char *name, bool global, dr_platform_t platform,
     }
     printf("\tRoot=\"%s\" Debug=%s\n\tOptions=\"%s\"\n",
            root_dir_buf, debug ? "yes" : "no", dr_options);
-    
+
     c_iter = dr_client_iterator_start(name, 0, global, platform);
     while (dr_client_iterator_hasnext(c_iter)) {
         client_id_t id;
         size_t client_pri;
         char client_path[MAXIMUM_PATH] = {0};
         char client_opts[DR_MAX_OPTIONS_LENGTH] = {0};
-        
+
         dr_client_iterator_next(c_iter, &id, &client_pri, client_path, client_opts);
-        
+
         printf("\tClient=0x%08x Priority=%d\n\t\tPath=\"%s\"\n\t\tOptions=\"%s\"\n",
                id, (uint)client_pri, client_path, client_opts);
     }
@@ -683,7 +683,7 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
 }
 
 #if defined(DRCONFIG) || defined(DRRUN)
-/* Returns the path to the client library.  Appends to extra_ops. 
+/* Returns the path to the client library.  Appends to extra_ops.
  * A tool config file must contain one of these line types:
  *   CLIENT_ABS=<absolute path to client>
  *   CLIENT_REL=<path to client relative to DR root>
@@ -1019,7 +1019,7 @@ int main(int argc, char *argv[])
             if (action != action_none) {
                 usage("more than one action specified");
             }
-            if (i + 2 >= argc || 
+            if (i + 2 >= argc ||
                 (strcmp(argv[i], "-nudge_all") != 0 && i + 3 >= argc)) {
                 usage("too few arguments to -nudge");
             }
@@ -1032,7 +1032,7 @@ int main(int argc, char *argv[])
                 nudge_all = true;
             nudge_id = strtoul(argv[++i], NULL, 16);
             nudge_arg = _strtoui64(argv[++i], NULL, 16);
-        }        
+        }
 # endif
 #endif
 #if defined(DRCONFIG) || defined(DRRUN)
@@ -1210,7 +1210,7 @@ int main(int argc, char *argv[])
     if (full_app_name[0] == '\0') {
         /* may need to append .exe, FIXME : other executable types */
         char tmp_buf[MAXIMUM_PATH];
-        _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), 
+        _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
                   "%s%s", app_name, ".exe");
         NULL_TERMINATE_BUFFER(tmp_buf);
         _searchenv(tmp_buf, "PATH", full_app_name);

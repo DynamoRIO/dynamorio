@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,9 +57,9 @@ void test(double n1, double n2)
 {
     double r;
     int jmpret;
-    /* Save stack environment for return in case of error. First 
-     * time through, jmpret is 0, so true conditional is executed. 
-     * If an error occurs, jmpret will be set to -1 and false 
+    /* Save stack environment for return in case of error. First
+     * time through, jmpret is 0, so true conditional is executed.
+     * If an error occurs, jmpret will be set to -1 and false
      * conditional will be executed.
      */
     jmpret = setjmp(mark);
@@ -87,7 +87,7 @@ int main()
 #pragma warning(disable:4113)
     if (signal(SIGFPE, fphandler) == SIG_ERR) {
         fprintf(stderr, "Couldn't set SIGFPE\n");
-        abort();   
+        abort();
     }
     test(4., 0.);
     test(0., DBL_MAX);
@@ -96,14 +96,14 @@ int main()
 }
 
 /* fphandler handles SIGFPE (floating-point error) interrupt. Note
- * that this prototype accepts two arguments and that the 
- * prototype for signal in the run-time library expects a signal 
+ * that this prototype accepts two arguments and that the
+ * prototype for signal in the run-time library expects a signal
  * handler to have only one argument.
  *
  * The second argument in this signal handler allows processing of
- * _FPE_INVALID, _FPE_OVERFLOW, _FPE_UNDERFLOW, and 
- * _FPE_ZERODIVIDE, all of which are Microsoft-specific symbols 
- * that augment the information provided by SIGFPE. The compiler 
+ * _FPE_INVALID, _FPE_OVERFLOW, _FPE_UNDERFLOW, and
+ * _FPE_ZERODIVIDE, all of which are Microsoft-specific symbols
+ * that augment the information provided by SIGFPE. The compiler
  * will generate a warning, which is harmless and expected.
 
  */
@@ -115,7 +115,7 @@ void fphandler(int sig, int num)
     fperr = num;
     /* Initialize floating-point package. */
     _fpreset();
-    /* Restore calling environment and jump back to setjmp. Return 
+    /* Restore calling environment and jump back to setjmp. Return
     * -1 so that setjmp will return false for conditional test.
     */
     printf("about to do longjmp\n");

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -360,7 +360,7 @@ BOOL CLicenseDlg::OnInitDialog()
 {
     CDialog::OnInitDialog();
     m_FirstTime = TRUE;
-    
+
     m_License.Format(_T("%s"), LICENSE);
     m_LicenseEdit.SetSel(0,0);
     UpdateData(FALSE); // write to screen
@@ -387,12 +387,12 @@ BOOL CLicenseDlg::OnSetActive()
     if (!CheckWindowsVersion()) {
         CPropertyPage::EndDialog(IDCANCEL);
     }
-    
+
     CPropertySheet* pSheet = (CPropertySheet*)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);
     if (m_FirstTime) {
         m_FirstTime = FALSE;
-        
+
         //  Disable everything until the user scrolls the license text
         CButton *radio_all = (CButton *) GetDlgItem(IDC_DISAGREE);
         radio_all->SetCheck(1);
@@ -449,7 +449,7 @@ BOOL CLicenseDlg::CheckWindowsVersion()
     return FALSE;
 }
 
-void CLicenseDlg::OnAgree() 
+void CLicenseDlg::OnAgree()
 {
     CPropertySheet* pSheet = (CPropertySheet*)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);
@@ -457,7 +457,7 @@ void CLicenseDlg::OnAgree()
     pSheet->SetWizardButtons(PSWIZB_NEXT);
 }
 
-void CLicenseDlg::OnDisagree() 
+void CLicenseDlg::OnDisagree()
 {
     CPropertySheet* pSheet = (CPropertySheet*)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);
@@ -465,7 +465,7 @@ void CLicenseDlg::OnDisagree()
     pSheet->SetWizardButtons(0);
 }
 
-void CLicenseDlg::OnUnderstand() 
+void CLicenseDlg::OnUnderstand()
 {
     CPropertySheet* pSheet = (CPropertySheet*)GetParent();
     ASSERT_KINDOF(CPropertySheet, pSheet);

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,16 +42,16 @@ START_FILE
 DECL_EXTERN(FREE_LIBRARY_NAME)
 DECL_EXTERN(process_attach)
 
-/* DllMain for win32/pre_inject.c 
+/* DllMain for win32/pre_inject.c
  * if we start including in multiple dlls will need custom entry names or ifdefs
  */
     /* We want to unload ourselves on process attach, regardless of
      * whether we inject DR or not.
      * One strategy is to return false:
-     *   see msdn DllMain docs, return value ignored for all cases other than 
+     *   see msdn DllMain docs, return value ignored for all cases other than
      *   DLL_PROCESS_ATTACH, in which case returning false means initialization
      *   failed and the dll is unloaded (exactly what we want!!) if it was loaded
-     *   by load library (it terminates process if was loaded as part of process 
+     *   by load library (it terminates process if was loaded as part of process
      *   initialization, but that's not our case)
      * However, that doesn't work when shimeng gets in the way and initializes us,
      * as it ignores the return value.  Furthermore, it causes a "dll init

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -43,7 +43,7 @@
 /* The order is in increasing permissiveness and the values are chosen to
  * match up with equivalent requested states below */
 typedef enum {
-    THREAD_SYNCH_NONE=0, 
+    THREAD_SYNCH_NONE=0,
 
     /* At consistent state, holding no locks, suitable for terminate,
      * suitable for suspending */
@@ -155,19 +155,19 @@ thread_synch_successful(thread_record_t *tr);
  * id - the thread you want to synch with
  * block - whether or not should spin until synch is successful
  * hold_initexit_lock - whether or not the caller holds the thread_initexit_lock
- * caller_state - a given permission define from above that describes the 
+ * caller_state - a given permission define from above that describes the
  *                current state of the caller (note that holding the initexit
  *                lock is ok with respect to NO_LOCK
- * desired_state - a requested state define from above that describes the 
+ * desired_state - a requested state define from above that describes the
  *                 desired synchronization
  * flags - options from THREAD_SYNCH_ bitmask values
  * NOTE - if you hold the initexit_lock and block with greater than NONE for
  * caller state, then initexit_lock may be released and reaquired
  * NOTE - if any of the nt_ routines fails, it is assumed the thread no longer
  * exists and returns true
- * NOTE - if called directly (i.e. not through synch_with_all_threads) 
+ * NOTE - if called directly (i.e. not through synch_with_all_threads)
  * requires THREAD_SYNCH_IS_SAFE(caller_state, desired_state) to avoid deadlock
- * NOTE - Requires the caller is !could_be_linking (i.e. not in an 
+ * NOTE - Requires the caller is !could_be_linking (i.e. not in an
  * enter_couldbelinking state)
  * NOTE - you can't call this with a thread that you've already suspended
  */
@@ -189,11 +189,11 @@ extern mutex_t all_threads_synch_lock;
  * flags - options from THREAD_SYNCH_ bitmask values
  * NOTE - Requires that the caller doesn't hold the thread_initexit_lock, on
  * return caller will hold the thread_initexit_lock
- * NOTE - Requires the caller is !could_be_linking (i.e. not in an 
+ * NOTE - Requires the caller is !could_be_linking (i.e. not in an
  * enter_couldbelinking state)
- * NOTE - To avoid deadlock this routine should really only be called with 
+ * NOTE - To avoid deadlock this routine should really only be called with
  * cur_state giving maximum permissions, (currently app_exit and detach could
- * conflict, except our routes to app_exit go through different synch point 
+ * conflict, except our routes to app_exit go through different synch point
  * (TermThread or TermProcess) first
  * Caller must call end_synch_with_all_threads to clean up, unless they pass
  * THREAD_SYNCH_SUSPEND_FAILURE_ABORT and the request fails.
@@ -217,11 +217,11 @@ resume_all_threads(thread_record_t **threads, const uint num_threads);
 bool
 should_wait_at_safe_spot(dcontext_t *dcontext);
 
-/* checks to see if any threads are waiting to synch with this one and waits 
+/* checks to see if any threads are waiting to synch with this one and waits
  * if they are
  * cur_state - a given permission define from above that describes the current
  *             state of the caller
- * NOTE - Requires the caller is !could_be_linking (i.e. not in an 
+ * NOTE - Requires the caller is !could_be_linking (i.e. not in an
  * enter_couldbelinking state)
  */
 void

@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -56,17 +56,17 @@
 #define DEPTH 12
 
 /* ignore overflow errors */
-int 
+int
 fib(int n) {
     if (n <= 1) return 1;
     return fib(n-1) + fib(n-2);
 }
 
 int
-main(int argc, char** argv) 
+main(int argc, char** argv)
 {
     int i, t;
-    
+
     INIT();
     USE_USER32();
 
@@ -88,12 +88,12 @@ main(int argc, char** argv)
     print("fib(%d)=%d\n", DEPTH, t);
 }
 
-/* 
+/*
 It is amazing that with default options native=13s dr=12s
 
 only when optimized differences show up in the other direction
 $ cl /O2 -I.. fib.c
 native=8s dr=11s   ITER=? DEPTH=?
- 
+
 $ cl /O2  /Zi fib.c -I.. /link /incremental:no user32.lib
 */

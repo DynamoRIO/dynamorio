@@ -17,7 +17,7 @@
 #  endif
 #  if defined(kill_thread)
      SEC_VIO_THREAD
-#  else  
+#  else
      SEC_VIO_STOP
 #  endif
 #  if !defined(internal_detach_mask)

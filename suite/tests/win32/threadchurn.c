@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,7 +59,7 @@ typedef unsigned char* app_pc;
 enum {SWAP_OUT_AFTER_THREAD = 1}; /* trims working set down after each thread */
 enum {SWAP_OUT_AFTER_BATCH = 1}; /* trims working set down after batch  */
 
-/* 
+/*
  * native (0,0) pf delta is 15k,   time 30s
  * native (0,1) pf delta is 50k    time 32s
  * native (1,1) pf delta is 168k   time 45s
@@ -159,13 +159,13 @@ main()
     // on Win2003 there is a SetProcessWorkingSetSizeEx that sets QUOTA_LIMITS_HARDWS_ENABLE
 
 
-    if (res == 0) 
+    if (res == 0)
         print("SetProcessWorkingSetSize failed GLE: %d\n", GetLastError());
 
     for (round = 0; round < ROUNDS; round++) {
 #ifdef VERBOSE
         print("round %d\n", round);
-#endif        
+#endif
         global_started = 0;
         global_finished = 0;
 
@@ -173,7 +173,7 @@ main()
         for (b = 0; b < TOTAL_THREADS / BATCH_SIZE; b++) {
             for (t = 0; t < BATCH_SIZE; t++) {
                 thread[t] = create_thread(executor);
-                if (thread[t] == NULL) 
+                if (thread[t] == NULL)
                     print("GLE: %d\n", GetLastError());
                 assert(thread[t] != NULL);
             }

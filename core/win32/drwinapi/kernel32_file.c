@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of Google, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -133,7 +133,7 @@ init_object_attr_for_files(OBJECT_ATTRIBUTES *oa, UNICODE_STRING *us,
     if (sa != NULL && sa->nLength >= sizeof(SECURITY_ATTRIBUTES) && sa->bInheritHandle)
         obj_flags |= OBJ_INHERIT;
     InitializeObjectAttributes(oa, us, obj_flags, NULL,
-                               (sa != NULL && sa->nLength >= 
+                               (sa != NULL && sa->nLength >=
                                 offsetof(SECURITY_ATTRIBUTES, lpSecurityDescriptor) +
                                 sizeof(sa->lpSecurityDescriptor)) ?
                                sa->lpSecurityDescriptor : NULL);
@@ -1071,7 +1071,7 @@ redirect_MapViewOfFileEx(
     res = nt_raw_MapViewOfSection(hFileMappingObject, NT_CURRENT_PROCESS, &map,
                                   0, /* no control over placement */
                                   /* if section created SEC_COMMIT, will all be
-                                   * committed automatically 
+                                   * committed automatically
                                    */
                                   0,
                                   &li_offs, &size,

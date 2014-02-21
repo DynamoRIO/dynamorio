@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -679,7 +679,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
                 return pc;
             }
         }
-        
+
         /* read 3rd vex byte */
         vex_last = *pc;
         pc++;
@@ -790,7 +790,7 @@ read_instruction(byte *pc, byte *orig_pc,
      * for now I assume always 32-bit mode (or 64 for X64_MODE(di))!
      */
     di->prefixes = 0;
-    
+
     do {
         instr_byte = *pc;
         pc++;
@@ -882,7 +882,7 @@ read_instruction(byte *pc, byte *orig_pc,
     }
 
     /* all FLOAT_EXT and PREFIX_EXT (except nop & pause) and EXTENSION need modrm,
-     * get it now 
+     * get it now
      */
     if ((info->flags & HAS_MODRM) != 0)
         pc = read_modrm(pc, di);
@@ -1097,7 +1097,7 @@ read_instruction(byte *pc, byte *orig_pc,
 #endif
 
     /* if just want opcode, stop here!  faster for caller to
-     * separately call decode_next_pc than for us to decode immeds!  
+     * separately call decode_next_pc than for us to decode immeds!
      */
     if (just_opcode) {
         *ret_info = info;
@@ -1133,7 +1133,7 @@ read_instruction(byte *pc, byte *orig_pc,
         if (di->rep_prefix)
             di->prefixes |= PREFIX_XRELEASE;
     }
-    
+
     /* read any trailing immediate bytes */
     if (info->dst1_type != TYPE_NONE)
         pc = read_operand(pc, di, info->dst1_type, info->dst1_size);
@@ -1414,7 +1414,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
                     }
                 }
             }
-           
+
         }
         /* We go ahead and preserve the force bools if the original really had a 0
          * disp; up to user to unset bools when changing disp value (FIXME: should
@@ -1534,7 +1534,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
      */
     opnd_size_t ressize = resolve_variable_size(di, opsize, false);
     switch (optype) {
-    case TYPE_NONE: 
+    case TYPE_NONE:
         *opnd = opnd_create_null();
         return true;
     case TYPE_REG:
@@ -1655,7 +1655,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         /* just ignore other segment prefixes -- don't assert */
         *opnd = opnd_create_pc((app_pc)get_immed(di, opsize));
         return true;
-    case TYPE_A: 
+    case TYPE_A:
         {
 #ifdef IA32_ON_IA64
             if (opsize == OPSZ_4_short2) {
@@ -2104,7 +2104,7 @@ get_next_instr_info(const instr_info_t * info)
     return (const instr_info_t *)(info->code);
 }
 
-byte 
+byte
 decode_first_opcode_byte(int opcode)
 {
     const instr_info_t * info = op_instr[opcode];
@@ -2112,7 +2112,7 @@ decode_first_opcode_byte(int opcode)
 }
 
 DR_API
-const char * 
+const char *
 decode_opcode_name(int opcode)
 {
     const instr_info_t * info = op_instr[opcode];
@@ -2132,7 +2132,7 @@ unit_check_decode_ff_opcode() {
     static int do_once = 0;
     instr_t instr;
     byte modrm, sib;
-    byte raw_bytes[] = { 0xff, 0x0, 0x0, 
+    byte raw_bytes[] = { 0xff, 0x0, 0x0,
                          0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
                          0xab, 0xbc, 0xcd, 0xde, 0xef, 0xfa,
                        };

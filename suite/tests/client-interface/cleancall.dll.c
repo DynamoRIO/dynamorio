@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +53,7 @@ static void
 foo(reg_t a1, reg_t a2, reg_t a3, reg_t a4, reg_t a5, reg_t a6, reg_t a7, reg_t a8)
 {
     dr_fprintf(STDERR, "foo "PFX" "PFX" "PFX" "PFX"\n    "PFX" "PFX" "PFX" "PFX"\n",
-               a1, 
+               a1,
                /* printing addr of buf would be non-deterministic */
                IF_X64_ELSE((a2 == (reg_t) buf) ? 1 : -1, a2),
                a3, a4, a5, a6, a7, a8);
@@ -122,7 +122,7 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr, *next_next_instr;
     bool modified = false;
-    
+
 # define PRE(bb, i) \
     instrlist_preinsert(bb, instr, INSTR_XL8(i, dr_fragment_app_pc(tag)))
 # define PREM(bb, i) \
@@ -159,8 +159,8 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
         else
             next_next_instr = NULL;
 
-        if (instr_is_nop(instr) && 
-            next_instr != NULL && instr_is_nop(next_instr) && 
+        if (instr_is_nop(instr) &&
+            next_instr != NULL && instr_is_nop(next_instr) &&
             next_next_instr != NULL && instr_is_call_direct(next_next_instr)) {
 
             ASSERT(tag_of_interest == NULL || tag_of_interest == tag);
@@ -297,7 +297,7 @@ bb_event(void *drcontext, void* tag, instrlist_t *bb, bool for_trace, bool trans
                                                        2 * sizeof(reg_t), OPSZ_PTR),
                       opnd_create_reg(REG_XAX)));
                 dr_restore_reg(drcontext, bb, instr, REG_XBX, SPILL_SLOT_1);
-                
+
                 /* now test the slots */
                 /* xax is our tls + 0, flags is our tls + sizeof(reg_t) */
                 for (i = SPILL_SLOT_1; i <= SPILL_SLOT_MAX; i++) {

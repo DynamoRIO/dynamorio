@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,7 +31,7 @@
  * DAMAGE.
  */
 
-/* case 9016 apc-shellcode.c: 
+/* case 9016 apc-shellcode.c:
  * (the APC code is borrowed from initapc.dll.c <- winapc.c)
  *
  * fun code with 7 nested and 2 queued up APCs using user-mode QueueUserAPC
@@ -57,7 +57,7 @@ static void WINAPI
 apc_func(ULONG_PTR arg);
 
 typedef VOID (NTAPI *  PKNORMAL_ROUTINE )
-     (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2); 
+     (IN PVOID NormalContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2);
 
 /* In asm code. */
 void vse_datacode(void);
@@ -72,11 +72,11 @@ PAPCFUNC other_apc_func = (PAPCFUNC)other_datacode;
 
 /* we need native APCs */
 int
-native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch, 
+native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch,
                  PAPCFUNC func, ULONG_PTR arg)
 {
     NTSTATUS status;
-    GET_NTDLL(NtQueueApcThread, 
+    GET_NTDLL(NtQueueApcThread,
               (
                IN HANDLE ThreadHandle,
                IN PKNORMAL_ROUTINE ApcRoutine,
@@ -85,10 +85,10 @@ native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch,
                IN PVOID Argument2 OPTIONAL
                ));
 
-    /* 
+    /*
      *   This is what I see in QueueUserAPC just before calling NtQueueApcThread
      *   so ApcContext in that case is the argument to the function
-     *   dds esp 
+     *   dds esp
      *   0012fb58  fffffffe
      *   0012fb5c  7c82c0e6 kernel32!BaseDispatchAPC
      *   0012fb60  0041624b apc_shellcode!apc_func [security-win32/apc-shellcode.c @ 79]
@@ -98,7 +98,7 @@ native_queue_apc(HANDLE thread, PKNORMAL_ROUTINE apc_dispatch,
     /* FIXME: should really be (thread, apc_dispatch, func, arg, NULL)
      * but for more devious testing using this broken version for now
      */
-    status = NtQueueApcThread(thread, apc_dispatch, NULL /* no context */, 
+    status = NtQueueApcThread(thread, apc_dispatch, NULL /* no context */,
                               func, (void*)arg);
     if (!NT_SUCCESS(status)) {
         print("Error using NtQueueApcThread %x\n", status);
@@ -120,7 +120,7 @@ our_dispatch_apc(PVOID context, PAPCFUNC func, ULONG_PTR arg)
 
 /* our replacement of kernel32!QueueUserAPC() */
 int
-queue_apc(bool native, PAPCFUNC func, 
+queue_apc(bool native, PAPCFUNC func,
           HANDLE thread, ULONG_PTR arg)
 {
     if (native) {
@@ -165,7 +165,7 @@ send_apc(PAPCFUNC func, ULONG_PTR depth)
     /* an alertable system call so we receive the APCs (FIFO order) */
     res = SleepEx(100, 1);
     /* is going to return 192 since received apc during sleep call
-     * well technically 192 is io completion interruption, but seems to 
+     * well technically 192 is io completion interruption, but seems to
      * report that for any interrupting APC */
     print("SleepEx returned %d\n", res);
     print("Apc arg = %d\n", (int) apc_arg);
@@ -183,8 +183,8 @@ native_send_apc(PKNORMAL_ROUTINE native_func1,
 
     /* we queue up two APCs at a time maybe of different type */
     /* note that these just queue, they WILL NOT stack up unless the
-     * APC functions themselves get in Alertable state 
-     * FIXME: should put a TestAlert in the loaded DLL, 
+     * APC functions themselves get in Alertable state
+     * FIXME: should put a TestAlert in the loaded DLL,
      * I don't think there is one already in LoadLibrary
      * (if there is it may be bad for hotpatch DLLs)
      */
@@ -196,7 +196,7 @@ native_send_apc(PKNORMAL_ROUTINE native_func1,
     /* an alertable system call so we receive the APCs (FIFO order) */
     res = SleepEx(100, 1);
     /* is going to return 192 since received apc during sleep call
-     * well technically 192 is io completion interruption, but seems to 
+     * well technically 192 is io completion interruption, but seems to
      * report that for any interrupting APC */
     print("SleepEx returned %d\n", res);
     /* FIXME: don't have a good sign that the shellcodes did execute */
@@ -213,13 +213,13 @@ main()
 
     print("normal (nested) apc\n");
     send_apc(apc_func, 7);
-    
+
     __try {
         print("VSE-like native mode\n");
         native_send_apc((PKNORMAL_ROUTINE)vse_native_datacode,
                         (PKNORMAL_ROUTINE)vse_native_datacode);
         print("VSE native shellcode returned\n");
-    } 
+    }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         print("VSE native shellcode exception!\n");
     }
@@ -229,7 +229,7 @@ main()
         native_send_apc((PKNORMAL_ROUTINE)other_native_datacode,
                         (PKNORMAL_ROUTINE)other_native_datacode);
         print("*** other APC native shellcode returned\n");
-    } 
+    }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         print("APC native shellcode exception!\n");
     }

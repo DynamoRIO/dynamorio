@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -97,7 +97,7 @@ volatile fragment_t * sideline_trace;
 /* number of processors we're running on */
 int num_processors;
 
-/* used to signal which thread we need to pause in dispatch */ 
+/* used to signal which thread we need to pause in dispatch */
 thread_id_t pause_for_sideline;
 event_t paused_for_sideline_event;
 event_t resume_from_sideline_event;
@@ -214,7 +214,7 @@ static void delete_thread(thread_t thread, void *stack);
 /****************************************************************************/
 
 /* initialization */
-void 
+void
 sideline_init()
 {
 #ifdef WINDOWS
@@ -294,7 +294,7 @@ sideline_init()
 
 
 /* atexit cleanup */
-void 
+void
 sideline_exit()
 {
     uint i;
@@ -348,7 +348,7 @@ sideline_exit()
         }
     }
     global_heap_free(table.table, table.capacity*sizeof(sample_entry_t*) HEAPACCT(ACCT_SIDELINE));
-    
+
     l = remember;
     while (l != NULL) {
         nextl = l->next;
@@ -377,7 +377,7 @@ sideline_exit()
     DELETE_LOCK(table.lock);
 }
 
-/* add profiling to top of trace 
+/* add profiling to top of trace
  * at top of trace store fragment_t * in global slot
  * (clear it at top of shared_syscall & fcache_return)
  * sideline thread samples that slot to find hot traces
@@ -392,7 +392,7 @@ add_sideline_prefix(dcontext_t *dcontext, instrlist_t *trace)
     instrlist_prepend(trace, inst);
 }
 
-void 
+void
 finalize_sideline_prefix(dcontext_t *dcontext, fragment_t *trace_f)
 {
     byte *start_pc = (byte *) FCACHE_ENTRY_PC(trace_f);
@@ -418,7 +418,7 @@ remove_sideline_profiling(dcontext_t *dcontext, instrlist_t *trace)
     instr_destroy(dcontext, instr);
 }
 
-void 
+void
 sideline_start()
 {
     if (child_sleep) {
@@ -428,7 +428,7 @@ sideline_start()
     }
 }
 
-void 
+void
 sideline_stop()
 {
     if (!child_sleep) {
@@ -486,7 +486,7 @@ optimize_trace_wrapper(dcontext_t *dcontext, fragment_t *frag, instrlist_t *trac
     optimize_trace(dcontext, frag->tag, trace);
 }
 
-static void 
+static void
 sideline_sample()
 {
     sample_entry_t *e;
@@ -503,7 +503,7 @@ sideline_sample()
     } else {
         e = update_sample_entry((ptr_uint_t)sample);
         LOG(logfile, LOG_SIDELINE, VERB_3,
-            "\tSIDELINE: sample now is "PFX" == F%d with count %d\n", 
+            "\tSIDELINE: sample now is "PFX" == F%d with count %d\n",
             sample, ((fragment_t*)sample)->id, e->counter);
     }
 
@@ -512,7 +512,7 @@ sideline_sample()
      * we'll just accept an inability to distinguish a loop from
      * a blocked thread.
      */
-   
+
     num_samples++;
     if (num_samples % SAMPLE_TO_OPTIMIZE_RATIO == 0) {
         /* clear entry to prevent stale samples after optimizing */
@@ -521,7 +521,7 @@ sideline_sample()
     }
 }
 
-static void 
+static void
 sideline_examine_traces()
 {
     sample_entry_t *e;
@@ -747,7 +747,7 @@ sideline_optimize(fragment_t *f,
         /* thread is waiting in dispatch */
         signal_event(resume_from_sideline_event);
         mutex_lock(&sideline_lock);
-        /* at this point we know thread has read our resume event 
+        /* at this point we know thread has read our resume event
          * clear all state
          */
         reset_event(paused_for_sideline_event);
@@ -782,15 +782,15 @@ sideline_cleanup_replacement(dcontext_t *dcontext)
      * we're about to delete
      */
     sideline_trace = NULL;
-        
+
     mutex_lock(&remember_lock);
     for (l = remember, prev_l = NULL; l != NULL; prev_l = l, l = l->next) {
         if (l->dcontext == dcontext) {
             e = l->list;
             while (e != NULL) {
                 next_e = e->next;
-                
-                /* clean up fragment 
+
+                /* clean up fragment
                  * deliberately do not call incoming_remove_fragment
                  */
                 LOG(logfile, LOG_SIDELINE, VERB_3, "sideline_cleanup: cleaning up F%d\n",
@@ -836,7 +836,7 @@ find_hottest_entry()
     uint i;
     sample_entry_t *e, *max = NULL;
     int max_counter = 0;
-    
+
     mutex_lock(&table.lock);
     for (i=0; i<table.capacity; i++) {
         for (e = table.table[i]; e; e = e->next) {
@@ -965,7 +965,7 @@ add_remember_entry(dcontext_t *dcontext, fragment_t *f
 /* Create a new thread. It should be passed "fcn", a function which
  * takes two arguments, (the second one is a dummy, always 4). The
  * first argument is passed in "arg". Returns the PID of the new
- * thread 
+ * thread
  * QUESTION: why does bbthreads use asm syscall instead of libc wrapper?
  * WARNING: clone is not present in libc5 or earlier
  */
@@ -973,7 +973,7 @@ static thread_t
 create_thread(int (*fcn)(void *), void *arg, void **stack)
 {
     thread_t thread;
-    
+
     int flags;
     void *my_stack;
     my_stack = stack_alloc(THREAD_STACK_SIZE);
@@ -986,7 +986,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
      */
     flags = SIGCHLD | CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND;
     thread = clone(fcn, my_stack, flags, arg); /* old: __clone */
-  
+
     if (thread == -1) {
         SYSLOG_INTERNAL_ERROR("SIDELINE: Error calling __clone");
         stack_free(my_stack, THREAD_STACK_SIZE);
@@ -998,7 +998,7 @@ create_thread(int (*fcn)(void *), void *arg, void **stack)
     return thread;
 }
 
-static void 
+static void
 delete_thread(thread_t thread, void *stack)
 {
     pid_t result;

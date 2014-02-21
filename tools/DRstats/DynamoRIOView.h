@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -59,8 +59,8 @@ extern "C" {
  * viewing to processes in the same session.
  * Prefixes are not supported on NT.
  */
-#define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics" 
-#define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics" 
+#define CLIENT_SHMEM_KEY_NT "DynamoRIO_Client_Statistics"
+#define CLIENT_SHMEM_KEY "Local\\DynamoRIO_Client_Statistics"
 #define CLIENTSTAT_NAME_MAX_LEN 47
 
 /* we allocate this struct in the shared memory: */
@@ -83,11 +83,11 @@ protected: // create from serialization only
 
         public:
     //{{AFX_DATA(CDynamoRIOView)
-    enum { 
+    enum {
 #ifdef DRSTATS_DEMO
-        IDD = IDD_DRSTATS_DEMO_FORM 
+        IDD = IDD_DRSTATS_DEMO_FORM
 #else
-        IDD = IDD_DYNAMORIO_FORM 
+        IDD = IDD_DYNAMORIO_FORM
 #endif
     };
     //}}AFX_DATA

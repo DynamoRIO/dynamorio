@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -81,7 +81,7 @@ TNAME(uint64_to_str)(uint64 num, int base, TCHAR * buf, int decimal, bool caps)
         p++;
         decimal++;
     }
-    
+
     return p;
 }
 
@@ -149,7 +149,7 @@ TNAME(double_to_str)(double d, int decimal, TCHAR *buf, bool force_dot,
         /* remove trailing zeros */
         if (suppress_zeros) {
             while (buf[i-1] == _T('0'))
-                i--; 
+                i--;
         }
     }
 
@@ -166,7 +166,7 @@ TNAME(double_to_exp_str)(double d, int exp, int decimal, TCHAR * buf,
     TCHAR *tc;
     int i = 0;
     uint abval;
-    
+
     tc = TNAME(double_to_str)(d, decimal, tmp_buf, force_dot, suppress_zeros);
     while (*tc) {
         buf[i++] = *tc++;
@@ -202,7 +202,7 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
     bool caps = (*c == _T('E')) || (*c == _T('G'));
     double d = val;
     int exp = 0;
-    bool is_g = (*c == _T('g') || *c == _T('G')); 
+    bool is_g = (*c == _T('g') || *c == _T('G'));
     /* i#1213: we must mask all fpu exceptions prior to running this code,
      * as it assumes div-by-zero won't raise an exception.
      * The caller must have already saved the app's full fpu state.
@@ -247,7 +247,7 @@ TNAME(our_vsnprintf_float)(double val, const TCHAR *c, TCHAR prefixbuf[3],
         exp--;
         d = d * 10.0;
     }
-    
+
     if (is_g)
         decimal--; /* g/G precision is number of signifigant digits */
     if (is_g && exp >= -4 && exp <= decimal) {
@@ -275,12 +275,12 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
     const TCHAR *str = NULL;
     TCHAR     *start = s;
     TCHAR     buf[BUF_SIZE];
-    
+
     if (fmt == NULL)
         return 0;
     if (max == 0)
         goto max_reached;
-    
+
     c = fmt;
     while (*c) {
         if (*c == _T('%')) {
@@ -309,24 +309,24 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
             /* Collect flags -, +, #, 0,  */
             while (*c == _T('0') || *c == _T('-') || *c == _T('#') || *c == _T('+') ||
                    *c == _T(' ')) {
-                if (*c == _T('0')) 
+                if (*c == _T('0'))
                     filler = _T('0');
-                if (*c == _T('-')) 
+                if (*c == _T('-'))
                     minus_flag = true;
-                if (*c == _T('+')) 
+                if (*c == _T('+'))
                     plus_flag = true;
-                if (*c == _T('#')) 
+                if (*c == _T('#'))
                     pound_flag = true;
-                if (*c == _T(' ')) 
+                if (*c == _T(' '))
                     space_flag = true;
                 c++;
                 ASSERT(*c);
             }
-            if (minus_flag) 
+            if (minus_flag)
                 filler = _T(' ');
-            if (plus_flag) 
+            if (plus_flag)
                 space_flag = false;
-        
+
             /* get field width */
             if (*c == _T('*')) {
                 fill = va_arg(ap, int);
@@ -366,9 +366,9 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
 
             /* get size modifiers l, h, ll/L */
             if (*c == _T('l') || *c == _T('L') || *c == _T('h')) {
-                if (*c == _T('L')) 
+                if (*c == _T('L'))
                     ll_type = true;
-                if (*c == _T('h')) 
+                if (*c == _T('h'))
                     h_type = true;
                 if (*c == _T('l')) {
                     c++;
@@ -411,7 +411,7 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                     int64 val64;
                     uint64 abval64 = 0;
                     bool negative = false;
-                    if (decimal == -1) 
+                    if (decimal == -1)
                         decimal = 1;  /* defaults */
                     else
                         filler = _T(' ');
@@ -423,9 +423,9 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                         else
                             abval64 = val64;
                     } else {
-                        if (l_type) 
+                        if (l_type)
                             val = va_arg(ap, long);  /* get arg */
-                        else if (h_type) 
+                        else if (h_type)
                             val = (long)va_arg(ap, int); /* short is promoted to int */
                         else
                             val = (long)va_arg(ap, int);
@@ -435,9 +435,9 @@ TNAME(our_vsnprintf)(TCHAR *s, size_t max, const TCHAR *fmt, va_list ap)
                         else
                             abval = val;
                     }
-                    if (!negative && space_flag) 
+                    if (!negative && space_flag)
                         prefixbuf[0] = _T(' ');  /* set prefix */
-                    if (!negative && plus_flag) 
+                    if (!negative && plus_flag)
                         prefixbuf[0] = _T('+');
                     if (negative)
                         prefixbuf[0] = _T('-');

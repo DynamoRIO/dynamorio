@@ -5,18 +5,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -120,7 +120,7 @@ CLoggingDlg::CLoggingDlg(CWnd* pParent /*=NULL*/)
     m_Level = 1;
 }
 
- 
+
 CLoggingDlg::CLoggingDlg(int level, int mask, CWnd* pParent /*=NULL*/)
     : CDialog(CLoggingDlg::IDD, pParent)
 {
@@ -230,7 +230,7 @@ void CLoggingDlg::VerifyMaskString()
     }
 }
 
-void CLoggingDlg::OnChangeEditMask() 
+void CLoggingDlg::OnChangeEditMask()
 {
     UpdateData(TRUE); // get values from controls
     int mask = GetMaskValue();
@@ -260,32 +260,32 @@ void CLoggingDlg::CheckboxChange(int id)
     SetMaskValue(mask);
 }
 
-void CLoggingDlg::OnLogVmareas() { CheckboxChange(LOG_VMAREAS); } 
-void CLoggingDlg::OnLogAsynch() { CheckboxChange(LOG_ASYNCH); } 
-void CLoggingDlg::OnLogCache() { CheckboxChange(LOG_CACHE); } 
-void CLoggingDlg::OnLogDispatch() { CheckboxChange(LOG_DISPATCH); } 
-void CLoggingDlg::OnLogEmit() { CheckboxChange(LOG_EMIT); } 
-void CLoggingDlg::OnLogFragment() { CheckboxChange(LOG_FRAGMENT); } 
-void CLoggingDlg::OnLogHeap() { CheckboxChange(LOG_HEAP); } 
-void CLoggingDlg::OnLogInterp() { CheckboxChange(LOG_INTERP); } 
-void CLoggingDlg::OnLogLinks() { CheckboxChange(LOG_LINKS); } 
-void CLoggingDlg::OnLogMonitor() { CheckboxChange(LOG_MONITOR); } 
-void CLoggingDlg::OnLogStats() { CheckboxChange(LOG_STATS); } 
-void CLoggingDlg::OnLogSyscalls() { CheckboxChange(LOG_SYSCALLS); } 
-void CLoggingDlg::OnLogThreads() { CheckboxChange(LOG_THREADS); } 
-void CLoggingDlg::OnLogTop() { CheckboxChange(LOG_TOP); } 
+void CLoggingDlg::OnLogVmareas() { CheckboxChange(LOG_VMAREAS); }
+void CLoggingDlg::OnLogAsynch() { CheckboxChange(LOG_ASYNCH); }
+void CLoggingDlg::OnLogCache() { CheckboxChange(LOG_CACHE); }
+void CLoggingDlg::OnLogDispatch() { CheckboxChange(LOG_DISPATCH); }
+void CLoggingDlg::OnLogEmit() { CheckboxChange(LOG_EMIT); }
+void CLoggingDlg::OnLogFragment() { CheckboxChange(LOG_FRAGMENT); }
+void CLoggingDlg::OnLogHeap() { CheckboxChange(LOG_HEAP); }
+void CLoggingDlg::OnLogInterp() { CheckboxChange(LOG_INTERP); }
+void CLoggingDlg::OnLogLinks() { CheckboxChange(LOG_LINKS); }
+void CLoggingDlg::OnLogMonitor() { CheckboxChange(LOG_MONITOR); }
+void CLoggingDlg::OnLogStats() { CheckboxChange(LOG_STATS); }
+void CLoggingDlg::OnLogSyscalls() { CheckboxChange(LOG_SYSCALLS); }
+void CLoggingDlg::OnLogThreads() { CheckboxChange(LOG_THREADS); }
+void CLoggingDlg::OnLogTop() { CheckboxChange(LOG_TOP); }
 
-void CLoggingDlg::OnLogAll() { 
+void CLoggingDlg::OnLogAll() {
     SetMaskValue(masks[LOG_ALL]);
     VerifyMaskString();
     m_OKButton.EnableWindow(TRUE);
-} 
+}
 
-void CLoggingDlg::OnLogNone() { 
+void CLoggingDlg::OnLogNone() {
     SetMaskValue(masks[LOG_NONE]);
     VerifyMaskString();
     m_OKButton.EnableWindow(TRUE);
-} 
+}
 
 
 int CLoggingDlg::GetLevel()
@@ -295,17 +295,17 @@ int CLoggingDlg::GetLevel()
 
 int CLoggingDlg::GetMask()
 {
-    return final_mask;      
+    return final_mask;
 }
 
-void CLoggingDlg::OnOK() 
+void CLoggingDlg::OnOK()
 {
     UpdateData(TRUE); // get values from controls
 
     final_mask = GetMaskValue();
     if (final_mask == -1)
         final_mask = 0;
-        
+
     final_level = m_Verbosity.GetCurSel();
 
     CDialog::OnOK();

@@ -6,18 +6,18 @@
 /*
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * * Redistributions of source code must retain the above copyright notice,
  *   this list of conditions and the following disclaimer.
- * 
+ *
  * * Redistributions in binary form must reproduce the above copyright notice,
  *   this list of conditions and the following disclaimer in the documentation
  *   and/or other materials provided with the distribution.
- * 
+ *
  * * Neither the name of VMware, Inc. nor the names of its contributors may be
  *   used to endorse or promote products derived from this software without
  *   specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -60,7 +60,7 @@ static char THIS_FILE[] = __FILE__;
 #define HELP_PATH          _T("\\docs\\html\\index.html")
 
 // FIXME: these are duplicated with the installation wizard, so
-// that the GUI can set env vars for new users (installer can only 
+// that the GUI can set env vars for new users (installer can only
 // set for user installing)
 #define INITIAL_OPTIONS      _T("-stats -loglevel 1")
 #define INITIAL_SYSTEMWIDE   _T("\\lib\\debug\\dynamorio.dll")
@@ -217,7 +217,7 @@ BOOL CDynamoRIOApp::InitInstance()
 
     // I can't figure out how to disable a menu item that has a command
     // handler when this var is set, so I disable it:
-    m_pMainFrame->m_bAutoMenuEnable = FALSE;        
+    m_pMainFrame->m_bAutoMenuEnable = FALSE;
 
 #ifndef DRSTATS_DEMO
     m_bSystemwideAllowed = TRUE;
@@ -230,7 +230,7 @@ BOOL CDynamoRIOApp::InitInstance()
         m_dynamorio_home[0] = _T('\0');
 #else
     if (len == 0) {
-        int res = MessageBox(NULL, 
+        int res = MessageBox(NULL,
                              _T("DYNAMORIO_HOME environment variable not found.\n")
                              _T("Set all the DynamoRIO environment variables to their default values?\n")
                              _T("(Otherwise this GUI cannot operate and must exit.)"),
@@ -306,7 +306,7 @@ BOOL CDynamoRIOApp::InitInstance()
             // make sure we're the ones who set this value
             if (_tcscmp(m_inject_all_value, data) != 0) {
                 // FIXME: have user notify us of conflict?
-                int res = MessageBox(NULL, 
+                int res = MessageBox(NULL,
                                      _T("DynamoRIO's RunAll system-wide injection method is ")
                                      _T("being used by some other program.\n")
                                      _T("DynamoRIO can attempt to override the other program.\n")
@@ -331,7 +331,7 @@ BOOL CDynamoRIOApp::InitInstance()
         }
     }
     if (m_bSystemwideAllowed) {
-        m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE, 
+        m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE,
                                              MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
     }
 
@@ -365,7 +365,7 @@ BOOL CDynamoRIOApp::InitInstance()
         } else if (lib == 2 && SwitchLibraries(L_DLLPATH_PROFILE, FALSE)) {
             OnLibraryProfile();
             break;
-        } 
+        }
         lib = (lib + 1) % 3;
         tried++;
     }
@@ -516,9 +516,9 @@ CDocument * CDynamoRIOApp::OpenDocumentFile(LPCTSTR
 
 static TCHAR szFilter[] = _T("Executable Files (*.exe)|*.exe|All Files (*.*)|*.*||");
 
-void CDynamoRIOApp::OnFileRun() 
+void CDynamoRIOApp::OnFileRun()
 {
-    CFileDialog fileDlg(TRUE, _T(".exe"), NULL, 
+    CFileDialog fileDlg(TRUE, _T(".exe"), NULL,
                         // hide the "open as read-only" checkbox
                         OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY,
                         szFilter);
@@ -538,7 +538,7 @@ BOOL CDynamoRIOApp::RunNewApp(LPCTSTR lpszFileName)
     return TRUE;
 }
 
-void CDynamoRIOApp::OnFileSystemwide() 
+void CDynamoRIOApp::OnFileSystemwide()
 {
     assert(m_bSystemwideAllowed);
 
@@ -571,7 +571,7 @@ void CDynamoRIOApp::OnFileSystemwide()
     }
     if (!SetSystemwideInject(val))
         return;
-    m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE, 
+    m_pMainWnd->GetMenu()->CheckMenuItem(ID_FILE_SYSTEMWIDE,
                                          MF_BYCOMMAND | ((m_bInjectAll) ? MF_CHECKED : MF_UNCHECKED));
 }
 
@@ -582,7 +582,7 @@ BOOL CDynamoRIOApp::SetSystemwideInject(TCHAR *val)
     // must have administrative privilegs to write this key!
     int     res = RegOpenKeyEx(INJECT_ALL_HIVE, INJECT_ALL_KEY_L, 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
-        MessageBox(NULL, 
+        MessageBox(NULL,
                    _T("DynamoRIO's system-wide injection method requires administrative privileges.\n")
                    _T("You must restart this program with such privileges to use this feature."),
                    _T("Lack of Privileges"), MB_OK | MYMBFLAGS);
@@ -607,19 +607,19 @@ void CDynamoRIOApp::DisableSystemwideInject()
     m_bSystemwideAllowed = FALSE;
     m_bInjectAll = FALSE;
     // disable checkbox, but allow editing ignore list
-    m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_SYSTEMWIDE, 
+    m_pMainWnd->GetMenu()->EnableMenuItem(ID_FILE_SYSTEMWIDE,
                                           MF_BYCOMMAND|MF_GRAYED);
     m_pMainFrame->SetStatusBarText(0, _T("Disabled system-wide injection"));
 }
 
-void CDynamoRIOApp::OnEditOptions() 
+void CDynamoRIOApp::OnEditOptions()
 {
     COptionsDlg ops;
     ops.DoModal();
 }
 
 
-void CDynamoRIOApp::OnEditIgnorelist() 
+void CDynamoRIOApp::OnEditIgnorelist()
 {
     CIgnoreDlg dlg;
     dlg.DoModal();
@@ -676,7 +676,7 @@ BOOL CDynamoRIOApp::SwitchLibraries(TCHAR *newdllpath, BOOL notify)
     return TRUE;
 }
 
-void CDynamoRIOApp::OnLibraryRelease() 
+void CDynamoRIOApp::OnLibraryRelease()
 {
     if (!SwitchLibraries(L_DLLPATH_RELEASE, TRUE))
         return;
@@ -688,7 +688,7 @@ void CDynamoRIOApp::OnLibraryRelease()
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND | MF_UNCHECKED);
 }
 
-void CDynamoRIOApp::OnLibraryDebug() 
+void CDynamoRIOApp::OnLibraryDebug()
 {
     if (!SwitchLibraries(L_DLLPATH_DEBUG, TRUE))
         return;
@@ -700,7 +700,7 @@ void CDynamoRIOApp::OnLibraryDebug()
     m_pMainWnd->GetMenu()->CheckMenuItem(ID_LIBRARY_PROFILE, MF_BYCOMMAND | MF_UNCHECKED);
 }
 
-void CDynamoRIOApp::OnLibraryProfile() 
+void CDynamoRIOApp::OnLibraryProfile()
 {
     if (!SwitchLibraries(L_DLLPATH_PROFILE, TRUE))
         return;
@@ -713,7 +713,7 @@ void CDynamoRIOApp::OnLibraryProfile()
 }
 
 
-void CDynamoRIOApp::OnHelpHelp() 
+void CDynamoRIOApp::OnHelpHelp()
 {
     TCHAR helppath[MAX_PATH];
     _stprintf(helppath, _T("%s%s"), m_dynamorio_home, HELP_PATH);
@@ -723,7 +723,7 @@ void CDynamoRIOApp::OnHelpHelp()
     assert(cwd_res > 0);
 
     // launch browser on documentation file!
-    HINSTANCE res = ShellExecute(m_pMainWnd->m_hWnd, _T("open"), 
+    HINSTANCE res = ShellExecute(m_pMainWnd->m_hWnd, _T("open"),
                                  helppath, NULL, cwd, SW_SHOWNORMAL);
     // FIXME: I get back 2 == SE_ERR_FNF == file not found, but netscape finds and
     // displays it fine...
@@ -747,7 +747,7 @@ void CDynamoRIOApp::PreExit()
         ok = WriteProfileInt(_T("Settings"), _T("Library"), 2);
     assert(ok);
 
-        
+
     if (m_bSystemwideAllowed && m_bInjectAll) {
         // FIXME: MessageBox crashes...try to get this code into
         // MFC's auto-framework for saving unsaved documents!
@@ -770,7 +770,7 @@ void CDynamoRIOApp::SetEnvVarPermanently(TCHAR *var, TCHAR *val)
     TCHAR msg[MAX_PATH];
     HKEY hk;
     int res;
-        
+
     // current user only
     res = RegOpenKeyEx(HKEY_CURRENT_USER, _T("Environment"), 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
@@ -842,7 +842,7 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
     HCURSOR prev_cursor = SetCursor(LoadCursor(IDC_WAIT));
 
     HKEY hk;
-        
+
     // current user only
     res = RegOpenKeyEx(HKEY_CURRENT_USER, _T("Environment"), 0, KEY_WRITE, &hk);
     if (res != ERROR_SUCCESS) {
@@ -906,14 +906,14 @@ BOOL CDynamoRIOApp::ConfigureForNewUser()
 
 #endif /* !DRSTATS_DEMO */
 
-void CDynamoRIOApp::OnAppExit() 
+void CDynamoRIOApp::OnAppExit()
 {
     // Same as double-clicking on main window close box.
     ASSERT(AfxGetMainWnd() != NULL);
     AfxGetMainWnd()->SendMessage(WM_CLOSE);
 }
 
-int CDynamoRIOApp::ExitInstance() 
+int CDynamoRIOApp::ExitInstance()
 {
     // no longer need to do anything special -- PreExit does it now
     return CWinApp::ExitInstance();
