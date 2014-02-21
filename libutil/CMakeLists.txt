@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2012 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -147,12 +147,7 @@ if (WIN32)
   endif (MFAPI_ENABLED)
 endif ()
 
-DR_install(TARGETS drconfiglib
-  EXPORT ${exported_targets_name}
-  RUNTIME DESTINATION ${INSTALL_LIB_BASE} # .dll
-  LIBRARY DESTINATION ${INSTALL_LIB_BASE} # .so
-  ARCHIVE DESTINATION ${INSTALL_LIB_BASE} # .lib
-  )
+install_exported_target(drconfiglib ${INSTALL_LIB_BASE})
 DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
