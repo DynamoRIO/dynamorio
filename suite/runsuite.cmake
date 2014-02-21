@@ -132,6 +132,15 @@ endif ()
 # check for them unless we switch to perl or python or something
 # to get the diff and check it.
 
+# Check for trailing space.  This is a diff with an initial column for +-,
+# so a blank line will have one space: thus we rule that out.
+string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
+if (NOT "${match}" STREQUAL "")
+  # Get more context
+  string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
+  message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
+endif ()
+
 ##################################################
 
 
