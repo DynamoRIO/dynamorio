@@ -849,20 +849,13 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             strncpy(executable_path, read_proc_self_exe(ignore_cache),
                     BUFFER_SIZE_ELEMENTS(executable_path));
 #else
-            /* OSX kernel puts full app path and as-executed path below envp */
+            /* OSX kernel puts full app path below envp, before the args.
+             * We look for the double-null before it.
+             */
             const char *c = *our_environ;
             do {
                 c--;
-            } while (*c == '\0');
-            /* Now skip the specified path which might be relative */
-            while (*c != '\0')
-                c--;
-            do {
-                c--;
-            } while (*c == '\0');
-            /* Now find the front of the absolute path */
-            while (*c != '\0')
-                c--;
+            } while (*c != '\0' || *(c-1) != '\0');
             c++; /* Skip the null */
             strncpy(executable_path, c, BUFFER_SIZE_ELEMENTS(executable_path));
 #endif
