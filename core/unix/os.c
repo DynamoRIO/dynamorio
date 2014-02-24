@@ -2181,15 +2181,11 @@ mmap_syscall_succeeded(byte *retval)
 static inline byte *
 mmap_syscall(byte *addr, size_t len, ulong prot, ulong flags, ulong fd, ulong offs)
 {
-#ifdef MACOS
-    /* i#1361: for some reason, mmap only works properly when invoked via sysenter
-     * and without #args encoded into eax.  The worst part is that it doesn't
-     * fail outright: it returns a success value with the mapping
-     * showing up when examined externally (e.g., via "vmmap") yet any
-     * access returns SIGBUS.
-     */
+#if defined(MACOS) && !defined(X64)
     return (byte *)(ptr_int_t)
-        dynamorio_syscall_sysenter(SYS_mmap, 6, addr, len, prot, flags, fd, offs);
+        dynamorio_syscall(SYS_mmap, 7, addr, len, prot, flags, fd,
+                          /* represent 64-bit arg as 2 32-bit args */
+                          offs, 0);
 #else
     return (byte *)(ptr_int_t)
         dynamorio_syscall(IF_MACOS_ELSE(SYS_mmap, IF_X64_ELSE(SYS_mmap, SYS_mmap2)), 6,
