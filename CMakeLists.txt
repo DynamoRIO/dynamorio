@@ -590,6 +590,10 @@ if (UNIX)
     endif ()
     set(LD_FLAGS "-melf_i386")
   endif (X64)
+  if (APPLE AND CMAKE_COMPILER_IS_CLANG)
+    # Ensure our binaries can run on older OSX
+    set(BASE_CFLAGS "${BASE_CFLAGS} -mmacosx-version-min=10.7")
+  endif ()
   # there's no cmake warning control so we hardcode it
   set(WARN "-Wall -Werror -Wwrite-strings")
   if (NOT CMAKE_COMPILER_IS_CLANG)
