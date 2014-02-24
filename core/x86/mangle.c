@@ -1343,14 +1343,23 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
 #endif
                     if (opnd_is_memory_reference(arg)) {
                         /* can't do mem-to-mem so go through scratch */
-                        ASSERT(NUM_REGPARM > 0);
+                        reg_id_t scratch;
+                        if (NUM_REGPARM > 0)
+                            scratch = regparms[0];
+                        else {
+                            /* This happens on Mac.
+                             * FIXME i#1370: not safe if later arg uses xax:
+                             * local spill?  Review how regparms[0] is preserved.
+                             */
+                            scratch = REG_XAX;
+                        }
                         POST(ilist, mark,
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, offs),
-                                                 opnd_create_reg(regparms[0])));
+                                                 opnd_create_reg(scratch)));
                         POST(ilist, mark,
                              INSTR_CREATE_mov_ld(dcontext, opnd_create_reg
-                                                 (shrink_reg_for_param(regparms[0], arg)),
+                                                 (shrink_reg_for_param(scratch, arg)),
                                                  arg));
                     } else {
                         POST(ilist, mark,
