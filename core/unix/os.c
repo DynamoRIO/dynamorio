@@ -669,6 +669,19 @@ get_uname(void)
     LOG(GLOBAL, LOG_TOP, 1, "\tmachine: %s\n", uinfo.machine);
     if (strncmp(uinfo.machine, "x86_64", sizeof("x86_64")) == 0)
         kernel_64bit = true;
+#ifdef MACOS
+    if (DYNAMO_OPTION(max_supported_os_version) != 0) { /* 0 disables */
+        /* We only support OSX 10.7.5 - 10.9.1.  That means kernels 11.x-13.x. */
+# define MIN_DARWIN_VERSION_SUPPORTED 11
+        int kernel_major;
+        if (sscanf(uinfo.release, "%d", &kernel_major) != 1 ||
+            kernel_major > DYNAMO_OPTION(max_supported_os_version) ||
+            kernel_major < MIN_DARWIN_VERSION_SUPPORTED) {
+            FATAL_USAGE_ERROR(UNSUPPORTED_OS_VERSION, 4, get_application_name(),
+                              get_application_pid(), uinfo.release);
+        }
+    }
+#endif
 }
 
 /* os-specific initializations */
