@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -241,8 +241,8 @@ if(NOT DEFINED PROCESSOR_COUNT)
   if(APPLE)
     find_program(cmd_sys_pro "system_profiler")
     if(cmd_sys_pro)
-      execute_process(COMMAND ${cmd_sys_pro} OUTPUT_VARIABLE info)
-      string(REGEX REPLACE "^.*Total Number Of Cores: ([0-9]+).*$" "\\1"
+      execute_process(COMMAND ${cmd_sys_pro} SPHardwareDataType OUTPUT_VARIABLE info)
+      string(REGEX REPLACE "^.*Total Number [Oo]f Cores: ([0-9]+).*$" "\\1"
         PROCESSOR_COUNT "${info}")
     endif()
   endif()
