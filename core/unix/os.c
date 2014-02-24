@@ -3946,17 +3946,25 @@ static int
 normalize_sysnum(reg_t xax)
 {
 #ifdef MACOS
-    if ((ptr_int_t)xax < 0) /* Mach syscall */
-        return -(int)xax;
-    else {
+    /* The x64 encoding indicates the syscall type in the top 8 bits.
+     * We drop the 0x2000000 for BSD so we can use the SYS_ enum constants.
+     * That leaves 0x1000000 for Mach and 0x3000000 for Machdep.
+     * On 32-bit, a different encoding is used: we transform that
+     * to the x64 encoding minus BSD.
+     */
 # ifdef X64
-        /* Bottom 24 bits are the number */
-        return (int)(xax & 0xffffff);
+    if (xax >> 24 == 0x2)
+        return (int)(xax & 0xffffff); /* Drop BSD bit */
+    else
+        return xax; /* Keep Mach and Machdep bits */
 # else
-        /* Bottom 16 bits are the number */
+    if ((ptr_int_t)xax < 0) /* Mach syscall */
+        return (0x1000000 | -(int)xax);
+    else {
+        /* Bottom 16 bits are the number, top are arg size. */
         return (int)(xax & 0xffff);
-# endif
     }
+# endif
 #else
     return (int) xax;
 #endif
