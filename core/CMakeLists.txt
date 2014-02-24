@@ -551,12 +551,14 @@ if (UNIX)
 
   string(REGEX REPLACE
     "^([0-9]+\\.[0-9]+).*" "\\1" VERSION_MAJOR_MINOR "${VERSION_NUMBER}")
-  set_target_properties(dynamorio PROPERTIES
-    VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
-  # We assume we're still on 3.x
-  if (NOT STATIC_LIBRARY)
-    generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
-  endif ()
+  if (NOT APPLE) # FIXME i#1374: versioning causing problems
+    set_target_properties(dynamorio PROPERTIES
+      VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
+    # We assume we're still on 3.x
+    if (NOT STATIC_LIBRARY)
+      generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
+    endif ()
+  endif (NOT APPLE)
 
   if (LINUX) # No checks for MacOS
     # Note that we can't locate readelf inside CMake_readelf.cmake as that
