@@ -216,6 +216,11 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
         if (out_data != NULL) {
             app_pc shared_start, shared_end;
             bool have_shared = module_dyld_shared_region(&shared_start, &shared_end);
+            if (have_shared && base >= shared_start && base < shared_end) {
+                /* These should have had their segment bounds updated */
+                ASSERT_CURIOSITY(seg_min_start == base);
+                out_data->in_shared_cache = true;
+            }
             /* Now that we have the load delta, we can add the abs addr segments */
             cmd = (struct load_command *)(hdr + 1);
             while (cmd < cmd_stop) {
@@ -463,7 +468,7 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
             read_uleb128(ptr, max, &ptr); /* stub offset */
             read_uleb128(ptr, max, &ptr); /* resolver offset */
             /* FIXME i#1360: call resolver for non-lazy; what for lazy? */
-            ASSERT_NOT_IMPLEMENTED(false);
+            return NULL;
         } else {
             size_t sym_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(sym_offs + load_delta);
@@ -485,6 +490,11 @@ get_proc_address_ex(module_base_t lib, const char *name, bool *is_indirect_code 
     ma = module_pc_lookup((app_pc)lib);
     if (ma != NULL) {
         res = get_proc_address_from_os_data(&ma->os_data,
+                                            (ma->os_data.in_shared_cache) ?
+                                            /* segment starts are rebased, but not
+                                             * the trie offsets
+                                             */
+                                            (ptr_int_t) ma->start :
                                             ma->start - ma->os_data.base_address,
                                             name, is_indirect_code);
     }
