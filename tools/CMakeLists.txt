@@ -62,7 +62,7 @@ if (UNIX)
   # simpler to install all and exclude
   DR_install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_BIN}"
-    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE
+    FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     PATTERN "run_in_bg*" EXCLUDE
     PATTERN "runstats*" EXCLUDE
@@ -83,13 +83,13 @@ if (UNIX)
   DR_install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/libdynamorio.so-gdb.py"
     DESTINATION "${INSTALL_LIB}"
     RENAME "libdynamorio.so.${soversion}-gdb.py"
-    PERMISSIONS OWNER_READ OWNER_EXECUTE
+    PERMISSIONS ${owner_access} OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
   set(tool_cflags "")
   set(RESOURCES "")
 
-  if (NOT APPLE)
+  if (NOT APPLE) # FIXME i#1286: add MacOS nudge support
     DR_install(TARGETS nudgeunix DESTINATION ${INSTALL_BIN})
   endif ()
 else (UNIX)

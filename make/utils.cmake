@@ -176,7 +176,7 @@ function (install_subdirs tgt_lib tgt_bin)
   # Subdirs just need to install their targets.
   DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
     DESTINATION ${tgt_lib}
-    FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE
     FILES_MATCHING
     PATTERN "*.debug"
@@ -186,7 +186,7 @@ function (install_subdirs tgt_lib tgt_bin)
   if (bin_files)
     DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
       DESTINATION ${tgt_bin}
-      FILE_PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+      FILE_PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
       WORLD_READ WORLD_EXECUTE
       FILES_MATCHING
       PATTERN "*.debug"

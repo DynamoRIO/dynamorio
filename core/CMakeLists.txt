@@ -861,7 +861,7 @@ set_target_properties(dynamorio PROPERTIES
   IMPORTED_LINK_INTERFACE_LIBRARIES_NOCONFIG "")
 install_exported_target(dynamorio ${INSTALL_LIB}
   # CMake doesn't set +x on shared libraries, so we have to ask for it.
-  PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
+  PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE)
 DR_export_target(dynamorio)
 install_exported_target(drinjectlib ${INSTALL_LIB_BASE})
 DR_export_target(drinjectlib)

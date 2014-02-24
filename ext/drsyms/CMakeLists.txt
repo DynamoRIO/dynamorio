@@ -193,7 +193,7 @@ DR_install(FILES "${dwarf_libpath}" "${elf_libpath}" "${elftc_libpath}"
 if (WIN32)
  DR_install(FILES "${dwarf_dir}/dwarf.pdb" "${dwarf_dir}/elftc.pdb"
     DESTINATION ${INSTALL_EXT_LIB}
-    PERMISSIONS OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    PERMISSIONS ${owner_access} OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
     WORLD_READ WORLD_EXECUTE)
 endif (WIN32)
 
