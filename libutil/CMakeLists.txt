@@ -111,11 +111,9 @@ set_target_properties(drconfiglib PROPERTIES
   # using RC_ defines.
   COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB"
   # put dll in lib dir
-  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-if (APPLE)
-  set_target_properties(drconfiglib PROPERTIES
-    LINK_FLAGS "-install_name @rpath/libdrconfiglib.dylib")
-endif (APPLE)
+  RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+  # See i#1375 comments
+  INSTALL_NAME_DIR "@rpath")
 add_gen_events_deps(drconfiglib)
 
 if (WIN32)

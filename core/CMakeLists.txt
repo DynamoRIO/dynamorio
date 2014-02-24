@@ -419,11 +419,6 @@ if (UNIX)
     set(dynamorio_link_flags "${dynamorio_link_flags} -Xlinker -z -Xlinker now")
   endif (APPLE)
 
-  if (APPLE)
-    set(dynamorio_link_flags
-      "${dynamorio_link_flags} -install_name @rpath/libdynamorio.dylib")
-  endif (APPLE)
-
   if (APPLE AND NOT X64)
     # XXX i#1322: get the asm code PIC.  Until then we have to suppress the
     # error from ld about text relocs.
@@ -472,7 +467,9 @@ if (UNIX)
   endif (APPLE)
 
   set_target_properties(dynamorio PROPERTIES
-    LINK_FLAGS "${dynamorio_link_flags}")
+    LINK_FLAGS "${dynamorio_link_flags}"
+    # See i#1375 comments
+    INSTALL_NAME_DIR "@rpath")
 
   # This appends to LINK_FLAGS, so do it after we set them above.
   set_preferred_base_start_and_end(dynamorio)
@@ -787,7 +784,14 @@ target_link_libraries(drinjectlib drdecode)
 set_target_properties(drinjectlib PROPERTIES
   # COMPILE_DEFINITONS isn't working for me: cmake bug?
   # Set define parameters for resources.rc
-  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB")
+  COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DRC_IS_DRINJECTLIB"
+  # XXX i#1375: if we move to cmake 2.8.12 we can use its built-in
+  # rpath: until then we add @rpath ourselves.  The downside is that
+  # everyone who uses this lib has to have the rpath set and can't
+  # just copy the lib to the local dir (should we document that?
+  # DynamoRIO_RPATH is on for standalone, which covers most uses of
+  # drconfiglib and drinjectlib, the only libs we do this for).
+  INSTALL_NAME_DIR "@rpath")
 if (WIN32)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
@@ -809,10 +813,6 @@ if (WIN32)
     ARGS -E copy "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/drinjectlib.dll"
     "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
 endif (WIN32)
-if (APPLE)
-  set_target_properties(drinjectlib PROPERTIES
-    LINK_FLAGS "-install_name @rpath/libdrinjectlib.dylib")
-endif (APPLE)
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
