@@ -196,7 +196,12 @@ foreach (deploytgt drconfig drrun drinject)
   endif ()
 endforeach ()
 
-DR_install(TARGETS ${tgts} DESTINATION "${INSTALL_BIN}")
+if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
+  set(dst ${DR_INSTALL_DEPLOY_BIN_DEST})
+else ()
+  set(dst "${INSTALL_BIN}")
+endif ()
+DR_target_install(TARGETS ${tgts} DESTINATION ${dst})
 
 if (X64)
   set(SYMSFX "64")

@@ -931,15 +931,20 @@ macro(DR_target_install)
     install(${ARGV})
   endif (DO_DR_INSTALL_TARGETS)
 endmacro(DR_target_install)
-function (install_exported_target target dest)
+macro(DR_target_install_dst dst)
   if (DO_DR_INSTALL_TARGETS)
     if (DEFINED DR_INSTALL_TARGETS_DEST)
       set(inst_dst ${DR_INSTALL_TARGETS_DEST})
     else ()
-      set(inst_dst ${dest})
+      set(inst_dst ${dst})
     endif ()
-    install(TARGETS ${target} EXPORT ${exported_targets_name}
-      DESTINATION ${inst_dst} ${ARGN})
+    install(${ARGN} DESTINATION ${inst_dst})
+  endif (DO_DR_INSTALL_TARGETS)
+endmacro(DR_target_install_dst)
+function (install_exported_target target dest)
+  if (DO_DR_INSTALL_TARGETS)
+    DR_target_install_dst(${dest} TARGETS ${target} EXPORT ${exported_targets_name}
+      ${ARGN})
   endif (DO_DR_INSTALL_TARGETS)
 endfunction (install_exported_target)
 
@@ -1477,12 +1482,7 @@ endif (BUILD_TESTS)
 DR_target_install(CODE "file(APPEND \"${PROJECT_BINARY_DIR}/CMakeFiles/Export/cmake/${exported_targets_name}.cmake\" \"${exported_targets_append}\")")
 # Create the exported targets file.  This will include all targets added
 # in subdirectories via DR_install(TARGETS ... EXPORT ${exported_targets_name}).
-if (DEFINED DR_INSTALL_TARGETS_DEST)
-  set(target_dst ${DR_INSTALL_TARGETS_DEST})
-else ()
-  set(target_dst ${INSTALL_CMAKE})
-endif ()
-DR_target_install(EXPORT ${exported_targets_name} DESTINATION ${target_dst})
+DR_target_install_dst(${INSTALL_CMAKE} EXPORT ${exported_targets_name})
 
 ###########################################################################
 # packaging
