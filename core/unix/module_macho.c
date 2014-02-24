@@ -325,6 +325,16 @@ module_entry_point(app_pc base, ptr_int_t load_delta)
             return (app_pc)reg->__eip + load_delta;
 #endif
         }
+        /* XXX: should we have our own headers so we can build on an older machine? */
+#ifdef LC_MAIN
+        else if (cmd->cmd == LC_MAIN) {
+            struct entry_point_command *ec = (struct entry_point_command *) cmd;
+            /* Offset is from start of __TEXT so we just add to base (which has
+             * skipped __PAGEZERO)
+             */
+            return base + (ptr_uint_t) ec->entryoff;
+        }
+#endif
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
     return NULL;
@@ -448,6 +458,12 @@ get_proc_address_from_os_data(os_module_data_t *os_data,
                 forw_name = name;
             LOG(GLOBAL, LOG_SYMBOLS, 4, "\tforwarder %s\n", forw_name);
             /* FIXME i#1360: handle forwards */
+        } else if (TEST(EXPORT_SYMBOL_FLAGS_STUB_AND_RESOLVER, flags)) {
+            /* Lazy or non-lazy pointer */
+            read_uleb128(ptr, max, &ptr); /* stub offset */
+            read_uleb128(ptr, max, &ptr); /* resolver offset */
+            /* FIXME i#1360: call resolver for non-lazy; what for lazy? */
+            ASSERT_NOT_IMPLEMENTED(false);
         } else {
             size_t sym_offs = read_uleb128(ptr, max, &ptr);
             res = (app_pc)(sym_offs + load_delta);
