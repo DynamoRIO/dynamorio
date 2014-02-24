@@ -98,11 +98,16 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio 10")
   # For i#801 workaround
   cmake_minimum_required(VERSION 2.8.8)
 else ()
-  # Require 2.6.4 to avoid cmake bug #8639, unless this var is
-  # properly set (which it is for DR b/c it has a workaround):
-  if (NOT "${CMAKE_ASM_SOURCE_FILE_EXTENSIONS}" MATCHES "asm")
-    cmake_minimum_required(VERSION 2.6.4)
-  endif ()
+  if (APPLE)
+    # We want ASM NASM support
+    cmake_minimum_required(VERSION 2.8.3)
+  else (APPLE)
+    # Require 2.6.4 to avoid cmake bug #8639, unless this var is
+    # properly set (which it is for DR b/c it has a workaround):
+    if (NOT "${CMAKE_ASM_SOURCE_FILE_EXTENSIONS}" MATCHES "asm")
+      cmake_minimum_required(VERSION 2.6.4)
+    endif ()
+  endif (APPLE)
 endif ()
 
 ##################################################
@@ -159,11 +164,16 @@ if (NOT "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # CMake does not support assembly with VS generators
   # (http://public.kitware.com/Bug/view.php?id=11536)
   # so we have to add our own custom commands and targets
-  enable_language(ASM)
+  if (APPLE)
+    # NASM support was added in 2.8.3.  It clears ASM_DIALECT for us.
+    enable_language(ASM_NASM)
+  else (APPLE)
+    enable_language(ASM)
+  endif (APPLE)
 endif ()
 
 if (APPLE)
-  # See above: we can't use CMAKE_ASM_COMPILER and require nasm.
+  # XXX: we may be able to avoid some of this given CMake 2.8.3's NASM support.
   find_program(NASM nasm DOC "path to nasm assembler")
   if (NOT NASM)
     message(FATAL_ERROR "nasm assembler not found: required to build")
@@ -257,7 +267,7 @@ endif (UNIX AND NOT APPLE)
 
 if (APPLE)
   # Despite the docs, -o does not work: cpp prints to stdout.
-  set(CMAKE_ASM_COMPILE_OBJECT
+  set(CMAKE_ASM_NASM_COMPILE_OBJECT
     "${CMAKE_CPP} ${CMAKE_CPP_FLAGS} <FLAGS> <DEFINES> -E <SOURCE> > <OBJECT>.s"
     "<CMAKE_COMMAND> -Dfile=<OBJECT>.s -P \"${cpp2asm_newline_script_path}\""
     "<NASM> ${ASM_FLAGS} -o <OBJECT> <OBJECT>.s"
