@@ -358,7 +358,7 @@ NtOpenKey:
 #define MAX_NTOSKRNL_SYSCALL_NUM  0x1000
 
 bool
-ignorable_system_call(int num)
+ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live)
 {
     /* FIXME: this should really be a complete list of ignorable calls,
      * just ntoskrnl ones that we understand, to avoid surprises
@@ -383,7 +383,7 @@ bool
 optimizable_system_call(int num)
 {
     if (INTERNAL_OPTION(shared_eq_ignore))
-        return ignorable_system_call(num);
+        return ignorable_system_call(num, NULL, NULL);
     else {
 
         int i;
@@ -2416,9 +2416,9 @@ presys_OpenFile(dcontext_t *dcontext, reg_t *param_base)
 #endif
 
 int
-os_normalized_sysnum(priv_mcontext_t *mc)
+os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext_live)
 {
-    return (int) mc->xax;
+    return num_raw;
 }
 
 /* WARNING: flush_fragments_and_remove_region assumes that pre and post system
@@ -2440,7 +2440,7 @@ pre_system_call(dcontext_t *dcontext)
     KSTART(pre_syscall);
     RSTATS_INC(pre_syscall);
     DOSTATS({
-        if (ignorable_system_call(sysnum))
+            if (ignorable_system_call(sysnum, NULL, dcontext))
             STATS_INC(pre_syscall_ignorable);
     });
     LOG(THREAD, LOG_SYSCALLS, 2, "system call: sysnum = "PFX", param_base = "PFX"\n",
@@ -3979,7 +3979,7 @@ void post_system_call(dcontext_t *dcontext)
      * care of already */
     RSTATS_INC(post_syscall);
     DOSTATS({
-        if (ignorable_system_call(sysnum))
+        if (ignorable_system_call(sysnum, NULL, dcontext))
             STATS_INC(post_syscall_ignorable);
     });
     dcontext->whereami = old_whereami;

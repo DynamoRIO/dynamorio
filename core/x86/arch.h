@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -642,6 +642,11 @@ typedef struct _generated_code_t {
      */
     byte *do_int_syscall;
     uint do_int_syscall_offs; /* offs of pc after actual syscall instr */
+    /* These are for Mac but we avoid ifdefs for simplicity */
+    byte *do_int81_syscall;
+    uint do_int81_syscall_offs; /* offs of pc after actual syscall instr */
+    byte *do_int82_syscall;
+    uint do_int82_syscall_offs; /* offs of pc after actual syscall instr */
     byte *do_clone_syscall;
     uint do_clone_syscall_offs; /* offs of pc after actual syscall instr */
 # ifdef VMX86_SERVER
@@ -868,7 +873,7 @@ void emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_
 #endif /* WINDOWS */
 
 byte * emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
-                       byte *fcache_return_pc, bool thread_shared, bool force_int,
+                       byte *fcache_return_pc, bool thread_shared, int interrupt,
                        uint *syscall_offs /*OUT*/);
 
 #ifdef WINDOWS

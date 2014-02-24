@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -91,7 +91,7 @@ enum {
     LINK_TRACE_CMP       = 0x0080,
 #endif
     /* Flags that tell DR to take some action upon returning to dispatch.
-     * This first one is multiplexed via .
+     * This first one is multiplexed via dcontext->upcontext.upcontext.exit_reason.
      * All uses are assumed to be unlinkable.
      */
     LINK_SPECIAL_EXIT    = 0x0100,

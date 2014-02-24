@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1705,7 +1705,7 @@ bb_process_shared_syscall(dcontext_t *dcontext, build_bb_t *bb, int sysnum)
 {
     ASSERT(DYNAMO_OPTION(shared_syscalls));
     DODEBUG({
-        if (ignorable_system_call(sysnum))
+        if (ignorable_system_call(sysnum, bb->instr, NULL))
             STATS_INC(ignorable_syscalls);
         else
             STATS_INC(optimizable_syscalls);
@@ -1750,8 +1750,19 @@ bb_process_non_ignorable_syscall(dcontext_t *dcontext, build_bb_t *bb,
     /* Indicate that this is a non-ignorable syscall so mangle will remove */
 #ifdef UNIX
     if (instr_get_opcode(bb->instr) == OP_int) {
-        bb->exit_type |= LINK_NI_SYSCALL_INT;
-        bb->instr->flags |= INSTR_NI_SYSCALL_INT;
+# ifdef MACOS
+        int num = instr_get_interrupt_number(bb->instr);
+        if (num == 0x81 || num == 0x82) {
+            bb->exit_type |= LINK_SPECIAL_EXIT;
+            bb->instr->flags |= INSTR_BRANCH_SPECIAL_EXIT;
+        } else {
+            ASSERT(num == 0x80);
+# endif
+            bb->exit_type |= LINK_NI_SYSCALL_INT;
+            bb->instr->flags |= INSTR_NI_SYSCALL_INT;
+# ifdef MACOS
+        }
+# endif
     } else
 #endif
         bb->instr->flags |= INSTR_NI_SYSCALL;
@@ -1807,7 +1818,7 @@ bb_process_syscall(dcontext_t *dcontext, build_bb_t *bb)
 #endif
     if (sysnum != -1 &&
         DYNAMO_OPTION(ignore_syscalls) &&
-        ignorable_system_call(sysnum)
+        ignorable_system_call(sysnum, bb->instr, NULL)
         /* PR 288101: On Linux we do not yet support inlined sysenter instrs as we
          * do not have in-cache support for the post-sysenter continuation: we rely
          * for now on very simple sysenter handling where dispatch uses asynch_target
@@ -2693,7 +2704,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
                  * xref case 10846 and i#198
                  */
                 CLIENT_ASSERT(!TEST(~(LINK_DIRECT | LINK_INDIRECT | LINK_CALL |
-                                      LINK_RETURN | LINK_JMP | LINK_NI_SYSCALL_ALL
+                                      LINK_RETURN | LINK_JMP |
+                                      LINK_NI_SYSCALL_ALL | LINK_SPECIAL_EXIT
                                       IF_WINDOWS(| LINK_CALLBACK_RETURN)),
                                     bb->exit_type) &&
                               !EXIT_IS_IND_JMP_PLT(bb->exit_type),
@@ -3722,14 +3734,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         && !hotp_injected
 #endif
        ) {
-        /* If the fragment doesn't have a syscalls or contains a
+        /* If the fragment doesn't have a syscall or contains a
          * non-ignorable one -- meaning that the frag will exit the cache
          * to execute the syscall -- it can be shared.
          * We don't support ignorable syscalls in shared fragments, as they
          * don't set at_syscall and so are incompatible w/ -syscalls_synch_flush.
          */
         if (!TEST(FRAG_HAS_SYSCALL, bb->flags) ||
-            TESTANY(LINK_NI_SYSCALL_ALL, bb->exit_type))
+            TESTANY(LINK_NI_SYSCALL_ALL, bb->exit_type) ||
+            TEST(LINK_SPECIAL_EXIT, bb->exit_type))
             bb->flags |= FRAG_SHARED;
 #ifdef WINDOWS
         /* A fragment can be shared if it contains a syscall that will be

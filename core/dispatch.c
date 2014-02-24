@@ -117,6 +117,18 @@ found_client_sysenter(void)
 }
 #endif
 
+static bool
+exited_due_to_ni_syscall(dcontext_t *dcontext)
+{
+    if (TESTANY(LINK_NI_SYSCALL_ALL, dcontext->last_exit->flags))
+        return true;
+    if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags) &&
+        (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_NI_SYSCALL_INT_0x81 ||
+         dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_NI_SYSCALL_INT_0x82))
+        return true;
+    return false;
+}
+
 /* This is the central hub of control management in DynamoRIO.
  * It is entered with a clean dstack at startup and after every cache
  * exit, whether normal or kernel-mediated via a trampoline context switch.
@@ -769,7 +781,7 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
          * We do it here to avoid becoming couldbelinking twice.
          *
          */
-        if (TESTANY(LINK_NI_SYSCALL_ALL, dcontext->last_exit->flags)
+        if (exited_due_to_ni_syscall(dcontext)
             IF_CLIENT_INTERFACE(|| instrument_invoke_another_syscall(dcontext))) {
             handle_system_call(dcontext);
             /* will return here if decided to skip the syscall; else, back to dispatch() */
@@ -1440,8 +1452,7 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         ASSERT(LINKSTUB_DIRECT(dcontext->last_exit->flags) ||
                IS_COARSE_LINKSTUB(dcontext->last_exit));
 
-        if (TESTANY(LINK_NI_SYSCALL_ALL,
-                    dcontext->last_exit->flags)) {
+        if (exited_due_to_ni_syscall(dcontext)) {
             LOG(THREAD, LOG_DISPATCH, 2, " (block ends with syscall)");
             STATS_INC(num_exits_dir_syscall);
             /* FIXME: it doesn't matter whether next_f exists or not we're still in a syscall  */
@@ -1631,8 +1642,9 @@ handle_system_call(dcontext_t *dcontext)
     fcache_enter_func_t fcache_enter = get_fcache_enter_private_routine(dcontext);
     app_pc do_syscall = (app_pc) get_do_syscall_entry(dcontext);
 #ifdef CLIENT_INTERFACE
-    priv_mcontext_t *mc = get_mcontext(dcontext);
     bool execute_syscall = true;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+    int sysnum = os_normalized_sysnum((int)mc->xax, NULL, dcontext);
 #endif
 #ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
@@ -1651,6 +1663,15 @@ handle_system_call(dcontext_t *dcontext)
             LOG(THREAD, LOG_SYSCALLS, 2, "Using do_vmkuw_syscall\n");
         }
 # endif
+    } else if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
+        if (dcontext->upcontext.upcontext.exit_reason == EXIT_REASON_NI_SYSCALL_INT_0x81)
+            do_syscall = (app_pc) get_do_int81_syscall_entry(dcontext);
+        else {
+            ASSERT(dcontext->upcontext.upcontext.exit_reason ==
+                   EXIT_REASON_NI_SYSCALL_INT_0x82);
+            do_syscall = (app_pc) get_do_int82_syscall_entry(dcontext);
+        }
+        dcontext->sys_was_int = true;
     } else {
         dcontext->sys_was_int = false;
         IF_NOT_X64(IF_VMX86(ASSERT(!is_vmkuw_sysnum(mc->xax))));
@@ -1672,7 +1693,7 @@ handle_system_call(dcontext_t *dcontext)
     get_mcontext(dcontext)->xip = get_fcache_target(dcontext);
     /* i#202: ignore native syscalls in early_inject_init() */
     if (IF_WINDOWS(dynamo_initialized &&)
-        !instrument_pre_syscall(dcontext, os_normalized_sysnum(mc))) {
+        !instrument_pre_syscall(dcontext, sysnum)) {
         /* we won't execute post-syscall so we do not need to store
          * dcontext->sys_*
          */

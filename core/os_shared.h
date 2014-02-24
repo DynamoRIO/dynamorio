@@ -228,7 +228,7 @@ os_swap_context(dcontext_t *dcontext, bool to_app, dr_state_flags_t flags);
 
 bool pre_system_call(dcontext_t *dcontext);
 void post_system_call(dcontext_t *dcontext);
-int os_normalized_sysnum(priv_mcontext_t *mc);
+int os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext_live);
 
 char *get_application_pid(void);
 char *get_application_name(void);

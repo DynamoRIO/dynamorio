@@ -197,7 +197,7 @@ bool is_thread_create_syscall(dcontext_t *dcontext);
 bool was_thread_create_syscall(dcontext_t *dcontext);
 bool is_sigreturn_syscall(dcontext_t *dcontext);
 bool was_sigreturn_syscall(dcontext_t *dcontext);
-bool ignorable_system_call(int num);
+bool ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
 
 bool kernel_is_64bit(void);
 

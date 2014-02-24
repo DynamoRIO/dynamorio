@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -4233,6 +4233,10 @@ instr_is_syscall(instr_t *instr)
 #else
 # ifdef VMX86_SERVER
         return ((byte) num == 0x80 || (byte) num == VMKUW_SYSCALL_GATEWAY);
+# elif defined(MACOS)
+        return ((byte) num == 0x80 || /* BSD syscall */
+                (byte) num == 0x81 || /* Mach syscall */
+                (byte) num == 0x82);  /* Mach machine-dependent syscall */
 # else
         return ((byte) num == 0x80);
 # endif

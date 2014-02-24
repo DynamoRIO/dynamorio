@@ -7355,7 +7355,7 @@ emit_patch_syscall(dcontext_t *dcontext, byte *target _IF_X64(gencode_mode_t mod
 static byte *
 emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
                        byte *pc, byte *fcache_return_pc,
-                       bool handle_clone, bool thread_shared, bool force_int,
+                       bool handle_clone, bool thread_shared, int interrupt,
                        instr_t *syscall_instr, uint *syscall_offs /*OUT*/)
 {
     instrlist_t ilist;
@@ -7366,15 +7366,18 @@ emit_do_syscall_common(dcontext_t *dcontext, generated_code_t *code,
 
 #if defined(UNIX) && !defined(X64)
     /* PR 286922: 32-bit clone syscall cannot use vsyscall: must be int */
-    if (handle_clone)
-        force_int = true;
+    if (handle_clone) {
+        ASSERT(interrupt == 0 || interrupt == 0x80);
+        interrupt = 0x80;
+    }
 #endif
     if (syscall_instr != NULL)
         syscall = syscall_instr;
     else {
-        if (force_int)
-            syscall = create_int_syscall_instr(dcontext);
-        else
+        if (interrupt != 0) {
+            syscall = INSTR_CREATE_int(dcontext,
+                                       opnd_create_immed_int((char)interrupt, OPSZ_1));
+        } else
             syscall = create_syscall_instr(dcontext);
     }
 
@@ -7518,11 +7521,11 @@ emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
 
 byte *
 emit_do_syscall(dcontext_t *dcontext, generated_code_t *code, byte *pc,
-                byte *fcache_return_pc, bool thread_shared, bool force_int,
+                byte *fcache_return_pc, bool thread_shared, int interrupt,
                 uint *syscall_offs /*OUT*/)
 {
     pc = emit_do_syscall_common(dcontext, code, pc, fcache_return_pc,
-                                false, thread_shared, force_int, NULL, syscall_offs);
+                                false, thread_shared, interrupt, NULL, syscall_offs);
     return pc;
 }
 

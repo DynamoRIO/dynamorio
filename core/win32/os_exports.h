@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -270,7 +270,7 @@ extern app_pc sysenter_ret_address;
 extern app_pc KiFastSystemCallRet_address;
 #endif
 
-bool ignorable_system_call(int num);
+bool ignorable_system_call(int num, instr_t *gateway, dcontext_t *dcontext_live);
 bool optimizable_system_call(int num);
 #ifdef DEBUG
 void check_syscall_numbers(dcontext_t *dcontext);

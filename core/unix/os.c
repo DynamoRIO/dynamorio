@@ -3942,8 +3942,13 @@ make_unwritable(byte *pc, size_t size)
  * and put them in our own local syscall.h.
  */
 
-static int
-normalize_sysnum(reg_t xax)
+/* num_raw should be the xax register value.
+ * For a live system call, dcontext_live should be passed (for examining
+ * the dcontext->last_exit and exit_reason flags); otherwise, gateway should
+ * be passed.
+ */
+int
+os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
 {
 #ifdef MACOS
     /* The x64 encoding indicates the syscall type in the top 8 bits.
@@ -3952,34 +3957,50 @@ normalize_sysnum(reg_t xax)
      * On 32-bit, a different encoding is used: we transform that
      * to the x64 encoding minus BSD.
      */
+    int interrupt = 0;
+    int num = 0;
+    if (gateway != NULL) {
+        if (instr_is_interrupt(gateway))
+            interrupt = instr_get_interrupt_number(gateway);
+    } else {
+        ASSERT(dcontext != NULL);
+        if (TEST(LINK_SPECIAL_EXIT, dcontext->last_exit->flags)) {
+            if (dcontext->upcontext.upcontext.exit_reason ==
+                EXIT_REASON_NI_SYSCALL_INT_0x81)
+                interrupt = 0x81;
+            else {
+                ASSERT(dcontext->upcontext.upcontext.exit_reason ==
+                       EXIT_REASON_NI_SYSCALL_INT_0x82);
+                interrupt = 0x82;
+            }
+        }
+    }
 # ifdef X64
-    if (xax >> 24 == 0x2)
-        return (int)(xax & 0xffffff); /* Drop BSD bit */
+    if (num_raw >> 24 == 0x2)
+        return (int)(num_raw & 0xffffff); /* Drop BSD bit */
     else
-        return xax; /* Keep Mach and Machdep bits */
+        num = (int) num_raw; /* Keep Mach and Machdep bits */
 # else
-    if ((ptr_int_t)xax < 0) /* Mach syscall */
-        return (0x1000000 | -(int)xax);
+    if ((ptr_int_t)num_raw < 0) /* Mach syscall */
+        return (0x1000000 | -(int)num_raw);
     else {
         /* Bottom 16 bits are the number, top are arg size. */
-        return (int)(xax & 0xffff);
+        num = (int)(num_raw & 0xffff);
     }
 # endif
+    if (interrupt == 0x81)
+        num |= 0x1000000; /* Mach */
+    else if (interrupt == 0x82)
+        num |= 0x3000000; /* Machdep */
+    return num;
 #else
-    return (int) xax;
+    return num_raw;
 #endif
 }
 
-int
-os_normalized_sysnum(priv_mcontext_t *mc)
+static bool
+ignorable_system_call_normalized(int num)
 {
-    return normalize_sysnum(mc->xax);
-}
-
-bool
-ignorable_system_call(int num_raw)
-{
-    int num = normalize_sysnum(num_raw);
     switch (num) {
 #if defined(SYS_exit_group)
     case SYS_exit_group:
@@ -4075,6 +4096,13 @@ ignorable_system_call(int num_raw)
 #endif
         return true;
     }
+}
+
+bool
+ignorable_system_call(int num_raw, instr_t *gateway, dcontext_t *dcontext_live)
+{
+    return ignorable_system_call_normalized
+        (os_normalized_sysnum(num_raw, gateway, dcontext_live));
 }
 
 typedef struct {
@@ -5198,11 +5226,11 @@ pre_system_call(dcontext_t *dcontext)
     /* save key register values for post_system_call (they get clobbered
      * in syscall itself)
      */
-    dcontext->sys_num = normalize_sysnum(mc->xax);
+    dcontext->sys_num = os_normalized_sysnum((int)mc->xax, NULL, dcontext);
 
     RSTATS_INC(pre_syscall);
     DOSTATS({
-        if (ignorable_system_call(dcontext->sys_num))
+            if (ignorable_system_call_normalized(dcontext->sys_num))
             STATS_INC(pre_syscall_ignorable);
     });
     LOG(THREAD, LOG_SYSCALLS, 2, "system call %d\n", dcontext->sys_num);
@@ -6769,7 +6797,7 @@ post_system_call(dcontext_t *dcontext)
     } /* switch */
 
     DODEBUG({
-        if (ignorable_system_call(sysnum)) {
+        if (ignorable_system_call_normalized(sysnum)) {
             STATS_INC(post_syscall_ignorable);
         } else {
             /* Many syscalls can fail though they aren't ignored.  However, they

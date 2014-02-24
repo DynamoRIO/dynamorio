@@ -161,6 +161,10 @@ dump_emitted_routines(dcontext_t *dcontext, file_t file,
 # else
             else if (last_pc == code->do_int_syscall)
                 print_file(file, "do_int_syscall:\n");
+            else if (last_pc == code->do_int81_syscall)
+                print_file(file, "do_int81_syscall:\n");
+            else if (last_pc == code->do_int82_syscall)
+                print_file(file, "do_int82_syscall:\n");
             else if (last_pc == code->do_clone_syscall)
                 print_file(file, "do_clone_syscall:\n");
 #  ifdef VMX86_SERVER
@@ -456,7 +460,7 @@ shared_gencode_init(IF_X64_ELSE(gencode_mode_t gencode_mode, void))
     pc = check_size_and_cache_line(gencode, pc);
     gencode->do_syscall = pc;
     pc = emit_do_syscall(GLOBAL_DCONTEXT, gencode, pc, gencode->fcache_return,
-                         true/*shared*/, false, &gencode->do_syscall_offs);
+                         true/*shared*/, 0, &gencode->do_syscall_offs);
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR
@@ -956,16 +960,24 @@ emit_syscall_routines(dcontext_t *dcontext, generated_code_t *code, byte *pc,
     pc = check_size_and_cache_line(code, pc);
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
-                         false, &code->do_syscall_offs);
+                         0, &code->do_syscall_offs);
 #else /* UNIX */
     pc = check_size_and_cache_line(code, pc);
     code->do_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
-                         false, &code->do_syscall_offs);
+                         0, &code->do_syscall_offs);
     pc = check_size_and_cache_line(code, pc);
     code->do_int_syscall = pc;
     pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
-                         true/*force int*/, &code->do_int_syscall_offs);
+                         0x80/*force int*/, &code->do_int_syscall_offs);
+    pc = check_size_and_cache_line(code, pc);
+    code->do_int81_syscall = pc;
+    pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
+                         0x81/*force int*/, &code->do_int81_syscall_offs);
+    pc = check_size_and_cache_line(code, pc);
+    code->do_int82_syscall = pc;
+    pc = emit_do_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
+                         0x82/*force int*/, &code->do_int82_syscall_offs);
     pc = check_size_and_cache_line(code, pc);
     code->do_clone_syscall = pc;
     pc = emit_do_clone_syscall(dcontext, code, pc, code->fcache_return, thread_shared,
@@ -1610,6 +1622,20 @@ get_do_int_syscall_entry(dcontext_t *dcontext)
 {
     generated_code_t *code = THREAD_GENCODE(dcontext);
     return (cache_pc) code->do_int_syscall;
+}
+
+cache_pc
+get_do_int81_syscall_entry(dcontext_t *dcontext)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    return (cache_pc) code->do_int81_syscall;
+}
+
+cache_pc
+get_do_int82_syscall_entry(dcontext_t *dcontext)
+{
+    generated_code_t *code = THREAD_GENCODE(dcontext);
+    return (cache_pc) code->do_int82_syscall;
 }
 
 cache_pc

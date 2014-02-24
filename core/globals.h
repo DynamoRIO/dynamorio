@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -619,6 +619,9 @@ enum {
     EXIT_REASON_FLOAT_PC_FXSAVE64,
     EXIT_REASON_FLOAT_PC_XSAVE,
     EXIT_REASON_FLOAT_PC_XSAVE64,
+    /* Additional types of system call gateways. */
+    EXIT_REASON_NI_SYSCALL_INT_0x81,
+    EXIT_REASON_NI_SYSCALL_INT_0x82,
 };
 
 /* Number of nested calls into native modules that we support.  This number

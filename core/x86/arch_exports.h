@@ -722,6 +722,8 @@ fcache_enter_func_t get_fcache_enter_indirect_routine(dcontext_t *dcontext);
 cache_pc get_do_callback_return_entry(dcontext_t *dcontext);
 #else
 cache_pc get_do_int_syscall_entry(dcontext_t *dcontext);
+cache_pc get_do_int81_syscall_entry(dcontext_t *dcontext);
+cache_pc get_do_int82_syscall_entry(dcontext_t *dcontext);
 cache_pc get_do_clone_syscall_entry(dcontext_t *dcontext);
 # ifdef VMX86_SERVER
 cache_pc get_do_vmkuw_syscall_entry(dcontext_t *dcontext);
