@@ -552,7 +552,8 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         lock inc DWORD SYMREF(exiting_thread_count) /* rip-rel for x64 */
 #endif
         /* save dcontext->dstack for freeing later and set dcontext->is_exiting */
-        mov      REG_XBX, ARG1 /* xbx is callee-saved and not an x64 param */
+        /* xbx is callee-saved and not an x64 param so we can use it */
+        mov      REG_XBX, PTRSZ [1*ARG_SZ + REG_XBP] /* dcontext */
         SAVE_TO_DCONTEXT_VIA_REG(REG_XBX,is_exiting_OFFSET,1)
         CALLC1(GLOBAL_REF(is_currently_on_dstack), REG_XBX) /* xbx is callee-saved */
         cmp      REG_XAX, 0
