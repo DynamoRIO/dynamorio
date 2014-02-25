@@ -3406,17 +3406,25 @@ bool instr_same(instr_t *inst1,instr_t *inst2)
     return true;
 }
 
+static bool
+opc_is_not_a_real_memory_load(int opc)
+{
+    /* lea has a mem_ref source operand, but doesn't actually read */
+    if (opc == OP_lea)
+        return true;
+    /* The multi-byte nop has a mem/reg source operand, but it does not read. */
+    if (opc == OP_nop_modrm)
+        return true;
+    return false;
+}
+
 bool instr_reads_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
     int opc = instr_get_opcode(instr);
 
-    /* lea has a mem_ref source operand, but doesn't actually read */
-    if (opc == OP_lea)
-        return false;
-    /* The multi-byte nop has a mem/reg operand, but it does not read. */
-    if (opc == OP_nop_modrm)
+    if (opc_is_not_a_real_memory_load(opc))
         return false;
 
     for (a=0; a<instr_num_srcs(instr); a++) {
@@ -3704,8 +3712,9 @@ instr_compute_address_helper(instr_t *instr, priv_mcontext_t *mc, size_t mc_size
             }
         }
     }
-    /* lea has a mem_ref source operand, but doesn't actually read */
-    if (memcount != (int)index && instr_get_opcode(instr) != OP_lea) {
+    if (memcount != (int)index &&
+        /* lea has a mem_ref source operand, but doesn't actually read */
+        !opc_is_not_a_real_memory_load(instr_get_opcode(instr))) {
         for (i=0; i<instr_num_srcs(instr); i++) {
             curop = instr_get_src(instr, i);
             if (opnd_is_memory_reference(curop)) {

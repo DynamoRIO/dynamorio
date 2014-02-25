@@ -1062,7 +1062,12 @@ DR_API
  * Returns true iff \p opnd is a (near or far) memory reference operand
  * of any type: base-disp, absolute address, or pc-relative address.
  *
- * \note For 64-bit DR builds only.
+ * This routine (along with all other opnd_ routines) does consider
+ * multi-byte nops that use addressing operands, or the #OP_lea
+ * instruction's source operand, to be memory references: i.e., it
+ * only considers whether the operand calculates an address.  Use
+ * instr_reads_memory() to operate on a higher semantic level and rule
+ * out these corner cases.
  */
 bool
 opnd_is_memory_reference(opnd_t opnd);
@@ -2856,7 +2861,11 @@ DR_API
 /**
  * Returns true iff any of \p instr's source operands is a memory reference.
  *
- * Returns false for multi-byte nops with a memory operand.
+ * Unlike opnd_is_memory_reference(), this routine conisders the
+ * semantics of the instruction and returns false for both multi-byte
+ * nops with a memory operand and for the #OP_lea instruction, as they
+ * do not really reference the memory.  It does return true for
+ * prefetch instructions.
  */
 bool
 instr_reads_memory(instr_t *instr);
@@ -2963,6 +2972,10 @@ DR_API
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  * For instructions that use vector addressing (VSIB, introduced in AVX2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
+ *
+ * Like instr_reads_memory(), this routine does not consider
+ * multi-byte nops that use addressing operands, or the #OP_lea
+ * instruction's source operand, to be memory references.
  */
 app_pc
 instr_compute_address(instr_t *instr, dr_mcontext_t *mc);
@@ -2984,6 +2997,10 @@ DR_API
  * \p mc->flags must include DR_MC_CONTROL and DR_MC_INTEGER.
  * For instructions that use vector addressing (VSIB, introduced in AVX2),
  * mc->flags must additionally include DR_MC_MULTIMEDIA.
+ *
+ * Like instr_reads_memory(), this routine does not consider
+ * multi-byte nops that use addressing operands, or the #OP_lea
+ * instruction's source operand, to be memory references.
  */
 bool
 instr_compute_address_ex(instr_t *instr, dr_mcontext_t *mc, uint index,
@@ -2996,6 +3013,10 @@ DR_API
  * of which opnd is used for address computation returned
  * in \p pos. If \p pos is NULL, it is the same as
  * instr_compute_address_ex().
+ *
+ * Like instr_reads_memory(), this routine does not consider
+ * multi-byte nops that use addressing operands, or the #OP_lea
+ * instruction's source operand, to be memory references.
  */
 bool
 instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
