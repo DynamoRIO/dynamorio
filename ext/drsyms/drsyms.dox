@@ -97,7 +97,10 @@ for symbols.
 
 On Windows, the <tt>_NT_SYMBOL_PATH</tt> environment variable is honored by
 \p drsyms as a local cache of \p pdb files.  However, \p drsyms does not
-support symbol store paths (those that contain \p srv).
+support symbol store paths (those that contain \p srv) when used inside of
+a DynamoRIO client.  Such paths should work fine when used in standalone
+applications, provided that both \p symsrv.dll and \p dbghelp.dll are
+locatable by the Windows loader.
 
 \section sec_drsyms_exports Exported Functions
 
