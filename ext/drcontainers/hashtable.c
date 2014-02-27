@@ -256,6 +256,12 @@ hashtable_unlock(hashtable_t *table)
     dr_mutex_unlock(table->lock);
 }
 
+bool
+hashtable_lock_self_owns(hashtable_t *table)
+{
+    return dr_mutex_self_owns(table->lock);
+}
+
 /* Lookup an entry by key and return a pointer to the corresponding entry
  * Returns NULL if no such entry exists */
 void *

@@ -142,6 +142,10 @@ Further non-compatibility-affecting changes include:
  - Added dr_module_contains_addr() to make handling non-contiguous
    libraries easier.
 
+Additional changes include:
+
+ - Added hashtable_lock_self_owns() to the drcontainers Extension.
+
 **************************************************
 <hr>
 The changes between version 4.2.0 and 4.1.0 include:

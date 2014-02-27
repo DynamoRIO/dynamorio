@@ -215,6 +215,14 @@ hashtable_lock(hashtable_t *table);
 void
 hashtable_unlock(hashtable_t *table);
 
+/**
+ * Returns true iff the hashtable lock is owned by the calling thread.
+ * This routine is only available in debug builds.
+ * In release builds it always returns true.
+ */
+bool
+hashtable_lock_self_owns(hashtable_t *table);
+
 /* DR_API EXPORT BEGIN */
 /** Flags to control hashtable persistence */
 typedef enum {
