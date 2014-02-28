@@ -358,7 +358,7 @@ Index: libdwarf/libdwarf_macho_init.c
 ===================================================================
 --- libdwarf/libdwarf_macho_init.c	(revision 0)
 +++ libdwarf/libdwarf_macho_init.c	(revision 0)
-@@ -0,0 +1,284 @@
+@@ -0,0 +1,287 @@
 +/*-
 + * Copyright (c) 2014 Google, Inc.
 + * All rights reserved.
@@ -421,10 +421,13 @@ Index: libdwarf/libdwarf_macho_init.c
 +            return DW_DLE_MEMORY;
 +        }
 +        /* Replace "__" with "." as that's what the rest of the code expects */
-+        if (sectname[0] == '_' && sectname[1] == '_')
-+            snprintf(ob->name_alloc, sizeof(char[16])-2, ".%s", sectname+2);
-+        else
-+            snprintf(ob->name_alloc, sizeof(char[16]), "%s", sectname);
++        if (sectname[0] == '_' && sectname[1] == '_') {
++            /* Mach-O section names are not null-terminate if they take up the
++             * full 16-char max
++             */
++            snprintf(ob->name_alloc, sz, ".%.*s", (int)sizeof(char[16])-2, sectname+2);
++        } else
++            snprintf(ob->name_alloc, sz, "%s", sectname);
 +        ob->name_alloc[sz - 1] = '\0';
 +        ob->name = ob->name_alloc;
 +        return DW_DLE_NONE;
