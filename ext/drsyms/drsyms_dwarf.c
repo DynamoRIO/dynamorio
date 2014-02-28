@@ -64,7 +64,13 @@ typedef struct _dwarf_module_t {
     ssize_t offs_adjust;
 } dwarf_module_t;
 
-static bool
+typedef enum {
+    SEARCH_FOUND = 0,
+    SEARCH_MAYBE = 1,
+    SEARCH_NOT_FOUND = 2,
+} search_result_t;
+
+static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
                        drsym_info_t *sym_info INOUT);
 
@@ -185,6 +191,7 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
     Dwarf_Die cu_die;
     Dwarf_Unsigned cu_offset = 0;
     bool success = false;
+    search_result_t res;
 
     pc += mod->offs_adjust;
 
@@ -202,9 +209,9 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
     cu_die = find_cu_die(mod->dbg, pc);
     if (cu_die == NULL) {
         NOTIFY("%s: failed to find CU die for "PFX", searching all CUs\n",
-               __FUNCTION__, pc);
+               __FUNCTION__, (ptr_uint_t)pc);
     } else {
-        return search_addr2line_in_cu(mod, pc, cu_die, sym_info);
+        return (search_addr2line_in_cu(mod, pc, cu_die, sym_info) != SEARCH_NOT_FOUND);
     }
 
     /* We failed to find a CU containing this PC.  Some compilers (clang) don't
@@ -217,9 +224,15 @@ drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info
         cu_die = next_die_matching_tag(mod->dbg, DW_TAG_compile_unit);
 
         /* We found a CU die, now check if it's the one we wanted. */
-        if (cu_die != NULL && search_addr2line_in_cu(mod, pc, cu_die, sym_info)) {
-            success = true;
-            break;
+        if (cu_die != NULL) {
+            res = search_addr2line_in_cu(mod, pc, cu_die, sym_info);
+            if (res == SEARCH_FOUND) {
+                success = true;
+                break;
+            } else if (res == SEARCH_MAYBE) {
+                success = true;
+                /* try to find a better fit: continue searching */
+            }
         }
     }
 
@@ -257,7 +270,7 @@ get_lines_from_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
     return mod->num_lines;
 }
 
-static bool
+static search_result_t
 search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
                        drsym_info_t *sym_info INOUT)
 {
@@ -266,12 +279,20 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
     int i;
     Dwarf_Addr lineaddr, next_lineaddr = 0;
     Dwarf_Line dw_line;
-    bool success = false;
     Dwarf_Error de = {0};
+    search_result_t res = SEARCH_NOT_FOUND;
 
     num_lines = get_lines_from_cu(mod, cu_die, &lines);
     if (num_lines < 0)
-        return false;
+        return SEARCH_NOT_FOUND;
+
+    if (verbose) {
+        char *name;
+        if (dwarf_diename(cu_die, &name, &de) == DW_DLV_OK) {
+            NOTIFY("%s: searching cu %s for pc 0"PFX"\n",
+                   __FUNCTION__, name, (ptr_uint_t)pc);
+        }
+    }
 
     /* We could binary search this, but we assume dwarf_srclines is the
      * bottleneck.
@@ -283,14 +304,20 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
             NOTIFY_DWARF(de);
             break;
         }
+        NOTIFY("%s: pc "PFX" vs line "PFX"-"PFX"\n", __FUNCTION__, (ptr_uint_t)pc,
+               (ptr_uint_t)lineaddr, (ptr_uint_t)next_lineaddr);
         if (lineaddr <= pc && pc < next_lineaddr) {
             dw_line = lines[i];
+            res = SEARCH_FOUND;
             break;
         }
     }
     /* Handle the case when the PC is from the last line of the CU. */
     if (i == num_lines - 1 && dw_line == NULL && next_lineaddr <= pc) {
+        NOTIFY("%s: pc "PFX" vs last line "PFX"\n",
+               __FUNCTION__, (ptr_uint_t)pc, (ptr_uint_t)next_lineaddr);
         dw_line = lines[num_lines - 1];
+        res = SEARCH_MAYBE;
     }
 
     /* If we found dw_line, use it to fill out sym_info. */
@@ -302,6 +329,7 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
             dwarf_lineno(dw_line, &lineno, &de) != DW_DLV_OK ||
             dwarf_lineaddr(dw_line, &lineaddr, &de) != DW_DLV_OK) {
             NOTIFY_DWARF(de);
+            res = SEARCH_NOT_FOUND;
         } else {
             /* File comes from .debug_str and therefore lives until
              * drsym_exit, but caller has provided space that we must copy into.
@@ -313,11 +341,10 @@ search_addr2line_in_cu(dwarf_module_t *mod, Dwarf_Addr pc, Dwarf_Die cu_die,
             }
             sym_info->line = lineno;
             sym_info->line_offs = (size_t) (pc - lineaddr);
-            success = true;
         }
     }
 
-    return success;
+    return res;
 }
 
 /* Return value: 0 means success but break; 1 means success and continue;
