@@ -1136,7 +1136,7 @@ not supported.
     takes over later even from the parent.  Future releases will address
     this limitation.
   - This release does not support running some Windows services under
-    control of DynamoRIO: System, smss.exe, csrss.exe, and protected
+    control of DynamoRIO: the "System" process, smss.exe, csrss.exe, and protected
     processes on Windows Vista.
 \anchor limits_vista_service_messagebox
   - On Windows Vista most services are run in a separate session as a
