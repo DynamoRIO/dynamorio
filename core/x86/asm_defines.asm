@@ -69,6 +69,8 @@
 # define WORD word ptr
 # define DWORD dword ptr
 # define QWORD qword ptr
+# define MMWORD qword ptr
+# define XMMWORD xmmword ptr
 # ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #  define SYMREF(sym) [rip + sym]
@@ -119,6 +121,8 @@ ASSUME fs:_DATA @N@\
 # define WORD word ptr
 # define DWORD dword ptr
 # define QWORD qword ptr
+# define MMWORD mmword ptr
+# define XMMWORD xmmword ptr
 /* ml64 uses rip-rel automatically */
 # define SYMREF(sym) [sym]
 # define HEX(n) 0##n##h
@@ -157,6 +161,8 @@ ASSUME fs:_DATA @N@\
 # define WORD word
 # define DWORD dword
 # define QWORD qword
+# define MMWORD mmword
+# define XMMWORD xmmword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else
