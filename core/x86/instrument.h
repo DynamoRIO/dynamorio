@@ -3793,11 +3793,16 @@ DR_API
  * to the \p cmd window
  * unless dr_enable_console_printing() is called ahead of time, and
  * even then there are limitations: see dr_enable_console_printing().
- * \note On Windows, this routine does not support printing floating
- * point values.  Use dr_snprintf() instead.
+ * \note This routine supports printing wide characters via the ls
+ * or S format specifiers.  On Windows, they are assumed to be UTF-16,
+ * and are converted to UTF-8.  On Linux, they are converted by simply
+ * dropping the high-order bytes.
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.  Use dr_snprintf() and dr_write_file() for
  * large output.
+ * \note When printing floating-point values, the caller's code should
+ * use proc_save_fpstate() or be inside a clean call that
+ * has requested to preserve the floating-point state.
  */
 void
 dr_printf(const char *fmt, ...);
@@ -3810,8 +3815,10 @@ DR_API
  * STDERR in the \p cmd window unless dr_enable_console_printing() is
  * called ahead of time, and even then there are limitations: see
  * dr_enable_console_printing().
- * \note On Windows, this routine does not support printing floating
- * point values.  Use dr_snprintf() instead.
+ * \note This routine supports printing wide characters via the ls
+ * or S format specifiers.  On Windows, they are assumed to be UTF-16,
+ * and are converted to UTF-8.  On Linux, they are converted by simply
+ * dropping the high-order bytes.
  * \note If the data to be printed is large it will be truncated to
  * an internal buffer size.  Use dr_snprintf() and dr_write_file() for
  * large output.
@@ -3898,8 +3905,6 @@ DR_API
  * or S format specifiers.  On Windows, they are assumed to be UTF-16,
  * and are converted to UTF-8.  On Linux, they are converted by simply
  * dropping the high-order bytes.
- * \note If the data to be printed is large it will be truncated to
- * an internal buffer size.
  * \note On Windows, you can use _snprintf() instead (though _snprintf() does
  * not support printing floating point values and does not convert
  * between UTF-16 and UTF-8).
