@@ -46,6 +46,7 @@ EXPORTS
         wcscspn = NTDLL.wcscspn
         wcscpy = NTDLL.wcscpy
         wcscmp = NTDLL.wcscmp
+        wcsncmp = NTDLL.wcsncmp
         wcschr = NTDLL.wcschr
         wcscat = NTDLL.wcscat
         towupper = NTDLL.towupper

@@ -1167,11 +1167,55 @@ static const wchar_t * const wenv_to_propagate[] = {
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
 
-/* appends DR env vars in the target process PEB */
+/* read env var from remote process:
+ * - return true on read successfully or until end of reading
+ * - skip DR env vars
+ */
+static wchar_t *
+get_process_env_var(HANDLE phandle, wchar_t *env_ptr, wchar_t *buf, size_t toread)
+{
+    int i;
+    size_t got;
+    bool keep_env;
+    while (true) {
+        keep_env  = true;
+        ASSERT(toread <= (size_t)PAGE_SIZE);
+        /* if an env var is too long we're ok: DR vars will fit, and if longer we'll
+         * handle rest next call.
+         */
+        if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got)) {
+            /* may have crossed page boundary and the next page is inaccessible */
+            byte *start = (byte *) env_ptr;
+            if (PAGE_START(start) != PAGE_START(start + toread)) {
+                ASSERT((size_t)((byte *)ALIGN_FORWARD(start, PAGE_SIZE)-start) <= toread);
+                toread = (byte *) ALIGN_FORWARD(start, PAGE_SIZE) - start;
+                if (!nt_read_virtual_memory(phandle, env_ptr, buf, toread, &got))
+                    return NULL;
+            } else
+                return NULL;
+            continue;
+        }
+        buf[got/sizeof(buf[0]) - 1] = '\0';
+        if (buf[0] == '\0')
+            return env_ptr;
+        for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
+            /* if conflict between env and cfg, we use cfg */
+            if (wcsncmp(wenv_to_propagate[i], buf, wcslen(wenv_to_propagate[i])) == 0) {
+                keep_env = false;
+            }
+        }
+        if (keep_env)
+            return env_ptr;
+        env_ptr += wcslen(buf) + 1;
+    }
+    return false;
+}
+
+/* called at presys-ResumeThread to append DR env vars in the target process PEB */
 static bool
 add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
 {
-    wchar_t *env;
+    wchar_t *env, *cur;
     size_t tot_sz = 0, app_sz, sz;
     size_t got;
     wchar_t *new_env = NULL;
@@ -1180,13 +1224,20 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     size_t sz_var[NUM_ENV_TO_PROPAGATE];
     NTSTATUS res;
     uint old_prot = PAGE_NOACCESS;
-    int i;
+    int i, num_propagate = 0;
 
     for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
         if (get_config_val(env_to_propagate[i]) == NULL)
             need_var[i] = false;
-        else
+        else {
             need_var[i] = true;
+            num_propagate++;
+        }
+    }
+    if (num_propagate == 0) {
+        LOG(THREAD, LOG_SYSCALLS, 2,
+            "%s: no DR env vars to propagate\n", __FUNCTION__);
+        return true; /* nothing to do */
     }
 
     ASSERT(env_ptr != NULL);
@@ -1194,45 +1245,20 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
         goto add_dr_env_failure;
     if (env != NULL) {
         /* compute size of current env block, and check for existing DR vars */
+        cur = env;
         while (true) {
-            /* for simplicity we do a syscall for each var.  if too long we're
-             * ok: DR vars will fit, and if longer we'll handle rest next iter.
-             */
-            if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, sizeof(buf), &got)) {
-                /* may have crossed page boundary */
-                byte *start = (byte *) &env[tot_sz];
-                if (PAGE_START(start) != PAGE_START(start + sizeof(buf))) {
-                    size_t toread = (byte *) ALIGN_FORWARD(start, PAGE_SIZE) - start;
-                    ASSERT(toread <= sizeof(buf));
-                    if (!nt_read_virtual_memory(phandle, &env[tot_sz], buf, toread,
-                                                &got)) {
-                        return false;
-                    }
-                } else
-                    return false;
-            }
-            buf[got/sizeof(buf[0]) - 1] = '\0';
-            if (buf[0] == 0)
+            /* for simplicity we do a syscall for each var */
+            cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
+            if (cur == NULL)
+                return false;
+            if (buf[0] == '\0')
                 break;
             tot_sz += wcslen(buf) + 1;
-            for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
-                /* if already set we assume has right value */
-                if (wcscmp(wenv_to_propagate[i], buf) == 0)
-                    need_var[i] = false;
-            }
+            cur += wcslen(buf) + 1;
         }
         tot_sz++; /* final 0 marking end */
         /* from here on out, all *sz vars are total bytes, not wchar_t elements */
         tot_sz *= sizeof(*env);
-    }
-    for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
-        if (need_var[i])
-            break;
-    }
-    if (i == NUM_ENV_TO_PROPAGATE) {
-        LOG(THREAD, LOG_SYSCALLS, 2,
-            "%s: app env vars already contain DR env vars\n", __FUNCTION__);
-        return true; /* nothing to do */
     }
     app_sz = tot_sz;
     LOG(THREAD, LOG_SYSCALLS, 2,
@@ -1265,28 +1291,33 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
     LOG(THREAD, LOG_SYSCALLS, 2,
         "%s: new app env vars allocated at "PFX"-"PFX"\n",
         __FUNCTION__, new_env, new_env + tot_sz/sizeof(*env));
+    cur = env;
     sz = 0;
-    while (sz < app_sz) {
-        size_t toread = BUFFER_SIZE_BYTES(buf);
-        if (toread > app_sz - sz)
-            toread = app_sz - sz;
-        if (!nt_read_virtual_memory(phandle, env + sz/sizeof(*env), buf, toread, NULL))
+    while (true) {
+        /* for simplicity we do a syscall for each var */
+        size_t towrite = 0;
+        cur = get_process_env_var(phandle, cur, buf, sizeof(buf));
+        if (cur == NULL)
             goto add_dr_env_failure;
+        if (buf[0] == '\0')
+            break;
+        towrite = (wcslen(buf) + 1);
         res = nt_raw_write_virtual_memory(phandle, new_env + sz/sizeof(*env),
-                                          buf, toread, &got);
+                                          buf, towrite * sizeof(*env), &got);
         if (!NT_SUCCESS(res)) {
             LOG(THREAD, LOG_SYSCALLS, 2,
                 "%s copy: got status "PFX", wrote "PIFX" vs requested "PIFX"\n",
-                __FUNCTION__, res, got, toread);
+                __FUNCTION__, res, got, towrite);
             goto add_dr_env_failure;
         }
-        sz += toread;
+        sz  += towrite  * sizeof(*env);
+        cur += towrite;
     }
+    ASSERT(sz == app_sz - sizeof(*env) /* before final 0 */ );
 
     /* add DR env vars at the end.
      * XXX: is alphabetical sorting relied upon?  adding to end is working.
      */
-    sz = app_sz - sizeof(*env); /* before final 0 */
     for (i = 0; i < NUM_ENV_TO_PROPAGATE; i++) {
         if (need_var[i]) {
             _snwprintf(buf, BUFFER_SIZE_ELEMENTS(buf), L"%s=%S",
@@ -1298,6 +1329,7 @@ add_dr_env_vars(dcontext_t *dcontext, HANDLE phandle, wchar_t **env_ptr)
             sz += sz_var[i];
         }
     }
+    ASSERT(sz == tot_sz - sizeof(*env) /* before final 0 */ );
     /* write final 0 */
     buf[0] = 0;
     if (!nt_write_virtual_memory(phandle, new_env + sz/sizeof(*env), buf,

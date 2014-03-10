@@ -4475,15 +4475,238 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
 enum {
     ENV_PROP_RUNUNDER,
     ENV_PROP_OPTIONS,
+    ENV_PROP_EXECVE_LOGDIR,
 };
+
 static const char * const env_to_propagate[] = {
     /* these must line up with the enum */
     DYNAMORIO_VAR_RUNUNDER,
     DYNAMORIO_VAR_OPTIONS,
-    /* un-named */
+    /* DYNAMORIO_VAR_EXECVE_LOGDIR is different from DYNAMORIO_VAR_LOGDIR:
+     * - DYNAMORIO_VAR_LOGDIR: a parent dir inside which a new dir will be created;
+     * - DYNAMORIO_VAR_EXECVE_LOGDIR: the same subdir with the pre-execve process.
+     * Xref comment in create_log_dir about their precedence.
+     */
+    DYNAMORIO_VAR_EXECVE_LOGDIR,
+    /* these will only be propagated if they exist */
     DYNAMORIO_VAR_CONFIGDIR,
 };
 #define NUM_ENV_TO_PROPAGATE (sizeof(env_to_propagate)/sizeof(env_to_propagate[0]))
+
+/* called at pre-SYS_execve to append DR vars in the target process env vars list */
+static void
+add_dr_env_vars(dcontext_t *dcontext, char *inject_library_path)
+{
+    char **envp = (char **) sys_param(dcontext, 2);
+    int idx, j, preload = -1, ldpath = -1;
+    int num_old, num_new, sz;
+    bool need_var[NUM_ENV_TO_PROPAGATE];
+    int  prop_idx[NUM_ENV_TO_PROPAGATE];
+    bool ldpath_us = false, preload_us = false;
+    char **new_envp, *var, *old;
+
+    /* check if any var needs to be propagated */
+    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+        prop_idx[j] = -1;
+        if (get_config_val(env_to_propagate[j]) == NULL)
+            need_var[j] = false;
+        else
+            need_var[j] = true;
+    }
+    /* Special handling for DYNAMORIO_VAR_EXECVE_LOGDIR:
+     * we only need it if follow_children is true and PROCESS_DIR exists.
+     */
+    if (DYNAMO_OPTION(follow_children) && get_log_dir(PROCESS_DIR, NULL, NULL))
+        need_var[ENV_PROP_EXECVE_LOGDIR] = true;
+    else
+        need_var[ENV_PROP_EXECVE_LOGDIR] = false;
+
+    /* iterate the env in target process  */
+    if (envp == NULL) {
+        LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
+        idx = 0;
+    } else {
+        for (idx = 0; envp[idx] != NULL; idx++) {
+            /* execve env vars should never be set here */
+            ASSERT(strstr(envp[idx], DYNAMORIO_VAR_EXECVE) != envp[idx]);
+            for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+                if (strstr(envp[idx], env_to_propagate[j]) == envp[idx]) {
+                    /* If conflict between env and cfg, we assume those env vars
+                     * are for DR usage only, and replace them with cfg value.
+                     */
+                    prop_idx[j] = idx; /* remember the index for replacing later */
+                    break;
+                }
+            }
+            if (strstr(envp[idx], "LD_LIBRARY_PATH=") == envp[idx]) {
+                ldpath = idx;
+                if (strstr(envp[idx], inject_library_path) != NULL)
+                    ldpath_us = true;
+            }
+            if (strstr(envp[idx], "LD_PRELOAD=") == envp[idx]) {
+                preload = idx;
+                if (strstr(envp[idx], DYNAMORIO_PRELOAD_NAME) != NULL &&
+                    strstr(envp[idx], DYNAMORIO_LIBRARY_NAME) != NULL) {
+                    preload_us = true;
+                }
+            }
+            LOG(THREAD, LOG_SYSCALLS, 3, "\tenv %d: %s\n", idx, envp[idx]);
+        }
+    }
+
+    /* We want to add new env vars, so we create a new envp
+     * array.  We have to deallocate them and restore the old
+     * envp if execve fails; if execve succeeds, the address
+     * space is reset so we don't need to do anything.
+     */
+    num_old = idx;
+    /* how many new env vars we need add */
+    num_new =
+        2 + /* execve indicator var plus final NULL */
+        ((preload<0) ? 1 : 0) +
+        ((ldpath<0) ? 1 : 0);
+
+    if (DYNAMO_OPTION(follow_children)) {
+        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+            if (need_var[j] && prop_idx[j] < 0)
+                num_new++;
+        }
+    }
+    /* setup new envp */
+    new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
+                          HEAPACCT(ACCT_OTHER));
+    /* copy old envp */
+    memcpy(new_envp, envp, sizeof(char*)*num_old);
+    /* change/add preload and ldpath if necessary */
+    if (!preload_us) {
+        int idx_preload;
+        LOG(THREAD, LOG_SYSCALLS, 1,
+            "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
+        if (preload >= 0) {
+            /* replace the existing preload */
+            sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME)+
+                strlen(DYNAMORIO_LIBRARY_NAME) + 3;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            old = envp[preload] + strlen("LD_PRELOAD=");
+            snprintf(var, sz, "LD_PRELOAD=%s %s %s",
+                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME, old);
+            idx_preload = preload;
+        } else {
+            /* add new preload */
+            sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) +
+                strlen(DYNAMORIO_LIBRARY_NAME) + 2;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "LD_PRELOAD=%s %s",
+                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME);
+            idx_preload = idx++;
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[idx_preload] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            idx_preload, new_envp[idx_preload]);
+    }
+    if (!ldpath_us) {
+        int idx_ldpath;
+        if (ldpath >= 0) {
+            sz = strlen(envp[ldpath]) + strlen(inject_library_path) + 2;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            old = envp[ldpath] + strlen("LD_LIBRARY_PATH=");
+            snprintf(var, sz, "LD_LIBRARY_PATH=%s:%s", inject_library_path, old);
+            idx_ldpath = ldpath;
+        } else {
+            sz = strlen("LD_LIBRARY_PATH=") + strlen(inject_library_path) + 1;
+            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+            snprintf(var, sz, "LD_LIBRARY_PATH=%s", inject_library_path);
+            idx_ldpath = idx++;
+        }
+        *(var+sz-1) = '\0'; /* null terminate */
+        new_envp[idx_ldpath] = var;
+        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+            idx_ldpath, new_envp[idx_ldpath]);
+    }
+    /* propagating DR env vars */
+    if (DYNAMO_OPTION(follow_children)) {
+        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
+            const char *val = "";
+            if (!need_var[j])
+                continue;
+            switch (j) {
+            case ENV_PROP_RUNUNDER:
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
+                /* Must pass RUNUNDER_ALL to get child injected if has no app config.
+                 * If rununder var is already set we assume it's set to 1.
+                 */
+                ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
+                val = "3";
+                break;
+            case ENV_PROP_OPTIONS:
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
+                val = option_string;
+                break;
+            case ENV_PROP_EXECVE_LOGDIR:
+                /* we use PROCESS_DIR for DYNAMORIO_VAR_EXECVE_LOGDIR */
+                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_EXECVE_LOGDIR) == 0);
+                ASSERT(get_log_dir(PROCESS_DIR, NULL, NULL));
+                break;
+            default:
+                val = getenv(env_to_propagate[j]);
+                if (val == NULL)
+                    val = "";
+                break;
+            }
+            if (j == ENV_PROP_EXECVE_LOGDIR) {
+                uint logdir_length;
+                get_log_dir(PROCESS_DIR, NULL, &logdir_length);
+                /* logdir_length includes the terminating NULL */
+                sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + logdir_length + 1/* '=' */;
+                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+                snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
+                get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
+            } else {
+                sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
+                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+                snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
+            }
+            *(var+sz-1) = '\0'; /* null terminate */
+            prop_idx[j] = (prop_idx[j] >= 0) ? prop_idx[j] : idx++;
+            new_envp[prop_idx[j]] = var;
+            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
+                prop_idx[j], new_envp[prop_idx[j]]);
+        }
+    } else {
+        if (prop_idx[ENV_PROP_RUNUNDER] >= 0) {
+            /* disable auto-following of this execve, yet still allow preload
+             * on other side to inject if config file exists.
+             * kind of hacky mangle here:
+             */
+            ASSERT(!need_var[ENV_PROP_RUNUNDER]);
+            ASSERT(new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] == 'D');
+            new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] = 'X';
+        }
+    }
+
+    sz = strlen(DYNAMORIO_VAR_EXECVE) + 4;
+    /* we always pass this var to indicate "post-execve" */
+    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
+    /* PR 458917: we overload this to also pass our gdt index */
+    ASSERT(os_tls_get_gdt_index(dcontext) < 100 &&
+           os_tls_get_gdt_index(dcontext) >= -1); /* only 2 chars allocated */
+    snprintf(var, sz, "%s=%02d", DYNAMORIO_VAR_EXECVE, os_tls_get_gdt_index(dcontext));
+    *(var+sz-1) = '\0'; /* null terminate */
+    new_envp[idx++] = var;
+    LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", idx-1, new_envp[idx-1]);
+    /* must end with NULL */
+    new_envp[idx++] = NULL;
+    ASSERT((num_new + num_old) == idx);
+
+    /* update syscall param */
+    *sys_param_addr(dcontext, 2) = (reg_t) new_envp;  /* OUT */
+    /* store for reset in case execve fails, and for cleanup if
+     * this is a vfork thread
+     */
+    dcontext->sys_param0 = (reg_t) envp;
+    dcontext->sys_param1 = (reg_t) new_envp;
+}
 
 static void
 handle_execve(dcontext_t *dcontext)
@@ -4512,11 +4735,6 @@ handle_execve(dcontext_t *dcontext)
      * set across execve: going to ignore for now
      */
     char *fname = (char *)  sys_param(dcontext, 0);
-    char **envp = (char **) sys_param(dcontext, 2);
-    int i, j, preload = -1, ldpath = -1;
-    int prop_found[NUM_ENV_TO_PROPAGATE];
-    int prop_idx[NUM_ENV_TO_PROPAGATE];
-    bool preload_us = false, ldpath_us = false;
     bool x64 = IF_X64_ELSE(true, false);
     file_t file;
     char *inject_library_path;
@@ -4525,6 +4743,7 @@ handle_execve(dcontext_t *dcontext)
     LOG(GLOBAL, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
     LOG(THREAD, LOG_ALL, 1, "\n---------------------------------------------------------------------------\n");
     DODEBUG({
+        int i;
         SYSLOG_INTERNAL_INFO("-- execve %s --", fname);
         LOG(THREAD, LOG_SYSCALLS, 1, "syscall: execve %s\n", fname);
         LOG(GLOBAL, LOG_TOP|LOG_SYSCALLS, 1, "execve %s\n", fname);
@@ -4541,52 +4760,6 @@ handle_execve(dcontext_t *dcontext)
             }
         }
     });
-
-    /* Issue 20: handle cross-architecture execve */
-    /* Xref alternate solution i#145: use dual paths on
-     * LD_LIBRARY_PATH to solve cross-arch execve
-     */
-    file = os_open(fname, OS_OPEN_READ);
-    if (file != INVALID_FILE) {
-        x64 = module_file_is_module64(file);
-        os_close(file);
-    }
-    inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
-        dynamorio_alt_arch_path;
-
-    for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-        prop_found[j] = -1;
-        prop_idx[j] = -1;
-    }
-
-    if (envp == NULL) {
-        LOG(THREAD, LOG_SYSCALLS, 3, "\tenv is NULL\n");
-        i = 0;
-    } else {
-        for (i = 0; envp[i] != NULL; i++) {
-            /* execve env vars should never be set here */
-            ASSERT(strstr(envp[i], DYNAMORIO_VAR_EXECVE) != envp[i]);
-            for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-                if (strstr(envp[i], env_to_propagate[j]) == envp[i]) {
-                    prop_found[j] = i;
-                    break;
-                }
-            }
-            if (strstr(envp[i], "LD_LIBRARY_PATH=") == envp[i]) {
-                ldpath = i;
-                if (strstr(envp[i], inject_library_path) != NULL)
-                    ldpath_us = true;
-            }
-            if (strstr(envp[i], "LD_PRELOAD=") == envp[i]) {
-                preload = i;
-                if (strstr(envp[i], DYNAMORIO_PRELOAD_NAME) != NULL &&
-                    strstr(envp[i], DYNAMORIO_LIBRARY_NAME) != NULL) {
-                    preload_us = true;
-                }
-            }
-            LOG(THREAD, LOG_SYSCALLS, 3, "\tenv %d: %s\n", i, envp[i]);
-        }
-    }
 
     /* i#237/PR 498284: if we're a vfork "thread" we're really in a different
      * process and if we exec then the parent process will still be alive.  We
@@ -4612,158 +4785,19 @@ handle_execve(dcontext_t *dcontext)
     return;
 #endif
 
-    /* We want to add new env vars, so we create a new envp
-     * array.  We have to deallocate them and restore the old
-     * envp if execve fails; if execve succeeds, the address
-     * space is reset so we don't need to do anything.
+    /* Issue 20: handle cross-architecture execve */
+    /* Xref alternate solution i#145: use dual paths on
+     * LD_LIBRARY_PATH to solve cross-arch execve
      */
-    int num_old = i;
-    uint sz;
-    char *var, *old;
-    int idx_preload = preload, idx_ldpath = ldpath;
-    int num_new;
-    char **new_envp;
-    uint logdir_length;
-
-    num_new =
-        2 + /* execve indicator var plus final NULL */
-        ((preload<0) ? 1 : 0) +
-        ((ldpath<0) ? 1 : 0);
-    if (DYNAMO_OPTION(follow_children)) {
-        num_new += (get_log_dir(PROCESS_DIR, NULL, NULL) ? 1 : 0) /* logdir */;
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            if (prop_found[j] < 0)
-                num_new++;
-        }
+    file = os_open(fname, OS_OPEN_READ);
+    if (file != INVALID_FILE) {
+        x64 = module_file_is_module64(file);
+        os_close(file);
     }
-    new_envp = heap_alloc(dcontext, sizeof(char*)*(num_old+num_new)
-                          HEAPACCT(ACCT_OTHER));
-    memcpy(new_envp, envp, sizeof(char*)*num_old);
+    inject_library_path = IF_X64_ELSE(x64, !x64) ? dynamorio_library_path :
+        dynamorio_alt_arch_path;
 
-    *sys_param_addr(dcontext, 2) = (reg_t) new_envp;  /* OUT */
-    /* store for reset in case execve fails, and for cleanup if
-     * this is a vfork thread
-     */
-    dcontext->sys_param0 = (reg_t) envp;
-    dcontext->sys_param1 = (reg_t) new_envp;
-    /* if no var to overwrite, need new var at end */
-    if (preload < 0)
-        idx_preload = i++;
-    if (ldpath < 0)
-        idx_ldpath = i++;
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            prop_idx[j] = prop_found[j];
-            if (prop_idx[j] < 0)
-                prop_idx[j] = i++;
-        }
-    }
-
-    if (!preload_us) {
-        LOG(THREAD, LOG_SYSCALLS, 1,
-            "WARNING: execve env does NOT preload DynamoRIO, forcing it!\n");
-        if (preload >= 0) {
-            sz = strlen(envp[preload]) + strlen(DYNAMORIO_PRELOAD_NAME)+
-                strlen(DYNAMORIO_LIBRARY_NAME) + 3;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            old = envp[preload] + strlen("LD_PRELOAD=");
-            snprintf(var, sz, "LD_PRELOAD=%s %s %s",
-                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME, old);
-        } else {
-            sz = strlen("LD_PRELOAD=") + strlen(DYNAMORIO_PRELOAD_NAME) +
-                strlen(DYNAMORIO_LIBRARY_NAME) + 2;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "LD_PRELOAD=%s %s",
-                     DYNAMORIO_PRELOAD_NAME, DYNAMORIO_LIBRARY_NAME);
-        }
-        *(var+sz-1) = '\0'; /* null terminate */
-        new_envp[idx_preload] = var;
-        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-            idx_preload, new_envp[idx_preload]);
-    }
-
-    if (!ldpath_us) {
-        if (ldpath >= 0) {
-            sz = strlen(envp[ldpath]) + strlen(inject_library_path) + 2;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            old = envp[ldpath] + strlen("LD_LIBRARY_PATH=");
-            snprintf(var, sz, "LD_LIBRARY_PATH=%s:%s", inject_library_path, old);
-        } else {
-            sz = strlen("LD_LIBRARY_PATH=") + strlen(inject_library_path) + 1;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "LD_LIBRARY_PATH=%s", inject_library_path);
-        }
-        *(var+sz-1) = '\0'; /* null terminate */
-        new_envp[idx_ldpath] = var;
-        LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-            idx_ldpath, new_envp[idx_ldpath]);
-    }
-
-    if (DYNAMO_OPTION(follow_children)) {
-        for (j = 0; j < NUM_ENV_TO_PROPAGATE; j++) {
-            const char *val = "";
-            bool set_env_var = (prop_found[j] < 0);
-            switch (j) {
-            case ENV_PROP_RUNUNDER:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_RUNUNDER) == 0);
-                /* Must pass RUNUNDER_ALL to get child injected if has no app config.
-                 * If rununder var is already set we assume it's set to 1.
-                 */
-                ASSERT((RUNUNDER_ON | RUNUNDER_ALL) == 0x3); /* else, update "3" */
-                val = "3";
-                break;
-            case ENV_PROP_OPTIONS:
-                ASSERT(strcmp(env_to_propagate[j], DYNAMORIO_VAR_OPTIONS) == 0);
-                val = option_string;
-                /* i#1097: don't use options from the app's envp; use ours. */
-                set_env_var = true;
-                break;
-            default:
-                val = getenv(env_to_propagate[j]);
-                if (val == NULL)
-                    val = "";
-                break;
-            }
-            if (set_env_var) {
-                sz = strlen(env_to_propagate[j]) + strlen(val) + 2 /* '=' + null */;
-                var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-                snprintf(var, sz, "%s=%s", env_to_propagate[j], val);
-                *(var+sz-1) = '\0'; /* null terminate */
-                new_envp[prop_idx[j]] = var;
-                LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n",
-                    prop_idx[j], new_envp[prop_idx[j]]);
-            }
-        }
-        if (get_log_dir(PROCESS_DIR, NULL, &logdir_length)) {
-            sz = strlen(DYNAMORIO_VAR_EXECVE_LOGDIR) + 1 + logdir_length;
-            var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-            snprintf(var, sz, "%s=", DYNAMORIO_VAR_EXECVE_LOGDIR);
-            get_log_dir(PROCESS_DIR, var+strlen(var), &logdir_length);
-            *(var+sz-1) = '\0'; /* null terminate */
-            new_envp[i++] = var;
-            LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
-        }
-    } else if (prop_idx[ENV_PROP_RUNUNDER] >= 0) {
-        /* disable auto-following of this execve, yet still allow preload
-         * on other side to inject if config file exists.
-         * kind of hacky mangle here:
-         */
-        ASSERT(new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] == 'D');
-        new_envp[prop_idx[ENV_PROP_RUNUNDER]][0] = 'X';
-    }
-
-    sz = strlen(DYNAMORIO_VAR_EXECVE) + 4;
-    /* we always pass this var to indicate "post-execve" */
-    var = heap_alloc(dcontext, sizeof(char)*sz HEAPACCT(ACCT_OTHER));
-    /* PR 458917: we overload this to also pass our gdt index */
-    ASSERT(os_tls_get_gdt_index(dcontext) < 100 &&
-           os_tls_get_gdt_index(dcontext) >= -1); /* only 2 chars allocated */
-    snprintf(var, sz, "%s=%02d", DYNAMORIO_VAR_EXECVE, os_tls_get_gdt_index(dcontext));
-    *(var+sz-1) = '\0'; /* null terminate */
-    new_envp[i++] = var;
-    LOG(THREAD, LOG_SYSCALLS, 2, "\tnew env %d: %s\n", i-1, new_envp[i-1]);
-    /* must end with NULL */
-    new_envp[i] = NULL;
+    add_dr_env_vars(dcontext, inject_library_path);
 
     /* we need to clean up the .1config file here.  if the execve fails,
      * we'll just live w/o dynamic option re-read.

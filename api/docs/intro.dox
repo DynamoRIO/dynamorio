@@ -310,11 +310,11 @@ drconfiglib.dll library, can also be used to \ref sec_comm "nudge" running
 processes.
 
 Configuration information is stored in files in the current user's profile
-directory, which is obtained from the environment variable \c $USERPROFILE.
+directory, which is obtained from the environment variable \c USERPROFILE.
 Thus, configurations are persistent across reboots and are private to each
-user.  An alternative to <tt>$USERPROFILE</tt> can be
-specified by setting the <tt>DYNAMORIO_CONFIGDIR</tt> environment variable;
-if neither is set, a temp directory will be used when creating new
+user.  If the <tt>DYNAMORIO_CONFIGDIR</tt> environment variable is set,
+its value is used instead of \c USERPROFILE.
+If neither is set, a temp directory will be used when creating new
 configuration files for configure-and-run execution.
 
 DynamoRIO also supports global configurations, which are stored in
@@ -326,10 +326,10 @@ that \c DYNAMORIO_HOME value and creating the directory it points to must
 be done manually.  The provided tools support reading and writing both
 local and global configuration files, and automatically creating the local
 directory.  DynamoRIO gives local files precedence when both exist.  Note
-that applications that do not have a $USEPROFILE environment variable can
-only be executed using global configurations.  Also note that by default
-\c $USERPROFILE is not set over cygwin ssh and must be explicitly set in
-the shell startup files.
+that applications that do not have a \c USEPROFILE environment variable can
+be controlled using <tt>DYNAMORIO_CONFIGDIR</tt> or global configurations.
+Also note that by default \c USERPROFILE is not set over cygwin ssh and
+must be explicitly set in the shell startup files.
 
 Configurations are per-process, with the basename of the process used for
 identification (e.g., \c calc.exe).  One-time configuration also uses the
@@ -373,7 +373,9 @@ bin32/drconfig.exe -unreg calc.exe
 Invoke any of the \c drconfig.exe, \c drrun.exe, or \c drinject.exe tools
 with no arguments to see the full list of options available.
 
-By default, DynamoRIO follows into all child processes.  To instead only
+By default, DynamoRIO follows into all child processes, with the parent's
+settings inherited by the child if there is no configuration set up ahead
+of time for the child application.  To instead only
 follow children that are configured (via \c drconfig.exe), use the
 \ref op_children "-no_follow_children" runtime option.
 
@@ -452,9 +454,9 @@ Once each process name is configured, the \p drinject tool can be used to
 invoke the parent process.  The \p drrun tool can also be used but it
 creates a temporary configuration file that will override settings
 requested via \p drconfig.  The configuration file for each application is
-stored in <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> (or a \p
-config64 suffix for 64-bit).  An alternative to <tt>$HOME</tt> can be
-specified by setting the <tt>DYNAMORIO_CONFIGDIR</tt> environment variable;
+stored in <tt>$DYNAMORIO_CONFIGDIR/.dynamorio/&lt;appname&gt;.config32</tt>
+(or a \p config64 suffix for 64-bit). If <tt>DYNAMORIO_CONFIGDIR</tt> is
+not set, <tt>$HOME/.dynamorio/&lt;appname&gt;.config32</tt> is used;
 if neither is set, a temp directory will be used when creating new
 configuration files for configure-and-run execution.
 
@@ -464,9 +466,11 @@ configuration file is not found.  \p drconfig does not support directly
 writing a global config file but such files can be copied from or modeled
 on local files.
 
-If a target application executes an \c execve that discards the \c $HOME
-environment variable, the resulting process will not run under DynamoRIO
-control.  Use global configuration files to handle this situation.
+If a target application executes an \c execve that discards the \c HOME
+environment variable, the resulting process will still run under DynamoRIO
+control with the same settings as the parent process.
+Use <tt>DYNAMORIO_CONFIGDIR</tt> or global configuration files to
+specify separate options for such a child process.
 
 If a target application binary has suid or sgid bits set, \p drrun will be
 unable to inject into it.  You'll need to use /etc/ld.so.preload as

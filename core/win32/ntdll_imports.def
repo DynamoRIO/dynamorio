@@ -181,6 +181,7 @@ EXPORTS
         tolower
         wcschr
         wcscmp
+        wcsncmp
         wcslen
         wcsncat
         wcsncpy

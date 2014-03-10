@@ -391,15 +391,17 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                     NULL_TERMINATE_BUFFER(dir);
 #endif
                 }
-                /* Ensure DR finds the same config file! */
-#ifdef WINDOWS
-                if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
-                    return false;
-#else
-                if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 0) != 0)
-                    return false;
-#endif
             }
+            /* For anon config files (.0config32), we set DYNAMORIO_VAR_CONFIGDIR to be
+             * either LOCAL_CONFIG_ENV or TMP to ensure DR finds the same config file!
+             */
+#ifdef WINDOWS
+            if (!SetEnvironmentVariableA(DYNAMORIO_VAR_CONFIGDIR, dir))
+                return false;
+#else
+            if (setenv(DYNAMORIO_VAR_CONFIGDIR, dir, 0) != 0)
+                return false;
+#endif
         }
         subdir = LOCAL_CONFIG_SUBDIR;
     }
