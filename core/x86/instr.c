@@ -192,6 +192,13 @@ opnd_is_reg_pointer_sized(opnd_t opnd)
 }
 
 bool
+opnd_is_reg_partial(opnd_t opnd)
+{
+    return (opnd_is_reg(opnd) && opnd.size != 0 &&
+            opnd_get_size(opnd) != reg_get_size(opnd_get_reg(opnd)));
+}
+
+bool
 reg_is_pointer_sized(reg_id_t reg)
 {
 #ifdef X64
@@ -214,7 +221,7 @@ opnd_get_size(opnd_t opnd)
 {
     switch(opnd.kind) {
     case REG_kind:
-        return reg_get_size(opnd_get_reg(opnd));
+        return (opnd.size == 0 ? reg_get_size(opnd_get_reg(opnd)) : opnd.size);
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
     case BASE_DISP_kind:
@@ -248,6 +255,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     case REL_ADDR_kind:
     case ABS_ADDR_kind:
 #endif
+    case REG_kind:
     case MEM_INSTR_kind:
     case INSTR_kind:
         opnd->size = newsize;
@@ -999,10 +1007,12 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 
 bool opnd_same(opnd_t op1, opnd_t op2)
 {
-    if (op1.kind!=op2.kind)
+    if (op1.kind != op2.kind)
         return false;
-    else if (!opnd_same_sizes_ok(op1.size, op2.size, opnd_is_reg(op1)) &&
+    else if (!opnd_same_sizes_ok(opnd_get_size(op1), opnd_get_size(op2),
+                                 opnd_is_reg(op1)) &&
              (opnd_is_immed_int(op1) ||
+              opnd_is_reg(op1) ||
               opnd_is_memory_reference(op1)))
         return false;
     /* If we could rely on unused bits being 0 could avoid dispatch on type.

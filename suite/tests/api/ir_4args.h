@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -78,10 +78,10 @@ OPCODE(vmpsadbw, vmpsadbw, vmpsadbw, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_
        IMMARG(OPSZ_1))
 OPCODE(vpclmulqdq, vpclmulqdq, vpclmulqdq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
-OPCODE(vroundss, vroundss, vroundss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4),
-       IMMARG(OPSZ_1))
-OPCODE(vroundsd, vroundsd, vroundsd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8),
-       IMMARG(OPSZ_1))
+OPCODE(vroundss, vroundss, vroundss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_12),
+       MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(vroundsd, vroundsd, vroundsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), IMMARG(OPSZ_1))
 OPCODE(vperm2f128, vperm2f128, vperm2f128, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16),
        IMMARG(OPSZ_1))
 OPCODE(vinsertf128, vinsertf128, vinsertf128, 0, REGARG(XMM0), REGARG(XMM1),
@@ -157,14 +157,14 @@ OPCODE(vfmaddpd_a, vfmaddpd, vfmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
 OPCODE(vfmaddpd_b, vfmaddpd, vfmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_16))
-OPCODE(vfmaddss_a, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
-OPCODE(vfmaddss_b, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
-OPCODE(vfmaddsd_a, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_8), REGARG(XMM3))
-OPCODE(vfmaddsd_b, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_8))
+OPCODE(vfmaddss_a, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       MEMARG(OPSZ_4), REGARG_PARTIAL(XMM3, OPSZ_4))
+OPCODE(vfmaddss_b, vfmaddss, vfmaddss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       REGARG_PARTIAL(XMM3, OPSZ_4), MEMARG(OPSZ_4))
+OPCODE(vfmaddsd_a, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), REGARG_PARTIAL(XMM3, OPSZ_8))
+OPCODE(vfmaddsd_b, vfmaddsd, vfmaddsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       REGARG_PARTIAL(XMM3, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(vfmsubps_a, vfmsubps, vfmsubps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -174,14 +174,14 @@ OPCODE(vfmsubpd_a, vfmsubpd, vfmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
 OPCODE(vfmsubpd_b, vfmsubpd, vfmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_16))
-OPCODE(vfmsubss_a, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
-OPCODE(vfmsubss_b, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
-OPCODE(vfmsubsd_a, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_8), REGARG(XMM3))
-OPCODE(vfmsubsd_b, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_8))
+OPCODE(vfmsubss_a, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       MEMARG(OPSZ_4), REGARG_PARTIAL(XMM3, OPSZ_4))
+OPCODE(vfmsubss_b, vfmsubss, vfmsubss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       REGARG_PARTIAL(XMM3, OPSZ_4), MEMARG(OPSZ_4))
+OPCODE(vfmsubsd_a, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), REGARG_PARTIAL(XMM3, OPSZ_8))
+OPCODE(vfmsubsd_b, vfmsubsd, vfmsubsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       REGARG_PARTIAL(XMM3, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(vfnmaddps_a, vfnmaddps, vfnmaddps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -191,14 +191,14 @@ OPCODE(vfnmaddpd_a, vfnmaddpd, vfnmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
 OPCODE(vfnmaddpd_b, vfnmaddpd, vfnmaddpd, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_16))
-OPCODE(vfnmaddss_a, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
-OPCODE(vfnmaddss_b, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
-OPCODE(vfnmaddsd_a, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_8), REGARG(XMM3))
-OPCODE(vfnmaddsd_b, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_8))
+OPCODE(vfnmaddss_a, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       MEMARG(OPSZ_4), REGARG_PARTIAL(XMM3, OPSZ_4))
+OPCODE(vfnmaddss_b, vfnmaddss, vfnmaddss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       REGARG_PARTIAL(XMM3, OPSZ_4), MEMARG(OPSZ_4))
+OPCODE(vfnmaddsd_a, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), REGARG_PARTIAL(XMM3, OPSZ_8))
+OPCODE(vfnmaddsd_b, vfnmaddsd, vfnmaddsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       REGARG_PARTIAL(XMM3, OPSZ_8), MEMARG(OPSZ_8))
 
 OPCODE(vfnmsubps_a, vfnmsubps, vfnmsubps, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
@@ -208,14 +208,14 @@ OPCODE(vfnmsubpd_a, vfnmsubpd, vfnmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
        MEMARG(OPSZ_16), REGARG(XMM3))
 OPCODE(vfnmsubpd_b, vfnmsubpd, vfnmsubpd, 0, REGARG(XMM0), REGARG(XMM1),
        REGARG(XMM3), MEMARG(OPSZ_16))
-OPCODE(vfnmsubss_a, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_4), REGARG(XMM3))
-OPCODE(vfnmsubss_b, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_4))
-OPCODE(vfnmsubsd_a, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       MEMARG(OPSZ_8), REGARG(XMM3))
-OPCODE(vfnmsubsd_b, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG(XMM1),
-       REGARG(XMM3), MEMARG(OPSZ_8))
+OPCODE(vfnmsubss_a, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       MEMARG(OPSZ_4), REGARG_PARTIAL(XMM3, OPSZ_4))
+OPCODE(vfnmsubss_b, vfnmsubss, vfnmsubss, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_4),
+       REGARG_PARTIAL(XMM3, OPSZ_4), MEMARG(OPSZ_4))
+OPCODE(vfnmsubsd_a, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       MEMARG(OPSZ_8), REGARG_PARTIAL(XMM3, OPSZ_8))
+OPCODE(vfnmsubsd_b, vfnmsubsd, vfnmsubsd, 0, REGARG(XMM0), REGARG_PARTIAL(XMM1, OPSZ_8),
+       REGARG_PARTIAL(XMM3, OPSZ_8), MEMARG(OPSZ_8))
 
 /****************************************************************************/
 /* XOP */

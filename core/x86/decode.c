@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -263,6 +263,24 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
         return (TEST(PREFIX_VEX_L, di->prefixes) ?  OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32:
         return OPSZ_16;
+    }
+    return sz;
+}
+
+static opnd_size_t
+expand_subreg_size(opnd_size_t sz)
+{
+    switch (sz) {
+    case OPSZ_4_of_8:
+        return OPSZ_8;
+    case OPSZ_4_of_16:
+    case OPSZ_8_of_16:
+    case OPSZ_12_of_16:
+        return OPSZ_16;
+    case OPSZ_16_of_32:
+        return OPSZ_32;
+    case OPSZ_8_of_16_vex32:
+        return OPSZ_16_vex32;
     }
     return sz;
 }
@@ -1186,7 +1204,8 @@ typedef enum {
 } decode_reg_t;
 
 /* Pass in the raw opsize, NOT a size passed through resolve_variable_size(),
- * to avoid allowing OPSZ_6_irex10_short4 w/ data16
+ * to avoid allowing OPSZ_6_irex10_short4 w/ data16.
+ * To create a sub-sized register, caller must set size separately.
  */
 static reg_id_t
 decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t opsize)
@@ -1223,12 +1242,11 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
     case TYPE_V_MODRM:
     case TYPE_VSIB:
         return ((TEST(PREFIX_VEX_L, di->prefixes) &&
-                 /* we use this to indicate .LIG since all {VHW}s{sd} types
-                  * and no others are .LIG
+                 /* Not only do we use this for .LIG (where raw reg is either
+                  * OPSZ_32 or OPSZ_16_vex32) but also for VSIB which currently
+                  * does not get up to OPSZ_16 so we can use this negative check.
                   */
-                 opsize != OPSZ_4_of_16 &&
-                 opsize != OPSZ_8_of_16 &&
-                 opsize != OPSZ_12_of_16)?
+                 expand_subreg_size(opsize) != OPSZ_16) ?
                 (extend? (REG_START_YMM + 8 + reg) : (REG_START_YMM + reg)) :
                 (extend? (REG_START_XMM + 8 + reg) : (REG_START_XMM + reg)));
     case TYPE_S:
@@ -1298,6 +1316,7 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
         if (reg == REG_NULL)
             return false;
         *reg_opnd = opnd_create_reg(reg);
+        opnd_set_size(reg_opnd, resolve_variable_size(di, opsize, true/*is reg*/));
     }
 
     if (rm_opnd != NULL) {
@@ -1386,6 +1405,8 @@ decode_modrm(decode_info_t *di, byte optype, opnd_size_t opsize,
                     return false;
                 else {
                     *rm_opnd = opnd_create_reg(rm_reg);
+                    opnd_set_size(rm_opnd, resolve_variable_size(di, opsize,
+                                                                 true/*is reg*/));
                     return true;
                 }
             } else {
@@ -1542,6 +1563,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
         return true;
     case TYPE_REG:
         *opnd = opnd_create_reg(opsize);
+        /* here and below, for all TYPE_*REG*: no need to set size as it's a GPR */
         return true;
     case TYPE_XREG:
         *opnd = opnd_create_reg(resolve_var_reg
@@ -1784,34 +1806,29 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
             /* part of AVX: top 4 bits of 8-bit immed select xmm/ymm register */
             ptr_int_t immed = get_immed(di, OPSZ_1);
             reg_id_t reg = (reg_id_t) (immed & 0xf0) >> 4;
-            *opnd = opnd_create_reg(((TEST(di->prefixes, PREFIX_VEX_L) &&
-                                      /* we use this to indicate .LIG since all
-                                       * {VHW}s{sd} types and no others are .LIG
-                                       */
-                                      opsize != OPSZ_4_of_16 &&
-                                      opsize != OPSZ_8_of_16 &&
-                                      opsize != OPSZ_12_of_16)?
+            *opnd = opnd_create_reg(((TEST(PREFIX_VEX_L, di->prefixes) &&
+                                      /* see .LIG notes above */
+                                      expand_subreg_size(opsize) != OPSZ_16) ?
                                      REG_START_YMM : REG_START_XMM) + reg);
+            opnd_set_size(opnd, resolve_variable_size(di, opsize, true/*is reg*/));
             return true;
         }
     case TYPE_H:
         {
             /* part of AVX: vex.vvvv selects xmm/ymm register */
             reg_id_t reg = (~di->vex_vvvv) & 0xf; /* bit-inverted */
-            *opnd = opnd_create_reg(((TEST(di->prefixes, PREFIX_VEX_L) &&
-                                      /* we use this to indicate .LIG since all
-                                       * {VHW}s{sd} types and no others are .LIG
-                                       */
-                                      opsize != OPSZ_4_of_16 &&
-                                      opsize != OPSZ_8_of_16 &&
-                                      opsize != OPSZ_12_of_16)?
+            *opnd = opnd_create_reg(((TEST(PREFIX_VEX_L, di->prefixes) &&
+                                      /* see .LIG notes above */
+                                      expand_subreg_size(opsize) != OPSZ_16) ?
                                      REG_START_YMM : REG_START_XMM) + reg);
+            opnd_set_size(opnd, resolve_variable_size(di, opsize, true/*is reg*/));
             return true;
         }
     case TYPE_B:
         {
             /* part of XOP/AVX: vex.vvvv selects general-purpose register */
             *opnd = opnd_create_reg(decode_reg(DECODE_REG_VEX, di, optype, opsize));
+            /* no need to set size as it's a GPR */
             return true;
         }
     default:

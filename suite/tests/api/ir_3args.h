@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,8 +54,10 @@ OPCODE(pextrd, pextrd, pextrd, 0, REGARG(EAX), REGARG(XMM0), IMMARG(OPSZ_1))
 OPCODE(extractps, extractps, extractps, 0, REGARG(EAX), REGARG(XMM0), IMMARG(OPSZ_1))
 OPCODE(roundps, roundps, roundps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(roundpd, roundpd, roundpd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
-OPCODE(roundss, roundss, roundss, 0, REGARG(XMM0), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
-OPCODE(roundsd, roundsd, roundsd, 0, REGARG(XMM0), MEMARG(OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(roundss, roundss, roundss, 0, REGARG_PARTIAL(XMM0, OPSZ_4), MEMARG(OPSZ_4),
+       IMMARG(OPSZ_1))
+OPCODE(roundsd, roundsd, roundsd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8),
+       IMMARG(OPSZ_1))
 OPCODE(blendps, blendps, blendps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(blendpd, blendpd, blendpd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(pblendw, pblendw, pblendw, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
@@ -65,9 +67,10 @@ OPCODE(pinsrd, pinsrd, pinsrd, 0, REGARG(XMM0), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(shufps, shufps, shufps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(shufpd, shufpd, shufpd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 OPCODE(cmpps, cmpps, cmpps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
-OPCODE(cmpss, cmpss, cmpss, 0, REGARG(XMM0), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
+OPCODE(cmpss, cmpss, cmpss, 0, REGARG_PARTIAL(XMM0, OPSZ_4), MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(cmppd, cmppd, cmppd, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
-OPCODE(cmpsd, cmpsd, cmpsd, 0, REGARG(XMM0), MEMARG(OPSZ_8), IMMARG(OPSZ_1))
+OPCODE(cmpsd, cmpsd, cmpsd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8),
+       IMMARG(OPSZ_1))
 OPCODE(palignr, palignr, palignr, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
 
 OPCODE(dpps, dpps, dpps, 0, REGARG(XMM0), MEMARG(OPSZ_16), IMMARG(OPSZ_1))
@@ -85,20 +88,30 @@ OPCODE(aeskeygenassist, aeskeygenassist, aeskeygenassist, 0, REGARG(XMM0),
 
 /****************************************************************************/
 /* AVX */
-OPCODE(vmovlps_NDS, vmovlps, vmovlps_NDS, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vmovlpd_NDS, vmovlpd, vmovlpd_NDS, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
+OPCODE(vmovlps_NDS, vmovlps, vmovlps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovlpd_NDS, vmovlpd, vmovlpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(vunpcklps, vunpcklps, vunpcklps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpcklpd, vunpcklpd, vunpcklpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpckhps, vunpckhps, vunpckhps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
 OPCODE(vunpckhpd, vunpckhpd, vunpckhpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vmovhps_NDS, vmovhps, vmovhps_NDS, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vmovhpd_NDS, vmovhpd, vmovhpd_NDS, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vcvtsi2ss, vcvtsi2ss, vcvtsi2ss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
-OPCODE(vcvtsi2sd, vcvtsi2sd, vcvtsi2sd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
-OPCODE(vsqrtss, vsqrtss, vsqrtss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
-OPCODE(vsqrtsd, vsqrtsd, vsqrtsd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vrsqrtss, vrsqrtss, vrsqrtss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
-OPCODE(vrcpss, vrcpss, vrcpss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
+OPCODE(vmovhps_NDS, vmovhps, vmovhps_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vmovhpd_NDS, vmovhpd, vmovhpd_NDS, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vcvtsi2ss, vcvtsi2ss, vcvtsi2ss, 0, REGARG_PARTIAL(XMM0, OPSZ_4),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_4))
+OPCODE(vcvtsi2sd, vcvtsi2sd, vcvtsi2sd, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_4))
+OPCODE(vsqrtss, vsqrtss, vsqrtss, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_4))
+OPCODE(vsqrtsd, vsqrtsd, vsqrtsd, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(vrsqrtss, vrsqrtss, vrsqrtss, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_4))
+OPCODE(vrcpss, vrcpss, vrcpss, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_4))
 OPCODE(vandps, vandps, vandps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vandpd, vandpd, vandpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vandnps, vandnps, vandnps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
@@ -115,8 +128,10 @@ OPCODE(vmulps, vmulps, vmulps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vmulss, vmulss, vmulss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
 OPCODE(vmulpd, vmulpd, vmulpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vmulsd, vmulsd, vmulsd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
-OPCODE(vcvtss2sd, vcvtss2sd, vcvtss2sd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
-OPCODE(vcvtsd2ss, vcvtsd2ss, vcvtsd2ss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_8))
+OPCODE(vcvtss2sd, vcvtss2sd, vcvtss2sd, 0, REGARG_PARTIAL(XMM0, OPSZ_8),
+       REGARG_PARTIAL(XMM1, OPSZ_8), MEMARG(OPSZ_4))
+OPCODE(vcvtsd2ss, vcvtsd2ss, vcvtsd2ss, 0, REGARG_PARTIAL(XMM0, OPSZ_4),
+       REGARG_PARTIAL(XMM1, OPSZ_12), MEMARG(OPSZ_8))
 OPCODE(vsubps, vsubps, vsubps, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
 OPCODE(vsubss, vsubss, vsubss, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_4))
 OPCODE(vsubpd, vsubpd, vsubpd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
@@ -242,8 +257,10 @@ OPCODE(vroundps, vroundps, vroundps, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_
 OPCODE(vroundpd, vroundpd, vroundpd, 0, REGARG(XMM0), REGARG(XMM1), IMMARG(OPSZ_1))
 OPCODE(vaeskeygenassist, vaeskeygenassist, vaeskeygenassist, 0, REGARG(XMM0), REGARG(XMM1),
        IMMARG(OPSZ_1))
-OPCODE(vmovss_NDS, vmovss, vmovss_NDS, 0, REGARG(XMM0), REGARG(XMM1), REGARG(XMM2))
-OPCODE(vmovsd_NDS, vmovsd, vmovsd_NDS, 0, REGARG(XMM0), REGARG(XMM1), REGARG(XMM2))
+OPCODE(vmovss_NDS, vmovss, vmovss_NDS, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_12), REGARG_PARTIAL(XMM2, OPSZ_4))
+OPCODE(vmovsd_NDS, vmovsd, vmovsd_NDS, 0, REGARG(XMM0),
+       REGARG_PARTIAL(XMM1, OPSZ_8), REGARG_PARTIAL(XMM2, OPSZ_8))
 OPCODE(vcvtps2ph, vcvtps2ph, vcvtps2ph, 0, MEMARG(OPSZ_16), REGARG(XMM0),
        IMMARG(OPSZ_1))
 OPCODE(vmaskmovps_ld, vmaskmovps, vmaskmovps, 0, REGARG(XMM0), REGARG(XMM1),

@@ -500,9 +500,10 @@ extern const reg_id_t dr_reg_fixer[];
  */
 struct _opnd_t {
     byte kind;
-    /* size field only used for immed_ints and addresses
-     * it holds a OPSZ_ field from decode.h
-     * we need it so we can pick the proper instruction form for
+    /* Size field: used for immed_ints and addresses and registers,
+     * but for registers, if 0, the full size of the register is assumed.
+     * It holds a OPSZ_ field from decode.h.
+     * We need it so we can pick the proper instruction form for
      * encoding -- an alternative would be to split all the opcodes
      * up into different data size versions.
      */
@@ -609,6 +610,17 @@ INSTR_INLINE
 /** Returns a register operand (\p r must be a DR_REG_ constant). */
 opnd_t
 opnd_create_reg(reg_id_t r);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a register operand corresponding to a part of the multimedia
+ * register represented by the DR_REG_ constant \p r, which must be
+ * an mmx, xmm, or ymm register.  For partial general-purpose registers,
+ * use the appropriate sub-register name with opnd_create_reg() instead.
+ */
+opnd_t
+opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize);
 
 DR_API
 /**
@@ -914,6 +926,11 @@ bool
 opnd_is_reg(opnd_t opnd);
 
 DR_API
+/** Returns true iff \p opnd is a partial multimedia register operand. */
+bool
+opnd_is_reg_partial(opnd_t opnd);
+
+DR_API
 INSTR_INLINE
 /** Returns true iff \p opnd is an immediate (integer or float) operand. */
 bool
@@ -1093,9 +1110,9 @@ opnd_is_near_memory_reference(opnd_t opnd);
 DR_API
 /**
  * Return the data size of \p opnd as a OPSZ_ constant.
- * If \p opnd is a register returns the result of opnd_reg_get_size()
- * called on the DR_REG_ constant.
  * Returns OPSZ_NA if \p opnd does not have a valid size.
+ * \note A register operand may have a size smaller than the full size
+ * of its DR_REG_* register specifier.
  */
 opnd_size_t
 opnd_get_size(opnd_t opnd);
@@ -1570,7 +1587,7 @@ DR_API
 /**
  * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
  * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
- * to get a OPSZ_ constant.
+ * to get a OPSZ_ constant that assumes the entire register is used.
  * Returns the number of bytes the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
  * which may or may not match the actual size decided up on at

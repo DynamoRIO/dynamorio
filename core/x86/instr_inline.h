@@ -177,6 +177,21 @@ opnd_create_reg(reg_id_t r)
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
     opnd.value.reg = r;
+    opnd.size = 0; /* indicates full size of reg */
+    return opnd;
+}
+
+INSTR_INLINE
+opnd_t
+opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
+{
+    opnd_t opnd DR_IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
+    CLIENT_ASSERT((r >= DR_REG_MM0 && r <= DR_REG_XMM15) ||
+                  (r >= DR_REG_YMM0 && r <= DR_REG_YMM15),
+                  "opnd_create_reg_partial: non-multimedia register");
+    opnd.kind = REG_kind;
+    opnd.value.reg = r;
+    opnd.size = subsize;
     return opnd;
 }
 

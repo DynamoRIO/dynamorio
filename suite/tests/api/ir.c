@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -103,6 +103,7 @@ static byte buf[8192];
 #define IMMARG(sz)  opnd_create_immed_int(37, sz)
 #define TGTARG      opnd_create_instr(instrlist_last(ilist))
 #define REGARG(reg) opnd_create_reg(REG_##reg)
+#define REGARG_PARTIAL(reg, sz) opnd_create_reg_partial(REG_##reg, sz)
 #define VSIBX(sz)  (opnd_create_base_disp(REG_XCX, REG_XMM6, 2, 0x42, sz))
 #define VSIBY(sz)  (opnd_create_base_disp(REG_XDX, REG_YMM6, 2, 0x17, sz))
 #define X86_ONLY    1

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -803,7 +803,11 @@ static bool
 reg_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             reg_id_t reg, int optype, opnd_size_t opsize, bool addr)
 {
-    /* It's ok to have an operand of type mmx or xmm but half-size (e.g., movddup) */
+    /* Although we now expose sub-register sizes (i#1382), we do not require
+     * them when encoding as we have no simple way to add auto-magic creation
+     * to the INSTR_CREATE_ macros.  Plus, sub-register sizes never distinguish
+     * two opcodes.
+     */
     if (opsize == OPSZ_4_of_8 &&
         (optype == TYPE_P || optype == TYPE_Q || optype == TYPE_P_MODRM))
         return (reg >= REG_START_MMX && reg <= REG_STOP_MMX);
