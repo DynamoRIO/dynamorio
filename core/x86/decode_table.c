@@ -386,9 +386,9 @@ const instr_info_t * const op_instr[] =
 
 
     /* OP_movups     */   &prefix_extensions[ 0][0],
-    /* OP_movss      */   &prefix_extensions[ 0][1],
+    /* OP_movss      */   &mod_extensions[18][0],
     /* OP_movupd     */   &prefix_extensions[ 0][2],
-    /* OP_movsd      */   &prefix_extensions[ 0][3],
+    /* OP_movsd      */   &mod_extensions[19][0],
     /* OP_movlps     */   &prefix_extensions[ 2][0],
     /* OP_movlpd     */   &prefix_extensions[ 2][2],
     /* OP_unpcklps   */   &prefix_extensions[ 4][0],
@@ -2687,9 +2687,9 @@ const instr_info_t prefix_extensions[][8] = {
   /* prefix extension 0 */
   {
     {OP_movups, 0x0f1010, "movups", Vps, xx, Wps, xx, xx, mrm, x, tpe[1][0]},
-    {OP_movss,  0xf30f1010, "movss",  Vss, xx, Wss, xx, xx, mrm, x, tpe[1][1]},
+    {MOD_EXT,   0xf30f1010, "(mod ext 18)",  xx, xx, xx, xx, xx, mrm, x, 18},
     {OP_movupd, 0x660f1010, "movupd", Vpd, xx, Wpd, xx, xx, mrm, x, tpe[1][2]},
-    {OP_movsd,  0xf20f1010, "movsd",  Vsd, xx, Wsd, xx, xx, mrm, x, tpe[1][3]},
+    {MOD_EXT,   0xf20f1010, "(mod ext 19)",  xx, xx, xx, xx, xx, mrm, x, 19},
     {OP_vmovups,   0x0f1010, "vmovups", Vvs, xx, Wvs, xx, xx, mrm|vex, x, tpe[1][4]},
     {MOD_EXT,    0xf30f1010, "(mod ext 8)", xx, xx, xx, xx, xx, mrm|vex, x, 8},
     {OP_vmovupd, 0x660f1010, "vmovupd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, tpe[1][6]},
@@ -4624,6 +4624,16 @@ const instr_info_t mod_extensions[][2] = {
   { /* mod extension 17 */
     {VEX_EXT,    0x0fae33, "(vex ext 62)", xx, xx, xx, xx, xx, mrm, x, 62},
     {OP_wrgsbase,0xf30fae33, "wrgsbase", xx, xx, Ry, xx, xx, mrm|o64|reqp, x, END_LIST},
+  },
+  { /* mod extension 18 */
+    /* load from memory zeroes top bits */
+    {OP_movss,  0xf30f1010, "movss",  Vdq, xx, Mss, xx, xx, mrm, x, modx[18][1]},
+    {OP_movss,  0xf30f1010, "movss",  Vss, xx, Uss, xx, xx, mrm, x, tpe[1][1]},
+  },
+  { /* mod extension 19 */
+    /* load from memory zeroes top bits */
+    {OP_movsd,  0xf20f1010, "movsd",  Vdq, xx, Msd, xx, xx, mrm, x, modx[19][1]},
+    {OP_movsd,  0xf20f1010, "movsd",  Vsd, xx, Usd, xx, xx, mrm, x, tpe[1][3]},
   },
 };
 

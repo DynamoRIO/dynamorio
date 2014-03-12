@@ -95,9 +95,15 @@ OPCODE(sar, sar, sar, 0, MEMARG(OPSZ_4), IMMARG(OPSZ_1))
 OPCODE(pmovmskb, pmovmskb, pmovmskb, 0, REGARG(EAX), REGARG(MM0))
 OPCODE(ptest, ptest, ptest, 0, REGARG(XMM0), MEMARG(OPSZ_16))
 OPCODE(movups, movups, movups, 0, REGARG(XMM0), MEMARG(OPSZ_16))
-OPCODE(movss, movss, movss, 0, REGARG_PARTIAL(XMM0, OPSZ_4), MEMARG(OPSZ_4))
+OPCODE(movss_ld, movss, movss, 0, REGARG(XMM0), MEMARG(OPSZ_4))
+OPCODE(movss_st, movss, movss, 0, MEMARG(OPSZ_4), REGARG_PARTIAL(XMM0, OPSZ_4))
+OPCODE(movss_rr, movss, movss, 0, REGARG_PARTIAL(XMM1, OPSZ_4),
+       REGARG_PARTIAL(XMM0, OPSZ_4))
 OPCODE(movupd, movupd, movupd, 0, REGARG(XMM0), MEMARG(OPSZ_16))
-OPCODE(movsd, movsd, movsd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
+OPCODE(movsd_ld, movsd, movsd, 0, REGARG(XMM0), MEMARG(OPSZ_8))
+OPCODE(movsd_st, movsd, movsd, 0, MEMARG(OPSZ_8), REGARG_PARTIAL(XMM0, OPSZ_8))
+OPCODE(movsd_rr, movsd, movsd, 0, REGARG_PARTIAL(XMM1, OPSZ_8),
+       REGARG_PARTIAL(XMM0, OPSZ_8))
 
 OPCODE(movlps, movlps, movlps, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
 OPCODE(movlpd, movlpd, movlpd, 0, REGARG_PARTIAL(XMM0, OPSZ_8), MEMARG(OPSZ_8))
