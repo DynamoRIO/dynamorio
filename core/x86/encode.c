@@ -258,6 +258,7 @@ const char * const size_names[] = {
     "OPSZ_4_of_8",
     "OPSZ_4_of_16",
     "OPSZ_8_of_16",
+    "OPSZ_12_of_16",
     "OPSZ_8_of_16_vex32",
     "OPSZ_16_of_32",
 };
@@ -520,6 +521,23 @@ resolve_var_x64_size(decode_info_t *di/*x86_mode is IN*/,
     return sz;
 }
 
+static opnd_size_t
+collapse_subreg_size(opnd_size_t sz)
+{
+    switch (sz) {
+    case OPSZ_4_of_8:
+    case OPSZ_4_of_16:
+        return OPSZ_4;
+    case OPSZ_8_of_16: /* OPSZ_8_of_16_vex32 is kept */
+        return OPSZ_8;
+    case OPSZ_12_of_16:
+        return OPSZ_12;
+    case OPSZ_16_of_32:
+        return OPSZ_16;
+    }
+    return sz;
+}
+
 /* Caller should resolve the OPSZ_*_reg* sizes prior to calling this
  * routine, as here we don't know the operand types
  * Note that this routine modifies prefixes, so it is not idempotent; the
@@ -553,30 +571,8 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     /* register size checks go through reg_size_ok, so collapse sub-reg
      * sizes to the true sizes
      */
-    switch (size_op) {
-    case OPSZ_4_of_8:
-    case OPSZ_4_of_16:
-        size_op = OPSZ_4;
-        break;
-    case OPSZ_8_of_16: /* OPSZ_8_of_16_vex32 is kept */
-        size_op = OPSZ_8;
-        break;
-    case OPSZ_16_of_32:
-        size_op = OPSZ_16;
-        break;
-    }
-    switch (size_template) {
-    case OPSZ_4_of_8:
-    case OPSZ_4_of_16:
-        size_template = OPSZ_4;
-        break;
-    case OPSZ_8_of_16: /* OPSZ_8_of_16_vex32 is kept */
-        size_template = OPSZ_8;
-        break;
-    case OPSZ_16_of_32:
-        size_template = OPSZ_16;
-        break;
-    }
+    size_op = collapse_subreg_size(size_op);
+    size_template = collapse_subreg_size(size_template);
 
     /* First set/check rex.w or data prefix, if necessary
      * if identical size then don't need to set or check anything */
@@ -736,6 +732,7 @@ size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
         case OPSZ_4_of_8:
         case OPSZ_4_of_16:
         case OPSZ_8_of_16:
+        case OPSZ_12_of_16:
         case OPSZ_8_of_16_vex32:
         case OPSZ_16_of_32:
         case OPSZ_0:
@@ -810,7 +807,8 @@ reg_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
     if (opsize == OPSZ_4_of_8 &&
         (optype == TYPE_P || optype == TYPE_Q || optype == TYPE_P_MODRM))
         return (reg >= REG_START_MMX && reg <= REG_STOP_MMX);
-    if ((opsize == OPSZ_4_of_16 || opsize == OPSZ_8_of_16) &&
+    if ((opsize == OPSZ_4_of_16 || opsize == OPSZ_8_of_16 ||
+         opsize == OPSZ_12_of_16) &&
         (optype == TYPE_V || optype == TYPE_V_MODRM || optype == TYPE_W ||
          optype == TYPE_H || optype == TYPE_L))
         return (reg >= REG_START_XMM && reg <= REG_STOP_XMM);

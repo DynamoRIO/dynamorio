@@ -257,6 +257,8 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
         return OPSZ_4;
     case OPSZ_8_of_16:
         return OPSZ_8;
+    case OPSZ_12_of_16:
+        return OPSZ_12;
     case OPSZ_8_of_16_vex32:
         return (TEST(PREFIX_VEX_L, di->prefixes) ?  OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32:
@@ -1225,7 +1227,8 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
                   * and no others are .LIG
                   */
                  opsize != OPSZ_4_of_16 &&
-                 opsize != OPSZ_8_of_16)?
+                 opsize != OPSZ_8_of_16 &&
+                 opsize != OPSZ_12_of_16)?
                 (extend? (REG_START_YMM + 8 + reg) : (REG_START_YMM + reg)) :
                 (extend? (REG_START_XMM + 8 + reg) : (REG_START_XMM + reg)));
     case TYPE_S:
@@ -1786,7 +1789,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                                        * {VHW}s{sd} types and no others are .LIG
                                        */
                                       opsize != OPSZ_4_of_16 &&
-                                      opsize != OPSZ_8_of_16) ?
+                                      opsize != OPSZ_8_of_16 &&
+                                      opsize != OPSZ_12_of_16)?
                                      REG_START_YMM : REG_START_XMM) + reg);
             return true;
         }
@@ -1799,7 +1803,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
                                        * {VHW}s{sd} types and no others are .LIG
                                        */
                                       opsize != OPSZ_4_of_16 &&
-                                      opsize != OPSZ_8_of_16) ?
+                                      opsize != OPSZ_8_of_16 &&
+                                      opsize != OPSZ_12_of_16)?
                                      REG_START_YMM : REG_START_XMM) + reg);
             return true;
         }

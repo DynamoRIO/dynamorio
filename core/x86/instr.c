@@ -1228,6 +1228,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_10:
         return 10;
     case OPSZ_12:
+    case OPSZ_12_of_16:
     case OPSZ_12_rex40_short6: /* default size */
         return 12;
     case OPSZ_14:

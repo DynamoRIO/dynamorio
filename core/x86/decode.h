@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -630,6 +630,7 @@ enum {
     OPSZ_4_of_8 = OPSZ_LAST,  /* 32 bits, but can be half of MMX register */
     OPSZ_4_of_16, /* 32 bits, but can be part of XMM register */
     OPSZ_8_of_16, /* 64 bits, but can be half of XMM register */
+    OPSZ_12_of_16, /* 96 bits: 3/4 of XMM */
     OPSZ_8_of_16_vex32, /* 64 bits, but can be half of XMM register; if
                          * vex.L then is 256 bits (YMM or memory)
                          */

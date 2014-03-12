@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1366,6 +1366,8 @@ const instr_info_t * const op_instr[] =
 #define Hvd TYPE_H, OPSZ_16_vex32
 #define Hss TYPE_H, OPSZ_4_of_16
 #define Hsd TYPE_H, OPSZ_8_of_16
+/* I made up "Hts": "H top of scalar" == top 12 bytes */
+#define Hts TYPE_H, OPSZ_12_of_16
 #define Hq_dq TYPE_H, OPSZ_8_of_16
 #define Hdq TYPE_H, OPSZ_16
 #define Hqq TYPE_H, OPSZ_32
@@ -2798,7 +2800,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_cvtpi2pd, 0x660f2a10, "cvtpi2pd", Vpd, xx, Qq, xx, xx, mrm, x, END_LIST},
     {OP_cvtsi2sd, 0xf20f2a10, "cvtsi2sd", Vsd, xx, Ed_q, xx, xx, mrm, x, END_LIST},
     {INVALID,  0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, Hss, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, Hts, Ed_q, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vsd, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
   },
@@ -2876,7 +2878,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_sqrtpd, 0x660f5110, "sqrtpd", Vpd, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_sqrtsd, 0xf20f5110, "sqrtsd", Vsd, xx, Wsd, xx, xx, mrm, x, END_LIST},
     {OP_vsqrtps, 0x0f5110, "vsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vss, xx, Hss, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vss, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
     {OP_vsqrtpd, 0x660f5110, "vsqrtpd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
     {OP_vsqrtsd, 0xf20f5110, "vsqrtsd", Vsd, xx, Hsd, Wsd, xx, mrm|vex, x, END_LIST},
   },
@@ -2887,7 +2889,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID, 0x660f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrsqrtps, 0x0f5210, "vrsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vrsqrtss, 0xf30f5210, "vrsqrtss", Vss, xx, Hss, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vrsqrtss, 0xf30f5210, "vrsqrtss", Vss, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -2898,7 +2900,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID, 0x660f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrcpps, 0x0f5310, "vrcpps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vrcpss, 0xf30f5310, "vrcpss", Vss, xx, Hss, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vrcpss, 0xf30f5310, "vrcpss", Vss, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -2977,7 +2979,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vsd, xx, Hss, Wss, xx, mrm|vex, x, END_LIST},
     {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vss, xx, Hsd, Wsd, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vss, xx, Hts, Wsd, xx, mrm|vex, x, END_LIST},
   },
   /* prefix extension 27 */
   {
@@ -4412,7 +4414,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vroundpd, 0x663a0918, "vroundpd",  Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 42 */
     {OP_roundss,  0x663a0a18, "roundss",  Vss, xx, Wss, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundss, 0x663a0a18, "vroundss",  Vss, xx, Hss, Wss, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_vroundss, 0x663a0a18, "vroundss",  Vss, xx, Hts, Wss, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 43 */
     {OP_roundsd,  0x663a0b18, "roundsd",  Vsd, xx, Wsd, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundsd, 0x663a0b18, "vroundsd",  Vsd, xx, Hss, Wsd, Ib, mrm|vex|reqp, x, END_LIST},
@@ -4576,7 +4578,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 10 */
     {OP_vmovss,  0xf30f1110, "vmovss",  Wss, xx, Vss,  xx, xx, mrm|vex, x, modx[ 8][1]},
-    {OP_vmovss,  0xf30f1110, "vmovss",  Uss, xx, Hss, Vss, xx, mrm|vex, x, END_LIST},
+    {OP_vmovss,  0xf30f1110, "vmovss",  Uss, xx, Hts, Vss, xx, mrm|vex, x, END_LIST},
   },
   { /* mod extension 11 */
     {OP_vmovsd,  0xf20f1110, "vmovsd",  Wsd, xx, Vsd,  xx, xx, mrm|vex, x, modx[ 9][1]},
