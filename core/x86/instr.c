@@ -3438,7 +3438,8 @@ opc_is_not_a_real_memory_load(int opc)
     return false;
 }
 
-bool instr_reads_memory(instr_t *instr)
+bool
+instr_reads_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
@@ -3456,7 +3457,8 @@ bool instr_reads_memory(instr_t *instr)
     return false;
 }
 
-bool instr_writes_memory(instr_t *instr)
+bool
+instr_writes_memory(instr_t *instr)
 {
     int a;
     opnd_t curop;
@@ -3465,6 +3467,25 @@ bool instr_writes_memory(instr_t *instr)
         if (opnd_is_memory_reference(curop)) {
             return true;
         }
+    }
+    return false;
+}
+
+bool
+instr_zeroes_ymmh(instr_t *instr)
+{
+    int i;
+    const instr_info_t *info = get_encoding_info(instr);
+    if (info == NULL)
+        return false;
+    /* legacy instrs always preserve top half of ymm */
+    if (!TEST(REQUIRES_VEX, info->flags))
+        return false;
+    for (i=0; i<instr_num_dsts(instr); i++) {
+        opnd_t opnd = instr_get_dst(instr, i);
+        if (opnd_is_reg(opnd) && reg_is_xmm(opnd_get_reg(opnd)) &&
+            !reg_is_ymm(opnd_get_reg(opnd)))
+            return true;
     }
     return false;
 }

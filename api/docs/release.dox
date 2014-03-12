@@ -147,6 +147,7 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_reg_partial() and opnd_is_reg_partial() for
    representing a partial multimedia register
  - Added operand size suffixes on disassembly in the default mode
+ - Added instr_zeroes_ymmh()
 
 **************************************************
 <hr>

@@ -2892,6 +2892,15 @@ DR_API
 bool
 instr_writes_memory(instr_t *instr);
 
+DR_API
+/**
+ * Returns true iff \p instr writes to an xmm register and zeroes the top half
+ * of the corresponding ymm register as a result (some instructions preserve
+ * the top half while others zero it when writing to the bottom half).
+ */
+bool
+instr_zeroes_ymmh(instr_t *instr);
+
 /* DR_API EXPORT BEGIN */
 #ifdef X64
 /* DR_API EXPORT END */
