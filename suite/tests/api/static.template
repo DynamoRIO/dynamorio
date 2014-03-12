@@ -1,10 +1,10 @@
 #ifdef X64
- 89 41 25             mov    %eax -> 0x25(%rcx) 
+ 89 41 25             mov    %eax -> 0x25(%rcx)[4byte] 
  bf 11 00 00 00       mov    $0x00000011 -> %edi 
  89 41 25             mov    dword ptr [rcx+0x25], eax
  bf 11 00 00 00       mov    edi, 0x00000011
 #else
- 89 41 25             mov    %eax -> 0x25(%ecx) 
+ 89 41 25             mov    %eax -> 0x25(%ecx)[4byte] 
  bf 11 00 00 00       mov    $0x00000011 -> %edi 
  89 41 25             mov    dword ptr [ecx+0x25], eax
  bf 11 00 00 00       mov    edi, 0x00000011

@@ -989,29 +989,30 @@ test_tsx(void *dc)
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE("mov    %eax -> 0xa3ec8cfa02217a9a \n",
-                                   "mov    %eax -> 0x02217a9a \n")) == 0);
+    ASSERT(strcmp(buf, IF_X64_ELSE("mov    %eax -> 0xa3ec8cfa02217a9a[4byte] \n",
+                                   "mov    %eax -> 0x02217a9a[4byte] \n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,  IF_X64_ELSE("mov    %edi -> (%rcx) \n",
-                                    "mov    %edi -> (%ecx) \n")) == 0);
+    ASSERT(strcmp(buf,  IF_X64_ELSE("mov    %edi -> (%rcx)[4byte] \n",
+                                    "mov    %edi -> (%ecx)[4byte] \n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire mov    %edi -> (%rcx) \n",
-                                   "xacquire mov    %edi -> (%ecx) \n")) == 0);
+    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire mov    %edi -> (%rcx)[4byte] \n",
+                                   "xacquire mov    %edi -> (%ecx)[4byte] \n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b4, (byte *)b4,
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf, IF_X64_ELSE("xacquire lock add    %al (%rax) -> (%rax) \n",
-                                   "xacquire lock add    %al (%eax) -> (%eax) \n")) == 0);
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("xacquire lock add    %al (%rax)[1byte] -> (%rax)[1byte] \n",
+                   "xacquire lock add    %al (%eax)[1byte] -> (%eax)[1byte] \n")) == 0);
 }
 
 static void
@@ -1063,9 +1064,9 @@ test_vsib(void *dc)
                                false/*no pc*/, false/*no bytes*/,
                                buf, BUFFER_SIZE_ELEMENTS(buf), &len);
     ASSERT(pc != NULL);
-    ASSERT(strcmp(buf,
-                  IF_X64_ELSE("vpgatherdq (%rdx,%xmm0,2) %xmm2 -> %xmm4 %xmm2 \n",
-                              "vpgatherdq (%edx,%xmm0,2) %xmm2 -> %xmm4 %xmm2 \n")) == 0);
+    ASSERT(strcmp(buf, IF_X64_ELSE
+                  ("vpgatherdq (%rdx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2 \n",
+                   "vpgatherdq (%edx,%xmm0,2)[8byte] %xmm2 -> %xmm4 %xmm2 \n")) == 0);
 
     pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2,
                                false/*no pc*/, false/*no bytes*/,
@@ -1153,6 +1154,56 @@ test_vsib(void *dc)
     instr_destroy(dc, instr);
 }
 
+static void
+test_disasm_sizes(void *dc)
+{
+    byte *pc;
+    byte buf[512];
+    int len;
+
+    {
+        const byte b1[] = { 0xac };
+        const byte b2[] = { 0xad };
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(pc != NULL);
+        ASSERT(strcmp(buf, IF_X64_ELSE("lods   %ds:(%rsi)[1byte] %rsi -> %al %rsi \n",
+                                       "lods   %ds:(%esi)[1byte] %esi -> %al %esi \n"))
+               == 0);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(pc != NULL);
+        ASSERT(strcmp(buf, IF_X64_ELSE("lods   %ds:(%rsi)[4byte] %rsi -> %eax %rsi \n",
+                                       "lods   %ds:(%esi)[4byte] %esi -> %eax %esi \n"))
+               == 0);
+    }
+#ifdef X64
+    {
+        const byte b3[] = { 0x48, 0xad };
+        pc = disassemble_to_buffer(dc, (byte *)b3, (byte *)b3, false, false,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(pc != NULL);
+        ASSERT(strcmp(buf, "lods   %ds:(%rsi)[8byte] %rsi -> %rax %rsi \n") == 0);
+    }
+#endif
+
+#ifdef X64
+    {
+        const byte b1[] = { 0xc7,0x80,0x90,0xe4,0xff,0xff,0x00,0x00,0x00,0x00 };
+        const byte b2[] = { 0x48,0xc7,0x80,0x90,0xe4,0xff,0xff,0x00,0x00,0x00,0x00 };
+        pc = disassemble_to_buffer(dc, (byte *)b1, (byte *)b1, false, false,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(pc != NULL);
+        ASSERT(strcmp(buf, "mov    $0x00000000 -> 0xffffe490(%rax)[4byte] \n") == 0);
+        pc = disassemble_to_buffer(dc, (byte *)b2, (byte *)b2, false, false,
+                                   buf, BUFFER_SIZE_ELEMENTS(buf), &len);
+        ASSERT(pc != NULL);
+        ASSERT(strcmp(buf, "mov    $0x0000000000000000 -> 0xffffe490(%rax)[8byte] \n")
+               == 0);
+    }
+#endif
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1209,6 +1260,8 @@ main(int argc, char *argv[])
     test_tsx(dcontext);
 
     test_vsib(dcontext);
+
+    test_disasm_sizes(dcontext);
 
     print("all done\n");
     return 0;

@@ -1261,7 +1261,7 @@
 +0x0c22   f6 5e ad             neg    byte ptr [rsi-0x53]
 +0x0c25   5a                   pop    rdx
 +0x0c26   1c 3f                sbb    al, 0x3f
-+0x0c28   c5 b9 56 43 a8       vorpd xmm0, xmm8, [rbx-0x58]
++0x0c28   c5 b9 56 43 a8       vorpd xmm0, xmm8, dqword ptr [rbx-0x58]
 +0x0c2d   af                   scasd
 +0x0c2e   90                   nop    
 +0x0c2f   b0 b5                mov    al, 0xb5
