@@ -1193,13 +1193,17 @@ opnd_size_in_bytes(opnd_size_t size)
         return 0;
     case OPSZ_1:
     case OPSZ_1_reg4: /* mem size */
+    case OPSZ_1_of_16:
         return 1;
+    case OPSZ_2_of_8:
+    case OPSZ_2_of_16:
     case OPSZ_2_short1: /* default size */
     case OPSZ_2:
     case OPSZ_2_reg4: /* mem size */
         return 2;
     case OPSZ_4_of_8:
     case OPSZ_4_of_16:
+    case OPSZ_4_rex8_of_16:
     case OPSZ_4_short2: /* default size */
 #ifndef X64
     case OPSZ_4x8: /* default size */
@@ -1239,10 +1243,15 @@ opnd_size_in_bytes(opnd_size_t size)
         return 10;
     case OPSZ_12:
     case OPSZ_12_of_16:
+    case OPSZ_12_rex8_of_16:
     case OPSZ_12_rex40_short6: /* default size */
         return 12;
+    case OPSZ_14_of_16:
     case OPSZ_14:
         return 14;
+    case OPSZ_15_of_16:
+    case OPSZ_15:
+        return 15;
     case OPSZ_28_short14: /* default size */
     case OPSZ_28:
         return 28;

@@ -127,6 +127,8 @@ following minor compatibility changes:
  - Removed empty parentheses "()" from partially-demangled symbols (when
    #DRSYM_DEMANGLE is specified) for #DRSYM_ELF_SYMTAB and #DRSYM_PECOFF_SYMTAB.
    Windows and Linux symbols are now consistent for #DRSYM_DEMANGLE.
+ - Changed the operand sizes of instructions that read or write only part
+   of a multimedia register (mmx, xmm, or ymm) to reflect the partial size.
 
 Further non-compatibility-affecting changes include:
 

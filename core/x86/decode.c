@@ -192,7 +192,8 @@ resolve_var_reg_size(opnd_size_t sz, bool is_reg)
     switch (sz) {
     case OPSZ_1_reg4: return (is_reg ? OPSZ_4 : OPSZ_1);
     case OPSZ_2_reg4: return (is_reg ? OPSZ_4 : OPSZ_2);
-    case OPSZ_4_reg16: return (is_reg ? OPSZ_16 : OPSZ_4);
+    case OPSZ_4_reg16: return (is_reg ? OPSZ_4 /* i#1382: we distinguish sub-xmm now */
+                               : OPSZ_4);
     }
     return sz;
 }
@@ -252,13 +253,26 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     case OPSZ_4_reg16:
         return resolve_var_reg_size(sz, is_reg);
     /* The _of_ types are not exposed to the user so convert here */
+    case OPSZ_1_of_16:
+        return OPSZ_1;
+    case OPSZ_2_of_8:
+    case OPSZ_2_of_16:
+        return OPSZ_2;
     case OPSZ_4_of_8:
     case OPSZ_4_of_16:
         return OPSZ_4;
+    case OPSZ_4_rex8_of_16:
+        return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 : OPSZ_4);
     case OPSZ_8_of_16:
         return OPSZ_8;
     case OPSZ_12_of_16:
         return OPSZ_12;
+    case OPSZ_12_rex8_of_16:
+        return (TEST(PREFIX_REX_W, di->prefixes) ? OPSZ_8 : OPSZ_12);
+    case OPSZ_14_of_16:
+        return OPSZ_14;
+    case OPSZ_15_of_16:
+        return OPSZ_15;
     case OPSZ_8_of_16_vex32:
         return (TEST(PREFIX_VEX_L, di->prefixes) ?  OPSZ_32 : OPSZ_8);
     case OPSZ_16_of_32:
@@ -267,15 +281,23 @@ resolve_variable_size(decode_info_t *di/*IN: x86_mode, prefixes*/,
     return sz;
 }
 
-static opnd_size_t
+opnd_size_t
 expand_subreg_size(opnd_size_t sz)
 {
     switch (sz) {
+    case OPSZ_2_of_8:
     case OPSZ_4_of_8:
         return OPSZ_8;
+    case OPSZ_1_of_16:
+    case OPSZ_2_of_16:
     case OPSZ_4_of_16:
+    case OPSZ_4_rex8_of_16:
     case OPSZ_8_of_16:
     case OPSZ_12_of_16:
+    case OPSZ_12_rex8_of_16:
+    case OPSZ_14_of_16:
+    case OPSZ_15_of_16:
+    case OPSZ_4_reg16:
         return OPSZ_16;
     case OPSZ_16_of_32:
         return OPSZ_32;

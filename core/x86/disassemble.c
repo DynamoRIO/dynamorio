@@ -139,6 +139,8 @@ opnd_size_suffix_dr(opnd_t opnd)
     case 8: return "8byte";
     case 10: return "10byte";
     case 12: return "12byte";
+    case 14: return "14byte";
+    case 15: return "15byte";
     case 16: return "16byte";
     case 28: return "28byte";
     case 32: return "32byte";
@@ -953,9 +955,22 @@ instr_opcode_name(instr_t *instr, const instr_info_t *info)
         }
     }
 #ifdef X64
-    if (!instr_get_x86_mode(instr) && instr_get_opcode(instr) == OP_jecxz &&
-        reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1)))) {
-        return "jrcxz";
+    if (!instr_get_x86_mode(instr)) {
+        if (instr_get_opcode(instr) == OP_jecxz &&
+            reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))
+            return "jrcxz";
+        else if (instr_get_opcode(instr) == OP_pextrd &&
+                 opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR)
+            return "pextrq";
+        else if (instr_get_opcode(instr) == OP_vpextrd &&
+                 opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR)
+            return "vpextrq";
+        else if (instr_get_opcode(instr) == OP_pinsrd &&
+                 opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
+            return "pinsrq";
+        else if (instr_get_opcode(instr) == OP_vpinsrd &&
+                 opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
+            return "vpinsrq";
     }
 #endif
     return info->name;

@@ -569,7 +569,7 @@ enum {
      */
     OPSZ_1_reg4,  /**< Intel Rd/Mb: zero-extends if reg; used by pextrb */
     OPSZ_2_reg4,  /**< Intel Rd/Mw: zero-extends if reg; used by pextrw */
-    OPSZ_4_reg16, /**< Intel Udq/Md: sub-xmm but we consider that whole xmm;
+    OPSZ_4_reg16, /**< Intel Udq/Md: 4 bytes of xmm or 4 bytes of memory;
                    *   used by insertps. */
     /* Sizes used by new instructions */
     OPSZ_xsave, /**< Size is > 512 bytes: use cpuid to determine.
@@ -583,6 +583,7 @@ enum {
     OPSZ_8_rex16_short4,  /**< Intel 'v' * 2 (far call/ret) */
     OPSZ_12_rex40_short6, /**< unresolved iret */
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
+    OPSZ_15,    /**< All but one byte of an xmm register (used by OP_vpinsrb). */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
@@ -627,14 +628,23 @@ enum {
     /* OPSZ_ constants not exposed to the user so ok to be shifted
      * by additions above
      */
-    OPSZ_4_of_8 = OPSZ_LAST,  /* 32 bits, but can be half of MMX register */
+    OPSZ_2_of_8 = OPSZ_LAST,  /* 16 bits, but can be part of an MMX register */
+    OPSZ_SUBREG_START = OPSZ_2_of_8,
+    OPSZ_4_of_8,  /* 32 bits, but can be half of MMX register */
+    OPSZ_1_of_16, /* 8 bits, but can be part of XMM register */
+    OPSZ_2_of_16, /* 16 bits, but can be part of XMM register */
     OPSZ_4_of_16, /* 32 bits, but can be part of XMM register */
+    OPSZ_4_rex8_of_16, /* 32 bits, 64 with rex.w, but can be part of XMM register */
     OPSZ_8_of_16, /* 64 bits, but can be half of XMM register */
     OPSZ_12_of_16, /* 96 bits: 3/4 of XMM */
+    OPSZ_12_rex8_of_16, /* 96 bits, or 64 with rex.w: 3/4 of XMM */
+    OPSZ_14_of_16, /* 112 bits; all but one word of XMM */
+    OPSZ_15_of_16, /* 120 bits: all but one byte of XMM */
     OPSZ_8_of_16_vex32, /* 64 bits, but can be half of XMM register; if
                          * vex.L then is 256 bits (YMM or memory)
                          */
     OPSZ_16_of_32, /* 128 bits: half of YMM */
+    OPSZ_SUBREG_END = OPSZ_16_of_32,
     OPSZ_LAST_ENUM, /* note last is NOT inclusive */
 };
 
@@ -661,6 +671,7 @@ reg_id_t resolve_var_reg(decode_info_t *di/*IN: x86_mode, prefixes*/,
 opnd_size_t resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/);
 opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
 int indir_var_reg_offs_factor(int optype);
+opnd_size_t expand_subreg_size(opnd_size_t sz);
 
 /* in encode.c, not exported to non-x86 files */
 const instr_info_t * get_encoding_info(instr_t *instr);

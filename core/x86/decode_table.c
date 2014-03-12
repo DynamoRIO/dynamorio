@@ -1310,8 +1310,10 @@ const instr_info_t * const op_instr[] =
 #define Ov  TYPE_O, OPSZ_4_rex8_short2
 #define Pd  TYPE_P, OPSZ_4
 #define Pq  TYPE_P, OPSZ_8
+#define Pw_q TYPE_P, OPSZ_2_of_8
 #define Pd_q TYPE_P, OPSZ_4_of_8
 #define Ppi TYPE_P, OPSZ_8
+#define Nw_q  TYPE_P_MODRM, OPSZ_2_of_8
 #define Nq  TYPE_P_MODRM, OPSZ_8
 #define Qd  TYPE_Q, OPSZ_4
 #define Qq  TYPE_Q, OPSZ_8
@@ -1322,7 +1324,10 @@ const instr_info_t * const op_instr[] =
 #define Sw  TYPE_S, OPSZ_2
 #define Vq  TYPE_V, OPSZ_8
 #define Vdq TYPE_V, OPSZ_16
+#define Vb_dq TYPE_V, OPSZ_1_of_16
+#define Vw_dq TYPE_V, OPSZ_2_of_16
 #define Vd_dq TYPE_V, OPSZ_4_of_16
+#define Vd_q_dq TYPE_V, OPSZ_4_rex8_of_16
 #define Vq_dq TYPE_V, OPSZ_8_of_16
 #define Vps TYPE_V, OPSZ_16
 #define Vpd TYPE_V, OPSZ_16
@@ -1331,6 +1336,7 @@ const instr_info_t * const op_instr[] =
 #define Ups TYPE_V_MODRM, OPSZ_16
 #define Upd TYPE_V_MODRM, OPSZ_16
 #define Udq TYPE_V_MODRM, OPSZ_16
+#define Uw_dq TYPE_V_MODRM, OPSZ_2_of_16
 #define Uq_dq TYPE_V_MODRM, OPSZ_8_of_16
 #define Wq  TYPE_W, OPSZ_8
 #define Wdq TYPE_W, OPSZ_16
@@ -1367,10 +1373,12 @@ const instr_info_t * const op_instr[] =
 #define Hvd TYPE_H, OPSZ_16_vex32
 #define Hss TYPE_H, OPSZ_4_of_16
 #define Hsd TYPE_H, OPSZ_8_of_16
-/* I made up "Hts": "H top of scalar" == top 12 bytes */
-#define Hts TYPE_H, OPSZ_12_of_16
 #define Hq_dq TYPE_H, OPSZ_8_of_16
 #define Hdq TYPE_H, OPSZ_16
+#define H12_dq TYPE_H, OPSZ_12_of_16
+#define H12_8_dq TYPE_H, OPSZ_12_rex8_of_16
+#define H14_dq TYPE_H, OPSZ_14_of_16
+#define H15_dq TYPE_H, OPSZ_15_of_16
 #define Hqq TYPE_H, OPSZ_32
 #define Hx TYPE_H, OPSZ_16_vex32
 #define Wvq_dq TYPE_W, OPSZ_8_of_16_vex32
@@ -2801,7 +2809,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_cvtpi2pd, 0x660f2a10, "cvtpi2pd", Vpd, xx, Qq, xx, xx, mrm, x, END_LIST},
     {OP_cvtsi2sd, 0xf20f2a10, "cvtsi2sd", Vsd, xx, Ed_q, xx, xx, mrm, x, END_LIST},
     {INVALID,  0x0f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, Hts, Ed_q, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsi2ss, 0xf30f2a10, "vcvtsi2ss", Vss, xx, H12_dq, Ed_q, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f2a10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcvtsi2sd, 0xf20f2a10, "vcvtsi2sd", Vsd, xx, Hsd, Ed_q, xx, mrm|vex, x, END_LIST},
   },
@@ -2879,7 +2887,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_sqrtpd, 0x660f5110, "sqrtpd", Vpd, xx, Wpd, xx, xx, mrm, x, END_LIST},
     {OP_sqrtsd, 0xf20f5110, "sqrtsd", Vsd, xx, Wsd, xx, xx, mrm, x, END_LIST},
     {OP_vsqrtps, 0x0f5110, "vsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vsqrtss, 0xf30f5110, "vsqrtss", Vdq, xx, H12_dq, Wss, xx, mrm|vex, x, END_LIST},
     {OP_vsqrtpd, 0x660f5110, "vsqrtpd", Vvd, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
     {OP_vsqrtsd, 0xf20f5110, "vsqrtsd", Vdq, xx, Hsd, Wsd, xx, mrm|vex, x, END_LIST},
   },
@@ -2890,7 +2898,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID, 0x660f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrsqrtps, 0x0f5210, "vrsqrtps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vrsqrtss, 0xf30f5210, "vrsqrtss", Vdq, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vrsqrtss, 0xf30f5210, "vrsqrtss", Vdq, xx, H12_dq, Wss, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -2901,7 +2909,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID, 0x660f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrcpps, 0x0f5310, "vrcpps", Vvs, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vrcpss, 0xf30f5310, "vrcpss", Vdq, xx, Hts, Wss, xx, mrm|vex, x, END_LIST},
+    {OP_vrcpss, 0xf30f5310, "vrcpss", Vdq, xx, H12_dq, Wss, xx, mrm|vex, x, END_LIST},
     {INVALID, 0x660f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID, 0xf20f5310, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -2980,7 +2988,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_vcvtps2pd, 0x0f5a10, "vcvtps2pd", Vvd, xx, Wvs, xx, xx, mrm|vex, x, END_LIST},
     {OP_vcvtss2sd, 0xf30f5a10, "vcvtss2sd", Vsd, xx, Hsd, Wss, xx, mrm|vex, x, END_LIST},
     {OP_vcvtpd2ps, 0x660f5a10, "vcvtpd2ps", Vvs, xx, Wvd, xx, xx, mrm|vex, x, END_LIST},
-    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vss, xx, Hts, Wsd, xx, mrm|vex, x, END_LIST},
+    {OP_vcvtsd2ss, 0xf20f5a10, "vcvtsd2ss", Vss, xx, H12_dq, Wsd, xx, mrm|vex, x, END_LIST},
   },
   /* prefix extension 27 */
   {
@@ -3272,24 +3280,25 @@ const instr_info_t prefix_extensions[][8] = {
   },
   /* prefix extension 53: all assumed to have Ib */
   { /* note that gnu tools print immed first: pinsrw $0x0,(%esp),%xmm0 */
-    {OP_pinsrw,   0x0fc410, "pinsrw", Pq, xx, Ed, Ib, xx, mrm, x, tpe[53][2]},
+    /* FIXME i#1388: pinsrw actually reads only bottom word of reg */
+    {OP_pinsrw,   0x0fc410, "pinsrw", Pw_q, xx, Rd_Mw, Ib, xx, mrm, x, tpe[53][2]},
     {INVALID,   0xf30fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_pinsrw, 0x660fc410, "pinsrw", Vdq, xx, Ed, Ib, xx, mrm, x, END_LIST},
+    {OP_pinsrw, 0x660fc410, "pinsrw", Vw_dq, xx, Rd_Mw, Ib, xx, mrm, x, END_LIST},
     {INVALID,   0xf20fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0x0fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0xf30fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpinsrw, 0x660fc410, "vpinsrw", Vdq, xx, Hdq, Ed, Ib, mrm|vex, x, END_LIST},
+    {OP_vpinsrw, 0x660fc410, "vpinsrw", Vdq, xx, H14_dq, Rd_Mw, Ib, mrm|vex, x, END_LIST},
     {INVALID,   0xf20fc410, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   /* prefix extension 54: all assumed to have Ib */
   { /* note that gnu tools print immed first: pextrw $0x7,%xmm7,%edx */
-    {OP_pextrw,   0x0fc510, "pextrw", Gd, xx, Nq, Ib, xx, mrm, x, tpe[54][2]},
+    {OP_pextrw,   0x0fc510, "pextrw", Gd, xx, Nw_q, Ib, xx, mrm, x, tpe[54][2]},
     {INVALID,   0xf30fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_pextrw, 0x660fc510, "pextrw", Gd, xx, Udq, Ib, xx, mrm, x, tvex[37][0]},
+    {OP_pextrw, 0x660fc510, "pextrw", Gd, xx, Uw_dq, Ib, xx, mrm, x, tvex[37][0]},
     {INVALID,   0xf20fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,     0x0fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,   0xf30fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vpextrw, 0x660fc510, "vpextrw", Gd, xx, Udq, Ib, xx, mrm|vex, x, tvex[37][1]},
+    {OP_vpextrw, 0x660fc510, "vpextrw", Gd, xx, Uw_dq, Ib, xx, mrm|vex, x, tvex[37][1]},
     {INVALID,   0xf20fc510, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   /* prefix extension 55: all assumed to have Ib */
@@ -4398,17 +4407,17 @@ const instr_info_t vex_extensions[][2] = {
     {OP_aesdeclast, 0x6638df18,"aesdeclast",Vdq,xx,Wdq,Vdq,xx, mrm|reqp, x, END_LIST},
     {OP_vaesdeclast,0x6638df18,"vaesdeclast",Vdq,xx,Hdq,Wdq,xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 36 */
-    {OP_pextrb,   0x663a1418, "pextrb", Rd_Mb, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vpextrb,  0x663a1418, "vpextrb", Rd_Mb, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_pextrb,   0x663a1418, "pextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vpextrb,  0x663a1418, "vpextrb", Rd_Mb, xx, Vb_dq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 37 */
-    {OP_pextrw,   0x663a1518, "pextrw", Rd_Mw, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vpextrw,  0x663a1518, "vpextrw", Rd_Mw, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_pextrw,   0x663a1518, "pextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vpextrw,  0x663a1518, "vpextrw", Rd_Mw, xx, Vw_dq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 38 */
-    {OP_pextrd,   0x663a1618, "pextrd",  Ed_q, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},/*"pextrq" with rex.w*/
-    {OP_vpextrd,  0x663a1618, "vpextrd",  Ed_q, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},/*"vpextrq" with rex.w*/
+    {OP_pextrd,   0x663a1618, "pextrd",  Ed_q, xx, Vd_q_dq, Ib, xx, mrm|reqp, x, END_LIST},/*"pextrq" with rex.w*/
+    {OP_vpextrd,  0x663a1618, "vpextrd",  Ed_q, xx, Vd_q_dq, Ib, xx, mrm|vex|reqp, x, END_LIST},/*"vpextrq" with rex.w*/
   }, { /* vex ext 39 */
-    {OP_extractps, 0x663a1718, "extractps", Ed, xx, Vdq, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vextractps,0x663a1718, "vextractps", Ed, xx, Vdq, Ib, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_extractps, 0x663a1718, "extractps", Ed, xx, Vd_dq, Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vextractps,0x663a1718, "vextractps", Ed, xx, Vd_dq, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 40 */
     {OP_roundps,  0x663a0818, "roundps",  Vdq, xx, Wdq, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundps, 0x663a0818, "vroundps",  Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, END_LIST},
@@ -4417,7 +4426,7 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vroundpd, 0x663a0918, "vroundpd",  Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 42 */
     {OP_roundss,  0x663a0a18, "roundss",  Vss, xx, Wss, Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vroundss, 0x663a0a18, "vroundss",  Vdq, xx, Hts, Wss, Ib, mrm|vex|reqp, x, END_LIST},
+    {OP_vroundss, 0x663a0a18, "vroundss",  Vdq, xx, H12_dq, Wss, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 43 */
     {OP_roundsd,  0x663a0b18, "roundsd",  Vsd, xx, Wsd, Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vroundsd, 0x663a0b18, "vroundsd",  Vdq, xx, Hsd, Wsd, Ib, mrm|vex|reqp, x, END_LIST},
@@ -4431,16 +4440,15 @@ const instr_info_t vex_extensions[][2] = {
     {OP_pblendw,  0x663a0e18, "pblendw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vpblendw, 0x663a0e18, "vpblendw",  Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 47 */
-  /* pinsrb only writes one byte of the dest: but we don't distinguish that
-   * (OPSZ_4_of_16 is there for instrs that also take gprs: this one only takes xmm) */
-    {OP_pinsrb,   0x663a2018, "pinsrb",   Vdq, xx, Eb,  Ib, xx, mrm|reqp, x, END_LIST},
-    {OP_vpinsrb,  0x663a2018, "vpinsrb",   Vdq, xx, Hdq, Eb, Ib, mrm|vex|reqp, x, END_LIST},
+    /* FIXME i#1388: pinsrb actually reads only bottom byte of reg */
+    {OP_pinsrb,   0x663a2018, "pinsrb",   Vb_dq, xx, Rd_Mb,  Ib, xx, mrm|reqp, x, END_LIST},
+    {OP_vpinsrb,  0x663a2018, "vpinsrb",   Vdq, xx, H15_dq, Rd_Mb, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 48 */
     {OP_insertps, 0x663a2118, "insertps", Vdq,xx,Udq_Md,Ib, xx, mrm|reqp, x, END_LIST},
     {OP_vinsertps,0x663a2118, "vinsertps", Vdq,xx,Hdq,Udq_Md,Ib, mrm|vex|reqp|reqL0, x, END_LIST},
   }, { /* vex ext 49 */
-    {OP_pinsrd,   0x663a2218, "pinsrd",   Vdq, xx, Ed_q,Ib, xx, mrm|reqp, x, END_LIST},/*"pinsrq" with rex.w*/
-    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, Hdq, Ed_q, Ib, mrm|vex|reqp, x, END_LIST},/*"vpinsrq" with rex.w*/
+    {OP_pinsrd,   0x663a2218, "pinsrd",   Vd_q_dq, xx, Ed_q,Ib, xx, mrm|reqp, x, END_LIST},/*"pinsrq" with rex.w*/
+    {OP_vpinsrd,  0x663a2218, "vpinsrd",   Vdq, xx, H12_8_dq, Ed_q, Ib, mrm|vex|reqp, x, END_LIST},/*"vpinsrq" with rex.w*/
   }, { /* vex ext 50 */
     {OP_dpps,     0x663a4018, "dpps",     Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vdpps,    0x663a4018, "vdpps",     Vx, xx, Hx, Wx, Ib, mrm|vex|reqp, x, END_LIST},
@@ -4573,7 +4581,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 8 */
     {OP_vmovss,  0xf30f1010, "vmovss",  Vss, xx, Wss,  xx, xx, mrm|vex, x, modx[10][0]},
-    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, Hts, Uss, xx, mrm|vex, x, modx[10][1]},
+    {OP_vmovss,  0xf30f1010, "vmovss",  Vdq, xx, H12_dq, Uss, xx, mrm|vex, x, modx[10][1]},
   },
   { /* mod extension 9 */
     {OP_vmovsd,  0xf20f1010, "vmovsd",  Vsd, xx, Wsd,  xx, xx, mrm|vex, x, modx[11][0]},
@@ -4581,7 +4589,7 @@ const instr_info_t mod_extensions[][2] = {
   },
   { /* mod extension 10 */
     {OP_vmovss,  0xf30f1110, "vmovss",  Wss, xx, Vss,  xx, xx, mrm|vex, x, modx[ 8][1]},
-    {OP_vmovss,  0xf30f1110, "vmovss",  Udq, xx, Hts, Vss, xx, mrm|vex, x, END_LIST},
+    {OP_vmovss,  0xf30f1110, "vmovss",  Udq, xx, H12_dq, Vss, xx, mrm|vex, x, END_LIST},
   },
   { /* mod extension 11 */
     {OP_vmovsd,  0xf20f1110, "vmovsd",  Wsd, xx, Vsd,  xx, xx, mrm|vex, x, modx[ 9][1]},
