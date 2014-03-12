@@ -2691,7 +2691,7 @@ const instr_info_t prefix_extensions[][8] = {
     {OP_movupd, 0x660f1110, "movupd", Wpd, xx, Vpd, xx, xx, mrm, x, END_LIST},
     {OP_movsd,  0xf20f1110, "movsd",  Wsd, xx, Vsd, xx, xx, mrm, x, END_LIST},
     {OP_vmovups,   0x0f1110, "vmovups", Wvs, xx, Vvs, xx, xx, mrm|vex, x, END_LIST},
-    {MOD_EXT,    0xf20f1110, "(mod ext 10)", xx, xx, xx, xx, xx, mrm|vex, x, 10},
+    {MOD_EXT,    0xf30f1110, "(mod ext 10)", xx, xx, xx, xx, xx, mrm|vex, x, 10},
     {OP_vmovupd, 0x660f1110, "vmovupd", Wvd, xx, Vvd, xx, xx, mrm|vex, x, END_LIST},
     {MOD_EXT,    0xf20f1110, "(mod ext 11)", xx, xx, xx, xx, xx, mrm|vex, x, 11},
   },
