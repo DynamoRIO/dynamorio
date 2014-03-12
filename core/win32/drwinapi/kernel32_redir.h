@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -194,7 +194,7 @@ void
 kernel32_redir_exit_proc(void);
 
 void
-kernel32_redir_onload_proc(privmod_t *mod);
+kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table);
 
 DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb);

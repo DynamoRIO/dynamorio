@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -215,9 +215,12 @@ kernel32_redir_onload(privmod_t *mod)
      * routines in the private kernel32 so we look them up here.
      */
 
-    kernel32_redir_onload_proc(mod);
+    /* We give sub-modules a chance to remove entries from the table (i#1385) */
+    TABLE_RWLOCK(kernel32_table, write, lock);
+    kernel32_redir_onload_proc(mod, kernel32_table);
     kernel32_redir_onload_lib(mod);
     kernel32_redir_onload_file(mod);
+    TABLE_RWLOCK(kernel32_table, write, unlock);
 
     if (!dynamo_initialized)
         SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);

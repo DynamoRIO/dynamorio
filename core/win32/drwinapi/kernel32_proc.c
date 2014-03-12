@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -75,10 +75,18 @@ kernel32_redir_exit_proc(void)
 }
 
 void
-kernel32_redir_onload_proc(privmod_t *mod)
+kernel32_redir_onload_proc(privmod_t *mod, strhash_table_t *kernel32_table)
 {
     priv_kernel32_FlsAlloc = (DWORD (WINAPI *)(PFLS_CALLBACK_FUNCTION))
         get_proc_address_ex(mod->base, "FlsAlloc", NULL);
+    if (priv_kernel32_FlsAlloc == NULL) {
+        /* i#1385: msvc110+ calls GetProcAddress on FlsAlloc and we want it
+         * return NULL if there is no underlying FlsAlloc.
+         */
+        IF_DEBUG(bool found =)
+            strhash_hash_remove(GLOBAL_DCONTEXT, kernel32_table, "FlsAlloc");
+        ASSERT(found);
+    }
 }
 
 /***************************************************************************
