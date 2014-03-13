@@ -45,6 +45,7 @@
 #  include "fcache.h"
 #  include "monitor.h"
 #  include "moduledb.h"     /* for the process control defines */
+#  include "disassemble.h"
 #  include <string.h>
 
 #else  /* NOT_DYNAMORIO_CORE */
@@ -1907,6 +1908,7 @@ check_option_compatibility_helper(int recurse_count)
     changed_options = heap_check_option_compatibility() || changed_options;
 
     changed_options = os_check_option_compatibility() || changed_options;
+    disassemble_options_init();
 #endif
 
     if (changed_options) {

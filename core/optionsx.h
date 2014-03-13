@@ -233,6 +233,7 @@
     OPTION(bool, syntax_att, "use AT&T disassembly syntax")
     /* whether to mark gray-area instrs as invalid when we know the length (i#1118) */
     OPTION(bool, decode_strict, "mark all known-invalid instructions as invalid")
+    OPTION(uint, disasm_mask, "disassembly style as a dr_disasm_flags_t bitmask")
 #ifdef EXPOSE_INTERNAL_OPTIONS
 # ifdef PROFILE_LINKCOUNT
     OPTION(uint, tracedump_threshold, "profile_counts threshold for dumping a trace")

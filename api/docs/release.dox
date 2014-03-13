@@ -146,7 +146,9 @@ Further non-compatibility-affecting changes include:
  - Added hashtable_lock_self_owns() to the drcontainers Extension.
  - Added opnd_create_reg_partial() and opnd_is_reg_partial() for
    representing a partial multimedia register
- - Added operand size suffixes on disassembly in the default mode
+ - Added operand size suffixes on disassembly in the default mode.
+   This can be disabled via -disasm_mask 0x8 or by calling
+   disassemble_set_syntax(DR_DISASM_NO_OPND_SIZE).
  - Added instr_zeroes_ymmh()
 
 **************************************************

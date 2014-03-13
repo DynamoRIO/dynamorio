@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -86,8 +86,18 @@ typedef enum {
      * invalid.
      */
     DR_DISASM_STRICT_INVALID =  0x4,
+    /**
+     * This flag only applies to the default DR style (i.e., it does not apply
+     * when DR_DISASM_INTEL or DR_DISASM_ATT is selected).  That style by
+     * default displays the size of memory or sub-register operands via a
+     * suffix "[Nbytes]".  Setting this flag removes that suffix.
+     */
+    DR_DISASM_NO_OPND_SIZE   =  0x8,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
+
+void
+disassemble_options_init(void);
 
 DR_API
 /**
