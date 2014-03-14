@@ -36,11 +36,12 @@ cmake_minimum_required(VERSION 2.6)
 # This must be done prior to the project() command and the var
 # must be set in the cache.
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  if (DEBUG)
+  if (DEBUG OR "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
-  else (DEBUG)
-    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
-  endif (DEBUG)
+  else ()
+    # Go w/ debug info (i#1392)
+    set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
+  endif ()
   # we want to use the _LOCATION_<config> property
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
   set(location_suffix "_${upper}")

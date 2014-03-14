@@ -189,6 +189,15 @@ if (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
   set(DynamoRIO_INCLUDE_DIRS "${DynamoRIO_cwd}/../include")
 endif (NOT DEFINED DynamoRIO_INCLUDE_DIRS)
 
+# Officially CMAKE_BUILD_TYPE is supposed to be ignored for VS generators so
+# users may not have set it (xref i#1392).
+if (NOT DEFINED CMAKE_BUILD_TYPE)
+  if (DEBUG)
+    set(CMAKE_BUILD_TYPE "Debug")
+  else ()
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+  endif()
+endif ()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
 
 if (NOT DEFINED DynamoRIO_USE_LIBC)
