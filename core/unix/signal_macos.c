@@ -177,6 +177,46 @@ mcontext_to_sigcontext_mm(sigcontext_t *sc, priv_mcontext_t *mc)
     }
 }
 
+static void
+dump_fpstate(dcontext_t *dcontext, sigcontext_t *sc)
+{
+    int i, j;
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfcw=0x%04x\n", *(ushort *)&sc->__fs.__fpu_fcw);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfsw=0x%04x\n", *(ushort *)&sc->__fs.__fpu_fsw);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tftw=0x%02x\n", sc->__fs.__fpu_ftw);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tfop=0x%04x\n", sc->__fs.__fpu_fop);
+    LOG(THREAD, LOG_ASYNCH, 1,  "\tip=0x%08x\n", sc->__fs.__fpu_ip);
+    LOG(THREAD, LOG_ASYNCH, 1,  "\tcs=0x%04x\n", sc->__fs.__fpu_cs);
+    LOG(THREAD, LOG_ASYNCH, 1,  "\tdp=0x%08x\n", sc->__fs.__fpu_dp);
+    LOG(THREAD, LOG_ASYNCH, 1,  "\tds=0x%04x\n", sc->__fs.__fpu_ds);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tmxcsr=0x%08x\n", sc->__fs.__fpu_mxcsr);
+    LOG(THREAD, LOG_ASYNCH, 1, "\tmxcsrmask=0x%08x\n", sc->__fs.__fpu_mxcsrmask);
+    for (i=0; i<8; i++) {
+        LOG(THREAD, LOG_ASYNCH, 1, "\tst%d = ", i);
+        for (j=0; j<5; j++)
+            LOG(THREAD, LOG_ASYNCH, 1, "%04x ",
+                *((ushort *)(&sc->__fs.__fpu_stmm0 + i) + j));
+        LOG(THREAD, LOG_ASYNCH, 1, "\n");
+    }
+    for (i=0; i<NUM_XMM_SLOTS; i++) {
+        LOG(THREAD, LOG_ASYNCH, 1, "\txmm%d = ", i);
+        for (j=0; j<4; j++)
+            LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
+                *((uint *)(&sc->__fs.__fpu_xmm0 + i) + j));
+        LOG(THREAD, LOG_ASYNCH, 1, "\n");
+    }
+    if (YMM_ENABLED()) {
+        for (i=0; i<NUM_XMM_SLOTS; i++) {
+            LOG(THREAD, LOG_ASYNCH, 1, "\tymmh%d = ", i);
+            for (j=0; j<4; j++) {
+                LOG(THREAD, LOG_ASYNCH, 1, "%08x ",
+                    *((uint *)(&sc->__fs.__fpu_ymmh0 + i) + j));
+            }
+            LOG(THREAD, LOG_ASYNCH, 1, "\n");
+        }
+    }
+}
+
 void
 dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
 {
@@ -215,7 +255,7 @@ dump_sigcontext(dcontext_t *dcontext, sigcontext_t *sc)
     LOG(THREAD, LOG_ASYNCH, 1, "\terr=0x%08x\n", sc->__es.__err);
     LOG(THREAD, LOG_ASYNCH, 1, "\tfaultvaddr="PFX"\n", sc->__es.__faultvaddr);
 
-    /* FIXME i#58: MacOS signal handling fault/multimedia state NYI */
+    dump_fpstate(dcontext, sc);
 }
 
 /* XXX i#1286: move to nudge_macos.c once we implement that */

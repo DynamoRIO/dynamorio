@@ -110,6 +110,12 @@ struct _kernel_sigaction_t {
 }; /* typedef in os_private.h */
 
 #ifdef LINUX
+# define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->handler
+#elif defined(MACOS)
+# define SIGACT_PRIMARY_HANDLER(sigact) (sigact)->tramp
+#endif
+
+#ifdef LINUX
 /* kernel's notion of ucontext is different from glibc's!
  * this is adapted from asm/ucontext.h:
  */
@@ -173,15 +179,15 @@ typedef struct sigframe {
 typedef struct rt_sigframe {
 #ifdef LINUX
     char *pretcode;
-#  ifdef X64
-#    ifdef VMX86_SERVER
+# ifdef X64
+#  ifdef VMX86_SERVER
     siginfo_t info;
     kernel_ucontext_t uc;
-#     else
+#   else
     kernel_ucontext_t uc;
     siginfo_t info;
-#     endif
-#  else
+#   endif
+# else
     int sig;
     siginfo_t *pinfo;
     void *puc;
@@ -195,16 +201,16 @@ typedef struct rt_sigframe {
      * pointer in the sigcontext anyway.
      */
     char retcode[RETCODE_SIZE];
-#  endif
+# endif
     /* In 2.6.28+, fpstate/xstate goes here */
 
 #elif defined(MACOS)
-#  ifdef X64
+# ifdef X64
     /* kernel places padding to align to 16, and then puts retaddr slot */
-    struct __darwin_mcontext_avx64 mc; /* "struct mcontext_avx64" to kernel */
+    struct __darwin_mcontext_avx64 mc; /* sigcontext, "struct mcontext_avx64" to kernel */
     siginfo_t info; /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext64 uc; /* "struct user_ucontext64" to kernel */
-#  else
+# else
     app_pc retaddr;
     app_pc handler;
     int sigstyle; /* UC_TRAD = 1-arg, UC_FLAVOR = 3-arg handler */
@@ -215,10 +221,10 @@ typedef struct rt_sigframe {
      * for retaddr post-call alignment, so don't access these subsequent fields
      * directly if given a frame from the kernel!
      */
-    struct __darwin_mcontext_avx32 mc; /* "struct mcontext_avx32" to kernel */
+    struct __darwin_mcontext_avx32 mc; /* sigcontext, "struct mcontext_avx32" to kernel */
     siginfo_t info; /* matches user-mode sys/signal.h struct */
     struct __darwin_ucontext uc; /* "struct user_ucontext32" to kernel */
-#  endif
+# endif
 #endif
 } sigframe_rt_t;
 

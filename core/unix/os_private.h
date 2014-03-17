@@ -206,7 +206,11 @@ bool handle_sigaction(dcontext_t *dcontext, int sig,
 void handle_post_sigaction(dcontext_t *dcontext, int sig,
                            const kernel_sigaction_t *act,
                            kernel_sigaction_t *oact, size_t sigsetsize);
+#ifdef LINUX
 bool handle_sigreturn(dcontext_t *dcontext, bool rt);
+#else
+bool handle_sigreturn(dcontext_t *dcontext, void *ucxt, int style);
+#endif
 bool handle_sigaltstack(dcontext_t *dcontext, const stack_t *stack,
                         stack_t *old_stack);
 bool handle_sigprocmask(dcontext_t *dcontext, int how, kernel_sigset_t *set,

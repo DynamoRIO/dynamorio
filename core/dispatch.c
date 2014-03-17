@@ -1607,9 +1607,14 @@ adjust_syscall_continuation(dcontext_t *dcontext)
      */
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
 # ifdef MACOS
-        priv_mcontext_t *mc = get_mcontext(dcontext);
-        mc->xdx = dcontext->app_xdx;
-        dcontext->asynch_target = (app_pc) mc->xdx;
+        if (!dcontext->sys_was_int) {
+            priv_mcontext_t *mc = get_mcontext(dcontext);
+            LOG(THREAD, LOG_SYSCALLS, 3,
+                "post-sysenter: xdx + asynch_target => "PFX" (were "PFX", "PFX")\n",
+                dcontext->app_xdx, mc->xdx, dcontext->asynch_target);
+            mc->xdx = dcontext->app_xdx;
+            dcontext->asynch_target = (app_pc) mc->xdx;
+        }
 # else
         /* we still see some int syscalls (for SYS_clone in particular) */
         ASSERT(dcontext->sys_was_int ||
@@ -1841,6 +1846,8 @@ handle_system_call(dcontext_t *dcontext)
              * client had chance to change it, so we have the proper value here.
              */
             dcontext->sys_param1 = (reg_t) dcontext->next_tag;
+            LOG(THREAD, LOG_SYSCALLS, 3, "for sigreturn, set sys_param1 to "PFX"\n",
+                dcontext->sys_param1);
         }
 #else
         if (use_prev_dcontext) {
@@ -1862,7 +1869,7 @@ handle_system_call(dcontext_t *dcontext)
 #endif
 
 #ifdef MACOS
-        if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
+        if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
             /* The kernel returns control to whatever user-mode places in edx */
             byte *post_sysenter = after_do_syscall_addr(dcontext);
             priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -1917,6 +1924,7 @@ static void
 handle_post_system_call(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
+    bool skip_adjust = false;
 
     ASSERT(!is_couldbelinking(dcontext));
     ASSERT(get_at_syscall(dcontext));
@@ -1930,7 +1938,18 @@ handle_post_system_call(dcontext_t *dcontext)
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
         /* restore app xax */
+        LOG(THREAD, LOG_SYSCALLS, 3,
+            "post-sigreturn: setting xax to "PFX", asynch_target="PFX"\n",
+            dcontext->sys_param1, dcontext->asynch_target);
         mc->xax = dcontext->sys_param1;
+# ifdef MACOS
+        /* We need to skip the use app_xdx, as we've changed the context.
+         * We can't just set app_xdx from handle_sigreturn() as the
+         * pre-sysenter code clobbers app_xdx, and we want to handle
+         * a failed SYS_sigreturn.
+         */
+        skip_adjust = true;
+# endif
     }
 #endif
 
@@ -1949,7 +1968,8 @@ handle_post_system_call(dcontext_t *dcontext)
         *((app_pc *)get_mcontext(dcontext)->xsp) = dcontext->sysenter_storage;
     }
 #else
-    adjust_syscall_continuation(dcontext);
+    if (!skip_adjust)
+        adjust_syscall_continuation(dcontext);
 #endif
     set_fcache_target(dcontext, dcontext->asynch_target);
 #ifdef WINDOWS

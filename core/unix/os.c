@@ -5700,7 +5700,8 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 #endif
-    case IF_MACOS_ELSE(SYS_sigreturn,SYS_rt_sigreturn): {   /* 173 */
+#ifdef LINUX
+    case SYS_rt_sigreturn: {   /* 173 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int sys_rt_sigreturn(unsigned long __unused)
          */
@@ -5708,6 +5709,16 @@ pre_system_call(dcontext_t *dcontext)
         /* see comment for SYS_sigreturn on return val */
         break;
     }
+#endif
+#ifdef MACOS
+    case SYS_sigreturn: {
+        /* int sigreturn(struct ucontext *uctx, int infostyle) */
+        execute_syscall = handle_sigreturn(dcontext, (void *) sys_param(dcontext, 0),
+                                           (int) sys_param(dcontext, 1));
+        /* see comment for SYS_sigreturn on return val */
+        break;
+    }
+#endif
     case SYS_sigaltstack: {    /* 186 */
         /* in /usr/src/linux/arch/i386/kernel/signal.c:
            asmlinkage int

@@ -1835,6 +1835,7 @@ thread_set_self_context(void *cxt)
     xsp_for_sigreturn = ((app_pc)&frame) + sizeof(char*);
     asm("mov  %0, %%"ASM_XSP : : "m"(xsp_for_sigreturn));
 #ifdef MACOS
+    ASSERT_NOT_IMPLEMENTED(false && "need to pass 2 params to SYS_sigreturn");
     asm("jmp _dynamorio_sigreturn");
 #else
     asm("jmp dynamorio_sigreturn");
@@ -1918,7 +1919,12 @@ get_app_frame_size(thread_sig_info_t *info, int sig)
 sigcontext_t *
 get_sigcontext_from_rt_frame(sigframe_rt_t *frame)
 {
+#if defined(MACOS) && !defined(X64)
+    /* Padding makes it unsafe to access uc on frame from kernel */
+    return SIGCXT_FROM_UCXT(frame->puc);
+#else
     return SIGCXT_FROM_UCXT(&frame->uc);
+#endif
 }
 
 static sigcontext_t *
@@ -1984,7 +1990,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
                 "\tinside alt stack, so using current xsp "PFX"\n", sp);
         } else {
             /* need to go to top, stack grows down */
-            sp = info->app_sigstack.ss_sp + info->app_sigstack.ss_size - 1;
+            sp = info->app_sigstack.ss_sp + info->app_sigstack.ss_size;
             LOG(THREAD, LOG_ASYNCH, 3,
                 "\tnot inside alt stack, so using base xsp "PFX"\n", sp);
         }
@@ -2024,6 +2030,8 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
      */
     sp = (byte *) ALIGN_BACKWARD(sp, 16);
     sp -= sizeof(reg_t);  /* Model retaddr. */
+
+    LOG(THREAD, LOG_ASYNCH, 3, "\tplacing frame at "PFX"\n", sp);
     return sp;
 }
 
@@ -2151,8 +2159,32 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
 #elif defined(MACOS)
-    ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#85: fix up uc_mcontext ptr */
+    f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
+        &f_new->mc;
+    LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", handler="PFX"\n", f_new, &f_new->handler);
+    ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
 #endif /* LINUX */
+}
+
+static void
+memcpy_rt_frame(sigframe_rt_t *frame, byte *dst, bool from_pending)
+{
+#if defined(MACOS) && !defined(X64)
+    if (!from_pending) {
+        /* The kernel puts padding in the middle.  We collapse that padding here
+         * and re-align when we copy to the app stack.
+         * We should not reference fields from mc onward in what the kernel put
+         * on the stack, as our sigframe_rt_t layout does not match the kernel's
+         * variable mid-struct padding.
+         */
+        sigcontext_t *sc = SIGCXT_FROM_UCXT(frame->puc);
+        memcpy(dst, frame, offsetof(sigframe_rt_t, puc) + sizeof(frame->puc));
+        memcpy(&((sigframe_rt_t*)dst)->mc, sc,
+               sizeof(sigframe_rt_t) - offsetof(sigframe_rt_t, mc));
+        return;
+    }
+#endif
+    memcpy(dst, frame, sizeof(sigframe_rt_t));
 }
 
 /* Copies frame to sp.
@@ -2164,7 +2196,8 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
  * Also touches up fpstate pointer
  */
 static void
-copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *sp)
+copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *sp,
+                    bool from_pending)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     bool rtframe = IS_RT_FOR_APP(info, sig);
@@ -2226,8 +2259,10 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
         }
         check_pc += PAGE_SIZE;
     }
-    if (rtframe)
-        memcpy(sp, frame, frame_size);
+    if (rtframe) {
+        ASSERT(frame_size == sizeof(*frame));
+        memcpy_rt_frame(frame, sp, from_pending);
+    }
 #if defined(LINUX) && !defined(X64)
     else
         convert_frame_to_nonrt(dcontext, sig, frame, (sigframe_plain_t *) sp);
@@ -2288,6 +2323,12 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #  endif /* X64 */
     }
 #endif /* LINUX */
+
+#ifdef MACOS
+    /* Update handler field, which is passed to the libc trampoline, to app */
+    ASSERT(info->app_sigaction[sig] != NULL);
+    ((sigframe_rt_t *)sp)->handler = (app_pc) info->app_sigaction[sig]->handler;
+#endif
 }
 
 /* Copies frame to pending slot.
@@ -2301,14 +2342,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     sigframe_rt_t *dst = &(info->sigpending[sig]->rt_frame);
-    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending\n");
-#ifdef DEBUG
-    if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
-        LOG(THREAD, LOG_ASYNCH, 3, "sigcontext:\n");
-        dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(frame));
-    }
-#endif
-    memcpy(dst, frame, sizeof(*dst));
+    memcpy_rt_frame(frame, (byte *)dst, false/*!already pending*/);
 
 #ifdef LINUX
     /* For lazy fpstate, it's possible there was no fpstate when the kernel
@@ -2333,6 +2367,17 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     info->sigpending[sig]->access_address = access_address;
 #endif
     info->sigpending[sig]->use_sigcontext = false;
+
+#ifdef MACOS
+    /* We rely on puc to find sc to we have to fix it up */
+    fixup_rtframe_pointers(dcontext, sig, frame, dst, false/*!for app*/);
+#endif
+
+    LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_pending\n");
+    DOLOG(3, LOG_ASYNCH, {
+        LOG(THREAD, LOG_ASYNCH, 3, "sigcontext:\n");
+        dump_sigcontext(dcontext, get_sigcontext_from_rt_frame(dst));
+    });
 }
 
 /**** real work ***********************************************/
@@ -3902,7 +3947,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is "PFX"\n", xsp);
 
     /* copy frame to appropriate stack and convert to non-rt if necessary */
-    copy_frame_to_stack(dcontext, sig, our_frame, (void *)xsp);
+    copy_frame_to_stack(dcontext, sig, our_frame, (void *)xsp, false/*!pending*/);
     LOG(THREAD, LOG_ASYNCH, 3, "\tcopied frame from "PFX" to "PFX"\n", our_frame, xsp);
 
     /* Because of difficulties determining when/if a signal handler
@@ -3933,10 +3978,11 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
      * Then we'll go back through kernel, appear in fcache_return,
      * and go through dispatch & interp, without messing up DR stack.
      */
-    transfer_from_sig_handler_to_fcache_return(dcontext, sc,
-                              /* Make sure handler is next thing we execute */
-                              (app_pc) info->app_sigaction[sig]->handler,
-                              (linkstub_t *) get_sigreturn_linkstub());
+    transfer_from_sig_handler_to_fcache_return
+        (dcontext, sc,
+         /* Make sure handler is next thing we execute */
+         (app_pc) SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]),
+         (linkstub_t *) get_sigreturn_linkstub());
     /* Doesn't matter what most app registers are, signal handler doesn't
      * expect anything except the frame on the stack.  We do need to set xsp,
      * only because if app wants special signal stack we need to point xsp
@@ -3958,7 +4004,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     }
 
     LOG(THREAD, LOG_ASYNCH, 3, "\tset next_tag to handler "PFX", xsp to "PFX"\n",
-        info->app_sigaction[sig]->handler, xsp);
+        SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]), xsp);
     return true;
 }
 
@@ -3966,7 +4012,6 @@ static bool
 execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
-    handler_t handler;
     byte *xsp = get_sigstack_frame_ptr(dcontext, sig, NULL);
     sigframe_rt_t *frame = &(info->sigpending[sig]->rt_frame);
     priv_mcontext_t *mcontext = get_mcontext(dcontext);
@@ -4004,7 +4049,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
-        LOG(THREAD, LOG_ASYNCH, 3, "original sigcontext:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "original sigcontext "PFX":\n", sc);
         dump_sigcontext(dcontext, sc);
     }
 #endif
@@ -4036,7 +4081,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
 #endif
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
-        LOG(THREAD, LOG_ASYNCH, 3, "new sigcontext:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "new sigcontext "PFX":\n", sc);
         dump_sigcontext(dcontext, sc);
         LOG(THREAD, LOG_ASYNCH, 3, "\n");
     }
@@ -4102,12 +4147,11 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
      * chance to make changes, copy the frame to the appropriate stack
      * location and convert to non-rt if necessary
      */
-    copy_frame_to_stack(dcontext, sig, frame, xsp);
+    copy_frame_to_stack(dcontext, sig, frame, xsp, true/*pending*/);
     /* now point at the app's frame */
     sc = get_sigcontext_from_app_frame(info, sig, (void *) xsp);
 
     ASSERT(info->app_sigaction[sig] != NULL);
-    handler = info->app_sigaction[sig]->handler;
 
     /* add to set of blocked signals those in sigaction mask */
     blocked = info->app_sigaction[sig]->mask;
@@ -4135,7 +4179,7 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* Clear eflags DF (signal handler should match function entry ABI) */
     mcontext->xflags &= ~EFLAGS_DF;
     /* Make sure handler is next thing we execute */
-    dcontext->next_tag = (app_pc) handler;
+    dcontext->next_tag = (app_pc) SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
 
     if ((info->app_sigaction[sig]->flags & SA_ONESHOT) != 0) {
         /* clear handler now -- can't delete memory since sigreturn,
@@ -4491,7 +4535,11 @@ receive_pending_signal(dcontext_t *dcontext)
 
 /* Returns false if should NOT issue syscall. */
 bool
+#ifdef LINUX
 handle_sigreturn(dcontext_t *dcontext, bool rt)
+#else
+handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
+#endif
 {
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
     sigcontext_t *sc = NULL; /* initialize to satisfy Mac clang */
@@ -4499,6 +4547,9 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
     app_pc next_pc;
     /* xsp was put in mcontext prior to pre_system_call() */
     reg_t xsp = get_mcontext(dcontext)->xsp;
+#ifdef MACOS
+    bool rt = true;
+#endif
 
     LOG(THREAD, LOG_ASYNCH, 3, "%ssigreturn()\n", rt?"rt_":"");
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is "PFX"\n", xsp);
@@ -4518,22 +4569,38 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
      * so app can get away with it)
      */
     if (rt) {
+        kernel_ucontext_t *ucxt;
+#ifdef LINUX
         sigframe_rt_t *frame = (sigframe_rt_t *) (xsp - sizeof(char*));
         /* use si_signo instead of sig, less likely to be clobbered by app */
         sig = frame->info.si_signo;
-#ifndef X64
+# ifndef X64
         LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d (did == param %d)\n",
             sig, frame->sig);
         if (frame->sig != sig)
             LOG(THREAD, LOG_ASYNCH, 1, "WARNING: app sig handler clobbered sig param\n");
+# endif
+        sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
+        ucxt = &frame->uc;
+#elif defined(MACOS)
+        /* The initial frame fields on the stack are messed up due to
+         * params to handler from tramp, so use params to syscall.
+         * XXX: we don't have signal # though: so we have to rely on app
+         * not clobbering the param field.
+         */
+        sig = *(int*)xsp;
+        LOG(THREAD, LOG_ASYNCH, 3, "\tsignal was %d\n", sig);
+        ucxt = (kernel_ucontext_t *) ucxt_param;
+        sc = SIGCXT_FROM_UCXT(ucxt);
 #endif
         ASSERT(sig > 0 && sig <= MAX_SIGNUM && IS_RT_FOR_APP(info, sig));
+
         /* FIXME: what if handler called sigaction and requested rt
          * when itself was non-rt?
          */
-        sc = get_sigcontext_from_app_frame(info, sig, (void *) frame);
+
         /* discard blocked signals, re-set from prev mask stored in frame */
-        set_blocked(dcontext, SIGMASK_FROM_UCXT(&frame->uc), true/*absolute*/);
+        set_blocked(dcontext, SIGMASK_FROM_UCXT(ucxt), true/*absolute*/);
     }
 #ifdef LINUX
     else {
@@ -4595,7 +4662,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
 
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
-        LOG(THREAD, LOG_ASYNCH, 3, "returning-to sigcontext:\n");
+        LOG(THREAD, LOG_ASYNCH, 3, "returning-to sigcontext "PFX":\n", sc);
         dump_sigcontext(dcontext, sc);
     }
 #endif
@@ -4639,7 +4706,7 @@ handle_sigreturn(dcontext_t *dcontext, bool rt)
     ASSERT((app_pc)sc->SC_XIP != next_pc);
 #endif
 
-    LOG(THREAD, LOG_ASYNCH, 3, "\tset next tag to "PFX", sc->SC_XIP to "PFX"\n",
+    LOG(THREAD, LOG_ASYNCH, 3, "set next tag to "PFX", sc->SC_XIP to "PFX"\n",
         next_pc, sc->SC_XIP);
 
     return IF_VMX86_ELSE(false, true);
