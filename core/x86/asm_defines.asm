@@ -70,7 +70,8 @@
 # define DWORD dword ptr
 # define QWORD qword ptr
 # define MMWORD qword ptr
-# define XMMWORD xmmword ptr
+# define XMMWORD oword ptr
+# define YMMWORD ymmword ptr
 # ifdef X64
 /* w/o the rip, gas won't use rip-rel and adds relocs that ld trips over */
 #  define SYMREF(sym) [rip + sym]
@@ -123,6 +124,7 @@ ASSUME fs:_DATA @N@\
 # define QWORD qword ptr
 # define MMWORD mmword ptr
 # define XMMWORD xmmword ptr
+# define YMMWORD ymmword ptr /* added in VS 2010 */
 /* ml64 uses rip-rel automatically */
 # define SYMREF(sym) [sym]
 # define HEX(n) 0##n##h
@@ -161,8 +163,9 @@ ASSUME fs:_DATA @N@\
 # define WORD word
 # define DWORD dword
 # define QWORD qword
-# define MMWORD mmword
-# define XMMWORD xmmword
+# define MMWORD qword
+# define XMMWORD oword
+# define YMMWORD yword
 # ifdef X64
 #  define SYMREF(sym) [rel GLOBAL_REF(sym)]
 # else

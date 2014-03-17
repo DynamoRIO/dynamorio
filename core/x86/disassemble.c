@@ -180,10 +180,12 @@ opnd_size_suffix_intel(opnd_t opnd)
     case 1: return "byte";
     case 2: return "word";
     case 4: return "dword";
+    case 6: return "fword";
     case 8: return "qword";
     case 10: return "tbyte";
     case 12: return "";
-    case 16: return "dqword";
+    case 16: return "oword";
+    case 32: return "yword";
     }
     return "";
 }
