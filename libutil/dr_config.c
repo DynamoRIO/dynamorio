@@ -188,6 +188,7 @@ free_client_opt(client_opt_t *opt)
     if (opt->opts != NULL) {
         free(opt->opts);
     }
+    free(opt);
 }
 
 

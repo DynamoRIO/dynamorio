@@ -87,6 +87,11 @@ if (WIN32)
   set(libutil_cflags "/wd4996 /wd4047 /wd4024 /wd4133 /wd4127 /wd4100 /wd4292 /wd4127 /wd4100")
   set(libutil_ldflags "/nodefaultlib:libc.lib")
 
+  if (DEBUG)
+    set(libutil_cflags "${libutil_cflags} /Zi")
+    set(libutil_ldflags "${libutil_ldflags} /debug")
+  endif (DEBUG)
+
   add_library(policy_static ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
   set_target_properties(policy_static PROPERTIES
     COMPILE_FLAGS "${libutil_cflags}")
