@@ -279,11 +279,11 @@ function (set_compile_flags target tgt_cflags)
   string(REGEX REPLACE " /D " " /D" tgt_cflags_list "${tgt_cflags}")
   # Now convert to list
   string(REGEX REPLACE " " ";" tgt_cflags_list "${tgt_cflags_list}")
-  foreach(flag ${tgt_cflags_list})
+  foreach (flag ${tgt_cflags_list})
     if (flag MATCHES "^[-/]D" OR flag MATCHES "^[-/]I")
       set(tgt_definc "${tgt_definc} ${flag}")
     else ()
-      set(tgt_flags "${tgt_flags} ${flag}")
+      set(tgt_flags ${tgt_flags} ${flag})
     endif ()
   endforeach (flag)
   get_target_property(srcs ${target} SOURCES)
@@ -293,7 +293,16 @@ function (set_compile_flags target tgt_cflags)
         # do not add COMPILE_FLAGS to an .obj file else VS2008 will try to
         # compile the file!
         NOT src MATCHES "\\.obj$")
-      append_property_string(SOURCE ${src} COMPILE_FLAGS "${tgt_flags}")
+      # i#1396: don't double-add in case the same source file is in multiple
+      # DR client/standalone targets.
+      # We can't do a test of the entire flag set at once b/c we add
+      # "-fno-stack-protector" for the client and not for standalone.
+      get_source_file_property(cur_flags ${src} COMPILE_FLAGS)
+      foreach (flag ${tgt_flags})
+        if (NOT cur_flags MATCHES " ${flag}")
+          append_property_string(SOURCE ${src} COMPILE_FLAGS "${flag}")
+        endif ()
+      endforeach ()
     endif ()
   endforeach (src)
 
