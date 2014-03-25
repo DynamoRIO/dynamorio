@@ -3028,7 +3028,13 @@ int
 llseek_syscall(int fd, int64 offset, int origin, int64 *result)
 {
 #if defined(X64) || defined(MACOS)
+# ifndef X64
+    /* 2 slots for 64-bit arg */
+    *result = dynamorio_syscall(SYS_lseek, 4, fd, (uint)(offset & 0xFFFFFFFF),
+                                (uint)((offset >> 32) & 0xFFFFFFFF), origin);
+# else
     *result = dynamorio_syscall(SYS_lseek, 3, fd, offset, origin);
+# endif
     return ((*result > 0) ? 0 : (int)*result);
 #else
     return dynamorio_syscall(SYS__llseek, 5, fd, (uint)((offset >> 32) & 0xFFFFFFFF),
