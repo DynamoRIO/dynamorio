@@ -476,6 +476,13 @@ If a target application binary has suid or sgid bits set, \p drrun will be
 unable to inject into it.  You'll need to use /etc/ld.so.preload as
 described in the \ref limits_linux_preload "Limitations" section.
 
+When running scripts it is best to explicitly invoke the interpreter rather
+than invoking the script directly:
+
+\code
+% bin64/drrun -- /bin/bash myscript.sh
+\endcode
+
 To \ref sec_comm "nudge" a process with pid \c targetpid running under
 DynamoRIO and pass argument "5" to the nudge callback, use the \c
 nudgeunix tool:
