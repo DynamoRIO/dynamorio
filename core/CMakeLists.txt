@@ -29,6 +29,11 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+if ("${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
+  # XXX i#1481: update to cmake 2.8.12's better handling of interface imports
+  cmake_policy(SET CMP0022 OLD)
+endif ()
+
 ###########################################################################
 # sources and targets
 
