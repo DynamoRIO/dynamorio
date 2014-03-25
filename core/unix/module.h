@@ -92,6 +92,9 @@ typedef struct _os_module_data_t {
     byte *strtab;
     size_t strtab_sz;
     bool in_shared_cache;
+    uint current_version;
+    uint compatibility_version;
+    byte uuid[16];
 #endif
 
     /* i#160/PR 562667: support non-contiguous library mappings */

@@ -2706,6 +2706,12 @@ struct _module_data_t {
      * by the start address of each segment.
      */
     module_segment_data_t *segments;
+    uint timestamp;              /**< Timestamp from ELF Mach-O headers. */
+# ifdef MACOS
+    uint current_version;        /**< Current version from Mach-O headers. */
+    uint compatibility_version;  /**< Compatibility version from Mach-O headers. */
+    byte uuid[16];               /**< UUID from Mach-O headers. */
+# endif
 #endif
 #ifdef AVOID_API_EXPORT
     /* FIXME: PR 215890: ELF64 size? Anything else? */

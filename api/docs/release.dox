@@ -149,7 +149,9 @@ Further non-compatibility-affecting changes include:
  - Added operand size suffixes on disassembly in the default mode.
    This can be disabled via -disasm_mask 0x8 or by calling
    disassemble_set_syntax(DR_DISASM_NO_OPND_SIZE).
- - Added instr_zeroes_ymmh()
+ - Added instr_zeroes_ymmh().
+ - Added new fields to module_data_t: timestamp for Linux and MacOS, and
+   version and uuid fields for MacOS.
 
 **************************************************
 <hr>

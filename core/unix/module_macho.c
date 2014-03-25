@@ -194,8 +194,11 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
             LOG(GLOBAL, LOG_VMAREAS, 4, "%s: lib identity %s\n", __FUNCTION__, soname);
             if (out_soname != NULL)
                 *out_soname = soname;
-            if (out_data != NULL)
+            if (out_data != NULL) {
                 out_data->timestamp = dy->dylib.timestamp;
+                out_data->current_version = dy->dylib.current_version;
+                out_data->compatibility_version = dy->dylib.compatibility_version;
+            }
         }
         cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
     }
@@ -270,6 +273,9 @@ module_walk_program_headers(app_pc base, size_t view_size, bool at_map,
                     out_data->strtab = (app_pc) symtab->stroff + load_delta +
                         linkedit_delta;
                     out_data->strtab_sz = symtab->strsize;
+                } else if (cmd->cmd == LC_UUID) {
+                    memcpy(out_data->uuid, ((struct uuid_command *)cmd)->uuid,
+                           sizeof(out_data->uuid));
                 }
                 cmd = (struct load_command *)((byte *)cmd + cmd->cmdsize);
             }

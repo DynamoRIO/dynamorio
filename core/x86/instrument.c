@@ -1613,7 +1613,13 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
                                   , bool contiguous,
                                   uint num_segments,
                                   module_segment_t *os_segments,
-                                  module_segment_data_t *segments
+                                  module_segment_data_t *segments,
+                                  uint timestamp
+# ifdef MACOS
+                                  , uint current_version,
+                                  uint compatibility_version,
+                                  const byte uuid[16]
+# endif
 #endif
                                   )
 {
@@ -1660,6 +1666,12 @@ create_and_initialize_module_data(app_pc start, app_pc end, app_pc entry_point,
         }
     } else
         memcpy(copy->segments, segments, num_segments*sizeof(module_segment_data_t));
+    copy->timestamp = timestamp;
+# ifdef MACOS
+    copy->current_version = current_version;
+    copy->compatibility_version = compatibility_version;
+    memcpy(copy->uuid, uuid, sizeof(copy->uuid));
+# endif
 #endif
     return copy;
 }
@@ -1682,7 +1694,13 @@ copy_module_area_to_module_data(const module_area_t *area)
                                              , area->os_data.contiguous,
                                              area->os_data.num_segments,
                                              area->os_data.segments,
-                                             NULL
+                                             NULL,
+                                             area->os_data.timestamp
+# ifdef MACOS
+                                             , area->os_data.current_version,
+                                             area->os_data.compatibility_version,
+                                             area->os_data.uuid
+# endif
 #endif
                                              );
 }
@@ -1708,7 +1726,13 @@ dr_copy_module_data(const module_data_t *data)
                                              , data->contiguous,
                                              data->num_segments,
                                              NULL,
-                                             data->segments
+                                             data->segments,
+                                             data->timestamp
+# ifdef MACOS
+                                             , data->current_version,
+                                             data->compatibility_version,
+                                             data->uuid
+# endif
 #endif
                                              );
 }
