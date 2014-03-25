@@ -155,3 +155,12 @@ DR_export_target(drconfiglib)
 # drinject.exe and company need a copy in the bin dir
 DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 
+if (WIN32)
+  set(dr_frontend_srcs dr_frontend_win.c)
+else () #UNIX
+  set(dr_frontend_srcs dr_frontend_unix.c)
+endif ()
+set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
+add_library(drfrontendlib STATIC ${dr_frontend_srcs})
+DR_export_target(drfrontendlib)
+install_exported_target(drfrontendlib ${INSTALL_BIN})
