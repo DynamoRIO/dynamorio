@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,7 +45,7 @@
  */
 /**
  * @file dr_config.h
- * @brief Deployment API for Windows.  Use these functions to register
+ * @brief Deployment API for DynamoRIO.  Use these functions to register
  * processes to run under DynamoRIO, unregister processes, obtain existing
  * registration information, and nudge running processes.
  * \note The dr_config library is currently not multi-thread safe. Users of

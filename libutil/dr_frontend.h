@@ -41,6 +41,27 @@
 
 /* DR_API EXPORT TOFILE dr_frontend.h */
 /* DR_API EXPORT BEGIN */
+/****************************************************************************
+ * Tool front-end API
+ */
+/**
+ * @file dr_frontend.h
+ * @brief Tool front-end API.  Use these functions to search for and query
+ * the properties of a target application file, check environment variables,
+ * and perform other common actions in a tool front-end executable.
+ * The library provides cross-platform utilities that support internationalization.
+ *
+ * The general usage model is for the front-end executable to always deal with
+ * UTF-8 strings and let this front-end library perform conversion back and
+ * forth to UTF-16 when interacting with Windows library.  The executable should
+ * declare its main routine as follows:
+ *
+ *   int _tmain(int argc, TCHAR *targv[])
+ *
+ * And then invoke drfront_convert_args() to convert them to UTF-8.  All further
+ * references to the arguments should use the UTF-8 versions.
+ * On Linux or MacOS, _tmain and TCHAR will turn into regular symbols.
+ */
 
 #ifdef WINDOWS
 # include <tchar.h>
@@ -68,18 +89,18 @@
 
 /** Status code for each DRFront operation */
 typedef enum {
-    DRFRONT_SUCCESS,                    /** Operation succeeded */
-    DRFRONT_ERROR,                      /** Operation failed */
-    DRFRONT_ERROR_INVALID_PARAMETER,    /** Operation failed: invalid parameter */
-    DRFRONT_ERROR_INVALID_SIZE          /** Operation failed: invalid size */
+    DRFRONT_SUCCESS,                    /**< Operation succeeded */
+    DRFRONT_ERROR,                      /**< Operation failed */
+    DRFRONT_ERROR_INVALID_PARAMETER,    /**< Operation failed: invalid parameter */
+    DRFRONT_ERROR_INVALID_SIZE          /**< Operation failed: invalid size */
 } drfront_status_t;
 
 /** Permission modes for drfront_access() */
 typedef enum {
-    DRFRONT_EXIST    = 0x00,    /** Test existence */
-    DRFRONT_EXEC     = 0x01,    /** Test for execute access */
-    DRFRONT_WRITE    = 0x02,    /** Test for write access */
-    DRFRONT_READ     = 0x04,    /** Test for read access */
+    DRFRONT_EXIST    = 0x00,    /**< Test existence */
+    DRFRONT_EXEC     = 0x01,    /**< Test for execute access */
+    DRFRONT_WRITE    = 0x02,    /**< Test for write access */
+    DRFRONT_READ     = 0x04,    /**< Test for read access */
 } drfront_access_mode_t;
 
 /**
@@ -164,7 +185,7 @@ drfront_status_t
 drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elements*/);
 
 /**
- * Stores the contents of the environment variable \p name in \buf.
+ * Stores the contents of the environment variable \p name in \p buf.
  *
  * @param[in]  name      The name of the environment variable.
  * @param[out] buf       The destination to store the contents of \p name.

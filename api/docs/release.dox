@@ -74,9 +74,9 @@ The following are part of the DynamoRIO release distribution:
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
  - The DynamoRIO configuration and execution libraries and command-line
-   utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drconfig.exe,
-   \c drrun.exe, and \c drinject.exe.  On Linux, the tools are named \c
-   drconfig, \c drrun, and \c drinject.
+   utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drfrontendlib.dll,
+   \c drconfig.exe, \c drrun.exe, and \c drinject.exe.
+   On Linux, the tools are named \c drconfig, \c drrun, and \c drinject.
  - A utility \c drview.exe for viewing which processes
    are running under DynamoRIO control (Windows package only).
  - Header files for the DynamoRIO APIs.
@@ -152,6 +152,8 @@ Further non-compatibility-affecting changes include:
  - Added instr_zeroes_ymmh().
  - Added new fields to module_data_t: timestamp for Linux and MacOS, and
    version and uuid fields for MacOS.
+ - Added a new library drfrontendlib to be used for building tool
+   front-ends.  For more information see dr_frontend.h.
 
 **************************************************
 <hr>

@@ -199,12 +199,13 @@ drfront_get_absolute_path(const char *src, OUT char *buf, size_t buflen/*# eleme
     TCHAR wsrc[MAX_PATH];
     TCHAR wdst[MAX_PATH];
     drfront_status_t status_check = DRFRONT_ERROR;
+    int res;
 
     status_check = drfront_char_to_tchar(src, wsrc, BUFFER_SIZE_ELEMENTS(wsrc));
     if (status_check != DRFRONT_SUCCESS)
         return status_check;
 
-    int res = GetFullPathName(wsrc, BUFFER_SIZE_ELEMENTS(wdst), wdst, NULL);
+    res = GetFullPathName(wsrc, BUFFER_SIZE_ELEMENTS(wdst), wdst, NULL);
     if (res <= 0)
         return DRFRONT_ERROR;
 

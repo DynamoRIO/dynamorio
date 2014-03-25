@@ -291,7 +291,8 @@ tools are \c drconfig.exe, \c drrun.exe, and \c drinject.exe.  The
 corresponding libraries (whose APIs are exposed by the tools) are \c
 drconfiglib.dll and \c drinjectlib.dll with header files \c dr_config.h and
 \c dr_inject.h.  On Linux, the tools are named \c drconfig, \c drrun, and \c
-drinject.
+drinject, and the libraries are \c libdrconfiglib.so and \c
+libdrinjectlib.so.
 
 \ifnot vmsafe
 When using DynamoRIO as a third-party disassembly library (see \ref
@@ -613,8 +614,11 @@ bin64/drrun -mytool_dr_option1 -mytool_dr_option2 -c tools/mytool/libmytool.so -
 \endcode
 
 For more extensive actions on launching the tool, a custom front-end
-executable can be created that replaces \p drrun by using \p drinjectlib
-and \p drconfiglib.
+executable can be created that replaces \p drrun by using \p drinjectlib,
+\p drconfiglib, and \p drfrontendlib.  These three libraries facilitate
+creating cross-platform tools for configuring and launching applications
+under Dr. Memory.  For more information about the interfaces they provide,
+see their header files: dr_inject.h, dr_config.h, dr_frontend.h.
 
 ****************************************************************************
 ****************************************************************************
