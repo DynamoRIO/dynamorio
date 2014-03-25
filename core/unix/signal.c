@@ -2518,7 +2518,7 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             "client suppressing signal" :
             "app signal handler is SIG_IGN");
         /* restore original (untranslated) sc */
-        *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
+        *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
         return false;
     }
     else if (!blocked && /* no BYPASS for blocked */
@@ -2533,10 +2533,10 @@ handle_client_action_from_cache(dcontext_t *dcontext, int sig, dr_signal_action_
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              */
-            *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
+            *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
             LOG(THREAD, LOG_ASYNCH, 2, "%s: restored xsp="PFX", xip="PFX"\n",
-                __FUNCTION__, SIGCXT_FROM_UCXT(&our_frame->uc)->SC_XSP,
-                SIGCXT_FROM_UCXT(&our_frame->uc)->SC_XIP);
+                __FUNCTION__, get_sigcontext_from_rt_frame(our_frame)->SC_XSP,
+                get_sigcontext_from_rt_frame(our_frame)->SC_XIP);
         }
         return false;
     }
@@ -3087,7 +3087,7 @@ record_pending_signal(dcontext_t *dcontext, int sig, kernel_ucontext_t *ucxt,
                 return;
             }
             /* restore original (untranslated) sc */
-            *SIGCXT_FROM_UCXT(&frame->uc) = sc_orig;
+            *get_sigcontext_from_rt_frame(frame) = sc_orig;
         }
 #endif
 
@@ -3928,7 +3928,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
             /* if we haven't terminated, restore original (untranslated) sc
              * on request.
              */
-            *SIGCXT_FROM_UCXT(&our_frame->uc) = *sc_orig;
+            *get_sigcontext_from_rt_frame(our_frame) = *sc_orig;
         }
         return false;
     }
