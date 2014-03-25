@@ -728,7 +728,7 @@ The changes between version 1.4.0 and 1.3.2 are:
  - Added directly-addressable thread-local storage slots for exclusive
    client use:
    - dr_raw_tls_calloc()
-   - dr_raw_tls_free()
+   - dr_raw_tls_cfree()
  - Provide 64-bit versions of the drdeploy.exe and drview.exe tools
  - Provide dr_get_proc_address() on Linux
  - Added dr_query_memory_ex() to allow address space walking on Linux
@@ -736,7 +736,7 @@ The changes between version 1.4.0 and 1.3.2 are:
    - Added STDIN and dr_get_stdin_file()
  - Added shared library versioning on Linux
  - Support calling dr_get_mcontext() from bb and trace callbacks
- - Provide support for building clients using CMake (see cmake/*, and for
+ - Provide support for building clients using CMake (see cmake/, and for
    an example of usage see samples/CMakeLists.txt)
  - Provide support for clients to use -fvisibility by setting
    the define USE_VISIBILITY_ATTRIBUTES for dr_defines.h
