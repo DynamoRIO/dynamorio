@@ -36,7 +36,12 @@
 # error UNIX-only
 #endif
 
-#include <elf.h>
+#ifdef LINUX
+# include <elf.h>
+#elif defined(MACOS)
+# include <mach-o/loader.h> /* mach_header */
+#endif
+
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -88,10 +93,10 @@ drfront_access(const char *fname, drfront_access_mode_t mode, OUT bool *ret)
     /* It is assumed that (S_IRWXU >> 6) == DRFRONT_READ | DRFRONT_WRITE | DRFRONT_EXEC */
     if (euid == st.st_uid) {
         /* Check owner permissions */
-        *ret = TESTALL(mode, (S_IRWXU & st.st_mode) >> 6);
+        *ret = TESTALL(mode << 6, st.st_mode);
     } else {
         /* Check other permissions */
-        *ret = TESTALL(mode, S_IRWXO & st.st_mode);
+        *ret = TESTALL(mode, st.st_mode);
     }
 
     return DRFRONT_SUCCESS;
@@ -194,8 +199,6 @@ drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen/*# element
 drfront_status_t
 drfront_is_64bit_app(const char *exe, OUT bool *is_64)
 {
-    char elf_check[SELFMAG];
-    char arch = 1;
     size_t num = 0;
     FILE *target_file;
 
@@ -203,8 +206,11 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
     target_file = fopen(exe, "rb");
-    /* Ensure this is an elf file */
     if (target_file != NULL) {
+#ifdef LINUX
+        /* Ensure this is an elf file */
+        char elf_check[SELFMAG];
+        char arch = ELFCLASS32;
         num = fread(&elf_check, 1, BUFFER_SIZE_BYTES(elf_check), target_file);
         if (num != BUFFER_SIZE_BYTES(elf_check) || elf_check[0] != ELFMAG0 ||
             elf_check[1] != ELFMAG1 || elf_check[2] != ELFMAG2 ||
@@ -215,12 +221,27 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64)
         num = fread(&arch, 1, 1, target_file);
         if (num != 1)
             return DRFRONT_ERROR;
+        *is_64 = (arch == ELFCLASS64);
+#elif defined(MACOS)
+        /* XXX: if we get many more ifdefs, we could make dr_frontend_macos.c
+         * and dr_frontend_linux.c.
+         */
+        struct mach_header hdr;
+        num = fread(&hdr, sizeof(hdr), 1, target_file);
+        if (num == 1 &&
+            ((hdr.magic == MH_MAGIC && hdr.cputype == CPU_TYPE_X86) ||
+             (hdr.magic == MH_MAGIC_64 && hdr.cputype == CPU_TYPE_X86_64)))
+            *is_64 = (hdr.cputype == CPU_TYPE_X86_64);
+        else
+            return DRFRONT_ERROR;
+#else
+# error NYI
+#endif
     } else {
-        fclose(target_file);
         return DRFRONT_ERROR;
     }
-    fclose(target_file);
-    *is_64 = (arch == ELFCLASS64);
+    if (target_file != NULL)
+        fclose(target_file);
     return DRFRONT_SUCCESS;
 }
 
