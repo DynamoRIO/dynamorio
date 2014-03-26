@@ -109,6 +109,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     const char *next;
     const char *end;
     char tmp[full_path_size];
+    char realpath_buf[PATH_MAX]; /* realpath hardcodes its buffer length */
     drfront_status_t status_check = DRFRONT_ERROR;
     bool access_ret = false;
 
@@ -117,13 +118,15 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
 
     /* Windows searches the current directory first. */
     /* XXX: realpath resolves symlinks, which we may not want. */
-    if (realpath(fname, full_path) != NULL) {
-        status_check = drfront_access(full_path, 0, &access_ret);
+    if (realpath(fname, realpath_buf) != NULL) {
+        status_check = drfront_access(realpath_buf, 0, &access_ret);
         if (status_check != DRFRONT_SUCCESS) {
             *ret = false;
             return status_check;
         } else if (access_ret == true) {
             *ret = true;
+            snprintf(full_path, full_path_size, "%s", realpath_buf);
+            full_path[full_path_size - 1] = '\0';
             return DRFRONT_SUCCESS;
         }
     }
@@ -137,13 +140,15 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
                  "%.*s/%s", (int)(next - cur), cur, fname);
         NULL_TERMINATE_BUFFER(tmp);
         /* realpath checks for existence too. */
-        if (realpath(tmp, full_path) != NULL) {
-            status_check = drfront_access(full_path, 0, &access_ret);
+        if (realpath(tmp, realpath_buf) != NULL) {
+            status_check = drfront_access(realpath_buf, 0, &access_ret);
             if (status_check != DRFRONT_SUCCESS) {
                 *ret = false;
                 return status_check;
             } else if (access_ret == true) {
                 *ret = true;
+                snprintf(full_path, full_path_size, "%s", realpath_buf);
+                full_path[full_path_size - 1] = '\0';
                 return DRFRONT_SUCCESS;
             }
         }
@@ -197,7 +202,7 @@ drfront_is_64bit_app(const char *exe, OUT bool *is_64)
     if (is_64 == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
-    target_file = fopen(exe, "r+b");
+    target_file = fopen(exe, "rb");
     /* Ensure this is an elf file */
     if (target_file != NULL) {
         num = fread(&elf_check, 1, BUFFER_SIZE_BYTES(elf_check), target_file);
@@ -284,17 +289,17 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
     bool res = false;
     drfront_status_t status_check = DRFRONT_ERROR;
 
-    status_check = drfront_searchenv(app, "PATH", buf, BUFFER_SIZE_ELEMENTS(buf), &res);
+    status_check = drfront_searchenv(app, "PATH", buf, buflen, &res);
     if (status_check != DRFRONT_SUCCESS)
         return status_check;
 
-    NULL_TERMINATE_BUFFER(buf);
+    buf[buflen - 1] = '\0';
     if (buf[0] == '\0') {
         /* last try: expand w/ cur dir */
         status_check = drfront_get_absolute_path(app, buf, buflen);
         if (status_check != DRFRONT_SUCCESS)
             return status_check;
-        NULL_TERMINATE_BUFFER(buf);
+        buf[buflen - 1] = '\0';
     }
     return DRFRONT_SUCCESS;
 }

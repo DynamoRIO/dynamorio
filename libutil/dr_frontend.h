@@ -81,11 +81,13 @@
 # define _tfopen fopen
 # define _T(s) s
 #endif
+/* DR_API EXPORT VERBATIM */
 #ifdef _UNICODE
 # define TSTR_FMT "%S"
 #else
 # define TSTR_FMT "%s"
 #endif
+/* DR_API EXPORT END */
 
 /** Status code for each DRFront operation */
 typedef enum {
@@ -192,7 +194,7 @@ drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elemen
  * @param[in]  buflen    The allocated size of \p buf in elements.
  */
 drfront_status_t
-drfront_get_env_var(const TCHAR *name, OUT char *buf, size_t buflen/*# elements*/);
+drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/);
 
 /**
  * Gets the absolute path of \p src.

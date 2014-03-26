@@ -108,12 +108,13 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
     if (full_path == NULL && ret == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
-    status_check = drfront_char_to_tchar(fname, wfname, MAX_PATH);
+    status_check = drfront_char_to_tchar(fname, wfname, BUFFER_SIZE_ELEMENTS(wfname));
     if (status_check != DRFRONT_SUCCESS) {
         *ret = false;
         return status_check;
     }
-    drfront_char_to_tchar(env_var, wenv_var, MAX_PATH);
+    status_check = drfront_char_to_tchar(env_var, wenv_var,
+                                         BUFFER_SIZE_ELEMENTS(wenv_var));
     if (status_check != DRFRONT_SUCCESS) {
         *ret = false;
         return status_check;
@@ -181,14 +182,17 @@ drfront_char_to_tchar(const char *str, OUT TCHAR *wbuf, size_t wbuflen/*# elemen
 }
 
 drfront_status_t
-drfront_get_env_var(const TCHAR *name, OUT char *buf, size_t buflen/*# elements*/)
+drfront_get_env_var(const char *name, OUT char *buf, size_t buflen/*# elements*/)
 {
     TCHAR wbuf[MAX_PATH];
-    int len = GetEnvironmentVariable(name, wbuf, BUFFER_SIZE_ELEMENTS(wbuf));
-    drfront_status_t status_check = DRFRONT_ERROR;
-    if (len > 0) {
-        status_check = drfront_tchar_to_char(wbuf, buf, buflen);
-        return status_check;
+    /* XXX: Not sure what the size for environment variable names should be. */
+    TCHAR wname[MAX_PATH];
+    drfront_status_t res =
+        drfront_char_to_tchar(name, wname, BUFFER_SIZE_ELEMENTS(wname));
+    if (res != DRFRONT_SUCCESS)
+        return res;
+    if (GetEnvironmentVariable(wname, wbuf, BUFFER_SIZE_ELEMENTS(wbuf)) > 0) {
+        return drfront_tchar_to_char(wbuf, buf, buflen);
     }
     return DRFRONT_ERROR;
 }
