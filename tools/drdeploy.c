@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -190,7 +190,8 @@ const char *usage_str =
     "                           to separate the app executable.\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
-    "                          Register one or more clients to run alongside DR.\n"
+    "                          Use -c instead, unless you need to set the client ID.\n"
+    "                          Registers one or more clients to run alongside DR.\n"
     "                          This option is only valid when registering a\n"
     "                          process.  The -client option takes three arguments:\n"
     "                          the full path to a client library, a unique 8-digit\n"
@@ -200,6 +201,7 @@ const char *usage_str =
     "                          this case, clients specified first on the command\n"
     "                          line have higher priority.  Neither the path nor\n"
     "                          the options may contain semicolon characters.\n"
+    "                          This option must precede any options to DynamoRIO.\n"
 #endif
 #ifdef DRCONFIG
     "\n"
