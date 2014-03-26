@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,6 +58,7 @@
 # include <sys/stat.h>
 # include <sys/types.h>
 # include <unistd.h>
+# include <syscall.h>
 
 # define RELEASE32_DLL   "/lib32/release/libdynamorio.so"
 # define DEBUG32_DLL     "/lib32/debug/libdynamorio.so"
@@ -65,6 +66,10 @@
 # define DEBUG64_DLL     "/lib64/debug/libdynamorio.so"
 # define LOG_SUBDIR      "/logs"
 # define LIB32_SUBDIR    "/lib32/"
+
+extern bool
+create_nudge_signal_payload(siginfo_t *info OUT, uint action_mask,
+                            client_id_t client_id, uint64 client_arg);
 #endif
 
 /* The minimum option size is 3, e.g., "-x ".  Note that we need the
@@ -1757,9 +1762,6 @@ dr_unregister_client(const char *process_name,
     return status;
 }
 
-/* FIXME i#840: Support the nudge API on Linux by incorporating
- * tools/nudgeunix.c.
- */
 #ifdef WINDOWS
 
 typedef struct {
@@ -1862,6 +1864,23 @@ dr_nudge_all(client_id_t client_id, uint64 arg, uint timeout_ms, int *nudge_coun
     if (data.res == ERROR_TIMEOUT)
         return DR_NUDGE_TIMEOUT;
     return DR_FAILURE;
+}
+
+#elif defined LINUX
+
+dr_config_status_t
+dr_nudge_pid(process_id_t process_id, client_id_t client_id, uint64 arg, uint timeout_ms)
+{
+    siginfo_t info;
+    int res;
+    /* construct the payload */
+    if (!create_nudge_signal_payload(&info, NUDGE_GENERIC(client), client_id, arg))
+        return DR_FAILURE;
+    /* send the nudge */
+    res = syscall(SYS_rt_sigqueueinfo, process_id, NUDGESIG_SIGNUM, &info);
+    if (res < 0)
+        return DR_FAILURE;
+    return DR_SUCCESS;
 }
 
 #endif /* WINDOWS */

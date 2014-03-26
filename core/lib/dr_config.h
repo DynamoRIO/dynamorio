@@ -279,7 +279,7 @@ DR_EXPORT
  * mode, but a 32-bit parent cannot inject into a 64-bit child). Only some small
  * non-graphical applications do not link with user32.dll.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
 dr_register_syswide(dr_platform_t dr_platform,
@@ -303,7 +303,7 @@ DR_EXPORT
  *              the operation.  The operation will fail if the caller does
  *              not have sufficient privileges.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
 dr_unregister_syswide(dr_platform_t dr_platform,
@@ -322,7 +322,7 @@ DR_EXPORT
  *
  * \return      Whether systemwide injection is enabled.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 bool
 dr_syswide_is_on(dr_platform_t dr_platform,
@@ -421,7 +421,7 @@ DR_EXPORT
  *              dr_registered_process_iterator_next().  Must be freed
  *              with dr_registered_process_iterator_stop()
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 dr_registered_process_iterator_t *
 dr_registered_process_iterator_start(dr_platform_t dr_platform,
@@ -434,7 +434,7 @@ DR_EXPORT
  *
  * \return      true if there are more registered processes to iterate over
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 bool
 dr_registered_process_iterator_hasnext(dr_registered_process_iterator_t *iter);
@@ -472,7 +472,7 @@ DR_EXPORT
  *
  * \return      true if the information was successfully retrieved.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 bool
 dr_registered_process_iterator_next(dr_registered_process_iterator_t *iter,
@@ -489,7 +489,7 @@ DR_EXPORT
  * \param[in]    iter           A registered process iterator created with
  *                              dr_registered_process_iterator_start()
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 void
 dr_registered_process_iterator_stop(dr_registered_process_iterator_t *iter);
@@ -795,7 +795,6 @@ void
 dr_client_iterator_stop(dr_client_iterator_t *iter);
 
 #ifdef WINDOWS
-
 DR_EXPORT
 /**
  * Provides a mechanism for an external entity on the guest OS to
@@ -840,7 +839,7 @@ DR_EXPORT
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
 dr_nudge_process(const char *process_name,
@@ -848,6 +847,7 @@ dr_nudge_process(const char *process_name,
                  uint64 arg,
                  uint timeout_ms,
                  int *nudge_count /*OUT */);
+#endif
 
 DR_EXPORT
 /**
@@ -883,7 +883,7 @@ DR_EXPORT
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on MacOS.
  */
 dr_config_status_t
 dr_nudge_pid(process_id_t process_id,
@@ -891,6 +891,7 @@ dr_nudge_pid(process_id_t process_id,
              uint64 arg,
              uint timeout_ms);
 
+#ifdef WINDOWS
 DR_EXPORT
 /**
  * Provides a mechanism for an external entity on the guest OS to
@@ -927,21 +928,20 @@ DR_EXPORT
  * from a client to another process, use the channels specified
  * in \ref sec_comm.
  *
- * \note Not yet available on Linux.
+ * \note Not yet available on Linux or MacOS.
  */
 dr_config_status_t
 dr_nudge_all(client_id_t client_id,
              uint64 arg,
              uint timeout_ms,
              int *nudge_count /*OUT */);
-
 #endif /* WINDOWS */
 
 DR_EXPORT
 /**
  * Returns in \p config_dir the configuration directory used to store config
  * files.  In order to use local config files when the normal interactive user
- * home directory environment variable (HOME on Linux; USERPROFILE on Windows)
+ * home directory environment variable (HOME on Linux or MacOS; USERPROFILE on Windows)
  * is not set and when using one-step configure-and-run, call this routine prior
  * to creating the child process and pass true for \p alternative_local.  For
  * multi-step, the caller must set the DYNAMORIO_CONFIGDIR environment variable.

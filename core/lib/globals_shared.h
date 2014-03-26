@@ -732,6 +732,10 @@ typedef uint64 timestamp_t;
 #define PFX "0x" PFMT      /**< printf format code for pointers */
 #define PIFX "0x" PIFMT    /**< printf format code for pointer-sized integers */
 #endif
+
+#ifndef INFINITE
+# define INFINITE            0xFFFFFFFF
+#endif
 /* DR_API EXPORT END */
 
 /* Statistics are 64-bit for x64, 32-bit for x86, so we don't have overflow
