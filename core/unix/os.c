@@ -857,7 +857,21 @@ get_application_name_helper(bool ignore_cache, bool full_path)
                 c--;
             } while (*c != '\0' || *(c-1) != '\0');
             c++; /* Skip the null */
-            strncpy(executable_path, c, BUFFER_SIZE_ELEMENTS(executable_path));
+            /* XXX: it turns out this is the argv[0] as passed to SYS_execve
+             * and not the path!  Thus it can be a relative path.
+             */
+            if (*c != '/') {
+                int len;
+                if (!os_get_current_dir(executable_path,
+                                        BUFFER_SIZE_ELEMENTS(executable_path)))
+                    len = 0;
+                else
+                    len = strlen(executable_path);
+                snprintf(executable_path + len,
+                         BUFFER_SIZE_ELEMENTS(executable_path) - len,
+                         "%s%s", len > 0 ? "/" : "", c);
+            } else
+                strncpy(executable_path, c, BUFFER_SIZE_ELEMENTS(executable_path));
 #endif
             NULL_TERMINATE_BUFFER(executable_path);
             /* FIXME: Fall back on /proc/self/cmdline and maybe argv[0] from
@@ -3351,11 +3365,16 @@ bool
 os_get_current_dir(char *buf, size_t bufsz)
 {
 # ifdef MACOS
+    static char noheap_buf[MAXPATHLEN];
     bool res = false;
     file_t fd = os_open(".", OS_OPEN_READ);
     int len;
     /* F_GETPATH assumes a buffer of size MAXPATHLEN */
-    char *fcntl_buf = global_heap_alloc(MAXPATHLEN HEAPACCT(ACCT_OTHER));
+    char *fcntl_buf;
+    if (dynamo_heap_initialized)
+        fcntl_buf = global_heap_alloc(MAXPATHLEN HEAPACCT(ACCT_OTHER));
+    else
+        fcntl_buf = noheap_buf;
     if (fd == INVALID_FILE)
         goto cwd_error;
     if (fcntl_syscall(fd, F_GETPATH, (long)fcntl_buf) != 0)
@@ -3364,7 +3383,8 @@ os_get_current_dir(char *buf, size_t bufsz)
     buf[bufsz-1] = '\0';
     return (len > 0 && len < bufsz);
  cwd_error:
-    global_heap_free(fcntl_buf, MAXPATHLEN HEAPACCT(ACCT_OTHER));
+    if (dynamo_heap_initialized)
+        global_heap_free(fcntl_buf, MAXPATHLEN HEAPACCT(ACCT_OTHER));
     os_close(fd);
     return res;
 # else
