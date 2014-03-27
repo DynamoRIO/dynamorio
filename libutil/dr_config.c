@@ -58,7 +58,11 @@
 # include <sys/stat.h>
 # include <sys/types.h>
 # include <unistd.h>
-# include <syscall.h>
+# ifdef MACOS
+#  include <sys/syscall.h>
+# else
+#  include <syscall.h>
+#endif
 
 # define RELEASE32_DLL   "/lib32/release/libdynamorio.so"
 # define DEBUG32_DLL     "/lib32/debug/libdynamorio.so"
