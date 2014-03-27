@@ -1107,10 +1107,15 @@ set(dbghelp_paths
   "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES32}/Windows Kits/*/Debuggers/${ARCH_SFX}/dbghelp.dll"
   "${PROGFILES}/Debugging Tools for Windows/dbghelp.dll")
-if (NOT X64)
+if (X64)
+  set(dbghelp_paths ${dbghelp_paths}
+    # For Visual Studio 2010+, x64 dbghelp.dll resides in Program
+    # Files (x86) rather than Program Files.
+    "${PROGFILES32}/Microsoft Visual Studio */Common7/IDE/Remote Debugger/${ARCH_SFX}/dbghelp.dll")
+else (X64)
   set(dbghelp_paths ${dbghelp_paths}
     "${PROGFILES}/Microsoft Visual Studio */Common7/IDE/dbghelp.dll")
-endif (NOT X64)
+endif (X64)
 file(GLOB dbghelp_loc ${dbghelp_paths})
 if (dbghelp_loc)
   # i#1219: exclude VS2005 x64 dbghelp as it is buggy
