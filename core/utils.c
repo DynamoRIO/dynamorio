@@ -1670,10 +1670,10 @@ DECLARE_FREQPROT_VAR(static bool do_once_do_file_write, false);
 #endif
 
 /*  FIXME: add buffering? */
-void
+ssize_t
 do_file_write(file_t f, const char *fmt, va_list ap)
 {
-    ssize_t size;
+    ssize_t size, written;
     char logbuf[MAX_LOG_LENGTH];
 
 #ifndef NOLIBC
@@ -1683,11 +1683,11 @@ do_file_write(file_t f, const char *fmt, va_list ap)
     if (DATASEC_PROTECTED(DATASEC_RARELY_PROT)) {
         ASSERT(TEST(SELFPROT_DATA_RARE, dynamo_options.protect_mask));
         ASSERT(strcmp(DATASEC_NAMES[DATASEC_RARELY_PROT], ".data") == 0);
-        return;
+        return -1;
     }
 #endif
     if (f == INVALID_FILE)
-        return;
+        return -1;
     size = vsnprintf(logbuf, BUFFER_SIZE_ELEMENTS(logbuf), fmt, ap);
     NULL_TERMINATE_BUFFER(logbuf); /* always NULL terminate */
     /* note that we can't print %f on windows with NOLIBC (returns error
@@ -1704,7 +1704,10 @@ do_file_write(file_t f, const char *fmt, va_list ap)
     /* handle failure values */
     if (size >= BUFFER_SIZE_ELEMENTS(logbuf) || size < 0)
         size = strlen(logbuf);
-    os_write(f, logbuf, size);
+    written = os_write(f, logbuf, size);
+    if (written < 0)
+        return -1;
+    return written;
 }
 
 /* a little utiliy for printing a float that is formed by dividing 2 uints,

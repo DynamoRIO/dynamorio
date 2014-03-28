@@ -65,7 +65,7 @@
 
 #ifdef CLIENT_INTERFACE
 /* in utils.c, not exported to everyone */
-extern void do_file_write(file_t f, const char *fmt, va_list ap);
+extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -4119,18 +4119,22 @@ dr_printf(const char *fmt, ...)
     va_end(ap);
 }
 
-DR_API void
+DR_API ssize_t
 dr_fprintf(file_t f, const char *fmt, ...)
 {
+    ssize_t written;
     va_list ap;
     va_start(ap, fmt);
 #ifdef WINDOWS
-    if ((f == STDOUT || f == STDERR) && print_to_console)
-        dr_write_to_console(f == STDOUT, fmt, ap);
-    else
+    if ((f == STDOUT || f == STDERR) && print_to_console) {
+        written = dr_write_to_console(f == STDOUT, fmt, ap);
+        if (written <= 0)
+            written = -1;
+    } else
 #endif
-        do_file_write(f, fmt, ap);
+        written = do_file_write(f, fmt, ap);
     va_end(ap);
+    return written;
 }
 
 DR_API int

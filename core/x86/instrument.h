@@ -3833,8 +3833,10 @@ DR_API
  * \note When printing floating-point values, the caller's code should
  * use proc_save_fpstate() or be inside a clean call that
  * has requested to preserve the floating-point state.
+ * On success, the number of bytes written is returned.
+ * On error, -1 is returned.
  */
-void
+ssize_t
 dr_fprintf(file_t f, const char *fmt, ...);
 
 #ifdef WINDOWS
