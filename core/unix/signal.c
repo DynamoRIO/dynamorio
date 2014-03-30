@@ -5493,25 +5493,40 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
 
     if (ostd->terminate) {
          /* PR 297902: exit this thread, without using any stack */
+#ifdef MACOS
+        /* We need a stack as 32-bit syscalls take args on the stack.
+         * We go ahead and use it for x64 too for simpler sysenter return.
+         * We don't have a lot of options: we're terminating, so we go ahead
+         * and use the app stack.
+         */
+        byte *app_xsp = (byte *) get_mcontext(dcontext)->xsp;
+#endif
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
         if (ksynch_kernel_support()) {
-#ifdef LINUX
             /* can't use stack once set terminated to 1 so in asm we do:
              *   ostd->terminated = 1;
-             *   futex_wake_all(&ostd->terminated);
+             *   futex_wake_all(&ostd->terminated in xax);
+             *   semaphore_signal_all(&ostd->terminated in xax);
              */
+#ifdef MACOS
+            KSYNCH_TYPE *term = &ostd->terminated;
+            ASSERT(sizeof(ostd->terminated.sem) == 4);
+#else
             volatile int *term = &ostd->terminated;
+#endif
             asm("mov %0, %%"ASM_XAX : : "m"(term));
+#ifdef MACOS
+            asm("movl $1,4(%"ASM_XAX")");
+            asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
+            asm("jmp _dynamorio_semaphore_signal_all");
+#else
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
-#else
-            /* FIXME i#1277: need MacOS version of this */
-            ASSERT_NOT_IMPLEMENTED(false);
 #endif
         } else {
             ksynch_set_value(&ostd->terminated, 1);
 #ifdef MACOS
-            /* XXX: won't this kill the whole process? */
+            asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
             asm("jmp _dynamorio_sys_exit");
 #else
             asm("jmp dynamorio_sys_exit");

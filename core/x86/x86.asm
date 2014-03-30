@@ -1490,28 +1490,63 @@ GLOBAL_LABEL(dynamorio_sigreturn:)
 
 /* we need to exit without using any stack, to support
  * THREAD_SYNCH_TERMINATED_AND_CLEANED.
+ * XXX: on MacOS this does use the stack.
+ * FIXME i#1403: on MacOS we fail to free the app's stack: we need to pass it to
+ * bsdthread_terminate.
  */
         DECLARE_FUNC(dynamorio_sys_exit)
 GLOBAL_LABEL(dynamorio_sys_exit:)
-#ifdef X64
-        mov      edi, 0 /* exit code: hardcoded */
-        mov      eax, HEX(3c) /* SYS_exit */
+#ifdef MACOS
+        /* We need the mach port in order to invoke bsdthread_terminate */
+        mov      eax, MACH_thread_self_trap
+# ifdef X64
+        or       eax, SYSCALL_NUM_MARKER_MACH
+# else
+        neg      eax
+        /* XXX: what about stack alignment?  hard to control since we jumped here */
+# endif
+        /* see dynamorio_mach_syscall about why we do this call;pop and sysenter */
+        call     dynamorio_sys_exit_next
+dynamorio_sys_exit_next:
+        pop      REG_XDX
+        lea      REG_XDX, [1/*pop*/ + 3/*lea*/ + 2/*sysenter*/ + 2/*mov*/ + REG_XDX]
+        mov      REG_XCX, REG_XSP
+        sysenter
+        jae      dynamorio_sys_exit_failed
+# ifdef X64
+        mov      ARG4, 0 /* stack to free: NULL */
+        mov      ARG3, 0 /* stack free size: 0 */
+        mov      ARG2, REG_XAX /* kernel port, which we just acquired */
+        mov      ARG1, 0 /* join semaphore: SEMAPHORE_NULL */
+        mov      eax, SYS_bsdthread_terminate
         mov      r10, rcx
         syscall
-#else
-#  ifdef MACOS
-        /* XXX: won't this kill the whole process?  dynamorio_sys_exit_group
-         * should do this, and here we should invoke something else
-         */
-        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+# else
+        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+        push     0 /* stack to free: NULL */
+        push     0 /* stack free size: 0 */
+        push     REG_XAX /* kernel port, which we just acquired */
+        push     0 /* join semaphore: SEMAPHORE_NULL */
+        push     0 /* retaddr slot */
+        mov      eax, SYS_bsdthread_terminate
+        int      HEX(80)
 #  endif
+#else /* LINUX: */
+# ifdef X64
+        mov      edi, 0 /* exit code: hardcoded */
+        mov      eax, SYS_exit
+        mov      r10, rcx
+        syscall
+# else
         mov      ebx, 0 /* exit code: hardcoded */
-        mov      eax, HEX(1) /* SYS_exit */
+        mov      eax, SYS_exit
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
+# endif
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
+dynamorio_sys_exit_failed:
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit)
 
@@ -1543,32 +1578,79 @@ GLOBAL_LABEL(dynamorio_futex_wake_and_exit:)
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 #endif
-        jmp GLOBAL_REF(dynamorio_sys_exit)
+        jmp      GLOBAL_REF(dynamorio_sys_exit)
         END_FUNC(dynamorio_futex_wake_and_exit)
 #endif /* LINUX */
 
+#ifdef MACOS
+/* We need to call semaphore_signal_all without using dstack, to support
+ * THREAD_SYNCH_TERMINATED_AND_CLEANED.  We have to put syscall args on
+ * the stack for 32-bit, and we use the stack for call;pop for
+ * sysenter -- so we use the app stack, which we assume the caller has
+ * put us on.  We're only called when terminating a thread so transparency
+ * should be ok so long as the app's stack is valid.
+ * Takes KSYNCH_TYPE* in xax.
+ */
+        DECLARE_FUNC(dynamorio_semaphore_signal_all)
+GLOBAL_LABEL(dynamorio_semaphore_signal_all:)
+        mov      REG_XAX, DWORD [REG_XAX] /* load mach_synch_t->sem */
+# ifdef X64
+        mov      ARG1, REG_XAX
+        mov      eax, MACH_semaphore_signal_all_trap
+        or       eax, SYSCALL_NUM_MARKER_MACH
+# else
+        push     REG_XAX
+        mov      eax, MACH_semaphore_signal_all_trap
+        neg      eax
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        push     0 /* extra slot */
+        /* XXX: what about stack alignment?  hard to control since we jumped here */
+#  endif
+        /* see dynamorio_mach_syscall about why we do this call;pop and sysenter */
+        call     dynamorio_semaphore_next
+dynamorio_semaphore_next:
+        pop      REG_XDX
+        lea      REG_XDX, [1/*pop*/ + 3/*lea*/ + 2/*sysenter*/ + 2/*mov*/ + REG_XDX]
+        mov      REG_XCX, REG_XSP
+        sysenter
+# ifndef X64
+        lea      esp, [2*ARG_SZ + esp] /* must not change flags */
+# endif
+        /* we ignore return val */
+        jmp      GLOBAL_REF(dynamorio_sys_exit)
+        END_FUNC(dynamorio_semaphore_signal_all)
+#endif /* MACOS */
+
 /* exit entire group without using any stack, in case something like
- * SYS_kill via cleanup_and_terminate fails
+ * SYS_kill via cleanup_and_terminate fails.
+ * XXX: on 32-bit MacOS this does use the stack.
  */
         DECLARE_FUNC(dynamorio_sys_exit_group)
 GLOBAL_LABEL(dynamorio_sys_exit_group:)
 #ifdef X64
         mov      edi, 0 /* exit code: hardcoded */
-        mov      eax, HEX(e7) /* SYS_exit_group */
+# ifdef MACOS
+        mov      eax, SYS_exit
+# else
+        mov      eax, SYS_exit_group
+# endif
         mov      r10, rcx
         syscall
 #else
-#  ifdef MACOS
-        /* XXX: invoke SYS_exit here and something else in dynamorio_sys_exit */
-        lea      REG_XSP, [-3*ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
-#  endif
+# ifdef MACOS
+        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+        push     0 /* exit code: hardcoded */
+        push     0 /* retaddr slot */
+        mov      eax, SYS_exit
+# else
         mov      ebx, 0 /* exit code: hardcoded */
-        mov      eax, HEX(fc) /* SYS_exit_group */
+        mov      eax, SYS_exit_group
+# endif
         /* PR 254280: we assume int$80 is ok even for LOL64 */
         int      HEX(80)
 #endif
         /* should not return.  if we somehow do, infinite loop is intentional.
-         * FIXME: do better in release build! FIXME - why not an int3? */
+         * FIXME: do better in release build!  why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sys_exit_group)
 

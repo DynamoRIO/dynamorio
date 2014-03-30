@@ -843,8 +843,11 @@ ptr_int_t dynamorio_syscall(uint sysnum, uint num_args, ...);
 # endif
 void dynamorio_sigreturn(void);
 void dynamorio_sys_exit(void);
+# ifdef MACOS
+void dynamorio_semaphore_signal_all(KSYNCH_TYPE *ksynch/*in xax*/);
+# endif
 # ifdef LINUX
-void dynamorio_futex_wake_and_exit(volatile int *futex);
+void dynamorio_futex_wake_and_exit(volatile int *futex/* in xax*/);
 #  ifndef X64
 void dynamorio_nonrt_sigreturn(void);
 #  endif

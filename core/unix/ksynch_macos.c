@@ -34,8 +34,10 @@
  * ksynch_macos.c - synchronization via the kernel
  *
  * FIXME i#58: NYI (see comments below as well):
- * + haven't really tested this yet
- * + longer-term i#1291: use raw syscalls instead of libSystem wrappers
+ * + Haven't really tested this yet
+ * + Longer-term i#1291: use raw syscalls instead of libSystem wrappers.
+ *   Some of these are basically just Mach syscall wrappers, but others like
+ *   semaphore_create() are slightly more involved.
  */
 
 #include "../globals.h"
@@ -79,6 +81,8 @@ ksynch_init_var(mac_synch_t *synch)
                                          SYNC_POLICY_PREPOST, 0);
     ASSERT(synch->sem != 0); /* we assume 0 is never a legitimate value */
     synch->value = 0;
+    LOG(THREAD_GET, LOG_THREADS, 2, "semaphore %d created, status %d\n",
+        synch->sem, res);
     return (res == KERN_SUCCESS);
 }
 
@@ -93,6 +97,7 @@ bool
 ksynch_free_var(mac_synch_t *synch)
 {
     kern_return_t res = semaphore_destroy(mach_task_self(), synch->sem);
+    synch->sem = 0;
     return (res == KERN_SUCCESS);
 }
 
