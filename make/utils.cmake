@@ -186,7 +186,8 @@ function (install_subdirs tgt_lib tgt_bin)
     FILES_MATCHING
     PATTERN "*.debug"
     PATTERN "*.pdb"
-    )
+    REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
+   )
   file(GLOB bin_files "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/*")
   if (bin_files)
     DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
@@ -196,6 +197,7 @@ function (install_subdirs tgt_lib tgt_bin)
       FILES_MATCHING
       PATTERN "*.debug"
       PATTERN "*.pdb"
+      REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
       )
   endif (bin_files)
 endfunction (install_subdirs)

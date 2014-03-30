@@ -1358,10 +1358,14 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   FILES_MATCHING
   PATTERN "*.debug"
   PATTERN "*.pdb"
+  REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   PATTERN "dynamorio.pdb" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "libdynamorio.so.*debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "libdrpreload.so.debug" EXCLUDE # in ${INSTALL_LIB}
   PATTERN "policy_static.pdb" EXCLUDE
+  REGEX ".*dynamorio.*.dSYM/.*" EXCLUDE
+  REGEX "libdrpreload.*.dSYM/.*" EXCLUDE
+  REGEX "policy_static.*.dSYM/.*" EXCLUDE
   )
 DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_LIB}
@@ -1371,6 +1375,8 @@ DR_install(DIRECTORY ${DR_LIBRARY_OUTPUT_DIRECTORY}/
   PATTERN "dynamorio.pdb"
   PATTERN "libdynamorio.so.*debug"
   PATTERN "libdrpreload.so.debug"
+  REGEX ".*dynamorio.*.dSYM/.*DWARF/.*"
+  REGEX "libdrpreload.*.dSYM/.*DWARF/.*"
   )
 if (BUILD_TOOLS OR WIN32)
   DR_install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
@@ -1380,9 +1386,13 @@ if (BUILD_TOOLS OR WIN32)
     FILES_MATCHING
     PATTERN "*.debug"
     PATTERN "*.pdb"
+    REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
     PATTERN "runstats.debug" EXCLUDE # since not installing tool
     PATTERN "run_in_bg.debug" EXCLUDE # since not installing tool
     PATTERN "*_exe.debug" EXCLUDE # since not installing tool
+    REGEX "runstats.dSYM/.*" EXCLUDE
+    REGEX "run_in_bg.dSYM/.*" EXCLUDE
+    REGEX ".*_exe.dSYM/.*" EXCLUDE
     )
 endif (BUILD_TOOLS OR WIN32)
 

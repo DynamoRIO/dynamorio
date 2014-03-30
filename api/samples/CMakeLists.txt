@@ -288,6 +288,7 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   FILES_MATCHING
   PATTERN "*.debug"
   PATTERN "*.pdb"
+  REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   )
 
 # Include a copy of a recent (> 6.0) redistributable version of dbghelp, if
