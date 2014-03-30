@@ -116,8 +116,10 @@
 
 #ifdef MACOS
 # define SYSNUM_EXIT_PROCESS SYS_exit
+# define SYSNUM_EXIT_THREAD SYS_bsdthread_terminate
 #else
 # define SYSNUM_EXIT_PROCESS SYS_exit_group
+# define SYSNUM_EXIT_THREAD SYS_exit
 #endif
 
 /* Prototype for all functions in .init_array. */
@@ -1083,7 +1085,7 @@ os_terminate_with_code(dcontext_t *dcontext, terminate_flags_t flags, int exit_c
         /* we enter from several different places, so rewind until top-level kstat */
         KSTOP_REWIND_UNTIL(thread_measured);
         cleanup_and_terminate(dcontext, SYSNUM_EXIT_PROCESS, exit_code, 0,
-                              true/*whole process*/);
+                              true/*whole process*/, 0, 0);
     } else {
         /* clean up may be impossible - just terminate */
         config_exit(); /* delete .1config file */
@@ -2590,6 +2592,8 @@ known_thread_signal(thread_record_t *tr, int signum)
     if (tr->dcontext == NULL)
         return FALSE;
     res = dynamorio_syscall(SYS___pthread_kill, 2, tr->dcontext->thread_port, signum);
+    LOG(THREAD_GET, LOG_ALL, 3, "%s: signal %d to port %d => %ld\n", __FUNCTION__,
+        signum, tr->dcontext->thread_port, res);
     return res == 0;
 #else
     return thread_signal(tr->pid, tr->id, signum);
@@ -2838,7 +2842,8 @@ client_thread_run(void)
 
     LOG(THREAD, LOG_ALL, 1, "\n***** CLIENT THREAD %d EXITING *****\n\n",
         get_thread_id());
-    cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false/*just thread*/);
+    cleanup_and_terminate(dcontext, SYS_exit, 0, 0, false/*just thread*/,
+                          IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
 }
 # endif
 
@@ -3631,7 +3636,15 @@ exit_process_syscall(long status)
 void
 exit_thread_syscall(long status)
 {
-    dynamorio_syscall(SYS_exit, 1, status);
+#ifdef MACOS
+    mach_port_t thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
+    /* FIXME i#1403: on MacOS we fail to free the app's stack: we need to pass it to
+     * bsdthread_terminate.
+     */
+    dynamorio_syscall(SYSNUM_EXIT_THREAD, 4, 0, 0, thread_port, 0);
+#else
+    dynamorio_syscall(SYSNUM_EXIT_THREAD, 1, status);
+#endif
 }
 
 /* FIXME: this one will not be easily internationalizable
@@ -4059,6 +4072,9 @@ ignorable_system_call_normalized(int num)
     case SYS_exit_group:
 #endif
     case SYS_exit:
+#ifdef MACOS
+    case SYS_bsdthread_terminate:
+#endif
 #ifdef LINUX
     case SYS_brk:
 #endif
@@ -4514,8 +4530,9 @@ handle_self_signal(dcontext_t *dcontext, uint sig)
          * Should do set_default_signal_action(SIGABRT) (and set a flag so
          * no races w/ another thread re-installing?) and then SYS_kill.
          */
-        cleanup_and_terminate(dcontext, SYS_exit, -1, 0,
-                              (is_last_app_thread() && !dynamo_exited));
+        cleanup_and_terminate(dcontext, SYSNUM_EXIT_THREAD, -1, 0,
+                              (is_last_app_thread() && !dynamo_exited),
+                              IF_MACOS_ELSE(dcontext->thread_port, 0), 0);
         ASSERT_NOT_REACHED();
     }
 }
@@ -5088,7 +5105,9 @@ handle_exit(dcontext_t *dcontext)
     KSTOP(num_exits_dir_syscall);
 
     cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
-                          sys_param(dcontext, 1), exit_process);
+                          sys_param(dcontext, 1), exit_process,
+                          /* SYS_bsdthread_terminate has 2 more args */
+                          sys_param(dcontext, 2), sys_param(dcontext, 3));
 }
 
 #ifdef LINUX /* XXX i#58: just until we have Mac support */
@@ -5349,19 +5368,17 @@ pre_system_call(dcontext_t *dcontext)
 
     switch (dcontext->sys_num) {
 
-#ifdef LINUX
-    case SYS_exit_group:
-# ifdef VMX86_SERVER
+    case SYSNUM_EXIT_PROCESS:
+# if defined(LINUX) && VMX86_SERVER
         if (os_in_vmkernel_32bit()) {
             /* on esx 3.5 => ENOSYS, so wait for SYS_exit */
             LOG(THREAD, LOG_SYSCALLS, 2, "on esx35 => ignoring exitgroup\n");
             DODEBUG({ dcontext->expect_last_syscall_to_fail = true; });
             break;
         }
-# endif
-        /* fall-through */
 #endif
-    case SYS_exit: {
+        /* fall-through */
+    case SYSNUM_EXIT_THREAD: {
         handle_exit(dcontext);
         break;
     }

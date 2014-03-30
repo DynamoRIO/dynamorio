@@ -499,7 +499,10 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
  *                       int sysnum,               // 2*ARG_SZ+XBP = syscall #
  *                       int sys_arg1/param_base,  // 3*ARG_SZ+XBP = arg1 for syscall
  *                       int sys_arg2,             // 4*ARG_SZ+XBP = arg2 for syscall
- *                       bool exitproc)            // 5*ARG_SZ+XBP
+ *                       bool exitproc,            // 7*ARG_SZ+XBP
+ *                       (these 2 args are only used for Mac thread exit:)
+ *                       int sys_arg3,             // 5*ARG_SZ+XBP = arg3 for syscall
+ *                       int sys_arg4)             // 6*ARG_SZ+XBP = arg4 for syscall
  *
  * Calls dynamo_exit_process if exitproc is true, else calls dynamo_exit_thread.
  * Uses the current dstack, but instructs the cleanup routines not to
@@ -531,6 +534,9 @@ GLOBAL_LABEL(cleanup_and_terminate:)
         /* xbp points one beyond TOS to get same offset as having retaddr there */
         lea      REG_XBP, [-ARG_SZ + REG_XSP]
         mov      [5*ARG_SZ + REG_XBP], ARG5
+        mov      [6*ARG_SZ + REG_XBP], ARG6
+        mov      REG_XAX, ARG7
+        mov      [7*ARG_SZ + REG_XBP], REG_XAX
 # endif
         mov      [1*ARG_SZ + REG_XBP], ARG1
         mov      [2*ARG_SZ + REG_XBP], ARG2
@@ -623,8 +629,7 @@ cat_have_lock:
 #if defined(MACOS) && !defined(X64)
         lea      REG_XSP, [2*ARG_SZ + REG_XSP] /* undo align-16 lea from above */
 #endif
-        mov      REG_XBX, [3*ARG_SZ + REG_XBP] /* sys_arg1 */
-        mov      REG_XDX, [4*ARG_SZ + REG_XBP] /* sys_arg2 */
+        mov      REG_XBX, REG_XBP /* save for arg access after swapping stacks */
         /* swap stacks */
 #if !defined(X64) && defined(LINUX)
         /* PIC base is still in xdi */
@@ -635,14 +640,21 @@ cat_have_lock:
 #endif
         /* now save registers */
 #if defined(MACOS) && !defined(X64)
+        cmp      BYTE [5*ARG_SZ + REG_XBX], 0 /* exitproc */
+        jz       cat_thread_only2
         /* ensure aligned after 1st 2 arg pushes below, which are the syscall args */
         lea      REG_XSP, [-2*ARG_SZ + REG_XSP]
+        jmp      cat_no_thread2
+cat_thread_only2: /* for thread, the 4 pushes make it aligned */
+        push     PTRSZ [7*ARG_SZ + REG_XBX] /* sys_arg4 */
+        push     PTRSZ [6*ARG_SZ + REG_XBX] /* sys_arg3 */
+cat_no_thread2:
 #endif
 #ifdef WINDOWS
         push     REG_XDI   /* esp to use */
 #endif
-        push     REG_XDX   /* sys_arg2 */
-        push     REG_XBX   /* sys_arg1 */
+        push     PTRSZ [4*ARG_SZ + REG_XBX] /* sys_arg2 */
+        push     PTRSZ [3*ARG_SZ + REG_XBX] /* sys_arg1 */
         push     REG_XAX   /* syscall */
         push     REG_XSI   /* sysnum => xsp 16-byte aligned for x64 and x86 */
 #if defined(MACOS) && !defined(X64)

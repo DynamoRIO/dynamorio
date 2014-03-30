@@ -1543,7 +1543,7 @@ presys_TerminateProcess(dcontext_t *dcontext, reg_t *param_base)
         os_terminate_wow64_write_args(true/*process*/, process_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateProcess],
                               IF_X64_ELSE(mc->xcx, mc->xdx),
-                              mc->xdx, true /* entire process */);
+                              mc->xdx, true /* entire process */, 0, 0);
     }
     return true;
 }
@@ -1621,7 +1621,7 @@ presys_TerminateThread(dcontext_t *dcontext, reg_t *param_base)
         os_terminate_wow64_write_args(false/*thread*/, thread_handle, exit_status);
         cleanup_and_terminate(dcontext, syscalls[SYS_TerminateThread],
                               IF_X64_ELSE(mc->xcx, mc->xdx),
-                              mc->xdx, exitproc);
+                              mc->xdx, exitproc, 0, 0);
     }
 }
 

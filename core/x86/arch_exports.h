@@ -806,7 +806,9 @@ void unexpected_return(void);
 void clone_and_swap_stack(byte *stack, byte *tos);
 void go_native(dcontext_t *dcontext);
 void cleanup_and_terminate(dcontext_t *dcontext, int sysnum,
-                           ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc);
+                           ptr_uint_t sys_arg1, ptr_uint_t sys_arg2, bool exitproc,
+                           /* these 2 args are only used for Mac thread exit */
+                           ptr_uint_t sys_arg3, ptr_uint_t sys_arg4);
 bool cpuid_supported(void);
 void our_cpuid(int res[4], int eax);
 #ifdef WINDOWS

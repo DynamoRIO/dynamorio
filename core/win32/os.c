@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1412,7 +1412,7 @@ os_terminate_common(dcontext_t *dcontext, terminate_flags_t terminate_type,
                           (custom_code ? exit_code : KILL_PROC_EXIT_STATUS) :
                           KILL_THREAD_EXIT_STATUS),
                          arguments /* no 2nd arg, just a filler */),
-             exit_process);
+             exit_process, 0, 0);
     } else {
         /* may have decided to terminate process */
         if (exit_process) {

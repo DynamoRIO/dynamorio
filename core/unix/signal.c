@@ -4264,7 +4264,7 @@ terminate_via_kill(dcontext_t *dcontext)
                           IF_VMX86(os_in_vmkernel_userworld() ?
                                    -(int)get_process_id() :)
                           get_process_id(),
-                          dcontext->sys_param0, true);
+                          dcontext->sys_param0, true, 0, 0);
     ASSERT_NOT_REACHED();
 }
 

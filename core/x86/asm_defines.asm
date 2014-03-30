@@ -204,11 +204,11 @@ ASSUME fs:_DATA @N@\
 #  define ARG2 rdx
 #  define ARG3 r8
 #  define ARG4 r9
-#  define ARG5 QWORD [40 + esp] /* includes ret addr */
-#  define ARG6 QWORD [48 + esp]
-#  define ARG7 QWORD [56 + esp]
-#  define ARG5_NORETADDR QWORD [32 + esp]
-#  define ARG6_NORETADDR QWORD [40 + esp]
+#  define ARG5 QWORD [40 + rsp] /* includes ret addr */
+#  define ARG6 QWORD [48 + rsp]
+#  define ARG7 QWORD [56 + rsp]
+#  define ARG5_NORETADDR QWORD [32 + rsp]
+#  define ARG6_NORETADDR QWORD [40 + rsp]
 # else
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -221,7 +221,7 @@ ASSUME fs:_DATA @N@\
 #  define ARG5_NORETADDR ARG5
 #  define ARG6 r9
 #  define ARG6_NORETADDR ARG6
-#  define ARG7 QWORD [esp]
+#  define ARG7 QWORD [rsp]
 # endif
 # define ARG_SZ 8
 # define PTRSZ QWORD
