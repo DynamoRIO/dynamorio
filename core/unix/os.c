@@ -4053,6 +4053,8 @@ ignorable_system_call_normalized(int num)
     case SYS_execve:
 #ifdef LINUX
     case SYS_clone:
+#elif defined(MACOS)
+    case SYS_bsdthread_create:
 #endif
     case SYS_fork:
     case SYS_vfork:
@@ -4417,10 +4419,14 @@ dr_syscall_invoke_another(void *drcontext)
 static inline bool
 is_thread_create_syscall_helper(ptr_uint_t sysnum, ptr_uint_t flags)
 {
+#ifdef MACOS
+    /* XXX i#1403: we need earlier injection to intercept
+     * bsdthread_register in order to capture workqueue threads.
+     */
+    return (sysnum == SYS_bsdthread_create || sysnum == SYS_vfork);
+#else
     return (sysnum == SYS_vfork
             IF_LINUX(|| (sysnum == SYS_clone && TEST(CLONE_VM, flags))));
-#ifdef MACOS
-    /* XXX i#58: look for bsdthread_create and Mach thread_create */
 #endif
 }
 
@@ -5649,6 +5655,26 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#elif defined(MACOS)
+    case SYS_bsdthread_create: {
+        /* XXX i#1403: we need earlier injection to intercept
+         * bsdthread_register in order to capture workqueue threads.
+         * For now we settle for intercepting bsd threads at the user thread func.
+         * We miss a little user-mode code but this is enough to get started.
+         */
+        app_pc func = (app_pc) sys_param(dcontext, 0);
+        void *func_arg = (void *) sys_param(dcontext, 1);
+        void *clone_rec;
+        LOG(THREAD, LOG_SYSCALLS, 1, "bsdthread_create: thread func "PFX", arg "PFX"\n",
+            func, func_arg);
+        handle_clone(dcontext, CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | SIGCHLD);
+        clone_rec = create_clone_record(dcontext, NULL, func, func_arg);
+        dcontext->sys_param0 = (reg_t) func;
+        dcontext->sys_param1 = (reg_t) func_arg;
+        *sys_param_addr(dcontext, 0) = (reg_t) new_bsdthread_intercept;
+        *sys_param_addr(dcontext, 1) = (reg_t) clone_rec;
+        break;
+    }
 #endif
 
     case SYS_vfork: {
@@ -5667,7 +5693,11 @@ pre_system_call(dcontext_t *dcontext)
          */
         IF_LINUX(ASSERT(is_thread_create_syscall(dcontext)));
         dcontext->sys_param1 = mc->xsp; /* for restoring in parent */
+#ifdef MACOS
+        create_clone_record(dcontext, (reg_t *)&mc->xsp, NULL, NULL);
+#else
         create_clone_record(dcontext, (reg_t *)&mc->xsp /*child uses parent sp*/);
+#endif
 
         /* We switch the lib tls segment back to app's segment.
          * Please refer to comment on os_switch_lib_tls.
@@ -6711,6 +6741,14 @@ post_system_call(dcontext_t *dcontext)
         if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             os_switch_lib_tls(dcontext, false/*to dr*/);
         }
+        break;
+    }
+#elif defined(MACOS) && !defined(X64)
+    case SYS_bsdthread_create: {
+        /* restore stack values we clobbered */
+        ASSERT(*sys_param_addr(dcontext, 0) == (reg_t) new_bsdthread_intercept);
+        *sys_param_addr(dcontext, 0) = dcontext->sys_param0;
+        *sys_param_addr(dcontext, 1) = dcontext->sys_param1;
         break;
     }
 #endif

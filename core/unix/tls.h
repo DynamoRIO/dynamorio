@@ -133,7 +133,13 @@ read_selector(reg_id_t seg)
 #ifdef LINUX
 #  define GDT_NUM_TLS_SLOTS 3
 #elif defined(MACOS)
-/* XXX: rename to APP_SAVED_TLS_SLOTS or sthg? */
+/* XXX: rename to APP_SAVED_TLS_SLOTS or sthg?
+ *
+ * XXX i#1405: it seems that the kernel does not swap our entries, so
+ * we are currently creating separate entries per thread -- but we
+ * only need to save the ones the app might use which we assume will
+ * be <= 3.
+ */
 #  define GDT_NUM_TLS_SLOTS 3 /* index=1 and index=3 are used */
 #endif
 

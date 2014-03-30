@@ -986,6 +986,9 @@ void check_return_ra_mangled(dcontext_t *dcontext,
 
 #ifdef UNIX
 void new_thread_setup(priv_mcontext_t *mc);
+# ifdef MACOS
+void new_bsdthread_setup(priv_mcontext_t *mc);
+# endif
 #endif
 
 void

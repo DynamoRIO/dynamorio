@@ -305,7 +305,18 @@ typedef struct sigcontext sigcontext_t;
 #endif
 
 void *
+#ifdef MACOS
+create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,
+                    app_pc thread_func, void *func_arg);
+#else
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp);
+#endif
+
+#ifdef MACOS
+void *
+get_clone_record_thread_arg(void *record);
+#endif
+
 void *
 get_clone_record(reg_t xsp);
 reg_t

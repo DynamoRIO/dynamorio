@@ -192,6 +192,14 @@ sig_is_alarm_signal(int sig)
 /* PR i#149/403015: clone record now passed via a new dstack */
 typedef struct _clone_record_t {
     byte *dstack;          /* dstack for new thread - allocated by parent thread */
+#ifdef MACOS
+    /* XXX i#1403: once we have lower-level, earlier thread interception we can
+     * likely switch to something closer to what we do on Linux.
+     * This is used for bsdthread_create, where app_thread_xsp is NULL;
+     * for vfork, app_thread_xsp is non-NULL and this is unused.
+     */
+    void *thread_arg;
+#endif
     reg_t app_thread_xsp;  /* app xsp preserved for new thread to use */
     app_pc continuation_pc;
     thread_id_t caller_id;
@@ -491,28 +499,51 @@ signal_thread_init(dcontext_t *dcontext)
  * created for it.  Unlike before, where the child thread would create its own
  * dstack, now the parent thread creates the dstack.  Also, switches app stack
  * to dstack.
+ *
+ * XXX i#1403: for Mac we want to eventually do lower-level earlier interception
+ * of threads, but for now we're later and higher-level, intercepting the user
+ * thread function on the new thread's stack.  We ignore app_thread_xsp.
  */
 void *
+#ifdef MACOS
+create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp,
+                    app_pc thread_func, void *thread_arg)
+#else
 create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
+#endif
 {
+    clone_record_t *record;
     byte *dstack = stack_alloc(DYNAMORIO_STACK_SIZE);
     LOG(THREAD, LOG_ASYNCH, 1,
         "create_clone_record: dstack for new thread is "PFX"\n", dstack);
 
-    /* Note, the stack grows to low memory addr, so dstack points to the high
-     * end of the allocated stack region.  So, we must subtract to get space for
-     * the clone record.
-     */
-    clone_record_t *record = (clone_record_t *) (dstack - sizeof(clone_record_t));
+#ifdef MACOS
+    if (app_thread_xsp == NULL) {
+        record = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, clone_record_t,
+                                 ACCT_THREAD_MGT, true/*prot*/);
+        record->app_thread_xsp = 0;
+        record->continuation_pc = thread_func;
+        record->thread_arg = thread_arg;
+        record->clone_flags = CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | SIGCHLD;
+    } else {
+#endif
+        /* Note, the stack grows to low memory addr, so dstack points to the high
+         * end of the allocated stack region.  So, we must subtract to get space for
+         * the clone record.
+         */
+        record = (clone_record_t *) (dstack - sizeof(clone_record_t));
+        record->app_thread_xsp = *app_thread_xsp;
+        /* asynch_target is set in dispatch() prior to calling pre_system_call(). */
+        record->continuation_pc = dcontext->asynch_target;
+        record->clone_flags = dcontext->sys_param0;
+#ifdef MACOS
+    }
+#endif
     LOG(THREAD, LOG_ASYNCH, 1, "allocated clone record: "PFX"\n", record);
 
     record->dstack = dstack;
-    record->app_thread_xsp = *app_thread_xsp;
-    /* asynch_target is set in dispatch() prior to calling pre_system_call(). */
-    record->continuation_pc = dcontext->asynch_target;
     record->caller_id = dcontext->owning_thread;
     record->clone_sysnum = dcontext->sys_num;
-    record->clone_flags = dcontext->sys_param0;
     record->info = *((thread_sig_info_t *)dcontext->signal_field);
     record->parent_info = (thread_sig_info_t *) dcontext->signal_field;
     record->pcprofile_info = dcontext->pcprofile_field;
@@ -520,14 +551,20 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
-    /* Set the thread stack to point to the dstack, below the clone record.
-     * Note: it's glibc who sets up the arg to the thread start function;
-     * the kernel just does a fork + stack swap, so we can get away w/ our
-     * own stack swap if we restore before the glibc asm code takes over.
-     */
-    /* i#754: set stack to be XSTATE aligned for saving YMM registers */
-    ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
-    *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
+#ifdef MACOS
+    if (app_thread_xsp != NULL) {
+#endif
+        /* Set the thread stack to point to the dstack, below the clone record.
+         * Note: it's glibc who sets up the arg to the thread start function;
+         * the kernel just does a fork + stack swap, so we can get away w/ our
+         * own stack swap if we restore before the glibc asm code takes over.
+         */
+        /* i#754: set stack to be XSTATE aligned for saving YMM registers */
+        ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
+        *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
+#ifdef MACOS
+    }
+#endif
 
     return (void *) record;
 }
@@ -578,6 +615,9 @@ get_clone_record(reg_t xsp)
 
     /* dstack_base and the dstack in the clone record should be the same. */
     ASSERT(dstack_base == record->dstack);
+#ifdef MACOS
+    ASSERT(record->app_thread_xsp != 0); /* else it's not in dstack */
+#endif
     return (void *) record;
 }
 
@@ -588,6 +628,15 @@ get_clone_record_app_xsp(void *record)
     ASSERT(record != NULL);
     return ((clone_record_t *) record)->app_thread_xsp;
 }
+
+#ifdef MACOS
+void *
+get_clone_record_thread_arg(void *record)
+{
+    ASSERT(record != NULL);
+    return ((clone_record_t *) record)->thread_arg;
+}
+#endif
 
 byte *
 get_clone_record_dstack(void *record)
@@ -665,11 +714,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
         LOG(THREAD, LOG_ASYNCH, 1,
             "continuation pc is "PFX"\n", continuation_pc);
         LOG(THREAD, LOG_ASYNCH, 1,
-            "parent tid is %d, parent sysnum is %d(%s), clone flags="PIFX"\n",
+            "parent tid is "TIDFMT", parent sysnum is %d(%s), clone flags="PIFX"\n",
             record->caller_id, record->clone_sysnum,
-            record->clone_sysnum == SYS_vfork ? "vfork" :
-            IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :) "unexpected",
-            record->clone_flags);
+            (record->clone_sysnum == SYS_vfork) ? "vfork" :
+            (IF_LINUX(record->clone_sysnum == SYS_clone ? "clone" :)
+             IF_MACOS(record->clone_sysnum == SYS_bsdthread_create ? "bsdthread_create":)
+             "unexpected"), record->clone_flags);
         if (record->clone_sysnum == SYS_vfork) {
             /* The above clone_flags argument is bogus.
                SYS_vfork doesn't have a free register to keep the hardcoded value
@@ -760,6 +810,12 @@ signal_thread_inherit(dcontext_t *dcontext, void *clone_record)
          * FIXME: are current pending or blocked inherited?
          */
         res = continuation_pc;
+#ifdef MACOS
+        if (record->app_thread_xsp != 0) {
+            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, record, clone_record_t,
+                           ACCT_THREAD_MGT, true/*prot*/);
+        }
+#endif
     } else {
         /* initialize in isolation */
         if (!dynamo_initialized) {

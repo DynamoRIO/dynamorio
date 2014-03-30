@@ -58,7 +58,7 @@ tls_type_t tls_global_type;
 #ifdef X64
 # error TLS NYI
 #else
-/* This is what thread_set_user_ldt gives us.
+/* This is what thread_set_user_ldt and i386_set_ldt give us.
  * XXX: a 32-bit Mac kernel will return 0x3f?
  * If so, update GDT_NUM_TLS_SLOTS in tls.h.
  */
@@ -104,10 +104,14 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
     } else {
         uint index = (uint) res;
         uint selector = LDT_SELECTOR(index);
-        /* We end up getting index 3 in any case.  To support others we need
-         * to indirect GDT_NUM_TLS_SLOTS.
+        /* XXX i#1405: we end up getting index 3 for the 1st thread,
+         * but later ones seem to need new slots (originally I thought
+         * the kernel would swap our one slot for us).  We leave
+         * GDT_NUM_TLS_SLOTS as just 3 under the assumption the app
+         * won't use more than that.
          */
-        ASSERT(selector == TLS_DR_SELECTOR);
+        ASSERT(dynamo_initialized || selector == TLS_DR_SELECTOR);
+        LOG(THREAD_GET, LOG_THREADS, 2, "%s: LDT index %d\n", __FUNCTION__, res);
         os_tls->tls_type = TLS_TYPE_LDT;
         os_tls->ldt_index = selector;
         WRITE_DR_SEG(selector); /* macro needs lvalue! */
@@ -120,7 +124,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
 void
 tls_reinstate_selector(uint selector)
 {
-    ASSERT(selector == TLS_DR_SELECTOR);
+    /* We can't assert that selector == TLS_DR_SELECTOR b/c of i#1405 */
     WRITE_DR_SEG(selector); /* macro needs lvalue! */
 }
 #endif

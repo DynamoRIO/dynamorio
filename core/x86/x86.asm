@@ -237,6 +237,9 @@ DECL_EXTERN(nt_continue_setup)
 #if defined(UNIX)
 DECL_EXTERN(master_signal_handler_C)
 #endif
+#ifdef MACOS
+DECL_EXTERN(new_bsdthread_setup)
+#endif
 DECL_EXTERN(hashlookup_null_target)
 #if defined(UNIX) && !defined(HAVE_SIGALTSTACK)
 DECL_EXTERN(sig_should_swap_stack)
@@ -1674,6 +1677,29 @@ dynamorio_clone_parent:
 #endif /* LINUX */
 
 #endif /* UNIX */
+
+
+#ifdef MACOS
+/* Thread interception at the user function.  We need to get the
+ * stack pointer and to preserve callee-saved registers, as we will return
+ * back past the user function to the pthread layer (i#1403 covers
+ * intercepting earlier).  We also clear fs, as the kernel seems to set it to
+ * point at a flat whole-address-space value, messing up our checks for
+ * it being initialized.
+ */
+        DECLARE_FUNC(new_bsdthread_intercept)
+GLOBAL_LABEL(new_bsdthread_intercept:)
+        /* We assume we can go ahead and clobber caller-saved regs. */
+        mov      eax, 0
+        mov      fs, eax
+        mov      REG_XAX, ARG1
+        PUSH_PRIV_MCXT(0 /* for priv_mcontext_t.pc */)
+        lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
+        CALLC1_FRESH(GLOBAL_REF(new_bsdthread_setup), REG_XAX)
+        /* should not return */
+        jmp      GLOBAL_REF(unexpected_return)
+        END_FUNC(new_bsdthread_intercept)
+#endif
 
 
 #ifdef WINDOWS

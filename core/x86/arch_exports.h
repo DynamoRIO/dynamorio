@@ -852,6 +852,9 @@ void dynamorio_nonrt_sigreturn(void);
 thread_id_t dynamorio_clone(uint flags, byte *newsp, void *ptid, void *tls,
                             void *ctid, void (*func)(void));
 # endif
+# ifdef MACOS
+void new_bsdthread_intercept(void);
+# endif
 #endif
 void back_from_native(void);
 /* These two are labels, not functions. */

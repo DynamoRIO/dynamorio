@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -226,7 +226,7 @@ native_get_retstack_idx(priv_mcontext_t *mc)
 
 /* Called by new_thread_dynamo_start to initialize the dcontext
  * structure for the current thread and start executing at the
- * the pc stored in the clone_record_t * stored at mc->pc.
+ * the pc stored in the clone_record_t * stored at *mc->xsp.
  * Assumes that it is called on the dstack.
  *
  * CAUTION: don't add a lot of stack variables in this routine or call a lot
@@ -274,12 +274,61 @@ new_thread_setup(priv_mcontext_t *mc)
     thread_starting(dcontext);
     dcontext->next_tag = next_tag;
 
-    *get_mcontext(dcontext) = *mc;
+    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+                      false/*not on initstack*/, false/*shouldn't return*/);
+    ASSERT_NOT_REACHED();
+}
+
+# ifdef MACOS
+/* Called from new_bsdthread_intercept for targeting a bsd thread user function.
+ * new_bsdthread_intercept stored the arg to the user thread func in
+ * mc->xax.  We're on the app stack -- but this is a temporary solution.
+ * i#1403 covers intercepting in an earlier and better manner.
+ */
+void
+new_bsdthread_setup(priv_mcontext_t *mc)
+{
+    dcontext_t *dcontext;
+    app_pc next_tag;
+    void *crec, *func_arg;
+    int rc;
+    /* this is where a new thread first touches other than the dstack,
+     * so we "enter" DR here
+     */
+    ENTERING_DR();
+
+    crec = (void *) mc->xax; /* placed there by new_bsdthread_intercept */
+    func_arg = (void *) get_clone_record_thread_arg(crec);
+    LOG(GLOBAL, LOG_INTERP, 1,
+        "new_thread_setup: thread "TIDFMT", dstack "PFX" clone record "PFX"\n",
+        get_thread_id(), get_clone_record_dstack(crec), crec);
+
+    rc = dynamo_thread_init(get_clone_record_dstack(crec), mc
+                            _IF_CLIENT_INTERFACE(false));
+    ASSERT(rc != -1); /* this better be a new thread */
+    dcontext = get_thread_private_dcontext();
+    ASSERT(dcontext != NULL);
+    /* set up sig handlers before starting itimer in thread_starting() (PR 537743)
+     * but thread_starting() calls initialize_dynamo_context() so cache next_tag
+     */
+    next_tag = signal_thread_inherit(dcontext, (void *) crec);
+    crec = NULL; /* now freed */
+    ASSERT(next_tag != NULL);
+    thread_starting(dcontext);
+    dcontext->next_tag = next_tag;
+
+    /* We assume that the only state that matters is the arg to the function. */
+#  ifdef X64
+    mc->rdi = (reg_t) func_arg;
+#  else
+    *(reg_t*)(mc->xsp + sizeof(reg_t)) = (reg_t) func_arg;
+#  endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
+# endif /* MACOS */
 
 #endif /* UNIX */
 
