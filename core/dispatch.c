@@ -1822,6 +1822,19 @@ handle_system_call(dcontext_t *dcontext)
     }
 #endif
 
+#ifdef MACOS
+    if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
+        /* The kernel returns control to whatever user-mode places in edx.
+         * We want to put this in even if we skip the syscall as we'll still call
+         * adjust_syscall_continuation for a skip.
+         */
+        byte *post_sysenter = after_do_syscall_addr(dcontext);
+        priv_mcontext_t *mc = get_mcontext(dcontext);
+        dcontext->app_xdx = mc->xdx;
+        mc->xdx = (reg_t) post_sysenter;
+    }
+#endif
+
     /* first do the pre-system-call */
     if (IF_CLIENT_INTERFACE(execute_syscall &&) pre_system_call(dcontext)) {
         /* now do the actual syscall instruction */
@@ -1865,16 +1878,6 @@ handle_system_call(dcontext_t *dcontext)
              * whereami for prev dcontext, not real one!
              */
             tmp_dcontext->whereami = WHERE_FCACHE;
-        }
-#endif
-
-#ifdef MACOS
-        if (get_syscall_method() == SYSCALL_METHOD_SYSENTER && !dcontext->sys_was_int) {
-            /* The kernel returns control to whatever user-mode places in edx */
-            byte *post_sysenter = after_do_syscall_addr(dcontext);
-            priv_mcontext_t *mc = get_mcontext(dcontext);
-            dcontext->app_xdx = mc->xdx;
-            mc->xdx = (reg_t) post_sysenter;
         }
 #endif
 
