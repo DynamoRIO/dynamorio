@@ -72,6 +72,7 @@ START_FILE
 # ifdef LINUX
 #  include "include/syscall.h"
 # else
+#  include "include/syscall_mach.h"
 #  include <sys/syscall.h>
 # endif
 #endif
@@ -935,7 +936,7 @@ GLOBAL_LABEL(dynamorio_syscall_sysenter:)
         ret
         END_FUNC(dynamorio_syscall_sysenter)
 
-        DECLARE_GLOBAL(dynamorio_sysenter_fixup)
+        DECLARE_GLOBAL(dynamorio_mach_syscall_fixup)
         DECLARE_FUNC(dynamorio_syscall_sygate_sysenter)
 GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
         /* stack looks like:
@@ -949,7 +950,7 @@ GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
          * fix for case 5441 where steal a ret from ntdll.dll so need to mangle
          * our stack to look like
          * esp + 0    sysenter_ret_address
-         *       4    dynamorio_sysenter_fixup
+         *       4    dynamorio_mach_syscall_fixup
          *       8+   syscall args
          * sysenter_tls_slot    return address
          * before we do the edx <- esp
@@ -974,10 +975,10 @@ GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
         pop      REG_XAX
 #ifdef X64
         /* Can't push a 64-bit immed */
-        mov      REG_XCX, dynamorio_sysenter_fixup
+        mov      REG_XCX, dynamorio_mach_syscall_fixup
         push     REG_XCX
 #else
-        push     dynamorio_sysenter_fixup
+        push     dynamorio_mach_syscall_fixup
 #endif
         push     PTRSZ SYMREF(sysenter_ret_address)
         mov      REG_XDX, REG_XSP
@@ -986,7 +987,7 @@ GLOBAL_LABEL(dynamorio_syscall_sygate_sysenter:)
 #else
         sysenter
 #endif
-ADDRTAKEN_LABEL(dynamorio_sysenter_fixup:)
+ADDRTAKEN_LABEL(dynamorio_mach_syscall_fixup:)
         /* push whatever (was the slot for the eax arg) */
         push     REG_XAX
         /* ecx/edx should be dead here, just borrow one */
@@ -1324,6 +1325,98 @@ mach_dep_syscall_0args:
 mach_dep_syscall_success:
         ret
         END_FUNC(dynamorio_mach_dep_syscall)
+
+
+/* Mach syscall invocation.
+ * Signature: ptr_int_t dynamorio_mach_syscall(sysnum, num_args, arg1, arg2, ...)
+ * Only supports up to 4 args.
+ * Does not support returning a 64-bit value in 32-bit mode.
+ */
+        DECLARE_FUNC(dynamorio_mach_syscall)
+GLOBAL_LABEL(dynamorio_mach_syscall:)
+        /* x64 kernel doesn't clobber all the callee-saved registers */
+        push     REG_XBX
+#  ifdef X64
+        /* reverse order so we don't clobber earlier args */
+        mov      REG_XBX, ARG2 /* put num_args where we can reference it longer */
+        mov      rax, ARG1 /* sysnum: only need eax, but need rax to use ARG1 (or movzx) */
+        cmp      REG_XBX, 0
+        je       dynamorio_mach_syscall_ready
+        mov      ARG1, ARG3
+        cmp      REG_XBX, 1
+        je       dynamorio_mach_syscall_ready
+        mov      ARG2, ARG4
+        cmp      REG_XBX, 2
+        je       dynamorio_mach_syscall_ready
+        mov      ARG3, ARG5
+        cmp      REG_XBX, 3
+        je       dynamorio_mach_syscall_ready
+        mov      ARG4, ARG6
+#  else
+        push     REG_XBP
+        push     REG_XSI
+        push     REG_XDI
+        /* add 16 to skip the 4 pushes */
+        mov      ecx, [16+ 8 + esp] /* num_args */
+        cmp      ecx, 0
+        je       dynamorio_mach_syscall_0args
+        cmp      ecx, 1
+        je       dynamorio_mach_syscall_1args
+        cmp      ecx, 2
+        je       dynamorio_mach_syscall_2args
+        cmp      ecx, 3
+        je       dynamorio_mach_syscall_3args
+        mov      esi, [16+24 + esp] /* arg4 */
+dynamorio_mach_syscall_3args:
+        mov      edx, [16+20 + esp] /* arg3 */
+dynamorio_mach_syscall_2args:
+        mov      ecx, [16+16 + esp] /* arg2 */
+dynamorio_mach_syscall_1args:
+        mov      ebx, [16+12 + esp] /* arg1 */
+dynamorio_mach_syscall_0args:
+        mov      eax, [16+ 4 + esp] /* sysnum */
+#  ifdef X64
+        or       eax, SYSCALL_NUM_MARKER_MACH
+#  else
+        /* The sysnum is passed as a negative number */
+        neg      eax
+#  endif
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        lea      REG_XSP, [-2*ARG_SZ + REG_XSP] /* maintain align-16: retaddr-5th below */
+        /* args are on stack, w/ an extra slot (retaddr of syscall wrapper) */
+        push     esi
+        push     edx
+        push     ecx
+        push     ebx
+        push     0 /* extra slot */
+#  endif
+        /* If we use ADDRTAKEN_LABEL and GLOBAL_REF we get text relocation
+         * complaints so we instead do this hack:
+         */
+        call     dynamorio_mach_syscall_next
+dynamorio_mach_syscall_next:
+        pop      REG_XDX
+        lea      REG_XDX, [1/*pop*/ + 3/*lea*/ + 2/*sysenter*/ + 2/*mov*/ + REG_XDX]
+        mov      REG_XCX, REG_XSP
+        /* We have to use sysenter for a Mach syscall, else we get SIGSYS.
+         * This implies that we can't return 64-bit in 32-bit mode.
+         */
+        sysenter
+#  ifndef X64
+        lea      esp, [7*ARG_SZ + esp] /* must not change flags */
+        pop      REG_XDI
+        pop      REG_XSI
+        pop      REG_XBP
+#  endif
+        pop      REG_XBX
+        /* return val is in eax for us */
+        /* convert to -errno */
+        jae      dynamorio_mach_syscall_success
+        neg      eax
+dynamorio_mach_syscall_success:
+        ret
+        END_FUNC(dynamorio_mach_syscall)
+
 # endif /* MACOS */
 
 /* FIXME: this function should be in #ifdef CLIENT_INTERFACE

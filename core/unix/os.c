@@ -70,6 +70,7 @@
 #ifdef MACOS
 # include <sys/sysctl.h>         /* for sysctl */
 # include <mach/mach_traps.h>    /* for swtch_pri */
+# include "include/syscall_mach.h"
 #endif
 
 #ifdef LINUX
@@ -1710,6 +1711,12 @@ os_thread_init(dcontext_t *dcontext)
 
     LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n", get_segment_base(SEG_GS));
     LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n", get_segment_base(SEG_FS));
+
+#ifdef MACOS
+    /* XXX: do we need to free/close dcontext->thread_port?  I don't think so. */
+    dcontext->thread_port = dynamorio_mach_syscall(MACH_thread_self_trap, 0);
+    LOG(THREAD, LOG_ALL, 1, "Mach thread port: %d\n", dcontext->thread_port);
+#endif
 }
 
 void
@@ -2563,7 +2570,7 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
      * Need to figure out whether we support raw Mach threads w/o pthread on top.
      */
     ASSERT_NOT_IMPLEMENTED(false);
-    return (dynamorio_syscall(SYS___pthread_kill, 2, tid, signum) == 0);
+    return false;
 #else
     /* FIXME: for non-NPTL use SYS_kill */
     /* Note that the pid is equivalent to the thread group id.
@@ -2572,6 +2579,20 @@ thread_signal(process_id_t pid, thread_id_t tid, int signum)
      * use the pid of the target thread, not our pid.
      */
     return (dynamorio_syscall(SYS_tgkill, 3, pid, tid, signum) == 0);
+#endif
+}
+
+static bool
+known_thread_signal(thread_record_t *tr, int signum)
+{
+#ifdef MACOS
+    ptr_int_t res;
+    if (tr->dcontext == NULL)
+        return FALSE;
+    res = dynamorio_syscall(SYS___pthread_kill, 2, tr->dcontext->thread_port, signum);
+    return res == 0;
+#else
+    return thread_signal(tr->pid, tr->id, signum);
 #endif
 }
 
@@ -2648,7 +2669,7 @@ os_thread_suspend(thread_record_t *tr)
          * to match Windows behavior.
          */
         ASSERT(ksynch_get_value(&ostd->suspended) == 0);
-        if (!thread_signal(tr->pid, tr->id, SUSPEND_SIGNAL)) {
+        if (!known_thread_signal(tr, SUSPEND_SIGNAL)) {
             ostd->suspend_count--;
             mutex_unlock(&ostd->suspend_lock);
             return false;
@@ -2725,7 +2746,7 @@ os_thread_terminate(thread_record_t *tr)
     os_thread_data_t *ostd = (os_thread_data_t *) tr->dcontext->os_field;
     ASSERT(ostd != NULL);
     ostd->terminate = true;
-    return thread_signal(tr->pid, tr->id, SUSPEND_SIGNAL);
+    return known_thread_signal(tr, SUSPEND_SIGNAL);
 }
 
 bool
@@ -4014,16 +4035,16 @@ os_normalized_sysnum(int num_raw, instr_t *gateway, dcontext_t *dcontext)
         num = (int) num_raw; /* Keep Mach and Machdep bits */
 # else
     if ((ptr_int_t)num_raw < 0) /* Mach syscall */
-        return (0x1000000 | -(int)num_raw);
+        return (SYSCALL_NUM_MARKER_MACH | -(int)num_raw);
     else {
         /* Bottom 16 bits are the number, top are arg size. */
         num = (int)(num_raw & 0xffff);
     }
 # endif
     if (interrupt == 0x81)
-        num |= 0x1000000; /* Mach */
+        num |= SYSCALL_NUM_MARKER_MACH;
     else if (interrupt == 0x82)
-        num |= 0x3000000; /* Machdep */
+        num |= SYSCALL_NUM_MARKER_MACHDEP;
     return num;
 #else
     return num_raw;

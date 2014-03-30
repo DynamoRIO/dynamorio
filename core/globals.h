@@ -778,6 +778,9 @@ struct _dcontext_t {
 #ifdef UNIX
     process_id_t     owning_process; /* handle shared address space w/o shared pid */
 #endif
+#ifdef MACOS
+    uint thread_port; /* mach_port_t */
+#endif
     thread_record_t   *thread_record;  /* so don't have to do a thread_lookup */
     where_am_i_t       whereami;        /* where control is at the moment */
     void *         allocated_start; /* used for cache alignment */
