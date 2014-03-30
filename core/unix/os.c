@@ -4267,10 +4267,17 @@ sys_param(dcontext_t *dcontext, int num)
 }
 
 static inline bool
-syscall_successful(priv_mcontext_t *mc)
+syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
 {
 #ifdef MACOS
-    return !TEST(EFLAGS_CF, mc->eflags);
+    if (TEST(SYSCALL_NUM_MARKER_MACH, normalized_sysnum)) {
+        /* XXX: Mach syscalls vary (for some KERN_SUCCESS=0 is success,
+         * for others that return mach_port_t 0 is failure (I think?).
+         * We defer to drsyscall.
+         */
+        return ((ptr_int_t)mc->xax >= 0);
+    } else
+        return !TEST(EFLAGS_CF, mc->eflags);
 #else
     return ((ptr_int_t)mc->xax >= 0);
 #endif
@@ -4287,7 +4294,9 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
     /* since always coming from dispatch now, only need to set mcontext */
     priv_mcontext_t *mc = get_mcontext(dcontext);
 #ifdef MACOS
-    /* On MacOS, success is determined by CF */
+    /* On MacOS, success is determined by CF, except for Mach syscalls, but
+     * there it doesn't hurt to set CF.
+     */
     mc->eflags &= ~(EFLAGS_CF);
 #endif
     mc->xax = val;
@@ -4352,7 +4361,7 @@ dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
     if (info->size != sizeof(*info))
         return false;
     info->value = mc->xax;
-    info->succeeded = syscall_successful(mc);
+    info->succeeded = syscall_successful(mc, dcontext->sys_num);
     if (info->use_high) {
         /* MacOS has some 32-bit syscalls that return 64-bit values in
          * xdx:xax, but the other syscalls don't clear xdx, so we can't easily
@@ -6481,7 +6490,7 @@ post_system_call(dcontext_t *dcontext)
      * case-by-case basis in the switch statement below.
      */
     ptr_int_t result = (ptr_int_t) mc->xax; /* signed */
-    bool success = syscall_successful(mc);
+    bool success = syscall_successful(mc, sysnum);
     app_pc base;
     size_t size;
     uint prot;

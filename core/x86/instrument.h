@@ -3177,6 +3177,12 @@ typedef struct _dr_syscall_result_info_t {
      * depends on each particular call semantics and is beyond the
      * scope of this routine (consider using the "drsyscall" Extension
      * instead).
+     *
+     * For Mach syscalls on MacOS, the success result from
+     * dr_syscall_get_result_ex() should not be relied upon.
+     * Computing success depends on each particular call semantics and
+     * is beyond the scope of this routine (consider using the
+     * "drsyscall" Extension instead).
      */
     bool succeeded;
     /**

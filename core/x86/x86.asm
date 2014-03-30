@@ -1421,11 +1421,10 @@ dynamorio_mach_syscall_next:
         pop      REG_XBP
 #  endif
         pop      REG_XBX
-        /* return val is in eax for us */
-        /* convert to -errno */
-        jae      dynamorio_mach_syscall_success
-        neg      eax
-dynamorio_mach_syscall_success:
+        /* Return val is in eax for us.
+         * Note that unlike BSD and Machdep syscalls, Mach syscalls do not
+         * use flags to indicate success.
+         */
         ret
         END_FUNC(dynamorio_mach_syscall)
 
