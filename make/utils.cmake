@@ -100,7 +100,8 @@ function (add_rel_rpaths target)
         # @loader_path seems to work for executables too
         set(new_lflag "-Wl,-rpath,'@loader_path/${relpath}'")
         get_target_property(lflags ${target} LINK_FLAGS)
-        if (NOT lflags MATCHES "@loader_path/${relpath}")
+        # We match the trailing ' to avoid matching a parent dir only
+        if (NOT lflags MATCHES "@loader_path/${relpath}'")
           append_property_string(TARGET ${target} LINK_FLAGS "${new_lflag}")
         endif ()
       else (APPLE)
