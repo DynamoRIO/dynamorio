@@ -852,19 +852,19 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             strncpy(executable_path, read_proc_self_exe(ignore_cache),
                     BUFFER_SIZE_ELEMENTS(executable_path));
 #else
-            /* OSX kernel puts full app path below envp, before the args.
-             * We look for the double-null before it.
-             */
-            const char *c = *our_environ;
+            /* OSX kernel puts full app exec path above envp */
+            char *c, **env = our_environ;
             do {
-                c--;
-            } while (*c != '\0' || *(c-1) != '\0');
-            c++; /* Skip the null */
-            /* XXX: it turns out this is the argv[0] as passed to SYS_execve
-             * and not the path!  Thus it can be a relative path.
+                env++;
+            } while (*env != NULL);
+            env++; /* Skip the NULL separating the envp array from exec_path */
+            c = *env;
+            /* If our frontends always absolute-ize paths prior to exec,
+             * this should usually be absolute -- but we go ahead and
+             * handle relative just in case (and to handle child processes).
              * We add the cur dir, but note that the resulting path can
              * still contain . or .. so it's not normalized (but it is a
-             * correct absolute path).
+             * correct absolute path).  Xref i#1402, i#1406, i#1407.
              */
             if (*c != '/') {
                 int len;
