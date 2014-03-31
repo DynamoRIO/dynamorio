@@ -862,6 +862,9 @@ get_application_name_helper(bool ignore_cache, bool full_path)
             c++; /* Skip the null */
             /* XXX: it turns out this is the argv[0] as passed to SYS_execve
              * and not the path!  Thus it can be a relative path.
+             * We add the cur dir, but note that the resulting path can
+             * still contain . or .. so it's not normalized (but it is a
+             * correct absolute path).
              */
             if (*c != '/') {
                 int len;
@@ -7367,9 +7370,26 @@ find_executable_vm_areas(void)
                 iter.vm_start, iter.vm_start+image_size, iter.inode, iter.comment);
 
             /* look for executable */
+#ifdef LINUX
             exec_match = get_application_name();
             if (exec_match != NULL && exec_match[0] != '\0')
                 found_exec = (strcmp(iter.comment, exec_match) == 0);
+#else
+            /* We don't have a nice normalized name: it can have ./ or ../ inside
+             * it.  But, we can distinguish an exe from a lib here, even for PIE,
+             * so we go with that plus a basename comparison.
+             */
+            exec_match = (char *) get_application_short_name();
+            if (module_is_executable(iter.vm_start) &&
+                exec_match != NULL && exec_match[0] != '\0') {
+                const char *iter_basename = strrchr(iter.comment, '/');
+                if (iter_basename == NULL)
+                    iter_basename = iter.comment;
+                else
+                    iter_basename++;
+                found_exec = (strcmp(iter_basename, exec_match) == 0);
+            }
+#endif
             if (found_exec) {
                 if (executable_start == NULL)
                     executable_start = iter.vm_start;

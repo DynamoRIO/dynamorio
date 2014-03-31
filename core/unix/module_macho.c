@@ -100,12 +100,13 @@ is_macho_header(app_pc base, size_t size)
            offsetof(struct mach_header_64, filetype));
     if ((hdr->magic == MH_MAGIC && hdr->cputype == CPU_TYPE_X86) ||
         (hdr->magic == MH_MAGIC_64 && hdr->cputype == CPU_TYPE_X86_64)) {
-        /* XXX: should we include MH_PRELOAD or MH_FVMLIB? */
+        /* We shouldn't see MH_PRELOAD as it can't be loaded by the kernel */
         if (hdr->filetype == MH_EXECUTE ||
             hdr->filetype == MH_DYLIB ||
             hdr->filetype == MH_BUNDLE ||
-            hdr->filetype == MH_DYLINKER) {
-            return true;
+            hdr->filetype == MH_DYLINKER ||
+            hdr->filetype == MH_FVMLIB) {
+           return true;
         }
     }
     return false;
@@ -355,6 +356,19 @@ bool
 module_is_header(app_pc base, size_t size /*optional*/)
 {
     return is_macho_header(base, size);
+}
+
+bool
+module_is_executable(app_pc base)
+{
+    struct mach_header *hdr = (struct mach_header *) base;
+    if (!is_macho_header(base, 0))
+        return false;
+    /* We shouldn't see MH_PRELOAD as it can't be loaded by the kernel.
+     * PIE is still MH_EXECUTE (+ flags MH_PIE) so we can distinguish
+     * an executable from a library.
+     */
+    return (hdr->filetype == MH_EXECUTE);
 }
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER

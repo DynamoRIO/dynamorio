@@ -111,6 +111,9 @@ bool
 module_is_header(app_pc base, size_t size /*optional*/);
 
 bool
+module_is_executable(app_pc base);
+
+bool
 module_is_partial_map(app_pc base, size_t size, uint memprot);
 
 bool

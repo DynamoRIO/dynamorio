@@ -623,6 +623,19 @@ module_is_header(app_pc base, size_t size /*optional*/)
     return is_elf_so_header(base, size);
 }
 
+bool
+module_is_executable(app_pc base)
+{
+    ELF_HEADER_TYPE *elf_hdr = (ELF_HEADER_TYPE *) base;
+    if (!is_elf_so_header(base, 0))
+        return false;
+    /* Unfortunately PIE files are ET_DYN so we can't really distinguish
+     * an executable from a library.
+     */
+    return ((elf_hdr->e_type == ET_DYN || elf_hdr->e_type == ET_EXEC) &&
+            elf_hdr->e_entry != 0);
+}
+
 /* The hash func used in the ELF hash tables.
  * Even for ELF64 .hash entries are 32-bit.  See Elf_Symndx in elfclass.h.
  * Thus chain table and symbol table entries must be 32-bit; but string table
