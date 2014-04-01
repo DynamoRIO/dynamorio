@@ -55,6 +55,9 @@
 #include <stdlib.h>
 #include "dr_frontend.h"
 
+extern bool
+module_get_platform(file_t f, dr_platform_t *platform);
+
 #define drfront_die() exit(1)
 
 /* up to caller to call die() if necessary */
@@ -199,50 +202,22 @@ drfront_char_to_tchar(const char *str, OUT char *wbuf, size_t wbuflen/*# element
 drfront_status_t
 drfront_is_64bit_app(const char *exe, OUT bool *is_64)
 {
-    size_t num = 0;
     FILE *target_file;
+    drfront_status_t res = DRFRONT_ERROR;
 
     if (is_64 == NULL)
         return DRFRONT_ERROR_INVALID_PARAMETER;
 
     target_file = fopen(exe, "rb");
     if (target_file != NULL) {
-#ifdef LINUX
-        /* Ensure this is an elf file */
-        char elf_check[SELFMAG];
-        char arch = ELFCLASS32;
-        num = fread(&elf_check, 1, BUFFER_SIZE_BYTES(elf_check), target_file);
-        if (num != BUFFER_SIZE_BYTES(elf_check) || elf_check[0] != ELFMAG0 ||
-            elf_check[1] != ELFMAG1 || elf_check[2] != ELFMAG2 ||
-            elf_check[3] != ELFMAG3) {
-            return DRFRONT_ERROR;
+        dr_platform_t platform;
+        if (module_get_platform(fileno(target_file), &platform)) {
+            res = DRFRONT_SUCCESS;
+            *is_64 = (platform == DR_PLATFORM_64BIT);
         }
-        /* Get the architecture */
-        num = fread(&arch, 1, 1, target_file);
-        if (num != 1)
-            return DRFRONT_ERROR;
-        *is_64 = (arch == ELFCLASS64);
-#elif defined(MACOS)
-        /* XXX: if we get many more ifdefs, we could make dr_frontend_macos.c
-         * and dr_frontend_linux.c.
-         */
-        struct mach_header hdr;
-        num = fread(&hdr, sizeof(hdr), 1, target_file);
-        if (num == 1 &&
-            ((hdr.magic == MH_MAGIC && hdr.cputype == CPU_TYPE_X86) ||
-             (hdr.magic == MH_MAGIC_64 && hdr.cputype == CPU_TYPE_X86_64)))
-            *is_64 = (hdr.cputype == CPU_TYPE_X86_64);
-        else
-            return DRFRONT_ERROR;
-#else
-# error NYI
-#endif
-    } else {
-        return DRFRONT_ERROR;
-    }
-    if (target_file != NULL)
         fclose(target_file);
-    return DRFRONT_SUCCESS;
+    }
+    return res;
 }
 
 /* This function is only relevant on Windows, so we return false. */

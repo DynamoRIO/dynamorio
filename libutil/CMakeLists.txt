@@ -50,6 +50,11 @@ include_directories(BEFORE
   ${PROJECT_SOURCE_DIR}/core/x86
   ${PROJECT_BINARY_DIR} # for events.h
   )
+if (WIN32)
+  include_directories(BEFORE ${PROJECT_SOURCE_DIR}/core/win32)
+else (WIN32)
+  include_directories(BEFORE ${PROJECT_SOURCE_DIR}/core/unix)
+endif (WIN32)
 
 set(CORE_SRCS
   ${PROJECT_SOURCE_DIR}/core/options.c
@@ -72,7 +77,9 @@ set(ROOT_SRCS
   mfapi.c
   )
 
-add_definitions(-DNOT_DYNAMORIO_CORE)
+# drfrontendlib doesn't want NOT_DYNAMORIO_CORE, so we set that individually
+# on all the other targets.  They all want this:
+add_definitions(-DNOT_DYNAMORIO_CORE_PROPER)
 
 if (WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE)
@@ -94,7 +101,7 @@ if (WIN32)
 
   add_library(policy_static ${BASE_SRCS} ${ROOT_SRCS} ${CORE_SRCS})
   set_target_properties(policy_static PROPERTIES
-    COMPILE_FLAGS "${libutil_cflags}")
+    COMPILE_FLAGS "${libutil_cflags} -DNOT_DYNAMORIO_CORE")
   set_target_properties(policy_static PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(policy_static)
@@ -119,7 +126,7 @@ set_target_properties(drconfiglib PROPERTIES
   # Since it's hard to pass spaces in defines (I can get a " through using
   # \\\\\\\" but no spaces) we put strings in resources.rc and select
   # using RC_ defines.
-  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB"
+  COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DRCONFIGLIB -DNOT_DYNAMORIO_CORE"
   # put dll in lib dir
   RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
   # See i#1375 comments
@@ -137,7 +144,7 @@ if (WIN32)
   add_executable(dumpevts dumpevts.c elm.c ${RESOURCES})
   set_target_properties(dumpevts PROPERTIES
     # Set define parameters for resources.rc
-    COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DUMPEVTS")
+    COMPILE_FLAGS "${libutil_cflags} -DRC_IS_DUMPEVTS -DNOT_DYNAMORIO_CORE")
   set_target_properties(dumpevts PROPERTIES
     LINK_FLAGS "${libutil_ldflags}")
   add_gen_events_deps(dumpevts)
@@ -148,7 +155,7 @@ if (WIN32)
       ${RESOURCES} mfapi.c mfapi.res)
     set_target_properties(mfapi PROPERTIES
       # Set define parameters for resources.rc
-      COMPILE_FLAGS "${libutil_cflags} -DRC_IS_MFAPI")
+      COMPILE_FLAGS "${libutil_cflags} -DRC_IS_MFAPI -DNOT_DYNAMORIO_CORE")
     set_target_properties(mfapi PROPERTIES
       LINK_FLAGS "${libutil_ldflags}")
     add_gen_events_deps(mfapi)
@@ -163,7 +170,14 @@ DR_install(TARGETS drconfiglib DESTINATION ${INSTALL_BIN})
 if (WIN32)
   set(dr_frontend_srcs dr_frontend_win.c)
 else () #UNIX
-  set(dr_frontend_srcs dr_frontend_unix.c)
+  # We need os.c for os_open(), etc. for module_*.c.
+  # XXX i#1409: create a nice isolated lib for this.
+  set(dr_frontend_srcs dr_frontend_unix.c ../core/unix/os.c)
+  if (APPLE)
+    set(dr_frontend_srcs ${dr_frontend_srcs} ../core/unix/module_macho.c)
+  else (APPLE)
+    set(dr_frontend_srcs ${dr_frontend_srcs} ../core/unix/module_elf.c)
+  endif (APPLE)
 endif ()
 set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
 add_library(drfrontendlib STATIC ${dr_frontend_srcs})

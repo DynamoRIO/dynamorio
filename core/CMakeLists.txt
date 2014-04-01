@@ -212,7 +212,6 @@ if (UNIX)
     unix/injector.c
     config.c    # to read config
     unix/os.c  # for file_t interface
-    unix/module.c
     string.c
     io.c
     ${x86_noncore_asm_src}  # for dynamorio_syscall

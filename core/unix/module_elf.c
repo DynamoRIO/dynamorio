@@ -50,6 +50,23 @@ typedef union _elf_generic_header_t {
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef LOG
 # define LOG(...) /* nothing */
+# undef ASSERT
+# define ASSERT(x) ((void) 0)
+# undef ASSERT_NOT_IMPLEMENTED
+# define ASSERT_NOT_IMPLEMENTED(x) ((void) 0)
+# undef ASSERT_CURIOSITY
+# define ASSERT_CURIOSITY(x) ((void) 0)
+
+/* Compatibility layer
+ * XXX i#1409: really we should split out a lib shared w/ non-core from os.c.
+ */
+bool
+safe_read(const void *base, size_t size, void *out_buf)
+{
+    memcpy(out_buf, base, size);
+    return true;
+}
+
 #else /* !NOT_DYNAMORIO_CORE_PROPER */
 
 #ifdef CLIENT_INTERFACE

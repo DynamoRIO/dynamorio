@@ -61,7 +61,7 @@
  * in globals.h; if we do, we get errors on isspace missing.  We solve that
  * by just by supplying our own isspace.
  */
-#  include <ctype.h>
+# include <ctype.h>
 #endif
 #include <errno.h>
 #include <fcntl.h>
@@ -142,14 +142,6 @@ get_application_short_name(void)
 {
     ASSERT(false);
     return "";
-}
-
-/* Map module safe reads to just memcpy. */
-bool
-safe_read(const void *base, size_t size, void *out_buf)
-{
-    memcpy(out_buf, base, size);
-    return true;
 }
 
 /* Shadow DR's internal_error so assertions work in standalone mode.  DR tries
@@ -395,6 +387,8 @@ exe_is_right_bitwidth(const char *exe, int *errcode)
     dr_platform_t platform;
     if (!module_get_platform_path(exe, &platform)) {
         *errcode = errno;
+        if (*errcode == 0)
+            *errcode = ESRCH;
         return false;
     }
     /* Check if the executable is the right bitwidth and set errcode to be

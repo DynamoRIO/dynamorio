@@ -55,6 +55,7 @@
 #include <mach-o/dyld_images.h>
 #include <mach/thread_status.h> /* i386_thread_state_t */
 #include <mach-o/nlist.h>
+#include <mach-o/fat.h>
 #include <sys/syscall.h>
 #include <stddef.h> /* offsetof */
 #include <string.h> /* strcmp */
@@ -63,6 +64,30 @@
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef LOG
 # define LOG(...) /* nothing */
+# include <sys/utsname.h> /* for kernel_is_64bit */
+# undef ASSERT
+# define ASSERT(x) ((void) 0)
+# undef ASSERT_NOT_IMPLEMENTED
+# define ASSERT_NOT_IMPLEMENTED(x) ((void) 0)
+
+/* Compatibility layer
+ * XXX i#1409: really we should split out a lib shared w/ non-core from os.c.
+ */
+bool
+kernel_is_64bit(void)
+{
+    struct utsname uinfo;
+    if (uname(&uinfo) != 0)
+        return true; /* guess */
+    return (strncmp(uinfo.machine, "x86_64", sizeof("x86_64")) == 0);
+}
+
+bool
+safe_read(const void *base, size_t size, void *out_buf)
+{
+    memcpy(out_buf, base, size);
+    return true;
+}
 #endif
 
 /* XXX i#1345: support mixed-mode 32-bit and 64-bit in one process.
@@ -540,12 +565,44 @@ module_get_header_size(app_pc module_base)
 bool
 module_get_platform(file_t f, dr_platform_t *platform)
 {
-    struct mach_header hdr;
-    if (os_read(f, &hdr, sizeof(hdr)) != sizeof(hdr))
+    struct fat_header fat_hdr;
+    struct mach_header mach_hdr;
+    /* Both headers start with a 32-bit magic # */
+    uint32_t magic;
+    if (os_read(f, &magic, sizeof(magic)) != sizeof(magic) ||
+        !os_seek(f, 0, SEEK_SET))
         return false;
-    if (!is_macho_header((app_pc)&hdr, sizeof(hdr)))
+    if (magic == FAT_CIGAM) { /* big-endian */
+        /* This is a "fat" or "universal" binary */
+        struct fat_arch arch;
+        uint num, i;
+        if (os_read(f, &fat_hdr, sizeof(fat_hdr)) != sizeof(fat_hdr))
+            return false;
+        /* OSSwapInt32 is a macro, so there's no lib dependence here */
+        num = OSSwapInt32(fat_hdr.nfat_arch);
+        for (i = 0; i < num; i++) {
+            if (os_read(f, &arch, sizeof(arch)) != sizeof(arch))
+                return false;
+            /* This routine can only return one plaform.  We want the one that
+             * will be used on an execve, which is the one that matches
+             * the kernel's bitwidth.
+             */
+            if ((kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86_64) ||
+                (!kernel_is_64bit() && OSSwapInt32(arch.cputype) == CPU_TYPE_X86)) {
+                /* Line up right before the Mach-O header */
+                if (!os_seek(f, OSSwapInt32(arch.offset), SEEK_SET))
+                    return false;
+                break;
+            }
+        }
+        if (i == num)
+            return false;
+    }
+    if (os_read(f, &mach_hdr, sizeof(mach_hdr)) != sizeof(mach_hdr))
         return false;
-    switch (hdr.cputype) {
+    if (!is_macho_header((app_pc)&mach_hdr, sizeof(mach_hdr)))
+        return false;
+    switch (mach_hdr.cputype) {
     case CPU_TYPE_X86_64: *platform = DR_PLATFORM_64BIT; break;
     case CPU_TYPE_X86:    *platform = DR_PLATFORM_32BIT; break;
     default:
@@ -598,6 +655,12 @@ module_get_os_privmod_data(app_pc base, size_t size, bool relocated,
     /* XXX i#1285: fill in the rest of the fields */
     return;
 }
+
+byte *
+module_dynamorio_lib_base(void)
+{
+    return (byte *) &_mh_dylib_header;
+}
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 
 ptr_uint_t
@@ -605,12 +668,6 @@ module_get_text_section(app_pc file_map, size_t file_size)
 {
     ASSERT_NOT_IMPLEMENTED(false); /* FIXME i#58: implement MachO support */
     return 0;
-}
-
-byte *
-module_dynamorio_lib_base(void)
-{
-    return (byte *) &_mh_dylib_header;
 }
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
