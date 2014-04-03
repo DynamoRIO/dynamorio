@@ -122,7 +122,7 @@ drfront_searchenv(const char *fname, const char *env_var, OUT char *full_path,
 
     _wsearchenv(wfname, wenv_var, wfull_path);
 
-    if (strlen(full_path) == 0) {
+    if (wfull_path[0] == L'\0') {
         *ret = false;
         return DRFRONT_ERROR;
     }
