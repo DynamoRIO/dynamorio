@@ -260,6 +260,35 @@ drfront_convert_args(const TCHAR **targv, OUT char ***argv, int argc);
 drfront_status_t
 drfront_cleanup_args(char **argv, int argc);
 
+/**
+ * If a tool is installed into a "Program Files" directory on Windows,
+ * or into "/usr/..." on Linux, it needs to store its log files
+ * elsewhere.  This utility function helps to select that alternative
+ * location.  First, it checks whether \p root is in a location where
+ * log files should not be created, and returns that result in \p
+ * use_root.  If \p use_root is false, this function returns a
+ * suggested alternative directory for log files in \p buf.  It looks
+ * in standard locations such as "$APPDATA" or
+ * "$USERPROFILE/Application Data" on Windows or in temp directories
+ * if those fail or if on Linux.  It appends \p subdir to the base
+ * application data or temp directory.  It is up to the caller to
+ * create the returned directory if it does not exist.
+ *
+ * @param[in]  root      The location where the tool's binaries are installed.
+ * @param[in]  subdir    A directory to append to the application data directory
+ *                       to form a result in \p buf.
+ * @param[out] use_root  Returns whether \p root is suitable for storing log files.
+ * @param[out] buf       If \p use_root is false, this buffer is filled with a
+ *                       suggested directory for storing log files.  The directory
+ *                       ends with \p subdir.
+ *                       If \p use_root is true, \p buf's contents are undefined.
+ * @param[in]  buflen    The maximum capacity of \p buf, in elements.
+ */
+drfront_status_t
+drfront_appdata_logdir(const char *root, const char *subdir,
+                       OUT bool *use_root,
+                       OUT char *buf, size_t buflen/*# elements*/);
+
 /* DR_API EXPORT END */
 
 #endif

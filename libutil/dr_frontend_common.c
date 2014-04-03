@@ -35,7 +35,16 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "dr_frontend.h"
+
+#ifdef WINDOWS
+/* It looks better to consistently use the same separator */
+# define DIRSEP '\\'
+# define snprintf _snprintf
+#else
+# define DIRSEP '/'
+#endif
 
 drfront_status_t
 drfront_bufprint(char *buf, size_t bufsz, INOUT size_t *sofar, OUT ssize_t *len,
@@ -89,4 +98,86 @@ drfront_cleanup_args(char **argv, int argc)
         free(argv[i]);
     free(argv);
     return DRFRONT_SUCCESS;
+}
+
+static bool
+drfront_is_system_install_dir(const char *dir)
+{
+#ifdef WINDOWS
+    return (strstr(dir, "Program Files") != NULL);
+#else
+    return (strstr(dir, "/usr/") == dir);
+#endif
+}
+
+drfront_status_t
+drfront_appdata_logdir(const char *root, const char *subdir,
+                       OUT bool *use_root,
+                       OUT char *buf, size_t buflen/*# elements*/)
+{
+    drfront_status_t res = DRFRONT_ERROR;
+    bool writable = false;
+    char env[MAXIMUM_PATH];
+    if (use_root == NULL || buf == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+    /* On Vista+ we can't write to Program Files; plus better to not store
+     * logs there on 2K or XP either.
+     */
+    if (drfront_is_system_install_dir(root) ||
+        drfront_access(root, DRFRONT_WRITE, &writable) != DRFRONT_SUCCESS ||
+        !writable) {
+        bool have_env = false;
+        drfront_status_t sc;
+        *use_root = false;
+#ifdef WINDOWS
+        sc = drfront_get_env_var("APPDATA", env, BUFFER_SIZE_ELEMENTS(env));
+        if (sc == DRFRONT_SUCCESS)
+            have_env = true;
+        if (have_env) {
+            snprintf(buf, buflen, "%s%c%s", env, DIRSEP, subdir);
+            buf[buflen - 1] = '\0';
+        } else {
+            sc = drfront_get_env_var("USERPROFILE", env, BUFFER_SIZE_ELEMENTS(env));
+            if (sc == DRFRONT_SUCCESS)
+                have_env = true;
+            if (have_env) {
+                snprintf(buf, buflen,
+                          "%s%cApplication Data%c%s", env, DIRSEP, DIRSEP, subdir);
+                buf[buflen - 1] = '\0';
+            }
+        }
+#endif
+        if (!have_env) {
+            sc = drfront_get_env_var("TMPDIR", env, BUFFER_SIZE_ELEMENTS(env));
+            if (sc != DRFRONT_SUCCESS)
+                sc = drfront_get_env_var("TEMP", env, BUFFER_SIZE_ELEMENTS(env));
+            if (sc != DRFRONT_SUCCESS)
+                sc = drfront_get_env_var("TMP", env, BUFFER_SIZE_ELEMENTS(env));
+            if (sc != DRFRONT_SUCCESS) {
+#ifdef WINDOWS
+                /* bail */
+#else
+                have_env = true;
+                snprintf(env, BUFFER_SIZE_ELEMENTS(env), "%s", "/tmp");
+                NULL_TERMINATE_BUFFER(env);
+#endif
+            } else
+                have_env = true;
+            if (have_env) {
+                snprintf(buf, buflen, "%s%c%s", env, DIRSEP, subdir);
+                buf[buflen - 1] = '\0';
+            }
+        }
+        if (have_env) {
+            /* XXX: I would create the dir, or check for existence, here --
+             * but currently this lib has no reliance on DR so I can't
+             * easily use dr_create_dir() or dr_directory_exists().
+             */
+            res = DRFRONT_SUCCESS;
+        }
+    } else {
+        *use_root = true;
+        res = DRFRONT_SUCCESS;
+    }
+    return res;
 }
