@@ -304,6 +304,10 @@ drmgr_restore_state_event(void *drcontext, bool restore_memory,
 static bool
 drmgr_cls_presys_event(void *drcontext, int sysnum);
 
+#ifdef WINDOWS
+static void
+drmgr_cls_exit(void);
+#endif
 
 /***************************************************************************
  * INIT
@@ -372,6 +376,27 @@ drmgr_exit(void)
 
     drmgr_bb_exit();
     drmgr_event_exit();
+
+    dr_unregister_thread_init_event(drmgr_thread_init_event);
+    dr_unregister_thread_exit_event(drmgr_thread_exit_event);
+    dr_unregister_pre_syscall_event(drmgr_presyscall_event);
+    dr_unregister_post_syscall_event(drmgr_postsyscall_event);
+    dr_unregister_module_load_event(drmgr_modload_event);
+    dr_unregister_module_unload_event(drmgr_modunload_event);
+#ifdef UNIX
+    dr_unregister_signal_event(drmgr_signal_event);
+#endif
+#ifdef WINDOWS
+    dr_unregister_exception_event(drmgr_exception_event);
+#endif
+
+    if (bb_event_count > 0)
+        dr_unregister_bb_event(drmgr_bb_event);
+    if (registered_fault)
+        dr_unregister_restore_state_ex_event(drmgr_restore_state_event);
+#ifdef WINDOWS
+    drmgr_cls_exit();
+#endif
 
     dr_rwlock_destroy(fault_event_lock);
 #ifdef UNIX
@@ -1686,6 +1711,10 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
  * CLS
  */
 
+#ifdef WINDOWS
+static int cls_initialized; /* 0=not tried; >0=success; <0=failure */
+#endif
+
 static bool
 drmgr_cls_stack_push_event(void *drcontext, bool new_depth)
 {
@@ -1843,8 +1872,9 @@ drmgr_cls_presys_event(void *drcontext, int sysnum)
 }
 
 /* Goes first with high negative priority */
+static dr_emit_flags_t
 drmgr_event_insert_cb(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                       bool for_trace, bool translating, void *user_data)
+                      bool for_trace, bool translating, void *user_data)
 {
     if (instr_get_app_pc(inst) == addr_KiCallback) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_push,
@@ -1916,7 +1946,6 @@ drmgr_cls_init(void)
     /* For callback init we watch for KiUserCallbackDispatcher.
      * For callback exit we watch for NtCallbackReturn or int 0x2b.
      */
-    static int cls_initialized; /* 0=not tried; >0=success; <0=failure */
     module_data_t *data;
     module_handle_t ntdll_lib;
     app_pc addr_cbret;
@@ -1931,12 +1960,6 @@ drmgr_cls_init(void)
     else if (cls_initialized < 0)
         return false;
     cls_initialized = -1;
-
-    if (!drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cb, &pri_cb) ||
-        !drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cbret,
-                                                 &pri_cbret))
-        return false;
-    dr_register_filter_syscall_event(drmgr_event_filter_syscall);
 
     data = dr_lookup_module_by_name("ntdll.dll");
     if (data == NULL) {
@@ -1958,9 +1981,23 @@ drmgr_cls_init(void)
     sysnum_NtCallbackReturn = drmgr_decode_sysnum_from_wrapper(addr_cbret);
     if (sysnum_NtCallbackReturn == -1)
         return false; /* should not happen */
+
+    if (!drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cb, &pri_cb) ||
+        !drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cbret,
+                                                 &pri_cbret))
+        return false;
+    dr_register_filter_syscall_event(drmgr_event_filter_syscall);
     cls_initialized = 1;
     return true;
 }
+
+static void
+drmgr_cls_exit(void)
+{
+    if (cls_initialized > 0)
+        dr_unregister_filter_syscall_event(drmgr_event_filter_syscall);
+}
+
 #else
 static bool
 drmgr_cls_presys_event(void *drcontext, int sysnum)
