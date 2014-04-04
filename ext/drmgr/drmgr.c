@@ -1842,22 +1842,22 @@ drmgr_cls_presys_event(void *drcontext, int sysnum)
     return true;
 }
 
-static dr_emit_flags_t
-drmgr_event_bb_analysis(void *drcontext, void *tag, instrlist_t *bb,
-                        bool for_trace, bool translating, OUT void **user_data)
-{
-    /* nothing to do */
-    return DR_EMIT_DEFAULT;
-}
-
-static dr_emit_flags_t
-drmgr_event_bb_insert(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
-                      bool for_trace, bool translating, void *user_data)
+/* Goes first with high negative priority */
+drmgr_event_insert_cb(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                       bool for_trace, bool translating, void *user_data)
 {
     if (instr_get_app_pc(inst) == addr_KiCallback) {
         dr_insert_clean_call(drcontext, bb, inst, (void *)drmgr_cls_stack_push,
                              false, 0);
     }
+    return DR_EMIT_DEFAULT;
+}
+
+/* Goes last with high positive priority */
+static dr_emit_flags_t
+drmgr_event_insert_cbret(void *drcontext, void *tag, instrlist_t *bb, instr_t *inst,
+                         bool for_trace, bool translating, void *user_data)
+{
     if (instr_opcode_valid(inst) &&
         /* For -fast_client_decode we can have level 0 instrs so check
          * to ensure this is an single instr with valid opcode.
@@ -1921,8 +1921,10 @@ drmgr_cls_init(void)
     module_handle_t ntdll_lib;
     app_pc addr_cbret;
     /* We need to go very early to push the new CLS context */
-    drmgr_priority_t priority = {sizeof(priority), DRMGR_PRIORITY_NAME_CLS,
-                                 NULL, NULL, DRMGR_PRIORITY_INSERT_CLS};
+    drmgr_priority_t pri_cb = {sizeof(pri_cb), DRMGR_PRIORITY_NAME_CLS_ENTRY,
+                               NULL, NULL, DRMGR_PRIORITY_INSERT_CLS_ENTRY};
+    drmgr_priority_t pri_cbret = {sizeof(pri_cbret), DRMGR_PRIORITY_NAME_CLS_EXIT,
+                                  NULL, NULL, DRMGR_PRIORITY_INSERT_CLS_EXIT};
 
     if (cls_initialized > 0)
         return true;
@@ -1930,9 +1932,9 @@ drmgr_cls_init(void)
         return false;
     cls_initialized = -1;
 
-    if (!drmgr_register_bb_instrumentation_event(drmgr_event_bb_analysis,
-                                                 drmgr_event_bb_insert,
-                                                 &priority))
+    if (!drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cb, &pri_cb) ||
+        !drmgr_register_bb_instrumentation_event(NULL, drmgr_event_insert_cbret,
+                                                 &pri_cbret))
         return false;
     dr_register_filter_syscall_event(drmgr_event_filter_syscall);
 

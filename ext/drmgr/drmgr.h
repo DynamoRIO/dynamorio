@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -491,20 +491,31 @@ drmgr_insert_write_tls_field(void *drcontext, int idx,
 
 /**
  * Priority of drmgr instrumentation pass used to track CLS.  Users
- * of drmgr can use the name DRMGR_PRIORITY_NAME_CLS in the
- * drmgr_priority_t.before field or can use this numeric priority
+ * of drmgr can use the names #DRMGR_PRIORITY_NAME_CLS_ENTRY or
+ * #DRMGR_PRIORITY_NAME_CLS_EXIT in the
+ * drmgr_priority_t.before field or can use these numeric priorities
  * in the drmgr_priority_t.priority field to ensure proper
- * instrumentation pass ordering.
+ * instrumentation pass ordering.  The #DRMGR_PRIORITY_INSERT_CLS_ENTRY
+ * should go before any client event and the #DRMGR_PRIORITY_INSERT_CLS_EXIT
+ * should go after any client event.
  */
 enum {
-    DRMGR_PRIORITY_INSERT_CLS   =  0, /**< Priority of CLS tracking */
+    DRMGR_PRIORITY_INSERT_CLS_ENTRY  =  -500, /**< Priority of CLS entry tracking */
+    DRMGR_PRIORITY_INSERT_CLS_EXIT   =  5000, /**< Priority of CLS exit tracking */
 };
 
-/** Name of drmgr insert pass prioritiy for CLS tracking */
+/** Name of drmgr insert pass priority for CLS entry tracking */
 #ifdef WINDOWS
-# define DRMGR_PRIORITY_NAME_CLS "drmgr_cls"
+# define DRMGR_PRIORITY_NAME_CLS_ENTRY "drmgr_cls_entry"
 #else
-# define DRMGR_PRIORITY_NAME_CLS NULL
+# define DRMGR_PRIORITY_NAME_CLS_ENTRY NULL
+#endif
+
+/** Name of drmgr insert pass priority for CLS exit tracking */
+#ifdef WINDOWS
+# define DRMGR_PRIORITY_NAME_CLS_EXIT  "drmgr_cls_exit"
+#else
+# define DRMGR_PRIORITY_NAME_CLS_EXIT  NULL
 #endif
 
 DR_EXPORT
