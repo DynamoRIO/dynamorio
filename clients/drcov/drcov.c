@@ -445,6 +445,35 @@ bb_table_destroy(void *table, void *data)
     drtable_destroy(table, data);
 }
 
+static void
+version_print(file_t log)
+{
+    if (log == INVALID_FILE) {
+        /* It is possible that failure on log file creation is caused by the
+         * running process not having enough privilege, so this is not a
+         * release-build fatal error
+         */
+        ASSERT(false, "invalid log file");
+        return;
+    }
+    dr_fprintf(log, "DRCOV VERSION: %d\n", DRCOV_VERSION);
+}
+
+static void
+dump_drcov_data(void *drcontext, per_thread_t *data)
+{
+    if (options.dump_text || options.dump_binary) {
+        version_print(data->log);
+        module_table_print(module_table, data->log,
+                           IF_CBR_COVERAGE_ELSE(true, false));
+        bb_table_print(drcontext, data);
+    }
+# ifdef CBR_COVERAGE
+    if (options.check)
+        bb_table_check_cbr(module_table, data);
+# endif
+}
+
 /****************************************************************************
  * Thread/Global Data Creation/Destroy
  */
@@ -569,10 +598,20 @@ static bool
 event_pre_syscall(void *drcontext, int sysnum)
 {
 #ifdef UNIX
-    /* We assume execve always succeeds */
     if (sysnum == sysnum_execve) {
-        event_thread_exit(drcontext);
-        event_exit();
+        /* for !drcov_per_thread, the per-thread data is a copy of global data */
+        per_thread_t *data = (per_thread_t *)drmgr_get_tls_field(drcontext, tls_idx);
+        ASSERT(data != NULL, "data must not be NULL");
+        if (!drcov_per_thread)
+            drcontext = NULL;
+        /* We only dump the data but do not free any memory.
+         * XXX: for drcov_per_thread, we only dump the current thread.
+         */
+        dump_drcov_data(drcontext, data);
+        /* TODO: add execve test.
+         * i#1390-c#8: iterate over all the other threads using DR API and dump data.
+         * i#1390-c#9: update drcov2lcov to handle multiple dumps in the same file.
+         */
     }
 #endif
     return true;
@@ -658,20 +697,6 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 }
 
 static void
-version_print(file_t log)
-{
-    if (log == INVALID_FILE) {
-        /* It is possible that failure on log file creation is caused by the
-         * running process not having enough privilege, so this is not a
-         * release-build fatal error
-         */
-        ASSERT(false, "invalid log file");
-        return;
-    }
-    dr_fprintf(log, "DRCOV VERSION: %d\n", DRCOV_VERSION);
-}
-
-static void
 event_thread_exit(void *drcontext)
 {
     per_thread_t *data;
@@ -680,17 +705,7 @@ event_thread_exit(void *drcontext)
     ASSERT(data != NULL, "data must not be NULL");
 
     if (drcov_per_thread) {
-        /* print per-thread drcov info */
-        if (options.dump_text || options.dump_binary) {
-            version_print(data->log);
-            module_table_print(module_table, data->log,
-                               IF_CBR_COVERAGE_ELSE(true, false));
-            bb_table_print(drcontext, data);
-        }
-#ifdef CBR_COVERAGE
-        if (options.check)
-            bb_table_check_cbr(module_table, data);
-#endif
+        dump_drcov_data(drcontext, data);
         thread_data_destroy(drcontext, data);
     } else {
         /* the per-thread data is a copy of global data */
@@ -763,16 +778,7 @@ static void
 event_exit(void)
 {
     if (!drcov_per_thread) {
-        if (options.dump_text || options.dump_binary) {
-            version_print(global_data->log);
-            module_table_print(module_table, global_data->log,
-                               IF_CBR_COVERAGE_ELSE(true, false));
-            bb_table_print(NULL, global_data);
-        }
-#ifdef CBR_COVERAGE
-        if (options.check)
-            bb_table_check_cbr(module_table, global_data);
-#endif
+        dump_drcov_data(NULL, global_data);
         global_data_destroy(global_data);
     }
     /* destroy module table */
