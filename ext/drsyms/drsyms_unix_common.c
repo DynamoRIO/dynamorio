@@ -404,14 +404,16 @@ addrsearch_symtab(dbg_module_t *mod, size_t modoffs, drsym_info_t *info INOUT,
     if (symbol == NULL)
         return DRSYM_ERROR;
 
-    if (TEST(DRSYM_DEMANGLE, flags)) {
+    if (TEST(DRSYM_DEMANGLE, flags) && info->name != NULL) {
         name_len = drsym_demangle_symbol(info->name, info->name_size, symbol, flags);
     }
     if (name_len == 0) {
         /* Demangling either failed or was not requested. */
         name_len = strlen(symbol) + 1;
-        strncpy(info->name, symbol, info->name_size);
-        info->name[info->name_size - 1] = '\0';
+        if (info->name != NULL) {
+            strncpy(info->name, symbol, info->name_size);
+            info->name[info->name_size - 1] = '\0';
+        }
     }
 
     info->name_available_size = name_len;
