@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -64,10 +64,6 @@ static int count = 0;
 static bool print_access_vio = true;
 
 void (*func_ptr)(void);
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #define VERBOSE 0
 
@@ -149,11 +145,6 @@ int main(int argc, char *argv[])
     char *buf;
 #ifdef UNIX
     stack_t sigstack;
-#endif
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
 #endif
 
 #ifdef UNIX
@@ -281,11 +272,6 @@ int main(int argc, char *argv[])
 #endif
 
     print("All done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

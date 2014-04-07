@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define ON_STACK 1
 
 #if !ON_STACK
@@ -51,11 +48,6 @@ main()
     char *foo = buf;
 
     INIT();
-#if USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     print("starting up\n");
 
     buf[0] = 0xc3; /* ret */
@@ -65,9 +57,5 @@ main()
     print("about to exit\n");
 
     buf[1] = 0xc3; /* ret */
-
-#if USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
+    return 0;
 }

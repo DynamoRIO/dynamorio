@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include <setjmp.h>
 #include <stdlib.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 jmp_buf mark;
 
 void foo()
@@ -50,10 +47,6 @@ void foo()
 int main()
 {
    int jmpret;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
    /* Save stack environment for return in case of error. First
     * time through, jmpret is 0, so true conditional is executed.
     * If an error occurs, jmpret will be set to -1 and false
@@ -66,9 +59,5 @@ int main()
    } else {
        printf("after longjmp\n");
    }
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
    return 0;
 }

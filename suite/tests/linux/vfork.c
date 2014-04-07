@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,10 +47,6 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 /***************************************************************************/
 
 static bool verbose = false;
@@ -85,11 +82,6 @@ int main(int argc, char** argv)
 {
     pid_t child;
     void *stack;
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     if (argc < 2)
         return 1;
@@ -145,11 +137,6 @@ int main(int argc, char** argv)
     }
     delete_thread(child, stack);
     print("child has exited\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

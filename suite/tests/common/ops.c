@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include <stdio.h>
 #include <math.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define ITERS 1500000
 
 static int a[ITERS];
@@ -46,12 +43,6 @@ int main(int argc, char *argv[])
 {
     double res = 0.;
     int i,j;
-
-#ifdef USE_DYNAMO
-    int rc = dynamorio_app_init();
-    assert(rc == 0);
-    dynamorio_app_start();
-#endif
 
     for (i=0; i<ITERS; i++) {
         if (i % 2 == 0) {
@@ -63,11 +54,6 @@ int main(int argc, char *argv[])
         a[i] += j;
     }
     printf("%f\n", res);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

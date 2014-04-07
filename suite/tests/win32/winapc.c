@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,10 +36,6 @@
 #include <winbase.h> /* for QueueUserAPC */
 #include <process.h> /* for _beginthreadex */
 #include <stdio.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 static BOOL synch_1 = TRUE;
 static BOOL synch_2 = TRUE;
@@ -80,11 +77,6 @@ main()
     HANDLE hThread;
     int res;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     printf("Before _beginthreadex\n");
     fflush(stdout);
     hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
@@ -102,10 +94,5 @@ main()
     WaitForSingleObject((HANDLE)hThread, INFINITE);
 
     printf("After _beginthreadex\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

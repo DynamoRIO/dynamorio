@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,10 +44,6 @@
 # include <errno.h>
 #endif
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define ITERS 1500000
 
 static int a[ITERS];
@@ -82,11 +78,6 @@ int main(int argc, char *argv[])
 {
     double res = 0.;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
@@ -98,10 +89,5 @@ int main(int argc, char *argv[])
     *((volatile int *)0) = 4;
 
     print("SHOULD NEVER GET HERE\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,10 +34,6 @@
 #include <windows.h>
 #include "tools.h"
 #include <stdio.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 static bool thread_ready = false;
 static bool past_crash = false;
@@ -187,11 +184,6 @@ main()
     HANDLE hThread;
     uint msgnum = 0;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     print("About to create thread\n");
     hThread = CreateThread(NULL, 0, run_func, NULL, 0, &tid);
     if (hThread == NULL) {
@@ -236,10 +228,5 @@ main()
 
     WaitForSingleObject(hThread, INFINITE);
     print("All done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

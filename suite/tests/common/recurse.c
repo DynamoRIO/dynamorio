@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,10 +34,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define GOAL 256
 
 int bar(int n)
@@ -68,21 +65,10 @@ main()
 {
     int i, t = 0;
 
-#ifdef USE_DYNAMO
-    int rc = dynamorio_app_init();
-    assert(rc == 0);
-    dynamorio_app_start();
-#endif
-
     for (i=GOAL; i<=GOAL; i++) {
         t = foo(i);
         printf("%d %d\n", i, t);
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

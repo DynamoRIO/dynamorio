@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include "tools.h"
 #include <windows.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 DWORD control;
 DWORD transfer_addr;
@@ -100,11 +97,6 @@ main(void)
     DWORD tid;
     CONTEXT tc;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     control = 0;
     transfer_addr = 0;
 
@@ -146,11 +138,6 @@ main(void)
 
     ResumeThread(ht);
     WaitForSingleObject(ht, INFINITE);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

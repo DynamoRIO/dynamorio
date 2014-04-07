@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -48,10 +48,6 @@
 
 #include "tools.h"  /* for nolibc_* wrappers */
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define CLONE_THREAD        0x00010000        /* Same thread group? */
 #define CLONE_CHILD_CLEARTID        0x00200000        /* clear the TID in the child */
 /* i#762: Hard to get clone() from sched.h, so copy prototype. */
@@ -81,11 +77,6 @@ static struct timespec sleeptime;
 
 int main()
 {
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     sleeptime.tv_sec = 0;
     sleeptime.tv_nsec = 10*1000*1000; /* 10ms */
 
@@ -102,11 +93,6 @@ int main()
     while (!child_done)
         nanosleep(&sleeptime, NULL);
     delete_thread(child, stack);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }
 
 /* Procedure executed by sideline threads

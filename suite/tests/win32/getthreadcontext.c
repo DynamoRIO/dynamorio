@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include <windows.h>
 #include <assert.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 DWORD control;
 DWORD start_addr;
 
@@ -65,11 +62,6 @@ main(void)
     HANDLE ht;
     DWORD tid;
     CONTEXT tc;
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     control = 0;
     start_addr = 0;
@@ -114,11 +106,6 @@ main(void)
      * observations of native behavior) so either in ntdll.dll or vsyscall page */
     print("get context self eip > 0x74000000? %s\n",
           tc.CXT_XIP > 0x74000000 ? "yes" : "no");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     print("done\n");
 

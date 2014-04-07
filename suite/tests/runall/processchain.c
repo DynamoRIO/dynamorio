@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include "tools.h"
 #include "Windows.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 /* undefine this for a performance test */
 #ifndef NIGHTLY_REGRESSION
 # define NIGHTLY_REGRESSION
@@ -61,11 +58,6 @@ main(int argc, char **argv)
 
     INIT();
     USE_USER32();               /* can't be in runall otherwise! */
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     if (argc == 1) {
         /* normal execution */
@@ -106,11 +98,6 @@ main(int argc, char **argv)
             }
         }
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return depth * 10;
     /* make sure not 259 STILL_ACTIVE which may be returned by GetExitCodeProcess() */

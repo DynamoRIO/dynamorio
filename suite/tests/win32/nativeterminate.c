@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,10 +38,6 @@
 #include <windows.h>
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 /* from nativeterminate.dll.dll */
 __declspec(dllimport) __stdcall import_me1(int x);
 __declspec(dllimport) __stdcall import_me_die(int x);
@@ -48,11 +45,6 @@ __declspec(dllimport) __stdcall import_me_die(int x);
 int
 main()
 {
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     INIT();
 
     print("calling via IAT-style call\n");
@@ -65,11 +57,6 @@ main()
     print("case 5455 regression passed\n");
 
     print("all done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

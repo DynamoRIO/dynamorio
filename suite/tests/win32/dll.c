@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,10 +34,6 @@
 #include <windows.h>
 #include <stdio.h>
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #define VERBOSE 0
 
@@ -146,10 +143,6 @@ print_modules()
 int main()
 {
     HANDLE lib;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
     print_modules();
     lib = LoadLibrary("win32.dll.dll.dll");
     if (lib == NULL) {
@@ -172,9 +165,5 @@ int main()
         print_modules();
         fflush(stdout);
     }
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

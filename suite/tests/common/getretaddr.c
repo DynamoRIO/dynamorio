@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,10 +35,6 @@
 #include "tools.h"
 #include <stdio.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define VERBOSE 0
 
 ptr_int_t get_retaddr(void);
@@ -71,20 +67,12 @@ static void foo(void **retaddr_p)
 int main()
 {
     ptr_int_t myaddr;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
     /* make sure dynamorio can handle this non-call */
     myaddr = get_retaddr();
 #if VERBOSE
     print("my address is something like "PFX"\n", myaddr);
 #endif
     call_with_retaddr((void*)foo);
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include <process.h> /* for _beginthreadex */
 #include <stdio.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 int WINAPI
 run_func(void * arg)
 {
@@ -52,11 +49,6 @@ main()
     int tid;
     HANDLE hThread;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     printf("Before _beginthreadex\n");
     fflush(stdout);
     hThread = (HANDLE) _beginthreadex(NULL, 0, run_func, NULL, 0, &tid);
@@ -64,9 +56,4 @@ main()
     WaitForSingleObject((HANDLE)hThread, INFINITE);
 
     printf("After _beginthreadex\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

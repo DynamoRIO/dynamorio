@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -39,10 +40,6 @@
 #include <stdio.h>
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define ITERS 150
 #define NUM_THREADS 6
 char buf[32];
@@ -76,10 +73,6 @@ main()
     unsigned long hThread[NUM_THREADS];
 
     INIT();
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     print("starting up\n");
 
@@ -94,9 +87,4 @@ main()
         WaitForSingleObject((HANDLE)hThread[i], INFINITE);
 
     print("all done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

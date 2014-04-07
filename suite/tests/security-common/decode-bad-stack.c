@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -47,10 +47,6 @@
 /* asm routine */
 void jumpto(unsigned char *buf);
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 #define ITERS 1500000
 
 static int a[ITERS];
@@ -87,12 +83,7 @@ int main(int argc, char *argv[])
     unsigned char buf[8];
     buf[0] = 0xdf;
     buf[1] = 0xfa;
-
     /* FIXME we don't call INIT here - template can't use SEC_VIO_AUTO_STOP */
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
 #ifdef UNIX
     intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
@@ -106,11 +97,6 @@ int main(int argc, char *argv[])
     jumpto(buf);
 
     print("SHOULD NEVER GET HERE\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

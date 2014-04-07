@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -42,10 +43,6 @@ result:     00000102 ffffffff 0052ff88 004161db ffffffff ffffffff 0052ff88 fffff
 
 #include "tools.h"
 #include "Windows.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #define VERBOSE 0
 
@@ -144,11 +141,6 @@ main(void)
     DWORD tid;
     CONTEXT tc;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     control = 0;
     transfer_addr = 0;
 
@@ -185,11 +177,6 @@ main(void)
 
     ResumeThread(ht);
     WaitForSingleObject(ht, INFINITE);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

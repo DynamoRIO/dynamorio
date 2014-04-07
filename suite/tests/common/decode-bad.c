@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -66,10 +66,6 @@ void test_inval_7(void);
 SIGJMP_BUF mark;
 static int count = 0;
 static bool invalid_lock;
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #ifdef UNIX
 static void
@@ -148,11 +144,6 @@ int main(int argc, char *argv[])
     double res = 0.;
     int i;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #ifdef UNIX
     intercept_signal(SIGILL, (handler_3_t) signal_handler, false);
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
@@ -213,11 +204,6 @@ int main(int argc, char *argv[])
     }
 
     print("All done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
 

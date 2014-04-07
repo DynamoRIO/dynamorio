@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -31,25 +32,14 @@
  */
 
 /* basic block builder may build infinite loop here */
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 int main()
 {
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
     __asm__("jmp    aroundexit");
     __asm__("doexit:          ");
     __asm__("       movl   $1,%eax       # exit");
     __asm__("       movl   $0,%ebx       # exit code");
     __asm__("       int    $0x80         # kernel");
     __asm__("aroundexit: call doexit");
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

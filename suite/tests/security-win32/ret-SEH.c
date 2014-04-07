@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include <windows.h>
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-# include "dynamo.h"
-#endif
 
 /* the VC exception handling data structures that the core expects */
 typedef struct scopetable_entry {
@@ -122,10 +119,6 @@ int
 main(int argc, char *argv[])
 {
     int i;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
     INIT();
 
     /* set up SEH */
@@ -142,10 +135,5 @@ main(int argc, char *argv[])
         ret_SEH(i-1);
     }
     print("ret-SEH test stopping\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

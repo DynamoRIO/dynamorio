@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -36,10 +37,6 @@
 #include <stdio.h>
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 int
 main()
 {
@@ -49,10 +46,6 @@ main()
                                     * kernel
                                     */
     void *p;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
     print("Calling mmap(0, "PFX", "PFX", "PFX", "PFX", 0)\n",
            size, PROT_EXEC|PROT_READ|PROT_WRITE,
            MAP_ANON|MAP_PRIVATE, -1);
@@ -74,9 +67,5 @@ main()
     print("mremap returned "PFX"\n", p);
 #endif
     munmap(p, newsize);
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

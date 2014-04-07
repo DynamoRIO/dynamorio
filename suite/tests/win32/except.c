@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include <windows.h>
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #define DEFAULT_TARGET_ADDR 0x4
 
@@ -112,11 +109,6 @@ do_run(void (*func) (), uint *target_addr_location)
     CONTEXT *context;
     int slot;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     __try {
         __try {
             __try {
@@ -169,11 +161,6 @@ do_run(void (*func) (), uint *target_addr_location)
         }
     }
     print("After exception handler\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }
 
 int

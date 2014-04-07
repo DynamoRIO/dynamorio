@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,10 +36,6 @@
 #include <setjmp.h>
 jmp_buf mark;              /* Address for long jump to jump to */
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 void
 finally_proc()
 {
@@ -65,11 +62,6 @@ main()
 {
     int jmpret;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     __try {
         jmpret = setjmp(mark);
         if (jmpret == 0)
@@ -80,9 +72,4 @@ main()
     __finally {
         printf("In final finally\n");
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

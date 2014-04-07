@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 
 #include <windows.h>
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #define PROC_NAME "detach_test.exe"
 #define MAX_COUNT 10
@@ -252,10 +249,6 @@ main()
 {
     HANDLE ht_selfsuspend, ht_exit, ht_window;
     DWORD tid, res;
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     INIT();
 
@@ -318,10 +311,5 @@ main()
     CloseHandle(ht_selfsuspend);
 
     print("detach_callback done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,27 +35,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 int main(int argc, char *argv[])
 {
-    int i;
-#ifdef USE_DYNAMO
-    int rc = dynamorio_app_init();
-    assert(rc == 0);
-    dynamorio_app_start();
-#endif
-
     printf("Inside main\n");
     fflush(stdout);
 
     exit(0);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

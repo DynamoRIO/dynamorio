@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,10 +38,6 @@
 #include <windows.h>
 #include <process.h> /* for _beginthreadex */
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 /* make as STRESS=1 for a performance test */
 
@@ -149,11 +146,6 @@ int main(int argc, char** argv)
 
     USE_USER32();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     event = CreateEvent(NULL, TRUE, FALSE, NULL);
     hThread = _beginthreadex(NULL, 0, run_func, event, 0, &i);
 
@@ -177,10 +169,5 @@ int main(int argc, char** argv)
 
     print("sum=%d\n", sum);
     check_mem_usage();
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

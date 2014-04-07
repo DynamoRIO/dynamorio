@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,10 +36,6 @@
 #include "Windows.h"
 #include <stdio.h>
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 int
 main(int argc, char **argv)
 {
@@ -46,11 +43,6 @@ main(int argc, char **argv)
     PROCESS_INFORMATION pi;
     char cmdline[128];
 
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
     if (argc == 1) {
         /* normal execution */
@@ -76,11 +68,6 @@ main(int argc, char **argv)
     else { /* child process */
         printf("subprocess running.\n");
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

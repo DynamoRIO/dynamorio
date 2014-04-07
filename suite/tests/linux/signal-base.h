@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -54,10 +54,6 @@
 
 /* handler with SA_SIGINFO flag set gets three arguments: */
 typedef void (*handler_t)(int, siginfo_t *, void *);
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #ifdef X64
 # define SC_XIP rip
@@ -216,12 +212,6 @@ int main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
-#ifdef USE_DYNAMO
-    rc = dynamorio_app_init();
-    ASSERT_NOERR(rc);
-    dynamorio_app_start();
-#endif
-
 #if USE_TIMER
     custom_intercept_signal(SIGVTALRM, (handler_t) signal_handler);
     t.it_interval.tv_sec = 0;
@@ -294,11 +284,6 @@ int main(int argc, char *argv[])
 
 #if USE_SIGSTACK
     free(sigstack.ss_sp);
-#endif
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
 #endif
     return 0;
 }

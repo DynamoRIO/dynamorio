@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include "tools.h"
 #include <windows.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #include "except.h"
 
@@ -125,11 +122,6 @@ main()
     DWORD tid;
     HANDLE ht;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     badfunc = (char *) ALIGN_FORWARD(badfuncbuf, 512);
 
     /* FIXME: make this fancier */
@@ -142,9 +134,4 @@ main()
 
     call_bad_code(0);
     print("THREAD0: After calling more bad code here\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include "tools.h"
 
 typedef unsigned char* app_pc;
-
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
 
 #ifdef WINDOWS
 #  include <process.h> /* for _beginthreadex */
@@ -155,11 +152,6 @@ main()
 
     INIT();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     for (round = 0; round < ROUNDS; round++) {
 #ifdef VERBOSE
         print("round %d\n", round);
@@ -199,11 +191,6 @@ main()
         print("some %d work, done %d\n", global_started, global_finished);
 #endif
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     print("done\n");
     return 0;

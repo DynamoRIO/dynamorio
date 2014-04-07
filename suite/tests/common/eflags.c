@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,10 +36,6 @@
  */
 
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
 
 #define VERBOSE 0
 
@@ -78,19 +75,9 @@ main()
     uint i;
     INIT();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     for (i=0; i<NUM_FLAGS; i++) {
         test_eflags_pos(eflag_pos[i]);
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }
 
 

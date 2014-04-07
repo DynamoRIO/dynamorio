@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,10 +45,6 @@
 #endif
 
 #include <setjmp.h>
-
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
 
 #define VERBOSE 0
 
@@ -162,11 +158,6 @@ main()
     byte *DR_base;
     INIT();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
@@ -216,9 +207,4 @@ main()
     }
 
     print("all done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

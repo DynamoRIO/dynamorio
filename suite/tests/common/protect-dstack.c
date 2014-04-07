@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -46,10 +46,6 @@
 #endif
 
 #include <setjmp.h>
-
-#ifdef USE_DYNAMO
-# include "dynamorio.h"
-#endif
 
 /* asm routines */
 void clear_eflags(void);
@@ -166,11 +162,6 @@ main()
     ptr_int_t owning_thread;
     INIT();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
@@ -269,11 +260,6 @@ main()
     } else if (where == 2) {
         print("DR has been cracked!  Malicious code is now runnning...\n");
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }
 
 

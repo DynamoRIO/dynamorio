@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,10 +38,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 volatile double pi = 0.0;  /* Approximation to pi (shared) */
 pthread_mutex_t pi_lock;   /* Lock for above */
@@ -87,11 +84,6 @@ main(int argc, char **argv)
     pthread_t thread0, thread1;
     void * retval;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #if 0
     /* Get the number of intervals */
     if (argc != 2) {
@@ -122,9 +114,4 @@ main(int argc, char **argv)
 
     /* Print the result */
     printf("Estimation of pi is %16.15f\n", pi);
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2006-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -37,10 +38,6 @@
 #include <windows.h>
 #include <process.h> /* for _beginthreadex */
 #include "tools.h"
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #include <setjmp.h>
 
@@ -278,11 +275,6 @@ int main(int argc, char** argv)
 
     USE_USER32();
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
 #ifdef UNIX
     /* though win32/ */
     intercept_signal(SIGSEGV, signal_handler);
@@ -327,10 +319,5 @@ int main(int argc, char** argv)
     print("reloaded %d times %d\n", reloaded);
 #endif
 
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

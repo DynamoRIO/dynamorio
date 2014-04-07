@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,10 +42,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 /***************************************************************************/
 /* a hopefuly portable /proc/@self/maps reader */
@@ -108,11 +105,6 @@ int main(int argc, char** argv)
 {
     pid_t child;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     if (find_dynamo_library())
         printf("parent is running under DynamoRIO\n");
     else
@@ -132,9 +124,4 @@ int main(int argc, char** argv)
         else
             printf("child is running natively\n");
     }
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,10 +35,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#if USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 int
 main()
 {
@@ -45,19 +42,9 @@ main()
     BOOL res;
     int size = 0x04000;
 
-#if USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     p = VirtualAlloc(0, size, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     assert(p);
     res = VirtualFree(p, 0, MEM_RELEASE);
     assert(res);
     printf("Successful\n");
-
-#if USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 }

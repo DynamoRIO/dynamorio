@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,10 +33,6 @@
 
 #include "tools.h"
 #include <windows.h>
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #include "except.h"
 
@@ -448,11 +445,6 @@ main()
 {
     HANDLE hThread;
 
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     /* I tried just making a new stack and swapping to it but had trouble
      * w/ exception unwinding walking off the stack even though I put 0
      * in fs:0.  In any case, making a raw thread does the trick.
@@ -462,10 +454,5 @@ main()
                          NULL, STACK_RESERVE, STACK_COMMIT, false, NULL, false);
     WaitForSingleObject(hThread, INFINITE);
 
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }

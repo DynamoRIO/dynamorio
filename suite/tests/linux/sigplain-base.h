@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,10 +51,6 @@
 #include <ucontext.h>
 #include <sys/time.h> /* itimer */
 #include <string.h> /*  memset */
-
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
 
 #if USE_SIGSTACK
 # include <stdlib.h> /* malloc */
@@ -130,12 +126,6 @@ int main(int argc, char *argv[])
     struct itimerval t;
 #endif
 
-#ifdef USE_DYNAMO
-    rc = dynamorio_app_init();
-    ASSERT_NOERR(rc);
-    dynamorio_app_start();
-#endif
-
 #if USE_TIMER
     custom_intercept_signal(SIGVTALRM, signal_handler);
     t.it_interval.tv_sec = 0;
@@ -194,11 +184,6 @@ int main(int argc, char *argv[])
 
 #if USE_SIGSTACK
     free(sigstack.ss_sp);
-#endif
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
 #endif
     return 0;
 }

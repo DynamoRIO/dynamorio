@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,10 +59,6 @@
  * done
  */
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 BOOL synch_1 = TRUE;
 BOOL synch_2 = TRUE;
 
@@ -101,11 +98,6 @@ main(void)
     HANDLE ht;
     DWORD tid;
     DWORD res;
-
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
 
 #if DO_SIMPLE_SUSPEND_TEST
     ht=CreateThread(NULL, 0, &ThreadProc1, NULL, 0, &tid);
@@ -182,11 +174,6 @@ main(void)
 #endif
 
     printf("done\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
 
     return 0;
 }

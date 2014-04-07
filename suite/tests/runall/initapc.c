@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,10 +53,6 @@
 #include <windows.h>
 #include "tools.h"
 
-#ifdef USE_DYNAMO
-#include "dynamorio.h"
-#endif
-
 /* from initapc-dll.dll */
 __declspec(dllimport)
 import_me(int x);
@@ -63,11 +60,6 @@ import_me(int x);
 int
 main()
 {
-#ifdef USE_DYNAMO
-    dynamorio_app_init();
-    dynamorio_app_start();
-#endif
-
     INIT();
 
     print("initapc main()\n");
@@ -85,10 +77,5 @@ main()
     }
 
     print("*** invalid ret allowed!\n");
-
-#ifdef USE_DYNAMO
-    dynamorio_app_stop();
-    dynamorio_app_exit();
-#endif
     return 0;
 }
