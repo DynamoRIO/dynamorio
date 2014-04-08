@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -58,8 +58,10 @@ void create_proc(char *cmd, char *arg1)
         print("ERROR creating new process: %s %s\n", cmd, arg1);
         exit(1);
     }
-    /* Wait for the child for 10 secs. */
-    WaitForSingleObject(pinfo.hProcess, 10 * 1000);
+    /* Wait for the child for at least 90 secs (to avoid flakiness when
+     * running the test suite: i#1414).
+     */
+    WaitForSingleObject(pinfo.hProcess, 90 * 1000);
 }
 
 #else
