@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -183,6 +183,11 @@ event_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
     {
         instr_t *skip = INSTR_CREATE_label(drcontext);
         instr_t *inst = instrlist_last(bb);
+        /* XXX i#1032: move in one further to avoid assert on an unhandled
+         * intra vs inter distinction case.
+         */
+        if (instr_get_prev(inst) != NULL)
+            inst = instr_get_prev(inst);
         instrlist_meta_preinsert(bb, inst, INSTR_CREATE_jmp
                                  (drcontext, opnd_create_instr(skip)));
         instrlist_meta_preinsert(bb, inst, INSTR_CREATE_ud2a(drcontext));
