@@ -124,11 +124,11 @@ reason we use pagefile usage as our discerning factor):
     else if (mem.PeakPagefileUsage < 2816*1024)
         print("Memory check: pagefile usage is >= 900 KB, < 2816 KB\n");
     /* prof_pcs uses a buffer the size of DR.dll */
-    else if (mem.PeakPagefileUsage < 6000*1024)
-        print("Memory check: pagefile usage is >= 2816 KB, < 6000 KB\n");
+    else if (mem.PeakPagefileUsage < 7200*1024)
+        print("Memory check: pagefile usage is >= 2816 KB, < 7200 KB\n");
     /* detect_dangling_fcache doesn't free fcache */
     else if (mem.PeakPagefileUsage < 16384*1024)
-        print("Memory check: pagefile usage is >= 6000 KB, < 16384 KB\n");
+        print("Memory check: pagefile usage is >= 7200 KB, < 16384 KB\n");
     else {
         /* give actual number here so we can see how high it is */
         print("Memory check: pagefile usage is %d KB >= 16384 KB\n",
@@ -150,7 +150,7 @@ int main(int argc, char** argv)
     hThread = _beginthreadex(NULL, 0, run_func, event, 0, &i);
 
     for (i=0; i<ITERS; i++) {
-        lib = LoadLibrary("win32.reload_FLAKY.dll.dll");
+        lib = LoadLibrary("win32.reload.dll.dll");
         if (lib == NULL) {
             print("error loading library\n");
             break;

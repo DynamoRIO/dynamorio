@@ -1818,9 +1818,10 @@ else (UNIX)
   endif (TEST_SUITE)
   tobuild(win32.protect-datasec win32/protect-datasec.c)
   tobuild_dll(win32.rebased win32/rebased.c "")
-  if (TEST_SUITE) # fails non-det so run only in suite
-    tobuild_dll(win32.reload_FLAKY win32/reload.c "")
-  endif (TEST_SUITE)
+
+  # Memory usage does go up a bit with reloading due to traces so we disable traces.
+  tobuild_dll(win32.reload win32/reload.c "-disable_traces")
+
   tobuild_dll(win32.reload-newaddr win32/reload-newaddr.c "")
   # FIXME i#267: fix curiosities and re-enable
   #tobuild_dll(win32.reload-race win32/reload-race.c "")
