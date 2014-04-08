@@ -618,6 +618,7 @@ dispatch_enter_native(dcontext_t *dcontext)
                IF_HOTP(dcontext->nudge_thread ||)
                /* clients requesting native execution come here */
                IF_CLIENT_INTERFACE(dr_bb_hook_exists() ||)
+               dcontext->currently_stopped ||
                RUNNING_WITHOUT_CODE_CACHE());
         ASSERT(dcontext->native_exec_postsyscall != NULL);
         LOG(THREAD, LOG_ASYNCH, 1, "Returning to native "PFX" after a syscall\n",
@@ -627,7 +628,10 @@ dispatch_enter_native(dcontext_t *dcontext)
         LOG(THREAD, LOG_DISPATCH, 2, "Entry into native_exec after intercepted syscall\n");
         /* restore state as though never came out for syscall */
         KSTOP_NOT_MATCHING(dispatch_num_exits);
-        KSTART_DC(dcontext, fcache_default);
+#ifdef KSTATS
+        if (!dcontext->currently_stopped)
+            KSTART_DC(dcontext, fcache_default);
+#endif
         enter_nolinking(dcontext, NULL, true);
     }
     else {
@@ -708,11 +712,22 @@ dispatch_enter_dynamorio(dcontext_t *dcontext)
      */
 
     if (wherewasi == WHERE_APP) { /* first entrance */
-        ASSERT(dcontext->last_exit == get_starting_linkstub() ||
-               /* The start/stop API will set this linkstub. */
-               IF_APP_EXPORTS(dcontext->last_exit == get_native_exec_linkstub() ||)
-               /* new thread */
-               IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
+        if (dcontext->last_exit == get_syscall_linkstub()) {
+            /* i#813: the app hit our post-sysenter hook while native.
+             * XXX: should we try to process ni syscalls here?  But we're only
+             * seeing post- and not pre-.
+             */
+            LOG(THREAD, LOG_INTERP, 2, "hit post-sysenter hook while native\n");
+            ASSERT(dcontext->currently_stopped);
+            dcontext->next_tag = BACK_TO_NATIVE_AFTER_SYSCALL;
+            dcontext->native_exec_postsyscall = vsyscall_syscall_end_pc;
+        } else {
+            ASSERT(dcontext->last_exit == get_starting_linkstub() ||
+                   /* The start/stop API will set this linkstub. */
+                   IF_APP_EXPORTS(dcontext->last_exit == get_native_exec_linkstub() ||)
+                   /* new thread */
+                   IF_WINDOWS_ELSE_0(dcontext->last_exit == get_asynch_linkstub()));
+        }
     } else {
         ASSERT(dcontext->last_exit != NULL); /* MUST be set, if only to a fake linkstub_t */
         /* cache last_exit's fragment */

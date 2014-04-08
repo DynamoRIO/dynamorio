@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2527,7 +2527,7 @@ void
 dr_app_start_helper(priv_mcontext_t *mc)
 {
     apicheck(dynamo_initialized, PRODUCT_NAME" not initialized");
-    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread "TIDFMT"", get_thread_id());
+    LOG(GLOBAL, LOG_TOP, 1, "dr_app_start in thread "TIDFMT"\n", get_thread_id());
 
     if (!INTERNAL_OPTION(nullcalls)) {
         /* Adjust the app stack to account for the return address + alignment.
@@ -2574,6 +2574,7 @@ dynamo_thread_under_dynamo(dcontext_t *dcontext)
         sideline_start();
     }
 #endif
+    dcontext->currently_stopped = false;
 }
 
 /* For use by threads that start and stop whether dynamo controls them.
@@ -2589,6 +2590,7 @@ dynamo_thread_not_under_dynamo(dcontext_t *dcontext)
                    dcontext == get_thread_private_dcontext());
     if (dcontext == NULL)
         return;
+    dcontext->currently_stopped = true;
     os_thread_not_under_dynamo(dcontext);
 #ifdef SIDELINE
     /* FIXME: if # active threads is 0, then put sideline thread to sleep! */

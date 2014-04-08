@@ -97,6 +97,13 @@ dynamo_start(priv_mcontext_t *mc)
     /* clear pc */
     mcontext->pc = 0;
 
+    DOLOG(2, LOG_TOP, {
+        byte *cur_esp;
+        GET_STACK_PTR(cur_esp);
+        LOG(THREAD, LOG_TOP, 2, "%s: next_tag="PFX", cur xsp="PFX", mc->xsp="PFX"\n",
+            __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
+    });
+
     /* Swap stacks so dispatch is invoked outside the application. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, true/*return on error*/);

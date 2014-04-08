@@ -2155,6 +2155,9 @@ os_thread_take_over_suspended_native(dcontext_t *dcontext)
     thread_record_t *tr = dcontext->thread_record;
     if (!is_thread_currently_native(tr))
         return false;
+    /* If the app voluntarily stopped, wait for it to ask to start again */
+    if (dcontext->currently_stopped)
+        return false;
     /* In case of failure (xref all the issues with setting the context), we
      * use this to signal syscall_while_native() to take this thread
      * over if it makes it to one of our syscall hooks.
@@ -7825,6 +7828,8 @@ bool
 is_thread_currently_native(thread_record_t *tr)
 {
     return (!tr->under_dynamo_control ||
+            /* start/stop doesn't change under_dynamo_control and has its own field */
+            (tr->dcontext != NULL && tr->dcontext->currently_stopped) ||
             IS_UNDER_DYN_HACK(tr->under_dynamo_control));
 }
 

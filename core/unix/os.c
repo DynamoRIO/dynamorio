@@ -2816,7 +2816,9 @@ thread_set_mcontext(thread_record_t *tr, priv_mcontext_t *mc)
 bool
 is_thread_currently_native(thread_record_t *tr)
 {
-    return (!tr->under_dynamo_control);
+    return (!tr->under_dynamo_control ||
+            /* start/stop doesn't change under_dynamo_control and has its own field */
+            (tr->dcontext != NULL && tr->dcontext->currently_stopped));
 }
 
 #ifdef CLIENT_SIDELINE /* PR 222812: tied to sideline usage */
@@ -8139,6 +8141,13 @@ os_thread_take_over(priv_mcontext_t *mc)
     ASSERT_MESSAGE(CHKLVL_ASSERTS, "mytid not present in takeover records!",
                    event != NULL);
     signal_event(event);
+
+    DOLOG(2, LOG_TOP, {
+        byte *cur_esp;
+        GET_STACK_PTR(cur_esp);
+        LOG(THREAD, LOG_TOP, 2, "%s: next_tag="PFX", cur xsp="PFX", mc->xsp="PFX"\n",
+            __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
+    });
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,

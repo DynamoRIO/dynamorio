@@ -995,6 +995,10 @@ struct _dcontext_t {
     bool post_syscall;
 # endif
 #endif
+    /* The start/stop APi doesn't change thread_record_t.under_dynamo_control,
+     * but we need some indication so we add a custom field.
+     */
+    bool currently_stopped;
 };
 
 /* sentinel value for dcontext_t* used to indicate

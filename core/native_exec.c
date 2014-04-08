@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -332,6 +332,13 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     *get_mcontext(dcontext) = *mc;
     /* clear pc */
     get_mcontext(dcontext)->pc = 0;
+
+    DOLOG(2, LOG_TOP, {
+        byte *cur_esp;
+        GET_STACK_PTR(cur_esp);
+        LOG(THREAD, LOG_TOP, 2, "%s: next_tag="PFX", cur xsp="PFX", mc->xsp="PFX"\n",
+            __FUNCTION__, dcontext->next_tag, cur_esp, mc->xsp);
+    });
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
                       false/*not on initstack*/, false/*shouldn't return*/);
