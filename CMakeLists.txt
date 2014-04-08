@@ -66,7 +66,7 @@ if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   if (DEBUG)
     set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STRING "" FORCE)
   else (DEBUG)
-    set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+    set(CMAKE_CONFIGURATION_TYPES "RelWithDebInfo" CACHE STRING "" FORCE)
   endif (DEBUG)
   # we want to use the _LOCATION_<config> property
   string(TOUPPER "${CMAKE_CONFIGURATION_TYPES}" upper)
