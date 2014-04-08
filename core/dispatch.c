@@ -1218,7 +1218,16 @@ dispatch_exit_fcache_stats(dcontext_t *dcontext)
         LOG(THREAD, LOG_DISPATCH, 2, "Exit from native_exec syscall trampoline\n");
         STATS_INC(num_exits_native_exec_syscall);
         /* may be a quite large kstat count */
-        KSWITCH_STOP_NOT_PROPAGATED(native_exec_fcache);
+# if defined(DEBUG) || defined(KSTATS)
+        /* Being native for the start/stop API is different from native_exec:
+         * the former has the kstack cleared, so there's nothing to stop here
+         * (xref i#813, i#1140).
+         */
+        if (dcontext->currently_stopped)
+            LOG(THREAD, LOG_DISPATCH, 2, "Thread is start/stop native\n");
+        else
+            KSWITCH_STOP_NOT_PROPAGATED(native_exec_fcache);
+# endif
         return;
     }
     else if (dcontext->last_exit == get_reset_linkstub()) {
