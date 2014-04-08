@@ -1056,16 +1056,16 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   # coarse fragments are incompatible with thread private code caches.
   if ("${dr_ops}" MATCHES "-thread_private" AND
       "${dr_ops}" MATCHES "-opt_memory")
-    set(added_out OFF PARENT_SCOPE)
+    set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
   if ("${dr_ops}" MATCHES "-early_inject" AND
       "${dr_ops}" MATCHES "-no_private_loader")
-    set(added_out OFF PARENT_SCOPE)
+    set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
   if (STATIC_LIBRARY AND "${dr_ops}" MATCHES "-early_inject")
-    set(added_out OFF PARENT_SCOPE)
+    set(${added_out} OFF PARENT_SCOPE)
     return()
   endif ()
 
@@ -1258,7 +1258,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # global reg keys and can thus run multiple instances of the same
     # app name simultaneously so we do not need to mark RUN_SERIAL
   endif (WIN32)
-  set(added_out ON PARENT_SCOPE)
+  set(${added_out} ON PARENT_SCOPE)
 endfunction(torun)
 
 function(torun_normal name test ops)
