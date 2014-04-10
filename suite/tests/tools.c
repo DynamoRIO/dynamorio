@@ -47,11 +47,18 @@
 int
 get_windows_version(void)
 {
-    OSVERSIONINFO version;
-    int res;
-    version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    res = GetVersionEx(&version);
-    assert(res != 0);
+    OSVERSIONINFOW version;
+    /* i#1418: GetVersionEx is just plain broken on win8.1+ so we use the Rtl version */
+    typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
+    RtlGetVersion_t RtlGetVersion;
+    NTSTATUS res;
+    HANDLE ntdll_handle = GetModuleHandle("ntdll.dll");
+    RtlGetVersion = (RtlGetVersion_t)
+        GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
+    assert(RtlGetVersion != NULL);
+    version.dwOSVersionInfoSize = sizeof(version);
+    res = RtlGetVersion(&version);
+    assert(NT_SUCCESS(res));
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         /* WinNT or descendents */
         if (version.dwMajorVersion == 6 && version.dwMinorVersion == 3) {

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -402,18 +402,37 @@ BOOL CDynamoRIOApp::InitInstance()
     return TRUE;
 }
 
+/*static*/ BOOL CDynamoRIOApp::GetWindowsVersion(OSVERSIONINFOW *version)
+{
+    /* i#1418: GetVersionEx is just plain broken on win8.1+ so we use the Rtl version */
+    typedef DWORD NTSTATUS;
+    typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
+#   define NT_SUCCESS(res) ((res) >= 0)
+    RtlGetVersion_t RtlGetVersion;
+    NTSTATUS res;
+    HANDLE ntdll_handle = GetModuleHandle(L"ntdll.dll");
+    RtlGetVersion = (RtlGetVersion_t)
+        GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
+    if (RtlGetVersion == NULL)
+        return FALSE;
+    version->dwOSVersionInfoSize = sizeof(*version);
+    res = RtlGetVersion(version);
+    return NT_SUCCESS(res);
+}
+
 BOOL CDynamoRIOApp::CheckWindowsVersion(BOOL &windows_NT)
 {
     // make sure we're on an NT-based system
     windows_NT = FALSE;
     TCHAR bad_os[64];
-    OSVERSIONINFO version;
-    version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    int res = GetVersionEx(&version);
-    assert(res != 0);
+    OSVERSIONINFOW version;
+    BOOL res = GetWindowsVersion(&version);
+    assert(res);
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT) {
         // WinNT or descendents: rather than continually update
         // the list of known versions here we assume they're all ok.
+        // XXX i#1419: if we ever check for win8 or higher we'll want to switch
+        // to RtlGetVersion().
         if (version.dwMajorVersion == 4) {
             // Windows NT
             windows_NT = TRUE;

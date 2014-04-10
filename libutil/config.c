@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1481,35 +1482,21 @@ is_custom_autoinjection_set(const WCHAR *preinject)
     return is_in_file_list(list, preinject, APPINIT_SEPARATOR_CHAR);
 }
 
-/* FIXME - once we fully support Vista should use get_platform */
 /* Returns true for Vista or later, including Windows 7 */
 BOOL
 is_vista()
 {
-    OSVERSIONINFO info;
-    info.dwOSVersionInfoSize = sizeof(info);
-
-    if (GetVersionEx(&info)) {
-        return (info.dwMajorVersion >= 6);
-    } else {
-        DO_ASSERT(false);
-    }
-    return FALSE;
+    DWORD platform = 0;
+    get_platform(&platform);
+    return (platform >= PLATFORM_VISTA);
 }
 
 BOOL
 is_win7()
 {
-    OSVERSIONINFO info;
-    info.dwOSVersionInfoSize = sizeof(info);
-
-    if (GetVersionEx(&info)) {
-        return (info.dwMajorVersion >= 6 &&
-                info.dwMinorVersion >= 1);
-    } else {
-        DO_ASSERT(false);
-    }
-    return FALSE;
+    DWORD platform = 0;
+    get_platform(&platform);
+    return (platform >= PLATFORM_WIN_7);
 }
 
 /* Also disables reqt for signature on lib for win7+ */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -125,11 +125,8 @@ CDynamoRIOView::CDynamoRIOView()
     m_selected_pid = 0;
     m_StatsViewLines = 0;
 
-    // FIXME: share w/ CDynamoRIOApp::CheckWindowsVersion
-    OSVERSIONINFO version;
-    version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    int res = GetVersionEx(&version);
-    assert(res != 0);
+    OSVERSIONINFOW version;
+    CDynamoRIOApp::GetWindowsVersion(&version);
     if (version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion == 4)
         m_windows_NT = TRUE;
     else

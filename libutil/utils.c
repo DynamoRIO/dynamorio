@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,6 +44,7 @@
 # include "events.h" /* for canary */
 # include "processes.h" /* for canary */
 # include "options.h" /* for option checking */
+# include "ntdll_types.h" /* for NT_SUCCESS */
 
 # include <io.h> /* for canary */
 # include <Fcntl.h> /* for canary */
@@ -552,8 +553,19 @@ DWORD
 get_platform(DWORD *platform)
 {
     /* determine the OS version information */
-    OSVERSIONINFO osinfo = { sizeof(OSVERSIONINFO) };
-    if (GetVersionEx(&osinfo)) {
+    OSVERSIONINFOW osinfo;
+    /* i#1418: GetVersionEx is just plain broken on win8.1+ so we use the Rtl version */
+    typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
+    RtlGetVersion_t RtlGetVersion;
+    NTSTATUS res = -1;
+    HANDLE ntdll_handle = GetModuleHandle("ntdll.dll");
+    RtlGetVersion = (RtlGetVersion_t)
+        GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
+    if (RtlGetVersion == NULL)
+        return GetLastError();
+    osinfo.dwOSVersionInfoSize = sizeof(osinfo);
+    res = RtlGetVersion(&osinfo);
+    if (NT_SUCCESS(res)) {
 
         DO_DEBUG(DL_VERB,
                  WCHAR verbuf[MAX_PATH];
@@ -599,6 +611,10 @@ get_platform(DWORD *platform)
             }
             else if (osinfo.dwMinorVersion == 2) {
                 *platform = PLATFORM_WIN_8;
+                return ERROR_SUCCESS;
+            }
+            else if (osinfo.dwMinorVersion == 3) {
+                *platform = PLATFORM_WIN_8_1;
                 return ERROR_SUCCESS;
             }
         }

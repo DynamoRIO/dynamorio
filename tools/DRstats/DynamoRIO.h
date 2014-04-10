@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -84,6 +85,8 @@ public:
 
     // global function for TimerProc inside view
     static CDynamoRIOView * GetActiveView();
+    // global for sharing with the view
+    static BOOL CDynamoRIOApp::GetWindowsVersion(OSVERSIONINFOW *version);
 #ifndef DRSTATS_DEMO
     // global function for systemwide status
     static BOOL SystemwideSet();
