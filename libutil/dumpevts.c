@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -115,7 +116,7 @@ main(int argc, char **argv)
                                  last);
 
     if (res != ERROR_SUCCESS) {
-        printf("error %d starting monitor\n");
+        printf("error %d starting monitor\n", res);
     }
 
     WaitForSingleObject(get_elm_thread_handle(), INFINITE);

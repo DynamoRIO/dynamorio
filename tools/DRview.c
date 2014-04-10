@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -717,8 +717,8 @@ dllw_callback(module_info_t *mi, void **param)
                 if (!showmem) {
                     if (showdlls) {
                         /* long format */
-                        fprintf(fp, "  %08x-%08x  %-16S Stamp=%x Count=%d\n    %S\n",
-                                mi->BaseAddress, (uint)mi->BaseAddress+mi->SizeOfImage,
+                        fprintf(fp, "  %p-%p  %-16S Stamp=%x Count=%d\n    %S\n",
+                                mi->BaseAddress, (char *)mi->BaseAddress+mi->SizeOfImage,
                                 mi->BaseDllName, mi->TimeDateStamp,
                                 mi->LoadCount, mi->FullDllName);
                     } else {

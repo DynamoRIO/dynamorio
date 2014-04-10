@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -154,7 +154,7 @@ get_dr_marker_helper(process_id_t ProcessID, dr_marker_t *marker,
     DO_ASSERT(found != NULL);
 
     DO_DEBUG(DL_VERB,
-             printf("getting dr marker, hps=0x%x\n", hotp_status);
+             printf("getting dr marker, hps="PFX"\n", hotp_status);
              );
 
     acquire_privileges();
@@ -363,7 +363,7 @@ check_status_and_pending_restart(ConfigGroup *config, process_id_t pid,
         (!rununder && stat != DLL_NONE);
 
     DO_DEBUG(DL_VERB,
-             printf("  -> ru=%d, stat=%d, pr=%d, c=0x%x, pc=0x%x, pxru=%S\n",
+             printf("  -> ru=%d, stat=%d, pr=%d, c="PFX", pc="PFX", pxru=%S\n",
                     rununder, stat, *pending_restart, config,
                     process_config, rununder_param);
              );

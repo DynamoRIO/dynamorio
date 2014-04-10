@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -329,8 +329,8 @@ main(int argc, char *argv[])
                     for (test = call_location;
                          test < (char *)mbi.BaseAddress+mbi.RegionSize; test++) {
                         if (*test == 0xc3 /* plain ret */) {
-                            fprintf(stderr, "Found safe call target at offset 0x%08x\n",
-                                   test - (char *)dll);
+                            fprintf(stderr, "Found safe call target at offset 0x%tx\n",
+                                    test - (char *)dll);
                             call_location = test;
                             break;
                         }
@@ -340,7 +340,7 @@ main(int argc, char *argv[])
                     }
                 }
             }
-            fprintf(stderr, "Calling base(0x%08x) + offset(0x%08x) = 0x%08x\n",
+            fprintf(stderr, "Calling base(%p) + offset(0x%tx) = %p\n",
                    dll, call_location-(char *)dll, call_location);
             (*(int (*) ())(call_location))();
         }
