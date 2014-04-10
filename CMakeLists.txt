@@ -54,6 +54,12 @@ else ()
   cmake_minimum_required(VERSION 2.6.4) # VERSION_LESS
 endif ()
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
+  # XXX i#1418: update to cmake 2.8.12's better handling of interface imports
+  cmake_policy(SET CMP0020 OLD)
+endif ()
+
 # for non-makefile-based generators (i.e., Visual Studio) there is no
 # CMAKE_BUILD_TYPE and instead there are multiple configs.
 # note that we would love cmake to support multi-config for makefiles too,

@@ -1,4 +1,5 @@
 # ***************************************************************************
+# Copyright (c) 2014 Google, Inc.  All rights reserved.
 # Copyright (c) 2013 Branden Clark  All rights reserved.
 # ***************************************************************************
 
@@ -46,6 +47,12 @@ else () # Qt5 and CMake 2.8.10+
   # Build Qt Visualizer
   cmake_minimum_required(VERSION 2.8.10)
   message(STATUS "Found Qt 5: DrGUI will be built")
+
+  if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
+      "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
+    # XXX i#1418: update to cmake 2.8.12's better handling of interface imports
+    cmake_policy(SET CMP0020 OLD)
+  endif ()
 
   # DR's boundary of 2 causes alignment issues with Qt, so we stick to default.
   # This is okay because this is a standalone app, and does not need to match
