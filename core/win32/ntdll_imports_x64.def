@@ -191,18 +191,8 @@ EXPORTS
         __iscsym
         __iscsymf
         __toascii
-        _alldiv
-        _allmul
-        _allrem
-        _allshl
-        _allshr
         _atoi64
-        _aulldiv
-        _aullrem
-        _aullshr
-        _chkstk
         _fltused
-        _ftol
         _i64toa
         _i64tow
         _itoa
@@ -214,6 +204,7 @@ EXPORTS
         _strcmpi
         _strlwr
         _strupr
+        _tolower
         _toupper
         _ui64toa
         _ultoa

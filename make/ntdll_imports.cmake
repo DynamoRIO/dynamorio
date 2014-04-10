@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2012-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2012-2014 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,14 @@ if (WIN32)
   endif (NOT LIB_EXECUTABLE)
   set(ntimp_base "ntdll_imports")
   set(ntimp_src "${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}.c")
-  set(ntimp_def "${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}.def")
+  if (X64)
+    configure_file("${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}_x64.def"
+      "${PROJECT_BINARY_DIR}/core/win32/${ntimp_base}.def" COPYONLY)
+  else (X64)
+    configure_file("${PROJECT_SOURCE_DIR}/core/win32/${ntimp_base}.def"
+      "${PROJECT_BINARY_DIR}/core/win32/${ntimp_base}.def" COPYONLY)
+  endif (X64)
+  set(ntimp_def "${PROJECT_BINARY_DIR}/core/win32/${ntimp_base}.def")
   # We can't call it ntdll.lib b/c then link.exe will ignore the one from
   # the WDK/DDK.  Update i#938: we have now replaced the regular ntdll.lib
   # but we stick with our unique name.
