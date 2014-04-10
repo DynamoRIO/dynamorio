@@ -1978,7 +1978,13 @@ if (VPS) # relies on being aborted on .B violation
 endif (VPS)
 tobuild(security-common.retexisting security-common/retexisting.c)
 tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
-tobuild(security-common.retnonexisting security-common/retnonexisting.c)
+
+# FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
+# jumping to an invalid address!  For now we disable for VS2013 x64.
+if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 18.0)
+  tobuild(security-common.retnonexisting security-common/retnonexisting.c)
+endif ()
+
 tobuild(security-common.selfmod2 security-common/selfmod2.c)
 tochcon(security-common.selfmod2 textrel_shlib_t)
 tobuild(security-common.selfmod-big security-common/selfmod-big.c)

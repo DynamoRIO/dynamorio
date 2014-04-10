@@ -96,13 +96,10 @@ signal_handler(int sig)
     exit(-1);
 }
 #else
-/* sort of a hack to avoid the MessageBox of the unhandled exception spoiling
- * our batch runs
- */
 # include <windows.h>
 /* top-level exception handler */
 static LONG
-our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
+custom_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
     if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
 #if VERY_VERBOSE
@@ -139,7 +136,7 @@ main()
 #ifdef UNIX
     intercept_signal(SIGSEGV, (handler_3_t) signal_handler, false);
 #else
-    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) our_top_handler);
+    SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER) custom_top_handler);
 #endif
 
     print("starting good function\n");
@@ -147,7 +144,6 @@ main()
     print("starting bad function\n");
 
     invalid_ret(1);                    /* zero page */
-    /* FIXME: should wrap all of these in SIGSETJMP() blocks */
     invalid_ret(0);                    /* NULL */
     invalid_ret(0x00badbad);           /* user mode */
     invalid_ret(0x7fffffff);           /* user mode */
