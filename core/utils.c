@@ -1753,6 +1753,12 @@ divide_uint64_print(uint64 numerator, uint64 denominator, bool percentage,
 
 #if (defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE) || \
      defined(STANDALONE_UNIT_TEST))
+
+/* When building with /QIfist casting rounds instead of truncating (i#763)
+ * so we use these routines from io.c.
+ */
+extern long double2int_trunc(double d);
+
 /* for printing a float (can't use %f on windows with NOLIBC), NOTE: you must
  * preserve floating point state to call this function!!
  * FIXME : truncates instead of rounding, also negative with width looks funny,
@@ -1777,8 +1783,9 @@ double_print(double val, uint precision, uint *top, uint *bottom,
     }
     for (i = 0, precision_multiple = 1; i < precision; i++)
         precision_multiple *= 10;
-    *top = (uint)val;
-    *bottom = (uint)((val - *top) * precision_multiple);
+    /* when building with /QIfist casting rounds instead of truncating (i#763) */
+    *top = double2int_trunc(val);
+    *bottom = double2int_trunc((val - *top) * precision_multiple);
 }
 #endif /* DEBUG || INTERNAL || CLIENT_INTERFACE || STANDALONE_UNIT_TEST */
 

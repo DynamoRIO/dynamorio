@@ -672,6 +672,12 @@ else (UNIX)
   set(BASE_CFLAGS "${BASE_CFLAGS} /MP")
   # read-only string pooling
   set(BASE_CFLAGS "${BASE_CFLAGS} /GF")
+  if (NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 18.0)
+    # i#1376: VS2013 requires /FS w/ multiple cl.exe in parallel (which Ninja
+    # uses).  While /MP is supposed to enable it, it doesn't seem to.
+    # This is recommended after /Fd but it seems to work here.
+    set(BASE_CFLAGS "${BASE_CFLAGS} /FS")
+  endif()
   # FIXME case 191729: we should try to enable this.
   # Currently we get "unresolved external symbol ___security_cookie"
   set(BASE_CFLAGS "${BASE_CFLAGS} /GS-")

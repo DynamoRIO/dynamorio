@@ -249,7 +249,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
     ASSERT(sizeof(value) == 4);                                     \
     /* test that we aren't crossing a cache line boundary */        \
     CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);               \
-    _InterlockedExchange((volatile LONG *)target, value);           \
+    _InterlockedExchange((volatile LONG *)target, (LONG)value);     \
   } while (0)
 # ifdef X64
 #  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \

@@ -101,6 +101,7 @@ if (WIN32 AND NOT X64)
   # Note that /QIfist causes casts to round instead of truncating (i#763)
   # which we work around in our code.
   set_source_files_properties(io.c COMPILE_FLAGS "/QIfist")
+  set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
 set(ARCH_DIRNAME x86)
@@ -716,12 +717,19 @@ else (UNIX)
       "${dynamorio_link_flags} /export:dynamorio_earliest_init_takeover")
   endif (WINDOWS)
 
-  # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
-  # note that _alldvrm is in ntdll.dll on xp+; but for pre-xp uses we
-  # stick with the static linking of the impl in msvcrt.lib.
-  # We must link in custom flags and not target_link_libraries() b/c we need
-  # to be AFTER our ntdll_imports.lib.
-  set(dynamorio_link_flags "${dynamorio_link_flags} msvcrt.lib")
+  if (NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 18.0)
+    # i#1376: with VS2013 we end up with an import of "_except1" from msvcr*.dll,
+    # regardless of flags like QIfist, /fp:except-, /fp:fast, or /Qfast_transcendentals.
+    # Our solution is to not link with msvcrt.lib and rely on ntdll having _aulldvrm.
+    # This means that dynamorio.dll built with VS2013 won't run on 2K or NT.
+
+    # case 4125: we link with msvcrt.lib for vc8 /O2's use of _alldvrm
+    # note that _alldvrm is in ntdll.dll on xp+; but for pre-xp uses we
+    # stick with the static linking of the impl in msvcrt.lib.
+    # We must link in custom flags and not target_link_libraries() b/c we need
+    # to be AFTER our ntdll_imports.lib.
+    set(dynamorio_link_flags "${dynamorio_link_flags} msvcrt.lib")
+  endif ()
 
   set_target_properties(dynamorio PROPERTIES LINK_FLAGS "${dynamorio_link_flags}")
 

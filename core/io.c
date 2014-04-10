@@ -80,7 +80,7 @@ const static double zerof = 0.0;
 #endif
 
 /* assumes that d > 0 */
-static long
+long /* exported to utils.c */
 double2int_trunc(double d)
 {
     long i = (long)d;

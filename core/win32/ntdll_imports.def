@@ -270,3 +270,5 @@ EXPORTS
         wcstol
         wcstombs
         wcstoul
+        ;; So we don't need to link with msvcrt.dll for VS2013 (i#1376)
+        _aulldvrm
