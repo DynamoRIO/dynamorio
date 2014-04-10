@@ -480,7 +480,12 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
         if (NOT "$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
           # Note that we can't set ENV{PATH} as the output var of the replace:
           # it has to be its own set().
-          string(REGEX REPLACE "VC([/\\\\])([Bb][Ii][Nn])" "VC\\1\\2\\1amd64"
+          #
+          # i#1421: VS2013 needs base VC/bin on the path (for cross-compiler
+          # used by cmake) so we duplicate and put amd64 first.  Older VS needs
+          # Common7/IDE instead which should already be elsewhere on path.
+          string(REGEX REPLACE "((^|;)[^;]*)VC([/\\\\])([Bb][Ii][Nn])"
+            "\\1VC\\3\\4\\3amd64;\\1VC\\3\\4"
             newpath "$ENV{PATH}")
           # VS2008's SDKs/Windows/v{6.0A,7.0} uses "x64" instead of "amd64"
           string(REGEX REPLACE "(v[^/\\\\]*)([/\\\\])([Bb][Ii][Nn])" "\\1\\2\\3\\2x64"
@@ -513,8 +518,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
       else (is64)
         set(ENV{ASM} "ml")
         if ("$ENV{LIB}" MATCHES "[Aa][Mm][Dd]64")
-          string(REGEX REPLACE "(VC[/\\\\][Bb][Ii][Nn][/\\\\])[Aa][Mm][Dd]64" "\\1"
-            newpath "$ENV{PATH}")
+          # Remove the duplicate we added (see i#1421 comment above).
+          string(REGEX REPLACE "((^|;)[^;]*)VC[/\\\\][Bb][Ii][Nn][/\\\\][Aa][Mm][Dd]64"
+            "" newpath "$ENV{PATH}")
           if (arg_verbose)
             message("Env setup: setting PATH to ${newpath}")
           endif ()
