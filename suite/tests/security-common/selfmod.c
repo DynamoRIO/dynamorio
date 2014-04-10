@@ -335,6 +335,7 @@ FILL_WITH_NOPS(4080)
 #define FUNCNAME sandbox_cross_page
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
+        nop /* ensure VS2013 doesn't route label through ILT */
 DECLARE_GLOBAL(sandbox_cross_page_no_ilt)
 ADDRTAKEN_LABEL(sandbox_cross_page_no_ilt:)
         mov      REG_XAX, ARG1

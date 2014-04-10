@@ -461,8 +461,12 @@ search_templates_cb(const char *name, size_t modoffs, void *data)
 static bool
 search_ex_templates_cb(drsym_info_t *out, drsym_error_t status, void *data)
 {
-    if (strstr(out->name, "::templated_func") != NULL ||
-        strstr(out->name, "::<unnamed-tag>") != NULL)
+    /* i#1376: VS2013 PDB seems to not have qualified unnamed-tag entries so
+     * in the interests of cross-platform non-flaky tests we don't
+     * print them out anymore.  We're talking about this:
+     *   name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::<unnamed-tag>
+     */
+    if (strstr(out->name, "::templated_func") != NULL)
         dr_fprintf(STDERR, "found %s\n", out->name);
     return true;
 }
@@ -664,6 +668,7 @@ typedef struct {
     const char **syms_expected;
     const char *dll_path;
     uint flags_expected;
+    char prev_name[MAXIMUM_PATH];
 } dll_syms_found_t;
 
 /* If this was a symbol we expected that we haven't found yet, mark it found,
@@ -748,9 +753,16 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                    /* Unknown type has id cleared to 0 */
                    (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
                    /* Some __ types seem to have varying id's */
-                   strstr(out->name, "__") == out->name);
+                   strstr(out->name, "__") == out->name ||
+                   /* i#1376: VS2013 necessitates using recent dbghelp, where
+                    * we see weird duplicate names w/ different ids
+                    */
+                   strcmp(out->name, syms_found->prev_name) == 0);
         }
     }
+    dr_snprintf(syms_found->prev_name, BUFFER_SIZE_ELEMENTS(syms_found->prev_name),
+                "%s", out->name);
+    NULL_TERMINATE_BUFFER(syms_found->prev_name);
     return true;
 }
 

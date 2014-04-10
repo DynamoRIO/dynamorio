@@ -124,11 +124,12 @@ reason we use pagefile usage as our discerning factor):
     else if (mem.PeakPagefileUsage < 2816*1024)
         print("Memory check: pagefile usage is >= 900 KB, < 2816 KB\n");
     /* prof_pcs uses a buffer the size of DR.dll */
-    else if (mem.PeakPagefileUsage < 7200*1024)
-        print("Memory check: pagefile usage is >= 2816 KB, < 7200 KB\n");
     /* detect_dangling_fcache doesn't free fcache */
+    /* But there's a lot of variation across machines so we try to make
+     * this test less flaky:
+     */
     else if (mem.PeakPagefileUsage < 16384*1024)
-        print("Memory check: pagefile usage is >= 7200 KB, < 16384 KB\n");
+        print("Memory check: pagefile usage is >= 2816 KB, < 16384 KB\n");
     else {
         /* give actual number here so we can see how high it is */
         print("Memory check: pagefile usage is %d KB >= 16384 KB\n",

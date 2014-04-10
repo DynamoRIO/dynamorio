@@ -63,13 +63,8 @@ sum=-1314123346
 // native
 Memory check: pagefile usage is < 900 KB
 #else
-# if (defined(DEBUG) && defined(detect_dangling_fcache)) || (defined(DEBUG) && defined(prof_pcs)) || defined(X64)
-// -detect_dangling_fcache: not freeing fcache => more usage
-// -prof_pcs: DR profile bucket == DR dll size!
-// x64: our focus on tools has increased general memory usage
-Memory check: pagefile usage is >= 7200 KB, < 16384 KB
-# else
-// Focus on tools has increased memory usage
-Memory check: pagefile usage is >= 2816 KB, < 7200 KB
-# endif
+// Focus on tools has increased memory usage.
+// Different machines and compilers vary too so we have a bigger bucket
+// to try and be less flaky while still detecting major leaks.
+Memory check: pagefile usage is >= 2816 KB, < 16384 KB
 #endif // native

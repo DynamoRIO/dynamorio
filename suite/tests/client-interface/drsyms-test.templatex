@@ -11,15 +11,12 @@ compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
 found all overloads
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
-found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::<unnamed-tag>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
-found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::<unnamed-tag>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
 found name_outer::name_middle::name_inner::sample_class<>::nested_class<>::templated_func<>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
-found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::<unnamed-tag>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 #endif

@@ -1495,20 +1495,20 @@ if (CLIENT_INTERFACE)
 
   # We rely on dbghelp >= 6.0 for our drsyms and sample.instrcalls tests,
   # but the system dbghelp pre-Vista is too old, so we copy one from VS.
-  if ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.0")
-    if (dbghelp_path) # set at top level
-      configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
-        COPYONLY)
-      if (BUILD_SAMPLES)
-        get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
-        list(GET sample_list 1 sample_one) # 0 is empty
-        get_target_property(sample_loc ${sample_one} LOCATION${location_suffix})
-        get_filename_component(sample_dir ${sample_loc} PATH)
-        configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
-      endif (BUILD_SAMPLES)
-      message(STATUS "Using ${dbghelp_path} for drsyms tests")
-    endif (dbghelp_path)
-  endif ()
+  # When targeting VS2013-built binaries, the system dbghelp even on win7
+  # is too old, so we always use the VS version.
+  if (dbghelp_path) # set at top level
+    configure_file(${dbghelp_path} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/dbghelp.dll
+      COPYONLY)
+    if (BUILD_SAMPLES)
+      get_property(sample_list GLOBAL PROPERTY DynamoRIO_sample_list)
+      list(GET sample_list 1 sample_one) # 0 is empty
+      get_target_property(sample_loc ${sample_one} LOCATION${location_suffix})
+      get_filename_component(sample_dir ${sample_loc} PATH)
+      configure_file(${dbghelp_path} ${sample_dir}/dbghelp.dll COPYONLY)
+    endif (BUILD_SAMPLES)
+    message(STATUS "Using ${dbghelp_path} for drsyms tests")
+  endif (dbghelp_path)
 
   tobuild_appdll(client.drsyms-test client-interface/drsyms-test.cpp)
   get_target_property(drsyms_libpath client.drsyms-test.appdll LOCATION${location_suffix})
