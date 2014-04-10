@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -43,8 +43,14 @@
 // Bumped up to 0x0500 to support building with VS2010.
 // Bailing on NT4 support for the GUI since no longer needed to launch
 // apps: merely a stats viewer.
-#define _WIN32_WINNT 0x0500 //_WIN32_WINNT_WIN2K /* NTDDI_VERSION is set from this */
-#define _WIN32_IE    0x0500 /* _WIN32_IE_IE40: MFC requires at least this */
+#if _MSC_VER >= 1800 /* VS2013+ */
+// Our VS2013 build already does not support Win2K (i#1376)
+# define _WIN32_WINNT 0x0501 // VS2013 MFC requires at least this
+# define _WIN32_IE    0x0501
+#else
+# define _WIN32_WINNT 0x0500 //_WIN32_WINNT_WIN2K /* NTDDI_VERSION is set from this */
+# define _WIN32_IE    0x0500 /* _WIN32_IE_IE40: MFC requires at least this */
+#endif
 
 // use _s secure versions
 #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1

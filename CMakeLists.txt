@@ -123,6 +123,8 @@ if (DEFINED GENERATE_PDBS AND NOT GENERATE_PDBS)
   # via a custom Plaform/Windows-cl.cmake in our make/ dir.
   set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/make")
 endif ()
+# We have some Find*.cmake modules of our own
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/make/modules")
 enable_language(C)
 enable_language(CXX)
 if ("${CMAKE_GENERATOR}" MATCHES "Ninja")
@@ -1226,7 +1228,9 @@ if (BUILD_TOOLS)
 endif (BUILD_TOOLS)
 
 if (BUILD_DRSTATS)
-  find_package(MFC)
+  # i#1376: we have our own variant of the standard FindMFC.cmake
+  # so we can pass -D_UNICODE, as MBCS MFC support is not part of VS2013.
+  find_package(MFCUnicode)
   if (NOT MFC_FOUND)
     message(STATUS "MFC not found: disabling DRstats")
     set(BUILD_DRSTATS OFF)
