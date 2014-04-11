@@ -154,11 +154,11 @@ check_mem_usage(SIZE_T peakpage)
      * for under 80KB
      */
 #ifdef X64
-    if (newpeak - peakpage < 140*1024)
-        print("Memory check: pagefile usage increase is < 140 KB\n");
+    if (newpeak - peakpage < 160*1024)
+        print("Memory check: pagefile usage increase is < 160 KB\n");
     else {
         /* give actual number here so we can see how high it is */
-        print("Memory check: pagefile usage increase is %d KB >= 140 KB\n",
+        print("Memory check: pagefile usage increase is %d KB >= 160 KB\n",
               (newpeak - peakpage)/1024);
     }
 #else
