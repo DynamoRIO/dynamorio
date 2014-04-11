@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -145,6 +145,7 @@ wrap_pre(void *wrapcxt, OUT void **user_data)
 static void
 wrap_post(void *wrapcxt, void *user_data)
 {
+#ifdef SHOW_RESULTS /* we want determinism in our test suite */
     size_t sz = (size_t) user_data;
     /* test out-of-memory by having a random moderately-large alloc fail */
     if (sz > 1024 && dr_get_random_value(1000) < 10) {
@@ -154,5 +155,6 @@ wrap_post(void *wrapcxt, void *user_data)
         malloc_oom++;
         dr_mutex_unlock(max_lock);
     }
+#endif
 }
 
