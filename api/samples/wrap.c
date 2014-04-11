@@ -60,7 +60,9 @@ static void wrap_pre(void *wrapcxt, OUT void **user_data);
 static void wrap_post(void *wrapcxt, void *user_data);
 
 static size_t max_malloc;
+#ifdef SHOW_RESULTS
 static uint malloc_oom;
+#endif
 static void *max_lock; /* to synch writes to max_malloc */
 
 static
