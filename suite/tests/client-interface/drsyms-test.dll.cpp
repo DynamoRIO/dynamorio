@@ -452,8 +452,8 @@ lookup_overloads(const char *exe_path)
 static bool
 search_templates_cb(const char *name, size_t modoffs, void *data)
 {
-    if (strstr(name, "::templated_func") != NULL ||
-        strstr(name, "::<unnamed-tag>") != NULL)
+    /* See below about i#1376 and unnamed-tag */
+    if (strstr(name, "::templated_func") != NULL)
         dr_fprintf(STDERR, "found %s\n", name);
     return true;
 }
