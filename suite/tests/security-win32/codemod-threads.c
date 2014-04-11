@@ -35,10 +35,10 @@
  * cache consistency concurrency cases (say that 3 times fast)
  */
 
+#include "tools.h"
 #include <windows.h>
 #include <process.h> /* for _beginthreadex */
 #include <stdio.h>
-#include "tools.h"
 
 #define ITERS 150
 #define NUM_THREADS 6

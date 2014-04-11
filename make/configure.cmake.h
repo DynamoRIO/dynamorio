@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -263,6 +263,10 @@
 #  define HAVE_MEMINFO
 #  define HAVE_MEMINFO_QUERY
 #  define WINDOWS_PC_SAMPLE
+/* i#1424: avoid pulling in features from recent versions to keep compatibility */
+#  ifndef _WIN32_WINNT
+#   define _WIN32_WINNT _WIN32_WINNT_NT4
+#  endif
 #endif
 
 #ifdef PROGRAM_SHEPHERDING

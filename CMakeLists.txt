@@ -705,6 +705,20 @@ else (UNIX)
     string(REGEX REPLACE "/debug" "" CMAKE_SHARED_LINKER_FLAGS
       "${CMAKE_SHARED_LINKER_FLAGS}")
   endif (GENERATE_PDBS)
+
+  # i#1424: target the oldest possible platform we can
+  if (CMAKE_C_COMPILER_VERSION VERSION_LESS 17.0) # up to and including VS2010
+    set(os_target "5.00") # Win2K
+  else () # VS2012, VS2013
+    set(os_target "5.01") # WinXP
+  endif ()
+  foreach (lflags CMAKE_EXE_LINKER_FLAGS
+      CMAKE_MODULE_LINKER_FLAGS
+      CMAKE_SHARED_LINKER_FLAGS)
+    set(${lflags} "${${lflags}} /subsystem:console,${os_target}")
+  endforeach()
+  message(STATUS "Targeting subsystem ${os_target}")
+
   # w/ cl, using DBG here won't mess up the optimizations, debug line number info
   # gets a little messed up, but is better than nothing
   set(OPT "/O2 ${DBG}")

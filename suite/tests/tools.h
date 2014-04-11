@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +33,13 @@
 
 #ifndef TOOLS_H
 #define TOOLS_H
+
+/* i#1424: avoid pulling in features from recent versions to keep compatibility.
+ * The core tries to stay at NT4 but some tests need 2K.
+ */
+#ifndef _WIN32_WINNT
+# define _WIN32_WINNT _WIN32_WINNT_WIN2K
+#endif
 
 #include "configure.h"
 #include <stdarg.h>
