@@ -52,7 +52,8 @@ get_windows_version(void)
     typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res;
-    HANDLE ntdll_handle = GetModuleHandle("ntdll.dll");
+    HANDLE ntdll_handle = GetModuleHandleW(L"ntdll.dll");
+    assert(ntdll_handle != NULL);
     RtlGetVersion = (RtlGetVersion_t)
         GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
     assert(RtlGetVersion != NULL);

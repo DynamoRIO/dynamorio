@@ -410,7 +410,9 @@ BOOL CDynamoRIOApp::InitInstance()
 #   define NT_SUCCESS(res) ((res) >= 0)
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res;
-    HANDLE ntdll_handle = GetModuleHandle(L"ntdll.dll");
+    HANDLE ntdll_handle = GetModuleHandle(_T("ntdll.dll"));
+    if (ntdll_handle == NULL)
+        return FALSE;
     RtlGetVersion = (RtlGetVersion_t)
         GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
     if (RtlGetVersion == NULL)

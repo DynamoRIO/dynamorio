@@ -558,7 +558,9 @@ get_platform(DWORD *platform)
     typedef NTSTATUS (NTAPI *RtlGetVersion_t)(OSVERSIONINFOW *info);
     RtlGetVersion_t RtlGetVersion;
     NTSTATUS res = -1;
-    HANDLE ntdll_handle = GetModuleHandle("ntdll.dll");
+    HANDLE ntdll_handle = GetModuleHandle(_T("ntdll.dll"));
+    if (ntdll_handle == NULL)
+        return GetLastError();
     RtlGetVersion = (RtlGetVersion_t)
         GetProcAddress((HMODULE)ntdll_handle, "RtlGetVersion");
     if (RtlGetVersion == NULL)
@@ -620,7 +622,7 @@ get_platform(DWORD *platform)
         }
         return ERROR_UNSUPPORTED_OS;
     } else {
-        return GetLastError();
+        return res;
     }
 }
 
