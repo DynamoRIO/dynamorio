@@ -509,6 +509,19 @@ at_safe_spot(thread_record_t *trec, priv_mcontext_t *mc,
             }
 #endif
         }
+#ifdef CLIENT_INTERFACE
+    } else if (desired_state == THREAD_SYNCH_TERMINATED_AND_CLEANED &&
+               trec->dcontext->whereami == WHERE_FCACHE &&
+               trec->dcontext->client_data->at_safe_to_terminate_syscall) {
+        /* i#1420: At safe to terminate syscall like dr_sleep in a clean call.
+         * XXX: A thread in dr_sleep might not be safe to terminate for some
+         * corner cases: for example, a client may hold a lock and then go sleep,
+         * terminating it may mess the client up for not releasing the lock.
+         * We limit this to the thread being in fcache (i.e., from a clean call)
+         * to rule out some corner cases.
+         */
+        safe = true;
+#endif
     } else if ((!WRITE_LOCK_HELD(&fcache_unit_areas->lock) &&
                 /* even though we only need the read lock, if our target holds it
                  * and a 3rd thread requests the write lock, we'll hang if we

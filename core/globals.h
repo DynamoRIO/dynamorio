@@ -397,6 +397,10 @@ typedef struct _client_data_t {
      */
     bool           is_client_thread; /* NOTE - use IS_CLIENT_THREAD() */
     bool           client_thread_safe_for_synch;
+    /* i#1420: we add a field to indicate if we are in a safe syscall spot
+     * for THREAD_SYNCH_TERMINATED_AND_CLEANED.
+     */
+    bool           at_safe_to_terminate_syscall;
     bool           suspendable; /* suspend w/ synchall: PR 609569 */
     bool           left_unsuspended; /* not suspended by synchall: PR 609569 */
     uint           mutex_count; /* mutex nesting: for PR 558463 */

@@ -4320,9 +4320,13 @@ dr_thread_yield(void)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
+    else
+        dcontext->client_data->at_safe_to_terminate_syscall = true;
     os_thread_yield();
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
+    else
+        dcontext->client_data->at_safe_to_terminate_syscall = false;
 }
 
 DR_API
@@ -4334,9 +4338,13 @@ dr_sleep(int time_ms)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
+    else
+        dcontext->client_data->at_safe_to_terminate_syscall = true;
     os_thread_sleep(time_ms);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
+    else
+        dcontext->client_data->at_safe_to_terminate_syscall = false;
 }
 
 #ifdef CLIENT_SIDELINE
