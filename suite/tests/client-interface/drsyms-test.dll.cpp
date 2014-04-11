@@ -754,7 +754,7 @@ enum_sym_ex_cb(drsym_info_t *out, drsym_error_t status, void *data)
                    (type->kind == DRSYM_TYPE_OTHER && type->id == 0) ||
                    /* Some __ types seem to have varying id's */
                    strstr(out->name, "__") == out->name ||
-                   /* i#1376: VS2013 necessitates using recent dbghelp, where
+                   /* i#1376: if we use a recent dbghelp.dll,
                     * we see weird duplicate names w/ different ids
                     */
                    strcmp(out->name, syms_found->prev_name) == 0);

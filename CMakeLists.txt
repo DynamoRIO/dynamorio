@@ -1153,21 +1153,19 @@ else (X64)
 endif (X64)
 file(GLOB dbghelp_loc ${dbghelp_paths})
 if (dbghelp_loc)
-  # i#1219: exclude VS2005 x64 dbghelp as it is buggy.
-  # i#1376: prefer VS2010+ as VS2008 x64 dbghelp can't handle VS2013 pdb,
-  # so we look for "Visual Studio 1*".
+  # i#1219: exclude VS2005 x64 dbghelp as it is buggy
   list(LENGTH dbghelp_loc dbghelp_max)
   math(EXPR dbghelp_max "${dbghelp_max} - 1")
   set(dbghelp_index 0)
   list(GET dbghelp_loc 0 dbghelp_path)
-  while (X64 AND NOT dbghelp_path MATCHES "Visual Studio 1" AND
+  while (X64 AND dbghelp_path MATCHES "Visual Studio 8" AND
          ${dbghelp_index} LESS ${dbghelp_max})
     math(EXPR dbghelp_index "${dbghelp_index} + 1")
     list(GET dbghelp_loc ${dbghelp_index} dbghelp_path)
   endwhile()
-  if (X64 AND NOT dbghelp_path MATCHES "Visual Studio 1")
+  if (X64 AND dbghelp_path MATCHES "Visual Studio 8")
     # Not fatal: just nothing to put in package, and some tests may fail
-    message(STATUS "Unable to find VS2010+ dbghelp.dll")
+    message(STATUS "Unable to find non-VS2005 dbghelp.dll")
     set(dbghelp_path dbghelp_path-NOTFOUND)
   else ()
     # DR_install requires all forward slashes
