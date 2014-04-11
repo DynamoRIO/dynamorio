@@ -47,8 +47,9 @@ int
 main(int argc, char **argv)
 {
 #ifdef WINDOWS
+# define CMDLINE_SIZE (MAX_PATH/*argv[0]*/ + 20/*" %p"*/)
     HANDLE event;
-    char cmdline[128];
+    char cmdline[CMDLINE_SIZE];
 
     if (argc == 1) {
         /* parent process */

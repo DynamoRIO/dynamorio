@@ -106,9 +106,10 @@ main(int argc, char** argv)
             left = sleep(left); /* unfortunately, nudge signal interrupts us */
     }
 #else
+# define CMDLINE_SIZE (MAX_PATH/*argv[0]*/ + 20/*" %p"*/)
     STARTUPINFO si = { sizeof(STARTUPINFO) };
     PROCESS_INFORMATION pi;
-    char cmdline[128];
+    char cmdline[CMDLINE_SIZE];
     HANDLE event;
     if (argc == 1) {
         /* parent */
