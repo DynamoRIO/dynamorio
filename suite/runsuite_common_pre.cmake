@@ -500,9 +500,9 @@ function(testbuild_ex name is64 initial_cache test_only_in_long
           string(REGEX REPLACE "(v[^/\\\\]*[/\\\\][Ll][Ii][Bb][/\\\\])[Aa][Mm][Dd]64"
             "\\1x64"
             newlib "${newlib}")
-          # Win8 SDK uses um/x86 and um/x64
+          # Win8 SDK uses um/x86 and um/x64 after "Lib/win{8,v6.3}/"
           string(REGEX REPLACE
-            "([Ll][Ii][Bb])[/\\\\]amd64([/\\\\][Ww][Ii][Nn]8[/\\\\]um[/\\\\])x86"
+            "([Ll][Ii][Bb])[/\\\\]amd64([/\\\\][Ww][Ii][Nn][v0-9.]+[/\\\\]um[/\\\\])x86"
             "\\1\\2x64" newlib "${newlib}")
           if (arg_verbose)
             message("Env setup: setting LIB to ${newlib}")
