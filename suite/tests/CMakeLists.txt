@@ -1746,7 +1746,8 @@ if (UNIX)
   tobuild(pthreads.pthreads pthreads/pthreads.c)
   tobuild(pthreads.pthreads_exit pthreads/pthreads_exit.c)
   tobuild(pthreads.ptsig_FLAKY pthreads/ptsig.c)
-  tobuild(pthreads.pthreads_fork pthreads/pthreads_fork.c)
+  # XXX i#951: pthreads_fork reports leaks on occasion so we mark it FLAKY
+  tobuild(pthreads.pthreads_fork_FLAKY pthreads/pthreads_fork.c)
 
   # Clang will likely never support gcc nested functions:
   # http://llvm.org/PR9206
