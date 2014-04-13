@@ -208,6 +208,7 @@ Further non-compatibility-affecting changes include:
  - Added instr_get_prev_app() and instrlist_last_app().
  - Added the \ref op_syntax_arm "-syntax_arm" runtime option.
  - Added opnd_add_flags().
+ - Added drmgr_unregister_bb_insertion_event().
 
 **************************************************
 <hr>
@@ -1339,4 +1340,3 @@ group</a>.
 \endif
 
 */
-

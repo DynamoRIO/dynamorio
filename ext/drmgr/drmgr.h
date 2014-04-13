@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2015 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -310,7 +310,9 @@ DR_EXPORT
  *
  * @param[in]  analysis_func   The analysis callback to be called for the second stage.
  *                             Can be NULL if insertion_func is non-NULL, in which
- *                             case the user_data passed to insertion_func is NULL.
+ *                             case the user_data passed to insertion_func is NULL
+ *                             and drmgr_unregister_bb_insertion_event() must be
+ *                             used to unregister.
  * @param[in]  insertion_func  The insertion callback to be called for the third stage.
  *                             Can be NULL if analysis_func is non-NULL.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
@@ -341,6 +343,20 @@ DR_EXPORT
 bool
 drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func);
 
+DR_EXPORT
+/**
+ * Unregisters \p func from the second and third instrumentation stages.
+ * If an analysis callback was passed to drmgr_register_bb_instrumentation_event(),
+ * use drmgr_unregister_bb_instrumentation_event() instead.
+ *
+ * \return true if unregistration is successful and false if it is not
+ * (e.g., \p func was not registered).
+ *
+ * The recommendations for #dr_unregister_bb_event() about when it
+ * is safe to unregister apply here as well.
+ */
+bool
+drmgr_unregister_bb_insertion_event(drmgr_insertion_cb_t func);
 
 DR_EXPORT
 /**

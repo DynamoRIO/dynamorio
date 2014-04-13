@@ -876,6 +876,7 @@ static bool
 drmgr_bb_cb_remove(cb_list_t *list,
                    drmgr_xform_cb_t xform_func,
                    drmgr_analysis_cb_t analysis_func,
+                   drmgr_insertion_cb_t insertion_func,
                    /* for quartet */
                    drmgr_app2app_ex_cb_t app2app_ex_func,
                    drmgr_ilist_ex_cb_t analysis_ex_func,
@@ -886,6 +887,8 @@ drmgr_bb_cb_remove(cb_list_t *list,
     ASSERT(list != NULL, "invalid internal params");
     ASSERT((xform_func != NULL && analysis_func == NULL) ||
            (xform_func == NULL && analysis_func != NULL) ||
+           (xform_func == NULL && analysis_func == NULL &&
+            insertion_func != NULL) ||
            (xform_func == NULL && analysis_func == NULL &&
             (app2app_ex_func != NULL ||
              analysis_ex_func != NULL ||
@@ -898,6 +901,7 @@ drmgr_bb_cb_remove(cb_list_t *list,
             continue;
         if ((xform_func != NULL && xform_func == e->cb.xform_cb) ||
             (analysis_func != NULL && analysis_func == e->cb.pair.analysis_cb) ||
+            (insertion_func != NULL && insertion_func == e->cb.pair.insertion_cb) ||
             (app2app_ex_func != NULL && app2app_ex_func == e->cb.app2app_ex_cb) ||
             (analysis_ex_func != NULL &&
              analysis_ex_func == e->cb.pair_ex.analysis_ex_cb) ||
@@ -947,7 +951,7 @@ drmgr_unregister_bb_app2app_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_app2app, func, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -956,7 +960,18 @@ drmgr_unregister_bb_instrumentation_event(drmgr_analysis_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, func, NULL, NULL,
+                              NULL, NULL);
+}
+
+DR_EXPORT
+bool
+drmgr_unregister_bb_insertion_event(drmgr_insertion_cb_t func)
+{
+    if (func == NULL)
+        return false; /* invalid params */
+    return drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, func, NULL, NULL,
+                              NULL);
 }
 
 DR_EXPORT
@@ -965,7 +980,7 @@ drmgr_unregister_bb_instru2instru_event(drmgr_xform_cb_t func)
 {
     if (func == NULL)
         return false; /* invalid params */
-    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL);
+    return drmgr_bb_cb_remove(&cblist_instru2instru, func, NULL, NULL, NULL, NULL, NULL);
 }
 
 DR_EXPORT
@@ -979,11 +994,11 @@ drmgr_unregister_bb_instrumentation_ex_event(drmgr_app2app_ex_cb_t app2app_func,
     if (app2app_func == NULL || analysis_func == NULL || insertion_func == NULL ||
         instru2instru_func == NULL)
         return false; /* invalid params */
-    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, app2app_func,
+    ok = drmgr_bb_cb_remove(&cblist_app2app, NULL, NULL, NULL, app2app_func,
                             NULL, NULL) && ok;
-    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL,
+    ok = drmgr_bb_cb_remove(&cblist_instrumentation, NULL, NULL, NULL, NULL,
                             analysis_func, NULL) && ok;
-    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL,
+    ok = drmgr_bb_cb_remove(&cblist_instru2instru, NULL, NULL, NULL, NULL,
                             NULL, instru2instru_func) && ok;
     return ok;
 }
