@@ -1982,7 +1982,8 @@ tobuild(security-common.ret_noncall_trace security-common/ret_noncall_trace.c)
 
 # FIXME i#1423: somehow when built with VS2013 x64 you can't catch a fault on
 # jumping to an invalid address!  For now we disable for VS2013 x64.
-if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 18.0)
+# It also seems to fail on win8 x64 with VS2012.
+if (UNIX OR NOT X64 OR CMAKE_C_COMPILER_VERSION VERSION_LESS 17.0)
   tobuild(security-common.retnonexisting security-common/retnonexisting.c)
 endif ()
 
