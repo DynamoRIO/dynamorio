@@ -3326,8 +3326,30 @@ float_pc_update(dcontext_t *dcontext)
           is_dynamo_address(orig_pc) ||
           is_in_dynamo_dll(orig_pc)
           IF_CLIENT_INTERFACE(|| is_in_client_lib(orig_pc)))) {
-        LOG(THREAD, LOG_INTERP, 2, "%s: pc is translated already\n", __FUNCTION__);
-        return;
+        bool no_xl8 = true;
+#ifdef X64
+        if (dcontext->upcontext.upcontext.exit_reason != EXIT_REASON_FLOAT_PC_FXSAVE64 &&
+            dcontext->upcontext.upcontext.exit_reason != EXIT_REASON_FLOAT_PC_XSAVE64) {
+            /* i#1427: try to fill in the top 32 bits */
+            ptr_uint_t vmcode = (ptr_uint_t) vmcode_get_start();
+            if ((vmcode & 0xffffffff00000000) > 0) {
+                byte *orig_try = (byte *)
+                    ((vmcode & 0xffffffff00000000) | (ptr_uint_t)orig_pc);
+                if (in_fcache(orig_try)) {
+                    LOG(THREAD, LOG_INTERP, 2,
+                        "%s: speculating: pc "PFX" + top half of vmcode = "PFX"\n",
+                        __FUNCTION__, orig_pc, orig_try);
+                    orig_pc = orig_try;
+                    no_xl8 = false;
+                }
+            }
+        }
+#endif
+        if (no_xl8) {
+            LOG(THREAD, LOG_INTERP, 2, "%s: pc "PFX" is translated already\n",
+                __FUNCTION__, orig_pc);
+            return;
+        }
     }
     /* We must either grab thread_initexit_lock or be couldbelinking to translate */
     mutex_lock(&thread_initexit_lock);
