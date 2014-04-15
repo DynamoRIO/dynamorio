@@ -4292,11 +4292,14 @@ static bool
 find_free_memory_in_region(byte *start, byte *end, size_t size,
                            byte **found_start OUT, byte **found_end OUT)
 {
-    byte *cur, *p = NULL;
+    byte *cur;
     MEMORY_BASIC_INFORMATION mbi;
     /* walk bounds to find a suitable location */
     cur = (byte *)ALIGN_FORWARD(start, VM_ALLOCATION_BOUNDARY);
-    while (p == NULL && cur + size <= (byte *)end &&
+    /* avoid returning NULL (i#1431) */
+    if (cur == NULL)
+        cur = (byte *)(ptr_uint_t) VM_ALLOCATION_BOUNDARY;
+    while (cur + size <= (byte *)end &&
            query_virtual_memory(cur, &mbi, sizeof(mbi)) == sizeof(mbi)) {
         if (mbi.State == MEM_FREE &&
             mbi.RegionSize - (cur - (byte *)mbi.BaseAddress) >= size) {
