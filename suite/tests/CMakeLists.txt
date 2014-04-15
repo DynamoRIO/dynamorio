@@ -1580,7 +1580,10 @@ if (CLIENT_INTERFACE)
       ${CMAKE_CURRENT_SOURCE_DIR}/api/ir_4args.h)
     append_property_string(SOURCE api/ir.c OBJECT_DEPENDS "${api_ir_headers}")
   endif ()
-  tobuild_api(api.startstop api/startstop.c "" "" OFF)
+  if (X64 OR "${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
+    # FIXME i#1035: this test crashes on win8 wow64
+    tobuild_api(api.startstop api/startstop.c "" "" OFF)
+  endif ()
   # test static decoder library
   tobuild_api(api.ir-static api/ir.c "" "" ON)
   tobuild_api(api.static api/static.c "" "" ON)
