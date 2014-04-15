@@ -88,7 +88,7 @@ check_mbi(MEMORY_BASIC_INFORMATION *mbi)
             }
         }
 #if VERBOSE
-        print("\n%p-%s", mbi->AllocationBase, szModName);
+        print("%p-%s\n", mbi->AllocationBase, szModName);
 #endif
     }
     return num_found;

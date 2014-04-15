@@ -50,6 +50,8 @@
 #include "instrument.h"
 #include "../perscache.h" /* for coarse_info_t.rct_loaded */
 #include "../hashtable.h" /* section2file table */
+#include "instr.h"
+#include "decode.h"
 
 /* used to hold the version information we get from the .rsrc section */
 typedef struct _version_info_t {
@@ -874,6 +876,115 @@ print_ldr_data()
 /* remember our struct in case we want to put it back */
 static LDR_MODULE *DR_module;
 
+static RTL_RB_TREE *
+find_ntdll_mod_rbtree(module_handle_t ntdllh, RTL_RB_TREE *tomatch)
+{
+    /* Several internal routines reference ntdll!LdrpModuleBaseAddressIndex like so:
+     *   mov     rax,qword ptr [ntdll!LdrpModuleBaseAddressIndex (000007ff`7995eaa0)]
+     * On Win8, but not Win8.1, the exported LdrGetProcedureAddressForCaller does.
+     * On both Win8 and Win8.1, the exported LdrDisableThreadCalloutsForDll calls
+     * the internal LdrpFindLoadedDllByHandle which then has the ref we want.
+     */
+#   define RBTREE_MAX_DECODE 0x180 /* it's at +0xe1 on win8 */
+    RTL_RB_TREE *found = NULL;
+    instr_t inst;
+    bool found_call = false;
+    byte *pc;
+    byte *start = (byte *) get_proc_address(ntdllh, "LdrDisableThreadCalloutsForDll");
+    if (start == NULL)
+        return NULL;
+    instr_init(GLOBAL_DCONTEXT, &inst);
+    for (pc = start; pc < start + RBTREE_MAX_DECODE; ) {
+        instr_reset(GLOBAL_DCONTEXT, &inst);
+        pc = decode(GLOBAL_DCONTEXT, pc, &inst);
+        if (!instr_valid(&inst) || instr_is_return(&inst))
+            break;
+        if (!found_call && instr_get_opcode(&inst) == OP_call) {
+            /* We assume the first call is the one to the internal routine.
+             * Switch to that routine.
+             */
+            found_call = true;
+            pc = opnd_get_pc(instr_get_target(&inst));
+        } else if (instr_get_opcode(&inst) == OP_mov_ld) {
+            opnd_t src = instr_get_src(&inst, 0);
+            if (opnd_is_abs_addr(src) IF_X64(|| opnd_is_rel_addr(src))) {
+                byte *addr = opnd_get_addr(src);
+                if (is_in_ntdll(addr)) {
+                    RTL_RB_TREE local;
+                    if (safe_read(addr, sizeof(local), &local) &&
+                        local.Root == tomatch->Root &&
+                        local.Min == tomatch->Min) {
+                        LOG(GLOBAL, LOG_ALL, 2,
+                            "Found LdrpModuleBaseAddressIndex @"PFX"\n", addr);
+                        found = (RTL_RB_TREE *) addr;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    instr_free(GLOBAL_DCONTEXT, &inst);
+    return found;
+}
+
+/* i#934: remove from the rbtree added in Win8.
+ * Our strategy is to call RtlRbRemoveNode and pass in either a fake rbtree
+ * (if our dll is not the root or min node) or go and decode a routine
+ * to find the real rbtree (ntdll!LdrpModuleBaseAddressIndex) to pass in.
+ */
+static void
+hide_from_rbtree(LDR_MODULE *mod)
+{
+    RTL_RB_TREE *tree;
+    RTL_RB_TREE tree_local;
+    RTL_BALANCED_NODE *node;
+    typedef VOID (NTAPI *RtlRbRemoveNode_t)
+        (IN PRTL_RB_TREE Tree, IN PRTL_BALANCED_NODE Node);
+    RtlRbRemoveNode_t RtlRbRemoveNode;
+    module_handle_t ntdllh;
+
+    if (get_os_version() < WINDOWS_VERSION_8)
+        return;
+
+    LOG(GLOBAL, LOG_ALL, 2, "Attempting to remove dll from rbtree\n");
+
+    ntdllh = get_ntdll_base();
+    RtlRbRemoveNode = (RtlRbRemoveNode_t) get_proc_address(ntdllh, "RtlRbRemoveNode");
+    if (RtlRbRemoveNode == NULL) {
+        SYSLOG_INTERNAL_WARNING("cannot remove dll from rbtree: no RtlRbRemoveNode");
+        return;
+    }
+
+    tree = &tree_local;
+    node = &mod->BaseAddressIndexNode;
+    while (RTL_BALANCED_NODE_PARENT_VALUE(node) != NULL)
+        node = RTL_BALANCED_NODE_PARENT_VALUE(node);
+    tree->Root = node;
+    node = node->Left;
+    while (node->Left != NULL)
+        node = node->Left;
+    tree->Min = node;
+
+    if (&mod->BaseAddressIndexNode == tree->Root ||
+        &mod->BaseAddressIndexNode == tree->Min) {
+        /* We decode a routine known to deref ntdll!LdrpModuleBaseAddressIndex.
+         * An alternative could be to scan ntdll's data sec looking for root and min?
+         */
+        tree = find_ntdll_mod_rbtree(ntdllh, tree);
+        if (tree == NULL) {
+            SYSLOG_INTERNAL_WARNING("cannot remove dll from rbtree: at root/min + "
+                                    "can't find real tree");
+            return;
+        }
+    }
+
+    /* Strangely this seems to have no return value so we don't know whether it
+     * succeeded.
+     */
+    RtlRbRemoveNode(tree, &mod->BaseAddressIndexNode);
+    LOG(GLOBAL, LOG_ALL, 2, "Removed dll from rbtree\n");
+}
+
 /* FIXME : to cleanly detach we need to add ourselves back on to the module
  * list so we can free library NYI, right now is memory leak but not a big
  * deal since vmmheap is already leaking a lot more then that */
@@ -895,7 +1006,7 @@ static LDR_MODULE *DR_module;
  * remove our pre-inject dll from that. */
 
 static void
-hide_from_module_lists()
+hide_from_module_lists(void)
 {
     /* remove us from the module lists! */
     PEB *peb = get_own_peb();
@@ -933,6 +1044,10 @@ hide_from_module_lists()
             /* doubly linked circular list */
             e->Flink->Blink = e->Blink;
             e->Blink->Flink = e->Flink;
+            if (get_os_version() >= WINDOWS_VERSION_8) {
+                /* i#934: remove from the rbtree added in Win8 */
+                hide_from_rbtree(mod);
+            }
             break;
         }
         if (i > MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD) {
@@ -987,6 +1102,8 @@ hide_from_module_lists()
     }
     LOG(GLOBAL, LOG_ALL, 2, "After removing, module lists are:\n");
     DOLOG(2, LOG_ALL, { print_ldr_data(); });
+
+    /* FIXME i#1429: also remove from hashtable used by GetModuleHandle */
 }
 
 /* N.B.: walking loader data structures at random times is dangerous!

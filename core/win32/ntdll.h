@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -123,10 +123,35 @@ typedef struct _PEB_LDR_DATA {
     LIST_ENTRY InInitializationOrderModuleList;
 } PEB_LDR_DATA, *PPEB_LDR_DATA;
 
+typedef struct _RTL_BALANCED_NODE {
+    union {
+        struct _RTL_BALANCED_NODE *Children[2];
+        struct {
+            struct _RTL_BALANCED_NODE *Left;
+            struct _RTL_BALANCED_NODE *Right;
+        };
+    };
+    union {
+        UCHAR Red : 1;
+        UCHAR Balance : 2;
+        ULONG_PTR ParentValue;
+    };
+} RTL_BALANCED_NODE, *PRTL_BALANCED_NODE;
+
+/* The ParentValue field should have the bottom 2 bits masked off */
+#define RTL_BALANCED_NODE_PARENT_VALUE(rbn) \
+    ((PRTL_BALANCED_NODE)((rbn)->ParentValue & (~3)))
+
+typedef struct _RTL_RB_TREE {
+    PRTL_BALANCED_NODE Root;
+    PRTL_BALANCED_NODE Min;
+} RTL_RB_TREE, *PRTL_RB_TREE;
+
 /* Note that these lists are walked through corresponding LIST_ENTRY pointers
- * i.e., for InInit*Order*, Flink points 16 bytes into the LDR_MODULE structure
+ * i.e., for InInit*Order*, Flink points 16 bytes into the LDR_MODULE structure.
+ * The MS symbols refer to this data struct as ntdll!_LDR_DATA_TABLE_ENTRY
  */
-typedef struct _LDR_MODULE {
+typedef struct _LDR_MODULE {                         /* offset: 32bit / 64bit */
     LIST_ENTRY InLoadOrderModuleList;
     LIST_ENTRY InMemoryOrderModuleList;
     LIST_ENTRY InInitializationOrderModuleList;
@@ -135,12 +160,34 @@ typedef struct _LDR_MODULE {
     ULONG SizeOfImage;
     UNICODE_STRING FullDllName;
     UNICODE_STRING BaseDllName;
-    ULONG Flags;
-    SHORT LoadCount;
-    SHORT TlsIndex;
-    LIST_ENTRY HashTableEntry; /* CHECK: according to WINE this is HANDLE SectionHandle, ULONG CheckSum */
-    /* FIXME: on XP dt ntdll!_LDR_DATA_TABLE_ENTRY does indeed agree with WINE */
-    ULONG TimeDateStamp;
+    ULONG Flags;                                             /* 0x034 / 0x068 */
+    SHORT LoadCount;                                         /* 0x038 / 0x06c */
+    SHORT TlsIndex;                                          /* 0x03a / 0x06e */
+    union {
+        struct {
+            HANDLE SectionHandle;                            /* 0x03c / 0x070 */
+            ULONG CheckSum;                                  /* 0x040 / 0x078 */
+        };
+        LIST_ENTRY HashLinks;                                /* 0x03c / 0x070 */
+    };
+    ULONG TimeDateStamp;                                     /* 0x044 / 0x080 */
+    PVOID/*ACTIVATION_CONTEXT*/ EntryPointActivationContext; /* 0x048 / 0x088 */
+    PVOID PatchInformation;                                  /* 0x04c / 0x090 */
+    /* ----------------------------------------------------------------------
+     * Below here is Win8-only.  Win7 has some different, incompatible
+     * fields.  We only need to access things below here on Win8.
+     */
+    PVOID DdagNode;                                          /* 0x050 / 0x098 */
+    LIST_ENTRY NodeModuleLink;                               /* 0x054 / 0x0a0 */
+    PVOID SnapContext;                                       /* 0x05c / 0x0b0 */
+    PVOID ParentDllBase;                                     /* 0x060 / 0x0b8 */
+    PVOID SwitchBackContext;                                 /* 0x064 / 0x0c0 */
+    RTL_BALANCED_NODE BaseAddressIndexNode;                  /* 0x068 / 0x0c8 */
+    RTL_BALANCED_NODE MappingInfoIndexNode;                  /* 0x074 / 0x0e0 */
+    ULONG_PTR OriginalBase;                                  /* 0x080 / 0x0f8 */
+    LARGE_INTEGER LoadTime;                                  /* 0x088 / 0x100 */
+    ULONG BaseNameHashValue;                                 /* 0x090 / 0x108 */
+    ULONG LoadReason;                                        /* 0x094 / 0x10c */
 } LDR_MODULE, *PLDR_MODULE;
 
 /* This macro is defined so that 32-bit dlls can be handled in 64-bit DR.
