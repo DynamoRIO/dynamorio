@@ -76,6 +76,7 @@
 #else
 # define IF_CBR_COVERAGE_ELSE(x, y) y
 #endif
+#define UNKNOW_MODULE_ID USHRT_MAX
 
 static uint verbose;
 
@@ -200,7 +201,8 @@ bb_table_entry_check(ptr_uint_t idx, void *entry, void *iter_data)
     bb_entry_t  *bb_entry = (bb_entry_t *)entry;
     hashtable_t *bb_htable;
     hashtable_t *cbr_htable;
-    int mod_id = (bb_entry->mod_id == -1) ? data->num_mods-1 : bb_entry->mod_id;
+    int mod_id = (bb_entry->mod_id == UNKNOW_MODULE_ID) ?
+        data->num_mods-1 : bb_entry->mod_id;
     bb_htable  = &data->bb_htables[mod_id];
     cbr_htable = &data->cbr_htables[mod_id];
     if (bb_entry->cbr_tgt != 0) {
@@ -244,7 +246,7 @@ bb_table_entry_fill_htable(ptr_uint_t idx, void *entry, void *iter_data)
 {
     check_iter_data_t *data = (check_iter_data_t *)iter_data;
     bb_entry_t  *bb_entry = (bb_entry_t *)entry;
-    int mod_id = (bb_entry->mod_id == -1) ?
+    int mod_id = (bb_entry->mod_id == UNKNOW_MODULE_ID) ?
         data->num_mods - 1 : bb_entry->mod_id;
     hashtable_t *htable = &data->bb_htables[mod_id];
     if (hashtable_add(htable, (void *)(ptr_uint_t)bb_entry->start, entry))
@@ -324,18 +326,21 @@ bb_table_check_cbr(module_table_t *table, per_thread_t *data)
     dr_fprintf(data->res, ", checksum, timestamp");
 #endif
     dr_fprintf(data->res, "\n");
+
     drvector_lock(&module_table->vector);
     for (i = 0; i < num_mods-1; i++) {
         module_entry_t *entry = drvector_get_entry(&module_table->vector, i);
         ASSERT(entry != NULL, "fail to get a module entry");
-        module_table_entry_print(entry, data->res);
+        module_table_entry_print(entry, data->res, true);
         bb_table_check_print_result(data, &iter_data, i);
     }
     drvector_unlock(&module_table->vector);
+
     if (iter_data.num_bbs[i] != 0) {
         dr_fprintf(data->res, "basic blocks from unknown module\n");
         bb_table_check_print_result(data, &iter_data, i);
     }
+
     /* destroy the hashtable for each modules */
     for (i = 0; i < num_mods; i++) {
         hashtable_delete(&iter_data.bb_htables[i]);
@@ -419,7 +424,7 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start,
          * which will be ignored in the post-processing.
          * Should be handled for JIT code in the future.
          */
-        bb_entry->mod_id = USHRT_MAX;
+        bb_entry->mod_id = UNKNOW_MODULE_ID;
         bb_entry->start  = (uint)(ptr_uint_t)start;
 #ifdef CBR_COVERAGE
         bb_entry->cbr_tgt = (uint)(ptr_uint_t)cbr_tgt;

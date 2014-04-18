@@ -193,7 +193,7 @@ module_table_unload(module_table_t *table, const module_data_t *data)
 }
 
 /* assuming caller holds the lock */
-static void
+void
 module_table_entry_print(module_entry_t *entry, file_t log, bool print_all_info)
 {
     const char *name;

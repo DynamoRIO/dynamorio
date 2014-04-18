@@ -55,9 +55,18 @@ typedef struct _module_table_t {
 void
 module_table_load(module_table_t *table, const module_data_t *data);
 
+/* To avoid data race, proper sychronization on module table is required for
+ * accessing module table entry.
+ */
 module_entry_t *
 module_table_lookup(module_entry_t **cache, int cache_size,
                     module_table_t *table, app_pc pc);
+
+/* To avoid data race, proper sychronization on module table is required for
+ * accessing module table entry.
+ */
+void
+module_table_entry_print(module_entry_t *entry, file_t log, bool print_all_info);
 
 void
 module_table_unload(module_table_t *table, const module_data_t *data);
