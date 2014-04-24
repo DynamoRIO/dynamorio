@@ -76,7 +76,7 @@
 #else
 # define IF_CBR_COVERAGE_ELSE(x, y) y
 #endif
-#define UNKNOW_MODULE_ID USHRT_MAX
+#define UNKNOWN_MODULE_ID USHRT_MAX
 
 static uint verbose;
 
@@ -201,7 +201,7 @@ bb_table_entry_check(ptr_uint_t idx, void *entry, void *iter_data)
     bb_entry_t  *bb_entry = (bb_entry_t *)entry;
     hashtable_t *bb_htable;
     hashtable_t *cbr_htable;
-    int mod_id = (bb_entry->mod_id == UNKNOW_MODULE_ID) ?
+    int mod_id = (bb_entry->mod_id == UNKNOWN_MODULE_ID) ?
         data->num_mods-1 : bb_entry->mod_id;
     bb_htable  = &data->bb_htables[mod_id];
     cbr_htable = &data->cbr_htables[mod_id];
@@ -246,7 +246,7 @@ bb_table_entry_fill_htable(ptr_uint_t idx, void *entry, void *iter_data)
 {
     check_iter_data_t *data = (check_iter_data_t *)iter_data;
     bb_entry_t  *bb_entry = (bb_entry_t *)entry;
-    int mod_id = (bb_entry->mod_id == UNKNOW_MODULE_ID) ?
+    int mod_id = (bb_entry->mod_id == UNKNOWN_MODULE_ID) ?
         data->num_mods - 1 : bb_entry->mod_id;
     hashtable_t *htable = &data->bb_htables[mod_id];
     if (hashtable_add(htable, (void *)(ptr_uint_t)bb_entry->start, entry))
@@ -424,7 +424,7 @@ bb_table_entry_add(void *drcontext, per_thread_t *data, app_pc start,
          * which will be ignored in the post-processing.
          * Should be handled for JIT code in the future.
          */
-        bb_entry->mod_id = UNKNOW_MODULE_ID;
+        bb_entry->mod_id = UNKNOWN_MODULE_ID;
         bb_entry->start  = (uint)(ptr_uint_t)start;
 #ifdef CBR_COVERAGE
         bb_entry->cbr_tgt = (uint)(ptr_uint_t)cbr_tgt;
