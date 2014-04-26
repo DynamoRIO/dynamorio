@@ -106,13 +106,16 @@ drsym_obj_debug_path(void);
  */
 
 void *
-drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base);
+drsym_dwarf_init(Dwarf_Debug dbg);
 
 void
 drsym_dwarf_exit(void *mod_in);
 
 void
 drsym_dwarf_set_obj_offs(void *mod_in, ssize_t adjust);
+
+void
+drsym_dwarf_set_load_base(void *mod_in, byte *load_base);
 
 bool
 drsym_dwarf_search_addr2line(void *mod_in, Dwarf_Addr pc, drsym_info_t *sym_info INOUT);

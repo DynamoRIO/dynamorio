@@ -440,11 +440,10 @@ drsym_dwarf_enumerate_lines(void *mod_in, drsym_enumerate_lines_cb callback, voi
 }
 
 void *
-drsym_dwarf_init(Dwarf_Debug dbg, byte *load_base)
+drsym_dwarf_init(Dwarf_Debug dbg)
 {
     dwarf_module_t *mod = (dwarf_module_t *) dr_global_alloc(sizeof(*mod));
     memset(mod, 0, sizeof(*mod));
-    mod->load_base = load_base;
     mod->dbg = dbg;
     return mod;
 }
@@ -464,6 +463,13 @@ drsym_dwarf_set_obj_offs(void *mod_in, ssize_t adjust)
 {
     dwarf_module_t *mod = (dwarf_module_t *) mod_in;
     mod->offs_adjust = adjust;
+}
+
+void
+drsym_dwarf_set_load_base(void *mod_in, byte *load_base)
+{
+    dwarf_module_t *mod = (dwarf_module_t *) mod_in;
+    mod->load_base = load_base;
 }
 
 #if defined(WINDOWS) && defined(STATIC_LIB)

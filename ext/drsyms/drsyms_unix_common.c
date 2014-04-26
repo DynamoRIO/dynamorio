@@ -188,13 +188,18 @@ load_module(const char *modpath)
 #endif
         if (TEST(DRSYM_DWARF_LINE, mod->debug_kind) &&
             drsym_obj_dwarf_init(mod->obj_info, &dbg)) {
-            mod->dwarf_info = drsym_dwarf_init(dbg, drsym_obj_load_base(mod->obj_info));
+            mod->dwarf_info = drsym_dwarf_init(dbg);
         } else {
             NOTIFY("%s: failed to init DWARF for %s\n", __FUNCTION__, modpath);
             mod->dwarf_info = NULL;
         }
         if (!drsym_obj_mod_init_post(mod->obj_info, mod->map_base, mod->dwarf_info))
             goto error;
+        if (mod->dwarf_info != NULL) {
+            /* i#1433: obj_info->load_base is initialized in drsym_obj_mod_init_post */
+            drsym_dwarf_set_load_base(mod->dwarf_info,
+                                      drsym_obj_load_base(mod->obj_info));
+        }
     }
 
     NOTIFY("%s: loaded %s\n", __FUNCTION__, modpath);
