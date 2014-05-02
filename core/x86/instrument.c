@@ -6112,6 +6112,8 @@ dr_flush_region(app_pc start, size_t size)
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
 
+    LOG(THREAD, LOG_FRAGMENT, 2, "%s: "PFX"-"PFX"\n", __FUNCTION__, start, start+size);
+
     /* Flush requires !couldbelinking. FIXME - not all event callbacks to the client are
      * !couldbelinking (see PR 227619) restricting where this routine can be used. */
     CLIENT_ASSERT(!is_couldbelinking(dcontext), "dr_flush_region: called from an event "
@@ -6151,6 +6153,8 @@ dr_unlink_flush_region(app_pc start, size_t size)
     dcontext_t *dcontext = get_thread_private_dcontext();
     CLIENT_ASSERT(!standalone_library, "API not supported in standalone mode");
     ASSERT(dcontext != NULL);
+
+    LOG(THREAD, LOG_FRAGMENT, 2, "%s: "PFX"-"PFX"\n", __FUNCTION__, start, start+size);
 
     /* This routine won't work with coarse_units */
     CLIENT_ASSERT(!DYNAMO_OPTION(coarse_units),
@@ -6197,6 +6201,9 @@ dr_delay_flush_region(app_pc start, size_t size, uint flush_id,
                       void (*flush_completion_callback) (int flush_id))
 {
     client_flush_req_t *flush;
+
+    LOG(THREAD_GET, LOG_FRAGMENT, 2, "%s: "PFX"-"PFX"\n",
+        __FUNCTION__, start, start+size);
 
     if (size == 0) {
         CLIENT_ASSERT(false, "dr_delay_flush_region: 0 is invalid size for flush");

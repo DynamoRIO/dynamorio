@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -171,6 +171,7 @@ hashtable_add(hashtable_t *table, void *key, void *payload);
 
 /**
  * Adds a new entry, replacing an existing entry if any.
+ * Returns the old payload, or NULL if there was no existing entry.
  * \note Never use NULL as a payload as that is used for a lookup failure.
  */
 void *

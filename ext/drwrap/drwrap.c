@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -1002,10 +1002,10 @@ drwrap_is_replaced_native(app_pc func)
 
 static bool
 drwrap_replace_common(hashtable_t *table,
-                      app_pc original, void *payload, bool override)
+                      app_pc original, void *payload, bool override, bool force_flush)
 {
     bool res = true;
-    bool flush = false;
+    bool flush = force_flush;
     if (original == NULL)
         return false;
     if (payload == NULL) {
@@ -1017,8 +1017,7 @@ drwrap_replace_common(hashtable_t *table,
         }
     } else {
         if (override) {
-            flush = true;
-            hashtable_add_replace(table, (void *)original, payload);
+            flush = (hashtable_add_replace(table, (void *)original, payload) != NULL);
         } else
             res = hashtable_add(table, (void *)original, payload);
     }
@@ -1040,7 +1039,7 @@ DR_EXPORT
 bool
 drwrap_replace(app_pc original, app_pc replacement, bool override)
 {
-    return drwrap_replace_common(&replace_table, original, replacement, override);
+    return drwrap_replace_common(&replace_table, original, replacement, override, false);
 }
 
 DR_EXPORT
@@ -1063,7 +1062,13 @@ drwrap_replace_native(app_pc original, app_pc replacement, bool at_entry,
         rn->user_data = user_data;
     }
     hashtable_lock(&replace_native_table);
-    res = drwrap_replace_common(&replace_native_table, original, rn, override);
+    res = drwrap_replace_common(&replace_native_table, original, rn, override,
+                                /* i#1438: if we're not at the entry, we'd better
+                                 * flush to ensure we replace.  If this is done at
+                                 * module load, the flush will be empty and will cost
+                                 * just a few mutexes.
+                                 */
+                                !at_entry);
     hashtable_unlock(&replace_native_table);
     return res;
 }
