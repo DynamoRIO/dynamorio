@@ -115,8 +115,15 @@ print(char *fmt, ...)
     va_end(ap);
 }
 
-/* We do see a large number of nops occasionally (e.g., DrMem i#1366) */
-#define MAX_INSTRS_BEFORE_SYSCALL 32
+/* We expect the win8 x86 sysenter adjacent "inlined" callee to be as simple as
+ *     75caeabc 8bd4        mov     edx,esp
+ *     75caeabe 0f34        sysenter
+ *     75caeac0 c3          ret
+ */
+#define MAX_INSTRS_SYSENTER_CALLEE  4
+/* the max distance from call to the sysenter callee target */
+#define MAX_SYSENTER_CALLEE_OFFSET  0x50
+#define MAX_INSTRS_BEFORE_SYSCALL 16
 #define MAX_INSTRS_IN_FUNCTION 256
 
 typedef struct {
@@ -198,6 +205,119 @@ process_ret(instr_t *instr, syscall_info_t *info)
         info->num_args = 0;
 }
 
+/* returns whether found a syscall
+ * - found_eax: whether the caller has seen "mov imm => %eax"
+ * - found_edx: whether the caller has seen "mov $0x7ffe0300 => %edx",
+ *              xref the comment below about "mov $0x7ffe0300 => %edx".
+ */
+static bool
+process_syscall_instr(void *dcontext, instr_t *instr, bool found_eax, bool found_edx)
+{
+    /* ASSUMPTION: a mov imm of 0x7ffe0300 into edx followed by an
+     * indirect call via edx is a system call on XP and later
+     * On XP SP1 it's call *edx, while on XP SP2 it's call *(edx)
+     * For wow it's a call through fs.
+     * FIXME - core exports various is_*_syscall routines (such as
+     * instr_is_wow64_syscall()) which we could use here instead of
+     * duplicating if they were more flexible about when they could
+     * be called (instr_is_wow64_syscall() for ex. asserts if not
+     * in a wow process).
+     */
+    if (/* int 2e or x64 or win8 sysenter */
+        (instr_is_syscall(instr) &&
+         found_eax && (expect_int2e || expect_x64 || expect_sysenter)) ||
+        /* sysenter case */
+        (expect_sysenter && found_edx && found_eax &&
+         instr_is_call_indirect(instr) &&
+         /* XP SP{0,1}, 2003 SP0: call *edx */
+         ((opnd_is_reg(instr_get_target(instr)) &&
+           opnd_get_reg(instr_get_target(instr)) == REG_EDX) ||
+          /* XP SP2, 2003 SP1: call *(edx) */
+          (opnd_is_base_disp(instr_get_target(instr)) &&
+           opnd_get_base(instr_get_target(instr)) == REG_EDX &&
+           opnd_get_index(instr_get_target(instr)) == REG_NULL &&
+           opnd_get_disp(instr_get_target(instr)) == 0))) ||
+        /* wow case
+         * we don't require found_ecx b/c win8 does not use ecx
+         */
+        (expect_wow && found_eax &&
+         instr_is_call_indirect(instr) &&
+         opnd_is_far_base_disp(instr_get_target(instr)) &&
+         opnd_get_base(instr_get_target(instr)) == REG_NULL &&
+         opnd_get_index(instr_get_target(instr)) == REG_NULL &&
+         opnd_get_segment(instr_get_target(instr)) == SEG_FS))
+        return true;
+    return false;
+}
+
+/* returns whether found a syscall
+ * - found_eax: whether the caller has seen "mov imm => %eax"
+ * - found_edx: whether the caller has seen "mov $0x7ffe0300 => %edx",
+ *              xref the comment in process_syscall_instr.
+ */
+static bool
+process_syscall_call(void *dcontext, byte *next_pc, instr_t *call,
+                     bool found_eax, bool found_edx)
+{
+    int num_instr;
+    byte *pc;
+    instr_t instr;
+    bool found_syscall = false;
+
+    assert(instr_get_opcode(call) == OP_call && opnd_is_pc(instr_get_target(call)));
+    pc = opnd_get_pc(instr_get_target(call));
+    if (pc > next_pc + MAX_SYSENTER_CALLEE_OFFSET ||
+        pc <= next_pc /* assuming the call won't go backward */)
+        return false;
+    /* handle win8 x86 which has sysenter callee adjacent-"inlined"
+     *     ntdll!NtYieldExecution:
+     *     77d7422c b801000000  mov     eax,1
+     *     77d74231 e801000000  call    ntdll!NtYieldExecution+0xb (77d74237)
+     *     77d74236 c3          ret
+     *     77d74237 8bd4        mov     edx,esp
+     *     77d74239 0f34        sysenter
+     *     77d7423b c3          ret
+     *
+     * or DrMem-i#1366-c#2
+     *     USER32!NtUserCreateWindowStation:
+     *     75caea7a b841110000  mov     eax,0x1141
+     *     75caea7f e838000000  call    user32!...+0xd (75caeabc)
+     *     75caea84 c22000      ret     0x20
+     *     ...
+     *     USER32!GetWindowStationName:
+     *     75caea8c 8bff        mov     edi,edi
+     *     75caea8e 55          push    ebp
+     *     ...
+     *     75caeabc 8bd4        mov     edx,esp
+     *     75caeabe 0f34        sysenter
+     *     75caeac0 c3          ret
+     */
+    /* We expect the win8 x86 sysenter adjacent "inlined" callee to be as simple as
+     *     75caeabc 8bd4        mov     edx,esp
+     *     75caeabe 0f34        sysenter
+     *     75caeac0 c3          ret
+     */
+    instr_init(dcontext, &instr);
+    num_instr = 0;
+    do {
+        instr_reset(dcontext, &instr);
+        pc = decode(dcontext, pc, &instr);
+        if (verbose)
+            dr_print_instr(dcontext, STDOUT, &instr, "");
+        if (pc == NULL || !instr_valid(&instr))
+            break;
+        if (instr_is_syscall(&instr) || instr_is_call_indirect(&instr)) {
+            found_syscall = process_syscall_instr(dcontext, &instr, found_eax, found_edx);
+            break;
+        } else if (instr_is_cti(&instr)) {
+            break;
+        }
+        num_instr++;
+    } while (num_instr <= MAX_INSTRS_SYSENTER_CALLEE);
+    instr_free(dcontext, &instr);
+    return found_syscall;
+}
+
 /* returns false on failure */
 static bool
 decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
@@ -230,91 +350,46 @@ decode_syscall_num(void *dcontext, byte *entry, syscall_info_t *info)
             dr_print_instr(dcontext, STDOUT, instr, "");
         if (pc == NULL || !instr_valid(instr))
             break;
-        /* ASSUMPTION: a mov imm of 0x7ffe0300 into edx followed by an
-         * indirect call via edx is a system call on XP and later
-         * On XP SP1 it's call *edx, while on XP SP2 it's call *(edx)
-         * For wow it's a call through fs.
-         * FIXME - core exports various is_*_syscall routines (such as
-         * instr_is_wow64_syscall()) which we could use here instead of
-         * duplicating if they were more flexible about when they could
-         * be called (instr_is_wow64_syscall() for ex. asserts if not
-         * in a wow process).
-         */
-        if (/* int 2e or x64 or win8 sysenter */
-            (instr_is_syscall(instr) && found_eax && (expect_int2e || expect_x64 || expect_sysenter)) ||
-            /* sysenter case */
-            (expect_sysenter && found_edx && found_eax &&
-             instr_is_call_indirect(instr) &&
-             /* XP SP{0,1}, 2003 SP0: call *edx */
-             ((opnd_is_reg(instr_get_target(instr)) &&
-               opnd_get_reg(instr_get_target(instr)) == REG_EDX) ||
-              /* XP SP2, 2003 SP1: call *(edx) */
-              (opnd_is_base_disp(instr_get_target(instr)) &&
-               opnd_get_base(instr_get_target(instr)) == REG_EDX &&
-               opnd_get_index(instr_get_target(instr)) == REG_NULL &&
-               opnd_get_disp(instr_get_target(instr)) == 0))) ||
-            /* wow case
-             * we don't require found_ecx b/c win8 does not use ecx
+        if (instr_is_syscall(instr) || instr_is_call_indirect(instr)) {
+            /* If we see a syscall instr or an indirect call which is not syscall,
+             * we assume this is not a syscall wrapper.
              */
-            (expect_wow && found_eax &&
-             instr_is_call_indirect(instr) &&
-             opnd_is_far_base_disp(instr_get_target(instr)) &&
-             opnd_get_base(instr_get_target(instr)) == REG_NULL &&
-             opnd_get_index(instr_get_target(instr)) == REG_NULL &&
-             opnd_get_segment(instr_get_target(instr)) == SEG_FS)) {
-            found_syscall = true;
+            found_syscall = process_syscall_instr(dcontext, instr, found_eax, found_edx);
+            if (!found_syscall)
+                break; /* assume not a syscall wrapper, give up gracefully */
         } else if (instr_is_return(instr)) {
+            /* we must break on return to avoid case like win8 x86
+             * which has sysenter callee adjacent-"inlined"
+             *     ntdll!NtYieldExecution:
+             *     77d7422c b801000000  mov     eax,1
+             *     77d74231 e801000000  call    ntdll!NtYieldExecution+0xb (77d74237)
+             *     77d74236 c3          ret
+             *     77d74237 8bd4        mov     edx,esp
+             *     77d74239 0f34        sysenter
+             *     77d7423b c3          ret
+             */
             if (!found_ret) {
                 process_ret(instr, info);
                 found_ret = true;
             }
             break;
+        } else if (instr_get_opcode(instr) == OP_call) {
+            found_syscall = process_syscall_call(dcontext, pc, instr,
+                                                 found_eax, found_edx);
+            /* If we see a call and it is not a sysenter callee,
+             * we assume this is not a syscall wrapper.
+             */
+            if (!found_syscall)
+                break; /* assume not a syscall wrapper, give up gracefully */
         } else if (instr_is_cti(instr)) {
-            if (instr_get_opcode(instr) == OP_call) {
-                /* handle win8 x86 which has sysenter callee adjacent-"inlined"
-                 *     ntdll!NtYieldExecution:
-                 *     77d7422c b801000000      mov     eax,1
-                 *     77d74231 e801000000      call    ntdll!NtYieldExecution+0xb (77d74237)
-                 *     77d74236 c3              ret
-                 *     77d74237 8bd4            mov     edx,esp
-                 *     77d74239 0f34            sysenter
-                 *     77d7423b c3              ret
-                 */
-                byte *tgt;
-                assert(opnd_is_pc(instr_get_target(instr)));
-                tgt = opnd_get_pc(instr_get_target(instr));
-                /* We expect only ret or ret imm, and possibly some nops (in gdi32).
-                 * There can be quite a few nops (DrMem i#1366) so we allow up
-                 * to 0x40 away.
-                 * XXX: what about jmp to shared ret (seen in the past on some syscalls)?
-                 */
-                if (tgt > pc && tgt <= pc + 0x40) {
-                    bool ok = false;
-                    do {
-                        if (pc == tgt) {
-                            ok = true;
-                            break;
-                        }
-                        instr_reset(dcontext, instr);
-                        pc = decode(dcontext, pc, instr);
-                        if (verbose)
-                            dr_print_instr(dcontext, STDOUT, instr, "");
-                        if (instr_is_return(instr)) {
-                            process_ret(instr, info);
-                            found_ret = true;
-                        } else if (!instr_is_nop(instr))
-                            break;
-                        num_instr++;
-                    } while (num_instr <= MAX_INSTRS_BEFORE_SYSCALL);
-                    if (ok)
-                        continue;
-                }
-            }
-            /* assume not a syscall wrapper if we hit a cti */
-            break; /* give up gracefully */
+            /* We expect only ctis like ret or ret imm, syscall, and call, which are
+             * handled above. Give up gracefully if we hit any other cti.
+             * XXX: what about jmp to shared ret (seen in the past on some syscalls)?
+             */
+            break;
         } else if ((!found_eax || !found_edx || !found_ecx) &&
-            instr_get_opcode(instr) == OP_mov_imm &&
-            opnd_is_reg(instr_get_dst(instr, 0))) {
+                   instr_get_opcode(instr) == OP_mov_imm &&
+                   opnd_is_reg(instr_get_dst(instr, 0))) {
             if (!found_eax && opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX) {
                 info->sysnum = (int) opnd_get_immed_int(instr_get_src(instr, 0));
                 found_eax = true;
@@ -457,7 +532,7 @@ process_exports(void *dcontext, char *dllname)
     DWORD *name, *code;
     WORD *ordinal;
     const char *string;
-    uint size;
+    ULONG size;
     BOOL res;
     uint i;
     byte *addr, *start_exports, *end_exports;
