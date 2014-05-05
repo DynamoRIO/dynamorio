@@ -52,45 +52,52 @@ get_base_named_obj_dir_name(wchar_t *wbuf OUT, size_t wbuflen)
      * kernel (so 64-bit for WOW64).  The second pointer points at a
      * BASE_STATIC_SERVER_DATA structure.
      *
-     * If this proves fragile in the future, AFAIK we could construct this:
-     * + Prior to Vista, just use BASE_NAMED_OBJECTS;
-     * + On Vista+, use L"\Sessions\N\BaseNamedObjects"
-     *   where N = PEB.SessionId.
-     *
      * The Windows library code BaseGetNamedObjectDirectory() seems to
      * deal with TEB->IsImpersonating, but by initializing at startup
      * here and not lazily I'm hoping we can avoid that complexity
      * (XXX: what about attach?).
      */
     byte *ptr = (byte *) get_peb(NT_CURRENT_PROCESS)->ReadOnlyStaticServerData;
-    if (get_os_version() >= WINDOWS_VERSION_8) {
-        /* For wow64, data is above 4GB so we can't read it as easily.  Rather than
-         * muck around with NtWow64ReadVirtualMemory64 we construct the string.
-         * For x64, the string is the 6th pointer, instead of the 2nd: just
-         * seems more fragile to read it than to construct.
-         */
-        uint sid = get_peb(NT_CURRENT_PROCESS)->SessionId;
-        int len;
-        /* we assume it's only called at init time */
-        len = _snwprintf(wbuf, wbuflen, L"\\Sessions\\%d\\BaseNamedObjects", sid);
-        ASSERT(len >= 0 && (size_t)len < wbuflen);
-        wbuf[wbuflen - 1] = L'\0';
-        return wbuf;
-    }
+    int len;
+    /* For win8 wow64, data is above 4GB so we can't read it as easily.  Rather than
+     * muck around with NtWow64ReadVirtualMemory64 we construct the string.
+     * For x64, the string is the 6th pointer, instead of the 2nd: just
+     * seems more fragile to read it than to construct.
+     */
+    if (ptr != NULL && get_os_version() < WINDOWS_VERSION_8) {
 #ifndef X64
-    if (is_wow64_process(NT_CURRENT_PROCESS)) {
-        BASE_STATIC_SERVER_DATA_64 *data =
-            *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2*sizeof(void*));
-        /* we assume null-terminated */
-        return data->NamedObjectDirectory.Buffer;
-    } else
+        if (is_wow64_process(NT_CURRENT_PROCESS)) {
+            BASE_STATIC_SERVER_DATA_64 *data =
+                *(BASE_STATIC_SERVER_DATA_64 **)(ptr + 2*sizeof(void*));
+            /* we assume null-terminated */
+            if (data != NULL)
+                return data->NamedObjectDirectory.Buffer;
+        } else
 #endif
         {
             BASE_STATIC_SERVER_DATA *data =
                 *(BASE_STATIC_SERVER_DATA **)(ptr + sizeof(void*));
             /* we assume null-terminated */
-            return data->NamedObjectDirectory.Buffer;
+            if (data != NULL)
+                return data->NamedObjectDirectory.Buffer;
         }
+    }
+    /* For earliest injection, these PEB pointers are not set up yet.
+     * Thus we construct the string using what we've observed:
+     * + Prior to Vista, just use BASE_NAMED_OBJECTS;
+     * + On Vista+, use L"\Sessions\N\BaseNamedObjects"
+     *   where N = PEB.SessionId.
+     */
+    if (get_os_version() < WINDOWS_VERSION_VISTA) {
+        len = _snwprintf(wbuf, wbuflen, BASE_NAMED_OBJECTS);
+    } else {
+        uint sid = get_peb(NT_CURRENT_PROCESS)->SessionId;
+        /* we assume it's only called at init time */
+        len = _snwprintf(wbuf, wbuflen, L"\\Sessions\\%d\\BaseNamedObjects", sid);
+    }
+    ASSERT(len >= 0 && (size_t)len < wbuflen);
+    wbuf[wbuflen - 1] = L'\0';
+    return wbuf;
 }
 
 void
