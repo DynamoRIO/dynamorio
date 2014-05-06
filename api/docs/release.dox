@@ -155,6 +155,7 @@ Further non-compatibility-affecting changes include:
    version and uuid fields for MacOS.
  - Added a new library drfrontendlib to be used for building tool
    front-ends.  For more information see dr_frontend.h.
+ - Added dr_create_memory_dump().
 
 **************************************************
 <hr>

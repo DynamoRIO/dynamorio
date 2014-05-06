@@ -6919,8 +6919,8 @@ os_dump_core_dump_thread(file_t file, thread_id_t tid, TEB *teb, HANDLE h,
 #pragma warning( push )
 /* warning is from GET_OWN_CONTEXT: flow in/out of asm code suppresses global opt */
 #pragma warning( disable : 4740)
-static void
-os_dump_core_live_dump(const char *msg)
+static bool
+os_dump_core_live_dump(const char *msg, char *path OUT, size_t path_sz)
 {
     /* like the dump_core_buf, all the locals are protected by the
      * dumpcore_lock and are static to save stack space (CONTEXT is quite
@@ -6954,7 +6954,7 @@ os_dump_core_live_dump(const char *msg)
         dmp_file == INVALID_FILE) {
         SYSLOG_INTERNAL_NO_OPTION_SYNCH(SYSLOG_WARNING,
                                         "Unable to open core dump file");
-        return;
+        return false;
     }
 
     /* Write message */
@@ -7140,6 +7140,10 @@ os_dump_core_live_dump(const char *msg)
     SYSLOG_NO_OPTION_SYNCH(SYSLOG_INFORMATION, LDMP,
                            3, get_application_name(), get_application_pid(),
                            dump_core_file_name);
+    if (path != NULL) {
+        strncpy(path, dump_core_file_name, path_sz);
+        path[path_sz-1] = '\0';
+    }
 
     DODEBUG({
         if (suspend_failures) {
@@ -7147,6 +7151,7 @@ os_dump_core_live_dump(const char *msg)
                 "suspend/resume failures during ldmp creation");
         }
     });
+    return true;
 }
 #pragma warning( pop )
 
@@ -7203,11 +7208,13 @@ os_dump_core_external_dump()
 }
 #endif /* INTERNAL */
 
-void
-os_dump_core(const char *msg)
+/* return value is mostly about the ldmp, for dr_create_memory_dump */
+static bool
+os_dump_core_internal(const char *msg, bool live_only, char *path OUT, size_t path_sz)
 {
     static thread_id_t current_dumping_thread_id VAR_IN_SECTION(NEVER_PROTECTED_SECTION)
         = 0;
+    bool res = true;
     thread_id_t current_id = get_thread_id();
 #ifdef DEADLOCK_AVOIDANCE
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -7215,7 +7222,7 @@ os_dump_core(const char *msg)
 #endif
 
     if (current_id == current_dumping_thread_id)
-        return; /* avoid infinite loop */
+        return false; /* avoid infinite loop */
 
     /* FIXME : A failure in the mutex_lock or mutex_unlock of the
      * dump_core_lock could lead to an infinite recursion, also a failure while
@@ -7237,13 +7244,13 @@ os_dump_core(const char *msg)
     mutex_lock(&dump_core_lock);
     current_dumping_thread_id = current_id;
 
-    if (DYNAMO_OPTION(live_dump)) {
-        os_dump_core_live_dump(msg);
+    if (live_only || DYNAMO_OPTION(live_dump)) {
+        res = os_dump_core_live_dump(msg, path, path_sz);
     }
 
 #ifdef INTERNAL
     /* not else-if, allow to be composable */
-    if (DYNAMO_OPTION(external_dump)) {
+    if (!live_only && DYNAMO_OPTION(external_dump)) {
         os_dump_core_external_dump();
     }
 #endif
@@ -7257,6 +7264,19 @@ os_dump_core(const char *msg)
         dcontext->thread_owned_locks = old_thread_owned_locks;
     }
 #endif
+    return res;
+}
+
+void
+os_dump_core(const char *msg)
+{
+    os_dump_core_internal(msg, false, NULL, 0);
+}
+
+bool
+os_dump_core_live(const char *msg, char *path OUT, size_t path_sz)
+{
+    return os_dump_core_internal(msg, true/*live only*/, path, path_sz);
 }
 
 /* back to normal section */

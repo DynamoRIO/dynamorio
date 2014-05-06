@@ -2258,6 +2258,19 @@ dr_exit_process(int exit_code)
 }
 
 DR_API
+bool
+dr_create_memory_dump(dr_memory_dump_spec_t *spec)
+{
+    if (spec->size != sizeof(dr_memory_dump_spec_t))
+        return false;
+#ifdef WINDOWS
+    if (TEST(DR_MEMORY_DUMP_LDMP, spec->flags))
+        return os_dump_core_live(spec->label, spec->ldmp_path, spec->ldmp_path_size);
+#endif
+    return false;
+}
+
+DR_API
 /* Returns true if all DynamoRIO caches are thread private. */
 bool
 dr_using_all_private_caches(void)

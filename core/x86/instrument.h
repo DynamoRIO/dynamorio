@@ -1843,6 +1843,59 @@ void
 dr_exit_process(int exit_code);
 
 /* DR_API EXPORT BEGIN */
+/** Indicates the type of memory dump for dr_create_memory_dump(). */
+typedef enum {
+    /**
+     * A "livedump", or "ldmp", DynamoRIO's own custom memory dump format.
+     * The ldmp format does not currently support specifying a context
+     * for the calling thread, so it will always include the call frames
+     * to dr_create_memory_dump().  The \p ldmp.exe tool can be used to
+     * create a dummy process (using the \p dummy.exe executable) which
+     * can then be attached to by the debugger (use a non-invasive attach)
+     * in order to view the memory dump contents.
+     *
+     * \note Windows-only.
+     */
+    DR_MEMORY_DUMP_LDMP    = 0x0001,
+} dr_memory_dump_flags_t;
+
+/** Indicates the type of memory dump for dr_create_memory_dump(). */
+typedef struct _dr_memory_dump_spec_t {
+    /** The size of this structure.  Set this to sizeof(dr_memory_dump_spec_t). */
+    size_t size;
+    /** The type of memory dump requested. */
+    dr_memory_dump_flags_t flags;
+    /**
+     * This field only applies to DR_MEMORY_DUMP_LDMP.  This string is
+     * stored inside the ldmp as the reason for the dump.
+     */
+    const char *label;
+    /**
+     * This field only applies to DR_MEMORY_DUMP_LDMP.  This is an optional output
+     * field that, if non-NULL, will be written with the path to the created file.
+     */
+    char *ldmp_path;
+    /**
+     * This field only applies to DR_MEMORY_DUMP_LDMP.  This is the maximum size,
+     * in bytes, of ldmp_path.
+     */
+    size_t ldmp_path_size;
+} dr_memory_dump_spec_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Requests that DR create a memory dump file of the current process.
+ * The type of dump is specified by \p spec.
+ *
+ * \return whether successful.
+ *
+ * \note this function is only supported on Windows for now.
+ */
+bool
+dr_create_memory_dump(dr_memory_dump_spec_t *spec);
+
+/* DR_API EXPORT BEGIN */
 
 /**************************************************
  * APPLICATION-INDEPENDENT MEMORY ALLOCATION
