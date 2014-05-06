@@ -5239,6 +5239,32 @@ DR_API
 byte *
 dr_redirect_native_target(void *drcontext);
 
+/* DR_API EXPORT BEGIN */
+#ifdef WINDOWS
+/* DR_API EXPORT END */
+DR_API
+/**
+ * Copies the machine state in \p src into \p dst.  Sets the \p
+ * ContextFlags field of \p dst to reflect the \p flags field of \p
+ * src.
+ *
+ * It is up to the caller to ensure that \p dst is allocated and
+ * initialized properly in order to contain multimedia processor
+ * state, if DR_MC_MULTIMEDIA is set in the \p flags field of \p src.
+ *
+ * The current segment register values are filled in under the assumption
+ * that this context is for the calling thread.
+ *
+ * \note floating-point values are not filled in for \p dst.
+ *
+ * \return false if unsuccessful; if successful, does not return.
+ */
+bool
+dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src);
+/* DR_API EXPORT BEGIN */
+#endif
+/* DR_API EXPORT END */
+
 /* DR_API EXPORT TOFILE dr_tools.h */
 /* DR_API EXPORT BEGIN */
 

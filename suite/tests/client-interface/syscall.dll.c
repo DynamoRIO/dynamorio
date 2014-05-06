@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -34,7 +35,7 @@
 #include <string.h>
 
 /* Tests instrumenting system calls.  Also tests module_iterator interface and
- * dr_get_proc_address(). */
+ * dr_get_proc_address() and dr_mcontext_to_context(). */
 
 #define MINSERT instrlist_meta_preinsert
 
@@ -50,6 +51,24 @@ at_syscall()
         void *drcontext = dr_get_current_drcontext();
         dr_get_mcontext(drcontext, &mcontext);
         dr_fprintf(STDERR, PFX"\n", mcontext.xax);
+
+#ifdef WINDOWS
+        {
+            /* Test dr_mcontext_to_context */
+            CONTEXT cxt;
+            if (!dr_mcontext_to_context(&cxt, &mcontext) ||
+                (app_pc)cxt.IF_X64_ELSE(Rip,Eip) != mcontext.pc ||
+                (reg_t)cxt.IF_X64_ELSE(Rax,Eax) != mcontext.xax ||
+                (reg_t)cxt.IF_X64_ELSE(Rcx,Ecx) != mcontext.xcx ||
+                (reg_t)cxt.IF_X64_ELSE(Rdx,Edx) != mcontext.xdx ||
+                (reg_t)cxt.IF_X64_ELSE(Rbx,Ebx) != mcontext.xbx ||
+                (reg_t)cxt.IF_X64_ELSE(Rsp,Esp) != mcontext.xsp ||
+                (reg_t)cxt.IF_X64_ELSE(Rbp,Ebp) != mcontext.xbp ||
+                (reg_t)cxt.IF_X64_ELSE(Rsi,Esi) != mcontext.xsi ||
+                (reg_t)cxt.IF_X64_ELSE(Rdi,Edi) != mcontext.xdi)
+                dr_fprintf(STDERR, "dr_mcontext_to_context failed\n");
+        }
+#endif
     }
 }
 

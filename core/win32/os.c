@@ -4581,6 +4581,39 @@ thread_set_self_mcontext(priv_mcontext_t *mc)
     ASSERT_NOT_REACHED();
 }
 
+#ifdef CLIENT_INTERFACE
+DR_API
+bool
+dr_mcontext_to_context(CONTEXT *dst, dr_mcontext_t *src)
+{
+    /* XXX: should we make it easy to create an artificial CONTEXT by
+     * exposing nt_initialize_context()?
+     * XXX: should we add the reverse, dr_context_to_mcontext()?
+     */
+    if (src->size != sizeof(dr_mcontext_t))
+        return false;
+
+    /* mcontext_to_context() asserts that we have both INTEGER and CONTROL.
+     * We want to keep the assert to catch invalid internal uses, so we just
+     * fill it all in and then adjust the flags.
+     */
+    if (TEST(DR_MC_MULTIMEDIA, src->flags))
+        dst->ContextFlags = CONTEXT_DR_STATE;
+    else
+        dst->ContextFlags = CONTEXT_DR_STATE_NO_YMM;
+
+    mcontext_to_context(dst, dr_mcontext_as_priv_mcontext(src),
+                        true/*cur segs, which we document*/);
+
+    if (!TEST(DR_MC_INTEGER, src->flags))
+        dst->ContextFlags &= ~(CONTEXT_INTEGER);
+    if (!TEST(DR_MC_CONTROL, src->flags))
+        dst->ContextFlags &= ~(CONTEXT_CONTROL);
+
+    return true;
+}
+#endif
+
 int
 get_num_processors()
 {
