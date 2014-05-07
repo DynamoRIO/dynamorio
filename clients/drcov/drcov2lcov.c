@@ -89,15 +89,17 @@ static int warning = 1;
 const char *usage_str =
     "drcov2lcov: covert drcov file format to lcov file format\n"
     "usage: drcov2lcov [options]\n"
-    "      --help                          Print this message.\n"
-    "      --verbose <int>                 Verbose level.\n"
-    "      --warning <int>                 Warning level.\n"
-    "      --list <input list file>        The file with a list of drcov files to be processed.\n"
-    "      --dir <input directory>         The directory with all drcov.*.log files to be processed.\n"
-    "      --output <output file>          The output file.\n"
-    "      --mod_filter <module filter>    Only process the module whose path contains the filter string.\n"
-    "      --src_filter <source filter>    Only process the source file whose path contains the filter string.\n"
-    "      --reduce_set <reduce_set file>  Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
+    "      -help                              Print this message.\n"
+    "      -verbose <int>                     Verbose level.\n"
+    "      -warning <int>                     Warning level.\n"
+    "      -list <input list file>            The file with a list of drcov files to be processed.\n"
+    "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
+    "      -output <output file>              The output file.\n"
+    "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"
+    "      -mod_skip_filter <module filter>   Skip processing the module whose path contains the filter string.  Only one such filter can be specified.\n"
+    "      -src_filter <source filter>        Only process the source file whose path contains the filter string.  Only one such filter can be specified.\n"
+    "      -src_skip_filter <source filter>   Skip processing the source file whose path contains the filter string.  Only one such filter can be specified.\n"
+    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
 
 static char input_dir_buf[MAXIMUM_PATH];
 static char input_list_buf[MAXIMUM_PATH];
@@ -107,7 +109,9 @@ static char *input_list;
 static char *input_dir;
 static char *output_file;
 static char *src_filter;
+static char *src_skip_filter;
 static char *mod_filter;
+static char *mod_skip_filter;
 static char *set_file;
 static file_t set_log = INVALID_FILE;
 
@@ -550,7 +554,8 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
             if (strstr(path, "<unknown>") != NULL ||
-                (mod_filter != NULL && strstr(path, mod_filter) == NULL))
+                (mod_filter != NULL && strstr(path, mod_filter) == NULL) ||
+                (mod_skip_filter != NULL && strstr(path, mod_skip_filter) != NULL))
                 bb_table = BB_TABLE_IGNORE;
              else
                 bb_table = bb_table_create((uint)mod_size);
@@ -802,9 +807,12 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     int   status;
     void *bb_table = data;
     line_table_t *line_table;
-
+    /* i#1445: we have seen the pdb convert paths to all-lowercase,
+     * so these should be case-insensitive on Windows.
+     */
     if (info->file == NULL ||
-        (src_filter != NULL && strstr(info->file, src_filter) == NULL))
+        (src_filter != NULL && strstr(info->file, src_filter) == NULL) ||
+        (src_skip_filter != NULL && strstr(info->file, src_skip_filter) != NULL))
         return true;
     line_table = hashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
@@ -843,7 +851,12 @@ read_debug_info(void)
             PRINT(3, "Read debug info for %s\n", (char *)e->key);
             if (strcmp((char *)e->key, "<unknown>") == 0)
                 continue;
-            if (mod_filter != NULL && strstr((char *)e->key, mod_filter) == NULL)
+            /* i#1445: we have seen the pdb convert paths to all-lowercase,
+             * so these should be case-insensitive on Windows.
+             */
+            if ((mod_filter != NULL && strstr((char *)e->key, mod_filter) == NULL) ||
+                (mod_skip_filter != NULL &&
+                 strstr((char *)e->key, mod_skip_filter) != NULL))
                 continue;
             res = drsym_enumerate_lines(e->key, enum_line_cb, e->payload);
             if (res != DRSYM_SUCCESS)
@@ -937,33 +950,44 @@ option_init(int argc, char *argv[])
     if (argc == 1)
         return false;
     for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0)
+        char *ops = argv[i];
+        if (ops[0] == '-' && ops[1] == '-')
+            ops++;
+        if (strcmp(ops, "-help") == 0)
             return false;
-        if (strcmp(argv[i], "--list") == 0) {
+        if (strcmp(ops, "-list") == 0) {
             if (++i >= argc)
                 return false;
             input_list = argv[i];
-        } else if (strcmp(argv[i], "--dir") == 0) {
+        } else if (strcmp(ops, "-dir") == 0) {
             if (++i >= argc)
                 return false;
             input_dir = argv[i];
-        } else if (strcmp(argv[i], "--output") == 0) {
+        } else if (strcmp(ops, "-output") == 0) {
             if (++i >= argc)
                 return false;
             output_file = argv[i];
-        } else if (strcmp(argv[i], "--src_filter") == 0) {
+        } else if (strcmp(ops, "-src_filter") == 0) {
             if (++i >= argc)
                 return false;
             src_filter = argv[i];
-        } else if (strcmp(argv[i], "--mod_filter") == 0) {
+        } else if (strcmp(ops, "-src_skip_filter") == 0) {
+            if (++i >= argc)
+                return false;
+            src_skip_filter = argv[i];
+        } else if (strcmp(ops, "-mod_filter") == 0) {
             if (++i >= argc)
                 return false;
             mod_filter = argv[i];
-        } else if (strcmp(argv[i], "--reduce_set") == 0) {
+        } else if (strcmp(ops, "-mod_skip_filter") == 0) {
+            if (++i >= argc)
+                return false;
+            mod_skip_filter = argv[i];
+        } else if (strcmp(ops, "-reduce_set") == 0) {
             if (++i >= argc)
                 return false;
             set_file = argv[i];
-        } else if (strcmp(argv[i], "--verbose") == 0) {
+        } else if (strcmp(ops, "-verbose") == 0) {
             char *end;
             long int res;
             if (++i >= argc)
@@ -973,7 +997,7 @@ option_init(int argc, char *argv[])
                 WARN(1, "Wrong verbose level, use %d instead\n", verbose);
             else
                 verbose = res;
-        } else if (strcmp(argv[i], "--warning") == 0) {
+        } else if (strcmp(ops,  "-warning") == 0) {
             char *end;
             long int res;
             if (++i >= argc)
