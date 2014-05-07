@@ -1,32 +1,10 @@
 $$ **********************************************************
+$$ Copyright (c) 2014 Google, Inc.  All rights reserved.
 $$ Copyright (c) 2005-2006 VMware, Inc.  All rights reserved.
 $$ **********************************************************
 
-$$ Redistribution and use in source and binary forms, with or without
-$$ modification, are permitted provided that the following conditions are met:
-$$
-$$ * Redistributions of source code must retain the above copyright notice,
-$$   this list of conditions and the following disclaimer.
-$$
-$$ * Redistributions in binary form must reproduce the above copyright notice,
-$$   this list of conditions and the following disclaimer in the documentation
-$$   and/or other materials provided with the distribution.
-$$
-$$ * Neither the name of VMware, Inc. nor the names of its contributors may be
-$$   used to endorse or promote products derived from this software without
-$$   specific prior written permission.
-$$
-$$ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-$$ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-$$ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-$$ ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
-$$ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-$$ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-$$ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-$$ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-$$ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-$$ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-$$ DAMAGE.
+$$ This file is covered by the BSD license in ../../License.txt.
+$$ windbg fails to execute files that are too long so we cannot fit it here.
 
 $$ lookup a tag in every available fragment table
 $$ uses the current thread's dcontext from the teb to find the private tables
@@ -40,14 +18,16 @@ $$ r $t0 = 27ece6a8
 $$ must use pseudo-register, not something like u1, which doesn't work
 $$ due to literal textual expansion rather than value replacement.
 $$ @ makes it MUCH faster since won't try to look up as symbol.
+$$ be sure to qualify all syms in dynamorio.dll for speed when
+$$ running large apps.
 
 $$ first, look in shared tables
-r $t1 = @@(&shared_bb->table[((@$t0 * 2654435769) >> (32 - shared_bb->hash_bits)) & shared_bb->hash_mask])
+r $t1 = @@(&dynamorio!shared_bb->table[((@$t0 * 2654435769) >> (32 - dynamorio!shared_bb->hash_bits)) & dynamorio!shared_bb->hash_mask])
 $$ keep going until find match or null_fragment
 .for (; poi(poi(@$t1)) != 0; ) {
     .if (poi(poi(@$t1)) = @$t0) {
         .echo **** found fragment in shared bb table; ? poi(@$t1)
-        dt theFragment poi(@$t1)
+        dt dynamorio!fragment_t poi(@$t1)
         .break
     }
     .else {
@@ -56,26 +36,31 @@ $$ keep going until find match or null_fragment
 }
 .echo finished searching shared bb table; .echo;
 
-r $t1 = @@(&shared_trace->table[((@$t0 * 2654435769) >> (32 - shared_trace->hash_bits)) & shared_trace->hash_mask])
-$$ keep going until find match or null_fragment
-.for (; poi(poi(@$t1)) != 0; ) {
-    .if (poi(poi(@$t1)) = @$t0) {
-        .echo **** found fragment in shared trace table; ? poi(@$t1)
-        dt theFragment poi(@$t1)
-        .break
-    }
-    .else {
-        r $t1 = @$t1 + 4
-    }
+.if (poi(dynamorio!shared_trace) = 0) {
+    .echo (no shared trace table); .echo;
 }
-.echo finished searching shared trace table; .echo;
+.else {
+    r $t1 = @@(&dynamorio!shared_trace->table[((@$t0 * 2654435769) >> (32 - dynamorio!shared_trace->hash_bits)) & dynamorio!shared_trace->hash_mask])
+    $$ keep going until find match or null_fragment
+    .for (; poi(poi(@$t1)) != 0; ) {
+        .if (poi(poi(@$t1)) = @$t0) {
+            .echo **** found fragment in shared trace table; ? poi(@$t1)
+            dt dynamorio!fragment_t poi(@$t1)
+            .break
+        }
+        .else {
+            r $t1 = @$t1 + 4
+        }
+    }
+    .echo finished searching shared trace table; .echo;
+}
 
-r $t1 = @@(&shared_future->table[((@$t0 * 2654435769) >> (32 - shared_future->hash_bits)) & shared_future->hash_mask])
+r $t1 = @@(&dynamorio!shared_future->table[((@$t0 * 2654435769) >> (32 - dynamorio!shared_future->hash_bits)) & dynamorio!shared_future->hash_mask])
 $$ keep going until find match or null_fragment
 .for (; poi(poi(@$t1)) != 0; ) {
     .if (poi(poi(@$t1)) = @$t0) {
         .echo **** found fragment in shared future table; ? poi(@$t1)
-        dt theFutureFragment poi(@$t1)
+        dt dynamorio!future_fragment_t poi(@$t1)
         .break
     }
     .else {
@@ -88,14 +73,14 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 $$ try local tables
 
 r $t2 = poi(@$teb+@@(dynamorio!tls_dcontext_offs))
-r $t2 = @@(((theDynamoContext *)@$t2)->fragment_field)
+r $t2 = @@(((dynamorio!dcontext_t *)@$t2)->fragment_field)
 
-r $t1 = @@(& (((thePerThread *)@$t2)->bb).table[@$t0 & (((thePerThread*)@$t2)->bb).hash_mask] )
+r $t1 = @@(& (((dynamorio!per_thread_t *)@$t2)->bb).table[@$t0 & (((dynamorio!per_thread_t*)@$t2)->bb).hash_mask] )
 $$ keep going until find match or null_fragment
 .for (; poi(poi(@$t1)) != 0; ) {
     .if (poi(poi(@$t1)) = @$t0) {
         .echo **** found fragment in private bb table; ? poi(@$t1)
-        dt theFragment poi(@$t1)
+        dt dynamorio!fragment_t poi(@$t1)
         .break
     }
     .else {
@@ -104,12 +89,12 @@ $$ keep going until find match or null_fragment
 }
 .echo finished searching private bb table; .echo;
 
-r $t1 = @@(& (((thePerThread *)@$t2)->future).table[((@$t0 * 2654435769) >> (32 - (((thePerThread*)@$t2)->future).hash_bits)) & (((thePerThread*)@$t2)->future).hash_mask] )
+r $t1 = @@(& (((dynamorio!per_thread_t *)@$t2)->future).table[((@$t0 * 2654435769) >> (32 - (((dynamorio!per_thread_t*)@$t2)->future).hash_bits)) & (((dynamorio!per_thread_t*)@$t2)->future).hash_mask] )
 $$ keep going until find match or null_fragment
 .for (; poi(poi(@$t1)) != 0; ) {
     .if (poi(poi(@$t1)) = @$t0) {
         .echo **** found fragment in private future table; ? poi(@$t1)
-        dt theFragment poi(@$t1)
+        dt dynamorio!fragment_t poi(@$t1)
         .break
     }
     .else {
@@ -120,16 +105,16 @@ $$ keep going until find match or null_fragment
 
 $$ unfortunately no way to tell in release build whether trace table is
 $$ initialized or not...we'll just get a mem access error
-.if (@@( (((thePerThread *)@$t2)->trace).table = 0xabababab)) {
+.if (@@( (((dynamorio!per_thread_t *)@$t2)->trace).table = 0xabababab)) {
     .echo (no private trace table); .echo;
 }
 .else {
-    r $t1 = @@(& (((thePerThread *)@$t2)->trace).table[@$t0 & (((thePerThread*)@$t2)->trace).hash_mask] )
+    r $t1 = @@(& (((dynamorio!per_thread_t *)@$t2)->trace).table[@$t0 & (((dynamorio!per_thread_t*)@$t2)->trace).hash_mask] )
     $$ keep going until find match or null_fragment
     .for (; poi(poi(@$t1)) != 0; ) {
         .if (poi(poi(@$t1)) = @$t0) {
             .echo **** found fragment in private trace table; ? poi(@$t1)
-            dt theFragment poi(@$t1)
+            dt dynamorio!fragment_t poi(@$t1)
             .break
         }
         .else {
@@ -140,16 +125,16 @@ $$ initialized or not...we'll just get a mem access error
 }
 
 .for (r $t3=0; @$t3<3; r $t3=@$t3+1) {
-    r $t1 = @@(& (((thePerThread *)@$t2)->trace_ibt[@$t3]).table[@$t0 & (((thePerThread*)@$t2)->trace_ibt[@$t3]).hash_mask] )
+    r $t1 = @@(& (((dynamorio!per_thread_t *)@$t2)->trace_ibt[@$t3]).table[@$t0 & (((dynamorio!per_thread_t*)@$t2)->trace_ibt[@$t3]).hash_mask] )
     $$ keep going until find match or null_fragment
-    .for (; poi(poi(@$t1)) != 0; ) {
-        .if (poi(poi(@$t1)) = @$t0) {
-            .echo **** found fragment in private trace_ibt table #; ? @$t3; ? poi(@$t1)
-            dt theFragment poi(@$t1)
+    .for (; poi(@$t1) != 0; ) {
+        .if (poi(@$t1) = @$t0) {
+            .echo **** found fragment in private trace_ibt table #; ? @$t3; ? @$t1
+            dt dynamorio!fragment_entry_t @$t1
             .break
         }
         .else {
-            r $t1 = @$t1 + 4
+            r $t1 = @$t1 + 8
         }
     }
     .echo finished searching private trace_ibt table #; ? @$t3; .echo;
