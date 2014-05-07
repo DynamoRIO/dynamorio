@@ -183,6 +183,18 @@ static byte *RtlUserThreadStart = NULL;
 static byte *KiFastSystemCall = NULL;
 #endif
 
+/* i#1443: we need to identify threads queued up waiting for DR init.
+ * We can't use heap of course so we have to use a max count.
+ * We've never seen more than one at a time.
+ */
+#define MAX_THREADS_WAITING_FOR_DR_INIT 8
+/* We assume INVALID_THREAD_ID is 0 (checked in callback_init()). */
+/* These need to be neverprot for use w/ new threads.  The risk is small. */
+DECLARE_NEVERPROT_VAR(static thread_id_t threads_waiting_for_dr_init
+                      [MAX_THREADS_WAITING_FOR_DR_INIT], {0});
+/* This is also the next index+1 into the array to write to, incremented atomically. */
+DECLARE_NEVERPROT_VAR(static uint threads_waiting_count, 0);
+
 static inline app_pc
 get_setcontext_interceptor()
 {
@@ -2864,6 +2876,18 @@ asynch_take_over(app_state_at_intercept_t *state)
     ASSERT_NOT_REACHED();
 }
 
+bool
+new_thread_is_waiting_for_dr_init(thread_id_t tid)
+{
+    uint i;
+    /* We check until the max to avoid races on threads_waiting_count */
+    for (i = 0; i < MAX_THREADS_WAITING_FOR_DR_INIT; i++) {
+        if (threads_waiting_for_dr_init[i] == tid)
+            return true;
+    }
+    return false;
+}
+
 static void
 possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
 {
@@ -2872,6 +2896,7 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
      * thread finishes initializing. Once dynamo_exited is set is safe to
      * let the thread continue since dynamo_thread_init will imediately
      * return. */
+    uint idx;
 #ifdef CLIENT_SIDELINE
     /* We allow a client init routine to create client threads: DR is
      * initialized enough by now
@@ -2879,9 +2904,30 @@ possible_new_thread_wait_for_dr_init(CONTEXT *cxt)
     if (((void *)cxt->CXT_XIP == (void *)client_thread_target))
         return;
 #endif
+
+    if (dynamo_initialized || dynamo_exited)
+        return;
+
+    /* i#1443: communicate with os_take_over_all_unknown_threads() */
+    idx = atomic_add_exchange_int((volatile int *)&threads_waiting_count, 1);
+    idx--; /* -1 to get index from count */
+    ASSERT(idx < MAX_THREADS_WAITING_FOR_DR_INIT);
+    if (idx >= MAX_THREADS_WAITING_FOR_DR_INIT) {
+        /* What can we do?  We'll have to risk it and hope this thread is scheduled
+         * and initializes before os_take_over_all_unknown_threads() runs.
+         */
+    } else {
+        threads_waiting_for_dr_init[idx] = get_thread_id();
+    }
+
     while (!dynamo_initialized && !dynamo_exited) {
         STATS_INC(apc_yields_while_initializing);
         os_thread_yield();
+    }
+
+    if (idx < MAX_THREADS_WAITING_FOR_DR_INIT) {
+        /* os_take_over_all_unknown_threads()'s context check will work from here */
+        threads_waiting_for_dr_init[idx] = INVALID_THREAD_ID;
     }
 }
 
@@ -8169,6 +8215,7 @@ at_known_exception(dcontext_t *dcontext, app_pc target_pc, app_pc source_fragmen
 void
 callback_init()
 {
+    ASSERT(INVALID_THREAD_ID == 0); /* for threads_waiting_for_dr_init[] */
 }
 
 void

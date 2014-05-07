@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2005-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -379,6 +379,9 @@ typedef enum {
 
 void
 retakeover_after_native(thread_record_t *tr, retakeover_point_t where);
+
+bool
+new_thread_is_waiting_for_dr_init(thread_id_t tid);
 
 void
 context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);

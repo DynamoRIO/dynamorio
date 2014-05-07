@@ -2070,6 +2070,16 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
         NTSTATUS res;
         takeover_data_t *data;
         void *already_taken_over;
+        /* i#1443: avoid self-interp on threads that are waiting at our hook
+         * for DR to initialize.  We have to check two things: first, whether
+         * the context is in DR; second, whether flagged (to cover the thread
+         * being in ntdll or vsyscall).
+         */
+        if (is_in_dynamo_dll((app_pc)cxt->CXT_XIP) ||
+            new_thread_is_waiting_for_dr_init(tid)) {
+            LOG(GLOBAL, LOG_THREADS, 1, "\tthread "TIDFMT" is already waiting\n", tid);
+            return true; /* it's waiting for us to take it over */
+        }
         /* Avoid double-takeover.
          * N.B.: is_dynamo_address() on xip and xsp is not sufficient as
          * a newly set context may not show up until the thread is scheduled.
