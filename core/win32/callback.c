@@ -112,6 +112,22 @@ static byte * image_entry_trampoline = NULL;
 static byte * syscall_trampolines_start = NULL;
 static byte * syscall_trampolines_end = NULL;
 
+/* We rely on the compiler doing the right thing
+   so when we dereference an imported function we get its real address
+   instead of a stub in our module. The loader does the rest of the magic.
+*/
+GET_NTDLL(KiUserApcDispatcher, (IN PVOID Unknown1,
+                                IN PVOID Unknown2,
+                                IN PVOID Unknown3,
+                                IN PVOID ContextStart,
+                                IN PVOID ContextBody));
+GET_NTDLL(KiUserCallbackDispatcher, (IN PVOID Unknown1,
+                                     IN PVOID Unknown2,
+                                     IN PVOID Unknown3));
+GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1,
+                                      IN PVOID Unknown2));
+GET_NTDLL(KiRaiseUserExceptionDispatcher, (void));
+
 /* generated routine for taking over native threads */
 byte *thread_attach_takeover;
 
@@ -2877,9 +2893,12 @@ asynch_take_over(app_state_at_intercept_t *state)
 }
 
 bool
-new_thread_is_waiting_for_dr_init(thread_id_t tid)
+new_thread_is_waiting_for_dr_init(thread_id_t tid, app_pc pc)
 {
     uint i;
+    /* i#1443c#4: check for a thread that's about to hit our hook */
+    if (pc == LdrInitializeThunk || pc == (app_pc)KiUserApcDispatcher)
+        return true;
     /* We check until the max to avoid races on threads_waiting_count */
     for (i = 0; i < MAX_THREADS_WAITING_FOR_DR_INIT; i++) {
         if (threads_waiting_for_dr_init[i] == tid)
@@ -7150,22 +7169,6 @@ insert_image_entry_trampoline(dcontext_t *dcontext)
  * creating any other threads...if not using run-entire-program-under-dynamo
  * approach, I'm not sure how to guarantee no race conditions...FIXME
  */
-
-/* We rely on the compiler doing the right thing
-   so when we dereference an imported function we get its real address
-   instead of a stub in our module. The loader does the rest of the magic.
-*/
-GET_NTDLL(KiUserApcDispatcher, (IN PVOID Unknown1,
-                                IN PVOID Unknown2,
-                                IN PVOID Unknown3,
-                                IN PVOID ContextStart,
-                                IN PVOID ContextBody));
-GET_NTDLL(KiUserCallbackDispatcher, (IN PVOID Unknown1,
-                                     IN PVOID Unknown2,
-                                     IN PVOID Unknown3));
-GET_NTDLL(KiUserExceptionDispatcher, (IN PVOID Unknown1,
-                                      IN PVOID Unknown2));
-GET_NTDLL(KiRaiseUserExceptionDispatcher, (void));
 
 /* for PR 200207 we want KiUserExceptionDispatcher hook early, but we don't
  * want -native_exec_syscalls hooks early since client might scan syscalls

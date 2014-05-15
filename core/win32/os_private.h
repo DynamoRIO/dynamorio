@@ -381,7 +381,7 @@ void
 retakeover_after_native(thread_record_t *tr, retakeover_point_t where);
 
 bool
-new_thread_is_waiting_for_dr_init(thread_id_t tid);
+new_thread_is_waiting_for_dr_init(thread_id_t tid, app_pc pc);
 
 void
 context_to_mcontext(priv_mcontext_t *mcontext, CONTEXT* cxt);

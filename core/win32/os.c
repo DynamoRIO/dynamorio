@@ -2076,7 +2076,7 @@ os_take_over_thread(dcontext_t *dcontext, HANDLE hthread, thread_id_t tid, bool 
          * being in ntdll or vsyscall).
          */
         if (is_in_dynamo_dll((app_pc)cxt->CXT_XIP) ||
-            new_thread_is_waiting_for_dr_init(tid)) {
+            new_thread_is_waiting_for_dr_init(tid, (app_pc)cxt->CXT_XIP)) {
             LOG(GLOBAL, LOG_THREADS, 1, "\tthread "TIDFMT" is already waiting\n", tid);
             return true; /* it's waiting for us to take it over */
         }
