@@ -1390,7 +1390,9 @@ expand_should_set_translation(dcontext_t *dcontext);
  *   record_translation_info() (case 3559).
  */
 instrlist_t * recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
-                                uint flags, uint *res_flags, uint *res_exit_type,
+                                app_pc stop_pc/*optional, only for full_decode*/,
+                                uint flags,
+                                uint *res_flags, uint *res_exit_type,
                                 bool check_vm_area, bool mangle, void **vmlist
                                 _IF_CLIENT(bool call_client)
                                 _IF_CLIENT(bool for_trace));

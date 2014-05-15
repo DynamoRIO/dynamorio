@@ -3300,6 +3300,8 @@ recreate_selfmod_ilist(dcontext_t *dcontext, fragment_t *f)
      * different based on whether pc's are in low 2GB or not.
      */
     ilist = recreate_bb_ilist(dcontext, selfmod_copy, (byte *) f->tag,
+                              /* Be sure to limit the size (i#1441) */
+                              selfmod_copy + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f),
                               FRAG_SELFMOD_SANDBOXED, NULL, NULL,
                               false/*don't check vm areas!*/, true/*mangle*/, NULL
                               _IF_CLIENT(true/*call client*/)

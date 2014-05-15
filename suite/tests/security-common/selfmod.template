@@ -43,5 +43,8 @@ end last byte test
 start fault test
 int is 42
 fault bytes are 89 01 preceded by 07 00 00 00
+int is 42
+Illegal instruction
+fault bytes are 0f 0b preceded by c6 41 fb 05
 end fault test
 end selfmod loop test

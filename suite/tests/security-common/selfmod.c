@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,7 +51,7 @@ static int count = 0;
 static void
 print_fault_code(unsigned char *pc)
 {
-    /* Expecting:
+    /* For the seg fault, expecting:
      *   0x0804b056  b9 07 00 00 00       mov    $0x00000007 -> %ecx
      *   0x0804b05b  89 01                mov    %eax -> (%ecx)
      * X64:
@@ -66,13 +66,12 @@ print_fault_code(unsigned char *pc)
 static void
 signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 {
-    if (sig == SIGSEGV) {
+    if (sig == SIGSEGV || sig == SIGILL) {
         struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        if (sig == SIGILL)
+            print("Illegal instruction\n");
         print_fault_code((unsigned char *)sc->SC_XIP);
         SIGLONGJMP(mark, count++);
-    }
-    if (sig == SIGILL) {
-        print("Illegal instruction\n");
     }
     exit(-1);
 }
@@ -82,13 +81,14 @@ signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
 static LONG
 our_top_handler(struct _EXCEPTION_POINTERS * pExceptionInfo)
 {
-    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
+        pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
+        if (pExceptionInfo->ExceptionRecord->ExceptionCode ==
+            EXCEPTION_ILLEGAL_INSTRUCTION)
+            print("Illegal instruction\n");
         print_fault_code((unsigned char *)
                          pExceptionInfo->ExceptionRecord->ExceptionAddress);
         SIGLONGJMP(mark, count++);
-    }
-    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_ILLEGAL_INSTRUCTION) {
-        print("Illegal instruction\n");
     }
     return EXCEPTION_EXECUTE_HANDLER; /* => global unwind and silent death */
 }
@@ -111,6 +111,9 @@ void
 sandbox_fault(int i);
 
 void
+sandbox_illegal_instr(int i);
+
+void
 sandbox_cti_tgt(void);
 
 /* These *_no_ilt variants of the prototypes avoid indirection through the
@@ -128,6 +131,7 @@ sandbox_cti_tgt(void);
 void sandbox_cross_page_no_ilt(void);
 void last_byte_jmp_no_ilt(void);
 void sandbox_fault_no_ilt(void);
+void sandbox_illegal_no_ilt(void);
 
 #ifdef X64
 /* Reduced from V8, which uses x64 absolute addresses in code which ends up
@@ -255,6 +259,11 @@ test_sandbox_fault(void)
     i = SIGSETJMP(mark);
     if (i == 0)
         sandbox_fault(42);
+    /* i#1441: test max writes with illegal instr */
+    protect_mem(sandbox_illegal_no_ilt, 1024, ALLOW_READ|ALLOW_WRITE|ALLOW_EXEC);
+    i = SIGSETJMP(mark);
+    if (i == 0)
+        sandbox_illegal_instr(42);
     print("end fault test\n");
 }
 
@@ -442,6 +451,44 @@ ADDRTAKEN_LABEL(fault_immediate_addr_plus_four:)
 
         mov      REG_XCX, HEX(7)
         mov      [REG_XCX], eax              /* fault */
+
+        /* restore */
+        pop      REG_XDI
+        pop      REG_XDX
+        pop      REG_XBP
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
+
+#define FUNCNAME sandbox_illegal_instr
+        DECLARE_FUNC(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+DECLARE_GLOBAL(sandbox_illegal_no_ilt)
+ADDRTAKEN_LABEL(sandbox_illegal_no_ilt:)
+        mov      REG_XAX, ARG1
+        push     REG_XBP
+        push     REG_XDX
+        push     REG_XDI  /* for 16-alignment on x64 */
+
+        lea      REG_XDX, SYMREF(illegal_immediate_addr_plus_four - 4)
+        mov      DWORD [REG_XDX], eax        /* selfmod write */
+
+        mov      REG_XDX, HEX(0)             /* mov_imm to modify */
+ADDRTAKEN_LABEL(illegal_immediate_addr_plus_four:)
+        lea      REG_XAX, SYMREF(print_int)
+        CALLC1(REG_XAX, REG_XDX)
+
+        /* Test the i#1441 scenario with 5 memory writes */
+        mov      REG_XCX, REG_XSP
+        mov      BYTE [REG_XCX - 1], 1
+        mov      BYTE [REG_XCX - 2], 2
+        mov      BYTE [REG_XCX - 3], 3
+        mov      BYTE [REG_XCX - 4], 4
+        mov      BYTE [REG_XCX - 5], 5
+        ud2                                  /* fault */
+        /* now this will be excluded, triggering i#1441: */
+        mov      BYTE [REG_XCX - 6], 6
 
         /* restore */
         pop      REG_XDI

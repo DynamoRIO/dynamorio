@@ -5160,10 +5160,10 @@ finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f)
          (TEST(FRAG_WRITES_EFLAGS_OF, f->flags) ? 1 : 2));
     pc = FCACHE_ENTRY_PC(f) + selfmod_copy_start_offs[i][j]IF_X64([k]);
     *((cache_pc*)pc) = copy_pc;
-    if (FRAGMENT_SELFMOD_COPY_SIZE(f) - sizeof(uint) > 1) {
+    if (FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) > 1) {
         pc = FCACHE_ENTRY_PC(f) + selfmod_copy_end_offs[i][j]IF_X64([k]);
         /* subtract the size itself, stored at the end of the copy */
-        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_SIZE(f) - sizeof(uint));
+        *((cache_pc*)pc) = (copy_pc + FRAGMENT_SELFMOD_COPY_CODE_SIZE(f));
     } /* else, no 2nd patch point */
 }
 

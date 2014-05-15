@@ -175,7 +175,10 @@ typedef struct {
     bool record_translation; /* store translation info for each instr_t? */
     bool has_bb_building_lock; /* usually ==for_cache; used for aborting bb building */
     file_t outf;               /* send disassembly and notes to a file?
-                              * we use this mainly for dumping trace origins */
+                                * we use this mainly for dumping trace origins */
+    app_pc stop_pc;          /* Optional: NULL for normal termination rules.
+                              * Only checked for full_decode.
+                              */
 #ifdef CLIENT_INTERFACE
     bool pass_to_client;     /* pass to client, if a bb hook exists;
                               * we store this up front to avoid race conditions
@@ -3499,6 +3502,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
+        if (bb->cur_pc == bb->stop_pc) {
+            /* We only check stop_pc for full_decode, so not in inner loop. */
+            BBPRINT(bb, 3, "reached end pc "PFX", stopping\n", bb->stop_pc);
+            break;
+        }
         if (total_instrs > DYNAMO_OPTION(max_bb_instrs)) {
             /* this could be an enormous basic block, or it could
              * be some degenerate infinite-loop case like a call
@@ -4719,7 +4727,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
  * caller must free by calling vm_area_destroy_list.
  */
 instrlist_t *
-recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
+recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc, app_pc stop_pc,
                   uint flags, uint *res_flags OUT,
                   uint *res_exit_type OUT, bool check_vm_area, bool mangle,
                   void **vmlist_out OUT
@@ -4737,6 +4745,12 @@ recreate_bb_ilist(dcontext_t *dcontext, byte *pc, byte *pretend_pc,
     init_build_bb(&bb, pc, false/*not interp*/, false/*not for cache*/,
                   mangle, true/*translation*/, INVALID_FILE,
                   flags, NULL/*no overlap*/);
+    /* We support a stop pc to ensure selfmod matches how it was originally built,
+     * w/o having to include the next instr which might have triggered the bb
+     * termination but not been included in the bb (i#1441).
+     * It only applies to full_decode.
+     */
+    bb.stop_pc = stop_pc;
     bb.check_vm_area = check_vm_area;
     if (check_vm_area && vmlist_out != NULL)
         bb.record_vmlist = true;
@@ -4856,6 +4870,7 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     if ((f->flags & FRAG_IS_TRACE) == 0) {
         /* easy case: just a bb */
         ilist = recreate_bb_ilist(dcontext, (byte *) f->tag, (byte *) f->tag,
+                                  NULL/*default stop*/,
                                   0/*no pre flags*/, &flags, NULL,
                                   true/*check vm area*/, mangle, NULL
                                   _IF_CLIENT(call_client)
@@ -4895,7 +4910,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         for (i=0; i<t->num_bbs; i++) {
             void *vmlist = NULL;
             apc = (byte *) t->bbs[i].tag;
-            bb = recreate_bb_ilist(dcontext, apc, apc, 0/*no pre flags*/,
+            bb = recreate_bb_ilist(dcontext, apc, apc, NULL/*default stop*/,
+                                   0/*no pre flags*/,
                                    &flags, &md.final_exit_flags,
                                    true/*check vm area*/, !mangle_at_end,
                                    (mangle_at_end ? &vmlist : NULL)

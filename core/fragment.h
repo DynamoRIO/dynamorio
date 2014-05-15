@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -515,6 +515,8 @@ typedef struct _per_thread_t {
 #define FRAGMENT_SELFMOD_COPY_SIZE(f)                \
   (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
    (*((uint *)((f)->start_pc + (f)->size - sizeof(uint)))))
+#define FRAGMENT_SELFMOD_COPY_CODE_SIZE(f) \
+  (FRAGMENT_SELFMOD_COPY_SIZE(f) - sizeof(uint))
 #define FRAGMENT_SELFMOD_COPY_PC(f)                  \
   (ASSERT(TEST(FRAG_SELFMOD_SANDBOXED, (f)->flags)), \
    ((f)->start_pc + (f)->size - FRAGMENT_SELFMOD_COPY_SIZE(f)))
