@@ -424,6 +424,8 @@ enum {
                                  * > coarse_info_lock, > executable_areas,
                                  * < module_data_lock */
 #endif
+    LOCK_RANK(written_areas), /* > executable_areas, < module_data_lock,
+                               * < dynamo_areas < global_alloc_lock */
     LOCK_RANK(module_data_lock),  /* < loaded_module_areas, < special_heap_lock,
                                    * > executable_areas */
     LOCK_RANK(special_units_list_lock), /* < special_heap_lock */
@@ -447,8 +449,6 @@ enum {
     /* For Loglevel 1 and higher, with LOG_MEMSTATS, the snapshot lock is
      * grabbed on an exception, possible deadlock if already held FIXME */
     LOCK_RANK(snapshot_lock),   /* < dynamo_areas */
-    LOCK_RANK(written_areas), /* > executable_areas
-                               * < dynamo_areas < global_alloc_lock */
 #ifdef PROGRAM_SHEPHERDING
     LOCK_RANK(futureexec_areas), /* > executable_areas
                                   * < dynamo_areas < global_alloc_lock */
