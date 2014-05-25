@@ -220,9 +220,10 @@ add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
-add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
-add_sample_client(stl_test    "stl_test.cpp"    "")
-add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
+add_sample_client(modxfer_app2lib   "modxfer_app2lib.c"   "")
+add_sample_client(stl_test          "stl_test.cpp"        "")
+add_sample_client(instrcalls        "instrcalls.c"        "drsyms")
+add_sample_client(bbcount_region    "bbcount_region.c"    "bbcount_region")
 
 if (WIN32)
   # This client is Windows-only.

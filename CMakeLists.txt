@@ -934,6 +934,7 @@ else (DEBUG)
   set(INSTALL_LIB ${INSTALL_LIB_BASE}/release)
 endif (DEBUG)
 set(INSTALL_INCLUDE include)
+set(INSTALL_ANNOTATION_INCLUDE include/annotation)
 set(INSTALL_DOCS docs)
 # samples are installed via api/samples/ separate CMake project
 set(INSTALL_CMAKE cmake)

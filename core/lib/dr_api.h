@@ -48,6 +48,9 @@ extern "C" {
 /* Event registration routines */
 #include "dr_events.h"
 
+/* Annotation handler registration routines */
+#include "dr_annot.h"
+
 /* Application start/stop interface */
 #include "dr_app.h"
 

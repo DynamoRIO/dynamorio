@@ -290,8 +290,12 @@ else (UNIX)
     )
 endif (UNIX)
 
+set(CORE_CLIENT_SRCS
+  client/annot.c
+  )
+
 add_library(dynamorio ${SHARED_OR_STATIC}
-  ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS}
+  ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${CORE_CLIENT_SRCS}
   # FIXME: any other way to add a dependence?  this is for export_list,
   # where the PRE_LINK custom command doesn't support DEPENDS.
   # Apparently just files w/ certain extensions are pulled out of here
@@ -407,6 +411,8 @@ if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   add_dependencies(drdecode ${x86_noncore_asm_tgt})
 endif ()
 add_gen_events_deps(drdecode)
+
+append_property_string(TARGET dynamorio COMPILE_FLAGS "-DANNOTATIONS")
 
 ###########################################################################
 # linux build customization
@@ -829,14 +835,14 @@ endif (WIN32)
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${CORE_CLIENT_SRCS})
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
     add_dependencies(unit_tests ${x86_core_asm_tgt} ntimp_tgt)
   endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
+    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST -DANNOTATIONS"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
     # i#1228 make sure entry point of the elf binary pointing to _start.

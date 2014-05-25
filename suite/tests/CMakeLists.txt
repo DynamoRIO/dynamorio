@@ -546,12 +546,42 @@ function(add_exe test source)
   endif ()
 endfunction(add_exe)
 
+function(add_annot_exe test source annot_sources)
+  get_filename_component(srcbase ${source} NAME_WE)
+  get_filename_component(srcpath ${source} PATH)
+
+  set(test_srcs ${source} ${${annot_sources}})
+  set_cflags(${source}) # sets srccode var
+
+  add_executable(${test} ${test_srcs})
+
+  set_target_properties(${test} PROPERTIES
+    LINK_FLAGS "${ARCH_DEBUG}"
+    # we don't want the default rpath of <builddir>/lib as it makes
+    # it hard to use other DR builds w/ these apps
+    SKIP_BUILD_RPATH ON)
+  if (UNIX)
+    target_link_libraries(${test} ${libmath} ${libdl})
+    if ("${test}" MATCHES "^pthread|startstop")
+      target_link_libraries(${test} ${libpthread})
+    endif ("${test}" MATCHES "^pthread|startstop")
+  else (UNIX)
+    append_link_flags(${test} "${ARCH_LDFLAGS}")
+  endif (UNIX)
+endfunction(add_annot_exe)
+
 # normal app
 function(tobuild test source)
   add_exe(${test} ${source})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild)
+
+function(tobuild_annot test source annot_sources)
+  add_annot_exe(${test} ${source} ${annot_sources})
+  set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
+  set(${test}_source ${source} PARENT_SCOPE)
+endfunction(tobuild_annot)
 
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
@@ -1631,6 +1661,9 @@ if (CLIENT_INTERFACE)
           common/eflags.c "" "-opt_cleancall 0" "")
       endif ()
     endforeach ()
+
+    torunonly_ci(sample.bbcount_region client.bbcount_jacobi bbcount_region
+      client-interface/bbcount_jacobi.c "" "" "A4")
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
@@ -1638,6 +1671,26 @@ if (CLIENT_INTERFACE)
       "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
   endif (BUILD_CLIENTS)
+
+  set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
+  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
+  set(SAMPLES_LIB "${PROJECT_SOURCE_DIR}/api/samples/lib")
+  file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
+  configure_file("${CORE_ANNOTATION}/valgrind.h"
+    "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
+  configure_file("${CORE_ANNOTATION}/memcheck.h"
+    "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
+  configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
+    "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
+  configure_file("${SAMPLES_LIB}/bbcount_region_annotations.h"
+    "${BUILD_ANNOTATION}/bbcount_region_annotations.h" COPYONLY)
+  set(JACOBI_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c"
+    "${CORE_ANNOTATION}/dynamorio_annotations.c")
+  tobuild_annot(client.bbcount_jacobi "client-interface/bbcount_jacobi.c"
+    JACOBI_ANNOTATIONS)
+  if (UNIX)
+    target_link_libraries(client.bbcount_jacobi ${libpthread})
+  endif (UNIX)
 
 endif (CLIENT_INTERFACE)
 

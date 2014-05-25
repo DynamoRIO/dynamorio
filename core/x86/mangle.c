@@ -66,6 +66,10 @@
 
 #include <string.h> /* for memset */
 
+#ifdef ANNOTATIONS
+# include "../client/annot.h"
+#endif
+
 /* make code more readable by shortening long lines
  * we mark everything we add as a meta-instr to avoid hitting
  * client asserts on setting translation fields
@@ -4137,6 +4141,24 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 convert_to_near_rel(dcontext, instr);
             }
         }
+        
+#ifdef ANNOTATIONS
+        if (TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr)) {
+            annotation_handler_t *handler = 
+                (annotation_handler_t *) instr_get_note(instr);
+            
+            if (handler->type == ANNOT_HANDLER_CALL) {
+                dr_insert_clean_call(dcontext, ilist, instr, 
+                    handler->instrumentation.callback,
+                    handler->save_fpstate, handler->num_args, handler->args);
+            } else { // ANNOT_HANDLER_RETURN_VALUE
+                PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX), 
+                    OPND_CREATE_INT32(handler->instrumentation.return_value)));
+            }
+            
+            continue;
+        }
+#endif
 
         /* PR 240258: wow64 call* gateway is considered is_syscall */
         if (instr_is_syscall(instr)) {

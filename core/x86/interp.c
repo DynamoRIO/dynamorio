@@ -74,6 +74,10 @@
 # include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
 #endif
 
+#ifdef ANNOTATIONS
+# include "../client/annot.h"
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */
@@ -3272,6 +3276,24 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
+#ifdef ANNOTATIONS
+        /* Checking for annotations here because the above conditions might terminate
+         * the BB, even if `bb->instr` is an annotation. */
+# if !(defined(X64) && defined(WINDOWS))
+        if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
+            if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
+                continue;
+        } else
+# endif
+        {
+            instr_t *substitution = annot_match(dcontext, bb->instr);
+            if (substitution != NULL) {
+                instr_destroy(dcontext, bb->instr);
+                bb->instr = substitution;
+            }
+        }
+#endif
+
 #ifdef WINDOWS
         if (DYNAMO_OPTION(process_SEH_push) &&
             instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS)) {
@@ -3345,7 +3367,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 
-        if (instr_is_near_call_direct(bb->instr)) {
+        if (instr_is_near_call_direct(bb->instr)) { // TODO: include annotations?
             if (!bb_process_call_direct(dcontext, bb)) {
                 if (bb->instr != NULL)
                     bb->exit_type |= instr_branch_type(bb->instr);
@@ -3508,6 +3530,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
         if (total_instrs > DYNAMO_OPTION(max_bb_instrs)) {
+
+            // TODO: if bb->instr is OP_rol, walk down and see
+            // if it might be a Valgrind annotation
+
             /* this could be an enormous basic block, or it could
              * be some degenerate infinite-loop case like a call
              * to a function that calls exit() and then calls itself,

@@ -204,7 +204,7 @@ instrlist_append(instrlist_t *ilist, instr_t *inst)
 {
     instr_t *top = inst;
     instr_t *bot;
-
+    
     CLIENT_ASSERT(instr_get_prev(inst) == NULL,
                   "instrlist_append: cannot add middle of list");
     check_translation(ilist, inst);
