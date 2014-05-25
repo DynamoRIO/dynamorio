@@ -1,0 +1,304 @@
+kernel32.dll!GetProcessHeaps ok
+kernel32.dll at preferred base
+all should be good
+kernel32.dll!Sleep ok
+kernel32.dll at preferred base
+all should be good
+user32.dll!MessageBeep ok
+user32.dll at preferred base
+all should be good
+user32.dll!MessageBoxW ok
+user32.dll at preferred base
+all should be good
+error: couldn't find aslr-dll.exe!executable
+aslr-dll.exe at preferred base
+all should be good
+ntdll.dll!NtCreateSection ok
+ntdll.dll at preferred base
+all should be good
+advapi32.dll!GetAclInformation ok
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+advapi32.dll at randomized base
+#else
+advapi32.dll at preferred base
+#endif
+all should be good
+comdlg32.dll!GetOpenFileNameW ok
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+comdlg32.dll at randomized base
+#else
+comdlg32.dll at preferred base
+#endif
+all should be good
+gdi32.dll!GdiPlayEMF ok
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+gdi32.dll at randomized base
+#else
+gdi32.dll at preferred base
+#endif
+all should be good
+imagehlp.dll!ImageRvaToVa ok
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+imagehlp.dll at randomized base
+#else
+imagehlp.dll at preferred base
+#endif
+all should be good
+error: couldn't find kernel32.dll!findexport
+kernel32.dll at preferred base
+all should be good
+error: couldn't find lz32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+lz32.dll at randomized base
+#else
+lz32.dll at preferred base
+#endif
+all should be good
+error: couldn't find ole32.dll!findexport
+ole32.dll at preferred base
+all should be good
+error: couldn't find oleaut32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+oleaut32.dll at randomized base
+#else
+oleaut32.dll at preferred base
+#endif
+all should be good
+error: couldn't find olecli32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+olecli32.dll at randomized base
+#else
+olecli32.dll at preferred base
+#endif
+all should be good
+#if defined(RUNREGRESSION_Vista)
+GLE: 126
+error: hmod 0x00000000, target_mod 0x00000000
+#else
+error: couldn't find olecnv32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+olecnv32.dll at randomized base
+#else
+olecnv32.dll at preferred base
+#endif
+all should be good
+#endif
+error: couldn't find olesvr32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+olesvr32.dll at randomized base
+#else
+olesvr32.dll at preferred base
+#endif
+all should be good
+error: couldn't find olethk32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+olethk32.dll at randomized base
+#else
+olethk32.dll at preferred base
+#endif
+all should be good
+error: couldn't find rpcrt4.dll!findexport
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+rpcrt4.dll at randomized base
+#else
+rpcrt4.dll at preferred base
+#endif
+all should be good
+error: couldn't find shell32.dll!findexport
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+shell32.dll at randomized base
+#else
+shell32.dll at preferred base
+#endif
+all should be good
+error: couldn't find url.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+url.dll at randomized base
+#else
+url.dll at preferred base
+#endif
+all should be good
+error: couldn't find urlmon.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+urlmon.dll at randomized base
+#else
+urlmon.dll at preferred base
+#endif
+all should be good
+error: couldn't find user32.dll!findexport
+user32.dll at preferred base
+all should be good
+error: couldn't find version.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+version.dll at randomized base
+#else
+version.dll at preferred base
+#endif
+all should be good
+error: couldn't find wininet.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+wininet.dll at randomized base
+#else
+wininet.dll at preferred base
+#endif
+all should be good
+error: couldn't find wldap32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+wldap32.dll at randomized base
+#else
+wldap32.dll at preferred base
+#endif
+all should be good
+#if defined(RUNREGRESSION_2000)
+GLE: 126
+error: hmod 0x00000000, target_mod 0x00000000
+#else
+error: couldn't find apphelp.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+apphelp.dll at randomized base
+#else
+apphelp.dll at preferred base
+#endif
+all should be good
+#endif
+error: couldn't find comctl32.dll!findexport
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+comctl32.dll at randomized base
+#else
+comctl32.dll at preferred base
+#endif
+all should be good
+error: couldn't find crypt32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+crypt32.dll at randomized base
+#else
+crypt32.dll at preferred base
+#endif
+all should be good
+error: couldn't find cryptui.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+cryptui.dll at randomized base
+#else
+cryptui.dll at preferred base
+#endif
+all should be good
+error: couldn't find mpr.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+mpr.dll at randomized base
+#else
+mpr.dll at preferred base
+#endif
+all should be good
+error: couldn't find msasn1.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+msasn1.dll at randomized base
+#else
+msasn1.dll at preferred base
+#endif
+all should be good
+error: couldn't find msvcrt.dll!findexport
+#if (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache))
+msvcrt.dll at randomized base
+#else
+msvcrt.dll at preferred base
+#endif
+all should be good
+error: couldn't find netapi32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+netapi32.dll at randomized base
+#else
+netapi32.dll at preferred base
+#endif
+all should be good
+error: couldn't find shdocvw.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+shdocvw.dll at randomized base
+#else
+shdocvw.dll at preferred base
+#endif
+all should be good
+error: couldn't find shlwapi.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+shlwapi.dll at randomized base
+#else
+shlwapi.dll at preferred base
+#endif
+all should be good
+error: couldn't find userenv.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+userenv.dll at randomized base
+#else
+userenv.dll at preferred base
+#endif
+all should be good
+error: couldn't find wintrust.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+wintrust.dll at randomized base
+#else
+wintrust.dll at preferred base
+#endif
+all should be good
+error: couldn't find wow32.dll!findexport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+wow32.dll at randomized base
+#else
+wow32.dll at preferred base
+#endif
+all should be good
+secur32.dll!LsaLogonUser ok
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+secur32.dll at randomized base
+#else
+secur32.dll at preferred base
+#endif
+all should be good
+secur32.dll!MakeSignature ok
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+secur32.dll at randomized base
+#else
+secur32.dll at preferred base
+#endif
+all should be good
+GLE: 126
+error: hmod 0x00000000, target_mod 0x00000000
+error: couldn't find secur32.dll!MissingExport
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+secur32.dll at randomized base
+#else
+secur32.dll at preferred base
+#endif
+all should be good
+#if !defined(RUNREGRESSION_NT)
+sfc.dll!SfpVerifyFile ok
+sfc.dll at preferred base
+all should be good
+#else
+GLE: 126
+error: hmod 0x00000000, target_mod 0x00000000
+#endif
+#if defined(RUNREGRESSION_2000)
+41 checked
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+#if (defined(client)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && defined(aslr_cache))
+14 at base
+#else
+8 at base
+#endif
+#else
+41 at base
+#endif
+2 DLL not found
+#else
+43 checked
+#if (defined(client) && !defined(aslr_cache_list)) || (defined(aslr___0x47)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && !defined(aslr_cache_list))
+#if (defined(client)) || (defined(aslr___0x4) && !defined(exempt_aslr_list) && defined(aslr_cache))
+16 at base
+#else
+10 at base
+#endif
+#else
+43 at base
+#endif
+1 DLL not found
+#endif
+done

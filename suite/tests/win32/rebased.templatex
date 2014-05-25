@@ -1,0 +1,17 @@
+dlltest
+foo
+foo
+bar
+foo
+loaded win32.rebased.dll.dll
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text) && !defined(executable_after_load)
+  SEC_VIO_STOP
+  STOP
+#else
+dlltest
+foo
+foo
+bar
+foo
+loaded win32r~[1-4].dll
+#endif

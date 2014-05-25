@@ -1,0 +1,245 @@
+#!/usr/bin/perl
+
+# **********************************************************
+# Copyright (c) 2001-2006 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+### PCProf
+### author: Derek Bruening   February 2001
+###
+### Analyzes dynamorio_pcsamples.log
+
+$usage = "Usage: $0 [-file fragfile] [-exe exename]\n";
+
+#defaults
+$infile = "dynamorio_pcsample.log";
+$have_exe = 0;
+
+# get optional params
+while ($#ARGV >= 0) {
+    if ($ARGV[0] eq '-exe') {
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $exe = $ARGV[0];
+        $have_exe = 1;
+    } elsif ($ARGV[0] eq '-file') {
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $infile = $ARGV[0];
+    } else {
+        print $usage;
+        exit;
+    }
+    shift;
+}
+
+if (!(-s $infile)) {
+    print STDERR "*** $infile is empty, no output produced\n";
+    exit;
+}
+
+if ($have_exe) {
+    # see if dynamorio is in shared library or is statically linked in
+    $sharedlib = 0;
+    $dis_offs = 0;
+    $dis_exe = $exe;
+    open(LDD, "ldd $exe |") || die "Error: Couldn't run ldd $exe\n";
+    while (<LDD>) {
+        if ($_ =~ /libdynamorio.so => (\S+) \((0x[0-9A-Fa-f]+)\)/) {
+            $sharedlib = 1;
+            $dis_offs = hex($2);
+            $dis_exe = $1;
+            last;
+        }
+    }
+    close(LDD);
+    # disassemble exe, read in assembly code to get function pc delimiters
+    system("objdump -d $dis_exe > $exe.dis");
+    system("echo \"\" >> $exe.dis"); # blank line to get end of last func!
+    $i = 0;
+    $in_func = 0;
+    open(OBJ, "< $exe.dis") || die "Error: Couldn't open $exe.dis for input\n";
+    while (<OBJ>) {
+        chop;
+        $l = $_;
+        if ($in_func) {
+            if ($l =~ /^\s*([0-9A-Fa-f]+)/) {
+                $last_addr = hex($1) + $dis_offs;
+            } else {
+                $last{$faddr} = $last_addr;
+                $in_func = 0;
+                #printf("Func $func{$faddr} = 0x%08x ... 0x%08x\n",
+                #       $first{$faddr}, $last{$faddr});
+            }
+        }
+        if ($l =~ /^([0-9A-Fa-f]+) <([^>]+)>/) {
+            # can have multiple func names (if static) so key off of
+            #   function address, not func name!
+            $faddr = hex($1) + $dis_offs;
+            $func{$faddr} = $2;
+            $first{$faddr} = $faddr;
+            $in_func = 1;
+        }
+    }
+    close(OBJ);
+    system("rm -f $exe.dis");
+}
+
+$total_hits = 0;
+$trace_hits = 0;
+$fragment_hits = 0;
+$in_header = 1;
+$header_cnt = 0;
+open(IN, "< $infile") || die "Error: Couldn't open $infile for input\n";
+while (<IN>) {
+    chop;
+    # handle DOS end-of-line:
+    if ($_ =~ /
+$/) { chop; };
+    $l = $_;
+    if ($in_header) {
+        if ($l =~ /^\s*$/ || $l =~ /^PC/) {
+            $in_header = 0;
+        } else {
+            $header[$header_cnt++] = $l;
+        }
+    }
+    if ($l =~ /^pc=/) {
+        if ($l =~ /trace/) {
+            if ($l =~ /trace \#/) {
+                $l =~ /^[^\#]+\#=([0-9]+)[^\#]+\# *([0-9]+) @([x0-9a-f]+)[^0]+([x0-9a-f]+)/;
+                # $1 = count, $2 = id, $3 = tag, $4 = offs
+                $count = $1;
+                $id = $2;
+                $tag{$id} = $3;
+            } else {
+                # release run: no trace id!
+                $l =~ /^[^\#]+\#=([0-9]+)[^@]+@([x0-9a-f]+)[^0]+([x0-9a-f]+)/;
+                # $1 = count, $2 = tag, $3 = offs
+                $count = $1;
+                $id = $2;
+                $tag{$id} = $2;
+            }
+            $hits{$id} += $count;
+            $total_hits += $count;
+            $trace_hits += $count;
+            $trace{$id} = 1;
+        } elsif ($l =~ /fragment/) {
+            if ($l =~ /fragment \#/) {
+                $l =~ /^[^\#]+\#=([0-9]+)[^\#]+\# *([0-9]+) @([x0-9a-f]+)[^0]+([x0-9a-f]+)/;
+                # $1 = count, $2 = id, $3 = tag, $4 = offs
+                $count = $1;
+                $id = $2;
+                $tag{$id} = $3;
+            } else {
+                # release run: no fragment id!
+                $l =~ /^[^\#]+\#=([0-9]+)[^@]+@([x0-9a-f]+)[^0]+([x0-9a-f]+)/;
+                # $1 = count, $2 = tag, $3 = offs
+                $count = $1;
+                $id = $2;
+                $tag{$id} = $2;
+            }
+            $hits{$id} += $count;
+            $total_hits += $count;
+            $fragment_hits += $count;
+            $trace{$id} = 0;
+        } else {
+            $l =~ /^pc=([x0-9a-f]+)[^\#]+\#=([0-9]+)[^i]+in (.+)/;
+            $pc = $1;
+            $id = $3;
+            $num_hits = $2;
+            if ($have_exe) {
+                $fun = &lookup_func($pc);
+                # print "$id, $pc = $fun\n";
+                $id = "$id: $fun";
+            }
+            $hits{$id} += $num_hits;
+            $total_hits += $num_hits;
+            $tag{$id} = $id;
+            $trace{$id} = -1;
+        }
+    }
+}
+close(IN);
+
+if ($total_hits == 0) {
+    print STDERR "*** $infile has no information, no output produced\n";
+    exit;
+}
+
+#foreach $h (keys %hits) {
+#    print "Trace $h ($tag{$h}) has $hits{$h} hits\n";
+#}
+
+for ($i=0; $i<$header_cnt; $i++) {
+    print "$header[$i]\n";
+}
+print "\nBREAKDOWN:\n";
+
+@ids = keys(%hits);
+@sorted = sort({$hits{$a} <=> $hits{$b}} @ids);
+
+foreach $s (@sorted) {
+    $h = $hits{$s};
+    $p = 100.0 * ($h / $total_hits);
+    if ($trace{$s} == -1) {
+        $out = sprintf("%5d hit(s) = %4.1f%% for %s\n",
+                       $h, $p, $tag{$s});
+    } elsif ($trace{$s} == 0) {
+        $out = sprintf("%5d hit(s) = %4.1f%% for fragment %s (%s)\n",
+                       $h, $p, $s, $tag{$s});
+    } else {
+        $out = sprintf("%5d hit(s) = %4.1f%% for trace %s (%s)\n",
+                       $h, $p, $s, $tag{$s});
+    }
+    print $out;
+}
+
+print "\n";
+$p = 100.0 * ($trace_hits / $total_hits);
+$out = sprintf("%5d hit(s) = %4.1f%% for ALL TRACES\n", $trace_hits, $p);
+print $out;
+$p = 100.0 * ($fragment_hits / $total_hits);
+$out = sprintf("%5d hit(s) = %4.1f%% for ALL FRAGMENTS\n", $fragment_hits, $p);
+print $out;
+
+sub lookup_func($) {
+    my ($in_pc) = @_;
+    my ($f, $pc);
+    $pc = hex($in_pc);
+    # start & end guaranteed to be in same function
+    # just do linear search, performance not an issue
+    foreach $f (keys %first) {
+        if ($pc >= $first{$f} && $pc <= $last{$f}) {
+            # print "$start...$end is in $func{$f}:\n";
+            return $func{$f};
+        }
+    }
+    return "<couldn't find it>";
+}

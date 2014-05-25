@@ -1,0 +1,34 @@
+PR 216931: client options are -paramx -paramy
+inside app client.thread.exe
+PR 198871 locking test......passed
+client thread is alive
+#ifdef UNIX
+event_timer fired
+#endif
+client thread is dying
+PR 222812: client thread test passed
+#ifdef WINDOWS
+thread.appdll.dll process attach
+loaded library
+#endif
+client thread is alive
+#ifdef UNIX
+event_timer fired
+#endif
+client thread is dying
+PR 210591: client transparency test passed
+#ifdef WINDOWS
+thread.appdll.dll process detach
+#endif
+thank you for testing the client interface
+#ifdef X64
+TLS slot 0 is 0x00000000badcab42
+TLS slot 1 is 0x00000000badcab43
+TLS slot 2 is 0x00000000badcab44
+TLS slot 3 is 0x00000000badcab45
+#else
+TLS slot 0 is 0xbadcab42
+TLS slot 1 is 0xbadcab43
+TLS slot 2 is 0xbadcab44
+TLS slot 3 is 0xbadcab45
+#endif

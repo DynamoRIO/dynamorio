@@ -1,0 +1,23 @@
+Test 0
+about to trap
+	exception code = 0x80000003, ExceptionFlags=0x00000000
+	record=00000000, params=3
+	pc=0x00401858 eax=0x00000000
+  ContextFlags=0x0001003f
+  Edi=0xeecdcdcd Esi=0xffcdcdcd Ebx=0xbbcdcdcd
+  Edx=0xddcdcdcd Ecx=0xcccdcdcd
+
+  Eax=0x00000000
+  Ebp=0x0012ff5c Eip=0x00401858 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000202 Esp=0x0012fed8 SegSs=0x00000023
+  <floating point area>
+  SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023
+in filter
+continued after trap
+not handled
+not handled
+Invalid handle about to happen
+about to close
+continued succesfully
+not handled
+All done

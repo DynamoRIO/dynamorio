@@ -1,0 +1,4 @@
+Sending SIGUSR2
+Sending SIGUSR1
+signal_handler: sig=10
+250006.749760

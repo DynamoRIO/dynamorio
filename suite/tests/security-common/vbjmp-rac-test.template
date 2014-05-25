@@ -1,0 +1,50 @@
+# if !defined(no_vbjmp_allowed)
+VB ret $+1 about to happen
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+in vbpop
+in bar
+vbpop success
+VB push;ret about to happen
+in foo
+#else
+VB ret $+1 about to happen
+in vbpop
+in bar
+vbpop success
+VB push;ret about to happen
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+in foo
+#endif

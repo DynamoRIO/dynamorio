@@ -1,0 +1,284 @@
+#!/usr/bin/perl
+
+# **********************************************************
+# Copyright (c) 2001-2003 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+### Summary
+### author: Derek Bruening   April 2001
+###
+### Produces a table summarizing info in the dynamorio log files
+### in some directory tree.
+
+$usage = "Usage: $0 [-times] [-find findcmd] [-noperfctr]\n";
+
+@perfctrnames=("Cycles",
+               "Inst._Decoded",
+               "Inst._Retired",
+               "Micro-ops_Retired",
+               "data_mem_refs",
+               "DCU_misses",
+               "Inst._Fetches",
+               "IFU_misses",
+               "ITLB_misses",
+               "cycles_inst_fetch_stalled",
+               "cycles_inst_fetch_decode_stalled",
+               "L2_inst_fetches",
+               "L2_loads",
+               "L2_stores",
+               "branches_decoded",
+               "branches_retired",
+               "branches_mispredicted_retired",
+               "branches_taken_retired",
+               "branches_taken_mispredicted_retired",
+               "BTB_misses",
+               "Bogus_branches",
+               "misc_resource_stalls",
+               "BACLEAR_asserted",
+               "DCU_lines_allocated",
+               "L2_lines_allocated",
+               "prefetch_NTA_dispatched",
+               "prefetch_NTA_miss_all_caches"
+               );
+$numperfctrs=scalar(@perfctrnames);
+
+@args = @ARGV;
+$times_only = 0;
+$find = "find . -type f -name mainlog.\\* | grep 'dynamorio\\.'";
+$noperfctr = 0;
+while ($#ARGV >= 0) {
+    if ($ARGV[0] eq '-find') {
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $find = $ARGV[0];
+        print "$0 @args\n\n";
+    } elsif ($ARGV[0] eq '-times') {
+        $times_only = 1;
+    } elsif ($ARGV[0] eq '-noperfctr') {
+        $noperfctr = 1;
+    } else {
+        print $usage;
+        exit;
+    }
+    shift;
+}
+
+unless ($times_only) {
+    printf("%-43s  Traces / Frags  Heap  BB Used/Cap   Trace U/Cap  Minutes\n",
+           "Path");
+    if (!$noperfctr) {
+        $have_perfctr = `$find | head -1 | xargs grep \"^Counter 1 \"`;
+        $noperfctr = ($have_perfctr eq "");
+    }
+    if (!$noperfctr) {
+        print join "\t",@perfctrnames;
+        print "\n";
+    }
+    printf("%-43s  --------------  ---- ------------- ------------- -------\n",
+           "--------------------------------------");
+    if (!$noperfctr) {
+        for (1..$numperfctrs) {print "----------- ";}
+        print "\n";
+    }
+}
+
+$perfctr_num = 0;
+
+open(FIND, "$find |") || die "Error running $find\n";
+while (<FIND>) {
+    $have_elapsed = 0;
+    $elapsed = 0;
+    if (!$noperfctr) {
+        @perfctr = (-1)x$numperfctrs;
+    }
+    chop;
+    $path = $_;
+    if ($path =~ /(.+\/)dynamorio\.([0-9]*)\/mainlog\.[0-9]*/) {
+        $dir = $1;
+        $num = $2;
+        $logpath = "$dir"."dynamorio."."$num";
+        $errs = ""; # use dynamorio log file for elapsed time
+    } else {
+        # no log files, just want total time
+        if (!$times_only) {
+            print "Error: no dynamorio log files found\n";
+            exit 1;
+        }
+        if (-d $path) {
+            $dir = "$path/";
+        } else {
+            $path =~ /(.+\/)[^\/]*$/;
+            $dir = $1;
+        }
+        $errs = `ls $dir*.err`;
+        if ($errs eq "") {
+            print "Error: no dynamorio log files and no .err files found\n";
+            next;
+        }
+    }
+    if ($times_only) {
+        print "Processing $dir\n";
+    }
+
+    unless ($times_only && $errs ne "") {
+        # read dynamorio log files
+        $error = 0;
+        $num_frags = -1;
+        $num_traces = -1;
+        $heap_used = 0;
+        $fcache_bb_used = 0;
+        $fcache_bb_cap = 0;
+        $fcache_trace_used = 0;
+        $fcache_trace_cap = 0;
+        # must read mainlog and all thread log files
+        open(LOGS, "find $logpath -name \\*log\\* |") || die "Error running $find\n";
+        while (<LOGS>) {
+            open(IN, "< $_") || die "Error: Couldn't open $path for input\n";
+            while (<IN>) {
+                chop;
+                $l = $_;
+
+                # skip log files for runstats
+                if ($l =~ /Running: runstats/) {
+                    $runstats = 1;
+                } elsif ($l =~ /execve/) {
+                    $runstats = 0;
+                }
+
+                if ($l =~ /^Fragments generated: ([0-9]+)/) {
+                    $num_frags = $1;
+                } elsif ($l =~ /^Trace fragments generated: ([0-9]+)/) {
+                    $num_traces = $1;
+                } elsif ($l =~ /(.+)cache: capacity ([0-9]+) KB, used ([0-9]+) KB/) {
+                    $which = $1;
+                    $used = $2;
+                    $cap = $3;
+                    if ($which =~ /Basic/) {
+                        $fcache_bb_used += $used;
+                        $fcache_bb_cap += $cap;
+                    } else {
+                        $fcache_trace_used += $used;
+                        $fcache_trace_cap += $cap;
+                    }
+#                } elsif ($l =~ /^Fcache space reserved: ([0-9]+) bytes/) {
+#                    $fcache_tot = $1;
+                } elsif ($l =~ /Total heap used: ([0-9]+) KB/) {
+                    $heap_used += $1;
+                } elsif (!$noperfctr && $l =~ /^Counter ([0-9]+) = ([0-9]+)/) {
+                    $perfctr[$1] = $2;
+                    if ($1 > $perfctr_num) {
+                        $perfctr_num = $1;
+                    }
+                } elsif ($l =~ /Error/) {
+                    $error = 1;
+                } elsif ($l =~ /^Total running time: ([0-9]+) seconds/) {
+                    $elapsed += $1/60.;
+                    $have_elapsed = 1;
+                    if ($times_only) {
+                        print "\tTime from $path\n";
+                    }
+                }
+            }
+            close(IN);
+            if ($num_frags == -1) {
+                $error = 1;
+            }
+        }
+    }
+
+    # skip log files for runstats
+    goto nextdir if ($runstats);
+
+    if (!$have_elapsed && $errs ne "") {
+        # get elapsed time from .err files
+        open(ELAP, "ls $dir*.err |") || die "Error finding $dir*.err\n";
+        while (<ELAP>) {
+            chop;
+            if ($times_only) {
+                print "\tTime from $_\n";
+            }
+            open(IN, "< $_") || die "Error: Couldn't open $_ for input\n";
+            while (<IN>) {
+                chop;
+                if ($_ =~ /Elapsed: ([0-9]+):([0-9]+):([0-9\.]+)/) {
+                    $elapsed += $1*60 + $2 + $3/60.; # minutes
+                } elsif ($_ =~ /Timeout after ([0-9]+) seconds/) {
+                    $elapsed += $1/60.; # minutes
+                }
+            }
+            close(IN);
+        }
+        close(ELAP);
+        $have_elapsed = 1;
+    }
+
+    if ($times_only) {
+        if ($dir =~ /-[on]o?pt-[tr].+\//) {
+            $dir =~ m|\./[^/]+/([^/]+)/[^/]+-([on])o?pt-([tr]).+/|;
+            $bmark = $1;
+            $opt = $2;
+            $dset = $3;
+        } else {
+            $dir =~ m|\./[^/]+/([^/]+)/[^/]+/|;
+            $bmark = $1;
+            # assume opt ref!
+            $opt = 'o';
+            $dset = 'r';
+        }
+        $val{$bmark,$opt,$dset} += $elapsed;
+        $bm{$bmark} = 1;
+    } else {
+        printf("%-43s %6d / %6d %5d %5d / %5d %5d / %5d  %5.1f",
+               "$dir$num", $num_traces, $num_frags, $heap_used,
+               $fcache_bb_used, $fcache_bb_cap,
+               $fcache_trace_used, $fcache_trace_cap,
+               $elapsed);
+        if (!$noperfctr) {
+            for ($i = 1; $i < $perfctr_num; $i++) {
+                printf("\t%15.0f", $perfctr[$i]);
+            }
+        }
+        if ($error) {
+            print "  Error";
+        }
+        print "\n";
+    }
+  nextdir:
+}
+close(FIND);
+
+if ($times_only) {
+    print("\nBenchmark\tRef,n\tRef,o\tTest,n\tTest,o\n");
+    foreach $b (sort (keys %bm)) {
+        printf("%10s\t%6.2f\t%6.2f\t%6.2f\t%6.2f\n",$b,
+               $val{$b,"n","r"},$val{$b,"o","r"},
+               $val{$b,"n","t"},$val{$b,"o","t"});
+    }
+}
+

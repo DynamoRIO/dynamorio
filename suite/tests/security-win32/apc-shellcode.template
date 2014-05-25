@@ -1,0 +1,388 @@
+apc-shellcode
+normal (nested) apc
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 7
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 6
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 6
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 5
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 5
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 4
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 5
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 4
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 4
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 4
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 4
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 3
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 2
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 1
+QueueUserAPC returned 1
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+apc_func 0
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+VSE-like native mode
+native_queue_apc returned 1
+second native_queue_apc returned 1
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(apc_policy)
+# if !defined(exempt_threat_list)
+     SEC_VIO_THREAD
+     SEC_VIO_THREAD
+# else
+# endif
+#endif
+#endif
+SleepEx returned 192
+VSE native shellcode returned
+other APC native mode
+native_queue_apc returned 1
+second native_queue_apc returned 1
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(apc_policy)
+# if !defined(silent_block_threat_list)
+     SEC_VIO_THREAD
+     SEC_VIO_THREAD
+# else
+# endif
+#endif
+#endif
+SleepEx returned 192
+*** other APC native shellcode returned
+VSE-like user mode
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+#if !defined(detect_mode)
+  SEC_VIO_AUTO_STOP
+  STOP
+#else
+  SEC_VIO_CONT
+#endif
+#endif
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+*** VSE user shellcode allowed!
+other APC user shellcode
+QueueUserAPC returned 1
+second QueueUserAPC returned 1
+SleepEx returned 192
+Apc arg = 0
+Result = 8700
+*** other APC user shellcode allowed!

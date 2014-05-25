@@ -1,0 +1,14 @@
+about to do longjmp
+Error 131: Divide by zero
+
+
+   0 / 1.8e+308 =    0
+
+
+   0 * 1.8e+308 =    0
+
+
+1.8e+308 / 1.8e+308 =    1
+
+
+1.8e+308 * 1.8e+308 = 1.#J

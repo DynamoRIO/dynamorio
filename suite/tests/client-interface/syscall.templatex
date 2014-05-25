@@ -1,0 +1,19 @@
+#ifdef UNIX
+found libc
+starting syscall monitoring
+# ifdef X64
+0x0000000000000001
+# else
+0x00000004
+# endif
+syscall.c test
+stopping syscall monitoring
+#else
+// giving up on listing actual sequence of syscall numbers per platform
+starting syscall monitoring
+// I'd like to use "\r\n" but it turns into "\\r\\n" in CTestTestfile
+// and then doesn't match
+[0-9a-fx
+]*
+stopping syscall monitoring
+#endif

@@ -1,0 +1,59 @@
+starting good function
+in foo
+first foo a=1
+in foo
+second foo a=2
+starting bad function
+#if defined(X64)
+looking at ring 0x0000000000000001
+#else
+looking at ring 0x00000001
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(detect_mode) && !defined(throw_exception) && !defined(internal_detach_mask) && !defined(hotp_only)
+// case 9364 - we silently kill (thread or process)
+    STOP
+# else
+//match native behaviour
+#endif
+#if defined(X64)
+fault caught on 0x0000000000000001
+looking at ring 0x0000000000000000
+fault caught on 0x0000000000000000
+looking at ring 0x0000000000badbad
+#else
+fault caught on 0x00000001
+looking at ring 0x00000000
+fault caught on 0x00000000
+looking at ring 0x00badbad
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1)
+// note we don't count the 0x00000000 as a .C exception
+// case 8267
+  STOP
+#endif
+#if defined(X64)
+fault caught on 0x0000000000badbad
+looking at ring 0x000000007fffffff
+fault caught on 0x000000007fffffff
+looking at ring 0xffffffff80000000
+fault caught on 0x0000000080000000
+looking at ring 0xffffffffbadbad00
+fault caught on 0x00000000badbad00
+looking at ring 0xfffffffffffffffe
+fault caught on 0x00000000fffffffe
+looking at ring 0xffffffffffffffff
+fault caught on 0x00000000ffffffff
+#else
+fault caught on 0x00badbad
+looking at ring 0x7fffffff
+fault caught on 0x7fffffff
+looking at ring 0x80000000
+fault caught on 0x80000000
+looking at ring 0xbadbad00
+fault caught on 0xbadbad00
+looking at ring 0xfffffffe
+fault caught on 0xfffffffe
+looking at ring 0xffffffff
+fault caught on 0xffffffff
+#endif
+all done [not seen]

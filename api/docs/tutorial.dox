@@ -1,0 +1,1189 @@
+/* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2008-2009 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+\page API_tutorial API Usage Tutorial
+
+Below we provide a few short tutorials on using the DynamoRIO API to write
+several clients.
+
+- A client that tracks the average dynamic basic block size
+demonstrating some simple instrumentation : \subpage API_tutorial_bbdynsize1 "average_bb_size".
+
+- A client that steals a register from the application demonstrating
+some simple state translation : \subpage API_tutorial_steal_reg1 "steal_reg".
+
+- A client that adjusts prefetch instructions demonstrating some simple
+app modifications : \subpage API_tutorial_prefetch1 "prefetch".
+
+**/
+
+
+/**
+\page API_tutorial_bbdynsize1
+
+In this tutorial we'll create a simple client that will compute the
+average size of basic blocks executed (in instructions) weighted by
+their execution frequency. We start with an empty DynamoRIO client.
+
+\code
+#include "dr_api.h"
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* empty */
+}
+\endcode
+
+[ \ref API_tutorial "prev" | \subpage API_tutorial_bbdynsize2 "next" ]
+
+\page API_tutorial_bbdynsize2
+Now we register for events we'll need.  For our first pass we only
+need to register for the bb event (to add our instrumentation) and the
+exit event (to display the results).  We don't need to register for
+trace events (as we will add our instrumentation to the constituent
+bbs) and we can ignore the \p for_trace and \p translating arguments
+to the basic block callback as our changes are deterministic and
+idempotent so DynamoRIO default translation will work fine.
+
+\code
+#include "dr_api.h"
+
++ static void
++ event_exit(void);
++ static dr_emit_flags_t
++ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
++                   bool for_trace, bool translating);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
++     /* register events */
++     dr_register_exit_event(event_exit);
++     dr_register_bb_event(event_basic_block);
+}
+
++ static void
++ event_exit(void)
++ {
++     /* empty */
++ }
++
++ static dr_emit_flags_t
++ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
++                   bool for_trace, bool translating)
++ {
++     /* empty */
++     return DR_EMIT_DEFAULT;
++ }
+\endcode
+
+[ \ref API_tutorial_bbdynsize1 "prev" | \subpage API_tutorial_bbdynsize3 "next" ]
+
+\page API_tutorial_bbdynsize3
+Next we add code to track the size of blocks as we build them for our
+as-built count.  This will give us the number of blocks built and
+their average size.  Next we will add the dynamic execution counts.
+
+\code
+#include "dr_api.h"
+
++ #ifdef WINDOWS
++ # define DISPLAY_STRING(msg) dr_messagebox(msg)
++ #else
++ # define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
++ #endif
+
++ typedef struct bb_counts {
++    uint64 blocks;
++    uint64 total_size;
++ } bb_counts;
+
++ static bb_counts counts_as_built;
++ void *as_built_lock;
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
++
++     /* initialize lock */
++     as_built_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
++     /* Display results - we must first snpritnf the string as on windows
++      * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
++     char msg[512];
++     int len;
++     len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
++                    "Number of basic blocks built : %"UINT64_FORMAT_CODE"\n"
++                    "     Average size            : %5.2lf instructions\n",
++                    counts_as_built.blocks,
++                    counts_as_built.total_size / (double)counts_as_built.blocks);
++     DR_ASSERT(len > 0);
++     msg[sizeof(msg)/sizeof(msg[0])-1] = '\0'; /* NUll terminate */
++     DISPLAY_STRING(msg);
++
++      /* free mutex */
++      dr_mutex_destroy(as_built_lock);
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
++     uint num_instructions = 0;
++     instr_t *instr;
++
++     /* count the number of instructions in this block */
++     for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
++         num_instructions++;
++     }
++
++     /* update the as-built counts */
++     dr_mutex_lock(as_built_lock);
++     counts_as_built.blocks++;
++     counts_as_built.total_size += num_instructions;
++     dr_mutex_unlock(as_built_lock);
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize2 "prev" | \subpage API_tutorial_bbdynsize4 "next" ]
+
+\page API_tutorial_bbdynsize4
+Now we add instrumentation to gather the dynamic counts.  For the
+first pass we'll use a clean call to increment the counters from each
+block.  However this approach is very slow since for each basic block
+execution a context switch out of the cache will occur.  We'll look at
+other approaches next.
+
+\code
+#include "dr_api.h"
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
++ static bb_counts counts_dynamic;
++ void *count_lock;
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
++ static void
++ clean_call(uint instruction_count);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
++     count_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size      : %5.2lf instructions\n"
++                    "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
++                    "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
++                    counts_dynamic.blocks,
++                    counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
++     dr_mutex_destroy(count_lock);
+}
+
++ static void
++ clean_call(uint instruction_count)
++ {
++     dr_mutex_lock(count_lock);
++     counts_dynamic.blocks++;
++     counts_dynamic.total_size += instruction_count;
++     dr_mutex_unlock(count_lock);
++ }
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr;
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
+    dr_mutex_unlock(as_built_lock);
+
++     /* insert clean call */
++     dr_insert_clean_call(drcontext, bb, instrlist_first(bb), clean_call, false, 1,
++                          OPND_CREATE_INT32(num_instructions));
++
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize3 "prev" | \subpage API_tutorial_bbdynsize5 "next" ]
+
+\page API_tutorial_bbdynsize5
+In this variation we use inlined atomic instructions to adjust the counters.  On
+a single core box this form should be quite fast, but on a multi-core box the
+cache line locking for atomic operations will slow things dramatically.  We'll
+look at forms more suitable for multi-core further on.
+
+\code
+#include "dr_api.h"
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
+static bb_counts counts_dynamic;
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size      : %5.2lf instructions\n"
+                   "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
+                   counts_dynamic.blocks,
+                   counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr, *where = NULL;
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
+    dr_mutex_unlock(as_built_lock);
+
++     /* increment counters */
++     where = instrlist_first(bb);
++     dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
++ #ifdef X86_32
++     /* Since the counters are 64-bit we must use an add + an addc to increment.
++      * The operations is still effectively atomic since we're only increasing
++      * the count. */
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_add(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks, OPSZ_4),
++                               OPND_CREATE_INT8(1))));
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_adc(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks + 4, OPSZ_4),
++                               OPND_CREATE_INT8(0))));
++
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_add(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size, OPSZ_4),
++                               OPND_CREATE_INT_32OR8(num_instructions))));
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_adc(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size + 4, OPSZ_4),
++                               OPND_CREATE_INT8(0))));
++ #else /* X86_64 */
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_inc(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks, OPSZ_8))));
++     instrlist_meta_preinsert(bb, where,
++         LOCK(INSTR_CREATE_add(drcontext,
++                               OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size, OPSZ_8),
++                               OPND_CREATE_INT_32OR8(num_instructions))));
++ #endif
++     dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
++
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize4 "prev" | \subpage API_tutorial_bbdynsize6 "next" ]
+
+\page API_tutorial_bbdynsize6
+Next up we add an optimization to only save and restore the flags if we can't find a spot
+within the block where the flags are dead.
+
+\code
+#include "dr_api.h"
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
++ #define TESTALL(mask, var) (((mask) & (var)) == (mask))
++ #define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
+static bb_counts counts_dynamic;
+
++ /* Protected by the as_built_lock */
++ static uint64 bbs_eflags_saved;
+
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size       : %5.2lf instructions\n"
++                    "     Num saved eflags : %"UINT64_FORMAT_CODE"\n"
+                   "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
++                    bbs_eflags_saved,
+                   counts_dynamic.blocks,
+                   counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr, *where = NULL;
++     bool eflags_saved = true;
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
++         /* Since it doesn't matter where we insert, look for a place
++          * where the eflags are dead. */
++         uint flags = instr_get_arith_flags(instr);
++         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
++             where = instr;
++             eflags_saved = false;
++         }
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
++     if (eflags_saved)
++         bbs_eflags_saved++;
+    dr_mutex_unlock(as_built_lock);
+
+    /* increment counters */
++     if (eflags_saved) {
++         where = instrlist_first(bb);
+        dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
++     }
+#ifdef X86_32
+    /* Since the counters are 64-bit we must use an add an addc to increment.
+     * The operations is still effectively atomic since we're only increasing
+     * the count. */
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_add(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks, OPSZ_4),
+                              OPND_CREATE_INT8(1))));
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_adc(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks + 4, OPSZ_4),
+                              OPND_CREATE_INT8(0))));
+
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_add(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size, OPSZ_4),
+                              OPND_CREATE_INT_32OR8(num_instructions))));
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_adc(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size + 4, OPSZ_4),
+                              OPND_CREATE_INT8(0))));
+#else /* X86_64 */
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_inc(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.blocks, OPSZ_8))));
+    instrlist_meta_preinsert(bb, where,
+        LOCK(INSTR_CREATE_add(drcontext,
+                              OPND_CREATE_ABSMEM((byte *)&counts_dynamic.total_size, OPSZ_8),
+                              OPND_CREATE_INT_32OR8(num_instructions))));
+#endif
++     if (eflags_saved) {
+        dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
++     }
+
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize5 "prev" | \subpage API_tutorial_bbdynsize7 "next" ]
+
+\page API_tutorial_bbdynsize7
+We now have a pretty fast implementation, probably about as fast as we can get
+on a single core machine.  However, on multi-core systems the cache
+line locking for the atomic operations becomes a bottle neck.  To get around that
+we can use thread-private counts and aggregate them.  With thread-private counts
+no locked instructions are needed, however the extra indirection does has its
+own cost of extra added instructions to spill a register and get the tls pointer
+so on single core this will be slower.
+
+\code
+#include "dr_api.h"
++ #include <stddef.h>
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
+static bb_counts counts_dynamic;
++ void *count_lock;
+
+/* Protected by the as_built_lock */
+static uint64 bbs_eflags_saved;
+
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
++ static void
++ event_thread_init(void *drcontext);
++ static void
++ event_thread_exit(void *drcontext);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
++     dr_register_thread_init_event(event_thread_init);
++     dr_register_thread_exit_event(event_thread_exit);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
++     count_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size       : %5.2lf instructions\n"
+                   "     Num saved eflags : %"UINT64_FORMAT_CODE"\n"
+                   "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
+                   bbs_eflags_saved,
+                   counts_dynamic.blocks,
+                   counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
++     dr_mutex_destroy(count_lock);
+}
+
++ static void
++ event_thread_init(void *drcontext)
++ {
++     /* create an instance of our data structure for this thread */
++     bb_counts *counts = (bb_counts *)dr_thread_alloc(drcontext, sizeof(bb_counts));
++     /* store it in the slot provided in the drcontext */
++     dr_set_tls_field(drcontext, counts);
++     memset(counts, 0, sizeof(bb_counts));
++ }
++
++ static void
++ event_thread_exit(void *drcontext)
++ {
++     bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
++     /* NOTE - if we so choose we could report per-thread sizes here. */
++     dr_mutex_lock(count_lock);
++     counts_dynamic.blocks += counts->blocks;
++     counts_dynamic.total_size += counts->total_size;
++     dr_mutex_unlock(count_lock);
++     dr_thread_free(drcontext, counts, sizeof(bb_counts));
++ }
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr, *where = NULL;
+    bool eflags_saved = true;
++     bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        /* Since it doesn't matter where we insert, look for a place
+         * where the eflags are dead. */
+        uint flags = instr_get_arith_flags(instr);
+        if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
+            where = instr;
+            eflags_saved = false;
+        }
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
+    if (eflags_saved)
+        bbs_eflags_saved++;
+    dr_mutex_unlock(as_built_lock);
+
+    /* increment counters */
+    if (eflags_saved) {
+        where = instrlist_first(bb);
+        dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
++     /* Spill a register to get a pointer to our TLS structure. */
++     dr_save_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
++     dr_insert_read_tls_field(drcontext, bb, where, REG_XDI);
+#ifdef X86_32
+    /* Since the counters are 64-bit we must use an add an addc to increment.
+     * The operations is still effectively atomic since we're only increasing
+     * the count. */
+    instrlist_meta_preinsert(bb, where,
+!         INSTR_CREATE_add(drcontext,
+!                          OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)),
+                         OPND_CREATE_INT8(1)));
+    instrlist_meta_preinsert(bb, where,
+!         INSTR_CREATE_adc(drcontext,
+!                          OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)+4),
+                         OPND_CREATE_INT8(0)));
+
+    instrlist_meta_preinsert(bb, where,
+!         INSTR_CREATE_add(drcontext,
+!                          OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)),
+                         OPND_CREATE_INT_32OR8(num_instructions)));
+    instrlist_meta_preinsert(bb, where,
+!         INSTR_CREATE_adc(drcontext,
+!                          OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)+4),
+                         OPND_CREATE_INT8(0)));
+#else /* X86_64 */
+    instrlist_meta_preinsert(bb, where,
+!        INSTR_CREATE_inc(drcontext,
+!                         OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, blocks))));
+    instrlist_meta_preinsert(bb, where,
+!        INSTR_CREATE_add(drcontext,
+!                         OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, total_size)),
+                        OPND_CREATE_INT_32OR8(num_instructions)));
+#endif
++     /* Restore spilled register. */
++     dr_restore_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
+    if (eflags_saved) {
+        dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize6 "prev" | \subpage API_tutorial_bbdynsize8 "next" ]
+
+\page API_tutorial_bbdynsize8
+Our final optimization is to note that if we're running with thread-private caches
+(i.e. with the -thread_private option to DynamoRIO) we can use absolute addressing
+on the per-thread counters instead of indirecting via TLS which should greatly speed
+things up.  The downside to -thread_private is that on applications with many threads
+memory use can get quite high, potentially enough to impact performance of the system.
+
+\code
+#include "dr_api.h"
+#include <stddef.h>
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
+static bb_counts counts_dynamic;
+void *count_lock;
+
+/* Protected by the as_built_lock */
+static uint64 bbs_eflags_saved;
+
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+    dr_register_thread_init_event(event_thread_init);
+    dr_register_thread_exit_event(event_thread_exit);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
+    count_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size       : %5.2lf instructions\n"
+                   "     Num saved eflags : %"UINT64_FORMAT_CODE"\n"
+                   "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
+                   bbs_eflags_saved,
+                   counts_dynamic.blocks,
+                   counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
+    dr_mutex_destroy(count_lock);
+}
+
+static void
+event_thread_init(void *drcontext)
+{
+    /* create an instance of our data structure for this thread */
+    bb_counts *counts = (bb_counts *)dr_thread_alloc(drcontext, sizeof(bb_counts));
+    /* store it in the slot provided in the drcontext */
+    dr_set_tls_field(drcontext, counts);
+    memset(counts, 0, sizeof(bb_counts));
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
+    /* NOTE - if we so choose we could report per-thread sizes here. */
+    dr_mutex_lock(count_lock);
+    counts_dynamic.blocks += counts->blocks;
+    counts_dynamic.total_size += counts->total_size;
+    dr_mutex_unlock(count_lock);
+    dr_thread_free(drcontext, counts, sizeof(bb_counts));
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr, *where = NULL;
+    bool eflags_saved = true;
+    bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        /* Since it doesn't matter where we insert, look for a place
+         * where the eflags are dead. */
+        uint flags = instr_get_arith_flags(instr);
+        if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
+            where = instr;
+            eflags_saved = false;
+        }
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
+    if (eflags_saved)
+        bbs_eflags_saved++;
+    dr_mutex_unlock(as_built_lock);
+
+    /* increment counters */
+    if (eflags_saved) {
+        where = instrlist_first(bb);
+        dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
++     /* If all thread-private caches we can use direct addressing. */
++     if (!dr_using_all_private_caches()) {
+        /* Spill a register to get a pointer to our TLS structure. */
+        dr_save_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
+        dr_insert_read_tls_field(drcontext, bb, where, REG_XDI);
++     }
+#ifdef X86_32
+    /* Since the counters are 64-bit we must use an add an addc to increment.
+     * The operations is still effectively atomic since we're only increasing
+     * the count. */
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_add(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) :
+!                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)),
+                         OPND_CREATE_INT8(1)));
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_adc(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->blocks +4, OPSZ_4) :
+!                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)+4),
+                         OPND_CREATE_INT8(0)));
+
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_add(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->total_size, OPSZ_4) :
+!                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)),
+                         OPND_CREATE_INT_32OR8(num_instructions)));
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_adc(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->total_size +4, OPSZ_4) :
+!                            OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)+4),
+                         OPND_CREATE_INT8(0)));
+#else /* X86_64 */
+    instrlist_meta_preinsert(bb, where,
+       INSTR_CREATE_inc(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_8) :
+!                            OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, blocks))));
+    instrlist_meta_preinsert(bb, where,
+       INSTR_CREATE_add(drcontext,
+!                          dr_using_all_private_caches() ?
+!                            OPND_CREATE_ABSMEM((byte *)&counts->total_size, OPSZ_8) :
+!                            OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, total_size)),
+                        OPND_CREATE_INT_32OR8(num_instructions)));
+#endif
++     if (!dr_using_all_private_caches()) {
+        /* Restore spilled register. */
+        dr_restore_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
++     }
+    if (eflags_saved) {
+        dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+
+[ \ref API_tutorial_bbdynsize7 "prev" | \subpage API_tutorial_bbdynsize9 "next" ]
+
+\page API_tutorial_bbdynsize9
+The final multi-core optimized version.  If we are single core then the LOCK version
+is probably faster unless we are running with -thread_private in which case it's probably
+close to equivalent.
+
+\code
+#include "dr_api.h"
+#include <stddef.h>
+
+#ifdef WINDOWS
+# define DISPLAY_STRING(msg) dr_messagebox(msg)
+#else
+# define DISPLAY_STRING(msg) dr_printf("%s\n", msg)
+#endif
+
+#define TESTALL(mask, var) (((mask) & (var)) == (mask))
+#define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+typedef struct bb_counts {
+   uint64 blocks;
+   uint64 total_size;
+} bb_counts;
+
+static bb_counts counts_as_built;
+void *as_built_lock;
+
+static bb_counts counts_dynamic;
+void *count_lock;
+
+/* Protected by the as_built_lock */
+static uint64 bbs_eflags_saved;
+
+
+static void
+event_exit(void);
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating);
+static void
+event_thread_init(void *drcontext);
+static void
+event_thread_exit(void *drcontext);
+
+DR_EXPORT void
+dr_init(client_id_t id)
+{
+    /* register events */
+    dr_register_exit_event(event_exit);
+    dr_register_bb_event(event_basic_block);
+    dr_register_thread_init_event(event_thread_init);
+    dr_register_thread_exit_event(event_thread_exit);
+
+    /* initialize lock */
+    as_built_lock = dr_mutex_create();
+    count_lock = dr_mutex_create();
+}
+
+static void
+event_exit(void)
+{
+    /* Display results - we must first snpritnf the string as on windows
+     * dr_printf(), dr_messagebox() and dr_fprintf() can't print floats. */
+    char msg[512];
+    int len;
+    len = snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                   "Number of blocks built  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average size       : %5.2lf instructions\n"
+                   "     Num saved eflags : %"UINT64_FORMAT_CODE"\n"
+                   "Number of blocks executed  : %"UINT64_FORMAT_CODE"\n"
+                   "     Average weighted size : %5.2lf instructions\n",
+                   counts_as_built.blocks,
+                   counts_as_built.total_size / (double)counts_as_built.blocks,
+                   bbs_eflags_saved,
+                   counts_dynamic.blocks,
+                   counts_dynamic.total_size / (double)counts_dynamic.blocks);
+    DR_ASSERT(len > 0);
+    msg[sizeof(msg)/sizeof(msg[0])-1] = '\0';
+    DISPLAY_STRING(msg);
+
+    /* free mutex */
+    dr_mutex_destroy(as_built_lock);
+    dr_mutex_destroy(count_lock);
+}
+
+static void
+event_thread_init(void *drcontext)
+{
+    /* create an instance of our data structure for this thread */
+    bb_counts *counts = (bb_counts *)dr_thread_alloc(drcontext, sizeof(bb_counts));
+    /* store it in the slot provided in the drcontext */
+    dr_set_tls_field(drcontext, counts);
+    memset(counts, 0, sizeof(bb_counts));
+}
+
+static void
+event_thread_exit(void *drcontext)
+{
+    bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
+    /* NOTE - if we so choose we could report per-thread sizes here. */
+    dr_mutex_lock(count_lock);
+    counts_dynamic.blocks += counts->blocks;
+    counts_dynamic.total_size += counts->total_size;
+    dr_mutex_unlock(count_lock);
+    dr_thread_free(drcontext, counts, sizeof(bb_counts));
+}
+
+static dr_emit_flags_t
+event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    uint num_instructions = 0;
+    instr_t *instr, *where = NULL;
+    bool eflags_saved = true;
+    bb_counts *counts = (bb_counts *) dr_get_tls_field(drcontext);
+
+    /* count the number of instructions in this block */
+    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+        /* Since it doesn't matter where we insert, look for a place
+         * where the eflags are dead. */
+        uint flags = instr_get_arith_flags(instr);
+        if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags)) {
+            where = instr;
+            eflags_saved = false;
+        }
+        num_instructions++;
+    }
+
+    /* update the as-built counts */
+    dr_mutex_lock(as_built_lock);
+    counts_as_built.blocks++;
+    counts_as_built.total_size += num_instructions;
+    if (eflags_saved)
+        bbs_eflags_saved++;
+    dr_mutex_unlock(as_built_lock);
+
+    /* increment counters */
+    if (eflags_saved) {
+        where = instrlist_first(bb);
+        dr_save_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
+    /* If all thread-private caches we can use direct addressing. */
+    if (!dr_using_all_private_caches()) {
+        /* Spill a register to get a pointer to our TLS structure. */
+        dr_save_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
+        dr_insert_read_tls_field(drcontext, bb, where, REG_XDI);
+    }
+#ifdef X86_32
+    /* Since the counters are 64-bit we must use an add an addc to increment.
+     * The operations is still effectively atomic since we're only increasing
+     * the count. */
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_add(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_4) :
+                           OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)),
+                         OPND_CREATE_INT8(1)));
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_adc(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->blocks +4, OPSZ_4) :
+                           OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, blocks)+4),
+                         OPND_CREATE_INT8(0)));
+
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_add(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->total_size, OPSZ_4) :
+                           OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)),
+                         OPND_CREATE_INT_32OR8(num_instructions)));
+    instrlist_meta_preinsert(bb, where,
+        INSTR_CREATE_adc(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->total_size +4, OPSZ_4) :
+                           OPND_CREATE_MEM32(REG_XDI, offsetof(bb_counts, total_size)+4),
+                         OPND_CREATE_INT8(0)));
+#else /* X86_64 */
+    instrlist_meta_preinsert(bb, where,
+       INSTR_CREATE_inc(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->blocks, OPSZ_8) :
+                           OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, blocks))));
+    instrlist_meta_preinsert(bb, where,
+       INSTR_CREATE_add(drcontext,
+                         dr_using_all_private_caches() ?
+                           OPND_CREATE_ABSMEM((byte *)&counts->total_size, OPSZ_8) :
+                           OPND_CREATE_MEM64(REG_XDI, offsetof(bb_counts, total_size)),
+                        OPND_CREATE_INT_32OR8(num_instructions)));
+#endif
+    if (!dr_using_all_private_caches()) {
+        /* Restore spilled register. */
+        dr_restore_reg(drcontext, bb, where, REG_XDI, SPILL_SLOT_2);
+    }
+    if (eflags_saved) {
+        dr_restore_arith_flags(drcontext, bb, where, SPILL_SLOT_1);
+    }
+
+    return DR_EMIT_DEFAULT;
+}
+\endcode
+
+[ \ref API_tutorial_bbdynsize8 "prev" | \ref API_tutorial "back" ]
+
+**/
+
+
+/**
+\page API_tutorial_steal_reg1
+<b>coming soon</b>
+
+[ \ref API_tutorial "back" ]
+**/
+
+
+/**
+\page API_tutorial_prefetch1
+<b>coming soon</b>
+
+[ \ref API_tutorial "back" ]
+**/

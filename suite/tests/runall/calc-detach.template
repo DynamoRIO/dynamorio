@@ -1,0 +1,19 @@
+#if defined(RUNREGRESSION_XP) && defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text) && !defined(executable_after_load)
+  SEC_VIO_STOP
+No such process found.
+No such process found.
+Window not found: Calculator
+#else
+# if defined(DEBUG)
+Process calc.exe, running SC debug
+# else
+#  if defined(PROFILE)
+Process calc.exe, running SC profile
+#  else
+Process calc.exe, running SC release
+#  endif
+# endif
+Process calc.exe, running native
+Close message sent.
+#endif
+No such process found.

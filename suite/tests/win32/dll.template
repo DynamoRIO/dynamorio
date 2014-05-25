@@ -1,0 +1,36 @@
+Found 3 of 5 expected modules
+Didn't find module dynamorio.dll
+Didn't find module win32.dll.dll.dll
+#if defined(no_hide)
+Found 4 of 5 expected modules
+Didn't find module win32.dll.dll.dll
+#else
+Found 3 of 5 expected modules
+Didn't find module dynamorio.dll
+Didn't find module win32.dll.dll.dll
+#endif
+win32.dll.dll.dll process attach
+loaded win32.dll.dll.dll
+Found 4 of 5 expected modules
+Didn't find module dynamorio.dll
+#if defined(no_hide)
+Found 5 of 5 expected modules
+#else
+Found 4 of 5 expected modules
+Didn't find module dynamorio.dll
+#endif
+in import
+Called import_me with 5, result is 10
+win32.dll.dll.dll process detach
+freed library
+Found 3 of 5 expected modules
+Didn't find module dynamorio.dll
+Didn't find module win32.dll.dll.dll
+#if defined(no_hide)
+Found 4 of 5 expected modules
+Didn't find module win32.dll.dll.dll
+#else
+Found 3 of 5 expected modules
+Didn't find module dynamorio.dll
+Didn't find module win32.dll.dll.dll
+#endif

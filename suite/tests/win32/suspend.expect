@@ -1,0 +1,4 @@
+starting thread...suspended(count = 0)...resuming...exiting thread...resumed(count = 1)
+suspended(count = 1)...resumed,exiting
+Testing exiting with self suspended thread.
+done

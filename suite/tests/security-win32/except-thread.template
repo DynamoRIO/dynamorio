@@ -1,0 +1,152 @@
+THREAD0: Creating thread 1
+Attempting execution of badfunc
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && !defined(kill_thread) && !defined(throw_exception) && !defined(executable_heap) && !defined(low) && !defined(client) && !defined(thin_client)
+  SEC_VIO_STOP
+# if !defined(internal_detach_mask)
+   STOP
+# endif
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(kill_thread) && !defined(throw_exception)
+  SEC_VIO_THREAD
+THREAD0: After running other thread
+Attempting execution of badfunc
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(kill_thread_max___1)
+    SEC_VIO_STOP
+#  else
+    SEC_VIO_THREAD
+#  endif
+  STOP
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception)
+  SEC_VIO_EXCEPTION
+DATA VIOLATION: Inside first filter eax=0
+# if defined(DUMP_REGISTER_STATE)
+ /* Fixme : register state non consisten across different machines */
+	exception code = 0xc0000005, ExceptionFlags=0x00000000
+	record=00000000, params=2
+	PC 0x00423400 tried to read address 0x00423400
+	pc=0x00423400 eax=0x00000000
+  ContextFlags=0x0001003f
+  Edi=0x00420220 Esi=0x7ffdf000 Ebx=0x00000000
+@&@&
+  Eax=0x00000000
+  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
+  <floating point area>
+  SegGs=0x00000000 SegFs=0x00000038 SegEs=0x00000023 SegDs=0x00000023
+# else
+Address match : yes
+Exception match : yes
+# endif
+DATA VIOLATION: Inside first handler
+DATA: At statement after 1st try-except
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread)
+     SEC_VIO_THREAD
+#  endif
+#  if !defined(throw_exception_max_per_thread___1) && !defined(throw_exception_max___1)
+     SEC_VIO_EXCEPTION
+DATA: Finally!
+DATA: Expected execution violation!
+#   if defined(DUMP_REGISTER_STATE)
+	exception code = 0xc0000005, ExceptionFlags=0x00000000
+	record=00000000, params=2
+	PC 0x00423400 tried to read address 0x00423400
+	pc=0x00423400 eax=0x00000000
+  ContextFlags=0x0001003f
+  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0052ffa4
+@&@&
+  Eax=0x00000000
+  Ebp=0x0052ffb4 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000202 Esp=0x0052ff34 SegSs=0x00000023
+  <floating point area>
+  SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023
+#   else
+Address match : yes
+Exception match : yes
+#   endif
+DATA: After exception handler
+#  endif
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && !defined(kill_thread)
+     SEC_VIO_STOP
+     STOP
+#  endif
+THREAD0: After running other thread
+Attempting execution of badfunc
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread_max___1)
+     SEC_VIO_STOP
+     STOP
+#  endif
+#  if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(throw_exception_max___1) && defined(kill_thread)
+     SEC_VIO_THREAD
+     STOP
+#  endif
+   SEC_VIO_EXCEPTION
+DATA VIOLATION: Inside first filter eax=0
+#  ifdef defined(DUMP_REGISTER_STATE)
+	exception code = 0xc0000005, ExceptionFlags=0x00000000
+	record=00000000, params=2
+	PC 0x00423400 tried to read address 0x00423400
+	pc=0x00423400 eax=0x00000000
+  ContextFlags=0x0001003f
+  Edi=0x0012eb0c Esi=0x00420220 Ebx=0x7ffdf000
+@&@&
+  Eax=0x00000000
+  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000216 Esp=0x0012fee0 SegSs=0x00000023
+  <floating point area>
+  SegGs=0x00000000 SegFs=0x00000038 SegEs=0x00000023 SegDs=0x00000023
+#  else
+Address match : yes
+Exception match : yes
+#  endif
+DATA VIOLATION: Inside first handler
+DATA: At statement after 1st try-except
+   SEC_VIO_EXCEPTION
+DATA: Finally!
+DATA: Expected execution violation!
+#  if defined(DUMP_REGISTER_STATE)
+	exception code = 0xc0000005, ExceptionFlags=0x00000000
+	record=00000000, params=2
+	PC 0x00423400 tried to read address 0x00423400
+	pc=0x00423400 eax=0x00000000
+  ContextFlags=0x0001003f
+  Edi=0x0041c020 Esi=0x00000002 Ebx=0x0012ff50
+
+  Eax=0x00000000
+  Ebp=0x0012ff60 Eip=0x00423400 SegCs=0x0000001b
+  EFlags & 0xFFFF=0x00000206 Esp=0x0012fee0 SegSs=0x00000023
+  <floating point area>
+  SegGs=0x00000000 SegFs=0x0000003b SegEs=0x00000023 SegDs=0x00000023
+#  else
+Address match : yes
+Exception match : yes
+#  endif
+DATA: After exception handler
+THREAD0: After calling more bad code here
+  STOP
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(detect_mode) && defined(throw_exception) && defined(throw_exception_max___1) && defined(kill_thread) && defined(kill_thread_max___1) && !defined(low) && !defined(client) && !defined(thin_client)
+  SEC_VIO_EXCEPTION
+  SEC_VIO_THREAD
+  SEC_VIO_EXCEPTION
+  SEC_VIO_STOP
+  STOP
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(detect_mode)
+  SEC_VIO_CONT
+#endif
+DATA: At statement after exception
+DATA: At statement after 1st try-except
+DATA: Inside 2nd try
+DATA: Finally!
+DATA: At statement after 2nd try-finally
+DATA: After exception handler
+THREAD0: After running other thread
+Attempting execution of badfunc
+DATA: At statement after exception
+DATA: At statement after 1st try-except
+DATA: Inside 2nd try
+DATA: Finally!
+DATA: At statement after 2nd try-finally
+DATA: After exception handler
+THREAD0: After calling more bad code here

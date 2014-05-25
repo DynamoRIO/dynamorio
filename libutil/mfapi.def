@@ -1,0 +1,65 @@
+;; **********************************************************
+;; Copyright (c) 2005-2006 VMware, Inc.  All rights reserved.
+;; **********************************************************
+
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; * Neither the name of VMware, Inc. nor the names of its contributors may be
+;;   used to endorse or promote products derived from this software without
+;;   specific prior written permission.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+;; FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+;; SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+;; CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+;; LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+;; OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+;; DAMAGE.
+
+LIBRARY MFAPI
+EXPORTS
+   policy_import
+   policy_export
+   load_policy
+   save_policy
+   validate_policy
+   clear_policy
+   enable_protection
+   is_protection_enabled
+   disable_protection
+   enable_protection_ex
+   enumerate_processes
+   inject_status
+   is_process_pending_restart
+   is_any_process_pending_restart
+   detach
+   detach_all
+   detach_exe
+   consistency_detach
+   hotp_notify_modes_update
+   hotp_notify_defs_update
+   hotp_notify_all_modes_update
+   hotp_notify_exe_modes_update
+   hotp_notify_all_defs_update
+   start_eventlog_monitor
+   stop_eventlog_monitor
+   get_eventlog_monitor_thread_handle
+   next_message_string
+   get_event_exename
+   get_event_pid
+   get_platform
+   get_installation_path
+   get_product_name
+

@@ -1,0 +1,174 @@
+ready to hook 1
+ok: can't write
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+hooked NtTerminateProcess
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+old permissions ...prev=00000040)
+ok: can't write
+do_hook() done
+ok: can't write
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+hooked NtTerminateThread
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+old permissions ...prev=00000040)
+ok: can't write
+do_hook() done
+ok: can't write
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+hooked NtFlushWriteBuffer
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+old permissions ...prev=00000040)
+ok: can't write
+do_hook() done
+hooking done with
+hookerfirst main()
+#if !defined(handle_ntdll_modify) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+*** invalid ret allowed!
+ready to unhook 37
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! what happened to my previous hook?
+#else
+my hook is still there, will remove now
+#endif
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! my good unhooking intentions were squashed on NtTerminateProcess
+#else
+unhooked NtTerminateProcess
+#endif
+restored old code
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict)
+there be witches! what happened to my previous hook?
+#else
+my hook is still there, will remove now
+#endif
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! my good unhooking intentions were squashed on NtTerminateThread
+#else
+unhooked NtTerminateThread
+#endif
+restored old code
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+my hook is still there, will remove now
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! my good unhooking intentions were squashed on NtFlushWriteBuffer
+#else
+unhooked NtFlushWriteBuffer
+#endif
+restored old code
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+unhooking done with
+ready to hook 37
+ok: can't write
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! what happened to my write?
+#else
+hooked NtTerminateProcess
+#endif
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_hook() done
+ok: can't write
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+there be witches! what happened to my write?
+#else
+hooked NtTerminateThread
+#endif
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_hook() done
+ok: can't write
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+hooked NtFlushWriteBuffer
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_hook() done
+hooking done with
+ready to unhook 37
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+my hook is still there, will remove now
+unhooked NtTerminateProcess
+restored old code
+VirtualProtect(NtTerminateProcess[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+my hook is still there, will remove now
+unhooked NtTerminateThread
+restored old code
+VirtualProtect(NtTerminateThread[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00000020
+my hook is still there, will remove now
+unhooked NtFlushWriteBuffer
+restored old code
+VirtualProtect(NtFlushWriteBuffer[0x00000000],4096,PAGE_EXECUTE_READ,...) = 0 GLE=00000000
+#if !defined(handle_ntdll_modify) && !defined(hook_conflict) && !defined(thin_client)
+old permissions ...prev=00000020)
+#else
+old permissions ...prev=00000040)
+#endif
+ok: can't write
+do_unhook() done
+unhooking done with

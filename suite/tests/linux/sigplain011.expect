@@ -1,0 +1,5 @@
+Sending SIGUSR2
+Sending SIGUSR1
+signal_handler: sig=10
+1750007.722714
+Got some timer hits!

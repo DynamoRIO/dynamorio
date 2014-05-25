@@ -1,0 +1,164 @@
+#!/usr/bin/perl
+
+# **********************************************************
+# Copyright (c) 2002 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+### maketimes
+### author: Derek Bruening   July 2002
+###
+
+$usage = "Usage: $0 <file1> <file2> [res1 res2]\n";
+
+if ($#ARGV != 1 && $#ARGV != 3) {
+    print $usage;
+    exit;
+}
+$file1 = $ARGV[0];
+$file2 = $ARGV[1];
+if ($#ARGV == 3) {
+    $have_res = 1;
+    $res1 = $ARGV[2];
+    $res2 = $ARGV[3];
+} else {
+    $have_res = 0;
+}
+$PWD = $ENV{'PWD'};
+open(FILE1, "< $file1") || die "Error: Couldn't open $file1 for input\n";
+open(FILE2, "< $file2") || die "Error: Couldn't open $file2 for input\n";
+print "# in dir $PWD:\n#\t$file1 / $file2\n";
+if ($have_res) {
+    print "# results: $res1, $res2\n";
+} else {
+    print "# not verifying results\n";
+}
+print "---------------------------------------------\n";
+
+if ($have_res) {
+    open(RES1, "< $res1") || die "Error: Couldn't open $res1 for input\n";
+    $bmark = "";
+    while (<RES1>) {
+        if ($_ =~ /^%%%% .*\/(\w+)$/) {
+            $bmark = $1;
+            $ok1{$bmark} = 0;
+        }
+        if ($_ =~ /^Verify: correct/) {
+            $ok1{$bmark} = 1;
+        }
+    }
+    close(RES1);
+    open(RES2, "< $res2") || die "Error: Couldn't open $res2 for input\n";
+    $bmark = "";
+    while (<RES2>) {
+        if ($_ =~ /^%%%% .*\/(\w+)$/) {
+            $bmark = $1;
+            $ok2{$bmark} = 0;
+        }
+        if ($_ =~ /^Verify: correct/) {
+            $ok2{$bmark} = 1;
+        }
+    }
+    close(RES2);
+}
+
+$num_bmarks = 0;
+while (<FILE1>) {
+    if ($_ =~ /^\s*(\w+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)/) {
+        $bmark = $1;
+        $ref_nopt = $2;
+        $ref_opt = $3;
+        $test_nopt = $4;
+        $test_opt = $5;
+        $t1{$bmark} = $ref_opt;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
+    }
+}
+close(FILE1);
+while (<FILE2>) {
+    if ($_ =~ /^\s*(\w+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)/) {
+        $bmark = $1;
+        $ref_nopt = $2;
+        $ref_opt = $3;
+        $test_nopt = $4;
+        $test_opt = $5;
+        $t2{$bmark} = $ref_opt;
+        $name_bmarks[$num_bmarks] = $bmark;
+        $num_bmarks++;
+    }
+}
+close(FILE2);
+
+@sorted = sort(@name_bmarks);
+$last = "";
+$ratio_sum = 0;
+$ratio_num = 0;
+foreach $s (@sorted) {
+    if ($s eq $last) {
+        next;
+    }
+    $last = $s;
+
+    printf "%12s", $s;
+    if (defined($t1{$s})) {
+        printf "%9.2f", $t1{$s};
+        if ($have_res) {
+            printf "%s", $ok1{$s} ? " " : "*";
+        }
+        $div = $t1{$s};
+    } else {
+        printf "%9s", "-----";
+        $div = 0;
+    }
+
+    if (defined($t2{$s})) {
+        printf "%9.2f", $t2{$s};
+        if ($have_res) {
+            printf "%s", $ok2{$s} ? " " : "*";
+        }
+        if ($div > 0 && $t2{$s} > 0) {
+            $ratio = $div / $t2{$s};
+            $ratio_sum += 1/$ratio;
+            $ratio_num++;
+            printf "%8s%4.3f", "=> ", $ratio;
+        }
+    } else {
+        printf "%9s", "-----";
+    }
+    print "\n";
+}
+
+print "---------------------------------------------\n";
+if ($have_res) {
+    printf "%12s%27s", "harmonic mean", "";
+} else {
+    printf "%12s%25s", "harmonic mean", "";
+}
+$hmean = $ratio_num / $ratio_sum;
+printf "%4.3f\n", $hmean;

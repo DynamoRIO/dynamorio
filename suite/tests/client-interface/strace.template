@@ -1,0 +1,8 @@
+#if defined(WINDOWS)
+Goodbye world!
+Goodbye world!
+#else
+Hello stdout!
+Hello stdout!
+sigprocmask failed: Bad address
+#endif

@@ -1,0 +1,19 @@
+Privileged instructions about to happen
+Privileged instruction, instance 1
+Privileged instruction, instance 2
+Privileged instruction, instance 3
+Privileged instruction, instance 4
+OK instr about to happen
+Bad instr about to happen
+Invalid lock sequence, instance 1
+eax=1 ebx=2 ecx=3 edx=4 edi=5 esi=6 ebp=7
+Invalid instructions about to happen
+Bad instruction, instance 1
+Bad instruction, instance 2
+Bad instruction, instance 3
+Bad instruction, instance 4
+Bad instruction, instance 5
+Bad instruction, instance 6
+Bad instruction, instance 7
+Bad instruction, instance 8
+All done

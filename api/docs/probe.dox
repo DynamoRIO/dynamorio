@@ -1,0 +1,102 @@
+/* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\if vmsafe
+\page API_probe Probe API
+
+The Probe API provides an interface that enables a client to insert
+instructions at any arbitrary point in the executable instructions of a
+process.  This allows for monitoring and changing program behavior.  The usage
+model for the Probe API is described below.
+
+In dr_init(), a client should call dr_register_probes() to register (with
+DynamoRIO) all the points in the current proces at which it would like to
+insert a probe.  A probe insertion point may be a raw virtual address, an
+executable library name and an exported address or an executable library name
+and offset.  For each probe insertion point the client should provide
+a callback function.  If a probe or its callback function is invalid, the
+registration will faill for that probe (see dr_register_probes() for details).
+
+After successful registration, DynamoRIO will invoke a probe's callback
+function using an alternate stack whenever that probe's insertion point
+executes.  With the callback, DynamoRIO passes a pointer argument of type \ref
+dr_mcontext_t (the process's register context at that point of execution).
+Within the callback function, the client can perform its monitoring and
+control operations using a subset of DynamoRIO's API routines (e.g., functions
+to collect information about the process, communicate with external processes,
+etc.).  See \ref sec_utils and \ref sec_comm.
+
+When a callback function completes, it returns a code to indicate its
+status and to request that DynamoRIO perform certain actions on its
+behalf.  Example actions include: sending messages to an event log,
+killing the current thread or process, raising an exception, or
+changing control flow.  These capabilities enable a callback function to have
+more influence over the process's control flow.  Once the callback function
+exits and DynamoRIO has finished the requested actions, the process continues
+execution.
+
+Clients can determine the status of each probe by calling
+dr_get_probe_status() at any time during process execution.  Clients can also
+add, remove or update probes at any time during process execution via
+subsequent calls to dr_register_probes().  A new list of probes completely
+replaces the existing probes.  That is, existing probes not specified in the
+new list are removed from the process.
+
+The flexibility of doing probe registration at any time during execution means
+that probe registration is not a synchronous operation.  In other words, probes
+may not yet be registered when dr_register_probes() returns.  After an update,
+the client should use dr_get_probe_status() to ascertain the status of the
+requested probe registrations.
+
+Probe updates can be used by the client as part of an internally or an
+externally triggered event.  An internal event is triggered by the client
+itself, based on analysis of process behavior for example.  Here the client
+might decide to change callback functions to another one or remove a probe or
+add a new one.  An externally triggered event is caused by the Guest Agent via
+dr_nudge_process().  The Guest Agent might have downloaded new versions of some
+callback functions, have obtained data regarding new probes, etc.  It notifies
+the client which may choose use the new callbacks or probes using
+dr_register_probes().
+
+At process exit all probes are removed automatically.  Probes are removed
+automatically at a few other scenarios too (see dr_register_probes()) for
+details.
+
+\endif
+****************************************************************************
+****************************************************************************
+*/
+

@@ -1,0 +1,10 @@
+The following files and directories were removed due to concerns about
+redistributability:
+
+bbc_files/
+bbc.htm
+cnn_files/
+cnn.htm
+csstest.html
+Javascript Libraries_files/
+Javascript Libraries.htm

@@ -1,0 +1,7 @@
+starting up
+ OUT_OF_MEMORY
+#if defined(WINDOWS)
+// on linux we currently can't kill all threads so
+// the parent thread hangs on a lock held by dead child
+about to exit
+#endif

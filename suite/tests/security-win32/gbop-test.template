@@ -1,0 +1,45 @@
+plain C call
+res=kernel32_base
+plain asm call
+res=kernel32_base
+pretend on stack
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(C) && !defined(gbop_exclude_list___kernel32_dll_LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32_dll_LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+exception since not cleaning up stack
+res=kernel32_base
+pretend on flushed stack
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32_dll_LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+exception since not cleaning up stack
+res=kernel32_base
+pretend in image but not after call
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(A) && !defined(gbop_exclude_list___kernel32_dll_LoadLibraryA) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+res=kernel32_base
+JMP allowed!
+done

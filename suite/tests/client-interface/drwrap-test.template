@@ -1,0 +1,105 @@
+thread.appdll process init
+  <pre-level0>
+in level0 42
+  <pre-level1>
+in level1 42 1111
+  <pre-makes_tailcall>
+  <pre-level2>
+in level2 1153
+  <post-level2>
+  <post-makes_tailcall>
+  <post-level1>
+level1 returned -4
+  <post-level0>
+level0 returned 42
+  <pre-skipme>
+skipme returned 7 and x=3
+replaceme returned 0 and x=6
+replaceme2 returned 1 and x=999
+replace_callsite returned 2 and x=777
+  <pre-preonly>
+in preonly
+in postonly
+  <post-postonly>
+in skipme
+in postonly
+in runlots 1024
+#ifdef UNIX
+  <pre-long0>
+long0 A
+  <pre-long1>
+long1 A
+  <pre-long2>
+long2 A
+  <pre-long3>
+long3 A
+  <post-long3 abnormal>
+  <post-long2 abnormal>
+  <post-long1 abnormal>
+  <post-long0 abnormal>
+#else
+  <pre-long0>
+  <pre-long1>
+long0 A
+  <pre-long2>
+  <pre-long3>
+long1 A
+  <pre-long4>
+  <pre-long5>
+long2 A
+  <pre-long6>
+  <pre-long7>
+long3 A
+  <post-long7 abnormal>
+  <post-long6 abnormal>
+  <post-long5 abnormal>
+  <post-long4 abnormal>
+  <post-long3 abnormal>
+  <post-long2 abnormal>
+  <post-long1 abnormal>
+  <post-long0 abnormal>
+#endif
+longdone
+loaded library
+thread.appdll process init
+  <pre-level0>
+in level0 42
+  <pre-level1>
+in level1 42 1111
+  <pre-makes_tailcall>
+  <pre-level2>
+in level2 1153
+  <post-level2>
+  <post-makes_tailcall>
+  <post-level1>
+level1 returned -4
+  <post-level0>
+level0 returned 42
+  <pre-skipme>
+skipme returned 7 and x=3
+replaceme returned 0 and x=6
+replaceme2 returned 1 and x=999
+replace_callsite returned 2 and x=777
+  <pre-preonly>
+in preonly
+in postonly
+  <post-postonly>
+in skipme
+in postonly
+in runlots 1024
+  <pre-long0>
+long0 A
+  <pre-long1>
+long1 A
+  <pre-long2>
+long2 A
+  <pre-long3>
+long3 A
+  <post-long3 abnormal>
+  <post-long2 abnormal>
+  <post-long1 abnormal>
+  <post-long0 abnormal>
+longdone
+loaded library
+thank you for testing the client interface
+all done

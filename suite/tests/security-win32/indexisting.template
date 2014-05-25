@@ -1,0 +1,76 @@
+a
+A
+z
+10
+21
+21
+the answer is 42
+calling via PLT-style call
+this is a normal function 123456
+calling via PLT-style call
+// the default value is currently -rct_ind_call 0
+// FIXME: we need support for option parameters when the default changes to 11
+// .E expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+PRECIOUS function shouldn't be reachable! ATTACK SUCCESSFUL!
+calling via PLT-style call
+// .E expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+this is another normal function 123456, but shouldn't be called!
+calling via PLT-style indirect jmp
+this is a normal function 123456
+// .C expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(X) && !defined(C) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+calling via PLT-style indirect jmp
+// .F expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(F) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+PRECIOUS function shouldn't be reachable! ATTACK SUCCESSFUL!
+// .C expected
+// unless target already cached
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(X) && !defined(C) && defined(rct_cache_exempt___0) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+done

@@ -1,0 +1,166 @@
+/* **********************************************************
+ * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2007-2008 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\if vmsafe
+\page API_security Memory Firewall API
+
+The Memory Firewall API provides an interface for using and
+customizing the award-winning Memory Firewall software originally
+developed by Determina, Inc.  Memory Firewall is a security technique
+that leverages the DynamoRIO runtime code manipulation system
+to control what code is allowed to execute ("Restricted Code Origins"
+or RCO) and how said code can be reached ("Restricted Control
+Transfers" or RCT). The former provides protection against code
+injection attacks while the latter provides protection against code
+reuse attacks. Together these types of attacks account for most
+critical exploits seen in the wild.
+
+The Memory Firewall API comes with a built in set of policies and
+exemptions based off of a simplified version of those used in
+Determina's VPS product.  These policies and exemptions are not
+configurable and should be suitable for most applications.  Some
+applications or modules may use code constructs that violate these
+policies and in these cases a client can be used to exempt these
+violations.  The client is also given control over the remediation
+taken when a violation occurs.  Most standard windows services
+(other than winlogon.exe: see \ref limits_winlogon "Limitations") and
+applications shouldn't receive violations in
+and of themselves. However, poorly written 3rd party plugins (such as
+printer drivers in the spoolsv.exe service and plugins to explorer.exe
+and Internet Explorer) can be a source of violations.  Third party
+software that is injected into all processes (such as certain
+anti-virus and anti-cheating products) can also be a source of
+violations.
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_MF_events Events
+
+The security violation event occurs when a violation of the built in
+policies is detected.  The client registers a callback routine (or
+hook) to receive notification of this event (see
+dr_register_security_event()).  The hook routine receives seven
+parameters that describe the violation and give control over the
+remediation actions taken :
+
+\code
+void security_violation(void *drcontext, void *source_tag,
+                        app_pc source_pc, app_pc target_pc,
+                        dr_security_violation_type_t violation,
+                        dr_mcontext_t *mcontext,
+                        dr_security_violation_action_t *action);
+\endcode
+
+ - \c drcontext is a pointer to the input program's binary translation
+   context. It is critical for correct program execution that the
+   input program's context remains intact. Thus, the user is not expected
+   to inspect or modify the context and it is passed as an opaque pointer
+   (i.e., <tt>void *</tt>).
+
+ - \c source_tag is the unique tag of the fragment of code in the
+   code cache that was the source of the violations. Each fragment of
+   code within DynamoRIO's code cache is identified by a unique \e
+   tag which is the application starting address of that block of
+   code.
+
+ - \c source_pc is the address of the source instruction for the violation.
+
+ - \c target_pc is the address of the target instruction for the violation.
+
+ - \c violation is a value from the \c dr_security_violation_type_t enum in
+   dr_events.h that describes the type of violation that occurred
+   including whether the violation is from the RCO or RCT policies.
+   See the enum for a fuller description of the violation types.
+
+ - \c mcontext is the application's context at the time of the
+   violation.  This is an IN/OUT parameter to allow the application's
+   state to be changed as part of the remediation.
+
+ - \c action is an IN/OUT parameter that selects the remediation action
+   to take.  The remediations are drawn from the \c
+   dr_security_violation_action_t enum in dr_events.h and include such
+   actions as continuing as if no violation occurred, throwing an
+   exception at the target, etc.  See the enum for a fuller
+   description of possible remediations.
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_MF_utils Utilities
+
+The Memory Firewall API also includes the ability to generate a
+forensics report when a violation is received that includes detailed
+information about the source and target addresses, as well as general
+information on the process and machine as a whole.  The forensics
+report is generated in an xml block described by
+dr_forensics-1.0.dtd.
+
+\code
+void dr_write_forensics_report(void *dcontext, (file_t) file,
+                               dr_security_violation_type_t violation,
+                               dr_security_violation_action_t action,
+                               const char *violation_name);
+\endcode
+
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+
+\section sec_MF_examples Examples
+
+An example Memory Firewall client implementation is provided at <a
+href="../../samples/MF_moduledb.c">../../samples/MF_moduledb.c</a>. See \ref
+sec_mf_samples for a description.
+
+\endif
+****************************************************************************
+****************************************************************************
+*/
+

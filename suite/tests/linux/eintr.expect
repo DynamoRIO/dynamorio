@@ -1,0 +1,5 @@
+sending SIGURG
+sending SIGUSR1
+in handler 10
+got 2 bytes == 97 98
+all done

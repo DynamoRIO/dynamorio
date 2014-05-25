@@ -1,0 +1,15 @@
+starting good adata test
+1
+starting bad acode test
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+1
+done

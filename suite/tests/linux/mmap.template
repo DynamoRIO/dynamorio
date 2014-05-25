@@ -1,0 +1,5 @@
+#if defined(X64)
+Calling mmap(0, 0x0000000000008765, 0x0000000000000007, 0x0000000000000022, 0x00000000ffffffff, 0)
+#else
+Calling mmap(0, 0x00008765, 0x00000007, 0x00000022, 0xffffffff, 0)
+#endif

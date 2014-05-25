@@ -1,0 +1,13 @@
+Start
+Next time around jump to data section
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(ibl_table_per_type) && !defined(no_ret_after_call) && !defined(X) && !defined(C) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+Unhandled exception caught.

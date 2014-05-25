@@ -1,0 +1,6 @@
+#if defined(CLIENT_INTERFACE) && defined(HOT_PATCHING_INTERFACE) && defined(probe_api) && !defined(thin_client)
+The whole is greater than the sum of parts: 4 + 4 = 10
+# else
+The whole is greater than the sum of parts: 4 + 4 = 8
+ - apparently not!
+#endif

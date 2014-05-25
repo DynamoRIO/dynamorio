@@ -1,0 +1,415 @@
+#!/usr/bin/perl -w
+
+# **********************************************************
+# Copyright (c) 2002 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+#This program parses the ouptut of Summary.perfctr and condenses multiple runs
+#of the same benchmark into a single run (by summing all the totals)
+
+
+$usage = "Usage: $0 inputfilename -ratio <rio> <native> [-include includestring]  [-details] [-latex]\n";
+@perfctrnames=("traces","/","frags","cache_used","cache_total","flush",
+               "minutes",
+               "Cycles",
+               "Inst. Decoded",
+               "Inst. Retired",
+               "Micro-ops Retired",
+               "data mem refs",
+               "DCU miss outstanding",
+               "Inst. Fetches",
+               "IFU misses",
+               "ITLB misses",
+               "inst fetch stall cycles",
+               "inst fetch decode stalled cycles",
+               "L2 inst fetches",
+               "L2 loads",
+               "L2 stores",
+               "branches decoded",
+               "branches",
+               "branches mispredicted",
+               "branches taken",
+               "branches taken, mispredicted",
+               "BTB misses",
+               "Bogus branches",
+               "resource stalls",
+               "BACLEAR asserted",
+               "DCU lines allocated",
+               "L2 lines allocated",
+               "prefetch NTA dispatched",
+               "prefetch NTA miss all caches");
+
+$infilename=$ARGV[0];
+open INFILE,$ARGV[0];
+shift @ARGV;
+$ratio=0;
+$details=0;
+$latex=0;
+while ($#ARGV >= 0) {
+    if ($ARGV[0] eq '-ratio') {
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $riostring= $ARGV[0];
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        $nativestring= $ARGV[0];
+        $ratio=1;
+    }
+    elsif ($ARGV[0] eq '-include') {
+        if ($#ARGV <= 0) { print $usage; exit; }
+        shift;
+        push @include, $ARGV[0];
+    }
+    elsif ($ARGV[0] eq '-details') {
+        $details=1;
+    }
+    elsif ($ARGV[0] eq '-latex') {
+        $latex=1;
+        $details=1;
+    } else {
+        print $usage;
+        exit;
+    }
+    shift;
+}
+
+if ($ratio==0){
+    print $usage;
+    exit;
+}
+
+$datanum=0;
+
+#skip and output first 6 lines
+for (1..6) {
+    $l=<INFILE>;
+    if ($details==0) {print $l};
+}
+if ($details==0){
+    print "including lines w/ string: ";
+    print join " ",@include;
+    print "\n";
+}
+
+while (<INFILE>) {
+    $wholeline=$_;
+    $good=1;
+
+    foreach $searchstring (@include){
+
+        $num=($wholeline=~ s/$searchstring/$searchstring/);
+        if ($num ==0){
+            $good=0;
+        }
+    }
+
+
+    $wholeline=~ s/\s\/\s/ /g;
+    $wholeline=~ s/Error/ /g;
+
+    if ($good==1){
+        $_= $wholeline;
+        @line=split;
+
+        $line[0] =~ /(.+)\/\d*$/;
+        $curname=$1;
+        shift @line;
+        push @line, 1;
+        $datalen = scalar(@line);
+
+        $bench_already_found=0;
+
+        for $i (0..($datanum-1)){
+            if ($runnames[$i] eq $curname){
+                for $ctrnum (0..($datalen-1)){
+                    if ($line[$ctrnum]>0){
+                        $data[$i][$ctrnum]+=$line[$ctrnum];
+                    }
+                }
+                $bench_already_found=1;
+
+            }
+        }
+
+        if($bench_already_found==0){
+            $runnames[$datanum]=$curname;
+            for $ctrnum (0..($datalen-1)){
+                $data[$datanum][$ctrnum]=$line[$ctrnum];
+            }
+            $datanum++;
+        }
+
+    }
+}
+
+if ($latex){
+    open(LATEXFILE,">$infilename.latex");
+    print "writing output to $infilename.latex\n";
+
+    print LATEXFILE "\\documentclass{article}\n";
+    print LATEXFILE "\\setlength{\\topmargin}{0.5in}\n";
+    print LATEXFILE "\\setlength{\\textheight}{10in}\n";
+    print LATEXFILE "\\setlength{\\evensidemargin}{0.0in}\n";
+    print LATEXFILE "\\setlength{\\oddsidemargin}{0.0in}\n";
+    print LATEXFILE "\\setlength{\\textwidth}{7in}\n";
+    print LATEXFILE "\\parindent=0in\n";
+    print LATEXFILE "\\pagestyle{empty}\n";
+    print LATEXFILE "\\usepackage{colortbl}\n";
+    print LATEXFILE "\\begin{document}\n";
+
+
+
+}
+
+foreach $nativenamepos (0..($datanum-1)){
+    foreach $rionamepos (0..($datanum-1)){
+        $nativename=$runnames[$nativenamepos];
+        $rioname=$runnames[$rionamepos];
+
+        if (($nativename=~s/$nativestring/"blah"/) and
+            ($rioname=~s/$riostring/"blah"/) and
+            ($rioname eq $nativename)){
+            if ($details==0){
+                #if this point is reached, then they're ok to compare
+                printdataline($nativenamepos);
+                printdataline($rionamepos);
+
+                print "Ratio_$riostring/$nativestring\t";
+                for $ctrnum (0..($datalen-1)){
+                    if ($data[$nativenamepos][$ctrnum] == 0) {
+                        $slowdown=0;
+                    } else
+                    {
+                        $slowdown=$data[$rionamepos][$ctrnum]/$data[$nativenamepos][$ctrnum];
+                    }
+                    printf("%.3f\t",$slowdown);
+                }
+                print "\n";
+            }
+            else{
+                printdetailedratio($riostring,$nativestring,$rionamepos,$nativenamepos);
+            }
+        }
+
+    }
+}
+
+if ($latex){
+    print LATEXFILE "\\end{document}\n";
+    close(LATEXFILE);
+    system("latex $infilename.latex");
+    system("dvips $infilename.dvi -o $infilename.ps");
+    system("rm $infilename.dvi $infilename.aux $infilename.log");
+    system("rm $infilename.latex");
+}
+
+sub printdetailedratio{
+    my ($riostring,$nativestring,$riopos,$nativepos)=@_;
+
+    if ($latex){
+        print LATEXFILE "\\begin{tabular}{|l|r|r|r|}\n";
+        print LATEXFILE "\\hline\n";
+        print LATEXFILE "Comparing: &&&\\\\\n";
+        print LATEXFILE "$riostring: &&&\\\\\n$runnames[$riopos] & & & \\\\\n";
+        print LATEXFILE "$nativestring: &&&\\\\\n$runnames[$nativepos] & &&\\\\\n";
+        print LATEXFILE "&$riostring: & $nativestring & ratio \\\\\n";
+        print LATEXFILE "\\hline\n";
+    } else {
+        print "Comparing:\n$riostring: $runnames[$riopos]\n";
+        print "$nativestring: $runnames[$nativepos]\n";
+        print "\t$riostring\t$nativestring\tratio\n";
+    }
+
+    printdetailedcounter($riopos,$nativepos,7); #cycles
+    printdetailedcounter($riopos,$nativepos,8); #insts decoded
+    printdetailedcounter($riopos,$nativepos,9); #insts retired
+
+    printperfctrratio("",$riopos,$nativepos,9,7); #IPC
+
+
+    printdetailedcounter($riopos,$nativepos,10); #micro-ops
+    printperfctrratio("",$riopos,$nativepos,11,9); # % inst data mem accesses
+    printperfctrratio("Average data L1 miss latency (cycles)",
+                      $riopos,$nativepos,12,30); #dcu_miss outstanding (cycles)
+                                                 # / number dcu misses
+
+    printperfctrratio("L1 instruction miss rate",$riopos,$nativepos,14,13); #L1 inst miss / total inst fetch
+    printperfctrratio("L1 data miss rate",$riopos,$nativepos,30,11);
+
+    printperfctrratio2("l2 miss rate",$riopos,$nativepos,31,11,13); #l2 allocated / fetches+data accesses
+
+    printperfctrratio("NTA prefetch cache miss rate",$riopos,$nativepos,33,32);
+
+    printperfctrratio("",$riopos,$nativepos,15,13); #ITLB miss / total inst fetch
+
+
+    printperfctrratio("",$riopos,$nativepos,16,7); #cycles inst. fetchstalled / total cycles
+
+    printperfctrratio("",$riopos,$nativepos,17,7); #ifdecode cycles / cycles
+
+
+    printdetailedcounter($riopos,$nativepos,21); #branches decoded
+    printdetailedcounter($riopos,$nativepos,22); #branches retired
+    printperfctrratio("",$riopos,$nativepos,22,9); #branches retired / insts retired
+
+    printperfctrratio("",$riopos,$nativepos,23,22); #branches mispredicted / branches retired
+
+    printperfctrratio("",$riopos,$nativepos,24,22); #branches taken / branches retired
+
+    printperfctrratio("",$riopos,$nativepos,25,22); #branches taken,mispredicted / branches
+    printperfctrratio("",$riopos,$nativepos,26,22); #BTB misses / branches retired
+
+    printperfctrratio("",$riopos,$nativepos,27,22); #bogus branches / branches retired
+
+    printperfctrratio("",$riopos,$nativepos,28,7); #resource stalls / cycles
+
+    printperfctrratio("",$riopos,$nativepos,29,22); #baclears / branches
+
+    printperfctrratio("",$riopos,$nativepos,11,32);
+
+    if ($latex){
+        print LATEXFILE "\\hline\n";
+        print LATEXFILE "\\end{tabular}\n\\\\\n";
+        print LATEXFILE "\\clearpage\n";
+    } else {
+        print "\n";
+    }
+}
+
+sub printperfctrratio{
+    my ($string,$riopos,$nativepos,$ctr1,$ctr2)=@_;
+    if ($data[$riopos][$ctr2]>0){
+        $rioratio=$data[$riopos][$ctr1]/$data[$riopos][$ctr2];
+    }else{
+        $rioratio=0;
+    }
+
+    if ($data[$nativepos][$ctr2]>0){
+        $nativeratio=$data[$nativepos][$ctr1]/$data[$nativepos][$ctr2];
+    }else{
+        $nativeratio=0;
+    }
+
+    if ($nativeratio>0){
+        $ratio=$rioratio/$nativeratio;
+    }else{
+        $ratio=0;
+    }
+
+    if ($string eq ""){
+        $string=sprintf($perfctrnames[$ctr1]."/".$perfctrnames[$ctr2]);
+    }
+
+    if ($latex){
+        printlatexline($string,$rioratio,$nativeratio,$ratio);
+    }else{
+        printf  "%s\t%.5f\t%.5f\t%.5f\n",$string,
+        $rioratio,$nativeratio,$ratio;
+    }
+}
+sub printperfctrratio2{
+    my ($string,$riopos,$nativepos,$ctr1,$ctr20,$ctr21)=@_;
+
+    $rioratio=$data[$riopos][$ctr1]/($data[$riopos][$ctr20]+
+                                     $data[$riopos][$ctr21]);
+    $nativeratio=$data[$nativepos][$ctr1]/($data[$nativepos][$ctr20]+
+                                           $data[$nativepos][$ctr21]);
+
+    if ($nativeratio>0){
+        $ratio=$rioratio/$nativeratio;
+    }else{
+        $ratio=0;
+    }
+
+    if ($string eq ""){
+        $string=sprintf($perfctrnames[$ctr1]."/(".$perfctrnames[$ctr20]."+".$perfctrnames[$ctr21].")");
+    }
+
+    if ($latex){
+        printlatexline($string,$rioratio,$nativeratio,$ratio);
+    }else{
+        printf  "%s\t%.5f\t%.5f\t%.5f\n",$string,
+        $rioratio,$nativeratio,$ratio;
+    }
+}
+
+sub printlatexline{
+    my ($name,$rionum,$nativenum,$ratio)=@_;
+    $whitetext=0;
+    if ($ratio<.95){
+        $shading=0;
+        $whitetext=1;
+    }elsif($ratio>1.05){
+        $shading=.7;
+        $whitetext=0;
+    }else{ #greater than 1.05
+        $shading=1;
+    }
+    print LATEXFILE "\\rowcolor[gray]{$shading}\n";
+    if ($whitetext){
+        printf LATEXFILE "\\color{white}%s & \\color{white}%g & \\color{white}%g & \\color{white}%.3f \\\\\n",$name,$rionum,$nativenum,$ratio;
+    }else{
+        printf LATEXFILE "%s & %g & %g & %.3f \\\\\n",$name,$rionum,$nativenum,$ratio;
+    }
+
+}
+
+sub printdataline{
+    my ($number)=@_;
+    printf "$runnames[$number]\t";
+
+        for $ctrnum (0..($datalen-1)){
+            print "$data[$number][$ctrnum]";
+         print "\t";
+        }
+        print "\n";
+}
+
+
+
+sub printdetailedcounter{
+    my ($riopos,$nativepos,$ctrnum)=@_;
+
+
+    if ($data[$nativepos][$ctrnum]>0){
+        $slowdown=$data[$riopos][$ctrnum]/$data[$nativepos][$ctrnum];
+    }
+    else{
+        $slowdown=0;
+    }
+
+    if ($latex){
+        printlatexline($perfctrnames[$ctrnum],$data[$riopos][$ctrnum],
+                       $data[$nativepos][$ctrnum],$slowdown);
+    } else{
+        print  "$perfctrnames[$ctrnum]\t$data[$riopos][$ctrnum]\t$data[$nativepos][$ctrnum]\t";
+        printf("%.3f\n",$slowdown);
+    }
+}
+

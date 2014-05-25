@@ -1,0 +1,50 @@
+At statement after exception
+At statement after 1st try-except
+Finally!
+Caught my own memory access violation, ignoring it!
+Exception address and target match!
+Register match!
+After exception handler
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(executable_if_x) && !defined(X)
+# if !defined(detect_mode)
+#  if defined(throw_exception)
+    SEC_VIO_EXCEPTION
+//  the exception handler is also bad (on same page as faulting function)
+#   if !defined(throw_exception_max___1)
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+#   endif
+#  endif
+#  if defined(kill_thread)
+     SEC_VIO_THREAD
+#  else
+     SEC_VIO_STOP
+#  endif
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+At statement after exception
+At statement after 1st try-except
+Finally!
+Caught my own memory access violation, ignoring it!
+Exception address and target match!
+Register match!
+After exception handler
+At statement after exception
+At statement after 1st try-except
+Finally!
+Caught my own memory access violation, ignoring it!
+Exception address and target match!
+Register match!
+After exception handler

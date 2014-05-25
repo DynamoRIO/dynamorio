@@ -1,0 +1,741 @@
+// **********************************************************
+// Copyright (c) 2012 Google, Inc.  All rights reserved.
+// Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
+// **********************************************************
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice,
+//   this list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of VMware, Inc. nor the names of its contributors may be
+//   used to endorse or promote products derived from this software without
+//   specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+// DAMAGE.
+
+//Microsoft Developer Studio generated resource script.
+//
+#include "configure.h"
+#include "resource.h"
+
+// get PRODUCT_NAME, etc, constants
+#include "globals_shared.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE MOVEABLE PURE
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE MOVEABLE PURE
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE MOVEABLE PURE
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 9, 1\r\n"
+    "#pragma code_page(1252)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\DynamoRIO.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""afxres.rc""         // Standard components\r\n"
+    "#include ""afxprint.rc""       // printing/print preview resources\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_ABOUT_ICON          ICON    DISCARDABLE     "res\\DynamoRIO.ico"
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\DynamoRIO.ico"
+IDR_MAINFRAME_DEMO      ICON    DISCARDABLE     "res\\DynamoRIO.ico"
+IDR_DYNAMOTYPE          ICON    DISCARDABLE     "res\\DynamoRIODoc.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDR_MAINFRAME           BITMAP  MOVEABLE PURE   "res\\Toolbar.bmp"
+IDR_MAINFRAME_DEMO      BITMAP  MOVEABLE PURE   "res\\Toolbar.bmp"
+IDB_LOGO_VMWARE         BITMAP  MOVEABLE PURE   "res\\vmware-logo.bmp"
+IDB_LOGO_DYNAMORIO      BITMAP  MOVEABLE PURE   "res\\drlogo.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Toolbar
+//
+
+IDR_MAINFRAME TOOLBAR MOVEABLE PURE  16, 15
+BEGIN
+    BUTTON      ID_FILE_NEW
+    BUTTON      ID_FILE_OPEN
+    BUTTON      ID_FILE_SAVE
+    SEPARATOR
+    BUTTON      ID_EDIT_CUT
+    BUTTON      ID_EDIT_COPY
+    BUTTON      ID_EDIT_PASTE
+    SEPARATOR
+    BUTTON      ID_FILE_PRINT
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+END
+
+IDR_MAINFRAME_DEMO TOOLBAR MOVEABLE PURE  16, 15
+BEGIN
+    BUTTON      ID_APP_ABOUT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAINFRAME MENU DISCARDABLE
+BEGIN
+    POPUP "&Run"
+    BEGIN
+        MENUITEM "&Run...\tCtrl+R",             ID_FILE_RUN
+        MENUITEM "Run &All",                    ID_FILE_SYSTEMWIDE
+        MENUITEM SEPARATOR
+        MENUITEM "Recent File",                 ID_FILE_MRU_FILE1, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       ID_APP_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Copy statistics\tCtrl+C",    ID_EDIT_COPYSTATS
+        MENUITEM SEPARATOR
+        MENUITEM "&Options...",                 ID_EDIT_OPTIONS
+        MENUITEM "&Ignore List...",             ID_EDIT_IGNORELIST
+    END
+    POPUP "&Library"
+    BEGIN
+        MENUITEM "&Release build",              ID_LIBRARY_RELEASE, CHECKED
+        MENUITEM "&Debug build",                ID_LIBRARY_DEBUG, CHECKED
+        MENUITEM "&Profile build",              ID_LIBRARY_PROFILE, CHECKED
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Documentation...",           ID_HELP_HELP
+        MENUITEM "&About DynamoRIO...",         ID_APP_ABOUT
+    END
+END
+
+IDR_MAINFRAME_DEMO MENU DISCARDABLE
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "E&xit",                       ID_APP_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Copy statistics\tCtrl+C",    ID_EDIT_COPYSTATS
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About DynamoRIO...",         ID_APP_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_MAINFRAME ACCELERATORS MOVEABLE PURE
+BEGIN
+    "C",            ID_EDIT_COPYSTATS,      VIRTKEY, CONTROL, NOINVERT
+    "N",            ID_FILE_NEW,            VIRTKEY, CONTROL, NOINVERT
+    "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
+    "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
+    "R",            ID_FILE_RUN,            VIRTKEY, CONTROL, NOINVERT
+    "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
+    "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
+    VK_BACK,        ID_EDIT_UNDO,           VIRTKEY, ALT, NOINVERT
+    VK_DELETE,      ID_EDIT_CUT,            VIRTKEY, SHIFT, NOINVERT
+    VK_F6,          ID_NEXT_PANE,           VIRTKEY, NOINVERT
+    VK_F6,          ID_PREV_PANE,           VIRTKEY, SHIFT, NOINVERT
+    VK_INSERT,      ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    VK_INSERT,      ID_EDIT_PASTE,          VIRTKEY, SHIFT, NOINVERT
+    "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
+    "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
+END
+
+IDR_MAINFRAME_DEMO ACCELERATORS MOVEABLE PURE
+BEGIN
+    "C",            ID_EDIT_COPYSTATS,      VIRTKEY, CONTROL, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 211, 140
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About ${PRODUCT_NAME}"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "${PRODUCT_NAME} Version ${VERSION_NUMBER}",IDC_STATIC,63,82,102,11,
+                    SS_NOPREFIX
+    LTEXT           "Copyright (C) 2007-2012",IDC_STATIC,67,98,78,8
+    DEFPUSHBUTTON   "OK",IDOK,81,118,50,14,WS_GROUP
+    CONTROL         157,IDC_STATIC,"Static",SS_BITMAP,70,7,71,66
+END
+
+IDD_DYNAMORIO_FORM DIALOGEX 0, 0, 289, 317
+STYLE WS_CHILD
+FONT 11, "Lucida Console", 400
+BEGIN
+    COMBOBOX        IDC_PROCESS_LIST,7,7,188,204,CBS_DROPDOWNLIST |
+                    CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_STATS,7,25,265,186,ES_MULTILINE | ES_AUTOVSCROLL |
+                    ES_AUTOHSCROLL | ES_READONLY | ES_WANTRETURN |
+                    WS_HSCROLL
+    SCROLLBAR       IDC_STATS_SCROLLBAR,272,24,9,187,SBS_VERT | WS_TABSTOP
+    EDITTEXT        IDC_CLIENTSTATS,7,216,274,37,ES_MULTILINE |
+                    ES_AUTOHSCROLL | ES_READONLY | ES_WANTRETURN |
+                    WS_VSCROLL | WS_HSCROLL
+    PUSHBUTTON      "Modify logging...",IDC_CHANGE_LOGGING,208,261,73,17
+    PUSHBUTTON      "Explore",IDC_LOGDIR_EXPLORE,7,297,35,13
+    EDITTEXT        IDC_LOGDIR,115,286,166,24,ES_MULTILINE | ES_READONLY |
+                    WS_HSCROLL
+    LTEXT           "Log level:",IDC_STATIC,7,272,50,10
+    RTEXT           "0",IDC_LOGLEVEL_VALUE,68,272,38,9
+    LTEXT           "Running",IDC_EXITED,240,9,39,8
+    LTEXT           "Status:",IDC_STATIC,203,9,33,10
+    LTEXT           "Log mask:",IDC_STATIC,7,259,44,8
+    RTEXT           "0",IDC_LOGMASK_VALUE,61,259,45,9
+    LTEXT           "Log dir:",IDC_STATIC,7,286,42,10
+END
+
+IDD_DRSTATS_DEMO_FORM DIALOGEX 0, 0, 289, 313
+STYLE WS_CHILD
+FONT 11, "Lucida Console", 400
+BEGIN
+    COMBOBOX        IDC_PROCESS_LIST,7,7,188,204,CBS_DROPDOWNLIST |
+                    CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_STATS,7,25,265,210,ES_MULTILINE | ES_AUTOVSCROLL |
+                    ES_AUTOHSCROLL | ES_READONLY | ES_WANTRETURN |
+                    WS_HSCROLL
+    SCROLLBAR       IDC_STATS_SCROLLBAR,272,24,9,211,SBS_VERT | WS_TABSTOP
+    EDITTEXT        IDC_CLIENTSTATS,7,240,274,63,ES_MULTILINE |
+                    ES_AUTOHSCROLL | ES_READONLY | ES_WANTRETURN |
+                    WS_VSCROLL | WS_HSCROLL
+    LTEXT           "Running",IDC_EXITED,240,9,39,8
+    LTEXT           "Status:",IDC_STATIC,203,9,33,10
+END
+
+IDD_OPTIONS DIALOG DISCARDABLE  0, 0, 294, 300
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "DynamoRIO Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    CONTROL         "Instrumentation library",IDC_INSTRLIBNAME,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,7,82,12
+    EDITTEXT        IDC_EDIT_INSTRLIBNAME,94,7,143,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse...",IDC_BROWSE_INSTRLIBNAME,243,7,44,12
+    GROUPBOX        "Logging",IDC_STATIC,7,22,280,114
+    CONTROL         "Export statistics",IDC_STATS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,14,35,64,12
+    CONTROL         "Logging verbosity level",IDC_LOGLEVEL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,48,86,12
+    EDITTEXT        IDC_EDIT_LOGLEVEL,110,48,35,12,ES_AUTOHSCROLL |
+                    ES_READONLY
+    PUSHBUTTON      "Set level and mask...",IDC_LOGGING_BUTTON,152,53,92,15
+    CONTROL         "Logging mask",IDC_LOGMASK,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,14,62,71,12
+    EDITTEXT        IDC_EDIT_LOGMASK,110,62,35,12,ES_AUTOHSCROLL |
+                    ES_READONLY
+    CONTROL         "Trace dump, text format",IDC_TRACEDUMP_TEXT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,91,102,12
+    CONTROL         "Trace dump, binary format",IDC_TRACEDUMP_BINARY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,105,100,12
+    CONTROL         "Trace dump: trace origins",IDC_TRACEDUMP_ORIGINS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,119,99,12
+    GROUPBOX        "Code Cache",IDC_STATIC,7,142,131,44
+    CONTROL         "Max basic block KB",IDC_CACHE_BB_MAX,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,153,76,12
+    EDITTEXT        IDC_EDIT_CACHE_BB_MAX,95,153,35,12,ES_AUTOHSCROLL |
+                    ES_NUMBER
+    CONTROL         "Max trace KB",IDC_CACHE_TRACE_MAX,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,169,71,12
+    EDITTEXT        IDC_EDIT_CACHE_TRACE_MAX,95,169,35,12,ES_AUTOHSCROLL |
+                    ES_NUMBER
+    CONTROL         "Trace threshold",IDC_HOT_THRESHOLD,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,165,151,64,12
+    EDITTEXT        IDC_EDIT_HOT_THRESHOLD,239,151,35,12,ES_AUTOHSCROLL |
+                    ES_NUMBER
+    GROUPBOX        "Profiling",IDC_STATIC,7,191,131,50
+    CONTROL         "Profiling: exit counters (profile build only)",
+                    IDC_PROF_COUNTS,"Button",BS_AUTOCHECKBOX | BS_MULTILINE |
+                    WS_TABSTOP,15,199,85,22
+    CONTROL         "Profiling: PC sampling (Linux only)",IDC_PROF_PCS,
+                    "Button",BS_AUTOCHECKBOX | BS_MULTILINE | WS_TABSTOP,15,
+                    220,85,19
+    GROUPBOX        "Disable DynamoRIO Features",IDC_STATIC,158,174,129,67
+    CONTROL         "Do not intercept Windows asynchronous control flow",
+                    IDC_NOASYNCH,"Button",BS_AUTOCHECKBOX | BS_MULTILINE |
+                    WS_TABSTOP,165,185,102,20
+    CONTROL         "Never link",IDC_NOLINK,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,205,64,12
+    CONTROL         "Disable DynamoRIO (run applications natively)",
+                    IDC_NULLCALLS,"Button",BS_AUTOCHECKBOX | BS_MULTILINE |
+                    WS_TABSTOP,165,214,112,24
+    LTEXT           "Resulting DYNAMORIO_OPTIONS environment variable:",
+                    IDC_STATIC,7,249,278,11
+    EDITTEXT        IDC_OPTIONS_EDIT,7,260,280,13,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,46,279,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,112,279,50,14
+    PUSHBUTTON      "Set Permanently",IDC_SET_PERMANENT,178,279,69,14
+    CONTROL         "Logfile notification to stderr",IDC_NOTIFY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,77,100,12
+END
+
+IDD_CMDLINE DIALOG DISCARDABLE  0, 0, 280, 94
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Command Line and Working Directory"
+FONT 8, "MS Sans Serif"
+BEGIN
+    EDITTEXT        IDC_CMDLINE,7,19,266,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_WORKING_DIR,7,50,212,12,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse...",IDC_WORKING_DIR_BROWSE,229,49,44,14
+    DEFPUSHBUTTON   "OK",IDOK,82,73,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,148,73,50,14
+    LTEXT           "Command-line arguments:",IDC_STATIC,7,7,134,10
+    LTEXT           "Working directory:",IDC_STATIC,7,39,116,9
+END
+
+IDD_LOGGING DIALOG DISCARDABLE  0, 0, 244, 165
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Set Logging"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Verbose Level:",IDC_STATIC,7,50,28,19
+    COMBOBOX        IDC_VERBOSITY,37,53,28,62,CBS_DROPDOWNLIST | CBS_SORT |
+                    WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Select Components to Produce Log Output",IDC_STATIC,76,
+                    6,161,130
+    CONTROL         "Statistics",IDC_LOG_STATS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,19,51,10
+    CONTROL         "Top-level",IDC_LOG_TOP,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,30,51,10
+    CONTROL         "Threads",IDC_LOG_THREADS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,41,51,10
+    CONTROL         "System calls",IDC_LOG_SYSCALLS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,52,51,10
+    CONTROL         "Asynchronous",IDC_LOG_ASYNCH,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,63,61,10
+    CONTROL         "Interpreter",IDC_LOG_INTERP,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,74,51,10
+    CONTROL         "Emitting",IDC_LOG_EMIT,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,86,85,51,10
+    CONTROL         "Linking",IDC_LOG_LINKS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,19,51,10
+    CONTROL         "Code cache",IDC_LOG_CACHE,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,30,51,10
+    CONTROL         "Fragments",IDC_LOG_FRAGMENT,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,41,51,10
+    CONTROL         "Dispatch",IDC_LOG_DISPATCH,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,52,51,10
+    CONTROL         "Monitor",IDC_LOG_MONITOR,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,63,51,10
+    CONTROL         "Heap",IDC_LOG_HEAP,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,74,51,10
+    CONTROL         "Memory areas",IDC_LOG_VMAREAS,"Button",BS_AUTOCHECKBOX |
+                    WS_TABSTOP,165,85,61,10
+    PUSHBUTTON      "&Everything",IDC_LOG_ALL,97,99,52,14
+    PUSHBUTTON      "&Nothing",IDC_LOG_NONE,160,99,52,14
+    LTEXT           "Mask:",IDC_STATIC,121,120,21,10
+    LTEXT           "0x",IDC_STATIC,151,120,9,8
+    EDITTEXT        IDC_EDIT_MASK,160,118,28,12,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,64,144,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,130,144,50,14
+END
+
+IDD_IGNORELIST DIALOG DISCARDABLE  0, 0, 335, 98
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Systemwide Ignore List"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,66,77,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,132,77,50,14
+    EDITTEXT        IDC_IGNORELIST,7,33,321,14,ES_AUTOHSCROLL
+    LTEXT           "Semicolon-separated list of executable names that DynamoRIO should NOT take control of.\n(This list only applies when Run All is set.)",
+                    IDC_STATIC,7,7,321,20
+    LTEXT           "This list is kept in the environment variable DYNAMORIO_IGNORE.",
+                    IDC_STATIC,7,53,321,11
+    PUSHBUTTON      "Set Permanently",IDC_SET_PERMANENT,198,77,70,14
+END
+
+IDD_SYSTEMWIDE_CONFIRMATION DIALOG DISCARDABLE  0, 0, 227, 82
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirmation"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "&Yes",IDOK,55,61,50,14
+    PUSHBUTTON      "&No",IDCANCEL,121,61,50,14
+    CONTROL         "&Do not ask again",IDC_NOT_AGAIN,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,78,41,71,9
+    CTEXT           "Running every process in the system under DynamoRIO is a potentially dangerous operation, as DynamoRIO has not been tested on every program.  Do you want to continue?",
+                    IDC_STATIC,7,7,213,33
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION ${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}
+ PRODUCTVERSION ${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+#define ASCIIZ "\0"
+           VALUE "CompanyName", COMPANY_LONG_NAME ASCIIZ
+            VALUE "FileDescription", "DynamoRIO GUI\0"
+            VALUE "FileVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
+            VALUE "InternalName", "DynamoRIO GUI\0"
+            VALUE "LegalCopyright", "Copyright (C) 2002-2012\0"
+            VALUE "OriginalFilename", "DRstats.EXE\0"
+            VALUE "ProductName", "DynamoRIO GUI\0"
+            VALUE "ProductVersion", "${VERSION_COMMA_DELIMITED},${BUILD_NUMBER}\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO MOVEABLE PURE
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 204
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 186
+    END
+
+    IDD_DYNAMORIO_FORM, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 281
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 310
+    END
+
+    IDD_OPTIONS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 287
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 293
+    END
+
+    IDD_CMDLINE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 273
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 87
+    END
+
+    IDD_LOGGING, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 237
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 158
+    END
+
+    IDD_IGNORELIST, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 328
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 91
+    END
+
+    IDD_SYSTEMWIDE_CONFIRMATION, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 220
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 75
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog Info
+//
+
+IDD_LOGGING DLGINIT
+BEGIN
+    IDC_VERBOSITY, 0x403, 2, 0
+0x0030,
+    IDC_VERBOSITY, 0x403, 2, 0
+0x0031,
+    IDC_VERBOSITY, 0x403, 2, 0
+0x0032,
+    IDC_VERBOSITY, 0x403, 2, 0
+0x0033,
+    IDC_VERBOSITY, 0x403, 2, 0
+0x0034,
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDR_MAINFRAME           "DynamoRIO\n\nDynamo\n\n\nDynamoRIO.Document\nDynamoRIO Document"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDR_MAINFRAME_DEMO      "DynamoRIO\n\nDynamo\n\n\nDynamoRIO.Document\nDynamoRIO Document"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    AFX_IDS_APP_TITLE       "DynamoRIO"
+    AFX_IDS_IDLEMESSAGE     "Ready"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_INDICATOR_EXT        "EXT"
+    ID_INDICATOR_CAPS       "CAP"
+    ID_INDICATOR_NUM        "NUM"
+    ID_INDICATOR_SCRL       "SCRL"
+    ID_INDICATOR_OVR        "OVR"
+    ID_INDICATOR_REC        "REC"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_FILE_NEW             "Create a new document\nNew"
+    ID_FILE_OPEN            "Run an application under DynamoRIO\nRun an application"
+    ID_FILE_CLOSE           "Close the active document\nClose"
+    ID_FILE_SAVE            "Save the active document\nSave"
+    ID_FILE_SAVE_AS         "Save the active document with a new name\nSave As"
+    ID_FILE_PAGE_SETUP      "Change the printing options\nPage Setup"
+    ID_FILE_PRINT_SETUP     "Change the printer and printing options\nPrint Setup"
+    ID_FILE_PRINT           "Print the active document\nPrint"
+    ID_FILE_PRINT_PREVIEW   "Display full pages\nPrint Preview"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_APP_ABOUT            "Display program information, version number and copyright\nAbout"
+    ID_APP_EXIT             "Quit the application; prompts to save documents\nExit"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_FILE_MRU_FILE1       "Open this document"
+    ID_FILE_MRU_FILE2       "Open this document"
+    ID_FILE_MRU_FILE3       "Open this document"
+    ID_FILE_MRU_FILE4       "Open this document"
+    ID_FILE_MRU_FILE5       "Open this document"
+    ID_FILE_MRU_FILE6       "Open this document"
+    ID_FILE_MRU_FILE7       "Open this document"
+    ID_FILE_MRU_FILE8       "Open this document"
+    ID_FILE_MRU_FILE9       "Open this document"
+    ID_FILE_MRU_FILE10      "Open this document"
+    ID_FILE_MRU_FILE11      "Open this document"
+    ID_FILE_MRU_FILE12      "Open this document"
+    ID_FILE_MRU_FILE13      "Open this document"
+    ID_FILE_MRU_FILE14      "Open this document"
+    ID_FILE_MRU_FILE15      "Open this document"
+    ID_FILE_MRU_FILE16      "Open this document"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_NEXT_PANE            "Switch to the next window pane\nNext Pane"
+    ID_PREV_PANE            "Switch back to the previous window pane\nPrevious Pane"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_WINDOW_SPLIT         "Split the active window into panes\nSplit"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_EDIT_CLEAR           "Erase the selection\nErase"
+    ID_EDIT_CLEAR_ALL       "Erase everything\nErase All"
+    ID_EDIT_COPY            "Copy the selection and put it on the Clipboard\nCopy"
+    ID_EDIT_CUT             "Cut the selection and put it on the Clipboard\nCut"
+    ID_EDIT_FIND            "Find the specified text\nFind"
+    ID_EDIT_PASTE           "Insert Clipboard contents\nPaste"
+    ID_EDIT_REPEAT          "Repeat the last action\nRepeat"
+    ID_EDIT_REPLACE         "Replace specific text with different text\nReplace"
+    ID_EDIT_SELECT_ALL      "Select the entire document\nSelect All"
+    ID_EDIT_UNDO            "Undo the last action\nUndo"
+    ID_EDIT_REDO            "Redo the previously undone action\nRedo"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_VIEW_TOOLBAR         "Show or hide the toolbar\nToggle ToolBar"
+    ID_VIEW_STATUS_BAR      "Show or hide the status bar\nToggle StatusBar"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    AFX_IDS_SCSIZE          "Change the window size"
+    AFX_IDS_SCMOVE          "Change the window position"
+    AFX_IDS_SCMINIMIZE      "Reduce the window to an icon"
+    AFX_IDS_SCMAXIMIZE      "Enlarge the window to full size"
+    AFX_IDS_SCNEXTWINDOW    "Switch to the next document window"
+    AFX_IDS_SCPREVWINDOW    "Switch to the previous document window"
+    AFX_IDS_SCCLOSE         "Close the active window and prompts to save the documents"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    AFX_IDS_SCRESTORE       "Restore the window to normal size"
+    AFX_IDS_SCTASKLIST      "Activate Task List"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    AFX_IDS_PREVIEW_CLOSE   "Close print preview mode\nCancel Preview"
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    ID_SYSTEMWIDE_INJECT    "Enable or disable system-wide injection\nToggle system-wide injection"
+    ID_SYSTEMWIDE_LIST      "Edit list of ""do-not-inject-into"" programs\nEdit ignore list"
+    ID_EDIT_OPTIONS         "Set DynamoRIO runtime parameters\nSet options"
+    ID_EDIT_COPYSTATS       "Copy statistics to clipboard\nCopy statistics"
+    ID_VIEW_PROCESS         "Select new process to view\nView new process"
+    ID_LIBRARY_RELEASE      "Use release build of DynamoRIO library\nUse release library"
+    ID_LIBRARY_DEBUG        "Use debug build of DynamoRIO library\nUse debug library"
+    ID_LIBRARY_PROFILE      "Use profile build of DynamoRIO library\nUse profile library"
+    ID_FILE_SYSTEMWIDE      "Run all applications under DynamoRIO\nRun all"
+    ID_FILE_RUN             "Run an application under DynamoRIO\nRun an application"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE 9, 1
+#pragma code_page(1252)
+#endif //_WIN32
+#include "res\DynamoRIO.rc2"  // non-Microsoft Visual C++ edited resources
+#include "afxres.rc"         // Standard components
+#include "afxprint.rc"       // printing/print preview resources
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

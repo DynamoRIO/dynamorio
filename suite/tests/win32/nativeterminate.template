@@ -1,0 +1,8 @@
+calling via IAT-style call
+nativeexec.dll:import_me1(57)
+calling in a thread
+nativeexec.dll:import_me1(0)
+calling in a thread that dies
+nativeexec.dll:import_me_die(0)
+case 5455 regression passed
+all done

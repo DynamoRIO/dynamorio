@@ -1,0 +1,23 @@
+thank you for testing the client interface
+  testing global memory alloc...success
+  testing nonheap memory alloc...success
+  testing custom memory alloc....success
+#ifdef WINDOWS
+  testing custom windows alloc....success
+#else
+  testing custom Linux alloc....success
+#endif
+thread initialization:
+  testing local memory alloc....success
+  testing global memory alloc...success
+code cache:
+  testing local memory alloc....success
+  testing global memory alloc...success
+  testing nonheap memory alloc...success
+  testing raw memory alloc...success
+#ifdef X64
+  reachability test...success
+#endif
+  testing query pretend-write....success
+wrote to app code page successfully
+all done

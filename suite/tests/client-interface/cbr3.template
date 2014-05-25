@@ -1,0 +1,8 @@
+#ifndef X64
+cbr taken
+#endif
+cbr not taken
+cbr taken
+cbr taken
+cbr not taken
+y=5

@@ -1,0 +1,273 @@
+// **********************************************************
+// Copyright (c) 2008 VMware, Inc.  All rights reserved.
+// **********************************************************
+
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice,
+//   this list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of VMware, Inc. nor the names of its contributors may be
+//   used to endorse or promote products derived from this software without
+//   specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+// DAMAGE.
+
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+// get PRODUCT_NAME, etc, constants
+#include "globals_shared.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)\r\n"
+    "#ifdef _WIN32\r\n"
+    "LANGUAGE 9, 1\r\n"
+    "#pragma code_page(1252)\r\n"
+    "#endif //_WIN32\r\n"
+    "#include ""res\\Wizard.rc2""  // non-Microsoft Visual C++ edited resources\r\n"
+    "#include ""afxres.rc""         // Standard components\r\n"
+    "#endif\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON    DISCARDABLE     "res\\Wizard.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  0, 0, 217, 55
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About DynamoRIO Installer"
+FONT 8, "MS Sans Serif"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,11,17,20,20
+    LTEXT           "DynamoRIO Installer Version 1.0",IDC_STATIC,40,10,119,8,
+                    SS_NOPREFIX
+    LTEXT           "Copyright (C) 1998",IDC_STATIC,40,25,119,8
+    DEFPUSHBUTTON   "OK",IDOK,178,7,32,14,WS_GROUP
+END
+
+IDD_FINAL DIALOG DISCARDABLE  0, 0, 272, 114
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "DynamoRIO 0.9.5 Installer: Setup Complete"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CTEXT           "Setup is now complete!",IDC_STATIC,23,37,226,12
+    CTEXT           "You now need to unzip the file that was copied to the directory you chose.",
+                    IDC_STATIC,45,60,188,32
+END
+
+IDD_COPY DIALOG DISCARDABLE  0, 0, 317, 113
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "DynamoRIO 0.9.5 Installer: Copy Files"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Copy files to:",IDC_STATIC,8,23,80,10
+    EDITTEXT        IDC_TARGET,9,36,244,14,ES_AUTOHSCROLL
+    LTEXT           "Disk space required:",IDC_STATIC,10,64,85,8
+    RTEXT           "0",IDC_SPACE_REQUIRED,99,64,37,10
+    LTEXT           "Disk space available:",IDC_STATIC,10,80,85,8
+    RTEXT           "0",IDC_SPACE_AVAILABLE,94,80,42,10
+    LTEXT           "MB",IDC_STATIC,147,64,14,9
+    LTEXT           "MB",IDC_STATIC,147,80,14,9
+    PUSHBUTTON      "Browse...",IDC_BROWSE,260,36,49,14
+END
+
+IDD_LICENSE DIALOG DISCARDABLE  0, 0, 315, 223
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "DynamoRIO 0.9.5 Installer: License"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    CONTROL         "I &Accept",IDC_AGREE,"Button",BS_AUTORADIOBUTTON,80,205,
+                    58,12
+    CONTROL         "I Do &Not Accept",IDC_DISAGREE,"Button",
+                    BS_AUTORADIOBUTTON,150,205,72,12
+    EDITTEXT        IDC_LICENSE,10,44,296,141,ES_MULTILINE | ES_READONLY |
+                    WS_VSCROLL
+    LTEXT           "This wizard installs DynamoRIO version 0.9.5 on your computer.",
+                    IDC_BOLDTITLE,12,6,250,10
+    CONTROL         "I have read and &understand the terms of this agreement",
+                    IDC_UNDERSTAND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,80,
+                    190,226,11
+    LTEXT           "You must scroll through the entire license before continuing.",
+                    IDC_STATIC,13,18,214,11
+    LTEXT           "Note that this is NOT the same license as in earlier releases, and should be read carefully.",
+                    IDC_STATIC,13,31,292,13
+END
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+#define ASCIIZ "\0"
+            VALUE "CompanyName", COMPANY_LONG_NAME ASCIIZ
+            VALUE "FileDescription", "DynamoRIO Installer\0"
+            VALUE "FileVersion", "1, 0, 0, 1\0"
+            VALUE "InternalName", "DRinstall\0"
+            VALUE "LegalCopyright", "Copyright (C) 2002-2008\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "DRinstall.EXE\0"
+            VALUE "ProductName", "DynamoRIO Installer\0"
+            VALUE "ProductVersion", "1, 0, 0, 1\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 210
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 48
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_ABOUTBOX            "&About DynamoRIO Installer..."
+END
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_HEADERTITLE         "Header Title"
+    IDS_HEADERSUBTITLE      "Header Sub Title"
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE 9, 1
+#pragma code_page(1252)
+#endif //_WIN32
+#include "res\Wizard.rc2"  // non-Microsoft Visual C++ edited resources
+#include "afxres.rc"         // Standard components
+#endif
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

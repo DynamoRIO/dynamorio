@@ -1,0 +1,423 @@
+# **********************************************************
+# Copyright (c) 2008 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+
+### os-specific cases that are appended to the long run
+@windows_cases = (
+# PR 234665: 64-bit debug build
+    "BUILD::ARCH=x64",
+### Following two runs don't build on windows (though we continue to build them on linux)
+### FIXME : if we get these working again move them from the os_specific cases to the
+### common cases
+  ##"BUILD::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",
+### strace, no run
+    "BUILD::DEBUG=1 INTERNAL=1 STRACE_CLIENT=1",
+### no longer actively supported
+### test building linked to libc
+##    "BUILD::DEBUG=1 INTERNAL=1 NOLIBC=0",
+##        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-loglevel 1 -protect_mask 0\\\" RUNALL_SLEEP=5s",
+                  );
+
+@linux_cases = (
+### the following run doesn't build on windows, move back to common once they are fixed up
+    "BUILD::ADD_DEFINES=\"${D}CHECK_RETURNS_SSE2\"",
+### FIXME: Move this to common_cases below once the client interface tests
+### are working with Linux.  xref case 5412.
+    "BUILD::CLIENT_INTERFACE=1",
+        "DYNAMORIO_OPTIONS=\\\"\\\"",
+                  );
+
+### These will be run with both release and debug builds
+### and on both Linux and Windows
+@common_product_runs = (
+        "DYNAMORIO_OPTIONS=\\\"-code_api\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -liveshields\\\"",
+        # options exposed to users
+        "DYNAMORIO_OPTIONS=\\\"-thread_private\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-disable_traces\\\"",
+        # put disabled-from-short test runs here to keep early in email
+        "ONLY::runall/earlythread.runrunall security-win32/selfmod-threads.runinjector::DYNAMORIO_OPTIONS=\\\"\\\"",
+        # security option tests:
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_alloc\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_trampoline\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_hook\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_rx_text -no_coarse_merge_iat\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -executable_if_text\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -executable_if_x\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -X\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_ret_after_call\\\"",
+        # or its synonym
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -C\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_seh_rct\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -pushregret_rct\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -xdata_rct\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -executable_heap\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -executable_stack\\\"",
+        # RCT policies
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -rct_ind_call 11 -rct_ind_jump 11\\\"",
+        # don't block, just OPTION_ENABLED|OPTION_REPORT
+        # or don't report, just block, just OPTION_ENABLED|OPTION_BLOCK
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -rct_ind_call 9 -rct_ind_jump 3\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -rct_ind_call 3 -rct_ind_jump 9\\\"",
+        # disabled using the alias to -rct_ind_call 0 -rct_ind_jump 0
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -E -F\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -rct_cache_exempt 0\\\"", # default 1
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -rct_section_type 0xe0\\\"", # default 0x20
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -detect_mode -rct_cache_exempt 2\\\"",
+        # coarse units
+        "DYNAMORIO_OPTIONS=\\\"-no_shared_traces\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units\\\"",
+        # make sure we continue to support both shared and non-shared cache
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -no_shared_traces\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -no_shared_bbs\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -no_shared_traces -no_shared_bbs\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -shared_bbs_only\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-inline_trace_ibl\\\"",
+        # attack handling tests
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -kill_thread\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -throw_exception\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -throw_exception -kill_thread\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -throw_exception -throw_exception_max 1\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -kill_thread -kill_thread_max 1\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -kill_thread -kill_thread_max 1 -throw_exception  -throw_exception_max 1\\\"",
+        # adaptive working set is part of default build now
+        # We specify "runsecurity" to get our weirder tests, some w/ multiple threads
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-cache_bb_regen 1\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-cache_trace_regen 1\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-finite_shared_bb_cache -cache_shared_bb_regen 80\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-finite_shared_trace_cache -cache_shared_trace_regen 80\\\"",
+        # reverse of the default options
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_guard_pages\\\"",
+        # see case 7813 for why nativeterminate test is problematic with
+        # -native_exec (default) and -no_native_exec_syscalls
+        # FIXME - we should have an ADD_DISABLED or something like that so
+        # that we can have default disabled tests as well
+        # on win2k -native_exec_syscalls is required for on by default
+        # -early_inject when the process itself wasn't early_injected into
+        "ONLY::DISABLED_WIN32=\"| grep -v nativeterminate\" all::DYNAMORIO_OPTIONS=\\\"-no_native_exec_syscalls -no_early_inject\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-native_exec\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-hot_patching\\\"",
+        # shared IBT tables
+        "DYNAMORIO_OPTIONS=\\\"-shared_trace_ibt_tables\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-disable_traces -shared_bb_ibt_tables\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-shared_trace_ibt_tables -no_ref_count_shared_ibt_tables\\\"",
+        # IAT conversion
+        "DYNAMORIO_OPTIONS=\\\"-IAT_convert\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -IAT_convert -IAT_elide\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -IAT_convert -IAT_elide -max_elide_jmp 1 -max_elide_call 1\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-max_elide_jmp 1 -max_elide_call 1\\\"",
+        # patch proof - prevent hooking of targeted victim modules
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-patch_proof_default_list secur32.dll -patch_proof_list 'kernel32.dll'\\\"",
+        # patch proof - blanket protect policy
+        # FIXME: case 6635 0) 'kernel32.dll;advapi32.dll'
+        # FIXME: case 6635 2) gen_expect should use subst to match * here
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-patch_proof_list '*=ALL'\\\"",
+        # case 6640
+        "DYNAMORIO_OPTIONS=\\\"-remove_trace_components\\\"",
+        # case 147 - BB2BB IBL w/trace building
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -bb_ibl_targets\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -bb_ibl_targets -shared_trace_ibt_tables\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -bb_ibl_targets -bb_single_restore_prefix\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -bb_ibl_targets -bb_ibt_table_includes_traces\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -bb_ibl_targets -bb_ibt_table_includes_traces -bb_single_restore_prefix -trace_single_restore_prefix\\\"",
+        # Test smaller prefixes on traces
+        "DYNAMORIO_OPTIONS=\\\"-trace_single_restore_prefix\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-ro2sandbox_threshold 1\\\"",
+        # -sandbox2ro_threshold 1 isn't allowed, 2 is lowest
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-sandbox2ro_threshold 2\\\"",
+        # stress the pad_jmps code
+        "DYNAMORIO_OPTIONS=\\\"-pad_jmps_set_alignment 8 -enable_traces -no_coarse_units\\\"",
+                        );
+
+@release_runs = (
+        "SHORT::ONLY::runinterface::DYNAMORIO_OPTIONS=\\\"-code_api -probe_api\\\"",
+        "SHORT::ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -detect_mode -report_max 0 -no_diagnostics\\\"",
+        "SHORT::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-probe_api -hotp_only\\\"",
+        # test running out of our memory reservation
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-vm_size 2M -reset_at_vmm_percent_free_limit 0\\\"",
+                 );
+
+### These will be run with debug builds on both Linux and Windows
+@common_debug_runs = (
+        # runallbuthotp is to handle PR 234043
+        "SHORT::ONLY::spec runallbuthotp::DYNAMORIO_OPTIONS=\\\"-code_api -probe_api\\\"",
+        "SHORT::ONLY::runos runsecurity runrunall::DYNAMORIO_OPTIONS=\\\"-security\\\"",
+        "SHORT::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-desktop\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-loglevel 1\\\" RUNALL_SLEEP=5s",
+        # test running out of our memory reservation
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-vm_size 2M -reset_at_vmm_percent_free_limit 0 -skip_out_of_vm_reserve_curiosity\\\"",
+        #IBLs
+        # no traces, or lots of traces
+        # FIXME Re-activate the test below using -no_link_ibl instead
+        # of -no_ibl_shared_bb after the former option has been
+        # implemented (case 5182).
+        # "DYNAMORIO_OPTIONS=\\\"-shared_bbs -disable_traces -no_ibl_table_per_type -no_ibl_shared_bb\\\" TEST_MINS=15",
+        "DYNAMORIO_OPTIONS=\\\"-no_coarse_units -no_shared_bbs -disable_traces\\\" TEST_MINS=15",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-disable_traces -no_bb_ibl_targets\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-trace_threshold 1\\\"",
+        # no inlining, or inline both bbs and traces
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-atomic_inlined_linking -no_shared_traces\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_inline_trace_ibl -no_shared_traces\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_coarse_units -inline_bb_ibl -atomic_inlined_linking\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_coarse_units -inline_bb_ibl -atomic_inlined_linking -no_shared_bbs\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_coarse_units -inline_trace_ibl -inline_bb_ibl -atomic_inlined_linking\\\"",
+        # for max cache sizes, here are max usage for test runs of spec:
+        #              bb (KB)    trace (KB)
+        #              --------   ----------
+        #    crafty     521        356
+        #    eon        642-649    200-216
+        #    gcc       2967       2149
+        #    perlbmk    290-635     19-146
+        #    mcf        115         43
+        # 64KB bb max ends up taking 10 minutes for single gcc run!
+        # Min cache max of 4 takes A LONG TIME -> disabled for default run
+        # Instead of min of 4 we do something intermediate.
+        # We specify "runsecurity" to get our weirder tests, some w/ multiple threads
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-cache_bb_max 128\\\" TEST_MINS=30",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-cache_trace_max 128\\\" TEST_MINS=30",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_elide_back_jmps\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_elide_back_calls\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_free_private_stubs\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_separate_private_stubs -no_free_private_stubs\\\"",
+        "ONLY::spec runsecurity::DYNAMORIO_OPTIONS=\\\"-no_separate_shared_stubs\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_hashtable_ibl_stats\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-unsafe_ignore_overflow\\\"",
+        # common/{ops,conflict,eflags} are all expected to fail
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-unsafe_ignore_eflags\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-unsafe_ignore_eflags_trace\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-unsafe_ignore_eflags_prefix\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-unsafe_ignore_eflags_ibl -unsafe_ignore_eflags_prefix\\\"",
+        # debugging aids
+        "DYNAMORIO_OPTIONS=\\\"-detect_dangling_fcache\\\"",
+         # cache alignment: debug-only since -no_pad_jmps_shift_trace is an internal op
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-cache_trace_align 1 -no_pad_jmps_shift_trace\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-cache_trace_align 16 -no_pad_jmps_shift_trace\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-cache_bb_align 16\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_pad_jmps_shift_trace\\\"",
+        # internal-only options (for now)
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-safe_translate_flushed\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-no_coarse_units -store_translations\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_coarse_units -no_indirect_stubs -C -E -F\\\"",
+        # we're now using tracedump for perf analysis independently of -prof_counts
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-prof_pcs -gendump -tracedump_binary\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
+                      );
+
+if ($on_linux) {
+    @product_runs = ( @common_product_runs,
+        #no linux specific product runs right now
+                      );
+    @debug_runs = ( @common_debug_runs,
+        # prof_pcs is an internal option on linux right now
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-prof_pcs\\\"",
+                    );
+} else {
+    # WIN32 specific runs
+    @product_runs = ( @common_product_runs,
+        # all product configurations that may prevent a succesful boot should be run in SHORT
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-probe_api -hotp_only\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-desktop\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -detect_mode -report_max 0 -no_diagnostics\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-client\\\"",# explorer.exe and desktop apps
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-client -aslr_cache 0\\\"", # winlogon, spoolsv run in this
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
+        # pcache tests: per-user so each app will merge w/ previous, plus merge
+        # w/ at-unload persists from earlier -desktop run
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
+        # run again so each must use the merged pcaches
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-desktop -coarse_freeze_at_exit\\\"",
+        # Test with -use_moduledb relaxations, (is on by default, but tests Makefile
+        # adds -staged which turns it off, we re-enable by turning the option back on).
+        # The tests Makefile adds different version resource information to different
+        # tests in runall/ and security-{common,win32}/ to fully exercise this.
+        "DYNAMORIO_OPTIONS=\\\"-security -use_moduledb\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -client\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -client -medium\\\"",
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -low\\\"", # not a default config
+
+        # FIXME - next 2 runs temporary for new 4.2 features
+        "ONLY::runos::DYNAMORIO_OPTIONS=\\\"-suspend_on_synch_failure_for_app_suspend -synch_thread_sleep_MP -synch_thread_max_loops 1500 -synch_all_threads_max_loops 3000\\\"",
+        "ONLY::runos::DYNAMORIO_OPTIONS=\\\"-synch_thread_max_loops 0xffffffff\\\"",
+        # self-protection: FIXME: once case 8023 re-enables on linux, move to
+        #   common_product_runs list
+        "DYNAMORIO_OPTIONS=\\\"-security -protect_mask 0\\\"", # no options
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-security -protect_mask 2\\\" TEST_MINS=8", # .fspdata only
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-security -protect_mask 0x103\\\" TEST_MINS=8", # .data, .fspdata, gencode
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-security -protect_mask 0x107\\\" TEST_MINS=8", # .data, .fspdata, .cspdata, gencode
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-security -protect_mask 8\\\" TEST_MINS=8", # global heap
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-security -protect_mask 0x10f\\\" TEST_MINS=8", # global heap, all data sections, gencode
+        "DYNAMORIO_OPTIONS=\\\"-no_shared_syscalls\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-security -no_pad_jmps\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_flush\\\"",
+        # there is an overlap, so combination should be tested
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -executable_after_load -no_executable_if_rx_text -no_coarse_merge_iat\\\"",
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -no_executable_if_hook -executable_if_text\\\"",
+        # reverse of the default options
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-ignore_syscalls\\\"",
+        # test internal detach, mainly looking for asserts or
+        # exceptions/hangs as we don't verify that we really
+        # detach, FIXME verify somehow
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -internal_detach_mask 0x1\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_hide\\\"",
+        # test sygate compatibility
+        "DYNAMORIO_OPTIONS=\\\"-security -sygate\\\"",
+        # reset
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_enable_reset\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-reset_at_nth_thread 2\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-reset_every_nth_pending 2\\\"",
+        # we have to target LCD here -- gcc gets pretty slow if go lower
+        # than these, but most apps won't reset at all, so we only run spec
+        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-reset_at_nth_bb_unit 22\\\"",
+        "ONLY::spec::DYNAMORIO_OPTIONS=\\\"-reset_at_nth_trace_unit 15\\\"",
+        # profiling
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-prof_pcs\\\"",
+        # ASLR - DLLs
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -aslr 0x7 -hotp_only\\\"", # non-shared
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x7\\\"", # DLL + heap + stack
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x1\\\"", # only DLL
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x4\\\"", # only heap pad
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -aslr 0x3\\\"", # DLL + parent stack
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x47\\\"",# DLL + heap + stack + heap fill
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x1 -aslr_action 0x1\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x1 -aslr_dll_base 0x50000000 -aslr_dll_top 0x70000000 -aslr_dll_offset 0x01000000 -aslr_dll_pad 0x01000000\\\"",
+        # ASLR - shared cache
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -client -aslr_cache 0x3170\\\"", # hotp+ASLR+SHARED demo
+        "ONLY::runos::DYNAMORIO_OPTIONS=\\\"-security -client -aslr_cache_list 0\\\"",
+        "ONLY::runos::DYNAMORIO_OPTIONS=\\\"-security -client -aslr_cache_list 2\\\"",
+        "ONLY::runos::DYNAMORIO_OPTIONS=\\\"-security -aslr 0x7 -aslr_cache 0x3170\\\"", # full DR+ASLR+SHARED demo
+
+        # stress testing exemptions
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 0x1 -exempt_aslr_list '*'\\\"",
+        # GBOP exclusion test
+        "ONLY::runsecurity::DYNAMORIO_OPTIONS=\\\"-security -low -gbop_exclude_list 'kernel32.dll!LoadLibraryA'\\\"",
+        # Don't use TLS slots for IBL table addresses & masks
+        "DYNAMORIO_OPTIONS=\\\"-no_ibl_table_in_tls\\\"",
+                      );
+    # note all product runs are shared between release and debug runs
+    @debug_runs = ( @common_debug_runs,
+        "SHORT::ONLY::runos runsecurity runrunall::DYNAMORIO_OPTIONS=\\\"-probe_api -hotp_only\\\"",
+        "SHORT::ONLY::runrunall::DYNAMORIO_OPTIONS=\\\"-thin_client\\\"",
+        # to save time in short we only do debug version of -low
+        "ONLY::runnointerface::DYNAMORIO_OPTIONS=\\\"-security -low\\\"",
+        "DYNAMORIO_OPTIONS=\\\"-reset_at_fragment_count 1000\\\"",
+        # ASLR internal stress testing only
+        "DYNAMORIO_OPTIONS=\\\"-security -aslr 1 -aslr_internal 0x1000\\\"",
+                    );
+}
+
+#FIXME: options that need product runs
+#               dynamic_options
+
+#FIXME: internal options to be added to internal runs
+#               nolink
+#               tracedump_threshold
+#               thread_stats global_stats
+#               thread_stats_interval 1000
+#               global_stats_interval 1000
+#               hashtable_ibl_stats
+#               deadlock_avoidance
+#               heap_accounting_assert
+#               prof_pcs_* with non-default shifts should have a run
+#               ...
+
+# this is used in common_cases and to determine whether to run the
+#  share tests in the short run.
+$release_build = "BUILD::DEBUG=0 INTERNAL=0";
+$external_debug_build = "BUILD::DEBUG=1 INTERNAL=0";
+
+#### The long run contains pretty much all configurations we would like to maintain
+#### lines marked #l were taken out to make it shorter
+#### Add here runs that are not to be run in release builds, otherwise use common_product_runs
+@common_cases = (
+### we do NOT prepend short cases since we want more runs of each
+### debug internal version
+    "BUILD::DEBUG=1 INTERNAL=1",
+        # shared runs with release build
+        @product_runs,
+        # debug build or internal only options
+        @debug_runs,
+### default product build
+    $release_build,
+        # shared runs with debug build
+        @product_runs,
+        # release only runs
+        @release_runs,
+### debug external version, maybe part of product
+    $external_debug_build,
+        "DYNAMORIO_OPTIONS=\\\"\\\"",
+### non-debug internal version
+    "BUILD::DEBUG=0 INTERNAL=1",
+        "DYNAMORIO_OPTIONS=\\\"\\\"",
+### non-product configurations that we want to not only build but also run
+# turn off everything
+    "BUILD::CLIENT_INTERFACE=0 PROGRAM_SHEPHERDING=0 GBOP=0 HOT_PATCHING_INTERFACE=0 PROCESS_CONTROL=0",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"\\\"",
+### profiling
+### FIXME: add tests of client interface routines, including app start/stop interface?
+### (i.e., re-activate api/startstop test and add new tests)
+#
+### would only want to run for this build
+    "BUILD::ADD_DEFINES=\"${D}PROFILE_LINKCOUNT ${D}LINKCOUNT_64_BITS\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_inline_trace_ibl\\\"",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-no_shared_traces -prof_counts -tracedump_binary -no_inline_trace_ibl\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-prof_counts -tracedump_binary -no_inline_trace_ibl\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-prof_counts -tracedump_text -no_inline_trace_ibl\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"-tracedump_binary -tracedump_origins -no_inline_trace_ibl\\\" TEST_MINS=20",
+        "ONLY::runcommon::DYNAMORIO_OPTIONS=\\\"-tracedump_text -tracedump_origins -no_inline_trace_ibl\\\" TEST_MINS=20 RUNALL_SLEEP=15s",
+### client interface
+# We have some client interface tests working for Windows only, so the following
+# build is currently placed in the os-specific sections above.  Once these
+# tests are verified to work with Linux, we should move all client interface
+# entries to here.
+#    "BUILD::CLIENT_INTERFACE=1",
+#        "DYNAMORIO_OPTIONS=\\\"\\\"",
+## we won't bother to keep explicitly supporting this combination
+##    "BUILD::CLIENT_INTERFACE=1 ADD_DEFINES=\"${D}PROFILE_LINKCOUNT ${D}LINKCOUNT_64_BITS\"",
+#        "DYNAMORIO_OPTIONS=\\\"-no_inline_trace_ibl\\\"",
+### sideline no longer supported
+##    "BUILD::CLIENT_INTERFACE=1 ADD_DEFINES=\"${D}CLIENT_SIDELINE\"",
+### release-build kstats and callprof
+    "BUILD::DEBUG=0 INTERNAL=0 KSTATS=1 CALLPROF=1",
+        "ONLY::all::DYNAMORIO_OPTIONS=\\\"\\\"",
+### defines we don't want to break -- no runs though
+### no longer supported
+##    "BUILD::STATIC=1",
+    "BUILD::ADD_DEFINES=\"${D}DYNAMORIO_APP_EXPORTS ${D}DGC_DIAGNOSTICS\"",
+### no longer supported
+##    "BUILD::ADD_DEFINES=\"${D}SIMULATE_ATTACK\"",
+### no longer supported
+##    "BUILD::ADD_DEFINES=\"${D}SIDELINE\"",
+### not worth supporting by itself
+##    "BUILD::ADD_DEFINES=\"${D}RCT_IND_BRANCH\"",
+### may want to add in future -- don't build right now though
+##  "BUILD::ADD_DEFINES=\"${D}NATIVE_RETURN ${D}ASSUME_NORMAL_EFLAGS ${D}CUSTOM_EXIT_STUBS\"",
+##  "BUILD::ADD_DEFINES=\"${D}RETURN_STACK\"",
+### os-specific cases will be inserted here
+          );

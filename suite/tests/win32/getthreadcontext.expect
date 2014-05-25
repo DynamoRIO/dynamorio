@@ -1,0 +1,6 @@
+starting thread...
+eip is valid
+eax is valid
+exiting thread
+get context self eip > 0x74000000? yes
+done

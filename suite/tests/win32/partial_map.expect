@@ -1,0 +1,7 @@
+test map of \system32\user32.dll succeeded
+test map of \system32\calc.exe succeeded
+test map of \system32\notepad.exe succeeded
+test map of \system32\svchost.exe succeeded
+test map of \system32\rundll32.exe succeeded
+test map of \explorer.exe succeeded
+done

@@ -1,0 +1,55 @@
+$$ **********************************************************
+$$ Copyright (c) 2005 VMware, Inc.  All rights reserved.
+$$ **********************************************************
+
+$$ Redistribution and use in source and binary forms, with or without
+$$ modification, are permitted provided that the following conditions are met:
+$$
+$$ * Redistributions of source code must retain the above copyright notice,
+$$   this list of conditions and the following disclaimer.
+$$
+$$ * Redistributions in binary form must reproduce the above copyright notice,
+$$   this list of conditions and the following disclaimer in the documentation
+$$   and/or other materials provided with the distribution.
+$$
+$$ * Neither the name of VMware, Inc. nor the names of its contributors may be
+$$   used to endorse or promote products derived from this software without
+$$   specific prior written permission.
+$$
+$$ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+$$ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+$$ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+$$ ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+$$ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+$$ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+$$ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+$$ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+$$ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+$$ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+$$ DAMAGE.
+
+$$ usage: set $t1 to linkstub pointer
+$$ example: r $t1=@@(dcontext->last_exit)
+
+$$ flags as of link.h 1.81
+
+? @$t1; .echo =>; ? low(poi(@$t1+4));
+.if ((poi(@$t1+4) & 0x000001)==0x000001) {.echo "DIRECT";};
+.if ((poi(@$t1+4) & 0x000002)==0x000002) {.echo "INDIRECT";};
+.if ((poi(@$t1+4) & 0x000004)==0x000004) {.echo "RETURN";};
+.if ((poi(@$t1+4) & 0x000008)==0x000008) {.echo "CALL";};
+.if ((poi(@$t1+4) & 0x000010)==0x000010) {.echo "JMP";};
+.if ((poi(@$t1+4) & 0x000020)==0x000020) {.echo "IND_JMP_PLT";};
+.if ((poi(@$t1+4) & 0x000040)==0x000040) {.echo "SELFMOD_EXIT";};
+.if ((poi(@$t1+4) & 0x000080)==0x000080) {.echo "TARGET_PREFIX";};
+.if ((poi(@$t1+4) & 0x000100)==0x000100) {.echo "*** INVALID / CUSTOM_TRACES ENDS_BLOCK";};
+.if ((poi(@$t1+4) & 0x000200)==0x000200) {.echo "CALLBACK_RETURN";};
+.if ((poi(@$t1+4) & 0x000400)==0x000400) {.echo "NI_SYSCALL";};
+$$ START_OF_LIST
+$$ END_OF_LIST
+.if ((poi(@$t1+4) & 0x001000)==0x002000) {.echo "NEVER_LINKED";};
+.if ((poi(@$t1+4) & 0x004000)==0x004000) {.echo "LINKED";};
+.if ((poi(@$t1+4) & 0x008000)==0x008000) {.echo "SEPARATE_STUB";};
+
+.if ((poi(@$t1+4) & 0x000800)==0x000800) {.echo "START_OF_LIST";};
+.if ((poi(@$t1+4) & 0x000800)==0x001000) {.echo "END_OF_LIST";};

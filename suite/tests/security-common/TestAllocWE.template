@@ -1,0 +1,39 @@
+starting up
+#if !defined(PROGRAM_SHEPHERDING)
+2
+0
+1
+4660
+43981
+#else
+# if defined(exectutable_heap)
+2
+0
+1
+4660
+43981
+# else
+#  if defined(no_executable_if_alloc)
+#   if !defined(detect_mode)
+     SEC_VIO_AUTO_STOP
+     STOP
+#   else
+     SEC_VIO_CONT
+2
+     SEC_VIO_CONT
+0
+1
+     SEC_VIO_CONT
+4660
+43981
+#   endif
+#  else
+2
+0
+1
+4660
+43981
+#  endif
+# endif
+#endif
+about to exit

@@ -1,0 +1,359 @@
+starting tests
+#if !defined(PROGRAM_SHEPHERDING) || (defined(PROGRAM_SHEPHERDING) && !defined(security)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1)) || (defined(PROGRAM_SHEPHERDING) && defined(thin_client)) || (defined(PROGRAM_SHEPHERDING) && defined(client)) || (defined(PROGRAM_SHEPHERDING) && defined(low))
+2
+3
+0
+3
+43981
+4660
+2
+3
+0
+3
+43981
+4660
+2
+3
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(internal_detach_mask___0x1) && !defined(low) && !defined(client) && !defined(thin_client)
+   SEC_VIO_STOP
+# endif
+0
+3
+43981
+4660
+2
+3
+0
+3
+43981
+4660
+#else
+# if defined(executable_heap)
+2
+3
+0
+3
+43981
+4660
+// FIXME: case 3947
+2
+3
+0
+3
+43981
+4660
+# else
+#  if defined(no_executable_if_flush) || defined(X)
+#   if !defined(detect_mode)
+     SEC_VIO_AUTO_STOP
+     STOP
+#   else
+     SEC_VIO_CONT
+#   endif
+#  endif
+#  if defined(no_executable_if_flush) || defined(X)
+2
+3
+    SEC_VIO_CONT
+0
+    SEC_VIO_CONT
+3
+    SEC_VIO_CONT
+43981
+4660
+    SEC_VIO_CONT
+2
+3
+    SEC_VIO_CONT
+0
+    SEC_VIO_CONT
+3
+    SEC_VIO_CONT
+43981
+4660
+#  else
+// default options ''
+2
+3
+0
+3
+43981
+4660
+// case 3947 only if looking at data sections
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0)
+# if !defined(detect_mode)
+// OPTION_REPORT=8 is on by default unless overriden
+#  if !defined(rct_ind_call___3)
+     SEC_VIO_AUTO_STOP
+#  endif
+// FIXME: case 2144 - we should be testing for rct_ind_call(9) to ignore OPTION_BLOCK=2
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+# endif
+2
+// FIXME: case 3947
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
+   SEC_VIO_CONT
+# endif
+3
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
+   SEC_VIO_CONT
+# endif
+0
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
+   SEC_VIO_CONT
+# endif
+3
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
+   SEC_VIO_CONT
+# endif
+43981
+# if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(E) && defined(rct_section_type___0xe0) && defined(detect_mode)
+   SEC_VIO_CONT
+# endif
+4660
+#  endif
+# endif
+# if defined(executable_stack)
+2
+3
+0
+3
+43981
+4660
+2
+3
+0
+3
+43981
+4660
+# else
+#  if defined(no_executable_if_flush) || defined(X)
+#   if !defined(detect_mode)
+     SEC_VIO_AUTO_STOP
+     STOP
+#   else
+     SEC_VIO_CONT
+#   endif
+#  endif
+#  if defined(no_executable_if_flush) || defined(X)
+2
+// no violation here since same code as the 2 output and still on exec list
+3
+    SEC_VIO_CONT
+0
+    SEC_VIO_CONT
+3
+    SEC_VIO_CONT
+    SEC_VIO_CONT
+43981
+    SEC_VIO_CONT
+4660
+    SEC_VIO_CONT
+2
+// no violation here since same code as the 2 output and still on exec list
+3
+    SEC_VIO_CONT
+0
+    SEC_VIO_CONT
+3
+// no violation on entry into selfmod since it's on previous page than the
+// inc/dec code, just one violation for after selfmod itself
+    SEC_VIO_CONT
+43981
+// first violation is unknown code b/c the continue above only added
+// the second page of the selfmod code, now we're executing first page
+// (doesn't happen w/ first stack buf b/c it's all on same page)
+    SEC_VIO_CONT
+    SEC_VIO_CONT
+4660
+#  else
+2
+3
+#   if !defined(detect_mode)
+     SEC_VIO_AUTO_STOP
+     STOP
+#   else
+     SEC_VIO_CONT
+#   endif
+0
+3
+    SEC_VIO_CONT
+    SEC_VIO_CONT
+43981
+// no violation here b/c selfmod entry is on exec list from the prev continue
+// after the selfmod write, the exec area is removed since on stack, but
+// it's put back on for rest of selfmod code post-write, since it's on
+// future list (was not removed since future not triggered earlier, since
+// selfmod entry was on exec list, as state above)
+4660
+2
+3
+    SEC_VIO_CONT
+0
+3
+// no violation on entry into selfmod since it's on previous page than the
+// inc/dec code, just one violation for after selfmod itself
+    SEC_VIO_CONT
+43981
+    SEC_VIO_CONT
+4660
+#  endif
+# endif
+#endif
+about to exit
+//
+//
+//  ===========================================================================
+//  To better understand the behavior of the two stack tests, here is a
+//  collection of output from the test w/ verbose printing enabled and
+//  from the logfiles:
+//
+//  ===========================================================================
+//  buf_stack (aligned):
+//
+//  starting tests
+//  wrote code 0x0012fee4-0x0012feef
+//  flushed 0x0012fee4-0x0012feef (0xb bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012fee4 size=0xb
+//  || new FUTURE executable vm area: 0x0012fee4-0x0012feef WNtFlushInstructionCache
+//  executing code 0x0012fee4-0x0012feef
+//  >> WARNING: pc = 0x0012fee4 is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012fee4-0x0012feef
+//  || new executable vm area: 0x0012fee4-0x0012feef WFSD unexpected vm area
+//  2
+//  executing code 0x0012fee4-0x0012feef
+//  3
+//  wrote code 0x0012fee4-0x0012ff78
+//  executing code 0x0012fee4-0x0012ff78
+//  >> WARNING: code on stack 0x0012fee4-0x0012feef @tag 0x0012fee4 written to
+//  || removing executable vm area: 0x0012fee4-0x0012feef
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012fee4: 55 8b ec 8b 45 8 83 e8 1 5d c3 55
+//  || new executable vm area: 0x0012f000-0x00130000 W-SD unexpected vm area
+//  0
+//  wrote code 0x0012fee4-0x0012feef
+//  flushed 0x0012fee4-0x0012ff80 (0x9c bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012fee4 size=0x9c
+//  || new FUTURE executable vm area: 0x0012fee4-0x0012ff80 WNtFlushInstructionCache
+//  executing code 0x0012fee4-0x0012feef
+//  >> WARNING: code on stack 0x0012f000-0x00130000 @tag 0x0012fee4 written to
+//  || removing executable vm area: 0x0012f000-0x00130000
+//  >> WARNING: pc = 0x0012fee4 is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012fee4-0x0012ff80
+//  || new executable vm area: 0x0012fee4-0x0012ff80 WFSD unexpected vm area
+//  3
+//  wrote code 0x0012fee4-0x0012ff15
+//  executing self-mod code 0x0012fee4-0x0012ff15
+//  >> WARNING: code on stack 0x0012fee4-0x0012ff80 @tag 0x0012fee4 written to
+//  || removing executable vm area: 0x0012fee4-0x0012ff80
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012fee4: 55 8b ec 51 53 56 57 8b 4d 8 e8 0
+//  || new executable vm area: 0x0012f000-0x00130000 W-SD unexpected vm area
+//  >> WARNING: code on stack 0x0012f000-0x00130000 @tag 0x0012fef3 written to
+//  || removing executable vm area: 0x0012f000-0x00130000
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012fef7: b8 cd ab 0 0 b9 0 0 0 0 48 41
+//  || new executable vm area: 0x0012f000-0x00130000 W-SD unexpected vm area
+//  43981
+//  flushed 0x0012fee4-0x0012ff15 (0x31 bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012fee4 size=0x31
+//  || new FUTURE executable vm area: 0x0012fee4-0x0012ff15 WNtFlushInstructionCache
+//  executing self-mod code 0x0012fee4-0x0012ff15
+//  >> WARNING: code on stack 0x0012f000-0x00130000 @tag 0x0012fef3 written to
+//  || removing executable vm area: 0x0012f000-0x00130000
+//  >> WARNING: pc = 0x0012fef7 is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012fee4-0x0012ff15
+//  || new executable vm area: 0x0012fee4-0x0012ff15 WFSD unexpected vm area
+//  4660
+//  about to exit
+//
+//  ===========================================================================
+//  buf_stack2 (cross page):
+//
+//  starting tests
+//  wrote code 0x0012dffe-0x0012e009
+//  flushed 0x0012dffe-0x0012e009 (0xb bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012dffe size=0xb
+//  || new FUTURE executable vm area: 0x0012dffe-0x0012e009 WNtFlushInstructionCache
+//  executing code 0x0012dffe-0x0012e009
+//  >> WARNING: pc = 0x0012dffe is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012dffe-0x0012e009
+//  || new executable vm area: 0x0012dffe-0x0012e009 WFSD unexpected vm area
+//  2
+//  executing code 0x0012dffe-0x0012e009
+//  3
+//  wrote code 0x0012dffe-0x0012e092
+//  executing code 0x0012dffe-0x0012e092
+//  >> WARNING: code on stack 0x0012dffe-0x0012e009 @tag 0x0012dffe written to
+//  || removing executable vm area: 0x0012dffe-0x0012e009
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012dffe: 55 8b ec 8b 45 8 83 e8 1 5d c3 55
+//  || new executable vm area: 0x0012d000-0x00130000 W-SD unexpected vm area
+//  0
+//  wrote code 0x0012dffe-0x0012e009
+//  flushed 0x0012cee4-0x0012fee4 (0x3000 bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012cee4 size=0x3000
+//  || new FUTURE executable vm area: 0x0012cee4-0x0012fee4 WNtFlushInstructionCache
+//  executing code 0x0012dffe-0x0012e009
+//  >> WARNING: code on stack 0x0012d000-0x00130000 @tag 0x0012dffe written to
+//  || removing executable vm area: 0x0012d000-0x00130000
+//  >> WARNING: pc = 0x0012dffe is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012cee4-0x0012fee4
+//  || new executable vm area: 0x0012cee4-0x0012fee4 WFSD unexpected vm area
+//  3
+//  wrote code 0x0012dff0-0x0012e021
+//  executing self-mod code 0x0012dff0-0x0012e021
+//  >>   exec of selfmod has no msgs since it's not same bb, so don't notice code has
+//  >>   changed like do if it has same start addr, and it's still within same future
+//  >>   region that was added to exec list
+//  >> WARNING: code on stack 0x0012cee4-0x0012fee4 @tag 0x0012dfff written to
+//  >>   this is the actual selfmod write!
+//  || removing executable vm area: 0x0012cee4-0x0012fee4
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012e003: b8 cd ab 0 0 b9 0 0 0 0 48 41
+//  >>   error executing rest of selfmod code
+//  || new executable vm area: 0x0012e000-0x00130000 W-SD unexpected vm area
+//  43981
+//  flushed 0x0012dff0-0x0012e021 (0x31 bytes)
+//  >> syscall: NtFlushInstructionCache 0x0012dff0 size=0x31
+//  || new FUTURE executable vm area: 0x0012dff0-0x0012e021 WNtFlushInstructionCache
+//  executing self-mod code 0x0012dff0-0x0012e021
+//  >>    we have unknown code here b/c the after-violation continue only added
+//  >>    the second page of the selfmod code, since the selfmod part itself is
+//  >>    on second page, and now we're back executing from first page
+//  >> WARNING: pc = 0x0012dff0 is future executable, allowing
+//  >> future exec region is on stack, removing from future list now
+//  || removing FUTURE executable vm area: 0x0012dff0-0x0012e021
+//  || new executable vm area: 0x0012dff0-0x00130000 W-SD unexpected vm area
+//  >> WARNING: code on stack 0x0012dff0-0x00130000 @tag 0x0012dfff written to
+//  >>   this is the actual selfmod write!
+//  || removing executable vm area: 0x0012dff0-0x00130000
+//  <Execution policy violation occurred!
+//  Contact your vendor for a security vulnerability fix.
+//  Program continuing!>
+//  >> WARNING: violating basic block target @0x0012e003: b8 34 12 0 0 b9 0 0 0 0 48 41
+//  || new executable vm area: 0x0012e000-0x00130000 W-SD unexpected vm area
+//  4660
+//  about to exit
+//
+//  ===========================================================================

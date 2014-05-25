@@ -1,0 +1,289 @@
+/* **********************************************************
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* not really a header file, but we don't want to run this standalone
+ * to use, defines these, then include this file:
+#define USE_LONGJMP 0
+#define BLOCK_IN_HANDLER 0
+#define USE_SIGSTACK 0
+#define USE_TIMER 0
+
+#include "signal-base.h"
+ *
+ */
+
+#include "tools.h"
+#include <assert.h>
+#include <stdio.h>
+#include <math.h>
+#include <unistd.h>
+#include <signal.h>
+#include <ucontext.h>
+#include <sys/time.h> /* itimer */
+#include <string.h> /*  memset */
+
+/* handler with SA_SIGINFO flag set gets three arguments: */
+typedef void (*handler_t)(int, siginfo_t *, void *);
+
+#ifdef X64
+# define SC_XIP rip
+#else
+# define SC_XIP eip
+#endif
+
+#if USE_LONGJMP
+#include <setjmp.h>
+static jmp_buf env;
+#endif
+
+#if USE_SIGSTACK
+# include <stdlib.h> /* malloc */
+/* need more space if might get nested signals */
+# if USE_TIMER
+#  define ALT_STACK_SIZE  (SIGSTKSZ*4)
+# else
+#  define ALT_STACK_SIZE  (SIGSTKSZ*2)
+# endif
+#endif
+
+#if USE_TIMER
+/* need to run long enough to get itimer hit */
+# define ITERS 3500000
+#else
+# define ITERS 500000
+#endif
+
+static int a[ITERS];
+
+/* strategy: anything that won't be the same across multiple runs,
+ * hide inside #if VERBOSE.
+ * timer hits won't be the same, just make sure we get at least one.
+ */
+#if USE_TIMER
+static int timer_hits = 0;
+#endif
+
+#include <errno.h>
+
+static void
+signal_handler(int sig, siginfo_t *siginfo, ucontext_t *ucxt)
+{
+#if VERBOSE
+    print("signal_handler: sig=%d, retaddr=0x%08x, fpregs=0x%08x\n",
+          sig, *(&sig - 1), ucxt->uc_mcontext.fpregs);
+#else
+# if USE_TIMER
+    if (sig != SIGVTALRM)
+# endif
+        print("signal_handler: sig=%d\n", sig);
+#endif
+
+    switch (sig) {
+
+    case SIGSEGV: {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
+#if USE_LONGJMP && BLOCK_IN_HANDLER
+        sigset_t set;
+        int rc;
+#endif
+#if VERBOSE
+        print("Got SIGSEGV @ 0x%08x\n", pc);
+#else
+        print("Got SIGSEGV\n");
+#endif
+#if USE_LONGJMP
+# if BLOCK_IN_HANDLER
+        /* longjmp will bypass sigreturn, and sigreturn is what resets
+         * the set of blocked signals, so we have to unblock them here
+         */
+        rc = sigemptyset(&set); /* reset blocked signals */
+        ASSERT_NOERR(rc);
+        sigprocmask(SIG_SETMASK, &set, NULL);
+# endif
+        longjmp(env, 1);
+#endif
+        break;
+    }
+
+    case SIGUSR1: {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
+#if VERBOSE
+        print("Got SIGUSR1 @ 0x%08x\n", pc);
+#else
+        print("Got SIGUSR1\n");
+#endif
+        break;
+    }
+
+    case __SIGRTMAX: {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
+        /* SIGRTMAX has been 64 on Linux since kernel 2.1, from looking at glibc
+         * sources. */
+        assert(__SIGRTMAX == 64 &&
+               __SIGRTMAX == SIGRTMAX);
+#if VERBOSE
+        print("Got SIGRTMAX @ 0x%08x\n", pc);
+#else
+        print("Got SIGRTMAX\n");
+#endif
+        break;
+    }
+
+#if USE_TIMER
+    case SIGVTALRM: {
+        struct sigcontext *sc = (struct sigcontext *) &(ucxt->uc_mcontext);
+        void *pc = (void *) sc->SC_XIP;
+#if VERBOSE
+        print("Got SIGVTALRM @ 0x%08x\n", pc);
+#endif
+        timer_hits++;
+        break;
+    }
+#endif
+
+    default:
+        assert(0);
+    }
+}
+
+/* set up signal_handler as the handler for signal "sig" */
+static void
+custom_intercept_signal(int sig, handler_t handler)
+{
+    int rc;
+    struct sigaction act;
+
+    act.sa_sigaction = handler;
+#if BLOCK_IN_HANDLER
+    rc = sigfillset(&act.sa_mask); /* block all signals within handler */
+#else
+    rc = sigemptyset(&act.sa_mask); /* no signals are blocked within handler */
+#endif
+    ASSERT_NOERR(rc);
+    act.sa_flags = SA_SIGINFO | SA_ONSTACK; /* send 3 args to handler */
+
+    /* arm the signal */
+    rc = sigaction(sig, &act, NULL);
+    ASSERT_NOERR(rc);
+}
+
+
+int main(int argc, char *argv[])
+{
+    double res = 0.;
+    int i, j, rc;
+#if USE_SIGSTACK
+    stack_t sigstack;
+#endif
+#if USE_TIMER
+    struct itimerval t;
+#endif
+
+#if USE_TIMER
+    custom_intercept_signal(SIGVTALRM, (handler_t) signal_handler);
+    t.it_interval.tv_sec = 0;
+    t.it_interval.tv_usec = 10000;
+    t.it_value.tv_sec = 0;
+    t.it_value.tv_usec = 10000;
+    rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
+    ASSERT_NOERR(rc);
+#endif
+
+#if USE_SIGSTACK
+    sigstack.ss_sp = (char *) malloc(ALT_STACK_SIZE);
+    sigstack.ss_size = ALT_STACK_SIZE;
+    sigstack.ss_flags = SS_ONSTACK;
+    rc = sigaltstack(&sigstack, NULL);
+    ASSERT_NOERR(rc);
+# if VERBOSE
+    print("Set up sigstack: 0x%08x - 0x%08x\n",
+          sigstack.ss_sp, sigstack.ss_sp + sigstack.ss_size);
+# endif
+#endif
+
+    custom_intercept_signal(SIGSEGV, (handler_t) signal_handler);
+    custom_intercept_signal(SIGUSR1, (handler_t) signal_handler);
+    custom_intercept_signal(SIGUSR2, (handler_t) SIG_IGN);
+    custom_intercept_signal(__SIGRTMAX, (handler_t) signal_handler);
+
+    res = cos(0.56);
+
+    print("Sending SIGUSR2\n");
+    kill(getpid(), SIGUSR2);
+
+    print("Sending SIGUSR1\n");
+    kill(getpid(), SIGUSR1);
+
+    print("Sending SIGRTMAX\n");
+    kill(getpid(), SIGRTMAX);
+
+    print("Generating SIGSEGV\n");
+#if USE_LONGJMP
+    res = setjmp(env);
+    if (res == 0) {
+        *((volatile int *)0) = 4;
+    }
+#else
+    kill(getpid(), SIGSEGV);
+#endif
+
+    for (i=0; i<ITERS; i++) {
+        if (i % 2 == 0) {
+            res += cos(1./(double)(i+1));
+        } else {
+            res += sin(1./(double)(i+1));
+        }
+        j = (i << 4) / (i | 0x38);
+        a[i] += j;
+    }
+    print("%f\n", res);
+
+#if USE_TIMER
+    memset(&t, 0, sizeof(t));
+    rc = setitimer(ITIMER_VIRTUAL, &t, NULL);
+    ASSERT_NOERR(rc);
+
+    if (timer_hits == 0)
+        print("Got 0 timer hits!\n");
+    else
+        print("Got some timer hits!\n");
+#endif
+
+#if USE_SIGSTACK
+    free(sigstack.ss_sp);
+#endif
+    return 0;
+}

@@ -1,0 +1,40 @@
+aslr-ind main()
+ready to go 332
+16
+at base, no ASLR
+16
+*** invalid indirect call at preferred base!
+// .E expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(E) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode) && !defined(throw_exception)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+#  if defined(detect_mode)
+    SEC_VIO_CONT
+#  else
+    SEC_VIO_EXCEPTION
+#  endif
+# endif
+invalid indirect call 2 caught
+#else
+0
+*** invalid indirect call allowed!
+#endif
+indirect call done
+starting bad return function
+looking at ring
+// .C expected
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(X) && !defined(C) && !defined(low) && !defined(client) && !defined(thin_client) && !defined(use_moduledb)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+PRECIOUS in a DLL, ATTACK SUCCESSFUL!

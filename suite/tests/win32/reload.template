@@ -1,0 +1,70 @@
+in import 0
+in import 1
+in import 2
+in import 3
+in import 4
+in import 5
+in import 6
+in import 7
+in import 8
+in import 9
+in import 10
+in import 11
+in import 12
+in import 13
+in import 14
+in import 15
+in import 16
+in import 17
+in import 18
+in import 19
+in import 20
+in import 21
+in import 22
+in import 23
+in import 24
+in import 25
+in import 26
+in import 27
+in import 28
+in import 29
+in import 0
+in import 1
+in import 2
+in import 3
+in import 4
+in import 5
+in import 6
+in import 7
+in import 8
+in import 9
+in import 10
+in import 11
+in import 12
+in import 13
+in import 14
+in import 15
+in import 16
+in import 17
+in import 18
+in import 19
+in import 20
+in import 21
+in import 22
+in import 23
+in import 24
+in import 25
+in import 26
+in import 27
+in import 28
+in import 29
+sum=-1314123346
+#if !defined(WINDOWS) || (defined(WINDOWS) && defined(thin_client)) || (defined(WINDOWS) && defined(low))
+// native
+Memory check: pagefile usage is < 900 KB
+#else
+// Focus on tools has increased memory usage.
+// Different machines and compilers vary too so we have a bigger bucket
+// to try and be less flaky while still detecting major leaks.
+Memory check: pagefile usage is >= 2816 KB, < 16384 KB
+#endif // native

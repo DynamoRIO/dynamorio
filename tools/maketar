@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# **********************************************************
+# Copyright (c) 2002-2003 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Builds dynamorio.tar for Linux release of DynamoRIO
+
+usage="<absolute path for new install dir>";
+
+# mandatory 1st argument
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 $usage"
+    exit 127
+fi
+base=$1
+if test -e $base ; then
+    echo "Error: directory $base already exists"
+    exit 127
+fi
+mkdir $base
+mkdir $base/dynamorio
+mkdir $base/dynamorio/logs
+mkdir $base/dynamorio/doc
+mkdir $base/dynamorio/include
+mkdir $base/dynamorio/bin
+mkdir $base/dynamorio/lib
+mkdir $base/dynamorio/lib/debug
+mkdir $base/dynamorio/lib/release
+mkdir $base/dynamorio/lib/profile
+
+cd $DYNAMORIO_HOME
+
+cp tools/dynamorio $base/dynamorio/bin
+
+cd src
+if test -e Makefile.mydefines ; then
+    mv Makefile.mydefines .ignoreme
+fi
+make clear
+make CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1 install
+cp ../lib/debug/* $base/dynamorio/lib/debug
+cp ../lib/*.so $base/dynamorio/lib
+cp ../include/* $base/dynamorio/include
+
+# linuxgui, now that header files are there
+cd ../linuxgui
+CPPFLAGS="-I$DYNAMORIO_HOME/include -DUNIX" ./autogen.sh
+make
+cp src/linuxgui $base/dynamorio/bin/dynamorio-gui
+cd ../src
+
+make clear
+make CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1 EXTERNAL_RELEASE_PROFILE=1 install
+cp ../lib/debug/* $base/dynamorio/lib/profile
+
+make clear
+make CLIENT_INTERFACE=1 EXTERNAL_RELEASE=1 DEBUG=0 install
+cp ../lib/release/* $base/dynamorio/lib/release
+if test -e .ignoreme ; then
+    mv .ignoreme Makefile.mydefines
+fi
+
+cp ../docs/LICENSE.TXT $base/dynamorio/doc
+cp ../docs/LICENSE.TXT $base/dynamorio
+cp ../docs/linux-release-README $base/README
+
+cp -r ../docs/release/* $base/dynamorio/doc
+find $base/dynamorio/doc -name \*~ -exec rm {} \;
+find $base/dynamorio/doc -name CVS -exec rm -rf {} \;
+rm $base/dynamorio/doc/todo
+
+cd $base
+tar cf dynamorio.tar README dynamorio/
+bzip2 dynamorio.tar

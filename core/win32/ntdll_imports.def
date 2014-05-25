@@ -1,0 +1,274 @@
+;; **********************************************************
+;; Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
+;; **********************************************************
+
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; * Neither the name of Google, Inc. nor the names of its contributors may be
+;;   used to endorse or promote products derived from this software without
+;;   specific prior written permission.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+;; FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+;; SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+;; CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+;; LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+;; OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+;; DAMAGE.
+
+;; i#894: string routines no longer in WDK ntdll.lib
+
+LIBRARY ntdll
+EXPORTS
+        KiRaiseUserExceptionDispatcher
+        KiUserApcDispatcher
+        KiUserCallbackDispatcher
+        KiUserExceptionDispatcher
+        NtAllocateVirtualMemory
+        NtQueryVirtualMemory
+        NtFreeVirtualMemory
+        NtProtectVirtualMemory
+        NtCreateFile
+        NtWriteVirtualMemory
+        NtGetContextThread
+        NtSetContextThread
+        NtSuspendThread
+        NtResumeThread
+        NtTerminateThread
+        NtClose
+        NtDuplicateObject
+        NtCreateSection
+        NtOpenSection
+        NtMapViewOfSection
+        NtUnmapViewOfSection
+        NtCallbackReturn
+        NtTestAlert
+        NtContinue
+        NtQueryInformationThread
+        NtQueryInformationProcess
+        NtQueryInformationFile
+        NtSetInformationFile
+        NtQuerySection
+        NtOpenFile
+        NtOpenThreadToken
+        NtOpenProcessToken
+        NtQueryInformationToken
+        NtYieldExecution
+        NtQuerySystemInformation
+        NtOpenProcess
+        NtSetInformationThread
+        NtReadVirtualMemory
+        NtCreateTimer
+        NtSetTimer
+        NtDelayExecution
+        NtQueryObject
+        NtQueryFullAttributesFile
+        NtCreateKey
+        NtOpenKey
+        NtSetValueKey
+        NtDeleteKey
+        NtQueryValueKey
+        NtFlushKey
+        NtEnumerateKey
+        NtEnumerateValueKey
+        NtQuerySystemTime
+        NtDeleteFile
+        NtFlushBuffersFile
+        NtReadFile
+        NtWriteFile
+        NtCreateIoCompletion
+        NtRaiseHardError
+        NtRaiseException
+        NtCreateEvent
+        NtWaitForSingleObject
+        NtSetEvent
+        NtClearEvent
+        NtSignalAndWaitForSingleObject
+        NtQueryPerformanceCounter
+        NtFsControlFile
+        NtCancelIoFile
+        NtCreateProfile
+        NtSetIntervalProfile
+        NtQueryIntervalProfile
+        NtStartProfile
+        NtStopProfile
+        NtCreateProcess
+        NtTerminateProcess
+        NtCreateDirectoryObject
+        NtOpenDirectoryObject
+        NtOpenSymbolicLinkObject
+        NtQuerySymbolicLinkObject
+        ZwAreMappedFilesTheSame
+        NtQueryVolumeInformationFile
+        NtQuerySecurityObject
+        NtQueueApcThread
+        NtCreateThread
+        NtOpenThread
+        NtFlushInstructionCache
+        NtQueryAttributesFile
+        NtCreateNamedPipeFile
+        NtDeviceIoControlFile
+        NtQueryDirectoryFile
+        NtFlushVirtualMemory
+        NtQueryInformationJobObject
+        RtlInitializeCriticalSection
+        RtlDeleteCriticalSection
+        RtlEnterCriticalSection
+        RtlLeaveCriticalSection
+        RtlTryEnterCriticalSection
+        RtlInitUnicodeString
+        RtlInitAnsiString
+        RtlFreeUnicodeString
+        RtlFreeAnsiString
+        RtlFreeOemString
+        RtlQueryEnvironmentVariable_U
+        RtlConvertSidToUnicodeString
+        RtlCreateProcessParameters
+        RtlDestroyProcessParameters
+        RtlCreateHeap
+        RtlDestroyHeap
+        RtlAllocateHeap
+        RtlReAllocateHeap
+        RtlFreeHeap
+        RtlSizeHeap
+        RtlValidateHeap
+        RtlLockHeap
+        RtlUnlockHeap
+        RtlGetProcessHeaps
+        RtlWalkHeap
+        LdrLoadDll
+        LdrUnloadDll
+        LdrGetProcedureAddress
+        LdrGetDllHandle
+        CsrClientCallServer
+        _snprintf
+        _snwprintf
+        _stricmp
+        _strnicmp
+        _wcsicmp
+        atoi
+        isdigit
+        isprint
+        iswctype
+        memcmp
+        memcpy
+        memmove
+        memset
+        qsort
+        sqrt
+        sscanf
+        strchr
+        strcmp
+        strlen
+        strncat
+        strncmp
+        strncpy
+        strrchr
+        strstr
+        strtoul
+        tolower
+        wcschr
+        wcscmp
+        wcsncmp
+        wcslen
+        wcsncat
+        wcsncpy
+        wcsstr
+        ;; We forward these on to ntdll via core/lib/dr_ntdll*.def
+        __isascii
+        __iscsym
+        __iscsymf
+        __toascii
+        _alldiv
+        _allmul
+        _allrem
+        _allshl
+        _allshr
+        _atoi64
+        _aulldiv
+        _aullrem
+        _aullshr
+        _chkstk
+        _fltused
+        _ftol
+        _i64toa
+        _i64tow
+        _itoa
+        _itow
+        _ltoa
+        _ltow
+        _memccpy
+        _memicmp
+        _strcmpi
+        _strlwr
+        _strupr
+        _toupper
+        _ui64toa
+        _ultoa
+        _ultow
+        _vsnprintf
+        _wcslwr
+        _wcsnicmp
+        _wcsupr
+        _wtoi
+        _wtoi64
+        _wtol
+        abs
+        atan
+        atol
+        ceil
+        cos
+        fabs
+        floor
+        isalnum
+        isalpha
+        iscntrl
+        isgraph
+        islower
+        ispunct
+        isspace
+        isupper
+        iswalpha
+        iswdigit
+        iswlower
+        iswspace
+        iswxdigit
+        isxdigit
+        labs
+        log
+        mbstowcs
+        memchr
+        pow
+        sin
+        sprintf
+        strcspn
+        strpbrk
+        strspn
+        strtol
+        tan
+        toupper
+        towlower
+        towupper
+        wcscat
+        wcscpy
+        wcscspn
+        wcspbrk
+        wcsrchr
+        wcsspn
+        wcstol
+        wcstombs
+        wcstoul
+        ;; So we don't need to link with msvcrt.dll for VS2013 (i#1376)
+        _aulldvrm

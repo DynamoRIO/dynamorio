@@ -1,0 +1,67 @@
+full suite run
+Executing stack shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!
+Executing heap shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!
+Executing newheap shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!
+#ifndef X64
+Executing crtheap shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!
+#endif /* X64 */
+Executing virtual shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!
+Executing virtual_x shellcode...
+success!
+Executing .data shellcode...
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_heap) && !defined(internal_detach_mask) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+success!

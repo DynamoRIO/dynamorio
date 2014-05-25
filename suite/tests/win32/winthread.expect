@@ -1,0 +1,3 @@
+Before _beginthreadex
+In run_func
+After _beginthreadex

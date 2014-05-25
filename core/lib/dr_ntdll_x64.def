@@ -1,0 +1,148 @@
+;; **********************************************************
+;; Copyright (c) 2008 VMware, Inc.  All rights reserved.
+;; **********************************************************
+
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; * Neither the name of VMware, Inc. nor the names of its contributors may be
+;;   used to endorse or promote products derived from this software without
+;;   specific prior written permission.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+;; FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+;; SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+;; CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+;; LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+;; OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+;; DAMAGE.
+
+;; PR 219380: provide ntdll.dll link support to clients
+
+LIBRARY dynamorio
+EXPORTS
+        wcstoul = NTDLL.wcstoul
+        wcstombs = NTDLL.wcstombs
+        wcstol = NTDLL.wcstol
+        wcsstr = NTDLL.wcsstr
+        wcsspn = NTDLL.wcsspn
+        wcsrchr = NTDLL.wcsrchr
+        wcspbrk = NTDLL.wcspbrk
+        wcsncpy = NTDLL.wcsncpy
+        wcsncmp = NTDLL.wcsncmp
+        wcsncat = NTDLL.wcsncat
+        wcslen = NTDLL.wcslen
+        wcscspn = NTDLL.wcscspn
+        wcscpy = NTDLL.wcscpy
+        wcscmp = NTDLL.wcscmp
+        wcsncmp = NTDLL.wcsncmp
+        wcschr = NTDLL.wcschr
+        wcscat = NTDLL.wcscat
+        towupper = NTDLL.towupper
+        towlower = NTDLL.towlower
+        toupper = NTDLL.toupper
+        tolower = NTDLL.tolower
+        tan = NTDLL.tan
+        strtoul = NTDLL.strtoul
+        strtol = NTDLL.strtol
+        strstr = NTDLL.strstr
+        strspn = NTDLL.strspn
+        strrchr = NTDLL.strrchr
+        strpbrk = NTDLL.strpbrk
+        strncpy = NTDLL.strncpy
+        strncmp = NTDLL.strncmp
+        strncat = NTDLL.strncat
+        strlen = NTDLL.strlen
+        strcspn = NTDLL.strcspn
+        strcmp = NTDLL.strcmp
+        strchr = NTDLL.strchr
+        sscanf = NTDLL.sscanf
+        sqrt = NTDLL.sqrt
+        sprintf = NTDLL.sprintf
+        sin = NTDLL.sin
+        qsort = NTDLL.qsort
+        pow = NTDLL.pow
+        memset = NTDLL.memset
+        memmove = NTDLL.memmove
+        memcpy = NTDLL.memcpy
+        memcmp = NTDLL.memcmp
+        memchr = NTDLL.memchr
+        mbstowcs = NTDLL.mbstowcs
+        log = NTDLL.log
+        labs = NTDLL.labs
+        isxdigit = NTDLL.isxdigit
+        iswxdigit = NTDLL.iswxdigit
+        iswspace = NTDLL.iswspace
+        iswlower = NTDLL.iswlower
+        iswdigit = NTDLL.iswdigit
+        iswctype = NTDLL.iswctype
+        iswalpha = NTDLL.iswalpha
+        isupper = NTDLL.isupper
+        isspace = NTDLL.isspace
+        ispunct = NTDLL.ispunct
+        isprint = NTDLL.isprint
+        islower = NTDLL.islower
+        isgraph = NTDLL.isgraph
+        isdigit = NTDLL.isdigit
+        iscntrl = NTDLL.iscntrl
+        isalpha = NTDLL.isalpha
+        isalnum = NTDLL.isalnum
+        floor = NTDLL.floor
+        fabs = NTDLL.fabs
+        cos = NTDLL.cos
+        ceil = NTDLL.ceil
+        atol = NTDLL.atol
+        atoi = NTDLL.atoi
+        atan = NTDLL.atan
+        abs = NTDLL.abs
+        _wtol = NTDLL._wtol
+        _wtoi64 = NTDLL._wtoi64
+        _wtoi = NTDLL._wtoi
+        _wcsupr = NTDLL._wcsupr
+        _wcsnicmp = NTDLL._wcsnicmp
+        _wcslwr = NTDLL._wcslwr
+        _wcsicmp = NTDLL._wcsicmp
+        _vsnprintf = NTDLL._vsnprintf
+        _ultow = NTDLL._ultow
+        _ultoa = NTDLL._ultoa
+        _ui64toa = NTDLL._ui64toa
+        _toupper = NTDLL._toupper
+        _tolower = NTDLL._tolower
+        _strupr = NTDLL._strupr
+        _strnicmp = NTDLL._strnicmp
+        _strlwr = NTDLL._strlwr
+        _stricmp = NTDLL._stricmp
+        _strcmpi = NTDLL._strcmpi
+        _snwprintf = NTDLL._snwprintf
+        _snprintf = NTDLL._snprintf
+        _memicmp = NTDLL._memicmp
+        _memccpy = NTDLL._memccpy
+        _ltow = NTDLL._ltow
+        _ltoa = NTDLL._ltoa
+        _itow = NTDLL._itow
+        _itoa = NTDLL._itoa
+        _i64tow = NTDLL._i64tow
+        _i64toa = NTDLL._i64toa
+        _fltused = NTDLL._fltused
+        _atoi64 = NTDLL._atoi64
+        __toascii = NTDLL.__toascii
+        __iscsymf = NTDLL.__iscsymf
+        __iscsym = NTDLL.__iscsym
+        __isascii = NTDLL.__isascii
+;; these are needed for samples/stats.c
+        NtCreateSection = NTDLL.NtCreateSection
+        NtMapViewOfSection = NTDLL.NtMapViewOfSection
+        NtUnmapViewOfSection = NTDLL.NtUnmapViewOfSection
+        NtOpenDirectoryObject = NTDLL.NtOpenDirectoryObject
+        RtlInitUnicodeString = NTDLL.RtlInitUnicodeString

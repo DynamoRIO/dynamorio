@@ -1,0 +1,12 @@
+starting up
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(executable_stack) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+about to exit

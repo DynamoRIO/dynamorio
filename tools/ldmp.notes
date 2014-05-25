@@ -1,0 +1,11 @@
+to use ldmp.exe to view an ldmp file
+
+ldmp <ldmp file> <dummy executable> > map_file
+once finished open the map file (this file has the mappings of old thread ids and TEB's to the new one (the contents of the TEB are copied over, just the location changes) and also the PEB as well as any error msgs), we expect an error aroudn the vsyscall page since the os won't let us write there, for this reason I recommend running ldmp on the same platform (xpsp2, 03, 2000 etc.) that the .ldmp file was created on.  Read the process id and attach windbg NON-INVASIVELY (otherwise will crash) to that process.  At this point you can take a dump with
+.dump /mFfu <out file>
+and continue on your merry way.
+
+Note that vadump Type information is lost as well as all writecopy bits on protection regions.  Note also that all handle information is lost and some other state (such as suspend counts etc.) is lost as well.  May be other things that change that we don't know about yet too.  Don't forget to use the map_file to translate thread ids, peb and teb addresses (TODO write a perl script to do this for you on demand).  Also be aware that the vsyscall page might not match the original applications, esp. if you ran ldmp.exe on a different platform then the dump was created on.  Also todo shell script to turn a .ldmp into a .dmp using ldmp and ntsd.  Note also that only CONTEXT_INTEGER, Eip, and EFlags registers are valid (if demand warrants we can add segement registers/debug registers without much work, float/sse is a little harder, but could also be done).
+
+RC1 notes
+Also, because of when the callstack is grabbed vs. the dumping of memory you'll have to adjust ebp for the main thread to see the main threads callstack.  The adjustment is the esp adjustment from os_dump_core_live_dump (currently 0x304 in debug builds) + 4 for the argument to get_own_context + 8 for the two push esp's (in os_dump_core_live_dump and get_own_context).  So for debug builds the offset is currently 0x310 (should be similar for release, just look at the callstack, isn't to hard to spot the return address to dr code).  This will be fixed on the core side post rc1.

@@ -1,0 +1,188 @@
+/* **********************************************************
+ * Copyright (c) 2010-2013 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drmgr Multi-Instrumentation Manager
+
+The \p drmgr DynamoRIO Extension provides a mediator for combining and
+coordinating multiple instrumentation passes.  It replaces certain
+DynamoRIO events and API routines with its own versions that mediate among
+multiple components, typically several libraries and one client, though it
+is also useful for splitting a client up into modules.  \p drmgr
+facilitates developing instrumentation frameworks and libraries that can be
+composed and combined.
+
+ - \ref sec_drmgr_setup
+ - \ref sec_drmgr_events
+ - \ref sec_drmgr_stages
+ - \ref sec_drmgr_tls
+ - \ref sec_drmgr_notes
+
+\section sec_drmgr_setup Setup
+
+To use \p drmgr with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drmgr) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The \p drmgr_init() function may be called multiple times; subsequent calls
+will be nops and will return \p true for success.  This allows a
+library to use \p drmgr without coordinating with the client over who invokes
+\p drmgr_init().
+
+\section sec_drmgr_events Event Replacement
+
+In order to provide ordering control over event callbacks, \p drmgr
+replaces a number of DynamoRIO's events.  For many of these, simply
+replacing \p dr_ with \p drmgr_ is sufficient, as that will then use a
+default priority.  To request a priority, use the \p _ex version of the
+\p drmgr_register_ routine.  The basic block event is a special case as it
+is completely replaced with a new set of multiple events for different
+stages of instrumentation.
+
+\section sec_drmgr_stages Instrumentation Stages
+
+\p drmgr divides code changes into three types:
+
+ -# Application-to-application transformations: changes to the application
+    code itself that are meant to affect application behavior or
+    application performance
+ -# Instrumentation insertion: monitoring code added between the
+    application instructions
+ -# Instrumentation-to-instrumentation transformations: typically,
+    optimizations applied to the full set of inserted instrumentation
+
+Instrumentation insertion is split into two pieces: analysis of the full
+application code (after any changes from its original form), followed by
+insertion of instrumentation, one instruction at a time.  The result is
+four separate, sequential stages:
+
+ -# Application-to-application transformations
+ -# Application code analysis
+ -# Instrumentation insertion, one instruction at a time
+ -# Instrumentation-to-instrumentation transformations
+
+Each component that registers with \p drmgr can register for some or all of
+the four stages.  In each stage, each registered compoment's callback is
+invoked.  This groups the different types of changes together and allows
+them to assume that no later change will invalidate their analysis or
+actions.  The instrumentation insertion is performed in one forward pass:
+for each instruction, each registered component is invoked.  This simplifies
+register allocation (register allocation is provided by a separate
+Extension \p drreg).
+
+\subsection sec_drmgr_ordering Ordering
+
+The proper ordering of instrumentation passes depends on the particulars of
+what each pass is doing.  \p drmgr supports naming each pass and specifying
+relative ordering by requesting that one pass occur before and/or after
+another named pass.  Numeric priorities are also supported for resolving
+order among identical placement once named ordering is resolved.
+
+Some ordering rules do apply.  For example, function replacing should occur
+before most other application transformations.  Ordering of instrumentation
+insertion and especially instrumentation-to-instrumentation transformations
+can be highly dependent on exact transformations involved.  Care should be taken when
+ordering passes within each stage.
+
+\subsection sec_drmgr_traces Traces
+
+\p drmgr does not mediate trace instrumentation.  Those interested in hot
+code should use the \p drmgr basic block events and act only when the \p
+for_trace parameter is set.   Those wanting to optimize the longer code
+sequences in traces are on their own for register allocation, and must be
+careful to handle instrumentation that has already been added from the
+basic block events.
+
+\section sec_drmgr_tls Thread-Local and Callback-Local Storage
+
+\p drmgr also coordinates sharing of the thread-local-storage field among
+multiple components and provides automated support for callback-private
+fields on Windows.  It replaces the single #dr_get_tls_field() pointer with
+two separate arrays of pointers: one for callback-shared fields, and one
+for callback-private fields.  When a field is requested, an integer index
+is returned to the caller for use in retrieving the appropriate pointer.
+
+\subsection sec_drmgr_cls Callback-local Storage
+
+On Windows, events such as keypresses or mouse movements are delivered to
+applications as \e callbacks.  These callbacks interrupt a thread's
+execution in order to handle the event.  The interrupted context is saved
+and a new context entered.  When the event handling is finished, the
+interrupted context is resumed.  Callbacks can interrupt other callbacks,
+resulting in a stack of contexts.
+
+When a tool maintains state across application execution, it must handle
+callback contexts.  Thread-local storage (tls) is per-thread and is thus
+callback-shared.  Callbacks interrupt thread execution to execute arbitrary
+amounts of code in a new context before returning to the interrupted
+context.  Thread-local storage fields that persist across application
+execution can be overwritten during callback execution, resulting in
+incorrect values when returning to the original context.  Callback-local
+storage, rather than thread-local storage, should be used for any fields
+that store information specific to the application's execution.
+
+Callbacks are Windows-specific.  The cls interfaces are not marked
+for Windows-only, however, to facilitate cross-platform code.  We
+recommend that cross-plaform code be written using cls fields on
+both platforms; the fields on Linux will never be stacked and will
+function as tls fields.  Technically the same context interruption
+can occur with a Linux signal, but Linux signals typically execute
+small amounts of code and avoid making stateful changes;
+furthermore, there is no guaranteed end point to a signal.  The
+drmgr_push_cls() and drmgr_pop_cls() interface can be used to
+provide a stack of contexts on Linux, or to provide a stack of
+contexts for any other purpose such as layered wrapped functions.
+These push and pop functions are automatically called on Windows
+callback entry and exit.
+
+\section sec_drmgr_notes Instruction Note Fields
+
+Instrumentation passes often need to mark instructions with information for
+later passes.  One method of doing this is to use the \p note field built
+in to the \p instr_t type.  For example, labels can be inserted with their \p
+note fields corresponding to pre-defined constants to indicate insertion
+points.  In order to avoid these \p note constants from overlapping and
+conflicting among different components or passes, \p drmgr provides mediation
+of the namespace.
+
+\p drmgr does not make use of its \p note mediation mandatory and does not
+override instr_set_note() or instr_get_note().  Instrumentation passes
+should feel free to use pointer values in the \p note field.  The \p note
+constant value mediation is intended for small constants that will not be
+confused with pointer values.
+
+*/

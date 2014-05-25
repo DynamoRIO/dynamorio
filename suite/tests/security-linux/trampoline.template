@@ -1,0 +1,13 @@
+inside outer
+inside ind
+#if (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_trampoline)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(X))
+# if !defined(executable_stack)
+#  if !defined(detect_mode)
+    SEC_VIO_AUTO_STOP
+    STOP
+#  else
+    SEC_VIO_CONT
+#  endif
+# endif
+#endif
+inside nested 41

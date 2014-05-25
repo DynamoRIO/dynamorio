@@ -1,0 +1,26 @@
+// we don't expect anyone to run w/ -throw_exception or -kill_thread in
+// addition to -no_executable_if_rx_text
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_rx_text)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+iters is 40
+// FIXME: strange behavior: giving up on smaller categories
+#ifdef X64
+Memory check: pagefile usage increase is < 160 KB
+#elif defined(desktop) || (defined(disable_traces) && !defined(no_coarse_units))
+Memory check: pagefile usage increase is < 80 KB
+#else
+#if defined(no_coarse_units)
+Memory check: pagefile usage increase is < 80 KB
+#else
+Memory check: pagefile usage increase is < 80 KB
+#endif
+#endif
+sum=-994385352

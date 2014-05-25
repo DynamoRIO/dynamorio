@@ -1,0 +1,332 @@
+# **********************************************************
+# Copyright (c) 2004-2007 VMware, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of VMware, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# only echo if interactive
+function iecho {
+    if [ "$PS1" ]; then # interactive
+        echo $*;
+    fi
+}
+
+iecho "sourcing .bashrc"
+
+# HOME should already be set up to, e.g., c:/derek, but cygwin
+# will change to /c/derek, so:
+export COLONHOME=`cygpath -m ${HOME}`
+
+# USERNAME should be set up, make sure it's also the username
+# on the cvs server
+export CVSSERVER=menlo
+
+export CYGSYSROOT=`cygpath -u $SYSTEMROOT`
+
+# Once-only setup things:
+# for each drive, follow example here with c:
+#   mkdir /c
+#   mount c: /c
+# ln -s /usr/bin/perl /usr/bin/perl
+
+if [ "$PS1" ]; then # interactive
+    # set primary prompt to put host in window title
+    PS1="\n\[\033]0;\h: \w\007\][\@] \u@\h \w\n% "
+fi
+
+alias l='ls -Fs'
+alias ll='ls -lg'
+alias m='less'
+alias all='ls -a'
+alias mv='mv -i'
+alias cp='cp -i'
+alias which='type'
+alias grep='grep -d skip'
+alias updatebm='pushd ..; make relink; popd; cp -f ../build-opt/*.exe .'
+alias tarbak='tar czf bak.tgz --exclude src/lib/papi/libpapi.a'
+alias ssh='ssh -x'
+alias dclick='~/dclick.exe'
+alias mapfile='/c/Program\ Files/MapFileExplorer/MapFileExplorer.exe'
+
+export DISPLAY='localhost:0.0'
+export MAKE_MODE=UNIX
+
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:${CYGSYSROOT}/system32:${CYGSYSROOT}:/c/program files/emacs-21.3/bin:${HOME}/dr/tools"
+
+export CVS_RSH=ssh
+export CVSROOT=:ext:${USERNAME}@${CVSSERVER}:/mnt/data/cvseast
+export EDITOR=/usr/bin/emacs
+
+# get around problem of not having a common ancestor running under ssh-agent
+# by sharing one ssh-agent
+export SSH_ENV_VARS="${HOME}/.ssh/env_vars"
+function ssh-setup {
+    if [ ${SSH_AGENT_PID} ]; then
+        echo "export SSH_AGENT_PID=${SSH_AGENT_PID}" > ${SSH_ENV_VARS}
+        echo "export SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> ${SSH_ENV_VARS}
+        # add a little security
+        chmod go-rwx ${SSH_ENV_VARS}
+        echo "source ~/.ssh/env_vars in any other shell to use this agent";
+        # clean up on exit so no stale env vars file
+        trap "rm ${SSH_ENV_VARS}" EXIT
+        # can be re-tried, so ssh-add success independent of env var file
+        ssh-add
+    else
+        echo "error: no ssh-agent ancestor is running"
+    fi
+}
+if [ -f ${SSH_ENV_VARS} ]; then
+    source ${SSH_ENV_VARS}
+    iecho "ssh agent is ${SSH_AGENT_PID}"
+fi
+
+###########################################################################
+# DYNAMORIO
+
+export DYNAMORIO_TOOLS=${COLONHOME}/dr/tools
+export DYNAMORIO_SHARE=${COLONHOME}/dr/share
+export DYNAMORIO_BENCHMARKS=${COLONHOME}/dr/benchmarks
+export DYNAMORIO_TREEROOT=${COLONHOME}/dr/trees
+export DYNAMORIO_HOME=${DYNAMORIO_TREEROOT}/tot
+export DYNAMORIO_LOGDIR=${COLONHOME}/dr/logs
+export DYNAMORIO_OPTIONS=''
+
+alias dhome='echo $DYNAMORIO_HOME'
+alias dops='echo $DYNAMORIO_OPTIONS'
+function usetree {
+    export DYNAMORIO_HOME=$DYNAMORIO_TREEROOT/$1;
+    iecho "DYNAMORIO_HOME=$DYNAMORIO_HOME";
+}
+function useops {
+    export DYNAMORIO_OPTIONS="$*";
+    iecho "DYNAMORIO_OPTIONS=$DYNAMORIO_OPTIONS";
+}
+
+function synchin {
+    mkdir -p $DYNAMORIO_TREEROOT/$1/src/;
+    rsync -auzv ${USERNAME}@${CVSSERVER}:~/dr/trees/$1/src/ $DYNAMORIO_TREEROOT/$1/src/;
+    cdt $1;
+}
+function synchout {
+    cdt $1;
+    rsync -auzv . ${USERNAME}@${CVSSERVER}:~/dr/trees/$1/src/;
+}
+
+function runreg {
+    synchin $1;
+    cd ${HOME}/dr/suite;
+    usetree $1;
+    ./runregression ${DYNAMORIO_BENCHMARKS} $2;
+}
+
+function cdt { cd $DYNAMORIO_TREEROOT/$1/src; }
+function cdb { cd ${DYNAMORIO_BENCHMARKS}/spec2000/*/$1; }
+function cdlog { cd `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`; }
+function dtail {
+    echo `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`;
+    tail -$1 `ls -1dt ${DYNAMORIO_LOGDIR}/*[0-9] | head -1`/*[Ee][Xx][Ee]*;
+}
+
+function diag2line {
+    dhome;
+    grep -E 'Call stack|frame ptr|Unrecoverable' $1 | grep -B 50 'the application' | grep -v 'Call stack' | awk '{print $NF}' | xargs address_query.pl $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.dll;
+}
+function diag2linelast { diag2line `ls -t1 ${DYNAMORIO_LOGDIR}/*.html | head -1`; }
+
+function cvslatest {
+    one=`cvs log $1 | grep '^revision' | head -1 | awk '{print $2}'`;
+    two=`cvs log $1 | grep '^revision' | head -2 | tail -1 | awk '{print $2}'`;
+    cvs diff -r $two -r $one $1;
+}
+function cvslatestr {
+    one=`cvs log -r$1 $2 | grep '^revision' | head -1 | awk '{print $2}'`;
+    two=`cvs log -r$1 $2 | grep '^revision' | head -2 | tail -1 | awk '{print $2}'`;
+    cvs diff -r $two -r $one $2;
+}
+
+function ldump { ldmp $1 `cygpath -w "${DYNAMORIO_TOOLS}/dummy.exe"`; }
+
+alias injector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/debug/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/debug\\dynamorio.dll'
+alias relinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/release/drinject.exe ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/release\\dynamorio.dll'
+
+# match linux aliases
+alias rio=relinjector
+alias drio=injector
+
+alias meminjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/debug/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/debug\\dynamorio.dll'
+alias memrelinjector='echo "DYNAMORIO_HOME=$DYNAMORIO_HOME"; time $DYNAMORIO_HOME/exports/lib32/release/drinject.exe -mem ${DYNAMORIO_HOME//\//\\\\}\\exports\\lib32/release\\dynamorio.dll'
+
+alias straceops='usetree strace; useops -stats -loglevel 2 -logmask 0x1201f -stracelibname c:\\derek\\dr\\trees\\strace\\exports\\lib32/debug\\stracedr.dll'
+
+alias drsynch='\cp $DYNAMORIO_HOME/exports/lib32/debug/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/debug; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/debug/dynamorio.dll'
+alias drrelsynch='\cp $DYNAMORIO_HOME/exports/lib32/release/dynamorio.* /c/Progra~1/Determina/SecureCore/lib/release; chmod ogu+rwx /c/Progra~1/Determina/SecureCore/lib/release/dynamorio.dll'
+
+function setkey {
+    if [ -z $2 ]; then
+        debug="debug";
+    else
+        debug=$2;
+    fi
+    # stop agent and set to not restart on reboot
+    if ( svccntrl scnodemgr -show | grep -iq node ) then
+        net stop scnodemgr;
+        svccntrl scnodemgr -manual;
+    fi
+    drcontrol -app $1 -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
+    drcontrol -app $1 -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
+    drcontrol -app $1 -options "${DYNAMORIO_OPTIONS}";
+    # avoid double entries -- assume not testing compat w/ AppInit
+    drcontrol -preinject CLEAR
+    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key,
+    # which is sometimes messed up from regression suite runs:
+    PRELIB=$DYNAMORIO_HOME/lib/drpreinject.dll
+    if test -e $PRELIB ; then
+        drcontrol -preinject `cygpath -w $PRELIB`
+    else
+        drcontrol -preinject ON
+    fi
+    echo "using preinject: "`drcontrol -preinject LIST`
+}
+
+function resetreg {
+    if [ -z $1 ]; then
+        debug="debug";
+    else
+        debug=$1;
+    fi
+    # stop agent and set to not restart on reboot
+    if ( svccntrl scnodemgr -show | grep -iq node ) then
+        net stop scnodemgr;
+        svccntrl scnodemgr -manual;
+    fi
+    # may as well set global key though we're setting every app key below
+    drcontrol -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
+    drcontrol -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
+    drcontrol -options "${DYNAMORIO_OPTIONS}";
+    # drcontrol -load not implemented, and no way to remove a string value,
+    # so our only options are to reproduce the slist parsing and get the right
+    # rununder values, or set the values we want for each app, which is a pain
+    # to edit manually later but oh well:
+    for app in `drcontrol -dump | grep Group | awk '{print $NF}'`; do
+        drcontrol -app $app -drlib `cygpath -w "${DYNAMORIO_HOME}/exports/lib32/${debug}/dynamorio.dll"`;
+        drcontrol -app $app -logdir `cygpath -w ${DYNAMORIO_LOGDIR}`;
+        drcontrol -app $app -options "${DYNAMORIO_OPTIONS}";
+    done;
+    ### if ignore RUNUNDER this will re-make reg keys from scc file:
+    ###    # now re-build reg setup
+    ###    drcontrol -reset;
+    ###    for i in `grep -i exe /c/Program\ Files/Determina/SecureCore/config/default.scc`; do
+    ###        # pull exe name out of [HKEY_LOCAL_MACHINE\<...>\inetinfo.exe]
+    ###        j=${i##*\\};
+    ###        drcontrol -add ${j/]/};
+    ###    done;
+    # avoid double entries -- assume not testing compat w/ AppInit
+    drcontrol -preinject CLEAR
+    # "drcontrol -preinject ON" uses DYNAMORIO_HOME in SecureCore reg key,
+    # which is sometimes messed up from regression suite runs:
+    PRELIB=$DYNAMORIO_HOME/lib/drpreinject.dll
+    if test -e $PRELIB ; then
+        drcontrol -preinject `cygpath -w $PRELIB`
+    else
+        drcontrol -preinject ON
+    fi
+    echo "using preinject: "`drcontrol -preinject LIST`
+}
+
+###########################################################################
+## VC++ Environment Variables
+## From C:\Program Files\Microsoft Visual Studio\VC98\Bin\VCVARS32.BAT
+##
+VSBaseDirTemp=`cygpath -ms /c/Program\ Files/Microsoft\ Visual\ Studio`
+VSBaseDirBASH=`cygpath -u $VSBaseDirTemp`
+
+# Root of Visual Developer Studio Common files.
+VSCommonDirBASH="${VSBaseDirBASH}/Common"
+VSCommonDir=`cygpath -d ${VSCommonDirBASH}`
+
+# Root of Visual Developer Studio installed files.
+MSDevDirBASH="${VSCommonDirBASH}/MSDev98"
+MSDevDir=`cygpath -d ${MSDevDirBASH}`
+
+# Root of Visual C++ installed files.
+MSVCDirBASH="${VSBaseDirBASH}/VC98"
+MSVCDir=`cygpath -d ${MSVCDirBASH}`
+
+# VcOsDir is used to help create either a Windows 95 or Windows NT specific path.
+if [ "$OS" = "Windows_NT" ]; then export VcOsDir=WINNT; else export VcOsDir=WIN95; fi
+
+# Set environment for using Microsoft Visual C++ tools.
+if [ "$OS" = "Windows_NT" ]; then PATH="$PATH:$MSDevDirBASH/BIN:$MSVCDirBASH/BIN:$VSCommonDirBASH/TOOLS/$VcOsDir:$VSCommonDirBASH/TOOLS"; fi
+if [ "$OS" = "" ]; then PATH="$PATH:$MSDevDirBASH/BIN:$MSVCDirBASH/BIN:$VSCommonDirBASH/TOOLS/$VcOsDir:$VSCommonDirBASH/TOOLS:$windir/SYSTEM"; fi
+export INCLUDE="$MSVCDir\\ATL\\INCLUDE;$MSVCDir\\INCLUDE;$MSVCDir\\MFC\\INCLUDE;$INCLUDE"
+export LIB="$MSVCDir\\LIB;$MSVCDir\\MFC\\LIB;$LIB"
+
+unset VSBaseDirTemp
+unset VSBaseDirBASH
+unset VSCommonDirBASH
+unset VSCommonDir
+unset MSDevDirBASH
+unset MSDevDir
+unset MSVCDirBASH
+unset MSVCDir
+#
+###########################################################################
+
+###########################################################################
+# quick launching of windows apps:
+#
+alias notepad='injector ${SYSTEMROOT}\\system32\\notepad.exe'
+alias calc='injector ${SYSTEMROOT}\\system32\\calc.exe'
+alias powerpoint='injector c:\\Program\ Files\\Microsoft\ Office\\Office\\POWERPNT.EXE'
+alias excel='injector c:\\Program\ Files\\Microsoft\ Office\\Office\\EXCEL.EXE'
+alias access='injector c:\\Program\ Files\\Microsoft\ Office\\Office\\MSACCESS.EXE'
+alias frontpage='injector c:\\Program\ Files\\Microsoft\ Office\\Office\\FRONTPG.EXE'
+alias word='injector c:\\Program\ Files\\Microsoft\ Office\\Office\\WINWORD.EXE'
+alias photoshop='injector C:\\Program\ Files\\Adobe\\Photoshop\ 6.0\\Photoshp.exe'
+alias illustrator='injector C:\\Program\ Files\\Adobe\\Illustrator\ 9.0.1\\Illustrator.exe'
+alias mediaplayer='injector C:\\Program\ Files\\Windows\ Media\ Player\\mplayer2.exe'
+alias photoed='injector c:\\Program\ Files\\Common\ Files\\Microsoft\ Shared\\PhotoEd\\PhotoEd.exe'
+alias netscape='injector C:\\Program\ Files\\Netscape\\Communicator\\Program\\netscape.exe -browser'
+alias acroread='injector C:\\Program\ Files\\Adobe\\Acrobat\ 4.0\\Reader\\AcroRd32.exe'
+alias iexplore='injector C:\\Program\ Files\\Internet\ Explorer\\IEXPLORE.EXE'
+alias explorer='injector ${SYSTEMROOT}\\explorer.exe'
+alias paint='injector ${SYSTEMROOT}\\System32\\mspaint.exe'
+alias wordpad='injector C:\\Program\ Files\\Windows\ NT\\Accessories\\wordpad.exe'
+alias freecell='injector ${SYSTEMROOT}\\System32\\freecell.exe'
+alias solitaire='injector ${SYSTEMROOT}\\System32\\sol.exe'
+alias minesweeper='injector ${SYSTEMROOT}\\System32\\winmine.exe'
+alias pinball='injector C:\\Program\ Files\\Windows\ NT\\Pinball\\PINBALL.EXE'
+alias premiere='injector C:\\Program\ Files\\Adobe\\Premiere\ 6.0\\premiere.exe'
+alias vstudio='injector C:\\Program\ Files\\Microsoft\ Visual\ Studio\\Common\\MSDev98\\Bin\\MSDEV.EXE'
+alias eventvwr='injector ${SYSTEMROOT}\\System32\\eventvwr.exe'
+alias mozilla='injector C:\\Program\ Files\\mozilla.org\\Mozilla\\mozilla.exe'
+alias defrag='injector ${SYSTEMROOT}\\System32\\mmc.exe ${SYSTEMROOT}\\System32\\dfrg.msc'
+alias oocalc='injector C:\\Program\ Files\\OpenOffice.org1.0.3\\program\\ooocalc.exe'
+#
+###########################################################################
+
+cd ${HOME}

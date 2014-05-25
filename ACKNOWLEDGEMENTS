@@ -1,0 +1,84 @@
+===========================================================================
+ACKNOWLEDGEMENTS / AUTHORS OF DYNAMORIO
+
+The bulk of the DynamoRIO code base, at the point of open-sourcing in 2009,
+was written by:
+
+  * Derek Bruening
+  * Vladimir Kiriansky
+  * Timothy Garnett
+
+The new post-0.9.4 API was designed and implemented with key contributions
+from:
+
+  * Samuel Larsen
+  * Bharath Chandramohan
+
+After open-sourcing, the majority of new code was written by:
+
+  * Derek Bruening
+  * Reid Kleckner
+  * Qin Zhao
+
+--------------------------------------------------
+
+The following is a partial list of the people who have contributed to the
+DynamoRIO effort over the years, with each group in alphabetical
+order. Many others have provided invaluable insights, suggestions, and
+constructive criticism.
+
+As an open source project, 2009-present:
+
+  * Derek Bruening
+  * Hyoun Kyu Cho
+  * Branden Clark
+  * Peter Feiner
+  * Timur Iskhodzhanov
+  * Reid Kleckner
+  * Ilya Leoshkevich
+  * Yang Tang
+  * Dimitrios Tatsis
+  * Qin Zhao
+
+At VMware, 2007-2009:
+
+  * Derek Bruening
+  * Bharath Chandramohan
+  * Timothy Garnett
+  * Vladimir Kiriansky
+  * Samuel Larsen
+
+At Determina, 2003-2007:
+
+  * Sanjeev Banerji
+  * Jim Brink
+  * Derek Bruening
+  * Bharath Chandramohan
+  * Timothy Garnett
+  * Vladimir Kiriansky
+  * Samuel Larsen
+  * Charles Renert
+  * Srinivasan Sridharan
+
+At MIT, 2001-2003:
+
+  * Saman Amarasinghe
+  * Iris Baron
+  * Derek Bruening
+  * Timothy Garnett
+  * Josh Jacobs
+  * Vladimir Kiriansky
+  * Chris Leger
+  * Greg Sullivan
+  * Qin Zhao
+
+At Hewlett-Packard, 2000-2001:
+
+  * Vas Bala
+  * Derek Bruening
+  * Giuseppe Desoli
+  * Evelyn Duesterwald
+  * Kim Hazelwood Cettei
+  * Mike Smith
+
+===========================================================================

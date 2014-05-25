@@ -1,0 +1,74 @@
+/* **********************************************************
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drx DynamoRIO eXtension utilities
+
+The \p drx DynamoRIO Extension provides various utilities for
+instrumentation and sports a BSD license, as opposed to the \p drutil Extension
+which also contains instrumentation utilities but uses an LGPL 2.1 license.
+
+ - \ref sec_drx_setup
+ - \ref sec_drx_soft_kills
+
+\section sec_drx_setup Setup
+
+To use \p drx with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drx) \endcode
+
+That will automatically set up the include path and library dependence.
+
+The \p drx_init() function may be called multiple times; subsequent calls
+will be nops and will return \p true for success.  This allows a
+library to use \p drx without coordinating with the client over who invokes
+\p drx_init().
+
+\section sec_drx_soft_kills Soft Kills
+
+A common scenario with multi-process applications is for a parent process
+to directly kill child processes.  This is problematic for most dynamic
+tools as this leaves no chance for each child process to output the results
+of its instrumentation.  On Windows, \p drx provides a feature called "soft
+kills" to address this situation.  When enabled, this feature monitors
+system calls that terminate child processes, whether directly or through
+job objects.  When detected, it notifies the client, who is expected to
+then notify the target process via a nudge.  Typically this nudge will
+perform instrumentation output and then terminate its process, allowing the
+parent to simply skip its own termination request.  The nudge handler
+should normally handle multiple requests, as it is not uncommon for the
+parent to kill each child process through multiple mechanisms.
+
+*/

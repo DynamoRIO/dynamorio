@@ -1,0 +1,6 @@
+sending SIGUSR1
+in handler 10
+sending SIGUSR1
+sending SIGTERM
+in handler 15
+all done

@@ -1,0 +1,23 @@
+in pre_sys_B
+in pre_sys_A
+#ifdef UNIX
+B
+#endif
+in post_sys_B
+in post_sys_A
+#ifdef WINDOWS
+About to create thread
+in wnd_callback 0x0*0000024 0
+in wnd_callback 0x0*0000081 0
+in wnd_callback 0x0*0000083 0
+in wnd_callback 0x0*0000001 0
+in wnd_callback 0x0*0008001 3 0
+About to crash
+Inside handler
+in wnd_callback 0x0*0008001 0 2
+Got message 0x0*0008001 1 3
+All done
+#else
+Estimation of pi is 3.142425985001098
+#endif
+all done

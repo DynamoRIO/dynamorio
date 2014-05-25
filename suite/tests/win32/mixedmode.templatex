@@ -1,0 +1,15 @@
+creating subprocess ".*/win32.mixedmode.exe" .*
+r8 was 0x1234567812345678
+edx was 0xabcdffff
+global_data is 0x56781234
+edx was 0xe5e5e5e5
+edx was 0x5e5e5e5e
+edx was 0x00000000
+edx was 0x11223344
+edx was 0x55667788
+edx was 0x87654321
+edx was 0x1eaadd32
+test_call_esp\(\) returned successfully
+test_iret\(\) returned 0
+test_far_calls\(\) returned 0
+parent done

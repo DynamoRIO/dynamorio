@@ -1,0 +1,50 @@
+#if (defined(PROGRAM_SHEPHERDING) && defined(WINDOWS) && defined(security) && !defined(executable_heap) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(executable_if_x) && !defined(X)) || (defined(PROGRAM_SHEPHERDING) && defined(UNIX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X))
+# if !defined(detect_mode)
+#  if defined(throw_exception)
+// The exception handler is bad, so we loop to -throw_exception_max_per_thread
+    SEC_VIO_EXCEPTION
+#   if !defined(throw_exception_max___1)
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+#   endif
+#  endif
+#  if defined(kill_thread)
+     SEC_VIO_THREAD
+#  else
+     SEC_VIO_STOP
+#  endif
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+Executed 0xabcd iters
+Executed 0x1234 iters
+Executed 0xef01 iters
+#ifdef X64
+before do_selfmod_abs
+0xdeadbeefdeadbeef
+#endif
+start cross-page test
+end cross-page test
+start last byte test
+sandbox_last_byte: 0
+sandbox_last_byte: 1
+end last byte test
+start fault test
+int is 42
+fault bytes are 89 01 preceded by 07 00 00 00
+int is 42
+Illegal instruction
+fault bytes are 0f 0b preceded by c6 41 fb 05
+end fault test
+end selfmod loop test

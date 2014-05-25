@@ -1,0 +1,43 @@
+unset X bit
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000008,prev) = 1 GLE=00000000 prev=00000020
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000004,prev) = 1 GLE=00000000 prev=00000008
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000104,prev) = 1 GLE=00000000 prev=00000008
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000104,prev) = 1 GLE=00000000 prev=00000108
+ready to hook far
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000040,prev) = 1 GLE=00000000 prev=00000108
+// case 10438 - we are losing the PAGE_WRITECOPY and had 004 or 0x08
+// and also PAGE_GUARD                Protect: PAGE_WRITECOPY + PAGE_GUARD            00000108
+doublecheck flags
+VirtualQuery(0x00000000) = 28 GLE=00000000 prev=00000040 rwx-
+ DEP => ok
+ready to hook
+#if !defined(handle_ntdll_modify) && defined(security) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000040,prev) = 1 GLE=00000000 prev=00000020
+one more
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000040,prev) = 1 GLE=00000000 prev=00000040
+now third ...
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000040,prev) = 1 GLE=00000000 prev=00000040
+doublecheck flags
+VirtualQuery(0x00000000) = 28 GLE=00000000 prev=00000040 rwx-
+ DEP => ok
+check consistency ...
+VirtualProtect(VirtualProtect[0x00000000],4096,PAGE_EXECUTE_READWRITE,prev) = 0 GLE=00000000 prev=00badcde
+#if !defined(handle_ntdll_modify) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(executable_if_text) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+   STOP
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+VirtualProtect(VirtualProtect[0x00000000],4096,0x00000040,prev) = 1 GLE=00000000 prev=00000040
+hooking done with

@@ -1,0 +1,90 @@
+/* **********************************************************
+ * Copyright (c) 2011-2012 Google, Inc.   All rights reserved.
+ * **********************************************************/
+
+/* drwrap: DynamoRIO Function Wrapping and Replacing Extension
+ * Derived from Dr. Memory: the memory debugger
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation;
+ * version 2.1 of the License, and no later version.
+
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Library General Public License for more details.
+
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drwrap Function Wrapping and Replacing Extension
+
+The \p drwrap DynamoRIO Extension provides function wrapping and replacing
+support.
+
+ - \ref sec_drwrap_setup
+ - \ref sec_drwrap_events
+ - \ref sec_drwrap_api
+ - \ref sec_drwrap_license
+
+\section sec_drwrap_setup Setup
+
+To use \p drwrap with your client simply include this line in your client's
+\p CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drwrap) \endcode
+
+That will automatically set up the include path and library dependence.
+
+Initialize and clean up \p drwrap by calling drwrap_init() and
+drwrap_exit().
+
+\section sec_drwrap_events Event Replacement
+
+\p drwrap uses the \p drmgr Extension to ensure its events occur at the
+proper order.  A user of \p drwrap must use the \p drmgr versions of the
+basic block and thread events.
+
+\section sec_drwrap_api API
+
+The first step in replacing or wrapping is to determine the address of the
+target application function.  For functions exported by an application
+library, use dr_get_proc_address() to locate the entry point.  For internal
+functions, use the drsyms Extension (see \ref page_drsyms).
+
+Function replacing is provided by drwrap_replace().  The replacement
+function executes as application code and will be passed to the client via
+the basic block and trace events just like any other application code.  The
+replaced function may still show up in the basic block event as a jump
+instruction; none of its actual code will execute.  To avoid changing
+application behavior, ensure that the replacement function mirrors the
+calling convention and other semantics of the original function.
+
+Function wrapping is provided by drwrap_wrap().  A pre-function and
+post-function callback must be provided.  The pre-function callback is
+invoked prior to every execution of the target function.  The callback can
+examine and change function arguments and can skip the call to the target
+function (in which case there will be no post-function callback).
+The post-function callback can examine and change the target function's
+return value.  Information (included copies of the arguments for
+examination in the post-function) can be passed between the pre- and
+post-functions via a user-controlled parameter.
+
+Multiple wrap requests are allowed for one target function.  Their
+callbacks are called sequentially in the reverse order of registration.  If
+any pre-function callback asks to skip the function, the remaining
+pre-function callbacks will not be called, nor will any post-function
+callback.
+
+\section sec_drwrap_license LGPL 2.1 License
+
+The \p drwrap Extension is licensed under the LGPL 2.1 License and NOT the
+BSD license used for the rest of DynamoRIO.
+
+*/

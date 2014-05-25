@@ -1,0 +1,32 @@
+Attempting to call a trampoline...
+#if (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(no_executable_if_trampoline)) || (defined(PROGRAM_SHEPHERDING) && defined(security) && defined(X))
+# if !defined(executable_stack)
+#  if !defined(detect_mode)
+    SEC_VIO_AUTO_STOP
+    STOP
+#  else
+    SEC_VIO_CONT
+#  endif
+# endif
+#endif
+Succeeded.
+Attempting to simulate a buffer overflow exploit...
+#if defined(PROGRAM_SHEPHERDING) && defined(security)
+# if !defined(no_ret_after_call) && !defined(C) && !defined(X)
+#  if !defined(detect_mode)
+    SEC_VIO_AUTO_STOP
+    STOP
+#  else
+    SEC_VIO_CONT
+#  endif
+# endif
+# if !defined(executable_stack)
+#  if !defined(detect_mode)
+    SEC_VIO_AUTO_STOP
+    STOP
+#  else
+    SEC_VIO_CONT
+#  endif
+# endif
+#endif
+Succeeded.

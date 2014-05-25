@@ -1,0 +1,18 @@
+initapc.dll:DllMain()
+QueueUserAPC returned 1
+SleepEx returned 192
+Apc arg = 37
+Result = 100
+initapc main()
+initapc.dll:import_me(37)
+#if defined(PROGRAM_SHEPHERDING) && defined(security) && !defined(no_ret_after_call) && !defined(C) && !defined(X) && !defined(low) && !defined(client) && !defined(thin_client)
+# if !defined(detect_mode)
+   SEC_VIO_AUTO_STOP
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+*** invalid ret allowed!

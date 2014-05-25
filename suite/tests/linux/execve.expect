@@ -1,0 +1,5 @@
+parent is running under DynamoRIO
+parent waiting for child
+child is running under DynamoRIO
+it_worked
+child has exited

@@ -1,0 +1,101 @@
+/* **********************************************************
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of Google, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+***************************************************************************
+***************************************************************************
+\page page_drgui Graphical Application Framework
+
+The \p drgui DynamoRIO Extension provides a DynamoRIO independent graphical
+application framework that can be used to provide a front-end for a
+DynamoRIO Extension or tool.
+
+Plugins must use Qt 5 to maintain compatibility with \p drgui because Qt 5
+is <b>not</b> backwards compatible.
+
+ - \ref sec_drgui_setup
+ - \ref sec_drgui_plugin_layout
+ - \ref sec_drgui_distribution
+
+\section sec_drgui_setup Setup
+
+To use \p drgui with your plugin simply include this line in your plugin's
+CMakeLists.txt file:
+
+\code use_DynamoRIO_extension(clientname drgui) \endcode
+
+That will automatically set up the include path and library dependence.
+
+Your plugin should be built with cmake in order to maintain compatibility
+with the rest of DynamoRIO. For details on this, see the Qt documentation
+<a href="http://qt-project.org/quarterly/view/using_cmake_to_build_qt_projects">
+here</a> and reference \p ext/drgui/CmakeLists.txt for example usage.
+
+\section sec_drgui_plugin_layout Plugin Layout
+
+The recommended method of turning a Qt application into a \p drgui
+plugin is to create a factory which implements \p drgui_tool_interface_t.
+
+If your plugin requires persistent preferences then implementing
+\p drgui_options_interface_t will create a section for the plugin in
+\p drgui 's preferences dialog. It is up to the author of the plugin to decide
+how to store the preferences. However, the recommended method is to use
+<a href="http://qt-project.org/doc/qt-5.0/qtcore/qsettings.html">QSettings.</a>
+
+\section sec_drgui_distribution Distribution
+
+\subsection sec_drgui_dist_plugins Plugins
+\p drgui provides command line arguments that can be used to auto-load
+plugins. This feature can also be used to pass arguments to the plugin that is
+being automatically loaded.
+
+\code drgui -t <tool_name> [options] \endcode
+
+The -t option can be passed either the name of the plugin, or the location of
+the plugin in the file system. Any further arguments are passed to the plugin
+when it is loaded.
+
+\subsection sec_drgui_dist_libraries Libraries
+
+When distributing \p drgui and any plugins be aware of Qt's LGPL license
+restrictions. Namely, restrictions concerning static linking to the Qt
+libraries.
+
+If static linking is not an option then the required Qt libraries should be
+packaged with the application as shared libraries. Otherwise, installing
+Qt 5 will be a requirement for a user.
+
+Relevant documentation and examples can be found
+<a href="http://qt-project.org/doc/qt-5.0/qtdoc/deployment.html">here</a> and
+<a href="http://qt-project.org/doc/qt-5.0/qtdoc/deployment-windows.html
+    #linking-the-application-to-qt-as-a-shared-library">here</a>
+*/

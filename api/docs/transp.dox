@@ -1,0 +1,336 @@
+/* **********************************************************
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/**
+ ****************************************************************************
+ ****************************************************************************
+ ****************************************************************************
+\page transparency Client Transparency
+
+DynamoRIO must avoid interfering with the semantics of a program while it
+executes.  Shifting execution from the original application code into a
+cache that occupies the application's own address space provides
+flexibility but complicates transparency.  To achieve transparency,
+DynamoRIO cannot make any assumptions about a program's stack usage, heap
+usage, or any of its dependencies on the instruction set architecture or
+operating system.  DynamoRIO's transparency restrictions necessarily apply
+to a client as\if vmsafe well (though they are lessened when using the Probe API in
+lightweight mode).\else well.\endif
+
+Contents:
+- \ref sec_trans_resource
+- \ref sec_trans_unmod
+- \ref sec_trans_pretend
+- \ref sec_trans_alertable
+\if vmsafe
+- \ref sec_trans_probe
+\endif
+
+We first describe each of the three transparency categories for DynamoRIO
+and their ramifications for clients using the code cache.  \if vmsafe
+Finally, we discuss transparency issues for the Probe API, which has
+fewer limitations. \endif
+
+***************************************************************************
+\section sec_trans_resource Resource Usage Conflicts
+
+Ideally, DynamoRIO and its client's resources should be completely disjoint
+from the application's, to avoid conflicts in the usage of libraries, heap,
+input/output, and locks.  Library conflicts are the most relevant to a
+client.
+
+\par Library Transparency
+
+Sharing libraries with the application can cause problems with re-entrancy
+and corruption of persistent state like error codes.  DynamoRIO's dispatch
+code can execute at arbitrary points in the middle of application code; a
+client's instrumentation is similarly executed.  If both the application
+and DynamoRIO use the same non-re-entrant library routine, DynamoRIO might
+call the routine while the application is inside it, causing incorrect
+behavior.  We have learned this lesson the hard way, having run into it
+several times.  The solution is for DynamoRIO's external resources to come
+only from system calls and never from user libraries.  This is
+straightforward to accomplish on Linux, and most operating systems, where
+the system call interface is a standard mechanism for requesting services
+(\e a in the figure below).  However, on Windows, the documented method of
+interacting with the operating system is not via system calls but instead
+through an application programming interface (the {\em Win32 API}) built
+with user libraries on top of the system call interface (\e b in the
+figure).  If DynamoRIO uses this interface, re-entrancy and other resource
+usage conflicts can, and will, occur.  To achieve full transparency on
+Windows, the system call interface (\e c in the figure) must be used,
+rather than the API layer.
+
+  \image html windows.png
+  \image rtf windows.png
+  \image latex windows.eps "Native API" width=10cm
+
+DynamoRIO provides access to resources to clients via a cross-platform
+API.  We do not recommend that a client invoke its own system calls as
+this bypasses DynamoRIO's monitoring of changes to the process address
+space and changes to threads or control flow.
+
+We provide limited support to assist in using statically linked libraries
+in a client: see \ref sec_extlibs.
+
+In addition to Library Transparency, several other types of transparency
+are of concern to a client:
+
+\par Heap Transparency
+
+Sharing heap allocation routines with the application violates Library
+Transparency.  Most heap allocation routines are not re-entrant
+(they are thread-safe, but not re-entrant).  Additionally, DynamoRIO
+should not interfere with the data layout of the application (Data
+Transparency: see below) or with application memory bugs (Error
+Transparency: see below).  DynamoRIO obtains its memory directly from
+system calls and parcels it out internally with a custom memory manager.
+It exports its heap allocation routines through its API to ensure that
+clients maintain Heap Transparency (see \ref sec_utils).
+
+\par Input/Output Transparency
+
+DynamoRIO uses its own input/output routines to avoid interfering with
+the application's buffering.  As with heap transparency, DynamoRIO
+exports its input/output routines to clients to ensure that transparency
+is not violated (see \ref sec_utils).
+
+\par Synchronization Transparency
+
+DynamoRIO and its clients must avoid acquiring locks that the application
+also acquires, such as the \p LoaderLock on Windows.  Additionally, there
+are restrictions imposed by DynamoRIO on when its own locks can be
+acquired, to allow it to safely synchronize with multiple threads:
+
+***************************************************************************
+\section sec_trans_unmod Leaving the Application Unchanged When Possible
+
+As many aspects of the application as possible should be left unchanged:
+
+\anchor sec_trans_floating_point
+\par Floating Point State, MMX, and SSE Transparency
+
+Because it is expensive to do so and rarely necessary, DynamoRIO does
+\e NOT save or restore the floating point state or MMX (64-bit) registers
+during a context switch away from the application.  If at any time a
+client wishes to use floating point or multimedia operations, it
+must explicitly preserve the state.  The dr_insert_clean_call() routine
+takes a boolean indicating whether floating point state should be preserved
+across the call; this is the most convenient method for saving the state.
+
+The state can alternatively be saved explicitly from C code using:
+
+\code
+proc_save_fpstate(byte *buf)
+proc_restore_fpstate(byte *buf)
+\endcode
+
+Saving can be done from inlined code in the code cache using:
+
+\code dr_insert_save_fpstate(), dr_insert_restore_fpstate() \endcode
+
+These routines require a buffer that is 16-byte-aligned and of a certain
+size (512 bytes for processors with the FXSR feature, and 108 bytes for
+those without).  Here is a sample usage:
+
+\code
+byte fp_raw[512 + 16];
+byte *fp_align = (byte *) ( (((ptr_uint_t)fp_raw) + 16) & ((ptr_uint_t)-16) );
+proc_save_fpstate(fp_align);
+\endcode
+
+Note that floating point operations include almost any operation that
+acts on a float, even printing one with %%f.
+
+The XMM (128-bit) registers are saved by DynamoRIO on context switches and
+clean calls only for a 64-bit Windows kernel (whether in a 32-bit process
+(WOW64) or a 64-bit process) or for 32-bit and 64-bit Linux applications. For a
+64-bit Windows kernel, xmm0 through xmm5 are preserved; for a 64-bit Linux
+application, xmm0 through xmm15 are preserved; for a 32-bit Linux application,
+xmm0 through xmm7 are preserved. For all other platforms, it
+is up to the client to preserve the xmm registers, and for 64-bit Windows
+kernels, to preserve the rest of the xmm registers beyond xmm5, if any code
+is invoked that modifies them.  See also the dr_mcontext_xmm_fields_valid()
+routine.
+
+\anchor sec_trans_thread
+\par Thread Transparency
+
+For full transparency, if DynamoRIO or a client creates extra threads
+they should be hidden from any introspection performed by the
+application.
+
+\par Executable Transparency
+
+The program binary and shared library files on disk should not be
+modified.
+
+\par Data Transparency
+
+DynamoRIO leaves application data unmodified, including heap layout.
+
+\par Stack Transparency
+
+The application stack must look exactly like it does natively.  It is
+tempting to use the application stack for scratch space, but we have seen
+applications like Microsoft Office access data beyond the top of the stack
+(i.e., the application stores data on the top of the stack, moves the stack
+pointer to the previous location, and then accesses the data).  Using the
+application stack for scratch space would clobber such data.  Additionally,
+hand-crafted code might use the stack pointer as a general-purpose
+register.  Other and better options for temporary space are available.
+DynamoRIO provides thread-local storage through its API.
+
+DynamoRIO provides a separate stack to use for itself and for the client,
+and never assumes even that the application stack is valid.  Many
+applications examine their stack and may not work properly if something
+is slightly different than expected.
+
+***************************************************************************
+\section sec_trans_pretend Pretending The Application Is Unchanged When It Is Not
+
+For changes that are necessary (such as executing out of a code cache),
+DynamoRIO must warp events like interrupts, signals, and exceptions such
+that they appear to have occurred natively.
+
+\par Cache Consistency
+
+DynamoRIO must keep its cached copies of the application code consistent
+with the actual copy in memory.  If the application unloads a shared
+library and loads a new one in its place, or modifies its own code,
+DynamoRIO must change its code cache to reflect those changes to avoid
+incorrectly executing stale code.  If the client needs to modify
+application code, it should do so through the basic block event, rather
+than directly.
+\if future
+FIXME: if we provide routine to modify app memory should
+talk about it here.
+\endif
+
+\par Address Space Transparency
+
+DynamoRIO must pretend that it is not perturbing the application's
+address space.  An application bug that writes to invalid memory and
+generates an exception should do the same thing under DynamoRIO, even if
+we have allocated memory at that location that would natively have been
+invalid.  This requires protecting all DynamoRIO memory from inadvertent
+(or malicious) writes by the application.  Furthermore, DynamoRIO
+hides itself from introspection by manipulating memory queries.
+
+\par Application Address Transparency
+
+Although the application's code is moved into a cache, every address
+manipulated by the application must remain an original application
+address.  DynamoRIO must translate indirect branch targets from
+application addresses to code cache addresses, and conversely if a code
+cache address is ever exposed to the application, DynamoRIO must
+translate it back to its original application address.  The latter occurs
+when the operating system hands a machine context to a signal or
+exception handler.  In that case both the faulting or interrupted address
+and the complete register state must be made to look like the signal or
+exception occurred natively, rather than inside the code cache where it
+actually occurred.
+
+To save space, DynamoRIO does not store any mappings from code cache
+state to application state.  Since our cache consistency guarantees that
+the original application code cannot have changed since we built a
+fragment, we re-create the fragment from the original code, applying all
+the same transformations we applied when we first copied it into our code
+cache.  We then walk through the reproduction and the code cache version
+in lockstep until we reach the target instruction.  In order to
+accomplish this algorithm in code that has been modified or re-arranged
+by a client, DynamoRIO needs client support.  We have not yet implemented
+this support.  \if future FIXME: say anything else? \endif
+
+\par Error Transparency
+
+Application errors under DynamoRIO must occur as they would natively.  We
+accomplish this by maintaining Heap Transparency, Data Transparency,
+Stack Transparency, and Address Space Transparency, We have seen many
+cases of applications that access invalid memory natively, handle the
+exception, and carry on.  Without Error Transparency such applications
+would not work properly under DynamoRIO.
+
+\par Timing Transparency
+
+We would like to make it impossible for the application to determine
+whether it is executing inside of DynamoRIO.  However, this may not be
+attainable for some aspects of execution, such as the exact timing of
+certain operations.  This brings efficiency into the transparency
+equation.
+
+Changing the timing of multi-threaded applications can uncover behavior
+that does not normally happen natively.  We have encountered race
+conditions while executing under DynamoRIO that are difficult to
+reproduce outside of our system.  These are not strictly speaking
+transparency violations, as the errors \e could have occurred without
+us, but are best avoided.
+
+\par Debugging Transparency
+
+A debugger should be able to attach to a process under DynamoRIO's
+control just like it would natively.  Previously discussed transparency
+issues overlap with Debugging Transparency.  Stack Transparency and Data
+Transparency ensure that callstacks and application memory show up
+correctly.  However, DynamoRIO can't entirely hide the fact that the
+application is running out of a code cache from the debugger.  The
+debugger will see the wrong eip value when breaking in and execution
+break points will not work correctly (and in fact can lead to
+corruption of the DynamoRIO code cache).  Debugging Tools for Windows and
+\p gdb are known to work with DynamoRIO with the exception of the
+issues noted above.
+
+***************************************************************************
+\section sec_trans_alertable Alertable System Calls
+
+On Windows, DynamoRIO does not support a client making alertable system
+calls.  See \ref sec_alertable for more information.
+
+\if vmsafe
+***************************************************************************
+\section sec_trans_probe Transparency of Probe API Clients
+
+For the Probe API, any particular probe routine is interrupting the
+application at a single, known point.  If the client is certain that this
+is a safe point for invoking shared resources or performing other actions
+that are risky when attempted at arbitrary points, then they may be
+invoked.  However, be warned that it can be difficult to be certain that
+library routines are safe, as they may themselves acquire locks or call
+other routines that are not safe.
+
+\endif
+
+***************************************************************************
+****************************************************************************
+****************************************************************************
+*/

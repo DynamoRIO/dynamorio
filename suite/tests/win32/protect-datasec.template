@@ -1,0 +1,16 @@
+about to write to every page in .data
+// FIXME: nicer way to specify bitmasks? :)
+#if defined(protect_mask___0) || defined(protect_mask___2) || defined(protect_mask___4) || defined(protect_mask___6) || defined(protect_mask___8)
+successfully wrote to .data
+#endif
+about to write to every page in .fspdata
+#if !defined(protect_mask___3) && !defined(protect_mask___7) && !defined(protect_mask___0x103) && !defined(protect_mask___0x107) && !defined(protect_mask___0x10f)
+successfully wrote to .fspdata
+#endif
+about to write to every page in .cspdata
+#if !defined(protect_mask___7) && !defined(protect_mask___0x107) && !defined(protect_mask___0x10f)
+successfully wrote to .cspdata
+#endif
+about to write to every page in .nspdata
+successfully wrote to .nspdata
+all done

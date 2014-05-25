@@ -1,0 +1,16 @@
+thank you for testing the client interface
+nudge delivered 101
+self
+#ifdef WINDOWS
+thank you for testing the client interface
+nudge delivered 101
+self
+#endif
+nudge delivered 102
+printing
+nudge delivered 103
+terminating
+client exiting
+child has exited with status 42
+app exiting
+client exiting

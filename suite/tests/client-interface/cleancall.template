@@ -1,0 +1,32 @@
+cleancall_aflags_save
+cleancall_no_aflags_save
+testing clean calls
+inserting clean call crash code 1
+in restore_state for our clean call crash 1
+Access violation, instance 1
+testing clean calls
+inserting clean call crash code 2
+in restore_state for our clean call crash 2
+Access violation, instance 2
+testing clean calls
+inserting xsp arg testing
+#if defined(X64)
+bar 0x00000000bcbcaba1 0xffffffffbcbcaba0
+#else
+bar 0xbcbcaba1 0xbcbcaba0
+#endif
+in restore_state for our clean call crash 3
+Access violation, instance 3
+testing clean calls
+#if defined(X64)
+inserting clean call arg testing
+foo 0x0000000000000008 0x0000000000000001 0xffffffffdeadbeef 0xffffffffffffffd6
+    0x00000000cafebabe 0x00000000badcabee 0x00000000eeeeeeee 0x00000000feedadad
+#endif
+in restore_state for our clean call crash 4
+Access violation, instance 4
+testing clean calls
+inserting saved reg access testing
+verifying values
+did not crash
+done testing clean calls

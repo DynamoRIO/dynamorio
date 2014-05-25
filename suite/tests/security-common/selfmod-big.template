@@ -1,0 +1,38 @@
+#if (defined(PROGRAM_SHEPHERDING) && defined(WINDOWS) && defined(security) && !defined(executable_heap) && defined(no_executable_if_hook) && !defined(executable_if_text) && !defined(executable_if_x) && !defined(X)) || (defined(PROGRAM_SHEPHERDING) && defined(UNIX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X))
+# if !defined(detect_mode)
+#  if defined(throw_exception)
+// The exception handler is bad, so we loop to -throw_exception_max_per_thread
+    SEC_VIO_EXCEPTION
+#   if !defined(throw_exception_max___1)
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+     SEC_VIO_EXCEPTION
+#   endif
+#  endif
+#  if defined(kill_thread)
+     SEC_VIO_THREAD
+#  else
+     SEC_VIO_STOP
+#  endif
+#  if !defined(internal_detach_mask)
+    STOP
+#  endif
+# else
+   SEC_VIO_CONT
+# endif
+#endif
+Executed 0xabcd iters
+#if defined(PROGRAM_SHEPHERDING) && defined(UNIX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X) && defined(detect_mode)
+  SEC_VIO_CONT
+#endif
+Executed 0x1234 iters
+#if defined(PROGRAM_SHEPHERDING) && defined(UNIX) && defined(security) && !defined(executable_heap) && !defined(executable_if_x) && !defined(X) && defined(detect_mode)
+  SEC_VIO_CONT
+#endif
+Executed 0xef01 iters
