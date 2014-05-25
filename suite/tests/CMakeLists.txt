@@ -577,10 +577,11 @@ function(tobuild test source)
   set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild)
 
-function(tobuild_annot test source annot_sources)
+function(tobuild_annot test source expect annot_sources)
   add_annot_exe(${test} ${source} ${annot_sources})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
+  set(${test}_expectbase ${expect} PARENT_SCOPE)
 endfunction(tobuild_annot)
 
 # normal app w/ options
@@ -1684,10 +1685,11 @@ if (CLIENT_INTERFACE)
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
   configure_file("${SAMPLES_LIB}/bbcount_region_annotations.h"
     "${BUILD_ANNOTATION}/bbcount_region_annotations.h" COPYONLY)
+
   set(JACOBI_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c"
     "${CORE_ANNOTATION}/dynamorio_annotations.c")
-  tobuild_annot(client.bbcount_jacobi "client-interface/bbcount_jacobi.c"
-    JACOBI_ANNOTATIONS)
+  tobuild_annot(client.jacobi "client-interface/jacobi.c"
+    bbcount-jacobi JACOBI_ANNOTATIONS)
   if (UNIX)
     target_link_libraries(client.bbcount_jacobi ${libpthread})
   endif (UNIX)
