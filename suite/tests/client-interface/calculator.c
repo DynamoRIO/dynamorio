@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "bbcount_region_annotations.h"
+#include "annotation/bbcount_region_annotations.h"
 
 #define INPUT_BUFFER_LENGTH 1024
 
@@ -385,13 +385,13 @@ int main(int argc, const char *argv[])
     }
     BB_REGION_ANNOTATE_STOP_COUNTER(0);
 
-    printf("Loaded %d computations from %s.\n", computation_count, input_filename);
+    printf("Loaded %d computations.\n", computation_count);
 
     BB_REGION_ANNOTATE_START_COUNTER(1);
     compute_expressions(computations);
     BB_REGION_ANNOTATE_STOP_COUNTER(1);
 
-    printf("Evaluated %d computations from %s.\n", computation_count, input_filename);
+    printf("Evaluated %d computations.\n", computation_count);
 
     BB_REGION_ANNOTATE_START_COUNTER(2);
     print_expression_list(computations);

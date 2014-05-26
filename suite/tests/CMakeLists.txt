@@ -577,11 +577,10 @@ function(tobuild test source)
   set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild)
 
-function(tobuild_annot test source expect annot_sources)
+function(tobuild_annot test source annot_sources)
   add_annot_exe(${test} ${source} ${annot_sources})
-  set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
-  set(${test}_source ${source} PARENT_SCOPE)
-  set(${test}_expectbase ${expect} PARENT_SCOPE)
+  #set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
+  #set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild_annot)
 
 # normal app w/ options
@@ -1645,6 +1644,10 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
 
+  set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
+  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
+  file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
+
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
     # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.
@@ -1663,8 +1666,15 @@ if (CLIENT_INTERFACE)
       endif ()
     endforeach ()
 
-    torunonly_ci(sample.bbcount_region client.bbcount_jacobi bbcount_region
-      client-interface/bbcount_jacobi.c "" "" "A4")
+    set(SAMPLES_LIB "${PROJECT_SOURCE_DIR}/api/samples/lib")
+    configure_file("${SAMPLES_LIB}/bbcount_region_annotations.h"
+      "${BUILD_ANNOTATION}/bbcount_region_annotations.h" COPYONLY)
+
+    torunonly_ci(sample.bbcount_region.jacobi client.jacobi bbcount_region
+      client-interface/jacobi.c "" "" "A4")
+    torunonly_ci(sample.bbcount_region.calculator client.calculator bbcount_region
+      client-interface/calculator.c "" ""
+      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/calculator_script.cal")
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
@@ -1673,27 +1683,22 @@ if (CLIENT_INTERFACE)
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
   endif (BUILD_CLIENTS)
 
-  set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
-  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
-  set(SAMPLES_LIB "${PROJECT_SOURCE_DIR}/api/samples/lib")
-  file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
   configure_file("${CORE_ANNOTATION}/valgrind.h"
     "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
   configure_file("${CORE_ANNOTATION}/memcheck.h"
     "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
   configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
-  configure_file("${SAMPLES_LIB}/bbcount_region_annotations.h"
-    "${BUILD_ANNOTATION}/bbcount_region_annotations.h" COPYONLY)
 
   set(JACOBI_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c"
     "${CORE_ANNOTATION}/dynamorio_annotations.c")
-  tobuild_annot(client.jacobi "client-interface/jacobi.c"
-    bbcount-jacobi JACOBI_ANNOTATIONS)
+  tobuild_annot(client.jacobi "client-interface/jacobi.c" JACOBI_ANNOTATIONS)
   if (UNIX)
-    target_link_libraries(client.bbcount_jacobi ${libpthread})
+    target_link_libraries(client.jacobi ${libpthread})
   endif (UNIX)
 
+  set(CALCULATOR_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c")
+  tobuild_annot(client.calculator "client-interface/calculator.c" CALCULATOR_ANNOTATIONS)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

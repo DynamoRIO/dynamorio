@@ -550,7 +550,7 @@ dynamorio_app_init(void)
         perscache_init(); /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
         
-#ifdef ANNOTATIONS
+#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         annot_init(); // placement?
 #endif
 
@@ -1020,7 +1020,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     synch_exit();
     arch_exit(IF_WINDOWS(detach_stacked_callbacks));
     
-#ifdef ANNOTATIONS
+#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         annot_exit(); // placement?
 #endif
     

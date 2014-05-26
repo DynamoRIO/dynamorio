@@ -309,8 +309,8 @@ event_basic_block(void *dcontext, void *tag, instrlist_t *bb,
 static void
 event_exit(void)
 {
-#ifdef SHOW_RESULTS
     stats_t *stats, *next;
+#ifdef SHOW_RESULTS
     char msg[512];
     int len;
 

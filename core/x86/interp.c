@@ -3276,7 +3276,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
-#ifdef ANNOTATIONS
+#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         /* Checking for annotations here because the above conditions might terminate
          * the BB, even if `bb->instr` is an annotation. */
 # if !(defined(X64) && defined(WINDOWS))

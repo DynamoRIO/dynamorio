@@ -4142,7 +4142,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             }
         }
         
-#ifdef ANNOTATIONS
+#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         if (TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr)) {
             annotation_handler_t *handler = 
                 (annotation_handler_t *) instr_get_note(instr);

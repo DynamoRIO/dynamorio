@@ -9,6 +9,8 @@
 #include "../lib/annotation/valgrind.h"
 #include "../lib/annotation/memcheck.h"
 
+#ifdef CLIENT_INTERFACE
+
 #define KEY(addr) ((ptr_uint_t) addr)
 static generic_table_t *handlers;
 
@@ -380,3 +382,5 @@ free_annotation_handler(void *p)
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t,
                     1, ACCT_OTHER, UNPROTECTED);
 }
+
+#endif /* CLIENT_INTERFACE */

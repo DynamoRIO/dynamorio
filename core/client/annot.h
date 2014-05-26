@@ -6,6 +6,8 @@
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
+#ifdef CLIENT_INTERFACE
+
 /* DR_API EXPORT TOFILE dr_annot.h */
 /* DR_API EXPORT BEGIN */
 
@@ -107,3 +109,5 @@ bool
 match_valgrind_pattern(dcontext_t *dc, instrlist_t *bb, instr_t *instr);
 
 #endif
+
+#endif /* CLIENT_INTERFACE */
