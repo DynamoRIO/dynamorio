@@ -4730,40 +4730,20 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 }
 
-/* Inserts a complete call to callee with the passed-in arguments, wrapped
- * by an app save and restore.
- * If "save_fpstate" is true, saves the fp/mmx/sse state.
- *
- * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
- * dr_prepare_for_call(). We guarantee to clients that all other slots
- * (except the XAX mcontext slot) will remain untouched.
- *
- * NOTE : dr_insert_cbr_instrumentation has assumption about the clean call
- * instrumentation layout, changes to the clean call instrumentation may break
- * dr_insert_cbr_instrumentation.
- */
 void
 dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
                              void *callee, dr_cleancall_save_t save_flags,
-                             uint num_args, va_list ap)
+                             uint num_args, opnd_t *args)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     uint dstack_offs, pad = 0;
     size_t buf_sz = 0;
     clean_call_info_t cci; /* information for clean call insertion. */
-    opnd_t *args = NULL;
     bool save_fpstate = TEST(DR_CLEANCALL_SAVE_FLOAT, save_flags);
     byte *encode_pc;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_clean_call: drcontext cannot be NULL");
     STATS_INC(cleancall_inserted);
     LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: insert clean call to "PFX"\n", callee);
-    if (num_args != 0) {
-        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-        /* allocate at least one argument opnd */
-        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
-                                ACCT_CLEANCALL, UNPROTECTED);
-        convert_va_list_to_opnd(args, num_args, ap);
-    }
     /* analyze the clean call, return true if clean call can be inlined. */
     if (analyze_clean_call(dcontext, &cci, where, callee,
                            save_fpstate, num_args, args)) {
@@ -4888,11 +4868,19 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                         void *callee, dr_cleancall_save_t save_flags,
                         uint num_args, ...)
 {
-    va_list ap;
-    va_start(ap, num_args);
+    opnd_t *args = NULL;
+    if (num_args != 0) {
+        va_list ap;
+        va_start(ap, num_args);
+        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
+        /* allocate at least one argument opnd */
+        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
+                                ACCT_CLEANCALL, UNPROTECTED);
+        convert_va_list_to_opnd(args, num_args, ap);
+        va_end(ap);
+    }
     dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, save_flags,
-                                 num_args, ap);
-    va_end(ap);
+                                 num_args, args);
 }
 
 DR_API
@@ -4900,11 +4888,19 @@ void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                      void *callee, bool save_fpstate, uint num_args, ...)
 {
-    va_list ap;
+    opnd_t *args = NULL;
+    if (num_args != 0) {
+        va_list ap;
+        va_start(ap, num_args);
+        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
+        /* allocate at least one argument opnd */
+        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
+                                ACCT_CLEANCALL, UNPROTECTED);
+        convert_va_list_to_opnd(args, num_args, ap);
+        va_end(ap);
+    }
     dr_cleancall_save_t flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
-    va_start(ap, num_args);
-    dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, flags, num_args, ap);
-    va_end(ap);
+    dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, flags, num_args, args);
 }
 
 /* Utility routine for inserting a clean call to an instrumentation routine

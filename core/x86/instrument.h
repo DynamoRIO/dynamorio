@@ -4723,6 +4723,39 @@ instrlist_meta_fault_append(instrlist_t *ilist, instr_t *instr);
 
 /* dr_insert_* are used by general DR */
 
+/* DR_API EXPORT BEGIN */
+/**
+ * Flags to request non-default preservation of state in a clean call
+ * as well as other call options.
+ */
+typedef enum {
+    /**
+     * Save floating-point state.
+     * The last floating-point instruction address in the saved state is left in
+     * an untranslated state (i.e., it may point into the code cache).
+     */
+    DR_CLEANCALL_SAVE_FLOAT             = 0x0001,
+    /**
+     * Skip saving the flags and skip clearing the flags (including
+     * DF) for client execution.  Note that this can cause problems
+     * if dr_redirect_execution() is called from a clean call,
+     * as an uninitialized flags value can cause subtle errors.
+     */
+    DR_CLEANCALL_NOSAVE_FLAGS           = 0x0002,
+    /** Skip saving any XMM or YMM registers. */
+    DR_CLEANCALL_NOSAVE_XMM             = 0x0004,
+    /** Skip saving any XMM or YMM registers that are never used as parameters. */
+    DR_CLEANCALL_NOSAVE_XMM_NONPARAM    = 0x0008,
+    /** Skip saving any XMM or YMM registers that are never used as return values. */
+    DR_CLEANCALL_NOSAVE_XMM_NONRET      = 0x0010,
+    /**
+     * Requests that an indirect call be used to ensure reachability.
+     * Only honored for 64-bit mode, where r11 will be used for the indirection.
+     */
+    DR_CLEANCALL_INDIRECT               = 0x0020,
+} dr_cleancall_save_t;
+/* DR_API EXPORT END */
+
 /* FIXME PR 213600: for clean call args that reference memory the
  * client may prefer to receive the fault itself rather than it being treated
  * as an app exception (xref PR 302951).
@@ -4799,38 +4832,22 @@ void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                      void *callee, bool save_fpstate, uint num_args, ...);
 
-/* DR_API EXPORT BEGIN */
-/**
- * Flags to request non-default preservation of state in a clean call
- * as well as other call options.
+/* Inserts a complete call to callee with the passed-in arguments, wrapped
+ * by an app save and restore.
+ * If "save_fpstate" is true, saves the fp/mmx/sse state.
+ *
+ * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
+ * dr_prepare_for_call(). We guarantee to clients that all other slots
+ * (except the XAX mcontext slot) will remain untouched.
+ *
+ * NOTE : dr_insert_cbr_instrumentation has assumption about the clean call
+ * instrumentation layout, changes to the clean call instrumentation may break
+ * dr_insert_cbr_instrumentation.
  */
-typedef enum {
-    /**
-     * Save floating-point state.
-     * The last floating-point instruction address in the saved state is left in
-     * an untranslated state (i.e., it may point into the code cache).
-     */
-    DR_CLEANCALL_SAVE_FLOAT             = 0x0001,
-    /**
-     * Skip saving the flags and skip clearing the flags (including
-     * DF) for client execution.  Note that this can cause problems
-     * if dr_redirect_execution() is called from a clean call,
-     * as an uninitialized flags value can cause subtle errors.
-     */
-    DR_CLEANCALL_NOSAVE_FLAGS           = 0x0002,
-    /** Skip saving any XMM or YMM registers. */
-    DR_CLEANCALL_NOSAVE_XMM             = 0x0004,
-    /** Skip saving any XMM or YMM registers that are never used as parameters. */
-    DR_CLEANCALL_NOSAVE_XMM_NONPARAM    = 0x0008,
-    /** Skip saving any XMM or YMM registers that are never used as return values. */
-    DR_CLEANCALL_NOSAVE_XMM_NONRET      = 0x0010,
-    /**
-     * Requests that an indirect call be used to ensure reachability.
-     * Only honored for 64-bit mode, where r11 will be used for the indirection.
-     */
-    DR_CLEANCALL_INDIRECT               = 0x0020,
-} dr_cleancall_save_t;
-/* DR_API EXPORT END */
+void
+dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             void *callee, dr_cleancall_save_t save_flags,
+                             uint num_args, opnd_t *args);
 
 DR_API
 /**

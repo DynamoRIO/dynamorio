@@ -8,6 +8,9 @@
 
 #ifdef CLIENT_INTERFACE
 
+#define IS_ANNOTATION_STACK_ARG(opnd) \
+    opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
+
 /* DR_API EXPORT TOFILE dr_annot.h */
 /* DR_API EXPORT BEGIN */
 

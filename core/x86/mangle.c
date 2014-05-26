@@ -4141,21 +4141,36 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 convert_to_near_rel(dcontext, instr);
             }
         }
-        
+
 #if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         if (TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr)) {
-            annotation_handler_t *handler = 
+            annotation_handler_t *handler =
                 (annotation_handler_t *) instr_get_note(instr);
-            
+
             if (handler->type == ANNOT_HANDLER_CALL) {
-                dr_insert_clean_call(dcontext, ilist, instr, 
+                opnd_t *args = NULL;
+                if (handler->num_args != 0) {
+                    args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
+                                            ACCT_CLEANCALL, UNPROTECTED);
+                    memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+
+                    if (TEST(INSTR_ANNOTATION_TAIL_CALL, instr->flags)) {
+                        uint i;
+                        for (i = 0; i < handler->num_args; i++) {
+                            if (IS_ANNOTATION_STACK_ARG(args[i]))
+                                opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
+                        }
+                    }
+                }
+                dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
                     handler->instrumentation.callback,
-                    handler->save_fpstate, handler->num_args, handler->args);
+                    handler->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+                    handler->num_args, args);
             } else { // ANNOT_HANDLER_RETURN_VALUE
-                PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX), 
+                PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
                     OPND_CREATE_INT32(handler->instrumentation.return_value)));
             }
-            
+
             continue;
         }
 #endif

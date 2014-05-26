@@ -21,7 +21,7 @@
 #endif
 
 //#define REPORT_ENABLED 1
-#if defined(SHOW_RESULTS) && defined(REPORT_ENABLED)
+#if defined(REPORT_ENABLED) // && defined(SHOW_RESULTS)
 # define REPORT(...) \
 do { \
     if (dr_is_notify_on()) \
@@ -35,6 +35,20 @@ do { \
 
 #define TESTALL(mask, var) (((mask) & (var)) == (mask))
 #define TESTANY(mask, var) (((mask) & (var)) != 0)
+
+#define REGISTER_ANNOTATION_NOARG_CALL(drcontext, handle, target_name, call) \
+do { \
+    generic_func_t target = dr_get_proc_address(handle, target_name); \
+    if (target != NULL) \
+        annot_register_call(drcontext, target, call, false, 0); \
+} while (0)
+
+#define REGISTER_ANNOTATION_CALL(drcontext, handle, target_name, call, num_args, ...) \
+do { \
+    generic_func_t target = dr_get_proc_address(handle, target_name); \
+    if (target != NULL) \
+        annot_register_call(drcontext, target, call, false, num_args, __VA_ARGS__); \
+} while (0)
 
 static reg_id_t tls_segment_register;
 static uint tls_offset;
@@ -77,9 +91,6 @@ static ptr_uint_t
 handle_make_mem_defined_if_addressable(vg_client_request_t *request);
 
 static counter_t *get_counter();
-
-static void register_annotation_call(void *drcontext, module_handle_t handle,
-    const char *target_name, void *call);
 
 static void event_module_load(void *drcontext, const module_data_t *info, bool loaded);
 
@@ -227,7 +238,13 @@ get_basic_block_stats(unsigned int id, unsigned int *region_count, unsigned int 
     if (stats != NULL) {
         *region_count = stats->region_count;
         *bb_count = stats->process_total;
+    } else {
+        *region_count = *bb_count = 0;
     }
+
+    REPORT("Client 'bbcount_region' providing stats for id(%d): "
+        "region_count=%d, bb_count=%d\n",
+        id, *region_count, *bb_count);
 
     dr_mutex_unlock(stats_lock);
 }
@@ -249,22 +266,18 @@ counter_t *get_counter()
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    register_annotation_call(drcontext, info->handle, "bb_region_annotate_init_counter",
-        init_counter);
-    register_annotation_call(drcontext, info->handle, "bb_region_annotate_start_counter",
-        start_counter);
-    register_annotation_call(drcontext, info->handle, "bb_region_annotate_stop_counter",
-        stop_counter);
-    register_annotation_call(drcontext, info->handle, "bb_region_get_basic_block_stats",
-        get_basic_block_stats);
-}
-
-static void register_annotation_call(void *drcontext, module_handle_t handle,
-    const char *target_name, void *call)
-{
-    generic_func_t target = dr_get_proc_address(handle, target_name);
-    if (target != NULL)
-        annot_register_call(drcontext, target, call, false, 0);
+    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_init_counter",
+        init_counter, 2, opnd_create_reg(DR_REG_XCX),
+        opnd_create_reg(DR_REG_XDX));
+    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_start_counter",
+        start_counter, 1, opnd_create_reg(DR_REG_XCX));
+    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_stop_counter",
+        stop_counter, 1, opnd_create_reg(DR_REG_XCX));
+    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_get_basic_block_stats",
+        get_basic_block_stats, 3, opnd_create_reg(DR_REG_XCX),
+        opnd_create_reg(DR_REG_XDX),
+        //OPND_CREATE_MEMPTR(DR_REG_XSP, 0));
+        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_PTR));
 }
 
 static void
@@ -310,7 +323,7 @@ static void
 event_exit(void)
 {
     stats_t *stats, *next;
-#ifdef SHOW_RESULTS
+//#ifdef SHOW_RESULTS
     char msg[512];
     int len;
 
@@ -327,7 +340,7 @@ event_exit(void)
         NULL_TERMINATE(msg);
         DISPLAY_STRING(msg);
     }
-#endif /* SHOW_RESULTS */
+//#endif /* SHOW_RESULTS */
 
     dr_raw_tls_cfree(tls_offset, 1);
     dr_mutex_destroy(stats_lock);

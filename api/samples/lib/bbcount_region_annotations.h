@@ -1,12 +1,6 @@
 #ifndef _BB_REGION_ANNOTATIONS_H_
 #define _BB_REGION_ANNOTATIONS_H_ 1
 
-#ifdef UNIX
-# define BB_REGION_ANNOTATE_WEAK_ATTRIBUTE __attribute__ ((weak))
-#else
-# define BB_REGION_ANNOTATE_WEAK_ATTRIBUTE
-#endif
-
 #define BB_REGION_ANNOTATE_INIT_COUNTER(id, label) \
     bb_region_annotate_init_counter(id, label)
 
@@ -23,19 +17,36 @@
 extern "C" {
 #endif
 
-void
+//#ifdef UNIX
+__attribute__ ((fastcall)) void
 bb_region_annotate_init_counter(unsigned int id, const char *label)
-    BB_REGION_ANNOTATE_WEAK_ATTRIBUTE;
+    __attribute__ ((weak));
+
+__attribute__ ((fastcall)) void
+bb_region_annotate_start_counter(unsigned int id) __attribute__ ((weak));
+
+__attribute__ ((fastcall)) void
+bb_region_annotate_stop_counter(unsigned int id) __attribute__ ((weak));
+
+__attribute__ ((fastcall)) void
+bb_region_get_basic_block_stats(unsigned int id, unsigned int *commit_count,
+    unsigned int *bb_count) __attribute__ ((weak));
+/*
+#else
+void
+bb_region_annotate_init_counter(unsigned int id, const char *label);
 
 void
-bb_region_annotate_start_counter(unsigned int id) BB_REGION_ANNOTATE_WEAK_ATTRIBUTE;
+bb_region_annotate_start_counter(unsigned int id);
 
 void
-bb_region_annotate_stop_counter(unsigned int id) BB_REGION_ANNOTATE_WEAK_ATTRIBUTE;
+bb_region_annotate_stop_counter(unsigned int id);
 
 void
 bb_region_get_basic_block_stats(unsigned int id, unsigned int *commit_count,
-    unsigned int *bb_count) BB_REGION_ANNOTATE_WEAK_ATTRIBUTE;
+    unsigned int *bb_count);
+#endif
+*/
 
 #ifdef __cplusplus
 }

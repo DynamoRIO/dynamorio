@@ -367,11 +367,11 @@ int main(int argc, const char *argv[])
     memset(script_regions_list, 0, sizeof(script_regions_t));
     script_regions_list->region_index = 10;
 
-    BB_REGION_ANNOTATE_INIT_COUNTER(0, "parsing computations");
+    BB_REGION_ANNOTATE_INIT_COUNTER(3, "parsing computations");
     BB_REGION_ANNOTATE_INIT_COUNTER(1, "computing expressions");
     BB_REGION_ANNOTATE_INIT_COUNTER(2, "printing expressions");
 
-    BB_REGION_ANNOTATE_START_COUNTER(0);
+    BB_REGION_ANNOTATE_START_COUNTER(3);
     while (fgets(input_buffer, INPUT_BUFFER_LENGTH, input_file) != NULL) {
         char *walk = input_buffer;
         if (next_char(&walk) == '@') {
@@ -383,7 +383,7 @@ int main(int argc, const char *argv[])
             computation_count++;
         }
     }
-    BB_REGION_ANNOTATE_STOP_COUNTER(0);
+    BB_REGION_ANNOTATE_STOP_COUNTER(3);
 
     printf("Loaded %d computations.\n", computation_count);
 

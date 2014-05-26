@@ -177,7 +177,7 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 {
     instr_t *first_call = NULL, *prev_call = NULL;
 
-    if (instr_is_call_direct(instr)) {
+    if (instr_is_call_direct(instr) || instr_is_ubr(instr)) { // ubr: tail call `gcc -O3`
         app_pc target = instr_get_branch_target_pc(instr);
         annotation_handler_t *handler = NULL;
 
@@ -188,6 +188,8 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
             instr_t *call = INSTR_CREATE_label(dcontext);
 
             call->flags |= INSTR_ANNOTATION;
+            if (instr_is_ubr(instr))
+                call->flags |= INSTR_ANNOTATION_TAIL_CALL;
             instr_set_note(call, (void *) handler); // Collision with other notes?
             instr_set_ok_to_mangle(call, false);
 
