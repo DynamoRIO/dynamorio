@@ -22,6 +22,13 @@
  * @brief Annotation handler registration routines.
  */
 
+#define ANNOT_REGISTER_CALL_VARG(drcontext, handle, target_name, call, num_args, ...) \
+do { \
+    generic_func_t target = dr_get_proc_address(handle, target_name); \
+    if (target != NULL) \
+        annot_register_call_varg(drcontext, target, call, false, num_args, __VA_ARGS__); \
+} while (0)
+
 enum {
     VG_PATTERN_LENGTH = 5,
     VG_NUM_ARGS = 5,
@@ -37,6 +44,13 @@ typedef struct _vg_client_request_t {
     ptr_uint_t args[VG_NUM_ARGS];
     ptr_uint_t default_result;
 } vg_client_request_t;
+
+#ifndef X64
+typedef enum _annotation_call_type_t {
+    ANNOT_FASTCALL,
+    ANNOT_STDCALL
+} annotation_call_type_t;
+#endif
 
 typedef enum _handler_type_t {
     ANNOT_HANDLER_CALL,
@@ -65,8 +79,18 @@ typedef struct _annotation_handler_t {
 /* DR_API EXPORT END */
 
 DR_API
-void annot_register_call(void *drcontext, void *annotation_func,
-                         void *callee, bool save_fpstate, uint num_args, ...);
+void annot_register_call_varg(void *drcontext, void *annotation_func,
+                              void *callee, bool save_fpstate, uint num_args, ...);
+
+DR_API
+bool annot_find_and_register_call(void *drcontext, const module_data_t *module,
+                                  const char *target_name, void *callee, uint num_args
+                                  _IF_NOT_X64(annotation_call_type_t type));
+
+DR_API
+void annot_register_call(void *drcontext, void *annotation_func, void *callee,
+                         bool save_fpstate, uint num_args
+                         _IF_NOT_X64(annotation_call_type_t type));
 
 DR_API
 void annot_register_return(void *drcontext, void *annotation_func, void *return_value);

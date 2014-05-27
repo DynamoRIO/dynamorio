@@ -92,15 +92,14 @@ annot_exit()
 }
 
 void
-annot_register_call(void *drcontext, void *annotation_func,
-                    void *callback, bool save_fpstate, uint num_args, ...)
+annot_register_call_varg(void *drcontext, void *annotation_func,
+                         void *callback, bool save_fpstate, uint num_args, ...)
 {
     TABLE_RWLOCK(handlers, write, lock);
     annotation_handler_t *handler =
         (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                      KEY(annotation_func));
     if (handler == NULL) {
-        // TODO: what's "PROTECTED"?
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
         handler->type = ANNOT_HANDLER_CALL;
@@ -119,6 +118,91 @@ annot_register_call(void *drcontext, void *annotation_func,
                 opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
             convert_va_list_to_opnd(handler->args, num_args, args);
             va_end(args);
+        }
+
+        generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
+    } // else ignore duplicate registration
+    TABLE_RWLOCK(handlers, write, unlock);
+}
+
+bool
+annot_find_and_register_call(void *drcontext, const module_data_t *module,
+                             const char *target_name, void *callback, uint num_args
+                             _IF_NOT_X64(annotation_call_type_t type))
+{
+    generic_func_t target = dr_get_proc_address(module->handle, target_name);
+    if (target != NULL) {
+        annot_register_call(drcontext, target, callback, false,
+            num_args _IF_NOT_X64(type));
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void
+annot_register_call(void *drcontext, void *annotation_func, void *callback,
+                    bool save_fpstate, uint num_args
+                    _IF_NOT_X64(annotation_call_type_t type))
+{
+    TABLE_RWLOCK(handlers, write, lock);
+    annotation_handler_t *handler =
+        (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                     KEY(annotation_func));
+    if (handler == NULL) {
+        handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
+                                  ACCT_OTHER, UNPROTECTED);
+        handler->type = ANNOT_HANDLER_CALL;
+        handler->id.annotation_func = (app_pc) annotation_func;
+        handler->instrumentation.callback = callback;
+        handler->save_fpstate = save_fpstate;
+        handler->num_args = num_args;
+        handler->next_handler = NULL;
+
+        if (num_args == 0) {
+            handler->args = NULL;
+        } else {
+            uint i;
+            handler->args = HEAP_ARRAY_ALLOC(drcontext,
+                opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
+#ifdef X64
+            handler->args[0] = opnd_create_reg(DR_REG_XDI);
+            if (1 < num_args) {
+                handler->args[1] = opnd_create_reg(DR_REG_XSI);
+                if (2 < num_args) {
+                    handler->args[2] = opnd_create_reg(DR_REG_XDX);
+                    if (3 < num_args) {
+                        handler->args[3] = opnd_create_reg(DR_REG_XCX);
+                        if (4 < num_args) {
+                            handler->args[4] = opnd_create_reg(DR_REG_R8);
+                            if (5 < num_args) {
+                                handler->args[5] = opnd_create_reg(DR_REG_R9);
+                                for (i = 6; i < num_args; i++) {
+                                    handler->args[i] = OPND_CREATE_MEMPTR(
+                                        DR_REG_XSP, sizeof(ptr_uint_t) * (i-6));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+#else
+            if (type == ANNOT_FASTCALL) {
+                handler->args[0] = opnd_create_reg(DR_REG_XCX);
+                if (1 < num_args) {
+                    handler->args[1] = opnd_create_reg(DR_REG_XDX);
+                    for (i = 2; i < num_args; i++) {
+                        handler->args[i] = OPND_CREATE_MEMPTR(
+                            DR_REG_XSP, sizeof(ptr_uint_t) * (i-2));
+                    }
+                }
+            } else {
+                for (i = 0; i < num_args; i++) {
+                    handler->args[i] = OPND_CREATE_MEMPTR(
+                        DR_REG_XSP, sizeof(ptr_uint_t) * i);
+                }
+            }
+#endif
         }
 
         generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);

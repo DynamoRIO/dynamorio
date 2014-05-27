@@ -367,6 +367,8 @@ int main(int argc, const char *argv[])
     memset(script_regions_list, 0, sizeof(script_regions_t));
     script_regions_list->region_index = 10;
 
+    BB_REGION_TEST_MANY_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
     BB_REGION_ANNOTATE_INIT_COUNTER(3, "parsing computations");
     BB_REGION_ANNOTATE_INIT_COUNTER(1, "computing expressions");
     BB_REGION_ANNOTATE_INIT_COUNTER(2, "printing expressions");

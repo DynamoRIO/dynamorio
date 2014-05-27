@@ -20,7 +20,15 @@
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-//#define REPORT_ENABLED 1
+#ifdef __LP64__
+# define _IF_X64(x) , x
+# define _IF_NOT_X64(x)
+#else
+# define _IF_X64(x)
+# define _IF_NOT_X64(x) , x
+#endif
+
+#define REPORT_ENABLED 1
 #if defined(REPORT_ENABLED) // && defined(SHOW_RESULTS)
 # define REPORT(...) \
 do { \
@@ -41,13 +49,6 @@ do { \
     generic_func_t target = dr_get_proc_address(handle, target_name); \
     if (target != NULL) \
         annot_register_call(drcontext, target, call, false, 0); \
-} while (0)
-
-#define REGISTER_ANNOTATION_CALL(drcontext, handle, target_name, call, num_args, ...) \
-do { \
-    generic_func_t target = dr_get_proc_address(handle, target_name); \
-    if (target != NULL) \
-        annot_register_call(drcontext, target, call, false, num_args, __VA_ARGS__); \
 } while (0)
 
 static reg_id_t tls_segment_register;
@@ -85,7 +86,11 @@ static void start_counter();
 static void stop_counter();
 
 static void
-get_basic_block_stats(unsigned int id, unsigned int *region_count, unsigned int *bb_count);
+get_basic_block_stats(uint id, uint *region_count, uint *bb_count);
+
+static void
+test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
+               uint g, uint h, uint i, uint j);
 
 static ptr_uint_t
 handle_make_mem_defined_if_addressable(vg_client_request_t *request);
@@ -223,13 +228,13 @@ stop_counter(uint id)
     }
     dr_mutex_unlock(stats_lock);
 
-    REPORT("Client 'bbcount_region' stopping counter id(%d) on DC 0x%x. "
-        "Total bbs: %d\n",
-        id, dr_get_current_drcontext(), counter->count);
+    REPORT("Client 'bbcount_region' stopping counter id(%d) on DC 0x%x at raw count %d "
+        "(accumulated total %d)\n",
+        id, dr_get_current_drcontext(), counter->count, stats->process_total);
 }
 
 static void
-get_basic_block_stats(unsigned int id, unsigned int *region_count, unsigned int *bb_count)
+get_basic_block_stats(uint id, uint *region_count, uint *bb_count)
 {
     stats_t *stats;
     dr_mutex_lock(stats_lock);
@@ -249,6 +254,22 @@ get_basic_block_stats(unsigned int id, unsigned int *region_count, unsigned int 
     dr_mutex_unlock(stats_lock);
 }
 
+static void
+test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
+               uint g, uint h, uint i, uint j)
+{
+//#ifdef SHOW_RESULTS
+    char msg[512];
+    int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                      "Test many arguments: a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, "
+                      "g=%d, h=%d, i=%d, j=%d, \n",
+                      a, b, c, d, e, f, g, h, i, j);
+    DR_ASSERT(len > 0);
+    NULL_TERMINATE(msg);
+    DISPLAY_STRING(msg);
+//#endif /* SHOW_RESULTS */
+}
+
 static ptr_uint_t
 handle_make_mem_defined_if_addressable(vg_client_request_t *request)
 {
@@ -266,18 +287,16 @@ counter_t *get_counter()
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_init_counter",
-        init_counter, 2, opnd_create_reg(DR_REG_XCX),
-        opnd_create_reg(DR_REG_XDX));
-    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_start_counter",
-        start_counter, 1, opnd_create_reg(DR_REG_XCX));
-    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_annotate_stop_counter",
-        stop_counter, 1, opnd_create_reg(DR_REG_XCX));
-    REGISTER_ANNOTATION_CALL(drcontext, info->handle, "bb_region_get_basic_block_stats",
-        get_basic_block_stats, 3, opnd_create_reg(DR_REG_XCX),
-        opnd_create_reg(DR_REG_XDX),
-        //OPND_CREATE_MEMPTR(DR_REG_XSP, 0));
-        opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_PTR));
+    annot_find_and_register_call(drcontext, info, "bb_region_annotate_init_counter",
+        init_counter, 2 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_annotate_start_counter",
+        start_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_annotate_stop_counter",
+        stop_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_get_basic_block_stats",
+        get_basic_block_stats, 3 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_test_many_args",
+        test_many_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
 static void

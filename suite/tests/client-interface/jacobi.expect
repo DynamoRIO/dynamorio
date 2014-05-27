@@ -1,0 +1,29 @@
+
+    ---------------------------------------------------------------------------
+     Centre for Development of Advanced Computing (C-DAC)
+     Email : hpcfte@cdac.in
+    ---------------------------------------------------------------------------
+     Objective : To Solve AX=B Linear Equation (Jacobi Method)
+ 
+     Performance for solving AX=B Linear Equation using JACOBI METHOD
+     Running on DynamoRIO
+    ..........................................................................
+
+     Matrix Size :  1024
+     Threads     :  4
+
+     After 1 iterations, executed 267280 basic blocks in 4 regions
+     After 2 iterations, executed 534560 basic blocks in 8 regions
+     After 3 iterations, executed 801840 basic blocks in 12 regions
+     After 4 iterations, executed 1069120 basic blocks in 16 regions
+     After 5 iterations, executed 1336400 basic blocks in 20 regions
+     After 6 iterations, executed 1603680 basic blocks in 24 regions
+     After 7 iterations, executed 1870960 basic blocks in 28 regions
+     After 8 iterations, executed 2138240 basic blocks in 32 regions
+     After 9 iterations, executed 2405520 basic blocks in 36 regions
+     After 10 iterations, executed 2672800 basic blocks in 40 regions
+
+     The Jacobi Method For AX=B .........DONE
+     Total Number Of Iterations   :  10
+     Memory Utilized              :  8.031250 MB
+    ..........................................................................
