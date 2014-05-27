@@ -4888,6 +4888,7 @@ void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                      void *callee, bool save_fpstate, uint num_args, ...)
 {
+    dr_cleancall_save_t flags;
     opnd_t *args = NULL;
     if (num_args != 0) {
         va_list ap;
@@ -4899,7 +4900,7 @@ dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
         convert_va_list_to_opnd(args, num_args, ap);
         va_end(ap);
     }
-    dr_cleancall_save_t flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
+    flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
     dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, flags, num_args, args);
 }
 

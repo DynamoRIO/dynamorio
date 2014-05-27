@@ -20,31 +20,40 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <pthread.h>
-#include <sys/time.h>
 #include <stdlib.h>
 #include <string.h>
 #include "annotation/dynamorio_annotations.h"
 #include "annotation/bbcount_region_annotations.h"
 #include "annotation/memcheck.h"
 
+#ifdef UNIX
+# include <pthread.h>
+#else
+# include <windows.h>
+# include <process.h>
+#endif
+
 #define MAX_ITERATIONS 1000
 #define MAXTHREADS 8
 
 double Distance(double *X_Old, double *X_New, int matrix_size);
-pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
 
 double   **Matrix_A, *RHS_Vector;
 double   *X_New, *X_Old, *Bloc_X, rno,sum;
 
 typedef struct _thread_init_t {
-    uint id;
+    unsigned int id;
     int inner_iteration_count;
     int outer_iteration_count;
 } thread_init_t;
 
-int Number;
-void jacobi(thread_init_t *);
+#ifdef WINDOWS
+int WINAPI
+#else
+void
+#endif
+jacobi(thread_init_t *);
+
 static int thread_handling_index;
 
 int main(int argc, char **argv)
@@ -56,15 +65,19 @@ int main(int argc, char **argv)
   int NumThreads,ithread;
   double rowsum;
   double  sum;
-  int irow, icol, index, Iteration,iteration,ret_count;
-  double time_start, time_end,memoryused;
-  struct timeval tv;
-  struct timezone tz;
+  int irow, icol, index, Iteration;
+  double memoryused;
   char CLASS;
-  FILE *fp;
 
+  thread_init_t *thread_inits;
+#ifdef UNIX
+  int result;
   pthread_attr_t pta;
   pthread_t *threads;
+#else
+  uintptr_t result;
+  HANDLE *threads;
+#endif
 
   memoryused =0.0;
 
@@ -149,10 +162,6 @@ int main(int argc, char **argv)
 
   VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(X_New, matrix_size * sizeof(double));
 
-  /* Calculating the time of Operation Start */
-  gettimeofday(&tv, &tz);
-  time_start= (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-
   /* Initailize X[i] = B[i] */
 
   for (irow = 0; irow < matrix_size; irow++) {
@@ -162,21 +171,24 @@ int main(int argc, char **argv)
 
   for (ithread=0; ithread<NumThreads; ithread++) {
       char counter_name[32] = {0};
-      sprintf(counter_name, "thread #%d", ithread);
+      sprintf_s(counter_name, 32, "thread #%d", ithread); // TODO: macro
       BB_REGION_ANNOTATE_INIT_COUNTER(ithread, counter_name);
   }
   thread_handling_index = NumThreads;
   BB_REGION_ANNOTATE_INIT_COUNTER(thread_handling_index, "thread-handling");
 
+#ifdef UNIX
   /* Allocating the memory for user specified number of threads */
   threads = (pthread_t *) malloc(sizeof(pthread_t) * NumThreads);
-
   /* Initializating the thread attribute */
   pthread_attr_init(&pta);
+#else
+  threads = (HANDLE*) malloc(sizeof(HANDLE) * NumThreads);
+#endif
+  thread_inits = malloc(sizeof(thread_init_t) * NumThreads);
 
   Iteration = 0;
   do {
-    thread_init_t *thread_inits = malloc(sizeof(thread_init_t) * NumThreads);
     BB_REGION_ANNOTATE_START_COUNTER(thread_handling_index);
     for(index = 0; index < matrix_size; index++)
       X_Old[index] = X_New[index];
@@ -184,34 +196,51 @@ int main(int argc, char **argv)
       thread_inits[ithread].id = ithread;
       thread_inits[ithread].inner_iteration_count = matrix_size/NumThreads;
       thread_inits[ithread].outer_iteration_count = Iteration;
+
       /* Creating The Threads */
-      ret_count = pthread_create(&threads[ithread], &pta, (void *(*) (void *))jacobi,
+#ifdef UNIX
+      result = pthread_create(&threads[ithread], &pta, (void *(*) (void *))jacobi,
         (void *) &thread_inits[ithread]);
-      if(ret_count) {
-        printf("\n ERROR : Return code from pthread_create() is %d ",ret_count);
+      if(result) {
+        printf("\n ERROR : Return code from pthread_create() is %d ",result);
         exit(-1);
       }
+#else
+      result = _beginthread(jacobi, 0, &thread_inits[ithread]);
+      if (result <= 0) {
+        printf("\n ERROR : Return code from _beginthread() is %d ", result);
+        exit(-1);
+      }
+      threads[ithread] = (HANDLE) result;
+#endif
     }
 
     Iteration++;
     for (ithread=0; ithread<NumThreads; ithread++) {
-      ret_count=pthread_join(threads[ithread], NULL);
-      if(ret_count) {
-        printf("\n ERROR : Return code from pthread_join() is %d ",ret_count);
+#ifdef UNIX
+      result=pthread_join(threads[ithread], NULL);
+      if(result) {
+        printf("\n ERROR : Return code from pthread_join() is %d ",result);
         exit(-1);
       }
+#else
+      WaitForSingleObject(threads[ithread], INFINITE);
+#endif
     }
-    ret_count=pthread_attr_destroy(&pta);
-    if(ret_count) {
-      printf("\n ERROR : Return code from pthread_attr_destroy() is %d ",ret_count);
+
+#ifdef UNIX
+    result=pthread_attr_destroy(&pta);
+    if(result) {
+      printf("\n ERROR : Return code from pthread_attr_destroy() is %d ",result);
       exit(-1);
     }
+#endif
     BB_REGION_ANNOTATE_STOP_COUNTER(thread_handling_index);
 
     if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()) {
-        uint region_count = 0;
-        uint bb_count = 0;
-        uint thread_region_count, thread_bb_count;
+        unsigned int region_count = 0;
+        unsigned int bb_count = 0;
+        unsigned int thread_region_count, thread_bb_count;
         for (ithread=0; ithread<NumThreads; ithread++) {
             BB_REGION_GET_BASIC_BLOCK_STATS(ithread, &thread_region_count, &thread_bb_count);
             region_count += thread_region_count;
@@ -222,10 +251,6 @@ int main(int argc, char **argv)
                 bb_count, region_count);
     }
   } while ((Iteration < MAX_ITERATIONS) && (Distance(X_Old, X_New, matrix_size) >= tolerance));
-
-  /* Calculating the time at the end of Operation */
-  gettimeofday(&tv, &tz);
-  time_end= (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 
   printf("\n");
   printf("\n     The Jacobi Method For AX=B .........DONE");
@@ -240,6 +265,7 @@ int main(int argc, char **argv)
   free(RHS_Vector);
   free(Bloc_X);
   free(threads);
+  free(thread_inits);
 
   return 0;
 }
@@ -257,7 +283,12 @@ double Distance(double *X_Old, double *X_New, int matrix_size)
   return (Sum);
 }
 
-void jacobi(thread_init_t *init)
+#ifdef WINDOWS
+int WINAPI
+#else
+void
+#endif
+jacobi(thread_init_t *init)
 {
   int i,j;
 
@@ -277,6 +308,9 @@ void jacobi(thread_init_t *init)
     X_New[i] = Bloc_X[i];
   }
   BB_REGION_ANNOTATE_STOP_COUNTER(init->id);
+#ifdef WINDOWS
+  return 0;
+#endif
 }
 
 

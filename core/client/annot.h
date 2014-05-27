@@ -96,7 +96,7 @@ DR_API
 void annot_register_return(void *drcontext, void *annotation_func, void *return_value);
 
 DR_API
-void annot_register_valgrind(void *drcontext, valgrind_request_id_t request,
+void annot_register_valgrind(valgrind_request_id_t request,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
 // TODO: deregister

@@ -95,10 +95,10 @@ void
 annot_register_call_varg(void *drcontext, void *annotation_func,
                          void *callback, bool save_fpstate, uint num_args, ...)
 {
+    annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
-    annotation_handler_t *handler =
-        (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                     KEY(annotation_func));
+    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                           KEY(annotation_func));
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
@@ -132,7 +132,7 @@ annot_find_and_register_call(void *drcontext, const module_data_t *module,
 {
     generic_func_t target = dr_get_proc_address(module->handle, target_name);
     if (target != NULL) {
-        annot_register_call(drcontext, target, callback, false,
+        annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
         return true;
     } else {
@@ -145,10 +145,10 @@ annot_register_call(void *drcontext, void *annotation_func, void *callback,
                     bool save_fpstate, uint num_args
                     _IF_NOT_X64(annotation_call_type_t type))
 {
+    annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
-    annotation_handler_t *handler =
-        (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                     KEY(annotation_func));
+    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                          KEY(annotation_func));
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
@@ -213,10 +213,10 @@ annot_register_call(void *drcontext, void *annotation_func, void *callback,
 void
 annot_register_return(void *drcontext, void *annotation_func, void *return_value)
 {
+    annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
-    annotation_handler_t *handler =
-        (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                     KEY(annotation_func));
+    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                           KEY(annotation_func));
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
@@ -233,14 +233,15 @@ annot_register_return(void *drcontext, void *annotation_func, void *return_value
 }
 
 void
-annot_register_valgrind(void *drcontext, valgrind_request_id_t request_id,
+annot_register_valgrind(valgrind_request_id_t request_id,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request))
 {
+    annotation_handler_t *handler;
     if (request_id >= VG_ID__LAST)
         return;
 
     TABLE_RWLOCK(handlers, write, lock);
-    annotation_handler_t *handler = vg_handlers[request_id];
+    handler = vg_handlers[request_id];
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
@@ -271,9 +272,9 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
         while (handler != NULL) {
             instr_t *call = INSTR_CREATE_label(dcontext);
 
-            call->flags |= INSTR_ANNOTATION;
+            call->flags |= 8; //INSTR_ANNOTATION;
             if (instr_is_ubr(instr))
-                call->flags |= INSTR_ANNOTATION_TAIL_CALL;
+                call->flags |= 0x10; //INSTR_ANNOTATION_TAIL_CALL;
             instr_set_note(call, (void *) handler); // Collision with other notes?
             instr_set_ok_to_mangle(call, false);
 
@@ -411,7 +412,7 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
     generic_func_t target =
         dr_get_proc_address(info->handle, "dynamorio_annotate_running_on_dynamorio");
     if (target != NULL)
-        annot_register_return(drcontext, target, (void *) true);
+        annot_register_return(drcontext, (void *) target, (void *) (ptr_uint_t) true);
 }
 
 static void

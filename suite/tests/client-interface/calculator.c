@@ -10,6 +10,16 @@
 #define IS_CONSTANT_QUALIFIER(c) ((c == '+') || (c == '-'))
 #define OP_IS_STRONGER(a, b) (operator_strength(a) > operator_strength(b))
 
+#ifdef _MSC_VER
+# define SSCANF(src, pattern, dst, len) sscanf_s(src, pattern, dst, len)
+# define STRCPY(dst, src) strcpy_s(dst, strlen(src) + 1, src)
+# define FOPEN(file, filename, mode) fopen_s(&file, filename, mode);
+#else
+# define SSCANF(src, pattern, dst, len) sscanf(src, pattern, dst)
+# define STRCPY(dst, src) strcpy(dst, src)
+# define FOPEN(file, filename, mode) file = fopen(filename, mode);
+#endif
+
 #define START_REGION_COUNTER(expression) \
 do { \
     if (expression->region != NULL) \
@@ -119,6 +129,7 @@ static int operator_strength(operator_t op) {
         case OP_MODULO:
             return 2;
     }
+    return -1;
 }
 
 static char next_char(char **walk)
@@ -221,19 +232,20 @@ static script_region_t *parse_annotation(char **walk)
         return NULL;
     }
 
-    if (!sscanf(*walk, "@begin(%[-A-Za-z_])\n", region_name)) {
+    if (!SSCANF(*walk, "@begin(%[-A-Za-z_])\n", region_name, 256)) {
         printf("Parse error on annotation: '%s'. Exiting now.\n", *walk);
-        exit(1);
+        return NULL; //exit(1);
     }
 
     region = get_script_region(region_name);
     if (region == NULL) {
         char *new_region_name = malloc(sizeof(char) * 256);
-        strcpy(new_region_name, region_name);
+        STRCPY(new_region_name, region_name);
 
         region = malloc(sizeof(script_region_t));
         region->id = script_regions_list->region_index++;
         region->name = new_region_name;
+        region->next = NULL;
         if (script_regions_list->head == NULL) {
             script_regions_list->head = script_regions_list->tail = region;
         } else {
@@ -357,7 +369,7 @@ int main(int argc, const char *argv[])
     }
 
     input_filename = argv[1];
-    input_file = fopen(input_filename, "r");
+    FOPEN(input_file, input_filename, "r");
     if (input_file == NULL) {
         printf("Failed to open input file '%s'. Exiting now.\n", input_filename);
         return 1;

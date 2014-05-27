@@ -20,6 +20,7 @@
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
+/*
 #ifdef __LP64__
 # define _IF_X64(x) , x
 # define _IF_NOT_X64(x)
@@ -27,6 +28,7 @@
 # define _IF_X64(x)
 # define _IF_NOT_X64(x) , x
 #endif
+*/
 
 #define REPORT_ENABLED 1
 #if defined(REPORT_ENABLED) // && defined(SHOW_RESULTS)
@@ -118,7 +120,7 @@ dr_init(client_id_t id)
         if (*c == '-') {
             switch (*(++c)) {
                 case 'v':
-                    annot_register_valgrind(GLOBAL_DCONTEXT,
+                    annot_register_valgrind(
                         VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
                         handle_make_mem_defined_if_addressable);
                     break;
@@ -281,22 +283,22 @@ handle_make_mem_defined_if_addressable(vg_client_request_t *request)
 static inline
 counter_t *get_counter()
 {
-    return (counter_t *)((dr_get_dr_segment_base(tls_segment_register) + tls_offset));
+    return (counter_t *)(((ptr_uint_t) dr_get_dr_segment_base(tls_segment_register) + tls_offset));
 }
 
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
     annot_find_and_register_call(drcontext, info, "bb_region_annotate_init_counter",
-        init_counter, 2 _IF_NOT_X64(ANNOT_FASTCALL));
+        (void *) init_counter, 2 _IF_NOT_X64(ANNOT_FASTCALL));
     annot_find_and_register_call(drcontext, info, "bb_region_annotate_start_counter",
-        start_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
+        (void *) start_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
     annot_find_and_register_call(drcontext, info, "bb_region_annotate_stop_counter",
-        stop_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
+        (void *) stop_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
     annot_find_and_register_call(drcontext, info, "bb_region_get_basic_block_stats",
-        get_basic_block_stats, 3 _IF_NOT_X64(ANNOT_FASTCALL));
+        (void *) get_basic_block_stats, 3 _IF_NOT_X64(ANNOT_FASTCALL));
     annot_find_and_register_call(drcontext, info, "bb_region_test_many_args",
-        test_many_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
+        (void *) test_many_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
 static void
