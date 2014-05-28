@@ -412,8 +412,6 @@ if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 endif ()
 add_gen_events_deps(drdecode)
 
-append_property_string(TARGET dynamorio COMPILE_FLAGS "-DANNOTATIONS")
-
 ###########################################################################
 # linux build customization
 
@@ -842,7 +840,7 @@ if (BUILD_TESTS)
     add_dependencies(unit_tests ${x86_core_asm_tgt} ntimp_tgt)
   endif ()
   set_target_properties(unit_tests PROPERTIES
-    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST -DANNOTATIONS"
+    COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
     RUNTIME_OUTPUT_DIRECTORY${location_suffix} "${EXECUTABLE_OUTPUT_DIRECTORY}")
   if (UNIX)
     # i#1228 make sure entry point of the elf binary pointing to _start.

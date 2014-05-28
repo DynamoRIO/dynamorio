@@ -2812,7 +2812,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
 
     /* Client might have truncated: re-set fall-through. */
-    if (last_app_instr != NULL) {
+    if ((last_app_instr != NULL) && !IS_ANNOTATION_LABEL(last_app_instr->next)) {
         /* We do not take instr_length of what the client put in, but rather
          * the length of the translation target
          */
@@ -3290,6 +3290,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);
                 bb->instr = substitution;
+                instrlist_append(bb->ilist, substitution);
+                break;
             }
         }
 #endif

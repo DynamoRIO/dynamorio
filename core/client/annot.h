@@ -8,6 +8,9 @@
 
 #ifdef CLIENT_INTERFACE
 
+#define IS_ANNOTATION_LABEL(instr) \
+    ((instr != NULL) && TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr))
+
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
 

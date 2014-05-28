@@ -11,6 +11,9 @@
 
 #ifdef CLIENT_INTERFACE
 
+#define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \
+    dr_snprintf(dst, dst_size, "@%s@%d", src, sizeof(ptr_uint_t) * num_args);
+
 #define KEY(addr) ((ptr_uint_t) addr)
 static generic_table_t *handlers;
 
@@ -58,6 +61,10 @@ convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap);
 
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
+
+static void
+specify_args(annotation_handler_t *handler, uint num_args
+    _IF_NOT_X64(annotation_call_type_t type));
 
 static void
 free_annotation_handler(void *p);
@@ -127,10 +134,18 @@ annot_register_call_varg(void *drcontext, void *annotation_func,
 
 bool
 annot_find_and_register_call(void *drcontext, const module_data_t *module,
-                             const char *target_name, void *callback, uint num_args
+                             const char *target_name,
+                             void *callback, uint num_args
                              _IF_NOT_X64(annotation_call_type_t type))
 {
-    generic_func_t target = dr_get_proc_address(module->handle, target_name);
+    generic_func_t target;
+#ifdef UNIX
+    char *symbol_name = target_name;
+#else
+    char symbol_name[256];
+    PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
+#endif
+    target = dr_get_proc_address(module->handle, symbol_name);
     if (target != NULL) {
         annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
@@ -162,47 +177,9 @@ annot_register_call(void *drcontext, void *annotation_func, void *callback,
         if (num_args == 0) {
             handler->args = NULL;
         } else {
-            uint i;
             handler->args = HEAP_ARRAY_ALLOC(drcontext,
                 opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
-#ifdef X64
-            handler->args[0] = opnd_create_reg(DR_REG_XDI);
-            if (1 < num_args) {
-                handler->args[1] = opnd_create_reg(DR_REG_XSI);
-                if (2 < num_args) {
-                    handler->args[2] = opnd_create_reg(DR_REG_XDX);
-                    if (3 < num_args) {
-                        handler->args[3] = opnd_create_reg(DR_REG_XCX);
-                        if (4 < num_args) {
-                            handler->args[4] = opnd_create_reg(DR_REG_R8);
-                            if (5 < num_args) {
-                                handler->args[5] = opnd_create_reg(DR_REG_R9);
-                                for (i = 6; i < num_args; i++) {
-                                    handler->args[i] = OPND_CREATE_MEMPTR(
-                                        DR_REG_XSP, sizeof(ptr_uint_t) * (i-6));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-#else
-            if (type == ANNOT_FASTCALL) {
-                handler->args[0] = opnd_create_reg(DR_REG_XCX);
-                if (1 < num_args) {
-                    handler->args[1] = opnd_create_reg(DR_REG_XDX);
-                    for (i = 2; i < num_args; i++) {
-                        handler->args[i] = OPND_CREATE_MEMPTR(
-                            DR_REG_XSP, sizeof(ptr_uint_t) * (i-2));
-                    }
-                }
-            } else {
-                for (i = 0; i < num_args; i++) {
-                    handler->args[i] = OPND_CREATE_MEMPTR(
-                        DR_REG_XSP, sizeof(ptr_uint_t) * i);
-                }
-            }
-#endif
+            specify_args(handler, num_args _IF_NOT_X64(type));
         }
 
         generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
@@ -272,9 +249,9 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
         while (handler != NULL) {
             instr_t *call = INSTR_CREATE_label(dcontext);
 
-            call->flags |= 8; //INSTR_ANNOTATION;
+            call->flags |= INSTR_ANNOTATION;
             if (instr_is_ubr(instr))
-                call->flags |= 0x10; //INSTR_ANNOTATION_TAIL_CALL;
+                call->flags |= INSTR_ANNOTATION_TAIL_CALL;
             instr_set_note(call, (void *) handler); // Collision with other notes?
             instr_set_ok_to_mangle(call, false);
 
@@ -409,8 +386,14 @@ handle_vg_annotation(app_pc request_args)
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    generic_func_t target =
-        dr_get_proc_address(info->handle, "dynamorio_annotate_running_on_dynamorio");
+    generic_func_t target;
+#ifdef UNIX
+    char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
+#else
+    char symbol_name[256];
+    PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
+#endif
+    target = dr_get_proc_address(info->handle, symbol_name);
     if (target != NULL)
         annot_register_return(drcontext, (void *) target, (void *) (ptr_uint_t) true);
 }
@@ -457,6 +440,81 @@ lookup_valgrind_request(ptr_uint_t request)
 
     return VG_ID__LAST;
 }
+
+#ifdef X64
+# ifdef UNIX
+static inline void // UNIX x64
+specify_args(annotation_handler_t *handler, uint num_args)
+{
+    uint i;
+    for (i = 6; i < num_args; i++) {
+        handler->args[i] = OPND_CREATE_MEMPTR(
+            DR_REG_XSP, sizeof(ptr_uint_t) * (i-6));
+    }
+    switch (num_args) {
+        default:
+        case 6:
+            handler->args[5] = opnd_create_reg(DR_REG_R9);
+        case 5:
+            handler->args[4] = opnd_create_reg(DR_REG_R8);
+        case 4:
+            handler->args[3] = opnd_create_reg(DR_REG_XCX);
+        case 3:
+            handler->args[2] = opnd_create_reg(DR_REG_XDX);
+        case 2:
+            handler->args[1] = opnd_create_reg(DR_REG_XSI);
+        case 1:
+            handler->args[0] = opnd_create_reg(DR_REG_XDI);
+    }
+}
+# else // WINDOWS x64
+static inline void
+specify_args(annotation_handler_t *handler, uint num_args)
+{
+    uint i;
+    for (i = 4; i < num_args; i++) {
+        handler->args[i] = OPND_CREATE_MEMPTR(
+            DR_REG_XSP, sizeof(ptr_uint_t) * (i-4));
+    }
+    switch (num_args) {
+        default:
+        case 4:
+            handler->args[3] = opnd_create_reg(DR_REG_R9);
+        case 3:
+            handler->args[2] = opnd_create_reg(DR_REG_R8);
+        case 2:
+            handler->args[1] = opnd_create_reg(DR_REG_XDX);
+        case 1:
+            handler->args[0] = opnd_create_reg(DR_REG_XCX);
+    }
+}
+# endif
+#else // X86
+static inline void
+specify_args(annotation_handler_t *handler, uint num_args,
+                       annotation_call_type_t type)
+{
+    uint i;
+    if (type == ANNOT_FASTCALL) {
+        for (i = 2; i < num_args; i++) {
+            handler->args[i] = OPND_CREATE_MEMPTR(
+                DR_REG_XSP, sizeof(ptr_uint_t) * (i-2));
+        }
+        switch (num_args) {
+            default:
+            case 2:
+                handler->args[1] = opnd_create_reg(DR_REG_XDX);
+            case 1:
+                handler->args[0] = opnd_create_reg(DR_REG_XCX);
+        }
+    } else {
+        for (i = 0; i < num_args; i++) {
+            handler->args[i] = OPND_CREATE_MEMPTR(
+                DR_REG_XSP, sizeof(ptr_uint_t) * i);
+        }
+    }
+}
+#endif
 
 static void
 free_annotation_handler(void *p)

@@ -47,7 +47,7 @@ typedef struct _thread_init_t {
     int outer_iteration_count;
 } thread_init_t;
 
-#ifdef WINDOWS
+#if defined(WINDOWS) || defined(_MSC_VER)
 int WINAPI
 #else
 void
@@ -206,7 +206,7 @@ int main(int argc, char **argv)
         exit(-1);
       }
 #else
-      result = _beginthread(jacobi, 0, &thread_inits[ithread]);
+      result = _beginthreadex(NULL, 0, jacobi, &thread_inits[ithread], 0, NULL);
       if (result <= 0) {
         printf("\n ERROR : Return code from _beginthread() is %d ", result);
         exit(-1);
@@ -283,7 +283,7 @@ double Distance(double *X_Old, double *X_New, int matrix_size)
   return (Sum);
 }
 
-#ifdef WINDOWS
+#if defined(WINDOWS) || defined(_MSC_VER)
 int WINAPI
 #else
 void
@@ -308,7 +308,7 @@ jacobi(thread_init_t *init)
     X_New[i] = Bloc_X[i];
   }
   BB_REGION_ANNOTATE_STOP_COUNTER(init->id);
-#ifdef WINDOWS
+#if defined(WINDOWS) || defined(_MSC_VER)
   return 0;
 #endif
 }
