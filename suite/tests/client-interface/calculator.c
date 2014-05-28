@@ -357,7 +357,7 @@ static void print_expression_list(expression_list_t *list)
 
 int main(int argc, const char *argv[])
 {
-    char input_buffer[INPUT_BUFFER_LENGTH];
+    char input_buffer[INPUT_BUFFER_LENGTH] = {0};
     const char *input_filename;
     FILE *input_file;
     expression_list_t *computations = NULL;
@@ -381,13 +381,15 @@ int main(int argc, const char *argv[])
 
     BB_REGION_TEST_MANY_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
-    BB_REGION_ANNOTATE_INIT_COUNTER(3, "parsing computations");
+    BB_REGION_ANNOTATE_INIT_COUNTER(0, "parsing computations");
     BB_REGION_ANNOTATE_INIT_COUNTER(1, "computing expressions");
     BB_REGION_ANNOTATE_INIT_COUNTER(2, "printing expressions");
 
-    BB_REGION_ANNOTATE_START_COUNTER(3);
+    BB_REGION_ANNOTATE_START_COUNTER(0);
+
     while (fgets(input_buffer, INPUT_BUFFER_LENGTH, input_file) != NULL) {
         char *walk = input_buffer;
+
         if (next_char(&walk) == '@') {
             script_region_t *region = parse_annotation(&walk);
             if (region != NULL)
@@ -397,7 +399,7 @@ int main(int argc, const char *argv[])
             computation_count++;
         }
     }
-    BB_REGION_ANNOTATE_STOP_COUNTER(3);
+    BB_REGION_ANNOTATE_STOP_COUNTER(0);
 
     printf("Loaded %d computations.\n", computation_count);
 

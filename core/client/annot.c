@@ -115,15 +115,23 @@ annot_register_call_varg(void *drcontext, void *annotation_func,
         handler->save_fpstate = save_fpstate;
         handler->num_args = num_args;
         handler->next_handler = NULL;
+        handler->arg_stack_space = 0;
 
         if (num_args == 0) {
             handler->args = NULL;
         } else {
+            uint i;
             va_list args;
             va_start(args, num_args);
             handler->args = HEAP_ARRAY_ALLOC(drcontext,
                 opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
-            convert_va_list_to_opnd(handler->args, num_args, args);
+            for (i = 0; i < num_args; i++) {
+                handler->args[i] = va_arg(args, opnd_t);
+                CLIENT_ASSERT(opnd_is_valid(handler->args[i]),
+                              "Call argument: bad operand. Did you create a valid opnd_t?");
+                if (IS_ANNOTATION_STACK_ARG(handler->args[i]))
+                    handler->arg_stack_space += sizeof(ptr_uint_t);
+            }
             va_end(args);
         }
 
@@ -139,8 +147,8 @@ annot_find_and_register_call(void *drcontext, const module_data_t *module,
                              _IF_NOT_X64(annotation_call_type_t type))
 {
     generic_func_t target;
-#ifdef UNIX
-    char *symbol_name = target_name;
+#if defined(UNIX) || defined(X64)
+    char *symbol_name = (char *) target_name;
 #else
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
@@ -173,6 +181,7 @@ annot_register_call(void *drcontext, void *annotation_func, void *callback,
         handler->save_fpstate = save_fpstate;
         handler->num_args = num_args;
         handler->next_handler = NULL;
+        handler->arg_stack_space = 0;
 
         if (num_args == 0) {
             handler->args = NULL;
@@ -197,12 +206,14 @@ annot_register_return(void *drcontext, void *annotation_func, void *return_value
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
+        memset(handler, 0, sizeof(annotation_handler_t));
         handler->type = ANNOT_HANDLER_RETURN_VALUE;
         handler->id.annotation_func = (app_pc) annotation_func;
         handler->instrumentation.return_value = return_value;
         handler->save_fpstate = false;
         handler->num_args = 0;
         handler->next_handler = NULL;
+        handler->arg_stack_space = 0;
 
         generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
     } // else ignore duplicate registration
@@ -246,25 +257,40 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
         TABLE_RWLOCK(handlers, read, lock);
         handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                                (ptr_uint_t)target);
-        while (handler != NULL) {
-            instr_t *call = INSTR_CREATE_label(dcontext);
+        if (handler != NULL) {
+            while (true) {
+                instr_t *call = INSTR_CREATE_label(dcontext);
 
-            call->flags |= INSTR_ANNOTATION;
-            if (instr_is_ubr(instr))
-                call->flags |= INSTR_ANNOTATION_TAIL_CALL;
-            instr_set_note(call, (void *) handler); // Collision with other notes?
-            instr_set_ok_to_mangle(call, false);
+                call->flags |= INSTR_ANNOTATION;
+                if (instr_is_ubr(instr))
+                    call->flags |= INSTR_ANNOTATION_TAIL_CALL;
+                instr_set_note(call, (void *) handler); // Collision with other notes?
+                instr_set_ok_to_mangle(call, false);
 
-            if (first_call == NULL) {
-                first_call = prev_call = call;
-            } else {
-                instr_set_next(prev_call, call);
-                instr_set_prev(call, prev_call);
-                prev_call = call;
+                if (first_call == NULL) {
+                    first_call = prev_call = call;
+                } else {
+                    instr_set_next(prev_call, call);
+                    instr_set_prev(call, prev_call);
+                    prev_call = call;
+                }
+
+                if (handler->next_handler == NULL) {
+                    if (handler->arg_stack_space > 0) {
+                        instr_t *stack_scrub = INSTR_CREATE_lea(dcontext,
+                            opnd_create_reg(REG_XSP),
+                            opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                                  handler->arg_stack_space, OPSZ_0));
+                        instr_set_ok_to_mangle(stack_scrub, false);
+                        instr_set_next(call, stack_scrub);
+                        instr_set_prev(stack_scrub, call);
+                    }
+                    break;
+                }
+                handler = handler->next_handler;
             }
-
-            handler = handler->next_handler;
         }
+
         TABLE_RWLOCK(handlers, read, unlock);
     }
 
@@ -453,6 +479,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
     }
     switch (num_args) {
         default:
+            handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 6));
         case 6:
             handler->args[5] = opnd_create_reg(DR_REG_R9);
         case 5:
@@ -478,6 +505,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
     }
     switch (num_args) {
         default:
+            handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 4));
         case 4:
             handler->args[3] = opnd_create_reg(DR_REG_R9);
         case 3:
@@ -502,16 +530,18 @@ specify_args(annotation_handler_t *handler, uint num_args,
         }
         switch (num_args) {
             default:
+                handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 2));
             case 2:
                 handler->args[1] = opnd_create_reg(DR_REG_XDX);
             case 1:
                 handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
-    } else {
+    } else { // ANNOT_STDCALL
         for (i = 0; i < num_args; i++) {
             handler->args[i] = OPND_CREATE_MEMPTR(
                 DR_REG_XSP, sizeof(ptr_uint_t) * i);
         }
+        handler->arg_stack_space = (sizeof(ptr_uint_t) * num_args);
     }
 }
 #endif

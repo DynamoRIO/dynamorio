@@ -4866,6 +4866,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
     cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
+    //cleanup_after_call_ex(dcontext, &cci, ilist, where, (num_args > 2) ? (num_args - 2) * sizeof(ptr_uint_t) : 0);
 }
 
 void

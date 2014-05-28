@@ -76,6 +76,7 @@ typedef struct _annotation_handler_t {
     bool save_fpstate;
     uint num_args;
     opnd_t *args;
+    uint arg_stack_space;
     struct _annotation_handler_t *next_handler;
 } annotation_handler_t;
 

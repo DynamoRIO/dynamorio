@@ -30,10 +30,11 @@
 #endif
 */
 
-#define REPORT_ENABLED 1
-#if defined(REPORT_ENABLED) // && defined(SHOW_RESULTS)
+//#define REPORT_ENABLED 1
+#if defined(REPORT_ENABLED) && defined(SHOW_RESULTS)
 # define REPORT(...) \
 do { \
+    dr_log(NULL, LOG_ALL, 1, __VA_ARGS__); \
     if (dr_is_notify_on()) \
         dr_fprintf(STDERR, __VA_ARGS__); \
 } while (0);
@@ -222,6 +223,9 @@ stop_counter(uint id)
     stats_t *stats;
     counter_t *counter = get_counter();
 
+    REPORT("Client 'bbcount_region' stopping counter id(%d) on DC 0x%x...?",
+        id, dr_get_current_drcontext());
+
     dr_mutex_lock(stats_lock);
     stats = get_stats(id);
     if (stats != NULL) {
@@ -260,7 +264,7 @@ static void
 test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
                uint g, uint h, uint i, uint j)
 {
-//#ifdef SHOW_RESULTS
+#ifdef SHOW_RESULTS
     char msg[512];
     int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Test many arguments: a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, "
@@ -269,7 +273,7 @@ test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
     DR_ASSERT(len > 0);
     NULL_TERMINATE(msg);
     DISPLAY_STRING(msg);
-//#endif /* SHOW_RESULTS */
+#endif /* SHOW_RESULTS */
 }
 
 static ptr_uint_t
