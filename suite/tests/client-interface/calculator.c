@@ -379,7 +379,7 @@ int main(int argc, const char *argv[])
     memset(script_regions_list, 0, sizeof(script_regions_t));
     script_regions_list->region_index = 10;
 
-    BB_REGION_TEST_MANY_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    BB_REGION_TEST_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
     BB_REGION_ANNOTATE_INIT_COUNTER(0, "parsing computations");
     BB_REGION_ANNOTATE_INIT_COUNTER(1, "computing expressions");
@@ -397,6 +397,8 @@ int main(int argc, const char *argv[])
         } else {
             computations = push_expression(computations, parse_computation(&walk, '\n'));
             computation_count++;
+
+            BB_REGION_TEST_NINE_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9);
         }
     }
     BB_REGION_ANNOTATE_STOP_COUNTER(0);
@@ -412,6 +414,8 @@ int main(int argc, const char *argv[])
     BB_REGION_ANNOTATE_START_COUNTER(2);
     print_expression_list(computations);
     BB_REGION_ANNOTATE_STOP_COUNTER(2);
+
+    BB_REGION_TEST_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
 
     // thread per n computations
 
