@@ -1,23 +1,3 @@
-/**************************************************************************************
-                            C-DAC Tech Workshop : HeGaPa-2012
-                             July 16-20,2012
- Example   : pthread-jacobi.c
-
- Objective      : Jacobi method to solve AX = b matrix system of linear equations.
-
- Input          : Class Size
-      Number of Threads
-
- Output         : The solution of  Ax = b or
-                  The status of convergence for given bumber of iterations
-
- Created  : MAY-2012
-
-
- E-mail        : hpcfte@cdac.in
-
-*************************************************************************************/
-
 #if defined(_MSC_VER) && !defined(WINDOWS)
 # define WINDOWS
 #endif
@@ -38,7 +18,8 @@
 #endif
 
 #define MAX_ITERATIONS 1000
-#define MAXTHREADS 8
+#define MAX_THREADS 8
+#define TOLERANCE 1.0E-5
 
 #ifdef WINDOWS
 # define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
@@ -46,16 +27,25 @@
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
 #endif
 
-double Distance(double *X_Old, double *X_New, int matrix_size);
-
-double   **Matrix_A, *RHS_Vector;
-double   *X_New, *X_Old, *Bloc_X, rno,sum;
+#define VALIDATE(value, predicate, error_message) \
+do { \
+    if (value predicate) { \
+        printf("\n Error: "error_message, value); \
+        exit(-1); \
+    } \
+} while (0)
 
 typedef struct _thread_init_t {
     unsigned int id;
     int inner_iteration_count;
     int outer_iteration_count;
 } thread_init_t;
+
+static void
+usage();
+
+static double
+distance(double *x_old, double *x_new);
 
 #ifdef WINDOWS
 int WINAPI
@@ -64,263 +54,220 @@ void
 #endif
 jacobi(thread_init_t *);
 
-static int thread_handling_index;
+static double **a_matrix, *rhs_vector, *x_new, *x_old, *x_temp;
+static int thread_handling_index, matrix_size;
 
 int main(int argc, char **argv)
 {
-  double diag_dominant_factor  = 4.0000;
-  double tolerance  = 1.0E-5;
-  /* .......Variables Initialisation ...... */
-  int matrix_size,  NoofRows, NoofCols,CLASS_SIZE,THREADS;
-  int NumThreads,ithread;
-  double rowsum;
-  double  sum;
-  int irow, icol, index, Iteration;
-  double memoryused;
-  char CLASS;
+    int i, class_id, num_threads, i_thread, i_row, i_col, iteration = 0;
+    double sum, row_sum, memoryused = 0.0;
 
-  thread_init_t *thread_inits;
+    thread_init_t *thread_inits;
 #ifdef WINDOWS
-  uintptr_t result;
-  HANDLE *threads;
+    uintptr_t result;
+    HANDLE *threads;
 #else
-  int result;
-  pthread_attr_t pta;
-  pthread_t *threads;
+    int result;
+    pthread_attr_t pta;
+    pthread_t *threads;
 #endif
 
-  memoryused =0.0;
-
-  printf("\n    ---------------------------------------------------------------------------");
-  printf("\n     Centre for Development of Advanced Computing (C-DAC)");
-  printf("\n     Email : hpcfte@cdac.in");
-  printf("\n    ---------------------------------------------------------------------------");
-  printf("\n     Objective : To Solve AX=B Linear Equation (Jacobi Method)\n ");
-  printf("\n     Performance for solving AX=B Linear Equation using JACOBI METHOD");
-  if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
+    printf("\n    -------------------------------------------------------------------");
+    printf("\n     Performance for solving AX=B Linear Equation using JACOBI METHOD");
+    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
     printf("\n     Running on DynamoRIO");
-  else
+    else
     printf("\n     Running native");
-  printf("\n    ..........................................................................\n");
+    printf("\n    ...................................................................\n");
 
-  if( argc != 2 ) {
-    printf("     Very Few Arguments\n ");
-    printf("     Syntax : exec <Class-Size (Give A/B/C)> <Threads>\n");
-    exit(-1);
-  } else {
-    CLASS = *argv[1];
-    THREADS = atoi(argv[1] + 1);
-  }
-  if (THREADS > MAXTHREADS ) {
-    printf("\n Number of Threads must be less than or equal to 8. Aborting ...\n");
-    return 1;
-  }
-  if( CLASS == 'A' ) {
-    CLASS_SIZE = 1024;
-  }
-  if( CLASS == 'B' ) {
-    CLASS_SIZE = 2048;
-  }
-  if( CLASS == 'C' ) {
-    CLASS_SIZE = 4096;
-  }
+    if( argc != 2 )
+        usage();
 
-  matrix_size = CLASS_SIZE;
-  NumThreads = THREADS;
-  printf("\n     Matrix Size :  %d",matrix_size);
-  printf("\n     Threads     :  %d",NumThreads);
+    class_id = *argv[1] - 'A';
+    num_threads = atoi(argv[1] + 1);
 
-  NoofRows = matrix_size;
-  NoofCols = matrix_size;
-
-
-  /* Allocate The Memory For Matrix_A and RHS_Vector */
-  Matrix_A = (double **) malloc(matrix_size * sizeof(double *));
-  RHS_Vector = (double *) malloc(matrix_size * sizeof(double));
-
-
-  /* Populating the Matrix_A and RHS_Vector */
-  rowsum = (double) (matrix_size *(matrix_size+1)/2.0);
-  for (irow = 0; irow < matrix_size; irow++) {
-    Matrix_A[irow] = (double *) malloc(matrix_size * sizeof(double));
-    sum = 0.0;
-    for (icol = 0; icol < matrix_size; icol++) {
-      Matrix_A[irow][icol]= (double) (icol+1);
-      if(irow == icol )  Matrix_A[irow][icol] = (double)(rowsum);
-      sum = sum + Matrix_A[irow][icol];
+    if (num_threads > MAX_THREADS ) {
+        printf("\nMaximum thread count is %d. Exiting now.\n", MAX_THREADS);
+        exit(-1);
     }
-    RHS_Vector[irow] = (double)(2*rowsum) - (double)(irow+1);
-   }
+    if ((class_id >= 0) && (class_id <= 2))
+        matrix_size = 1024 * (1 << class_id);
+    else
+        usage();
 
-   memoryused+=(NoofRows * NoofCols * sizeof(double));
-   memoryused+=(NoofRows * sizeof(double));
+    printf("\n     Matrix Size :  %d", matrix_size);
+    printf("\n     Threads     :  %d", num_threads);
 
-   printf("\n");
+    a_matrix = (double **) malloc(matrix_size * sizeof(double *));
+    rhs_vector = (double *) malloc(matrix_size * sizeof(double));
 
-  if (NoofRows != NoofCols) {
-    printf("Input Matrix Should Be Square Matrix ..... \n");
-    exit(-1);
-  }
+    memoryused += (matrix_size * matrix_size * sizeof(double));
+    memoryused += (matrix_size * sizeof(double));
 
-  /* Dynamic Memory Allocation */
-  X_New = (double *) malloc(matrix_size * sizeof(double));
-  memoryused+=(NoofRows * sizeof(double));
-  X_Old = (double *) malloc(matrix_size * sizeof(double));
-  memoryused+=(NoofRows * sizeof(double));
-  Bloc_X = (double *) malloc(matrix_size * sizeof(double));
-  memoryused+=(NoofRows * sizeof(double));
-
-  VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(X_New, matrix_size * sizeof(double));
-
-  /* Initailize X[i] = B[i] */
-
-  for (irow = 0; irow < matrix_size; irow++) {
-    Bloc_X[irow] = RHS_Vector[irow];
-    X_New[irow] =  RHS_Vector[irow];
-  }
-
-  for (ithread=0; ithread<NumThreads; ithread++) {
-      char counter_name[32] = {0};
-      SPRINTF(counter_name, 32, "thread #%d", ithread); // TODO: macro
-      BB_REGION_ANNOTATE_INIT_COUNTER(ithread, counter_name);
-  }
-  thread_handling_index = NumThreads;
-  BB_REGION_ANNOTATE_INIT_COUNTER(thread_handling_index, "thread-handling");
-
-#ifdef WINDOWS
-  threads = (HANDLE*) malloc(sizeof(HANDLE) * NumThreads);
-#else
-  /* Allocating the memory for user specified number of threads */
-  threads = (pthread_t *) malloc(sizeof(pthread_t) * NumThreads);
-  /* Initializating the thread attribute */
-  pthread_attr_init(&pta);
-#endif
-  thread_inits = malloc(sizeof(thread_init_t) * NumThreads);
-
-  Iteration = 0;
-  do {
-    BB_REGION_ANNOTATE_START_COUNTER(thread_handling_index);
-    for(index = 0; index < matrix_size; index++)
-      X_Old[index] = X_New[index];
-    for(ithread=0;ithread<NumThreads;ithread++) {
-      thread_inits[ithread].id = ithread;
-      thread_inits[ithread].inner_iteration_count = matrix_size/NumThreads;
-      thread_inits[ithread].outer_iteration_count = Iteration;
-
-      /* Creating The Threads */
-#ifdef WINDOWS
-      result = _beginthreadex(NULL, 0, jacobi, &thread_inits[ithread], 0, NULL);
-      if (result <= 0) {
-        printf("\n ERROR : Return code from _beginthread() is %d ", result);
-        exit(-1);
-      }
-      threads[ithread] = (HANDLE) result;
-#else
-      result = pthread_create(&threads[ithread], &pta, (void *(*) (void *))jacobi,
-        (void *) &thread_inits[ithread]);
-      if(result) {
-        printf("\n ERROR : Return code from pthread_create() is %d ",result);
-        exit(-1);
-      }
-#endif
+    /* Populating the a_matrix and rhs_vector */
+    row_sum = (double) (matrix_size * (matrix_size + 1) / 2.0);
+    for (i_row = 0; i_row < matrix_size; i_row++) {
+        a_matrix[i_row] = (double *) malloc(matrix_size * sizeof(double));
+        sum = 0.0;
+        for (i_col = 0; i_col < matrix_size; i_col++) {
+            a_matrix[i_row][i_col]= (double) (i_col+1);
+            if (i_row == i_col)
+                a_matrix[i_row][i_col] = (double)(row_sum);
+            sum = sum + a_matrix[i_row][i_col];
+        }
+        rhs_vector[i_row] = (double)(2 * row_sum) - (double)(i_row + 1);
     }
 
-    Iteration++;
-    for (ithread=0; ithread<NumThreads; ithread++) {
-#ifdef WINDOWS
-      WaitForSingleObject(threads[ithread], INFINITE);
-#else
-      result=pthread_join(threads[ithread], NULL);
-      if(result) {
-        printf("\n ERROR : Return code from pthread_join() is %d ",result);
-        exit(-1);
-      }
-#endif
+    printf("\n");
+
+    x_new = (double *) malloc(matrix_size * sizeof(double));
+    memoryused += (matrix_size * sizeof(double));
+    x_old = (double *) malloc(matrix_size * sizeof(double));
+    memoryused += (matrix_size * sizeof(double));
+    x_temp = (double *) malloc(matrix_size * sizeof(double));
+    memoryused += (matrix_size * sizeof(double));
+
+    /* Initailize X[i] = B[i] */
+    for (i_row = 0; i_row < matrix_size; i_row++) {
+        x_temp[i_row] = rhs_vector[i_row];
+        x_new[i_row] =  rhs_vector[i_row];
     }
+
+    for (i_thread = 0; i_thread < num_threads; i_thread++) {
+        char counter_name[32] = {0};
+        SPRINTF(counter_name, 32, "thread #%d", i_thread); // TODO: macro
+        BB_REGION_ANNOTATE_INIT_COUNTER(i_thread, counter_name);
+    }
+    thread_handling_index = num_threads;
+    BB_REGION_ANNOTATE_INIT_COUNTER(thread_handling_index, "thread-handling");
+
+#ifdef WINDOWS
+    threads = (HANDLE*) malloc(sizeof(HANDLE) * num_threads);
+#else
+    threads = (pthread_t *) malloc(sizeof(pthread_t) * num_threads);
+    pthread_attr_init(&pta);
+#endif
+    thread_inits = malloc(sizeof(thread_init_t) * num_threads);
+
+    do {
+        BB_REGION_ANNOTATE_START_COUNTER(thread_handling_index);
+
+        for (i = 0; i < matrix_size; i++)
+            x_old[i] = x_new[i];
+
+        for (i_thread = 0; i_thread < num_threads; i_thread++) {
+            thread_inits[i_thread].id = i_thread;
+            thread_inits[i_thread].inner_iteration_count = matrix_size/num_threads;
+            thread_inits[i_thread].outer_iteration_count = iteration;
+
+            /* Creating The Threads */
+#ifdef WINDOWS
+            result = _beginthreadex(NULL, 0, jacobi, &thread_inits[i_thread], 0, NULL);
+            VALIDATE(result, <= 0, "_beginthread() returned code %d ");
+            threads[i_thread] = (HANDLE) result;
+#else
+            result = pthread_create(&threads[i_thread], &pta, (void *(*) (void *))jacobi,
+                                    (void *) &thread_inits[i_thread]);
+            VALIDATE(result, != 0, "pthread_create() returned code %d");
+#endif
+        }
+
+        iteration++;
+        for (i_thread = 0; i_thread < num_threads; i_thread++) {
+#ifdef WINDOWS
+            WaitForSingleObject(threads[i_thread], INFINITE);
+#else
+            result = pthread_join(threads[i_thread], NULL);
+            VALIDATE(result, != 0, "pthread_join() returned code %d");
+#endif
+        }
 
 #ifndef WINDOWS
-    result=pthread_attr_destroy(&pta);
-    if(result) {
-      printf("\n ERROR : Return code from pthread_attr_destroy() is %d ",result);
-      exit(-1);
-    }
+        result = pthread_attr_destroy(&pta);
+        VALIDATE(result, != 0, "pthread_attr_destroy() returned code %d");
 #endif
-    BB_REGION_ANNOTATE_STOP_COUNTER(thread_handling_index);
+        BB_REGION_ANNOTATE_STOP_COUNTER(thread_handling_index);
 
-    if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()) {
-        unsigned int region_count = 0;
-        unsigned int bb_count = 0;
-        unsigned int thread_region_count, thread_bb_count;
-        for (ithread=0; ithread<NumThreads; ithread++) {
-            BB_REGION_GET_BASIC_BLOCK_STATS(ithread, &thread_region_count, &thread_bb_count);
-            region_count += thread_region_count;
-            bb_count += thread_bb_count;
+        if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO()) {
+            unsigned int region_count = 0;
+            unsigned int bb_count = 0;
+            unsigned int thread_region_count, thread_bb_count;
+            for (i_thread = 0; i_thread < num_threads; i_thread++) {
+                BB_REGION_GET_BASIC_BLOCK_STATS(i_thread, &thread_region_count,
+                                                &thread_bb_count);
+                region_count += thread_region_count;
+                bb_count += thread_bb_count;
+            }
+            if (region_count > 0) {
+                printf("\n     After %d iterations, executed %d basic blocks "
+                       "in %d regions", iteration, bb_count, region_count);
+            }
         }
-        if (region_count > 0)
-            printf("\n     After %d iterations, executed %d basic blocks in %d regions", Iteration,
-                bb_count, region_count);
-    }
-  } while ((Iteration < MAX_ITERATIONS) && (Distance(X_Old, X_New, matrix_size) >= tolerance));
+    } while ((iteration < MAX_ITERATIONS) && (distance(x_old, x_new) >= TOLERANCE));
 
-  printf("\n");
-  printf("\n     The Jacobi Method For AX=B .........DONE");
-  printf("\n     Total Number Of Iterations   :  %d",Iteration);
-  printf("\n     Memory Utilized              :  %lf MB",(memoryused/(1024*1024)));
-  printf("\n    ..........................................................................\n");
+    printf("\n");
+    printf("\n     The Jacobi Method For AX=B .........DONE");
+    printf("\n     Total Number Of iterations   :  %d",iteration);
+    printf("\n     Memory Utilized              :  %lf MB",(memoryused/(1024*1024)));
+    printf("\n    ...................................................................\n");
 
-  /* Freeing Allocated Memory */
-  free(X_New);
-  free(X_Old);
-  free(Matrix_A);
-  free(RHS_Vector);
-  free(Bloc_X);
-  free(threads);
-  free(thread_inits);
+    free(x_new);
+    free(x_old);
+    free(a_matrix);
+    free(rhs_vector);
+    free(x_temp);
+    free(threads);
+    free(thread_inits);
 
-  return 0;
+    return 0;
 }
 
-double Distance(double *X_Old, double *X_New, int matrix_size)
+static void
+usage()
 {
-  int             index;
-  double          Sum;
-
-  BB_REGION_ANNOTATE_START_COUNTER(thread_handling_index);
-  Sum = 0.0;
-  for (index = 0; index < matrix_size; index++)
-    Sum += (X_New[index] - X_Old[index]) * (X_New[index] - X_Old[index]);
-  BB_REGION_ANNOTATE_STOP_COUNTER(thread_handling_index);
-  return (Sum);
+    printf("usage: jacobi { A | B | C }<thread-count>\n");
+    printf(" e.g.: jacobi A4\n");
+    exit(-1);
 }
 
-#if defined(WINDOWS) || defined(_MSC_VER)
+double distance(double *x_old, double *x_new)
+{
+    int i;
+    double sum = 0.0;
+
+    BB_REGION_ANNOTATE_START_COUNTER(thread_handling_index);
+    for (i = 0; i < matrix_size; i++)
+        sum += (x_new[i] - x_old[i]) * (x_new[i] - x_old[i]);
+    BB_REGION_ANNOTATE_STOP_COUNTER(thread_handling_index);
+    return sum;
+}
+
+#ifdef WINDOWS
 int WINAPI
 #else
 void
 #endif
 jacobi(thread_init_t *init)
 {
-  int i,j;
+    int i, j;
 
-  BB_REGION_ANNOTATE_START_COUNTER(init->id);
-  for(i = 0; i < init->inner_iteration_count; i++) {
-    Bloc_X[i] = RHS_Vector[i];
+    BB_REGION_ANNOTATE_START_COUNTER(init->id);
+    for (i = 0; i < init->inner_iteration_count; i++) {
+        x_temp[i] = rhs_vector[i];
 
-    for (j = 0;j<i;j++) {
-        Bloc_X[i] -= X_Old[j] * Matrix_A[i][j];
+        for (j = 0; j < i; j++) {
+            x_temp[i] -= x_old[j] * a_matrix[i][j];
+        }
+        for (j = i+1; j < init->inner_iteration_count; j++) {
+            x_temp[i] -= x_old[j] * a_matrix[i][j];
+        }
+        x_temp[i] = x_temp[i] / a_matrix[i][i];
     }
-    for (j = i+1;j<init->inner_iteration_count;j++) {
-      Bloc_X[i] -= X_Old[j] * Matrix_A[i][j];
+    for (i = 0; i < init->inner_iteration_count; i++) {
+        x_new[i] = x_temp[i];
     }
-    Bloc_X[i] = Bloc_X[i] / Matrix_A[i][i];
-  }
-  for(i = 0; i < init->inner_iteration_count; i++) {
-    X_New[i] = Bloc_X[i];
-  }
-  BB_REGION_ANNOTATE_STOP_COUNTER(init->id);
-#if defined(WINDOWS) || defined(_MSC_VER)
-  return 0;
+    BB_REGION_ANNOTATE_STOP_COUNTER(init->id);
+#ifdef WINDOWS
+    return 0;
 #endif
 }
-
-

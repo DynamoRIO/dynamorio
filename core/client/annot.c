@@ -248,7 +248,7 @@ annot_register_valgrind(valgrind_request_id_t request_id,
 instr_t *
 annot_match(dcontext_t *dcontext, instr_t *instr)
 {
-    instr_t *first_call = NULL, *prev_call = NULL;
+    instr_t *first_call = NULL, *last_added_instr = NULL;
 
     if (instr_is_call_direct(instr) || instr_is_ubr(instr)) { // ubr: tail call `gcc -O3`
         app_pc target = instr_get_branch_target_pc(instr);
@@ -268,12 +268,12 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                 instr_set_ok_to_mangle(call, false);
 
                 if (first_call == NULL) {
-                    first_call = prev_call = call;
+                    first_call =  call;
                 } else {
-                    instr_set_next(prev_call, call);
-                    instr_set_prev(call, prev_call);
-                    prev_call = call;
+                    instr_set_next(last_added_instr, call);
+                    instr_set_prev(call, last_added_instr);
                 }
+                last_added_instr = call;
 
                 if (handler->next_handler == NULL) {
                     if (handler->arg_stack_space > 0) {
@@ -284,10 +284,18 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                         instr_set_ok_to_mangle(stack_scrub, false);
                         instr_set_next(call, stack_scrub);
                         instr_set_prev(stack_scrub, call);
+                        last_added_instr = stack_scrub;
                     }
                     break;
                 }
                 handler = handler->next_handler;
+            }
+
+            if (instr_is_ubr(instr)) {
+                instr_t *tail_call_return = INSTR_CREATE_ret(dcontext);
+                instr_set_ok_to_mangle(tail_call_return, false);
+                instr_set_next(last_added_instr, tail_call_return);
+                instr_set_prev(tail_call_return, last_added_instr);
             }
         }
 
@@ -387,7 +395,8 @@ handle_vg_annotation(app_pc request_args)
     dr_mcontext_t mcontext;
     ptr_uint_t result;
 
-    if (!safe_read(request_args, sizeof(request), &request))
+    //if (!safe_read(request_args, sizeof(request), &request))
+    if (!safe_read(request_args, sizeof(vg_client_request_t), &request))
         return;
 
     result = request.default_result;
@@ -398,6 +407,8 @@ handle_vg_annotation(app_pc request_args)
         handler = vg_handlers[request_id];
         if (handler != NULL) // TODO: multiple handlers? Then what result?
             result = handler->instrumentation.vg_callback(&request);
+        else
+            dr_printf("Valgrind handler returns default result 0x%x\n", result);
         TABLE_RWLOCK(handlers, read, unlock);
     }
 

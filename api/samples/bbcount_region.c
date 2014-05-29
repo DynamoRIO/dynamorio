@@ -218,7 +218,7 @@ stop_counter(uint id)
     stats_t *stats;
     counter_t *counter = get_counter();
 
-    REPORT("Client 'bbcount_region' stopping counter id(%d) on DC 0x%x...?",
+    REPORT("Client 'bbcount_region' stopping counter id(%d) on DC 0x%x...?\n",
         id, dr_get_current_drcontext());
 
     dr_mutex_lock(stats_lock);
@@ -239,6 +239,8 @@ get_basic_block_stats(uint id, uint *region_count, uint *bb_count)
 {
     stats_t *stats;
     dr_mutex_lock(stats_lock);
+
+    REPORT("Client 'bbcount_region' providing stats for id(%d)?\n", id);
 
     stats = get_stats(id);
     if (stats != NULL) {
