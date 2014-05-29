@@ -21,7 +21,7 @@ dynamorio_annotate_running_on_dynamorio();
 __attribute__ ((fastcall))
 # endif
 bool
-dynamorio_annotate_running_on_dynamorio();
+dynamorio_annotate_running_on_dynamorio() __attribute__ ((weak));
 #endif
 
 #ifdef __cplusplus

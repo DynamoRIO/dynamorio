@@ -27,7 +27,21 @@ bb_region_get_basic_block_stats(unsigned int id, unsigned int *commit_count,
 }
 
 __declspec(dllexport) void __fastcall
-bb_region_test_many_args(unsigned int a, unsigned int b,
+bb_region_test_eight_args(unsigned int a, unsigned int b,
+    unsigned int c, unsigned int d, unsigned int e, unsigned int f,
+    unsigned int g, unsigned int h)
+{
+}
+
+__declspec(dllexport) void __fastcall
+bb_region_test_nine_args(unsigned int a, unsigned int b,
+    unsigned int c, unsigned int d, unsigned int e, unsigned int f,
+    unsigned int g, unsigned int h, unsigned int i)
+{
+}
+
+__declspec(dllexport) void __fastcall
+bb_region_test_ten_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
     unsigned int g, unsigned int h, unsigned int i, unsigned int j)
 {
@@ -72,7 +86,27 @@ bb_region_get_basic_block_stats(unsigned int id, unsigned int *commit_count,
 __attribute__ ((fastcall))
 # endif
 void
-bb_region_test_many_args(unsigned int a, unsigned int b,
+bb_region_test_eight_args(unsigned int a, unsigned int b,
+    unsigned int c, unsigned int d, unsigned int e, unsigned int f,
+    unsigned int g, unsigned int h)
+{
+}
+
+# ifndef __LP64__
+__attribute__ ((fastcall))
+# endif
+void
+bb_region_test_nine_args(unsigned int a, unsigned int b,
+    unsigned int c, unsigned int d, unsigned int e, unsigned int f,
+    unsigned int g, unsigned int h, unsigned int i)
+{
+}
+
+# ifndef __LP64__
+__attribute__ ((fastcall))
+# endif
+void
+bb_region_test_ten_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
     unsigned int g, unsigned int h, unsigned int i, unsigned int j)
 {

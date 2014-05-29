@@ -20,18 +20,8 @@
 # define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
-/*
-#ifdef __LP64__
-# define _IF_X64(x) , x
-# define _IF_NOT_X64(x)
-#else
-# define _IF_X64(x)
-# define _IF_NOT_X64(x) , x
-#endif
-*/
-
 //#define REPORT_ENABLED 1
-#if defined(REPORT_ENABLED) && defined(SHOW_RESULTS)
+#if defined(REPORT_ENABLED)
 # define REPORT(...) \
 do { \
     dr_log(NULL, LOG_ALL, 1, __VA_ARGS__); \
@@ -92,8 +82,16 @@ static void
 get_basic_block_stats(uint id, uint *region_count, uint *bb_count);
 
 static void
-test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
-               uint g, uint h, uint i, uint j);
+test_eight_args(uint a, uint b, uint c, uint d, uint e, uint f,
+                uint g, uint h);
+
+static void
+test_nine_args(uint a, uint b, uint c, uint d, uint e, uint f,
+               uint g, uint h, uint i);
+
+static void
+test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
+              uint g, uint h, uint i, uint j);
 
 static ptr_uint_t
 handle_make_mem_defined_if_addressable(vg_client_request_t *request);
@@ -145,7 +143,6 @@ dr_init(client_id_t id)
     /* allocate TLS */
     dr_raw_tls_calloc(&tls_segment_register, &tls_offset, 1, 0);
 
-#ifdef SHOW_RESULTS
     /* also give notification to stderr */
     if (dr_is_notify_on()) {
 # ifdef WINDOWS
@@ -153,10 +150,8 @@ dr_init(client_id_t id)
         dr_enable_console_printing();
 # endif
     }
-#endif
 
     /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'bbcount_region' initializing\n");
     REPORT("Client bbcount_region is running\n");
 }
 
@@ -261,19 +256,36 @@ get_basic_block_stats(uint id, uint *region_count, uint *bb_count)
 }
 
 static void
-test_many_args(uint a, uint b, uint c, uint d, uint e, uint f,
-               uint g, uint h, uint i, uint j)
+test_eight_args(uint a, uint b, uint c, uint d, uint e, uint f,
+                uint g, uint h)
 {
-#ifdef SHOW_RESULTS
-    char msg[512];
-    int len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "Test many arguments: a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, "
-                      "g=%d, h=%d, i=%d, j=%d, \n",
-                      a, b, c, d, e, f, g, h, i, j);
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
-    DISPLAY_STRING(msg);
-#endif /* SHOW_RESULTS */
+    if (dr_is_notify_on()) {
+        dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
+            "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d\n",
+            a, b, c, d, e, f, g, h);
+    }
+}
+
+static void
+test_nine_args(uint a, uint b, uint c, uint d, uint e, uint f,
+               uint g, uint h, uint i)
+{
+    if (dr_is_notify_on()) {
+        dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
+            "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d\n",
+            a, b, c, d, e, f, g, h, i);
+    }
+}
+
+static void
+test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
+              uint g, uint h, uint i, uint j)
+{
+    if (dr_is_notify_on()) {
+        dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
+            "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d\n",
+            a, b, c, d, e, f, g, h, i, j);
+    }
 }
 
 static ptr_uint_t
@@ -301,8 +313,12 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
         (void *) stop_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
     annot_find_and_register_call(drcontext, info, "bb_region_get_basic_block_stats",
         (void *) get_basic_block_stats, 3 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_test_many_args",
-        (void *) test_many_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_test_eight_args",
+        (void *) test_eight_args, 8 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_test_nine_args",
+        (void *) test_nine_args, 9 _IF_NOT_X64(ANNOT_FASTCALL));
+    annot_find_and_register_call(drcontext, info, "bb_region_test_ten_args",
+        (void *) test_ten_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
 static void
@@ -348,24 +364,15 @@ static void
 event_exit(void)
 {
     stats_t *stats, *next;
-//#ifdef SHOW_RESULTS
-    char msg[512];
-    int len;
-
     for (stats = stats_list->head; stats != NULL; stats = next) {
         next = stats->next;
-        len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                          "Instrumentation results for '%s':\n"
-                          "%10d basic block executions\n"
-                          "%10d region commits\n",
-                          stats->label,
-                          stats->process_total,
-                          stats->region_count);
-        DR_ASSERT(len > 0);
-        NULL_TERMINATE(msg);
-        DISPLAY_STRING(msg);
+        REPORT("Instrumentation results for '%s':\n"
+               "%10d basic block executions\n"
+               "%10d region commits\n",
+               stats->label,
+               stats->process_total,
+               stats->region_count);
     }
-//#endif /* SHOW_RESULTS */
 
     dr_raw_tls_cfree(tls_offset, 1);
     dr_mutex_destroy(stats_lock);

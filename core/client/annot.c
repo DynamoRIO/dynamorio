@@ -413,8 +413,8 @@ static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
     generic_func_t target;
-#ifdef UNIX
-    char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
+#if defined(UNIX) || defined(X64)
+    const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
 #else
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
@@ -501,11 +501,10 @@ specify_args(annotation_handler_t *handler, uint num_args)
     uint i;
     for (i = 4; i < num_args; i++) {
         handler->args[i] = OPND_CREATE_MEMPTR(
-            DR_REG_XSP, sizeof(ptr_uint_t) * (i-4));
+            DR_REG_XSP, sizeof(ptr_uint_t) * i);
     }
     switch (num_args) {
         default:
-            handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 4));
         case 4:
             handler->args[3] = opnd_create_reg(DR_REG_R9);
         case 3:
