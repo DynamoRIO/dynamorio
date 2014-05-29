@@ -18,6 +18,10 @@
 
 *************************************************************************************/
 
+#if defined(_MSC_VER) && !defined(WINDOWS)
+# define WINDOWS
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -26,15 +30,21 @@
 #include "annotation/bbcount_region_annotations.h"
 #include "annotation/memcheck.h"
 
-#ifdef UNIX
-# include <pthread.h>
-#else
+#ifdef WINDOWS
 # include <windows.h>
 # include <process.h>
+#else
+# include <pthread.h>
 #endif
 
 #define MAX_ITERATIONS 1000
 #define MAXTHREADS 8
+
+#ifdef WINDOWS
+# define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
+#else
+# define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
+#endif
 
 double Distance(double *X_Old, double *X_New, int matrix_size);
 
@@ -47,7 +57,7 @@ typedef struct _thread_init_t {
     int outer_iteration_count;
 } thread_init_t;
 
-#if defined(WINDOWS) || defined(_MSC_VER)
+#ifdef WINDOWS
 int WINAPI
 #else
 void
@@ -70,13 +80,13 @@ int main(int argc, char **argv)
   char CLASS;
 
   thread_init_t *thread_inits;
-#ifdef UNIX
+#ifdef WINDOWS
+  uintptr_t result;
+  HANDLE *threads;
+#else
   int result;
   pthread_attr_t pta;
   pthread_t *threads;
-#else
-  uintptr_t result;
-  HANDLE *threads;
 #endif
 
   memoryused =0.0;
@@ -171,19 +181,19 @@ int main(int argc, char **argv)
 
   for (ithread=0; ithread<NumThreads; ithread++) {
       char counter_name[32] = {0};
-      sprintf_s(counter_name, 32, "thread #%d", ithread); // TODO: macro
+      SPRINTF(counter_name, 32, "thread #%d", ithread); // TODO: macro
       BB_REGION_ANNOTATE_INIT_COUNTER(ithread, counter_name);
   }
   thread_handling_index = NumThreads;
   BB_REGION_ANNOTATE_INIT_COUNTER(thread_handling_index, "thread-handling");
 
-#ifdef UNIX
+#ifdef WINDOWS
+  threads = (HANDLE*) malloc(sizeof(HANDLE) * NumThreads);
+#else
   /* Allocating the memory for user specified number of threads */
   threads = (pthread_t *) malloc(sizeof(pthread_t) * NumThreads);
   /* Initializating the thread attribute */
   pthread_attr_init(&pta);
-#else
-  threads = (HANDLE*) malloc(sizeof(HANDLE) * NumThreads);
 #endif
   thread_inits = malloc(sizeof(thread_init_t) * NumThreads);
 
@@ -198,37 +208,37 @@ int main(int argc, char **argv)
       thread_inits[ithread].outer_iteration_count = Iteration;
 
       /* Creating The Threads */
-#ifdef UNIX
-      result = pthread_create(&threads[ithread], &pta, (void *(*) (void *))jacobi,
-        (void *) &thread_inits[ithread]);
-      if(result) {
-        printf("\n ERROR : Return code from pthread_create() is %d ",result);
-        exit(-1);
-      }
-#else
+#ifdef WINDOWS
       result = _beginthreadex(NULL, 0, jacobi, &thread_inits[ithread], 0, NULL);
       if (result <= 0) {
         printf("\n ERROR : Return code from _beginthread() is %d ", result);
         exit(-1);
       }
       threads[ithread] = (HANDLE) result;
+#else
+      result = pthread_create(&threads[ithread], &pta, (void *(*) (void *))jacobi,
+        (void *) &thread_inits[ithread]);
+      if(result) {
+        printf("\n ERROR : Return code from pthread_create() is %d ",result);
+        exit(-1);
+      }
 #endif
     }
 
     Iteration++;
     for (ithread=0; ithread<NumThreads; ithread++) {
-#ifdef UNIX
+#ifdef WINDOWS
+      WaitForSingleObject(threads[ithread], INFINITE);
+#else
       result=pthread_join(threads[ithread], NULL);
       if(result) {
         printf("\n ERROR : Return code from pthread_join() is %d ",result);
         exit(-1);
       }
-#else
-      WaitForSingleObject(threads[ithread], INFINITE);
 #endif
     }
 
-#ifdef UNIX
+#ifndef WINDOWS
     result=pthread_attr_destroy(&pta);
     if(result) {
       printf("\n ERROR : Return code from pthread_attr_destroy() is %d ",result);

@@ -56,9 +56,6 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded);
 static void
 event_module_unload(void *drcontext, const module_data_t *info);
 
-static void
-convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap);
-
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
@@ -414,7 +411,7 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
     generic_func_t target;
 #ifdef UNIX
-    char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
+    const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
 #else
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
@@ -441,19 +438,6 @@ event_module_unload(void *drcontext, const module_data_t *info)
                                                iter, key);
     } while (true);
     TABLE_RWLOCK(handlers, write, unlock);
-}
-
-/* Stolen from instrument.c--should it become a utility? */
-static void
-convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap)
-{
-    uint i;
-    /* There's no way to check num_args vs actual args passed in */
-    for (i = 0; i < num_args; i++) {
-        args[i] = va_arg(ap, opnd_t);
-        CLIENT_ASSERT(opnd_is_valid(args[i]),
-                      "Call argument: bad operand. Did you create a valid opnd_t?");
-    }
 }
 
 static valgrind_request_id_t
