@@ -93,9 +93,6 @@ static void
 test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
               uint g, uint h, uint i, uint j);
 
-static ptr_uint_t
-handle_make_mem_defined_if_addressable(vg_client_request_t *request);
-
 static counter_t *get_counter();
 
 static void event_module_load(void *drcontext, const module_data_t *info, bool loaded);
@@ -112,23 +109,6 @@ static void event_exit(void);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    const char *options = dr_get_options(id);
-    char *c;
-
-    for (c = (char *) options; *c != '\0'; c++) {
-        if (*c == '-') {
-            switch (*(++c)) {
-                case 'v':
-                    annot_register_valgrind(
-                        VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
-                        handle_make_mem_defined_if_addressable);
-                    break;
-                case '\0':
-                    break;
-            }
-        }
-    }
-
     stats_lock = dr_mutex_create();
 
     stats_list = dr_global_alloc(sizeof(stats_list_t));
@@ -288,14 +268,6 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
             "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d\n",
             a, b, c, d, e, f, g, h, i, j);
     }
-}
-
-static ptr_uint_t
-handle_make_mem_defined_if_addressable(vg_client_request_t *request)
-{
-    dr_fprintf(STDOUT, "handle_make_mem_defined_if_addressable("PFX", 0x%x)\n",
-        request->args[0], request->args[1]);
-    return 0;
 }
 
 static inline

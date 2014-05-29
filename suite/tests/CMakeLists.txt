@@ -579,9 +579,13 @@ endfunction(tobuild)
 
 function(tobuild_annot test source annot_sources)
   add_annot_exe(${test} ${source} ${annot_sources})
-  #set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
-  #set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild_annot)
+
+function(tobuild_annot_test test source annot_sources)
+  add_annot_exe(${test} ${source} ${annot_sources})
+  set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
+  set(${test}_source ${source} PARENT_SCOPE)
+endfunction(tobuild_annot_test)
 
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
@@ -1419,6 +1423,17 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (CLIENT_INTERFACE)
+  set(EMPTY_LIST "")
+  set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
+  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
+  file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
+  configure_file("${CORE_ANNOTATION}/valgrind.h"
+    "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
+  configure_file("${CORE_ANNOTATION}/memcheck.h"
+    "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
+  configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
+    "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
+
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
@@ -1451,6 +1466,8 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+
+    tobuild_annot_test(client.vg-annot client-interface/vg-annot.c EMPTY_LIST)
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -1469,6 +1486,7 @@ if (CLIENT_INTERFACE)
     if (NOT X64)
       # FIXME i#16, does not work in Win-X64 because of inline assembly code.
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+      tobuild_annot_test(client.vg-annot client-interface/vg-annot.c EMPTY_LIST)
     endif (NOT X64)
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c
@@ -1644,10 +1662,6 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.retaddr client-interface/retaddr.c "" "" "")
 
-  set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
-  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
-  file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
-
   if (BUILD_SAMPLES)
     # Sanity tests: we run the samples without SHOW_RESULTS (turned off
     # if BUILD_TESTS is on) so we're only ensuring the client doesn't crash.
@@ -1682,13 +1696,6 @@ if (CLIENT_INTERFACE)
       "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
   endif (BUILD_CLIENTS)
-
-  configure_file("${CORE_ANNOTATION}/valgrind.h"
-    "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
-  configure_file("${CORE_ANNOTATION}/memcheck.h"
-    "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
-  configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
-    "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
 
   set(JACOBI_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c"
     "${CORE_ANNOTATION}/dynamorio_annotations.c")

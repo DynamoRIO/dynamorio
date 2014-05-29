@@ -320,8 +320,8 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
     if (!opnd_same(src, xbx) || !opnd_same(dst, xbx))
         return false;
 
-    /* If it's a Valgrind annotation, the preceding `VALGRIND_ANNOTATION_ROL_COUNT`
-     * instructions will be `OP_rol` having `expected_rol_immeds` operands. */
+    /* If it's a Valgrind annotation, the preceding instructions will be
+     * OP_rol` having operands matching `expected_rol_immeds`. */
     instr_walk = instrlist_last(bb);
     for (i = (VALGRIND_ANNOTATION_ROL_COUNT - 1); i >= 0; i--) {
         if (instr_get_opcode(instr_walk) != OP_rol) {
@@ -459,6 +459,8 @@ static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request)
 {
     switch (request) {
+        case VG_USERREQ__RUNNING_ON_VALGRIND:
+            return VG_ID__RUNNING_ON_VALGRIND;
         case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
             return VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
     }
