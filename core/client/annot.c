@@ -126,8 +126,10 @@ annot_register_call_varg(void *drcontext, void *annotation_func,
                 handler->args[i] = va_arg(args, opnd_t);
                 CLIENT_ASSERT(opnd_is_valid(handler->args[i]),
                               "Call argument: bad operand. Did you create a valid opnd_t?");
+#ifndef x64
                 if (IS_ANNOTATION_STACK_ARG(handler->args[i]))
                     handler->arg_stack_space += sizeof(ptr_uint_t);
+#endif
             }
             va_end(args);
         }
@@ -144,6 +146,7 @@ annot_find_and_register_call(void *drcontext, const module_data_t *module,
                              _IF_NOT_X64(annotation_call_type_t type))
 {
     generic_func_t target;
+
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
 #else
@@ -464,7 +467,6 @@ specify_args(annotation_handler_t *handler, uint num_args)
     }
     switch (num_args) {
         default:
-            handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 6));
         case 6:
             handler->args[5] = opnd_create_reg(DR_REG_R9);
         case 5:
@@ -501,7 +503,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
     }
 }
 # endif
-#else // X86
+#else // x86 (all)
 static inline void
 specify_args(annotation_handler_t *handler, uint num_args,
                        annotation_call_type_t type)
