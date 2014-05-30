@@ -1,4 +1,5 @@
 #include "dr_api.h"
+#include <string.h>
 
 static uint num_bytes_made_defined = 0;
 static uint num_define_memory_requests = 0;
@@ -22,16 +23,30 @@ handle_make_mem_defined_if_addressable(vg_client_request_t *request)
     return 0;
 }
 
+dr_emit_flags_t
+empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
+               bool for_trace, bool translating)
+{
+}
+
 void exit_event(void)
 {
     dr_printf("Received %d 'define memory' requests.\n", num_define_memory_requests);
     dr_printf("Made %d memory bytes defined.\n", num_bytes_made_defined);
 }
 
+// TODO: second mode which registers for bb event, to test full-decode path
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    dr_printf("Init vg-annot\n");
+    const char *options = dr_get_options(id);
+
+    if (strcmp(options, "+bb") == 0) {
+        dr_printf("Init vg-annot with full decoding.\n");
+        dr_register_bb_event(empty_bb_event);
+    } else {
+        dr_printf("Init vg-annot with fast decoding.\n");
+    }
 
     dr_register_exit_event(exit_event);
 

@@ -23,17 +23,19 @@ int main()
             if ((i == 27) && (j == 4))
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc1, 1234);
 
-            data[i*2][j] = (4 * i) / j;
+            data[i*2][j] = (4 * i) / (j + 1);
 
             if (i == (2 * j))
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc2, 567);
 
             data[i*2][j+i] = data[(MATRIX_SIZE/2) + (j-i)][3];
 
-            if ((i / j) > (MATRIX_SIZE - (i % j)))
+            if ((j > 0) && ((i / j) >= (MATRIX_SIZE - (j * (i % j)))))
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc3, 89);
         }
     }
 
-    fprintf(stderr, "thank you for testing the client interface\n");
+    free(alloc1);
+    free(alloc2);
+    free(alloc3);
 }

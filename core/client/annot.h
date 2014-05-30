@@ -1,8 +1,31 @@
 #ifndef _ANNOT_H_
 #define _ANNOT_H_ 1
 
-#define IS_VALGRIND_ANNOTATION_SHAPE(instr, count) \
-    (instr_get_opcode(instr) == OP_xchg) && (count > 4)
+#define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr, count) \
+    (count > 3) && (instr_get_opcode(instr) == OP_xchg)
+
+#ifdef X64
+# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc, count) \
+    ((count > 3) && (*(ushort *) (instr_start_pc + 1) == 0xdb87))
+# define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
+    ((*(uint64 *) (xchg_start_pc - 0x10) == 0xdc7c14803c7c148ULL) && \
+     (*(uint64 *) (xchg_start_pc - 8) == 0x33c7c1483dc7c148ULL))
+
+#else
+# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc, count) \
+    ((count > 3) && (*(ushort *) instr_start_pc == 0xdb87))
+# define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
+    ((*(uint *) (xchg_start_pc - 0xc) == 0xc103c7c1UL) && \
+     (*(uint *) (xchg_start_pc - 8) == 0xc7c10dc7) && \
+     (*(uint *) (xchg_start_pc - 4) == 0x13c7c11d))
+/*
+c1 c7 03              rol    $0x3,%edi
+c1 c7 0d              rol    $0xd,%edi
+c1 c7 1d              rol    $0x1d,%edi
+c1 c7 13              rol    $0x13,%edi
+87 db                 xchg   %ebx,%ebx
+*/
+#endif
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 

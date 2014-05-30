@@ -3068,6 +3068,25 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 /* must reset, may go through loop multiple times */
                 instr_reset(dcontext, bb->instr);
                 bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
+
+#if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
+                if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start, total_instrs)) {
+                    if (IS_ENCODED_VALGRIND_ANNOTATION(bb->instr_start)) {
+                        dr_printf("Found Valgrind annotation on the fast path.\n");
+
+                        KSTOP(bb_decoding);
+                        instr_destroy(dcontext, bb->instr);
+                        instrlist_clear_and_destroy(dcontext, bb->ilist);
+                        if (bb->vmlist != NULL) {
+                            vm_area_destroy_list(dcontext, bb->vmlist);
+                            bb->vmlist = NULL;
+                        }
+                        bb->full_decode = true; // annotation requires full decode
+                        build_bb_ilist(dcontext, bb);
+                        return;
+                    }
+                }
+#endif
             }
 
             ASSERT(!bb->check_vm_area || bb->checked_end != NULL);
@@ -3121,18 +3140,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
-/*
-#if defined(ANNOTATIONS) && defined(CLIENT_INTERFACE) && !(defined(X64) && defined(WINDOWS))
-            / * ???: Checking for annotations here because the above conditions might terminate
-             * the BB, even if `bb->instr` is an annotation. * /
-            if (instr_get_opcode(bb->instr) == OP_xchg)
-                dr_printf("Found an xchg at %d instrs\n", total_instrs);
-            if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
-                if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
-                    continue;
-            }
-# endif
-*/
           /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag
@@ -3288,20 +3295,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
-/*
-#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
-        / * Checking for annotations here because the above conditions might terminate
-         * the BB, even if `bb->instr` is an annotation. * /
+#ifdef ANNOTATIONS
 # if !(defined(X64) && defined(WINDOWS))
-        if (instr_get_opcode(bb->instr) == OP_xchg)
-            dr_printf("Found an xchg at %d instrs\n", total_instrs);
-        if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
+        if (IS_DECODED_VALGRIND_ANNOTATION_TAIL(bb->instr, total_instrs)) {
             if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
                 continue;
         } else
 # endif
-*/
-#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         {
             instr_t *substitution = annot_match(dcontext, bb->instr);
             if (substitution != NULL) {

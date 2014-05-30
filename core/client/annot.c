@@ -307,7 +307,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
     opnd_t dst = instr_get_dst(instr, 0);
     opnd_t xbx = opnd_create_reg(DR_REG_XBX);
 
-    dr_printf("Checking for Valgrind annotation at "PFX".\n", instr_get_app_pc(instr));
+    // dr_printf("Checking for Valgrind annotation at "PFX".\n", instr_get_app_pc(instr));
 
     if (!opnd_same(src, xbx) || !opnd_same(dst, xbx))
         return false;
@@ -359,7 +359,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
         instr = instr_walk;
     }
 
-    dr_printf("Found a Valgrind annotation.\n");
+    // dr_printf("Found a Valgrind annotation.\n");
 
     // TODO: check request id, and ignore if we don't support that one?
 
@@ -433,15 +433,15 @@ handle_vg_annotation(app_pc request_args)
 
     request_id = lookup_valgrind_request(request.request);
 
-    dr_printf("Core handles Valgrind annotation %d.\n", request_id);
+    // dr_printf("Core handles Valgrind annotation %d.\n", request_id);
 
     if (request_id < VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
         handler = vg_handlers[request_id];
         if (handler != NULL) // TODO: multiple handlers? Then what result?
             result = handler->instrumentation.vg_callback(&request);
-        else
-            dr_printf("Valgrind handler returns default result 0x%x\n", result);
+        //else
+            //dr_printf("Valgrind handler returns default result 0x%x\n", result);
         TABLE_RWLOCK(handlers, read, unlock);
     }
 
