@@ -581,12 +581,6 @@ function(tobuild_annot test source annot_sources)
   add_annot_exe(${test} ${source} ${annot_sources})
 endfunction(tobuild_annot)
 
-function(tobuild_annot_test test source annot_sources)
-  add_annot_exe(${test} ${source} ${annot_sources})
-  set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
-  set(${test}_source ${source} PARENT_SCOPE)
-endfunction(tobuild_annot_test)
-
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
   add_exe(${test} ${source})
@@ -1467,7 +1461,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
 
-    tobuild_annot_test(client.vg-annot client-interface/vg-annot.c EMPTY_LIST)
+    tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -1486,7 +1480,7 @@ if (CLIENT_INTERFACE)
     if (NOT X64)
       # FIXME i#16, does not work in Win-X64 because of inline assembly code.
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-      tobuild_annot_test(client.vg-annot client-interface/vg-annot.c EMPTY_LIST)
+      tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
     endif (NOT X64)
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c

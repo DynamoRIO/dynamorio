@@ -6,22 +6,20 @@
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
-#ifdef CLIENT_INTERFACE
-
 #define IS_ANNOTATION_LABEL(instr) \
     ((instr != NULL) && TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr))
 
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
 
-/* DR_API EXPORT TOFILE dr_annot.h */
+/* DR_API EXPORT TOFILE dr_annotation.h */
 /* DR_API EXPORT BEGIN */
 
 /*********************************************************
  * ROUTINES TO REGISTER ANNOTATION HANDLERS
  */
 /**
- * @file dr_annot.h
+ * @file dr_annotation.h
  * @brief Annotation handler registration routines.
  */
 
@@ -84,24 +82,24 @@ typedef struct _annotation_handler_t {
 /* DR_API EXPORT END */
 
 DR_API
-void annot_register_call_varg(void *drcontext, void *annotation_func,
+void dr_annot_register_call_varg(void *drcontext, void *annotation_func,
                               void *callee, bool save_fpstate, uint num_args, ...);
 
 DR_API
-bool annot_find_and_register_call(void *drcontext, const module_data_t *module,
+bool dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                                   const char *target_name, void *callee, uint num_args
                                   _IF_NOT_X64(annotation_call_type_t type));
 
 DR_API
-void annot_register_call(void *drcontext, void *annotation_func, void *callee,
+void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee,
                          bool save_fpstate, uint num_args
                          _IF_NOT_X64(annotation_call_type_t type));
 
 DR_API
-void annot_register_return(void *drcontext, void *annotation_func, void *return_value);
+void dr_annot_register_return(void *drcontext, void *annotation_func, void *return_value);
 
 DR_API
-void annot_register_valgrind(valgrind_request_id_t request,
+void dr_annot_register_valgrind(valgrind_request_id_t request,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
 // TODO: deregister
@@ -122,7 +120,7 @@ annot_match(dcontext_t *dcontext, instr_t *instr);
  * Return true if the replacement occurred, and set next_instr to the first
  * instruction after the annotation sequence.
  *
- * Example Valgrind annotation sequence from annotations test:
+ * Example Valgrind annotation sequence from annotations test (x86):
  * <C code to fill _zzq_args>
  * lea    0xffffffe4(%ebp) -> %eax      ; lea _zzq_args -> %eax
  * mov    0x08(%ebp) -> %edx            ; mov _zzq_default -> %edx
@@ -140,6 +138,11 @@ annot_match(dcontext_t *dcontext, instr_t *instr);
 bool
 match_valgrind_pattern(dcontext_t *dc, instrlist_t *bb, instr_t *instr);
 
-#endif
+void
+annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
+                        bool already_loaded);
 
-#endif /* CLIENT_INTERFACE */
+void
+annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data);
+
+#endif

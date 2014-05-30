@@ -49,7 +49,7 @@ extern "C" {
 #include "dr_events.h"
 
 /* Annotation handler registration routines */
-#include "dr_annot.h"
+#include "dr_annotation.h"
 
 /* Application start/stop interface */
 #include "dr_app.h"

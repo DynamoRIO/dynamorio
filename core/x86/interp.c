@@ -3121,7 +3121,18 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
-            /* Eflags analysis:
+#if defined(ANNOTATIONS) && defined(CLIENT_INTERFACE) && !(defined(X64) && defined(WINDOWS))
+            /* ???: Checking for annotations here because the above conditions might terminate
+             * the BB, even if `bb->instr` is an annotation. */
+            if (instr_get_opcode(bb->instr) == OP_xchg)
+                dr_printf("Found an xchg at %d instrs\n", total_instrs);
+            if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
+                if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
+                    continue;
+            }
+# endif
+
+          /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag
              * prior to writing it.
@@ -3276,15 +3287,20 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
+/*
 #if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
-        /* Checking for annotations here because the above conditions might terminate
-         * the BB, even if `bb->instr` is an annotation. */
+        / * Checking for annotations here because the above conditions might terminate
+         * the BB, even if `bb->instr` is an annotation. * /
 # if !(defined(X64) && defined(WINDOWS))
+        if (instr_get_opcode(bb->instr) == OP_xchg)
+            dr_printf("Found an xchg at %d instrs\n", total_instrs);
         if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
             if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
                 continue;
         } else
 # endif
+*/
+#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
         {
             instr_t *substitution = annot_match(dcontext, bb->instr);
             if (substitution != NULL) {

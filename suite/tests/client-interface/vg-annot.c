@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "dr_annot.h"
+#include <stdlib.h>
 #include "annotation/valgrind.h"
 #include "annotation/memcheck.h"
 
@@ -13,8 +13,8 @@ int main()
     void *alloc2 = malloc(567);
     void *alloc3 = malloc(89);
 
-    printf(stderr, "The Valgrind annotation test thinks it is%srunning on Valgrind.\n",
-        RUNNING_ON_VALGRIND() ? " " : " not");
+    fprintf(stderr, "The Valgrind annotation test thinks it is%srunning on Valgrind.\n",
+        RUNNING_ON_VALGRIND ? " " : " not ");
 
     for (i = 0; i < (MATRIX_SIZE/2); i++) {
         for (j = 0; j < (MATRIX_SIZE/2); j++) {

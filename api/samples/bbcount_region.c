@@ -8,7 +8,7 @@
 #include <string.h> /* memset */
 #include "dr_api.h"
 #include "dr_ir_opnd.h"
-#include "dr_annot.h"
+#include "dr_annotation.h"
 
 #ifdef UNIX
 # include <pthread.h>
@@ -279,19 +279,19 @@ counter_t *get_counter()
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    annot_find_and_register_call(drcontext, info, "bb_region_annotate_init_counter",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_annotate_init_counter",
         (void *) init_counter, 2 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_annotate_start_counter",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_annotate_start_counter",
         (void *) start_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_annotate_stop_counter",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_annotate_stop_counter",
         (void *) stop_counter, 1 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_get_basic_block_stats",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_get_basic_block_stats",
         (void *) get_basic_block_stats, 3 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_test_eight_args",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_eight_args",
         (void *) test_eight_args, 8 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_test_nine_args",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_nine_args",
         (void *) test_nine_args, 9 _IF_NOT_X64(ANNOT_FASTCALL));
-    annot_find_and_register_call(drcontext, info, "bb_region_test_ten_args",
+    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_ten_args",
         (void *) test_ten_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
 }
 

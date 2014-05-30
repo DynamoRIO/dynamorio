@@ -9,8 +9,6 @@
 #include "../lib/annotation/valgrind.h"
 #include "../lib/annotation/memcheck.h"
 
-#ifdef CLIENT_INTERFACE
-
 #define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \
     dr_snprintf(dst, dst_size, "@%s@%d", src, sizeof(ptr_uint_t) * num_args);
 
@@ -50,12 +48,6 @@ expected_rol_immeds[VG_PATTERN_LENGTH] = {
 static void
 handle_vg_annotation(app_pc request_args);
 
-static void
-event_module_load(void *drcontext, const module_data_t *info, bool loaded);
-
-static void
-event_module_unload(void *drcontext, const module_data_t *info);
-
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
@@ -76,9 +68,6 @@ annot_init()
                                    HASHTABLE_RELAX_CLUSTER_CHECKS,
                                    free_annotation_handler
                                    _IF_DEBUG("annotation hashtable"));
-
-    dr_register_module_load_event(event_module_load);
-    dr_register_module_unload_event(event_module_unload);
 }
 
 void
@@ -96,7 +85,7 @@ annot_exit()
 }
 
 void
-annot_register_call_varg(void *drcontext, void *annotation_func,
+dr_annot_register_call_varg(void *drcontext, void *annotation_func,
                          void *callback, bool save_fpstate, uint num_args, ...)
 {
     annotation_handler_t *handler;
@@ -140,7 +129,7 @@ annot_register_call_varg(void *drcontext, void *annotation_func,
 }
 
 bool
-annot_find_and_register_call(void *drcontext, const module_data_t *module,
+dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                              const char *target_name,
                              void *callback, uint num_args
                              _IF_NOT_X64(annotation_call_type_t type))
@@ -155,7 +144,7 @@ annot_find_and_register_call(void *drcontext, const module_data_t *module,
 #endif
     target = dr_get_proc_address(module->handle, symbol_name);
     if (target != NULL) {
-        annot_register_call(drcontext, (void *) target, callback, false,
+        dr_annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
         return true;
     } else {
@@ -164,7 +153,7 @@ annot_find_and_register_call(void *drcontext, const module_data_t *module,
 }
 
 void
-annot_register_call(void *drcontext, void *annotation_func, void *callback,
+dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
                     bool save_fpstate, uint num_args
                     _IF_NOT_X64(annotation_call_type_t type))
 {
@@ -197,7 +186,7 @@ annot_register_call(void *drcontext, void *annotation_func, void *callback,
 }
 
 void
-annot_register_return(void *drcontext, void *annotation_func, void *return_value)
+dr_annot_register_return(void *drcontext, void *annotation_func, void *return_value)
 {
     annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
@@ -221,7 +210,7 @@ annot_register_return(void *drcontext, void *annotation_func, void *return_value
 }
 
 void
-annot_register_valgrind(valgrind_request_id_t request_id,
+dr_annot_register_valgrind(valgrind_request_id_t request_id,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request))
 {
     annotation_handler_t *handler;
@@ -317,6 +306,9 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
     opnd_t src = instr_get_src(instr, 0);
     opnd_t dst = instr_get_dst(instr, 0);
     opnd_t xbx = opnd_create_reg(DR_REG_XBX);
+
+    dr_printf("Checking for Valgrind annotation at "PFX".\n", instr_get_app_pc(instr));
+
     if (!opnd_same(src, xbx) || !opnd_same(dst, xbx))
         return false;
 
@@ -367,6 +359,8 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
         instr = instr_walk;
     }
 
+    dr_printf("Found a Valgrind annotation.\n");
+
     // TODO: check request id, and ignore if we don't support that one?
 
     /* Append a write to %xbx, both to ensure it's marked defined by DrMem
@@ -383,6 +377,43 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
     return true;
 }
 
+void
+annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
+                        bool already_loaded)
+{
+    generic_func_t target;
+
+#if defined(UNIX) || defined(X64)
+    const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
+#else
+    char symbol_name[256];
+    PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
+#endif
+    target = dr_get_proc_address(data->handle, symbol_name);
+    if (target != NULL)
+        dr_annot_register_return(dcontext, (void *) target, (void *) (ptr_uint_t) true);
+}
+
+void
+annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data)
+{
+    int iter = 0;
+    ptr_uint_t key;
+    void *handler;
+    TABLE_RWLOCK(handlers, write, lock);
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
+                                         iter, &key, &handler);
+        if (iter < 0)
+            break;
+        if ((key > (ptr_uint_t) data->start) && (key < (ptr_uint_t) data->end))
+            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
+                                               iter, key);
+    } while (true);
+    TABLE_RWLOCK(handlers, write, unlock);
+}
+
+
 /**** Private Function Definitions ****/
 
 static void
@@ -395,13 +426,15 @@ handle_vg_annotation(app_pc request_args)
     dr_mcontext_t mcontext;
     ptr_uint_t result;
 
-    //if (!safe_read(request_args, sizeof(request), &request))
     if (!safe_read(request_args, sizeof(vg_client_request_t), &request))
         return;
 
     result = request.default_result;
 
     request_id = lookup_valgrind_request(request.request);
+
+    dr_printf("Core handles Valgrind annotation %d.\n", request_id);
+
     if (request_id < VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
         handler = vg_handlers[request_id];
@@ -418,41 +451,6 @@ handle_vg_annotation(app_pc request_args)
     dr_get_mcontext(dcontext, &mcontext);
     mcontext.xbx = result;
     dr_set_mcontext(dcontext, &mcontext);
-}
-
-static void
-event_module_load(void *drcontext, const module_data_t *info, bool loaded)
-{
-    generic_func_t target;
-
-#if defined(UNIX) || defined(X64)
-    const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
-#else
-    char symbol_name[256];
-    PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
-#endif
-    target = dr_get_proc_address(info->handle, symbol_name);
-    if (target != NULL)
-        annot_register_return(drcontext, (void *) target, (void *) (ptr_uint_t) true);
-}
-
-static void
-event_module_unload(void *drcontext, const module_data_t *info)
-{
-    int iter = 0;
-    ptr_uint_t key;
-    void *handler;
-    TABLE_RWLOCK(handlers, write, lock);
-    do {
-        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
-                                         iter, &key, &handler);
-        if (iter < 0)
-            break;
-        if ((key > (ptr_uint_t) info->start) && (key < (ptr_uint_t) info->end))
-            iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
-                                               iter, key);
-    } while (true);
-    TABLE_RWLOCK(handlers, write, unlock);
 }
 
 static valgrind_request_id_t
@@ -556,5 +554,3 @@ free_annotation_handler(void *p)
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t,
                     1, ACCT_OTHER, UNPROTECTED);
 }
-
-#endif /* CLIENT_INTERFACE */
