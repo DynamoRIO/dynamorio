@@ -3121,9 +3121,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
+/*
 #if defined(ANNOTATIONS) && defined(CLIENT_INTERFACE) && !(defined(X64) && defined(WINDOWS))
-            /* ???: Checking for annotations here because the above conditions might terminate
-             * the BB, even if `bb->instr` is an annotation. */
+            / * ???: Checking for annotations here because the above conditions might terminate
+             * the BB, even if `bb->instr` is an annotation. * /
             if (instr_get_opcode(bb->instr) == OP_xchg)
                 dr_printf("Found an xchg at %d instrs\n", total_instrs);
             if (IS_VALGRIND_ANNOTATION_SHAPE(bb->instr, total_instrs)) {
@@ -3131,7 +3132,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     continue;
             }
 # endif
-
+*/
           /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag

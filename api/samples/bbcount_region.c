@@ -34,16 +34,6 @@ do { \
 
 #define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
 
-#define TESTALL(mask, var) (((mask) & (var)) == (mask))
-#define TESTANY(mask, var) (((mask) & (var)) != 0)
-
-#define REGISTER_ANNOTATION_NOARG_CALL(drcontext, handle, target_name, call) \
-do { \
-    generic_func_t target = dr_get_proc_address(handle, target_name); \
-    if (target != NULL) \
-        annot_register_call(drcontext, target, call, false, 0); \
-} while (0)
-
 static reg_id_t tls_segment_register;
 static uint tls_offset;
 

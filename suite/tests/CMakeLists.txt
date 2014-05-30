@@ -87,6 +87,8 @@ endif (UNIX)
 # N.B.: if short-suite tests are added to other than the debug-internal-{32,64}
 # builds, update runsuite.cmake to build the tests for those builds!
 
+set(EMPTY_LIST "")
+
 set(vmap_run_list
   # our main configuration
   "SHORT::-code_api"
@@ -622,16 +624,22 @@ function(get_client_path client_path_out realclient realexe)
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
+function(tobuild_ci test source client_ops dr_ops exe_ops)
+  tobuild_ci_ex(${test} ${source} client_ops dr_ops exe_ops EMPTY_LIST)
+endfunction(tobuild_ci)
+
 # client interface app with client
 # note that we can't easily have a routine that takes no ops
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
-function(tobuild_ci test source client_ops dr_ops exe_ops)
+function(tobuild_ci_ex test source client_ops dr_ops exe_ops extra_sources)
   string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
   if (NOT "${source}" MATCHES "\\.runall$")
-    add_exe(${test} ${source})
+    set(test_srcs ${source} ${${extra_sources}}) # added
+    add_exe(${test} ${test_srcs})
+    # add_exe(${test} ${source})
   elseif (STATIC_LIBRARY)
     return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
@@ -659,7 +667,7 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
-endfunction(tobuild_ci)
+endfunction(tobuild_ci_ex)
 
 function(configure_app_api_build_flags test decoder)
   # save property since configure_DynamoRIO_standalone will clobber it
@@ -1417,7 +1425,6 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (CLIENT_INTERFACE)
-  set(EMPTY_LIST "")
   set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
   set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
   file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
@@ -1427,6 +1434,9 @@ if (CLIENT_INTERFACE)
     "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
   configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.h"
+    "${BUILD_ANNOTATION}/test_custom_annotations.h" COPYONLY)
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
@@ -1440,6 +1450,21 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   tobuild_appdll(client.modules client-interface/modules.c)
+
+  #
+  set(client.annotation.sources
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
+  tobuild_ci_ex(client.annotation client-interface/annotation.c "" "" "A4"
+    client.annotation.sources)
+  if (UNIX)
+    target_link_libraries(client.annotation ${libpthread})
+  endif (UNIX)
+  # or:
+  #set(TEST_CUSTOM_ANNOTATIONS
+  # "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
+  #tobuild_annot(client.annotation "client-interface/annotation.c" TEST_CUSTOM_ANNOTATIONS)
+  #
+
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
     tobuild_ci(client.partial_module_map client-interface/partial_module_map.c "" "" "")
@@ -1460,7 +1485,6 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-
     tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
