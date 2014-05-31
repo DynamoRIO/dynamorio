@@ -1,5 +1,5 @@
-#ifndef _BB_REGION_ANNOTATIONS_H_
-#define _BB_REGION_ANNOTATIONS_H_ 1
+#ifndef _TEST_CUSTOM_ANNOTATIONS_H_
+#define _TEST_CUSTOM_ANNOTATIONS_H_ 1
 
 #define TEST_ANNOTATION_INIT_MODE(mode) \
     test_annotation_init_mode(mode)

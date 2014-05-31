@@ -1,4 +1,4 @@
-#include "bbcount_region_annotations.h"
+#include "test_custom_annotations.h"
 
 #pragma auto_inline(off)
 

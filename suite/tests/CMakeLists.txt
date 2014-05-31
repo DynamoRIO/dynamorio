@@ -518,6 +518,15 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
+  if ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
+    set(test_srcs ${test_srcs}
+      "${CORE_ANNOTATION}/dynamorio_annotations.c")
+  endif ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
+  if ("${srccode}" MATCHES "include \"annotation/test_custom_annotations.h\"")
+    set(test_srcs ${test_srcs}
+      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
+  endif ("${srccode}" MATCHES "include \"annotation/test_custom_annotations.h\"")
+
   add_executable(${test} ${test_srcs})
 
   set_target_properties(${test} PROPERTIES
@@ -548,40 +557,12 @@ function(add_exe test source)
   endif ()
 endfunction(add_exe)
 
-function(add_annot_exe test source annot_sources)
-  get_filename_component(srcbase ${source} NAME_WE)
-  get_filename_component(srcpath ${source} PATH)
-
-  set(test_srcs ${source} ${${annot_sources}})
-  set_cflags(${source}) # sets srccode var
-
-  add_executable(${test} ${test_srcs})
-
-  set_target_properties(${test} PROPERTIES
-    LINK_FLAGS "${ARCH_DEBUG}"
-    # we don't want the default rpath of <builddir>/lib as it makes
-    # it hard to use other DR builds w/ these apps
-    SKIP_BUILD_RPATH ON)
-  if (UNIX)
-    target_link_libraries(${test} ${libmath} ${libdl})
-    if ("${test}" MATCHES "^pthread|startstop")
-      target_link_libraries(${test} ${libpthread})
-    endif ("${test}" MATCHES "^pthread|startstop")
-  else (UNIX)
-    append_link_flags(${test} "${ARCH_LDFLAGS}")
-  endif (UNIX)
-endfunction(add_annot_exe)
-
 # normal app
 function(tobuild test source)
   add_exe(${test} ${source})
   set(testlist_normal ${testlist_normal} ${test} PARENT_SCOPE)
   set(${test}_source ${source} PARENT_SCOPE)
 endfunction(tobuild)
-
-function(tobuild_annot test source annot_sources)
-  add_annot_exe(${test} ${source} ${annot_sources})
-endfunction(tobuild_annot)
 
 # normal app w/ options
 function(tobuild_ops test source dr_ops exe_ops)
@@ -624,22 +605,18 @@ function(get_client_path client_path_out realclient realexe)
   set(${client_path_out} "${client_path}" PARENT_SCOPE)
 endfunction(get_client_path)
 
-function(tobuild_ci test source client_ops dr_ops exe_ops)
-  tobuild_ci_ex(${test} ${source} client_ops dr_ops exe_ops EMPTY_LIST)
-endfunction(tobuild_ci)
-
 # client interface app with client
 # note that we can't easily have a routine that takes no ops
 # and calls this one w/ "" "" "" b/c the PARENT_SCOPE won't make
 # it all the way back then: would need to chain.
-function(tobuild_ci_ex test source client_ops dr_ops exe_ops extra_sources)
+function(tobuild_ci test source client_ops dr_ops exe_ops)
   string(REGEX REPLACE "\\.(c|cpp)$" ".dll.\\1" client_source "${source}")
   string(REGEX REPLACE "\\.runall$" ".dll.c" client_source "${client_source}")
 
   if (NOT "${source}" MATCHES "\\.runall$")
-    set(test_srcs ${source} ${${extra_sources}}) # added
-    add_exe(${test} ${test_srcs})
-    # add_exe(${test} ${source})
+    #set(test_srcs ${source} ${${extra_sources}})
+    #add_exe(${test} ${test_srcs})
+    add_exe(${test} ${source})
   elseif (STATIC_LIBRARY)
     return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
@@ -667,7 +644,7 @@ function(tobuild_ci_ex test source client_ops dr_ops exe_ops extra_sources)
   set(${test}_dr_ops ${dr_ops} PARENT_SCOPE)
   set(${test}_exe_ops ${exe_ops} PARENT_SCOPE)
   set(${test}_client_path ${client_path} PARENT_SCOPE)
-endfunction(tobuild_ci_ex)
+endfunction(tobuild_ci)
 
 function(configure_app_api_build_flags test decoder)
   # save property since configure_DynamoRIO_standalone will clobber it
@@ -1451,19 +1428,10 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   tobuild_appdll(client.modules client-interface/modules.c)
 
-  #
-  set(client.annotation.sources
-    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
-  tobuild_ci_ex(client.annotation client-interface/annotation.c "" "" "A4"
-    client.annotation.sources)
+  tobuild_ci(client.annotation client-interface/annotation.c "" "" "A4")
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
   endif (UNIX)
-  # or:
-  #set(TEST_CUSTOM_ANNOTATIONS
-  # "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
-  #tobuild_annot(client.annotation "client-interface/annotation.c" TEST_CUSTOM_ANNOTATIONS)
-  #
 
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
@@ -1490,7 +1458,6 @@ if (CLIENT_INTERFACE)
       client-interface/vg-annot.c "" "" "")
     torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "+bb" "" "")
-    #tobuild_ci(client.vg-annot.full-decode client-interface/vg-annot.c "+bb" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")
@@ -1510,7 +1477,10 @@ if (CLIENT_INTERFACE)
       # FIXME i#16, does not work in Win-X64 because of inline assembly code.
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
       tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-      #tobuild_ci(client.vg-annot.full-decode client-interface/vg-annot.c "+bb" "" "")
+      torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "" "" "")
+      torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "+bb" "" "")
     endif (NOT X64)
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c
@@ -1703,16 +1673,6 @@ if (CLIENT_INTERFACE)
           common/eflags.c "" "-opt_cleancall 0" "")
       endif ()
     endforeach ()
-
-    set(SAMPLES_LIB "${PROJECT_SOURCE_DIR}/api/samples/lib")
-    configure_file("${SAMPLES_LIB}/bbcount_region_annotations.h"
-      "${BUILD_ANNOTATION}/bbcount_region_annotations.h" COPYONLY)
-
-    torunonly_ci(sample.bbcount_region.jacobi client.jacobi bbcount_region
-      client-interface/jacobi.c "" "" "A4")
-    torunonly_ci(sample.bbcount_region.calculator client.calculator bbcount_region
-      client-interface/calculator.c "" ""
-      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/calculator_script.cal")
   endif (BUILD_SAMPLES)
 
   if (BUILD_CLIENTS)
@@ -1721,15 +1681,6 @@ if (CLIENT_INTERFACE)
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
   endif (BUILD_CLIENTS)
 
-  set(JACOBI_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c"
-    "${CORE_ANNOTATION}/dynamorio_annotations.c")
-  tobuild_annot(client.jacobi "client-interface/jacobi.c" JACOBI_ANNOTATIONS)
-  if (UNIX)
-    target_link_libraries(client.jacobi ${libpthread})
-  endif (UNIX)
-
-  set(CALCULATOR_ANNOTATIONS "${SAMPLES_LIB}/bbcount_region_annotations.c")
-  tobuild_annot(client.calculator "client-interface/calculator.c" CALCULATOR_ANNOTATIONS)
 endif (CLIENT_INTERFACE)
 
 if (UNIX)

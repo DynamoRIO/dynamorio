@@ -7,15 +7,13 @@ static uint num_define_memory_requests = 0;
 static ptr_uint_t
 handle_running_on_valgrind(vg_client_request_t *request)
 {
-    dr_printf("handle_running_on_valgrind()\n");
     return 1;
 }
 
 static ptr_uint_t
 handle_make_mem_defined_if_addressable(vg_client_request_t *request)
 {
-    dr_printf("handle_make_mem_defined_if_addressable(): %d bytes\n",
-        request->args[1]);
+    dr_printf("Make %d bytes defined if addressable.\n", request->args[1]);
 
     num_bytes_made_defined += request->args[1];
     num_define_memory_requests++;
@@ -31,8 +29,8 @@ empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
 
 void exit_event(void)
 {
-    dr_printf("Received %d 'define memory' requests.\n", num_define_memory_requests);
-    dr_printf("Made %d memory bytes defined.\n", num_bytes_made_defined);
+    dr_printf("Received %d 'define memory' requests for a total of %d bytes.\n",
+        num_define_memory_requests, num_bytes_made_defined);
 }
 
 // TODO: second mode which registers for bb event, to test full-decode path

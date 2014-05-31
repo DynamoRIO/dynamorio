@@ -13,7 +13,7 @@ int main()
     void *alloc2 = malloc(567);
     void *alloc3 = malloc(89);
 
-    fprintf(stderr, "The Valgrind annotation test thinks it is%srunning on Valgrind.\n",
+    printf("The Valgrind annotation test thinks it is%srunning on Valgrind.\n",
         RUNNING_ON_VALGRIND ? " " : " not ");
 
     for (i = 0; i < (MATRIX_SIZE/2); i++) {

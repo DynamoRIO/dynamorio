@@ -1,19 +1,19 @@
-/* Code Manipulation API Sample:
- * bbcount_region.c
- *
- * Reports the dynamic execution count of all basic blocks.
- */
-
-#include <stddef.h> /* for offsetof */
 #include <string.h> /* memset */
 #include "dr_api.h"
 #include "dr_ir_opnd.h"
 #include "dr_annotation.h"
 
+#define MAX_MODE_HISTORY 100
+
+#define PRINT(s) dr_printf("\t<"s">\n")
+#define PRINTF(s, ...) dr_printf("\t<"s">\n", __VA_ARGS__)
+
 typedef struct _context_t {
     uint id;
     char *label;
     uint mode;
+    uint *mode_history;
+    uint mode_history_index;
     struct _context_t *next;
 } context_t;
 
@@ -43,7 +43,7 @@ get_context(uint id)
 static void
 init_mode(uint mode)
 {
-    dr_fprintf(STDERR, "Initialize mode %d\n", mode);
+    PRINTF("Initialize mode %d", mode);
 }
 
 static void
@@ -52,7 +52,7 @@ init_context(uint id, const char *label, uint initial_mode)
     context_t *context;
     dr_mutex_lock(context_lock);
 
-    dr_printf("Initialize context %d '%s' in mode %d.\n", id, label, initial_mode);
+    PRINTF("Initialize context %d '%s' in mode %d", id, label, initial_mode);
 
     context = get_context(id);
     if (context == NULL) {
@@ -60,7 +60,11 @@ init_context(uint id, const char *label, uint initial_mode)
         context->id = id;
         context->label = dr_global_alloc((sizeof(char) * strlen(label)) + 1);
         context->mode = initial_mode;
+        context->mode_history = dr_global_alloc(MAX_MODE_HISTORY * sizeof(uint));
+        context->mode_history[0] = initial_mode;
+        context->mode_history_index = 1;
         strcpy(context->label, label);
+        context->next = NULL;
 
         if (context_list->head == NULL) {
             context_list->head = context_list->tail = context;
@@ -84,19 +88,18 @@ set_mode(uint context_id, uint new_mode)
     if (context != NULL) {
         original_mode = context->mode;
         context->mode = new_mode;
+        if (context->mode_history_index < MAX_MODE_HISTORY)
+            context->mode_history[context->mode_history_index++] = new_mode;
     }
     dr_mutex_unlock(context_lock);
-
-    dr_printf("Set context %d mode from %d to %d.\n",
-        context_id, original_mode, new_mode);
 }
 
 static void
 test_eight_args(uint a, uint b, uint c, uint d, uint e, uint f,
                 uint g, uint h)
 {
-    dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d\n",
+    PRINTF("Test many args: "
+        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d",
         a, b, c, d, e, f, g, h);
 }
 
@@ -104,8 +107,8 @@ static void
 test_nine_args(uint a, uint b, uint c, uint d, uint e, uint f,
                uint g, uint h, uint i)
 {
-    dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d\n",
+    PRINTF("Test many args: "
+        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d",
         a, b, c, d, e, f, g, h, i);
 }
 
@@ -113,42 +116,62 @@ static void
 test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
               uint g, uint h, uint i, uint j)
 {
-    dr_fprintf(STDERR, "Client 'bbcount_region' tests many args: "
-        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d\n",
+    PRINTF("Test many args: "
+        "a=%d, b=%d, c=%d, d=%d, e=%d, f=%d, g=%d, h=%d, i=%d, j=%d",
         a, b, c, d, e, f, g, h, i, j);
+}
+
+static void
+register_call(void *drcontext, const module_data_t *info, const char *annotation,
+    void *target, uint num_args)
+{
+    if (!dr_annot_find_and_register_call(drcontext, info, annotation, target, num_args
+        _IF_NOT_X64(ANNOT_FASTCALL))) {
+        //dr_fprintf(STDERR, "\t[Found no instances of annotation '%s' in module %s]\n",
+        //    annotation, dr_module_preferred_name(info));
+    }
 }
 
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    dr_annot_find_and_register_call(drcontext, info, "test_annotation_init_mode",
-        (void *) init_mode, 1 _IF_NOT_X64(ANNOT_FASTCALL));
-    dr_annot_find_and_register_call(drcontext, info, "test_annotation_init_context",
-        (void *) init_context, 3 _IF_NOT_X64(ANNOT_FASTCALL));
-    dr_annot_find_and_register_call(drcontext, info, "test_annotation_set_mode",
-        (void *) set_mode, 2 _IF_NOT_X64(ANNOT_FASTCALL));
-    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_eight_args",
-        (void *) test_eight_args, 8 _IF_NOT_X64(ANNOT_FASTCALL));
-    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_nine_args",
-        (void *) test_nine_args, 9 _IF_NOT_X64(ANNOT_FASTCALL));
-    dr_annot_find_and_register_call(drcontext, info, "bb_region_test_ten_args",
-        (void *) test_ten_args, 10 _IF_NOT_X64(ANNOT_FASTCALL));
+    register_call(drcontext, info, "test_annotation_init_mode",
+        (void *) init_mode, 1);
+    register_call(drcontext, info, "test_annotation_init_context",
+        (void *) init_context, 3);
+    register_call(drcontext, info, "test_annotation_set_mode",
+        (void *) set_mode, 2);
+    register_call(drcontext, info, "test_annotation_eight_args",
+        (void *) test_eight_args, 8);
+    register_call(drcontext, info, "test_annotation_nine_args",
+        (void *) test_nine_args, 9);
+    register_call(drcontext, info, "test_annotation_ten_args",
+        (void *) test_ten_args, 10);
 }
 
 static void
 event_exit(void)
 {
+    uint i;
     context_t *context, *next;
+
     for (context = context_list->head; context != NULL; context = next) {
         next = context->next;
-        dr_printf("Context '%s' terminates in mode %d.\n",
+
+        for (i = 1; i < context->mode_history_index; i++) {
+            PRINTF("In context %d at event %d, the mode changed from %d to %d",
+                context->id, i, context->mode_history[i-1], context->mode_history[i]);
+        }
+        PRINTF("Context '%s' terminates in mode %d",
                context->label, context->mode);
     }
 
     dr_mutex_destroy(context_lock);
     for (context = context_list->head; context != NULL; context = next) {
         next = context->next;
+
         dr_global_free(context->label, (sizeof(char) * strlen(context->label)) + 1);
+        dr_global_free(context->mode_history, MAX_MODE_HISTORY * sizeof(uint));
         dr_global_free(context, sizeof(context_t));
     }
     dr_global_free(context_list, sizeof(context_list_t));
@@ -157,7 +180,7 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    dr_printf("Init annotation test client.\n");
+    PRINT("Init annotation test client");
 
     context_lock = dr_mutex_create();
 

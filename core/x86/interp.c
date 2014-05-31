@@ -3072,8 +3072,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
                 if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start, total_instrs)) {
                     if (IS_ENCODED_VALGRIND_ANNOTATION(bb->instr_start)) {
-                        dr_printf("Found Valgrind annotation on the fast path.\n");
-
                         KSTOP(bb_decoding);
                         instr_destroy(dcontext, bb->instr);
                         instrlist_clear_and_destroy(dcontext, bb->ilist);

@@ -15,7 +15,6 @@ __attribute__ ((fastcall))
 bool
 dynamorio_annotate_running_on_dynamorio()
 {
-    return false;
 }
 #endif
 

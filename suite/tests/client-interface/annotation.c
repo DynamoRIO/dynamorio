@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     class_id = *argv[1] - 'A';
     num_threads = atoi(argv[1] + 1);
 
-    if (num_threads > MAX_THREADS ) {
+    if (num_threads > MAX_THREADS) {
         printf("\nMaximum thread count is %d. Exiting now.\n", MAX_THREADS);
         exit(-1);
     }
