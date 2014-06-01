@@ -157,10 +157,6 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
     instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
-    /*
-    while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr))
-        instr = instr_get_prev(instr);
-    */
     while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
         prev = instr_get_prev(instr);
         instrlist_remove(bb, instr);

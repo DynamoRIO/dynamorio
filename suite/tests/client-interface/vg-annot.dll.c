@@ -31,17 +31,18 @@ dr_emit_flags_t
 bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
-    instr_t *prev, *instr = instrlist_last(bb);
-    while ((instr != NULL) && !instr_ok_to_mangle(instr)) {
+    instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
+    while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
         prev = instr_get_prev(instr);
         instrlist_remove(bb, instr);
         instr_destroy(drcontext, instr);
         instr = prev;
     }
-    if (instr != NULL) {
+    if ((instr != NULL) && (instr != first)) {
         instrlist_remove(bb, instr);
         instr_destroy(drcontext, instr);
     }
+    return DR_EMIT_DEFAULT;
 }
 
 void exit_event(void)
@@ -50,7 +51,6 @@ void exit_event(void)
         num_define_memory_requests, num_bytes_made_defined);
 }
 
-// TODO: second mode which registers for bb event, to test full-decode path
 DR_EXPORT
 void dr_init(client_id_t id)
 {

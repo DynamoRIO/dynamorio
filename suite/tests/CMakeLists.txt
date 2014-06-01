@@ -1438,7 +1438,7 @@ if (CLIENT_INTERFACE)
   set(client.annotation.full-decode.tiny-bb_expectbase "annotation.full-decode")
   torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
     client-interface/annotation.c "+bb" "-max_bb_instrs 3" "A4")
-  set(client.annotation.bb-truncate_expectbase "annotation.full-decode")
+  set(client.annotation.bb-truncate_expectbase "annotation.bb-truncate")
   torunonly_ci(client.annotation.bb-truncate client.annotation client.annotation.dll
     client-interface/annotation.c "+b/b" "" "A4")
 
@@ -1461,7 +1461,7 @@ if (CLIENT_INTERFACE)
     set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
     torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "+bb" "-max_bb_instrs 3" "")
-    set(client.vg-annot.bb-truncate_expectbase "vg-annot.full-decode")
+    set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
     torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "+b/b" "" "")
   endif (UNIX OR NOT X64)
