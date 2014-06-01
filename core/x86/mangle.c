@@ -4142,19 +4142,20 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             }
         }
 
-#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
+#ifdef ANNOTATIONS
         if (IS_ANNOTATION_LABEL(instr)) {
-            annotation_handler_t *handler =
-                (annotation_handler_t *) instr_get_note(instr);
+            dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+            annotation_handler_t *handler = (annotation_handler_t *) label_data->data[0];
 
             if (handler->type == ANNOT_HANDLER_CALL) {
                 opnd_t *args = NULL;
                 if (handler->num_args != 0) {
+
                     args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
                                             ACCT_CLEANCALL, UNPROTECTED);
                     memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
 
-                    if (TEST(INSTR_ANNOTATION_TAIL_CALL, instr->flags)) {
+                    if (label_data->data[1] == ANNOT_TAIL_CALL) {
                         uint i;
                         for (i = 0; i < handler->num_args; i++) {
                             if (IS_ANNOTATION_STACK_ARG(args[i]))

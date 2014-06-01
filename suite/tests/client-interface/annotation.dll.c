@@ -5,8 +5,8 @@
 
 #define MAX_MODE_HISTORY 100
 
-#define PRINT(s) dr_printf("\t<"s">\n")
-#define PRINTF(s, ...) dr_printf("\t<"s">\n", __VA_ARGS__)
+#define PRINT(s) dr_printf("      <"s">\n")
+#define PRINTF(s, ...) dr_printf("      <"s">\n", __VA_ARGS__)
 
 typedef struct _context_t {
     uint id;
@@ -125,11 +125,8 @@ static void
 register_call(void *drcontext, const module_data_t *info, const char *annotation,
     void *target, uint num_args)
 {
-    if (!dr_annot_find_and_register_call(drcontext, info, annotation, target, num_args
-        _IF_NOT_X64(ANNOT_FASTCALL))) {
-        //dr_fprintf(STDERR, "\t[Found no instances of annotation '%s' in module %s]\n",
-        //    annotation, dr_module_preferred_name(info));
-    }
+    dr_annot_find_and_register_call(drcontext, info, annotation, target, num_args
+        _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
 static void

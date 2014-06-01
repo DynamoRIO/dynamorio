@@ -1734,10 +1734,6 @@ enum {
     INSTR_IND_JMP_PLT_EXIT      = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT              = LINK_FAR,
     INSTR_BRANCH_SPECIAL_EXIT   = LINK_SPECIAL_EXIT,
-#ifdef ANNOTATIONS
-    INSTR_ANNOTATION            = LINK_FAR,
-    INSTR_ANNOTATION_TAIL_CALL  = LINK_SPECIAL_EXIT,
-#endif
 #ifdef UNSUPPORTED_API
     INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
 #endif
@@ -1889,7 +1885,7 @@ struct _instr_t {
 
     /* this field is for the use of passes as an annotation.
      * it is also used to hold the offset of an instruction when encoding
-     * pc-relative instructions.
+     * pc-relative instructions. See DR_NOTE_FIRST_RESERVED in instr.h.
      */
     void *note;
 
@@ -1898,6 +1894,7 @@ struct _instr_t {
     instr_t   *next;
 
 }; /* instr_t */
+
 #endif /* DR_FAST_IR */
 
 /****************************************************************************

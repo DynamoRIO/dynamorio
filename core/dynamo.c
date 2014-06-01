@@ -549,9 +549,9 @@ dynamorio_app_init(void)
         moduledb_init(); /* before vm_areas_init, after heap_init */
         perscache_init(); /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
-        
-#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
-        annot_init(); // placement?
+
+#ifdef ANNOTATIONS
+        annot_init();
 #endif
 
         if (!DYNAMO_OPTION(thin_client)) {
@@ -1019,11 +1019,11 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     monitor_exit();
     synch_exit();
     arch_exit(IF_WINDOWS(detach_stacked_callbacks));
-    
-#if defined (ANNOTATIONS) && defined (CLIENT_INTERFACE)
-        annot_exit(); // placement?
+
+#ifdef ANNOTATIONS
+        annot_exit();
 #endif
-    
+
 #ifdef CALL_PROFILE
     /* above os_exit to avoid eventlog_mutex trigger if we're the first to
      * create a log file

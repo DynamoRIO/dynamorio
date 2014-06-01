@@ -18,19 +18,12 @@
     ((*(uint *) (xchg_start_pc - 0xc) == 0xc103c7c1UL) && \
      (*(uint *) (xchg_start_pc - 8) == 0xc7c10dc7) && \
      (*(uint *) (xchg_start_pc - 4) == 0x13c7c11d))
-/*
-c1 c7 03              rol    $0x3,%edi
-c1 c7 0d              rol    $0xd,%edi
-c1 c7 1d              rol    $0x1d,%edi
-c1 c7 13              rol    $0x13,%edi
-87 db                 xchg   %ebx,%ebx
-*/
 #endif
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
-#define IS_ANNOTATION_LABEL(instr) \
-    ((instr != NULL) && TEST(INSTR_ANNOTATION, instr->flags) && instr_is_label(instr))
+#define IS_ANNOTATION_LABEL(instr) ((instr != NULL) && instr_is_label(instr) && \
+    ((ptr_uint_t)instr_get_note(instr) == DR_NOTE_ANNOTATION))
 
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
@@ -71,11 +64,16 @@ typedef struct _vg_client_request_t {
 } vg_client_request_t;
 
 #ifndef X64
-typedef enum _annotation_call_type_t {
+typedef enum _annotation_calling_convention_t {
     ANNOT_FASTCALL,
     ANNOT_STDCALL
-} annotation_call_type_t;
+} annotation_calling_convention_t;
 #endif
+
+typedef enum _annotation_call_t {
+    ANNOT_NORMAL_CALL,
+    ANNOT_TAIL_CALL,
+} annotation_call_t;
 
 typedef enum _handler_type_t {
     ANNOT_HANDLER_CALL,
@@ -111,12 +109,12 @@ void dr_annot_register_call_varg(void *drcontext, void *annotation_func,
 DR_API
 bool dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                                   const char *target_name, void *callee, uint num_args
-                                  _IF_NOT_X64(annotation_call_type_t type));
+                                  _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
 void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee,
                          bool save_fpstate, uint num_args
-                         _IF_NOT_X64(annotation_call_type_t type));
+                         _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
 void dr_annot_register_return(void *drcontext, void *annotation_func, void *return_value);

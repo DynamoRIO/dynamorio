@@ -267,6 +267,14 @@ typedef struct _module_data_t module_data_t;
 
 /* DR_API EXPORT BEGIN */
 
+/* upper note values are reserved for core DR */
+#ifdef X64
+# define DR_NOTE_FIRST_RESERVED 0xfffffffffffffff0ULL
+#else
+# define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
+#endif
+static const ptr_uint_t DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1;
+
 /**
  * Structure written by dr_get_time() to specify the current time.
  */

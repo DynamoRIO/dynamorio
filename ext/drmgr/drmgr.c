@@ -2131,7 +2131,6 @@ drmgr_pop_cls(void *drcontext)
  */
 
 enum {
-    /* if drmgr itself needed note values we'd put them here */
     DRMGR_NOTE_FIRST_FREE = DRMGR_NOTE_NONE + 1,
 };
 
@@ -2146,7 +2145,7 @@ drmgr_reserve_note_range(size_t size)
     if (size == 0)
         return DRMGR_NOTE_NONE;
     dr_mutex_lock(note_lock);
-    if (note_next + size < note_next)
+    if (note_next + size < DR_NOTE_FIRST_RESERVED)
         res = DRMGR_NOTE_NONE;
     else {
         res = note_next;

@@ -1240,7 +1240,7 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     set(ALREADY_REGEX ON)
   else (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
     message(FATAL_ERROR
-      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}")
+      "no .expect or .template or .templatex for ${srcpath}/${expectbase} for ${key}. Need for example ${srcpath}/${expectbase}.expect")
   endif (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
 
   if (NOT ALREADY_REGEX)
@@ -1456,6 +1456,7 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
     torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "" "" "")
+    set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
     torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "+bb" "" "")
   else (UNIX)

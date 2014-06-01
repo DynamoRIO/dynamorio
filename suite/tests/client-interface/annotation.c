@@ -16,7 +16,7 @@
 # include <pthread.h>
 #endif
 
-#define MAX_ITERATIONS 1000
+#define MAX_ITERATIONS 10
 #define MAX_THREADS 8
 #define TOLERANCE 1.0E-5
 
@@ -198,7 +198,7 @@ int main(int argc, char **argv)
         VALIDATE(result, != 0, "pthread_attr_destroy() returned code %d");
 #endif
         TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
-    } while ((iteration < MAX_ITERATIONS) && (distance(x_old, x_new) >= TOLERANCE));
+    } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < MAX_ITERATIONS));
 
     printf("\n");
     printf("\n     The Jacobi Method For AX=B .........DONE");

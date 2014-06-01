@@ -53,7 +53,7 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static void
 specify_args(annotation_handler_t *handler, uint num_args
-    _IF_NOT_X64(annotation_call_type_t type));
+    _IF_NOT_X64(annotation_calling_convention_t type));
 
 static void
 free_annotation_handler(void *p);
@@ -132,7 +132,7 @@ bool
 dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                              const char *target_name,
                              void *callback, uint num_args
-                             _IF_NOT_X64(annotation_call_type_t type))
+                             _IF_NOT_X64(annotation_calling_convention_t type))
 {
     generic_func_t target;
 
@@ -155,7 +155,7 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
 void
 dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
                     bool save_fpstate, uint num_args
-                    _IF_NOT_X64(annotation_call_type_t type))
+                    _IF_NOT_X64(annotation_calling_convention_t type))
 {
     annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
@@ -249,11 +249,12 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
         if (handler != NULL) {
             while (true) {
                 instr_t *call = INSTR_CREATE_label(dcontext);
+                dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
 
-                call->flags |= INSTR_ANNOTATION;
-                if (instr_is_ubr(instr))
-                    call->flags |= INSTR_ANNOTATION_TAIL_CALL;
-                instr_set_note(call, (void *) handler); // Collision with other notes?
+                instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
+                label_data->data[0] = (ptr_uint_t) handler;
+                label_data->data[1] = instr_is_ubr(instr) ?
+                    ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
                 instr_set_ok_to_mangle(call, false);
 
                 if (first_call == NULL) {
@@ -445,11 +446,11 @@ handle_vg_annotation(app_pc request_args)
         TABLE_RWLOCK(handlers, read, unlock);
     }
 
-    /* The result code goes in xbx. */
+    /* The result code goes in xdx. */
     mcontext.size = sizeof(mcontext);
     mcontext.flags = DR_MC_INTEGER;
     dr_get_mcontext(dcontext, &mcontext);
-    mcontext.xbx = result;
+    mcontext.xdx = result;
     dr_set_mcontext(dcontext, &mcontext);
 }
 
@@ -517,7 +518,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
 #else // x86 (all)
 static inline void
 specify_args(annotation_handler_t *handler, uint num_args,
-                       annotation_call_type_t type)
+                       annotation_calling_convention_t type)
 {
     uint i;
     if (type == ANNOT_FASTCALL) {

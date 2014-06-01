@@ -455,10 +455,6 @@ add_client_lib(char *path, char *id_str, char *options)
             *uses_dr_version < OLDEST_COMPATIBLE_VERSION ||
             *uses_dr_version > NEWEST_COMPATIBLE_VERSION) {
 
-            dr_fprintf(STDERR, "Version ptr: "PFX"\n", uses_dr_version);
-            dr_fprintf(STDERR, "Version: %d\n", *uses_dr_version);
-            dr_fprintf(STDERR, "Compatible %d - %d\n", OLDEST_COMPATIBLE_VERSION, NEWEST_COMPATIBLE_VERSION);
-
             /* not a fatal usage error since we want release build to continue */
             CLIENT_ASSERT(false,
                           "client library is incompatible with this version of DR");
@@ -4867,7 +4863,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
     cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
-    //cleanup_after_call_ex(dcontext, &cci, ilist, where, (num_args > 2) ? (num_args - 2) * sizeof(ptr_uint_t) : 0);
 }
 
 void
