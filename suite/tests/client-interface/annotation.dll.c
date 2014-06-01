@@ -146,6 +146,34 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
         (void *) test_ten_args, 10);
 }
 
+dr_emit_flags_t
+empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
+               bool for_trace, bool translating)
+{
+}
+
+dr_emit_flags_t
+bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
+    /*
+    while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr))
+        instr = instr_get_prev(instr);
+    */
+    while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
+        prev = instr_get_prev(instr);
+        instrlist_remove(bb, instr);
+        instr_destroy(drcontext, instr);
+        instr = prev;
+    }
+    if ((instr != NULL) && (instr != first)) {
+        instrlist_remove(bb, instr);
+        instr_destroy(drcontext, instr);
+    }
+    return DR_EMIT_DEFAULT;
+}
+
 static void
 event_exit(void)
 {
@@ -177,7 +205,17 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    PRINT("Init annotation test client");
+    const char *options = dr_get_options(id);
+
+    if (strcmp(options, "+bb") == 0) {
+        PRINT("Init annotation test client with full decoding");
+        dr_register_bb_event(empty_bb_event);
+    } else if (strcmp(options, "+b/b") == 0) {
+        PRINT("Init annotation test client with bb truncation");
+        dr_register_bb_event(bb_event_truncate);
+    } else {
+        PRINT("Init annotation test client with fast decoding");
+    }
 
     context_lock = dr_mutex_create();
 

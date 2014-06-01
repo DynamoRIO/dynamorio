@@ -1432,6 +1432,15 @@ if (CLIENT_INTERFACE)
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
   endif (UNIX)
+  set(client.annotation.full-decode_expectbase "annotation.full-decode")
+  torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
+    client-interface/annotation.c "+bb" "" "A4")
+  set(client.annotation.full-decode.tiny-bb_expectbase "annotation.full-decode")
+  torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
+    client-interface/annotation.c "+bb" "-max_bb_instrs 3" "A4")
+  set(client.annotation.bb-truncate_expectbase "annotation.full-decode")
+  torunonly_ci(client.annotation.bb-truncate client.annotation client.annotation.dll
+    client-interface/annotation.c "+b/b" "" "A4")
 
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.
@@ -1442,6 +1451,20 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
   tobuild_appdll(client.events client-interface/events.c)
   get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
+  if (UNIX OR NOT X64)
+    tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+    torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
+      client-interface/vg-annot.c "" "" "")
+    set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
+    torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
+      client-interface/vg-annot.c "+bb" "" "")
+    set(client.vg-annot.full-decode.tiny-bb_expectbase "vg-annot.full-decode")
+    torunonly_ci(client.vg-annot.full-decode.tiny-bb client.vg-annot client.vg-annot.dll
+      client-interface/vg-annot.c "+bb" "-max_bb_instrs 3" "")
+    set(client.vg-annot.bb-truncate_expectbase "vg-annot.full-decode")
+    torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
+      client-interface/vg-annot.c "+b/b" "" "")
+  endif (UNIX OR NOT X64)
   if (UNIX)
     # Just happens to not make as many traces.
     tobuild_ci(client.events client-interface/events.c
@@ -1453,12 +1476,6 @@ if (CLIENT_INTERFACE)
     tobuild_ci(client.nudge_test client-interface/nudge_test.runall "" "" "")
     tobuild_ci(client.timer client-interface/timer.c "" "" "")
     tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-    tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-    torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "" "" "")
-    set(client.vg-annot.full-decode_expectbase "vg-annot.full-decode")
-    torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
-      client-interface/vg-annot.c "+bb" "" "")
   else (UNIX)
     tobuild_ci(client.events client-interface/events.c
       "" "" "${events_appdll_path}")

@@ -27,6 +27,23 @@ empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
 {
 }
 
+dr_emit_flags_t
+bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
+                  bool for_trace, bool translating)
+{
+    instr_t *prev, *instr = instrlist_last(bb);
+    while ((instr != NULL) && !instr_ok_to_mangle(instr)) {
+        prev = instr_get_prev(instr);
+        instrlist_remove(bb, instr);
+        instr_destroy(drcontext, instr);
+        instr = prev;
+    }
+    if (instr != NULL) {
+        instrlist_remove(bb, instr);
+        instr_destroy(drcontext, instr);
+    }
+}
+
 void exit_event(void)
 {
     dr_printf("Received %d 'define memory' requests for a total of %d bytes.\n",
@@ -42,6 +59,9 @@ void dr_init(client_id_t id)
     if (strcmp(options, "+bb") == 0) {
         dr_printf("Init vg-annot with full decoding.\n");
         dr_register_bb_event(empty_bb_event);
+    } else if (strcmp(options, "+b/b") == 0) {
+        dr_printf("Init vg-annot with bb truncation.\n");
+        dr_register_bb_event(bb_event_truncate);
     } else {
         dr_printf("Init vg-annot with fast decoding.\n");
     }

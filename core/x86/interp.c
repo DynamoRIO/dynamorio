@@ -2557,6 +2557,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
+    app_pc trailing_annotation_pc = NULL;
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2655,8 +2656,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 
-        if (!instr_ok_to_mangle(inst))
+        if (!instr_ok_to_mangle(inst)) {
+            if (IS_ANNOTATION_LABEL(inst) && (last_app_instr == NULL)) {
+                dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
+                trailing_annotation_pc = GET_ANNOTATION_PC(label_data);
+            }
             continue;
+        }
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2812,12 +2818,16 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
      */
 
     /* Client might have truncated: re-set fall-through. */
-    if ((last_app_instr != NULL) && !IS_ANNOTATION_LABEL(last_app_instr->next)) {
-        /* We do not take instr_length of what the client put in, but rather
-         * the length of the translation target
-         */
-        app_pc last_app_pc = instr_get_translation(last_app_instr);
-        bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
+    if (last_app_instr != NULL) {
+        if (trailing_annotation_pc != NULL) {
+            bb->cur_pc = decode_next_pc(dcontext, trailing_annotation_pc);
+        } else {
+            /* We do not take instr_length of what the client put in, but rather
+             * the length of the translation target
+             */
+            app_pc last_app_pc = instr_get_translation(last_app_instr);
+            bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
+        }
         LOG(THREAD, LOG_INTERP, 3,
             "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
         /* don't set bb->instr if last instr is still syscall/int.
@@ -3070,7 +3080,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
 
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
-                if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start, total_instrs)) {
+                if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start)) {
                     if (IS_ENCODED_VALGRIND_ANNOTATION(bb->instr_start)) {
                         KSTOP(bb_decoding);
                         instr_destroy(dcontext, bb->instr);
@@ -3079,7 +3089,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                             vm_area_destroy_list(dcontext, bb->vmlist);
                             bb->vmlist = NULL;
                         }
-                        bb->full_decode = true; // annotation requires full decode
+                        bb->full_decode = true; // Valgrind annotation needs full decode
                         build_bb_ilist(dcontext, bb);
                         return;
                     }
@@ -3295,8 +3305,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef ANNOTATIONS
 # if !(defined(X64) && defined(WINDOWS))
-        if (IS_DECODED_VALGRIND_ANNOTATION_TAIL(bb->instr, total_instrs)) {
-            if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr))
+        if (IS_DECODED_VALGRIND_ANNOTATION_TAIL(bb->instr)) {
+            if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr, bb->instr_start,
+                                       total_instrs))
                 continue;
         } else
 # endif
@@ -3305,8 +3316,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);
                 bb->instr = substitution;
-                instrlist_append(bb->ilist, substitution);
-                break;
             }
         }
 #endif

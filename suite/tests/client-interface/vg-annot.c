@@ -7,7 +7,13 @@
 
 int main()
 {
-    uint i, j, data[MATRIX_SIZE][MATRIX_SIZE];
+#ifdef X64
+    register uint i asm ("rdi");
+#else
+    register uint i asm ("edi");
+#endif
+    uint j, k;
+    uint data[MATRIX_SIZE][MATRIX_SIZE];
 
     void *alloc1 = malloc(1234);
     void *alloc2 = malloc(567);
@@ -20,18 +26,39 @@ int main()
         for (j = 0; j < (MATRIX_SIZE/2); j++) {
             data[i][j] = i + (3 * j);
 
-            if ((i == 27) && (j == 4))
+            if ((i == 27) && (j == 4)) {
+                k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc1, 1234);
+                if (k != i) {
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
+                        k, i);
+                    i = k;
+                }
+            }
 
             data[i*2][j] = (4 * i) / (j + 1);
 
-            if (i == (2 * j))
+            if (i == (2 * j)) {
+                k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc2, 567);
+                if (k != i) {
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
+                        k, i);
+                    i = k;
+                }
+            }
 
             data[i*2][j+i] = data[(MATRIX_SIZE/2) + (j-i)][3];
 
-            if ((j > 0) && ((i / j) >= (MATRIX_SIZE - (j * (i % j)))))
+            if ((j > 0) && ((i / j) >= (MATRIX_SIZE - (j * (i % j))))) {
+                k = i;
                 VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(alloc3, 89);
+                if (k != i) {
+                    printf("Annotation changed %%xdi! Was %d, but it shifted to %d.\n",
+                        k, i);
+                    i = k;
+                }
+            }
         }
     }
 

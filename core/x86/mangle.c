@@ -4144,9 +4144,10 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
 #ifdef ANNOTATIONS
         if (IS_ANNOTATION_LABEL(instr)) {
+            annotation_handler_t *handler;
             dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
-            annotation_handler_t *handler = (annotation_handler_t *) label_data->data[0];
 
+            handler = (annotation_handler_t *) label_data->data[0];
             if (handler->type == ANNOT_HANDLER_CALL) {
                 opnd_t *args = NULL;
                 if (handler->num_args != 0) {
@@ -4171,7 +4172,6 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
                     OPND_CREATE_INT32(handler->instrumentation.return_value)));
             }
-
             continue;
         }
 #endif

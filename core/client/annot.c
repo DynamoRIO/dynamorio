@@ -18,6 +18,9 @@ static generic_table_t *handlers;
 // locked under the `handlers` table lock
 static annotation_handler_t *vg_handlers[VG_ID__LAST];
 
+static annotation_handler_t vg_router;
+static opnd_t vg_router_arg;
+
 /* Immediate operands to the special rol instructions.
  * See __SPECIAL_INSTRUCTION_PREAMBLE in valgrind.h.
  */
@@ -68,6 +71,16 @@ annot_init()
                                    HASHTABLE_RELAX_CLUSTER_CHECKS,
                                    free_annotation_handler
                                    _IF_DEBUG("annotation hashtable"));
+
+    vg_router.type = ANNOT_HANDLER_CALL;
+    vg_router.instrumentation.callback = handle_vg_annotation;
+    vg_router.num_args = 1;
+    vg_router_arg = opnd_create_reg(DR_REG_XAX);
+    vg_router.args = &vg_router_arg;
+    vg_router.arg_stack_space = 0;
+    vg_router.save_fpstate = false;
+    vg_router.id.annotation_func = NULL; // identified by magic code sequence
+    vg_router.next_handler = NULL;
 }
 
 void
@@ -255,6 +268,7 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                 label_data->data[0] = (ptr_uint_t) handler;
                 label_data->data[1] = instr_is_ubr(instr) ?
                     ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
+                label_data->data[2] = (ptr_uint_t) instr_get_translation(instr);
                 instr_set_ok_to_mangle(call, false);
 
                 if (first_call == NULL) {
@@ -296,51 +310,20 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 }
 
 bool
-match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
+match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
+                       app_pc xchg_pc, uint bb_instr_count)
 {
     int i;
     app_pc xchg_xl8;
     instr_t *instr_walk;
+    dr_instr_label_data_t *label_data;
 
-    /* Already know that `instr` is `OP_xchg`, per `IS_VALGRIND_ANNOTATION_SHAPE`.
-     * Check the operands of the xchg for the Valgrind signature: both xbx. */
-    opnd_t src = instr_get_src(instr, 0);
-    opnd_t dst = instr_get_dst(instr, 0);
-    opnd_t xbx = opnd_create_reg(DR_REG_XBX);
-
-    // dr_printf("Checking for Valgrind annotation at "PFX".\n", instr_get_app_pc(instr));
-
-    if (!opnd_same(src, xbx) || !opnd_same(dst, xbx))
+    if (!IS_ENCODED_VALGRIND_ANNOTATION(xchg_pc))
         return false;
 
-    /* If it's a Valgrind annotation, the preceding instructions will be
-     * OP_rol` having operands matching `expected_rol_immeds`. */
-    instr_walk = instrlist_last(bb);
-    for (i = (VALGRIND_ANNOTATION_ROL_COUNT - 1); i >= 0; i--) {
-        if (instr_get_opcode(instr_walk) != OP_rol) {
-            return false;
-        } else {
-            opnd_t src = instr_get_src(instr_walk, 0);
-            opnd_t dst = instr_get_dst(instr_walk, 0);
-            if (!opnd_is_immed(src) ||
-                opnd_get_immed_int(src) != expected_rol_immeds[i])
-                return false;
-            if (!opnd_same(dst, opnd_create_reg(DR_REG_XDI)))
-                return false;
-        }
-        instr_walk = instr_get_prev(instr_walk);
-    }
-
-    /* We have matched the pattern. */
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "Matched valgrind client request pattern at "PFX":\n",
             instr_get_app_pc(instr));
-        /*
-        for (i = 0; i < BUFFER_SIZE_ELEMENTS(instrs); i++) {
-            instr_disassemble(dcontext, instr, THREAD);
-            LOG(THREAD, LOG_INTERP, 4, "\n");
-        }
-        */
         LOG(THREAD, LOG_INTERP, 4, "\n");
     });
 
@@ -351,18 +334,18 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
     xchg_xl8 = instr_get_app_pc(instr);
     instr_destroy(dcontext, instr);
 
-    /* Delete rol and xchg instructions. Note: reusing parameter `instr`. */
-    instr = instrlist_last(bb);
-    for (i = 0; i < VALGRIND_ANNOTATION_ROL_COUNT; i++) {
-        instr_walk = instr_get_prev(instr);
-        instrlist_remove(bb, instr);
-        instr_destroy(dcontext, instr);
-        instr = instr_walk;
+    /* Delete rol instructions--unless a previous BB contains some of them, in which
+     * case they must be executed to avoid messing up %xdi.
+     */
+    if (bb_instr_count > VALGRIND_ANNOTATION_ROL_COUNT) {
+        instr = instrlist_last(bb);
+        for (i = 0; (i < VALGRIND_ANNOTATION_ROL_COUNT) && (instr != NULL); i++) {
+            instr_walk = instr_get_prev(instr);
+            instrlist_remove(bb, instr);
+            instr_destroy(dcontext, instr);
+            instr = instr_walk;
+        }
     }
-
-    // dr_printf("Found a Valgrind annotation.\n");
-
-    // TODO: check request id, and ignore if we don't support that one?
 
     /* Append a write to %xbx, both to ensure it's marked defined by DrMem
      * and to avoid confusion with register analysis code (%xbx is written
@@ -372,8 +355,14 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr)
                                                     opnd_create_reg(DR_REG_XBX)),
                                    xchg_xl8));
 
-    dr_insert_clean_call(dcontext, bb, NULL, (void*)handle_vg_annotation,
-                         /*fpstate=*/false, 1, opnd_create_reg(DR_REG_XAX));
+    instr = INSTR_CREATE_label(dcontext);
+    instr_set_note(instr, (void *) DR_NOTE_ANNOTATION);
+    label_data = instr_get_label_data_area(instr);
+    label_data->data[0] = (ptr_uint_t) &vg_router;
+    label_data->data[1] = ANNOT_NORMAL_CALL;
+    label_data->data[2] = (ptr_uint_t) xchg_pc;
+    instr_set_ok_to_mangle(instr, false);
+    instrlist_append(bb, instr);
 
     return true;
 }

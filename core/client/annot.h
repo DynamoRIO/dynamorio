@@ -1,19 +1,21 @@
 #ifndef _ANNOT_H_
 #define _ANNOT_H_ 1
 
-#define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr, count) \
-    (count > 3) && (instr_get_opcode(instr) == OP_xchg)
+#define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr) \
+    (instr_get_opcode(instr) == OP_xchg)
+
+// if the annotation got split, then the count doesn't count anymore
 
 #ifdef X64
-# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc, count) \
-    ((count > 3) && (*(ushort *) (instr_start_pc + 1) == 0xdb87))
+# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
+    ((*(uint *) instr_start_pc & 0xffffff) == 0xdb8748)
 # define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
     ((*(uint64 *) (xchg_start_pc - 0x10) == 0xdc7c14803c7c148ULL) && \
      (*(uint64 *) (xchg_start_pc - 8) == 0x33c7c1483dc7c148ULL))
 
 #else
-# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc, count) \
-    ((count > 3) && (*(ushort *) instr_start_pc == 0xdb87))
+# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
+    (*(ushort *) instr_start_pc == 0xdb87)
 # define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
     ((*(uint *) (xchg_start_pc - 0xc) == 0xc103c7c1UL) && \
      (*(uint *) (xchg_start_pc - 8) == 0xc7c10dc7) && \
@@ -27,6 +29,8 @@
 
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
+
+#define GET_ANNOTATION_PC(label_data) ((app_pc) label_data->data[2])
 
 /* DR_API EXPORT TOFILE dr_annotation.h */
 /* DR_API EXPORT BEGIN */
@@ -72,7 +76,7 @@ typedef enum _annotation_calling_convention_t {
 
 typedef enum _annotation_call_t {
     ANNOT_NORMAL_CALL,
-    ANNOT_TAIL_CALL,
+    ANNOT_TAIL_CALL
 } annotation_call_t;
 
 typedef enum _handler_type_t {
@@ -157,7 +161,8 @@ annot_match(dcontext_t *dcontext, instr_t *instr);
  * than 256 instrs.
  */
 bool
-match_valgrind_pattern(dcontext_t *dc, instrlist_t *bb, instr_t *instr);
+match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
+                       app_pc xchg_pc, uint bb_instr_count);
 
 void
 annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
