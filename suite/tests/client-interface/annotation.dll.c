@@ -60,7 +60,7 @@ init_context(uint id, const char *label, uint initial_mode)
 
     context = get_context(id);
     if (context == NULL) {
-        uint label_length = (sizeof(char) * strlen(label)) + 1;
+        uint label_length = (uint) (sizeof(char) * strlen(label)) + 1;
         context = dr_global_alloc(sizeof(context_t));
         context->id = id;
         context->label = dr_global_alloc(label_length);
