@@ -73,7 +73,7 @@ annot_init()
                                    _IF_DEBUG("annotation hashtable"));
 
     vg_router.type = ANNOT_HANDLER_CALL;
-    vg_router.instrumentation.callback = handle_vg_annotation;
+    vg_router.instrumentation.callback = (void *) handle_vg_annotation;
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
     vg_router.args = &vg_router_arg;

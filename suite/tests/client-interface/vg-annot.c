@@ -7,13 +7,17 @@
 
 int main()
 {
-#ifdef X64
-    register uint i asm ("rdi");
-#else
-    register uint i asm ("edi");
+#ifdef _MSC_VER // WINDOWS
+    unsigned int i, j, k;
+#else // UNIX
+# ifdef X64
+    register unsigned int i asm ("rdi");
+# else
+    register unsigned int i asm ("edi");
+# endif
+    unsigned int j, k;
 #endif
-    uint j, k;
-    uint data[MATRIX_SIZE][MATRIX_SIZE];
+    unsigned int data[MATRIX_SIZE][MATRIX_SIZE];
 
     void *alloc1 = malloc(1234);
     void *alloc2 = malloc(567);

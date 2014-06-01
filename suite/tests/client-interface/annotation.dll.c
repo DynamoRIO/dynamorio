@@ -25,6 +25,10 @@ typedef struct _context_list_t {
 static void *context_lock;
 static context_list_t *context_list;
 
+#ifdef WINDOWS
+static app_pc *skip_truncation = NULL;
+#endif
+
 typedef struct _counter_t {
     uint count;
 } counter_t;
@@ -56,14 +60,15 @@ init_context(uint id, const char *label, uint initial_mode)
 
     context = get_context(id);
     if (context == NULL) {
+        uint label_length = (sizeof(char) * strlen(label)) + 1;
         context = dr_global_alloc(sizeof(context_t));
         context->id = id;
-        context->label = dr_global_alloc((sizeof(char) * strlen(label)) + 1);
+        context->label = dr_global_alloc(label_length);
         context->mode = initial_mode;
         context->mode_history = dr_global_alloc(MAX_MODE_HISTORY * sizeof(uint));
         context->mode_history[0] = initial_mode;
         context->mode_history_index = 1;
-        strcpy(context->label, label);
+        memcpy(context->label, label, label_length);
         context->next = NULL;
 
         if (context_list->head == NULL) {
@@ -144,12 +149,21 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
         (void *) test_nine_args, 9);
     register_call(drcontext, info, "test_annotation_ten_args",
         (void *) test_ten_args, 10);
+
+#ifdef WINDOWS // truncating this block causes an app exception (unrelated to annotations)
+    if ((info->names.module_name != NULL) &&
+        (strcmp("ntdll.dll", info->names.module_name) == 0)) {
+        *skip_truncation = (app_pc) dr_get_proc_address(info->handle,
+                                                        "KiUserExceptionDispatcher");
+    }
+#endif
 }
 
 dr_emit_flags_t
 empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
                bool for_trace, bool translating)
 {
+    return DR_EMIT_DEFAULT;
 }
 
 dr_emit_flags_t
@@ -157,15 +171,25 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
     instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
-    while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
-        prev = instr_get_prev(instr);
-        instrlist_remove(bb, instr);
-        instr_destroy(drcontext, instr);
-        instr = prev;
-    }
-    if ((instr != NULL) && (instr != first)) {
-        instrlist_remove(bb, instr);
-        instr_destroy(drcontext, instr);
+
+#ifdef WINDOWS
+    if (dr_fragment_app_pc(tag) == *skip_truncation)
+        return DR_EMIT_DEFAULT;
+#endif
+
+    while ((first != NULL) && !instr_ok_to_mangle(first))
+        first = instr_get_next(first);
+    if (first != NULL) {
+        while ((instr != NULL) && (instr != first) && !instr_ok_to_mangle(instr)) {
+            prev = instr_get_prev(instr);
+            instrlist_remove(bb, instr);
+            instr_destroy(drcontext, instr);
+            instr = prev;
+        }
+        if ((instr != NULL) && (instr != first)) {
+            instrlist_remove(bb, instr);
+            instr_destroy(drcontext, instr);
+        }
     }
     return DR_EMIT_DEFAULT;
 }
@@ -196,6 +220,10 @@ event_exit(void)
         dr_global_free(context, sizeof(context_t));
     }
     dr_global_free(context_list, sizeof(context_list_t));
+
+#ifdef WINDOWS
+    dr_global_free(skip_truncation, sizeof(app_pc));
+#endif
 }
 
 DR_EXPORT void
@@ -217,6 +245,11 @@ dr_init(client_id_t id)
 
     context_list = dr_global_alloc(sizeof(context_list_t));
     memset(context_list, 0, sizeof(context_list_t));
+
+#ifdef WINDOWS
+    skip_truncation = dr_global_alloc(sizeof(app_pc));
+    *skip_truncation = NULL;
+#endif
 
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(event_module_load);
