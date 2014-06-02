@@ -4,8 +4,6 @@
 #define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr) \
     (instr_get_opcode(instr) == OP_xchg)
 
-// if the annotation got split, then the count doesn't count anymore
-
 #ifdef X64
 # define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
     ((*(uint *) instr_start_pc & 0xffffff) == 0xdb8748)
@@ -129,8 +127,7 @@ DR_API
 void dr_annot_register_valgrind(valgrind_request_id_t request,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
-// TODO: deregister
-// TODO: drcontext is only used for HEAP_ARRAY_ALLOC. Always use GLOBAL_DCONTEXT instead?
+// TODO: deregister API
 
 void
 annot_init();
@@ -156,11 +153,6 @@ annot_match(dcontext_t *dcontext, instr_t *instr);
  * rol    $0x0000001d %edi -> %edi
  * rol    $0x00000013 %edi -> %edi
  * xchg   %ebx %ebx -> %ebx %ebx
- *
- * FIXME: If the pattern gets split up by -max_bb_instrs, we will not be able to
- * match it.  If the application is built without optimizations, the client
- * request will not be inlined, so it is unlikely that it will be in a bb bigger
- * than 256 instrs.
  */
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
