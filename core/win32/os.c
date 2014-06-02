@@ -52,6 +52,9 @@
 #endif
 #include "../dispatch.h"
 #include "instrument.h" /* is_in_client_lib() */
+#ifdef ANNOTATIONS
+# include "../client/annot.h" /* annot_module_load() */
+#endif
 
 #include <windows.h>
 #include <stddef.h> /* for offsetof */
@@ -3776,9 +3779,14 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
         return;
 #endif
 
-#ifdef CLIENT_INTERFACE
-    if (dynamo_initialized && add)
+#ifdef CLIENT_INTERFACE || ANNOTATIONS
+    if (dynamo_initialized && add) {
+# ifdef CLIENT_INTERFACE
         instrument_module_load_trigger(base);
+# endif
+# ifdef ANNOTATIONS
+        annot_module_load((module_handle_t) base);
+# endif
 #endif
 
     /* ensure header is readable */

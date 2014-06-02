@@ -110,10 +110,12 @@ DR_API
 void dr_annot_register_call_varg(void *drcontext, void *annotation_func,
                               void *callee, bool save_fpstate, uint num_args, ...);
 
+#ifdef CLIENT_INTERFACE
 DR_API
 bool dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                                   const char *target_name, void *callee, uint num_args
                                   _IF_NOT_X64(annotation_calling_convention_t type));
+#endif /* CLIENT_INTERFACE */
 
 DR_API
 void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee,
@@ -121,7 +123,7 @@ void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee
                          _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
-void dr_annot_register_return(void *drcontext, void *annotation_func, void *return_value);
+void dr_annot_register_return(void *annotation_func, void *return_value);
 
 DR_API
 void dr_annot_register_valgrind(valgrind_request_id_t request,
@@ -165,10 +167,9 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count);
 
 void
-annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
-                        bool already_loaded);
+annot_module_load(const module_handle_t handle);
 
 void
-annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data);
+annot_module_unload(app_pc start, app_pc end);
 
 #endif

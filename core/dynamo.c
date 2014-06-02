@@ -550,10 +550,6 @@ dynamorio_app_init(void)
         perscache_init(); /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
 
-#ifdef ANNOTATIONS
-        annot_init();
-#endif
-
         if (!DYNAMO_OPTION(thin_client)) {
 #ifdef HOT_PATCHING_INTERFACE
             /* must init hotp before vm_areas_init() calls find_executable_vm_areas() */
@@ -631,6 +627,9 @@ dynamorio_app_init(void)
             dynamo_vm_areas_unlock();
         }
 
+#ifdef ANNOTATIONS
+        annot_init();
+#endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -957,6 +956,9 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
         rct_exit();
 #endif
     fragment_exit();
+#ifdef ANNOTATIONS
+    annot_exit();
+#endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
      * components.  Must be after fragment_exit() so that the client gets all the
@@ -1019,10 +1021,6 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     monitor_exit();
     synch_exit();
     arch_exit(IF_WINDOWS(detach_stacked_callbacks));
-
-#ifdef ANNOTATIONS
-        annot_exit();
-#endif
 
 #ifdef CALL_PROFILE
     /* above os_exit to avoid eventlog_mutex trigger if we're the first to

@@ -1821,14 +1821,12 @@ instrument_module_load(module_data_t *data, bool previously_loaded)
     /* Note - during DR initialization this routine is called before we've set up a
      * dcontext for the main thread and before we've called instrument_init.  It's okay
      * since there's no way a callback will be registered and we'll return immediately. */
-    dcontext_t *dcontext = get_thread_private_dcontext();
-
-#ifdef ANNOTATIONS
-    annot_event_module_load(dcontext, data, previously_loaded);
-#endif
+    dcontext_t *dcontext;
 
     if (module_load_callbacks.num == 0)
         return;
+
+    dcontext = get_thread_private_dcontext();
 
     /* client shouldn't delete this */
     dcontext->client_data->no_delete_mod_data = data;

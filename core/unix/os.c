@@ -170,6 +170,9 @@ char **our_environ;
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
 #endif
+#ifdef ANNOTATIONS
+# include "../client/annot.h"
+#endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef ASSERT
@@ -6407,6 +6410,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     /* invoke the client event only after DR's state is consistent */
     if (inform_client && dynamo_initialized)
         instrument_module_load_trigger(base);
+#endif
+#ifdef ANNOTATIONS
+    if (dynamo_initialized)
+        annot_module_load((module_handle_t) base);
 #endif
 }
 

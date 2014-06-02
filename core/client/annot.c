@@ -1,4 +1,6 @@
 #include "../globals.h"
+#include "../os_shared.h"
+#include "../module_shared.h"
 #include "../hashtable.h"
 #include "../x86/instr.h"
 #include "../x86/instr_create.h"
@@ -81,6 +83,11 @@ annot_init()
     vg_router.save_fpstate = false;
     vg_router.id.annotation_func = NULL; // identified by magic code sequence
     vg_router.next_handler = NULL;
+
+    module_iterator_t *mi = module_iterator_start();
+    while (module_iterator_hasnext(mi))
+        annot_module_load((module_handle_t) module_iterator_next(mi)->start);
+    module_iterator_stop(mi);
 }
 
 void
@@ -141,6 +148,7 @@ dr_annot_register_call_varg(void *drcontext, void *annotation_func,
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
+#ifdef CLIENT_INTERFACE
 bool
 dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
                              const char *target_name,
@@ -155,7 +163,13 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
-    target = dr_get_proc_address(module->handle, symbol_name);
+
+#ifdef WINDOWS
+    target = get_proc_address_resolve_forward(module->handle, symbol_name);
+#else
+    target = get_proc_address(module->handle, symbol_name);
+#endif
+
     if (target != NULL) {
         dr_annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
@@ -164,6 +178,7 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
         return false;
     }
 }
+#endif /* CLIENT_INTERFACE */
 
 void
 dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
@@ -199,7 +214,7 @@ dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
 }
 
 void
-dr_annot_register_return(void *drcontext, void *annotation_func, void *return_value)
+dr_annot_register_return(void *annotation_func, void *return_value)
 {
     annotation_handler_t *handler;
     TABLE_RWLOCK(handlers, write, lock);
@@ -368,8 +383,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 }
 
 void
-annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
-                        bool already_loaded)
+annot_module_load(const module_handle_t handle)
 {
     generic_func_t target;
 
@@ -379,13 +393,19 @@ annot_event_module_load(dcontext_t *dcontext, const module_data_t *data,
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
 #endif
-    target = dr_get_proc_address(data->handle, symbol_name);
+
+#ifdef WINDOWS
+    target = get_proc_address_resolve_forward(handle, symbol_name);
+#else
+    target = get_proc_address(handle, symbol_name);
+#endif
+
     if (target != NULL)
-        dr_annot_register_return(dcontext, (void *) target, (void *) (ptr_uint_t) true);
+        dr_annot_register_return((void *) target, (void *) (ptr_uint_t) true);
 }
 
 void
-annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data)
+annot_module_unload(app_pc start, app_pc end)
 {
     int iter = 0;
     ptr_uint_t key;
@@ -396,7 +416,7 @@ annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data)
                                          iter, &key, &handler);
         if (iter < 0)
             break;
-        if ((key > (ptr_uint_t) data->start) && (key < (ptr_uint_t) data->end))
+        if ((key > (ptr_uint_t) start) && (key < (ptr_uint_t) end))
             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
                                                iter, key);
     } while (true);
@@ -409,11 +429,10 @@ annot_event_module_unload(dcontext_t *dcontext, const module_data_t *data)
 static void
 handle_vg_annotation(app_pc request_args)
 {
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
+    dcontext_t *dcontext;
     valgrind_request_id_t request_id;
     annotation_handler_t *handler;
     vg_client_request_t request;
-    dr_mcontext_t mcontext;
     ptr_uint_t result;
 
     if (!safe_read(request_args, sizeof(vg_client_request_t), &request))
@@ -423,24 +442,25 @@ handle_vg_annotation(app_pc request_args)
 
     request_id = lookup_valgrind_request(request.request);
 
-    // dr_printf("Core handles Valgrind annotation %d.\n", request_id);
-
     if (request_id < VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
         handler = vg_handlers[request_id];
         if (handler != NULL) // TODO: multiple handlers? Then what result?
             result = handler->instrumentation.vg_callback(&request);
-        //else
-            //dr_printf("Valgrind handler returns default result 0x%x\n", result);
         TABLE_RWLOCK(handlers, read, unlock);
     }
 
     /* The result code goes in xdx. */
-    mcontext.size = sizeof(mcontext);
-    mcontext.flags = DR_MC_INTEGER;
-    dr_get_mcontext(dcontext, &mcontext);
-    mcontext.xdx = result;
-    dr_set_mcontext(dcontext, &mcontext);
+    dcontext = get_thread_private_dcontext();
+#ifdef CLIENT_INTERFACE
+    if (dcontext->client_data->mcontext_in_dcontext) {
+        get_mcontext(dcontext)->xdx = result;
+    } else
+#endif
+    {
+        char *state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
+        ((priv_mcontext_t *)state)->xdx = result;
+    }
 }
 
 static valgrind_request_id_t
