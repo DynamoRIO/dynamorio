@@ -11,8 +11,12 @@
 #include "../lib/annotation/valgrind.h"
 #include "../lib/annotation/memcheck.h"
 
-#define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \
+/*
+#if defined(WINDOWS) && !defined(X64)
+# define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \
     annot_vsnprintf(dst, dst_size, "@%s@%d", src, sizeof(ptr_uint_t) * num_args);
+#endif
+*/
 
 #define KEY(addr) ((ptr_uint_t) addr)
 static generic_table_t *handlers;
@@ -60,8 +64,12 @@ static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t type));
 
+/*
+#if defined(WINDOWS) && !defined(X64)
 static int
 annot_vsnprintf(char *s, size_t max, const char *fmt, ...);
+#endif
+*/
 
 static void
 free_annotation_handler(void *p);
@@ -165,8 +173,11 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
 #else
-    char symbol_name[256];
-    PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
+    char symbol_name[256] = {0};
+    strcat(symbol_name, "@");
+    strcat(symbol_name, target_name);
+    strcat(symbol_name, "@");
+    strcat(symbol_name, itoa(sizeof(ptr_uint_t) * num_args));
 #endif
 
     target = get_proc_address(module->handle, symbol_name);
@@ -390,8 +401,7 @@ annot_module_load(const module_handle_t handle)
 #if defined(UNIX) || defined(X64)
     const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
 #else
-    char symbol_name[256];
-    PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
+    const char *symbol_name = "@dynamorio_annotate_running_on_dynamorio@0";
 #endif
 
     target = get_proc_address(handle, symbol_name);
@@ -548,6 +558,8 @@ specify_args(annotation_handler_t *handler, uint num_args,
 }
 #endif
 
+/*
+#if defined(WINDOWS) && !defined(X64)
 static int
 annot_vsnprintf(char *s, size_t max, const char *fmt, ...)
 {
@@ -560,6 +572,8 @@ annot_vsnprintf(char *s, size_t max, const char *fmt, ...)
     va_end(ap);
     return res;
 }
+#endif
+*/
 
 static void
 free_annotation_handler(void *p)
@@ -572,3 +586,4 @@ free_annotation_handler(void *p)
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t,
                     1, ACCT_OTHER, UNPROTECTED);
 }
+
