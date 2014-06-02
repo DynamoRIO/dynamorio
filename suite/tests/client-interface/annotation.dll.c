@@ -26,7 +26,7 @@ static void *context_lock;
 static context_list_t *context_list;
 
 #ifdef WINDOWS
-static app_pc *skip_truncation = NULL;
+static app_pc *skip_truncation;
 #endif
 
 typedef struct _counter_t {
@@ -150,11 +150,13 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
     register_call(drcontext, info, "test_annotation_ten_args",
         (void *) test_ten_args, 10);
 
-#ifdef WINDOWS // truncating this block causes an app exception (unrelated to annotations)
+#ifdef WINDOWS // truncating these blocks causes app exceptions (unrelated to annotations)
     if ((info->names.module_name != NULL) &&
         (strcmp("ntdll.dll", info->names.module_name) == 0)) {
-        *skip_truncation = (app_pc) dr_get_proc_address(info->handle,
+        skip_truncation[0] = (app_pc) dr_get_proc_address(info->handle,
                                                         "KiUserExceptionDispatcher");
+        skip_truncation[1] = (app_pc) dr_get_proc_address(info->handle,
+                                                        "LdrInitializeThunk");
     }
 #endif
 }
@@ -173,7 +175,8 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
     instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
 
 #ifdef WINDOWS
-    if (dr_fragment_app_pc(tag) == *skip_truncation)
+    app_pc fragment = dr_fragment_app_pc(tag);
+    if ((fragment == skip_truncation[0]) || (fragment == skip_truncation[1]))
         return DR_EMIT_DEFAULT;
 #endif
 
@@ -222,7 +225,7 @@ event_exit(void)
     dr_global_free(context_list, sizeof(context_list_t));
 
 #ifdef WINDOWS
-    dr_global_free(skip_truncation, sizeof(app_pc));
+    dr_global_free(skip_truncation, 2 * sizeof(app_pc));
 #endif
 }
 
@@ -247,8 +250,8 @@ dr_init(client_id_t id)
     memset(context_list, 0, sizeof(context_list_t));
 
 #ifdef WINDOWS
-    skip_truncation = dr_global_alloc(sizeof(app_pc));
-    *skip_truncation = NULL;
+    skip_truncation = dr_global_alloc(2 * sizeof(app_pc));
+    memset(skip_truncation, 0, 2 * sizeof(app_pc));
 #endif
 
     dr_register_exit_event(event_exit);
