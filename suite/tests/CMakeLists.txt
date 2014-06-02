@@ -1491,15 +1491,6 @@ if (CLIENT_INTERFACE)
     #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
     #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
     #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
-    if (NOT X64)
-      # FIXME i#16, does not work in Win-X64 because of inline assembly code.
-      tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-      tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
-      torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "" "" "")
-      torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
-        client-interface/vg-annot.c "+bb" "" "")
-    endif (NOT X64)
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")

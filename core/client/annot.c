@@ -68,6 +68,8 @@ free_annotation_handler(void *p);
 void
 annot_init()
 {
+    module_iterator_t *mi;
+
     handlers = generic_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                    HASHTABLE_RELAX_CLUSTER_CHECKS,
@@ -84,7 +86,7 @@ annot_init()
     vg_router.id.annotation_func = NULL; // identified by magic code sequence
     vg_router.next_handler = NULL;
 
-    module_iterator_t *mi = module_iterator_start();
+    mi = module_iterator_start();
     while (module_iterator_hasnext(mi))
         annot_module_load((module_handle_t) module_iterator_next(mi)->start);
     module_iterator_stop(mi);

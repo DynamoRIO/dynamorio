@@ -60,7 +60,6 @@ else (UNIX)
   set(install_build_args "")
 endif (UNIX)
 
-
 ##################################################
 # Pre-commit source file checks.
 # Google Code does not support adding subversion hooks, so we
@@ -111,7 +110,7 @@ else ()
   endif (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
 endif ()
 if (NOT DEFINED diff_contents)
-  message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
+  #message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
 endif ()
 
 # Check for tabs.  We already removed them from svn's diff format.
