@@ -2557,7 +2557,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
+#ifdef ANNOTATIONS
     app_pc trailing_annotation_pc = NULL;
+#endif
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2657,10 +2659,12 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
         }
 
         if (!instr_ok_to_mangle(inst)) {
+#ifdef ANNOTATIONS
             if (IS_ANNOTATION_LABEL(inst) && (last_app_instr == NULL)) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
                 trailing_annotation_pc = GET_ANNOTATION_PC(label_data);
             }
+#endif
             continue;
         }
 
@@ -2819,15 +2823,19 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
     /* Client might have truncated: re-set fall-through. */
     if (last_app_instr != NULL) {
+#ifdef ANNOTATIONS
         if (trailing_annotation_pc != NULL) {
             bb->cur_pc = decode_next_pc(dcontext, trailing_annotation_pc);
         } else {
+#endif
             /* We do not take instr_length of what the client put in, but rather
              * the length of the translation target
              */
             app_pc last_app_pc = instr_get_translation(last_app_instr);
             bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
+#ifdef ANNOTATIONS
         }
+#endif
         LOG(THREAD, LOG_INTERP, 3,
             "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
         /* don't set bb->instr if last instr is still syscall/int.
@@ -3148,7 +3156,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (!instr_valid(bb->instr))
                 break; /* before eflags analysis! */
 
-          /* Eflags analysis:
+            /* Eflags analysis:
              * We do this even if -unsafe_ignore_eflags_prefix b/c it doesn't cost that
              * much and we can use the analysis to detect any bb that reads a flag
              * prior to writing it.
@@ -3393,7 +3401,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
 #endif
 
-        if (instr_is_near_call_direct(bb->instr)) { // TODO: include annotations?
+        if (instr_is_near_call_direct(bb->instr)) {
             if (!bb_process_call_direct(dcontext, bb)) {
                 if (bb->instr != NULL)
                     bb->exit_type |= instr_branch_type(bb->instr);
@@ -3556,10 +3564,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
         if (total_instrs > DYNAMO_OPTION(max_bb_instrs)) {
-
-            // TODO: if bb->instr is OP_rol, walk down and see
-            // if it might be a Valgrind annotation
-
             /* this could be an enormous basic block, or it could
              * be some degenerate infinite-loop case like a call
              * to a function that calls exit() and then calls itself,

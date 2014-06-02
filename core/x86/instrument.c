@@ -1823,7 +1823,9 @@ instrument_module_load(module_data_t *data, bool previously_loaded)
      * since there's no way a callback will be registered and we'll return immediately. */
     dcontext_t *dcontext = get_thread_private_dcontext();
 
+#ifdef ANNOTATIONS
     annot_event_module_load(dcontext, data, previously_loaded);
+#endif
 
     if (module_load_callbacks.num == 0)
         return;

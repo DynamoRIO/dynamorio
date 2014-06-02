@@ -1451,7 +1451,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.segfault client-interface/segfault.c "" "" "")
   tobuild_appdll(client.events client-interface/events.c)
   get_target_property(events_appdll_path client.events.appdll LOCATION${location_suffix})
-  if (UNIX OR NOT X64)
+  if ((UNIX OR NOT X64) AND NOT VPS)
     tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
     torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "" "" "")
@@ -1464,7 +1464,7 @@ if (CLIENT_INTERFACE)
     set(client.vg-annot.bb-truncate_expectbase "vg-annot.bb-truncate")
     torunonly_ci(client.vg-annot.bb-truncate client.vg-annot client.vg-annot.dll
       client-interface/vg-annot.c "+b/b" "" "")
-  endif (UNIX OR NOT X64)
+  endif ((UNIX OR NOT X64) AND NOT VPS)
   if (UNIX)
     # Just happens to not make as many traces.
     tobuild_ci(client.events client-interface/events.c
@@ -1491,10 +1491,15 @@ if (CLIENT_INTERFACE)
     #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
     #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
     #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
-    if (NOT X64)
+    if (NOT X64 AND NOT VPS)
       # FIXME i#16, does not work in Win-X64 because of inline assembly code.
       tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
-    endif (NOT X64)
+      tobuild_ci(client.vg-annot client-interface/vg-annot.c "" "" "")
+      torunonly_ci(client.vg-annot client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "" "" "")
+      torunonly_ci(client.vg-annot.full-decode client.vg-annot client.vg-annot.dll
+        client-interface/vg-annot.c "+bb" "" "")
+    endif (NOT X64 AND NOT VPS)
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")
