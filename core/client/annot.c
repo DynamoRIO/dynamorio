@@ -12,7 +12,7 @@
 #include "../lib/annotation/memcheck.h"
 
 #define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \
-    dr_snprintf(dst, dst_size, "@%s@%d", src, sizeof(ptr_uint_t) * num_args);
+    annot_vsnprintf(dst, dst_size, "@%s@%d", src, sizeof(ptr_uint_t) * num_args);
 
 #define KEY(addr) ((ptr_uint_t) addr)
 static generic_table_t *handlers;
@@ -59,6 +59,9 @@ lookup_valgrind_request(ptr_uint_t request);
 static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t type));
+
+static int
+annot_vsnprintf(char *s, size_t max, const char *fmt, ...);
 
 static void
 free_annotation_handler(void *p);
@@ -166,12 +169,7 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
 
-#ifdef WINDOWS
-    target = get_proc_address_resolve_forward(module->handle, symbol_name);
-#else
     target = get_proc_address(module->handle, symbol_name);
-#endif
-
     if (target != NULL) {
         dr_annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
@@ -396,12 +394,7 @@ annot_module_load(const module_handle_t handle)
     PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
 #endif
 
-#ifdef WINDOWS
-    target = get_proc_address_resolve_forward(handle, symbol_name);
-#else
     target = get_proc_address(handle, symbol_name);
-#endif
-
     if (target != NULL)
         dr_annot_register_return((void *) target, (void *) (ptr_uint_t) true);
 }
@@ -554,6 +547,19 @@ specify_args(annotation_handler_t *handler, uint num_args,
     }
 }
 #endif
+
+static int
+annot_vsnprintf(char *s, size_t max, const char *fmt, ...)
+{
+    int res;
+    va_list ap;
+    extern int our_vsnprintf(char *s, size_t max, const char *fmt, va_list ap);
+
+    va_start(ap, fmt);
+    res = our_vsnprintf(s, max, fmt, ap);
+    va_end(ap);
+    return res;
+}
 
 static void
 free_annotation_handler(void *p)
