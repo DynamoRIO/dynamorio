@@ -43,6 +43,7 @@
 #define _FRAGMENT_H_ 1
 
 #include "hashtable.h"
+#include "translate.h"
 
 /* Flags, stored in fragment_t->flags bitfield
  */

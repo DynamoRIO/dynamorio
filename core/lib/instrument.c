@@ -58,6 +58,7 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
+#include "../translate.h"
 #ifdef UNIX
 # include <sys/time.h> /* ITIMER_* */
 # include "../unix/module.h" /* redirect_* functions */

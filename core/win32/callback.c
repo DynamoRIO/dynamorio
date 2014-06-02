@@ -66,6 +66,7 @@
 #endif
 #include "instrument.h"
 #include "../perscache.h"
+#include "../translate.h"
 
 #include <string.h> /* for memcpy */
 #include <windows.h>
