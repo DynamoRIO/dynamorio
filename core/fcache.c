@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -52,7 +52,7 @@
 #include <limits.h> /* for UCHAR_MAX */
 #include "perscache.h"
 #include "synch.h"
-#include "x86/instrument.h"
+#include "instrument.h"
 
 /* A code cache is made up of multiple separate mmapped units
  * We grow a unit by resizing, shifting, and relinking, up to a maximum size,

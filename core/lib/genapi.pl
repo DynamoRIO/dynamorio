@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 # **********************************************************
-# Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+# Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
 # Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
 # **********************************************************
 
@@ -183,7 +183,7 @@ if ($header) {
      "$core/x86/proc.h",
      "$core/os_shared.h",        # before instrument.h
      "$core/module_shared.h",    # before instrument.h
-     "$core/x86/instrument.h",
+     "$core/lib/instrument.h",
      "$core/x86/instr.h",
      "$core/x86/instr_inline.h",
      "$core/x86/instr_create.h",
