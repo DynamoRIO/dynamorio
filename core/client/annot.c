@@ -79,7 +79,7 @@ annot_init()
 
     handlers = generic_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
-                                   HASHTABLE_RELAX_CLUSTER_CHECKS,
+                                   HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                    free_annotation_handler
                                    _IF_DEBUG("annotation hashtable"));
 
@@ -410,7 +410,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 void
 annot_module_load(const module_handle_t handle)
 {
-    dr_annot_find_and_register_return(handle, 
+    dr_annot_find_and_register_return(handle,
                                       DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                                       (void *) (ptr_uint_t) true);
 }
@@ -421,6 +421,7 @@ annot_module_unload(app_pc start, app_pc end)
     int iter = 0;
     ptr_uint_t key;
     void *handler;
+
     TABLE_RWLOCK(handlers, write, lock);
     do {
         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
