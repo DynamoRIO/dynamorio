@@ -143,7 +143,8 @@ dr_annot_register_call_varg(void *drcontext, void *annotation_func,
             for (i = 0; i < num_args; i++) {
                 handler->args[i] = va_arg(args, opnd_t);
                 CLIENT_ASSERT(opnd_is_valid(handler->args[i]),
-                              "Call argument: bad operand. Did you create a valid opnd_t?");
+                              "Bad operand to annotation registration. "
+                              "Did you create a valid opnd_t?");
 #ifndef x64
                 if (IS_ANNOTATION_STACK_ARG(handler->args[i]))
                     handler->arg_stack_space += sizeof(ptr_uint_t);
@@ -157,12 +158,11 @@ dr_annot_register_call_varg(void *drcontext, void *annotation_func,
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
-#ifdef CLIENT_INTERFACE
 bool
-dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
-                             const char *target_name,
-                             void *callback, uint num_args
-                             _IF_NOT_X64(annotation_calling_convention_t type))
+dr_annot_find_and_register_call(void *drcontext, const module_handle_t module,
+                                const char *target_name,
+                                void *callback, uint num_args
+                                _IF_NOT_X64(annotation_calling_convention_t type))
 {
     generic_func_t target;
 
@@ -173,7 +173,7 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
 
-    target = get_proc_address(module->handle, symbol_name);
+    target = get_proc_address(module, symbol_name);
     if (target != NULL) {
         dr_annot_register_call(drcontext, (void *) target, callback, false,
             num_args _IF_NOT_X64(type));
@@ -182,7 +182,6 @@ dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
         return false;
     }
 }
-#endif /* CLIENT_INTERFACE */
 
 void
 dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
@@ -215,6 +214,28 @@ dr_annot_register_call(void *drcontext, void *annotation_func, void *callback,
         generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
     } // else ignore duplicate registration
     TABLE_RWLOCK(handlers, write, unlock);
+}
+
+bool
+dr_annot_find_and_register_return(const module_handle_t module, const char *target_name,
+                                  void *return_value)
+{
+    generic_func_t target;
+
+#if defined(UNIX) || defined(X64)
+    char *symbol_name = (char *) target_name;
+#else
+    char symbol_name[256];
+    PRINT_SYMBOL_NAME(symbol_name, 256, target_name, 0);
+#endif
+
+    target = get_proc_address(module, symbol_name);
+    if (target != NULL) {
+        dr_annot_register_return((void *) target, return_value);
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void
@@ -389,18 +410,9 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 void
 annot_module_load(const module_handle_t handle)
 {
-    generic_func_t target;
-
-#if defined(UNIX) || defined(X64)
-    const char *symbol_name = "dynamorio_annotate_running_on_dynamorio";
-#else
-    char symbol_name[256];
-    PRINT_SYMBOL_NAME(symbol_name, 256, "dynamorio_annotate_running_on_dynamorio", 0);
-#endif
-
-    target = get_proc_address(handle, symbol_name);
-    if (target != NULL)
-        dr_annot_register_return((void *) target, (void *) (ptr_uint_t) true);
+    dr_annot_find_and_register_return(handle, 
+                                      DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
+                                      (void *) (ptr_uint_t) true);
 }
 
 void

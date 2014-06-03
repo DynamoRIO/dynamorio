@@ -29,15 +29,15 @@
 #define VALIDATE(value, predicate, error_message) \
 do { \
     if (value predicate) { \
-        printf("\n Error: "error_message, value); \
+        printf("\n Error: "error_message"\n", value); \
+        fflush(stdout); \
         exit(-1); \
     } \
 } while (0)
 
 typedef struct _thread_init_t {
     unsigned int id;
-    int inner_iteration_count;
-    int outer_iteration_count;
+    int iteration_count;
 } thread_init_t;
 
 enum {
@@ -157,7 +157,11 @@ int main(int argc, char **argv)
     pthread_attr_init(&pta);
 #endif
     thread_inits = malloc(sizeof(thread_init_t) * num_threads);
-
+    for (i_thread = 0; i_thread < num_threads; i_thread++) {
+        thread_inits[i_thread].id = i_thread;
+        thread_inits[i_thread].iteration_count = matrix_size/num_threads;
+    }
+        
     do {
         for (i = 0; i < matrix_size; i++)
             x_old[i] = x_new[i];
@@ -165,10 +169,6 @@ int main(int argc, char **argv)
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
 
         for (i_thread = 0; i_thread < num_threads; i_thread++) {
-            thread_inits[i_thread].id = i_thread;
-            thread_inits[i_thread].inner_iteration_count = matrix_size/num_threads;
-            thread_inits[i_thread].outer_iteration_count = iteration;
-
             /* Creating The Threads */
 #ifdef WINDOWS
             result = _beginthreadex(NULL, 0, jacobi, &thread_inits[i_thread], 0, NULL);
@@ -182,14 +182,15 @@ int main(int argc, char **argv)
         }
 
         iteration++;
-        for (i_thread = 0; i_thread < num_threads; i_thread++) {
 #ifdef WINDOWS
-            WaitForSingleObject(threads[i_thread], INFINITE);
+        WaitForMultipleObjects(num_threads, threads, TRUE /* all */, INFINITE);
 #else
+        for (i_thread = 0; i_thread < num_threads; i_thread++) {
+            //WaitForSingleObject(threads[i_thread], INFINITE);
             result = pthread_join(threads[i_thread], NULL);
             VALIDATE(result, != 0, "pthread_join() returned code %d");
-#endif
         }
+#endif
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0);
 
@@ -247,19 +248,19 @@ jacobi(thread_init_t *init)
     int i, j;
 
     TEST_ANNOTATION_SET_MODE(init->id, MODE_1);
-    for (i = 0; i < init->inner_iteration_count; i++) {
+    for (i = 0; i < init->iteration_count; i++) {
         x_temp[i] = rhs_vector[i];
 
         for (j = 0; j < i; j++) {
             x_temp[i] -= x_old[j] * a_matrix[i][j];
         }
-        for (j = i+1; j < init->inner_iteration_count; j++) {
+        for (j = i+1; j < init->iteration_count; j++) {
             x_temp[i] -= x_old[j] * a_matrix[i][j];
         }
         x_temp[i] = x_temp[i] / a_matrix[i][i];
     }
     TEST_ANNOTATION_NINE_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9);
-    for (i = 0; i < init->inner_iteration_count; i++) {
+    for (i = 0; i < init->iteration_count; i++) {
         x_new[i] = x_temp[i];
     }
     TEST_ANNOTATION_SET_MODE(init->id, MODE_0);

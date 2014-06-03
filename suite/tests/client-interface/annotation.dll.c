@@ -130,7 +130,7 @@ static void
 register_call(void *drcontext, const module_data_t *info, const char *annotation,
     void *target, uint num_args)
 {
-    dr_annot_find_and_register_call(drcontext, info, annotation, target, num_args
+    dr_annot_find_and_register_call(drcontext, info->handle, annotation, target, num_args
         _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
@@ -154,9 +154,9 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
     if ((info->names.module_name != NULL) &&
         (strcmp("ntdll.dll", info->names.module_name) == 0)) {
         skip_truncation[0] = (app_pc) dr_get_proc_address(info->handle,
-                                                        "KiUserExceptionDispatcher");
+                                                          "KiUserExceptionDispatcher");
         skip_truncation[1] = (app_pc) dr_get_proc_address(info->handle,
-                                                        "LdrInitializeThunk");
+                                                          "LdrInitializeThunk");
     }
 #endif
 }

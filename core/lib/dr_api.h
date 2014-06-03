@@ -48,9 +48,6 @@ extern "C" {
 /* Event registration routines */
 #include "dr_events.h"
 
-/* Annotation handler registration routines */
-#include "dr_annotation.h"
-
 /* Application start/stop interface */
 #include "dr_app.h"
 
@@ -63,6 +60,9 @@ extern "C" {
  * and module information.
  */
 #include "dr_tools.h"
+
+/* Annotation handler registration routines */
+#include "dr_annotation.h"
 
 /* Utility routines for identifying features of the processor. */
 #include "dr_proc.h"

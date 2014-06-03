@@ -20,8 +20,6 @@
      (*(uint *) (xchg_start_pc - 4) == 0x13c7c11d))
 #endif
 
-#define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
-
 #define IS_ANNOTATION_LABEL(instr) ((instr != NULL) && instr_is_label(instr) && \
     ((ptr_uint_t)instr_get_note(instr) == DR_NOTE_ANNOTATION))
 
@@ -29,6 +27,11 @@
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
 
 #define GET_ANNOTATION_PC(label_data) ((app_pc) label_data->data[2])
+
+#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
+    "dynamorio_annotate_running_on_dynamorio"
+
+#define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 /* DR_API EXPORT TOFILE dr_annotation.h */
 /* DR_API EXPORT BEGIN */
@@ -108,17 +111,19 @@ DR_API
 void dr_annot_register_call_varg(void *drcontext, void *annotation_func,
                               void *callee, bool save_fpstate, uint num_args, ...);
 
-#ifdef CLIENT_INTERFACE
 DR_API
-bool dr_annot_find_and_register_call(void *drcontext, const module_data_t *module,
-                                  const char *target_name, void *callee, uint num_args
-                                  _IF_NOT_X64(annotation_calling_convention_t type));
-#endif /* CLIENT_INTERFACE */
+bool dr_annot_find_and_register_call(void *drcontext, const module_handle_t module,
+                                     const char *target_name, void *callee, uint num_args
+                                     _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
 void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee,
-                         bool save_fpstate, uint num_args
-                         _IF_NOT_X64(annotation_calling_convention_t type));
+                            bool save_fpstate, uint num_args
+                            _IF_NOT_X64(annotation_calling_convention_t type));
+
+DR_API
+bool dr_annot_find_and_register_return(const module_handle_t module,
+                                       const char *target_name, void *return_value);
 
 DR_API
 void dr_annot_register_return(void *annotation_func, void *return_value);
