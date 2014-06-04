@@ -1428,6 +1428,7 @@ if (CLIENT_INTERFACE)
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   tobuild_appdll(client.modules client-interface/modules.c)
 
+  set(DynamoRIO_USE_LIBC OFF)
   tobuild_ci(client.annotation client-interface/annotation.c "" "" "A4")
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
@@ -1441,6 +1442,7 @@ if (CLIENT_INTERFACE)
   set(client.annotation.bb-truncate_expectbase "annotation.bb-truncate")
   torunonly_ci(client.annotation.bb-truncate client.annotation client.annotation.dll
     client-interface/annotation.c "+b/b" "" "A4")
+  set(DynamoRIO_USE_LIBC ON)
 
   if (UNIX)
     # XXX i#1246: Make partial_module_map work for Windows as well.

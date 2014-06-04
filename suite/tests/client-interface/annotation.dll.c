@@ -234,6 +234,10 @@ dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
 
+# ifdef WINDOWS
+    dr_enable_console_printing();
+# endif
+
     if (strcmp(options, "+bb") == 0) {
         PRINT("Init annotation test client with full decoding");
         dr_register_bb_event(empty_bb_event);
@@ -256,8 +260,4 @@ dr_init(client_id_t id)
 
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(event_module_load);
-
-# ifdef WINDOWS
-    dr_enable_console_printing();
-# endif
 }
