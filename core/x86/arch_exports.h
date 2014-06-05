@@ -620,70 +620,6 @@ void arch_profile_exit(void);
 byte *
 code_align_forward(byte *pc, size_t alignment);
 
-enum {
-    /* Each translation entry represents a sequence of instructions.
-     * If TRANSLATE_IDENTICAL is set, that sequence of instructions
-     * share the same translation ("identical" == stride 0); otherwise, the
-     * translation should advance by instruction length with distance
-     * from the head ("contiguous" == stride of instr length).
-     * Generally identical instrs are mangled sequences that we inserted,
-     * though currently the table creation scheme doesn't follow that
-     * on all contig-identical borders.
-     */
-    TRANSLATE_IDENTICAL      = 0x0001, /* otherwise contiguous */
-    TRANSLATE_OUR_MANGLING   = 0x0002, /* added by our own mangling (PR 267260) */
-}; /* no typedef b/c we need ushort not int */
-
-/* Translation table entry (case 3559).
- * PR 299783: for now we only support pc translation, not full arbitrary reg
- * state mappings, which aren't needed for DR but may be nice for clients.
- */
-typedef struct _translation_entry_t {
-    /* offset from fragment start_pc */
-    ushort cache_offs;
-    /* TRANSLATE_ flags */
-    ushort flags;
-    app_pc app;
-} translation_entry_t;
-
-/* Translation table that records info for translating cache pc to app
- * pc without reading app memory (used when it is unsafe to do so).
- * The table records only translations at change points, so the
- * recreater must interpolate between them, using either a stride of 0
- * if the previous translation entry is marked "identical" or a stride
- * equal to the instruction length as we decode from the cache if the
- * previous entry is !identical=="contiguous".
- */
-typedef struct _translation_info_t {
-    uint num_entries;
-    /* an array of num_entries elements */
-    translation_entry_t translation[1]; /* variable-sized */
-} translation_info_t;
-
-/* PR 244737: all generated code is thread-shared on x64 */
-#define IS_SHARED_SYSCALL_THREAD_SHARED IF_X64_ELSE(true, false)
-
-/* state translation for faults and thread relocation */
-app_pc recreate_app_pc(dcontext_t *tdcontext, cache_pc pc, fragment_t *f);
-
-typedef enum {
-    RECREATE_FAILURE,
-    RECREATE_SUCCESS_PC,
-    RECREATE_SUCCESS_STATE,
-} recreate_success_t;
-
-recreate_success_t
-recreate_app_state(dcontext_t *tdcontext, priv_mcontext_t *mcontext, bool restore_memory,
-                   fragment_t *f);
-
-void translation_info_free(dcontext_t *tdcontext, translation_info_t *info);
-translation_info_t *record_translation_info(dcontext_t *dcontext, fragment_t *f,
-                                            instrlist_t *ilist);
-void translation_info_print(const translation_info_t *info, cache_pc start, file_t file);
-#ifdef INTERNAL
-void stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist);
-#endif
-
 bool is_indirect_branch_lookup_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_generated_routine(dcontext_t *dcontext, cache_pc pc);
 bool in_context_switch_code(dcontext_t *dcontext, cache_pc pc);
@@ -753,10 +689,12 @@ cache_pc after_do_syscall_code(dcontext_t *dcontext);
 #else
 cache_pc after_do_shared_syscall_addr(dcontext_t *dcontext);
 cache_pc after_do_syscall_addr(dcontext_t *dcontext);
+bool is_after_main_do_syscall_addr(dcontext_t *dcontext, cache_pc pc);
 bool is_after_do_syscall_addr(dcontext_t *dcontext, cache_pc pc);
 #endif
 
 bool is_after_syscall_address(dcontext_t *dcontext, cache_pc pc);
+bool is_after_syscall_that_rets(dcontext_t *dcontext, cache_pc pc);
 
 void update_generated_hashtable_access(dcontext_t *dcontext);
 fcache_enter_func_t get_fcache_enter_shared_routine(dcontext_t *dcontext);
@@ -1362,6 +1300,8 @@ void add_profile_call(dcontext_t *dcontext);
 #endif
 app_pc emulate(dcontext_t *dcontext, app_pc pc, priv_mcontext_t *mc);
 
+bool instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst);
+
 typedef struct {
     app_pc region_start;
     app_pc region_end;
@@ -1542,6 +1482,8 @@ void mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip);
 bool mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip);
 #endif
 void finalize_selfmod_sandbox(dcontext_t *dcontext, fragment_t *f);
+
+bool instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust);
 
 void
 float_pc_update(dcontext_t *dcontext);

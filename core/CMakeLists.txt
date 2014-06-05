@@ -81,6 +81,8 @@ set(CORE_SRCS
   loader_shared.c
   io.c
   native_exec.c
+  lib/instrument.c
+  translate.c
   )
 
 if (UNIX)
@@ -122,7 +124,6 @@ set(ARCH_SRCS
   x86/decode_fast.c
   x86/optimize.c
   x86/sideline.c
-  x86/instrument.c
   x86/retcheck.c
   )
 

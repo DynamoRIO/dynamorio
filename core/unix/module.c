@@ -36,7 +36,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "../utils.h"
-#include "../x86/instrument.h"
+#include "instrument.h"
 #include <string.h>
 #include <stddef.h> /* offsetof */
 

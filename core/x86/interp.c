@@ -5248,6 +5248,30 @@ insert_restore_spilled_xcx(dcontext_t *dcontext, instrlist_t *trace, instr_t *ne
     return added_size;
 }
 
+bool
+instr_is_trace_cmp(dcontext_t *dcontext, instr_t *inst)
+{
+    if (!instr_is_our_mangling(inst))
+        return false;
+    return
+#ifdef X64
+        instr_get_opcode(inst) == OP_mov_imm ||
+        /* mov %rax -> xbx-tls-spill-slot */
+        instr_get_opcode(inst) == OP_mov_st ||
+        instr_get_opcode(inst) == OP_lahf ||
+        instr_get_opcode(inst) == OP_seto ||
+        instr_get_opcode(inst) == OP_cmp ||
+        instr_get_opcode(inst) == OP_jnz ||
+        instr_get_opcode(inst) == OP_add ||
+        instr_get_opcode(inst) == OP_sahf
+#else
+        instr_get_opcode(inst) == OP_lea ||
+        instr_get_opcode(inst) == OP_jecxz ||
+        instr_get_opcode(inst) == OP_jmp
+#endif
+        ;
+}
+
 /* 32-bit only: inserts a comparison to speculative_tag with no side effect and
  * if value is matched continue target is assumed to be immediately
  * after targeter (which must be < 127 bytes away).

@@ -55,6 +55,7 @@
 #include "steal_reg.h"
 #endif
 #include "instrument.h" /* for dr_insert_call */
+#include "../translate.h"
 
 #ifdef RCT_IND_BRANCH
 # include "../rct.h" /* rct_add_rip_rel_addr */
@@ -1770,7 +1771,80 @@ stack_entry_size(instr_t *instr, opnd_size_t opsize)
     return opsize;
 }
 
-/* N.B.: keep in synch with instr_check_xsp_mangling() in arch.c */
+/* Used for fault translation */
+bool
+instr_check_xsp_mangling(dcontext_t *dcontext, instr_t *inst, int *xsp_adjust)
+{
+    ASSERT(xsp_adjust != NULL);
+    if (instr_get_opcode(inst) == OP_push ||
+        instr_get_opcode(inst) == OP_push_imm) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: push or push_imm\n");
+        *xsp_adjust -= opnd_size_in_bytes(opnd_get_size(instr_get_dst(inst, 1)));
+    } else if (instr_get_opcode(inst) == OP_pop) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: pop\n");
+        *xsp_adjust += opnd_size_in_bytes(opnd_get_size(instr_get_src(inst, 1)));
+    }
+    /* 1st part of push emulation from insert_push_retaddr */
+    else if (instr_get_opcode(inst) == OP_lea &&
+             opnd_get_reg(instr_get_dst(inst, 0)) == REG_XSP &&
+             opnd_get_base(instr_get_src(inst, 0)) == REG_XSP &&
+             opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: lea xsp adjust\n");
+        *xsp_adjust += opnd_get_disp(instr_get_src(inst, 0));
+    }
+    /* 2nd part of push emulation from insert_push_retaddr */
+    else if (instr_get_opcode(inst) == OP_mov_st &&
+             opnd_is_base_disp(instr_get_dst(inst, 0)) &&
+             opnd_get_base(instr_get_dst(inst, 0)) == REG_XSP &&
+             opnd_get_index(instr_get_dst(inst, 0)) == REG_NULL) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: store to stack\n");
+        /* nothing to track: paired lea is what we undo */
+    }
+    /* retrieval of target for call* or jmp* */
+    else if ((instr_get_opcode(inst) == OP_movzx &&
+              reg_overlap(opnd_get_reg(instr_get_dst(inst, 0)), REG_XCX)) ||
+             (instr_get_opcode(inst) == OP_mov_ld &&
+              reg_overlap(opnd_get_reg(instr_get_dst(inst, 0)), REG_XCX))) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: ib tgt to *cx\n");
+        /* nothing: our xcx spill restore will undo */
+    }
+    /* part of pop emulation for iretd/lretd in x64 mode */
+    else if (instr_get_opcode(inst) == OP_mov_ld &&
+             opnd_is_base_disp(instr_get_src(inst, 0)) &&
+             opnd_get_base(instr_get_src(inst, 0)) == REG_XSP &&
+             opnd_get_index(instr_get_src(inst, 0)) == REG_NULL) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: load from stack\n");
+        /* nothing to track: paired lea is what we undo */
+    }
+    /* part of data16 ret.  once we have cs preservation (PR 271317) we'll
+     * need to not fail when walking over a movzx to a pop cs (right now we
+     * do not read the stack for the pop cs).
+     */
+    else if (instr_get_opcode(inst) == OP_movzx &&
+             opnd_get_reg(instr_get_dst(inst, 0)) == REG_CX) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: movzx to cx\n");
+        /* nothing: our xcx spill restore will undo */
+    }
+    /* fake pop of cs for iret */
+    else if (instr_get_opcode(inst) == OP_add &&
+             opnd_is_reg(instr_get_dst(inst, 0)) &&
+             opnd_get_reg(instr_get_dst(inst, 0)) == REG_XSP &&
+             opnd_is_immed_int(instr_get_src(inst, 0))) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: add to xsp\n");
+        ASSERT(CHECK_TRUNCATE_TYPE_int(opnd_get_immed_int(instr_get_src(inst, 0))));
+        *xsp_adjust += (int) opnd_get_immed_int(instr_get_src(inst, 0));
+    }
+    /* popf for iret */
+    else if (instr_get_opcode(inst) == OP_popf) {
+        LOG(THREAD_GET, LOG_INTERP, 4, "\tstate track: popf\n");
+        *xsp_adjust += opnd_size_in_bytes(opnd_get_size(instr_get_src(inst, 1)));
+    } else {
+        return false;
+    }
+    return true;
+}
+
+/* N.B.: keep in synch with instr_check_xsp_mangling() */
 void
 insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     ptr_int_t retaddr, opnd_size_t opsize)
@@ -1807,7 +1881,7 @@ insert_push_retaddr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 
 #ifdef CLIENT_INTERFACE
-/* N.B.: keep in synch with instr_check_xsp_mangling() in arch.c */
+/* N.B.: keep in synch with instr_check_xsp_mangling() */
 static void
 insert_mov_ptr_uint_beyond_TOS(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                                ptr_int_t value, opnd_size_t opsize)
