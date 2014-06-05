@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -49,6 +49,7 @@
 #include "instrlist.h"
 #include "instr.h"
 #include "monitor.h"
+#include "translate.h"
 #include <string.h> /* memcpy */
 
 #ifdef DEBUG

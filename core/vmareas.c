@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +53,7 @@
 #include "moduledb.h"
 #include "module_shared.h"
 #include "perscache.h"
+#include "translate.h"
 
 #ifdef WINDOWS
 # include "events.h"             /* event log messages - not supported yet on Linux  */

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -63,7 +63,7 @@
 #  include "../module_shared.h" /* for is_in_code_section() */
 # endif
 # ifdef CLIENT_INTERFACE
-#  include "../x86/instrument.h" /* dr_lookup_module_by_name */
+#  include "instrument.h" /* dr_lookup_module_by_name */
 # endif
 #endif
 

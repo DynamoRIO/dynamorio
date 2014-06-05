@@ -59,6 +59,7 @@
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
 #include "../client/annot.h"
+#include "../translate.h"
 #ifdef UNIX
 # include <sys/time.h> /* ITIMER_* */
 # include "../unix/module.h" /* redirect_* functions */
@@ -5031,6 +5032,9 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
             /* PR 219620: For thread-shared, we need to get the dcontext
              * dynamically rather than use the constant passed in here.
              */
+#ifndef X86
+# error NYI
+#endif
             reg_id_t tmp = (reg == REG_XAX) ? REG_XBX : REG_XAX;
 
             MINSERT(ilist, where, instr_create_save_to_tls
@@ -5232,6 +5236,10 @@ dr_insert_write_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
     if (SCRATCH_ALWAYS_TLS()) {
+#ifndef X86
+        /* XXX: generalize these registers to cross-platform scratch reg helper */
+#       error NYI
+#endif
         reg_id_t spill = REG_XAX;
         if (reg == spill) /* don't need sub-reg test b/c we know it's pointer-sized */
             spill = REG_XDI;
@@ -5258,6 +5266,9 @@ DR_API void
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                     dr_spill_slot_t slot)
 {
+#ifndef X86
+# error NYI
+#endif
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_save_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5273,6 +5284,9 @@ DR_API void
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot)
 {
+#ifndef X86
+# error NYI
+#endif
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_restore_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
@@ -5287,6 +5301,9 @@ dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
 DR_API void
 dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
+#ifndef X86
+# error NYI
+#endif
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_save_arith_flags_to_xax: drcontext cannot be NULL");
@@ -5306,6 +5323,9 @@ DR_API void
 dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist,
                                 instr_t *where)
 {
+#ifndef X86
+# error NYI
+#endif
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_restore_arith_flags_from_xax: drcontext cannot be NULL");
@@ -5382,6 +5402,9 @@ DR_API void
 dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee, dr_spill_slot_t scratch_slot)
 {
+#ifndef X86
+# error NYI
+#endif
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address = (ptr_uint_t) instr_get_translation(instr);
     opnd_t tls_opnd;
@@ -6596,6 +6619,9 @@ bool
 dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                        reg_id_t seg, reg_id_t reg)
 {
+#ifndef X86
+# error NYI
+#endif
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_insert_get_seg_base: reg has wrong size\n");
     CLIENT_ASSERT(reg_is_segment(seg),

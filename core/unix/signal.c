@@ -81,6 +81,7 @@
 #include "disassemble.h"
 #include "ksynch.h"
 #include "tls.h" /* tls_reinstate_selector */
+#include "../translate.h"
 
 #ifdef LINUX
 # include "include/syscall.h"

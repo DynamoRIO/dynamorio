@@ -4,8 +4,8 @@
 #include "../hashtable.h"
 #include "../x86/instr.h"
 #include "../x86/instr_create.h"
-#include "../x86/instrument.h"
 #include "../x86/disassemble.h"
+#include "../lib/instrument.h"
 #include "annot.h"
 
 #include "../lib/annotation/valgrind.h"
