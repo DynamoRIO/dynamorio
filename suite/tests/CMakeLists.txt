@@ -520,7 +520,7 @@ function(add_exe test source)
 
   if ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
     set(test_srcs ${test_srcs}
-      "${CORE_ANNOTATION}/dynamorio_annotations.c")
+      "${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.c")
   endif ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
   if ("${srccode}" MATCHES "include \"annotation/test_custom_annotations.h\"")
     set(test_srcs ${test_srcs}
@@ -1403,13 +1403,12 @@ tobuild(common.segfault common/segfault.c)
 
 if (CLIENT_INTERFACE)
   set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
-  set(CORE_ANNOTATION "${PROJECT_SOURCE_DIR}/core/lib/annotation")
   file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
-  configure_file("${CORE_ANNOTATION}/valgrind.h"
+  configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/valgrind.h"
     "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
-  configure_file("${CORE_ANNOTATION}/memcheck.h"
+  configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
     "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
-  configure_file("${CORE_ANNOTATION}/dynamorio_annotations.h"
+  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.h"
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.h"

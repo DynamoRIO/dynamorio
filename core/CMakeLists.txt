@@ -83,6 +83,7 @@ set(CORE_SRCS
   native_exec.c
   lib/instrument.c
   translate.c
+  annotations.c
   )
 
 if (UNIX)
@@ -291,12 +292,8 @@ else (UNIX)
     )
 endif (UNIX)
 
-set(CORE_CLIENT_SRCS
-  client/annot.c
-  )
-
 add_library(dynamorio ${SHARED_OR_STATIC}
-  ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${CORE_CLIENT_SRCS}
+  ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS}
   # FIXME: any other way to add a dependence?  this is for export_list,
   # where the PRE_LINK custom command doesn't support DEPENDS.
   # Apparently just files w/ certain extensions are pulled out of here
@@ -834,7 +831,7 @@ endif (WIN32)
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
-    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS} ${CORE_CLIENT_SRCS})
+    ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence

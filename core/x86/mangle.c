@@ -68,7 +68,7 @@
 #include <string.h> /* for memset */
 
 #ifdef ANNOTATIONS
-# include "../client/annot.h"
+# include "../annotations.h"
 #endif
 
 /* make code more readable by shortening long lines

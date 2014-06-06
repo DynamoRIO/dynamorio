@@ -58,7 +58,7 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
-#include "../client/annot.h"
+#include "../annotations.h"
 #include "../translate.h"
 #ifdef UNIX
 # include <sys/time.h> /* ITIMER_* */

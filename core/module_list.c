@@ -34,7 +34,7 @@
 #include "globals.h"
 #include "instrument.h"
 #ifdef ANNOTATIONS
-# include "client/annot.h"
+# include "annotations.h"
 #endif
 #include "native_exec.h"
 #include <string.h> /* for memset */

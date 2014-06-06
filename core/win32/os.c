@@ -53,7 +53,7 @@
 #include "../dispatch.h"
 #include "instrument.h" /* is_in_client_lib() */
 #ifdef ANNOTATIONS
-# include "../client/annot.h" /* annot_module_load() */
+# include "../annotations.h" /* annot_module_load() */
 #endif
 
 #include <windows.h>

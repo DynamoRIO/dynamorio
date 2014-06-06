@@ -75,7 +75,7 @@
 #endif
 
 #ifdef ANNOTATIONS
-# include "../client/annot.h"
+# include "../annotations.h"
 #endif
 
 enum { DIRECT_XFER_LENGTH = 5 };

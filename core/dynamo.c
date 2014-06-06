@@ -65,7 +65,7 @@
 #include "native_exec.h"
 
 #ifdef ANNOTATIONS
-# include "client/annot.h"
+# include "annotations.h"
 #endif
 
 #include <string.h>

@@ -6,10 +6,10 @@
 #include "../x86/instr_create.h"
 #include "../x86/disassemble.h"
 #include "../lib/instrument.h"
-#include "annot.h"
+#include "annotations.h"
 
-#include "../lib/annotation/valgrind.h"
-#include "../lib/annotation/memcheck.h"
+#include "../third_party/valgrind/valgrind.h"
+#include "../third_party/valgrind/memcheck.h"
 
 #if defined(WINDOWS) && !defined(X64)
 # define PRINT_SYMBOL_NAME(dst, dst_size, src, num_args) \

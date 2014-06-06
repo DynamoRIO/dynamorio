@@ -171,7 +171,7 @@ char **our_environ;
 # include "instrument.h"
 #endif
 #ifdef ANNOTATIONS
-# include "../client/annot.h"
+# include "../annotations.h"
 #endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
