@@ -51,11 +51,6 @@ do { \
         annot_register_call_varg(drcontext, target, call, false, num_args, __VA_ARGS__); \
 } while (0)
 
-enum {
-    VG_PATTERN_LENGTH = 5,
-    VG_NUM_ARGS = 5,
-};
-
 typedef enum _valgrind_request_id_t {
     VG_ID__RUNNING_ON_VALGRIND,
     VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
@@ -70,15 +65,11 @@ typedef struct _vg_client_request_t {
 
 #ifndef X64
 typedef enum _annotation_calling_convention_t {
-    ANNOT_FASTCALL,
-    ANNOT_STDCALL
+    ANNOT_CALL_TYPE_FASTCALL,
+    ANNOT_CALL_TYPE_STDCALL,
+    ANNOT_CALL_TYPE_NONE
 } annotation_calling_convention_t;
 #endif
-
-typedef enum _annotation_call_t {
-    ANNOT_NORMAL_CALL,
-    ANNOT_TAIL_CALL
-} annotation_call_t;
 
 typedef enum _handler_type_t {
     ANNOT_HANDLER_CALL,
@@ -87,52 +78,77 @@ typedef enum _handler_type_t {
     ANNOT_HANDLER_LAST
 } handler_type_t;
 
-typedef struct _annotation_handler_t {
-    handler_type_t type;
-    union {
-        app_pc annotation_func;
-        valgrind_request_id_t vg_request_id;
-    } id;
+typedef struct _annotation_receiver_t {
+    client_id_t client_id;
     union { // per type
         void *callback;
         void *return_value;
         ptr_uint_t (*vg_callback)(vg_client_request_t *request);
     } instrumentation;
     bool save_fpstate;
+    struct _annotation_receiver_t *next;
+} annotation_receiver_t;
+
+
+typedef struct _annotation_handler_t {
+    handler_type_t type;
+    const char *symbol_name; // NULL if never registered by name
+    union {
+        app_pc annotation_func;
+        valgrind_request_id_t vg_request_id;
+    } id;
+    annotation_receiver_t *receiver_list;
     uint num_args;
     opnd_t *args;
     uint arg_stack_space;
-    struct _annotation_handler_t *next_handler;
 } annotation_handler_t;
 
 /* DR_API EXPORT END */
 
-DR_API
-void dr_annot_register_call_varg(void *drcontext, void *annotation_func,
-                              void *callee, bool save_fpstate, uint num_args, ...);
+typedef enum _annotation_call_t {
+    ANNOT_NORMAL_CALL,
+    ANNOT_TAIL_CALL
+} annotation_call_t;
+
 
 DR_API
-bool dr_annot_find_and_register_call(void *drcontext, const module_handle_t module,
-                                     const char *target_name, void *callee, uint num_args
-                                     _IF_NOT_X64(annotation_calling_convention_t type));
+bool dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
+                                    void *callee, uint num_args
+                                    _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
-void dr_annot_register_call(void *drcontext, void *annotation_func, void *callee,
+void dr_annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
                             bool save_fpstate, uint num_args
                             _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
-bool dr_annot_find_and_register_return(const module_handle_t module,
-                                       const char *target_name, void *return_value);
+void dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
+                               void *callee, bool save_fpstate, uint num_args, ...);
+
+DR_API
+void dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request,
+    ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
+
+DR_API
+bool dr_annot_register_return_by_name(const char *target_name, void *return_value);
 
 DR_API
 void dr_annot_register_return(void *annotation_func, void *return_value);
 
 DR_API
-void dr_annot_register_valgrind(valgrind_request_id_t request,
-    ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
+void dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name);
 
-// TODO: deregister API
+DR_API
+void dr_annot_unregister_call(client_id_t client_id, void *annotation_func);
+
+DR_API
+void dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t request);
+
+DR_API
+void dr_annot_unregister_return_by_name(const char *target_name);
+
+DR_API
+void dr_annot_unregister_return(void *annotation_func);
 
 void
 annot_init();
