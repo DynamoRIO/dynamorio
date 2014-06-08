@@ -25,6 +25,8 @@ typedef struct _context_list_t {
 static void *context_lock;
 static context_list_t *context_list;
 
+static client_id_t client_id;
+
 #ifdef WINDOWS
 static app_pc *skip_truncation;
 #endif
@@ -130,7 +132,7 @@ static void
 register_call(void *drcontext, const module_data_t *info, const char *annotation,
     void *target, uint num_args)
 {
-    dr_annot_find_and_register_call(drcontext, info->handle, annotation, target, num_args
+    dr_annot_register_call_by_name(client_id, annotation, target, false, num_args
         _IF_NOT_X64(ANNOT_FASTCALL));
 }
 
@@ -237,6 +239,8 @@ dr_init(client_id_t id)
 # ifdef WINDOWS
     dr_enable_console_printing();
 # endif
+
+    client_id = id;
 
     if (strcmp(options, "+bb") == 0) {
         PRINT("Init annotation test client with full decoding");

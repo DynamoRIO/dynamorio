@@ -4223,28 +4223,32 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
             handler = (annotation_handler_t *) label_data->data[0];
             if (handler->type == ANNOT_HANDLER_CALL) {
-                opnd_t *args = NULL;
-                if (handler->num_args != 0) {
+                opnd_t *args;
+                annotation_receiver_t *receiver = handler->receiver_list;
+                while (receiver != NULL) {
+                    if (handler->num_args != 0) {
+                        args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
+                                                ACCT_CLEANCALL, UNPROTECTED);
+                        memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
 
-                    args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
-                                            ACCT_CLEANCALL, UNPROTECTED);
-                    memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
-
-                    if (label_data->data[1] == ANNOT_TAIL_CALL) {
-                        uint i;
-                        for (i = 0; i < handler->num_args; i++) {
-                            if (IS_ANNOTATION_STACK_ARG(args[i]))
-                                opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
+                        if (label_data->data[1] == ANNOT_TAIL_CALL) {
+                            uint i;
+                            for (i = 0; i < handler->num_args; i++) {
+                                if (IS_ANNOTATION_STACK_ARG(args[i]))
+                                    opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
+                            }
                         }
                     }
+                    dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
+                        receiver->instrumentation.callback,
+                        receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+                        handler->num_args, args);
+
+                    receiver = receiver->next;
                 }
-                dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
-                    handler->instrumentation.callback,
-                    handler->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-                    handler->num_args, args);
             } else { // ANNOT_HANDLER_RETURN_VALUE
                 PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
-                    OPND_CREATE_INT32(handler->instrumentation.return_value)));
+                    OPND_CREATE_INT32(handler->receiver_list->instrumentation.return_value)));
             }
             continue;
         }

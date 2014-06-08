@@ -4,6 +4,8 @@
 static uint num_bytes_made_defined = 0;
 static uint num_define_memory_requests = 0;
 
+static client_id_t client_id;
+
 #ifdef WINDOWS
 static app_pc *skip_truncation = NULL;
 #endif
@@ -83,6 +85,8 @@ void dr_init(client_id_t id)
 {
     const char *options = dr_get_options(id);
 
+    client_id = id;
+
     if (strcmp(options, "+bb") == 0) {
         dr_printf("Init vg-annot with full decoding.\n");
         dr_register_bb_event(empty_bb_event);
@@ -101,11 +105,9 @@ void dr_init(client_id_t id)
 #endif
     dr_register_exit_event(exit_event);
 
-    dr_annot_register_valgrind(
-        VG_ID__RUNNING_ON_VALGRIND,
-        handle_running_on_valgrind);
+    dr_annot_register_valgrind(client_id, VG_ID__RUNNING_ON_VALGRIND,
+                               handle_running_on_valgrind);
 
-    dr_annot_register_valgrind(
-        VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
-        handle_make_mem_defined_if_addressable);
+    dr_annot_register_valgrind(client_id, VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                               handle_make_mem_defined_if_addressable);
 }

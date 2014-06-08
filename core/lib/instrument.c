@@ -272,6 +272,8 @@ static ssize_t dr_write_to_console_varg(bool to_stdout, const char *fmt, ...);
 
 bool client_requested_exit;
 
+uint dr_internal_client_id;
+
 #ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
@@ -500,6 +502,9 @@ add_client_lib(char *path, char *id_str, char *options)
 void
 instrument_load_client_libs(void)
 {
+    uint i;
+    bool repeat;
+
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
         char buf[MAX_LIST_OPTION_LENGTH];
         char *path;
@@ -538,6 +543,18 @@ instrument_load_client_libs(void)
             path = next_path;
         } while (path != NULL);
     }
+
+    dr_internal_client_id = 0xffffffff;
+    do {
+        repeat = false;
+        for (i=0; i<num_client_libs; i++) {
+            if (dr_internal_client_id == client_libs[i].id) {
+                dr_internal_client_id--;
+                repeat = true;
+                break;
+            }
+        }
+    } while (repeat);
 }
 
 static void

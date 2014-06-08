@@ -11,6 +11,10 @@
 #include "../third_party/valgrind/valgrind.h"
 #include "../third_party/valgrind/memcheck.h"
 
+#ifdef UNIX
+# include <string.h>
+#endif
+
 typedef struct _annotation_registration_by_name_t {
     handler_type_t type;
     client_id_t client_id;
@@ -29,10 +33,11 @@ typedef struct _annotation_registration_by_name_t {
     struct _annotation_registration_by_name_t *next;
 } annotation_registration_by_name_t;
 
-enum {
-    VG_PATTERN_LENGTH = 5,
-    VG_NUM_ARGS = 5,
-};
+typedef struct _annotation_registration_by_name_list_t {
+    uint size;
+    uint ref_count;
+    annotation_registration_by_name_t *head;
+} annotation_registration_by_name_list_t;
 
 #define MATCH_REGISTRATION(by_name, client_id, target_name) \
     ((by_name != NULL) && (by_name->client_id == client_id) && \
@@ -43,6 +48,7 @@ do { \
     annotation_registration_by_name_t *removal = link; \
     link = link->next; \
     free_annotation_registration_by_name(removal); \
+    by_name_list->size--; \
 } while (0)
 
 #if defined(WINDOWS) && !defined(X64)
@@ -51,7 +57,7 @@ do { \
 #endif
 
 #define IS_HANDLER_NAME(h, name) \
-    ((h->annotation_name != NULL) && strcmp(h->annotation_name, name) == 0))
+    ((h->symbol_name != NULL) && strcmp(h->symbol_name, name) == 0)
 
 #define KEY(annotation_id) ((ptr_uint_t) annotation_id)
 static generic_table_t *handlers;
@@ -60,9 +66,13 @@ static generic_table_t *handlers;
 static annotation_handler_t *vg_handlers[VG_ID__LAST];
 
 static annotation_handler_t vg_router;
+static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
 
-static annotation_registration_by_name_t *by_name_list = NULL;
+// locked under the `handlers` table lock
+static annotation_registration_by_name_list_t *by_name_list;
+
+extern uint dr_internal_client_id;
 
 /* Immediate operands to the special rol instructions.
  * See __SPECIAL_INSTRUCTION_PREAMBLE in valgrind.h.
@@ -89,9 +99,17 @@ expected_rol_immeds[VG_PATTERN_LENGTH] = {
 
 /**** Private Function Declarations ****/
 
+static annotation_handler_t *
+annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
+                    bool save_fpstate, uint num_args
+                    _IF_NOT_X64(annotation_calling_convention_t type));
+
+static annotation_handler_t *
+annot_register_return(void *annotation_func, void *return_value);
+
 static void
-annot_bind_registration(module_handle_t handle,
-                        annotation_registration_by_name_t *by_name);
+annot_bind_registrations(uint num_targets, generic_func_t *targets,
+                         annotation_registration_by_name_t *by_name);
 
 static void
 handle_vg_annotation(app_pc request_args);
@@ -134,14 +152,20 @@ annot_init()
                                    _IF_DEBUG("annotation hashtable"));
 
     vg_router.type = ANNOT_HANDLER_CALL;
-    vg_router.instrumentation.callback = (void *) handle_vg_annotation;
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
     vg_router.args = &vg_router_arg;
     vg_router.arg_stack_space = 0;
-    vg_router.save_fpstate = false;
     vg_router.id.annotation_func = NULL; // identified by magic code sequence
-    vg_router.next_handler = NULL;
+    vg_receiver.client_id = dr_internal_client_id;
+    vg_receiver.instrumentation.callback = (void *) handle_vg_annotation;
+    vg_receiver.save_fpstate = false;
+    vg_receiver.next = NULL;
+
+    by_name_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT,
+                                   annotation_registration_by_name_list_t,
+                                   ACCT_OTHER, UNPROTECTED);
+    memset(by_name_list, 0, sizeof(annotation_registration_by_name_list_t));
 
     dr_annot_register_return_by_name(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                                      (void *) (ptr_uint_t) true);
@@ -158,9 +182,10 @@ annot_exit()
     uint i;
 
     for (i = 0; i < VG_ID__LAST; i++) {
-        if (vg_handlers[i] != NULL)
-            HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, vg_handlers[i], annotation_handler_t,
-                            1, ACCT_OTHER, UNPROTECTED);
+        if (vg_handlers[i] != NULL) {
+            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vg_handlers[i], annotation_handler_t,
+                           ACCT_OTHER, UNPROTECTED);
+        }
     }
 
     generic_hash_destroy(GLOBAL_DCONTEXT, handlers);
@@ -169,11 +194,14 @@ annot_exit()
 void
 dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
                                void *callee, bool save_fpstate, uint num_args
-                               _IF_NOT_X64(annotation_calling_convention_t type));
+                               _IF_NOT_X64(annotation_calling_convention_t type))
 {
     module_iterator_t *mi;
     module_handle_t handle;
     annotation_registration_by_name_t *by_name;
+    extern vm_area_vector_t *loaded_module_areas;
+    uint i, num_annotated_modules = 0, num_allocated_targets;
+    generic_func_t target, *targets;
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
@@ -182,11 +210,25 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
 
+    /* Collect the targets outside the table lock to avoid rank order violation */
+    mi = module_iterator_start();
+    num_allocated_targets = loaded_module_areas->length;
+    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t,
+                               num_allocated_targets, ACCT_OTHER, UNPROTECTED);
+    while (module_iterator_hasnext(mi)) {
+        handle = (module_handle_t) module_iterator_next(mi)->start;
+        target = get_proc_address(handle, symbol_name);
+        if (target != NULL)
+            targets[num_annotated_modules++] = target;
+    }
+    module_iterator_stop(mi);
+
     TABLE_RWLOCK(handlers, write, lock);
 
+    by_name_list->ref_count++;
     by_name = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_registration_by_name_t,
                               ACCT_OTHER, UNPROTECTED);
-    by_name->->type = ANNOT_HANDLER_CALL;
+    by_name->type = ANNOT_HANDLER_CALL;
     by_name->client_id = client_id;
     by_name->target_name = heap_strcpy(target_name);
     by_name->symbol_name = heap_strcpy(symbol_name);
@@ -196,58 +238,29 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
 #ifndef X64
     by_name->type = type;
 #endif
-    by_name->next = by_name_list;
-    by_name_list = by_name;
+    by_name->next = by_name_list->head;
+    by_name_list->head = by_name;
+    by_name_list->size++;
 
     /* Bind to all existing modules */
-    mi = module_iterator_start();
-    while (module_iterator_hasnext(mi)) {
-        handle = (module_handle_t) module_iterator_next(mi)->start;
-        annot_bind_registration(handle, by_name);
-    }
-    module_iterator_stop(mi);
+    for (i = 0; i < num_annotated_modules; i++)
+        annot_bind_registrations(num_annotated_modules, targets, by_name);
 
     TABLE_RWLOCK(handlers, write, unlock);
+
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t,
+                    num_allocated_targets, ACCT_OTHER, UNPROTECTED);
 }
 
-annotation_handler_t *
-annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
-                    bool save_fpstate, uint num_args
-                    _IF_NOT_X64(annotation_calling_convention_t type));
+void
+dr_annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
+                       bool save_fpstate, uint num_args
+                       _IF_NOT_X64(annotation_calling_convention_t type))
 {
-    annotation_handler_t *handler;
-    annotation_receiver_t *receiver;
-    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
-    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                           KEY(annotation_func));
-    if (handler == NULL) {
-        handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
-                                  ACCT_OTHER, UNPROTECTED);
-        handler->type = ANNOT_HANDLER_CALL;
-        handler->id.annotation_func = (app_pc) annotation_func;
-        handler->num_args = num_args;
-        handler->arg_stack_space = 0;
-
-        if (num_args == 0) {
-            handler->args = NULL;
-        } else {
-            handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
-                opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
-            specify_args(handler, num_args _IF_NOT_X64(type));
-        }
-
-        generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
-    }
-
-    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
-                               ACCT_OTHER, UNPROTECTED);
-    receiver->client_id = client_id;
-    receiver->instrumentation.callback = callback;
-    receiver->save_fpstate = save_fpstate;
-    receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
-
-    return handler;
+    TABLE_RWLOCK(handlers, write, lock);
+    annot_register_call(client_id, annotation_func, callee, save_fpstate, num_args
+                        _IF_NOT_X64(type));
+    TABLE_RWLOCK(handlers, write, unlock);
 }
 
 void
@@ -273,8 +286,8 @@ dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
             uint i;
             va_list args;
             va_start(args, num_args);
-            handler->args = HEAP_ARRAY_ALLOC(drcontext,
-                opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
+            handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, opnd_t, num_args,
+                                             ACCT_OTHER, UNPROTECTED);
             for (i = 0; i < num_args; i++) {
                 handler->args[i] = va_arg(args, opnd_t);
                 CLIENT_ASSERT(opnd_is_valid(handler->args[i]),
@@ -294,7 +307,7 @@ dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
     receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
                                ACCT_OTHER, UNPROTECTED);
     receiver->client_id = client_id;
-    receiver->instrumentation.callback = callback;
+    receiver->instrumentation.callback = callee;
     receiver->save_fpstate = save_fpstate;
     receiver->next = handler->receiver_list;
     handler->receiver_list = receiver->next;
@@ -334,14 +347,25 @@ dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request_
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
+void
+dr_annot_register_return(void *annotation_func, void *return_value)
+{
+    TABLE_RWLOCK(handlers, write, lock);
+    annot_register_return(annotation_func, return_value);
+    TABLE_RWLOCK(handlers, write, unlock);
+}
+
 // no client_id b/c there can only be one return value
 // dangerous on unregister()?
-bool
-dr_annot_register_return_by_name(const char *target_name, void *return_value);
+void
+dr_annot_register_return_by_name(const char *target_name, void *return_value)
 {
     module_iterator_t *mi;
     module_handle_t handle;
     annotation_registration_by_name_t *by_name;
+    extern vm_area_vector_t *loaded_module_areas;
+    uint i, num_annotated_modules = 0, num_allocated_targets;
+    generic_func_t target, *targets;
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
@@ -350,11 +374,25 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value);
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, 0);
 #endif
 
+    /* Collect the targets outside the table lock to avoid rank order violation */
+    mi = module_iterator_start();
+    num_allocated_targets = loaded_module_areas->length;
+    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t,
+                               num_allocated_targets, ACCT_OTHER, UNPROTECTED);
+    while (module_iterator_hasnext(mi)) {
+        handle = (module_handle_t) module_iterator_next(mi)->start;
+        target = get_proc_address(handle, symbol_name);
+        if (target != NULL)
+            targets[num_annotated_modules++] = target;
+    }
+    module_iterator_stop(mi);
+
     TABLE_RWLOCK(handlers, write, lock);
+    by_name_list->ref_count++;
 
     by_name = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_registration_by_name_t,
                               ACCT_OTHER, UNPROTECTED);
-    by_name->->type = ANNOT_HANDLER_RETURN_VALUE;
+    by_name->type = ANNOT_HANDLER_RETURN_VALUE;
     by_name->client_id = 0;
     by_name->target_name = heap_strcpy(target_name);
     by_name->symbol_name = heap_strcpy(symbol_name);
@@ -364,44 +402,18 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value);
 #ifndef X64
     by_name->type = ANNOT_CALL_TYPE_NONE;
 #endif
-    by_name->next = by_name_list;
-    by_name_list = by_name;
+    by_name->next = by_name_list->head;
+    by_name_list->head = by_name;
+    by_name_list->size++;
 
     /* Bind to all existing modules */
-    mi = module_iterator_start();
-    while (module_iterator_hasnext(mi)) {
-        handle = (module_handle_t) module_iterator_next(mi)->start;
-        annot_bind_registration(handle, by_name);
-    }
-    module_iterator_stop(mi);
+    for (i = 0; i < num_annotated_modules; i++)
+        annot_bind_registrations(num_annotated_modules, targets, by_name);
 
     TABLE_RWLOCK(handlers, write, unlock);
-}
 
-annotation_handler_t *
-annot_register_return(void *annotation_func, void *return_value);
-{
-    annotation_handler_t *handler;
-    annotation_receiver_t *receiver;
-    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
-    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                           KEY(annotation_func));
-    if (handler == NULL) {
-        handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
-                                  ACCT_OTHER, UNPROTECTED);
-        memset(handler, 0, sizeof(annotation_handler_t));
-        handler->type = ANNOT_HANDLER_RETURN_VALUE;
-        handler->id.annotation_func = (app_pc) annotation_func;
-        generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
-    }
-
-    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
-                               ACCT_OTHER, UNPROTECTED);
-    receiver->client_id = client_id;
-    receiver->instrumentation.return_value = return_value;
-    receiver->save_fpstate = false;
-    receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t,
+                    num_allocated_targets, ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -410,15 +422,17 @@ dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name)
     int iter = 0;
     ptr_uint_t key;
     annotation_handler_t *handler;
-    annotation_registration_by_name_t by_name = by_name_list;
+    annotation_registration_by_name_t *by_name;
 
     TABLE_RWLOCK(handlers, write, lock);
+    by_name_list->ref_count++;
+    by_name = by_name_list->head;
     do {
         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
                                          iter, &key, (void *) &handler);
         if (iter < 0)
             break;
-        if (IS_HANDLER_NAME(target_name, handler->annotation_name)) {
+        if (IS_HANDLER_NAME(handler, target_name)) {
             annotation_receiver_t *receiver = handler->receiver_list;
             if (receiver->client_id == client_id) {
                 if (receiver->next == NULL) {
@@ -442,9 +456,9 @@ dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name)
         }
     } while (true);
 
-    while (MATCH_REGISTRATION(by_name_list, client_id, target_name))
-        REMOVE_REGISTRATION(by_name_list);
-    by_name = by_name_list;
+    while (MATCH_REGISTRATION(by_name_list->head, client_id, target_name))
+        REMOVE_REGISTRATION(by_name_list->head);
+    by_name = by_name_list->head;
     while (by_name != NULL) {
         if (MATCH_REGISTRATION(by_name->next, client_id, target_name))
             REMOVE_REGISTRATION(by_name->next);
@@ -458,54 +472,49 @@ dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name)
 void
 dr_annot_unregister_call(client_id_t client_id, void *annotation_func)
 {
-    // TODO: no need to iterate, right?
     int iter = 0;
-    ptr_uint_t key;
     annotation_handler_t *handler;
 
     TABLE_RWLOCK(handlers, write, lock);
-    do {
-        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
-                                         iter, &key, (void *) &handler);
-        if (iter < 0)
-            break;
-        if (handler->id.annotation_func == annotation_func) {
-            annotation_receiver_t *receiver = handler->receiver_list;
-            if (receiver->client_id == client_id) {
-                if (receiver->next == NULL) {
-                    iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
-                                                       iter, key);
-                } else {
-                    handler->receiver_list = receiver->next;
-                    // delete `receiver`
-                }
+    handler = generic_hash_lookup(GLOBAL_DCONTEXT, handlers, KEY(annotation_func));
+    if (handler != NULL) {
+        annotation_receiver_t *receiver = handler->receiver_list;
+        if (receiver->client_id == client_id) {
+            if (receiver->next == NULL) {
+                iter = generic_hash_remove(GLOBAL_DCONTEXT, handlers,
+                                           KEY(annotation_func));
             } else {
-                while (receiver->next != NULL) {
-                    if (receiver->next->client_id == client_id) {
-                        annotation_receiver_t *removal = receiver->next;
-                        receiver->next = removal->next;
-                        // delete `removal`
-                        break;
-                    }
-                    receiver = receiver->next;
-                }
+                handler->receiver_list = receiver->next;
+                // delete `receiver`
             }
-            break;
+        } else {
+            while (receiver->next != NULL) {
+                if (receiver->next->client_id == client_id) {
+                    annotation_receiver_t *removal = receiver->next;
+                    receiver->next = removal->next;
+                    // delete `removal`
+                    break;
+                }
+                receiver = receiver->next;
+            }
         }
-    } while (true);
+        generic_hash_remove(GLOBAL_DCONTEXT, handlers, KEY(annotation_func));
+    }
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
 void
 dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t request)
 {
-    annotation_handler_t *handler = vg_handlers[request];
+    annotation_handler_t *handler;
+    TABLE_RWLOCK(handlers, write, lock);
+    handler = vg_handlers[request];
     if (handler != NULL) {
         annotation_receiver_t *receiver = handler->receiver_list;
         if (receiver->client_id == client_id) {
             if (receiver->next == NULL) {
                 // free `handler`
-                vg_handler[request] = NULL;
+                vg_handlers[request] = NULL;
             } else {
                 handler->receiver_list = receiver->next;
                 // delete `receiver`
@@ -522,6 +531,7 @@ dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t reques
             }
         }
     }
+    TABLE_RWLOCK(handlers, write, unlock);
 }
 
 void
@@ -532,12 +542,13 @@ dr_annot_unregister_return_by_name(const char *target_name)
     annotation_handler_t *handler;
 
     TABLE_RWLOCK(handlers, write, lock);
+    by_name_list->ref_count++;
     do {
         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
                                          iter, &key, (void *) &handler);
         if (iter < 0)
             break;
-        if (IS_HANDLER_NAME(target_name, handler->annotation_name)) {
+        if (IS_HANDLER_NAME(handler, target_name)) {
             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
                                                iter, key);
         }
@@ -556,11 +567,38 @@ dr_annot_unregister_return(void *annotation_func)
 void
 annot_module_load(const module_handle_t handle)
 {
+    annotation_registration_by_name_t *by_name;
+    const char **symbol_names;
+    generic_func_t *targets;
+    uint i, num_symbol_names = 0;
+    uint last_ref_count;
+
+    symbol_names = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, const char *, by_name_list->size,
+                                    ACCT_OTHER, UNPROTECTED);
+    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t, by_name_list->size,
+                               ACCT_OTHER, UNPROTECTED);
+
     TABLE_RWLOCK(handlers, write, lock);
-    annotation_registration_by_name_t *by_name = by_name_list;
+    last_ref_count = by_name_list->ref_count;
+    by_name = by_name_list->head;
     while (by_name != NULL) {
-        annot_bind_registration(target, symbol_name, by_name);
+        symbol_names[num_symbol_names++] = by_name->symbol_name;
         by_name = by_name->next;
+    }
+    TABLE_RWLOCK(handlers, write, unlock);
+
+    /* An unregister_by_name() could destroy one of the symbol names during this loop */
+    for (i = 0; i < num_symbol_names; i++)
+        targets[i] = get_proc_address(handle, symbol_names[i]);
+
+    TABLE_RWLOCK(handlers, write, lock);
+    if (by_name_list->ref_count == last_ref_count) {
+        by_name = by_name_list->head;
+        for (i = 0; i < num_symbol_names; i++) {
+            if (targets[i] != NULL)
+                annot_bind_registrations(1, &targets[i], by_name);
+            by_name = by_name->next;
+        }
     }
     TABLE_RWLOCK(handlers, write, unlock);
 }
@@ -592,18 +630,20 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 
     if (instr_is_call_direct(instr) || instr_is_ubr(instr)) { // ubr: tail call `gcc -O3`
         app_pc target = instr_get_branch_target_pc(instr);
-        annotation_handler_t *handler = NULL;
+        annotation_handler_t *handler;
+        annotation_receiver_t *receiver;
 
         TABLE_RWLOCK(handlers, read, lock);
         handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                                (ptr_uint_t)target);
         if (handler != NULL) {
+            receiver = handler->receiver_list;
             while (true) {
                 instr_t *call = INSTR_CREATE_label(dcontext);
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
 
                 instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                label_data->data[0] = (ptr_uint_t) handler;
+                label_data->data[0] = (ptr_uint_t) receiver;
                 label_data->data[1] = instr_is_ubr(instr) ?
                     ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
                 label_data->data[2] = (ptr_uint_t) instr_get_translation(instr);
@@ -617,7 +657,7 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                 }
                 last_added_instr = call;
 
-                if (handler->next_handler == NULL) {
+                if (receiver->next == NULL) {
                     if (handler->arg_stack_space > 0) {
                         instr_t *stack_scrub = INSTR_CREATE_lea(dcontext,
                             opnd_create_reg(REG_XSP),
@@ -630,7 +670,7 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                     }
                     break;
                 }
-                handler = handler->next_handler;
+                receiver = receiver->next;
             }
 
             if (instr_is_ubr(instr)) {
@@ -709,25 +749,94 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 
 /**** Private Function Definitions ****/
 
-static void
-annot_bind_registration(module_handle_t handle,
-                        annotation_registration_by_name_t *by_name)
+static annotation_handler_t *
+annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
+                    bool save_fpstate, uint num_args
+                    _IF_NOT_X64(annotation_calling_convention_t type))
 {
+    annotation_handler_t *handler;
+    annotation_receiver_t *receiver;
+    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
+    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                           KEY(annotation_func));
+    if (handler == NULL) {
+        handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
+                                  ACCT_OTHER, UNPROTECTED);
+        handler->type = ANNOT_HANDLER_CALL;
+        handler->id.annotation_func = (app_pc) annotation_func;
+        handler->num_args = num_args;
+        handler->arg_stack_space = 0;
+
+        if (num_args == 0) {
+            handler->args = NULL;
+        } else {
+            handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
+                opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
+            specify_args(handler, num_args _IF_NOT_X64(type));
+        }
+
+        generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
+    }
+
+    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
+                               ACCT_OTHER, UNPROTECTED);
+    receiver->client_id = client_id;
+    receiver->instrumentation.callback = callee;
+    receiver->save_fpstate = save_fpstate;
+    receiver->next = handler->receiver_list;
+    handler->receiver_list = receiver->next;
+
+    return handler;
+}
+
+static annotation_handler_t *
+annot_register_return(void *annotation_func, void *return_value)
+{
+    annotation_handler_t *handler;
+    annotation_receiver_t *receiver;
+    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
+    handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
+                                                           KEY(annotation_func));
+    if (handler == NULL) {
+        handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
+                                  ACCT_OTHER, UNPROTECTED);
+        memset(handler, 0, sizeof(annotation_handler_t));
+        handler->type = ANNOT_HANDLER_RETURN_VALUE;
+        handler->id.annotation_func = (app_pc) annotation_func;
+        generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
+    }
+
+    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
+                               ACCT_OTHER, UNPROTECTED);
+    receiver->client_id = 0; // not used
+    receiver->instrumentation.return_value = return_value;
+    receiver->save_fpstate = false;
+    receiver->next = handler->receiver_list;
+    handler->receiver_list = receiver->next;
+    return handler;
+}
+
+static inline void
+annot_bind_registrations(uint num_targets, generic_func_t *targets,
+                         annotation_registration_by_name_t *by_name)
+{
+    uint i;
     annotation_handler_t *handler;
 
     ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
-    generic_func_t target = get_proc_address(handle, by_name->symbol_name);
-    if (target != NULL)
+    for (i = 0; i < num_targets; i++) {
+        handler = NULL;
         if (by_name->type == ANNOT_HANDLER_CALL) {
-            handler = annot_register_call(by_name->client_id, (void *) target,
+            handler = annot_register_call(by_name->client_id, (void *) targets[i],
                                           by_name->instrumentation.callback,
                                           by_name->save_fpstate, by_name->num_args
                                           _IF_NOT_X64(by_name->type));
-        } else if (type == ANNOT_HANDLER_RETURN_VALUE) {
-            handler = annot_register_return((void *) target,
+        } else if (by_name->type == ANNOT_HANDLER_RETURN_VALUE) {
+            handler = annot_register_return((void *) targets[i],
                                             by_name->instrumentation.return_value);
         } else {
-            ASSERT(false, "Cannot register annotation of this type by name.");
+            ASSERT_MESSAGE(CHKLVL_ASSERTS,
+                           "Cannot register annotation of this type by name.", false);
         }
         if (handler->symbol_name == NULL)
             handler->symbol_name = heap_strcpy(by_name->symbol_name);
@@ -739,7 +848,7 @@ handle_vg_annotation(app_pc request_args)
 {
     dcontext_t *dcontext;
     valgrind_request_id_t request_id;
-    annotation_handler_t *handler;
+    annotation_receiver_t *receiver;
     vg_client_request_t request;
     ptr_uint_t result;
 
@@ -752,9 +861,11 @@ handle_vg_annotation(app_pc request_args)
 
     if (request_id < VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
-        handler = vg_handlers[request_id];
-        if (handler != NULL) // TODO: multiple handlers? Then what result?
-            result = handler->instrumentation.vg_callback(&request);
+        receiver = vg_handlers[request_id]->receiver_list;
+        while (receiver != NULL) { // last receiver wins the result value
+            result = receiver->instrumentation.vg_callback(&request);
+            receiver = receiver->next;
+        }
         TABLE_RWLOCK(handlers, read, unlock);
     }
 
@@ -879,9 +990,9 @@ annot_vsnprintf(char *s, size_t max, const char *fmt, ...)
 static inline void
 free_annotation_registration_by_name(annotation_registration_by_name_t *by_name)
 {
-    heap_str_free(removal->target_name);
-    heap_str_free(removal->symbol_name);
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, removal, annotation_registration_by_name_t,
+    heap_str_free(by_name->target_name);
+    heap_str_free(by_name->symbol_name);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, by_name, annotation_registration_by_name_t,
                    ACCT_OTHER, UNPROTECTED);
 }
 

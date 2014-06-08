@@ -57,6 +57,11 @@ typedef enum _valgrind_request_id_t {
     VG_ID__LAST
 } valgrind_request_id_t;
 
+enum {
+    VG_PATTERN_LENGTH = 5,
+    VG_NUM_ARGS = 5,
+};
+
 typedef struct _vg_client_request_t {
     ptr_uint_t request;
     ptr_uint_t args[VG_NUM_ARGS];
@@ -80,7 +85,7 @@ typedef enum _handler_type_t {
 
 typedef struct _annotation_receiver_t {
     client_id_t client_id;
-    union { // per type
+    union { // per annotation_handler_t.type
         void *callback;
         void *return_value;
         ptr_uint_t (*vg_callback)(vg_client_request_t *request);
@@ -112,8 +117,8 @@ typedef enum _annotation_call_t {
 
 
 DR_API
-bool dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
-                                    void *callee, uint num_args
+void dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
+                                    void *callee, bool save_fpstate, uint num_args
                                     _IF_NOT_X64(annotation_calling_convention_t type));
 
 DR_API
@@ -130,7 +135,7 @@ void dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t req
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
 DR_API
-bool dr_annot_register_return_by_name(const char *target_name, void *return_value);
+void dr_annot_register_return_by_name(const char *target_name, void *return_value);
 
 DR_API
 void dr_annot_register_return(void *annotation_func, void *return_value);
