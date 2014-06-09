@@ -28,7 +28,7 @@
 # define LIB_NAME "client.annotation.dll"
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
-# define LIB_NAME "libclient.annotation.dll.so"
+# define LIB_NAME "libclient.annotation.appdll.so"
 #endif
 
 #define VALIDATE(value, predicate, error_message) \
@@ -56,6 +56,11 @@ usage(const char *message);
 static double
 distance(double *x_old, double *x_new);
 
+void (*matrix_subtract)(unsigned int mode, double *dst, double *src,
+                        double **coefficients, int base, int limit);
+
+void (*matrix_divide)(unsigned int mode, double *dst, double **coefficients, int i);
+
 #ifdef WINDOWS
     HMODULE module;
 #else
@@ -76,6 +81,7 @@ int main(int argc, char **argv)
 {
     int i, class_id, num_threads, i_thread, i_row, i_col, iteration = 0;
     double sum, row_sum, memoryused = 0.0;
+    char *error;
 
     thread_init_t *thread_inits;
 #ifdef WINDOWS
@@ -199,13 +205,28 @@ int main(int argc, char **argv)
             x_old[i] = x_new[i];
 
 #ifdef WINDOWS
-    module = LoadLibrary(LIB_NAME);
-    if (module == NULL)
-        printf("failed to load "LIB_NAME"\n");
+        module = LoadLibrary(LIB_NAME);
+        if (module == NULL) {
+            printf("Error: failed to load "LIB_NAME"\n");
+            exit(1);
+        }
 #else
-    module = dlopen(lib_path, RTLD_LAZY);
-    if (module == 0)
-        printf("failed to load "LIB_NAME"\n");
+        module = dlopen(lib_path, RTLD_NOW);
+        if (module == 0) {
+            printf("Error: failed to load "LIB_NAME"\n");
+            exit(1);
+        }
+
+        matrix_subtract = dlsym(module, "matrix_subtract");
+        if (error = dlerror()) {
+            printf("Error: failed to load matrix_subtract() from "LIB_NAME": %s\n", error);
+            exit(1);
+        }
+        matrix_divide = dlsym(module, "matrix_divide");
+        if (error = dlerror()) {
+            printf("Error: failed to load matrix_divide() from "LIB_NAME": %s\n", error);
+            exit(1);
+        }
 #endif
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
@@ -297,11 +318,17 @@ void
 jacobi(thread_init_t *init)
 {
     int i, j;
+    unsigned int mode = init->id % 2;
 
     TEST_ANNOTATION_SET_MODE(init->id, MODE_1);
     for (i = 0; i < init->iteration_count; i++) {
         x_temp[i] = rhs_vector[i];
 
+        matrix_subtract(mode, x_temp, x_old, a_matrix, i, i);
+        matrix_subtract(mode, x_temp, x_old, a_matrix, i, init->iteration_count);
+        matrix_divide(mode, x_temp, a_matrix, i);
+    }
+    /*
         for (j = 0; j < i; j++) {
             x_temp[i] -= x_old[j] * a_matrix[i][j];
         }
@@ -309,7 +336,8 @@ jacobi(thread_init_t *init)
             x_temp[i] -= x_old[j] * a_matrix[i][j];
         }
         x_temp[i] = x_temp[i] / a_matrix[i][i];
-    }
+    */
+
     TEST_ANNOTATION_NINE_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9);
     for (i = 0; i < init->iteration_count; i++) {
         x_new[i] = x_temp[i];

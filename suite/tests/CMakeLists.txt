@@ -1439,6 +1439,7 @@ if (CLIENT_INTERFACE)
   tobuild_appdll(client.annotation client-interface/annotation.c)
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
+    append_property_string(TARGET client.annotation.appdll COMPILE_FLAGS "-O3")
   endif (UNIX)
   set(client.annotation.full-decode_expectbase "annotation.full-decode")
   torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
