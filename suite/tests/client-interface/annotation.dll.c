@@ -262,3 +262,16 @@ dr_init(client_id_t id)
 
     register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
 }
+
+/*
+· Register by addr
+· Unregister by name
+· Register by name
+· Unregister by addr
+· Unregister Valgrind annots
+· Unregister return
+· Register return by name
+
+By name un/register: execute existing in loaded module, also load module and execute
+By addr un/register: execute
+*/

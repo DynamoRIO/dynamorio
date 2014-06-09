@@ -7,13 +7,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include "annotation/dynamorio_annotations.h"
-#include "annotation/test_custom_annotations.h"
+#include "annotation/test_mode_annotations.h"
+#include "annotation/test_annotation_arguments.h"
 
 #ifdef WINDOWS
 # include <windows.h>
 # include <process.h>
 #else
 # include <pthread.h>
+# include <dlfcn.h>
+# include <unistd.h>
 #endif
 
 #define MAX_ITERATIONS 10
@@ -22,8 +25,10 @@
 
 #ifdef WINDOWS
 # define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
+# define LIB_NAME "client.annotation.dll"
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
+# define LIB_NAME "libclient.annotation.dll.so"
 #endif
 
 #define VALIDATE(value, predicate, error_message) \
@@ -46,10 +51,16 @@ enum {
 };
 
 static void
-usage();
+usage(const char *message);
 
 static double
 distance(double *x_old, double *x_new);
+
+#ifdef WINDOWS
+    HMODULE module;
+#else
+    void *module;
+#endif
 
 #ifdef WINDOWS
 int WINAPI
@@ -76,6 +87,27 @@ int main(int argc, char **argv)
     pthread_t *threads;
 #endif
 
+#ifndef WINDOWS
+    char buffer[1024];
+    char *scan, *lib_path = argv[0];
+    if (lib_path[0] == '/') {
+        strcpy(buffer, lib_path);
+    } else {
+        if (getcwd(buffer, 1024) == NULL) {
+            printf("Failed to locate the test module!\n");
+            exit(1);
+        }
+        strcat(buffer, "/");
+        strcat(buffer, lib_path);
+    }
+    lib_path = buffer;
+    scan = lib_path + strlen(lib_path);
+    while ((--scan > lib_path) && (*scan != '/'))
+        ;
+    *(scan+1) = '\0';
+    strcat(lib_path, LIB_NAME);
+#endif
+
     printf("\n    -------------------------------------------------------------------");
     printf("\n     Performance for solving AX=B Linear Equation using Jacobi method");
     if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
@@ -85,7 +117,7 @@ int main(int argc, char **argv)
     printf("\n    ...................................................................\n");
 
     if( argc != 2 )
-        usage();
+        usage("Wrong number of arguments.");
 
     class_id = *argv[1] - 'A';
     num_threads = atoi(argv[1] + 1);
@@ -97,7 +129,7 @@ int main(int argc, char **argv)
     if ((class_id >= 0) && (class_id <= 2))
         matrix_size = 1024 * (1 << class_id);
     else
-        usage();
+        usage("Unknown class id");
 
     printf("\n     Matrix Size :  %d", matrix_size);
     printf("\n     Threads     :  %d", num_threads);
@@ -161,10 +193,20 @@ int main(int argc, char **argv)
         thread_inits[i_thread].id = i_thread;
         thread_inits[i_thread].iteration_count = matrix_size/num_threads;
     }
-        
+
     do {
         for (i = 0; i < matrix_size; i++)
             x_old[i] = x_new[i];
+
+#ifdef WINDOWS
+    module = LoadLibrary(LIB_NAME);
+    if (module == NULL)
+        printf("failed to load "LIB_NAME"\n");
+#else
+    module = dlopen(lib_path, RTLD_LAZY);
+    if (module == 0)
+        printf("failed to load "LIB_NAME"\n");
+#endif
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
 
@@ -186,7 +228,6 @@ int main(int argc, char **argv)
         WaitForMultipleObjects(num_threads, threads, TRUE /* all */, INFINITE);
 #else
         for (i_thread = 0; i_thread < num_threads; i_thread++) {
-            //WaitForSingleObject(threads[i_thread], INFINITE);
             result = pthread_join(threads[i_thread], NULL);
             VALIDATE(result, != 0, "pthread_join() returned code %d");
         }
@@ -198,6 +239,15 @@ int main(int argc, char **argv)
         result = pthread_attr_destroy(&pta);
         VALIDATE(result, != 0, "pthread_attr_destroy() returned code %d");
 #endif
+
+#ifdef WINDOWS
+    if (module != NULL)
+        FreeLibrary(module);
+#else
+    if (module != 0)
+        dlclose(module);
+#endif
+
         TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
     } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < MAX_ITERATIONS));
 
@@ -219,8 +269,9 @@ int main(int argc, char **argv)
 }
 
 static void
-usage()
+usage(const char *message)
 {
+    printf("%s\n", message);
     printf("usage: jacobi { A | B | C }<thread-count>\n");
     printf(" e.g.: jacobi A4\n");
     exit(-1);
@@ -268,3 +319,24 @@ jacobi(thread_init_t *init)
     return 0;
 #endif
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

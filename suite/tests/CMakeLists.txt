@@ -522,10 +522,14 @@ function(add_exe test source)
     set(test_srcs ${test_srcs}
       "${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.c")
   endif ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
-  if ("${srccode}" MATCHES "include \"annotation/test_custom_annotations.h\"")
+  if ("${srccode}" MATCHES "include \"annotation/test_mode_annotations.h\"")
     set(test_srcs ${test_srcs}
-      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.c")
-  endif ("${srccode}" MATCHES "include \"annotation/test_custom_annotations.h\"")
+      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_mode_annotations.c")
+  endif ("${srccode}" MATCHES "include \"annotation/test_mode_annotations.h\"")
+  if ("${srccode}" MATCHES "include \"annotation/test_annotation_arguments.h\"")
+    set(test_srcs ${test_srcs}
+      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_annotation_arguments.c")
+  endif ("${srccode}" MATCHES "include \"annotation/test_annotation_arguments.h\"")
 
   add_executable(${test} ${test_srcs})
 
@@ -1411,8 +1415,11 @@ if (CLIENT_INTERFACE)
   configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.h"
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
   configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_custom_annotations.h"
-    "${BUILD_ANNOTATION}/test_custom_annotations.h" COPYONLY)
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_mode_annotations.h"
+    "${BUILD_ANNOTATION}/test_mode_annotations.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_annotation_arguments.h"
+    "${BUILD_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
@@ -1429,6 +1436,7 @@ if (CLIENT_INTERFACE)
 
   set(DynamoRIO_USE_LIBC OFF)
   tobuild_ci(client.annotation client-interface/annotation.c "" "" "A4")
+  tobuild_appdll(client.annotation client-interface/annotation.c)
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
   endif (UNIX)
