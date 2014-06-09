@@ -617,7 +617,7 @@ annot_module_load(const module_handle_t handle)
     }
     TABLE_RWLOCK(handlers, write, unlock);
 
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, symbol_names, const char *, by_name_list->size,
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, symbol_names, char *, by_name_list->size,
                     ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t, by_name_list->size,
                     ACCT_OTHER, UNPROTECTED);
@@ -1009,9 +1009,10 @@ free_annotation_registration_by_name(annotation_registration_by_name_t *by_name)
 static inline const char *
 heap_strcpy(const char *src)
 {
-    char *dst = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, strlen(src) + 1,
+    size_t len = strlen(src) + 1;
+    char *dst = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, len,
                                  ACCT_OTHER, UNPROTECTED);
-    strcpy(dst, src);
+    memcpy(dst, src, len);
     return (const char *) dst;
 }
 

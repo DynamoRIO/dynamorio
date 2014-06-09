@@ -4223,7 +4223,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
             handler = (annotation_handler_t *) label_data->data[0];
             if (handler->type == ANNOT_HANDLER_CALL) {
-                opnd_t *args;
+                opnd_t *args = NULL;
                 annotation_receiver_t *receiver = handler->receiver_list;
                 while (receiver != NULL) {
                     if (handler->num_args != 0) {
