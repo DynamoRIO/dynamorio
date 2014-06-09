@@ -28,7 +28,7 @@ typedef struct _annotation_registration_by_name_t {
     bool save_fpstate;
     uint num_args;
 #ifndef X64
-    annotation_calling_convention_t type;
+    annotation_calling_convention_t call_type;
 #endif
     struct _annotation_registration_by_name_t *next;
 } annotation_registration_by_name_t;
@@ -102,7 +102,7 @@ expected_rol_immeds[VG_PATTERN_LENGTH] = {
 static annotation_handler_t *
 annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
                     bool save_fpstate, uint num_args
-                    _IF_NOT_X64(annotation_calling_convention_t type));
+                    _IF_NOT_X64(annotation_calling_convention_t call_type));
 
 static annotation_handler_t *
 annot_register_return(void *annotation_func, void *return_value);
@@ -119,7 +119,7 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static void
 specify_args(annotation_handler_t *handler, uint num_args
-    _IF_NOT_X64(annotation_calling_convention_t type));
+    _IF_NOT_X64(annotation_calling_convention_t call_type));
 
 #if defined(WINDOWS) && !defined(X64)
 static int
@@ -157,6 +157,7 @@ annot_init()
     vg_router.args = &vg_router_arg;
     vg_router.arg_stack_space = 0;
     vg_router.id.annotation_func = NULL; // identified by magic code sequence
+    vg_router.receiver_list = &vg_receiver;
     vg_receiver.client_id = dr_internal_client_id;
     vg_receiver.instrumentation.callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
@@ -180,12 +181,19 @@ void
 annot_exit()
 {
     uint i;
+    annotation_registration_by_name_t *next, *by_name = by_name_list->head;
+
+    while (by_name != NULL) {
+        next = by_name->next;
+        free_annotation_registration_by_name(by_name);
+        by_name = next;
+    }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, by_name_list, annotation_registration_by_name_list_t,
+                   ACCT_OTHER, UNPROTECTED);
 
     for (i = 0; i < VG_ID__LAST; i++) {
-        if (vg_handlers[i] != NULL) {
-            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, vg_handlers[i], annotation_handler_t,
-                           ACCT_OTHER, UNPROTECTED);
-        }
+        if (vg_handlers[i] != NULL)
+            free_annotation_handler(vg_handlers[i]);
     }
 
     generic_hash_destroy(GLOBAL_DCONTEXT, handlers);
@@ -194,7 +202,7 @@ annot_exit()
 void
 dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
                                void *callee, bool save_fpstate, uint num_args
-                               _IF_NOT_X64(annotation_calling_convention_t type))
+                               _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
     module_iterator_t *mi;
     module_handle_t handle;
@@ -236,7 +244,7 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     by_name->save_fpstate = save_fpstate;
     by_name->num_args = num_args;
 #ifndef X64
-    by_name->type = type;
+    by_name->call_type = call_type;
 #endif
     by_name->next = by_name_list->head;
     by_name_list->head = by_name;
@@ -255,11 +263,11 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
 void
 dr_annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
                        bool save_fpstate, uint num_args
-                       _IF_NOT_X64(annotation_calling_convention_t type))
+                       _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
     TABLE_RWLOCK(handlers, write, lock);
     annot_register_call(client_id, annotation_func, callee, save_fpstate, num_args
-                        _IF_NOT_X64(type));
+                        _IF_NOT_X64(call_type));
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
@@ -275,10 +283,10 @@ dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
+        memset(handler, 0, sizeof(annotation_handler_t));
         handler->type = ANNOT_HANDLER_CALL;
         handler->id.annotation_func = (app_pc) annotation_func;
         handler->num_args = num_args;
-        handler->arg_stack_space = 0;
 
         if (num_args == 0) {
             handler->args = NULL;
@@ -310,7 +318,7 @@ dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
     receiver->instrumentation.callback = callee;
     receiver->save_fpstate = save_fpstate;
     receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
+    handler->receiver_list = receiver;
 
     TABLE_RWLOCK(handlers, write, unlock);
 }
@@ -329,9 +337,9 @@ dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request_
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
+        memset(handler, 0, sizeof(annotation_handler_t));
         handler->type = ANNOT_HANDLER_VALGRIND;
         handler->id.vg_request_id = request_id;
-        handler->num_args = 0;
 
         vg_handlers[request_id] = handler;
     }
@@ -342,7 +350,7 @@ dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request_
     receiver->instrumentation.vg_callback = annotation_callback;
     receiver->save_fpstate = false;
     receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
+    handler->receiver_list = receiver;
 
     TABLE_RWLOCK(handlers, write, unlock);
 }
@@ -400,7 +408,7 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value)
     by_name->save_fpstate = false;
     by_name->num_args = 0;
 #ifndef X64
-    by_name->type = ANNOT_CALL_TYPE_NONE;
+    by_name->call_type = ANNOT_CALL_TYPE_NONE;
 #endif
     by_name->next = by_name_list->head;
     by_name_list->head = by_name;
@@ -485,14 +493,16 @@ dr_annot_unregister_call(client_id_t client_id, void *annotation_func)
                                            KEY(annotation_func));
             } else {
                 handler->receiver_list = receiver->next;
-                // delete `receiver`
+                HEAP_TYPE_FREE(GLOBAL_DCONTEXT, receiver, annotation_receiver_t,
+                               ACCT_OTHER, UNPROTECTED);
             }
         } else {
             while (receiver->next != NULL) {
                 if (receiver->next->client_id == client_id) {
                     annotation_receiver_t *removal = receiver->next;
                     receiver->next = removal->next;
-                    // delete `removal`
+                    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, removal, annotation_receiver_t,
+                                   ACCT_OTHER, UNPROTECTED);
                     break;
                 }
                 receiver = receiver->next;
@@ -513,18 +523,20 @@ dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t reques
         annotation_receiver_t *receiver = handler->receiver_list;
         if (receiver->client_id == client_id) {
             if (receiver->next == NULL) {
-                // free `handler`
+                free_annotation_handler(handler);
                 vg_handlers[request] = NULL;
             } else {
                 handler->receiver_list = receiver->next;
-                // delete `receiver`
+                HEAP_TYPE_FREE(GLOBAL_DCONTEXT, receiver, annotation_receiver_t,
+                               ACCT_OTHER, UNPROTECTED);
             }
         } else {
             while (receiver->next != NULL) {
                 if (receiver->next->client_id == client_id) {
                     annotation_receiver_t *removal = receiver->next;
                     receiver->next = removal->next;
-                    // delete `removal`
+                    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, removal, annotation_receiver_t,
+                                   ACCT_OTHER, UNPROTECTED);
                     break;
                 }
                 receiver = receiver->next;
@@ -579,28 +591,36 @@ annot_module_load(const module_handle_t handle)
                                ACCT_OTHER, UNPROTECTED);
 
     TABLE_RWLOCK(handlers, write, lock);
-    last_ref_count = by_name_list->ref_count;
-    by_name = by_name_list->head;
-    while (by_name != NULL) {
-        symbol_names[num_symbol_names++] = by_name->symbol_name;
-        by_name = by_name->next;
-    }
-    TABLE_RWLOCK(handlers, write, unlock);
-
-    /* An unregister_by_name() could destroy one of the symbol names during this loop */
-    for (i = 0; i < num_symbol_names; i++)
-        targets[i] = get_proc_address(handle, symbol_names[i]);
-
-    TABLE_RWLOCK(handlers, write, lock);
-    if (by_name_list->ref_count == last_ref_count) {
+    while (true) {
+        last_ref_count = by_name_list->ref_count;
         by_name = by_name_list->head;
-        for (i = 0; i < num_symbol_names; i++) {
-            if (targets[i] != NULL)
-                annot_bind_registrations(1, &targets[i], by_name);
+        while (by_name != NULL) {
+            symbol_names[num_symbol_names++] = by_name->symbol_name;
             by_name = by_name->next;
+        }
+        TABLE_RWLOCK(handlers, write, unlock);
+
+        /* An unregister_by_name() could destroy one of the symbol names during this loop */
+        for (i = 0; i < num_symbol_names; i++)
+            targets[i] = get_proc_address(handle, symbol_names[i]);
+
+        TABLE_RWLOCK(handlers, write, lock);
+        if (by_name_list->ref_count == last_ref_count) {
+            by_name = by_name_list->head;
+            for (i = 0; i < num_symbol_names; i++) {
+                if (targets[i] != NULL)
+                    annot_bind_registrations(1, &targets[i], by_name);
+                by_name = by_name->next;
+            }
+            break;
         }
     }
     TABLE_RWLOCK(handlers, write, unlock);
+
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, symbol_names, const char *, by_name_list->size,
+                    ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t, by_name_list->size,
+                    ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -631,46 +651,38 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
     if (instr_is_call_direct(instr) || instr_is_ubr(instr)) { // ubr: tail call `gcc -O3`
         app_pc target = instr_get_branch_target_pc(instr);
         annotation_handler_t *handler;
-        annotation_receiver_t *receiver;
 
         TABLE_RWLOCK(handlers, read, lock);
         handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                                (ptr_uint_t)target);
         if (handler != NULL) {
-            receiver = handler->receiver_list;
-            while (true) {
-                instr_t *call = INSTR_CREATE_label(dcontext);
-                dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
+            instr_t *call = INSTR_CREATE_label(dcontext);
+            dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
 
-                instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                label_data->data[0] = (ptr_uint_t) receiver;
-                label_data->data[1] = instr_is_ubr(instr) ?
-                    ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
-                label_data->data[2] = (ptr_uint_t) instr_get_translation(instr);
-                instr_set_ok_to_mangle(call, false);
+            instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
+            label_data->data[0] = (ptr_uint_t) handler;
+            label_data->data[1] = instr_is_ubr(instr) ?
+                ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
+            label_data->data[2] = (ptr_uint_t) instr_get_translation(instr);
+            instr_set_ok_to_mangle(call, false);
 
-                if (first_call == NULL) {
-                    first_call =  call;
-                } else {
-                    instr_set_next(last_added_instr, call);
-                    instr_set_prev(call, last_added_instr);
-                }
-                last_added_instr = call;
+            if (first_call == NULL) {
+                first_call =  call;
+            } else {
+                instr_set_next(last_added_instr, call);
+                instr_set_prev(call, last_added_instr);
+            }
+            last_added_instr = call;
 
-                if (receiver->next == NULL) {
-                    if (handler->arg_stack_space > 0) {
-                        instr_t *stack_scrub = INSTR_CREATE_lea(dcontext,
-                            opnd_create_reg(REG_XSP),
-                            opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                                  handler->arg_stack_space, OPSZ_0));
-                        instr_set_ok_to_mangle(stack_scrub, false);
-                        instr_set_next(call, stack_scrub);
-                        instr_set_prev(stack_scrub, call);
-                        last_added_instr = stack_scrub;
-                    }
-                    break;
-                }
-                receiver = receiver->next;
+            if (handler->arg_stack_space > 0) {
+                instr_t *stack_scrub = INSTR_CREATE_lea(dcontext,
+                    opnd_create_reg(REG_XSP),
+                    opnd_create_base_disp(REG_XSP, REG_NULL, 0,
+                                          handler->arg_stack_space, OPSZ_0));
+                instr_set_ok_to_mangle(stack_scrub, false);
+                instr_set_next(call, stack_scrub);
+                instr_set_prev(stack_scrub, call);
+                last_added_instr = stack_scrub;
             }
 
             if (instr_is_ubr(instr)) {
@@ -680,10 +692,8 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
                 instr_set_prev(tail_call_return, last_added_instr);
             }
         }
-
         TABLE_RWLOCK(handlers, read, unlock);
     }
-
     return first_call;
 }
 
@@ -752,7 +762,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 static annotation_handler_t *
 annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
                     bool save_fpstate, uint num_args
-                    _IF_NOT_X64(annotation_calling_convention_t type))
+                    _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
     annotation_handler_t *handler;
     annotation_receiver_t *receiver;
@@ -762,17 +772,17 @@ annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
     if (handler == NULL) {
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
+        memset(handler, 0, sizeof(annotation_handler_t));
         handler->type = ANNOT_HANDLER_CALL;
         handler->id.annotation_func = (app_pc) annotation_func;
         handler->num_args = num_args;
-        handler->arg_stack_space = 0;
 
         if (num_args == 0) {
             handler->args = NULL;
         } else {
             handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
                 opnd_t, num_args, ACCT_OTHER, UNPROTECTED);
-            specify_args(handler, num_args _IF_NOT_X64(type));
+            specify_args(handler, num_args _IF_NOT_X64(call_type));
         }
 
         generic_hash_add(GLOBAL_DCONTEXT, handlers, KEY(annotation_func), handler);
@@ -784,7 +794,7 @@ annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
     receiver->instrumentation.callback = callee;
     receiver->save_fpstate = save_fpstate;
     receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
+    handler->receiver_list = receiver;
 
     return handler;
 }
@@ -812,7 +822,7 @@ annot_register_return(void *annotation_func, void *return_value)
     receiver->instrumentation.return_value = return_value;
     receiver->save_fpstate = false;
     receiver->next = handler->receiver_list;
-    handler->receiver_list = receiver->next;
+    handler->receiver_list = receiver;
     return handler;
 }
 
@@ -830,7 +840,7 @@ annot_bind_registrations(uint num_targets, generic_func_t *targets,
             handler = annot_register_call(by_name->client_id, (void *) targets[i],
                                           by_name->instrumentation.callback,
                                           by_name->save_fpstate, by_name->num_args
-                                          _IF_NOT_X64(by_name->type));
+                                          _IF_NOT_X64(by_name->call_type));
         } else if (by_name->type == ANNOT_HANDLER_RETURN_VALUE) {
             handler = annot_register_return((void *) targets[i],
                                             by_name->instrumentation.return_value);
@@ -946,10 +956,10 @@ specify_args(annotation_handler_t *handler, uint num_args)
 #else // x86 (all)
 static inline void
 specify_args(annotation_handler_t *handler, uint num_args,
-                       annotation_calling_convention_t type)
+             annotation_calling_convention_t call_type)
 {
     uint i;
-    if (type == ANNOT_FASTCALL) {
+    if (call_type == ANNOT_CALL_TYPE_FASTCALL) {
         for (i = 2; i < num_args; i++) {
             handler->args[i] = OPND_CREATE_MEMPTR(
                 DR_REG_XSP, sizeof(ptr_uint_t) * (i-2));
@@ -962,7 +972,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
             case 1:
                 handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
-    } else { // ANNOT_STDCALL
+    } else { // ANNOT_CALL_TYPE_STDCALL
         for (i = 0; i < num_args; i++) {
             handler->args[i] = OPND_CREATE_MEMPTR(
                 DR_REG_XSP, sizeof(ptr_uint_t) * i);
@@ -1016,11 +1026,18 @@ static void
 free_annotation_handler(void *p)
 {
     annotation_handler_t *handler = (annotation_handler_t *) p;
+    annotation_receiver_t *next, *receiver = handler->receiver_list;
+    while (receiver != NULL) {
+        next = receiver->next;
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, receiver, annotation_receiver_t,
+                       ACCT_OTHER, UNPROTECTED);
+        receiver = next;
+    }
     if (handler->num_args > 0) {
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, handler->args, opnd_t, handler->num_args,
                         ACCT_OTHER, UNPROTECTED);
     }
-    // TODO: delete all receivers
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t,
-                    1, ACCT_OTHER, UNPROTECTED);
+    if (handler->symbol_name != NULL)
+        heap_str_free(handler->symbol_name);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }

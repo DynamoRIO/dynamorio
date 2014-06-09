@@ -119,12 +119,12 @@ typedef enum _annotation_call_t {
 DR_API
 void dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
                                     void *callee, bool save_fpstate, uint num_args
-                                    _IF_NOT_X64(annotation_calling_convention_t type));
+                                    _IF_NOT_X64(annotation_calling_convention_t call_type));
 
 DR_API
 void dr_annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
                             bool save_fpstate, uint num_args
-                            _IF_NOT_X64(annotation_calling_convention_t type));
+                            _IF_NOT_X64(annotation_calling_convention_t call_type));
 
 DR_API
 void dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,

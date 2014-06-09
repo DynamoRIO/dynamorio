@@ -129,28 +129,10 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
 }
 
 static void
-register_call(void *drcontext, const module_data_t *info, const char *annotation,
-    void *target, uint num_args)
-{
-    dr_annot_register_call_by_name(client_id, annotation, target, false, num_args
-        _IF_NOT_X64(ANNOT_FASTCALL));
-}
-
-static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    register_call(drcontext, info, "test_annotation_init_mode",
-        (void *) init_mode, 1);
-    register_call(drcontext, info, "test_annotation_init_context",
-        (void *) init_context, 3);
-    register_call(drcontext, info, "test_annotation_set_mode",
-        (void *) set_mode, 2);
-    register_call(drcontext, info, "test_annotation_eight_args",
-        (void *) test_eight_args, 8);
-    register_call(drcontext, info, "test_annotation_nine_args",
-        (void *) test_nine_args, 9);
-    register_call(drcontext, info, "test_annotation_ten_args",
-        (void *) test_ten_args, 10);
+    //register_call(drcontext, info, "test_annotation_nine_args",
+    //    (void *) test_nine_args, 9);
 
 #ifdef WINDOWS // truncating these blocks causes app exceptions (unrelated to annotations)
     if ((info->names.module_name != NULL) &&
@@ -197,6 +179,13 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
         }
     }
     return DR_EMIT_DEFAULT;
+}
+
+static void
+register_call(const char *annotation, void *target, uint num_args)
+{
+    dr_annot_register_call_by_name(client_id, annotation, target, false, num_args
+        _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 static void
@@ -264,4 +253,12 @@ dr_init(client_id_t id)
 
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(event_module_load);
+
+    register_call("test_annotation_init_mode", (void *) init_mode, 1);
+    register_call("test_annotation_init_context", (void *) init_context, 3);
+    register_call("test_annotation_set_mode", (void *) set_mode, 2);
+    register_call("test_annotation_eight_args", (void *) test_eight_args, 8);
+    register_call("test_annotation_ten_args", (void *) test_ten_args, 10);
+
+    register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
 }
