@@ -1,4 +1,18 @@
 #include "test_annotation_arguments.h"
+#include <stdio.h>
+
+#ifdef DR_ANNOTATION_EXPORT
+# undef DR_ANNOTATION_EXPORT
+#endif
+
+#ifdef _MSC_VER
+#else
+# ifdef __LP64__
+#  define DR_ANNOTATION_EXPORT __attribute__((visibility("default")))
+# else
+#  define DR_ANNOTATION_EXPORT __attribute__((fastcall, visibility("default")))
+# endif
+#endif
 
 #pragma auto_inline(off)
 
@@ -24,9 +38,7 @@ test_annotation_ten_args(unsigned int a, unsigned int b,
 {
 }
 #else
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_eight_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
@@ -34,9 +46,7 @@ test_annotation_eight_args(unsigned int a, unsigned int b,
 {
 }
 
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_nine_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
@@ -44,9 +54,7 @@ test_annotation_nine_args(unsigned int a, unsigned int b,
 {
 }
 
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_ten_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
@@ -54,5 +62,7 @@ test_annotation_ten_args(unsigned int a, unsigned int b,
 {
 }
 #endif
+
+#undef DR_ANNOTATION_EXPORT
 
 #pragma auto_inline(on)

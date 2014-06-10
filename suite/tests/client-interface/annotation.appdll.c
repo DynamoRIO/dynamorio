@@ -1,6 +1,5 @@
 /* Don't link against libc so we can pass with STATIC_LIBRARY. */
 
-#include <stdio.h>
 #include "configure.h"
 #include "annotation/test_annotation_arguments.h"
 

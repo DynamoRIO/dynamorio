@@ -706,9 +706,14 @@ function(tobuild_appdll test source)
         "_asm" "${asm_defs}" "${asm_deps}")
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
+    if ("${srccode}" MATCHES "include \"annotation/test_annotation_arguments.h\"")
+      set(lib_srcs ${lib_srcs}
+        "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_annotation_arguments.c")
+    endif ("${srccode}" MATCHES "include \"annotation/test_annotation_arguments.h\"")
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
+
     # so far these are all dynamically loaded so we don't bother
     # with "target_link_libraries(${test} ${test}.appdll)"
     if ("${srccode}" MATCHES "include \"tools\\.h\"")

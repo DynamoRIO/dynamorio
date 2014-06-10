@@ -211,7 +211,8 @@ int main(int argc, char **argv)
             exit(1);
         }
 #else
-        module = dlopen(lib_path, RTLD_NOW);
+        // module = dlopen(lib_path, RTLD_NOW);
+        module = dlopen(lib_path, RTLD_LAZY);
         if (module == 0) {
             printf("Error: failed to load "LIB_NAME"\n");
             exit(1);

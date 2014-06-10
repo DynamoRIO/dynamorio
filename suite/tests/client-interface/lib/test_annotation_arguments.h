@@ -10,6 +10,19 @@
 #define TEST_ANNOTATION_TEN_ARGS(a, b, c, d, e, f, g, h, i, j) \
     test_annotation_ten_args(a, b, c, d, e, f, g, h, i, j)
 
+#ifdef DR_ANNOTATION_EXPORT
+# undef DR_ANNOTATION_EXPORT
+#endif
+
+#ifdef _MSC_VER
+#else
+# ifdef __LP64__
+#  define DR_ANNOTATION_EXPORT __attribute__((visibility("default")))
+# else
+#  define DR_ANNOTATION_EXPORT __attribute__((fastcall, visibility("default")))
+# endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,27 +43,21 @@ test_annotation_ten_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
     unsigned int g, unsigned int h, unsigned int i, unsigned int j);
 #else
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_eight_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
     unsigned int g, unsigned int h)
     __attribute__ ((weak));
 
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_nine_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
     unsigned int g, unsigned int h, unsigned int i)
     __attribute__ ((weak));
 
-# ifndef __LP64__
-__attribute__ ((fastcall))
-# endif
+DR_ANNOTATION_EXPORT
 void
 test_annotation_ten_args(unsigned int a, unsigned int b,
     unsigned int c, unsigned int d, unsigned int e, unsigned int f,
@@ -61,6 +68,8 @@ test_annotation_ten_args(unsigned int a, unsigned int b,
 #ifdef __cplusplus
 }
 #endif
+
+#undef DR_ANNOTATION_EXPORT
 
 #endif
 

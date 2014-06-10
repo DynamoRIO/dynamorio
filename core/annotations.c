@@ -213,6 +213,8 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
+    //char symbol_name[256];
+    //_snprintf(symbol_name, 256, "%s@plt", target_name);
 #else
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
@@ -377,6 +379,8 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value)
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
+    //char symbol_name[256];
+    //_snprintf(symbol_name, 256, "%s@plt", target_name);
 #else
     char symbol_name[256]; // TODO: alloc heap directly?
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, 0);
