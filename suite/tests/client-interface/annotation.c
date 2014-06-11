@@ -26,9 +26,11 @@
 #ifdef WINDOWS
 # define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
 # define LIB_NAME "client.annotation.dll"
+# define MODULE_TYPE HMODULE
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
 # define LIB_NAME "libclient.annotation.appdll.so"
+# define MODULE_TYPE void *
 #endif
 
 #define VALIDATE(value, predicate, error_message) \
@@ -56,31 +58,29 @@ usage(const char *message);
 static double
 distance(double *x_old, double *x_new);
 
-void (*matrix_subtract)(unsigned int mode, double *dst, double *src,
-                        double **coefficients, int base, int limit);
+static void *
+find_function(MODULE_TYPE module, const char *name);
 
-void (*matrix_divide)(unsigned int mode, double *dst, double **coefficients, int i);
-
-#ifdef WINDOWS
-    HMODULE module;
-#else
-    void *module;
-#endif
+void (*jacobi_init)(int matrix_size, int annotation_mode);
+void (*jacobi_exit)();
+void (*jacobi)(double *dst, double *src, double **coefficients,
+               double *rhs_vector, int limit);
 
 #ifdef WINDOWS
 int WINAPI
 #else
 void
 #endif
-jacobi(thread_init_t *);
+thread_main(thread_init_t *);
 
-static double **a_matrix, *rhs_vector, *x_new, *x_old, *x_temp;
+static double **a_matrix, *rhs_vector, *x_new, *x_old;
 static int thread_handling_index, matrix_size;
+MODULE_TYPE module;
 
 int main(int argc, char **argv)
 {
     int i, class_id, num_threads, i_thread, i_row, i_col, iteration = 0;
-    double sum, row_sum, memoryused = 0.0;
+    double sum, row_sum;
     char *error;
 
     thread_init_t *thread_inits;
@@ -143,9 +143,6 @@ int main(int argc, char **argv)
     a_matrix = (double **) malloc(matrix_size * sizeof(double *));
     rhs_vector = (double *) malloc(matrix_size * sizeof(double));
 
-    memoryused += (matrix_size * matrix_size * sizeof(double));
-    memoryused += (matrix_size * sizeof(double));
-
     /* Populating the a_matrix and rhs_vector */
     row_sum = (double) (matrix_size * (matrix_size + 1) / 2.0);
     for (i_row = 0; i_row < matrix_size; i_row++) {
@@ -165,15 +162,10 @@ int main(int argc, char **argv)
     TEST_ANNOTATION_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
     x_new = (double *) malloc(matrix_size * sizeof(double));
-    memoryused += (matrix_size * sizeof(double));
     x_old = (double *) malloc(matrix_size * sizeof(double));
-    memoryused += (matrix_size * sizeof(double));
-    x_temp = (double *) malloc(matrix_size * sizeof(double));
-    memoryused += (matrix_size * sizeof(double));
 
     /* Initailize X[i] = B[i] */
     for (i_row = 0; i_row < matrix_size; i_row++) {
-        x_temp[i_row] = rhs_vector[i_row];
         x_new[i_row] =  rhs_vector[i_row];
     }
 
@@ -211,41 +203,37 @@ int main(int argc, char **argv)
             exit(1);
         }
 #else
-        // module = dlopen(lib_path, RTLD_NOW);
         module = dlopen(lib_path, RTLD_LAZY);
         if (module == 0) {
             printf("Error: failed to load "LIB_NAME"\n");
             exit(1);
         }
 
-        matrix_subtract = dlsym(module, "matrix_subtract");
-        if (error = dlerror()) {
-            printf("Error: failed to load matrix_subtract() from "LIB_NAME": %s\n", error);
-            exit(1);
-        }
-        matrix_divide = dlsym(module, "matrix_divide");
-        if (error = dlerror()) {
-            printf("Error: failed to load matrix_divide() from "LIB_NAME": %s\n", error);
-            exit(1);
-        }
 #endif
+        jacobi_init = find_function(module, "jacobi_init");
+        jacobi_exit = find_function(module, "jacobi_exit");
+        jacobi = find_function(module, "jacobi");
+
+        iteration++;
+        printf("\n     Started iteration %d of the computation...\n", iteration);
+
+        jacobi_init(matrix_size, iteration % 2);
 
         TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
 
         for (i_thread = 0; i_thread < num_threads; i_thread++) {
             /* Creating The Threads */
 #ifdef WINDOWS
-            result = _beginthreadex(NULL, 0, jacobi, &thread_inits[i_thread], 0, NULL);
+            result = _beginthreadex(NULL, 0, thread_main, &thread_inits[i_thread], 0, NULL);
             VALIDATE(result, <= 0, "_beginthread() returned code %d ");
             threads[i_thread] = (HANDLE) result;
 #else
-            result = pthread_create(&threads[i_thread], &pta, (void *(*) (void *))jacobi,
+            result = pthread_create(&threads[i_thread], &pta, (void *(*) (void *))thread_main,
                                     (void *) &thread_inits[i_thread]);
             VALIDATE(result, != 0, "pthread_create() returned code %d");
 #endif
         }
 
-        iteration++;
 #ifdef WINDOWS
         WaitForMultipleObjects(num_threads, threads, TRUE /* all */, INFINITE);
 #else
@@ -262,12 +250,13 @@ int main(int argc, char **argv)
         VALIDATE(result, != 0, "pthread_attr_destroy() returned code %d");
 #endif
 
+        jacobi_exit();
 #ifdef WINDOWS
-    if (module != NULL)
-        FreeLibrary(module);
+        if (module != NULL)
+            FreeLibrary(module);
 #else
-    if (module != 0)
-        dlclose(module);
+        if (module != 0)
+            dlclose(module);
 #endif
 
         TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
@@ -276,14 +265,12 @@ int main(int argc, char **argv)
     printf("\n");
     printf("\n     The Jacobi Method For AX=B .........DONE");
     printf("\n     Total Number Of iterations   :  %d",iteration);
-    printf("\n     Memory Utilized              :  %lf MB",(memoryused/(1024*1024)));
     printf("\n    ...................................................................\n");
 
     free(x_new);
     free(x_old);
     free(a_matrix);
     free(rhs_vector);
-    free(x_temp);
     free(threads);
     free(thread_inits);
 
@@ -297,6 +284,19 @@ usage(const char *message)
     printf("usage: jacobi { A | B | C }<thread-count>\n");
     printf(" e.g.: jacobi A4\n");
     exit(-1);
+}
+
+static void *
+find_function(MODULE_TYPE module, const char *name)
+{
+    char *error;
+
+    void *function = dlsym(module, name);
+    if (error = dlerror()) {
+        printf("Error: failed to load %s() from "LIB_NAME":\n%s\n", name, error);
+        exit(1);
+    }
+    return function;
 }
 
 double distance(double *x_old, double *x_new)
@@ -316,33 +316,10 @@ int WINAPI
 #else
 void
 #endif
-jacobi(thread_init_t *init)
+thread_main(thread_init_t *init)
 {
-    int i, j;
-    unsigned int mode = init->id % 2;
-
     TEST_ANNOTATION_SET_MODE(init->id, MODE_1);
-    for (i = 0; i < init->iteration_count; i++) {
-        x_temp[i] = rhs_vector[i];
-
-        matrix_subtract(mode, x_temp, x_old, a_matrix, i, i);
-        matrix_subtract(mode, x_temp, x_old, a_matrix, i, init->iteration_count);
-        matrix_divide(mode, x_temp, a_matrix, i);
-    }
-    /*
-        for (j = 0; j < i; j++) {
-            x_temp[i] -= x_old[j] * a_matrix[i][j];
-        }
-        for (j = i+1; j < init->iteration_count; j++) {
-            x_temp[i] -= x_old[j] * a_matrix[i][j];
-        }
-        x_temp[i] = x_temp[i] / a_matrix[i][i];
-    */
-
-    TEST_ANNOTATION_NINE_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9);
-    for (i = 0; i < init->iteration_count; i++) {
-        x_new[i] = x_temp[i];
-    }
+    jacobi(x_new, x_old, a_matrix, rhs_vector, init->iteration_count);
     TEST_ANNOTATION_SET_MODE(init->id, MODE_0);
 #ifdef WINDOWS
     return 0;

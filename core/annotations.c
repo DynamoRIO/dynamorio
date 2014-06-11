@@ -35,7 +35,6 @@ typedef struct _annotation_registration_by_name_t {
 
 typedef struct _annotation_registration_by_name_list_t {
     uint size;
-    uint ref_count;
     annotation_registration_by_name_t *head;
 } annotation_registration_by_name_list_t;
 
@@ -62,14 +61,41 @@ do { \
 #define KEY(annotation_id) ((ptr_uint_t) annotation_id)
 static generic_table_t *handlers;
 
+#ifdef UNIX
+typedef struct _section_table_entry_t {
+    ptr_uint_t offset;
+    ptr_uint_t size;
+    ptr_uint_t entry_size;
+    ptr_uint_t entry_count;
+} section_table_entry_t;
+#endif
+
+typedef struct _module_function_t {
+    const char *symbol;
+    generic_func_t entry_point;
+    generic_func_t plt_entry_point;
+} module_function_t;
+
+typedef struct _module_functions_t {
+    app_pc start;
+    module_function_t *functions;
+    uint function_allocation;
+    uint function_count;
+    struct _module_functions_t *next;
+} module_functions_t;
+
+typedef struct _module_functions_list_t {
+    module_functions_t *head;
+} module_functions_list_t;
+
+static module_functions_list_t *module_functions_list;
+
 // locked under the `handlers` table lock
 static annotation_handler_t *vg_handlers[VG_ID__LAST];
 
 static annotation_handler_t vg_router;
 static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
-
-static bool initialized = false;
 
 // locked under the `handlers` table lock
 static annotation_registration_by_name_list_t *by_name_list;
@@ -110,8 +136,7 @@ static annotation_handler_t *
 annot_register_return(void *annotation_func, void *return_value);
 
 static void
-annot_bind_registrations(uint num_targets, generic_func_t *targets,
-                         annotation_registration_by_name_t *by_name);
+annot_bind_registration(generic_func_t target, annotation_registration_by_name_t *by_name);
 
 static void
 handle_vg_annotation(app_pc request_args);
@@ -131,6 +156,14 @@ annot_vsnprintf(char *s, size_t max, const char *fmt, ...);
 static void
 free_annotation_registration_by_name(annotation_registration_by_name_t *by_name);
 
+#ifdef UNIX
+static void
+read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *section);
+#endif
+
+static module_functions_t*
+load_module_functions(ptr_uint_t base);
+
 static const char *
 heap_strcpy(const char *src);
 
@@ -140,12 +173,19 @@ heap_str_free(const char *str);
 static void
 free_annotation_handler(void *p);
 
+static void
+free_module_functions(module_functions_t *module);
+
 /**** Public Function Definitions ****/
 
 void
 annot_init()
 {
     module_iterator_t *mi;
+    module_area_t *area;
+    module_handle_t module;
+    file_t module_file;
+    uint64 module_size;
 
     handlers = generic_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
@@ -170,27 +210,47 @@ annot_init()
                                    ACCT_OTHER, UNPROTECTED);
     memset(by_name_list, 0, sizeof(annotation_registration_by_name_list_t));
 
+    module_functions_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_functions_list_t,
+                                          ACCT_OTHER, UNPROTECTED);
+    module_functions_list->head = NULL;
+
     dr_annot_register_return_by_name(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                                      (void *) (ptr_uint_t) true);
 
     mi = module_iterator_start();
-    while (module_iterator_hasnext(mi))
-        annot_module_load((module_handle_t) module_iterator_next(mi)->start);
+    while (module_iterator_hasnext(mi)) {
+        area = module_iterator_next(mi);
+        if ((module_file = os_open_protected(area->full_path, OS_OPEN_READ)) < 0) {
+            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
+            continue;
+        }
+        if (!os_get_file_size_by_handle(module_file, &module_size)) {
+            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
+            continue;
+        }
+        if ((module = (module_handle_t) map_file(module_file, &module_size, 0, 0,
+                               DR_MEMPROT_READ, MAP_FILE_IMAGE)) < 0) {
+            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
+            continue;
+        }
+        dr_printf("Attempting to load module %s at "PFX"\n", area->full_path, module);
+        annot_module_load(module);
+        unmap_file((byte *) module, module_size);
+    }
     module_iterator_stop(mi);
-
-    initialized = true;
 }
 
 void
 annot_exit()
 {
     uint i;
-    annotation_registration_by_name_t *next, *by_name = by_name_list->head;
+    module_functions_t *module, *next_module;
+    annotation_registration_by_name_t *next_by_name, *by_name = by_name_list->head;
 
     while (by_name != NULL) {
-        next = by_name->next;
+        next_by_name = by_name->next;
         free_annotation_registration_by_name(by_name);
-        by_name = next;
+        by_name = next_by_name;
     }
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, by_name_list, annotation_registration_by_name_list_t,
                    ACCT_OTHER, UNPROTECTED);
@@ -201,6 +261,15 @@ annot_exit()
     }
 
     generic_hash_destroy(GLOBAL_DCONTEXT, handlers);
+
+    module = module_functions_list->head;
+    while (module != NULL) {
+        next_module = module->next;
+        free_module_functions(module);
+        module = next_module;
+    }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, module_functions_list, module_functions_list_t,
+                   ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -208,38 +277,19 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
                                void *callee, bool save_fpstate, uint num_args
                                _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
-    module_iterator_t *mi;
-    module_handle_t handle;
+    uint i;
+    module_functions_t *module;
     annotation_registration_by_name_t *by_name;
-    extern vm_area_vector_t *loaded_module_areas;
-    uint i, num_annotated_modules = 0, num_allocated_targets;
-    generic_func_t target, *targets;
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
-    //char symbol_name[256];
-    //_snprintf(symbol_name, 256, "%s@plt", target_name);
 #else
     char symbol_name[256];
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
 
-    /* Collect the targets outside the table lock to avoid rank order violation */
-    mi = module_iterator_start();
-    num_allocated_targets = loaded_module_areas->length;
-    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t,
-                               num_allocated_targets, ACCT_OTHER, UNPROTECTED);
-    while (module_iterator_hasnext(mi)) {
-        handle = (module_handle_t) module_iterator_next(mi)->start;
-        target = get_proc_address(handle, symbol_name);
-        if (target != NULL)
-            targets[num_annotated_modules++] = target;
-    }
-    module_iterator_stop(mi);
-
     TABLE_RWLOCK(handlers, write, lock);
 
-    by_name_list->ref_count++;
     by_name = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_registration_by_name_t,
                               ACCT_OTHER, UNPROTECTED);
     by_name->type = ANNOT_HANDLER_CALL;
@@ -257,13 +307,19 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     by_name_list->size++;
 
     /* Bind to all existing modules */
-    for (i = 0; i < num_annotated_modules; i++)
-        annot_bind_registrations(num_annotated_modules, targets, by_name);
+    module = module_functions_list->head;
+    while (module != NULL) {
+        for (i = 0; i < module->function_count; i++) {
+            if (strcmp(target_name, module->functions[i].symbol) == 0) {
+                annot_bind_registration(module->functions[i].entry_point, by_name);
+                if (module->functions[i].plt_entry_point != NULL)
+                    annot_bind_registration(module->functions[i].plt_entry_point, by_name);
+            }
+        }
+        module = module->next;
+    }
 
     TABLE_RWLOCK(handlers, write, unlock);
-
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t,
-                    num_allocated_targets, ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -374,38 +430,18 @@ dr_annot_register_return(void *annotation_func, void *return_value)
 void
 dr_annot_register_return_by_name(const char *target_name, void *return_value)
 {
-    module_iterator_t *mi;
-    module_handle_t handle;
+    uint i;
+    module_functions_t *module;
     annotation_registration_by_name_t *by_name;
-    extern vm_area_vector_t *loaded_module_areas;
-    uint i, num_annotated_modules = 0, num_allocated_targets;
-    generic_func_t target, *targets;
 
 #if defined(UNIX) || defined(X64)
     char *symbol_name = (char *) target_name;
-    //char symbol_name[256];
-    //_snprintf(symbol_name, 256, "%s@plt", target_name);
 #else
     char symbol_name[256]; // TODO: alloc heap directly?
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, 0);
 #endif
 
-    /* Collect the targets outside the table lock to avoid rank order violation */
-    mi = module_iterator_start();
-    num_allocated_targets = loaded_module_areas->length;
-    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t,
-                               num_allocated_targets, ACCT_OTHER, UNPROTECTED);
-    while (module_iterator_hasnext(mi)) {
-        handle = (module_handle_t) module_iterator_next(mi)->start;
-        target = get_proc_address(handle, symbol_name);
-        if (target != NULL)
-            targets[num_annotated_modules++] = target;
-    }
-    module_iterator_stop(mi);
-
     TABLE_RWLOCK(handlers, write, lock);
-    by_name_list->ref_count++;
-
     by_name = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_registration_by_name_t,
                               ACCT_OTHER, UNPROTECTED);
     by_name->type = ANNOT_HANDLER_RETURN_VALUE;
@@ -422,14 +458,18 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value)
     by_name_list->head = by_name;
     by_name_list->size++;
 
-    /* Bind to all existing modules */
-    for (i = 0; i < num_annotated_modules; i++)
-        annot_bind_registrations(num_annotated_modules, targets, by_name);
-
+    module = module_functions_list->head;
+    while (module != NULL) {
+        for (i = 0; i < module->function_count; i++) {
+            if (strcmp(target_name, module->functions[i].symbol) == 0) {
+                annot_bind_registration(module->functions[i].entry_point, by_name);
+                if (module->functions[i].plt_entry_point != NULL)
+                    annot_bind_registration(module->functions[i].plt_entry_point, by_name);
+            }
+        }
+        module = module->next;
+    }
     TABLE_RWLOCK(handlers, write, unlock);
-
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t,
-                    num_allocated_targets, ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -441,7 +481,6 @@ dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name)
     annotation_registration_by_name_t *by_name;
 
     TABLE_RWLOCK(handlers, write, lock);
-    by_name_list->ref_count++;
     by_name = by_name_list->head;
     do {
         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
@@ -562,7 +601,6 @@ dr_annot_unregister_return_by_name(const char *target_name)
     annotation_handler_t *handler;
 
     TABLE_RWLOCK(handlers, write, lock);
-    by_name_list->ref_count++;
     do {
         iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, handlers,
                                          iter, &key, (void *) &handler);
@@ -584,120 +622,30 @@ dr_annot_unregister_return(void *annotation_func)
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
-typedef struct _section_table_t {
-    ptr_uint_t offset;
-    ptr_uint_t size;
-    ptr_uint_t entry_size;
-    ptr_uint_t entry_count;
-} section_table_t;
-
-static void
-read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_t *section) {
-    section->offset = base + *(ptr_uint_t *) (entry + 0x18);
-    section->size = *(ptr_uint_t *) (entry + 0x20);
-    section->entry_size = *(ptr_uint_t *) (entry + 0x38);
-    if (section->entry_size > 0)
-        section->entry_count = section->size / section->entry_size;
-}
-
+// TODO: export iterator in Windows
 void
 annot_module_load(const module_handle_t handle)
 {
+    uint i;
     annotation_registration_by_name_t *by_name;
-    const char **symbol_names;
-    generic_func_t target, plt_target, *targets, *plt_targets;
-    uint i, j, num_symbol_names = 0;
-    uint last_ref_count;
-    ptr_uint_t base = (ptr_uint_t) handle;
-    section_table_t plt_section = {0};
-    section_table_t rela_plt_section = {0};
-    section_table_t dynsym_section = {0};
-    section_table_t dynstr_section = {0};
-
-    if (initialized) {
-        ptr_uint_t section_table = base + (*(ptr_uint_t *) (base + 0x28));
-        ushort section_table_entry_size = ((*(ptr_uint_t *) (base + 0x38)) >> 0x10) & 0xffff;
-        ushort section_table_entry_count = ((*(ptr_uint_t *) (base + 0x38)) >> 0x20) & 0xffff;
-        ushort section_string_table_index = (*(ptr_uint_t *) (base + 0x38)) >> 0x30;
-        ptr_uint_t section_string_table_entry = section_table + (section_string_table_index * section_table_entry_size);
-        ptr_uint_t section_string_table = base + *(ptr_uint_t *) (section_string_table_entry + 0x18);
-        ptr_uint_t section_table_entry = section_table;
-        const char *section_table_entry_name;
-
-        for (i = 0; i < section_table_entry_count; i++) {
-            section_table_entry_name = (const char *) (ptr_uint_t) (section_string_table + *(uint *) section_table_entry);
-            if (strcmp(section_table_entry_name, ".plt") == 0)
-                read_section_entry(base, section_table_entry, &plt_section);
-            else if (strcmp(section_table_entry_name, ".rela.plt") == 0)
-                read_section_entry(base, section_table_entry, &rela_plt_section);
-            else if (strcmp(section_table_entry_name, ".dynsym") == 0)
-                read_section_entry(base, section_table_entry, &dynsym_section);
-            else if (strcmp(section_table_entry_name, ".dynstr") == 0)
-                read_section_entry(base, section_table_entry, &dynstr_section);
-            section_table_entry += section_table_entry_size;
-        }
-    }
-
-    symbol_names = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, const char *, by_name_list->size,
-                                    ACCT_OTHER, UNPROTECTED);
-    targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t, by_name_list->size,
-                               ACCT_OTHER, UNPROTECTED);
-    plt_targets = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, generic_func_t, by_name_list->size,
-                                   ACCT_OTHER, UNPROTECTED);
+    module_functions_t *functions;
 
     TABLE_RWLOCK(handlers, write, lock);
-    while (true) {
-        last_ref_count = by_name_list->ref_count;
+    functions = load_module_functions((ptr_uint_t) handle);
+    if (functions != NULL) {
         by_name = by_name_list->head;
         while (by_name != NULL) {
-            symbol_names[num_symbol_names++] = by_name->symbol_name;
+            for (i = 0; i < functions->function_count; i++) {
+                if (strcmp(by_name->symbol_name, functions->functions[i].symbol) == 0) {
+                    annot_bind_registration(functions->functions[i].entry_point, by_name);
+                    if (functions->functions[i].plt_entry_point != NULL)
+                        annot_bind_registration(functions->functions[i].plt_entry_point, by_name);
+                }
+            }
             by_name = by_name->next;
-        }
-        TABLE_RWLOCK(handlers, write, unlock);
-
-        /* An unregister_by_name() could destroy one of the symbol names during this loop */
-        for (i = 0; i < num_symbol_names; i++) {
-            target = get_proc_address(handle, symbol_names[i]);
-            plt_target = NULL;
-            if (target != NULL) {
-                for (j = 0; j < rela_plt_section.entry_count; j++) { // faster to walk the offset
-                    ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
-                    ptr_uint_t dynsym_offset = dynsym_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18);
-                    const char *symbol_name = (const char *) (ptr_uint_t) (dynstr_section.offset + *(uint *) dynsym_offset);
-                    if (strcmp(symbol_name, symbol_names[i]) == 0) {
-                        plt_target = (generic_func_t) rela_plt_entry;
-                        break;
-                    }
-                }
-            }
-            targets[i] = target;
-            plt_targets[i] = plt_target;
-        }
-
-        TABLE_RWLOCK(handlers, write, lock);
-        if (by_name_list->ref_count == last_ref_count) {
-            by_name = by_name_list->head;
-            for (i = 0; i < num_symbol_names; i++) {
-                if (targets[i] != NULL)
-                    annot_bind_registrations(1, &targets[i], by_name);
-                if (plt_targets[i] != NULL) {
-                    dr_printf("Binding %s to PLT entry at "PFX"\n", by_name->symbol_name, plt_targets[i]);
-                    annot_bind_registrations(1, &plt_targets[i], by_name);
-                    // TODO: make sure these get removed on unregister()
-                }
-                by_name = by_name->next;
-            }
-            break;
         }
     }
     TABLE_RWLOCK(handlers, write, unlock);
-
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, symbol_names, char *, by_name_list->size,
-                    ACCT_OTHER, UNPROTECTED);
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, targets, generic_func_t, by_name_list->size,
-                    ACCT_OTHER, UNPROTECTED);
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, plt_targets, generic_func_t, by_name_list->size,
-                    ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -706,6 +654,7 @@ annot_module_unload(app_pc start, app_pc end)
     int iter = 0;
     ptr_uint_t key;
     void *handler;
+    module_functions_t *module;
 
     TABLE_RWLOCK(handlers, write, lock);
     do {
@@ -717,6 +666,21 @@ annot_module_unload(app_pc start, app_pc end)
             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
                                                iter, key);
     } while (true);
+
+    module = module_functions_list->head;
+    if (module->start == start) {
+        module_functions_list->head = module->next;
+    } else {
+        while (module->next != NULL) {
+            if (module->next->start == start) {
+                module->next = module->next->next;
+                free_module_functions(module);
+                break;
+            }
+            module = module->next;
+        }
+    }
+
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
@@ -904,31 +868,142 @@ annot_register_return(void *annotation_func, void *return_value)
 }
 
 static inline void
-annot_bind_registrations(uint num_targets, generic_func_t *targets,
-                         annotation_registration_by_name_t *by_name)
+annot_bind_registration(generic_func_t target, annotation_registration_by_name_t *by_name)
 {
-    uint i;
     annotation_handler_t *handler;
 
     ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
-    for (i = 0; i < num_targets; i++) {
-        handler = NULL;
-        if (by_name->type == ANNOT_HANDLER_CALL) {
-            handler = annot_register_call(by_name->client_id, (void *) targets[i],
-                                          by_name->instrumentation.callback,
-                                          by_name->save_fpstate, by_name->num_args
-                                          _IF_NOT_X64(by_name->call_type));
-        } else if (by_name->type == ANNOT_HANDLER_RETURN_VALUE) {
-            handler = annot_register_return((void *) targets[i],
-                                            by_name->instrumentation.return_value);
-        } else {
-            ASSERT_MESSAGE(CHKLVL_ASSERTS,
-                           "Cannot register annotation of this type by name.", false);
-        }
-        if (handler->symbol_name == NULL)
-            handler->symbol_name = heap_strcpy(by_name->symbol_name);
+    handler = NULL;
+    if (by_name->type == ANNOT_HANDLER_CALL) {
+        handler = annot_register_call(by_name->client_id, (void *) target,
+                                      by_name->instrumentation.callback,
+                                      by_name->save_fpstate, by_name->num_args
+                                      _IF_NOT_X64(by_name->call_type));
+    } else if (by_name->type == ANNOT_HANDLER_RETURN_VALUE) {
+        handler = annot_register_return((void *) target,
+                                        by_name->instrumentation.return_value);
+    } else {
+        ASSERT_MESSAGE(CHKLVL_ASSERTS,
+                       "Cannot register annotation of this type by name.", false);
     }
+    if (handler->symbol_name == NULL)
+        handler->symbol_name = heap_strcpy(by_name->symbol_name);
 }
+
+#ifdef WINDOWS
+static module_functions_t*
+load_module_functions(ptr_uint_t base)
+{
+    // TODO
+}
+#else
+static void
+read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *section) {
+    section->offset = base + *(ptr_uint_t *) (entry + 0x18);
+    section->size = *(ptr_uint_t *) (entry + 0x20);
+    section->entry_size = *(ptr_uint_t *) (entry + 0x38);
+    if (section->entry_size > 0)
+        section->entry_count = section->size / section->entry_size;
+}
+
+static module_functions_t*
+load_module_functions(ptr_uint_t base)
+{
+    uint i, j, function_index = 0;
+    module_functions_t *module;
+
+    section_table_entry_t plt_section = {0};
+    section_table_entry_t rela_plt_section = {0};
+    section_table_entry_t dynsym_section = {0};
+    section_table_entry_t dynstr_section = {0};
+    section_table_entry_t symtab_section = {0};
+    section_table_entry_t strtab_section = {0};
+
+    ptr_uint_t section_table = base + (*(ptr_uint_t *) (base + 0x28));
+    ushort section_table_entry_size = ((*(ptr_uint_t *) (base + 0x38)) >> 0x10) & 0xffff;
+    ushort section_table_entry_count = ((*(ptr_uint_t *) (base + 0x38)) >> 0x20) & 0xffff;
+    ushort section_string_table_index = (*(ptr_uint_t *) (base + 0x38)) >> 0x30;
+    ptr_uint_t section_string_table_entry = section_table + (section_string_table_index * section_table_entry_size);
+    ptr_uint_t section_string_table = base + *(ptr_uint_t *) (section_string_table_entry + 0x18);
+    ptr_uint_t section_table_entry = section_table;
+    const char *section_table_entry_name;
+
+    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
+
+    for (i = 0; i < section_table_entry_count; i++) {
+        section_table_entry_name = (const char *) (ptr_uint_t) (section_string_table + *(uint *) section_table_entry);
+        if (strcmp(section_table_entry_name, ".plt") == 0)
+            read_section_entry(base, section_table_entry, &plt_section);
+        else if (strcmp(section_table_entry_name, ".rela.plt") == 0)
+            read_section_entry(base, section_table_entry, &rela_plt_section);
+        else if (strcmp(section_table_entry_name, ".dynsym") == 0)
+            read_section_entry(base, section_table_entry, &dynsym_section);
+        else if (strcmp(section_table_entry_name, ".dynstr") == 0)
+            read_section_entry(base, section_table_entry, &dynstr_section);
+        else if (strcmp(section_table_entry_name, ".symtab") == 0)
+            read_section_entry(base, section_table_entry, &symtab_section);
+        else if (strcmp(section_table_entry_name, ".strtab") == 0)
+            read_section_entry(base, section_table_entry, &strtab_section);
+        section_table_entry += section_table_entry_size;
+    }
+
+    if ((dynsym_section.entry_count == 0) && (symtab_section.entry_count == 0))
+        return NULL;
+
+    module = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_functions_t,
+                             ACCT_OTHER, UNPROTECTED);
+    module->start = (app_pc) base;
+    module->next = module_functions_list->head;
+    module_functions_list->head = module;
+    module->functions = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_function_t,
+                                         dynsym_section.entry_count + symtab_section.entry_count,
+                                         ACCT_OTHER, UNPROTECTED);
+
+    for (i = 0; i < dynsym_section.entry_count; i++) {
+        ptr_uint_t dynsym_offset = dynsym_section.offset + (i * dynsym_section.entry_size);
+        byte type = (*(byte *) (dynsym_offset + 4) & 0xf);
+        if (type == 2) { // function type
+            const char *symbol_name = (const char *) (ptr_uint_t) (dynstr_section.offset + *(uint *) dynsym_offset);
+            module->functions[function_index].symbol = heap_strcpy(symbol_name);
+            module->functions[function_index].entry_point = (generic_func_t) (base + (*(ptr_uint_t *) (dynsym_offset + 8)));
+            module->functions[function_index].plt_entry_point = 0;
+
+            for (j = 0; j < rela_plt_section.entry_count; j++) {
+                ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
+                if (dynsym_offset == (dynsym_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
+                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)));
+                    break;
+                }
+            }
+            function_index++;
+        }
+    }
+
+    for (i = 0; i < symtab_section.entry_count; i++) {
+        ptr_uint_t symtab_offset = symtab_section.offset + (i * symtab_section.entry_size);
+        byte type = (*(byte *) (symtab_offset + 4) & 0xf);
+        if (type == 2) { // function type
+            const char *symbol_name = (const char *) (ptr_uint_t) (strtab_section.offset + *(uint *) symtab_offset);
+            module->functions[function_index].symbol = heap_strcpy(symbol_name);
+            module->functions[function_index].entry_point = (generic_func_t) (/*base +*/ (*(ptr_uint_t *) (symtab_offset + 8)));
+            module->functions[function_index].plt_entry_point = 0;
+
+            for (j = 0; j < rela_plt_section.entry_count; j++) {
+                ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
+                if (symtab_offset == (symtab_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
+                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)));
+                    break;
+                }
+            }
+            function_index++;
+        }
+    }
+
+    module->function_allocation = (dynsym_section.entry_count + symtab_section.entry_count);
+    module->function_count = function_index;
+    return module;
+}
+#endif
 
 static void
 handle_vg_annotation(app_pc request_args)
@@ -1118,4 +1193,17 @@ free_annotation_handler(void *p)
     if (handler->symbol_name != NULL)
         heap_str_free(handler->symbol_name);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t, ACCT_OTHER, UNPROTECTED);
+}
+
+static void
+free_module_functions(module_functions_t *module)
+{
+    uint i;
+
+    for (i = 0; i < module->function_count; i++)
+        heap_str_free(module->functions[i].symbol);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->functions, module_function_t,
+                    module->function_allocation, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, module, module_functions_t,
+                   ACCT_OTHER, UNPROTECTED);
 }
