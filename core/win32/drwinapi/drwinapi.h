@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -57,5 +57,11 @@ drwinapi_redirect_getprocaddr(app_pc modbase, const char *name, app_pc *res_out 
 
 bool
 kernel32_redir_fls_cb(dcontext_t *dcontext, app_pc pc);
+
+void
+ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb);
+
+void
+ntdll_redir_fls_exit(PEB *private_peb);
 
 #endif /* _DRWINAPI_H_ */

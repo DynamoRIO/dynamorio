@@ -35,6 +35,14 @@
 #include "kernel32_redir.h" /* must be included first */
 #include "../../globals.h"
 #include "instrument.h"
+#include "drwinapi_private.h"
+#include "ntdll_redir.h"
+
+/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
+ * Processes and Threads
+ */
+
+#define FLS_MAX_COUNT 128
 
 /* If you add any new priv invocation pointer here, update the list in
  * drwinapi_redirect_imports().
@@ -54,11 +62,14 @@ DECLARE_CXTSWPROT_VAR(static mutex_t privload_fls_lock,
 void
 kernel32_redir_init_proc(void)
 {
+    PEB *peb = get_own_peb();
     /* use permanent head node to avoid .data unprot */
     ASSERT(fls_cb_list == NULL);
     fls_cb_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fls_cb_t, ACCT_OTHER, PROTECTED);
     fls_cb_list->cb = NULL;
     fls_cb_list->next = NULL;
+
+    ASSERT(peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT);
 }
 
 void
@@ -153,6 +164,9 @@ redirect_GetCurrentThreadId(
  * FLS
  */
 
+/* A LIST_ENTRY is stored at the start of TEB.FlsData */
+#define FLS_DATA_OFFS (sizeof(LIST_ENTRY)/sizeof(void*))
+
 bool
 kernel32_redir_fls_cb(dcontext_t *dcontext, app_pc pc)
 {
@@ -205,37 +219,92 @@ kernel32_redir_fls_cb(dcontext_t *dcontext, app_pc pc)
 DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
 {
-    ASSERT(priv_kernel32_FlsAlloc != NULL);
-    if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
-        in_private_library((app_pc)cb)) {
-        fls_cb_t *entry = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fls_cb_t,
-                                          ACCT_OTHER, PROTECTED);
-        mutex_lock(&privload_fls_lock);
-        entry->cb = cb;
-        /* we have a permanent head node to avoid .data unprot */
-        entry->next = fls_cb_list->next;
-        fls_cb_list->next = entry;
-        mutex_unlock(&privload_fls_lock);
-        /* ensure on DR areas list: won't already be only for client lib */
-        dynamo_vm_areas_lock();
-        if (!is_dynamo_address((app_pc)cb)) {
-            add_dynamo_vm_area((app_pc)cb, ((app_pc)cb)+1, MEMPROT_READ|MEMPROT_EXEC,
-                               true _IF_DEBUG("fls cb in private lib"));
-            /* we do not ever remove: not worth refcount effort, and probably
-             * good to catch future executions
-             */
+    if (!INTERNAL_OPTION(private_peb)) {
+        /* XXX i#1063: we should be able to get rid of all of this code that
+         * handles private FLS callbacks being invoked from app code, if we're
+         * willing to require -private_peb.  Removing this will also help
+         * earliest injection by not needing the app's kernel32.  For now I'm
+         * leaving this code (though the other Fls* routines are intercepted so
+         * this is not complete).
+         */
+        ASSERT(priv_kernel32_FlsAlloc != NULL);
+        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(privlib_privheap), true) &&
+            in_private_library((app_pc)cb)) {
+            fls_cb_t *entry = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, fls_cb_t,
+                                              ACCT_OTHER, PROTECTED);
+            mutex_lock(&privload_fls_lock);
+            entry->cb = cb;
+            /* we have a permanent head node to avoid .data unprot */
+            entry->next = fls_cb_list->next;
+            fls_cb_list->next = entry;
+            mutex_unlock(&privload_fls_lock);
+            /* ensure on DR areas list: won't already be only for client lib */
+            dynamo_vm_areas_lock();
+            if (!is_dynamo_address((app_pc)cb)) {
+                add_dynamo_vm_area((app_pc)cb, ((app_pc)cb)+1, MEMPROT_READ|MEMPROT_EXEC,
+                                   true _IF_DEBUG("fls cb in private lib"));
+                /* we do not ever remove: not worth refcount effort, and probably
+                 * good to catch future executions
+                 */
+            }
+            dynamo_vm_areas_unlock();
+            LOG(GLOBAL, LOG_LOADER, 2, "%s: cb="PFX"\n", __FUNCTION__, cb);
         }
-        dynamo_vm_areas_unlock();
-        LOG(GLOBAL, LOG_LOADER, 2, "%s: cb="PFX"\n", __FUNCTION__, cb);
+        return (*priv_kernel32_FlsAlloc)(cb);
+    } else {
+        DWORD index;
+        NTSTATUS res = redirect_RtlFlsAlloc(cb, &index);
+        if (NT_SUCCESS(res))
+            return index;
+        else {
+            set_last_error(ntstatus_to_last_error(res));
+            return FLS_OUT_OF_INDEXES;
+        }
     }
-    return (*priv_kernel32_FlsAlloc)(cb);
 }
 
+BOOL WINAPI
+redirect_FlsFree(DWORD index)
+{
+    NTSTATUS res = redirect_RtlFlsFree(index);
+    if (NT_SUCCESS(res))
+        return TRUE;
+    else {
+        set_last_error(ntstatus_to_last_error(res));
+        return FALSE;
+    }
+}
 
-/* FIXME i#1063: add the rest of the routines in kernel32_redir.h under
- * Processes and Threads
- */
+PVOID WINAPI
+redirect_FlsGetValue(DWORD index)
+{
+    TEB *teb = get_own_teb();
+    if (index >= FLS_MAX_COUNT || teb->FlsData == NULL) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return NULL;
+    } else {
+        return teb->FlsData[index + TEB_FLS_DATA_OFFS];
+    }
+}
 
+BOOL WINAPI
+redirect_FlsSetValue(DWORD index, PVOID value)
+{
+    TEB *teb = get_own_teb();
+    if (index >= FLS_MAX_COUNT) {
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+    if (teb->FlsData == NULL) {
+        NTSTATUS res = redirect_RtlProcessFlsData(0);
+        if (!NT_SUCCESS(res)) {
+            set_last_error(ntstatus_to_last_error(res));
+            return FALSE;
+        }
+    }
+    teb->FlsData[index + TEB_FLS_DATA_OFFS] = value;
+    return TRUE;
+}
 
 /***************************************************************************
  * TESTS
