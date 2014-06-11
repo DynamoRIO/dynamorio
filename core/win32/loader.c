@@ -1829,11 +1829,14 @@ privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     return drwinapi_redirect_imports(impmod, name, importer);
 }
 
-/* Handles a private-library FLS callback called from interpreted app code */
+/* Handles a private-library callback called from interpreted app code.
+ * This should no longer happen now that we fully isolate the PEB and FLS,
+ * but I'm leaving the mechanism in case we need it in the future.
+ */
 bool
 private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
 {
-    return kernel32_redir_fls_cb(dcontext, pc);
+    return true;
 }
 
 /***************************************************************************
