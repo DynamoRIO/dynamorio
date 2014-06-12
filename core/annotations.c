@@ -576,7 +576,6 @@ annot_module_unload(module_handle_t base, size_t size)
     } while (true);
     TABLE_RWLOCK(handlers, write, unlock);
 }
-#endif
 
 instr_t *
 annot_match(dcontext_t *dcontext, instr_t *instr)
@@ -631,6 +630,33 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
     }
     return first_call;
 }
+#else
+instr_t *
+annot_match(dcontext_t *dcontext, instr_t *instr)
+{
+    if (instr_get_opcode(instr) == OP_jmp_short) {
+        ushort *magic_opcode = (ushort *) (instr_get_translation(instr) + 2);
+        uint64 *magic_immediate = (uint64 *) (magic_opcode +1);
+
+        if ((*magic_opcode == 0xb848) && (*magic_immediate == 0xaaaabbbbccccdddd)) {
+            uint *annotation_call_type = (uint *) (magic_immediate + 1);
+            uint *annotation_ptr = (uint *) (annotation_call_type + 1);
+            ptr_uint_t annotation_rip_base = (ptr_uint_t) (annotation_call_type + 2);
+            bool is_expression = (*annotation_call_type == 0x05bd0f48);
+            const char ***annotation_name = (const char ***) (ptr_uint_t) (annotation_rip_base + *annotation_ptr);
+
+            dr_printf("Decoded %s invocation of %s\n",
+                      is_expression ? "expression" : "statement",
+                      **annotation_name);
+        }
+    }
+
+    return NULL;
+}
+#endif
+
+// bsr: 48 0f bd 05
+// bsf: 48 0f bc 05
 
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
