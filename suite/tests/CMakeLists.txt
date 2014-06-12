@@ -1417,6 +1417,8 @@ if (CLIENT_INTERFACE)
     "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
   configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
     "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
+  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotation_asm.h"
+    "${BUILD_ANNOTATION}/dynamorio_annotation_asm.h" COPYONLY)
   configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.h"
     "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
   configure_file(

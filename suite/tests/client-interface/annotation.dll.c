@@ -131,8 +131,11 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
 static void
 event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 {
-    //register_call(drcontext, info, "test_annotation_nine_args",
-    //    (void *) test_nine_args, 9);
+    // TODO: this requires link flag "-rdynamic", so there need to be two versions
+    void *annotation = dr_get_proc_address((module_handle_t) info->handle,
+                                           "test_annotation_ten_args"); // wrong addr, is in dynamo!
+    dr_annot_register_call(client_id, annotation, test_ten_args, false, 10
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 
 #ifdef WINDOWS // truncating these blocks causes app exceptions (unrelated to annotations)
     if ((info->names.module_name != NULL) &&
@@ -258,7 +261,7 @@ dr_init(client_id_t id)
     register_call("test_annotation_init_context", (void *) init_context, 3);
     register_call("test_annotation_set_mode", (void *) set_mode, 2);
     register_call("test_annotation_eight_args", (void *) test_eight_args, 8);
-    register_call("test_annotation_ten_args", (void *) test_ten_args, 10);
+    //register_call("test_annotation_ten_args", (void *) test_ten_args, 10);
 
     register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
 }

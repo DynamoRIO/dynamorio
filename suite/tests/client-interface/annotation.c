@@ -117,9 +117,9 @@ int main(int argc, char **argv)
     printf("\n    -------------------------------------------------------------------");
     printf("\n     Performance for solving AX=B Linear Equation using Jacobi method");
     if (DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO())
-    printf("\n     Running on DynamoRIO");
+        printf("\n     Running on DynamoRIO");
     else
-    printf("\n     Running native");
+        printf("\n     Running native");
     printf("\n    ...................................................................\n");
 
     if( argc != 2 )
@@ -139,6 +139,8 @@ int main(int argc, char **argv)
 
     printf("\n     Matrix Size :  %d", matrix_size);
     printf("\n     Threads     :  %d", num_threads);
+    printf("\n\n");
+    fflush(stdout);
 
     a_matrix = (double **) malloc(matrix_size * sizeof(double *));
     rhs_vector = (double *) malloc(matrix_size * sizeof(double));
@@ -156,8 +158,6 @@ int main(int argc, char **argv)
         }
         rhs_vector[i_row] = (double)(2 * row_sum) - (double)(i_row + 1);
     }
-
-    printf("\n");
 
     TEST_ANNOTATION_TEN_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
@@ -216,6 +216,7 @@ int main(int argc, char **argv)
 
         iteration++;
         printf("\n     Started iteration %d of the computation...\n", iteration);
+        fflush(stdout);
 
         jacobi_init(matrix_size, iteration % 2);
 
@@ -259,6 +260,7 @@ int main(int argc, char **argv)
             dlclose(module);
 #endif
 
+        TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
         TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
     } while ((distance(x_old, x_new) >= TOLERANCE) && (iteration < MAX_ITERATIONS));
 
