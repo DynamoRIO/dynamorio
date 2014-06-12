@@ -6391,6 +6391,10 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 #ifdef CLIENT_INTERFACE
         inform_client = true;
 #endif
+#ifdef ANNOTATIONS
+        if (dynamo_initialized)
+            annot_module_load((module_handle_t) base, size, filename);
+#endif
         if (found_map)
             dr_strfree(filename HEAPACCT(ACCT_OTHER));
     }
@@ -6410,10 +6414,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     /* invoke the client event only after DR's state is consistent */
     if (inform_client && dynamo_initialized)
         instrument_module_load_trigger(base);
-#endif
-#ifdef ANNOTATIONS
-    if (dynamo_initialized)
-        annot_module_load((module_handle_t) base);
 #endif
 }
 

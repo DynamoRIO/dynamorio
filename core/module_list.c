@@ -330,7 +330,7 @@ module_list_remove(app_pc base, size_t view_size)
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
 #endif
 #ifdef ANNOTATIONS
-    annot_module_unload(ma->start, ma->end);
+    annot_module_unload((module_handle_t) ma->start, ma->end - ma->start);
 #endif
 
     native_exec_module_unload(ma);

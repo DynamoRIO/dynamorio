@@ -78,6 +78,7 @@ typedef struct _module_function_t {
 
 typedef struct _module_functions_t {
     app_pc start;
+    app_pc end;
     module_function_t *functions;
     uint function_allocation;
     uint function_count;
@@ -162,7 +163,7 @@ read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *sec
 #endif
 
 static module_functions_t*
-load_module_functions(ptr_uint_t base);
+load_module_functions(ptr_uint_t base, size_t size _IF_UNIX(ptr_int_t readable_map_offset));
 
 static const char *
 heap_strcpy(const char *src);
@@ -183,9 +184,6 @@ annot_init()
 {
     module_iterator_t *mi;
     module_area_t *area;
-    module_handle_t module;
-    file_t module_file;
-    uint64 module_size;
 
     handlers = generic_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
@@ -220,22 +218,8 @@ annot_init()
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
         area = module_iterator_next(mi);
-        if ((module_file = os_open_protected(area->full_path, OS_OPEN_READ)) < 0) {
-            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
-            continue;
-        }
-        if (!os_get_file_size_by_handle(module_file, &module_size)) {
-            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
-            continue;
-        }
-        if ((module = (module_handle_t) map_file(module_file, &module_size, 0, 0,
-                               DR_MEMPROT_READ, MAP_FILE_IMAGE)) < 0) {
-            dr_fprintf(STDERR, "Failed to mmap '%s'\n", area->full_path);
-            continue;
-        }
-        dr_printf("Attempting to load module %s at "PFX"\n", area->full_path, module);
-        annot_module_load(module);
-        unmap_file((byte *) module, module_size);
+        annot_module_load((module_handle_t) area->start, area->end - area->start
+                          _IF_UNIX(area->full_path));
     }
     module_iterator_stop(mi);
 }
@@ -288,6 +272,8 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     PRINT_SYMBOL_NAME(symbol_name, 256, target_name, num_args);
 #endif
 
+    //dr_printf("Client %d registers for %s()\n", client_id, target_name);
+
     TABLE_RWLOCK(handlers, write, lock);
 
     by_name = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_registration_by_name_t,
@@ -309,8 +295,10 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     /* Bind to all existing modules */
     module = module_functions_list->head;
     while (module != NULL) {
+        //dr_printf("Trying to bind %s() to module at "PFX"\n", by_name->symbol_name, module->start);
         for (i = 0; i < module->function_count; i++) {
             if (strcmp(target_name, module->functions[i].symbol) == 0) {
+                //dr_printf("Bind %s() to "PFX"\n", by_name->symbol_name, module->functions[i].entry_point);
                 annot_bind_registration(module->functions[i].entry_point, by_name);
                 if (module->functions[i].plt_entry_point != NULL)
                     annot_bind_registration(module->functions[i].plt_entry_point, by_name);
@@ -327,9 +315,29 @@ dr_annot_register_call(client_id_t client_id, void *annotation_func, void *calle
                        bool save_fpstate, uint num_args
                        _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
+    uint i;
+    module_functions_t *module;
+
     TABLE_RWLOCK(handlers, write, lock);
     annot_register_call(client_id, annotation_func, callee, save_fpstate, num_args
                         _IF_NOT_X64(call_type));
+    module = module_functions_list->head;
+    while (module != NULL) {
+        if (((app_pc) annotation_func > module->start) &&
+            ((app_pc) annotation_func < module->end)) {
+            for (i = 0; i < module->function_count; i++) {
+                if ((module->functions[i].entry_point == annotation_func) &&
+                    (module->functions[i].plt_entry_point != NULL)) {
+                    annot_register_call(client_id, module->functions[i].plt_entry_point,
+                                        callee, save_fpstate, num_args
+                                        _IF_NOT_X64(call_type));
+                    break;
+                }
+            }
+            break;
+        }
+        module = module->next;
+    }
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
@@ -624,19 +632,45 @@ dr_annot_unregister_return(void *annotation_func)
 
 // TODO: export iterator in Windows
 void
-annot_module_load(const module_handle_t handle)
+annot_module_load(module_handle_t base, size_t size _IF_UNIX(const char *filename))
 {
     uint i;
     annotation_registration_by_name_t *by_name;
     module_functions_t *functions;
 
+#ifdef UNIX
+    ptr_uint_t readable_map;
+    file_t module_file;
+    uint64 readable_map_size;
+    ptr_int_t readable_map_offset;
+
+    if ((module_file = os_open_protected(filename, OS_OPEN_READ)) < 0) {
+        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
+        return;
+    }
+    if (!os_get_file_size_by_handle(module_file, &readable_map_size)) {
+        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
+        return;
+    }
+    if ((readable_map = (ptr_uint_t) map_file(module_file, &readable_map_size, 0, 0,
+                           DR_MEMPROT_READ, MAP_FILE_IMAGE)) < 0) {
+        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
+        return;
+    }
+
+    readable_map_offset = ((ptr_int_t) base - (ptr_int_t) readable_map);
+    base = (module_handle_t) readable_map;
+#endif
+
     TABLE_RWLOCK(handlers, write, lock);
-    functions = load_module_functions((ptr_uint_t) handle);
+    functions = load_module_functions((ptr_uint_t) base, size _IF_UNIX(readable_map_offset));
     if (functions != NULL) {
         by_name = by_name_list->head;
         while (by_name != NULL) {
+            //dr_printf("Trying to bind %s() to module at "PFX"\n", by_name->symbol_name, ((ptr_uint_t) base + readable_map_offset));
             for (i = 0; i < functions->function_count; i++) {
                 if (strcmp(by_name->symbol_name, functions->functions[i].symbol) == 0) {
+                    //dr_printf("Bind %s() to "PFX"\n", by_name->symbol_name, functions->functions[i].entry_point);
                     annot_bind_registration(functions->functions[i].entry_point, by_name);
                     if (functions->functions[i].plt_entry_point != NULL)
                         annot_bind_registration(functions->functions[i].plt_entry_point, by_name);
@@ -646,15 +680,21 @@ annot_module_load(const module_handle_t handle)
         }
     }
     TABLE_RWLOCK(handlers, write, unlock);
+
+#ifdef UNIX
+    unmap_file((byte *) readable_map, readable_map_size);
+#endif
 }
 
 void
-annot_module_unload(app_pc start, app_pc end)
+annot_module_unload(module_handle_t base, size_t size)
 {
     int iter = 0;
     ptr_uint_t key;
     void *handler;
-    module_functions_t *module;
+    module_functions_t *module, *removal;
+    app_pc start = (app_pc) base;
+    app_pc end = ((app_pc) base + size);
 
     TABLE_RWLOCK(handlers, write, lock);
     do {
@@ -669,12 +709,15 @@ annot_module_unload(app_pc start, app_pc end)
 
     module = module_functions_list->head;
     if (module->start == start) {
+        removal = module_functions_list->head;
         module_functions_list->head = module->next;
+        free_module_functions(removal);
     } else {
         while (module->next != NULL) {
             if (module->next->start == start) {
+                removal = module->next;
                 module->next = module->next->next;
-                free_module_functions(module);
+                free_module_functions(removal);
                 break;
             }
             module = module->next;
@@ -892,7 +935,7 @@ annot_bind_registration(generic_func_t target, annotation_registration_by_name_t
 
 #ifdef WINDOWS
 static module_functions_t*
-load_module_functions(ptr_uint_t base)
+load_module_functions(ptr_uint_t base, size_t size)
 {
     // TODO
 }
@@ -907,7 +950,7 @@ read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *sec
 }
 
 static module_functions_t*
-load_module_functions(ptr_uint_t base)
+load_module_functions(ptr_uint_t base, size_t size, ptr_int_t readable_map_offset)
 {
     uint i, j, function_index = 0;
     module_functions_t *module;
@@ -926,8 +969,10 @@ load_module_functions(ptr_uint_t base)
     ptr_uint_t section_string_table_entry = section_table + (section_string_table_index * section_table_entry_size);
     ptr_uint_t section_string_table = base + *(ptr_uint_t *) (section_string_table_entry + 0x18);
     ptr_uint_t section_table_entry = section_table;
+    ptr_uint_t original_base = (base + readable_map_offset);
     const char *section_table_entry_name;
 
+    //dr_printf("Loading module "PFX" with offset %lld ("PFX")\n", original_base, readable_map_offset, base);
     ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
 
     for (i = 0; i < section_table_entry_count; i++) {
@@ -952,26 +997,36 @@ load_module_functions(ptr_uint_t base)
 
     module = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_functions_t,
                              ACCT_OTHER, UNPROTECTED);
-    module->start = (app_pc) base;
+    module->start = (app_pc) (base + readable_map_offset);
+    module->end = (app_pc) (base + readable_map_offset + size);
     module->next = module_functions_list->head;
     module_functions_list->head = module;
     module->functions = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_function_t,
                                          dynsym_section.entry_count + symtab_section.entry_count,
                                          ACCT_OTHER, UNPROTECTED);
 
+    // maybe loop for PLT entries only, and get the others from .symtab
     for (i = 0; i < dynsym_section.entry_count; i++) {
         ptr_uint_t dynsym_offset = dynsym_section.offset + (i * dynsym_section.entry_size);
         byte type = (*(byte *) (dynsym_offset + 4) & 0xf);
-        if (type == 2) { // function type
+        ptr_uint_t relative_entry_point = (*(ptr_uint_t *) (dynsym_offset + 8));
+        ptr_uint_t base_offset;
+        if (relative_entry_point > original_base)
+            base_offset = 0;
+        else
+            base_offset = (base + readable_map_offset);
+        if ((relative_entry_point > 0) && (type == 2)) { // function type
             const char *symbol_name = (const char *) (ptr_uint_t) (dynstr_section.offset + *(uint *) dynsym_offset);
             module->functions[function_index].symbol = heap_strcpy(symbol_name);
-            module->functions[function_index].entry_point = (generic_func_t) (base + (*(ptr_uint_t *) (dynsym_offset + 8)));
+            module->functions[function_index].entry_point = (generic_func_t) (base_offset + relative_entry_point);
             module->functions[function_index].plt_entry_point = 0;
+
+            //dr_printf("\tEntry point "PFX" ("PFX") adjusted to "PFX"\n", base_offset + relative_entry_point, relative_entry_point, module->functions[function_index].entry_point);
 
             for (j = 0; j < rela_plt_section.entry_count; j++) {
                 ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
                 if (dynsym_offset == (dynsym_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
-                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)));
+                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)) + readable_map_offset);
                     break;
                 }
             }
@@ -985,16 +1040,18 @@ load_module_functions(ptr_uint_t base)
         if (type == 2) { // function type
             const char *symbol_name = (const char *) (ptr_uint_t) (strtab_section.offset + *(uint *) symtab_offset);
             module->functions[function_index].symbol = heap_strcpy(symbol_name);
-            module->functions[function_index].entry_point = (generic_func_t) (/*base +*/ (*(ptr_uint_t *) (symtab_offset + 8)));
+            module->functions[function_index].entry_point = (generic_func_t) (/*base +*/ (*(ptr_uint_t *) (symtab_offset + 8)) + readable_map_offset);
             module->functions[function_index].plt_entry_point = 0;
 
+            /*
             for (j = 0; j < rela_plt_section.entry_count; j++) {
                 ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
                 if (symtab_offset == (symtab_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
-                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)));
+                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)) + readable_map_offset);
                     break;
                 }
             }
+            */
             function_index++;
         }
     }
