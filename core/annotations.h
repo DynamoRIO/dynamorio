@@ -184,10 +184,12 @@ bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count);
 
+#ifdef WINDOWS
 void
 annot_module_load(module_handle_t base, size_t size _IF_UNIX(const char *filename));
 
 void
 annot_module_unload(module_handle_t base, size_t size);
+#endif
 
 #endif

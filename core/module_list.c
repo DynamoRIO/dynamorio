@@ -329,7 +329,7 @@ module_list_remove(app_pc base, size_t view_size)
     ma = (module_area_t *) vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
 #endif
-#ifdef ANNOTATIONS
+#if defined(ANNOTATIONS) && defined(WINDOWS)
     annot_module_unload((module_handle_t) ma->start, ma->end - ma->start);
 #endif
 

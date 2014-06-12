@@ -6391,7 +6391,7 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
 #ifdef CLIENT_INTERFACE
         inform_client = true;
 #endif
-#ifdef ANNOTATIONS
+#if defined(ANNOTATIONS) && defined(WINDOWS)
         if (dynamo_initialized)
             annot_module_load((module_handle_t) base, size, filename);
 #endif

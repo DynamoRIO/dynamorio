@@ -61,36 +61,6 @@ do { \
 #define KEY(annotation_id) ((ptr_uint_t) annotation_id)
 static generic_table_t *handlers;
 
-#ifdef UNIX
-typedef struct _section_table_entry_t {
-    ptr_uint_t offset;
-    ptr_uint_t size;
-    ptr_uint_t entry_size;
-    ptr_uint_t entry_count;
-} section_table_entry_t;
-#endif
-
-typedef struct _module_function_t {
-    const char *symbol;
-    generic_func_t entry_point;
-    generic_func_t plt_entry_point;
-} module_function_t;
-
-typedef struct _module_functions_t {
-    app_pc start;
-    app_pc end;
-    module_function_t *functions;
-    uint function_allocation;
-    uint function_count;
-    struct _module_functions_t *next;
-} module_functions_t;
-
-typedef struct _module_functions_list_t {
-    module_functions_t *head;
-} module_functions_list_t;
-
-static module_functions_list_t *module_functions_list;
-
 // locked under the `handlers` table lock
 static annotation_handler_t *vg_handlers[VG_ID__LAST];
 
@@ -157,14 +127,6 @@ annot_vsnprintf(char *s, size_t max, const char *fmt, ...);
 static void
 free_annotation_registration_by_name(annotation_registration_by_name_t *by_name);
 
-#ifdef UNIX
-static void
-read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *section);
-#endif
-
-static module_functions_t*
-load_module_functions(ptr_uint_t base, size_t size _IF_UNIX(ptr_int_t readable_map_offset));
-
 static const char *
 heap_strcpy(const char *src);
 
@@ -174,16 +136,15 @@ heap_str_free(const char *str);
 static void
 free_annotation_handler(void *p);
 
-static void
-free_module_functions(module_functions_t *module);
-
 /**** Public Function Definitions ****/
 
 void
 annot_init()
 {
+#ifdef WINDOWS
     module_iterator_t *mi;
     module_area_t *area;
+#endif
 
     handlers = generic_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
@@ -208,27 +169,23 @@ annot_init()
                                    ACCT_OTHER, UNPROTECTED);
     memset(by_name_list, 0, sizeof(annotation_registration_by_name_list_t));
 
-    module_functions_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_functions_list_t,
-                                          ACCT_OTHER, UNPROTECTED);
-    module_functions_list->head = NULL;
-
     dr_annot_register_return_by_name(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                                      (void *) (ptr_uint_t) true);
 
+#ifdef WINDOWS
     mi = module_iterator_start();
     while (module_iterator_hasnext(mi)) {
         area = module_iterator_next(mi);
-        annot_module_load((module_handle_t) area->start, area->end - area->start
-                          _IF_UNIX(area->full_path));
+        annot_module_load((module_handle_t) area->start);
     }
     module_iterator_stop(mi);
+#endif
 }
 
 void
 annot_exit()
 {
     uint i;
-    module_functions_t *module, *next_module;
     annotation_registration_by_name_t *next_by_name, *by_name = by_name_list->head;
 
     while (by_name != NULL) {
@@ -245,15 +202,6 @@ annot_exit()
     }
 
     generic_hash_destroy(GLOBAL_DCONTEXT, handlers);
-
-    module = module_functions_list->head;
-    while (module != NULL) {
-        next_module = module->next;
-        free_module_functions(module);
-        module = next_module;
-    }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, module_functions_list, module_functions_list_t,
-                   ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -261,8 +209,6 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
                                void *callee, bool save_fpstate, uint num_args
                                _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
-    uint i;
-    module_functions_t *module;
     annotation_registration_by_name_t *by_name;
 
 #if defined(UNIX) || defined(X64)
@@ -292,20 +238,9 @@ dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
     by_name_list->head = by_name;
     by_name_list->size++;
 
+#ifdef WINDOWS
     /* Bind to all existing modules */
-    module = module_functions_list->head;
-    while (module != NULL) {
-        //dr_printf("Trying to bind %s() to module at "PFX"\n", by_name->symbol_name, module->start);
-        for (i = 0; i < module->function_count; i++) {
-            if (strcmp(target_name, module->functions[i].symbol) == 0) {
-                //dr_printf("Bind %s() to "PFX"\n", by_name->symbol_name, module->functions[i].entry_point);
-                annot_bind_registration(module->functions[i].entry_point, by_name);
-                if (module->functions[i].plt_entry_point != NULL)
-                    annot_bind_registration(module->functions[i].plt_entry_point, by_name);
-            }
-        }
-        module = module->next;
-    }
+#endif
 
     TABLE_RWLOCK(handlers, write, unlock);
 }
@@ -315,29 +250,9 @@ dr_annot_register_call(client_id_t client_id, void *annotation_func, void *calle
                        bool save_fpstate, uint num_args
                        _IF_NOT_X64(annotation_calling_convention_t call_type))
 {
-    uint i;
-    module_functions_t *module;
-
     TABLE_RWLOCK(handlers, write, lock);
     annot_register_call(client_id, annotation_func, callee, save_fpstate, num_args
                         _IF_NOT_X64(call_type));
-    module = module_functions_list->head;
-    while (module != NULL) {
-        if (((app_pc) annotation_func > module->start) &&
-            ((app_pc) annotation_func < module->end)) {
-            for (i = 0; i < module->function_count; i++) {
-                if ((module->functions[i].entry_point == annotation_func) &&
-                    (module->functions[i].plt_entry_point != NULL)) {
-                    annot_register_call(client_id, module->functions[i].plt_entry_point,
-                                        callee, save_fpstate, num_args
-                                        _IF_NOT_X64(call_type));
-                    break;
-                }
-            }
-            break;
-        }
-        module = module->next;
-    }
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
@@ -438,8 +353,6 @@ dr_annot_register_return(void *annotation_func, void *return_value)
 void
 dr_annot_register_return_by_name(const char *target_name, void *return_value)
 {
-    uint i;
-    module_functions_t *module;
     annotation_registration_by_name_t *by_name;
 
 #if defined(UNIX) || defined(X64)
@@ -466,17 +379,9 @@ dr_annot_register_return_by_name(const char *target_name, void *return_value)
     by_name_list->head = by_name;
     by_name_list->size++;
 
-    module = module_functions_list->head;
-    while (module != NULL) {
-        for (i = 0; i < module->function_count; i++) {
-            if (strcmp(target_name, module->functions[i].symbol) == 0) {
-                annot_bind_registration(module->functions[i].entry_point, by_name);
-                if (module->functions[i].plt_entry_point != NULL)
-                    annot_bind_registration(module->functions[i].plt_entry_point, by_name);
-            }
-        }
-        module = module->next;
-    }
+#ifdef WINDOWS
+    /* Bind to all existing modules */
+#endif
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
@@ -630,60 +535,23 @@ dr_annot_unregister_return(void *annotation_func)
     TABLE_RWLOCK(handlers, write, unlock);
 }
 
-// TODO: export iterator in Windows
+#ifdef WINDOWS
 void
-annot_module_load(module_handle_t base, size_t size _IF_UNIX(const char *filename))
+annot_module_load(module_handle_t base)
 {
     uint i;
     annotation_registration_by_name_t *by_name;
     module_functions_t *functions;
 
-#ifdef UNIX
-    ptr_uint_t readable_map;
-    file_t module_file;
-    uint64 readable_map_size;
-    ptr_int_t readable_map_offset;
-
-    if ((module_file = os_open_protected(filename, OS_OPEN_READ)) < 0) {
-        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
-        return;
-    }
-    if (!os_get_file_size_by_handle(module_file, &readable_map_size)) {
-        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
-        return;
-    }
-    if ((readable_map = (ptr_uint_t) map_file(module_file, &readable_map_size, 0, 0,
-                           DR_MEMPROT_READ, MAP_FILE_IMAGE)) < 0) {
-        dr_fprintf(STDERR, "Failed to mmap '%s'\n", filename);
-        return;
-    }
-
-    readable_map_offset = ((ptr_int_t) base - (ptr_int_t) readable_map);
-    base = (module_handle_t) readable_map;
-#endif
-
     TABLE_RWLOCK(handlers, write, lock);
-    functions = load_module_functions((ptr_uint_t) base, size _IF_UNIX(readable_map_offset));
-    if (functions != NULL) {
-        by_name = by_name_list->head;
-        while (by_name != NULL) {
-            //dr_printf("Trying to bind %s() to module at "PFX"\n", by_name->symbol_name, ((ptr_uint_t) base + readable_map_offset));
-            for (i = 0; i < functions->function_count; i++) {
-                if (strcmp(by_name->symbol_name, functions->functions[i].symbol) == 0) {
-                    //dr_printf("Bind %s() to "PFX"\n", by_name->symbol_name, functions->functions[i].entry_point);
-                    annot_bind_registration(functions->functions[i].entry_point, by_name);
-                    if (functions->functions[i].plt_entry_point != NULL)
-                        annot_bind_registration(functions->functions[i].plt_entry_point, by_name);
-                }
-            }
-            by_name = by_name->next;
-        }
+    by_name = by_name_list->head;
+    while (by_name != NULL) {
+        // addr = get_proc_address(base, by_name->symbol_name)
+        // if (addr != NULL)
+        //   annot_bind_registration(addr, by_name);
+        by_name = by_name->next;
     }
     TABLE_RWLOCK(handlers, write, unlock);
-
-#ifdef UNIX
-    unmap_file((byte *) readable_map, readable_map_size);
-#endif
 }
 
 void
@@ -706,26 +574,9 @@ annot_module_unload(module_handle_t base, size_t size)
             iter = generic_hash_iterate_remove(GLOBAL_DCONTEXT, handlers,
                                                iter, key);
     } while (true);
-
-    module = module_functions_list->head;
-    if (module->start == start) {
-        removal = module_functions_list->head;
-        module_functions_list->head = module->next;
-        free_module_functions(removal);
-    } else {
-        while (module->next != NULL) {
-            if (module->next->start == start) {
-                removal = module->next;
-                module->next = module->next->next;
-                free_module_functions(removal);
-                break;
-            }
-            module = module->next;
-        }
-    }
-
     TABLE_RWLOCK(handlers, write, unlock);
 }
+#endif
 
 instr_t *
 annot_match(dcontext_t *dcontext, instr_t *instr)
@@ -933,135 +784,6 @@ annot_bind_registration(generic_func_t target, annotation_registration_by_name_t
         handler->symbol_name = heap_strcpy(by_name->symbol_name);
 }
 
-#ifdef WINDOWS
-static module_functions_t*
-load_module_functions(ptr_uint_t base, size_t size)
-{
-    // TODO
-}
-#else
-static void
-read_section_entry(ptr_uint_t base, ptr_uint_t entry, section_table_entry_t *section) {
-    section->offset = base + *(ptr_uint_t *) (entry + 0x18);
-    section->size = *(ptr_uint_t *) (entry + 0x20);
-    section->entry_size = *(ptr_uint_t *) (entry + 0x38);
-    if (section->entry_size > 0)
-        section->entry_count = section->size / section->entry_size;
-}
-
-static module_functions_t*
-load_module_functions(ptr_uint_t base, size_t size, ptr_int_t readable_map_offset)
-{
-    uint i, j, function_index = 0;
-    module_functions_t *module;
-
-    section_table_entry_t plt_section = {0};
-    section_table_entry_t rela_plt_section = {0};
-    section_table_entry_t dynsym_section = {0};
-    section_table_entry_t dynstr_section = {0};
-    section_table_entry_t symtab_section = {0};
-    section_table_entry_t strtab_section = {0};
-
-    ptr_uint_t section_table = base + (*(ptr_uint_t *) (base + 0x28));
-    ushort section_table_entry_size = ((*(ptr_uint_t *) (base + 0x38)) >> 0x10) & 0xffff;
-    ushort section_table_entry_count = ((*(ptr_uint_t *) (base + 0x38)) >> 0x20) & 0xffff;
-    ushort section_string_table_index = (*(ptr_uint_t *) (base + 0x38)) >> 0x30;
-    ptr_uint_t section_string_table_entry = section_table + (section_string_table_index * section_table_entry_size);
-    ptr_uint_t section_string_table = base + *(ptr_uint_t *) (section_string_table_entry + 0x18);
-    ptr_uint_t section_table_entry = section_table;
-    ptr_uint_t original_base = (base + readable_map_offset);
-    const char *section_table_entry_name;
-
-    //dr_printf("Loading module "PFX" with offset %lld ("PFX")\n", original_base, readable_map_offset, base);
-    ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
-
-    for (i = 0; i < section_table_entry_count; i++) {
-        section_table_entry_name = (const char *) (ptr_uint_t) (section_string_table + *(uint *) section_table_entry);
-        if (strcmp(section_table_entry_name, ".plt") == 0)
-            read_section_entry(base, section_table_entry, &plt_section);
-        else if (strcmp(section_table_entry_name, ".rela.plt") == 0)
-            read_section_entry(base, section_table_entry, &rela_plt_section);
-        else if (strcmp(section_table_entry_name, ".dynsym") == 0)
-            read_section_entry(base, section_table_entry, &dynsym_section);
-        else if (strcmp(section_table_entry_name, ".dynstr") == 0)
-            read_section_entry(base, section_table_entry, &dynstr_section);
-        else if (strcmp(section_table_entry_name, ".symtab") == 0)
-            read_section_entry(base, section_table_entry, &symtab_section);
-        else if (strcmp(section_table_entry_name, ".strtab") == 0)
-            read_section_entry(base, section_table_entry, &strtab_section);
-        section_table_entry += section_table_entry_size;
-    }
-
-    if ((dynsym_section.entry_count == 0) && (symtab_section.entry_count == 0))
-        return NULL;
-
-    module = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, module_functions_t,
-                             ACCT_OTHER, UNPROTECTED);
-    module->start = (app_pc) (base + readable_map_offset);
-    module->end = (app_pc) (base + readable_map_offset + size);
-    module->next = module_functions_list->head;
-    module_functions_list->head = module;
-    module->functions = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, module_function_t,
-                                         dynsym_section.entry_count + symtab_section.entry_count,
-                                         ACCT_OTHER, UNPROTECTED);
-
-    // maybe loop for PLT entries only, and get the others from .symtab
-    for (i = 0; i < dynsym_section.entry_count; i++) {
-        ptr_uint_t dynsym_offset = dynsym_section.offset + (i * dynsym_section.entry_size);
-        byte type = (*(byte *) (dynsym_offset + 4) & 0xf);
-        ptr_uint_t relative_entry_point = (*(ptr_uint_t *) (dynsym_offset + 8));
-        ptr_uint_t base_offset;
-        if (relative_entry_point > original_base)
-            base_offset = 0;
-        else
-            base_offset = (base + readable_map_offset);
-        if ((relative_entry_point > 0) && (type == 2)) { // function type
-            const char *symbol_name = (const char *) (ptr_uint_t) (dynstr_section.offset + *(uint *) dynsym_offset);
-            module->functions[function_index].symbol = heap_strcpy(symbol_name);
-            module->functions[function_index].entry_point = (generic_func_t) (base_offset + relative_entry_point);
-            module->functions[function_index].plt_entry_point = 0;
-
-            //dr_printf("\tEntry point "PFX" ("PFX") adjusted to "PFX"\n", base_offset + relative_entry_point, relative_entry_point, module->functions[function_index].entry_point);
-
-            for (j = 0; j < rela_plt_section.entry_count; j++) {
-                ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
-                if (dynsym_offset == (dynsym_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
-                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)) + readable_map_offset);
-                    break;
-                }
-            }
-            function_index++;
-        }
-    }
-
-    for (i = 0; i < symtab_section.entry_count; i++) {
-        ptr_uint_t symtab_offset = symtab_section.offset + (i * symtab_section.entry_size);
-        byte type = (*(byte *) (symtab_offset + 4) & 0xf);
-        if (type == 2) { // function type
-            const char *symbol_name = (const char *) (ptr_uint_t) (strtab_section.offset + *(uint *) symtab_offset);
-            module->functions[function_index].symbol = heap_strcpy(symbol_name);
-            module->functions[function_index].entry_point = (generic_func_t) (/*base +*/ (*(ptr_uint_t *) (symtab_offset + 8)) + readable_map_offset);
-            module->functions[function_index].plt_entry_point = 0;
-
-            /*
-            for (j = 0; j < rela_plt_section.entry_count; j++) {
-                ptr_uint_t rela_plt_entry = rela_plt_section.offset + (j * 0x18);
-                if (symtab_offset == (symtab_section.offset + (ptr_uint_t) (*(uint *) (rela_plt_entry + 0xc) * 0x18))) {
-                    module->functions[function_index].plt_entry_point = (generic_func_t) (plt_section.offset + (plt_section.entry_size * (j + 1)) + readable_map_offset);
-                    break;
-                }
-            }
-            */
-            function_index++;
-        }
-    }
-
-    module->function_allocation = (dynsym_section.entry_count + symtab_section.entry_count);
-    module->function_count = function_index;
-    return module;
-}
-#endif
-
 static void
 handle_vg_annotation(app_pc request_args)
 {
@@ -1250,17 +972,4 @@ free_annotation_handler(void *p)
     if (handler->symbol_name != NULL)
         heap_str_free(handler->symbol_name);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t, ACCT_OTHER, UNPROTECTED);
-}
-
-static void
-free_module_functions(module_functions_t *module)
-{
-    uint i;
-
-    for (i = 0; i < module->function_count; i++)
-        heap_str_free(module->functions[i].symbol);
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, module->functions, module_function_t,
-                    module->function_allocation, ACCT_OTHER, UNPROTECTED);
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, module, module_functions_t,
-                   ACCT_OTHER, UNPROTECTED);
 }
