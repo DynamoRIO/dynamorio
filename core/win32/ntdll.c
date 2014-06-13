@@ -1396,11 +1396,11 @@ tls_segment_offs(int slot)
  * Note that if we only want the whole sequence to fit in a cache line, callers
  * should try either align_which_slot for either first or last.
  */
-static int
-tls_find_free_block_sequence(byte *rtl_bitmap, int bitmap_size,
-                             int num_requested_slots, bool top_down,
-                             int align_which_slot, /* 0 based index */
-                             uint alignment)
+int
+bitmap_find_free_sequence(byte *rtl_bitmap, int bitmap_size,
+                          int num_requested_slots, bool top_down,
+                          int align_which_slot, /* 0 based index */
+                          uint alignment)
 {
     /* note: bitmap_find_set_block_sequence() works similarly on our
      * internal bitmap_t which starts initialized to 0
@@ -1413,7 +1413,7 @@ tls_find_free_block_sequence(byte *rtl_bitmap, int bitmap_size,
     int result;
 
     ASSERT(ALIGNED(rtl_bitmap, sizeof(uint))); /* they promised */
-    ASSERT_CURIOSITY(bitmap_size == 64);
+    ASSERT_CURIOSITY(bitmap_size == 64/*TLS*/ || bitmap_size == 128/*FLS*/);
     ASSERT(num_requested_slots < bitmap_size);
     ASSERT_CURIOSITY(alignment < 256);
     ASSERT(align_which_slot >= 0 && /* including after last */
@@ -1476,17 +1476,27 @@ tls_find_free_block_sequence(byte *rtl_bitmap, int bitmap_size,
     return result;
 }
 
-static void
-tls_mark_taken_block_sequence(byte *rtl_bitmap, int bitmap_size,
-                              int first_slot, int last_slot_open_end)
+void
+bitmap_mark_taken_sequence(byte *rtl_bitmap, int bitmap_size,
+                           int first_slot, int last_slot_open_end)
 {
     int i;
     uint *p = (uint*)rtl_bitmap; /* we access in 32-bit words */
 
     ASSERT(ALIGNED(rtl_bitmap, sizeof(uint))); /* they promised */
-    ASSERT(first_slot > 0 && last_slot_open_end <= bitmap_size);
+    ASSERT(first_slot >= 0 && last_slot_open_end <= bitmap_size);
     for (i = first_slot; i < last_slot_open_end; i++)
         p[i/32] |= (1 << (i % 32));
+}
+
+void
+bitmap_mark_freed_sequence(byte *rtl_bitmap, int bitmap_size,
+                              int first_slot, int num_slots)
+{
+    int i;
+    uint *p = (uint*)rtl_bitmap; /* we access in 32-bit words */
+    for (i = first_slot; i < first_slot + num_slots; i++)
+        p[i/32] &= ~(1 << (i % 32));
 }
 
 /* Our version of kernel32's TlsAlloc
@@ -1550,11 +1560,11 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     ASSERT(&peb->TlsBitmapBits == (void*)peb->TlsBitmap->BitMapBuffer);
 
     DOCHECK(1, {
-        int first_available = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                                           peb->TlsBitmap->SizeOfBitMap,
-                                                           1, /* single */
-                                                           false, /* bottom up */
-                                                           0, 0 /* no alignment */);
+        int first_available = bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
+                                                        peb->TlsBitmap->SizeOfBitMap,
+                                                        1, /* single */
+                                                        false, /* bottom up */
+                                                        0, 0 /* no alignment */);
         /* On XP ntdll seems to grab slot 0 of the TlsBitmap before loading
          * kernel32, see if early injection gets us before that */
         /* On Win2k usually first_available == 0, but not in some
@@ -1569,11 +1579,11 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
      * beyond index 63 in either request.
      */
     if (TEST(TLS_FLAG_BITMAP_FILL, tls_flags)) {
-        int first_to_fill = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                                         peb->TlsBitmap->SizeOfBitMap,
-                                                         1, /* single */
-                                                         false, /* bottom up */
-                                                         0, 0 /* no alignment */);
+        int first_to_fill = bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
+                                                      peb->TlsBitmap->SizeOfBitMap,
+                                                      1, /* single */
+                                                      false, /* bottom up */
+                                                      0, 0 /* no alignment */);
         ASSERT_NOT_TESTED();
         /* we only fill from the front - and taking all up to the top isn't nice */
         ASSERT(!TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags));
@@ -1620,23 +1630,23 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
     /* FIXME: cache line front, otherwise should retry when either
      * start or end is fine, and choose closest to desired end of
      * bitmap */
-    start = tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                         peb->TlsBitmap->SizeOfBitMap,
-                                         num_slots,
-                                         TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
-                                         0 /* align first element */,
-                                         alignment);
+    start = bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
+                                      peb->TlsBitmap->SizeOfBitMap,
+                                      num_slots,
+                                      TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
+                                      0 /* align first element */,
+                                      alignment);
 
     if (!TEST(TLS_FLAG_CACHE_LINE_START, tls_flags)) {
         /* try either way, worthwhile only if we fit into an alignment unit */
         int end_aligned =
-            tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                         peb->TlsBitmap->SizeOfBitMap,
-                                         num_slots,
-                                         TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
-                                         /* align the end of last
-                                          * element, so open ended */ num_slots,
-                                         alignment);
+            bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
+                                      peb->TlsBitmap->SizeOfBitMap,
+                                      num_slots,
+                                      TEST(TLS_FLAG_BITMAP_TOP_DOWN, tls_flags),
+                                      /* align the end of last
+                                       * element, so open ended */ num_slots,
+                                      alignment);
         if (start < 0) {
             ASSERT_NOT_TESTED();
             start = end_aligned;
@@ -1661,11 +1671,11 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
         goto tls_alloc_exit;
     }
 
-    tls_mark_taken_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                  peb->TlsBitmap->SizeOfBitMap,
-                                  start,
-                                  /* FIXME: TLS_FLAG_BITMAP_FILL should use first_to_fill */
-                                  start + num_slots);
+    bitmap_mark_taken_sequence(peb->TlsBitmap->BitMapBuffer,
+                               peb->TlsBitmap->SizeOfBitMap,
+                               start,
+                               /* FIXME: TLS_FLAG_BITMAP_FILL should use first_to_fill */
+                               start + num_slots);
 
     if (teb_offs != NULL) {
         *teb_offs = tls_segment_offs(start);
@@ -1678,11 +1688,11 @@ tls_alloc_helper(int synch, uint *teb_offs /* OUT */, int num_slots,
 
     DOCHECK(1, {
         int first_available =
-            tls_find_free_block_sequence(peb->TlsBitmap->BitMapBuffer,
-                                         peb->TlsBitmap->SizeOfBitMap,
-                                         1, /* single */
-                                         false, /* bottom up */
-                                         0, 0 /* no alignment */);
+            bitmap_find_free_sequence(peb->TlsBitmap->BitMapBuffer,
+                                      peb->TlsBitmap->SizeOfBitMap,
+                                      1, /* single */
+                                      false, /* bottom up */
+                                      0, 0 /* no alignment */);
         ASSERT_CURIOSITY(first_available >= 0);
 
         /* SQL2005 assumes that first available slot means start of a
@@ -1743,7 +1753,7 @@ static bool
 tls_free_helper(int synch, uint teb_offs, int num)
 {
     PEB *peb = get_own_peb();
-    int i;
+    int i, start;
     int slot;
     uint *p;
 
@@ -1777,8 +1787,8 @@ tls_free_helper(int synch, uint teb_offs, int num)
      * use the pointer for generality
      */
     p = (uint *) peb->TlsBitmap->BitMapBuffer;
-    i = (teb_offs - offsetof(TEB, TlsSlots)) / sizeof(uint *);
-    for (slot = 0; slot < num; slot++, i++) {
+    start = (teb_offs - offsetof(TEB, TlsSlots)) / sizeof(uint *);
+    for (slot = 0, i = start; slot < num; slot++, i++) {
         NTPRINT("Freeing tls slot %d at offset 0x%x -> index %d\n", slot, teb_offs, i);
         /* In case we aren't synched, zero the tls field before we release it,
          * (of course that only takes care of one of many possible races if we
@@ -1801,6 +1811,9 @@ tls_free_helper(int synch, uint teb_offs, int num)
         }
         p[i/32] &= ~(1 << (i % 32));
     }
+    bitmap_mark_freed_sequence(peb->TlsBitmap->BitMapBuffer,
+                               peb->TlsBitmap->SizeOfBitMap,
+                               start, num);
 
     if (synch) {
         res = RtlLeaveCriticalSection(peb->FastPebLock);

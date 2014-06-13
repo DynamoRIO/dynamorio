@@ -1508,6 +1508,14 @@ if (CLIENT_INTERFACE)
     #tobuild_ci_runall(client.decode-bb client-interface/decode-bb.runall "" "" "")
     #tobuild_ci_runall(client.nudge_test client-interface/nudge_test.runall "" "" "")
     #tobuild_ci_runall(client.pc-check client-interface/pc-check.runall "" "" "")
+    if (NOT X64)
+      # FIXME i#16, does not work in Win-X64 because of inline assembly code.
+      tobuild_ci(client.cbr-retarget client-interface/cbr-retarget.c "" "" "")
+    endif (NOT X64)
+
+    add_exe(client.fibers client-interface/fibers.c)
+    torunonly_ci(client.fibers client.fibers client.events_cpp.dll
+      client-interface/fibers.c "" "" "")
   endif (UNIX)
   tobuild_ci(client.file_io client-interface/file_io.c
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/file_io_data.txt" "" "")

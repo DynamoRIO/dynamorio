@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -34,6 +34,7 @@
 /* ntdll.dll redirection for custom private library loader */
 
 #include "../../globals.h"
+#include "../ntdll.h"
 #include "drwinapi.h"
 #include "drwinapi_private.h"
 #include "ntdll_redir.h"
@@ -147,6 +148,10 @@ static const redirect_import_t redirect_ntdll[] = {
     {"ZwSetInformationThread",         (app_pc)redirect_NtSetInformationThread},
     {"NtUnmapViewOfSection",           (app_pc)redirect_NtUnmapViewOfSection},
     {"ZwUnmapViewOfSection",           (app_pc)redirect_NtUnmapViewOfSection},
+    /* i#875: ensure we've isolated FLS */
+    {"RtlFlsAlloc",                    (app_pc)redirect_RtlFlsAlloc},
+    {"RtlFlsFree",                     (app_pc)redirect_RtlFlsFree},
+    {"RtlProcessFlsData",              (app_pc)redirect_RtlProcessFlsData},
 };
 #define REDIRECT_NTDLL_NUM (sizeof(redirect_ntdll)/sizeof(redirect_ntdll[0]))
 
@@ -883,4 +888,148 @@ redirect_LdrLoadDll(IN PWSTR path OPTIONAL,
         *handle = (PVOID) res;
         return STATUS_SUCCESS;
     }
+}
+
+/***************************************************************************
+ * i#875: FLS isolation
+ */
+
+void
+ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
+{
+    /* We need a deep copy of FLS structures */
+    private_peb->FlsBitmap = HEAP_TYPE_ALLOC
+        (GLOBAL_DCONTEXT, RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);
+    private_peb->FlsBitmap->SizeOfBitMap = app_peb->FlsBitmap->SizeOfBitMap;
+    private_peb->FlsBitmap->BitMapBuffer = (LPBYTE) &private_peb->FlsBitmapBits;
+    memset(private_peb->FlsBitmapBits, 0, sizeof(private_peb->FlsBitmapBits));
+
+    private_peb->FlsHighIndex = 0;
+
+    /* We initialize this to zero (required for redirect_RtlProcessFlsData),
+     * and we assume no pre-existing entries (just like we start FlsList* empty).
+     */
+    private_peb->FlsCallback = HEAP_ARRAY_ALLOC_MEMSET
+        (GLOBAL_DCONTEXT, PVOID, private_peb->FlsBitmap->SizeOfBitMap,
+         ACCT_LIBDUP, UNPROTECTED, 0);
+
+    /* Start with empty values, regardless of what app libs did prior to us
+     * taking over.  FIXME: if we ever have attach will have to verify this:
+     * can priv libs always live in their own universe that starts empty?
+     */
+    private_peb->FlsListHead.Flink = (LIST_ENTRY *) &private_peb->FlsListHead;
+    private_peb->FlsListHead.Blink = (LIST_ENTRY *) &private_peb->FlsListHead;
+}
+
+void
+ntdll_redir_fls_exit(PEB *private_peb)
+{
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, private_peb->FlsCallback,
+                    PVOID, private_peb->FlsBitmap->SizeOfBitMap,
+                    ACCT_LIBDUP, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FlsBitmap,
+                   RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);
+}
+
+NTSTATUS NTAPI
+redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
+{
+    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    DWORD index;
+    NTSTATUS res;
+    /* We avoid the synchronization done normally (RtlAcquireSRWLockExclusive
+     * on RtlpFlsLock) and instead use the private PEB lock to keep things
+     * isolated.
+     */
+    res = RtlEnterCriticalSection(peb->FastPebLock);
+    if (!NT_SUCCESS(res))
+        return res;
+
+    index = bitmap_find_free_sequence(peb->FlsBitmap->BitMapBuffer,
+                                      peb->FlsBitmap->SizeOfBitMap, 1,
+                                      false/*!top_down*/,
+                                      0, 0/*no alignment*/);
+    if (index < 0) {
+        res = STATUS_NO_MEMORY; /* observed in real ntdll */
+    } else {
+        *index_out = index;
+        bitmap_mark_taken_sequence(peb->FlsBitmap->BitMapBuffer,
+                                   peb->FlsBitmap->SizeOfBitMap,
+                                   index, index + 1);
+        if (index > peb->FlsHighIndex)
+            peb->FlsHighIndex = index;
+        peb->FlsCallback[index] = (PVOID) cb;
+    }
+
+    res = RtlLeaveCriticalSection(peb->FastPebLock);
+    if (!NT_SUCCESS(res))
+        return res;
+    else
+        return STATUS_SUCCESS;
+}
+
+NTSTATUS NTAPI
+redirect_RtlFlsFree(IN DWORD index)
+{
+    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    if (index >= peb->FlsBitmap->SizeOfBitMap)
+        return STATUS_INVALID_PARAMETER;
+    bitmap_mark_freed_sequence(peb->TlsBitmap->BitMapBuffer,
+                               peb->TlsBitmap->SizeOfBitMap,
+                               index, 1);
+    peb->FlsCallback[index] = NULL;
+    /* Not bothering to figure out whether we can reduce peb->FlsHighIndex */
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS NTAPI
+redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
+{
+    PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    /* FlsData is a LIST_ENTRY with as payload an array of void* values.
+     * If that changes we'll need to change TEB_FLS_DATA_OFFS.
+     */
+    size_t fls_data_sz = sizeof(LIST_ENTRY) +
+        sizeof(void*) * peb->FlsBitmap->SizeOfBitMap;
+    if (fls_data == NULL) {
+        NTSTATUS res;
+        LIST_ENTRY *tmp;
+        TEB *teb = get_own_teb();
+        ASSERT(teb->FlsData == NULL); /* we're installing for the current fiber */
+        res = RtlEnterCriticalSection(peb->FastPebLock);
+        if (!NT_SUCCESS(res))
+            return res;
+        teb->FlsData = global_heap_alloc(fls_data_sz HEAPACCT(ACCT_LIBDUP));
+
+        /* From observation, a new FlsData is appended to the whole-process
+         * doubly-linked circular list with a permanent head entry at
+         * PEB.FlsListHead.
+         */
+        tmp = peb->FlsListHead.Blink;
+        peb->FlsListHead.Blink = (PVOID) teb->FlsData;
+        ((LIST_ENTRY *)teb->FlsData)->Flink = &peb->FlsListHead;
+        ((LIST_ENTRY *)teb->FlsData)->Blink = tmp;
+        tmp->Flink = (PVOID) teb->FlsData;
+
+        res = RtlLeaveCriticalSection(peb->FastPebLock);
+        if (!NT_SUCCESS(res)) {
+            global_heap_free(teb->FlsData, fls_data_sz HEAPACCT(ACCT_LIBDUP));
+            return res;
+        }
+    } else {
+        uint i;
+        for (i = 0; i < peb->FlsHighIndex; i++) {
+            if (peb->FlsCallback[i] != NULL) {
+                PFLS_CALLBACK_FUNCTION func = (PFLS_CALLBACK_FUNCTION)
+                    convert_data_to_function(peb->FlsCallback[i]);
+                (*func)(((PPVOID)(fls_data+1))[i]);
+            }
+        }
+
+        fls_data->Flink->Blink = fls_data->Blink;
+        fls_data->Blink->Flink = fls_data->Flink;
+
+        global_heap_free(fls_data, fls_data_sz HEAPACCT(ACCT_LIBDUP));
+    }
+    return STATUS_SUCCESS;
 }

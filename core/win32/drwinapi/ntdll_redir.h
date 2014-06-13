@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -88,6 +88,17 @@ redirect_RtlFreeAnsiString(ANSI_STRING *string);
 
 void WINAPI
 redirect_RtlFreeOemString(OEM_STRING *string);
+
+#define TEB_FLS_DATA_OFFS sizeof(LIST_ENTRY)
+
+NTSTATUS NTAPI
+redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out);
+
+NTSTATUS NTAPI
+redirect_RtlFlsFree(IN DWORD index);
+
+NTSTATUS NTAPI
+redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data);
 
 NTSTATUS WINAPI
 redirect_NtCreateFile(PHANDLE file_handle,

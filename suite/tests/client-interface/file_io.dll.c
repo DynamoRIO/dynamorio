@@ -155,7 +155,18 @@ void dr_init(client_id_t id)
     if (!dr_file_seek(file, -6, DR_SEEK_END))
         dr_fprintf(STDERR, "seek error\n");
     memset(buf, 0, sizeof(buf));
+    /* read "x\nEOF\n" from the data file */
     dr_read_file(file, buf, 6);
+    /* check for DOS line ending */
+    if (buf[4] == '\r') {
+        /* Account for two line endings: the snippet is "x\r\nEOF\r\n".
+         * No conversion required--ctest will discard the '\r' when comparing results.
+         */
+        if (!dr_file_seek(file, -8, DR_SEEK_END))
+            dr_fprintf(STDERR, "seek error\n");
+            memset(buf, 0, sizeof(buf));
+            dr_read_file(file, buf, 8);
+    }
     dr_fprintf(STDERR, "%s\n", buf);
 #define EXTRA_SIZE 0x60
     size  = PAGE_SIZE + EXTRA_SIZE;
