@@ -4,7 +4,7 @@
 
 DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio) ()
 {
-    /* __asm__(""); */
+    __asm__ volatile ("");
     return 0;
 }
 

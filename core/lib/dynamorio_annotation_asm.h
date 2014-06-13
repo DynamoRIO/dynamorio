@@ -45,7 +45,7 @@
     __asm__ volatile goto ("jmp %l1; \
                             mov %0,%%eax; \
                             mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
-                            add "#annotation"_name@GOT(%%eax),%%eax;" \
+                            add "#annotation"_name@GOT,%%eax;" \
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%eax" \
@@ -60,7 +60,7 @@
     __asm__ volatile goto ("jmp %l1; \
                             mov %0,%%eax; \
                             mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
-                            sub "#annotation"_name@GOT(%%eax),%%eax;" \
+                            sub "#annotation"_name@GOT,%%eax;" \
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%eax" \

@@ -27,10 +27,9 @@ DR_DECLARE_ANNOTATION(void, test_annotation_nine_args) (unsigned int a,
     DR_WEAK_DECLARATION;
 
 DR_DECLARE_ANNOTATION(void, test_annotation_ten_args) (unsigned int a,
-    unsigned int b,
-    unsigned int c, unsigned int d, unsigned int e, unsigned int f,
-    unsigned int g, unsigned int h, unsigned int i, unsigned int j)
-    DR_WEAK_DECLARATION;
+    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
+    unsigned int f, unsigned int g, unsigned int h, unsigned int i,
+    unsigned int j) DR_WEAK_DECLARATION;
 
 #ifdef __cplusplus
 }

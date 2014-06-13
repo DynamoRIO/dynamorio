@@ -897,7 +897,7 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
   8048422:   eb 10                   jmp    8048434 <main+0x27>
   8048424:   b8 dd cc bb aa          mov    $0xaabbccdd,%eax
   8048429:   b8 d7 1b 00 00          mov    $0x1bd7,%eax
-  804842e:   2b 80 1c 00 00 00       sub    0x1c(%eax),%eax
+  804842e:   2b 05 1c 00 00 00       sub    0x1c,%eax
   --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
 */
 static inline void
@@ -921,7 +921,7 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
         uint *got_offset = (uint *) (got_base + 1);
         ushort *annotation_call_type = (ushort *) (got_offset + 1);
         uint *annotation_offset = (uint *) (annotation_call_type + 1);
-        *is_expression = (*annotation_call_type == 0x802b);
+        *is_expression = (*annotation_call_type == 0x052b);
         *name = **(const char ***) (got_base + *got_offset + *annotation_offset);
     } else {
         *name = NULL;
