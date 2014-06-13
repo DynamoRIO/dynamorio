@@ -115,6 +115,11 @@ handle_vg_annotation(app_pc request_args);
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
+#ifdef UNIX
+static void
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression);
+#endif
+
 static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
@@ -634,29 +639,18 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 instr_t *
 annot_match(dcontext_t *dcontext, instr_t *instr)
 {
-    if (instr_get_opcode(instr) == OP_jmp_short) {
-        ushort *magic_opcode = (ushort *) (instr_get_translation(instr) + 2);
-        uint64 *magic_immediate = (uint64 *) (magic_opcode +1);
-
-        if ((*magic_opcode == 0xb848) && (*magic_immediate == 0xaaaabbbbccccdddd)) {
-            uint *annotation_call_type = (uint *) (magic_immediate + 1);
-            uint *annotation_ptr = (uint *) (annotation_call_type + 1);
-            ptr_uint_t annotation_rip_base = (ptr_uint_t) (annotation_call_type + 2);
-            bool is_expression = (*annotation_call_type == 0x05bd0f48);
-            const char ***annotation_name = (const char ***) (ptr_uint_t) (annotation_rip_base + *annotation_ptr);
-
-            dr_printf("Decoded %s invocation of %s\n",
-                      is_expression ? "expression" : "statement",
-                      **annotation_name);
-        }
+    const char *annotation_name;
+    bool is_expression;
+    identify_annotation(instr, &annotation_name, &is_expression);
+    if (annotation_name != NULL) {
+        dr_printf("Decoded %s invocation of %s\n",
+                  is_expression ? "expression" : "statement",
+                  annotation_name);
     }
 
     return NULL;
 }
 #endif
-
-// bsr: 48 0f bd 05
-// bsf: 48 0f bc 05
 
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
@@ -861,6 +855,80 @@ lookup_valgrind_request(ptr_uint_t request)
 
     return VG_ID__LAST;
 }
+
+#ifdef UNIX
+# ifdef X64
+/*
+  4004f1:   eb 12                   jmp    400505 <main+0x18>
+  4004f3:   48 b8 dd dd cc cc bb    movabs $0xaaaabbbbccccdddd,%rax
+  4004fa:   bb aa aa
+  4004fd:   48 0f bc 05 eb 0a 20    bsf    0x200aeb(%rip),%rax        # 600ff0
+  400504:   00
+  --> (char ***) (0x400504 + 0x200aeb)
+*/
+static inline void
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression)
+{
+    app_pc magic_opcode_pc;
+    *name = NULL;
+
+    if (instr_get_opcode(instr) == OP_jmp_short)
+        magic_opcode_pc = (instr_get_translation(instr) + 2);
+    else if (instr_get_opcode(instr) == OP_jmp)
+        magic_opcode_pc = (instr_get_translation(instr) + 5);
+    else
+        return;
+
+    ushort *magic_opcode = (ushort *) magic_opcode_pc;
+    uint64 *magic_immediate = (uint64 *) (magic_opcode + 1);
+
+    if ((*magic_opcode == 0xb848) && (*magic_immediate == 0xaaaabbbbccccdddd)) {
+        uint *annotation_call_type = (uint *) (magic_immediate + 1);
+        uint *annotation_ptr = (uint *) (annotation_call_type + 1);
+        ptr_uint_t annotation_rip_base = (ptr_uint_t) (annotation_call_type + 2);
+        *is_expression = (*annotation_call_type == 0x05bd0f48);
+        *name = **(const char ***) (ptr_uint_t) (annotation_rip_base + *annotation_ptr);
+    } else {
+        *name = NULL;
+    }
+}
+# else
+/*
+  8048422:   eb 10                   jmp    8048434 <main+0x27>
+  8048424:   b8 dd cc bb aa          mov    $0xaabbccdd,%eax
+  8048429:   b8 d7 1b 00 00          mov    $0x1bd7,%eax
+  804842e:   2b 80 1c 00 00 00       sub    0x1c(%eax),%eax
+  --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
+*/
+static inline void
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression)
+{
+    app_pc magic_opcode_pc;
+    *name = NULL;
+
+    if (instr_get_opcode(instr) == OP_jmp_short)
+        magic_opcode_pc = (instr_get_translation(instr) + 2);
+    else if (instr_get_opcode(instr) == OP_jmp)
+        magic_opcode_pc = (instr_get_translation(instr) + 5);
+    else
+        return;
+
+    byte *magic_opcode = (byte *) magic_opcode_pc;
+    uint *magic_immediate = (uint *) (magic_opcode + 1);
+
+    if ((*magic_opcode == 0xb8) && (*magic_immediate == 0xaabbccdd)) {
+        uint got_base = (uint) (magic_immediate + 1);
+        uint *got_offset = (uint *) (got_base + 1);
+        ushort *annotation_call_type = (ushort *) (got_offset + 1);
+        uint *annotation_offset = (uint *) (annotation_call_type + 1);
+        *is_expression = (*annotation_call_type == 0x802b);
+        *name = **(const char ***) (got_base + *got_offset + *annotation_offset);
+    } else {
+        *name = NULL;
+    }
+}
+# endif
+#endif
 
 #ifdef X64
 # ifdef UNIX

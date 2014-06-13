@@ -1,40 +1,74 @@
 #ifndef _DYNAMORIO_ANNOTATION_ASM_H_
 #define _DYNAMORIO_ANNOTATION_ASM_H_ 1
 
-#define DYNAMORIO_ANNOTATION_MAGIC_NUMBER 0xaaaabbbbccccddddULL
+#ifdef X64
+# define DYNAMORIO_ANNOTATION_MAGIC_NUMBER 0xaaaabbbbccccddddULL
+#else
+# define DYNAMORIO_ANNOTATION_MAGIC_NUMBER 0xaabbccddUL
+#endif
 
 #define PASTE1(x, y, z) x##y##z
 #define PASTE(x, y, z) PASTE1(x, y, z)
 
-#define DR_ANNOTATION_STATEMENT(annotation, ...) __extension__ \
+#ifdef X64
+# define DR_ANNOTATION_STATEMENT(annotation, ...) __extension__ \
 ({ \
     extern const char *annotation##_name; \
-    static const char **annotation##_name_ptr = &annotation##_name; \
-    __asm__ volatile goto ("jmp %l2; \
-                   movq %0,%%rax; \
-                   bsf %1,%%rax;" \
-                  : \
-                  : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER), "m"(annotation##_name_ptr) \
-                  : "%rax" \
-                  : PASTE(annotation##_,__LINE__,_label)); \
+    __asm__ volatile goto ("jmp %l1; \
+                            movq %0,%%rax; \
+                            bsf "#annotation"_name@GOTPCREL(%%rip),%%rax;" \
+                           : \
+                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
+                           : "%rax" \
+                           : PASTE(annotation##_,__LINE__,_label)); \
     annotation(__VA_ARGS__); \
     PASTE(annotation##_,__LINE__,_label):; \
 })
 
-#define DR_ANNOTATION_EXPRESSION(annotation, ...) __extension__ \
+# define DR_ANNOTATION_EXPRESSION(annotation, ...) __extension__ \
 ({ \
     extern const char *annotation##_name; \
-    static const char **annotation##_name_ptr = &annotation##_name; \
-    __asm__ volatile goto ("jmp %l2; \
-                   movq %0,%%rax; \
-                   bsr %1,%%rax;" \
-                  : \
-                  : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER), "m"(annotation##_name_ptr) \
-                  : "%rax" \
-                  : PASTE(annotation##_,__LINE__,_label)); \
+    __asm__ volatile goto ("jmp %l1; \
+                            movq %0,%%rax; \
+                            bsr "#annotation"_name@GOTPCREL(%%rip),%%rax;" \
+                           : \
+                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
+                           : "%rax" \
+                           : PASTE(annotation##_,__LINE__,_label)); \
     PASTE(annotation##_,__LINE__,_label):; \
     annotation(__VA_ARGS__); \
 })
+#else
+# define DR_ANNOTATION_STATEMENT(annotation, ...) __extension__ \
+({ \
+    extern const char *annotation##_name; \
+    __asm__ volatile goto ("jmp %l1; \
+                            mov %0,%%eax; \
+                            mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
+                            add "#annotation"_name@GOT(%%eax),%%eax;" \
+                           : \
+                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
+                           : "%eax" \
+                           : PASTE(annotation##_,__LINE__,_label)); \
+    annotation(__VA_ARGS__); \
+    PASTE(annotation##_,__LINE__,_label):; \
+})
+
+# define DR_ANNOTATION_EXPRESSION(annotation, ...) __extension__ \
+({ \
+    extern const char *annotation##_name; \
+    __asm__ volatile goto ("jmp %l1; \
+                            mov %0,%%eax; \
+                            mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
+                            sub "#annotation"_name@GOT(%%eax),%%eax;" \
+                           : \
+                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
+                           : "%eax" \
+                           : PASTE(annotation##_,__LINE__,_label)); \
+    PASTE(annotation##_,__LINE__,_label):; \
+    annotation(__VA_ARGS__); \
+})
+#endif
 
 #ifdef _MSC_VER
 # define DR_WEAK_DECLARATION
