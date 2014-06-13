@@ -332,7 +332,7 @@ typedef struct _PEB {                                     /* offset: 32bit / 64b
     ptr_uint_t                   MinimumStackCommit;              /* 0x208 / 0x318 */
     PPVOID                       FlsCallback;                     /* 0x20c / 0x320 */
     LIST_ENTRY                   FlsListHead;                     /* 0x210 / 0x328 */
-    PVOID                        FlsBitmap;                       /* 0x218 / 0x338 */
+    PRTL_BITMAP                  FlsBitmap;                       /* 0x218 / 0x338 */
     DWORD                        FlsBitmapBits[4];                /* 0x21c / 0x340 */
     DWORD                        FlsHighIndex;                    /* 0x22c / 0x350 */
     PVOID                        WerRegistrationData;             /* 0x230 / 0x358 */
@@ -618,7 +618,7 @@ typedef struct _TEB {                               /* offset: 32bit / 64bit */
     DWORD                     HeapVirtualAffinity;          /* 0xfa8 / 0x17b0 */
     PVOID                     CurrentTransactionHandle;     /* 0xfac / 0x17b8 */
     PVOID                     ActiveFrame;                  /* 0xfb0 / 0x17c0 */
-    PVOID                     FlsData;                      /* 0xfb4 / 0x17c8 */
+    PPVOID                    FlsData;                      /* 0xfb4 / 0x17c8 */
 #ifndef PRE_VISTA_TEB /* pre-vs-post-Vista: we'll have to make a union if we care */
     PVOID                     PreferredLanguages;           /* 0xfb8 / 0x17d0 */
     PVOID                     UserPrefLanguages;            /* 0xfbc / 0x17d8 */
@@ -1446,6 +1446,21 @@ tls_free(int synch, uint teb_offs);
 
 bool
 tls_cfree(int synch, uint teb_offs, int num);
+
+/* RTL_BITMAP routines exported to drwinapi */
+int
+bitmap_find_free_sequence(byte *rtl_bitmap, int bitmap_size,
+                          int num_requested_slots, bool top_down,
+                          int align_which_slot, /* 0 based index */
+                          uint alignment);
+
+void
+bitmap_mark_taken_sequence(byte *rtl_bitmap, int bitmap_size,
+                           int first_slot, int last_slot_open_end);
+
+void
+bitmap_mark_freed_sequence(byte *rtl_bitmap, int bitmap_size,
+                           int first_slot, int num_slots);
 
 bool
 get_process_mem_stats(HANDLE h, VM_COUNTERS *info);

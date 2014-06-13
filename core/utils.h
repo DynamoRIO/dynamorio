@@ -504,7 +504,6 @@ enum {
 #endif
     LOCK_RANK(modlist_areas), /* < dynamo_areas < global_alloc_lock */
 #ifdef WINDOWS
-    LOCK_RANK(privload_fls_lock), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(drwinapi_localheap_lock), /* < global_alloc_lock */
 #endif
 #ifdef CLIENT_INTERFACE

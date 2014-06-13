@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.   All rights reserved.
  * Copyright (c) 2009-2010 Derek Bruening   All rights reserved.
  * **********************************************************/
 
@@ -103,8 +103,7 @@ drwinapi_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
                 strcmp(name, "GetModuleHandleW") == 0 ||
                 strcmp(name, "GetProcAddress") == 0 ||
                 strcmp(name, "LoadLibraryA") == 0 ||
-                strcmp(name, "LoadLibraryW") == 0 ||
-                strcmp(name, "FlsAlloc") == 0)
+                strcmp(name, "LoadLibraryW") == 0)
                 return NULL;
         }
         return res;

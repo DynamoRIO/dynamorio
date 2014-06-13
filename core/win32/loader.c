@@ -194,18 +194,6 @@ os_loader_init_prologue(void)
         if (!dr_earliest_injected) /* FIXME i#812: need to delay this */
             RtlInitializeCriticalSection(private_peb->FastPebLock);
 
-        /* Start with empty values, regardless of what app libs did prior to us
-         * taking over.  FIXME: if we ever have attach will have to verify this:
-         * can priv libs always live in their own universe that starts empty?
-         */
-        private_peb->FlsListHead.Flink = (LIST_ENTRY *) &private_peb->FlsListHead;
-        private_peb->FlsListHead.Blink = (LIST_ENTRY *) &private_peb->FlsListHead;
-        private_peb->FlsCallback = NULL;
-        private_peb_initialized = true;
-        swap_peb_pointer(NULL, true/*to priv*/);
-        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
-        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
-
         /* We can't redirect ntdll routines allocating memory internally,
          * but we can at least have them not affect the app's Heap.
          * We do this after the swap in case it affects some other peb field,
@@ -222,6 +210,14 @@ os_loader_init_prologue(void)
                 private_peb->ProcessHeap = own_peb->ProcessHeap;
             }
         }
+
+        /* We need a custom setup for FLS structures */
+        ntdll_redir_fls_init(own_peb, private_peb);
+
+        private_peb_initialized = true;
+        swap_peb_pointer(NULL, true/*to priv*/);
+        LOG(GLOBAL, LOG_LOADER, 2, "app peb="PFX"\n", own_peb);
+        LOG(GLOBAL, LOG_LOADER, 2, "private peb="PFX"\n", private_peb);
 
         pre_nls_cache = get_tls(NLS_CACHE_TIB_OFFSET);
         pre_fls_data = get_tls(FLS_DATA_TIB_OFFSET);
@@ -337,6 +333,9 @@ os_loader_exit(void)
              * want DR reporting a crash on an ntdll address so we ignore.
              */
         });
+
+        ntdll_redir_fls_exit(private_peb);
+
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb, PEB, ACCT_OTHER, UNPROTECTED);
@@ -1830,11 +1829,14 @@ privload_redirect_imports(privmod_t *impmod, const char *name, privmod_t *import
     return drwinapi_redirect_imports(impmod, name, importer);
 }
 
-/* Handles a private-library FLS callback called from interpreted app code */
+/* Handles a private-library callback called from interpreted app code.
+ * This should no longer happen now that we fully isolate the PEB and FLS,
+ * but I'm leaving the mechanism in case we need it in the future.
+ */
 bool
 private_lib_handle_cb(dcontext_t *dcontext, app_pc pc)
 {
-    return kernel32_redir_fls_cb(dcontext, pc);
+    return true;
 }
 
 /***************************************************************************

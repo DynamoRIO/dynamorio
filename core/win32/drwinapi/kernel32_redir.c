@@ -52,8 +52,13 @@ static const redirect_import_t redirect_kernel32[] = {
     {"GetCurrentThread",               (app_pc)redirect_GetCurrentThread},
     {"GetCurrentThreadId",             (app_pc)redirect_GetCurrentThreadId},
     {"ExitProcess",                    (app_pc)redirect_ExitProcess},
-    /* To avoid the FlsCallback being interpreted */
+    /* To avoid the FlsCallback being interpreted, and to avoid hangs
+     * and other issues with Fls locks (i#875).
+     */
     {"FlsAlloc",                       (app_pc)redirect_FlsAlloc},
+    {"FlsFree",                        (app_pc)redirect_FlsFree},
+    {"FlsGetValue",                    (app_pc)redirect_FlsGetValue},
+    {"FlsSetValue",                    (app_pc)redirect_FlsSetValue},
 
     /* Library routines */
     /* As an initial interception of loader queries, but simpler than

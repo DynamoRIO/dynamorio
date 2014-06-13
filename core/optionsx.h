@@ -360,6 +360,7 @@
                             "redirect heap usage by private libraries to DR heap")
     /* PEB and select TEB field isolation for private dll copies (i#249).
      * Valid only with -private_loader.
+     * XXX: turning this option off is not supported.  Should we remove it?
      */
     OPTION_DEFAULT_INTERNAL(bool, private_peb, true,
                             "use private PEB + TEB fields for private libraries")
