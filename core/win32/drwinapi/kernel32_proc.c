@@ -140,9 +140,6 @@ redirect_GetCurrentThreadId(
  * FLS
  */
 
-/* A LIST_ENTRY is stored at the start of TEB.FlsData */
-#define FLS_DATA_OFFS (sizeof(LIST_ENTRY)/sizeof(void*))
-
 DWORD WINAPI
 redirect_FlsAlloc(PFLS_CALLBACK_FUNCTION cb)
 {
