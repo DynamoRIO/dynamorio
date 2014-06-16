@@ -11,8 +11,9 @@
 #define PASTE(x, y, z) PASTE1(x, y, z)
 
 #ifdef X64
-# define DR_ANNOTATION_STATEMENT(annotation, ...) __extension__ \
+# define DR_ANNOTATION_STATEMENT(annotation, ...) \
 ({ \
+    __label__ jump_to; \
     extern const char *annotation##_name; \
     __asm__ volatile goto ("jmp %l1; \
                             movq %0,%%rax; \
@@ -20,13 +21,14 @@
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%rax" \
-                           : PASTE(annotation##_,__LINE__,_label)); \
+                           : jump_to); \
     annotation(__VA_ARGS__); \
-    PASTE(annotation##_,__LINE__,_label):; \
+    jump_to:; \
 })
 
-# define DR_ANNOTATION_EXPRESSION(annotation, ...) __extension__ \
+# define DR_ANNOTATION_EXPRESSION(annotation, ...) \
 ({ \
+    __label__ jump_to; \
     extern const char *annotation##_name; \
     __asm__ volatile goto ("jmp %l1; \
                             movq %0,%%rax; \
@@ -34,8 +36,8 @@
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%rax" \
-                           : PASTE(annotation##_,__LINE__,_label)); \
-    PASTE(annotation##_,__LINE__,_label):; \
+                           : jump_to); \
+    jump_to: \
     annotation(__VA_ARGS__); \
 })
 #else
@@ -45,7 +47,7 @@
     __asm__ volatile goto ("jmp %l1; \
                             mov %0,%%eax; \
                             mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
-                            add "#annotation"_name@GOT,%%eax;" \
+                            bsf "#annotation"_name@GOT,%%eax;" \
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%eax" \
@@ -60,12 +62,12 @@
     __asm__ volatile goto ("jmp %l1; \
                             mov %0,%%eax; \
                             mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
-                            sub "#annotation"_name@GOT,%%eax;" \
+                            bsr "#annotation"_name@GOT,%%eax;" \
                            : \
                            : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
                            : "%eax" \
                            : PASTE(annotation##_,__LINE__,_label)); \
-    PASTE(annotation##_,__LINE__,_label):; \
+    PASTE(annotation##_,__LINE__,_label): \
     annotation(__VA_ARGS__); \
 })
 #endif

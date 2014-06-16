@@ -117,7 +117,8 @@ lookup_valgrind_request(ptr_uint_t request);
 
 #ifdef UNIX
 static void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression);
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
+                    OUT app_pc *annotation_pc);
 #endif
 
 static void
@@ -641,7 +642,8 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 {
     const char *annotation_name;
     bool is_expression;
-    identify_annotation(instr, &annotation_name, &is_expression);
+    app_pc annotation_pc;
+    identify_annotation(instr, &annotation_name, &is_expression, &annotation_pc);
     if (annotation_name != NULL) {
         dr_printf("Decoded %s invocation of %s\n",
                   is_expression ? "expression" : "statement",
@@ -867,7 +869,8 @@ lookup_valgrind_request(ptr_uint_t request)
   --> (char ***) (0x400504 + 0x200aeb)
 */
 static inline void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression)
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
+                    OUT app_pc *annotation_pc)
 {
     app_pc magic_opcode_pc;
     *name = NULL;
@@ -901,7 +904,8 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
   --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
 */
 static inline void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression)
+identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
+                    OUT app_pc *annotation_pc)
 {
     app_pc magic_opcode_pc;
     *name = NULL;
