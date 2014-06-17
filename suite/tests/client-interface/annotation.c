@@ -25,7 +25,7 @@
 
 #ifdef WINDOWS
 # define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
-# define LIB_NAME "client.annotation.dll"
+# define LIB_NAME "client.annotation.appdll.dll"
 # define MODULE_TYPE HMODULE
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
@@ -81,7 +81,6 @@ int main(int argc, char **argv)
 {
     int i, class_id, num_threads, i_thread, i_row, i_col, iteration = 0;
     double sum, row_sum;
-    char *error;
 
     thread_init_t *thread_inits;
 #ifdef WINDOWS
@@ -89,6 +88,7 @@ int main(int argc, char **argv)
     HANDLE *threads;
 #else
     int result;
+    char *error;
     pthread_attr_t pta;
     pthread_t *threads;
 #endif
@@ -288,11 +288,22 @@ usage(const char *message)
     exit(-1);
 }
 
+#ifdef WINDOWS
+static void *
+find_function(MODULE_TYPE module, const char *name)
+{
+    void *function = GetProcAddress(module, name);
+    if (function == NULL) {
+        printf("Error: failed to load %s() from "LIB_NAME":\n", name);
+        exit(1);
+    }
+    return function;
+}
+#else
 static void *
 find_function(MODULE_TYPE module, const char *name)
 {
     char *error;
-
     void *function = dlsym(module, name);
     if (error = dlerror()) {
         printf("Error: failed to load %s() from "LIB_NAME":\n%s\n", name, error);
@@ -300,6 +311,7 @@ find_function(MODULE_TYPE module, const char *name)
     }
     return function;
 }
+#endif
 
 double distance(double *x_old, double *x_new)
 {

@@ -10,8 +10,12 @@
 extern "C" {
 #endif
 
-DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio) ()
+#pragma auto_inline(off)
+
+DR_DECLARE_ANNOTATION_EXPRESSION(char, dynamorio_annotate_running_on_dynamorio) ()
     DR_WEAK_DECLARATION;
+
+#pragma auto_inline(on)
 
 #ifdef __cplusplus
 }

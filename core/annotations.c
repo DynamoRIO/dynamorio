@@ -5,6 +5,7 @@
 #include "../x86/instr.h"
 #include "../x86/instr_create.h"
 #include "../x86/disassemble.h"
+#include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
 #include "annotations.h"
 
@@ -115,11 +116,9 @@ handle_vg_annotation(app_pc request_args);
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
-#ifdef UNIX
 static void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
-                    OUT app_pc *annotation_pc);
-#endif
+identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+                    OUT bool *is_expression, OUT app_pc *annotation_pc);
 
 static void
 specify_args(annotation_handler_t *handler, uint num_args
@@ -545,9 +544,7 @@ dr_annot_unregister_return(void *annotation_func)
 void
 annot_module_load(module_handle_t base)
 {
-    uint i;
     annotation_registration_by_name_t *by_name;
-    module_functions_t *functions;
 
     TABLE_RWLOCK(handlers, write, lock);
     by_name = by_name_list->head;
@@ -566,7 +563,6 @@ annot_module_unload(module_handle_t base, size_t size)
     int iter = 0;
     ptr_uint_t key;
     void *handler;
-    module_functions_t *module, *removal;
     app_pc start = (app_pc) base;
     app_pc end = ((app_pc) base + size);
 
@@ -582,7 +578,9 @@ annot_module_unload(module_handle_t base, size_t size)
     } while (true);
     TABLE_RWLOCK(handlers, write, unlock);
 }
+#endif
 
+#if 0
 instr_t *
 annot_match(dcontext_t *dcontext, instr_t *instr)
 {
@@ -636,23 +634,24 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
     }
     return first_call;
 }
-#else
+#endif
+
 instr_t *
-annot_match(dcontext_t *dcontext, instr_t *instr)
+annot_match(dcontext_t *dcontext, instr_t *cti_instr)
 {
     const char *annotation_name;
     bool is_expression;
     app_pc annotation_pc;
-    identify_annotation(instr, &annotation_name, &is_expression, &annotation_pc);
+    identify_annotation(dcontext, cti_instr, &annotation_name, &is_expression,
+                        &annotation_pc);
     if (annotation_name != NULL) {
-        dr_printf("Decoded %s invocation of %s\n",
+        dr_printf("Decoded %s invocation of %s at "PFX"\n",
                   is_expression ? "expression" : "statement",
-                  annotation_name);
+                  annotation_name, annotation_pc);
     }
 
     return NULL;
 }
-#endif
 
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
@@ -858,7 +857,113 @@ lookup_valgrind_request(ptr_uint_t request)
     return VG_ID__LAST;
 }
 
-#ifdef UNIX
+#ifdef WINDOWS
+# ifdef X64
+/*
+  0000000140001060: 48 8B 05 99 DF 02  mov         rax,qword ptr [dynamorio_annotate_running_on_dynamorio_name]
+                    00
+  0000000140001067: 0F 0D 00           prefetch    [rax]
+  000000014000106A: 33 C0              xor         eax,eax
+  000000014000106C: C3                 ret
+*/
+static inline bool
+is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
+                  OUT const char **name)
+{
+    app_pc cur_pc = start_pc;
+
+    instr_reset(dcontext, scratch);
+    cur_pc = decode(dcontext, cur_pc, scratch);
+    if (instr_is_mov(scratch)) {
+        opnd_t src = instr_get_src(scratch, 0);
+        if (opnd_is_rel_addr(src)) {
+            uint *src_ptr = (uint *) opnd_get_addr(src);
+            app_pc buf_ptr;
+            char buf[24];
+            if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
+                return false;
+            if (!safe_read(buf_ptr, 20, buf))
+                return false;
+            buf[21] = '\0';
+            if (strcmp(buf, "dynamorio-annotation") != 0)
+                return false;
+            instr_reset(dcontext, scratch);
+            decode(dcontext, cur_pc, scratch);
+            if (!instr_is_prefetch(scratch))
+                return false;
+            *name = (const char *) (buf_ptr + 21);
+            return true;
+        }
+    }
+    return false;
+}
+
+#define MAX_ANNOTATION_INSTR_COUNT 100
+
+static inline void
+identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+                    OUT bool *is_expression, OUT app_pc *annotation_pc)
+{
+    uint instr_count = 0, cti_count = 0;
+    instr_t scratch;
+    app_pc last_pc, cur_pc = instr_get_translation(cti_instr);
+    app_pc cti_target = instr_get_branch_target_pc(cti_instr);
+
+    *annotation_pc = NULL;
+    *name = NULL;
+    instr_init(dcontext, &scratch);
+    cur_pc = decode_cti(dcontext, cur_pc, &scratch); // skip `cti_instr`
+    while (true) {
+        instr_reset(dcontext, &scratch);
+        last_pc = cur_pc;
+        cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+        if (instr_is_cti(&scratch)) {
+            if (instr_is_call_direct(&scratch)) {
+                if ((*name == NULL) &&
+                    is_annotation_tag(dcontext, instr_get_branch_target_pc(&scratch),
+                                      &scratch, name)) {
+                    if (*annotation_pc != NULL)
+                        break;
+                } else {
+                    if (*annotation_pc != NULL) // fail: no tag
+                        break;
+                    *annotation_pc = last_pc;
+                    *is_expression = (cti_target <= last_pc);
+                    if (*name != NULL)
+                        break;
+                }
+            }
+            if (++cti_count > 1)
+                break;
+        }
+        if (++instr_count > MAX_ANNOTATION_INSTR_COUNT)
+            break;
+    }
+}
+# else
+static inline void
+identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+                    OUT bool *is_expression, OUT app_pc *annotation_pc)
+{
+    app_pc cti_pc;
+    uint *magic_immediate;
+    uint opcode = instr_get_opcode(cti_instr);
+
+    *name = NULL;
+    *annotation_pc = 0; // not sure where it is...
+
+    if ((opcode != OP_jmp) && (opcode != OP_jmp_short))
+        return;
+
+    cti_pc = instr_get_translation(cti_instr);
+    magic_immediate = (cti_pc - 4);
+    if (*magic_immediate == 0xaabbccdd) {
+        uint *annotation_ptr = (cti_pc + 3);
+        *name = *(const char **) annotation_ptr;
+    }
+}
+# endif
+#else
 # ifdef X64
 /*
   4004f1:   eb 12                   jmp    400505 <main+0x18>
@@ -869,16 +974,17 @@ lookup_valgrind_request(ptr_uint_t request)
   --> (char ***) (0x400504 + 0x200aeb)
 */
 static inline void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
-                    OUT app_pc *annotation_pc)
+identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+                    OUT bool *is_expression, OUT app_pc *annotation_pc)
 {
     app_pc magic_opcode_pc;
     *name = NULL;
+    *annotation_pc = 0; // not sure where it is...
 
-    if (instr_get_opcode(instr) == OP_jmp_short)
-        magic_opcode_pc = (instr_get_translation(instr) + 2);
-    else if (instr_get_opcode(instr) == OP_jmp)
-        magic_opcode_pc = (instr_get_translation(instr) + 5);
+    if (instr_get_opcode(cti_instr) == OP_jmp_short)
+        magic_opcode_pc = (instr_get_translation(cti_instr) + 2);
+    else if (instr_get_opcode(cti_instr) == OP_jmp)
+        magic_opcode_pc = (instr_get_translation(cti_instr) + 5);
     else
         return;
 
@@ -891,8 +997,6 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
         ptr_uint_t annotation_rip_base = (ptr_uint_t) (annotation_call_type + 2);
         *is_expression = (*annotation_call_type == 0x05bd0f48);
         *name = **(const char ***) (ptr_uint_t) (annotation_rip_base + *annotation_ptr);
-    } else {
-        *name = NULL;
     }
 }
 # else
@@ -904,16 +1008,16 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
   --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
 */
 static inline void
-identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expression,
-                    OUT app_pc *annotation_pc)
+identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+                    OUT bool *is_expression, OUT app_pc *annotation_pc)
 {
     app_pc magic_opcode_pc;
     *name = NULL;
 
-    if (instr_get_opcode(instr) == OP_jmp_short)
-        magic_opcode_pc = (instr_get_translation(instr) + 2);
-    else if (instr_get_opcode(instr) == OP_jmp)
-        magic_opcode_pc = (instr_get_translation(instr) + 5);
+    if (instr_get_opcode(cti_instr) == OP_jmp_short)
+        magic_opcode_pc = (instr_get_translation(cti_instr) + 2);
+    else if (instr_get_opcode(cti_instr) == OP_jmp)
+        magic_opcode_pc = (instr_get_translation(cti_instr) + 5);
     else
         return;
 
@@ -927,8 +1031,6 @@ identify_annotation(instr_t *instr, OUT const char **name, OUT bool *is_expressi
         uint *annotation_offset = (uint *) (annotation_call_type + 1);
         *is_expression = (*annotation_call_type == 0x052b);
         *name = **(const char ***) (got_base + *got_offset + *annotation_offset);
-    } else {
-        *name = NULL;
     }
 }
 # endif

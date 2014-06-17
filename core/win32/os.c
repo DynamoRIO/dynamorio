@@ -3782,7 +3782,7 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
 #if defined(CLIENT_INTERFACE) || (defined(ANNOTATIONS) && defined(WINDOWS))
     if (dynamo_initialized && add) {
 # if defined(ANNOTATIONS) && defined(WINDOWS)
-        annot_module_load((module_handle_t) base, size);
+        annot_module_load((module_handle_t) base);
 # endif
 # ifdef CLIENT_INTERFACE
         instrument_module_load_trigger(base);

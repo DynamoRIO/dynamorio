@@ -186,7 +186,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 
 #ifdef WINDOWS
 void
-annot_module_load(module_handle_t base, size_t size _IF_UNIX(const char *filename));
+annot_module_load(module_handle_t base);
 
 void
 annot_module_unload(module_handle_t base, size_t size);
