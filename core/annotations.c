@@ -12,8 +12,19 @@
 #include "../third_party/valgrind/valgrind.h"
 #include "../third_party/valgrind/memcheck.h"
 
+#define MAX_ANNOTATION_INSTR_COUNT 100
+
 #ifdef UNIX
 # include <string.h>
+#endif
+
+#if defined(WINDOWS)
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
+# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+#else
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
+// +4 for offset of the operand in the instruction
+# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) (opnd_get_disp(src) + instr_pc + 4))
 #endif
 
 typedef struct _annotation_registration_by_name_t {
@@ -115,6 +126,10 @@ handle_vg_annotation(app_pc request_args);
 
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
+
+static inline bool
+is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
+                  OUT const char **name);
 
 static void
 identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
@@ -857,15 +872,6 @@ lookup_valgrind_request(ptr_uint_t request)
     return VG_ID__LAST;
 }
 
-#ifdef WINDOWS
-# ifdef X64
-/*
-  0000000140001060: 48 8B 05 99 DF 02  mov         rax,qword ptr [dynamorio_annotate_running_on_dynamorio_name]
-                    00
-  0000000140001067: 0F 0D 00           prefetch    [rax]
-  000000014000106A: 33 C0              xor         eax,eax
-  000000014000106C: C3                 ret
-*/
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                   OUT const char **name)
@@ -876,10 +882,25 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
     cur_pc = decode(dcontext, cur_pc, scratch);
     if (instr_is_mov(scratch)) {
         opnd_t src = instr_get_src(scratch, 0);
-        if (opnd_is_rel_addr(src)) {
-            uint *src_ptr = (uint *) opnd_get_addr(src);
-            app_pc buf_ptr;
+        if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
             char buf[24];
+            app_pc buf_ptr;
+            app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
+#ifdef UNIX
+            app_pc got_ptr;
+            instr_reset(dcontext, scratch);
+            cur_pc = decode(dcontext, cur_pc, scratch);
+            if ((instr_get_opcode(scratch) != OP_bsf) &&
+                (instr_get_opcode(scratch) != OP_bsr))
+                return false;
+            src = instr_get_src(scratch, 0);
+            if (!opnd_is_base_disp(src))
+                return false;
+            src_ptr += opnd_get_disp(src);
+            if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
+                return false;
+            src_ptr = got_ptr;
+#endif
             if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
                 return false;
             if (!safe_read(buf_ptr, 20, buf))
@@ -887,10 +908,12 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
             buf[21] = '\0';
             if (strcmp(buf, "dynamorio-annotation") != 0)
                 return false;
+#ifdef WINDOWS
             instr_reset(dcontext, scratch);
-            decode(dcontext, cur_pc, scratch);
+            cur_pc = decode(dcontext, cur_pc, scratch);
             if (!instr_is_prefetch(scratch))
                 return false;
+#endif
             *name = (const char *) (buf_ptr + 21);
             return true;
         }
@@ -898,8 +921,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
     return false;
 }
 
-#define MAX_ANNOTATION_INSTR_COUNT 100
-
+#ifdef WINDOWS
 static inline void
 identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
                     OUT bool *is_expression, OUT app_pc *annotation_pc)
@@ -940,69 +962,14 @@ identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **n
             break;
     }
 }
-# else
-static inline void
-identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
-                    OUT bool *is_expression, OUT app_pc *annotation_pc)
-{
-    app_pc cti_pc;
-    uint *magic_immediate;
-    uint opcode = instr_get_opcode(cti_instr);
-
-    *name = NULL;
-    *annotation_pc = 0; // not sure where it is...
-
-    if ((opcode != OP_jmp) && (opcode != OP_jmp_short))
-        return;
-
-    cti_pc = instr_get_translation(cti_instr);
-    magic_immediate = (cti_pc - 4);
-    if (*magic_immediate == 0xaabbccdd) {
-        uint *annotation_ptr = (cti_pc + 3);
-        *name = *(const char **) annotation_ptr;
-    }
-}
-# endif
 #else
-# ifdef X64
 /*
   4004f1:   eb 12                   jmp    400505 <main+0x18>
-  4004f3:   48 b8 dd dd cc cc bb    movabs $0xaaaabbbbccccdddd,%rax
-  4004fa:   bb aa aa
   4004fd:   48 0f bc 05 eb 0a 20    bsf    0x200aeb(%rip),%rax        # 600ff0
   400504:   00
   --> (char ***) (0x400504 + 0x200aeb)
-*/
-static inline void
-identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
-                    OUT bool *is_expression, OUT app_pc *annotation_pc)
-{
-    app_pc magic_opcode_pc;
-    *name = NULL;
-    *annotation_pc = 0; // not sure where it is...
 
-    if (instr_get_opcode(cti_instr) == OP_jmp_short)
-        magic_opcode_pc = (instr_get_translation(cti_instr) + 2);
-    else if (instr_get_opcode(cti_instr) == OP_jmp)
-        magic_opcode_pc = (instr_get_translation(cti_instr) + 5);
-    else
-        return;
-
-    ushort *magic_opcode = (ushort *) magic_opcode_pc;
-    uint64 *magic_immediate = (uint64 *) (magic_opcode + 1);
-
-    if ((*magic_opcode == 0xb848) && (*magic_immediate == 0xaaaabbbbccccdddd)) {
-        uint *annotation_call_type = (uint *) (magic_immediate + 1);
-        uint *annotation_ptr = (uint *) (annotation_call_type + 1);
-        ptr_uint_t annotation_rip_base = (ptr_uint_t) (annotation_call_type + 2);
-        *is_expression = (*annotation_call_type == 0x05bd0f48);
-        *name = **(const char ***) (ptr_uint_t) (annotation_rip_base + *annotation_ptr);
-    }
-}
-# else
-/*
   8048422:   eb 10                   jmp    8048434 <main+0x27>
-  8048424:   b8 dd cc bb aa          mov    $0xaabbccdd,%eax
   8048429:   b8 d7 1b 00 00          mov    $0x1bd7,%eax
   804842e:   2b 05 1c 00 00 00       sub    0x1c,%eax
   --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
@@ -1011,29 +978,25 @@ static inline void
 identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
                     OUT bool *is_expression, OUT app_pc *annotation_pc)
 {
-    app_pc magic_opcode_pc;
+    instr_t scratch;
+    app_pc last_pc, cur_pc = instr_get_translation(cti_instr);
+
     *name = NULL;
+    instr_init(dcontext, &scratch);
+    cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+    instr_reset(dcontext, &scratch);
 
-    if (instr_get_opcode(cti_instr) == OP_jmp_short)
-        magic_opcode_pc = (instr_get_translation(cti_instr) + 2);
-    else if (instr_get_opcode(cti_instr) == OP_jmp)
-        magic_opcode_pc = (instr_get_translation(cti_instr) + 5);
-    else
-        return;
+    if (is_annotation_tag(dcontext, cur_pc, &scratch, name)) {
+        *is_expression = (instr_get_opcode(&scratch) == OP_bsr);
+        do {
+            instr_reset(dcontext, &scratch);
+            last_pc = cur_pc;
+            cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+        } while (!instr_is_call(&scratch));
 
-    byte *magic_opcode = (byte *) magic_opcode_pc;
-    uint *magic_immediate = (uint *) (magic_opcode + 1);
-
-    if ((*magic_opcode == 0xb8) && (*magic_immediate == 0xaabbccdd)) {
-        uint got_base = (uint) (magic_immediate + 1);
-        uint *got_offset = (uint *) (got_base + 1);
-        ushort *annotation_call_type = (ushort *) (got_offset + 1);
-        uint *annotation_offset = (uint *) (annotation_call_type + 1);
-        *is_expression = (*annotation_call_type == 0x052b);
-        *name = **(const char ***) (got_base + *got_offset + *annotation_offset);
+        *annotation_pc = last_pc;
     }
 }
-# endif
 #endif
 
 #ifdef X64

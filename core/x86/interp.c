@@ -3319,7 +3319,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 continue;
         } else
 # endif
-        if (instr_is_cbr(bb->instr) && opnd_is_pc(instr_get_src(bb->instr, 0))) {
+        if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
             instr_t *substitution = annot_match(dcontext, bb->instr);
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);

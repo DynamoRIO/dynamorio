@@ -26,6 +26,14 @@
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
 
+#ifdef WINDOWS
+# define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) \
+    (instr_is_cbr(instr) && opnd_is_pc(instr_get_src(instr, 0)))
+#else
+# define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) \
+    (instr_is_ubr(instr) && opnd_is_pc(instr_get_src(instr, 0)))
+#endif
+
 #define GET_ANNOTATION_PC(label_data) ((app_pc) label_data->data[2])
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \

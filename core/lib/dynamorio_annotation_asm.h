@@ -6,31 +6,26 @@
 #ifndef DYNAMORIO_ANNOTATIONS_X64
 # ifdef _MSC_VER
 #  ifdef _WIN64
-#   define DR_ANNOTATIONS_X64 1
+#   define DYNAMORIO_ANNOTATIONS_X64 1
 #  endif
 # else
 #  ifdef __LP64__
-#   define DR_ANNOTATIONS_X64 1
+#   define DYNAMORIO_ANNOTATIONS_X64 1
 #  endif
 # endif
-#endif
-
-#ifdef DYNAMORIO_ANNOTATIONS_X64
-# define DYNAMORIO_ANNOTATION_MAGIC_NUMBER 0xaaaabbbbccccddddULL
-#else
-# define DYNAMORIO_ANNOTATION_MAGIC_NUMBER 0xaabbccddUL
 #endif
 
 #ifdef _MSC_VER
 # pragma intrinsic(_AddressOfReturnAddress)
 
-# ifdef _WIN64
-#  define MAGIC_NUMBER 0xaaaabbbbccccddddULL
-#  define RETURN_ALL_BITS 0xffffffffffffffffULL
-# else
-#  define MAGIC_NUMBER 0xaabbccddUL
-#  define RETURN_ALL_BITS 0xffffffffUL
-# endif
+/*
+1. no relos in GOT ref (eip-relative)
+2. _AddressOfReturnAddress may fail in managed code (very rare)
+   a. annotation will still execute correctly, w/o crash
+3. configure_DynamoRIO_annotations @make/DynamoRIOConfig.cmake.in (see #572)
+4. Change names to dr_annotation*
+5. Move samples to the wiki somewhere
+*/
 
 # define DR_ANNOTATION(annotation, ...) \
 do { \
@@ -48,13 +43,10 @@ do { \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l1; \
-                            movq %0,%%rax; \
-                            bsf "#annotation"_name@GOTPCREL(%%rip),%%rax;" \
-                           : \
-                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
-                           : "%rax" \
-                           : jump_to); \
+    __asm__ volatile goto ("jmp %l0; \
+                            mov _GLOBAL_OFFSET_TABLE_,%%rax; \
+                            bsf "#annotation"_name@GOT,%%rax;" \
+                            ::: "%rax" : jump_to); \
     annotation(__VA_ARGS__); \
     jump_to:; \
 })
@@ -62,29 +54,24 @@ do { \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l1; \
-                            movq %0,%%rax; \
-                            bsr "#annotation"_name@GOTPCREL(%%rip),%%rax;" \
-                           : \
-                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
-                           : "%rax" \
-                           : jump_to); \
+    __asm__ volatile goto ("jmp %l0; \
+                            mov _GLOBAL_OFFSET_TABLE_,%%rax; \
+                            bsr "#annotation"_name@GOT,%%rax;" \
+                            ::: "%rax" : jump_to); \
     jump_to: \
     annotation(__VA_ARGS__); \
 })
+/* bsr "#annotation"_name@GOTPCREL(%%rip),%%rax;" \ */
+
 # else
 #  define DR_ANNOTATION(annotation, ...) __extension__ \
 ({ \
-    __label__ jump_to: \
+    __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l1; \
-                            mov %0,%%eax; \
-                            mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
+    __asm__ volatile goto ("jmp %l0; \
+                            mov _GLOBAL_OFFSET_TABLE_,%%eax; \
                             bsf "#annotation"_name@GOT,%%eax;" \
-                           : \
-                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
-                           : "%eax" \
-                           : jump_to); \
+                            ::: "%eax" : jump_to); \
     annotation(__VA_ARGS__); \
     jump_to:; \
 })
@@ -92,14 +79,10 @@ do { \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l1; \
-                            mov %0,%%eax; \
-                            mov $_GLOBAL_OFFSET_TABLE_,%%eax; \
+    __asm__ volatile goto ("jmp %l0; \
+                            mov _GLOBAL_OFFSET_TABLE_,%%eax; \
                             bsr "#annotation"_name@GOT,%%eax;" \
-                           : \
-                           : "i"(DYNAMORIO_ANNOTATION_MAGIC_NUMBER) \
-                           : "%eax" \
-                           : jump_to); \
+                            ::: "%eax" : jump_to); \
     jump_to: \
     annotation(__VA_ARGS__); \
 })
@@ -126,13 +109,16 @@ do { \
 #else
 # define DR_WEAK_DECLARATION __attribute__ ((weak))
 # ifdef DYNAMORIO_ANNOTATIONS_X64
-#  define DR_DECLARE_ANNOTATION(return_type, annotation) \
+#  define DR_DECLARE_ANNOTATION(annotation) \
+    __attribute__((noinline, visibility("hidden"))) void annotation
+#  define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
     __attribute__((noinline, visibility("hidden"))) return_type annotation
 # else
-#  define DR_DECLARE_ANNOTATION(return_type, annotation) \
+#  define DR_DECLARE_ANNOTATION(annotation) \
+    __attribute__((noinline, fastcall, visibility("hidden"))) void annotation
+#  define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
     __attribute__((noinline, fastcall, visibility("hidden"))) return_type annotation
 # endif
-# define DR_DECLARE_ANNOTATION_EXPRESSION DR_DECLARE_ANNOTATION
 #endif
 
 #ifdef _MSC_VER
@@ -142,11 +128,11 @@ do { \
 #else
 # ifdef DYNAMORIO_ANNOTATIONS_X64
 #  define DR_DEFINE_ANNOTATION(return_type, annotation) \
-    const char *annotation##_name = #annotation; \
+    const char *annotation##_name = "dynamorio-annotation:"#annotation; \
     __attribute__((noinline, visibility("hidden"))) return_type annotation
 # else
 #  define DR_DEFINE_ANNOTATION(return_type, annotation) \
-    const char *annotation##_name = #annotation; \
+    const char *annotation##_name = "dynamorio-annotation:"#annotation; \
     __attribute__((noinline, fastcall, visibility("hidden"))) return_type annotation
 # endif
 #endif
