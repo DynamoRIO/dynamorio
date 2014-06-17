@@ -138,9 +138,22 @@ typedef enum _PROCESSINFOCLASS {
     ProcessHandleTracing,
     ProcessIoPriority,
     ProcessExecuteFlags,
-    ProcessResourceManagement,
+    ProcessTlsInformation,   /* previously "ProcessResourceManagement"? */
     ProcessCookie,
     ProcessImageInformation,
+    ProcessCycleTime,
+    ProcessPagePriority,
+    ProcessInstrumentationCallback,
+    ProcessThreadStackAllocation,
+    ProcessWorkingSetWatchEx,
+    ProcessImageFileNameWin32,
+    ProcessImageFileMapping,
+    ProcessAffinityUpdateMode,
+    ProcessMemoryAllocationMode,
+    ProcessGroupInformation,
+    ProcessTokenVirtualizationEnabled,
+    ProcessConsoleHostProcess,
+    ProcessWindowInformation,
     MaxProcessInfoClass             // MaxProcessInfoClass should always be the last enum
 } PROCESSINFOCLASS;
 

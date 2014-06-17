@@ -116,6 +116,11 @@ main()
     print("  flsA = 0x%08x\n", FlsGetValue(flsA_index));
     print("  flsB = 0x%08x\n", FlsGetValue(flsB_index));
 
+    /* Test FlsFree on non-NULL which should call the callback */
+    FlsSetValue(flsA_index, (void *)(ULONG_PTR)0x12345678);
+    FlsFree(flsA_index);
+    flsA_index = FlsAlloc(fls_delete);
+
     FlsSetValue(flsA_index, (void *)(ULONG_PTR)0x12345678);
     FlsSetValue(flsB_index, (void *)(ULONG_PTR)0xdeadbeef);
     print("for main, set FLS to:\n");
