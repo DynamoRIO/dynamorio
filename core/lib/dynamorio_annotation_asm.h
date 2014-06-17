@@ -109,14 +109,14 @@ do { \
 #ifdef _MSC_VER
 # define DR_WEAK_DECLARATION
 # define DR_DECLARE_ANNOTATION(annotation) \
-    static __inline void annotation##_tag() \
+    static void annotation##_tag() \
     { \
         extern const char *annotation##_name; \
         _m_prefetch(annotation##_name); \
     } \
     void __fastcall annotation
 # define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
-    static __inline uintptr_t annotation##_tag() \
+    static uintptr_t annotation##_tag() \
     { \
         extern const char *annotation##_name; \
         _m_prefetch(annotation##_name); \
