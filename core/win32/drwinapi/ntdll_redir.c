@@ -972,20 +972,40 @@ NTSTATUS NTAPI
 redirect_RtlFlsFree(IN DWORD index)
 {
     PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    TEB *teb = get_own_teb();
+    NTSTATUS res;
     if (index >= peb->FlsBitmap->SizeOfBitMap)
         return STATUS_INVALID_PARAMETER;
+
+    res = RtlEnterCriticalSection(peb->FastPebLock);
+    if (!NT_SUCCESS(res))
+        return res;
+
     bitmap_mark_freed_sequence(peb->TlsBitmap->BitMapBuffer,
                                peb->TlsBitmap->SizeOfBitMap,
                                index, 1);
+    /* Call the cb, if the slot value is non-NULL */
+    if (peb->FlsCallback[index] != NULL &&
+        teb->FlsData[index + TEB_FLS_DATA_OFFS] != NULL) {
+        PFLS_CALLBACK_FUNCTION func = (PFLS_CALLBACK_FUNCTION)
+            convert_data_to_function(peb->FlsCallback[index]);
+        (*func)(teb->FlsData[index + TEB_FLS_DATA_OFFS]);
+    }
     peb->FlsCallback[index] = NULL;
     /* Not bothering to figure out whether we can reduce peb->FlsHighIndex */
-    return STATUS_SUCCESS;
+
+    res = RtlLeaveCriticalSection(peb->FastPebLock);
+    if (!NT_SUCCESS(res))
+        return res;
+    else
+        return STATUS_SUCCESS;
 }
 
 NTSTATUS NTAPI
 redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
 {
     PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
+    TEB *teb = get_own_teb();
     /* FlsData is a LIST_ENTRY with as payload an array of void* values.
      * If that changes we'll need to change TEB_FLS_DATA_OFFS.
      */
@@ -994,12 +1014,12 @@ redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
     if (fls_data == NULL) {
         NTSTATUS res;
         LIST_ENTRY *tmp;
-        TEB *teb = get_own_teb();
         ASSERT(teb->FlsData == NULL); /* we're installing for the current fiber */
         res = RtlEnterCriticalSection(peb->FastPebLock);
         if (!NT_SUCCESS(res))
             return res;
         teb->FlsData = global_heap_alloc(fls_data_sz HEAPACCT(ACCT_LIBDUP));
+        memset(teb->FlsData, 0, fls_data_sz);
 
         /* From observation, a new FlsData is appended to the whole-process
          * doubly-linked circular list with a permanent head entry at
@@ -1017,10 +1037,16 @@ redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
             return res;
         }
     } else {
+        /* MSDN says "FlsCallback is called on fiber deletion, thread exit, and
+         * when an FLS index is freed".  We expect priv lib code that we don't
+         * redirect to call this routine for the first two.
+         */
         uint i;
         for (i = 0; i < peb->FlsHighIndex; i++) {
-            if (peb->FlsCallback[i] != NULL) {
-                PFLS_CALLBACK_FUNCTION func = (PFLS_CALLBACK_FUNCTION)
+            /* Only call it if the slot value is non-NULL */
+            if (peb->FlsCallback[i] != NULL &&
+                teb->FlsData[i + TEB_FLS_DATA_OFFS] != NULL) {
+               PFLS_CALLBACK_FUNCTION func = (PFLS_CALLBACK_FUNCTION)
                     convert_data_to_function(peb->FlsCallback[i]);
                 (*func)(((PPVOID)(fls_data+1))[i]);
             }

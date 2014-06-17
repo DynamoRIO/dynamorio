@@ -2,6 +2,7 @@ in main fiber
 uninit values:
   flsA = 0x00000000
   flsB = 0x00000000
+fls_delete val=0x12345678
 for main, set FLS to:
   flsA = 0x12345678
   flsB = 0xdeadbeef

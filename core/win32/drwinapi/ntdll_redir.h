@@ -89,7 +89,8 @@ redirect_RtlFreeAnsiString(ANSI_STRING *string);
 void WINAPI
 redirect_RtlFreeOemString(OEM_STRING *string);
 
-#define TEB_FLS_DATA_OFFS sizeof(LIST_ENTRY)
+/* A LIST_ENTRY is stored at the start of TEB.FlsData */
+#define TEB_FLS_DATA_OFFS (sizeof(LIST_ENTRY)/sizeof(void*))
 
 NTSTATUS NTAPI
 redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out);
