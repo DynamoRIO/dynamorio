@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.   All rights reserved.
+ * Copyright (c) 2010-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /* drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -270,6 +270,13 @@ DR_EXPORT
  * by calling \p pre_func_cb prior to every invocation of \p original
  * and calling \p post_func_cb after every invocation of \p original.
  * One of the callbacks can be NULL, but not both.
+ *
+ * Wrap requests should normally be made up front during process
+ * initialization or module load (see
+ * dr_register_module_load_event()).  If a wrap request is made after
+ * the target code may have already been executed by the application,
+ * the caller should flush the target code from the cache using the
+ * desired flush method after issuing the wrap request.
  *
  * Multiple wrap requests are allowed for one \p original function
  * (unless #DRWRAP_NO_FRILLS is set).
