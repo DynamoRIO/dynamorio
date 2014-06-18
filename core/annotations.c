@@ -1008,6 +1008,7 @@ identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **n
 
         *annotation_pc = last_pc;
     }
+    instr_free(dcontext, &scratch);
 }
 #endif
 
