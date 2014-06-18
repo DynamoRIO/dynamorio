@@ -24,7 +24,7 @@
 #  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
 # else
 #  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) (opnd_get_disp(src) + instr_pc))
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
 # endif
 #else
 # define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
@@ -882,57 +882,56 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                   OUT const char **name, OUT bool *is_expression)
 {
     app_pc cur_pc = start_pc;
-
-    instr_reset(dcontext, scratch);
-    cur_pc = decode(dcontext, cur_pc, scratch);
-    if (instr_is_mov(scratch)) {
-        opnd_t src = instr_get_src(scratch, 0);
-        if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
-            bool is_annotation_tag = false;
-            char buf[24];
-            app_pc buf_ptr;
-            app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
-#ifdef UNIX
-            app_pc got_ptr;
-            instr_reset(dcontext, scratch);
-            cur_pc = decode(dcontext, cur_pc, scratch);
-            if ((instr_get_opcode(scratch) != OP_bsf) &&
-                (instr_get_opcode(scratch) != OP_bsr))
-                return false;
-            src = instr_get_src(scratch, 0);
-            if (!opnd_is_base_disp(src))
-                return false;
-            src_ptr += opnd_get_disp(src);
-            if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
-                return false;
-            *is_expression = (instr_get_opcode(&scratch) == OP_bsr);
-            src_ptr = got_ptr;
-#endif
-            if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
-                return false;
-            if (!safe_read(buf_ptr, 20, buf))
-                return false;
-            buf[21] = '\0';
-            if (strcmp(buf, "dynamorio-annotation") != 0)
-                return false;
 #ifdef WINDOWS
-            do {
+    bool found_prefetch = false;
+#endif
+    do {
+        instr_reset(dcontext, scratch);
+        cur_pc = decode(dcontext, cur_pc, scratch);
+        if (instr_is_mov(scratch)) {
+            opnd_t src = instr_get_src(scratch, 0);
+            if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
+                char buf[24];
+                app_pc buf_ptr;
+                app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
+#ifdef UNIX
+                app_pc got_ptr;
                 instr_reset(dcontext, scratch);
                 cur_pc = decode(dcontext, cur_pc, scratch);
-                if (instr_is_prefetch(scratch)) {
-                    is_annotation_tag = true;
-                } else if (instr_num_srcs(scratch) == 1) {
-                    opnd_t src = instr_get_src(scratch, 0);
-                    if (opnd_is_immed_int(src) && (opnd_get_immed_int(src) == 1))
-                        *is_expression = true;
-                }
-            } while (!instr_is_return(scratch));
+                if ((instr_get_opcode(scratch) != OP_bsf) &&
+                    (instr_get_opcode(scratch) != OP_bsr))
+                    return false;
+                src = instr_get_src(scratch, 0);
+                if (!opnd_is_base_disp(src))
+                    return false;
+                src_ptr += opnd_get_disp(src);
+                if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
+                    return false;
+                *is_expression = (instr_get_opcode(scratch) == OP_bsr);
+                src_ptr = got_ptr;
 #endif
-            *name = (const char *) (buf_ptr + 21);
-            return is_annotation_tag;
+                if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
+                    return false;
+                if (!safe_read(buf_ptr, 20, buf))
+                    return false;
+                buf[20] = '\0';
+                if (strcmp(buf, "dynamorio-annotation") != 0)
+                    return false;
+                *name = (const char *) (buf_ptr + 21);
+            }
+#ifdef WINDOWS // prefetch must follow the name reference
+        } else if (instr_is_prefetch(scratch) && (*name != NULL)) {
+            found_prefetch = true;
+        } else if (instr_num_srcs(scratch) == 1) { // expression: return value 1
+            opnd_t src = instr_get_src(scratch, 0);
+            if (opnd_is_immed_int(src) && (opnd_get_immed_int(src) == 1))
+                *is_expression = true;
+#endif
         }
-    }
-    return false;
+
+    } while IF_WINDOWS_ELSE((!instr_is_cti(scratch)), (0));
+
+    return (*name != NULL) IF_WINDOWS(&& found_prefetch);
 }
 
 #ifdef WINDOWS
