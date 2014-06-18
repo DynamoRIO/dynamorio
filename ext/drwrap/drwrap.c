@@ -1962,6 +1962,10 @@ drwrap_wrap_ex(app_pc func,
     if (func == NULL || (pre_func_cb == NULL && post_func_cb == NULL))
         return false;
 
+    /* XXX i#1460: should drwrap auto-flush target in case called late?
+     * Currently we document that the caller must do that.
+     */
+
     wrap_new = dr_global_alloc(sizeof(*wrap_new));
     wrap_new->func = func;
     wrap_new->pre_cb = pre_func_cb;

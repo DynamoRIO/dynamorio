@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -331,6 +331,9 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
          * XXX: this non-linear code can complicate subsequent
          * analysis routines.  Perhaps we should consider splitting
          * into multiple bbs?
+         *
+         * XXX i#1460: the jecxz is marked meta by drmgr (via i#676) and is
+         * thus not mangled by DR, resulting in just an 8-bit reach.
          */
         app_pc xl8 = instr_get_app_pc(inst);
         app_pc fake_xl8 = xl8 + 1;
