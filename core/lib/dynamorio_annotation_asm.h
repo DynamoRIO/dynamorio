@@ -15,13 +15,13 @@
 # endif
 #endif
 
-#ifdef _MSC_VER
+#ifdef _MSC_VER /* Microsoft Visual Studio */
+/* The value of this intrinsic is assumed to be non-zero, though in the rare case of
+ * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
+ * this case the annotation would be executed in a native run (it will not crash). */
 # pragma intrinsic(_AddressOfReturnAddress)
 
 /*
-1. no relos in GOT ref (eip-relative)
-2. _AddressOfReturnAddress may fail in managed code (very rare)
-   a. annotation will still execute correctly, w/o crash
 3. configure_DynamoRIO_annotations @make/DynamoRIOConfig.cmake.in (see #572)
 4. Change names to dr_annotation*
 5. Move samples to the wiki somewhere
@@ -37,7 +37,9 @@ do { \
 # define DR_ANNOTATION_EXPRESSION(annotation, ...) \
     (((_AddressOfReturnAddress() == (void *) 0) ? \
         (annotation##_tag() | (uintptr_t) annotation(__VA_ARGS__)) : 0) != 0)
-#else
+#else /* GCC or Intel (may be Unix or Windows) */
+/* Each reference to _GLOBAL_OFFSET_TABLE_ is adjusted by the linker to be
+ * XIP-relative, and no relocations are generated for the operand. */
 # ifdef DYNAMORIO_ANNOTATIONS_X64
 #  define DR_ANNOTATION(annotation, ...) \
 ({ \
@@ -61,8 +63,6 @@ do { \
     jump_to: \
     annotation(__VA_ARGS__); \
 })
-/* bsr "#annotation"_name@GOTPCREL(%%rip),%%rax;" \ */
-
 # else
 #  define DR_ANNOTATION(annotation, ...) __extension__ \
 ({ \
@@ -91,20 +91,24 @@ do { \
 
 #ifdef _MSC_VER
 # define DR_WEAK_DECLARATION
-# define DR_DECLARE_ANNOTATION(annotation) \
+# define DR_DEFINE_ANNOTATION_TAG(annotation) \
     static void annotation##_tag() \
     { \
         extern const char *annotation##_name; \
         _m_prefetch(annotation##_name); \
-    } \
+    }
+# define DR_DECLARE_ANNOTATION(annotation) \
+    DR_DEFINE_ANNOTATION_TAG(annotation) \
     void __fastcall annotation
-# define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
+# define DR_DEFINE_ANNOTATION_EXPRESSION_TAG(annotation) \
     static uintptr_t annotation##_tag() \
     { \
         extern const char *annotation##_name; \
         _m_prefetch(annotation##_name); \
-        return 0; \
-    } \
+        return 1; \
+    }
+# define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
+    DR_DEFINE_ANNOTATION_EXPRESSION_TAG(annotation) \
     return_type __fastcall annotation
 #else
 # define DR_WEAK_DECLARATION __attribute__ ((weak))

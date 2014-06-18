@@ -19,11 +19,16 @@
 #endif
 
 #if defined(WINDOWS)
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
-# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+# ifdef X64
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+# else
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) (opnd_get_disp(src) + instr_pc))
+# endif
 #else
 # define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
-// +4 for offset of the operand in the instruction
+// +4 for offset of the operand within the instruction
 # define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) (opnd_get_disp(src) + instr_pc + 4))
 #endif
 
@@ -129,7 +134,7 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
-                  OUT const char **name);
+                  OUT const char **name, OUT bool *is_expression);
 
 static void
 identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
@@ -659,7 +664,7 @@ annot_match(dcontext_t *dcontext, instr_t *cti_instr)
     app_pc annotation_pc;
     identify_annotation(dcontext, cti_instr, &annotation_name, &is_expression,
                         &annotation_pc);
-    if (annotation_name != NULL) {
+    if ((annotation_name != NULL) && (annotation_pc != NULL)) {
         dr_printf("Decoded %s invocation of %s at "PFX"\n",
                   is_expression ? "expression" : "statement",
                   annotation_name, annotation_pc);
@@ -874,7 +879,7 @@ lookup_valgrind_request(ptr_uint_t request)
 
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
-                  OUT const char **name)
+                  OUT const char **name, OUT bool *is_expression)
 {
     app_pc cur_pc = start_pc;
 
@@ -883,6 +888,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
     if (instr_is_mov(scratch)) {
         opnd_t src = instr_get_src(scratch, 0);
         if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
+            bool is_annotation_tag = false;
             char buf[24];
             app_pc buf_ptr;
             app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
@@ -899,6 +905,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
             src_ptr += opnd_get_disp(src);
             if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
                 return false;
+            *is_expression = (instr_get_opcode(&scratch) == OP_bsr);
             src_ptr = got_ptr;
 #endif
             if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
@@ -909,13 +916,20 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
             if (strcmp(buf, "dynamorio-annotation") != 0)
                 return false;
 #ifdef WINDOWS
-            instr_reset(dcontext, scratch);
-            cur_pc = decode(dcontext, cur_pc, scratch);
-            if (!instr_is_prefetch(scratch))
-                return false;
+            do {
+                instr_reset(dcontext, scratch);
+                cur_pc = decode(dcontext, cur_pc, scratch);
+                if (instr_is_prefetch(scratch)) {
+                    is_annotation_tag = true;
+                } else if (instr_num_srcs(scratch) == 1) {
+                    opnd_t src = instr_get_src(scratch, 0);
+                    if (opnd_is_immed_int(src) && (opnd_get_immed_int(src) == 1))
+                        *is_expression = true;
+                }
+            } while (!instr_is_return(scratch));
 #endif
             *name = (const char *) (buf_ptr + 21);
-            return true;
+            return is_annotation_tag;
         }
     }
     return false;
@@ -928,39 +942,41 @@ identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **n
 {
     uint instr_count = 0, cti_count = 0;
     instr_t scratch;
-    app_pc last_pc, cur_pc = instr_get_translation(cti_instr);
-    app_pc cti_target = instr_get_branch_target_pc(cti_instr);
+    app_pc last_pc, cur_pc, start_pc = instr_get_translation(cti_instr);
 
     *annotation_pc = NULL;
     *name = NULL;
     instr_init(dcontext, &scratch);
-    cur_pc = decode_cti(dcontext, cur_pc, &scratch); // skip `cti_instr`
+    cur_pc = decode_next_pc(dcontext, start_pc); // skip `cti_instr`
     while (true) {
-        instr_reset(dcontext, &scratch);
         last_pc = cur_pc;
         cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+        if ((cur_pc == NULL) || !instr_valid(&scratch))
+            break; // fail: reached empty space before the annotation tokens
         if (instr_is_cti(&scratch)) {
             if (instr_is_call_direct(&scratch)) {
                 if ((*name == NULL) &&
                     is_annotation_tag(dcontext, instr_get_branch_target_pc(&scratch),
-                                      &scratch, name)) {
+                                      &scratch, name, is_expression)) {
                     if (*annotation_pc != NULL)
-                        break;
+                        break; // success: found both calls
                 } else {
-                    if (*annotation_pc != NULL) // fail: no tag
-                        break;
+                    if (*annotation_pc != NULL)
+                        break; // fail: no tag is found
                     *annotation_pc = last_pc;
-                    *is_expression = (cti_target <= last_pc);
                     if (*name != NULL)
-                        break;
+                        break; // success: found both calls
                 }
             }
             if (++cti_count > 1)
-                break;
+                break; // fail: 2 ctis but not 2 annotation calls
         }
         if (++instr_count > MAX_ANNOTATION_INSTR_COUNT)
-            break;
+            break; // fail: annotations are never this big
+        instr_reset(dcontext, &scratch);
     }
+
+    instr_free(dcontext, &scratch);
 }
 #else
 /*
@@ -983,11 +999,8 @@ identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **n
 
     *name = NULL;
     instr_init(dcontext, &scratch);
-    cur_pc = decode_cti(dcontext, cur_pc, &scratch);
-    instr_reset(dcontext, &scratch);
-
-    if (is_annotation_tag(dcontext, cur_pc, &scratch, name)) {
-        *is_expression = (instr_get_opcode(&scratch) == OP_bsr);
+    cur_pc = decode_next_pc(dcontext, cur_pc); // skip `cti_instr`
+    if (is_annotation_tag(dcontext, cur_pc, &scratch, name, is_expression)) {
         do {
             instr_reset(dcontext, &scratch);
             last_pc = cur_pc;
