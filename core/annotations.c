@@ -174,7 +174,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                   OUT const char **name, OUT bool *is_expression);
 
 static void
-identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+identify_annotation(dcontext_t *dcontext, app_pc start_pc, OUT const char **name,
                     OUT bool *is_expression, OUT app_pc *annotation_pc);
 
 static void
@@ -699,12 +699,19 @@ annot_match(dcontext_t *dcontext, instr_t *cti_instr)
     const char *annotation_name;
     bool is_expression;
     app_pc annotation_pc;
-    identify_annotation(dcontext, cti_instr, &annotation_name, &is_expression,
-                        &annotation_pc);
-    if ((annotation_name != NULL) && (annotation_pc != NULL)) {
-        dr_printf("Decoded %s invocation of %s at "PFX"\n",
-                  is_expression ? "expression" : "statement",
-                  annotation_name, annotation_pc);
+    app_pc start_pc = instr_get_translation(cti_instr);
+
+    while (true) {
+        identify_annotation(dcontext, start_pc, &annotation_name,
+                            &is_expression, &annotation_pc);
+        if ((annotation_name != NULL) && (annotation_pc != NULL)) {
+            dr_printf("Decoded %s invocation of %s at "PFX"\n",
+                      is_expression ? "expression" : "statement",
+                      annotation_name, annotation_pc);
+            start_pc = annotation_pc;
+            continue;
+        }
+        break;
     }
 
     return NULL;
@@ -922,6 +929,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
 #ifdef WINDOWS
     bool found_prefetch = false;
 #endif
+
     do {
         instr_reset(dcontext, scratch);
         cur_pc = decode(dcontext, cur_pc, scratch);
@@ -973,17 +981,17 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
 
 #ifdef WINDOWS
 static inline void
-identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+identify_annotation(dcontext_t *dcontext, app_pc start_pc, OUT const char **name,
                     OUT bool *is_expression, OUT app_pc *annotation_pc)
 {
     uint instr_count = 0, cti_count = 0;
     instr_t scratch;
-    app_pc last_pc, cur_pc, start_pc = instr_get_translation(cti_instr);
+    app_pc last_pc, cur_pc;
 
     *annotation_pc = NULL;
     *name = NULL;
     instr_init(dcontext, &scratch);
-    cur_pc = decode_next_pc(dcontext, start_pc); // skip `cti_instr`
+    cur_pc = decode_next_pc(dcontext, start_pc); // skip first instr
     while (true) {
         last_pc = cur_pc;
         cur_pc = decode_cti(dcontext, cur_pc, &scratch);
@@ -1027,15 +1035,15 @@ identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **n
   --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
 */
 static inline void
-identify_annotation(dcontext_t *dcontext, instr_t *cti_instr, OUT const char **name,
+identify_annotation(dcontext_t *dcontext, app_pc start_pc, OUT const char **name,
                     OUT bool *is_expression, OUT app_pc *annotation_pc)
 {
     instr_t scratch;
-    app_pc last_pc, cur_pc = instr_get_translation(cti_instr);
+    app_pc last_pc, cur_pc = start_pc;
 
     *name = NULL;
     instr_init(dcontext, &scratch);
-    cur_pc = decode_next_pc(dcontext, cur_pc); // skip `cti_instr`
+    cur_pc = decode_next_pc(dcontext, cur_pc); // skip first instr
     if (is_annotation_tag(dcontext, cur_pc, &scratch, name, is_expression)) {
         do {
             instr_reset(dcontext, &scratch);
