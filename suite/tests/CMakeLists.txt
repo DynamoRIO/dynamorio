@@ -518,10 +518,10 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-  if ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
+  if ("${srccode}" MATCHES "include \"annotation/dr_annotations.h\"")
     set(test_srcs ${test_srcs}
-      "${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.c")
-  endif ("${srccode}" MATCHES "include \"annotation/dynamorio_annotations.h\"")
+      "${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c")
+  endif ("${srccode}" MATCHES "include \"annotation/dr_annotations.h\"")
   if ("${srccode}" MATCHES "include \"annotation/test_mode_annotations.h\"")
     set(test_srcs ${test_srcs}
       "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_mode_annotations.c")
@@ -1417,10 +1417,10 @@ if (CLIENT_INTERFACE)
     "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
   configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
     "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
-  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotation_asm.h"
-    "${BUILD_ANNOTATION}/dynamorio_annotation_asm.h" COPYONLY)
-  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dynamorio_annotations.h"
-    "${BUILD_ANNOTATION}/dynamorio_annotations.h" COPYONLY)
+  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotation_asm.h"
+    "${BUILD_ANNOTATION}/dr_annotation_asm.h" COPYONLY)
+  configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
+    "${BUILD_ANNOTATION}/dr_annotations.h" COPYONLY)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_mode_annotations.h"
     "${BUILD_ANNOTATION}/test_mode_annotations.h" COPYONLY)

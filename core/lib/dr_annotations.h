@@ -30,31 +30,27 @@
  * DAMAGE.
  */
 
-#include "test_mode_annotations.h"
+#ifndef _DYNAMORIO_ANNOTATIONS_H_
+#define _DYNAMORIO_ANNOTATIONS_H_ 1
+
+#include "annotation/dr_annotation_asm.h"
+
+#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
+    DR_ANNOTATION_EXPRESSION(dynamorio_annotate_running_on_dynamorio)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #pragma auto_inline(off)
 
-DR_DEFINE_ANNOTATION(void, test_annotation_init_mode) (unsigned int mode)
-{
-#ifndef _MSC_VER
-    __asm__ volatile ("");
-#endif
-}
-
-DR_DEFINE_ANNOTATION(void, test_annotation_init_context) (unsigned int id,
-    const char *name, unsigned int initial_mode)
-{
-#ifndef _MSC_VER
-    __asm__ volatile ("");
-#endif
-}
-
-DR_DEFINE_ANNOTATION(void, test_annotation_set_mode) (unsigned int context_id,
-    unsigned int mode)
-{
-#ifndef _MSC_VER
-    __asm__ volatile ("");
-#endif
-}
+DR_DECLARE_ANNOTATION_EXPRESSION(char, dynamorio_annotate_running_on_dynamorio) ()
+    DR_WEAK_DECLARATION;
 
 #pragma auto_inline(on)
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
