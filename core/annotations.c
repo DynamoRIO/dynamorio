@@ -27,9 +27,14 @@
 #  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
 # endif
 #else
+# ifdef X64
+#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
+# else
+#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 1
+# endif
 # define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
-// +4 for offset of the operand within the instruction
-# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) (opnd_get_disp(src) + instr_pc + 4))
+# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
+    ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
 #endif
 
 typedef struct _annotation_registration_by_name_t {
