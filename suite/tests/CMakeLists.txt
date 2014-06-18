@@ -625,6 +625,14 @@ function(tobuild_ci test source client_ops dr_ops exe_ops)
     return()  # FIXME i#975: add support for STATIC_LIBRARY runall tests.
   endif ()
 
+  if ("${test}" MATCHES "-opt$")
+    if (UNIX)
+      append_property_string(TARGET ${test} COMPILE_FLAGS "-O3")
+    else ()
+      append_property_string(TARGET ${test} COMPILE_FLAGS "/Ox")
+    endif (UNIX)
+  endif ("${test}" MATCHES "-opt$")
+
   add_library(${test}.dll ${SHARED_OR_STATIC} ${client_source})
   if (NOT "${source}" MATCHES "cpp\\.cpp")
     # to avoid changing all the REG_ constants we ask for compatibility
@@ -713,6 +721,14 @@ function(tobuild_appdll test source)
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
+
+    if ("${test}" MATCHES "-opt$")
+      if (UNIX)
+        append_property_string(TARGET ${test}.appdll COMPILE_FLAGS "-O3")
+      else ()
+        append_property_string(TARGET ${test}.appdll COMPILE_FLAGS "/Ox")
+      endif (UNIX)
+    endif ("${test}" MATCHES "-opt$")
 
     # so far these are all dynamically loaded so we don't bother
     # with "target_link_libraries(${test} ${test}.appdll)"
@@ -1446,7 +1462,6 @@ if (CLIENT_INTERFACE)
   tobuild_appdll(client.annotation client-interface/annotation.c)
   if (UNIX)
     target_link_libraries(client.annotation ${libpthread})
-    append_property_string(TARGET client.annotation.appdll COMPILE_FLAGS "-O3")
   endif (UNIX)
   set(client.annotation.full-decode_expectbase "annotation.full-decode")
   torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
@@ -1457,6 +1472,15 @@ if (CLIENT_INTERFACE)
   set(client.annotation.bb-truncate_expectbase "annotation.bb-truncate")
   torunonly_ci(client.annotation.bb-truncate client.annotation client.annotation.dll
     client-interface/annotation.c "+b/b" "" "A4")
+
+  tobuild_ci(client.annotation-opt client-interface/annotation.c "" "" "A4")
+  tobuild_appdll(client.annotation-opt client-interface/annotation.c)
+  if (UNIX)
+    target_link_libraries(client.annotation-opt ${libpthread})
+  endif (UNIX)
+  set(client.annotation-opt.full-decode_expectbase "annotation.full-decode")
+  torunonly_ci(client.annotation-opt.full-decode client.annotation-opt
+    client.annotation-opt.dll client-interface/annotation.c "+bb" "" "A4")
   set(DynamoRIO_USE_LIBC ON)
 
   if (UNIX)
