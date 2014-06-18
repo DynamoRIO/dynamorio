@@ -91,7 +91,7 @@ do { \
     annotation(__VA_ARGS__); \
 })
 # else
-#  define DR_ANNOTATION(annotation, ...) __extension__ \
+#  define DR_ANNOTATION(annotation, ...) \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
@@ -102,7 +102,7 @@ do { \
     annotation(__VA_ARGS__); \
     jump_to:; \
 })
-#  define DR_ANNOTATION_EXPRESSION(annotation, ...) __extension__ \
+#  define DR_ANNOTATION_EXPRESSION(annotation, ...) \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
