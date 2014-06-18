@@ -476,6 +476,8 @@ typedef struct _dr_mem_info_t {
 #endif
 bool get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex(const byte *pc, OUT dr_mem_info_t *info);
+/* We provide this b/c getting the bounds is expensive on Windows (i#1462) */
+bool query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info);
 #ifdef UNIX
 bool get_memory_info_from_os(const byte *pc, byte **base_pc, size_t *size, uint *prot);
 bool query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info);

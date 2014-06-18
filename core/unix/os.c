@@ -7551,6 +7551,12 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *out_info)
 #endif
 }
 
+bool
+query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info)
+{
+    return query_memory_ex(pc, info);
+}
+
 /* Use our cached data structures (if in use, else raw query) to retrieve memory info */
 bool
 get_memory_info(const byte *pc, byte **base_pc, size_t *size,
