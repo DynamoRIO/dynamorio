@@ -62,8 +62,14 @@
 # define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) \
     (instr_is_cbr(instr) && opnd_is_pc(instr_get_src(instr, 0)))
 #else
+# ifdef X64
+#  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x11eb
+# else
+#  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x0ceb
+# endif
 # define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) \
-    (instr_is_ubr(instr) && opnd_is_pc(instr_get_src(instr, 0)))
+    (instr_is_ubr(instr) &&  \
+    (*(ushort *)instr_get_translation(instr) == ANNOTATION_JUMP_OVER_LABEL_REFERENCE))
 #endif
 
 #define GET_ANNOTATION_PC(label_data) ((app_pc) label_data->data[2])
@@ -202,7 +208,7 @@ void
 annot_exit();
 
 instr_t *
-annot_match(dcontext_t *dcontext, instr_t *instr);
+annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc);
 
 /* Replace the Valgrind annotation code sequence with a clean call to
  * an internal function which will dispatch to registered handlers.

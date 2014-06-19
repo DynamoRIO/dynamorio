@@ -935,6 +935,7 @@ get_timer_frequency_cpuinfo(void)
     char *mhz_line;
     ulong cpu_mhz = 1000;
     ulong cpu_khz = 0;
+    timestamp_t speed;
 
     cpuinfo = os_open(PROC_CPUINFO, OS_OPEN_READ);
 
@@ -962,7 +963,10 @@ get_timer_frequency_cpuinfo(void)
     global_heap_free(buf, PAGE_SIZE HEAPACCT(ACCT_OTHER));
     os_close(cpuinfo);
 
-    return cpu_mhz * 1000 + cpu_khz;
+    speed = cpu_mhz * 1000 + cpu_khz;
+    if (speed == 0)
+        speed = 1000 * 1000;
+    return speed;
 }
 
 timestamp_t

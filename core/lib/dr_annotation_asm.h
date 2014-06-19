@@ -72,22 +72,21 @@ do { \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l0; \
+    __asm__ volatile goto (".byte 0xeb; .byte 0x11; \
                             mov _GLOBAL_OFFSET_TABLE_,%%rax; \
-                            bsf "#annotation"_name@GOT,%%rax;" \
+                            bsf "#annotation"_name@GOT,%%rax; \
+                            jmp %l0;" \
                             ::: "%rax" : jump_to); \
     annotation(__VA_ARGS__); \
     jump_to:; \
 })
 #  define DR_ANNOTATION_EXPRESSION(annotation, ...) \
 ({ \
-    __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l0; \
-                            mov _GLOBAL_OFFSET_TABLE_,%%rax; \
-                            bsr "#annotation"_name@GOT,%%rax;" \
-                            ::: "%rax" : jump_to); \
-    jump_to: \
+    __asm__ volatile (".byte 0xeb; .byte 0x11; \
+                       mov _GLOBAL_OFFSET_TABLE_,%%rax; \
+                       bsr "#annotation"_name@GOT,%%rax;" \
+                       ::: "%rax"); \
     annotation(__VA_ARGS__); \
 })
 # else
@@ -95,22 +94,21 @@ do { \
 ({ \
     __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l0; \
+    __asm__ volatile goto (".byte 0xeb; .byte 0xc; \
                             mov _GLOBAL_OFFSET_TABLE_,%%eax; \
-                            bsf "#annotation"_name@GOT,%%eax;" \
+                            bsf "#annotation"_name@GOT,%%eax; \
+                            jmp %l0;" \
                             ::: "%eax" : jump_to); \
     annotation(__VA_ARGS__); \
     jump_to:; \
 })
 #  define DR_ANNOTATION_EXPRESSION(annotation, ...) \
 ({ \
-    __label__ jump_to; \
     extern const char *annotation##_name; \
-    __asm__ volatile goto ("jmp %l0; \
-                            mov _GLOBAL_OFFSET_TABLE_,%%eax; \
-                            bsr "#annotation"_name@GOT,%%eax;" \
-                            ::: "%eax" : jump_to); \
-    jump_to: \
+    __asm__ volatile (".byte 0xeb; .byte 0xc; \
+                       mov _GLOBAL_OFFSET_TABLE_,%%eax; \
+                       bsr "#annotation"_name@GOT,%%eax;" \
+                       ::: "%eax"); \
     annotation(__VA_ARGS__); \
 })
 # endif

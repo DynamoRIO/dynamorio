@@ -1458,29 +1458,43 @@ if (CLIENT_INTERFACE)
   tobuild_appdll(client.modules client-interface/modules.c)
 
   set(DynamoRIO_USE_LIBC OFF)
-  tobuild_ci(client.annotation client-interface/annotation.c "" "" "A4")
-  tobuild_appdll(client.annotation client-interface/annotation.c)
+  tobuild_ci(client.annotation-concurrency client-interface/annotation-concurrency.c
+    "" "" "A4")
+  tobuild_appdll(client.annotation-concurrency client-interface/annotation-concurrency.c)
   if (UNIX)
-    target_link_libraries(client.annotation ${libpthread})
+    target_link_libraries(client.annotation-concurrency ${libpthread})
   endif (UNIX)
-  set(client.annotation.full-decode_expectbase "annotation.full-decode")
-  torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
-    client-interface/annotation.c "+bb" "" "A4")
-  set(client.annotation.full-decode.tiny-bb_expectbase "annotation.full-decode")
-  torunonly_ci(client.annotation.full-decode client.annotation client.annotation.dll
-    client-interface/annotation.c "+bb" "-max_bb_instrs 3" "A4")
-  set(client.annotation.bb-truncate_expectbase "annotation.bb-truncate")
-  torunonly_ci(client.annotation.bb-truncate client.annotation client.annotation.dll
-    client-interface/annotation.c "+b/b" "" "A4")
+  set(client.annotation-concurrency.full-decode_expectbase
+    "annotation-concurrency.full-decode")
+  torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
+    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+    "+bb" "" "A4")
+  set(client.annotation-concurrency.full-decode.tiny-bb_expectbase
+    "annotation-concurrency.full-decode")
+  torunonly_ci(client.annotation-concurrency.full-decode client.annotation-concurrency
+    client.annotation-concurrency.dll client-interface/annotation-concurrency.c "+bb"
+    "-max_bb_instrs 3" "A4")
+  set(client.annotation-concurrency.bb-truncate_expectbase
+    "annotation-concurrency.bb-truncate")
+  torunonly_ci(client.annotation-concurrency.bb-truncate client.annotation-concurrency
+    client.annotation-concurrency.dll client-interface/annotation-concurrency.c
+    "+b/b" "" "A4")
 
-  tobuild_ci(client.annotation-opt client-interface/annotation.c "" "" "A4")
-  tobuild_appdll(client.annotation-opt client-interface/annotation.c)
+  tobuild_ci(client.annotation-concurrency-opt client-interface/annotation-concurrency.c
+    "" "" "A4")
+  tobuild_appdll(client.annotation-concurrency-opt
+    client-interface/annotation-concurrency.c)
   if (UNIX)
-    target_link_libraries(client.annotation-opt ${libpthread})
+    target_link_libraries(client.annotation-concurrency-opt ${libpthread})
   endif (UNIX)
-  set(client.annotation-opt.full-decode_expectbase "annotation.full-decode")
-  torunonly_ci(client.annotation-opt.full-decode client.annotation-opt
-    client.annotation-opt.dll client-interface/annotation.c "+bb" "" "A4")
+  set(client.annotation-concurrency-opt.full-decode_expectbase
+    "annotation-concurrency.full-decode")
+  torunonly_ci(client.annotation-concurrency-opt.full-decode
+    client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
+    client-interface/annotation-concurrency.c "+bb" "" "A4")
+
+  tobuild_ci(client.annotation-detection client-interface/annotation-detection.c "" "" "")
+  tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.c "" "" "")
   set(DynamoRIO_USE_LIBC ON)
 
   if (UNIX)

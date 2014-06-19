@@ -3320,7 +3320,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         } else
 # endif
         if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
-            instr_t *substitution = annot_match(dcontext, bb->instr);
+            instr_t *substitution = annot_match(dcontext, bb->instr, bb->cur_pc);
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);
                 bb->instr = substitution;

@@ -57,11 +57,11 @@
 
 #ifdef WINDOWS
 # define SPRINTF(dst, size, src, ...) sprintf_s(dst, size, src, __VA_ARGS__);
-# define LIB_NAME "client.annotation.appdll.dll"
+# define LIB_NAME "client.annotation-concurrency.appdll.dll"
 # define MODULE_TYPE HMODULE
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
-# define LIB_NAME "libclient.annotation.appdll.so"
+# define LIB_NAME "libclient.annotation-concurrency.appdll.so"
 # define MODULE_TYPE void *
 #endif
 
