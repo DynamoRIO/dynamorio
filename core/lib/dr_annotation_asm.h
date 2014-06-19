@@ -53,6 +53,7 @@
  * this case the annotation would be executed in a native run (it will not crash or
  * alter the program behavior in any way, other than wasting a cache fetch). */
 # pragma intrinsic(_AddressOfReturnAddress)
+# define GET_RETURN_ADDRESS _AddressOfReturnAddress
 
 # define DR_ANNOTATION(annotation, ...) \
 do { \
@@ -61,57 +62,67 @@ do { \
         annotation(__VA_ARGS__); \
     } \
 } while (0)
+# define DR_ANNOTATION_STATEMENT(annotation, statement, ...) \
+do { \
+    if (_AddressOfReturnAddress() == (void *) 0) { \
+        annotation##_tag(); \
+        annotation(__VA_ARGS__); \
+    } else { \
+        statement; \
+    } \
+} while (0)
+# define DR_ANNOTATION(annotation, ...) \
+    DR_ANNOTATION_STATEMENT(annotation, , __VA_ARGS__)
 # define DR_ANNOTATION_EXPRESSION(annotation, ...) \
-    (((_AddressOfReturnAddress() == (void *) 0) ? \
-        (annotation##_tag() | (uintptr_t) annotation(__VA_ARGS__)) : 0) != 0)
+    ((((_m_prefetch(GET_RETURN_ADDRESS()), GET_RETURN_ADDRESS() == (void *) 0) ? \
+        (annotation##_tag(), (uintptr_t) annotation(__VA_ARGS__)) : 0) != 0)
 #else /* GCC or Intel (may be Unix or Windows) */
 /* Each reference to _GLOBAL_OFFSET_TABLE_ is adjusted by the linker to be
  * XIP-relative, and no relocations are generated for the operand. */
 # ifdef DYNAMORIO_ANNOTATIONS_X64
-#  define DR_ANNOTATION(annotation, ...) \
-({ \
-    __label__ jump_to; \
-    extern const char *annotation##_name; \
-    __asm__ volatile goto (".byte 0xeb; .byte 0x11; \
-                            mov _GLOBAL_OFFSET_TABLE_,%%rax; \
-                            bsf "#annotation"_name@GOT,%%rax; \
-                            jmp %l0;" \
-                            ::: "%rax" : jump_to); \
-    annotation(__VA_ARGS__); \
-    jump_to:; \
-})
-#  define DR_ANNOTATION_EXPRESSION(annotation, ...) \
-({ \
-    extern const char *annotation##_name; \
-    __asm__ volatile (".byte 0xeb; .byte 0x11; \
-                       mov _GLOBAL_OFFSET_TABLE_,%%rax; \
-                       bsr "#annotation"_name@GOT,%%rax;" \
-                       ::: "%rax"); \
-    annotation(__VA_ARGS__); \
-})
+#  define LABEL_REFERENCE_LENGTH "0x11"
+#  define LABEL_REFERENCE_REGISTER "%rax"
 # else
-#  define DR_ANNOTATION(annotation, ...) \
-({ \
-    __label__ jump_to; \
-    extern const char *annotation##_name; \
-    __asm__ volatile goto (".byte 0xeb; .byte 0xc; \
-                            mov _GLOBAL_OFFSET_TABLE_,%%eax; \
-                            bsf "#annotation"_name@GOT,%%eax; \
-                            jmp %l0;" \
-                            ::: "%eax" : jump_to); \
-    annotation(__VA_ARGS__); \
-    jump_to:; \
-})
-#  define DR_ANNOTATION_EXPRESSION(annotation, ...) \
-({ \
-    extern const char *annotation##_name; \
-    __asm__ volatile (".byte 0xeb; .byte 0xc; \
-                       mov _GLOBAL_OFFSET_TABLE_,%%eax; \
-                       bsr "#annotation"_name@GOT,%%eax;" \
-                       ::: "%eax"); \
-    annotation(__VA_ARGS__); \
-})
+#  define LABEL_REFERENCE_LENGTH "0xc"
+#  define LABEL_REFERENCE_REGISTER "%eax"
 # endif
+# define DR_ANNOTATION(annotation, ...) \
+({ \
+    __label__ skip_annotation; \
+    extern const char *annotation##_name; \
+    __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            jmp %l0;" \
+                            ::: LABEL_REFERENCE_REGISTER \
+                            : skip_annotation); \
+    annotation(__VA_ARGS__); \
+    skip_annotation: ; \
+})
+# define DR_ANNOTATION_STATEMENT(annotation, statement, ...) \
+({ \
+    __label__ execute_statement, skip_statement; \
+    extern const char *annotation##_name; \
+    __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            jmp %l0; \
+                            jmp %l1;" \
+                            ::: LABEL_REFERENCE_REGISTER \
+                            : execute_statement, skip_statement); \
+    annotation(__VA_ARGS__); \
+    execute_statement: statement; \
+    skip_statement: ; \
+})
+# define DR_ANNOTATION_EXPRESSION(annotation, ...) \
+({ \
+    extern const char *annotation##_name; \
+    __asm__ volatile (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                       mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                       bsf "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER";" \
+                       ::: LABEL_REFERENCE_REGISTER); \
+    annotation(__VA_ARGS__); \
+})
 #endif
 
 #ifdef _MSC_VER
@@ -122,30 +133,16 @@ do { \
         extern const char *annotation##_name; \
         _m_prefetch(annotation##_name); \
     }
-# define DR_DECLARE_ANNOTATION(annotation) \
+# define DR_DECLARE_ANNOTATION(return_type, annotation) \
     DR_DEFINE_ANNOTATION_TAG(annotation) \
-    void __fastcall annotation
-# define DR_DEFINE_ANNOTATION_EXPRESSION_TAG(annotation) \
-    static uintptr_t annotation##_tag() \
-    { \
-        extern const char *annotation##_name; \
-        _m_prefetch(annotation##_name); \
-        return 1; \
-    }
-# define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
-    DR_DEFINE_ANNOTATION_EXPRESSION_TAG(annotation) \
     return_type __fastcall annotation
 #else
 # define DR_WEAK_DECLARATION __attribute__ ((weak))
 # ifdef DYNAMORIO_ANNOTATIONS_X64
-#  define DR_DECLARE_ANNOTATION(annotation) \
-    __attribute__((noinline, visibility("hidden"))) void annotation
-#  define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
+#  define DR_DECLARE_ANNOTATION(return_type, annotation) \
     __attribute__((noinline, visibility("hidden"))) return_type annotation
 # else
-#  define DR_DECLARE_ANNOTATION(annotation) \
-    __attribute__((noinline, fastcall, visibility("hidden"))) void annotation
-#  define DR_DECLARE_ANNOTATION_EXPRESSION(return_type, annotation) \
+#  define DR_DECLARE_ANNOTATION(return_type, annotation) \
     __attribute__((noinline, fastcall, visibility("hidden"))) return_type annotation
 # endif
 #endif

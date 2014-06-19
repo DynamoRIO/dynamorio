@@ -252,7 +252,8 @@ int main(int argc, char **argv)
 
         jacobi_init(matrix_size, iteration % 2);
 
-        TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
+        TEST_ANNOTATION_SET_MODE({printf("Mode 1 on %d\n", thread_handling_index);},
+            thread_handling_index, MODE_1);
 
         for (i_thread = 0; i_thread < num_threads; i_thread++) {
             /* Creating The Threads */
@@ -276,7 +277,8 @@ int main(int argc, char **argv)
         }
 #endif
 
-        TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0);
+        TEST_ANNOTATION_SET_MODE({printf("Mode 0 on %d\n", thread_handling_index);},
+            thread_handling_index, MODE_0);
 
 #ifndef WINDOWS
         result = pthread_attr_destroy(&pta);
@@ -350,10 +352,12 @@ double distance(double *x_old, double *x_new)
     int i;
     double sum = 0.0;
 
-    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_1);
+    TEST_ANNOTATION_SET_MODE({printf("Mode 1 on %d\n", thread_handling_index);},
+        thread_handling_index, MODE_1);
     for (i = 0; i < matrix_size; i++)
         sum += (x_new[i] - x_old[i]) * (x_new[i] - x_old[i]);
-    TEST_ANNOTATION_SET_MODE(thread_handling_index, MODE_0);
+    TEST_ANNOTATION_SET_MODE({printf("Mode 0 on %d\n", thread_handling_index);},
+        thread_handling_index, MODE_0);
     return sum;
 }
 
@@ -364,9 +368,11 @@ void
 #endif
 thread_main(thread_init_t *init)
 {
-    TEST_ANNOTATION_SET_MODE(init->id, MODE_1);
+    TEST_ANNOTATION_SET_MODE({printf("Mode 1 on %d\n", init->id);},
+        init->id, MODE_1);
     jacobi(x_new, x_old, a_matrix, rhs_vector, init->iteration_count);
-    TEST_ANNOTATION_SET_MODE(init->id, MODE_0);
+    TEST_ANNOTATION_SET_MODE({printf("Mode 0 on %d\n", init->id);},
+        init->id, MODE_0);
 #ifdef WINDOWS
     return 0;
 #endif

@@ -171,11 +171,11 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static app_pc
 is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
-                  OUT const char **name, OUT bool *is_expression);
+                  OUT const char **name);
 
 static void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
-                    OUT bool *is_expression, OUT app_pc *annotation_pc);
+                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc);
 
 static void
 specify_args(annotation_handler_t *handler, uint num_args
@@ -697,16 +697,14 @@ instr_t *
 annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc)
 {
     const char *annotation_name;
-    bool is_expression;
-    app_pc annotation_pc;
+    app_pc annotation_pc, resume_pc;
 
     while (true) {
-        identify_annotation(dcontext, &start_pc, &annotation_name,
-                            &is_expression, &annotation_pc);
+        identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
+                            &resume_pc);
         if ((annotation_name != NULL) && (annotation_pc != NULL)) {
-            dr_printf("Decoded %s invocation of %s at "PFX"\n",
-                      is_expression ? "expression" : "statement",
-                      annotation_name, annotation_pc);
+            dr_printf("Decoded invocation of %s at "PFX" resuming at "PFX"\n",
+                      annotation_name, annotation_pc, resume_pc);
             continue;
         }
         break;
@@ -921,7 +919,7 @@ lookup_valgrind_request(ptr_uint_t request)
 
 static inline app_pc
 is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
-                  OUT const char **name, OUT bool *is_expression)
+                  OUT const char **name)
 {
     app_pc cur_pc = start_pc;
 #ifdef WINDOWS
@@ -941,8 +939,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                 app_pc got_ptr;
                 instr_reset(dcontext, scratch);
                 cur_pc = decode(dcontext, cur_pc, scratch);
-                if ((instr_get_opcode(scratch) != OP_bsf) &&
-                    (instr_get_opcode(scratch) != OP_bsr))
+                if (instr_get_opcode(scratch) != OP_bsf)
                     return NULL;
                 src = instr_get_src(scratch, 0);
                 if (!opnd_is_base_disp(src))
@@ -950,7 +947,6 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                 src_ptr += opnd_get_disp(src);
                 if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
                     return NULL;
-                *is_expression = (instr_get_opcode(scratch) == OP_bsr);
                 src_ptr = got_ptr;
 #endif
                 if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
@@ -965,10 +961,6 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
 #ifdef WINDOWS // prefetch must follow the name reference
         } else if (instr_is_prefetch(scratch) && (*name != NULL)) {
             found_prefetch = true;
-        } else if (instr_num_srcs(scratch) == 1) { // expression: return value 1
-            opnd_t src = instr_get_src(scratch, 0);
-            if (opnd_is_immed_int(src) && (opnd_get_immed_int(src) == 1))
-                *is_expression = true;
 #endif
         }
 
@@ -983,7 +975,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
 #ifdef WINDOWS
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
-                    OUT bool *is_expression, OUT app_pc *annotation_pc)
+                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
 {
     uint instr_count = 0, cti_count = 0;
     instr_t scratch;
@@ -1001,7 +993,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
             if (instr_is_call_direct(&scratch)) {
                 if ((*name == NULL) &&
                     (is_annotation_tag(dcontext, instr_get_branch_target_pc(&scratch),
-                                       &scratch, name, is_expression) != NULL)) {
+                                       &scratch, name) != NULL)) {
                     if (*annotation_pc != NULL) {
                         *start_pc = cur_pc;
                         break; // success: found both calls
@@ -1040,26 +1032,35 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
-                    OUT bool *is_expression, OUT app_pc *annotation_pc)
+                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
 {
     instr_t scratch;
     app_pc last_pc, cur_pc = *start_pc;
 
     *name = NULL;
+    *resume_pc = NULL;
     instr_init(dcontext, &scratch);
-    cur_pc = is_annotation_tag(dcontext, cur_pc, &scratch, name, is_expression);
+    cur_pc = is_annotation_tag(dcontext, cur_pc, &scratch, name);
     if (cur_pc != NULL) {
-        if (!*is_expression) {
-            instr_reset(dcontext, &scratch);
-            cur_pc = decode_next_pc(dcontext, cur_pc); // skip second `jmp`
-        }
-        do {
+        while (true) {
             instr_reset(dcontext, &scratch);
             last_pc = cur_pc;
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
-        } while (!instr_is_call(&scratch));
+            if (instr_valid(&scratch) && instr_is_ubr(&scratch)) {
+                *resume_pc = instr_get_branch_target_pc(&scratch);
+                continue;
+            }
+            break;
+        }
+        while (!instr_is_call(&scratch)) {
+            instr_reset(dcontext, &scratch);
+            last_pc = cur_pc;
+            cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+        }
 
         *annotation_pc = last_pc;
+        if (*resume_pc == NULL)
+            *resume_pc = last_pc;
         *start_pc = cur_pc;
     }
     instr_free(dcontext, &scratch);
