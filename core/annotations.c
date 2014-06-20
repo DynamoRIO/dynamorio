@@ -50,23 +50,23 @@
 # include <string.h>
 #endif
 
-#if defined(WINDOWS)
-# ifdef X64
-#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
-# else
-#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
-# endif
+#if defined(WINDOWS) && defined (X64)
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
+# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
 #else
-# ifdef X64
-#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
+# ifdef WINDOWS
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
+    ((app_pc) opnd_get_disp(src))
 # else
-#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
-# endif
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
+#  ifdef X64
+#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
+#  else
+#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
+#  endif
 # define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
     ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
+# endif
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
 #endif
 
 typedef struct _annotation_registration_by_name_t {
@@ -924,7 +924,7 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                   OUT const char **name)
 {
     app_pc cur_pc = start_pc;
-#ifdef WINDOWS
+#if defined (WINDOWS) && defined (X64)
     bool found_prefetch = false;
 #endif
 
@@ -961,21 +961,21 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                     return NULL;
                 *name = (const char *) (buf_ptr + 21);
             }
-#ifdef WINDOWS // prefetch must follow the name reference
+#if defined (WINDOWS) && defined (X64) // prefetch must follow the name reference
         } else if (instr_is_prefetch(scratch) && (*name != NULL)) {
             found_prefetch = true;
 #endif
         }
 
-    } while IF_WINDOWS_ELSE((!instr_is_cti(scratch)), (0));
+    } while IF_WINDOWS_ELSE(IF_X64_ELSE((!instr_is_cti(scratch)), (0)), (0));
 
-    if ((*name != NULL) IF_WINDOWS(&& found_prefetch))
+    if ((*name != NULL) IF_WINDOWS(IF_X64(&& found_prefetch)))
         return cur_pc;
     else
         return NULL;
 }
 
-#ifdef WINDOWS
+#if defined (WINDOWS) && defined (X64)
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
@@ -1021,7 +1021,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 
     instr_free(dcontext, &scratch);
 }
-#else /* UNIX */
+#else /* WINDOWS X86 and UNIX */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
@@ -1034,7 +1034,11 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
     instr_init(dcontext, &scratch);
     cur_pc = is_annotation_tag(dcontext, cur_pc, &scratch, name);
     if (cur_pc != NULL) {
+# ifdef WINDOWS
+        if (*(cur_pc++) == 1) { // skip padding byte
+# else
         if (instr_get_opcode(&scratch) == OP_bsf) {
+# endif
             instr_reset(dcontext, &scratch);
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
             instr_reset(dcontext, &scratch);

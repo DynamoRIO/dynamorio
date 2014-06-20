@@ -58,7 +58,7 @@
 # ifdef DYNAMORIO_ANNOTATIONS_X64
 #  pragma intrinsic(_AddressOfReturnAddress)
 #  define GET_RETURN_ADDRESS _AddressOfReturnAddress
-#  define DR_ANNOTATION_CALL_SITE_TAG(annotation) \
+#  define DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation) \
     static void annotation##_tag() \
     { \
         extern const char *annotation##_name; \
@@ -78,27 +78,32 @@ do { \
     extern const char *annotation##_name; \
     _m_prefetch(annotation##_name);
 # else
-#  define DR_DEFINE_ANNOTATION_TAG(annotation)
+#  define DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation)
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
-    __asm { \
-        __asm _emit 0xeb \
-        __asm _emit 0x05 \
-        __asm mov eax, annotation##_name \
-        __asm jmp PASTE(native_execution_, __LINE__) \
-        __asm jmp PASTE(native_end_marker_, __LINE__) \
-    } \
-    annotation(__VA_ARGS__); \
-    PASTE(native_execution_, __LINE__) : native_version; \
-    PASTE(native_end_marker_, __LINE__):
+    { \
+        extern const char *annotation##_name; \
+        __asm { \
+            __asm _emit 0xeb \
+            __asm _emit 0x06 \
+            __asm mov eax, annotation##_name \
+            __asm _emit 0x01 \
+            __asm jmp PASTE(native_execution_, __LINE__) \
+            __asm jmp PASTE(native_end_marker_, __LINE__) \
+        } \
+        annotation(__VA_ARGS__); \
+        PASTE(native_execution_, __LINE__) : native_version; \
+        PASTE(native_end_marker_, __LINE__): ; \
+    }
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
     __asm { \
         __asm _emit 0xeb \
-        __asm _emit 0x05 \
+        __asm _emit 0x06 \
         __asm mov eax, annotation##_name \
+        __asm _emit 0x00 \
     }
 # endif
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
-    DR_ANNOTATION_CALL_SITE_TAG(annotation) \
+    DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation) \
     return_type __fastcall annotation parameters
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
     const char *annotation##_name = "dynamorio-annotation:"#annotation; \
