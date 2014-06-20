@@ -703,9 +703,11 @@ annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc)
         identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
                             &resume_pc);
         if ((annotation_name != NULL) && (annotation_pc != NULL)) {
-            dr_printf("Decoded invocation of %s at "PFX" resuming at "PFX"\n",
+            dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
+                      (annotation_pc == resume_pc) ? "implementation" : "invocation",
                       annotation_name, annotation_pc, resume_pc);
-            continue;
+            if (start_pc != NULL)
+                continue;
         }
         break;
     }
@@ -939,7 +941,8 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                 app_pc got_ptr;
                 instr_reset(dcontext, scratch);
                 cur_pc = decode(dcontext, cur_pc, scratch);
-                if (instr_get_opcode(scratch) != OP_bsf)
+                if ((instr_get_opcode(scratch) != OP_bsf) &&
+                    (instr_get_opcode(scratch) != OP_bsr))
                     return NULL;
                 src = instr_get_src(scratch, 0);
                 if (!opnd_is_base_disp(src))
@@ -1018,18 +1021,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 
     instr_free(dcontext, &scratch);
 }
-#else
-/*
-  4004f1:   eb 12                   jmp    400505 <main+0x18>
-  4004fd:   48 0f bc 05 eb 0a 20    bsf    0x200aeb(%rip),%rax        # 600ff0
-  400504:   00
-  --> (char ***) (0x400504 + 0x200aeb)
-
-  8048422:   eb 10                   jmp    8048434 <main+0x27>
-  8048429:   b8 d7 1b 00 00          mov    $0x1bd7,%eax
-  804842e:   2b 05 1c 00 00 00       sub    0x1c,%eax
-  --> **(char ***) (0x8048429 + 0x1bd7 + 0x1c)
-*/
+#else /* UNIX */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
@@ -1042,27 +1034,26 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
     instr_init(dcontext, &scratch);
     cur_pc = is_annotation_tag(dcontext, cur_pc, &scratch, name);
     if (cur_pc != NULL) {
-        while (true) {
+        if (instr_get_opcode(&scratch) == OP_bsf) {
             instr_reset(dcontext, &scratch);
-            last_pc = cur_pc;
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
-            if (instr_valid(&scratch) && instr_is_ubr(&scratch)) {
-                *resume_pc = instr_get_branch_target_pc(&scratch);
-                continue;
-            }
-            break;
-        }
-        while (!instr_is_call(&scratch)) {
             instr_reset(dcontext, &scratch);
-            last_pc = cur_pc;
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+            *resume_pc = instr_get_branch_target_pc(&scratch);
+            do {
+                instr_reset(dcontext, &scratch);
+                last_pc = cur_pc;
+                cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+            } while (!instr_is_call(&scratch));
+            *annotation_pc = last_pc;
+            *start_pc = cur_pc; // i.e., restart_pc, in case annotations calls are fused
+        } else {
+            *annotation_pc = *start_pc;
+            *resume_pc = *start_pc;
+            *start_pc = NULL; // annotation functions cannot accidentally be fused
         }
-
-        *annotation_pc = last_pc;
-        if (*resume_pc == NULL)
-            *resume_pc = last_pc;
-        *start_pc = cur_pc;
     }
+
     instr_free(dcontext, &scratch);
 }
 #endif

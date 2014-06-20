@@ -36,7 +36,7 @@
 #include "annotation/dr_annotation_asm.h"
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
-    DR_ANNOTATION_EXPRESSION(dynamorio_annotate_running_on_dynamorio)
+    dynamorio_annotate_running_on_dynamorio()
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,8 +44,7 @@ extern "C" {
 
 #pragma auto_inline(off)
 
-DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio) ()
-    DR_WEAK_DECLARATION;
+DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
 
 #pragma auto_inline(on)
 
