@@ -87,12 +87,12 @@ do { \
             __asm _emit 0x06 \
             __asm mov eax, annotation##_name \
             __asm _emit 0x01 \
-            __asm jmp PASTE(native_execution_, __LINE__) \
-            __asm jmp PASTE(native_end_marker_, __LINE__) \
+            __asm jmp PASTE(native_run, __LINE__) \
+            __asm jmp PASTE(native_end_marker, __LINE__) \
         } \
         annotation(__VA_ARGS__); \
-        PASTE(native_execution_, __LINE__) : native_version; \
-        PASTE(native_end_marker_, __LINE__): ; \
+        PASTE(native_run, __LINE__) : native_version; \
+        PASTE(native_end_marker, __LINE__): ; \
     }
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
     __asm { \
@@ -129,7 +129,7 @@ do { \
 # define DR_WEAK_DECLARATION __attribute__ ((weak))
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
-    __label__ native_run, skip_native_run; \
+    __label__ native_run, native_end_marker; \
     extern const char *annotation##_name; \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
@@ -137,10 +137,10 @@ do { \
                             jmp %l0; \
                             jmp %l1;" \
                             ::: LABEL_REFERENCE_REGISTER \
-                            : native_run, skip_native_run); \
+                            : native_run, native_end_marker); \
     annotation(__VA_ARGS__); \
     native_run: native_version; \
-    skip_native_run: ; \
+    native_end_marker: ; \
 })
 
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \

@@ -41,8 +41,8 @@
 #define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
     DR_ANNOTATION(test_annotation_init_context, id, name, mode)
 
-#define TEST_ANNOTATION_SET_MODE(native_statement, context_id, mode) \
-    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_statement, context_id, mode)
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
 
 #ifdef __cplusplus
 extern "C" {
