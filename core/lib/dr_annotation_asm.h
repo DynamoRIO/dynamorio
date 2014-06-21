@@ -48,14 +48,14 @@
 #endif
 
 #ifdef _MSC_VER /* Microsoft Visual Studio */
-/* The value of this intrinsic is assumed to be non-zero, though in the rare case of
- * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
- * this case the annotation would be executed in a native run (it will not crash or
- * alter the program behavior in any way, other than wasting a cache fetch). */
 # define PASTE1(x, y) x##y
 # define PASTE(x, y) PASTE1(x, y)
 
 # ifdef DYNAMORIO_ANNOTATIONS_X64
+/* The value of this intrinsic is assumed to be non-zero, though in the rare case of
+ * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
+ * this case the annotation would be executed in a native run (it will not crash or
+ * alter the program behavior in any way, other than wasting a cache fetch). */
 #  pragma intrinsic(_AddressOfReturnAddress)
 #  define GET_RETURN_ADDRESS _AddressOfReturnAddress
 #  define DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation) \
@@ -66,7 +66,7 @@
     }
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 do { \
-    if (_AddressOfReturnAddress() == (void *) 0) { \
+    if (GET_RETURN_ADDRESS() == (void *) 0) { \
         annotation##_tag(); \
         annotation(__VA_ARGS__); \
     } else { \
