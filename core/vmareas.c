@@ -5920,12 +5920,20 @@ app_memory_pre_alloc(dcontext_t *dcontext, byte *base, size_t size, uint prot,
     byte *pb = base;
     dr_mem_info_t info;
     while (pb < base + size &&
-           query_memory_ex(pb, &info)) {
+           /* i#1462: getting the true bounds on Windows is expensive so we get just
+            * the cur base first.  This can result in an extra syscall in some cases,
+            * but in large-region cases it saves huge number of syscalls.
+            */
+           query_memory_cur_base(pb, &info)) {
         if (info.type != DR_MEMTYPE_FREE &&
             info.type != DR_MEMTYPE_RESERVED) {
-            size_t change_sz = MIN(info.base_pc + info.size - pb,  base + size - pb);
+            size_t change_sz;
             uint subset_memprot;
             uint res;
+            /* We need the real base */
+            if (!query_memory_ex(pb, &info))
+                break;
+            change_sz = MIN(info.base_pc + info.size - pb,  base + size - pb);
             if (hint) {
                 /* Just have caller remove the hint, before we go through
                  * -handle_dr_modify handling.
