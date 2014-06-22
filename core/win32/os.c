@@ -4971,12 +4971,33 @@ get_allocation_size(byte *pc, byte **base_pc)
     return get_allocation_size_ex(NT_CURRENT_PROCESS, pc, base_pc);
 }
 
+static void
+set_memtype_from_mbi(MEMORY_BASIC_INFORMATION *mbi, OUT dr_mem_info_t *info)
+{
+    if (mbi->State == MEM_FREE) {
+        info->type = DR_MEMTYPE_FREE;
+        info->prot = osprot_to_memprot(mbi->Protect);
+    } else if (mbi->State == MEM_RESERVE) {
+        /* We don't distinguish reserved-{image,mapped,private) (i#1177) */
+        info->type = DR_MEMTYPE_RESERVED;
+        info->prot = DR_MEMPROT_NONE; /* mbi->Protect is undefined */
+    } else {
+        info->prot = osprot_to_memprot(mbi->Protect);
+        if (mbi->Type == MEM_IMAGE)
+            info->type = DR_MEMTYPE_IMAGE;
+        else
+            info->type = DR_MEMTYPE_DATA;
+    }
+}
+
 /* Returns information about the memory area (not allocation region)
  * containing pc.  This is a single memory area all from the same allocation
  * region and all with the same protection and state attributes.
  */
-bool
-query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+static bool
+query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
+                      /* i#345, i#1462: this is expensive so we make it optional */
+                      bool get_real_base)
 {
     MEMORY_BASIC_INFORMATION mbi;
     byte *pb = (byte *) pc;
@@ -4985,20 +5006,54 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
     ASSERT(info != NULL);
     if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
         return false;
-    if (mbi.State == MEM_FREE /* free memory doesn't have AllocationBase */) {
-        info->type = DR_MEMTYPE_FREE;
+    if (mbi.State == MEM_FREE /* free memory doesn't have AllocationBase */ ||
+        !get_real_base) {
         info->base_pc = mbi.BaseAddress;
         info->size = mbi.RegionSize;
-        info->prot = osprot_to_memprot(mbi.Protect);
+        set_memtype_from_mbi(&mbi, info);
         return true;
     } else {
         /* BaseAddress is just PAGE_START(pc) and so is not the base_pc we
          * want: we have to loop for that information (i#345)
          */
+        byte *forward_query_start;
         alloc_base = (byte *) mbi.AllocationBase;
-        pb = alloc_base;
+        forward_query_start = alloc_base;
+
+        /* i#1462: the forward loop can be very expensive for large regions (we've
+         * seen 10,000+ subregions), so we first try to walk backward and find
+         * a different region to start from instead of the alloc base.
+         * Experimentally this is worthwhile for even just >PAGE_SIZE differences
+         * and not just OS_ALLOC_GRANULARITY or larger.
+         * We subtract exponentially larger amounts, up to 2^13 to cover large
+         * reservations.
+         */
+#       define MAX_BACK_QUERY_HEURISTIC 14
+        if (pc - alloc_base > PAGE_SIZE) {
+            uint exponential = 1;
+            /* The sub can't underflow b/c of the if() above */
+            pb = (byte *) ALIGN_BACKWARD(pc - PAGE_SIZE, PAGE_SIZE);
+            do {
+                /* sanity checks */
+                if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi) ||
+                    mbi.State == MEM_FREE || mbi.AllocationBase != alloc_base ||
+                    mbi.RegionSize == 0)
+                    break;
+                if ((byte *)mbi.BaseAddress + mbi.RegionSize <= pc) {
+                    forward_query_start = (byte *)mbi.BaseAddress + mbi.RegionSize;
+                    break;
+                }
+                if (POINTER_UNDERFLOW_ON_SUB(pb, PAGE_SIZE*exponential))
+                    break;
+                pb -= PAGE_SIZE * exponential;
+                num_blocks++;
+                exponential *= 2;
+            } while (pb > alloc_base && num_blocks < MAX_BACK_QUERY_HEURISTIC);
+        }
 
         /* XXX perf: if mbi.AllocationBase == mbi.BaseAddress avoid extra syscall */
+        pb = forward_query_start;
+        num_blocks = 0;
         do {
             if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
                 break;
@@ -5013,17 +5068,7 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
                 ASSERT(pc >= (byte *)mbi.BaseAddress);
                 info->base_pc = mbi.BaseAddress;
                 info->size = mbi.RegionSize;
-                if (mbi.State == MEM_RESERVE) {
-                    /* We don't distinguish reserved-{image,mapped,private) (i#1177) */
-                    info->type = DR_MEMTYPE_RESERVED;
-                    info->prot = DR_MEMPROT_NONE; /* mbi.Protect is undefined */
-                } else {
-                    info->prot = osprot_to_memprot(mbi.Protect);
-                    if (mbi.Type == MEM_IMAGE)
-                        info->type = DR_MEMTYPE_IMAGE;
-                    else
-                        info->type = DR_MEMTYPE_DATA;
-                }
+                set_memtype_from_mbi(&mbi, info);
                 return true;
             }
             if (POINTER_OVERFLOW_ON_ADD(pb, mbi.RegionSize))
@@ -5036,10 +5081,37 @@ query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
              * num_blocks max, but we'll keep it for now.
              */
             num_blocks++;
+            DODEBUG({
+                if (num_blocks > 10) {
+                    /* Try to identify any further perf problems (xref i#1462) */
+                    SYSLOG_INTERNAL_WARNING_ONCE("i#1462: >10 queries!");
+                }
+            });
         } while (num_blocks < MAX_QUERY_VM_BLOCKS);
         ASSERT_CURIOSITY(num_blocks < MAX_QUERY_VM_BLOCKS);
     }
     return false;
+}
+
+/* Returns information about the memory area (not allocation region)
+ * containing pc.  This is a single memory area all from the same allocation
+ * region and all with the same protection and state attributes.
+ */
+bool
+query_memory_ex(const byte *pc, OUT dr_mem_info_t *info)
+{
+    return query_memory_internal(pc, info, true/*get real base*/);
+}
+
+/* We provide this b/c getting the bounds is expensive on Windows (i#1462).
+ * This does not look backward to find the real base of this memory region but instead
+ * returns the cur page as the base.  The size can still be used to locate the
+ * subsequent memory region.
+ */
+bool
+query_memory_cur_base(const byte *pc, OUT dr_mem_info_t *info)
+{
+    return query_memory_internal(pc, info, false/*don't need real base*/);
 }
 
 /* Returns size and writability of the memory area (not allocation region)
@@ -5055,7 +5127,8 @@ get_memory_info(const byte *pc, byte **base_pc, size_t *size, uint *prot)
          * want: we have to loop for that information (i#345)
          */
         dr_mem_info_t info;
-        if (!query_memory_ex(pc, &info) || info.type == DR_MEMTYPE_FREE)
+        if (!query_memory_internal(pc, &info, base_pc != NULL || size != NULL) ||
+            info.type == DR_MEMTYPE_FREE)
             return false;
         if (base_pc != NULL)
             *base_pc = info.base_pc;

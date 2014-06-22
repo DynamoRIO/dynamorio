@@ -240,6 +240,8 @@ if (PROBE)
   set(HOT_PATCHING_INTERFACE 1)
 endif (PROBE)
 
+option(TEST_SUITE "we are running a series of builds for official purposes")
+
 # For developers
 # CMake note: never set option vars as it prevents override by cache var:
 # instead set default value in separate var and use that to initialize option.
@@ -1318,37 +1320,68 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
       if (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
         set(ImageMagick_mogrify_EXECUTABLE ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
       else (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
-        message("ImageMagick is required to build the documentation")
-        set(BUILD_DOCS OFF)
+        # We require on Linux pre-commit where it's trivial to install
+        if (TEST_SUITE AND UNIX)
+          message(FATAL_ERROR "ImageMagick is required to build the documentation")
+        else ()
+          # Non-fatal for a single, un-official build, or on Windows
+          message(WARNING "ImageMagick not found: documentation will NOT be built")
+          set(BUILD_DOCS OFF)
+        endif ()
       endif (EXISTS ${IMAGEMAGICK_MOGRIFY_EXECUTABLE})
     endif (NOT ImageMagick_mogrify_FOUND)
     mark_as_advanced(ImageMagick_EXECUTABLE_DIR)
 
     find_package(Doxygen)
     if (NOT DOXYGEN_FOUND)
-      message("doxygen is required to build the documentation")
-      set(BUILD_DOCS OFF)
+      # We require on Linux pre-commit where it's trivial to install
+      if (TEST_SUITE AND UNIX)
+        message(FATAL_ERROR "doxygen is required to build the documentation")
+      else ()
+        # Non-fatal for a single, un-official build, or on Windows
+        message(WARNING "doxygen not found: documentation will NOT be built")
+        set(BUILD_DOCS OFF)
+      endif ()
     endif (NOT DOXYGEN_FOUND)
 
     include(${PROJECT_SOURCE_DIR}/make/FindFig2Dev.cmake)
     if (NOT FIG2DEV_FOUND)
-      message("fig2dev (from transfig) is required to build the documentation")
-      set(BUILD_DOCS OFF)
+      # We require on Linux pre-commit where it's trivial to install
+      if (TEST_SUITE AND UNIX)
+        message(FATAL_ERROR "fig2dev (from transfig) is required to build documentation")
+      else ()
+        # Non-fatal for a single, un-official build, or on Windows
+        message(WARNING "fig2dev (from transfig) not found: docs will NOT be built")
+        set(BUILD_DOCS OFF)
+      endif ()
     endif (NOT FIG2DEV_FOUND)
 
     # fig2dev needs ghostscript to produce tiff files (not to produce eps)
     include(${PROJECT_SOURCE_DIR}/make/FindGhostscript.cmake)
     if (NOT GHOSTSCRIPT_FOUND)
-      message("ghostscript is required to build the documentation")
-      set(BUILD_DOCS OFF)
+      # We require on Linux pre-commit where it's trivial to install
+      if (TEST_SUITE AND UNIX)
+        message(FATAL_ERROR "ghostscript is required to build documentation")
+      else ()
+        # Non-fatal for a single, un-official build, or on Windows
+        message(WARNING "ghostscript not found: documentation will NOT be built")
+        set(BUILD_DOCS OFF)
+      endif ()
     else (NOT GHOSTSCRIPT_FOUND)
       # must be on path.  we can't just literally check the path
       # b/c of cygwin issues: c:/cygwin/bin vs /usr/bin, etc.
       get_filename_component(gs_name ${GHOSTSCRIPT_EXECUTABLE} NAME)
       find_program(GHOSTSCRIPT_ON_PATH ${gs_name} PATHS ENV PATH NO_DEFAULT_PATH)
       if (NOT GHOSTSCRIPT_ON_PATH)
-        message("ghostscript is installed, but must be on PATH for fig2dev to find it")
-        set(BUILD_DOCS OFF)
+        # We require on Linux pre-commit where it's trivial to install
+        if (TEST_SUITE AND UNIX)
+          message(FATAL_ERROR
+            "ghostscript is installed, but must be on PATH for fig2dev to find it")
+        else ()
+          # Non-fatal for a single, un-official build, or on Windows
+          message(WARNING "ghostscript not on PATH: documentation will NOT be built")
+          set(BUILD_DOCS OFF)
+        endif ()
       endif (NOT GHOSTSCRIPT_ON_PATH)
       mark_as_advanced(GHOSTSCRIPT_ON_PATH)
     endif (NOT GHOSTSCRIPT_FOUND)

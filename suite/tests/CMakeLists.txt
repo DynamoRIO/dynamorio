@@ -47,8 +47,7 @@
 
 option(TEST_LONG "run long set of tests")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
-# tests succeed (i#389)
-option(TEST_SUITE "running series of builds so skip some overlapping tests; also, include racy/flaky tests (eventually they should be fixed) for better coverage")
+# tests succeed (i#389).  TEST_SUITE is now a top-level option.
 set(TEST_SECONDS "60" CACHE STRING "Test time limit in seconds")
 set(TEST_OPTIONS "" CACHE STRING "Extra DynamoRIO options when running tests")
 set(TEST_32BIT_PATH "" CACHE STRING "32-bit test bin dir for cross-arch tests")
