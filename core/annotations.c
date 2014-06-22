@@ -50,23 +50,27 @@
 # include <string.h>
 #endif
 
-#if defined(WINDOWS) && defined (X64)
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
-# define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
-#else
-# ifdef WINDOWS
+#ifdef WINDOWS
+# ifdef X64
+#  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) \
+        (instr_is_mov(instr) || (instr_get_opcode(instr) == OP_prefetchw))
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
+# else
+#  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
 #  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
     ((app_pc) opnd_get_disp(src))
+# endif
+#else
+# define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
+# ifdef X64
+#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
 # else
-#  ifdef X64
-#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
-#  else
-#   define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
-#  endif
+#  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
+# endif
 # define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
     ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
-# endif
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
 #endif
 
 typedef struct _annotation_registration_by_name_t {
@@ -704,7 +708,7 @@ annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc)
                             &resume_pc);
         if ((annotation_name != NULL) && (annotation_pc != NULL)) {
             dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
-                      (annotation_pc == resume_pc) ? "implementation" : "invocation",
+                      (start_pc == NULL) ? "implementation" : "invocation",
                       annotation_name, annotation_pc, resume_pc);
             if (start_pc != NULL)
                 continue;
@@ -924,58 +928,53 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
                   OUT const char **name)
 {
     app_pc cur_pc = start_pc;
+
+    instr_reset(dcontext, scratch);
+    cur_pc = decode(dcontext, cur_pc, scratch);
 #if defined (WINDOWS) && defined (X64)
-    bool found_prefetch = false;
+    if (instr_get_opcode(scratch) != OP_mfence)
+        return NULL;
+    instr_reset(dcontext, scratch);
+    cur_pc = decode(dcontext, cur_pc, scratch);
 #endif
-
-    do {
-        instr_reset(dcontext, scratch);
-        cur_pc = decode(dcontext, cur_pc, scratch);
-        if (instr_is_mov(scratch)) {
-            opnd_t src = instr_get_src(scratch, 0);
-            if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
-                char buf[24];
-                app_pc buf_ptr;
-                app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
+    if (IS_ANNOTATION_LABEL_INSTRUCTION(scratch)) {
+        opnd_t src = instr_get_src(scratch, 0);
+        if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
+            char buf[24];
+            app_pc buf_ptr;
+            app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
 #ifdef UNIX
-                app_pc got_ptr;
-                instr_reset(dcontext, scratch);
-                cur_pc = decode(dcontext, cur_pc, scratch);
-                if ((instr_get_opcode(scratch) != OP_bsf) &&
-                    (instr_get_opcode(scratch) != OP_bsr))
-                    return NULL;
-                src = instr_get_src(scratch, 0);
-                if (!opnd_is_base_disp(src))
-                    return NULL;
-                src_ptr += opnd_get_disp(src);
-                if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
-                    return NULL;
-                src_ptr = got_ptr;
+            app_pc got_ptr;
+            instr_reset(dcontext, scratch);
+            cur_pc = decode(dcontext, cur_pc, scratch);
+            if ((instr_get_opcode(scratch) != OP_bsf) &&
+                (instr_get_opcode(scratch) != OP_bsr))
+                return NULL;
+            src = instr_get_src(scratch, 0);
+            if (!opnd_is_base_disp(src))
+                return NULL;
+            src_ptr += opnd_get_disp(src);
+            if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
+                return NULL;
+            src_ptr = got_ptr;
 #endif
-                if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
-                    return NULL;
-                if (!safe_read(buf_ptr, 20, buf))
-                    return NULL;
-                buf[20] = '\0';
-                if (strcmp(buf, "dynamorio-annotation") != 0)
-                    return NULL;
-                *name = (const char *) (buf_ptr + 21);
-            }
-#if defined (WINDOWS) && defined (X64) // prefetch must follow the name reference
-        } else if (instr_is_prefetch(scratch) && (*name != NULL)) {
-            found_prefetch = true;
-#endif
+            if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
+                return NULL;
+            if (!safe_read(buf_ptr, 20, buf))
+                return NULL;
+            buf[20] = '\0';
+            if (strcmp(buf, "dynamorio-annotation") != 0)
+                return NULL;
+            *name = (const char *) (buf_ptr + 21);
         }
-
-    } while IF_WINDOWS_ELSE(IF_X64_ELSE((!instr_is_cti(scratch)), (0)), (0));
-
-    if ((*name != NULL) IF_WINDOWS(IF_X64(&& found_prefetch)))
+    }
+    if (*name != NULL)
         return cur_pc;
     else
         return NULL;
 }
 
-#if defined (WINDOWS) && defined (X64)
+#if 0
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
@@ -1021,7 +1020,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 
     instr_free(dcontext, &scratch);
 }
-#else /* WINDOWS X86 and UNIX */
+#endif
+
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
@@ -1034,16 +1034,21 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
     instr_init(dcontext, &scratch);
     cur_pc = is_annotation_tag(dcontext, cur_pc, &scratch, name);
     if (cur_pc != NULL) {
+#if defined (WINDOWS) && defined (X64)
+        if (strncmp((const char *) *name, "statement:", 10) == 0) {
+            *name += 10;
+#else
 # ifdef WINDOWS
         if (*(cur_pc++) == 1) { // skip padding byte
 # else
         if (instr_get_opcode(&scratch) == OP_bsf) {
 # endif
-            instr_reset(dcontext, &scratch);
+            instr_reset(dcontext, &scratch); // skip the jump to the native version
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
-            instr_reset(dcontext, &scratch);
+            instr_reset(dcontext, &scratch); // skip the jump to the native version end
             cur_pc = decode_cti(dcontext, cur_pc, &scratch);
             *resume_pc = instr_get_branch_target_pc(&scratch);
+#endif
             do {
                 instr_reset(dcontext, &scratch);
                 last_pc = cur_pc;
@@ -1051,16 +1056,32 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
             } while (!instr_is_call(&scratch));
             *annotation_pc = last_pc;
             *start_pc = cur_pc; // i.e., restart_pc, in case annotations calls are fused
+#if defined (WINDOWS) && defined (X64)
+            do {
+                instr_reset(dcontext, &scratch);
+                cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+            } while (!instr_is_cti(&scratch));
+            *resume_pc = instr_get_branch_target_pc(&scratch); // always a jump?
+#endif
         } else {
-            *annotation_pc = *start_pc;
+#if defined (WINDOWS) && defined (X64)
+            *name += 11; // "expression:"
+            do {
+                instr_reset(dcontext, &scratch);
+                last_pc = cur_pc;
+                cur_pc = decode_cti(dcontext, cur_pc, &scratch);
+            } while (!instr_is_return(&scratch));
+            *resume_pc = last_pc; // could other stuff occur above?
+#else
             *resume_pc = *start_pc;
+#endif
+            *annotation_pc = *start_pc;
             *start_pc = NULL; // annotation functions cannot accidentally be fused
         }
     }
 
     instr_free(dcontext, &scratch);
 }
-#endif
 
 #ifdef X64
 # ifdef UNIX

@@ -56,36 +56,39 @@
  * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
  * this case the annotation would be executed in a native run (it will not crash or
  * alter the program behavior in any way, other than wasting a cache fetch). */
-#  pragma intrinsic(_AddressOfReturnAddress)
+#  pragma intrinsic(_AddressOfReturnAddress, _mm_mfence, _m_prefetchw)
 #  define GET_RETURN_ADDRESS _AddressOfReturnAddress
-#  define DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation) \
-    static void annotation##_tag() \
-    { \
-        extern const char *annotation##_name; \
-        _m_prefetch(annotation##_name); \
-    }
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    const char *annotation##_expression_label = "dynamorio-annotation:expression:"#annotation; \
+    const char *annotation##_statement_label = "dynamorio-annotation:statement:"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 do { \
     if (GET_RETURN_ADDRESS() == (void *) 0) { \
-        annotation##_tag(); \
+        extern const char *annotation##_statement_label; \
+        _mm_mfence(); \
+        _m_prefetchw(annotation##_statement_label); \
         annotation(__VA_ARGS__); \
     } else { \
         native_version; \
     } \
 } while (0)
-// how to distinguish from tag?
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
-    extern const char *annotation##_name; \
-    _m_prefetch(annotation##_name);
+    if (GET_RETURN_ADDRESS() == (void *) 0) { \
+        extern const char *annotation##_expression_label; \
+        _mm_mfence(); \
+        _m_prefetchw(annotation##_expression_label); \
+        return; \
+    }
 # else
-#  define DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation)
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    const char *annotation##_label = "dynamorio-annotation:"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
     { \
-        extern const char *annotation##_name; \
+        extern const char *annotation##_label; \
         __asm { \
             __asm _emit 0xeb \
             __asm _emit 0x06 \
-            __asm mov eax, annotation##_name \
+            __asm mov eax, annotation##_label \
             __asm _emit 0x01 \
             __asm jmp PASTE(native_run, __LINE__) \
             __asm jmp PASTE(native_end_marker, __LINE__) \
@@ -98,15 +101,14 @@ do { \
     __asm { \
         __asm _emit 0xeb \
         __asm _emit 0x06 \
-        __asm mov eax, annotation##_name \
+        __asm mov eax, annotation##_label \
         __asm _emit 0x00 \
     }
 # endif
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
-    DR_DEFINE_ANNOTATION_CALL_SITE_TAG(annotation) \
     return_type __fastcall annotation parameters
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_name = "dynamorio-annotation:"#annotation; \
+    DR_DEFINE_ANNOTATION_LABELS(annotation) \
     return_type __fastcall annotation parameters \
     { \
         DR_ANNOTATION_FUNCTION_TAG(annotation) \
@@ -130,7 +132,7 @@ do { \
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
     __label__ native_run, native_end_marker; \
-    extern const char *annotation##_name; \
+    extern const char *annotation##_label; \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                             bsf "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER"; \
@@ -146,10 +148,10 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_name = "dynamorio-annotation:"#annotation; \
+    const char *annotation##_label = "dynamorio-annotation:"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
-        extern const char *annotation##_name; \
+        extern const char *annotation##_label; \
         __asm__ volatile (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                            bsr "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER";" \
