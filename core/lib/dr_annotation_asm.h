@@ -135,7 +135,7 @@ do { \
     extern const char *annotation##_label; \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
-                            bsf "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                            bsf "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
                             jmp %l0; \
                             jmp %l1;" \
                             ::: LABEL_REFERENCE_REGISTER \
@@ -154,7 +154,7 @@ do { \
         extern const char *annotation##_label; \
         __asm__ volatile (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                            mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
-                           bsr "#annotation"_name@GOT,%"LABEL_REFERENCE_REGISTER";" \
+                           bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER";" \
                            ::: LABEL_REFERENCE_REGISTER); \
         body; \
     }

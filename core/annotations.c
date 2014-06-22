@@ -64,6 +64,7 @@
 # endif
 #else
 # define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
 # ifdef X64
 #  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
 # else
