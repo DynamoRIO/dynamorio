@@ -699,59 +699,95 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 #endif
 
 #if defined (WINDOWS) && defined (X64)
-instr_t *
-annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc)
+static instr_t *
+annot_match_loop(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch)
 {
     const char *annotation_name;
     app_pc annotation_pc, resume_pc;
-    instr_t scratch;
+    instr_t *substitution = NULL;
+    bool repeat;
 
-    instr_init(dcontext, &scratch);
-    instr_reset(dcontext, &scratch); // but this happens every time, even for fused annotations
-    cur_pc = decode(dcontext, cur_pc, &scratch);
-    if (instr_get_opcode(&scratch) != OP_mfence)
-        return NULL;
-
-    // try
-    while (true) {
+    do {
         identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
-                            &resume_pc, &scratch);
+                            &resume_pc, scratch);
+        repeat = false;
         if ((annotation_name != NULL) && (annotation_pc != NULL)) {
             dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
                       (start_pc == NULL) ? "implementation" : "invocation",
                       annotation_name, annotation_pc, resume_pc);
             if (start_pc != NULL) {
-                instr_reset(dcontext, &scratch);
-                start_pc = decode(dcontext, start_pc, &scratch);
-                if (instr_get_opcode(&scratch) == OP_mfence)
-                    continue;
+                while (true) {
+                    instr_reset(dcontext, scratch);
+                    start_pc = decode(dcontext, start_pc, scratch);
+                    if (instr_get_opcode(scratch) == OP_mfence) {
+                        repeat = true;
+                        break;
+                    } else if (instr_is_cti(scratch)) {
+                        instr_reset(dcontext, scratch);
+                        start_pc = decode(dcontext, start_pc, scratch);
+                        if (instr_get_opcode(scratch) == OP_mfence)
+                            repeat = true;
+                        break;
+                    }
+                }
             }
         }
-        break;
-    }
-    // catch (cleanup)
+    } while (repeat);
 
-    return NULL;
+    return substitution;
+}
+
+instr_t *
+annot_match(dcontext_t *dcontext, app_pc start_pc, bool hint_is_safe)
+{
+    instr_t scratch, *substitution = NULL;
+
+    instr_init(dcontext, &scratch);
+    instr_reset(dcontext, &scratch);
+    if (hint_is_safe) {
+        start_pc = decode(dcontext, start_pc, &scratch);
+    } else {
+        byte buf[3];
+        if (!safe_read(start_pc, 3, buf))
+            return NULL;
+        start_pc = decode(dcontext, start_pc, &scratch);
+    }
+    if (instr_get_opcode(&scratch) != OP_mfence)
+        return NULL;
+
+    TRY_EXCEPT(dcontext, {
+        substitution = annot_match_loop(dcontext, start_pc, &scratch);
+    }, { /* EXCEPT */
+        // log it
+    });
+
+    instr_free(dcontext, &scratch);
+    return substitution;
 }
 #else
 instr_t *
-annot_match(dcontext_t *dcontext, instr_t *cti_instr, app_pc start_pc)
+annot_match(dcontext_t *dcontext, app_pc start_pc)
 {
     const char *annotation_name;
     app_pc annotation_pc, resume_pc;
-    instr_t scratch;
+    instr_t scratch, *substitution = NULL;
 
     instr_init(dcontext, &scratch);
-    identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
-                        &resume_pc, &scratch);
+    TRY_EXCEPT(dcontext, {
+        identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
+                            &resume_pc, &scratch);
+    }, { /* EXCEPT */
+        annotation_pc = NULL;
+        // log it
+    });
     if ((annotation_name != NULL) && (annotation_pc != NULL)) {
         dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
                   (start_pc == NULL) ? "implementation" : "invocation",
                   annotation_name, annotation_pc, resume_pc);
-        // return annotation_pc;
-        return NULL;
+        // substitution = (... annotation_pc);
     }
-    return NULL;
+    instr_free(dcontext, scratch);
+    return substitution;
 }
 #endif
 
@@ -1047,8 +1083,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
             break; // fail: annotations are never this big
         instr_reset(dcontext, scratch);
     }
-
-    instr_free(dcontext, scratch);
 }
 #endif
 
@@ -1062,7 +1096,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
     *resume_pc = NULL;
     cur_pc = is_annotation_tag(dcontext, cur_pc, scratch, name);
     if (cur_pc != NULL) {
-        TRY_EXCEPT(dcontext, {
 #if defined (WINDOWS) && defined (X64)
         if (strncmp((const char *) *name, "statement:", 10) == 0) {
             *name += 10;

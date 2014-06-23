@@ -1,19 +1,19 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "annotation/dr_annotations.h"
 #include "annotation/test_annotation_arguments.h"
 
 int main(void)
 {
     int i, j;
 
-    printf("foo!\n");
-
+    j = (rand() % 10);
     for (i = 0; i < 10; i++) {
-        j = (rand() % 10);
-        switch (i + j) {
+        switch ((i + j) % 10) {
             case 0:
-                TEST_ANNOTATION_NINE_ARGS(1, 2, 3, 4, 5, 6, 7, 8, 9);
+                TEST_ANNOTATION_NINE_ARGS(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO(),
+                                          2, 3, 4, 5, 6, 7, 8, 9);
             case 1:
                 TEST_ANNOTATION_EIGHT_ARGS(1, 2, 3, 4, 5, 6, 7, 8);
             case 2:
