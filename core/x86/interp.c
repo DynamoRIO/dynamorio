@@ -3322,7 +3322,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
             instr_t *substitution =
                 annot_match(dcontext, bb->cur_pc
-                            _IF_WINDOWS(IF_X64((bb->checked_end - bb->cur_pc) >= 3)));
+                            _IF_WINDOWS_X64(instr_get_branch_target_pc(bb->instr))
+                            _IF_WINDOWS_X64((bb->checked_end - bb->cur_pc) >= 3));
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);
                 bb->instr = substitution;

@@ -56,28 +56,27 @@
  * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
  * this case the annotation would be executed in a native run (it will not crash or
  * alter the program behavior in any way, other than wasting a cache fetch). */
-#  pragma intrinsic(_AddressOfReturnAddress, _mm_mfence, _m_prefetchw)
+#  pragma intrinsic(_AddressOfReturnAddress, _mm_mfence, _mm_lfence, _m_prefetchw)
 #  define GET_RETURN_ADDRESS _AddressOfReturnAddress
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
     const char *annotation##_expression_label = "dynamorio-annotation:expression:"#annotation; \
     const char *annotation##_statement_label = "dynamorio-annotation:statement:"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 do { \
-    if (GET_RETURN_ADDRESS() == (void *) 0) { \
+    if ((unsigned __int64) GET_RETURN_ADDRESS() > (0xfffffffffffffff1 - (2 * __LINE__))) { \
         extern const char *annotation##_statement_label; \
         _mm_mfence(); \
-        _m_prefetchw(annotation##_statement_label); \
         annotation(__VA_ARGS__); \
+        _m_prefetchw(annotation##_statement_label); \
     } else { \
         native_version; \
     } \
-} while (0)
+} while ((unsigned __int64) GET_RETURN_ADDRESS() > (0xfffffffffffffff0 - (2 * __LINE__)))
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
     if (GET_RETURN_ADDRESS() == (void *) 0) { \
         extern const char *annotation##_expression_label; \
         _mm_mfence(); \
         _m_prefetchw(annotation##_expression_label); \
-        return; \
     }
 # else
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
@@ -89,7 +88,7 @@ do { \
             __asm _emit 0xeb \
             __asm _emit 0x06 \
             __asm mov eax, annotation##_label \
-            __asm _emit 0x01 \
+            __asm pop eax \
             __asm jmp PASTE(native_run, __LINE__) \
             __asm jmp PASTE(native_end_marker, __LINE__) \
         } \
@@ -102,7 +101,7 @@ do { \
         __asm _emit 0xeb \
         __asm _emit 0x06 \
         __asm mov eax, annotation##_label \
-        __asm _emit 0x00 \
+        __asm nop \
     }
 # endif
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \

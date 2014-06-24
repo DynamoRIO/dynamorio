@@ -211,7 +211,8 @@ void
 annot_exit();
 
 instr_t *
-annot_match(dcontext_t *dcontext, app_pc start_pc _IF_WINDOWS(IF_X64(bool hint_is_safe)));
+annot_match(dcontext_t *dcontext, app_pc start_pc _IF_WINDOWS_X64(app_pc end_pc)
+            _IF_WINDOWS_X64(bool hint_is_safe));
 
 /* Replace the Valgrind annotation code sequence with a clean call to
  * an internal function which will dispatch to registered handlers.

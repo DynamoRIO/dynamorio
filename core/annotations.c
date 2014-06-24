@@ -174,13 +174,20 @@ handle_vg_annotation(app_pc request_args);
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
-static app_pc
-is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
+static bool
+is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *start_pc, instr_t *scratch,
                   OUT const char **name);
 
+#if defined(WINDOWS) && defined(X64)
+static inline void
+identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
+                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc, app_pc end_pc,
+                    instr_t *scratch);
+#else
 static void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc, instr_t *scratch);
+#endif
 
 static void
 specify_args(annotation_handler_t *handler, uint num_args
@@ -700,66 +707,51 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 
 #if defined (WINDOWS) && defined (X64)
 static instr_t *
-annot_match_loop(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch)
+annot_maybe_instrument(dcontext_t *dcontext, app_pc *start_pc, app_pc end_pc,
+                       instr_t *scratch)
 {
-    const char *annotation_name;
+    const char *annotation_name = NULL;
     app_pc annotation_pc, resume_pc;
     instr_t *substitution = NULL;
-    bool repeat;
 
-    do {
-        identify_annotation(dcontext, &start_pc, &annotation_name, &annotation_pc,
-                            &resume_pc, scratch);
-        repeat = false;
-        if ((annotation_name != NULL) && (annotation_pc != NULL)) {
-            dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
-                      (start_pc == NULL) ? "implementation" : "invocation",
-                      annotation_name, annotation_pc, resume_pc);
-            if (start_pc != NULL) {
-                while (true) {
-                    instr_reset(dcontext, scratch);
-                    start_pc = decode(dcontext, start_pc, scratch);
-                    if (instr_get_opcode(scratch) == OP_mfence) {
-                        repeat = true;
-                        break;
-                    } else if (instr_is_cti(scratch)) {
-                        instr_reset(dcontext, scratch);
-                        start_pc = decode(dcontext, start_pc, scratch);
-                        if (instr_get_opcode(scratch) == OP_mfence)
-                            repeat = true;
-                        break;
-                    }
-                }
-            }
-        }
-    } while (repeat);
+    identify_annotation(dcontext, start_pc, &annotation_name, &annotation_pc,
+                        &resume_pc, end_pc, scratch);
+    if ((annotation_name != NULL) && (annotation_pc != NULL)) {
+        dr_printf("Decoded %s of %s at "PFX" resuming at "PFX"\n",
+                  (*start_pc == NULL) ? "implementation" : "invocation",
+                  annotation_name, annotation_pc, resume_pc);
+        // instrument it here to avoid stacking nested annotations
+    }
+    *start_pc = resume_pc;
 
     return substitution;
 }
 
 instr_t *
-annot_match(dcontext_t *dcontext, app_pc start_pc, bool hint_is_safe)
+annot_match(dcontext_t *dcontext, app_pc start_pc, app_pc end_pc, bool hint_is_safe)
 {
+    bool hint = true;
     instr_t scratch, *substitution = NULL;
 
     instr_init(dcontext, &scratch);
     instr_reset(dcontext, &scratch);
-    if (hint_is_safe) {
-        start_pc = decode(dcontext, start_pc, &scratch);
-    } else {
+    if (!hint_is_safe) {
         byte buf[3];
         if (!safe_read(start_pc, 3, buf))
-            return NULL;
-        start_pc = decode(dcontext, start_pc, &scratch);
+            hint = false;
     }
-    if (instr_get_opcode(&scratch) != OP_mfence)
-        return NULL;
-
-    TRY_EXCEPT(dcontext, {
-        substitution = annot_match_loop(dcontext, start_pc, &scratch);
-    }, { /* EXCEPT */
-        // log it
-    });
+    if (hint) {
+        start_pc = decode(dcontext, start_pc, &scratch);
+        if (instr_get_opcode(&scratch) != OP_mfence)
+            hint = false;
+    }
+    if (hint) {
+        TRY_EXCEPT(dcontext, {
+            substitution = annot_maybe_instrument(dcontext, &start_pc, end_pc, &scratch);
+        }, { /* EXCEPT */
+            // log it
+        });
+    }
 
     instr_free(dcontext, &scratch);
     return substitution;
@@ -768,8 +760,8 @@ annot_match(dcontext_t *dcontext, app_pc start_pc, bool hint_is_safe)
 instr_t *
 annot_match(dcontext_t *dcontext, app_pc start_pc)
 {
-    const char *annotation_name;
-    app_pc annotation_pc, resume_pc;
+    const char *annotation_name = NULL;
+    app_pc annotation_pc, resume_pc = NULL;
     instr_t scratch, *substitution = NULL;
 
     instr_init(dcontext, &scratch);
@@ -786,7 +778,7 @@ annot_match(dcontext_t *dcontext, app_pc start_pc)
                   annotation_name, annotation_pc, resume_pc);
         // substitution = (... annotation_pc);
     }
-    instr_free(dcontext, scratch);
+    instr_free(dcontext, &scratch);
     return substitution;
 }
 #endif
@@ -995,14 +987,14 @@ lookup_valgrind_request(ptr_uint_t request)
     return VG_ID__LAST;
 }
 
-static inline app_pc
-is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
+static inline bool
+is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                   OUT const char **name)
 {
-    app_pc cur_pc = start_pc;
+    app_pc start_pc = *cur_pc;
 
     instr_reset(dcontext, scratch);
-    cur_pc = decode(dcontext, cur_pc, scratch);
+    *cur_pc = decode(dcontext, *cur_pc, scratch);
     if (IS_ANNOTATION_LABEL_INSTRUCTION(scratch)) {
         opnd_t src = instr_get_src(scratch, 0);
         if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
@@ -1012,32 +1004,29 @@ is_annotation_tag(dcontext_t *dcontext, app_pc start_pc, instr_t *scratch,
 #ifdef UNIX
             app_pc got_ptr;
             instr_reset(dcontext, scratch);
-            cur_pc = decode(dcontext, cur_pc, scratch);
+            *cur_pc = decode(dcontext, *cur_pc, scratch);
             if ((instr_get_opcode(scratch) != OP_bsf) &&
                 (instr_get_opcode(scratch) != OP_bsr))
-                return NULL;
+                return false;
             src = instr_get_src(scratch, 0);
             if (!opnd_is_base_disp(src))
-                return NULL;
+                return false;
             src_ptr += opnd_get_disp(src);
             if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
                 return NULL;
             src_ptr = got_ptr;
 #endif
             if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
-                return NULL;
+                return false;
             if (!safe_read(buf_ptr, 20, buf))
-                return NULL;
+                return false;
             buf[20] = '\0';
             if (strcmp(buf, "dynamorio-annotation") != 0)
-                return NULL;
+                return false;
             *name = (const char *) (buf_ptr + 21);
         }
     }
-    if (*name != NULL)
-        return cur_pc;
-    else
-        return NULL;
+    return (*name != NULL);
 }
 
 #if 0
@@ -1086,6 +1075,55 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 }
 #endif
 
+#if defined(WINDOWS) && defined(X64)
+static inline void
+identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
+                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc, app_pc end_pc,
+                    instr_t *scratch)
+{
+    app_pc last_pc, cur_pc = *start_pc, last_call = NULL;
+
+    while (cur_pc != end_pc) { // what if the fall-through doesn't reach this pc?
+        last_pc = cur_pc;      // could verify that cmp/cbr exists with target (cur_pc-9)
+        if (is_annotation_tag(dcontext, &cur_pc, scratch, name)) { // or dup the label
+
+            while (instr_get_opcode(scratch) != OP_prefetchw) {
+                if (instr_is_ubr(scratch))
+                    cur_pc = instr_get_branch_target_pc(scratch);
+                instr_reset(dcontext, scratch);
+                cur_pc = decode(dcontext, cur_pc, scratch);
+            }
+
+            if (strncmp((const char *) *name, "statement:", 10) == 0) {
+                *name += 10;
+                *start_pc = cur_pc;
+                *resume_pc = cur_pc;
+                *annotation_pc = last_call;
+            } else {
+                *name += 11; // "expression:"
+                *annotation_pc = *start_pc;
+                *resume_pc = cur_pc; // could other stuff occur above?
+                *start_pc = NULL;
+            }
+
+            return;
+        }
+
+        if (instr_is_cbr(scratch)) {
+            instr_reset(dcontext, scratch);
+            cur_pc = decode(dcontext, cur_pc, scratch);
+            if (instr_get_opcode(scratch) == OP_mfence) {
+                app_pc end_pc = instr_get_branch_target_pc(scratch);
+                annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
+            }
+        } else if (instr_is_call(scratch)) {
+            last_call = last_pc;
+        } else if (instr_is_ubr(scratch)) { // compiler may split the annotation with jumps
+            cur_pc = instr_get_branch_target_pc(scratch);
+        }
+    }
+}
+#else
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
                     OUT app_pc *annotation_pc, OUT app_pc *resume_pc, instr_t *scratch)
@@ -1094,45 +1132,26 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 
     *name = NULL;
     *resume_pc = NULL;
-    cur_pc = is_annotation_tag(dcontext, cur_pc, scratch, name);
-    if (cur_pc != NULL) {
-#if defined (WINDOWS) && defined (X64)
-        if (strncmp((const char *) *name, "statement:", 10) == 0) {
-            *name += 10;
+    if (is_annotation_tag(dcontext, &cur_pc, scratch, name)) {
+#ifdef WINDOWS
+        if (*(cur_pc++) == 0x58) { // skip padding byte (`pop eax` indicates statement)
 #else
-# ifdef WINDOWS
-        if (*(cur_pc++) == 1) { // skip padding byte
-# else
         if (instr_get_opcode(scratch) == OP_bsf) {
-# endif
-            instr_reset(dcontext, scratch); // skip the jump to the native version
+#endif
+            instr_reset(dcontext, scratch); // skip the jump to the native version *** (follows annotation call)
             cur_pc = decode_cti(dcontext, cur_pc, scratch);
             instr_reset(dcontext, scratch); // skip the jump to the native version end
             cur_pc = decode_cti(dcontext, cur_pc, scratch);
             *resume_pc = instr_get_branch_target_pc(scratch);
-#endif
             do {
                 instr_reset(dcontext, scratch);
                 last_pc = cur_pc;
                 cur_pc = decode_cti(dcontext, cur_pc, scratch);
-            } while (!instr_is_call(scratch));
+            } while (!instr_is_call(scratch)); // *** go to the last call before the native version
             *annotation_pc = last_pc;
             *start_pc = cur_pc; // i.e., restart_pc, in case annotations calls are fused
-#if defined (WINDOWS) && defined (X64)
-            *resume_pc = cur_pc;
-#endif
         } else {
-#if defined (WINDOWS) && defined (X64)
-            *name += 11; // "expression:"
-            do {
-                instr_reset(dcontext, scratch);
-                last_pc = cur_pc;
-                cur_pc = decode_cti(dcontext, cur_pc, scratch);
-            } while (!instr_is_return(scratch));
-            *resume_pc = last_pc; // could other stuff occur above?
-#else
             *resume_pc = *start_pc;
-#endif
             *annotation_pc = *start_pc;
             *start_pc = NULL; // annotation functions cannot accidentally be fused
         }
@@ -1140,6 +1159,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 
     instr_free(dcontext, scratch);
 }
+#endif
 
 #ifdef X64
 # ifdef UNIX
