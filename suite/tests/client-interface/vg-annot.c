@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "annotation/valgrind.h"
-#include "annotation/memcheck.h"
+#include "valgrind.h"
+#include "memcheck.h"
 
 #define MATRIX_SIZE 100
 
