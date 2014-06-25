@@ -34,7 +34,7 @@
 
 #include <stdlib.h>
 #include "configure.h"
-#include "annotation/test_annotation_arguments.h"
+#include "test_annotation_arguments.h"
 
 /* We can't get this from tools.h, or we'll be linked against tools.c which uses
  * libc.

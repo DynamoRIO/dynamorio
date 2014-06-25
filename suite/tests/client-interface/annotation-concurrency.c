@@ -38,9 +38,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "annotation/dr_annotations.h"
-#include "annotation/test_mode_annotations.h"
-#include "annotation/test_annotation_arguments.h"
+#include "dr_annotations.h"
+#include "test_mode_annotations.h"
+#include "test_annotation_arguments.h"
 
 #ifdef WINDOWS
 # include <windows.h>

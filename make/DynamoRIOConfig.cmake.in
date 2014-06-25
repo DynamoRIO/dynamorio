@@ -946,3 +946,17 @@ function (use_DynamoRIO_extension target extname)
   endif ()
 
 endfunction (use_DynamoRIO_extension)
+
+function (use_DynamoRIO_annotations)
+  if (DynamoRIO_INTERNAL)
+    include_directories(${DynamoRIO_SOURCE_DIR}/core/lib/annotation)
+    if (EXISTS ${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
+      include_directories(${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
+    endif (EXISTS ${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
+  else (DynamoRIO_INTERNAL)
+    if (EXISTS ${DynamoRIO_SOURCE_DIR}/core/lib)
+      include_directories(${DynamoRIO_SOURCE_DIR}/core/lib)
+    endif (EXISTS ${DynamoRIO_SOURCE_DIR}/core/lib)
+  endif (DynamoRIO_INTERNAL)
+endfunction (use_DynamoRIO_annotations)
+

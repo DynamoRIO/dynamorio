@@ -731,27 +731,26 @@ instr_t *
 annot_match(dcontext_t *dcontext, app_pc start_pc, app_pc end_pc, bool hint_is_safe)
 {
     bool hint = true;
+    byte hint_byte;
     instr_t scratch, *substitution = NULL;
 
+    if (hint_is_safe) {
+        hint_byte = *start_pc;
+    } else {
+        if (!safe_read(start_pc, 1, &hint_byte))
+            return NULL;
+    }
+    if (hint_byte != 0xcc)
+        return NULL;
+
+    start_pc++;
     instr_init(dcontext, &scratch);
-    instr_reset(dcontext, &scratch);
-    if (!hint_is_safe) {
-        byte buf[3];
-        if (!safe_read(start_pc, 3, buf))
-            hint = false;
-    }
-    if (hint) {
-        start_pc = decode(dcontext, start_pc, &scratch);
-        if (instr_get_opcode(&scratch) != OP_mfence)
-            hint = false;
-    }
-    if (hint) {
-        TRY_EXCEPT(dcontext, {
-            substitution = annot_maybe_instrument(dcontext, &start_pc, end_pc, &scratch);
-        }, { /* EXCEPT */
-            // log it
-        });
-    }
+
+    TRY_EXCEPT(dcontext, {
+        substitution = annot_maybe_instrument(dcontext, &start_pc, end_pc, &scratch);
+    }, { /* EXCEPT */
+        // log it
+    });
 
     instr_free(dcontext, &scratch);
     return substitution;
@@ -1029,52 +1028,6 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
     return (*name != NULL);
 }
 
-#if 0
-static inline void
-identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
-                    OUT app_pc *annotation_pc, OUT app_pc *resume_pc)
-{
-    uint instr_count = 0, cti_count = 0;
-    instr_t scratch;
-    app_pc last_pc, cur_pc = *start_pc;
-
-    *annotation_pc = NULL;
-    *name = NULL;
-    instr_init(dcontext, scratch);
-    while (true) {
-        last_pc = cur_pc;
-        cur_pc = decode_cti(dcontext, cur_pc, scratch);
-        if ((cur_pc == NULL) || !instr_valid(scratch))
-            break; // fail: reached empty space before the annotation tokens
-        if (instr_is_cti(scratch)) {
-            if (instr_is_call_direct(scratch)) {
-                if ((*name == NULL) &&
-                    (is_annotation_tag(dcontext, instr_get_branch_target_pc(scratch),
-                                       scratch, name) != NULL)) {
-                    if (*annotation_pc != NULL) {
-                        *start_pc = cur_pc;
-                        break; // success: found both calls
-                    }
-                } else {
-                    if (*annotation_pc != NULL)
-                        break; // fail: no tag is found
-                    *annotation_pc = last_pc;
-                    if (*name != NULL) {
-                        *start_pc = cur_pc;
-                        break; // success: found both calls
-                    }
-                }
-            }
-            if (++cti_count > 1)
-                break; // fail: 2 ctis but not 2 annotation calls
-        }
-        if (++instr_count > MAX_ANNOTATION_INSTR_COUNT)
-            break; // fail: annotations are never this big
-        instr_reset(dcontext, scratch);
-    }
-}
-#endif
-
 #if defined(WINDOWS) && defined(X64)
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const char **name,
@@ -1083,44 +1036,49 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
 {
     app_pc last_pc, cur_pc = *start_pc, last_call = NULL;
 
-    while (cur_pc != end_pc) { // what if the fall-through doesn't reach this pc?
-        last_pc = cur_pc;      // could verify that cmp/cbr exists with target (cur_pc-9)
-        if (is_annotation_tag(dcontext, &cur_pc, scratch, name)) { // or dup the label
+    if (!is_annotation_tag(dcontext, &cur_pc, scratch, name))
+        return;
 
-            while (instr_get_opcode(scratch) != OP_prefetchw) {
-                if (instr_is_ubr(scratch))
-                    cur_pc = instr_get_branch_target_pc(scratch);
-                instr_reset(dcontext, scratch);
-                cur_pc = decode(dcontext, cur_pc, scratch);
-            }
+    while (instr_get_opcode(scratch) != OP_prefetchw) {
+        if (instr_is_ubr(scratch))
+            cur_pc = instr_get_branch_target_pc(scratch);
+        instr_reset(dcontext, scratch);
+        cur_pc = decode(dcontext, cur_pc, scratch);
+    }
+    // debug assert: next byte is 0xcc
+    cur_pc++;
 
-            if (strncmp((const char *) *name, "statement:", 10) == 0) {
-                *name += 10;
-                *start_pc = cur_pc;
-                *resume_pc = cur_pc;
-                *annotation_pc = last_call;
-            } else {
-                *name += 11; // "expression:"
-                *annotation_pc = *start_pc;
-                *resume_pc = cur_pc; // could other stuff occur above?
-                *start_pc = NULL;
-            }
-
-            return;
-        }
-
-        if (instr_is_cbr(scratch)) {
+    if (strncmp((const char *) *name, "statement:", 10) == 0) {
+        while (cur_pc != end_pc) {
+            last_pc = cur_pc;
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
-            if (instr_get_opcode(scratch) == OP_mfence) {
-                app_pc end_pc = instr_get_branch_target_pc(scratch);
-                annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
+
+            if (instr_is_cbr(scratch)) {
+                byte hint_byte = *cur_pc;
+                if (hint_byte == 0xcc) {
+                    app_pc end_pc = instr_get_branch_target_pc(scratch);
+                    cur_pc++;
+                    annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
+                }
+            } else if (instr_is_call(scratch)) {
+                last_call = last_pc;
+            } else if (instr_is_ubr(scratch)) { // compiler may split the annotation with jumps
+                cur_pc = instr_get_branch_target_pc(scratch);
             }
-        } else if (instr_is_call(scratch)) {
-            last_call = last_pc;
-        } else if (instr_is_ubr(scratch)) { // compiler may split the annotation with jumps
-            cur_pc = instr_get_branch_target_pc(scratch);
         }
+
+        // debug assert: loopback should go to the original start_pc (+/- offset)
+
+        *name += 10;
+        *start_pc = cur_pc;
+        *resume_pc = cur_pc;
+        *annotation_pc = last_call;
+    } else {
+        *name += 11; // "expression:"
+        *annotation_pc = *start_pc;
+        *resume_pc = cur_pc; // could other stuff occur above?
+        *start_pc = NULL;
     }
 }
 #else

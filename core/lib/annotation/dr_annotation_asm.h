@@ -52,31 +52,32 @@
 # define PASTE(x, y) PASTE1(x, y)
 
 # ifdef DYNAMORIO_ANNOTATIONS_X64
-/* The value of this intrinsic is assumed to be non-zero, though in the rare case of
- * annotations occurring within managed code (i.e., C# or VB), zero is possible. In
- * this case the annotation would be executed in a native run (it will not crash or
- * alter the program behavior in any way, other than wasting a cache fetch). */
-#  pragma intrinsic(_AddressOfReturnAddress, _mm_mfence, _mm_lfence, _m_prefetchw)
-#  define GET_RETURN_ADDRESS _AddressOfReturnAddress
+/* The value of this intrinsic is assumed to be non-zero. In the rare case of
+ * annotations occurring within managed code (i.e., C# or VB), it may not properly be
+ * the address of the return address on the stack, but it still should never be zero. */
+#  pragma intrinsic(_AddressOfReturnAddress, __debugbreak, _m_prefetchw)
+#  define GET_RETURN_PTR _AddressOfReturnAddress
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
     const char *annotation##_expression_label = "dynamorio-annotation:expression:"#annotation; \
     const char *annotation##_statement_label = "dynamorio-annotation:statement:"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 do { \
-    if ((unsigned __int64) GET_RETURN_ADDRESS() > (0xfffffffffffffff1 - (2 * __LINE__))) { \
+    if ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff1 - (2 * __LINE__))) { \
         extern const char *annotation##_statement_label; \
-        _mm_mfence(); \
-        annotation(__VA_ARGS__); \
+        __debugbreak(); \
         _m_prefetchw(annotation##_statement_label); \
+        __debugbreak(); \
+        annotation(__VA_ARGS__); \
     } else { \
         native_version; \
     } \
-} while ((unsigned __int64) GET_RETURN_ADDRESS() > (0xfffffffffffffff0 - (2 * __LINE__)))
+} while ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff0 - (2 * __LINE__)))
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
-    if (GET_RETURN_ADDRESS() == (void *) 0) { \
+    if (GET_RETURN_PTR() == (void *) 0) { \
         extern const char *annotation##_expression_label; \
-        _mm_mfence(); \
+        __debugbreak(); \
         _m_prefetchw(annotation##_expression_label); \
+        __debugbreak(); \
     }
 # else
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \

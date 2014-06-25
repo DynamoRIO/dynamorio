@@ -1,8 +1,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "annotation/dr_annotations.h"
-#include "annotation/test_annotation_arguments.h"
+#include "dr_annotations.h"
+#include "test_annotation_arguments.h"
 
 static void
 annotation_wrapper(int a, int b, int c, int d)

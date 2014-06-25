@@ -30,13 +30,19 @@
  * DAMAGE.
  */
 
-#ifndef _DYNAMORIO_ANNOTATIONS_H_
-#define _DYNAMORIO_ANNOTATIONS_H_ 1
+#ifndef _TEST_MODE_ANNOTATIONS_H_
+#define _TEST_MODE_ANNOTATIONS_H_ 1
 
-#include "annotation/dr_annotation_asm.h"
+#include "dr_annotation_asm.h"
 
-#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
-    dynamorio_annotate_running_on_dynamorio()
+#define TEST_ANNOTATION_INIT_MODE(mode) \
+    DR_ANNOTATION(test_annotation_init_mode, mode)
+
+#define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
+    DR_ANNOTATION(test_annotation_init_context, id, name, mode)
+
+#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,7 +50,13 @@ extern "C" {
 
 #pragma auto_inline(off)
 
-DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
+DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
+
+DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
+    const char *name, unsigned int initial_mode));
+
+DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
+    unsigned int mode));
 
 #pragma auto_inline(on)
 
@@ -53,3 +65,4 @@ DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
 #endif
 
 #endif
+

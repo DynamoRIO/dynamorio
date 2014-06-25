@@ -33,8 +33,10 @@
 #include "dr_annotations.h"
 
 #pragma auto_inline(off)
+#pragma optimize ("g", off)
 
 DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
 
+#pragma optimize ("g", on)
 #pragma auto_inline(on)
 

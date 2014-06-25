@@ -30,39 +30,24 @@
  * DAMAGE.
  */
 
-#ifndef _TEST_MODE_ANNOTATIONS_H_
-#define _TEST_MODE_ANNOTATIONS_H_ 1
-
-#include "annotation/dr_annotation_asm.h"
-
-#define TEST_ANNOTATION_INIT_MODE(mode) \
-    DR_ANNOTATION(test_annotation_init_mode, mode)
-
-#define TEST_ANNOTATION_INIT_CONTEXT(id, name, mode) \
-    DR_ANNOTATION(test_annotation_init_context, id, name, mode)
-
-#define TEST_ANNOTATION_SET_MODE(context_id, mode, native_version) \
-    DR_ANNOTATION_OR_NATIVE(test_annotation_set_mode, native_version, context_id, mode)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "test_annotation_arguments.h"
+#include <stdio.h>
 
 #pragma auto_inline(off)
+#pragma optimize ("g", off)
 
-DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
+DR_DEFINE_ANNOTATION(void, test_annotation_eight_args, (unsigned int a,
+    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
+    unsigned int f, unsigned int g, unsigned int h), )
 
-DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
-    const char *name, unsigned int initial_mode));
+DR_DEFINE_ANNOTATION(void, test_annotation_nine_args, (unsigned int a,
+    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
+    unsigned int f, unsigned int g, unsigned int h, unsigned int i), )
 
-DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
-    unsigned int mode));
+DR_DEFINE_ANNOTATION(void, test_annotation_ten_args, (unsigned int a,
+    unsigned int b, unsigned int c, unsigned int d, unsigned int e,
+    unsigned int f, unsigned int g, unsigned int h, unsigned int i,
+    unsigned int j), )
 
+#pragma optimize ("g", on)
 #pragma auto_inline(on)
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-
