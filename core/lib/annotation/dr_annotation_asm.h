@@ -55,7 +55,7 @@
 /* The value of this intrinsic is assumed to be non-zero. In the rare case of
  * annotations occurring within managed code (i.e., C# or VB), it may not properly be
  * the address of the return address on the stack, but it still should never be zero. */
-#  pragma intrinsic(_AddressOfReturnAddress, __debugbreak, _m_prefetchw)
+#  pragma intrinsic(_AddressOfReturnAddress, __debugbreak, __int2c, _m_prefetchw)
 #  define GET_RETURN_PTR _AddressOfReturnAddress
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
     const char *annotation##_expression_label = "dynamorio-annotation:expression:"#annotation; \
@@ -64,7 +64,7 @@
 do { \
     if ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff1 - (2 * __LINE__))) { \
         extern const char *annotation##_statement_label; \
-        __debugbreak(); \
+        __int2c(); \
         _m_prefetchw(annotation##_statement_label); \
         __debugbreak(); \
         annotation(__VA_ARGS__); \
@@ -75,7 +75,7 @@ do { \
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
     if (GET_RETURN_PTR() == (void *) 0) { \
         extern const char *annotation##_expression_label; \
-        __debugbreak(); \
+        __int2c(); \
         _m_prefetchw(annotation##_expression_label); \
         __debugbreak(); \
     }

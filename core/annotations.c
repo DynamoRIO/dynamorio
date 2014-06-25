@@ -740,10 +740,10 @@ annot_match(dcontext_t *dcontext, app_pc start_pc, app_pc end_pc, bool hint_is_s
         if (!safe_read(start_pc, 1, &hint_byte))
             return NULL;
     }
-    if (hint_byte != 0xcc)
+    if (hint_byte != 0xcd)
         return NULL;
 
-    start_pc++;
+    start_pc += 2;
     instr_init(dcontext, &scratch);
 
     TRY_EXCEPT(dcontext, {
@@ -1055,10 +1055,10 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
             cur_pc = decode(dcontext, cur_pc, scratch);
 
             if (instr_is_cbr(scratch)) {
-                byte hint_byte = *cur_pc;
-                if (hint_byte == 0xcc) {
+                ushort hint = *(ushort *) cur_pc;
+                if (hint == 0x2ccd) {
                     app_pc end_pc = instr_get_branch_target_pc(scratch);
-                    cur_pc++;
+                    cur_pc += 2;
                     annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
                 }
             } else if (instr_is_call(scratch)) {
