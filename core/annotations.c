@@ -1058,7 +1058,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc, OUT const cha
                 ushort hint = *(ushort *) cur_pc;
                 if (hint == 0x2ccd) {
                     app_pc end_pc = instr_get_branch_target_pc(scratch);
-                    cur_pc += 2;
+                    cur_pc += 2; // which `cur_pc` if it was not an annotation?
                     annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
                 }
             } else if (instr_is_call(scratch)) {

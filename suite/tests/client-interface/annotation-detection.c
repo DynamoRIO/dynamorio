@@ -4,6 +4,14 @@
 #include "dr_annotations.h"
 #include "test_annotation_arguments.h"
 
+#ifndef _MSC_VER
+# ifdef __LP64__
+#  define uintptr_t unsigned long long
+# else
+#  define uintptr_t unsigned long
+# endif
+#endif
+
 static void
 annotation_wrapper(int a, int b, int c, int d)
 {
@@ -73,7 +81,7 @@ case2:
             case 7: {
                 unsigned int a = 0, b = 0;
                 TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-                TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, (unsigned int) &b, 5, 6, 7, 8, 9, 10);
+                TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, (unsigned int) (uintptr_t) &b, 5, 6, 7, 8, 9, 10);
                 a = b;
                 if (b > 0)
                     goto case2;
