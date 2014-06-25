@@ -947,19 +947,16 @@ function (use_DynamoRIO_extension target extname)
 
 endfunction (use_DynamoRIO_extension)
 
-function (use_DynamoRIO_annotations)
-  if (DynamoRIO_INTERNAL)
-    include_directories(${DynamoRIO_SOURCE_DIR}/core/lib/annotation)
-    if (EXISTS ${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
-      include_directories(${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
-    endif (EXISTS ${DynamoRIO_SOURCE_DIR}/suite/tests/client-interface/annotation)
-    if (EXISTS ${DynamoRIO_SOURCE_DIR}/third_party/valgrind)
-      include_directories(${DynamoRIO_SOURCE_DIR}/third_party/valgrind)
-    endif (EXISTS ${DynamoRIO_SOURCE_DIR}/third_party/valgrind)
-  else (DynamoRIO_INTERNAL)
-    if (EXISTS ${DynamoRIO_SOURCE_DIR}/core/lib)
-      include_directories(${DynamoRIO_SOURCE_DIR}/core/lib)
-    endif (EXISTS ${DynamoRIO_SOURCE_DIR}/core/lib)
-  endif (DynamoRIO_INTERNAL)
-endfunction (use_DynamoRIO_annotations)
+function (use_DynamoRIO_annotations target srcs)
+  include_directories("${DynamoRIO_cwd}/../annotation")
+  set(srcs ${srcs} "${DynamoRIO_cwd}/../annotation/dr_annotations.c")
+endfunction (use_DynamoRIO_annotations target srcs)
+
+function (use_DynamoRIO_test_annotations target srcs)
+  include_directories("${DynamoRIO_cwd}/../annotation")
+  set(${srcs} ${${srcs}} "${DynamoRIO_cwd}/../annotation/dr_annotations.c"
+    "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
+    "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c" PARENT_SCOPE)
+endfunction (use_DynamoRIO_test_annotations target srcs)
+
 

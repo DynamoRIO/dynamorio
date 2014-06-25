@@ -266,7 +266,6 @@ set_per_config_ouput_to_match_single_config()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
 include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
-use_DynamoRIO_annotations()
 
 # FIXME i#98: improve code so can set Wall/W4
 if (UNIX)
@@ -518,18 +517,9 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-  if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
-    set(test_srcs ${test_srcs}
-      "${PROJECT_SOURCE_DIR}/core/lib/annotation/dr_annotations.c")
-  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"")
-  if ("${srccode}" MATCHES "include \"test_mode_annotations.h\"")
-    set(test_srcs ${test_srcs}
-      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.c")
-  endif ("${srccode}" MATCHES "include \"test_mode_annotations.h\"")
-  if ("${srccode}" MATCHES "include \"test_annotation_arguments.h\"")
-    set(test_srcs ${test_srcs}
-      "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c")
-  endif ("${srccode}" MATCHES "include \"test_annotation_arguments.h\"")
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+    use_DynamoRIO_test_annotations(${test} test_srcs)
+  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
 
   add_executable(${test} ${test_srcs})
 
@@ -714,10 +704,9 @@ function(tobuild_appdll test source)
         "_asm" "${asm_defs}" "${asm_deps}")
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-    if ("${srccode}" MATCHES "include \"test_annotation_arguments.h\"")
-      set(lib_srcs ${lib_srcs}
-        "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c")
-    endif ("${srccode}" MATCHES "include \"test_annotation_arguments.h\"")
+    if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+      use_DynamoRIO_test_annotations(${test} ${test_srcs})
+    endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
@@ -1427,22 +1416,18 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (CLIENT_INTERFACE)
-  # set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotation")
-  # file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
-  # configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/valgrind.h"
-  #   "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
-  # configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
-  #   "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
-  # configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotation_asm.h"
-  #   "${BUILD_ANNOTATION}/dr_annotation_asm.h" COPYONLY)
-  # configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
-  #   "${BUILD_ANNOTATION}/dr_annotations.h" COPYONLY)
-  # configure_file(
-  #   "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_mode_annotations.h"
-  #   "${BUILD_ANNOTATION}/test_mode_annotations.h" COPYONLY)
-  # configure_file(
-  #   "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/lib/test_annotation_arguments.h"
-  #   "${BUILD_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.h"
+    "${BUILD_ANNOTATION}/test_mode_annotations.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.c"
+    "${BUILD_ANNOTATION}/test_mode_annotations.c" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.h"
+    "${BUILD_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c"
+    "${BUILD_ANNOTATION}/test_annotation_arguments.c" COPYONLY)
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")

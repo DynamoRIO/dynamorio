@@ -898,3 +898,16 @@ install_exported_target(drdecode ${INSTALL_LIB})
 # We need separate 32-bit and 64-bit versions so we put into lib dir
 DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})
 
+set(BUILD_ANNOTATION "${PROJECT_BINARY_DIR}/annotation")
+set(BUILD_ANNOTATION "${PROJECT_BINARY_DIR}/annotation" PARENT_SCOPE)
+file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
+configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/valgrind.h"
+  "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
+  "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotation_asm.h"
+  "${BUILD_ANNOTATION}/dr_annotation_asm.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
+  "${BUILD_ANNOTATION}/dr_annotations.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c"
+  "${BUILD_ANNOTATION}/dr_annotations.c" COPYONLY)
