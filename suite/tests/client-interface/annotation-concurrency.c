@@ -61,6 +61,7 @@
 # define MODULE_TYPE HMODULE
 #else
 # define SPRINTF(dst, size, src, ...) sprintf(dst, src, __VA_ARGS__);
+// opt loads the non-opt appdll... pass name as arg? or opt flag?
 # define LIB_NAME "libclient.annotation-concurrency.appdll.so"
 # define MODULE_TYPE void *
 #endif

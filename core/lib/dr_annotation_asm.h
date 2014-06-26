@@ -91,9 +91,10 @@ do { \
             __asm mov eax, annotation##_label \
             __asm pop eax \
             __asm jmp PASTE(native_run, __LINE__) \
-            __asm jmp PASTE(native_end_marker, __LINE__) \
+            __asm jmp PASTE(annotation_end_marker, __LINE__) \
         } \
         annotation(__VA_ARGS__); \
+        annotation_end_marker: goto native_end_marker; \
         PASTE(native_run, __LINE__) : native_version; \
         PASTE(native_end_marker, __LINE__): ; \
     }
@@ -131,7 +132,7 @@ do { \
 # define DR_WEAK_DECLARATION __attribute__ ((weak))
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
-    __label__ native_run, native_end_marker; \
+    __label__ native_run, annotation_end_marker, native_end_marker; \
     extern const char *annotation##_label; \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
@@ -139,8 +140,10 @@ do { \
                             jmp %l0; \
                             jmp %l1;" \
                             ::: LABEL_REFERENCE_REGISTER \
-                            : native_run, native_end_marker); \
+                            : native_run, annotation_end_marker); \
     annotation(__VA_ARGS__); \
+    __asm__ volatile (""); \
+    annotation_end_marker: goto native_end_marker; \
     native_run: native_version; \
     native_end_marker: ; \
 })
