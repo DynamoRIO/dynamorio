@@ -164,7 +164,7 @@ typedef enum _annotation_type_t {
 typedef struct _annotation_layout_t {
     app_pc start_pc;
 #if defined(WINDOWS) && defined(X64)
-    app_pc end_pc;
+    app_pc end_pc; // TODO: remove this
 #endif
     annotation_type_t type;
     const char *name;
@@ -718,21 +718,25 @@ annot_match(dcontext_t *dcontext, instr_t *instr)
 
 #if defined (WINDOWS) && defined (X64)
 static instr_t *
-annot_maybe_instrument(dcontext_t *dcontext, app_pc *start_pc, app_pc end_pc,
-                       instr_t *scratch)
+annot_maybe_instrument(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc,
+                       app_pc end_pc, instr_t *scratch)
 {
     annotation_layout_t layout;
     instr_t *substitution = NULL;
 
     memset(&layout, 0, sizeof(annotation_layout_t));
     layout.start_pc = *start_pc;
+    layout.end_pc = end_pc;
+
+    dr_printf("Looking for annotation at "PFX"\n", *start_pc);
+
     identify_annotation(dcontext, &layout, scratch);
     if (layout.type != ANNOTATION_TYPE_NONE) {
         dr_printf("Decoded %s of %s\n",
                   (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
-                  layout->name);
+                  layout.name);
         dr_printf("\tRemove "PFX"-"PFX", replace call at "PFX" and resume at "PFX"\n",
-                  start_pc, layout->args_pc, layout->call_pc, layout->resume_pc);
+                  branch_pc, layout.args_pc, layout.call_pc, layout.resume_pc);
         // instrument it here to avoid stacking nested annotations
     }
     *start_pc = layout.resume_pc;
@@ -741,7 +745,8 @@ annot_maybe_instrument(dcontext_t *dcontext, app_pc *start_pc, app_pc end_pc,
 }
 
 instr_t *
-annot_match(dcontext_t *dcontext, app_pc start_pc, app_pc end_pc, bool hint_is_safe)
+annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc start_pc, app_pc end_pc,
+            bool hint_is_safe)
 {
     bool hint = true;
     byte hint_byte;
@@ -760,7 +765,8 @@ annot_match(dcontext_t *dcontext, app_pc start_pc, app_pc end_pc, bool hint_is_s
     instr_init(dcontext, &scratch);
 
     TRY_EXCEPT(dcontext, {
-        substitution = annot_maybe_instrument(dcontext, &start_pc, end_pc, &scratch);
+        substitution = annot_maybe_instrument(dcontext, branch_pc, &start_pc, end_pc,
+                                              &scratch);
     }, { /* EXCEPT */
         // log it
     });
@@ -1030,8 +1036,19 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                 return false;
             src_ptr += opnd_get_disp(src);
             if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
-                return NULL;
+                return false;
             src_ptr = got_ptr;
+#endif
+#if defined (WINDOWS) && defined (X64)
+            if (instr_get_opcode(scratch) == OP_prefetchw) {
+                if (!safe_read(src_ptr, 20, buf))
+                    return false;
+                buf[20] = '\0';
+                if (strcmp(buf, "dynamorio-annotation") == 0) {
+                    *name = (const char *) (src_ptr + 21);
+                    return true;
+                }
+            }
 #endif
             if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
                 return false;
@@ -1041,9 +1058,10 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
             if (strcmp(buf, "dynamorio-annotation") != 0)
                 return false;
             *name = (const char *) (buf_ptr + 21);
+            return true;
         }
     }
-    return (*name != NULL);
+    return false;
 }
 
 #if defined (WINDOWS) && defined (X64)
@@ -1068,17 +1086,19 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 
     if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
         layout->type = ANNOTATION_TYPE_STATEMENT;
-        while (cur_pc != layout->end_pc) {
+        while (true) {
             last_pc = cur_pc;
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
 
-            if (instr_is_cbr(scratch)) {
+            if (instr_get_opcode(scratch) == OP_int3) {
+                break;
+            } else if (instr_is_cbr(scratch)) {
                 ushort hint = *(ushort *) cur_pc;
                 if (hint == 0x2ccd) {
                     app_pc end_pc = instr_get_branch_target_pc(scratch);
                     cur_pc += 2; // which `cur_pc` if it was not an annotation?
-                    annot_maybe_instrument(dcontext, &cur_pc, end_pc, scratch);
+                    annot_maybe_instrument(dcontext, last_pc, &cur_pc, end_pc, scratch);
                 }
             } else if (instr_is_call(scratch)) {
                 last_call = last_pc;

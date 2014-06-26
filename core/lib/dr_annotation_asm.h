@@ -68,6 +68,7 @@ do { \
         _m_prefetchw(annotation##_statement_label); \
         __debugbreak(); \
         annotation(__VA_ARGS__); \
+        __debugbreak(); \
     } else { \
         native_version; \
     } \
@@ -82,7 +83,7 @@ do { \
 # else
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
     const char *annotation##_label = "dynamorio-annotation:"#annotation;
-#  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+#  define DR_ANNOTATION_OR_NATIVE_INSTANCE(annotation, native_version, unique_id, ...) \
     { \
         extern const char *annotation##_label; \
         __asm { \
@@ -90,14 +91,16 @@ do { \
             __asm _emit 0x06 \
             __asm mov eax, annotation##_label \
             __asm pop eax \
-            __asm jmp PASTE(native_run, __LINE__) \
-            __asm jmp PASTE(annotation_end_marker, __LINE__) \
+            __asm jmp PASTE(native_run, unique_id) \
+            __asm jmp PASTE(annotation_end_marker, unique_id) \
         } \
         annotation(__VA_ARGS__); \
-        annotation_end_marker: goto native_end_marker; \
-        PASTE(native_run, __LINE__) : native_version; \
-        PASTE(native_end_marker, __LINE__): ; \
+        PASTE(annotation_end_marker, unique_id): goto PASTE(native_end_marker, unique_id); \
+        PASTE(native_run, unique_id): native_version; \
+        PASTE(native_end_marker, unique_id): ; \
     }
+#  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
+    DR_ANNOTATION_OR_NATIVE_INSTANCE(annotation, native_version, __COUNTER__, __VA_ARGS__)
 #  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
     __asm { \
         __asm _emit 0xeb \
