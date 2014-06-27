@@ -146,7 +146,9 @@ do { \
                             : native_run, annotation_end_marker); \
     annotation(__VA_ARGS__); \
     __asm__ volatile (""); \
-    annotation_end_marker: goto native_end_marker; \
+    annotation_end_marker: \
+    __asm__ volatile ("nop"); \
+    goto native_end_marker; \
     native_run: native_version; \
     native_end_marker: ; \
 })

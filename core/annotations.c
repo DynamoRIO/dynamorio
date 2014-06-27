@@ -178,6 +178,7 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
     instr_t *current_arg;
     annotation_instrumentation_t instrumentation;
+    instr_t *clean_call_predecessor;
 } annotation_layout_t;
 
 annotation_handler_t *two_args_handler;
@@ -217,7 +218,8 @@ static void
 append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
 
 static void
-insert_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
+insert_instrumentation(dcontext_t *dcontext,
+                       annotation_instrumentation_t *instrumentation, instr_t *instr);
 
 #if defined(WINDOWS) && !defined(X64)
 static int
@@ -880,6 +882,8 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc)
         label_data->data[1] = ANNOT_NORMAL_CALL;
         label_data->data[2] = (ptr_uint_t) layout.call_pc; // ??
         instr_set_ok_to_mangle(call, false);
+        //call->prev = layout.clean_call_predecessor; // can just append now?
+        //insert_instrumentation(dcontext, &layout.instrumentation, call);
         append_instrumentation(&layout.instrumentation, call);
 
         substitution = layout.instrumentation.head;
@@ -1195,7 +1199,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
             } else if (instr_is_call(arg)) {
                 // byte foo = *last_call;
                 if (last_call_instr != NULL)
-                    insert_instrumentation(&layout->instrumentation, last_call_instr);
+                    insert_instrumentation(dcontext, &layout->instrumentation,
+                                           last_call_instr);
                 last_call = last_pc;
                 last_call_instr = arg;
                 last_call_instr->prev = arg->prev;
@@ -1250,10 +1255,11 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                 cur_pc = decode_cti(dcontext, cur_pc, arg);
                 if (instr_is_call(arg)) {
                     if (last_call_instr != NULL)
-                        insert_instrumentation(&layout->instrumentation, last_call_instr);
+                        insert_instrumentation(dcontext, &layout->instrumentation,
+                                               last_call_instr);
                     last_call_pc = last_pc;
                     last_call_instr = arg;
-                    last_call_instr->prev = arg->prev;
+                    last_call_instr->prev = layout->instrumentation.tail;
                     last_call_continuation_pc = cur_pc;
                 } else if (instr_is_ubr(arg)) {
                     cur_pc = instr_get_branch_target_pc(arg);
@@ -1263,9 +1269,10 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                 }
             } while (cur_pc != annotation_end_pc);
             ASSERT(last_call_instr != NULL);
+            layout->clean_call_predecessor = last_call_instr->prev;
             instr_destroy(dcontext, last_call_instr);
             layout->call_pc = last_call_pc;
-            layout->resume_pc = last_call_continuation_pc;
+            layout->resume_pc = cur_pc; //last_call_continuation_pc;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
             layout->resume_pc = cur_pc;
@@ -1356,7 +1363,6 @@ specify_args(annotation_handler_t *handler, uint num_args,
 static void
 append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr)
 {
-    instr_set_ok_to_mangle(instr, false);
     if (instrumentation->head == NULL) {
         instrumentation->head = instrumentation->tail = instr;
     } else {
@@ -1369,20 +1375,36 @@ append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *i
 }
 
 static void
-insert_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr)
+insert_instrumentation(dcontext_t *dcontext,
+                       annotation_instrumentation_t *instrumentation, instr_t *instr)
 {
-    instr_set_ok_to_mangle(instr, false);
+    instr_t *cti_instr;
+
+    if (instr_is_call(instr)) {
+        // call gets translated into push/jmp... is this really a good way to setup the jump?
+        cti_instr = INSTR_CREATE_jmp(dcontext,
+                                     opnd_create_pc(instr_get_branch_target_pc(instr)));
+        instr_set_our_mangling(cti_instr, true);
+        cti_instr->next = instr->next;
+        instr->next = cti_instr;
+        cti_instr->prev = instr;
+    } else {
+        dr_printf("Clean call predecessor is a 0x%x\n", instr->prev->opcode);
+
+        cti_instr = instr;
+    }
+
     if (instr->prev == NULL) {
-        instr->next = instrumentation->head;
-        instr->next->prev = instr;
+        cti_instr->next = instrumentation->head;
+        cti_instr->next->prev = cti_instr;
         instrumentation->head = instr;
     } else {
-        instr->next = instr->prev->next;
+        cti_instr->next = instr->prev->next;
         instr->prev->next = instr;
-        if (instr->next == NULL)
-            instrumentation->tail = instr;
+        if (cti_instr->next == NULL)
+            instrumentation->tail = cti_instr;
         else
-            instr->next->prev = instr;
+            cti_instr->next->prev = cti_instr;
     }
 }
 

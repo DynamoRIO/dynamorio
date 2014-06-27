@@ -4,7 +4,10 @@
 #include "dr_annotations.h"
 #include "test_annotation_arguments.h"
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+# define INLINE __inline
+#else
+# define INLINE inline
 # ifdef __LP64__
 #  define uintptr_t unsigned long long
 # else
@@ -28,7 +31,7 @@ power(int x, unsigned int exp)
     return x;
 }
 
-static __inline int
+static INLINE int
 two()
 {
     TEST_ANNOTATION_TWO_ARGS(__LINE__, 5);
