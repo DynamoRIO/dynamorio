@@ -51,6 +51,10 @@ int main(void)
 {
     unsigned int i, j;
 
+    TEST_ANNOTATION_TWO_ARGS(1, 2);
+    TEST_ANNOTATION_TWO_ARGS(3, 4);
+    if (1) return;
+
     nested_annotation_test();
     colocated_annotation_test();
 
