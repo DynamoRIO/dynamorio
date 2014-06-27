@@ -168,9 +168,6 @@ typedef struct _annotation_instrumentation_t {
 
 typedef struct _annotation_layout_t {
     app_pc start_pc;
-#if defined(WINDOWS) && defined(X64)
-    app_pc end_pc; // TODO: remove this
-#endif
     annotation_type_t type;
     const char *name;
     app_pc args_pc;
@@ -214,12 +211,12 @@ static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
 
-static void
-append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
+//static void
+//append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
 
-static void
-insert_instrumentation(dcontext_t *dcontext,
-                       annotation_instrumentation_t *instrumentation, instr_t *instr);
+//static void
+//insert_instrumentation(dcontext_t *dcontext,
+//                       annotation_instrumentation_t *instrumentation, instr_t *instr);
 
 #if defined(WINDOWS) && !defined(X64)
 static int
@@ -807,8 +804,7 @@ annot_maybe_instrument(dcontext_t *dcontext, app_pc branch_pc,
 }
 
 instr_t *
-annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc, app_pc end_pc,
-            bool hint_is_safe)
+annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc, bool hint_is_safe)
 {
     bool hint = true;
     byte hint_byte;
@@ -830,7 +826,6 @@ annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc, app_pc end
 
     memset(&layout, 0, sizeof(annotation_layout_t));
     layout.start_pc = cur_pc;
-    layout.end_pc = end_pc;
 
     TRY_EXCEPT(dcontext, {
         substitution = annot_maybe_instrument(dcontext, branch_pc, &layout, &scratch);
@@ -847,11 +842,11 @@ annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc, app_pc end
     return substitution;
 }
 #else
-instr_t *
-annot_match(dcontext_t *dcontext, app_pc *start_pc)
+bool
+annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution)
 {
     annotation_layout_t layout;
-    instr_t scratch, *substitution = NULL;
+    instr_t scratch;
 
     dr_printf("Look for annotation at "PFX"\n", *start_pc);
 
@@ -866,9 +861,6 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc)
         cleanup_layout(dcontext, &layout);
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
-        instr_t *call = INSTR_CREATE_label(dcontext);
-        dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
-
         dr_printf("Decoded %s of %s\n",
                   (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
                   layout.name);
@@ -877,21 +869,24 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc)
                   (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "insert" : "replace",
                   layout.call_pc, layout.resume_pc);
 
-        instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-        label_data->data[0] = (ptr_uint_t) two_args_handler;
-        label_data->data[1] = ANNOT_NORMAL_CALL;
-        label_data->data[2] = (ptr_uint_t) layout.call_pc; // ??
-        instr_set_ok_to_mangle(call, false);
-        //call->prev = layout.clean_call_predecessor; // can just append now?
-        //insert_instrumentation(dcontext, &layout.instrumentation, call);
-        append_instrumentation(&layout.instrumentation, call);
-
-        substitution = layout.instrumentation.head;
         *start_pc = layout.resume_pc;
+
+        if (layout.type == ANNOTATION_TYPE_EXPRESSION) {
+            instr_t *call = INSTR_CREATE_label(dcontext);
+            dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
+
+            instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
+            label_data->data[0] = (ptr_uint_t) two_args_handler;
+            label_data->data[1] = ANNOT_NORMAL_CALL;
+            label_data->data[2] = (ptr_uint_t) layout.call_pc; // ??
+            instr_set_ok_to_mangle(call, false);
+
+            *substitution = call;
+        }
     }
 
     instr_free(dcontext, &scratch);
-    return substitution;
+    return (layout.type != ANNOTATION_TYPE_NONE);
 }
 #endif
 
@@ -1190,7 +1185,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
             } else if (instr_is_cbr(arg)) {
                 ushort hint = *(ushort *) cur_pc;
                 if (hint == 0x2ccd) {
-                    app_pc end_pc = instr_get_branch_target_pc(arg);
                     cur_pc += 2; // which `cur_pc` if it was not an annotation?
                     instr_destroy(dcontext, arg);
                     arg = annot_maybe_instrument(dcontext, last_pc, layout, scratch);
@@ -1239,40 +1233,12 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 #else
         if (instr_get_opcode(scratch) == OP_bsf) {
 #endif
-            app_pc annotation_end_pc, last_pc, last_call_pc = NULL, last_call_continuation_pc = NULL;
-            instr_t *arg, *last_call_instr = NULL;
             layout->type = ANNOTATION_TYPE_STATEMENT;
             instr_reset(dcontext, scratch);
             cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
             instr_reset(dcontext, scratch);
             cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
-            annotation_end_pc = instr_get_branch_target_pc(scratch);
-            layout->args_pc = cur_pc;
-            do {
-                last_pc = cur_pc;
-                arg = instr_create(dcontext);
-                layout->current_arg = arg;
-                cur_pc = decode_cti(dcontext, cur_pc, arg);
-                if (instr_is_call(arg)) {
-                    if (last_call_instr != NULL)
-                        insert_instrumentation(dcontext, &layout->instrumentation,
-                                               last_call_instr);
-                    last_call_pc = last_pc;
-                    last_call_instr = arg;
-                    last_call_instr->prev = layout->instrumentation.tail;
-                    last_call_continuation_pc = cur_pc;
-                } else if (instr_is_ubr(arg)) {
-                    cur_pc = instr_get_branch_target_pc(arg);
-                    instr_destroy(dcontext, arg);
-                } else {
-                    append_instrumentation(&layout->instrumentation, arg);
-                }
-            } while (cur_pc != annotation_end_pc);
-            ASSERT(last_call_instr != NULL);
-            layout->clean_call_predecessor = last_call_instr->prev;
-            instr_destroy(dcontext, last_call_instr);
-            layout->call_pc = last_call_pc;
-            layout->resume_pc = cur_pc; //last_call_continuation_pc;
+            layout->resume_pc = cur_pc;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
             layout->resume_pc = cur_pc;
@@ -1359,7 +1325,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
     }
 }
 #endif
-
+/*
 static void
 append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr)
 {
@@ -1407,6 +1373,7 @@ insert_instrumentation(dcontext_t *dcontext,
             cti_instr->next->prev = cti_instr;
     }
 }
+*/
 
 #if defined(WINDOWS) && !defined(X64)
 static int

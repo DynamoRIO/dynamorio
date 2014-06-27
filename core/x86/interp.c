@@ -3320,19 +3320,15 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         } else
 # endif
         if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
-            instr_t *substitution =
-                annot_match(dcontext _IF_WINDOWS_X64(instr_get_translation(bb->instr)),
-                            &bb->cur_pc _IF_WINDOWS_X64(instr_get_branch_target_pc(bb->instr))
-                            _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)));
-            if (substitution != NULL) {
+            instr_t *substitution = NULL;
+            if (annot_match(dcontext, &bb->cur_pc, &substitution
+                            _IF_WINDOWS_X64(bb->instr_start)
+                            _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)))) {
                 instr_destroy(dcontext, bb->instr);
-                bb->instr = substitution;
-                instrlist_append(bb->ilist, bb->instr);
-                while (bb->instr->next != NULL) {
-                    total_instrs++;
-                    bb->instr = bb->instr->next;
-                }
-                continue;
+                if (substitution == NULL)
+                    continue;
+                else
+                    bb->instr = substitution;
             }
         }
 #endif

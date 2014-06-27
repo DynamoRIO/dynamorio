@@ -34,7 +34,9 @@ power(int x, unsigned int exp)
 static INLINE int
 two()
 {
-    TEST_ANNOTATION_TWO_ARGS(__LINE__, 5);
+    TEST_ANNOTATION_TWO_ARGS(__LINE__, 5, {
+        printf("Native two args: %d, %d\n", __LINE__, 5);
+    });
     return 2;
 }
 
@@ -54,8 +56,8 @@ int main(void)
 {
     unsigned int i, j;
 
-    TEST_ANNOTATION_TWO_ARGS(1, two());
-    TEST_ANNOTATION_TWO_ARGS(two(), 4);
+    TEST_ANNOTATION_TWO_ARGS(1, two(), {});
+    TEST_ANNOTATION_TWO_ARGS(two(), 4, {});
     if (1) return 0;
 
     nested_annotation_test();

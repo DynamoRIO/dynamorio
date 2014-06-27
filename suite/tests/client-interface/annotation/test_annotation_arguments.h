@@ -35,8 +35,8 @@
 
 #include "dr_annotation_asm.h"
 
-#define TEST_ANNOTATION_TWO_ARGS(a, b) \
-    DR_ANNOTATION(test_annotation_two_args, a, b)
+#define TEST_ANNOTATION_TWO_ARGS(a, b, native_version) \
+    DR_ANNOTATION_OR_NATIVE(test_annotation_two_args, native_version, a, b)
 
 #define TEST_ANNOTATION_EIGHT_ARGS(a, b, c, d, e, f, g, h) \
     DR_ANNOTATION(test_annotation_eight_args, a, b, c, d, e, f, g, h)
