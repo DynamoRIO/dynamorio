@@ -31,7 +31,7 @@ power(int x, unsigned int exp)
 static __inline int
 two()
 {
-    TEST_ANNOTATION_NINE_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
+    TEST_ANNOTATION_TWO_ARGS(__LINE__, 5);
     return 2;
 }
 
@@ -51,9 +51,9 @@ int main(void)
 {
     unsigned int i, j;
 
-    TEST_ANNOTATION_TWO_ARGS(1, 2);
-    TEST_ANNOTATION_TWO_ARGS(3, 4);
-    if (1) return;
+    TEST_ANNOTATION_TWO_ARGS(1, two());
+    TEST_ANNOTATION_TWO_ARGS(two(), 4);
+    if (1) return 0;
 
     nested_annotation_test();
     colocated_annotation_test();

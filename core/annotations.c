@@ -180,19 +180,6 @@ typedef struct _annotation_layout_t {
     annotation_instrumentation_t instrumentation;
 } annotation_layout_t;
 
-#define APPEND_INSTRUMENTATION(instrumentation, instr) \
-do { \
-    if ((instrumentation)->head == NULL) { \
-        (instrumentation)->head = (instrumentation)->tail = instr; \
-    } else { \
-        instr_set_next((instrumentation)->tail, instr); \
-        instr_set_prev(instr, (instrumentation)->tail); \
-        do { \
-            (instrumentation)->tail = (instrumentation)->tail->next; \
-        } while ((instrumentation)->tail->next != NULL); \
-    } \
-} while (0)
-
 annotation_handler_t *two_args_handler;
 
 /**** Private Function Declarations ****/
@@ -225,6 +212,12 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
+
+static void
+append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
+
+static void
+insert_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
 
 #if defined(WINDOWS) && !defined(X64)
 static int
@@ -803,7 +796,7 @@ annot_maybe_instrument(dcontext_t *dcontext, app_pc branch_pc,
         label_data->data[1] = ANNOT_NORMAL_CALL;
         label_data->data[2] = (ptr_uint_t) layout->call_pc; // ??
         instr_set_ok_to_mangle(call, false);
-        APPEND_INSTRUMENTATION(&layout->instrumentation, call);
+        append_instrumentation(&layout->instrumentation, call);
 
         substitution = layout->instrumentation.head;
     }
@@ -887,7 +880,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc)
         label_data->data[1] = ANNOT_NORMAL_CALL;
         label_data->data[2] = (ptr_uint_t) layout.call_pc; // ??
         instr_set_ok_to_mangle(call, false);
-        APPEND_INSTRUMENTATION(&layout.instrumentation, call);
+        append_instrumentation(&layout.instrumentation, call);
 
         substitution = layout.instrumentation.head;
         *start_pc = layout.resume_pc;
@@ -1198,18 +1191,19 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_destroy(dcontext, arg);
                     arg = annot_maybe_instrument(dcontext, last_pc, layout, scratch);
                 }
-                APPEND_INSTRUMENTATION(&layout->instrumentation, arg);
+                append_instrumentation(&layout->instrumentation, arg);
             } else if (instr_is_call(arg)) {
                 // byte foo = *last_call;
                 if (last_call_instr != NULL)
-                    APPEND_INSTRUMENTATION(&layout->instrumentation, last_call_instr);
+                    insert_instrumentation(&layout->instrumentation, last_call_instr);
                 last_call = last_pc;
                 last_call_instr = arg;
+                last_call_instr->prev = arg->prev;
             } else if (instr_is_ubr(arg)) { // compiler may split the annotation with jumps
                 cur_pc = instr_get_branch_target_pc(arg);
                 instr_destroy(dcontext, arg);
             } else {
-                APPEND_INSTRUMENTATION(&layout->instrumentation, arg);
+                append_instrumentation(&layout->instrumentation, arg);
             }
         }
 
@@ -1256,15 +1250,16 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                 cur_pc = decode_cti(dcontext, cur_pc, arg);
                 if (instr_is_call(arg)) {
                     if (last_call_instr != NULL)
-                        APPEND_INSTRUMENTATION(&layout->instrumentation, last_call_instr);
+                        insert_instrumentation(&layout->instrumentation, last_call_instr);
                     last_call_pc = last_pc;
                     last_call_instr = arg;
+                    last_call_instr->prev = arg->prev;
                     last_call_continuation_pc = cur_pc;
                 } else if (instr_is_ubr(arg)) {
                     cur_pc = instr_get_branch_target_pc(arg);
                     instr_destroy(dcontext, arg);
                 } else {
-                    APPEND_INSTRUMENTATION(&layout->instrumentation, arg);
+                    append_instrumentation(&layout->instrumentation, arg);
                 }
             } while (cur_pc != annotation_end_pc);
             ASSERT(last_call_instr != NULL);
@@ -1357,6 +1352,39 @@ specify_args(annotation_handler_t *handler, uint num_args,
     }
 }
 #endif
+
+static void
+append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr)
+{
+    instr_set_ok_to_mangle(instr, false);
+    if (instrumentation->head == NULL) {
+        instrumentation->head = instrumentation->tail = instr;
+    } else {
+        instr_set_next(instrumentation->tail, instr);
+        instr_set_prev(instr, instrumentation->tail);
+        do {
+            instrumentation->tail = instrumentation->tail->next;
+        } while (instrumentation->tail->next != NULL);
+    }
+}
+
+static void
+insert_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr)
+{
+    instr_set_ok_to_mangle(instr, false);
+    if (instr->prev == NULL) {
+        instr->next = instrumentation->head;
+        instr->next->prev = instr;
+        instrumentation->head = instr;
+    } else {
+        instr->next = instr->prev->next;
+        instr->prev->next = instr;
+        if (instr->next == NULL)
+            instrumentation->tail = instr;
+        else
+            instr->next->prev = instr;
+    }
+}
 
 #if defined(WINDOWS) && !defined(X64)
 static int

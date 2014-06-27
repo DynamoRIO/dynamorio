@@ -3327,6 +3327,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             if (substitution != NULL) {
                 instr_destroy(dcontext, bb->instr);
                 bb->instr = substitution;
+                instrlist_append(bb->ilist, bb->instr);
+                while (bb->instr->next != NULL) {
+                    total_instrs++;
+                    bb->instr = bb->instr->next;
+                }
+                bb->flags |= FRAG_COARSE_GRAIN;
+                continue;
             }
         }
 #endif
