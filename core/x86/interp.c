@@ -2662,7 +2662,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 #ifdef ANNOTATIONS
             if (IS_ANNOTATION_LABEL(inst) && (last_app_instr == NULL)) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
-                trailing_annotation_pc = GET_ANNOTATION_PC(label_data);
+                trailing_annotation_pc = GET_ANNOTATION_APP_PC(label_data);
             }
 #endif
             continue;
@@ -2825,7 +2825,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (last_app_instr != NULL) {
 #ifdef ANNOTATIONS
         if (trailing_annotation_pc != NULL) {
-            bb->cur_pc = decode_next_pc(dcontext, trailing_annotation_pc);
+            bb->cur_pc = trailing_annotation_pc;
         } else {
 #endif
             /* We do not take instr_length of what the client put in, but rather
@@ -3322,8 +3322,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
             instr_t *substitution = NULL;
             if (annot_match(dcontext, &bb->cur_pc, &substitution
-                            _IF_WINDOWS_X64(bb->instr_start)
                             _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)))) {
+                            //_IF_WINDOWS_X64(bb->instr_start)
                 instr_destroy(dcontext, bb->instr);
                 if (substitution == NULL)
                     continue;

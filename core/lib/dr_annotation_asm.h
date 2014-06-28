@@ -68,22 +68,23 @@ do { \
         _m_prefetchw(annotation##_statement_label); \
         __debugbreak(); \
         annotation(__VA_ARGS__); \
-        __debugbreak(); \
     } else { \
         native_version; \
     } \
 } while ((unsigned __int64) GET_RETURN_PTR() > (0xfffffffffffffff0 - (2 * __LINE__)))
-#  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
+#  define DR_ANNOTATION_FUNCTION(annotation, body) \
     if (GET_RETURN_PTR() == (void *) 0) { \
         extern const char *annotation##_expression_label; \
         __int2c(); \
         _m_prefetchw(annotation##_expression_label); \
         __debugbreak(); \
+    } else { \
+        body; \
     }
 # else
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
     const char *annotation##_label = "dynamorio-annotation:"#annotation;
-#  define DR_ANNOTATION_OR_NATIVE_INSTANCE(annotation, native_version, unique_id, ...) \
+#  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
         extern const char *annotation##_label; \
         __asm { \
@@ -92,22 +93,27 @@ do { \
             __asm mov eax, annotation##_label \
             __asm pop eax \
             __asm jmp PASTE(native_run, unique_id) \
-            __asm jmp PASTE(annotation_end_marker, unique_id) \
         } \
         annotation(__VA_ARGS__); \
-        PASTE(annotation_end_marker, unique_id): goto PASTE(native_end_marker, unique_id); \
+        goto PASTE(native_end_marker, unique_id); \
         PASTE(native_run, unique_id): native_version; \
         PASTE(native_end_marker, unique_id): ; \
     }
 #  define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
-    DR_ANNOTATION_OR_NATIVE_INSTANCE(annotation, native_version, __COUNTER__, __VA_ARGS__)
-#  define DR_ANNOTATION_FUNCTION_TAG(annotation) \
+    DR_ANNOTATION_OR_NATIVE_INSTANCE(__COUNTER__, annotation, native_version, __VA_ARGS__)
+#  define DR_ANNOTATION_FUNCTION_INSTANCE(unique_id, annotation, body) \
     __asm { \
         __asm _emit 0xeb \
         __asm _emit 0x06 \
         __asm mov eax, annotation##_label \
         __asm nop \
-    }
+        __asm jmp PASTE(native_run, unique_id) \
+    } \
+    goto PASTE(native_end_marker, unique_id); \
+    PASTE(native_run, unique_id): body; \
+    PASTE(native_end_marker, unique_id): ;
+#  define DR_ANNOTATION_FUNCTION(annotation, body) \
+    DR_ANNOTATION_FUNCTION_INSTANCE(__COUNTER__, annotation, body)
 # endif
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
     return_type __fastcall annotation parameters
@@ -115,8 +121,7 @@ do { \
     DR_DEFINE_ANNOTATION_LABELS(annotation) \
     return_type __fastcall annotation parameters \
     { \
-        DR_ANNOTATION_FUNCTION_TAG(annotation) \
-        body; \
+        DR_ANNOTATION_FUNCTION(annotation, body) \
     }
 #else /* GCC or Intel (may be Unix or Windows) */
 /* Each reference to _GLOBAL_OFFSET_TABLE_ is adjusted by the linker to be

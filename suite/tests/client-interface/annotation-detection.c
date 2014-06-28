@@ -40,6 +40,12 @@ two()
     return 2;
 }
 
+static INLINE int
+three(unsigned int a)
+{
+    return TEST_ANNOTATION_THREE_ARGS(__LINE__, a, 4);
+}
+
 static void
 nested_annotation_test()
 {
@@ -56,8 +62,11 @@ int main(void)
 {
     unsigned int i, j;
 
-    TEST_ANNOTATION_TWO_ARGS(1, two(), {});
-    TEST_ANNOTATION_TWO_ARGS(two(), 4, {});
+    TEST_ANNOTATION_TWO_ARGS(1, two(), { printf("Native line %d\n", __LINE__); });
+    TEST_ANNOTATION_TWO_ARGS(two(), 4, { printf("Native line %d\n", __LINE__); });
+    printf("three args #0: %d\n", TEST_ANNOTATION_THREE_ARGS(1, 2, 3));
+    printf("three args #1: %d\n", TEST_ANNOTATION_THREE_ARGS(three(9), two(), 1));
+    printf("three args #2: %d\n", TEST_ANNOTATION_THREE_ARGS(two(), 4, three(2)));
     if (1) return 0;
 
     nested_annotation_test();

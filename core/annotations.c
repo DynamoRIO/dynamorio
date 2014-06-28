@@ -170,15 +170,11 @@ typedef struct _annotation_layout_t {
     app_pc start_pc;
     annotation_type_t type;
     const char *name;
-    app_pc args_pc;
-    app_pc call_pc;
     app_pc resume_pc;
-    instr_t *current_arg;
-    annotation_instrumentation_t instrumentation;
-    instr_t *clean_call_predecessor;
 } annotation_layout_t;
 
 annotation_handler_t *two_args_handler;
+annotation_handler_t *three_args_handler;
 
 /**** Private Function Declarations ****/
 
@@ -237,6 +233,9 @@ free_annotation_handler(void *p);
 
 static void
 test_two_args(int a, int b);
+
+static int
+test_three_args(int a, int b, int c);
 
 /**** Public Function Definitions ****/
 
@@ -301,6 +300,23 @@ annot_init()
         receiver->save_fpstate = false;
         receiver->next = two_args_handler->receiver_list;
         two_args_handler->receiver_list = receiver;
+
+        three_args_handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
+                                  ACCT_OTHER, UNPROTECTED);
+        memset(three_args_handler, 0, sizeof(annotation_handler_t));
+        three_args_handler->type = ANNOT_HANDLER_CALL;
+        three_args_handler->num_args = 3;
+        three_args_handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
+            opnd_t, 3, ACCT_OTHER, UNPROTECTED);
+        specify_args(three_args_handler, 3 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+
+        receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
+                                   ACCT_OTHER, UNPROTECTED);
+        receiver->client_id = 0;
+        receiver->instrumentation.callback = (void *) test_three_args;
+        receiver->save_fpstate = false;
+        receiver->next = three_args_handler->receiver_list;
+        three_args_handler->receiver_list = receiver;
     }
 }
 
@@ -326,6 +342,7 @@ annot_exit()
     generic_hash_destroy(GLOBAL_DCONTEXT, handlers);
 
     free_annotation_handler(two_args_handler);
+    free_annotation_handler(three_args_handler);
 }
 
 void
@@ -699,175 +716,49 @@ annot_module_unload(module_handle_t base, size_t size)
 }
 #endif
 
-#if 0
-instr_t *
-annot_match(dcontext_t *dcontext, instr_t *instr)
+bool
+annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
+            _IF_WINDOWS_X64(bool hint_is_safe))
 {
-    instr_t *first_call = NULL, *last_added_instr = NULL;
-
-    if (instr_is_call_direct(instr) || instr_is_ubr(instr)) { // ubr: tail call `gcc -O3`
-        app_pc target = instr_get_branch_target_pc(instr);
-        annotation_handler_t *handler;
-
-        TABLE_RWLOCK(handlers, read, lock);
-        handler = (annotation_handler_t *) generic_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                               (ptr_uint_t)target);
-        if (handler != NULL) {
-            instr_t *call = INSTR_CREATE_label(dcontext);
-            dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
-
-            instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-            label_data->data[0] = (ptr_uint_t) handler;
-            label_data->data[1] = instr_is_ubr(instr) ?
-                ANNOT_TAIL_CALL : ANNOT_NORMAL_CALL;
-            label_data->data[2] = (ptr_uint_t) instr_get_translation(instr);
-            instr_set_ok_to_mangle(call, false);
-
-            if (first_call == NULL) {
-                first_call =  call;
-            } else {
-                instr_set_next(last_added_instr, call);
-                instr_set_prev(call, last_added_instr);
-            }
-            last_added_instr = call;
-
-            if (handler->arg_stack_space > 0) {
-                instr_t *stack_scrub = INSTR_CREATE_lea(dcontext,
-                    opnd_create_reg(REG_XSP),
-                    opnd_create_base_disp(REG_XSP, REG_NULL, 0,
-                                          handler->arg_stack_space, OPSZ_0));
-                instr_set_ok_to_mangle(stack_scrub, false);
-                instr_set_next(call, stack_scrub);
-                instr_set_prev(stack_scrub, call);
-                last_added_instr = stack_scrub;
-            }
-
-            if (instr_is_ubr(instr)) {
-                instr_t *tail_call_return = INSTR_CREATE_ret(dcontext);
-                instr_set_ok_to_mangle(tail_call_return, false);
-                instr_set_next(last_added_instr, tail_call_return);
-                instr_set_prev(tail_call_return, last_added_instr);
-            }
-        }
-        TABLE_RWLOCK(handlers, read, unlock);
-    }
-    return first_call;
-}
-#endif
-
-static void
-cleanup_layout(dcontext_t *dcontext, annotation_layout_t *layout)
-{
-    if (layout->current_arg != NULL)
-        instr_destroy(dcontext, layout->current_arg);
-    if (layout->instrumentation.head != NULL) {
-        instr_t *next_instr, *cur_instr = layout->instrumentation.head;
-        do {
-            next_instr = cur_instr->next;
-            instr_destroy(dcontext, cur_instr);
-            cur_instr = next_instr;
-        } while (cur_instr != NULL);
-    }
-}
-
+    annotation_layout_t layout;
+    instr_t scratch;
 #if defined (WINDOWS) && defined (X64)
-static instr_t *
-annot_maybe_instrument(dcontext_t *dcontext, app_pc branch_pc,
-                       annotation_layout_t *layout, instr_t *scratch)
-{
-    instr_t *substitution = NULL;
-
-    dr_printf("Looking for annotation at "PFX"\n", branch_pc);
-
-    identify_annotation(dcontext, layout, scratch);
-    if (layout->type != ANNOTATION_TYPE_NONE) {
-        instr_t *call = INSTR_CREATE_label(dcontext);
-        dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
-
-        dr_printf("Decoded %s of %s\n",
-                  (layout->type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
-                  layout->name);
-        dr_printf("\tRemove "PFX"-"PFX", replace call at "PFX" and resume at "PFX"\n",
-                  branch_pc, layout->args_pc, layout->call_pc, layout->resume_pc);
-
-        instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-        label_data->data[0] = (ptr_uint_t) two_args_handler;
-        label_data->data[1] = ANNOT_NORMAL_CALL;
-        label_data->data[2] = (ptr_uint_t) layout->call_pc; // ??
-        instr_set_ok_to_mangle(call, false);
-        append_instrumentation(&layout->instrumentation, call);
-
-        substitution = layout->instrumentation.head;
-    }
-
-    return substitution;
-}
-
-instr_t *
-annot_match(dcontext_t *dcontext, app_pc branch_pc, app_pc *start_pc, bool hint_is_safe)
-{
+    app_pc hint_pc = *start_pc;
     bool hint = true;
     byte hint_byte;
-    instr_t scratch, *substitution = NULL;
-    app_pc cur_pc = *start_pc;
-    annotation_layout_t layout;
+#endif
 
+    memset(&layout, 0, sizeof(annotation_layout_t));
+
+#if defined (WINDOWS) && defined (X64)
     if (hint_is_safe) {
-        hint_byte = *cur_pc;
+        hint_byte = *hint_pc;
     } else {
-        if (!safe_read(cur_pc, 1, &hint_byte))
+        if (!safe_read(hint_pc, 1, &hint_byte))
             return NULL;
     }
     if (hint_byte != 0xcd)
         return NULL;
-
-    cur_pc += 2;
-    instr_init(dcontext, &scratch);
-
-    memset(&layout, 0, sizeof(annotation_layout_t));
-    layout.start_pc = cur_pc;
-
-    TRY_EXCEPT(dcontext, {
-        substitution = annot_maybe_instrument(dcontext, branch_pc, &layout, &scratch);
-    }, { /* EXCEPT */
-        // log it
-        dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
-        cleanup_layout(dcontext, &layout);
-    });
-
-    if (substitution != NULL)
-        *start_pc = layout.resume_pc;
-
-    instr_free(dcontext, &scratch);
-    return substitution;
-}
+    layout.start_pc = hint_pc + 2;
 #else
-bool
-annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution)
-{
-    annotation_layout_t layout;
-    instr_t scratch;
+    layout.start_pc = *start_pc;
+#endif
 
     dr_printf("Look for annotation at "PFX"\n", *start_pc);
 
-    memset(&layout, 0, sizeof(annotation_layout_t));
-    layout.start_pc = *start_pc;
     instr_init(dcontext, &scratch);
     TRY_EXCEPT(dcontext, {
         identify_annotation(dcontext, &layout, &scratch);
     }, { /* EXCEPT */
         // log it
         dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
-        cleanup_layout(dcontext, &layout);
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         dr_printf("Decoded %s of %s\n",
                   (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
                   layout.name);
-        dr_printf("\tRemove "PFX"-"PFX", %s call at "PFX" and resume at "PFX"\n",
-                  *start_pc - 2, layout.args_pc,
-                  (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "insert" : "replace",
-                  layout.call_pc, layout.resume_pc);
+        dr_printf("\tSkip "PFX"-"PFX" and start decoding the annotation\n",
+                  *start_pc - 2, layout.resume_pc);
 
         *start_pc = layout.resume_pc;
 
@@ -876,9 +767,10 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution)
             dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
 
             instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-            label_data->data[0] = (ptr_uint_t) two_args_handler;
+            label_data->data[0] = (ptr_uint_t)
+                (strcmp(layout.name, "test_annotation_two_args") == 0 ? two_args_handler : three_args_handler);
             label_data->data[1] = ANNOT_NORMAL_CALL;
-            label_data->data[2] = (ptr_uint_t) layout.call_pc; // ??
+            SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
             instr_set_ok_to_mangle(call, false);
 
             *substitution = call;
@@ -888,7 +780,6 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution)
     instr_free(dcontext, &scratch);
     return (layout.type != ANNOTATION_TYPE_NONE);
 }
-#endif
 
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
@@ -1153,7 +1044,7 @@ static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
-    app_pc last_pc, cur_pc = layout->start_pc, last_call = NULL;
+    app_pc cur_pc = layout->start_pc, last_call = NULL;
 
     if (!is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name))
         return;
@@ -1164,58 +1055,17 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         instr_reset(dcontext, scratch);
         cur_pc = decode(dcontext, cur_pc, scratch);
     }
+
     // debug assert: next byte is 0xcc
     cur_pc++;
-    layout->args_pc = cur_pc;
+    layout->resume_pc = cur_pc;
 
     if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
-        instr_t *arg, *last_call_instr = NULL;
         layout->type = ANNOTATION_TYPE_STATEMENT;
-        while (true) {
-            last_pc = cur_pc;
-            arg = instr_create(dcontext);
-            layout->current_arg = arg;
-            cur_pc = decode(dcontext, cur_pc, arg);
-
-            if (instr_get_opcode(arg) == OP_int3) {
-                instr_destroy(dcontext, arg);
-                ASSERT(last_call_instr != NULL);
-                instr_destroy(dcontext, last_call_instr);
-                break;
-            } else if (instr_is_cbr(arg)) {
-                ushort hint = *(ushort *) cur_pc;
-                if (hint == 0x2ccd) {
-                    cur_pc += 2; // which `cur_pc` if it was not an annotation?
-                    instr_destroy(dcontext, arg);
-                    arg = annot_maybe_instrument(dcontext, last_pc, layout, scratch);
-                }
-                append_instrumentation(&layout->instrumentation, arg);
-            } else if (instr_is_call(arg)) {
-                // byte foo = *last_call;
-                if (last_call_instr != NULL)
-                    insert_instrumentation(dcontext, &layout->instrumentation,
-                                           last_call_instr);
-                last_call = last_pc;
-                last_call_instr = arg;
-                last_call_instr->prev = arg->prev;
-            } else if (instr_is_ubr(arg)) { // compiler may split the annotation with jumps
-                cur_pc = instr_get_branch_target_pc(arg);
-                instr_destroy(dcontext, arg);
-            } else {
-                append_instrumentation(&layout->instrumentation, arg);
-            }
-        }
-
-        // debug assert: loopback should go to the original start_pc (+/- offset)
-
         layout->name += 10;
-        layout->resume_pc = cur_pc;
-        layout->call_pc = last_call;
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
-        layout->name += 11; // "expression:"
-        layout->call_pc = cur_pc;
-        layout->resume_pc = cur_pc; // could other stuff occur above?
+        layout->name += 11;
     }
 }
 #else
@@ -1236,15 +1086,10 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
             layout->type = ANNOTATION_TYPE_STATEMENT;
             instr_reset(dcontext, scratch);
             cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
-            instr_reset(dcontext, scratch);
-            cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
-            layout->resume_pc = cur_pc;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
-            layout->resume_pc = cur_pc;
-            layout->call_pc = cur_pc;
-            layout->args_pc = cur_pc;
         }
+        layout->resume_pc = cur_pc;
     }
 }
 #endif
@@ -1436,8 +1281,29 @@ free_annotation_handler(void *p)
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }
 
+#define RETURN(type, value) \
+{ \
+    type return_value = (value); \
+    dr_mcontext_t mcontext; \
+    void *dcontext = dr_get_current_drcontext(); \
+    mcontext.size = sizeof(dr_mcontext_t); \
+    mcontext.flags = DR_MC_INTEGER; \
+    dr_get_mcontext(dcontext, &mcontext); \
+    mcontext.xax = return_value; \
+    dr_set_mcontext(dcontext, &mcontext); \
+    return return_value; \
+}
+
 static void
 test_two_args(int a, int b)
 {
     dr_printf("test_two_args(): %d, %d\n", a, b);
+}
+
+static int
+test_three_args(int a, int b, int c)
+{
+    dr_printf("test_three_args(): %d * %d * %d = %d\n", a, b, c, a * b * c);
+
+    RETURN(int, a * b * c);
 }

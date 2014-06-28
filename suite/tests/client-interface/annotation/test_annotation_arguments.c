@@ -39,6 +39,9 @@
 DR_DEFINE_ANNOTATION(void, test_annotation_two_args, (unsigned int a,
     unsigned int b), )
 
+DR_DEFINE_ANNOTATION(int, test_annotation_three_args, (unsigned int a,
+    unsigned int b, unsigned int c), return a + b + c;)
+
 DR_DEFINE_ANNOTATION(void, test_annotation_eight_args, (unsigned int a,
     unsigned int b, unsigned int c, unsigned int d, unsigned int e,
     unsigned int f, unsigned int g, unsigned int h), )

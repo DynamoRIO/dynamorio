@@ -75,7 +75,8 @@
     (*(ushort *)instr_get_translation(instr) == ANNOTATION_JUMP_OVER_LABEL_REFERENCE))
 #endif
 
-#define GET_ANNOTATION_PC(label_data) ((app_pc) label_data->data[2])
+#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[2])
+#define SET_ANNOTATION_APP_PC(label_data, pc) (label_data->data[2] = (ptr_uint_t) pc)
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
@@ -212,7 +213,8 @@ annot_exit();
 
 bool
 annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-            _IF_WINDOWS_X64(app_pc branch_pc) _IF_WINDOWS_X64(bool hint_is_safe));
+            _IF_WINDOWS_X64(bool hint_is_safe));
+//            _IF_WINDOWS_X64(app_pc branch_pc) _IF_WINDOWS_X64(bool hint_is_safe));
 
 /* Replace the Valgrind annotation code sequence with a clean call to
  * an internal function which will dispatch to registered handlers.
