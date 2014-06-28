@@ -101,6 +101,19 @@ do { \
         annot_register_call_varg(drcontext, target, call, false, num_args, __VA_ARGS__); \
 } while (0)
 
+#define RETURN(type, value) \
+{ \
+    type return_value = (value); \
+    dr_mcontext_t mcontext; \
+    void *dcontext = dr_get_current_drcontext(); \
+    mcontext.size = sizeof(dr_mcontext_t); \
+    mcontext.flags = DR_MC_INTEGER; \
+    dr_get_mcontext(dcontext, &mcontext); \
+    mcontext.xax = return_value; \
+    dr_set_mcontext(dcontext, &mcontext); \
+    return return_value; \
+}
+
 typedef enum _valgrind_request_id_t {
     VG_ID__RUNNING_ON_VALGRIND,
     VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
@@ -147,9 +160,8 @@ typedef struct _annotation_receiver_t {
 
 typedef struct _annotation_handler_t {
     handler_type_t type;
-    const char *symbol_name; // NULL if never registered by name
     union {
-        app_pc annotation_func;
+        const char *symbol_name;
         valgrind_request_id_t vg_request_id;
     } id;
     annotation_receiver_t *receiver_list;
@@ -167,43 +179,31 @@ typedef enum _annotation_call_t {
 
 
 DR_API
-void dr_annot_register_call_by_name(client_id_t client_id, const char *target_name,
-                                    void *callee, bool save_fpstate, uint num_args
-                                    _IF_NOT_X64(annotation_calling_convention_t call_type));
-
-DR_API
-void dr_annot_register_call(client_id_t client_id, void *annotation_func, void *callee,
-                            bool save_fpstate, uint num_args
+void dr_annot_register_call(client_id_t client_id, const char *annotation_name,
+                            void *callee, bool save_fpstate, uint num_args
                             _IF_NOT_X64(annotation_calling_convention_t call_type));
-
+/*
 DR_API
-void dr_annot_register_call_ex(client_id_t client_id, void *annotation_func,
-                               void *callee, bool save_fpstate, uint num_args, ...);
-
+void dr_annot_register_call_in_module(client_id_t client_id, const char *annotation_name,
+                                      module_handle_t module, void *callee,
+                                      bool save_fpstate, uint num_args
+                                      _IF_NOT_X64(annotation_calling_convention_t call_type));
+*/
 DR_API
 void dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
 DR_API
-void dr_annot_register_return_by_name(const char *target_name, void *return_value);
-
+void dr_annot_register_return(const char *annotation_name, void *return_value);
+/*
 DR_API
-void dr_annot_register_return(void *annotation_func, void *return_value);
-
+void dr_annot_register_return_in_module(const char *annotation_name, void *return_value);
+*/
 DR_API
-void dr_annot_unregister_call_by_name(client_id_t client_id, const char *target_name);
-
-DR_API
-void dr_annot_unregister_call(client_id_t client_id, void *annotation_func);
+void dr_annot_unregister(client_id_t client_id, const char *annotation_name);
 
 DR_API
 void dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t request);
-
-DR_API
-void dr_annot_unregister_return_by_name(const char *target_name);
-
-DR_API
-void dr_annot_unregister_return(void *annotation_func);
 
 void
 annot_init();
@@ -235,13 +235,5 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count);
-
-#ifdef WINDOWS
-void
-annot_module_load(module_handle_t base);
-
-void
-annot_module_unload(module_handle_t base, size_t size);
-#endif
 
 #endif

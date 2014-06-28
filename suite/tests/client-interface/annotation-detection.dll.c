@@ -47,6 +47,20 @@ static app_pc *skip_truncation;
 #endif
 
 static void
+test_two_args(int a, int b)
+{
+    PRINTF("test_two_args(): %d, %d", a, b);
+}
+
+static int
+test_three_args(int a, int b, int c)
+{
+    PRINTF("test_three_args(): %d * %d * %d = %d", a, b, c, a * b * c);
+
+    RETURN(int, a * b * c);
+}
+
+static void
 test_eight_args(uint a, uint b, uint c, uint d, uint e, uint f,
                 uint g, uint h)
 {
@@ -126,8 +140,8 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
 static void
 register_call(const char *annotation, void *target, uint num_args)
 {
-    dr_annot_register_call_by_name(client_id, annotation, target, false, num_args
-        _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    dr_annot_register_call(client_id, annotation, target, false, num_args
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 static void
@@ -167,6 +181,8 @@ dr_init(client_id_t id)
     dr_register_exit_event(event_exit);
     dr_register_module_load_event(event_module_load);
 
+    register_call("test_annotation_two_args", (void *) test_two_args, 2);
+    register_call("test_annotation_three_args", (void *) test_three_args, 3);
     register_call("test_annotation_eight_args", (void *) test_eight_args, 8);
     register_call("test_annotation_nine_args", (void *) test_nine_args, 9);
     register_call("test_annotation_ten_args", (void *) test_ten_args, 10);

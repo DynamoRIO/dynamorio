@@ -170,9 +170,6 @@ char **our_environ;
 #ifdef CLIENT_INTERFACE
 # include "instrument.h"
 #endif
-#ifdef ANNOTATIONS
-# include "../annotations.h"
-#endif
 
 #ifdef NOT_DYNAMORIO_CORE_PROPER
 # undef ASSERT
@@ -6394,10 +6391,6 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         module_list_add(base, ALIGN_FORWARD(size, PAGE_SIZE), true, filename, inode);
 #ifdef CLIENT_INTERFACE
         inform_client = true;
-#endif
-#if defined(ANNOTATIONS) && defined(WINDOWS)
-        if (dynamo_initialized)
-            annot_module_load((module_handle_t) base, size, filename);
 #endif
         if (found_map)
             dr_strfree(filename HEAPACCT(ACCT_OTHER));

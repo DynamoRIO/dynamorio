@@ -123,7 +123,7 @@ do { \
     { \
         DR_ANNOTATION_FUNCTION(annotation, body) \
     }
-#else /* GCC or Intel (may be Unix or Windows) */
+#else /* GCC or Intel (Unix or Windows) */
 /* Each reference to _GLOBAL_OFFSET_TABLE_ is adjusted by the linker to be
  * XIP-relative, and no relocations are generated for the operand. */
 # ifdef DYNAMORIO_ANNOTATIONS_X64
@@ -145,10 +145,9 @@ do { \
     __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                             mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                             bsf "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
-                            jmp %l0; \
-                            jmp %l1;" \
+                            jmp %l0;" \
                             ::: LABEL_REFERENCE_REGISTER \
-                            : native_run, native_end_marker); \
+                            : native_run); \
     annotation(__VA_ARGS__); \
     goto native_end_marker; \
     native_run: native_version; \
@@ -161,12 +160,17 @@ do { \
     const char *annotation##_label = "dynamorio-annotation:"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
+        __label__ native_run, native_end_marker; \
         extern const char *annotation##_label; \
-        __asm__ volatile (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
-                           mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
-                           bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER";" \
-                           ::: LABEL_REFERENCE_REGISTER); \
-        body; \
+        __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
+                               mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
+                               bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
+                               jmp %l0;" \
+                               ::: LABEL_REFERENCE_REGISTER \
+                               : native_run); \
+        goto native_end_marker; \
+        native_run: body; \
+        native_end_marker: ; \
     }
 #endif
 

@@ -33,9 +33,6 @@
 
 #include "globals.h"
 #include "instrument.h"
-#ifdef ANNOTATIONS
-# include "annotations.h"
-#endif
 #include "native_exec.h"
 #include <string.h> /* for memset */
 #ifdef WINDOWS
@@ -328,9 +325,6 @@ module_list_remove(app_pc base, size_t view_size)
     os_get_module_info_write_lock();
     ma = (module_area_t *) vmvector_lookup(loaded_module_areas, base);
     ASSERT_CURIOSITY(ma != NULL); /* loader can't have a race */
-#endif
-#if defined(ANNOTATIONS) && defined(WINDOWS)
-    annot_module_unload((module_handle_t) ma->start, ma->end - ma->start);
 #endif
 
     native_exec_module_unload(ma);
