@@ -162,6 +162,7 @@ do { \
     { \
         __label__ native_run, native_end_marker; \
         extern const char *annotation##_label; \
+        __builtin_frame_address(0); \
         __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                                mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                                bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \

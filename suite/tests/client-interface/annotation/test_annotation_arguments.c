@@ -36,6 +36,9 @@
 #pragma auto_inline(off)
 #pragma optimize ("g", off)
 
+//#pragma GCC push_options
+//#pragma GCC optimize (0)
+
 DR_DEFINE_ANNOTATION(void, test_annotation_two_args, (unsigned int a,
     unsigned int b), )
 
@@ -54,6 +57,8 @@ DR_DEFINE_ANNOTATION(void, test_annotation_ten_args, (unsigned int a,
     unsigned int b, unsigned int c, unsigned int d, unsigned int e,
     unsigned int f, unsigned int g, unsigned int h, unsigned int i,
     unsigned int j), )
+
+//#pragma GCC pop_options
 
 #pragma optimize ("g", on)
 #pragma auto_inline(on)

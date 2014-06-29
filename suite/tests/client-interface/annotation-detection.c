@@ -47,12 +47,6 @@ three(unsigned int a)
 }
 
 static void
-nested_annotation_test()
-{
-    TEST_ANNOTATION_EIGHT_ARGS(__LINE__, two(), 3, 4, 5, 6, 7, 8); TEST_ANNOTATION_EIGHT_ARGS(__LINE__, two(), 3, 4, 5, 6, 7, 8);
-}
-
-static void
 colocated_annotation_test()
 {
     TEST_ANNOTATION_EIGHT_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8); TEST_ANNOTATION_NINE_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
@@ -62,15 +56,17 @@ int main(void)
 {
     unsigned int i, j;
 
+    //test_annotation_nine_args(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
+
     TEST_ANNOTATION_TWO_ARGS(1, two(), { printf("Native line %d\n", __LINE__); });
     TEST_ANNOTATION_TWO_ARGS(two(), 4, { printf("Native line %d\n", __LINE__); });
     printf("three args #0: %d\n", TEST_ANNOTATION_THREE_ARGS(1, 2, 3));
     printf("three args #1: %d\n", TEST_ANNOTATION_THREE_ARGS(three(9), two(), 1));
     printf("three args #2: %d\n", TEST_ANNOTATION_THREE_ARGS(two(), 4, three(2)));
-    //if (1) return 0;
 
-    nested_annotation_test();
     colocated_annotation_test();
+
+    //if (1) return 0;
 
     j = (rand() % 10);
     for (i = 0; i < 10; i++) {

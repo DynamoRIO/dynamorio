@@ -725,7 +725,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
     uint i;
     for (i = 6; i < num_args; i++) {
         handler->args[i] = OPND_CREATE_MEMPTR(
-            DR_REG_XSP, sizeof(ptr_uint_t) * (i-6));
+            DR_REG_XSP, sizeof(ptr_uint_t) * (i-4));
     }
     switch (num_args) {
         default:
