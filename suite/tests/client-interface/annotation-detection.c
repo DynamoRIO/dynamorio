@@ -56,7 +56,9 @@ int main(void)
 {
     unsigned int i, j;
 
-    //test_annotation_nine_args(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
+    // TEST_ANNOTATION_THREE_ARGS(64, 65, 66);
+
+    test_annotation_nine_args(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
 
     TEST_ANNOTATION_TWO_ARGS(1, two(), { printf("Native line %d\n", __LINE__); });
     TEST_ANNOTATION_TWO_ARGS(two(), 4, { printf("Native line %d\n", __LINE__); });

@@ -708,6 +708,9 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 #endif
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
+#ifdef UNIX
+            cur_pc = decode_next_pc(dcontext, cur_pc); // skip `mov %xbp, %xax`
+#endif
             layout->type = ANNOTATION_TYPE_EXPRESSION;
         }
         instr_reset(dcontext, scratch);
@@ -774,7 +777,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
     if (call_type == ANNOT_CALL_TYPE_FASTCALL) {
         for (i = 2; i < num_args; i++) {
             handler->args[i] = OPND_CREATE_MEMPTR(
-                DR_REG_XSP, sizeof(ptr_uint_t) * (i-2));
+                DR_REG_XBP, sizeof(ptr_uint_t) * i);
         }
         switch (num_args) {
             default:
@@ -787,7 +790,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
     } else { // ANNOT_CALL_TYPE_STDCALL
         for (i = 0; i < num_args; i++) {
             handler->args[i] = OPND_CREATE_MEMPTR(
-                DR_REG_XSP, sizeof(ptr_uint_t) * i);
+                DR_REG_XBP, sizeof(ptr_uint_t) * i);
         }
         handler->arg_stack_space = (sizeof(ptr_uint_t) * num_args);
     }

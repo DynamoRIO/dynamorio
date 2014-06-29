@@ -129,10 +129,12 @@ do { \
 # ifdef DYNAMORIO_ANNOTATIONS_X64
 #  define LABEL_REFERENCE_LENGTH "0x11"
 #  define LABEL_REFERENCE_REGISTER "%rax"
+#  define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx","%rsi","%rdi","%r8","%r9"
 #  define _CALL_TYPE
 # else
 #  define LABEL_REFERENCE_LENGTH "0xc"
 #  define LABEL_REFERENCE_REGISTER "%eax"
+#  define ANNOTATION_FUNCTION_CLOBBER_LIST "%rax","%rcx","%rdx"
 #  define _CALL_TYPE , fastcall
 # endif
 # define DR_ANNOTATION_ATTRIBUTES \
@@ -162,12 +164,13 @@ do { \
     { \
         __label__ native_run, native_end_marker; \
         extern const char *annotation##_label; \
-        __builtin_frame_address(0); \
         __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                                mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                                bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
-                               jmp %l0;" \
-                               ::: LABEL_REFERENCE_REGISTER \
+                               mov %0, %"LABEL_REFERENCE_REGISTER"; \
+                               jmp %l1;" \
+                               :: "g"(__builtin_frame_address(0)) \
+                               : ANNOTATION_FUNCTION_CLOBBER_LIST \
                                : native_run); \
         goto native_end_marker; \
         native_run: body; \
