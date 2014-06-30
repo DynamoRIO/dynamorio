@@ -1478,8 +1478,8 @@ if (CLIENT_INTERFACE)
     client.annotation-concurrency-opt client.annotation-concurrency-opt.dll
     client-interface/annotation-concurrency.c "+bb" "" "A4")
 
-  tobuild_ci(client.annotation-detection client-interface/annotation-detection.c "" "" "")
-  tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.c "" "" "")
+  tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp "" "" "")
+  tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp "" "" "")
   set(DynamoRIO_USE_LIBC ON)
 
   if (UNIX)
