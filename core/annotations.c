@@ -170,11 +170,6 @@ free_annotation_handler(void *p);
 void
 annot_init()
 {
-#ifdef WINDOWS
-    module_iterator_t *mi;
-    module_area_t *area;
-#endif
-
     handlers = strhash_hash_create(GLOBAL_DCONTEXT, 8, 80,
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                    HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
