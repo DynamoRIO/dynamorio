@@ -88,7 +88,7 @@ test_ten_args(uint a, uint b, uint c, uint d, uint e, uint f,
 }
 
 static void
-event_module_load(void *drcontext, const module_data_t *info, bool loaded)
+event_module_load(void *, const module_data_t *info, bool)
 {
 #ifdef WINDOWS // truncating these blocks causes app exceptions (unrelated to annotations)
     if ((info->names.module_name != NULL) &&
@@ -102,15 +102,13 @@ event_module_load(void *drcontext, const module_data_t *info, bool loaded)
 }
 
 dr_emit_flags_t
-empty_bb_event(void *drcontext, void *tag, instrlist_t *bb,
-               bool for_trace, bool translating)
+empty_bb_event(void *, void *, instrlist_t *, bool, bool)
 {
     return DR_EMIT_DEFAULT;
 }
 
 dr_emit_flags_t
-bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
-                  bool for_trace, bool translating)
+bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb, bool, bool)
 {
     instr_t *prev, *first = instrlist_first(bb), *instr = instrlist_last(bb);
 
@@ -174,7 +172,7 @@ dr_init(client_id_t id)
     }
 
 #ifdef WINDOWS
-    skip_truncation = dr_global_alloc(2 * sizeof(app_pc));
+    skip_truncation = (app_pc *) dr_global_alloc(2 * sizeof(app_pc));
     memset(skip_truncation, 0, 2 * sizeof(app_pc));
 #endif
 

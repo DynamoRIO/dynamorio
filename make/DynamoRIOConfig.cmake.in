@@ -947,16 +947,28 @@ function (use_DynamoRIO_extension target extname)
 
 endfunction (use_DynamoRIO_extension)
 
-function (use_DynamoRIO_annotations target srcs)
+function (use_DynamoRIO_annotations target)
   include_directories("${DynamoRIO_cwd}/../annotation")
+  get_target_property(srcs ${target} SOURCES)
   set(srcs ${srcs} "${DynamoRIO_cwd}/../annotation/dr_annotations.c")
-endfunction (use_DynamoRIO_annotations target srcs)
+  set_property(TARGET ${target} PROPERTY SOURCES ${srcs} PARENT_SCOPE)
+endfunction (use_DynamoRIO_annotations target)
 
-function (use_DynamoRIO_test_annotations target srcs)
+function (use_DynamoRIO_test_annotations target)
   include_directories("${DynamoRIO_cwd}/../annotation")
-  set(${srcs} ${${srcs}} "${DynamoRIO_cwd}/../annotation/dr_annotations.c"
-    "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
-    "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c" PARENT_SCOPE)
-endfunction (use_DynamoRIO_test_annotations target srcs)
-
-
+  if (NOT TARGET dynamorio_test_annotations)
+    set(srcs "${DynamoRIO_cwd}/../annotation/dr_annotations.c"
+      "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
+      "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c")
+    add_library(dynamorio_test_annotations STATIC ${srcs})
+    if (UNIX)
+      append_property_string(TARGET dynamorio_test_annotations COMPILE_FLAGS "-O0")
+    else (UNIX)
+      # disable warning for "not all control paths return a value"
+      append_property_string(TARGET dynamorio_test_annotations COMPILE_FLAGS "/Od /Ob0 /GL- /wd4715")
+    endif (UNIX)
+    set_target_properties(dynamorio_test_annotations PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+      ${CMAKE_CURRENT_BINARY_DIR})
+  endif (NOT TARGET dynamorio_test_annotations)
+  target_link_libraries(${target} dynamorio_test_annotations)
+endfunction (use_DynamoRIO_test_annotations target)

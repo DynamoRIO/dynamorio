@@ -21,9 +21,9 @@
       <test_three_args(): 228 * 3 * 120 = 82080>
       <test_two_args(): 148, 4>
       <test_three_args(): 149 * 119 * 30864 = 547249584>
-      <test_two_args(): 139, 6>
       <test_two_args(): 148, 4>
       <test_three_args(): 149 * 119 * 30864 = 547249584>
+      <test_two_args(): 139, 6>
       <test_two_args(): 148, 4>
       <test_three_args(): 149 * 119 * 30864 = 547249584>
       <test_two_args(): 148, 4>
@@ -51,9 +51,9 @@
       <test_three_args(): 228 * 4 * 1728000 = 1575936000>
       <test_two_args(): 79, 7>
       <test_two_args(): 79, 7>
+      <test_two_args(): 79, 7>
+      <test_two_args(): 79, 7>
       <test_two_args(): 89, 49>
-      <test_two_args(): 79, 7>
-      <test_two_args(): 79, 7>
       <test_two_args(): 79, 7>
       <test_two_args(): 79, 7>
       <Test many args: a=262, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>

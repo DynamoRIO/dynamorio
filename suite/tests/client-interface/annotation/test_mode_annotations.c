@@ -32,8 +32,13 @@
 
 #include "test_mode_annotations.h"
 
+/*
 #pragma auto_inline(off)
-#pragma optimize ("g", off)
+#ifdef _MSC_VER
+# pragma optimize ("g", off)
+# pragma warning(disable : 4715)
+#endif
+*/
 
 DR_DEFINE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode), )
 
@@ -43,5 +48,10 @@ DR_DEFINE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
 DR_DEFINE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
     unsigned int mode), )
 
-#pragma optimize ("g", on)
+/*
+#ifdef _MSC_VER
+# pragma optimize ("g", on)
+# pragma warning(default : 4715)
+#endif
 #pragma auto_inline(on)
+*/

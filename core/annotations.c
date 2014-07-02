@@ -446,7 +446,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
     layout.start_pc = *start_pc;
 #endif
 
-    dr_printf("Look for annotation at "PFX"\n", *start_pc);
+    // dr_printf("Look for annotation at "PFX"\n", *start_pc);
 
     instr_init(dcontext, &scratch);
     TRY_EXCEPT(dcontext, {
@@ -456,11 +456,13 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
         dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
+        /*
         dr_printf("Decoded %s of %s\n",
                   (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
                   layout.name);
         dr_printf("\tSkip "PFX"-"PFX" and start decoding the annotation\n",
                   *start_pc - 2, layout.resume_pc);
+        */
 
         *start_pc = layout.resume_pc;
 
@@ -681,6 +683,26 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
         layout->type = ANNOTATION_TYPE_STATEMENT;
         layout->name += 10;
+#if defined (WINDOWS) && defined (X64)
+        while (true) { // skip fused headers caused by inlining identical annotations
+            instr_reset(dcontext, scratch);
+            cur_pc = decode(dcontext, cur_pc, scratch);
+            if (instr_is_cbr(scratch) && (*(ushort *) cur_pc == 0x2ccd)) {
+                cur_pc += 2;
+                while (instr_get_opcode(scratch) != OP_prefetchw) {
+                    if (instr_is_ubr(scratch))
+                        cur_pc = instr_get_branch_target_pc(scratch);
+                    instr_reset(dcontext, scratch);
+                    cur_pc = decode(dcontext, cur_pc, scratch);
+                }
+
+                // debug assert: next byte is 0xcc
+                cur_pc++;
+                layout->resume_pc = cur_pc;
+            } else if (instr_is_cti(scratch))
+                break;
+        }
+#endif
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
         layout->name += 11;
@@ -748,7 +770,7 @@ specify_args(annotation_handler_t *handler, uint num_args)
     uint i;
     for (i = 4; i < num_args; i++) {
         handler->args[i] = OPND_CREATE_MEMPTR(
-            DR_REG_XSP, sizeof(ptr_uint_t) * i);
+            DR_REG_XSP, sizeof(ptr_uint_t) * (i+1));
     }
     switch (num_args) {
         default:

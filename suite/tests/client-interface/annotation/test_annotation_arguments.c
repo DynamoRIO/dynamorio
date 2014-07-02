@@ -33,8 +33,13 @@
 #include "test_annotation_arguments.h"
 #include <stdio.h>
 
+/*
 #pragma auto_inline(off)
-#pragma optimize ("g", off)
+#ifdef _MSC_VER
+# pragma optimize ("g", off)
+# pragma warning(disable : 4715)
+#endif
+*/
 
 //#pragma GCC push_options
 //#pragma GCC optimize (0)
@@ -60,5 +65,10 @@ DR_DEFINE_ANNOTATION(void, test_annotation_ten_args, (unsigned int a,
 
 //#pragma GCC pop_options
 
-#pragma optimize ("g", on)
+/*
+#ifdef _MSC_VER
+# pragma optimize ("g", on)
+# pragma warning(default : 4715)
+#endif
 #pragma auto_inline(on)
+*/

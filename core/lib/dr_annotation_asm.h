@@ -34,6 +34,7 @@
 #define _DYNAMORIO_ANNOTATION_ASM_H_ 1
 
 #include <stddef.h>
+#include <intrin.h>
 
 #ifndef DYNAMORIO_ANNOTATIONS_X64
 # ifdef _MSC_VER
@@ -82,8 +83,13 @@ do { \
         body; \
     }
 # else
+#  ifdef __cplusplus
+#   define EXTERN extern "C"
+#  else
+#   define EXTERN extern
+#  endif
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
-    const char *annotation##_label = "dynamorio-annotation:"#annotation;
+        EXTERN const char *annotation##_label = "dynamorio-annotation:"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
         extern const char *annotation##_label; \

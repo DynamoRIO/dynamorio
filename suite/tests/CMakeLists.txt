@@ -517,11 +517,14 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-  if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
-    use_DynamoRIO_test_annotations(${test} test_srcs)
-  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
-
   add_executable(${test} ${test_srcs})
+
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+    use_DynamoRIO_test_annotations(${test})
+  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+  if ("${srccode}" MATCHES "include <stdexcept>")
+    append_property_string(TARGET ${test} COMPILE_FLAGS "/EHsc")
+  endif ("${srccode}" MATCHES "include <stdexcept>")
 
   set_target_properties(${test} PROPERTIES
     LINK_FLAGS "${ARCH_DEBUG}"
@@ -704,12 +707,13 @@ function(tobuild_appdll test source)
         "_asm" "${asm_defs}" "${asm_deps}")
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
-    if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
-      use_DynamoRIO_test_annotations(${test}.appdll lib_srcs)
-    endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
 
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
+
+    if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
+      use_DynamoRIO_test_annotations(${test}.appdll lib_srcs)
+    endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
 
     if ("${test}" MATCHES "-opt$")
       if (UNIX)
@@ -1480,6 +1484,7 @@ if (CLIENT_INTERFACE)
 
   tobuild_ci(client.annotation-detection client-interface/annotation-detection.cpp "" "" "")
   tobuild_ci(client.annotation-detection-opt client-interface/annotation-detection.cpp "" "" "")
+  set(client.annotation-detection-opt_expectbase "annotation-detection-opt")
   set(DynamoRIO_USE_LIBC ON)
 
   if (UNIX)
