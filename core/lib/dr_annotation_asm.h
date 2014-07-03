@@ -34,7 +34,9 @@
 #define _DYNAMORIO_ANNOTATION_ASM_H_ 1
 
 #include <stddef.h>
-#include <intrin.h>
+#ifdef _MSC_VER
+# include <intrin.h>
+#endif
 
 #ifndef DYNAMORIO_ANNOTATIONS_X64
 # ifdef _MSC_VER
@@ -145,7 +147,8 @@ do { \
 # endif
 # define DR_ANNOTATION_ATTRIBUTES \
     __attribute__((noinline, visibility("hidden") _CALL_TYPE))
-# define DR_WEAK_DECLARATION __attribute__ ((weak))
+//# define DR_WEAK_DECLARATION __attribute__ ((weak))
+# define DR_WEAK_DECLARATION
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
     __label__ native_run, native_end_marker; \

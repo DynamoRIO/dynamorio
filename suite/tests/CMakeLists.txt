@@ -522,9 +522,9 @@ function(add_exe test source)
   if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
     use_DynamoRIO_test_annotations(${test})
   endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
-  if ("${srccode}" MATCHES "include <stdexcept>")
+  if (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
     append_property_string(TARGET ${test} COMPILE_FLAGS "/EHsc")
-  endif ("${srccode}" MATCHES "include <stdexcept>")
+  endif (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
 
   set_target_properties(${test} PROPERTIES
     LINK_FLAGS "${ARCH_DEBUG}"

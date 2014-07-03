@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdexcept>
+#include <setjmp.h>
 #include "dr_annotations.h"
 #include "test_annotation_arguments.h"
 
@@ -234,18 +235,21 @@ colocated_annotation_test()
     TEST_ANNOTATION_EIGHT_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8); TEST_ANNOTATION_NINE_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
 }
 
-// C control flow: ?, switch, if/else, goto, return <value>, setjmp/longjmp,
-// C++ control flow: exceptions, vtable?
-
 int main(void)
 {
+    int result = 0;
     unsigned int i, j;
+    jmp_buf setjmp_context;
 
     Shape *shape;
     Triangle *t = new Triangle(4.3, 5.2, 6.1);
     Square *s = new Square(7.0);
 
-    //if (1) return 0;
+    result = setjmp(setjmp_context);
+    if ((TEST_ANNOTATION_THREE_ARGS(__LINE__, 2, 3) == two()) || (result != 0)) {
+        printf("longjmp %d (%f)\n", result, t->get_area());
+        goto done;
+    }
 
     shape = t;
     printf("Triangle [%f x %f x %f] area: %f (%d)\n", t->get_a(), t->get_b(), t->get_c(),
@@ -255,13 +259,14 @@ int main(void)
     printf("Square [%f x %f] area: %f (%d)\n", s->get_side_length(), s->get_side_length(),
            shape->get_area(),
            three((unsigned int) shape->get_vertex_count(),
+                 three((unsigned int) shape->get_area(), t->get_b()) == two() ?
+                 DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() :
                  TEST_ANNOTATION_THREE_ARGS(t->three(), t->three(), t->three())));
-
 
     try {
         TEST_ANNOTATION_NINE_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9);
         throw (Fail(TEST_ANNOTATION_THREE_ARGS((unsigned int) t->get_b(),
-                                                   (unsigned int) shape->get_area(), 4)));
+                                               (unsigned int) shape->get_area(), 4)));
         TEST_ANNOTATION_TWO_ARGS(two(), 4, { printf("Native line %d\n", __LINE__); });
     } catch (const Fail& fail) {
         TEST_ANNOTATION_TWO_ARGS(1, two(), { printf("Native line %d\n", __LINE__); });
@@ -300,7 +305,8 @@ case2:
             case 6:
                 TEST_ANNOTATION_EIGHT_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8);
             case 7: {
-                unsigned int a = 0, b = 0;
+                unsigned int a = two();
+                unsigned int b = three(i, j);
                 TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9, 10);
                 TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, power(4, b), 5, 6, 7, 8, 9, 10);
                 a = b;
@@ -315,6 +321,11 @@ case2:
                 TEST_ANNOTATION_TEN_ARGS(__LINE__, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         }
     }
+
+    longjmp(setjmp_context, three(i, j));
+
+done:
+    return result;
 }
 
 #ifdef __cplusplus
