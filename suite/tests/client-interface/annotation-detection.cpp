@@ -259,7 +259,7 @@ int main(void)
     printf("Square [%f x %f] area: %f (%d)\n", s->get_side_length(), s->get_side_length(),
            shape->get_area(),
            three((unsigned int) shape->get_vertex_count(),
-                 three((unsigned int) shape->get_area(), t->get_b()) == two() ?
+                 three((unsigned int) shape->get_area(), (unsigned int) t->get_b()) == two() ?
                  DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() :
                  TEST_ANNOTATION_THREE_ARGS(t->three(), t->three(), t->three())));
 
