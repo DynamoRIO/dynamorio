@@ -147,8 +147,8 @@ do { \
 # endif
 # define DR_ANNOTATION_ATTRIBUTES \
     __attribute__((noinline, visibility("hidden") _CALL_TYPE))
-//# define DR_WEAK_DECLARATION __attribute__ ((weak))
-# define DR_WEAK_DECLARATION
+# define DR_WEAK_DECLARATION __attribute__ ((weak))
+//# define DR_WEAK_DECLARATION
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
     __label__ native_run, native_end_marker; \
@@ -176,10 +176,8 @@ do { \
         __asm__ volatile goto (".byte 0xeb; .byte "LABEL_REFERENCE_LENGTH"; \
                                mov _GLOBAL_OFFSET_TABLE_,%"LABEL_REFERENCE_REGISTER"; \
                                bsr "#annotation"_label@GOT,%"LABEL_REFERENCE_REGISTER"; \
-                               mov %0, %"LABEL_REFERENCE_REGISTER"; \
-                               jmp %l1;" \
-                               :: "g"(__builtin_frame_address(0)) \
-                               : ANNOTATION_FUNCTION_CLOBBER_LIST \
+                               jmp %l0;" \
+                               ::: ANNOTATION_FUNCTION_CLOBBER_LIST \
                                : native_run); \
         goto native_end_marker; \
         native_run: body; \

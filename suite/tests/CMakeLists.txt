@@ -517,11 +517,12 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+    use_DynamoRIO_test_annotations(${test} test_srcs)
+  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
+
   add_executable(${test} ${test_srcs})
 
-  if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
-    use_DynamoRIO_test_annotations(${test})
-  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test_.*_annotation.*.h\"")
   if (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
     append_property_string(TARGET ${test} COMPILE_FLAGS "/EHsc")
   endif (NOT UNIX AND "${srccode}" MATCHES "include <stdexcept>")
@@ -708,12 +709,12 @@ function(tobuild_appdll test source)
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
-    add_library(${test}.appdll SHARED ${lib_srcs})
-    set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
-
     if ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
       use_DynamoRIO_test_annotations(${test}.appdll lib_srcs)
     endif ("${srccode}" MATCHES "include \"dr_annotations.h\"|test.*annotation.*.h\"")
+
+    add_library(${test}.appdll SHARED ${lib_srcs})
+    set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
 
     if ("${test}" MATCHES "-opt$")
       if (UNIX)

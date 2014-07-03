@@ -726,7 +726,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
 #ifdef UNIX
-            cur_pc = decode_next_pc(dcontext, cur_pc); // skip `mov %xbp, %xax`
+            //cur_pc = decode_next_pc(dcontext, cur_pc); // skip `mov %xbp, %xax`
 #endif
             layout->type = ANNOTATION_TYPE_EXPRESSION;
         }
