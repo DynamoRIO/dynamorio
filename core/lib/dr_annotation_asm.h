@@ -148,7 +148,6 @@ do { \
 # define DR_ANNOTATION_ATTRIBUTES \
     __attribute__((noinline, visibility("hidden") _CALL_TYPE))
 # define DR_WEAK_DECLARATION __attribute__ ((weak))
-//# define DR_WEAK_DECLARATION
 # define DR_ANNOTATION_OR_NATIVE(annotation, native_version, ...) \
 ({ \
     __label__ native_run, native_end_marker; \
