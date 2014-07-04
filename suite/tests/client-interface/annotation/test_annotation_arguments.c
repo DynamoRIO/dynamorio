@@ -33,17 +33,6 @@
 #include "test_annotation_arguments.h"
 #include <stdio.h>
 
-/*
-#pragma auto_inline(off)
-#ifdef _MSC_VER
-# pragma optimize ("g", off)
-# pragma warning(disable : 4715)
-#endif
-*/
-
-//#pragma GCC push_options
-//#pragma GCC optimize (0)
-
 DR_DEFINE_ANNOTATION(void, test_annotation_two_args, (unsigned int a,
     unsigned int b), )
 
@@ -62,13 +51,3 @@ DR_DEFINE_ANNOTATION(void, test_annotation_ten_args, (unsigned int a,
     unsigned int b, unsigned int c, unsigned int d, unsigned int e,
     unsigned int f, unsigned int g, unsigned int h, unsigned int i,
     unsigned int j), )
-
-//#pragma GCC pop_options
-
-/*
-#ifdef _MSC_VER
-# pragma optimize ("g", on)
-# pragma warning(default : 4715)
-#endif
-#pragma auto_inline(on)
-*/
