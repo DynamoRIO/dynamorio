@@ -4977,6 +4977,19 @@ DR_API
 void
 dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where);
 
+DR_API
+/**
+ * Calls the specified function \p func after switching to the DR stack
+ * for the thread corresponding to \p drcontext.
+ * Passes in 8 arguments.  Uses the C calling convention, so \p func will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by \p func.
+ */
+void *
+dr_call_on_clean_stack(void *drcontext, void *(*func)(void),
+                       void *arg1, void *arg2, void *arg3, void *arg4,
+                       void *arg5, void *arg6, void *arg7, void *arg8);
+
 /* providing functionality of old -instr_calls and -instr_branches flags */
 DR_API
 /**

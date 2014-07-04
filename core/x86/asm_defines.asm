@@ -207,8 +207,15 @@ ASSUME fs:_DATA @N@\
 #  define ARG5 QWORD [40 + rsp] /* includes ret addr */
 #  define ARG6 QWORD [48 + rsp]
 #  define ARG7 QWORD [56 + rsp]
+#  define ARG8 QWORD [64 + rsp]
+#  define ARG9 QWORD [72 + rsp]
+#  define ARG10 QWORD [80 + rsp]
 #  define ARG5_NORETADDR QWORD [32 + rsp]
 #  define ARG6_NORETADDR QWORD [40 + rsp]
+#  define ARG7_NORETADDR QWORD [48 + rsp]
+#  define ARG8_NORETADDR QWORD [56 + rsp]
+#  define ARG9_NORETADDR QWORD [64 + rsp]
+#  define ARG10_NORETADDR QWORD [72 + rsp]
 # else
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
@@ -218,11 +225,22 @@ ASSUME fs:_DATA @N@\
 #  define ARG3 rdx
 #  define ARG4 rcx
 #  define ARG5 r8
-#  define ARG5_NORETADDR ARG5
 #  define ARG6 r9
+#  define ARG7 QWORD [8 + rsp]
+#  define ARG8 QWORD [16 + rsp]
+#  define ARG9 QWORD [24 + rsp]
+#  define ARG10 QWORD [32 + rsp]
+#  define ARG5_NORETADDR ARG5
 #  define ARG6_NORETADDR ARG6
-#  define ARG7 QWORD [rsp]
+#  define ARG7_NORETADDR QWORD [rsp]
+#  define ARG8_NORETADDR QWORD [8 + rsp]
+#  define ARG9_NORETADDR QWORD [16 + rsp]
+#  define ARG10_NORETADDR QWORD [24 + rsp]
 # endif
+# define ARG1_NORETADDR ARG1
+# define ARG2_NORETADDR ARG2
+# define ARG3_NORETADDR ARG3
+# define ARG4_NORETADDR ARG4
 # define ARG_SZ 8
 # define PTRSZ QWORD
 #else /* x86 */
@@ -245,6 +263,19 @@ ASSUME fs:_DATA @N@\
 # define ARG5 DWORD [20 + esp]
 # define ARG6 DWORD [24 + esp]
 # define ARG7 DWORD [28 + esp]
+# define ARG8 DWORD [32 + esp]
+# define ARG9 DWORD [36 + esp]
+# define ARG10 DWORD [40 + esp]
+# define ARG1_NORETADDR DWORD [0 + esp]
+# define ARG2_NORETADDR DWORD [4 + esp]
+# define ARG3_NORETADDR DWORD [8 + esp]
+# define ARG4_NORETADDR DWORD [12 + esp]
+# define ARG5_NORETADDR DWORD [16 + esp]
+# define ARG6_NORETADDR DWORD [20 + esp]
+# define ARG7_NORETADDR DWORD [24 + esp]
+# define ARG8_NORETADDR DWORD [28 + esp]
+# define ARG9_NORETADDR DWORD [32 + esp]
+# define ARG10_NORETADDR DWORD [36 + esp]
 #endif
 
 /* Keep in sync with arch_exports.h. */
@@ -267,15 +298,17 @@ ASSUME fs:_DATA @N@\
 # ifdef WINDOWS
 #  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-32 - ARG_SZ*gt4 + REG_XSP]
+#  define STACK_PAD_NOPUSH(tot, gt4, mod4) STACK_PAD(tot, gt4, mod4)
 #  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [32 + ARG_SZ*gt4 + REG_XSP]
 /* we split these out just to avoid nop lea for x64 linux */
 #  define STACK_PAD_LE4(tot, mod4) STACK_PAD(0/*doesn't matter*/, 0, mod4)
 #  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
 # else
-#  define STACK_PAD(tot, gt4) \
+#  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*gt4 + REG_XSP]
-#  define STACK_UNPAD(tot, gt4) \
+#  define STACK_PAD_NOPUSH(tot, gt4, mod4) STACK_PAD(tot, gt4, mod4)
+#  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [ARG_SZ*gt4 + REG_XSP]
 #  define STACK_PAD_LE4(tot, mod4) /* nothing */
 #  define STACK_UNPAD_LE4(tot, mod4) /* nothing */
@@ -294,6 +327,7 @@ ASSUME fs:_DATA @N@\
  */
 #  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*((tot) + 4 - (mod4)) + REG_XSP]
+#  define STACK_PAD_NOPUSH(tot, gt4, mod4) STACK_PAD(tot, gt4, mod4)
 #  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [ARG_SZ*((tot) + 4 - (mod4)) + REG_XSP]
 #  define STACK_PAD_LE4(tot, mod4) STACK_PAD(tot, 0, mod4)
@@ -305,6 +339,8 @@ ASSUME fs:_DATA @N@\
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
 # else
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
+#  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
+        lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
 #  define STACK_UNPAD(tot, gt4, mod4) \
         lea      REG_XSP, [ARG_SZ*tot + REG_XSP]
 #  define STACK_PAD_LE4(tot, mod4) /* nothing */
@@ -372,6 +408,17 @@ ASSUME fs:_DATA @N@\
         SETARG(0, ARG1, p1)                @N@\
         call     callee                    @N@\
         STACK_UNPAD(6, 2, 2)
+#define CALLC7(callee, p1, p2, p3, p4, p5, p6, p7)\
+        STACK_PAD(7, 3, 3)                 @N@\
+        SETARG(6, ARG7_NORETADDR, p7)      @N@\
+        SETARG(5, ARG6_NORETADDR, p6)      @N@\
+        SETARG(4, ARG5_NORETADDR, p5)      @N@\
+        SETARG(3, ARG4, p4)                @N@\
+        SETARG(2, ARG3, p3)                @N@\
+        SETARG(1, ARG2, p2)                @N@\
+        SETARG(0, ARG1, p1)                @N@\
+        call     callee                    @N@\
+        STACK_UNPAD(7, 3, 3)
 
 /* Versions to help with Mac stack aligmnment.  _FRESH means that the
  * stack has not been changed since function entry and thus for Mac 32-bit

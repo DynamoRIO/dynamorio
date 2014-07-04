@@ -196,6 +196,10 @@ DR_EXPORT
  * other machine state.  Usually it is good practice to call
  * dr_switch_to_app_state() inside the replacement code, and then
  * dr_switch_to_dr_state() before returning, in particular on Windows.
+ * To additionally use a clean DR stack, consider using
+ * dr_call_on_clean_stack() from the initial replacement layer (which
+ * allows the outer layer to handle stdcall, which
+ * dr_call_on_clean_stack does not support).
  *
  * The replacement code is not allowed to invoke dr_flush_region() or
  * dr_delete_fragment() as it has no #dr_mcontext_t with which to
