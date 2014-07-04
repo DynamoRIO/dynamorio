@@ -683,7 +683,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
         layout->type = ANNOTATION_TYPE_STATEMENT;
         layout->name += 10;
-#if defined (WINDOWS) && defined (X64)
         while (true) { // skip fused headers caused by inlining identical annotations
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
@@ -702,7 +701,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
             } else if (instr_is_cti(scratch))
                 break;
         }
-#endif
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
         layout->name += 11;
@@ -714,9 +712,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
     app_pc cur_pc = layout->start_pc;
-
-    layout->name = NULL;
-    layout->resume_pc = NULL;
     if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {
 #ifdef WINDOWS
         if (*(cur_pc++) == 0x58) { // skip padding byte (`pop eax` indicates statement)
