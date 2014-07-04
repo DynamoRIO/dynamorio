@@ -871,6 +871,15 @@ function(mark_execstack target)
   endif (UNIX)
 endfunction(mark_execstack)
 
+function (use_DynamoRIO_test_annotations target target_srcs)
+  include_directories("${DynamoRIO_cwd}/../annotation")
+  set(srcs
+    "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
+    "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c")
+  configure_DynamoRIO_annotations("${srcs}")
+  set(${target_srcs} ${${target_srcs}} ${srcs} PARENT_SCOPE)
+endfunction (use_DynamoRIO_test_annotations target target_srcs)
+
 ###########################################################################
 # RUNNING
 

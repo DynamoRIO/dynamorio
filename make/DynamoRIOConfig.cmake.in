@@ -947,37 +947,24 @@ function (use_DynamoRIO_extension target extname)
 
 endfunction (use_DynamoRIO_extension)
 
+# For clients to configure their custom annotations
+function (configure_DynamoRIO_annotations srcs)
+  if (UNIX)
+    foreach (src ${srcs})
+      append_property_string(SOURCE ${src} COMPILE_FLAGS "-O0")
+    endforeach (src ${srcs})
+  else (UNIX)
+    # disable warning for "not all control paths return a value"
+    foreach (src ${srcs})
+      append_property_string(SOURCE ${src} COMPILE_FLAGS "/Od /Ob0 /GL- /wd4715")
+    endforeach (src ${srcs})
+  endif (UNIX)
+endfunction (configure_DynamoRIO_annotations srcs)
+
+# For configuring target applications that use default DynamoRIO annotations
 function (use_DynamoRIO_annotations target target_srcs)
   include_directories("${DynamoRIO_cwd}/../annotation")
-  get_target_property(srcs ${target} SOURCES)
   set(srcs "${DynamoRIO_cwd}/../annotation/dr_annotations.c")
-  if (UNIX)
-    foreach (src ${srcs})
-      append_property_string(SOURCE ${src} COMPILE_FLAGS "-O0")
-    endforeach (src ${srcs})
-  else (UNIX)
-    # disable warning for "not all control paths return a value"
-    foreach (src ${srcs})
-      append_property_string(SOURCE ${src} COMPILE_FLAGS "/Od /Ob0 /GL- /wd4715")
-    endforeach (src ${srcs})
-  endif (UNIX)
+  configure_DynamoRIO_annotations("${srcs}")
   set(${target_srcs} ${${target_srcs}} ${srcs} PARENT_SCOPE)
-endfunction (use_DynamoRIO_annotations target)
-
-function (use_DynamoRIO_test_annotations target target_srcs)
-  include_directories("${DynamoRIO_cwd}/../annotation")
-  set(srcs
-    "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
-    "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c")
-  if (UNIX)
-    foreach (src ${srcs})
-      append_property_string(SOURCE ${src} COMPILE_FLAGS "-O0")
-    endforeach (src ${srcs})
-  else (UNIX)
-    # disable warning for "not all control paths return a value"
-    foreach (src ${srcs})
-      append_property_string(SOURCE ${src} COMPILE_FLAGS "/Od /Ob0 /GL- /wd4715")
-    endforeach (src ${srcs})
-  endif (UNIX)
-  set(${target_srcs} ${${target_srcs}} ${srcs} PARENT_SCOPE)
-endfunction (use_DynamoRIO_test_annotations target)
+endfunction (use_DynamoRIO_annotations target target_srcs)
