@@ -1,62 +1,4 @@
       <Init annotation test client with bb truncation>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
-      <Initialize mode 0>
-      <Initialize mode 1>
-      <Initialize context 0 'thread #0' in mode 0>
-      <Initialize context 1 'thread #1' in mode 0>
-      <Initialize context 2 'thread #2' in mode 0>
-      <Initialize context 3 'thread #3' in mode 0>
-      <Initialize context 4 'thread-handling' in mode 0>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
-      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
 
     -------------------------------------------------------------------
      Performance for solving AX=B Linear Equation using Jacobi method
@@ -66,10 +8,88 @@
      Matrix Size :  1024
      Threads     :  4
 
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Initialize mode 0>
+      <Initialize mode 1>
+      <Initialize context 0 'thread #0' in mode 0>
+      <Initialize context 1 'thread #1' in mode 0>
+      <Initialize context 2 'thread #2' in mode 0>
+      <Initialize context 3 'thread #3' in mode 0>
+      <Initialize context 4 'thread-handling' in mode 0>
+
+     Started iteration 1 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 2 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 3 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 4 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 5 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 6 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 7 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 8 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 9 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8, i=9, j=10>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
+     Started iteration 10 of the computation...
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+      <Test many args: a=1, b=2, c=3, d=4, e=5, f=6, g=7, h=8>
+
 
      The Jacobi Method For AX=B .........DONE
      Total Number Of iterations   :  10
-     Memory Utilized              :  8.031250 MB
     ...................................................................
       <In context 0 at event 1, the mode changed from 0 to 1>
       <In context 0 at event 2, the mode changed from 1 to 0>

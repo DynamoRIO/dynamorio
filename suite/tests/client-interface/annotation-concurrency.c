@@ -241,8 +241,8 @@ int main(int argc, char **argv)
             printf("Error: failed to load "LIB_NAME"\n");
             exit(1);
         }
-
 #endif
+
         jacobi_init = find_function(module, "jacobi_init");
         jacobi_exit = find_function(module, "jacobi_exit");
         jacobi = find_function(module, "jacobi");

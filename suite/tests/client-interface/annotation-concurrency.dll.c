@@ -189,6 +189,10 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
 
 #ifdef WINDOWS
     app_pc fragment = dr_fragment_app_pc(tag);
+
+    //if (((uint) tag > 0x7719492aU) && ((uint) tag < 0x77194945U))
+    //    dr_printf("LoadLibrary tag: "PFX"\n", tag);
+
     if ((fragment == skip_truncation[0]) || (fragment == skip_truncation[1]))
         return DR_EMIT_DEFAULT;
 #endif
