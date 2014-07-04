@@ -397,6 +397,112 @@ call_dispatch_alt_stack_no_free:
         ret
         END_FUNC(call_switch_stack)
 
+#ifdef CLIENT_INTERFACE
+/*
+ * Calls the specified function 'func' after switching to the DR stack
+ * for the thread corresponding to 'drcontext'.
+ * Passes in 8 arguments.  Uses the C calling convention, so 'func' will work
+ * just fine even if if takes fewer than 8 args.
+ * Swaps the stack back upon return and returns the value returned by 'func'.
+ *
+ * void * dr_call_on_clean_stack(void *drcontext,            // 1*ARG_SZ+XAX
+ *                               void *(*func)(arg1...arg8), // 2*ARG_SZ+XAX
+ *                               void *arg1,                 // 3*ARG_SZ+XAX
+ *                               void *arg2,                 // 4*ARG_SZ+XAX
+ *                               void *arg3,                 // 5*ARG_SZ+XAX
+ *                               void *arg4,                 // 6*ARG_SZ+XAX
+ *                               void *arg5,                 // 7*ARG_SZ+XAX
+ *                               void *arg6,                 // 8*ARG_SZ+XAX
+ *                               void *arg7,                 // 9*ARG_SZ+XAX
+ *                               void *arg8)                 //10*ARG_SZ+XAX
+ */
+        DECLARE_EXPORTED_FUNC(dr_call_on_clean_stack)
+GLOBAL_LABEL(dr_call_on_clean_stack:)
+        /* avoid colliding with ARG* in either scratch reg */
+# ifdef X64
+#  define SCRATCH1 r10
+#  define SCRATCH2 r11
+# else
+#  define SCRATCH1 edx
+#  define SCRATCH2 ecx
+# endif
+        /* get all args with same offset(xax) regardless of plaform */
+# ifdef X64
+#  ifdef WINDOWS
+        mov      REG_XAX, REG_XSP
+        /* stack alignment doesn't really matter (b/c we're swapping) but in case
+         * we add a call we keep this here
+         */
+        lea      REG_XSP, [-ARG_SZ + REG_XSP] /* maintain align-16: offset retaddr */
+#  else
+        /* no padding so we make our own space. odd #slots keeps align-16 w/ retaddr */
+        lea      REG_XSP, [-5*ARG_SZ + REG_XSP]
+        /* xax points one beyond TOS to get same offset as having retaddr there */
+        lea      REG_XAX, [-ARG_SZ + REG_XSP]
+        /* save the retaddr */
+        mov      SCRATCH1, [6*ARG_SZ + REG_XAX]
+        mov      [5*ARG_SZ + REG_XAX], ARG5
+        mov      [6*ARG_SZ + REG_XAX], ARG6
+#  endif
+        mov      [1*ARG_SZ + REG_XAX], ARG1
+        mov      [2*ARG_SZ + REG_XAX], ARG2
+        mov      [3*ARG_SZ + REG_XAX], ARG3
+        mov      [4*ARG_SZ + REG_XAX], ARG4
+# else
+        /* stack alignment doesn't matter */
+        mov      REG_XAX, REG_XSP
+# endif
+# if defined(X64) && !defined(WINDOWS)
+        push     SCRATCH1 /* retaddr */
+# endif
+        /* we need a callee-saved reg across our call so save it onto stack */
+        push     REG_XBX
+        push     REG_XBP /* alignment doesn't matter: swapping stacks */
+        mov      REG_XBX, REG_XAX
+        mov      REG_XBP, REG_XSP
+        /* set up for call */
+        mov      SCRATCH1, [2*ARG_SZ + REG_XAX] /* func */
+        mov      SCRATCH2, [1*ARG_SZ + REG_XAX] /* drcontext */
+        RESTORE_FROM_DCONTEXT_VIA_REG(SCRATCH2, dstack_OFFSET, REG_XSP)
+        STACK_PAD_NOPUSH(8, 4, 0)
+        mov      SCRATCH2, [10*ARG_SZ + REG_XAX]
+        mov      ARG8_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [9*ARG_SZ + REG_XAX]
+        mov      ARG7_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [8*ARG_SZ + REG_XAX]
+        mov      ARG6_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [7*ARG_SZ + REG_XAX]
+        mov      ARG5_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [6*ARG_SZ + REG_XAX]
+        mov      ARG4_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [5*ARG_SZ + REG_XAX]
+        mov      ARG3_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [4*ARG_SZ + REG_XAX]
+        mov      ARG2_NORETADDR, SCRATCH2
+        mov      SCRATCH2, [3*ARG_SZ + REG_XAX]
+        mov      ARG1_NORETADDR, SCRATCH2
+        call     SCRATCH1
+        /* preserve return value in xax */
+        STACK_UNPAD(8, 4, 0)
+        mov      REG_XSP, REG_XBP
+        mov      REG_XCX, REG_XBX
+        pop      REG_XBP
+        pop      REG_XBX
+# ifdef X64
+#  ifdef WINDOWS
+        mov      REG_XSP, REG_XCX
+#  else
+        pop      SCRATCH1 /* retaddr */
+        lea      REG_XSP, [5*ARG_SZ + REG_XSP]
+        mov      PTRSZ [REG_XSP], SCRATCH1 /* retaddr */
+#  endif
+# else
+        mov      REG_XSP, REG_XCX
+# endif
+        ret
+        END_FUNC(dr_call_on_clean_stack)
+#endif /* CLIENT_INTERFACE */
+
 /*
  * Copies from the current xsp to tos onto the base of stack and then
  * swaps to the cloned top of stack.
