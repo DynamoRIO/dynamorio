@@ -48,8 +48,6 @@
 extern "C" {
 #endif
 
-#pragma auto_inline(off)
-
 DR_DECLARE_ANNOTATION(void, test_annotation_init_mode, (unsigned int mode));
 
 DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
@@ -57,8 +55,6 @@ DR_DECLARE_ANNOTATION(void, test_annotation_init_context, (unsigned int id,
 
 DR_DECLARE_ANNOTATION(void, test_annotation_set_mode, (unsigned int context_id,
     unsigned int mode));
-
-#pragma auto_inline(on)
 
 #ifdef __cplusplus
 }

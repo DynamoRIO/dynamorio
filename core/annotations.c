@@ -40,6 +40,7 @@
 #include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
 #include "annotations.h"
+#include "utils.h"
 
 #include "../third_party/valgrind/valgrind.h"
 #include "../third_party/valgrind/memcheck.h"
@@ -84,6 +85,7 @@ static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
 
 extern uint dr_internal_client_id;
+extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 /* Immediate operands to the special rol instructions.
  * See __SPECIAL_INSTRUCTION_PREAMBLE in valgrind.h.
@@ -149,12 +151,8 @@ static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
 
-//static void
-//append_instrumentation(annotation_instrumentation_t *instrumentation, instr_t *instr);
-
-//static void
-//insert_instrumentation(dcontext_t *dcontext,
-//                       annotation_instrumentation_t *instrumentation, instr_t *instr);
+static ssize_t
+annot_printf(const char *format, ...);
 
 static const char *
 heap_strcpy(const char *src);
@@ -190,45 +188,8 @@ annot_init()
 
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
-
-    /*
-    {
-        annotation_receiver_t *receiver;
-        two_args_handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
-                                  ACCT_OTHER, UNPROTECTED);
-        memset(two_args_handler, 0, sizeof(annotation_handler_t));
-        two_args_handler->type = ANNOT_HANDLER_CALL;
-        two_args_handler->num_args = 2;
-        two_args_handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
-            opnd_t, 2, ACCT_OTHER, UNPROTECTED);
-        specify_args(two_args_handler, 2 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
-
-        receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
-                                   ACCT_OTHER, UNPROTECTED);
-        receiver->client_id = 0;
-        receiver->instrumentation.callback = (void *) test_two_args;
-        receiver->save_fpstate = false;
-        receiver->next = two_args_handler->receiver_list;
-        two_args_handler->receiver_list = receiver;
-
-        three_args_handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_handler_t,
-                                  ACCT_OTHER, UNPROTECTED);
-        memset(three_args_handler, 0, sizeof(annotation_handler_t));
-        three_args_handler->type = ANNOT_HANDLER_CALL;
-        three_args_handler->num_args = 3;
-        three_args_handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT,
-            opnd_t, 3, ACCT_OTHER, UNPROTECTED);
-        specify_args(three_args_handler, 3 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
-
-        receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, annotation_receiver_t,
-                                   ACCT_OTHER, UNPROTECTED);
-        receiver->client_id = 0;
-        receiver->instrumentation.callback = (void *) test_three_args;
-        receiver->save_fpstate = false;
-        receiver->next = three_args_handler->receiver_list;
-        three_args_handler->receiver_list = receiver;
-    }
-    */
+    dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_PRINTF_NAME,
+                           annot_printf, false, 20 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 void
@@ -242,9 +203,6 @@ annot_exit()
     }
 
     strhash_hash_destroy(GLOBAL_DCONTEXT, handlers);
-
-    //free_annotation_handler(two_args_handler);
-    //free_annotation_handler(three_args_handler);
 }
 
 void
@@ -805,6 +763,62 @@ specify_args(annotation_handler_t *handler, uint num_args,
     }
 }
 #endif
+
+static void
+print_timestamp_buffer(char *buffer, uint length, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(buffer, length, format, ap);
+    va_end(ap);
+}
+
+static ssize_t
+annot_printf(const char *format, ...)
+{
+    va_list ap;
+    ssize_t count;
+    const char *timestamp_token_start;
+    uint format_length = 0;
+
+    // TODO: sensitive to `#if defined(DEBUG) && !defined(STANDALONE_DECODER)`?
+    if (stats == NULL || stats->loglevel == 0 || (stats->logmask & LOG_ANNOTATION) == 0)
+        return 0;
+
+    timestamp_token_start = strstr(format, "${timestamp}");
+    if (timestamp_token_start != NULL) {
+        uint min, sec, msec, timestamp = query_time_seconds();
+        format_length = strlen(format) + 32;
+        if (timestamp > 0) {
+            char timestamp_buffer[32];
+            char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, format_length,
+                                                 ACCT_OTHER, UNPROTECTED);
+
+            strcpy(timestamped, format);
+            timestamped[(uint)((ptr_uint_t) timestamp_token_start - (ptr_uint_t) format)] = '\0';
+            sec = (uint) (timestamp / 1000);
+            msec = (uint) (timestamp % 1000);
+            min = sec / 60;
+            sec = sec % 60;
+            print_timestamp_buffer(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
+
+            strcat(timestamped, timestamp_buffer);
+            strcat(timestamped, timestamp_token_start + strlen("${timestamp}"));
+            format = (const char *) timestamped;
+        }
+    }
+
+    va_start(ap, format);
+    count = do_file_write(GLOBAL, format, ap);
+    va_end(ap);
+
+    if (timestamp_token_start != NULL) {
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, format, char, format_length,
+                        ACCT_OTHER, UNPROTECTED);
+    }
+
+    return count;
+}
 
 static inline const char *
 heap_strcpy(const char *src)

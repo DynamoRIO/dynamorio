@@ -32,17 +32,7 @@
 
 #include "dr_annotations.h"
 
-#pragma auto_inline(off)
-#ifdef _MSC_VER
-# pragma optimize ("g", off)
-# pragma warning(disable : 4715)
-#endif
-
 DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0)
 
-#ifdef _MSC_VER
-# pragma optimize ("g", on)
-# pragma warning(default : 4715)
-#endif
-#pragma auto_inline(on)
-
+DR_DEFINE_ANNOTATION(unsigned int, dynamorio_annotate_printf, (const char *format, ...),
+                     return 0)

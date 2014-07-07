@@ -21,6 +21,9 @@ extern "C" {
 # endif
 #endif
 
+#define DR_LOG(format, ...) \
+    DYNAMORIO_ANNOTATE_PRINTF("<annotation-detection> "format, ##__VA_ARGS__)
+
 class Shape
 {
     public:
@@ -71,6 +74,7 @@ class Fail : public std::runtime_error
 
 Square::Square(double side_length) : side_length(side_length)
 {
+    DR_LOG("Square::Square() ${timestamp}\n");
 }
 
 INLINE double Square::get_side_length()
@@ -101,6 +105,8 @@ unsigned int Square::get_vertex_count()
 
 Triangle::Triangle(double a, double b, double c)
 {
+    DR_LOG("Triangle::Triangle(): ${timestamp}\n");
+
     set_lengths(a, b, c);
 
     TEST_ANNOTATION_THREE_ARGS(__LINE__, (unsigned int) b,
@@ -282,6 +288,7 @@ int main(void)
 
     j = ((unsigned int) shape->get_area()) % 11;
     for (i = 0; i < 10; i++) {
+        DR_LOG("Iteration %d\n", i);
         switch ((i + j) % 10) {
             case 0:
                 TEST_ANNOTATION_NINE_ARGS(

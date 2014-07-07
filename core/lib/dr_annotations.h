@@ -38,15 +38,17 @@
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()
 
+#define DYNAMORIO_ANNOTATE_PRINTF(format, ...) \
+    dynamorio_annotate_printf(format, ##__VA_ARGS__)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#pragma auto_inline(off)
-
 DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
 
-#pragma auto_inline(on)
+DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_printf,
+                      (const char *format, ...));
 
 #ifdef __cplusplus
 }

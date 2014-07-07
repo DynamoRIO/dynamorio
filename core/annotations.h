@@ -81,6 +81,9 @@
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
 
+#define DYNAMORIO_ANNOTATE_PRINTF_NAME \
+    "dynamorio_annotate_printf"
+
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 /* DR_API EXPORT TOFILE dr_annotation.h */
