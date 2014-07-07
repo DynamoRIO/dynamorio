@@ -151,6 +151,9 @@ static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
 
+static void
+annot_snprintf(char *buffer, uint length, const char *format, ...);
+
 static ssize_t
 annot_printf(const char *format, ...);
 
@@ -189,7 +192,7 @@ annot_init()
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
     dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_PRINTF_NAME,
-                           annot_printf, false, 20 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+                           (void *) annot_printf, false, 20 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 void
@@ -765,7 +768,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
 #endif
 
 static void
-print_timestamp_buffer(char *buffer, uint length, const char *format, ...)
+annot_snprintf(char *buffer, uint length, const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -788,22 +791,24 @@ annot_printf(const char *format, ...)
     timestamp_token_start = strstr(format, "${timestamp}");
     if (timestamp_token_start != NULL) {
         uint min, sec, msec, timestamp = query_time_seconds();
-        format_length = strlen(format) + 32;
+        format_length = (uint) (strlen(format) + 32);
         if (timestamp > 0) {
+            uint length_before_token =
+                (uint)((ptr_uint_t) timestamp_token_start - (ptr_uint_t) format);
             char timestamp_buffer[32];
             char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, format_length,
                                                  ACCT_OTHER, UNPROTECTED);
 
-            strcpy(timestamped, format);
-            timestamped[(uint)((ptr_uint_t) timestamp_token_start - (ptr_uint_t) format)] = '\0';
+            annot_snprintf(timestamped, length_before_token, "%s", format);
             sec = (uint) (timestamp / 1000);
             msec = (uint) (timestamp % 1000);
             min = sec / 60;
             sec = sec % 60;
-            print_timestamp_buffer(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
+            annot_snprintf(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
 
-            strcat(timestamped, timestamp_buffer);
-            strcat(timestamped, timestamp_token_start + strlen("${timestamp}"));
+            annot_snprintf(timestamped + length_before_token,
+                           (format_length - length_before_token), "%s%s",
+                           timestamp_buffer, timestamp_token_start + strlen("${timestamp}"));
             format = (const char *) timestamped;
         }
     }
