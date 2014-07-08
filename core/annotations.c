@@ -427,7 +427,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
         identify_annotation(dcontext, &layout, &scratch);
     }, { /* EXCEPT */
         // log it
-        dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
+        //dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         /*
