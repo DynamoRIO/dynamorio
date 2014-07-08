@@ -219,6 +219,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
             _IF_WINDOWS_X64(bool hint_is_safe));
 //            _IF_WINDOWS_X64(app_pc branch_pc) _IF_WINDOWS_X64(bool hint_is_safe));
 
+#if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
  * an internal function which will dispatch to registered handlers.
  *
@@ -238,5 +239,6 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count);
+#endif
 
 #endif
