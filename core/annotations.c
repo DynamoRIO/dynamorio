@@ -85,6 +85,7 @@ static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
 
 extern uint dr_internal_client_id;
+extern file_t main_logfile;
 extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 /* Immediate operands to the special rol instructions.
@@ -151,11 +152,13 @@ static void
 specify_args(annotation_handler_t *handler, uint num_args
     _IF_NOT_X64(annotation_calling_convention_t call_type));
 
+#ifdef DEBUG
 static void
 annot_snprintf(char *buffer, uint length, const char *format, ...);
 
 static ssize_t
 annot_printf(const char *format, ...);
+#endif
 
 static const char *
 heap_strcpy(const char *src);
@@ -191,8 +194,10 @@ annot_init()
 
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
+#ifdef DEBUG
     dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_PRINTF_NAME,
                            (void *) annot_printf, false, 20 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+#endif
 }
 
 void
@@ -767,6 +772,7 @@ specify_args(annotation_handler_t *handler, uint num_args,
 }
 #endif
 
+#ifdef DEBUG
 static void
 annot_snprintf(char *buffer, uint length, const char *format, ...)
 {
@@ -824,6 +830,7 @@ annot_printf(const char *format, ...)
 
     return count;
 }
+#endif
 
 static inline const char *
 heap_strcpy(const char *src)
