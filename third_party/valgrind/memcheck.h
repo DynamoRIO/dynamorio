@@ -137,7 +137,7 @@ typedef
    string which is included in any messages pertaining to addresses
    within the specified memory range.  Has no other effect on the
    properties of the memory range. */
-#define VALGRIND_CREATE_BLOCK(_qzz_addr,_qzz_len, _qzz_desc)	   \
+#define VALGRIND_CREATE_BLOCK(_qzz_addr,_qzz_len, _qzz_desc)       \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,        \
                             VG_USERREQ__CREATE_BLOCK,              \
                             (_qzz_addr), (_qzz_len), (_qzz_desc),  \
