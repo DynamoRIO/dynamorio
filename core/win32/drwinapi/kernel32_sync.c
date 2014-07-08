@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.   All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.   All rights reserved.
  * **********************************************************/
 
 /*
@@ -168,9 +168,15 @@ redirect_WaitForSingleObject(
 {
     NTSTATUS res;
     LARGE_INTEGER li;
-    li.QuadPart = -((int)dwMilliseconds * TIMER_UNITS_PER_MILLISECOND);
+    LARGE_INTEGER *timeout;
+    if (dwMilliseconds == INFINITE)
+        timeout = NULL;
+    else {
+        li.QuadPart = -((int)dwMilliseconds * TIMER_UNITS_PER_MILLISECOND);
+        timeout = &li;
+    }
     /* XXX: are there special handles we need to convert to real handles? */
-    res = NtWaitForSingleObject(hHandle, FALSE/*!alertable*/, &li);
+    res = NtWaitForSingleObject(hHandle, FALSE/*!alertable*/, timeout);
     if (!NT_SUCCESS(res)) {
         set_last_error(ntstatus_to_last_error(res));
         return WAIT_FAILED;
@@ -195,6 +201,7 @@ unit_test_drwinapi_kernel32_sync(void)
     LONG val1, val2, res;
     HANDLE e;
     DWORD dw;
+    LARGE_INTEGER li;
 
     print_file(STDERR, "testing drwinapi kernel32 sync-related routines\n");
 
@@ -242,6 +249,17 @@ unit_test_drwinapi_kernel32_sync(void)
     ok = SetEvent(e);
     EXPECT(ok, true);
     dw = redirect_WaitForSingleObject(e, 50);
+    EXPECT(dw == WAIT_OBJECT_0, true);
+    ok = redirect_CloseHandle(e);
+    EXPECT(ok, true);
+
+    /* Test INFINITE wait (i#1467) */
+    e = CreateWaitableTimer(NULL, TRUE, "mytimer");
+    EXPECT(e != NULL, true);
+    li.QuadPart = -(50 * TIMER_UNITS_PER_MILLISECOND);
+    ok = SetWaitableTimer(e, &li, 0, NULL, NULL, FALSE);
+    EXPECT(ok, true);
+    dw = redirect_WaitForSingleObject(e, INFINITE);
     EXPECT(dw == WAIT_OBJECT_0, true);
     ok = redirect_CloseHandle(e);
     EXPECT(ok, true);
