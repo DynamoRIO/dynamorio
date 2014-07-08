@@ -42,8 +42,10 @@
 #include "annotations.h"
 #include "utils.h"
 
-#include "../third_party/valgrind/valgrind.h"
-#include "../third_party/valgrind/memcheck.h"
+#if !(defined (WINDOWS) && defined (X64))
+# include "../third_party/valgrind/valgrind.h"
+# include "../third_party/valgrind/memcheck.h"
+#endif
 
 #define MAX_ANNOTATION_INSTR_COUNT 100
 
@@ -80,9 +82,11 @@ static strhash_table_t *handlers;
 // locked under the `handlers` table lock
 static annotation_handler_t *vg_handlers[VG_ID__LAST];
 
+#if !(defined (WINDOWS) && defined (X64))
 static annotation_handler_t vg_router;
 static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
+#endif
 
 extern uint dr_internal_client_id;
 extern file_t main_logfile;
@@ -134,11 +138,13 @@ typedef struct _annotation_layout_t {
 
 /**** Private Function Declarations ****/
 
+#if !(defined (WINDOWS) && defined (X64))
 static void
 handle_vg_annotation(app_pc request_args);
 
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
+#endif
 
 static bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *start_pc, instr_t *scratch,
@@ -180,6 +186,7 @@ annot_init()
                                    free_annotation_handler
                                    _IF_DEBUG("annotation handler hashtable"));
 
+#if !(defined (WINDOWS) && defined (X64))
     vg_router.type = ANNOT_HANDLER_CALL;
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
@@ -191,6 +198,7 @@ annot_init()
     vg_receiver.instrumentation.callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
+#endif
 
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
@@ -457,6 +465,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
     return (layout.type != ANNOTATION_TYPE_NONE);
 }
 
+#if !(defined (WINDOWS) && defined (X64))
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count)
@@ -516,9 +525,11 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
 
     return true;
 }
+#endif
 
 /**** Private Function Definitions ****/
 
+#if !(defined (WINDOWS) && defined (X64))
 static void
 handle_vg_annotation(app_pc request_args)
 {
@@ -570,6 +581,7 @@ lookup_valgrind_request(ptr_uint_t request)
 
     return VG_ID__LAST;
 }
+#endif
 
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
