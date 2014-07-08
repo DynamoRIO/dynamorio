@@ -871,6 +871,8 @@ function(mark_execstack target)
   endif (UNIX)
 endfunction(mark_execstack)
 
+# XXX this function is added as part of an incremental commit. It is not currently used,
+# but will be used when the annotation tests are added. See Rietveld i#109930044.
 function (use_DynamoRIO_test_annotations target target_srcs)
   include_directories("${DynamoRIO_cwd}/../annotation")
   set(srcs

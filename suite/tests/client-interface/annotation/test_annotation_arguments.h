@@ -33,7 +33,7 @@
 #ifndef _TEST_ANNOTATION_ARGUMENTS_H_
 #define _TEST_ANNOTATION_ARGUMENTS_H_ 1
 
-#include "dr_annotation_asm.h"
+#include "dr_annotations_asm.h"
 
 #define TEST_ANNOTATION_TWO_ARGS(a, b, native_version) \
     DR_ANNOTATION_OR_NATIVE(test_annotation_two_args, native_version, a, b)

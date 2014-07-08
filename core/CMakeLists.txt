@@ -906,8 +906,8 @@ configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/valgrind.h"
   "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
 configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
   "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
-configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotation_asm.h"
-  "${BUILD_ANNOTATION}/dr_annotation_asm.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations_asm.h"
+  "${BUILD_ANNOTATION}/dr_annotations_asm.h" COPYONLY)
 configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
   "${BUILD_ANNOTATION}/dr_annotations.h" COPYONLY)
 configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c"

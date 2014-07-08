@@ -33,7 +33,7 @@
 #ifndef _DYNAMORIO_ANNOTATIONS_H_
 #define _DYNAMORIO_ANNOTATIONS_H_ 1
 
-#include "dr_annotation_asm.h"
+#include "dr_annotations_asm.h"
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()

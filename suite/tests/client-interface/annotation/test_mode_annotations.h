@@ -33,7 +33,7 @@
 #ifndef _TEST_MODE_ANNOTATIONS_H_
 #define _TEST_MODE_ANNOTATIONS_H_ 1
 
-#include "dr_annotation_asm.h"
+#include "dr_annotations_asm.h"
 
 #define TEST_ANNOTATION_INIT_MODE(mode) \
     DR_ANNOTATION(test_annotation_init_mode, mode)

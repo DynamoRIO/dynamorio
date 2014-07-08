@@ -160,6 +160,25 @@
 #
 #  set(DynamoRIO_FAST_IR ON)
 #
+###########
+#
+# Annotations:
+#
+# To include DynamoRIO annotations in an application, the annotation source files
+# will need to be added to the application's cmake configuration, and additional
+# configuration steps must be taken. Function use_DynamoRIO_annotations()
+# simplifies this process. When the function is called with a target name and a list
+# variable, the target will be configured to use annotations, and the list will be
+# populated with the DynamoRIO annotation source files.
+#
+# To define custom annotations in a DynamoRIO client, it will be most convenient for
+# the target application developers to have a function similar to
+# use_DynamoRIO_annotations() that configures their target for use of the custom
+# annotations. A recommended approach is to copy this function and replace the source
+# filenames with the new client's custom annotation source filenames. It will additionally
+# be necessary to copy those sources into the corresponding annotations subdirectory
+# of the build directory at some point during the client build.
+#
 ###########################################################################
 
 INCLUDEFILE make/utils.cmake
@@ -954,7 +973,7 @@ function (configure_DynamoRIO_annotations srcs)
       append_property_string(SOURCE ${src} COMPILE_FLAGS "-O0")
     endforeach (src ${srcs})
   else (UNIX)
-    # disable warning for "not all control paths return a value"
+    # /wd4715: disable warning for "not all control paths return a value"
     foreach (src ${srcs})
       append_property_string(SOURCE ${src} COMPILE_FLAGS "/Od /Ob0 /GL- /wd4715")
     endforeach (src ${srcs})
