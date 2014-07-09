@@ -915,4 +915,5 @@ configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
 configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c"
   "${BUILD_ANNOTATION}/dr_annotations.c" COPYONLY)
 
-DR_install(DIRECTORY ${BUILD_ANNOTATION} DESTINATION .)
+DR_install(DIRECTORY ${BUILD_ANNOTATION} DESTINATION .
+  REGEX "valgrind.h|memcheck.h" EXCLUDE)
