@@ -43,6 +43,20 @@
 # include <signal.h>
 #endif
 
+#ifdef WINDOWS
+static void
+fatal_error(const char *function)
+{
+    char message[256];
+
+    _snprintf(message, BUFFER_SIZE_ELEMENTS(message),
+              "Function %s() failed!\nError code 0x%x.\nExiting now.\n",
+              function, GetLastError());
+    print(message);
+    exit(1);
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
@@ -70,78 +84,109 @@ main(int argc, char **argv)
         print("creating child #1\n");
         if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
                            0, NULL, NULL, &si, &pi))
-            print("CreateProcess failure\n");
-        WaitForSingleObject(event, INFINITE);
+            fatal_error("CreateProcess");
+        if (WaitForSingleObject(event, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
         print("terminating child #1 by NtTerminateProcess\n");
-        TerminateProcess(pi.hProcess, 42);
-        WaitForSingleObject(pi.hProcess, INFINITE);
+        if (!TerminateProcess(pi.hProcess, 42))
+            fatal_error("TerminateProcess");
+        if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
         GetExitCodeProcess(pi.hProcess, &exitcode);
         print("child #1 exit code = %d\n", exitcode);
         if (!ResetEvent(event))
-            print("Failed to reset event\n");
+            fatal_error("ResetEvent");
 
         print("creating child #2\n");
+        /* In an msys shell, CREATE_BREAKAWAY_FROM_JOB is required because the shell uses
+         * job objects and by default does not have permission to break away (i#1454).
+         */
         if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
+                           NULL, NULL, &si, &pi))
             print("CreateProcess failure\n");
         job = CreateJobObject(NULL, "drx-test job");
-        AssignProcessToJobObject(job, pi.hProcess);
-        ResumeThread(pi.hThread);
-        CloseHandle(pi.hThread);
-        WaitForSingleObject(event, INFINITE);
+        if (!AssignProcessToJobObject(job, pi.hProcess))
+            fatal_error("AssignProcessToJobObject");
+        if (!ResumeThread(pi.hThread))
+            fatal_error("ResumeThread");
+        if (!CloseHandle(pi.hThread))
+            fatal_error("CloseHandle");
+        if (!(WaitForSingleObject(event, INFINITE) != WAIT_FAILED))
+            fatal_error("WaitForSingleObject");
         print("terminating child #2 by NtTerminateJobObject\n");
-        TerminateJobObject(job, 123456);
-        CloseHandle(job);
-        WaitForSingleObject(pi.hProcess, INFINITE);
+        if (!TerminateJobObject(job, 123456))
+            fatal_error("TerminateJobObject");
+        if (!CloseHandle(job))
+            fatal_error("CloseHandle");
+        if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
         GetExitCodeProcess(pi.hProcess, &exitcode);
         print("child #2 exit code = %d\n", exitcode);
         if (!ResetEvent(event))
-            print("Failed to reset event\n");
+            fatal_error("ResetEvent");
 
         print("creating child #3\n");
         if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED, NULL, NULL, &si, &pi))
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
+                           NULL, NULL, &si, &pi))
             print("CreateProcess failure\n");
         job = CreateJobObject(NULL, "drx-test job");
-        AssignProcessToJobObject(job, pi.hProcess);
+        if (!AssignProcessToJobObject(job, pi.hProcess))
+            fatal_error("AssignProcessToJobObject");
         limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                      &limit, sizeof(limit)))
-            print("SetInformationJobObject failed\n");
-        ResumeThread(pi.hThread);
-        CloseHandle(pi.hThread);
-        WaitForSingleObject(event, INFINITE);
+            fatal_error("SetInformationJobObject");
+        if (!ResumeThread(pi.hThread))
+            fatal_error("ResumeThread");
+        if (!CloseHandle(pi.hThread))
+            fatal_error("CloseHandle");
+        if (WaitForSingleObject(event, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
         print("terminating child #3 by closing job handle\n");
-        CloseHandle(job);
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        GetExitCodeProcess(pi.hProcess, &exitcode);
+        if (!CloseHandle(job))
+            fatal_error("CloseHandle");
+        if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
+        if (!GetExitCodeProcess(pi.hProcess, &exitcode))
+            fatal_error("GetExitCodeProcess");
         print("child #3 exit code = %d\n", exitcode);
 
         /* Test DuplicateHandle (DrMem i#1401) */
         print("creating child #4\n");
         if (!CreateProcess(argv[0], cmdline, NULL, NULL, TRUE/*inherit handles*/,
-                           CREATE_SUSPENDED, NULL, NULL, &si, &pi))
-            print("CreateProcess failure\n");
+                           CREATE_SUSPENDED | CREATE_BREAKAWAY_FROM_JOB,
+                           NULL, NULL, &si, &pi))
+            fatal_error("CreateProcess");
         job = CreateJobObject(NULL, "drx-test job");
-        AssignProcessToJobObject(job, pi.hProcess);
+        if (!AssignProcessToJobObject(job, pi.hProcess))
+            fatal_error("AssignProcessToJobObject");
         limit.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                      &limit, sizeof(limit)))
-            print("SetInformationJobObject failed\n");
-        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job2,
-                             0, FALSE, DUPLICATE_SAME_ACCESS))
-            print("DuplicateHandle failed\n");
-        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job3,
-                             0, FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS))
-            print("DuplicateHandle failed\n");
-        ResumeThread(pi.hThread);
-        CloseHandle(pi.hThread);
-        WaitForSingleObject(event, INFINITE);
+            fatal_error("SetInformationJobObject");
+        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job2, 0,
+                             FALSE, DUPLICATE_SAME_ACCESS))
+            fatal_error("DuplicateHandle");
+        if (!DuplicateHandle(GetCurrentProcess(), job, GetCurrentProcess(), &job3, 0,
+                             FALSE, DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS))
+            fatal_error("DuplicateHandle");
+        if (!ResumeThread(pi.hThread))
+            fatal_error("ResumeThread");
+        if (!CloseHandle(pi.hThread))
+            fatal_error("CloseHandle");
+        if (WaitForSingleObject(event, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
         print("terminating child #4 by closing both job handles\n");
-        CloseHandle(job2);
-        CloseHandle(job3);
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        GetExitCodeProcess(pi.hProcess, &exitcode);
+        if (!CloseHandle(job2))
+            fatal_error("CloseHandle");
+        if (!CloseHandle(job3))
+            fatal_error("CloseHandle");
+        if (WaitForSingleObject(pi.hProcess, INFINITE) == WAIT_FAILED)
+            fatal_error("WaitForSingleObject");
+        if (!GetExitCodeProcess(pi.hProcess, &exitcode))
+            fatal_error("GetExitCodeProcess");
         print("child #4 exit code = %d\n", exitcode);
     }
     else { /* child process */
