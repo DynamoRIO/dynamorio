@@ -107,7 +107,7 @@ do { \
 # else
 /* The assembly sequence for this platform begins with absolute bytes "0xeb 0x06"
  * (jmp +6) to facilitate an optimized detection algorithm in the DR interpreter. The
- * target of this jump is always the following jump in the assembly sequence.
+ * target of this jump is always the following jump, i.e. (mov=5 + pop/nop=1) => 6.
  */
 #  ifdef __cplusplus
 #   define EXTERN extern "C"

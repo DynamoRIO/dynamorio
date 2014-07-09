@@ -165,11 +165,13 @@
 # Annotations:
 #
 # To include DynamoRIO annotations in an application, the annotation source files
-# will need to be added to the application's cmake configuration, and additional
+# will need to be compiiled and linked into the application, and additional
 # configuration steps must be taken. Function use_DynamoRIO_annotations()
-# simplifies this process. When the function is called with a target name and a list
-# variable, the target will be configured to use annotations, and the list will be
-# populated with the DynamoRIO annotation source files.
+# simplifies this process. The following example configures `my_target` to use
+# annotations, and appends the annotation sources to the list variable `my_target_srcs`
+# (which must then be included in the call to add_executable(), add_library(), etc.):
+#
+#   use_DynamoRIO_annotations(my_target my_target_srcs)
 #
 # To define custom annotations in a DynamoRIO client, it will be most convenient for
 # the target application developers to have a function similar to
