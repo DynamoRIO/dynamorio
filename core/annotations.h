@@ -81,8 +81,8 @@
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
 
-#define DYNAMORIO_ANNOTATE_PRINTF_NAME \
-    "dynamorio_annotate_printf"
+#define DYNAMORIO_ANNOTATE_LOG_NAME \
+    "dynamorio_annotate_log"
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 

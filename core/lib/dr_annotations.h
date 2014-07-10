@@ -38,8 +38,8 @@
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()
 
-#define DYNAMORIO_ANNOTATE_PRINTF(format, ...) \
-    dynamorio_annotate_printf(format, ##__VA_ARGS__)
+#define DYNAMORIO_ANNOTATE_LOG(format, ...) \
+    dynamorio_annotate_log(format, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,8 +47,7 @@ extern "C" {
 
 DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
 
-DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_printf,
-                      (const char *format, ...));
+DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...));
 
 #ifdef __cplusplus
 }

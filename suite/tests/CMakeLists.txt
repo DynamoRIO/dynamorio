@@ -874,12 +874,13 @@ endfunction(mark_execstack)
 # XXX i#1468: this function is added as part of an incremental commit. It is not
 # currently used, but will be used when the annotation tests are added.
 function (use_DynamoRIO_test_annotations target target_srcs)
-  include_directories("${DynamoRIO_cwd}/../annotation")
-  set(srcs
-    "${DynamoRIO_cwd}/../annotation/test_mode_annotations.c"
-    "${DynamoRIO_cwd}/../annotation/test_annotation_arguments.c")
-  configure_DynamoRIO_annotations("${srcs}")
-  set(${target_srcs} ${${target_srcs}} ${srcs} PARENT_SCOPE)
+  set(dr_annotation_dir "${DynamoRIO_cwd}/../include/annotations")
+  include_directories("${dr_annotation_dir}")
+  set(dr_annotation_test_srcs
+    "${dr_annotation_dir}/test_mode_annotations.c"
+    "${dr_annotation_dir}/test_annotation_arguments.c")
+  configure_DynamoRIO_annotations("${dr_annotation_test_srcs}")
+  set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_test_annotations target target_srcs)
 
 ###########################################################################

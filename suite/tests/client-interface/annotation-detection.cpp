@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 #define DR_LOG(format, ...) \
-    DYNAMORIO_ANNOTATE_PRINTF("<annotation-detection> "format, ##__VA_ARGS__)
+    DYNAMORIO_ANNOTATE_LOG("<annotation-detection> "format, ##__VA_ARGS__)
 
 class Shape
 {

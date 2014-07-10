@@ -203,8 +203,9 @@ annot_init()
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
 #ifdef DEBUG
-    dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_PRINTF_NAME,
-                           (void *) annot_printf, false, 20 _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_LOG_NAME,
+                           (void *) annot_printf, false, 20
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
 }
 
