@@ -2956,7 +2956,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
-
+#ifdef ANNOTATIONS
+    bool is_annotation_function_header = false;
+#endif
     ASSERT(bb->initialized);
     /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start
      * will catch it
@@ -3323,12 +3325,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             instr_t *substitution = NULL;
             if (annot_match(dcontext, &bb->cur_pc, &substitution
                             _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)))) {
-                            //_IF_WINDOWS_X64(bb->instr_start)
                 instr_destroy(dcontext, bb->instr);
                 if (substitution == NULL)
                     continue;
-                else
+                else {
+                    is_annotation_function_header = true;
                     bb->instr = substitution;
+                }
             }
         }
 #endif
@@ -3736,10 +3739,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #endif /* DR_APP_EXPORTS */
 
 #ifdef CLIENT_INTERFACE
-    if (!client_process_bb(dcontext, bb)) {
-        bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
-        return;
+# ifdef ANNOTATIONS
+    if (!is_annotation_function_header) {
+# endif
+        if (!client_process_bb(dcontext, bb)) {
+            bb_build_abort(dcontext, true/*free vmlist*/, false/*don't unlock*/);
+            return;
+        }
+# ifdef ANNOTATIONS
     }
+# endif
     /* i#620: provide API to set fall-through and retaddr targets at end of bb */
     if (instrlist_get_return_target(bb->ilist) != NULL ||
         instrlist_get_fall_through_target(bb->ilist) != NULL) {

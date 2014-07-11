@@ -9149,6 +9149,8 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
     for (i = data->areas.length - 1; i >= 0; i--) {
         /* look for overlap */
         if (start < data->areas.buf[i].end && end > data->areas.buf[i].start) {
+            app_pc nearest_written_bb = NULL;
+            uint smallest_write_delta = 0x100;
             LOG(thread_log, LOG_FRAGMENT|LOG_VMAREAS, 2,
                 "\tmarking region "PFX".."PFX" for deletion & unlinking all its frags\n",
                 data->areas.buf[i].start, data->areas.buf[i].end);
@@ -9229,12 +9231,15 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
 
                     // hack
                     if (written_pc != NULL) {
-                        if (FRAG_PC(entry) > written_pc)
-                            LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX"\n",
-                                FRAG_PC(entry));
-                        else
-                            LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX" (w+0x%x)\n",
-                                FRAG_PC(entry), written_pc - FRAG_PC(entry));
+                        LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX"\n",
+                            FRAG_PC(entry));
+                        if (FRAG_PC(entry) < written_pc) {
+                            uint write_delta = written_pc - FRAG_PC(entry);
+                            if (write_delta < smallest_write_delta) {
+                                nearest_written_bb = FRAG_PC(entry);
+                                smallest_write_delta = write_delta;
+                            }
+                        }
                     }
                     // hack
 
@@ -9271,6 +9276,14 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                  * then we already set this flag above. */
                 f->flags |= FRAG_WAS_DELETED;
             }
+
+            // hack
+            if (nearest_written_bb != NULL) {
+                LOG(thread_log, LOG_VMAREAS, 1, "Likely write target fragment "PFX
+                    " (w+0x%x)\n", nearest_written_bb, smallest_write_delta);
+            }
+            // hack
+
             DOLOG(6, LOG_VMAREAS, {
                 print_fraglist(dcontext, &data->areas.buf[i], "Fragments after unlinking\n");
             });

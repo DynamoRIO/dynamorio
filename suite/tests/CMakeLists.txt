@@ -1452,8 +1452,8 @@ if (CLIENT_INTERFACE)
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c"
     "${BUILD_TEST_ANNOTATION}/test_annotation_arguments.c" COPYONLY)
 
-  include_directories("${DynamoRIO_cwd}/../include/annotations")
-  include_directories("${DynamoRIO_cwd}/../suite/tests/annotations")
+  include_directories("${PROJECT_BINARY_DIR}/include/annotations")
+  include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")

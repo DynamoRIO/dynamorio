@@ -65,11 +65,11 @@
  */
 #  pragma intrinsic(_AddressOfReturnAddress, __debugbreak, __int2c, _m_prefetchw)
 #  define GET_RETURN_PTR _AddressOfReturnAddress
-#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
     const char *annotation##_expression_label = \
-        "dynamorio-annotation:expression:"#annotation; \
+        "dynamorio-annotation:expression:"#annotation":"#return_type; \
     const char *annotation##_statement_label = \
-        "dynamorio-annotation:statement:"#annotation;
+        "dynamorio-annotation:statement:"#annotation":"#return_type;
 /* The magic numbers for the head and tail are specially selected to establish immovable
  * "bookends" on the annotation around which the compiler and optimizers will not reorder
  * instructions. The values 0xfffffffffffffff0 and 0xfffffffffffffff1 are chosen because:
@@ -114,8 +114,9 @@ do { \
 #  else
 #   define EXTERN extern
 #  endif
-#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
-        EXTERN const char *annotation##_label = "dynamorio-annotation:"#annotation;
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
+        EXTERN const char *annotation##_label =
+            "dynamorio-annotation:"#annotation":"#return_type;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
         extern const char *annotation##_label; \
@@ -150,7 +151,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
     return_type __fastcall annotation parameters
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
     return_type __fastcall annotation parameters \
     { \
         DR_ANNOTATION_FUNCTION(annotation, body) \
@@ -209,7 +210,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_label = "dynamorio-annotation:"#annotation; \
+    const char *annotation##_label = "dynamorio-annotation:"#annotation":"#return_type; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \
