@@ -515,6 +515,13 @@ function(add_exe test source)
     set(test_srcs ${test_srcs} ${asm_source})
   endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
+  if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+    use_DynamoRIO_annotations(${test} test_srcs)
+  endif ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+  if ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+    use_DynamoRIO_test_annotations(${test} test_srcs)
+  endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+
   add_executable(${test} ${test_srcs})
 
   set_target_properties(${test} PROPERTIES
@@ -689,6 +696,13 @@ function(tobuild_appdll test source)
       set(lib_srcs ${lib_srcs} ${asm_source})
     endif ("${srccode}" MATCHES "ifndef ASM_CODE_ONLY")
 
+    if ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+      use_DynamoRIO_annotations(${test}.appdll lib_srcs)
+    endif ("${srccode}" MATCHES "include \"dr_annotations.h\"")
+    if ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+      use_DynamoRIO_test_annotations(${test}.appdll lib_srcs)
+    endif ("${srccode}" MATCHES "include \"test.*annotation.*.h\"")
+
     add_library(${test}.appdll SHARED ${lib_srcs})
     set_target_properties(${test}.appdll PROPERTIES LINK_FLAGS "${ARCH_DEBUG}")
     # so far these are all dynamically loaded so we don't bother
@@ -831,6 +845,17 @@ function(mark_execstack target)
       "-Wl,-z,execstack ${existing_flags}")
   endif (UNIX)
 endfunction(mark_execstack)
+
+# XXX i#1468: this function is added as part of an incremental commit. It is not
+# currently used, but will be used when the annotation tests are added.
+function (use_DynamoRIO_test_annotations target target_srcs)
+  set(dr_annotation_test_dir "${DynamoRIO_cwd}/../suite/tests/annotations")
+  set(dr_annotation_test_srcs
+    "${dr_annotation_test_dir}/test_mode_annotations.c"
+    "${dr_annotation_test_dir}/test_annotation_arguments.c")
+  configure_DynamoRIO_annotation_sources("${dr_annotation_test_srcs}")
+  set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
+endfunction (use_DynamoRIO_test_annotations target target_srcs)
 
 ###########################################################################
 # RUNNING
@@ -1388,6 +1413,23 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (CLIENT_INTERFACE)
+  set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.h"
+    "${BUILD_TEST_ANNOTATION}/test_mode_annotations.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.c"
+    "${BUILD_TEST_ANNOTATION}/test_mode_annotations.c" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.h"
+    "${BUILD_TEST_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c"
+    "${BUILD_TEST_ANNOTATION}/test_annotation_arguments.c" COPYONLY)
+
+  include_directories("${PROJECT_BINARY_DIR}/include/annotations")
+  include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
+
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
