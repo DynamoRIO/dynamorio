@@ -874,12 +874,11 @@ endfunction(mark_execstack)
 # XXX i#1468: this function is added as part of an incremental commit. It is not
 # currently used, but will be used when the annotation tests are added.
 function (use_DynamoRIO_test_annotations target target_srcs)
-  set(dr_annotation_dir "${DynamoRIO_cwd}/../include/annotations")
-  include_directories("${dr_annotation_dir}")
+  set(dr_annotation_test_dir "${DynamoRIO_cwd}/../suite/tests/annotations")
   set(dr_annotation_test_srcs
-    "${dr_annotation_dir}/test_mode_annotations.c"
-    "${dr_annotation_dir}/test_annotation_arguments.c")
-  configure_DynamoRIO_annotations("${dr_annotation_test_srcs}")
+    "${dr_annotation_test_dir}/test_mode_annotations.c"
+    "${dr_annotation_test_dir}/test_annotation_arguments.c")
+  configure_DynamoRIO_annotation_sources("${dr_annotation_test_srcs}")
   set(${target_srcs} ${${target_srcs}} ${dr_annotation_test_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_test_annotations target target_srcs)
 
@@ -1439,18 +1438,22 @@ tobuild(common.segfault common/segfault.c)
 #tobuild(common.recurse common/recurse.c)
 
 if (CLIENT_INTERFACE)
+  set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.h"
-    "${BUILD_ANNOTATION}/test_mode_annotations.h" COPYONLY)
+    "${BUILD_TEST_ANNOTATION}/test_mode_annotations.h" COPYONLY)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_mode_annotations.c"
-    "${BUILD_ANNOTATION}/test_mode_annotations.c" COPYONLY)
+    "${BUILD_TEST_ANNOTATION}/test_mode_annotations.c" COPYONLY)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.h"
-    "${BUILD_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
+    "${BUILD_TEST_ANNOTATION}/test_annotation_arguments.h" COPYONLY)
   configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/client-interface/annotation/test_annotation_arguments.c"
-    "${BUILD_ANNOTATION}/test_annotation_arguments.c" COPYONLY)
+    "${BUILD_TEST_ANNOTATION}/test_annotation_arguments.c" COPYONLY)
+
+  include_directories("${DynamoRIO_cwd}/../include/annotations")
+  include_directories("${DynamoRIO_cwd}/../suite/tests/annotations")
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
