@@ -1,0 +1,6 @@
+
+Valgrind headers were obtained from the version 3.9.0 tarball downloaded from
+http://valgrind.org/downloads/current.html.
+
+Note that valgrind.h defines its minor version to be "8", even though it appears
+in the 3.9.0 tarball.
