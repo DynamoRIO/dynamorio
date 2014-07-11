@@ -191,13 +191,13 @@ typedef byte * cache_pc;  /* fragment cache pc */
 #define FAILURE 1
 
 /* macros to make conditional compilation look prettier */
-#ifdef DGC_DIAGNOSTICS
+//#ifdef DGC_DIAGNOSTICS
 # define _IF_DGCDIAG(x) , x
 # define IF_DGCDIAG_ELSE(x, y) x
-#else
-# define _IF_DGCDIAG(x)
-# define IF_DGCDIAG_ELSE(x, y) y
-#endif
+//#else
+//# define _IF_DGCDIAG(x)
+//# define IF_DGCDIAG_ELSE(x, y) y
+//#endif
 
 /* make sure defines are consistent */
 #ifndef X86

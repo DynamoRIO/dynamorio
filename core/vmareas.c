@@ -9226,6 +9226,18 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                         flush_invalidate_ibl_shared_target(dcontext, f);
                     }
                     fragment_unlink_for_deletion(dcontext, f);
+
+                    // hack
+                    if (written_pc != NULL) {
+                        if (FRAG_PC(entry) > written_pc)
+                            LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX"\n",
+                                FRAG_PC(entry));
+                        else
+                            LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX" (w+0x%x)\n",
+                                FRAG_PC(entry), written_pc - FRAG_PC(entry));
+                    }
+                    // hack
+
 #ifdef DGC_DIAGNOSTICS
                     /* try to find out exactly which fragment contained written_pc */
                     if (written_pc != NULL) {
