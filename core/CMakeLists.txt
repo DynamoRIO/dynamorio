@@ -846,7 +846,7 @@ configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
 configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c"
   "${BUILD_ANNOTATION}/dr_annotations.c" COPYONLY)
 
-include_directories("${DynamoRIO_cwd}/../include/annotations")
+include_directories("${BUILD_ANNOTATION}")
 
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c

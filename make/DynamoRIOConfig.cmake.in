@@ -180,10 +180,10 @@
 # use_DynamoRIO_annotations(), with the source paths replaced appropriately. The following
 # global steps are required to complete the configuration of custom annotations:
 #
-#   (1) copy the custom annotation sources and headers into the annotation build
+#   (1) copy the custom annotation sources and headers into the annotation export
 #       directory (as specified in the new configuration function).
-#   (2) copy "dr_annotations_asm.h" into that same annotation build directory.
-#   (3) add the annotation build directory to the includes using include_directories().
+#   (2) copy "dr_annotations_asm.h" into that same annotation export directory.
+#   (3) add the annotation export directory to the includes using include_directories().
 #
 ###########################################################################
 
