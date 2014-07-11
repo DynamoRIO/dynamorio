@@ -4220,35 +4220,41 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         if (IS_ANNOTATION_LABEL(instr)) {
             annotation_handler_t *handler;
             dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+            opnd_t *args = NULL;
+            annotation_receiver_t *receiver;
 
             handler = (annotation_handler_t *) label_data->data[0];
-            if (handler->type == ANNOT_HANDLER_CALL) {
-                opnd_t *args = NULL;
-                annotation_receiver_t *receiver = handler->receiver_list;
-                while (receiver != NULL) {
-                    if (handler->num_args != 0) {
-                        args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
-                                                ACCT_CLEANCALL, UNPROTECTED);
-                        memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+            ASSERT(handler->type == ANNOT_HANDLER_CALL);
+            receiver = handler->receiver_list;
 
-                        if (label_data->data[1] == ANNOT_TAIL_CALL) {
-                            uint i;
-                            for (i = 0; i < handler->num_args; i++) {
-                                if (IS_ANNOTATION_STACK_ARG(args[i]))
-                                    opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
-                            }
+            if (!handler->is_void) {
+                instr_t *return_placeholder = next_instr;
+                ASSERT(instr_get_opcode(return_placeholder) == OP_mov_st);
+                next_instr = instr_get_next(next_instr);
+                instrlist_remove(ilist, return_placeholder);
+                instr_destroy(dcontext, return_placeholder);
+            }
+
+            while (receiver != NULL) {
+                if (handler->num_args != 0) {
+                    args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
+                                            ACCT_CLEANCALL, UNPROTECTED);
+                    memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+
+                    if (label_data->data[1] == ANNOT_TAIL_CALL) {
+                        uint i;
+                        for (i = 0; i < handler->num_args; i++) {
+                            if (IS_ANNOTATION_STACK_ARG(args[i]))
+                                opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
                         }
                     }
-                    dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
-                        receiver->instrumentation.callback,
-                        receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-                        handler->num_args, args);
-
-                    receiver = receiver->next;
                 }
-            } else { // ANNOT_HANDLER_RETURN_VALUE
-                PRE(ilist, instr, INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
-                    OPND_CREATE_INT32(handler->receiver_list->instrumentation.return_value)));
+                dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
+                    receiver->instrumentation.callback,
+                    receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+                    handler->num_args, args);
+
+                receiver = receiver->next;
             }
             continue;
         }

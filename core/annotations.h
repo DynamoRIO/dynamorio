@@ -171,6 +171,7 @@ typedef struct _annotation_handler_t {
     uint num_args;
     opnd_t *args;
     uint arg_stack_space;
+    bool is_void;
 } annotation_handler_t;
 
 /* DR_API EXPORT END */

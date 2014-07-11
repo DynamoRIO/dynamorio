@@ -129,6 +129,7 @@ typedef struct _annotation_instrumentation_t {
 typedef struct _annotation_layout_t {
     app_pc start_pc;
     annotation_type_t type;
+    bool is_void;
     const char *name;
     app_pc resume_pc;
 } annotation_layout_t;
@@ -447,16 +448,34 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
             TABLE_RWLOCK(handlers, write, lock);
             handler = strhash_hash_lookup(GLOBAL_DCONTEXT, handlers, layout.name);
             if (handler != NULL) {
-                instr_t *call = INSTR_CREATE_label(dcontext);
-                dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
+                if (handler->type == ANNOT_HANDLER_CALL) {
+                    instr_t *call = INSTR_CREATE_label(dcontext);
+                    dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
+                    handler->is_void = layout.is_void;
 
-                instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                label_data->data[0] = (ptr_uint_t) handler;
-                label_data->data[1] = ANNOT_NORMAL_CALL;
-                SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
-                instr_set_ok_to_mangle(call, false);
+                    instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
+                    label_data->data[0] = (ptr_uint_t) handler;
+                    label_data->data[1] = ANNOT_NORMAL_CALL;
+                    SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
+                    instr_set_ok_to_mangle(call, false);
 
-                *substitution = call;
+                    *substitution = call;
+
+                    if (!handler->is_void) {
+                        instr_t *return_placeholder =
+                            INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
+                                                OPND_CREATE_INT32(0));
+                        instr_set_ok_to_mangle(return_placeholder, false);
+                        instr_set_next(*substitution, return_placeholder);
+                        instr_set_prev(return_placeholder, *substitution);
+                    }
+                } else {
+                    void *return_value =
+                        handler->receiver_list->instrumentation.return_value;
+                    *substitution = INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
+                                                        OPND_CREATE_INT32(return_value));
+                    instr_set_ok_to_mangle(*substitution, false);
+                }
             }
             TABLE_RWLOCK(handlers, write, unlock);
         }
@@ -472,7 +491,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count)
 {
     int i;
-    app_pc xchg_xl8;
+    instr_t *return_placeholder;
     instr_t *instr_walk;
     dr_instr_label_data_t *label_data;
 
@@ -489,7 +508,6 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
      * and "mov _zzq_default -> %xdx") as app instructions, as it writes to app
      * registers (xref i#1423).
      */
-    xchg_xl8 = instr_get_app_pc(instr);
     instr_destroy(dcontext, instr);
 
     /* Delete rol instructions--unless a previous BB contains some of them, in which
@@ -505,15 +523,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
         }
     }
 
-    // if nobody is registered, return true here
-
-    /* Append a write to %xbx, both to ensure it's marked defined by DrMem
-     * and to avoid confusion with register analysis code (%xbx is written
-     * by the clean callee).
-     */
-    instrlist_append(bb, INSTR_XL8(INSTR_CREATE_xor(dcontext, opnd_create_reg(DR_REG_XBX),
-                                                    opnd_create_reg(DR_REG_XBX)),
-                                   xchg_xl8));
+    // TODO: if nobody is registered, return true here
 
     instr = INSTR_CREATE_label(dcontext);
     instr_set_note(instr, (void *) DR_NOTE_ANNOTATION);
@@ -523,6 +533,15 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
     label_data->data[2] = (ptr_uint_t) xchg_pc;
     instr_set_ok_to_mangle(instr, false);
     instrlist_append(bb, instr);
+
+    /* Append a write to %xdx, both to ensure it's marked defined by DrMem
+     * and to avoid confusion with register analysis code (%xdx is written
+     * by the clean callee).
+     */
+    return_placeholder = INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX),
+                                             OPND_CREATE_INT32(0));
+    instr_set_ok_to_mangle(return_placeholder, false);
+    instrlist_append(bb, return_placeholder);
 
     return true;
 }
@@ -662,6 +681,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
         layout->type = ANNOTATION_TYPE_STATEMENT;
         layout->name += 10;
+        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
+        layout->name = strchr(layout->name, ':') + 1;
         while (true) { // skip fused headers caused by inlining identical annotations
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
@@ -683,6 +704,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
         layout->name += 11;
+        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
+        layout->name = strchr(layout->name, ':') + 1;
     }
 }
 #else
@@ -704,6 +727,8 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         instr_reset(dcontext, scratch);
         cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
         layout->resume_pc = cur_pc;
+        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
+        layout->name = strchr(layout->name, ':') + 1;
     }
 }
 #endif

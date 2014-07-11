@@ -42,6 +42,7 @@
 # include <intrin.h>
 #endif
 
+// not required anymore, can move down a level inline
 #ifndef DYNAMORIO_ANNOTATIONS_X64
 # ifdef _MSC_VER
 #  ifdef _WIN64
@@ -67,9 +68,9 @@
 #  define GET_RETURN_PTR _AddressOfReturnAddress
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
     const char *annotation##_expression_label = \
-        "dynamorio-annotation:expression:"#annotation":"#return_type; \
+        "dynamorio-annotation:expression:"#return_type":"#annotation; \
     const char *annotation##_statement_label = \
-        "dynamorio-annotation:statement:"#annotation":"#return_type;
+        "dynamorio-annotation:statement:"#return_type":"#annotation;
 /* The magic numbers for the head and tail are specially selected to establish immovable
  * "bookends" on the annotation around which the compiler and optimizers will not reorder
  * instructions. The values 0xfffffffffffffff0 and 0xfffffffffffffff1 are chosen because:
@@ -116,7 +117,7 @@ do { \
 #  endif
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
         EXTERN const char *annotation##_label =
-            "dynamorio-annotation:"#annotation":"#return_type;
+            "dynamorio-annotation:"#return_type":"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
         extern const char *annotation##_label; \
@@ -210,7 +211,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_label = "dynamorio-annotation:"#annotation":"#return_type; \
+    const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \
