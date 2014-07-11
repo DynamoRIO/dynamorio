@@ -829,6 +829,24 @@ if (WIN32)
     "${EXECUTABLE_OUTPUT_DIRECTORY}/" VERBATIM)
 endif (WIN32)
 
+set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotations")
+set(BUILD_ANNOTATION "${BUILD_INCLUDE}/annotations" PARENT_SCOPE)
+file(MAKE_DIRECTORY ${BUILD_ANNOTATION})
+if (NOT WINDOWS OR NOT X64)
+  configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/valgrind.h"
+    "${BUILD_ANNOTATION}/valgrind.h" COPYONLY)
+  configure_file("${PROJECT_SOURCE_DIR}/third_party/valgrind/memcheck.h"
+    "${BUILD_ANNOTATION}/memcheck.h" COPYONLY)
+endif (NOT WINDOWS OR NOT X64)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations_asm.h"
+  "${BUILD_ANNOTATION}/dr_annotations_asm.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.h"
+  "${BUILD_ANNOTATION}/dr_annotations.h" COPYONLY)
+configure_file("${PROJECT_SOURCE_DIR}/core/lib/dr_annotations.c"
+  "${BUILD_ANNOTATION}/dr_annotations.c" COPYONLY)
+
+include_directories("${BUILD_ANNOTATION}")
+
 if (BUILD_TESTS)
   add_executable(unit_tests unit_tests.c
     ${CORE_SRCS} ${ARCH_SRCS} ${OS_SRCS})
@@ -897,4 +915,3 @@ install_exported_target(drdecode ${INSTALL_LIB})
 
 # We need separate 32-bit and 64-bit versions so we put into lib dir
 DR_install(FILES ${ntimp_lib} DESTINATION ${INSTALL_LIB_BASE})
-
