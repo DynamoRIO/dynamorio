@@ -6843,6 +6843,9 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
     remove_executable_region(base, size, true/*have lock*/);
     flush_fragments_in_region_finish(dcontext, own_initexit_lock);
 
+    LOG(THREAD, LOG_FRAGMENT, 1, "flush_fragments_and_remove_region("PFX", 0x%x)\n",
+        base, size);
+
     /* verify initexit lock is in the right state */
     ASSERT_OWN_MUTEX(own_initexit_lock, &thread_initexit_lock);
     ASSERT_DO_NOT_OWN_MUTEX(!own_initexit_lock, &thread_initexit_lock);

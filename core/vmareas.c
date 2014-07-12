@@ -6196,6 +6196,9 @@ flush_and_remove_executable_vm_area(dcontext_t *dcontext,
     /* making sure there is no overlap now */
     ASSERT(!executable_vm_area_overlap(base, base+size, true /* holding lock */));
 
+    LOG(THREAD, LOG_VMAREAS, 1, "flush_and_remove_executable_vm_area("PFX", 0x%x)\n",
+        base, size);
+
     return true;
 }
 

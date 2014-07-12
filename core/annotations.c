@@ -134,9 +134,6 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
-//annotation_handler_t *two_args_handler;
-//annotation_handler_t *three_args_handler;
-
 /**** Private Function Declarations ****/
 
 #if !(defined (WINDOWS) && defined (X64))
