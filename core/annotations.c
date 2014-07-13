@@ -909,8 +909,7 @@ annot_printf(const char *format, ...)
 static void
 annot_manage_code_area(app_pc start, size_t len)
 {
-    dcontext_t *dcontext = dr_get_current_drcontext();
-    LOG(THREAD, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
+    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
     set_region_app_managed(start, len);
 }
@@ -918,16 +917,14 @@ annot_manage_code_area(app_pc start, size_t len)
 static void
 annot_unmanage_code_area(app_pc start, size_t len)
 {
-    dcontext_t *dcontext = dr_get_current_drcontext();
-    LOG(THREAD, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
+    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);
 }
 
 static void
 annot_flush_fragments(app_pc start, size_t len)
 {
-    dcontext_t *dcontext = dr_get_current_drcontext();
-    LOG(THREAD, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
+    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 }
 

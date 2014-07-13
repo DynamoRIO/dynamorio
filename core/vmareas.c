@@ -132,6 +132,9 @@ enum {
      * This flags is NOT propagated on vmarea splits.
      */
     VM_ADD_TO_SHARED_DATA  = 0x1000,
+
+    /* Cache consistency managed by the app via annotations. */
+    VM_APP_MANAGED = 0x2000,
 };
 
 /* simple way to disable sandboxing */
@@ -668,19 +671,22 @@ set_region_app_managed(app_pc start, size_t len)
 {
     vm_area_t *region;
     read_lock(&executable_areas->lock);
-    if (!lookup_addr(executable_areas, start, &region)) {
+    if (lookup_addr(executable_areas, start, &region)) {
+        if ((region->start == start) && (region->end == (start+len))) {
+            if (TEST(VM_MADE_READONLY, region->vm_flags))
+               vm_make_writable(region->start, region->end - region->start);
+            region->vm_flags |= VM_APP_MANAGED;
+            region->vm_flags &= ~VM_MADE_READONLY;
+            region->vm_flags &= ~VM_DELAY_READONLY;
+        } else {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
+                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                start, start+len, region->start, region->end);
+        }
+    } else {
         LOG(GLOBAL, LOG_VMAREAS, 1, "Failed to set region app managed: "PFX"-"PFX"\n",
             start, start+len);
-        return;
     }
-    if ((region->start != start) || (region->end != (start+len))) {
-        LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
-            "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
-            start, start+len, region->start, region->end);
-        return;
-    }
-    ASSERT(TEST(VM_MADE_READONLY, region->vm_flags));
-    vm_make_writable(region->start, region->end - region->start);
     read_unlock(&executable_areas->lock);
 }
 
