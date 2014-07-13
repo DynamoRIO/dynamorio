@@ -663,6 +663,27 @@ vm_make_unwritable(byte *pc, size_t size)
     });
 }
 
+void
+set_region_app_managed(app_pc start, size_t len)
+{
+    vm_area_t *region;
+    read_lock(&executable_areas->lock);
+    if (!lookup_addr(executable_areas, start, &region)) {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Failed to set region app managed: "PFX"-"PFX"\n",
+            start, start+len);
+        return;
+    }
+    if ((region->start != start) || (region->end != (start+len))) {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
+            "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+            start, start+len, region->start, region->end);
+        return;
+    }
+    ASSERT(TEST(VM_MADE_READONLY, region->vm_flags));
+    vm_make_writable(region->start, region->end - region->start);
+    read_unlock(&executable_areas->lock);
+}
+
 /* since dynamorio changes some readwrite memory regions to read only,
  * this changes all regions memory permissions back to what they should be,
  * since dynamorio uses this mechanism to ensure code cache coherency,

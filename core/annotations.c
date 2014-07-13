@@ -39,6 +39,7 @@
 #include "../x86/disassemble.h"
 #include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
+#include "vmareas.h"
 #include "annotations.h"
 #include "utils.h"
 
@@ -911,6 +912,7 @@ annot_manage_code_area(app_pc start, size_t len)
     dcontext_t *dcontext = dr_get_current_drcontext();
     LOG(THREAD, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
+    set_region_app_managed(start, len);
 }
 
 static void
