@@ -78,12 +78,6 @@
 #define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[2])
 #define SET_ANNOTATION_APP_PC(label_data, pc) (label_data->data[2] = (ptr_uint_t) pc)
 
-#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
-    "dynamorio_annotate_running_on_dynamorio"
-
-#define DYNAMORIO_ANNOTATE_LOG_NAME \
-    "dynamorio_annotate_log"
-
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 /* DR_API EXPORT TOFILE dr_annotation.h */

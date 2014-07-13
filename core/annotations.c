@@ -77,6 +77,21 @@
     ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
 #endif
 
+#define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
+    "dynamorio_annotate_running_on_dynamorio"
+
+#define DYNAMORIO_ANNOTATE_LOG_NAME \
+    "dynamorio_annotate_log"
+
+#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_manage_code_area"
+
+#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_unmanage_code_area"
+
+#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
+    "dynamorio_annotate_flush_fragments"
+
 static strhash_table_t *handlers;
 
 // locked under the `handlers` table lock
@@ -164,6 +179,15 @@ static ssize_t
 annot_printf(const char *format, ...);
 #endif
 
+static void
+annot_manage_code_area(app_pc start, size_t len);
+
+static void
+annot_unmanage_code_area(app_pc start, size_t len);
+
+static void
+annot_flush_fragments(app_pc start, size_t len);
+
 static const char *
 heap_strcpy(const char *src);
 
@@ -205,6 +229,20 @@ annot_init()
                            (void *) annot_printf, false, 20
                            _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
+    dr_annot_register_call(dr_internal_client_id,
+                           DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
+                           (void *) annot_manage_code_area, false, 2
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+
+    dr_annot_register_call(dr_internal_client_id,
+                           DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
+                           (void *) annot_unmanage_code_area, false, 2
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+
+    dr_annot_register_call(dr_internal_client_id,
+                           DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
+                           (void *) annot_flush_fragments, false, 2
+                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 void
@@ -826,7 +864,7 @@ annot_printf(const char *format, ...)
     uint format_length = 0;
 
     // TODO: sensitive to `#if defined(DEBUG) && !defined(STANDALONE_DECODER)`?
-    if (stats == NULL || stats->loglevel == 0 || (stats->logmask & LOG_ANNOTATION) == 0)
+    if (stats == NULL || stats->loglevel == 0 || (stats->logmask & LOG_ANNOTATIONS) == 0)
         return 0;
 
     timestamp_token_start = strstr(format, "${timestamp}");
@@ -866,6 +904,30 @@ annot_printf(const char *format, ...)
     return count;
 }
 #endif
+
+static void
+annot_manage_code_area(app_pc start, size_t len)
+{
+    dcontext_t *dcontext = dr_get_current_drcontext();
+    LOG(THREAD, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
+        start, start+len);
+}
+
+static void
+annot_unmanage_code_area(app_pc start, size_t len)
+{
+    dcontext_t *dcontext = dr_get_current_drcontext();
+    LOG(THREAD, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
+        start, start+len);
+}
+
+static void
+annot_flush_fragments(app_pc start, size_t len)
+{
+    dcontext_t *dcontext = dr_get_current_drcontext();
+    LOG(THREAD, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
+        start, start+len);
+}
 
 static inline const char *
 heap_strcpy(const char *src)

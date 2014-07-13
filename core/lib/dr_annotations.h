@@ -39,7 +39,16 @@
     dynamorio_annotate_running_on_dynamorio()
 
 #define DYNAMORIO_ANNOTATE_LOG(format, ...) \
-    dynamorio_annotate_log(format, ##__VA_ARGS__)
+    DR_ANNOTATION(dynamorio_annotate_log, format, ##__VA_ARGS__)
+
+#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA(start, len) \
+    DR_ANNOTATION(dynamorio_annotate_manage_code_area, start, len)
+
+#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA(start, len) \
+    DR_ANNOTATION(dynamorio_annotate_unmanage_code_area, start, len)
+
+#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS(start, len) \
+    DR_ANNOTATION(dynamorio_annotate_flush_fragments, start, len)
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,6 +57,15 @@ extern "C" {
 DR_DECLARE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, ());
 
 DR_DECLARE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...));
+
+DR_DECLARE_ANNOTATION(void, dynamorio_annotate_manage_code_area,
+                      (void *start, size_t len));
+
+DR_DECLARE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
+                      (void *start, size_t len));
+
+DR_DECLARE_ANNOTATION(void, dynamorio_annotate_flush_fragments,
+                      (void *start, size_t len));
 
 #ifdef __cplusplus
 }

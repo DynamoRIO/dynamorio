@@ -36,3 +36,12 @@ DR_DEFINE_ANNOTATION(char, dynamorio_annotate_running_on_dynamorio, (), return 0
 
 DR_DEFINE_ANNOTATION(unsigned int, dynamorio_annotate_log, (const char *format, ...),
                      return 0)
+
+DR_DEFINE_ANNOTATION(void, dynamorio_annotate_manage_code_area,
+                     (void *start, size_t len), )
+
+DR_DEFINE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
+                     (void *start, size_t len), )
+
+DR_DEFINE_ANNOTATION(void, dynamorio_annotate_flush_fragments,
+                     (void *start, size_t len), )
