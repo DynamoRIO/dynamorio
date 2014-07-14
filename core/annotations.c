@@ -39,6 +39,7 @@
 #include "../x86/disassemble.h"
 #include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
+#include "fragment.h"
 #include "vmareas.h"
 #include "annotations.h"
 #include "utils.h"
@@ -924,8 +925,16 @@ annot_unmanage_code_area(app_pc start, size_t len)
 static void
 annot_flush_fragments(app_pc start, size_t len)
 {
-    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
+    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
+
+    LOG(THREAD, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
+
+    if (len == 0 || is_couldbelinking(dcontext))
+        return;
+    if (!executable_vm_area_executed_from(start, start+len))
+        return;
+    flush_fragments_from_region(dcontext, start, len, false/*don't force synchall*/);
 }
 
 static inline const char *

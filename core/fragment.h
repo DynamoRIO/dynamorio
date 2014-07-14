@@ -1048,6 +1048,7 @@ void
 flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
                             bool force_synchall);
 
+/* unused! */
 void
 flush_fragments_custom_list(dcontext_t *dcontext, fragment_t *list,
                             bool own_initexit_lock, bool exec_invalid);

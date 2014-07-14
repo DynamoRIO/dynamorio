@@ -401,9 +401,6 @@ add_dynamo_heap_vm_area(app_pc start, app_pc end, bool writable, bool from_unmod
 void
 remove_dynamo_heap_areas(void);
 
-void
-set_region_app_managed(app_pc start, size_t len);
-
 /* used by detach to fixup the permissions of any app writable regions that
  * dynamorio has marked read only for its cache consistency effort */
 void
@@ -824,5 +821,8 @@ bool
 is_unreadable_or_currently_unloaded_region(app_pc pc);
 bool
 is_in_last_unloaded_region(app_pc pc);
+
+void
+set_region_app_managed(app_pc start, size_t len);
 
 #endif /* _VMAREAS_H_ */

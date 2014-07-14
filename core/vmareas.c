@@ -666,30 +666,6 @@ vm_make_unwritable(byte *pc, size_t size)
     });
 }
 
-void
-set_region_app_managed(app_pc start, size_t len)
-{
-    vm_area_t *region;
-    read_lock(&executable_areas->lock);
-    if (lookup_addr(executable_areas, start, &region)) {
-        if ((region->start == start) && (region->end == (start+len))) {
-            if (TEST(VM_MADE_READONLY, region->vm_flags))
-               vm_make_writable(region->start, region->end - region->start);
-            region->vm_flags |= VM_APP_MANAGED;
-            region->vm_flags &= ~VM_MADE_READONLY;
-            region->vm_flags &= ~VM_DELAY_READONLY;
-        } else {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
-                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
-                start, start+len, region->start, region->end);
-        }
-    } else {
-        LOG(GLOBAL, LOG_VMAREAS, 1, "Failed to set region app managed: "PFX"-"PFX"\n",
-            start, start+len);
-    }
-    read_unlock(&executable_areas->lock);
-}
-
 /* since dynamorio changes some readwrite memory regions to read only,
  * this changes all regions memory permissions back to what they should be,
  * since dynamorio uses this mechanism to ensure code cache coherency,
@@ -8058,7 +8034,8 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         uint prot2;
         ok = get_memory_info(pc, NULL, NULL, &prot2);
         ASSERT(!ok || !TEST(MEMPROT_WRITE, prot2) ||
-               TEST(FRAG_SELFMOD_SANDBOXED, *flags));
+               TEST(FRAG_SELFMOD_SANDBOXED, *flags) ||
+               TEST(VM_APP_MANAGED, area->vm_flags));
         ASSERT(is_readable_without_exception_try(pc, 1));
     });
 
@@ -11116,6 +11093,34 @@ print_last_deallocated(file_t outf)
                last_deallocated->unload_in_progress ? " being unloaded": "");
 }
 
+void
+set_region_app_managed(app_pc start, size_t len)
+{
+    vm_area_t *region;
+    write_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, start, &region)) {
+        if ((region->start == start) && (region->end == (start+len))) {
+            if (!TEST(VM_APP_MANAGED, region->vm_flags)) {
+                if (TEST(VM_MADE_READONLY, region->vm_flags))
+                   vm_make_writable(region->start, region->end - region->start);
+                region->vm_flags |= VM_APP_MANAGED;
+                region->vm_flags &= ~VM_MADE_READONLY;
+                region->vm_flags &= ~VM_DELAY_READONLY;
+            }
+        } else {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
+                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                start, start+len, region->start, region->end);
+        }
+    } else {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new app-maanged vmarea: "PFX"-"PFX"\n",
+            start, start+len);
+
+        add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
+                    _IF_DEBUG("app-managed"));
+    }
+    write_unlock(&executable_areas->lock);
+}
 
 #ifdef PROGRAM_SHEPHERDING
 /* Note that rerouting an APC to this target should safely popup the arguments
