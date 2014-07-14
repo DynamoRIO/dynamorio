@@ -6691,7 +6691,9 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" made executable and "
                 "writable, not adding to exec list\n", base, base + size);
+#ifdef DEBUG
             dump_mcontext_callstack(dcontext);
+#endif
         } else {
             bool add_to_exec_list = false;
 #ifdef WINDOWS
@@ -6703,7 +6705,9 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" is being made executable\n",
                 base, base+size);
+#ifdef DEBUG
             dump_mcontext_callstack(dcontext);
+#endif
 #ifdef PROGRAM_SHEPHERDING
             /* if on future, no reason to add to exec list now
              * if once-only, no reason to add to exec list and remove from future
@@ -11091,6 +11095,147 @@ print_last_deallocated(file_t outf)
                last_deallocated->last_unload_base +
                last_deallocated->last_unload_size,
                last_deallocated->unload_in_progress ? " being unloaded": "");
+}
+
+static fragment_t *
+locate_fragment(dcontext_t *dcontext, thread_data_t *data, app_pc pc)
+{
+    fragment_t *entry, *next, *nearest_frag = NULL;
+    uint smallest_write_delta = 0x100;
+    int i;
+
+    for (i = data->areas.length - 1; i >= 0; i--) {
+        if (pc < data->areas.buf[i].end && pc > data->areas.buf[i].start) {
+            if (TEST(FRAG_COARSE_GRAIN, data->areas.buf[i].frag_flags)) {
+                LOG(THREAD, LOG_VMAREAS, 1, "WARNING: attempt to flush fragment "
+                    "containing "PFX" from a coarse area "PFX"-"PFX"\n", pc,
+                    data->areas.buf[i].start, data->areas.buf[i].end);
+                break;
+            }
+            for (entry = data->areas.buf[i].custom.frags; entry != NULL; entry = next) {
+                fragment_t *f = FRAG_FRAG(entry);
+                next = FRAG_NEXT(entry);
+                ASSERT(f != next &&
+                       "i#942: changing f's fraglist derails iteration");
+                /* case 9381: this shouldn't happen but we handle it to avoid crash */
+                if (FRAG_MULTI_INIT(entry)) {
+                    ASSERT(false && "stale multi-init entry on frags list");
+                    continue;
+                }
+                /* case 9118: call fragment_unlink_for_deletion() even if fragment
+                 * is already unlinked
+                 */
+                if (!TEST(FRAG_WAS_DELETED, f->flags)) { // || data == shared_data) {
+                    if (FRAG_PC(entry) < pc) {
+                        uint write_delta = pc - FRAG_PC(entry);
+                        if (write_delta < smallest_write_delta) {
+                            nearest_frag = entry;
+                            smallest_write_delta = write_delta;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    if (nearest_frag == NULL) {
+        LOG(THREAD, LOG_VMAREAS, 1, "Failed to locate fragment containing "PFX, pc);
+        if (i >= 0) {
+            LOG(THREAD, LOG_VMAREAS, 1, " (checked vmarea "PFX"-"PFX"\n",
+                data->areas.buf[i].start, data->areas.buf[i].end);
+        }
+        LOG(THREAD, LOG_VMAREAS, 1, "\n");
+    }
+
+    return nearest_frag;
+}
+
+/* requires executable_areas lock */
+void
+flush_single_fragment(dcontext_t *dcontext, app_pc pc)
+{
+    thread_data_t *data = GET_DATA(dcontext, 0);
+    fragment_t *nearest_frag = NULL;
+    bool area_flags_match, has_shared_locks = false;
+
+    read_lock(&executable_areas->lock);
+    area_flags_match = executable_areas_match_flags(pc, pc+1, NULL, false/*exists, not all*/,
+                                                    VM_EXECUTED_FROM, 0);
+    read_unlock(&executable_areas->lock);
+    if (!area_flags_match)
+        return;
+
+    mutex_lock(&bb_building_lock);
+    if (data != shared_data) {
+        nearest_frag = locate_fragment(dcontext, data, pc);
+    }
+    if (nearest_frag == NULL) {
+        has_shared_locks = true;
+
+        /* for shared_deletion we have to protect this whole walk w/ a lock so
+         * that the flushtime_global value remains higher than any thread's
+         * flushtime.
+         */
+        mutex_lock(&shared_cache_flush_lock);
+
+        /* we also need to add to the deletion list */
+        mutex_lock(&shared_delete_lock);
+
+        acquire_recursive_lock(&change_linking_lock);
+
+        /* we do not need the bb building lock, only the vm lock and
+         * the fragment hashtable write lock, which is grabbed by fragment_remove
+         */
+        SHARED_VECTOR_RWLOCK(&shared_data->areas, write, lock);
+
+        /* clear shared last_area now, don't want a new bb in flushed area
+         * thought to be ok b/c of a last_area hit
+         */
+        shared_data->last_area = NULL;
+
+        nearest_frag = locate_fragment(dcontext, shared_data, pc);
+    }
+
+    if (nearest_frag != NULL) {
+        LOG(THREAD, LOG_VMAREAS, 1, "Removing bb "PFX" containing requested pc "PFX"\n",
+            //" (+0x%x)\n", smallest_write_delta);
+            nearest_frag->tag, pc);
+
+        // TODO: verify the bb contains `pc`
+
+        if (FRAG_ALSO(nearest_frag) != NULL || FRAG_MULTI(nearest_frag)) {
+            if (FRAG_MULTI(nearest_frag)) {
+                vm_area_remove_fragment(dcontext, nearest_frag);
+                /* move to this area's frags list so will get
+                 * transferred to deletion list if shared, or
+                 * freed from this marked-vmarea if private
+                 */
+                // TODO: prepend_entry_to_fraglist(&data->areas.buf[i], nearest_frag);
+            } else {
+                /* `nearest_frag` is the fragment, remove all its alsos */
+                vm_area_remove_fragment(dcontext, FRAG_ALSO(nearest_frag));
+            }
+            FRAG_ALSO_ASSIGN(nearest_frag, NULL);
+        }
+        if (data == shared_data && SHARED_IB_TARGETS()) {
+            /* Invalidate shared targets from all threads' ibl
+             * tables (if private) or from shared ibl tables
+             */
+            flush_invalidate_ibl_shared_target(dcontext, nearest_frag);
+        }
+        fragment_unlink_for_deletion(dcontext, nearest_frag);
+        // also add_to_pending_list()?
+
+    }
+
+    if (has_shared_locks) {
+        SHARED_VECTOR_RWLOCK(&shared_data->areas, write, unlock);
+        release_recursive_lock(&change_linking_lock);
+        mutex_unlock(&shared_delete_lock);
+        mutex_unlock(&shared_cache_flush_lock);
+    }
+    mutex_unlock(&bb_building_lock);
 }
 
 void

@@ -231,20 +231,23 @@ annot_init()
                            (void *) annot_printf, false, 20
                            _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
-    dr_annot_register_call(dr_internal_client_id,
-                           DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
-                           (void *) annot_manage_code_area, false, 2
-                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 
-    dr_annot_register_call(dr_internal_client_id,
-                           DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
-                           (void *) annot_unmanage_code_area, false, 2
-                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    if (false) {
+        dr_annot_register_call(dr_internal_client_id,
+                               DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
+                               (void *) annot_manage_code_area, false, 2
+                               _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 
-    dr_annot_register_call(dr_internal_client_id,
-                           DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
-                           (void *) annot_flush_fragments, false, 2
-                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+        dr_annot_register_call(dr_internal_client_id,
+                               DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
+                               (void *) annot_unmanage_code_area, false, 2
+                               _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+
+        dr_annot_register_call(dr_internal_client_id,
+                               DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
+                               (void *) annot_flush_fragments, false, 2
+                               _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    }
 }
 
 void
@@ -932,9 +935,7 @@ annot_flush_fragments(app_pc start, size_t len)
 
     if (len == 0 || is_couldbelinking(dcontext))
         return;
-    if (!executable_vm_area_executed_from(start, start+len))
-        return;
-    flush_fragments_from_region(dcontext, start, len, false/*don't force synchall*/);
+    flush_single_fragment(dcontext, start);
 }
 
 static inline const char *
