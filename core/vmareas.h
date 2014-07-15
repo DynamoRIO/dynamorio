@@ -823,8 +823,6 @@ bool
 is_in_last_unloaded_region(app_pc pc);
 
 void
-flush_single_fragment(dcontext_t *dcontext, app_pc pc);
-void
 set_region_app_managed(app_pc start, size_t len);
 
 #endif /* _VMAREAS_H_ */

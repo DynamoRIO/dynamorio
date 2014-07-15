@@ -935,7 +935,9 @@ annot_flush_fragments(app_pc start, size_t len)
 
     if (len == 0 || is_couldbelinking(dcontext))
         return;
-    flush_single_fragment(dcontext, start);
+    if (!executable_vm_area_executed_from(start, start+len))
+        return;
+    flush_fragments_from_region(dcontext, start, len, false/*don't force synchall*/);
 }
 
 static inline const char *
