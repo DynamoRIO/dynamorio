@@ -8367,8 +8367,12 @@ frag_also_list_areas_unique(dcontext_t *dcontext, thread_data_t *tgt_data,
             ASSERT(FRAG_MULTI(already));
             ok = lookup_addr(&tgt_data->areas, FRAG_PC(already), &already_area);
             ASSERT(ok);
-            if (entry_area == already_area)
+            if (entry_area == already_area) {
+                LOG(THREAD, LOG_VMAREAS, 1, "ERROR! Fragment "PFX" appears in vm area "
+                    PFX"-"PFX" multiple times.\n", already->tag, entry_area->start,
+                    entry_area->end);
                 return false;
+            }
         }
     }
     return true;
@@ -8468,6 +8472,10 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
         success = false;
         goto vm_area_add_to_list_done;
     }
+
+    LOG(THREAD, LOG_VMAREAS, 1, " === vm_area_add_to_list(tag "PFX", f "PFX")\n",
+        tag, f->tag);
+
     /* vmlist has to point to front, so must walk every time to find end */
     while (prev != NULL && FRAG_ALSO(prev) != NULL)
         prev = FRAG_ALSO(prev);
@@ -8498,7 +8506,7 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
                     ASSERT(ok);
                     /* modified vector, must clear last_area */
                     tgt_data->last_area = NULL;
-                    DOLOG(2, LOG_VMAREAS, {
+                    DOLOG(1, LOG_VMAREAS, {
                         print_vm_area(&tgt_data->areas, tgt_area, THREAD,
                                       "new vm area for thread: ");
                     });
@@ -8509,6 +8517,8 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
             ASSERT(area != NULL);
             prev = prepend_fraglist(MULTI_ALLOC_DC(dcontext, list_flags),
                                     area, FRAG_PC(entry), tag, prev);
+            LOG(THREAD, LOG_VMAREAS, 1, "Prepend fragment "PFX" to area "PFX"-"PFX"\n",
+                tag, area->start, area->end);
             if (*vmlist == NULL) {
                 /* write back first */
                 *vmlist = (void *) prev;

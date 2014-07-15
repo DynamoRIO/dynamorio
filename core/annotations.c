@@ -232,7 +232,7 @@ annot_init()
                            _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
 
-    if (false) {
+    if (true) {
         dr_annot_register_call(dr_internal_client_id,
                                DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
                                (void *) annot_manage_code_area, false, 2
