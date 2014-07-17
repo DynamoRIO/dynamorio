@@ -6232,9 +6232,9 @@ flush_fragments_synch_unlink_priv(dcontext_t *dcontext, app_pc base, size_t size
      */
     if (size > 0 && !executable_vm_area_executed_from(base, base+size)) {
         /* Only a curiosity since we can have a race (not holding exec areas lock) */
-        ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
-                          !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
-                         !thread_vm_area_overlap(dcontext, base, base+size));
+        //ASSERT_CURIOSITY((!SHARED_FRAGMENTS_ENABLED() ||
+        //                  !thread_vm_area_overlap(GLOBAL_DCONTEXT, base, base+size)) &&
+        //                 !thread_vm_area_overlap(dcontext, base, base+size));
         return false;
     }
     /* Only a curiosity since we can have a race (not holding exec areas lock) */

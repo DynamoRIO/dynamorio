@@ -232,7 +232,7 @@ annot_init()
                            _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
 
-    if (false) {
+    if (true) {
         dr_annot_register_call(dr_internal_client_id,
                                DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
                                (void *) annot_manage_code_area, false, 2
@@ -941,8 +941,8 @@ annot_flush_fragments(app_pc start, size_t len)
 
     if (len == 0 || is_couldbelinking(dcontext))
         return;
-    if (!executable_vm_area_executed_from(start, start+len))
-        return;
+    //if (!executable_vm_area_executed_from(start, start+len))
+    //    return;
     flush_fragments_from_region(dcontext, start, len, false/*don't force synchall*/);
 }
 

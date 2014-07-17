@@ -907,7 +907,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    LOG(GLOBAL, LOG_VMAREAS, 4, "in add_vm_area "PFX" "PFX" %s\n", start, end, comment);
+    LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" %s\n", start, end, comment);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -1022,12 +1022,12 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
                     v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
                 v->buf[i].vm_flags &= ~VM_DELAY_READONLY;
             }
+            */
             if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore)) {
                 LOG(GLOBAL, LOG_VMAREAS, 1, "Flag mismatch new("PFX"-"PFX" 0x%x) != "
                     "existing("PFX"-"PFX" 0x%x)\n", start, end, vm_flags,
                     v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
             }
-            */
             ASSERT((v->buf[i].vm_flags & ~flagignore) == (vm_flags & ~flagignore));
 
             /* new region must be more innocent with respect to selfmod */
@@ -8387,12 +8387,8 @@ frag_also_list_areas_unique(dcontext_t *dcontext, thread_data_t *tgt_data,
             ASSERT(FRAG_MULTI(already));
             ok = lookup_addr(&tgt_data->areas, FRAG_PC(already), &already_area);
             ASSERT(ok);
-            if (entry_area == already_area) {
-                LOG(THREAD, LOG_VMAREAS, 1, "ERROR! Fragment "PFX" appears in vm area "
-                    PFX"-"PFX" multiple times.\n", already->tag, entry_area->start,
-                    entry_area->end);
+            if (entry_area == already_area)
                 return false;
-            }
         }
     }
     return true;
@@ -8413,8 +8409,8 @@ exec_area_bounds_match(dcontext_t *dcontext, thread_data_t *data)
         vm_area_t *thread_area = &v->buf[i];
         vm_area_t *exec_area;
         bool ok = lookup_addr(executable_areas, thread_area->start, &exec_area);
-        if (TEST(VM_APP_MANAGED, thread_area->vm_flags)) // hack!
-            continue;
+        //if (TEST(VM_APP_MANAGED, thread_area->vm_flags)) // hack!
+        //    continue;
         ASSERT(ok);
         /* It's OK if thread areas are more fragmented than executable_areas.
          */
@@ -8518,7 +8514,20 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
             if (src_data != tgt_data) { /* else, have area already */
                 vm_area_t *tgt_area = NULL;
                 ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
-                if (!ok) {
+                if (ok) { /* check target area for existing entry */
+                    ok = false;
+                    for (already = (fragment_t *) *vmlist; already != NULL;
+                         already = FRAG_ALSO(already)) {
+                        ASSERT(FRAG_MULTI(already));
+                        if (FRAG_PC(already) >= tgt_area->start &&
+                            FRAG_PC(already) < tgt_area->end) {
+                            ok = true;
+                            break;
+                        }
+                    }
+                    if (ok)
+                        break;
+                } else {
                     add_vm_area(&tgt_data->areas, area->start, area->end, area->vm_flags,
                                 area->frag_flags, NULL _IF_DEBUG(area->comment));
                     ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
@@ -8536,8 +8545,6 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
             ASSERT(area != NULL);
             prev = prepend_fraglist(MULTI_ALLOC_DC(dcontext, list_flags),
                                     area, FRAG_PC(entry), tag, prev);
-            LOG(THREAD, LOG_VMAREAS, 1, "Prepend fragment "PFX" to area "PFX"-"PFX"\n",
-                tag, area->start, area->end);
             if (*vmlist == NULL) {
                 /* write back first */
                 *vmlist = (void *) prev;
@@ -8545,24 +8552,6 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
         }
         entry = FRAG_ALSO(entry);
     }
-
-    if (!frag_also_list_areas_unique(dcontext, tgt_data, vmlist)) {
-        LOG(THREAD, LOG_VMAREAS, 1, "ERROR! Duplicate 'also' for "PFX"\n", f);
-        entry = f;
-        while (entry != NULL) {
-            ok = lookup_addr(&src_data->areas, FRAG_PC(entry), &area);
-            for (already = (fragment_t *) *vmlist; already != NULL;
-                 already = FRAG_ALSO(already)) {
-                if (FRAG_PC(already) >= area->start && FRAG_PC(already) < area->end) {
-                    LOG(THREAD, LOG_VMAREAS, 1, "Found duplicate 'also' in "PFX"-"PFX"\n",
-                        area->start, area->end);
-                    break;
-                }
-            }
-            entry = FRAG_ALSO(entry);
-        }
-    }
-
     ASSERT_MESSAGE(CHKLVL_DEFAULT, "fragment also list has duplicate entries",
                    frag_also_list_areas_unique(dcontext, tgt_data, vmlist));
     DOLOG(6, LOG_VMAREAS, { print_frag_arealist(dcontext, (fragment_t *) *vmlist); });
@@ -9357,33 +9346,6 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
             DOLOG(6, LOG_VMAREAS, {
                 print_fraglist(dcontext, &data->areas.buf[i], "Fragments after unlinking\n");
             });
-            /* JIT optimization: isolate the written page in its own vmarea */
-            if (TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
-                write_lock(&executable_areas->lock);
-                if ((data->areas.buf[i].end - data->areas.buf[i].start) > PAGE_SIZE) {
-                    app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
-                    app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
-                    if (isolation_start > data->areas.buf[i].start) {
-                        add_vm_area(executable_areas, data->areas.buf[i].start,
-                                    isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
-                                    _IF_DEBUG("app-managed"));
-                        LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
-                            data->areas.buf[i].start, isolation_start);
-                    }
-                    if (isolation_end < data->areas.buf[i].end) {
-                        add_vm_area(executable_areas, isolation_end,
-                                    data->areas.buf[i].end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
-                                    _IF_DEBUG("app-managed"));
-                        LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
-                            isolation_end, data->areas.buf[i].end);
-                    }
-                    add_vm_area(executable_areas, isolation_start, isolation_end,
-                                VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL _IF_DEBUG("app-managed-iso"));
-                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
-                        isolation_start, isolation_end);
-                }
-                write_unlock(&executable_areas->lock);
-            }
             if (data == shared_data) {
                 if (data->areas.buf[i].custom.frags != NULL) {
                     /* add area's fragments as a new entry in the pending deletion list */
@@ -9395,8 +9357,6 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                     data->areas.buf[i].custom.frags = NULL;
                     STATS_INC(num_shared_flush_regions);
                 }
-            }
-            if (!TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
                 /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
                  * areas down in vector!
                  */
@@ -9416,6 +9376,52 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
         SHARED_VECTOR_RWLOCK(&data->areas, write, unlock);
         release_recursive_lock(&change_linking_lock);
         mutex_unlock(&shared_delete_lock);
+    }
+
+    for (i = executable_areas->length - 1; i >= 0; i--) {
+        /* look for overlap */
+        if (start >= executable_areas->buf[i].end || end <= executable_areas->buf[i].start)
+            continue;
+
+        /* JIT optimization: isolate the written page in its own vmarea */
+        if (TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags)) {
+            app_pc area_start = executable_areas->buf[i].start;
+            app_pc area_end = executable_areas->buf[i].end;
+            write_lock(&executable_areas->lock);
+            if ((area_end - area_start) > PAGE_SIZE) {
+                app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
+                app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
+                LOG(thread_log, LOG_VMAREAS, 3, "Before splitting vm area:\n");
+                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                LOG(thread_log, LOG_VMAREAS, 1, "Splitting vm area "PFX"-"PFX
+                    " to isolate "PFX"-"PFX"\n", area_start, area_end,
+                    isolation_start, isolation_end);
+                remove_vm_area(executable_areas, area_start, area_end, false);
+                LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
+                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                if (isolation_start > area_start) {
+                    add_vm_area(executable_areas, area_start,
+                                isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0,
+                                NULL _IF_DEBUG("app-managed"));
+                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
+                        area_start, isolation_start);
+                }
+                if (isolation_end < area_end) {
+                    add_vm_area(executable_areas, isolation_end,
+                                area_end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                                _IF_DEBUG("app-managed"));
+                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
+                        isolation_end, area_end);
+                }
+                add_vm_area(executable_areas, isolation_start, isolation_end,
+                            VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                            _IF_DEBUG("app-managed-iso"));
+                LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
+                    isolation_start, isolation_end);
+            }
+            write_unlock(&executable_areas->lock);
+        }
+        break;
     }
 
     LOG(thread_log, LOG_FRAGMENT|LOG_VMAREAS, 2, "  Unlinked %d frags\n", num);
