@@ -361,8 +361,9 @@ enumerate_lines_in_cu(dwarf_module_t *mod, Dwarf_Die cu_die,
     drsym_line_info_t info;
 
     if (dwarf_diename(cu_die, (char **) &info.cu_name, &de) != DW_DLV_OK) {
+        /* i#1477: it is possible that a DIE entrie has a NULL name */
+        info.cu_name = NULL;
         NOTIFY_DWARF(de);
-        return -1;
     }
 
     num_lines = get_lines_from_cu(mod, cu_die, &lines);
