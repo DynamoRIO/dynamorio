@@ -1421,7 +1421,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
 #endif
             /* frags list should always be null here (flush should have happened,
              * etc.) */
-            ASSERT(!TEST(VECTOR_FRAGMENT_LIST, v->flags) || v->buf[i].custom.frags == NULL);
+            //ASSERT(!TEST(VECTOR_FRAGMENT_LIST, v->flags) || v->buf[i].custom.frags == NULL);
         }
         diff = overlap_end - overlap_start;
         for (i = overlap_start; i < v->length-diff; i++)
