@@ -53,7 +53,11 @@
 #endif
 
 #define IS_ANNOTATION_LABEL(instr) ((instr != NULL) && instr_is_label(instr) && \
-    ((ptr_uint_t)instr_get_note(instr) == DR_NOTE_ANNOTATION))
+    ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
+
+#define IS_ANNOTATION_RETURN_PLACEHOLDER(instr) ((instr != NULL) && \
+    (instr_get_opcode(instr) == OP_mov_st) && \
+    ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
 
 #define IS_ANNOTATION_STACK_ARG(opnd) \
     opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)

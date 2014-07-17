@@ -503,18 +503,24 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
 
                     if (!handler->is_void) {
                         instr_t *return_placeholder =
-                            INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
-                                                OPND_CREATE_INT32(0));
-                        instr_set_ok_to_mangle(return_placeholder, false);
+                            INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
+                                                          opnd_create_reg(REG_XAX),
+                                                          OPND_CREATE_INT32(0)),
+                                      layout.start_pc);
+                        instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
                         instr_set_next(*substitution, return_placeholder);
                         instr_set_prev(return_placeholder, *substitution);
                     }
                 } else {
                     void *return_value =
                         handler->receiver_list->instrumentation.return_value;
-                    *substitution = INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XAX),
-                                                        OPND_CREATE_INT32(return_value));
-                    instr_set_ok_to_mangle(*substitution, false);
+                    *substitution =
+                        INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
+                                                      opnd_create_reg(REG_XAX),
+                                                      OPND_CREATE_INT32(return_value)),
+                                  layout.start_pc);
+
+                    // instr_set_ok_to_mangle(*substitution, false);
                 }
             }
             TABLE_RWLOCK(handlers, write, unlock);

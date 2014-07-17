@@ -4158,6 +4158,14 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         if (!instr_opcode_valid(instr))
             continue;
 
+#ifdef ANNOTATIONS
+        if (IS_ANNOTATION_RETURN_PLACEHOLDER(instr)) {
+            instrlist_remove(ilist, instr);
+            instr_destroy(dcontext, instr);
+            continue;
+        }
+#endif
+
         if (record_translation) {
             /* make sure inserted instrs translate to the original instr */
             app_pc xl8 = instr_get_translation(instr);
@@ -4226,14 +4234,6 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             handler = (annotation_handler_t *) label_data->data[0];
             ASSERT(handler->type == ANNOT_HANDLER_CALL);
             receiver = handler->receiver_list;
-
-            if (!handler->is_void) {
-                instr_t *return_placeholder = next_instr;
-                ASSERT(instr_get_opcode(return_placeholder) == OP_mov_st);
-                next_instr = instr_get_next(next_instr);
-                instrlist_remove(ilist, return_placeholder);
-                instr_destroy(dcontext, return_placeholder);
-            }
 
             while (receiver != NULL) {
                 if (handler->num_args != 0) {

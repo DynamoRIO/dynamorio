@@ -538,8 +538,8 @@ bool vm_areas_exited = false;
  *
  * this is better than the old fragment_t->app_{min,max}_pc performance wise,
  * and granularity-wise for blocks that bounce over regions, but worse
- * granularity-wise since if want to flush singe page in text
- * section, will end up flushing entire region.  especially scary in face of
+ * granularity-wise since if want to flush a single page in a text
+ * section, will end up flushing entire region.  Especially scary in face of
  * merges of adjacent regions, but merges are rare for images since
  * they usually have more than just text, so texts aren't adjacent.
  *
@@ -1013,6 +1013,21 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 #ifdef PROGRAM_SHEPHERDING
             DODEBUG({ flagignore = flagignore | VM_PATTERN_REVERIFY; });
 #endif
+            /*
+            if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore) &&
+                TEST(VM_DELAY_READONLY, v->buf[i].vm_flags) &&
+                TEST(VM_APP_MANAGED, v->buf[i].vm_flags)) {
+                LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: Correcting broken flags "
+                    "on vmarea("PFX"-"PFX" 0x%x)\n",
+                    v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
+                v->buf[i].vm_flags &= ~VM_DELAY_READONLY;
+            }
+            if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore)) {
+                LOG(GLOBAL, LOG_VMAREAS, 1, "Flag mismatch new("PFX"-"PFX" 0x%x) != "
+                    "existing("PFX"-"PFX" 0x%x)\n", start, end, vm_flags,
+                    v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
+            }
+            */
             ASSERT((v->buf[i].vm_flags & ~flagignore) == (vm_flags & ~flagignore));
 
             /* new region must be more innocent with respect to selfmod */
@@ -1047,6 +1062,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 
             /* for overlapping region: must overlap same type -- else split */
             if ((vm_flags != v->buf[i].vm_flags || frag_flags != v->buf[i].frag_flags) &&
+                /* app-managed regions are split/merged according to app behavior */
+                !TEST(VM_APP_MANAGED, v->buf[i].vm_flags) &&
                 (v->should_merge_func == NULL ||
                  !v->should_merge_func(false/*not adjacent*/,
                                        data, v->buf[i].custom.client))) {
@@ -6900,8 +6917,11 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                  * since we know we're in a text region here.
                  */
                 vm_flags = VM_WRITABLE;
-                if (!DYNAMO_OPTION(sandbox_writable))
+                if (!DYNAMO_OPTION(sandbox_writable)) {
+                    LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) is now 'made readonly'\n",
+                        base, size);
                     vm_flags |= VM_DELAY_READONLY;
+                }
 
                 add_executable_vm_area(base, base + size, vm_flags,
                                        0, should_finish_flushing/* own the lock if
@@ -7615,7 +7635,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
         }
     }
     if (area != NULL) {
-        ASSERT_CURIOSITY(vmlist == NULL || !TEST(VM_DELETE_ME, area->vm_flags));
+        //ASSERT_CURIOSITY(vmlist == NULL || !TEST(VM_DELETE_ME, area->vm_flags));
         if (vmlist != NULL && TEST(FRAG_COARSE_GRAIN, area->frag_flags)) {
             /* We assume get_executable_area_coarse_info() is called prior to
              * execution in a coarse region.  We go ahead and initialize here
@@ -8393,6 +8413,8 @@ exec_area_bounds_match(dcontext_t *dcontext, thread_data_t *data)
         vm_area_t *thread_area = &v->buf[i];
         vm_area_t *exec_area;
         bool ok = lookup_addr(executable_areas, thread_area->start, &exec_area);
+        if (TEST(VM_APP_MANAGED, thread_area->vm_flags)) // hack!
+            continue;
         ASSERT(ok);
         /* It's OK if thread areas are more fragmented than executable_areas.
          */
@@ -8523,6 +8545,24 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
         }
         entry = FRAG_ALSO(entry);
     }
+
+    if (!frag_also_list_areas_unique(dcontext, tgt_data, vmlist)) {
+        LOG(THREAD, LOG_VMAREAS, 1, "ERROR! Duplicate 'also' for "PFX"\n", f);
+        entry = f;
+        while (entry != NULL) {
+            ok = lookup_addr(&src_data->areas, FRAG_PC(entry), &area);
+            for (already = (fragment_t *) *vmlist; already != NULL;
+                 already = FRAG_ALSO(already)) {
+                if (FRAG_PC(already) >= area->start && FRAG_PC(already) < area->end) {
+                    LOG(THREAD, LOG_VMAREAS, 1, "Found duplicate 'also' in "PFX"-"PFX"\n",
+                        area->start, area->end);
+                    break;
+                }
+            }
+            entry = FRAG_ALSO(entry);
+        }
+    }
+
     ASSERT_MESSAGE(CHKLVL_DEFAULT, "fragment also list has duplicate entries",
                    frag_also_list_areas_unique(dcontext, tgt_data, vmlist));
     DOLOG(6, LOG_VMAREAS, { print_frag_arealist(dcontext, (fragment_t *) *vmlist); });
@@ -9232,6 +9272,11 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                      * use of fragment_t.incoming_stubs as a union.  so we
                      * do this for all fragments.
                      */
+                    if (TEST(FRAG_WAS_DELETED, FRAG_FRAG(entry)->flags))
+                        LOG(thread_log, LOG_VMAREAS, 1,
+                            "AMVA: error! Frag "PFX" already deleted\n",
+                            FRAG_FRAG(entry)->tag);
+
                     if (FRAG_ALSO(entry) != NULL || FRAG_MULTI(entry)) {
                         if (FRAG_MULTI(entry)) {
                             vm_area_remove_fragment(dcontext, f);
@@ -9312,6 +9357,33 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
             DOLOG(6, LOG_VMAREAS, {
                 print_fraglist(dcontext, &data->areas.buf[i], "Fragments after unlinking\n");
             });
+            /* JIT optimization: isolate the written page in its own vmarea */
+            if (TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
+                write_lock(&executable_areas->lock);
+                if ((data->areas.buf[i].end - data->areas.buf[i].start) > PAGE_SIZE) {
+                    app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
+                    app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
+                    if (isolation_start > data->areas.buf[i].start) {
+                        add_vm_area(executable_areas, data->areas.buf[i].start,
+                                    isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                                    _IF_DEBUG("app-managed"));
+                        LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
+                            data->areas.buf[i].start, isolation_start);
+                    }
+                    if (isolation_end < data->areas.buf[i].end) {
+                        add_vm_area(executable_areas, isolation_end,
+                                    data->areas.buf[i].end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                                    _IF_DEBUG("app-managed"));
+                        LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
+                            isolation_end, data->areas.buf[i].end);
+                    }
+                    add_vm_area(executable_areas, isolation_start, isolation_end,
+                                VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL _IF_DEBUG("app-managed-iso"));
+                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
+                        isolation_start, isolation_end);
+                }
+                write_unlock(&executable_areas->lock);
+            }
             if (data == shared_data) {
                 if (data->areas.buf[i].custom.frags != NULL) {
                     /* add area's fragments as a new entry in the pending deletion list */
@@ -9323,7 +9395,8 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                     data->areas.buf[i].custom.frags = NULL;
                     STATS_INC(num_shared_flush_regions);
                 }
-
+            }
+            if (!TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
                 /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
                  * areas down in vector!
                  */
@@ -11116,8 +11189,9 @@ set_region_app_managed(app_pc start, size_t len)
                 if (TEST(VM_MADE_READONLY, region->vm_flags))
                    vm_make_writable(region->start, region->end - region->start);
                 region->vm_flags |= VM_APP_MANAGED;
-                region->vm_flags &= ~VM_MADE_READONLY;
-                region->vm_flags &= ~VM_DELAY_READONLY;
+                region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+                LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
+                    start, len);
             }
         } else {
             LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "

@@ -6867,6 +6867,9 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     flush_fragments_in_region_start(dcontext, base, size, false /*don't own initexit*/,
                                     false/*don't free futures*/, false/*exec valid*/,
                                     force_synchall _IF_DGCDIAG(NULL));
+
+    /* if app managed, split out the page as a separate region */
+
     flush_fragments_in_region_finish(dcontext, false);
 }
 
