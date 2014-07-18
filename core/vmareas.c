@@ -455,6 +455,8 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
         ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
     } while (0);
 
+#define APP_MANAGED_VMAREA_SIZE 256
+
 /* forward declarations */
 static void
 vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v);
@@ -874,6 +876,19 @@ vm_area_merge_fraglists(vm_area_t *dst, vm_area_t *src)
     }
 }
 
+#ifdef DEBUG
+static const char *
+name_vm_area_vector(vm_area_vector_t *v)
+{
+    if (v == executable_areas)
+        return "executable_areas";
+    else if (v == &shared_data->areas)
+        return "shared_data->areas";
+    else
+        return "unnamed areas";
+}
+#endif
+
 /* Assumes caller holds v->lock, if necessary.
  * Does not return the area added since it may be merged or split depending
  * on existing areas->
@@ -907,7 +922,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" %s\n", start, end, comment);
+    LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" %s to %s\n", start, end, comment,
+        name_vm_area_vector(v));
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -924,6 +940,16 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
               v->should_merge_func(true/*adjacent*/, data, v->buf[i].custom.client)))) {
             ASSERT(!(start < v->buf[i].end && end > v->buf[i].start) ||
                    !TEST(VECTOR_NEVER_OVERLAP, v->flags));
+            /* app-managed regions are split/merged according to app behavior */
+            if (TEST(VM_APP_MANAGED, v->buf[i].vm_flags) &&
+                TEST(VM_APP_MANAGED, vm_flags)) {
+                ASSERT(overlap_start == -1);
+                if (start == v->buf[i].end)
+                    i++;
+                else
+                    ASSERT(end == v->buf[i].start);
+                break;
+            }
             if (overlap_start == -1) {
                 /* assume we'll simply expand an existing area rather than
                  * add a new one -- we'll reset this if we hit merge conflicts */
@@ -1023,11 +1049,13 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
                 v->buf[i].vm_flags &= ~VM_DELAY_READONLY;
             }
             */
+#ifdef DEBUG
             if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore)) {
                 LOG(GLOBAL, LOG_VMAREAS, 1, "Flag mismatch new("PFX"-"PFX" 0x%x) != "
                     "existing("PFX"-"PFX" 0x%x)\n", start, end, vm_flags,
                     v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
             }
+#endif
             ASSERT((v->buf[i].vm_flags & ~flagignore) == (vm_flags & ~flagignore));
 
             /* new region must be more innocent with respect to selfmod */
@@ -1062,8 +1090,6 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 
             /* for overlapping region: must overlap same type -- else split */
             if ((vm_flags != v->buf[i].vm_flags || frag_flags != v->buf[i].frag_flags) &&
-                /* app-managed regions are split/merged according to app behavior */
-                !TEST(VM_APP_MANAGED, v->buf[i].vm_flags) &&
                 (v->should_merge_func == NULL ||
                  !v->should_merge_func(false/*not adjacent*/,
                                        data, v->buf[i].custom.client))) {
@@ -1092,6 +1118,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
                         /* need two areas, one for either side */
                         LOG(GLOBAL, LOG_VMAREAS, 3,
                             "=> will add "PFX"-"PFX" after i\n", v->buf[i].end, end);
+                        //ASSERT(!TEST(VM_APP_MANAGED, v->buf[i].vm_flags));
+                        //ASSERT(!TEST(VM_APP_MANAGED, vm_flags));
                         /* safe to recurse here, new area will be after the area
                          * we are currently looking at in the vector */
                         if (v->split_payload_func != NULL)
@@ -1164,8 +1192,9 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
             print_vm_areas(v, GLOBAL);
         }
 #endif
-        ASSERT((i == 0 || v->buf[i-1].end <= v->buf[i].start) &&
-               (i == v->length || v->buf[i].end <= v->buf[i+1].start));
+        ASSERT(((i == 0 || v->buf[i-1].end <= v->buf[i].start) &&
+               (i == v->length || v->buf[i].end <= v->buf[i+1].start)) ||
+               TEST(VM_APP_MANAGED, v->buf[i].vm_flags));
         v->length++;
         STATS_TRACK_MAX(max_vmareas_length, v->length);
         DOSTATS({
@@ -1305,7 +1334,8 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
     bool official_coarse_vector = (v == executable_areas);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    LOG(GLOBAL, LOG_VMAREAS, 4, "in remove_vm_area "PFX" "PFX"\n", start, end);
+    LOG(GLOBAL, LOG_VMAREAS, 1, "remove_vm_area "PFX" "PFX" from %s\n", start, end,
+        name_vm_area_vector(v));
     /* N.B.: removed area could span multiple areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap */
@@ -1329,6 +1359,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         /* need to split? */
         if (overlap_start == overlap_end-1 && end < v->buf[overlap_start].end) {
             /* don't call add_vm_area now, that will mess up our vector */
+            ASSERT(!TEST(VM_APP_MANAGED, v->buf[overlap_start].vm_flags));
             new_area = v->buf[overlap_start]; /* make a copy */
             new_area.start = end;
             /* rest of fields are correct */
@@ -2513,6 +2544,7 @@ add_executable_vm_area_helper(app_pc start, app_pc end, uint vm_flags, uint frag
 {
     ASSERT_OWN_WRITE_LOCK(true, &executable_areas->lock);
 
+    ASSERT(!TEST(VM_APP_MANAGED, vm_flags));
     add_vm_area(executable_areas, start, end,
                 vm_flags, frag_flags, NULL _IF_DEBUG(comment));
 
@@ -3046,6 +3078,7 @@ get_coarse_info_internal(app_pc addr, bool init, bool have_shvm_lock)
                 LOG(GLOBAL, LOG_VMAREAS, 2,
                     "adding coarse region "PFX"-"PFX" to shared vm areas\n",
                     area_copy.start, area_copy.end);
+                ASSERT(!TEST(VM_APP_MANAGED, area_copy.vm_flags));
                 add_vm_area(&shared_data->areas, area_copy.start, area_copy.end,
                             area_copy.vm_flags, area_copy.frag_flags, NULL
                             _IF_DEBUG(area_copy.comment));
@@ -7993,6 +8026,7 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
 # endif
 #endif
 
+        //ASSERT(!TEST(VM_APP_MANAGED, area->vm_flags));
         add_vm_area(&data->areas, area->start, area->end, area->vm_flags,
                     area->frag_flags, NULL _IF_DEBUG(area->comment));
         /* get area for actual pc (new area could have been split up) */
@@ -8409,8 +8443,6 @@ exec_area_bounds_match(dcontext_t *dcontext, thread_data_t *data)
         vm_area_t *thread_area = &v->buf[i];
         vm_area_t *exec_area;
         bool ok = lookup_addr(executable_areas, thread_area->start, &exec_area);
-        //if (TEST(VM_APP_MANAGED, thread_area->vm_flags)) // hack!
-        //    continue;
         ASSERT(ok);
         /* It's OK if thread areas are more fragmented than executable_areas.
          */
@@ -8528,6 +8560,7 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
                     if (ok)
                         break;
                 } else {
+                    //ASSERT(!TEST(VM_APP_MANAGED, area->vm_flags));
                     add_vm_area(&tgt_data->areas, area->start, area->end, area->vm_flags,
                                 area->frag_flags, NULL _IF_DEBUG(area->comment));
                     ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
@@ -9357,17 +9390,20 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                     data->areas.buf[i].custom.frags = NULL;
                     STATS_INC(num_shared_flush_regions);
                 }
-                /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
-                 * areas down in vector!
-                 */
-                LOG(thread_log, LOG_VMAREAS, 3, "Before removing vm area:\n");
-                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
-                LOG(thread_log, LOG_VMAREAS, 2, "Removing shared vm area "PFX"-"PFX"\n",
-                    data->areas.buf[i].start, data->areas.buf[i].end);
-                remove_vm_area(&data->areas, data->areas.buf[i].start,
-                               data->areas.buf[i].end, false);
-                LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
-                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                //if ((data->areas.buf[i].end - data->areas.buf[i].start) > APP_MANAGED_VMAREA_SIZE ||
+                //    !TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
+                    /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
+                     * areas down in vector!
+                     */
+                    LOG(thread_log, LOG_VMAREAS, 3, "Before removing vm area:\n");
+                    DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                    LOG(thread_log, LOG_VMAREAS, 2, "Removing shared vm area "PFX"-"PFX"\n",
+                        data->areas.buf[i].start, data->areas.buf[i].end);
+                    remove_vm_area(&data->areas, data->areas.buf[i].start,
+                                   data->areas.buf[i].end, false);
+                    LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
+                    DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                //}
             }
         }
     }
@@ -9431,10 +9467,13 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
             continue;
 
         ASSERT(TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags));
-        //write_lock(&executable_areas->lock);
-        if ((area_end - area_start) > PAGE_SIZE) { // TODO: page boundary case
-            app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
-            app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
+        if ((area_end - area_start) > APP_MANAGED_VMAREA_SIZE) {
+            app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, APP_MANAGED_VMAREA_SIZE);
+            app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, APP_MANAGED_VMAREA_SIZE);
+            if (isolation_start < area_start)
+                isolation_start = area_start;
+            if (isolation_end > area_end)
+                isolation_end = area_end;
             LOG(thread_log, LOG_VMAREAS, 3, "Before splitting vm area:\n");
             DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, thread_log); });
             LOG(thread_log, LOG_VMAREAS, 1, "Splitting vm area "PFX"-"PFX
@@ -9463,7 +9502,6 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
             LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
                 isolation_start, isolation_end);
         }
-        //write_unlock(&executable_areas->lock);
         break;
     }
 }

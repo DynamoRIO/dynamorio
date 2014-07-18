@@ -159,6 +159,9 @@ handle_vg_annotation(app_pc request_args);
 
 static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
+
+static ptr_uint_t
+valgrind_discard_translations(vg_client_request_t *request);
 #endif
 
 static bool
@@ -248,6 +251,9 @@ annot_init()
                                (void *) annot_flush_fragments, false, 2
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
     }
+
+    dr_annot_register_valgrind(dr_internal_client_id, VG_ID__DISCARD_TRANSLATIONS,
+                               valgrind_discard_translations);
 }
 
 void
@@ -643,9 +649,17 @@ lookup_valgrind_request(ptr_uint_t request)
             return VG_ID__RUNNING_ON_VALGRIND;
         case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
             return VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
+        case VG_USERREQ__DISCARD_TRANSLATIONS:
+            return VG_ID__DISCARD_TRANSLATIONS;
     }
-
     return VG_ID__LAST;
+}
+
+static ptr_uint_t
+valgrind_discard_translations(vg_client_request_t *request)
+{
+    annot_flush_fragments((app_pc) request->args[0], request->args[1]);
+    return 0;
 }
 #endif
 
@@ -936,7 +950,7 @@ annot_flush_fragments(app_pc start, size_t len)
 {
     dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
 
-    LOG(THREAD, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
+    LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 
     if (len == 0 || is_couldbelinking(dcontext))
@@ -950,7 +964,7 @@ annot_flush_fragments(app_pc start, size_t len)
 
     vm_area_isolate_region(dcontext, start, start+len);
 
-    flush_fragments_in_region_finish(dcontext, false);
+    flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
 }
 
 static inline const char *

@@ -118,6 +118,7 @@ do { \
 typedef enum _valgrind_request_id_t {
     VG_ID__RUNNING_ON_VALGRIND,
     VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+    VG_ID__DISCARD_TRANSLATIONS,
     VG_ID__LAST
 } valgrind_request_id_t;
 
