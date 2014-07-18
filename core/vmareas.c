@@ -9378,52 +9378,6 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
         mutex_unlock(&shared_delete_lock);
     }
 
-    for (i = executable_areas->length - 1; i >= 0; i--) {
-        /* look for overlap */
-        if (start >= executable_areas->buf[i].end || end <= executable_areas->buf[i].start)
-            continue;
-
-        /* JIT optimization: isolate the written page in its own vmarea */
-        if (TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags)) {
-            app_pc area_start = executable_areas->buf[i].start;
-            app_pc area_end = executable_areas->buf[i].end;
-            write_lock(&executable_areas->lock);
-            if ((area_end - area_start) > PAGE_SIZE) {
-                app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
-                app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
-                LOG(thread_log, LOG_VMAREAS, 3, "Before splitting vm area:\n");
-                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
-                LOG(thread_log, LOG_VMAREAS, 1, "Splitting vm area "PFX"-"PFX
-                    " to isolate "PFX"-"PFX"\n", area_start, area_end,
-                    isolation_start, isolation_end);
-                remove_vm_area(executable_areas, area_start, area_end, false);
-                LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
-                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
-                if (isolation_start > area_start) {
-                    add_vm_area(executable_areas, area_start,
-                                isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0,
-                                NULL _IF_DEBUG("app-managed"));
-                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
-                        area_start, isolation_start);
-                }
-                if (isolation_end < area_end) {
-                    add_vm_area(executable_areas, isolation_end,
-                                area_end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
-                                _IF_DEBUG("app-managed"));
-                    LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
-                        isolation_end, area_end);
-                }
-                add_vm_area(executable_areas, isolation_start, isolation_end,
-                            VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
-                            _IF_DEBUG("app-managed-iso"));
-                LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
-                    isolation_start, isolation_end);
-            }
-            write_unlock(&executable_areas->lock);
-        }
-        break;
-    }
-
     LOG(thread_log, LOG_FRAGMENT|LOG_VMAREAS, 2, "  Unlinked %d frags\n", num);
     return num;
 }
@@ -9459,6 +9413,58 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc)
                 fragment_remove_from_ibt_tables(dcontext, f, false);
             }
         }
+    }
+}
+
+/* JIT optimization: isolate the written page in its own vmarea */
+void
+vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
+{
+    int i;
+    LOG_DECLARE(file_t thread_log = get_thread_private_logfile();)
+    for (i = executable_areas->length - 1; i >= 0; i--) {
+        app_pc area_start = executable_areas->buf[i].start;
+        app_pc area_end = executable_areas->buf[i].end;
+
+        /* look for overlap */
+        if (start >= area_end || end <= area_start)
+            continue;
+
+        ASSERT(TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags));
+        //write_lock(&executable_areas->lock);
+        if ((area_end - area_start) > PAGE_SIZE) { // TODO: page boundary case
+            app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, PAGE_SIZE);
+            app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, PAGE_SIZE);
+            LOG(thread_log, LOG_VMAREAS, 3, "Before splitting vm area:\n");
+            DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, thread_log); });
+            LOG(thread_log, LOG_VMAREAS, 1, "Splitting vm area "PFX"-"PFX
+                " to isolate "PFX"-"PFX"\n", area_start, area_end,
+                isolation_start, isolation_end);
+            remove_vm_area(executable_areas, area_start, area_end, false);
+            LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
+            DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, thread_log); });
+            if (isolation_start > area_start) {
+                add_vm_area(executable_areas, area_start,
+                            isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0,
+                            NULL _IF_DEBUG("app-managed"));
+                LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
+                    area_start, isolation_start);
+            }
+            if (isolation_end < area_end) {
+                add_vm_area(executable_areas, isolation_end,
+                            area_end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                            _IF_DEBUG("app-managed"));
+                LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
+                    isolation_end, area_end);
+            }
+            add_vm_area(executable_areas, isolation_start, isolation_end,
+                        VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                        _IF_DEBUG("app-managed-iso"));
+            LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
+                isolation_start, isolation_end);
+        }
+        //write_unlock(&executable_areas->lock);
+        break;
     }
 }
 

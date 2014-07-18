@@ -710,6 +710,10 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc);
 bool
 vm_area_flush_fragments(dcontext_t *dcontext, fragment_t *was_I_flushed);
 
+/* JIT optimization: isolate the written page in its own vmarea */
+void
+vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end);
+
 /* Decrements ref counts for thread-shared pending-deletion fragments,
  * and deletes those whose count has reached 0.
  * Returns false iff was_I_flushed has been flushed (not necessarily

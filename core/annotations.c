@@ -941,9 +941,16 @@ annot_flush_fragments(app_pc start, size_t len)
 
     if (len == 0 || is_couldbelinking(dcontext))
         return;
-    //if (!executable_vm_area_executed_from(start, start+len))
-    //    return;
-    flush_fragments_from_region(dcontext, start, len, false/*don't force synchall*/);
+    if (!executable_vm_area_executed_from(start, start+len))
+        return;
+
+    flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
+                                    false/*don't free futures*/, false/*exec valid*/,
+                                    false/*don't force synchall*/ _IF_DGCDIAG(NULL));
+
+    vm_area_isolate_region(dcontext, start, start+len);
+
+    flush_fragments_in_region_finish(dcontext, false);
 }
 
 static inline const char *
