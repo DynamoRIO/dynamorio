@@ -61,18 +61,15 @@
 # pragma comment(lib, "User32.lib")
 #endif
 
-static int verbose = 1;
-static int warning = 1;
-
 #define PRINT(lvl, ...) do {                                \
-    if (verbose >= lvl) {                                   \
+    if (options.verbose >= lvl) {                           \
         fprintf(stdout, "[DRCOV2LCOV] INFO(%d):    ", lvl); \
         fprintf(stdout, __VA_ARGS__);                       \
     }                                                       \
 } while (0)
 
 #define WARN(lvl, ...) do {                                 \
-    if (warning >= lvl) {                                   \
+    if (options.warning >= lvl) {                           \
         fprintf(stderr, "[DRCOV2LCOV] WARNING(%d): ", lvl); \
         fprintf(stderr, __VA_ARGS__);                       \
     }                                                       \
@@ -95,6 +92,7 @@ const char *usage_str =
     "      -list <input list file>            The file with a list of drcov files to be processed.\n"
     "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
     "      -output <output file>              The output file.\n"
+    "      -test_pattern <test name pattern>  Include test coverage information. Note that the output with this option is not compatible with lcov.\n"
     "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -mod_skip_filter <module filter>   Skip processing the module whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -src_filter <source filter>        Only process the source file whose path contains the filter string.  Only one such filter can be specified.\n"
@@ -105,14 +103,22 @@ static char input_dir_buf[MAXIMUM_PATH];
 static char input_list_buf[MAXIMUM_PATH];
 static char output_file_buf[MAXIMUM_PATH];
 static char set_file_buf[MAXIMUM_PATH];
-static char *input_list;
-static char *input_dir;
-static char *output_file;
-static char *src_filter;
-static char *src_skip_filter;
-static char *mod_filter;
-static char *mod_skip_filter;
-static char *set_file;
+
+typedef struct _option_t {
+    int verbose;
+    int warning;
+    char *input_list;
+    char *input_dir;
+    char *output_file;
+    char *src_filter;
+    char *src_skip_filter;
+    char *mod_filter;
+    char *mod_skip_filter;
+    char *set_file;
+    char *test_pattern; /* i#1465: test cov info */
+} option_t;
+static option_t options;
+
 static file_t set_log = INVALID_FILE;
 
 /****************************************************************************
@@ -196,7 +202,7 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
 #define LINE_TABLE_INIT_PRINT_BUF_SIZE (4*PAGE_SIZE)
 #define SOURCE_FILE_START_LINE_SIZE (MAXIMUM_PATH + 10) /* "SF:%s\n" */
 #define SOURCE_FILE_END_LINE_SIZE   20 /* "end_of_record\n" */
-#define MAX_CHAR_PER_LINE (3/*DA:*/+10/*line_no*/+1/*.*/+1/*0/1*/+1/*\n*/)
+#define MAX_CHAR_PER_LINE 256 /* large enough to hold the test function name */
 #define MAX_LINE_PER_FILE 0x20000
 
 /* the hashtable for all line_table per source file */
@@ -204,10 +210,15 @@ static hashtable_t line_htable;
 static uint num_line_htable_entries;
 
 enum {
-    SOURCE_LINE_STATUS_SKIP   = 0, /* not executed */
-    SOURCE_LINE_STATUS_EXEC   = 1, /* executed */
-    SOURCE_LINE_STATUS_NONE   = 2, /* not compiled to object file */
+    SOURCE_LINE_STATUS_NONE   =  0, /* not compiled to object file */
+    SOURCE_LINE_STATUS_SKIP   = -1, /* not executed */
+    SOURCE_LINE_STATUS_EXEC   =  1, /* executed */
 };
+
+/* i#1465: add unittest case coverage information in drcov */
+static const char *cur_test = NULL;
+static const char *non_test = "<NON-TEST>"; /* for case like initialization code */
+static const char *non_exec = "<NON-EXEC>"; /* not executed code */
 
 /* Not knowing the source file size, we may allocate several chunks per file,
  * and link them together as a linked-list to avoid realloc and copy overhead.
@@ -217,7 +228,10 @@ struct _line_chunk_t {
     uint num_lines;   /* the size of the chunk */
     uint first_num;   /* the first line number of the chunk */
     uint last_num;    /* the last line number of the chunk */
-    byte *line_info;  /* byte array the line execution info */
+    union {
+        byte *exec;   /* array of the execution info on the line */
+        const char **test;  /* array of the test name ptr on the line */
+    } info;
     line_chunk_t *next;
 };
 
@@ -235,25 +249,31 @@ static line_chunk_t *
 line_chunk_alloc(uint num_lines)
 {
     line_chunk_t *chunk = malloc(sizeof(*chunk));
-    size_t size = num_lines * sizeof(chunk->line_info[0]);
+    void *line_info;
     ASSERT(chunk != NULL, "Failed to create line chunk\n");
     chunk->num_lines = num_lines;
-    chunk->line_info = malloc(size);
-    memset(chunk->line_info, SOURCE_LINE_STATUS_NONE, size);
-    ASSERT(chunk->line_info != NULL, "Failed to alloc line array\n");
+    ASSERT(SOURCE_LINE_STATUS_NONE == 0, "SOURCE_LINE_STATUS_NONE is not 0");
+    if (options.test_pattern != NULL) {
+         /* init with NULL */
+        chunk->info.test = line_info = calloc(num_lines, sizeof(chunk->info.test[0]));
+    } else {
+        /* init with SOURCE_LINE_STATUS_NONE */
+        chunk->info.exec = line_info = calloc(num_lines, sizeof(chunk->info.exec[0]));
+    }
+    ASSERT(line_info != NULL, "Failed to alloc line info array\n");
     return chunk;
 }
 
 static void
 line_chunk_free(line_chunk_t *chunk)
 {
-    free(chunk->line_info);
+    if (options.test_pattern != NULL)
+        free((void *)chunk->info.test); /* cast from "const char **" to "void *" */
+    else
+        free(chunk->info.exec);
     free(chunk);
 }
 
-/* We should only have a very small number of chunks (O(log(n)) per file,
- * so it is ok to use recursive call for printing.
- */
 static char *
 line_chunk_print(line_chunk_t *chunk, char *start)
 {
@@ -262,12 +282,21 @@ line_chunk_print(line_chunk_t *chunk, char *start)
     for (i = 0, line_num = chunk->first_num;
          i < chunk->num_lines;
          i++, line_num++) {
-        if (chunk->line_info[i] != SOURCE_LINE_STATUS_NONE) {
-            res = dr_snprintf(start, MAX_CHAR_PER_LINE,
-                              "DA:%u,%u\n", line_num, chunk->line_info[i]);
-            ASSERT(res < MAX_CHAR_PER_LINE && res != -1, "Error on printing\n");
-            start += res;
+        res = 0;
+        /* only print lines that have test/exec info */
+        if (options.test_pattern != NULL) {
+            if (chunk->info.test[i] != NULL) {
+                res = dr_snprintf(start, MAX_CHAR_PER_LINE, "DA:%u,%s\n", line_num,
+                                  chunk->info.test[i]);
+            }
+        } else {
+            if (chunk->info.exec[i] != SOURCE_LINE_STATUS_NONE) {
+                res = dr_snprintf(start, MAX_CHAR_PER_LINE, "DA:%u,%u\n", line_num,
+                                  chunk->info.exec[i] == SOURCE_LINE_STATUS_SKIP ? 0 : 1);
+            }
         }
+        ASSERT(res < MAX_CHAR_PER_LINE && res != -1, "Error on printing\n");
+        start += res;
     }
     return start;
 }
@@ -338,17 +367,18 @@ line_table_delete(void *p)
 }
 
 static inline void
-line_table_add(line_table_t *line_table, uint64 line, int status)
+line_table_add(line_table_t *line_table, uint line, byte status, const char *test_info)
 {
     line_chunk_t *chunk = line_table->chunk;
-    /* We see this and it seems to be erroneous data from the pdb,
-     * xref drsym_enumerate_lines() from drsyms.
-     */
+
     if (line >= MAX_LINE_PER_FILE) {
-        WARN(2, "Too large line number %u for %s\n",
-             (uint)line, line_table->file);
+        /* We see this and it seems to be erroneous data from the pdb,
+         * xref drsym_enumerate_lines() from drsyms.
+         */
+        WARN(2, "Too large line number %u for %s\n", line, line_table->file);
         return;
     }
+
     if (line > chunk->last_num) {
         /* XXX: we need lock if we plan to parallelize it */
         uint num_lines;
@@ -368,34 +398,52 @@ line_table_add(line_table_t *line_table, uint64 line, int status)
               chunk->first_num, chunk->last_num, chunk->num_lines,
               (ptr_uint_t)line_table, (ptr_uint_t)chunk);
     }
+
     for (; chunk != NULL; chunk = chunk->next) {
         if (line >= chunk->first_num) {
             ASSERT(line <= chunk->last_num, "Wrong logic");
-            /* If a line have both exec and skip status, we must honor
-             * SOURCE_LINE_STATUS_EXEC, because they may come from different
-             * modules.
-             */
-            if (chunk->line_info[line - chunk->first_num] != (byte)status &&
-                chunk->line_info[line - chunk->first_num] !=
-                (byte)SOURCE_LINE_STATUS_EXEC)
-                chunk->line_info[line - chunk->first_num]  = (byte)status;
+            if (options.test_pattern != NULL) {
+                /* i#1465: add unittest case coverage information in drcov.
+                 * Step 3: assocate test info with the source line.
+                 */
+                if (test_info != NULL) {
+                    if ((chunk->info.test[line - chunk->first_num] == NULL) ||
+                        /* prefer exec over non-exec */
+                        (chunk->info.test[line - chunk->first_num] == non_exec &&
+                         test_info != non_exec) ||
+                        /* prefer test over non-test */
+                        (chunk->info.test[line - chunk->first_num] == non_test &&
+                         test_info != non_exec && test_info != non_test))
+                        chunk->info.test[line - chunk->first_num] = test_info;
+                }
+            } else {
+                /* If a line has both exec and skip status, we must honor
+                 * SOURCE_LINE_STATUS_EXEC, because they may come from different
+                 * modules.
+                 */
+                if (chunk->info.exec[line - chunk->first_num] != status &&
+                    chunk->info.exec[line - chunk->first_num] != SOURCE_LINE_STATUS_EXEC)
+                    chunk->info.exec[line - chunk->first_num]  = status;
+            }
             return;
         }
     }
 }
 
 /****************************************************************************
- * Basic Block Table Data Structure & Functions
+ * Module Table Data Structure & Functions
  */
+
+#define TEST_HASH_TABLE_BITS 10
 
 #define MODULE_HASH_TABLE_BITS 6
 static hashtable_t module_htable;
 static uint num_module_htable_entries;
 
-#define BB_TABLE_IGNORE  ((void *)(ptr_int_t)(-1))
+#define MODULE_TABLE_IGNORE  ((void *)(ptr_int_t)(-1))
 #define MIN_LOG_FILE_SIZE 20
 
-/* we use bitmap as bb_table */
+/* when use bitmap as bb_table */
 #define BITS_PER_BYTE        8
 #define BITMAP_INDEX(x)      ((x) / BITS_PER_BYTE)
 #define BITMAP_OFFSET(x)     ((x) % BITS_PER_BYTE)
@@ -422,66 +470,44 @@ enum {
     BB_TABLE_ENTRY_SET     = 1,
 };
 
-typedef struct _bb_table_t {
-    uint size;
-    byte bm[1];
-} bb_table_t;
-
-static void *
-bb_table_create(uint mod_size)
-{
-    bb_table_t *table;
-    ASSERT(ALIGNED(mod_size, BITS_PER_BYTE), "Module size is not aligned");
-
-    table = (bb_table_t *)
-        calloc(1, sizeof(uint) + (size_t)mod_size/BITS_PER_BYTE);
-    PRINT(3, "bb table %p, %u\n", table, mod_size/BITS_PER_BYTE);
-    ASSERT(table != NULL, "Failed to create bb table");
-    table->size = mod_size;
-    return table;
-}
+typedef struct _module_table_t {
+    size_t size;
+    union {
+        byte *bitmap;        /* store exec info (bit) for each app byte */
+        const char **array;  /* store test info (char *) for each app byte */
+    } bb_table;              /* data structure storing which bb is seen */
+    hashtable_t test_htable; /* hashtable for test functions found in the module */
+} module_table_t;
 
 static void
-bb_table_delete(void *p)
+module_table_delete(void *p)
 {
-    PRINT(3, "Delete bb table "PFX"\n", (ptr_uint_t)p);
-    if (p != BB_TABLE_IGNORE)
-        free(p);
+    module_table_t *table = (module_table_t *)p;
+    PRINT(3, "Delete module table "PFX"\n", (ptr_uint_t)table);
+    if (table != MODULE_TABLE_IGNORE) {
+        free(table->bb_table.bitmap);
+        if (options.test_pattern != NULL)
+            hashtable_delete(&table->test_htable);
+        free(table);
+    }
 }
 
 static inline int
-bb_table_lookup(bb_table_t *table, uint addr)
+bb_bitmap_lookup(module_table_t *table, uint addr)
 {
-    byte *bm = table->bm;
-    PRINT(5, "lookup "PFX" in bb table "PFX"\n",
-          (ptr_uint_t)addr, (ptr_uint_t)table);
-    /* We see this and it seems to be erroneous data from the pdb,
-     * xref drsym_enumerate_lines() from drsyms.
-     */
-    if (table->size <= addr)
-        return BB_TABLE_ENTRY_INVALID;
+    byte *bm = table->bb_table.bitmap;
     if (bm[BITMAP_INDEX(addr)] == 0xff ||
         TEST(BITMAP_MASK(BITMAP_OFFSET(addr)), bm[BITMAP_INDEX(addr)]))
         return BB_TABLE_ENTRY_SET;
     return BB_TABLE_ENTRY_CLEAR;
 }
 
+/* add an entry into a bitmap bb_table */
 static inline bool
-bb_table_add(bb_table_t *table, bb_entry_t *entry)
+bb_bitmap_add(module_table_t *table, bb_entry_t *entry)
 {
-    byte *bm;
     uint idx, offs, addr_end, idx_end, offs_end, i;
-    if (table == BB_TABLE_IGNORE)
-        return false;
-    if (table->size <= entry->start + entry->size) {
-        WARN(3, "Wrong range "PFX"-"PFX" or table size "PFX" for table "PFX"\n",
-             (ptr_uint_t)entry->start,
-             (ptr_uint_t)entry->start + entry->size,
-             (ptr_uint_t)table->size,
-             (ptr_uint_t)table);
-        return false;
-    }
-    bm  = table->bm;
+    byte *bm = table->bb_table.bitmap;
     idx = BITMAP_INDEX(entry->start);
     /* we assume that the whole bb is seen if its start addr is seen */
     if (bm[idx] == BB_TABLE_RANGE_SET)
@@ -508,6 +534,149 @@ bb_table_add(bb_table_t *table, bb_entry_t *entry)
         bm[idx_end] |= bitmap_set[0][offs_end];
     }
     return true;
+}
+
+static inline int
+bb_array_lookup(module_table_t *table, uint offset, const char **info)
+{
+    const char **ba = table->bb_table.array;
+    ASSERT(table->size > offset, "Offset is too large");
+    ASSERT(info != NULL, "Info must not be NULL");
+    if (ba[offset] != NULL) {
+        *info = ba[offset];
+        return BB_TABLE_ENTRY_SET;
+    }
+    *info = non_exec;
+    return BB_TABLE_ENTRY_CLEAR;
+}
+
+static inline bool
+bb_array_add(module_table_t *table, bb_entry_t *entry)
+{
+    /* i#1465: add unittest case coverage information in drcov.
+     * Step 2: assocate bb with test name
+     */
+    const char **ba = table->bb_table.array;
+    char *test_name;
+    uint i, offset;
+    offset = (uint) entry->start;
+    /* we assume that the whole bb is seen if its start addr is seen */
+    if (ba[offset] != NULL)
+        return false;
+    /* check if current bb starts a new test */
+    test_name = (char *)hashtable_lookup(&table->test_htable,
+                                         (void *)(ptr_int_t)entry->start);
+    if (test_name != NULL) {
+        PRINT(6, "start new test %s\n", test_name);
+        cur_test = test_name;
+    }
+    for (i = 0; i < entry->size; i++)
+        ba[offset + i] = cur_test;
+    return true;
+}
+
+
+static int
+module_table_bb_lookup(module_table_t *table, uint addr, const char **info)
+{
+    PRINT(5, "lookup "PFX" in module table "PFX"\n",
+          (ptr_uint_t)addr, (ptr_uint_t)table);
+    /* We see this and it seems to be erroneous data from the pdb,
+     * xref drsym_enumerate_lines() from drsyms.
+     */
+    if (table->size <= addr)
+        return BB_TABLE_ENTRY_INVALID;
+    if (options.test_pattern != NULL)
+        return bb_array_lookup(table, addr, info);
+    else
+        return bb_bitmap_lookup(table, addr);
+}
+
+static inline bool
+module_table_bb_add(module_table_t *table, bb_entry_t *entry)
+{
+    if (table == MODULE_TABLE_IGNORE)
+        return false;
+    if (table->size <= entry->start + entry->size) {
+        WARN(3, "Wrong range "PFX"-"PFX" or table size "PFX" for table "PFX"\n",
+             (ptr_uint_t)entry->start, (ptr_uint_t)entry->start + entry->size,
+             (ptr_uint_t)table->size,  (ptr_uint_t)table);
+        return false;
+    }
+    if (options.test_pattern != NULL)
+        return bb_array_add(table, entry);
+    else
+        return bb_bitmap_add(table, entry);
+}
+
+static bool
+search_cb(drsym_info_t *info, drsym_error_t status, void *data)
+{
+    module_table_t *table = (module_table_t *)data;
+    if (info != NULL && info->name != NULL &&
+        strstr(info->name, options.test_pattern) != NULL) {
+        char *name = malloc(strlen(info->name) + 1);
+        /* strdup is deprecated on Windows */
+        strncpy(name, info->name, strlen(info->name) + 1);
+        PRINT(5, "function %s: "PFX"-"PFX"\n",
+              name, info->start_offs, info->end_offs);
+        ASSERT(info->start_offs <= table->size, "wrong offset");
+        hashtable_add(&table->test_htable, (void *)info->start_offs, name);
+    }
+    return true; /* continue iteration */
+}
+
+static void
+module_table_search_testcase(const char *module, module_table_t *table)
+{
+    drsym_error_t symres;
+    uint flags = DRSYM_DEMANGLE | DRSYM_DEMANGLE_PDB_TEMPLATES;
+
+    ASSERT(options.test_pattern != NULL, "should not be called");
+    hashtable_init_ex(&table->test_htable, TEST_HASH_TABLE_BITS, HASH_INTPTR,
+                      false /* strdup */, false /* !synch */, free /* free */,
+                      NULL /* hash */, NULL /* cmp */);
+    symres = drsym_module_has_symbols(module);
+    if (symres != DRSYM_SUCCESS)
+        WARN(1, "Module %s does not have symbols\n", module);
+#ifdef WINDOWS
+    symres = drsym_search_symbols_ex(module, options.test_pattern, flags,
+                                     search_cb, sizeof(drsym_info_t), table);
+#else
+    symres = drsym_enumerate_symbols_ex(module, search_cb, sizeof(drsym_info_t),
+                                        table, flags);
+#endif
+    if (symres != DRSYM_SUCCESS)
+        WARN(1, "fail to search testcase in module %s\n", module);
+}
+
+static void *
+module_table_create(const char *module, size_t size)
+{
+    module_table_t *table;
+    ASSERT(ALIGNED(size, PAGE_SIZE), "Module size is not aligned");
+
+    table = (module_table_t *) calloc(1, sizeof(*table));
+    ASSERT(table != NULL, "Failed to allocate module table");
+    table->size = (size_t)size;
+    PRINT(3, "module table %p, %u\n", table, (uint)size);
+    if (options.test_pattern != NULL) {
+        /* i#1465: add unittest case coverage information in drcov.
+         * Step 1: search test case entries in the module
+         */
+        /* XXX: for 64-bit, we do calloc of size 8x the module size,
+         * and we are doing this calloc for all modules simultaneously,
+         * so we might use a huge amount of memory!
+         */
+        table->bb_table.array = calloc(size, sizeof(char *) /* test name */);
+        ASSERT(table->bb_table.array != NULL, "Failed to create module table");
+        module_table_search_testcase(module, table);
+    } else {
+        /* we use bitmap for bb_table */
+        table->bb_table.bitmap = calloc(1, size/BITS_PER_BYTE);
+        ASSERT(table->bb_table.bitmap != NULL, "Failed to create module table");
+    }
+    return table;
 }
 
 static char *
@@ -541,31 +710,33 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
     for (i = 0; i < *num_mods; i++) {
         uint   mod_id;
         uint64 mod_size;
-        void  *bb_table;
+        module_table_t *mod_table;
+
         /* assuming the string is something like:  "0, 2207744, /bin/ls" */
         /* XXX: i#1143: we do not use dr_sscanf since it does not support %[] */
-        if (sscanf(buf, " %u, %"INT64_FORMAT"u, %[^\n\r]",
-                   &mod_id, &mod_size, path) != 3)
+        if (sscanf(buf, " %u, %"INT64_FORMAT"u, %[^\n\r]", &mod_id, &mod_size, path) != 3)
             ASSERT(false, "Failed to read module table");
         buf = move_to_next_line(buf);
         PRINT(5, "Module: %u, "PFX", %s\n", mod_id, (ptr_uint_t)mod_size, path);
-        bb_table = hashtable_lookup(&module_htable, path);
-        if (bb_table == NULL) {
+        mod_table = hashtable_lookup(&module_htable, path);
+        if (mod_table == NULL) {
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
             if (strstr(path, "<unknown>") != NULL ||
-                (mod_filter != NULL && strstr(path, mod_filter) == NULL) ||
-                (mod_skip_filter != NULL && strstr(path, mod_skip_filter) != NULL))
-                bb_table = BB_TABLE_IGNORE;
-             else
-                bb_table = bb_table_create((uint)mod_size);
-            PRINT(4, "Create bb table "PFX" for module %s\n",
-                  (ptr_uint_t)bb_table, path);
+                (options.mod_filter != NULL &&
+                 strstr(path, options.mod_filter) == NULL) ||
+                (options.mod_skip_filter != NULL &&
+                 strstr(path, options.mod_skip_filter) != NULL))
+                mod_table = MODULE_TABLE_IGNORE;
+            else
+                mod_table = module_table_create(path, (size_t)mod_size);
+            PRINT(4, "Create module table "PFX" for module %s\n",
+                  (ptr_uint_t)mod_table, path);
             num_module_htable_entries++;
-            if (!hashtable_add(&module_htable, path, bb_table))
+            if (!hashtable_add(&module_htable, path, mod_table))
                 ASSERT(false, "Failed to add new module");
         }
-        (*tables)[i] = bb_table;
+        (*tables)[i] = mod_table;
     }
     return buf;
 }
@@ -578,12 +749,18 @@ read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
     bool add_new_bb = false;
 
     PRINT(4, "Reading %u basic blocks\n", num_bbs);
+    if (options.test_pattern != NULL) {
+        /* i#1465: add unittest case coverage information in drcov:
+         * reset the current test name to be none
+         */
+        cur_test = non_test;
+    }
     for (i = 0, entry = (bb_entry_t *)buf; i < num_bbs; i++, entry++) {
         PRINT(6, "BB: "PFX", %u, %u\n",
               (ptr_uint_t)entry->start, entry->size, entry->mod_id);
         /* we could have mod id USHRT_MAX for unknown module e.g., [vdso] */
         if (entry->mod_id < num_mods)
-            add_new_bb = bb_table_add(tables[entry->mod_id], entry) || add_new_bb;
+            add_new_bb = module_table_bb_add(tables[entry->mod_id], entry) || add_new_bb;
     }
     free(tables);
     return add_new_bb;
@@ -692,8 +869,8 @@ read_drcov_dir(void)
     char path[MAXIMUM_PATH];
     bool found_logs = false;
 
-    PRINT(2, "Reading input directory %s\n", input_dir);
-    if ((dir = opendir(input_dir)) != NULL) {
+    PRINT(2, "Reading input directory %s\n", options.input_dir);
+    if ((dir = opendir(options.input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_drcov_log_file(ent->d_name)) {
                 if (GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL) == 0) {
@@ -708,11 +885,11 @@ read_drcov_dir(void)
         closedir (dir);
     } else {
         /* could not open directory */
-        WARN(1, "Failed to open directory %s\n", input_dir);
+        WARN(1, "Failed to open directory %s\n", options.input_dir);
         return false;
     }
     if (!found_logs)
-        WARN(1, "Failed to find log files in dir %s\n", input_dir);
+        WARN(1, "Failed to find log files in dir %s\n", options.input_dir);
     return found_logs;
 }
 #else
@@ -726,7 +903,7 @@ read_drcov_dir(void)
     bool found_logs = false;
 
     /* append \* to the end */
-    strcpy(path, input_dir);
+    strcpy(path, options.input_dir);
     if (path[strlen(path)-1] == '\\') {
         strcat(path, "*");
         has_sep = true;
@@ -743,7 +920,7 @@ read_drcov_dir(void)
     do {
         if (!TESTANY(ffd.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY) &&
             is_drcov_log_file(ffd.cFileName)) {
-            strcpy(path, input_dir);
+            strcpy(path, options.input_dir);
             if (!has_sep)
                 strcat(path, "\\");
             strcat(path, ffd.cFileName);
@@ -753,7 +930,7 @@ read_drcov_dir(void)
     } while (FindNextFile(hFind, &ffd) != 0);
     FindClose(hFind);
     if (!found_logs)
-        WARN(1, "Failed to find log files in dir %s\n", input_dir);
+        WARN(1, "Failed to find log files in dir %s\n", options.input_dir);
     return found_logs;
 }
 #endif
@@ -768,10 +945,10 @@ read_drcov_list(void)
     uint64 file_size;
     bool found_logs = false;
 
-    PRINT(2, "Reading list %s\n", input_list);
-    list = open_input_file(input_list, &map, &map_size, &file_size);
+    PRINT(2, "Reading list %s\n", options.input_list);
+    list = open_input_file(options.input_list, &map, &map_size, &file_size);
     if (list == INVALID_FILE) {
-        WARN(1, "Failed to read list %s\n", input_list);
+        WARN(1, "Failed to read list %s\n", options.input_list);
         return false;
     }
     /* process each file in the list */
@@ -786,7 +963,7 @@ read_drcov_list(void)
     }
     close_input_file(list, map, map_size);
     if (!found_logs)
-        WARN(1, "Failed to find log files on list %s\n", input_list);
+        WARN(1, "Failed to find log files on list %s\n", options.input_list);
     return found_logs;
 }
 
@@ -794,9 +971,9 @@ static bool
 read_drcov_input(void)
 {
     bool res = true;
-    if (input_list != NULL)
+    if (options.input_list != NULL)
         res = res && read_drcov_list();
-    if (input_dir  != NULL)
+    if (options.input_dir  != NULL)
         res = res && read_drcov_dir();
     return res;
 }
@@ -805,14 +982,17 @@ static bool
 enum_line_cb(drsym_line_info_t *info, void *data)
 {
     int   status;
-    void *bb_table = data;
+    module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
+    const char *test_info = NULL;
     /* i#1445: we have seen the pdb convert paths to all-lowercase,
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||
-        (src_filter != NULL && strstr(info->file, src_filter) == NULL) ||
-        (src_skip_filter != NULL && strstr(info->file, src_skip_filter) != NULL))
+        (options.src_filter != NULL &&
+         strstr(info->file, options.src_filter) == NULL) ||
+        (options.src_skip_filter != NULL &&
+         strstr(info->file, options.src_skip_filter) != NULL))
         return true;
     line_table = hashtable_lookup(&line_htable, (void *)info->file);
     if (line_table == NULL) {
@@ -821,16 +1001,20 @@ enum_line_cb(drsym_line_info_t *info, void *data)
         if (!hashtable_add(&line_htable, (void *)info->file, line_table))
             ASSERT(false, "Failed to add new source line table");
     }
-    status = bb_table_lookup(bb_table, (uint)info->line_addr);
+    status = module_table_bb_lookup(table, (uint)info->line_addr, &test_info);
+    /* info->line is uint64 */
+    ASSERT((uint)info->line == info->line, "info->line is too large");
     if (status == BB_TABLE_ENTRY_SET) {
         PRINT(5, "exec: ");
-        line_table_add(line_table, info->line, SOURCE_LINE_STATUS_EXEC);
+        line_table_add(line_table, (uint)info->line,
+                       (byte)SOURCE_LINE_STATUS_EXEC, test_info);
     } else if (status == BB_TABLE_ENTRY_CLEAR) {
         PRINT(5, "skip: ");
-        line_table_add(line_table, info->line, SOURCE_LINE_STATUS_SKIP);
+        line_table_add(line_table, (uint)info->line,
+                       (byte)SOURCE_LINE_STATUS_SKIP, test_info);
     } else {
-        WARN(2, "Invalid bb table lookup, Table: "PFX", Addr: "PFX"\n",
-             (ptr_uint_t)bb_table, (ptr_uint_t)info->line);
+        WARN(2, "Invalid bb lookup, Table: "PFX", Addr: "PFX"\n",
+             (ptr_uint_t)table, (ptr_uint_t)info->line);
     }
     PRINT(5, "%s, %s, %llu, "PFX"\n",
           info->cu_name, info->file, (unsigned long long)info->line,
@@ -839,7 +1023,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
 }
 
 static bool
-read_debug_info(void)
+enumerate_line_info(void)
 {
     uint i, num_entries = 0;
     /* iterate module table */
@@ -848,15 +1032,16 @@ read_debug_info(void)
         drsym_error_t res;
         for (e = module_htable.table[i]; e != NULL; e = e->next) {
             num_entries++;
-            PRINT(3, "Read debug info for %s\n", (char *)e->key);
+            PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
             if (strcmp((char *)e->key, "<unknown>") == 0)
                 continue;
             /* i#1445: we have seen the pdb convert paths to all-lowercase,
              * so these should be case-insensitive on Windows.
              */
-            if ((mod_filter != NULL && strstr((char *)e->key, mod_filter) == NULL) ||
-                (mod_skip_filter != NULL &&
-                 strstr((char *)e->key, mod_skip_filter) != NULL))
+            if ((options.mod_filter != NULL &&
+                 strstr((char *)e->key, options.mod_filter) == NULL) ||
+                (options.mod_skip_filter != NULL &&
+                 strstr((char *)e->key, options.mod_skip_filter) != NULL))
                 continue;
             res = drsym_enumerate_lines(e->key, enum_line_cb, e->payload);
             if (res != DRSYM_SUCCESS)
@@ -893,11 +1078,11 @@ write_lcov_output(void)
     char *buf, *ptr;
     size_t buf_sz;
 
-    PRINT(2, "Writing output lcov file: %s\n", output_file);
-    log = dr_open_file(output_file,
+    PRINT(2, "Writing output lcov file: %s\n", options.output_file);
+    log = dr_open_file(options.output_file,
                        DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
     if (log == INVALID_FILE) {
-        ASSERT(false, "Failed to open output file %s\n", output_file);
+        ASSERT(false, "Failed to open output file %s\n", options.output_file);
         return false;
     }
 
@@ -949,6 +1134,8 @@ option_init(int argc, char *argv[])
     int i;
     if (argc == 1)
         return false;
+    options.verbose = 1;
+    options.warning = 1;
     for (i = 1; i < argc; i++) {
         char *ops = argv[i];
         if (ops[0] == '-' && ops[1] == '-')
@@ -958,35 +1145,35 @@ option_init(int argc, char *argv[])
         if (strcmp(ops, "-list") == 0) {
             if (++i >= argc)
                 return false;
-            input_list = argv[i];
+            options.input_list = argv[i];
         } else if (strcmp(ops, "-dir") == 0) {
             if (++i >= argc)
                 return false;
-            input_dir = argv[i];
+            options.input_dir = argv[i];
         } else if (strcmp(ops, "-output") == 0) {
             if (++i >= argc)
                 return false;
-            output_file = argv[i];
+            options.output_file = argv[i];
         } else if (strcmp(ops, "-src_filter") == 0) {
             if (++i >= argc)
                 return false;
-            src_filter = argv[i];
+            options.src_filter = argv[i];
         } else if (strcmp(ops, "-src_skip_filter") == 0) {
             if (++i >= argc)
                 return false;
-            src_skip_filter = argv[i];
+            options.src_skip_filter = argv[i];
         } else if (strcmp(ops, "-mod_filter") == 0) {
             if (++i >= argc)
                 return false;
-            mod_filter = argv[i];
+            options.mod_filter = argv[i];
         } else if (strcmp(ops, "-mod_skip_filter") == 0) {
             if (++i >= argc)
                 return false;
-            mod_skip_filter = argv[i];
+            options.mod_skip_filter = argv[i];
         } else if (strcmp(ops, "-reduce_set") == 0) {
             if (++i >= argc)
                 return false;
-            set_file = argv[i];
+            options.set_file = argv[i];
         } else if (strcmp(ops, "-verbose") == 0) {
             char *end;
             long int res;
@@ -994,9 +1181,9 @@ option_init(int argc, char *argv[])
                 return false;
             res = strtol(argv[i], &end, 10);
             if (res == LONG_MAX || res < 0)
-                WARN(1, "Wrong verbose level, use %d instead\n", verbose);
+                WARN(1, "Wrong verbose level, use %d instead\n", options.verbose);
             else
-                verbose = res;
+                options.verbose = res;
         } else if (strcmp(ops,  "-warning") == 0) {
             char *end;
             long int res;
@@ -1004,60 +1191,64 @@ option_init(int argc, char *argv[])
                 return false;
             res = strtol(argv[i], &end, 10);
             if (res == LONG_MAX || res < 0)
-                WARN(1, "Wrong warning level, use %d instead\n", warning);
+                WARN(1, "Wrong warning level, use %d instead\n", options.warning);
             else
-                warning = res;
+                options.warning = res;
+        } else if (strcmp(ops, "-test_pattern") == 0) {
+            if (++i >= argc)
+                return false;
+            options.test_pattern = argv[i];
         }
     }
 
-    if (input_list != NULL) {
-        if (GetFullPathName(input_list,
+    if (options.input_list != NULL) {
+        if (GetFullPathName(options.input_list,
                             BUFFER_SIZE_ELEMENTS(input_list_buf),
                             input_list_buf, NULL) == 0) {
             WARN(1, "Failed to get full path of input list\n");
             return false;
         }
         NULL_TERMINATE_BUFFER(input_list_buf);
-        input_list = input_list_buf;
-        PRINT(2, "Input list: %s\n", input_list);
+        options.input_list = input_list_buf;
+        PRINT(2, "Input list: %s\n", options.input_list);
     } else {
-        if (input_dir == NULL)
+        if (options.input_dir == NULL)
             WARN(0, "Missing input, use current directory instead\n");
-        if (GetFullPathName(input_dir == NULL ? "./" : input_dir,
+        if (GetFullPathName(options.input_dir == NULL ? "./" : options.input_dir,
                             BUFFER_SIZE_ELEMENTS(input_dir_buf),
                             input_dir_buf, NULL) == 0) {
             WARN(1, "Failed to get full path of input dir\n");
             return false;
         }
         NULL_TERMINATE_BUFFER(input_dir_buf);
-        input_dir = input_dir_buf;
-        PRINT(2, "Input dir: %s\n", input_dir);
+        options.input_dir = input_dir_buf;
+        PRINT(2, "Input dir: %s\n", options.input_dir);
     }
 
-    if (output_file == NULL)
+    if (options.output_file == NULL)
         WARN(1, "Missing output, use coverage.info instead\n");
-    if (GetFullPathName(output_file == NULL ? "coverage.info" : output_file,
+    if (GetFullPathName(options.output_file == NULL ? "coverage.info" : options.output_file,
                         BUFFER_SIZE_ELEMENTS(output_file_buf),
                         output_file_buf, NULL) == 0) {
         WARN(1, "Failed to get full path of output file");
         return false;
     }
     NULL_TERMINATE_BUFFER(output_file_buf);
-    output_file = output_file_buf;
-    PRINT(2, "Output file: %s\n", output_file);
-    if (set_file != NULL) {
-        if (GetFullPathName(set_file,
+    options.output_file = output_file_buf;
+    PRINT(2, "Output file: %s\n", options.output_file);
+    if (options.set_file != NULL) {
+        if (GetFullPathName(options.set_file,
                             BUFFER_SIZE_ELEMENTS(set_file_buf),
                             set_file_buf, NULL) == 0) {
             WARN(1, "Failed to get full path of reduce_set file\n");
             return false;
         }
         NULL_TERMINATE_BUFFER(set_file_buf);
-        set_file = set_file_buf;
-        PRINT(2, "Reduced set file: %s\n", set_file);
-        set_log = dr_open_file(set_file, DR_FILE_WRITE_REQUIRE_NEW);
+        options.set_file = set_file_buf;
+        PRINT(2, "Reduced set file: %s\n", options.set_file);
+        set_log = dr_open_file(options.set_file, DR_FILE_WRITE_REQUIRE_NEW);
         if (set_log == INVALID_FILE) {
-            ASSERT(false, "Failed to open reduce set output file %s\n", set_file);
+            ASSERT(false, "Failed to open reduce set output file %s\n", options.set_file);
             return false;
         }
     }
@@ -1083,7 +1274,7 @@ main(int argc, char *argv[])
     }
     hashtable_init_ex(&module_htable, MODULE_HASH_TABLE_BITS, HASH_STRING,
                       true /* strdup */, false /* !synch */,
-                      bb_table_delete /* free */,
+                      module_table_delete /* free */,
                       NULL /* hash */, NULL /* cmp */);
     hashtable_init_ex(&line_htable, LINE_HASH_TABLE_BITS, HASH_STRING,
                       true /* strdup */, false /* !synch */,
@@ -1096,9 +1287,9 @@ main(int argc, char *argv[])
         return 1;
     }
 
-    PRINT(1, "Reading debug info...\n");
-    if (!read_debug_info()) {
-        ASSERT(false, "Failed to read debug info\n");
+    PRINT(1, "Enumerating line info...\n");
+    if (!enumerate_line_info()) {
+        ASSERT(false, "Failed to enumerate line info\n");
         return 1;
     }
 
