@@ -151,6 +151,10 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
+static uint wordFlushes = 0;
+static uint segmentFlushes = 0;
+static uint regionFlushes = 0;
+
 /**** Private Function Declarations ****/
 
 #if !(defined (WINDOWS) && defined (X64))
@@ -946,6 +950,18 @@ annot_unmanage_code_area(app_pc start, size_t len)
 }
 
 static void
+report(uint count, const char *label)
+{
+    uint i = 1, log = count / 10;
+    while (log > 0) {
+        log /= 10;
+        i *= 10;
+    }
+    if (count == i)
+        dr_printf("%s: %d\n", label, count);
+}
+
+static void
 annot_flush_fragments(app_pc start, size_t len)
 {
     dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
@@ -963,6 +979,15 @@ annot_flush_fragments(app_pc start, size_t len)
                                     false/*don't force synchall*/ _IF_DGCDIAG(NULL));
 
     vm_area_isolate_region(dcontext, start, start+len);
+
+    TABLE_RWLOCK(handlers, write, lock);
+    if (len <= 4)
+        report(++wordFlushes, "Word flushes");
+    else if (len <= 0x100)
+        report(++segmentFlushes, "Segment flushes");
+    else
+        report(++regionFlushes, "Region flushes");
+    TABLE_RWLOCK(handlers, write, unlock);
 
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
 }
