@@ -55,6 +55,12 @@
 # endif
 #endif
 
+#ifdef __cplusplus
+# define EXTERN extern "C"
+#else
+# define EXTERN extern
+#endif
+
 #ifdef _MSC_VER /* Microsoft Visual Studio */
 # define PASTE1(x, y) x##y
 # define PASTE(x, y) PASTE1(x, y)
@@ -110,11 +116,6 @@ do { \
  * (jmp +6) to facilitate an optimized detection algorithm in the DR interpreter. The
  * target of this jump is always the following jump, i.e. (mov=5 + pop/nop=1) => 6.
  */
-#  ifdef __cplusplus
-#   define EXTERN extern "C"
-#  else
-#   define EXTERN extern
-#  endif
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
         EXTERN const char *annotation##_label =
             "dynamorio-annotation:"#return_type":"#annotation;
@@ -211,7 +212,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
+    EXTERN const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \

@@ -455,7 +455,7 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
         ASSIGN_INIT_READWRITE_LOCK_FREE((v)->lock, lockname); \
     } while (0);
 
-#define APP_MANAGED_VMAREA_SIZE 256
+#define APP_MANAGED_VMAREA_SIZE PAGE_SIZE
 
 /* forward declarations */
 static void
@@ -6085,6 +6085,12 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "WARNING: "PFX"-"PFX" is writable, NOT adding to executable list\n",
             base, base+size);
+        LOG(THREAD, LOG_VMAREAS, 1,
+            "WARNING: "PFX"-"PFX" is writable, NOT adding to executable list\n",
+            base, base+size);
+#ifdef DEBUG
+        dump_mcontext_callstack(dcontext);
+#endif
 
 #ifdef PROGRAM_SHEPHERDING
         if (DYNAMO_OPTION(executable_if_x)) {
@@ -9390,20 +9396,17 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                     data->areas.buf[i].custom.frags = NULL;
                     STATS_INC(num_shared_flush_regions);
                 }
-                //if ((data->areas.buf[i].end - data->areas.buf[i].start) > APP_MANAGED_VMAREA_SIZE ||
-                //    !TEST(VM_APP_MANAGED, data->areas.buf[i].vm_flags)) {
-                    /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
-                     * areas down in vector!
-                     */
-                    LOG(thread_log, LOG_VMAREAS, 3, "Before removing vm area:\n");
-                    DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
-                    LOG(thread_log, LOG_VMAREAS, 2, "Removing shared vm area "PFX"-"PFX"\n",
-                        data->areas.buf[i].start, data->areas.buf[i].end);
-                    remove_vm_area(&data->areas, data->areas.buf[i].start,
-                                   data->areas.buf[i].end, false);
-                    LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
-                    DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
-                //}
+                /* ASSUMPTION: remove_vm_area, given exact bounds, simply shifts later
+                 * areas down in vector!
+                 */
+                LOG(thread_log, LOG_VMAREAS, 3, "Before removing vm area:\n");
+                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
+                LOG(thread_log, LOG_VMAREAS, 2, "Removing shared vm area "PFX"-"PFX"\n",
+                    data->areas.buf[i].start, data->areas.buf[i].end);
+                remove_vm_area(&data->areas, data->areas.buf[i].start,
+                               data->areas.buf[i].end, false);
+                LOG(thread_log, LOG_VMAREAS, 3, "After removing vm area:\n");
+                DOLOG(3, LOG_VMAREAS, { print_vm_areas(&data->areas, thread_log); });
             }
         }
     }
