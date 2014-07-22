@@ -49,6 +49,7 @@
 #include "link.h"
 #include "disassemble.h"
 #include "fcache.h"
+#include "hashtable.h"
 #include "hotpatch.h"
 #include "moduledb.h"
 #include "module_shared.h"
@@ -457,6 +458,18 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
 
 #define APP_MANAGED_VMAREA_SIZE PAGE_SIZE
 
+typedef struct _direct_cti_translated_target_t {
+    cache_pc translated_target_pc;
+    struct _direct_cti_translated_target_t *next;
+} direct_cti_translated_target_t;
+
+typedef struct _direct_cti_translations_t {
+    app_pc cti_address_pc;
+    direct_cti_translated_target_t *target_list;
+} direct_cti_translations_t;
+
+generic_table_t *direct_cti_translation_table;
+
 /* forward declarations */
 static void
 vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v);
@@ -496,6 +509,9 @@ mark_unload_future_added(app_pc module_base, size_t size);
 static void
 vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                              vm_area_t *area, bool in_place);
+
+static void
+free_direct_cti_translations(void *translations);
 
 #ifdef SIMULATE_ATTACK
 /* synch simulate_at string parsing */
@@ -1640,6 +1656,13 @@ vm_areas_init()
     coarse_to_delete = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, coarse_info_t *,
                                        ACCT_VMAREAS, PROTECTED);
     *coarse_to_delete = NULL;
+
+    direct_cti_translation_table =
+        generic_hash_create(GLOBAL_DCONTEXT, 9, 80,
+                            HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                            HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
+                            free_direct_cti_translations
+                            _IF_DEBUG("Direct CTI translation table"));
 
     if (DYNAMO_OPTION(unloaded_target_exception)) {
         last_deallocated = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, last_deallocated_t,
@@ -8818,6 +8841,9 @@ vm_area_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     bool multi = FRAG_MULTI(f);
     bool lock = writelock_if_not_already(vector);
 
+    generic_hash_remove(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                        (ptr_uint_t) f->tag);
+
     if (!multi) {
         LOG(THREAD, LOG_VMAREAS, 4,
             "vm_area_remove_fragment: F%d tag="PFX"\n", f->id, f->tag);
@@ -10350,6 +10376,21 @@ vm_area_coarse_units_freeze(bool in_place)
         read_unlock(hotp_get_lock());
 #endif
     release_recursive_lock(&change_linking_lock);
+}
+
+static void
+free_direct_cti_translations(void *p)
+{
+    direct_cti_translations_t *translations = (direct_cti_translations_t *) p;
+    direct_cti_translated_target_t *target, *next_target = translations->target_list;
+    while (next_target != NULL) {
+        target = next_target;
+        next_target = next_target->next;
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, target, direct_cti_translated_target_t,
+                       ACCT_VMAREAS, UNPROTECTED);
+    }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, translations, direct_cti_translations_t,
+                   ACCT_VMAREAS, UNPROTECTED);
 }
 
 #if 0 /* not used */
