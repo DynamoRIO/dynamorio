@@ -60,6 +60,7 @@ static void test_demangle(void);
 #ifdef WINDOWS
 static void lookup_overloads(const char *exe_path);
 static void lookup_templates(const char *exe_path);
+static void lookup_type_by_name(const char *exe_path);
 #endif
 
 #ifdef WINDOWS
@@ -328,6 +329,8 @@ lookup_exe_syms(void)
     if (TEST(DRSYM_PDB, debug_kind)) { /* else NYI */
         lookup_overloads(exe_path);
         lookup_templates(exe_path);
+        /* Test drsym_get_type_by_name function */
+        lookup_type_by_name(exe_path);
     }
 #endif
 
@@ -498,6 +501,20 @@ lookup_templates(const char *exe_path)
     r = drsym_enumerate_symbols_ex(exe_path, search_ex_templates_cb, sizeof(drsym_info_t),
                                    NULL, DRSYM_DEMANGLE|DRSYM_DEMANGLE_PDB_TEMPLATES);
     ASSERT(r == DRSYM_SUCCESS);
+}
+
+/* This routine assumes it's called only at init time. */
+static void
+lookup_type_by_name(const char *exe_path)
+{
+    drsym_type_t *type;
+    drsym_error_t r;
+    static char buf[4096];
+    /* It should successfully return valid type info */
+    r = drsym_get_type_by_name(exe_path, "`anonymous-namespace'::HasFields",
+                               buf, BUFFER_SIZE_BYTES(buf), &type);
+    ASSERT(r == DRSYM_SUCCESS);
+    dr_fprintf(STDERR, "drsym_get_type_by_name successfully found HasFields type\n");
 }
 #endif /* WINDOWS */
 
