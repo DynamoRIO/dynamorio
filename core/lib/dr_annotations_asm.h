@@ -37,6 +37,8 @@
  * overview, see the wiki page http://code.google.com/p/dynamorio/wiki/Annotations.
  */
 
+#pragma GCC system_header
+
 #include <stddef.h>
 #ifdef _MSC_VER
 # include <intrin.h>
@@ -57,8 +59,10 @@
 
 #ifdef __cplusplus
 # define EXTERN extern "C"
+# define EXTERN_C extern "C"
 #else
 # define EXTERN extern
+# define EXTERN_C
 #endif
 
 #ifdef _MSC_VER /* Microsoft Visual Studio */
@@ -212,7 +216,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    EXTERN const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
+    EXTERN_C const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \

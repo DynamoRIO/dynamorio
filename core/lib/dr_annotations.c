@@ -44,4 +44,5 @@ DR_DEFINE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
                      (void *start, size_t len), )
 
 DR_DEFINE_ANNOTATION(void, dynamorio_annotate_flush_fragments,
-                     (void *start, size_t len), )
+                     (void *start, size_t len, char is_direct_cti_target), )
+

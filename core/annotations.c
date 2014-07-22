@@ -151,6 +151,7 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
+static uint ctiTargetFlushes = 0;
 static uint wordFlushes = 0;
 static uint segmentFlushes = 0;
 static uint regionFlushes = 0;
@@ -195,7 +196,7 @@ static void
 annot_unmanage_code_area(app_pc start, size_t len);
 
 static void
-annot_flush_fragments(app_pc start, size_t len);
+annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target);
 
 static const char *
 heap_strcpy(const char *src);
@@ -252,7 +253,7 @@ annot_init()
 
         dr_annot_register_call(dr_internal_client_id,
                                DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
-                               (void *) annot_flush_fragments, false, 2
+                               (void *) annot_flush_fragments, false, 3
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
     }
 
@@ -662,7 +663,7 @@ lookup_valgrind_request(ptr_uint_t request)
 static ptr_uint_t
 valgrind_discard_translations(vg_client_request_t *request)
 {
-    annot_flush_fragments((app_pc) request->args[0], request->args[1]);
+    annot_flush_fragments((app_pc) request->args[0], request->args[1], false);
     return 0;
 }
 #endif
@@ -962,7 +963,7 @@ report(uint count, const char *label)
 }
 
 static void
-annot_flush_fragments(app_pc start, size_t len)
+annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 {
     dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
 
@@ -981,12 +982,21 @@ annot_flush_fragments(app_pc start, size_t len)
     vm_area_isolate_region(dcontext, start, start+len);
 
     TABLE_RWLOCK(handlers, write, lock);
-    if (len <= 4)
-        report(++wordFlushes, "Word flushes");
-    else if (len <= 0x100)
-        report(++segmentFlushes, "Segment flushes");
-    else
-        report(++regionFlushes, "Region flushes");
+    if (len <= 4) {
+        if (is_direct_cti_target)
+            report(++ctiTargetFlushes, " > CTI target flushes");
+        else
+            report(++wordFlushes, " > Word flushes");
+    } else {
+        if (is_direct_cti_target)
+            dr_printf("Error! Jump target (%d) flush of 0x%x bytes!\n",
+                is_direct_cti_target, len);
+
+        if (len <= 0x100)
+            report(++segmentFlushes, " > Segment flushes");
+        else
+            report(++regionFlushes, " > Region flushes");
+    }
     TABLE_RWLOCK(handlers, write, unlock);
 
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);

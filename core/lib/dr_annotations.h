@@ -35,6 +35,8 @@
 
 #include "dr_annotations_asm.h"
 
+#pragma GCC system_header
+
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()
 
@@ -47,8 +49,8 @@
 #define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA(start, len) \
     DR_ANNOTATION(dynamorio_annotate_unmanage_code_area, start, len)
 
-#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS(start, len) \
-    DR_ANNOTATION(dynamorio_annotate_flush_fragments, start, len)
+#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS(start, len, is_direct_cti_target) \
+    DR_ANNOTATION(dynamorio_annotate_flush_fragments, start, len, is_direct_cti_target)
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,7 +67,7 @@ DR_DECLARE_ANNOTATION(void, dynamorio_annotate_unmanage_code_area,
                       (void *start, size_t len));
 
 DR_DECLARE_ANNOTATION(void, dynamorio_annotate_flush_fragments,
-                      (void *start, size_t len));
+                      (void *start, size_t len, char is_direct_cti_target));
 
 #ifdef __cplusplus
 }
