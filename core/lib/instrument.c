@@ -6010,6 +6010,7 @@ dr_delete_fragment(void *drcontext, void *tag)
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
         client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t,
                                                     ACCT_CLIENT, UNPROTECTED);
+        // TODO: (cti registration) this can remove one but not all frags @ `tag`
         client_todo_list_t * iter = dcontext->client_data->to_do;
         todo->next = NULL;
         todo->ilist = NULL;

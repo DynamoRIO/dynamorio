@@ -1852,6 +1852,7 @@ vm_areas_exit()
 #endif
     vmvector_delete_vector(GLOBAL_DCONTEXT, IAT_areas);
     IAT_areas = NULL;
+    generic_hash_destroy(GLOBAL_DCONTEXT, direct_cti_translation_table);
     return 0;
 }
 
@@ -8866,8 +8867,10 @@ vm_area_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     bool multi = FRAG_MULTI(f);
     bool lock = writelock_if_not_already(vector);
 
+    TABLE_RWLOCK(direct_cti_translation_table, write, lock);
     generic_hash_remove(GLOBAL_DCONTEXT, direct_cti_translation_table,
                         (ptr_uint_t) f->tag);
+    TABLE_RWLOCK(direct_cti_translation_table, write, unlock);
 
     if (!multi) {
         LOG(THREAD, LOG_VMAREAS, 4,
@@ -10407,15 +10410,16 @@ void
 add_direct_cti_translation(app_pc tag, app_pc target_operand_pc,
                            cache_pc translated_operand_pc)
 {
-    direct_cti_fragment_t *fragment =
-        generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
-                            (ptr_uint_t) tag);
-    direct_cti_translations_t *translations =
-        generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
-                            (ptr_uint_t) target_operand_pc);
-    direct_cti_translated_operand_t *operand =
-        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_translated_operand_t,
-                        ACCT_VMAREAS, UNPROTECTED);
+    direct_cti_fragment_t *fragment;
+    direct_cti_translations_t *translations;
+    direct_cti_translated_operand_t *operand;
+    TABLE_RWLOCK(direct_cti_translation_table, write, lock);
+    fragment = generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                                   (ptr_uint_t) tag);
+    translations = generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                                       (ptr_uint_t) target_operand_pc);
+    operand = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_translated_operand_t,
+                              ACCT_VMAREAS, UNPROTECTED);
     if (fragment == NULL) {
         fragment = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_fragment_t,
                                    ACCT_VMAREAS, UNPROTECTED);
@@ -10435,6 +10439,17 @@ add_direct_cti_translation(app_pc tag, app_pc target_operand_pc,
         generic_hash_add(GLOBAL_DCONTEXT, direct_cti_translation_table,
                          (ptr_uint_t) target_operand_pc, translations);
     }
+    TABLE_RWLOCK(direct_cti_translation_table, write, unlock);
+}
+
+void
+set_direct_cti_translated_pc(app_pc target_operand_pc, cache_pc translated_operand_pc)
+{
+    direct_cti_translations_t *translations;
+    TABLE_RWLOCK(direct_cti_translation_table, write, lock);
+    translations = generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                                       (ptr_uint_t) target_operand_pc);
+    ASSERT(translations != NULL);
     operand->translated_operand_pc = translated_operand_pc;
     operand->next_translated_operand = translations->target_list;
     translations->target_list = operand->next_translated_operand;

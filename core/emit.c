@@ -190,7 +190,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     linkstub_t *l;
     cache_pc pc;
     instr_t *inst;
-    app_pc target;
+    app_pc target, direct_cti_pc;
     DEBUG_DECLARE(instr_t *prev_cti = NULL;)
 
     pc = FCACHE_ENTRY_PC(f);
@@ -199,6 +199,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     frag_offs_at_end = linkstub_frag_offs_at_end(f->flags, num_direct_stubs,
                                                  num_indirect_stubs);
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
+        direct_cti_pc = NULL;
         if (instr_is_exit_cti(inst)) {
             /* l is currently zeroed out but otherwise uninitialized
              * stub starts out as unlinked and never-been-linked
@@ -295,6 +296,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                     ASSERT(!LINKSTUB_CBR_FALLTHROUGH(l->flags));
                     ASSERT(!LINKSTUB_INDIRECT(l->flags));
                     dl->target_tag = target;
+                    direct_cti_pc = pc;
                 }
             }
 
@@ -373,6 +375,20 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             if (emit) {
                 pc = instr_encode(dcontext, inst, pc);
                 ASSERT(pc != NULL);
+                if (direct_cti_pc != NULL) {
+                    app_pc target_operand_app_pc = ;
+                        exit_cti_disp_pc(instr_get_translation(instr));
+                    app_pc target_operand_cache_pc = ;
+                        exit_cti_disp_pc(direct_cti_pc);
+                    add_direct_cti_translation(f->tag, target_operand_app_pc,
+                                               target_operand_cache_pc);
+                    //app_pc tag, app_pc target_operand_pc,
+                    //       cache_pc translated_operand_pc)
+                    // pc: cache_pc of the exit cti
+                    // instr->translation: app_pc of the exit cti
+                    // f->tag: fragment tag
+                    // cf: emit_utils.c:exit_cti_disp_pc(branch_pc)
+                }
             } else {
                 pc += instr_length(dcontext, inst);
             }

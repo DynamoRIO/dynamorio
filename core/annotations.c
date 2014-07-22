@@ -981,7 +981,7 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 
     vm_area_isolate_region(dcontext, start, start+len);
 
-    TABLE_RWLOCK(handlers, write, lock);
+    //TABLE_RWLOCK(handlers, write, lock);
     if (len <= 4) {
         if (is_direct_cti_target)
             report(++ctiTargetFlushes, " > CTI target flushes");
@@ -997,7 +997,7 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
         else
             report(++regionFlushes, " > Region flushes");
     }
-    TABLE_RWLOCK(handlers, write, unlock);
+    //TABLE_RWLOCK(handlers, write, unlock);
 
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
 }
