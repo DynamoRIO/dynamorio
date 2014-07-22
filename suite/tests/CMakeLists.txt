@@ -45,6 +45,9 @@
 # * We'll use ctest -S to build each target build config and run tests for each,
 #   and optionally submit to dashboard.  Use w/o submit as "make runregression".
 
+# Cmake version should be >= 2.6.4 b/c we use parentheses in conditionals.
+cmake_minimum_required(VERSION 2.6.4)
+
 option(TEST_LONG "run long set of tests")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -235,6 +238,19 @@ if (WIN32)
   find_program(GCC gcc.exe DOC "path to gcc.exe")
   if (NOT GCC)
     message(STATUS "gcc not found: some Windows tests will be disabled")
+  else (NOT GCC)
+    # check gcc target architecture
+    execute_process(COMMAND gcc.exe -dumpmachine
+      RESULT_VARIABLE cmd_result
+      ERROR_VARIABLE cmd_err
+      OUTPUT_VARIABLE cmd_out)
+    if (cmd_out MATCHES "x86_64")
+      set(GCC_IS64 ON)
+    endif ()
+    # check cygwin gcc
+    if (cmd_out MATCHES "cygwin")
+      set(GCC_IS_CYGWIN ON)
+    endif()
   endif (NOT GCC)
 else (WIN32)
   # i#215: if chcon exists then we'll mark tests w/ text relocations to
@@ -863,7 +879,7 @@ endfunction (use_DynamoRIO_test_annotations target target_srcs)
 set(PCACHE_DIR "${PROJECT_BINARY_DIR}/pcache")
 set(PCACHE_SHARED_DIR "${PROJECT_BINARY_DIR}/pcache/shared")
 
-function(template2expect outexpect template runops)
+function(template2expect outexpect template runops, key)
   # We used to use a custom perl script to match defines and runtime
   # options but we've switched to cpp.  We convert -foo to -Dfoo and
   # -foo value to -Dfoo___value.
@@ -908,6 +924,10 @@ function(template2expect outexpect template runops)
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN7")
   elseif ("${CMAKE_SYSTEM_VERSION}" STRLESS "6.3")
     set(rundefs "${rundefs} -DRUNREGRESSION_WIN8")
+  endif ()
+  if (${key}_is_cygwin)
+    # i#1478 option used to avoid cygwin messes up output issue
+    set(rundefs "${rundefs} -DCYGWIN")
   endif ()
 
   string(STRIP "${rundefs}" rundefs)
@@ -1233,7 +1253,8 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     #   but while that might be useful it could also be confusing.
     template2expect(expect
       ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
-      ${runops})
+      ${runops}
+      ${key})
     # add dependence so cmake will reconfigure if file changes
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.template
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
@@ -1244,7 +1265,8 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     # regular templates where we want a literal match.
     template2expect(expect
       ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
-      ${runops})
+      ${runops}
+      ${key})
     # add dependence so cmake will reconfigure if file changes
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.templatex
       ${CMAKE_CURRENT_BINARY_DIR}/ignoreme_for_dep)
@@ -1565,11 +1587,12 @@ if (CLIENT_INTERFACE)
   use_DynamoRIO_extension(client.drsyms-test.dll drsyms)
   use_DynamoRIO_extension(client.drsyms-test.dll drwrap)  # Makes testing easy
 
-  if (WIN32 AND GCC AND NOT X64)
+  # We check these two statements here b/c not all gcc compilers support
+  # cross - architecture compilation (e.g. perl mingw x64 doesn't support
+  # x32 app compilation).
+  if (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
     # test drsyms dwarf-on-windows capabilities.
     # cmake doesn't support a new compiler so we do a simple build here.
-    # we disable this for X64 b/c there is no 64-bit Cygwin and 64-bit MinGW
-    # is in beta.
     tobuild_gcc(client.drsyms-testgcc.exe
       client-interface/drsyms-test.cpp client.drsyms-test "")
     tobuild_gcc(client.drsyms-testgcc.appdll.dll
@@ -1579,7 +1602,10 @@ if (CLIENT_INTERFACE)
       client.drsyms-test.dll client-interface/drsyms-test.cpp "" "-stack_size 36K"
       "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/client.drsyms-testgcc.appdll.dll")
     set(client.drsyms-testgcc_expectbase "drsyms-testgcc")
-  endif (WIN32 AND GCC AND NOT X64)
+    if (GCC_IS_CYGWIN)
+      set(client.drsyms-testgcc_is_cygwin ON)
+    endif()
+  endif (WIN32 AND GCC AND (GCC_IS64 AND X64) OR (NOT GCC_IS64 AND NOT X64))
 
   tobuild_ci(client.drutil-test client-interface/drutil-test.c "" "" "")
   use_DynamoRIO_extension(client.drutil-test.dll drutil)
