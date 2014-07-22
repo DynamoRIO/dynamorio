@@ -954,7 +954,8 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                               bool trace_sysenter_exit)
 {
     uint result = 0;
-    if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
+    if (!is_app_managed_code(to_tag) &&
+        should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
                                              trace_sysenter_exit)) {
         result |= TRACE_HEAD_YES;
         ASSERT(!have_link_lock || self_owns_recursive_lock(&change_linking_lock));
@@ -1528,7 +1529,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         }
     }
     /* find shared trace head fragment, if any */
-    if (DYNAMO_OPTION(shared_bbs)) {
+    if (DYNAMO_OPTION(shared_bbs) && !is_app_managed_code(tag)) {
         trace_head_f =
             fragment_lookup_fine_and_coarse_sharing(dcontext, tag, &wrapper,
                                                     NULL, FRAG_SHARED);

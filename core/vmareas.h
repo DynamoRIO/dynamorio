@@ -263,6 +263,10 @@ vm_area_coarse_units_reset_free(void);
 void
 vm_area_coarse_units_freeze(bool in_place);
 
+void
+add_direct_cti_translation(app_pc tag, app_pc target_operand_pc,
+                           cache_pc translated_operand_pc);
+
 /* print list of all currently allowed executable areas */
 void
 print_executable_areas(file_t outf);
@@ -364,6 +368,9 @@ is_in_futureexec_area(app_pc addr);
  */
 bool
 is_valid_address(app_pc addr);
+
+bool
+is_app_managed_code(app_pc addr);
 
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas.

@@ -458,15 +458,27 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
 
 #define APP_MANAGED_VMAREA_SIZE PAGE_SIZE
 
-typedef struct _direct_cti_translated_target_t {
-    cache_pc translated_target_pc;
-    struct _direct_cti_translated_target_t *next;
-} direct_cti_translated_target_t;
+typedef enum _direct_cti_struct_type_t {
+    DIRECT_CTI_TRANSLATION,
+    DIRECT_CTI_FRAGMENT
+} direct_cti_struct_type_t;
+
+typedef struct _direct_cti_translated_operand_t {
+    cache_pc translated_operand_pc;
+    struct _direct_cti_translated_operand_t *next_translated_operand;
+} direct_cti_translated_operand_t;
 
 typedef struct _direct_cti_translations_t {
+    direct_cti_struct_type_t type;
     app_pc cti_address_pc;
-    direct_cti_translated_target_t *target_list;
+    direct_cti_translated_operand_t *target_list;
+    struct _direct_cti_translations_t *next_in_fragment;
 } direct_cti_translations_t;
+
+typedef struct _direct_cti_fragment_t {
+    direct_cti_struct_type_t type;
+    direct_cti_translations_t *translation_list;
+} direct_cti_fragment_t;
 
 generic_table_t *direct_cti_translation_table;
 
@@ -3499,6 +3511,16 @@ is_valid_address(app_pc addr)
 {
     ASSERT_NOT_IMPLEMENTED(false && "is_valid_address not implemented");
     return false;
+}
+
+bool
+is_app_managed_code(app_pc addr)
+{
+    uint flags;
+    if (get_executable_area_vm_flags(addr, &flags))
+        return TEST(VM_APP_MANAGED, flags);
+    else
+        return false;
 }
 
 /* Due to circular dependencies bet vmareas and global heap, we cannot
@@ -8294,6 +8316,9 @@ vm_area_add_fragment(dcontext_t *dcontext, fragment_t *f, void *vmlist)
 
     LOG(THREAD, LOG_VMAREAS, 4, "vm_area_add_fragment for F%d("PFX")\n", f->id, f->tag);
 
+    ASSERT(!TESTANY(FRAG_IS_TRACE|FRAG_IS_TRACE_HEAD, f->flags) ||
+           !is_app_managed_code(f->tag));
+
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         /* We went ahead and built up vmlist since we might decide later to not
          * make a fragment coarse-grain.  If it is emitted as coarse-grain,
@@ -10378,19 +10403,72 @@ vm_area_coarse_units_freeze(bool in_place)
     release_recursive_lock(&change_linking_lock);
 }
 
+void
+add_direct_cti_translation(app_pc tag, app_pc target_operand_pc,
+                           cache_pc translated_operand_pc)
+{
+    direct_cti_fragment_t *fragment =
+        generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                            (ptr_uint_t) tag);
+    direct_cti_translations_t *translations =
+        generic_hash_lookup(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                            (ptr_uint_t) target_operand_pc);
+    direct_cti_translated_operand_t *operand =
+        HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_translated_operand_t,
+                        ACCT_VMAREAS, UNPROTECTED);
+    if (fragment == NULL) {
+        fragment = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_fragment_t,
+                                   ACCT_VMAREAS, UNPROTECTED);
+        fragment->type = DIRECT_CTI_FRAGMENT;
+        fragment->translation_list = NULL;
+        generic_hash_add(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                         (ptr_uint_t) tag, fragment);
+    }
+    if (translations == NULL) {
+        translations = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, direct_cti_translations_t,
+                                       ACCT_VMAREAS, UNPROTECTED);
+        translations->type = DIRECT_CTI_TRANSLATION;
+        translations->cti_address_pc = target_operand_pc;
+        translations->target_list = NULL;
+        translations->next_in_fragment = fragment->translation_list;
+        fragment->translation_list = translations;
+        generic_hash_add(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                         (ptr_uint_t) target_operand_pc, translations);
+    }
+    operand->translated_operand_pc = translated_operand_pc;
+    operand->next_translated_operand = translations->target_list;
+    translations->target_list = operand->next_translated_operand;
+}
+
 static void
 free_direct_cti_translations(void *p)
 {
-    direct_cti_translations_t *translations = (direct_cti_translations_t *) p;
-    direct_cti_translated_target_t *target, *next_target = translations->target_list;
-    while (next_target != NULL) {
-        target = next_target;
-        next_target = next_target->next;
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, target, direct_cti_translated_target_t,
+    if ((direct_cti_struct_type_t) p == DIRECT_CTI_FRAGMENT) {
+        direct_cti_fragment_t *fragment = (direct_cti_fragment_t *) p;
+        direct_cti_translations_t *translation;
+        direct_cti_translations_t *next_translation = fragment->translation_list;
+        ASSERT(fragment->type == DIRECT_CTI_FRAGMENT);
+        while (next_translation != NULL) {
+            translation = next_translation;
+            next_translation = translation->next_in_fragment;
+            generic_hash_remove(GLOBAL_DCONTEXT, direct_cti_translation_table,
+                (ptr_uint_t) translation);
+        }
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment, direct_cti_fragment_t,
+                       ACCT_VMAREAS, UNPROTECTED);
+    } else {
+        direct_cti_translations_t *translations = (direct_cti_translations_t *) p;
+        direct_cti_translated_operand_t *target, *next_target = translations->target_list;
+        ASSERT(translations->type == DIRECT_CTI_TRANSLATION);
+        while (next_target != NULL) {
+            target = next_target;
+            next_target = next_target->next_translated_operand;
+            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, target, direct_cti_translated_operand_t,
+                           ACCT_VMAREAS, UNPROTECTED);
+        }
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, translations, direct_cti_translations_t,
                        ACCT_VMAREAS, UNPROTECTED);
     }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, translations, direct_cti_translations_t,
-                   ACCT_VMAREAS, UNPROTECTED);
 }
 
 #if 0 /* not used */
