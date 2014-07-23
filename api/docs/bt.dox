@@ -436,6 +436,15 @@ instructions that deliberately fault, or that could fault by accessing
 application memory addresses, but only if the client handles all such
 faults.  See \ref sec_translation for more information on fault handling.
 
+Meta instructions are visible to client code, if using instr_get_next() and
+instrlist_first(). To traverse only application (non-meta) instructions, a
+client can use the following API functions instead:
+
+\code
+instr_get_next_app()
+instrlist_first_app()
+\endcode
+
 While DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
 
