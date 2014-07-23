@@ -1392,7 +1392,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
 }
 
 byte *
-absolute_cti_disp_pc(byte *pc)
+dbr_disp_pc(byte *pc)
 {
     byte byte0;
     if (pc == NULL)

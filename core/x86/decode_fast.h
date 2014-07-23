@@ -55,7 +55,7 @@ decode_sizeof(dcontext_t *dcontext, byte *pc, int *num_prefixes
               _IF_X64(uint *rip_rel_pos));
 
 byte *
-absolute_cti_disp_pc(byte *pc);
+dbr_disp_pc(byte *pc);
 
 DR_API
 /**

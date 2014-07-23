@@ -190,7 +190,7 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     linkstub_t *l;
     cache_pc pc;
     instr_t *inst;
-    app_pc target, direct_cti_pc;
+    app_pc target;
     DEBUG_DECLARE(instr_t *prev_cti = NULL;)
 
     pc = FCACHE_ENTRY_PC(f);
@@ -199,7 +199,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
     frag_offs_at_end = linkstub_frag_offs_at_end(f->flags, num_direct_stubs,
                                                  num_indirect_stubs);
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
-        direct_cti_pc = NULL;
         if (instr_is_exit_cti(inst)) {
             /* l is currently zeroed out but otherwise uninitialized
              * stub starts out as unlinked and never-been-linked
@@ -296,7 +295,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                     ASSERT(!LINKSTUB_CBR_FALLTHROUGH(l->flags));
                     ASSERT(!LINKSTUB_INDIRECT(l->flags));
                     dl->target_tag = target;
-                    direct_cti_pc = pc;
                 }
             }
 
@@ -375,20 +373,6 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
             if (emit) {
                 pc = instr_encode(dcontext, inst, pc);
                 ASSERT(pc != NULL);
-                if (direct_cti_pc != NULL) {
-                    app_pc target_operand_app_pc =
-                        absolute_cti_disp_pc((app_pc) instr_get_translation(inst));
-                    app_pc target_operand_cache_pc =
-                        exit_cti_disp_pc(direct_cti_pc);
-                    if (target_operand_app_pc == NULL) {
-                        LOG(THREAD, LOG_EMIT, 1,
-                            "patch-cti: failed to locate operand pc of opcode 0x%x\n",
-                            instr_get_opcode(inst));
-                    } else {
-                        add_direct_cti_translation(f, target_operand_app_pc,
-                                                   target_operand_cache_pc);
-                    }
-                }
             } else {
                 pc += instr_length(dcontext, inst);
             }

@@ -264,8 +264,8 @@ void
 vm_area_coarse_units_freeze(bool in_place);
 
 void
-add_direct_cti_translation(fragment_t *f, app_pc target_operand_pc,
-                           cache_pc translated_operand_pc);
+add_dbr_translation(fragment_t *f, app_pc target_operand_pc,
+                    cache_pc translated_operand_pc);
 
 void
 patch_cti_target(app_pc cti_target_operand_pc);
