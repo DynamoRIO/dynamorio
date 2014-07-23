@@ -376,18 +376,18 @@ set_linkstub_fields(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist,
                 pc = instr_encode(dcontext, inst, pc);
                 ASSERT(pc != NULL);
                 if (direct_cti_pc != NULL) {
-                    app_pc target_operand_app_pc = ;
-                        exit_cti_disp_pc(instr_get_translation(instr));
-                    app_pc target_operand_cache_pc = ;
+                    app_pc target_operand_app_pc =
+                        absolute_cti_disp_pc((app_pc) instr_get_translation(inst));
+                    app_pc target_operand_cache_pc =
                         exit_cti_disp_pc(direct_cti_pc);
-                    add_direct_cti_translation(f->tag, target_operand_app_pc,
-                                               target_operand_cache_pc);
-                    //app_pc tag, app_pc target_operand_pc,
-                    //       cache_pc translated_operand_pc)
-                    // pc: cache_pc of the exit cti
-                    // instr->translation: app_pc of the exit cti
-                    // f->tag: fragment tag
-                    // cf: emit_utils.c:exit_cti_disp_pc(branch_pc)
+                    if (target_operand_app_pc == NULL) {
+                        LOG(THREAD, LOG_EMIT, 1,
+                            "patch-cti: failed to locate operand pc of opcode 0x%x\n",
+                            instr_get_opcode(inst));
+                    } else {
+                        add_direct_cti_translation(f, target_operand_app_pc,
+                                                   target_operand_cache_pc);
+                    }
                 }
             } else {
                 pc += instr_length(dcontext, inst);

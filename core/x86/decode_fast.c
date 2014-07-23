@@ -1391,6 +1391,27 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     return (start_pc + sz);
 }
 
+byte *
+absolute_cti_disp_pc(byte *pc)
+{
+    byte byte0;
+    if (pc == NULL)
+        return NULL;
+
+    byte0 = *pc;
+
+    if (interesting[byte0] == 0) /* not a cti */
+        return NULL;
+
+    if (byte0 == 0xe8)  /* call */
+        return pc + 1;
+
+    if (byte0 == 0xe9)  /* jmp */
+        return pc + 1;
+
+    return NULL;
+}
+
 /* Returns a pointer to the pc of the next instruction
  * Returns NULL on decoding an invalid instruction.
  */

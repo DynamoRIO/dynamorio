@@ -975,6 +975,9 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
     if (!executable_vm_area_executed_from(start, start+len))
         return;
 
+    if (is_direct_cti_target)
+        patch_cti_target(start);
+
     flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
                                     false/*don't free futures*/, false/*exec valid*/,
                                     false/*don't force synchall*/ _IF_DGCDIAG(NULL));
