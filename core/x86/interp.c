@@ -226,7 +226,7 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
-    app_pc branch_pc;
+    app_pc cti_pc;
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -253,7 +253,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
-    bb->branch_pc = NULL;
+    bb->cti_pc = NULL;
     DODEBUG(bb->initialized = true;);
 }
 
@@ -3519,8 +3519,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
         else if (instr_is_cti(bb->instr) && !instr_is_call(bb->instr)) {
             total_branches++;
-            if (is_app_managed_code(bb->instr_start))
-                bb->branch_pc = bb->instr_start;
             if (total_branches >= BRANCH_LIMIT) {
                 /* set type of 1st exit cti for cbr (bb->exit_type is for fall-through) */
                 instr_exit_branch_set_type(bb->instr, instr_branch_type(bb->instr));
@@ -3541,6 +3539,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * dynamically handle the leaf functions here, which can change eip
              * and other state.  We'll need OP_getsec in decode_cti().
              */
+        }
         else if (instr_get_opcode(bb->instr) == OP_xend ||
                  instr_get_opcode(bb->instr) == OP_xabort) {
             /* XXX i#1314: support OP_xend failing and setting eip to the
@@ -3584,6 +3583,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     } /* end of while (true) */
     KSTOP(bb_decoding);
+
+    if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
+        is_app_managed_code(bb->instr_start))
+        bb->cti_pc = bb->instr_start;
 
 #ifdef DEBUG_MEMORY
     /* make sure anyone who destroyed also set to NULL */
@@ -4734,18 +4737,24 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
 
-    if (bb.branch_pc != NULL) {
+    if (bb.cti_pc != NULL) {
         linkstub_t *l = FRAGMENT_EXIT_STUBS(f);
-        /* only tracking one branch pc! */
-        if ((LINKSTUB_NEXT_EXIT(l) == NULL) && LINKSTUB_DIRECT(l->flags)) {
+        bool is_patchable;
+        byte single_byte_opcode = *bb.cti_pc;
+        if ((single_byte_opcode == 0xe8) || (single_byte_opcode == 0xe9))
+            is_patchable = true;
+        else
+            is_patchable = !LINKSTUB_FINAL(l) && LINKSTUB_FINAL(LINKSTUB_NEXT_EXIT(l)) &&
+                           LINKSTUB_DIRECT(l->flags); /* only tracking one branch pc! */
+        if (is_patchable) {
             app_pc target_operand_app_pc =
-                dbr_disp_pc(bb.branch_pc);
+                dbr_disp_pc(bb.cti_pc);
             app_pc target_operand_cache_pc =
                 exit_cti_disp_pc(EXIT_CTI_PC(f, l));
             if (target_operand_app_pc == NULL) {
                 LOG(THREAD, LOG_EMIT, 1,
                     "patch-cti: failed to locate operand pc of opcode 0x%x\n",
-                    *(byte *) bb.branch_pc);
+                    *(byte *) bb.cti_pc);
             } else {
                 add_dbr_translation(f, target_operand_app_pc, target_operand_cache_pc);
             }

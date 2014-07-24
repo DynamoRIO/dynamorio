@@ -8737,6 +8737,14 @@ remove_fraglist_entry(dcontext_t *dcontext, fragment_t *entry, vm_area_t *area)
     ASSERT(!TEST(VECTOR_SHARED, vector->flags) || !TEST(FRAG_WAS_DELETED, entry->flags));
     ASSERT(area_contains_frag_pc(area, entry));
 
+    // but what if only one `also` is being removed?
+    if ((area == NULL) || TEST(VM_APP_MANAGED, area->vm_flags)) {
+        TABLE_RWLOCK(dbr_translation_table, write, lock);
+        generic_hash_remove(GLOBAL_DCONTEXT, dbr_translation_table,
+                            (ptr_uint_t) entry->tag);
+        TABLE_RWLOCK(dbr_translation_table, write, unlock);
+    }
+
     prev = FRAG_PREV(entry);
     if (FRAG_NEXT(prev) == NULL || FRAG_NEXT(entry) == NULL) {
         /* need to know area */
@@ -8883,11 +8891,6 @@ vm_area_remove_fragment(dcontext_t *dcontext, fragment_t *f)
     vm_area_vector_t *vector = &(GET_DATA(dcontext, f->flags))->areas;
     bool multi = FRAG_MULTI(f);
     bool lock = writelock_if_not_already(vector);
-
-    TABLE_RWLOCK(dbr_translation_table, write, lock);
-    generic_hash_remove(GLOBAL_DCONTEXT, dbr_translation_table,
-                        (ptr_uint_t) f->tag);
-    TABLE_RWLOCK(dbr_translation_table, write, unlock);
 
     if (!multi) {
         LOG(THREAD, LOG_VMAREAS, 4,
@@ -10436,8 +10439,8 @@ add_dbr_translation(fragment_t *f, app_pc app_operand_pc,
         return;
 
     LOG(GLOBAL, LOG_VMAREAS, 1,
-        "patch-cti: add cache operand "PFX" for app operand "PFX" in tag "PFX"\n",
-        translated_operand_pc, app_operand_pc, f->tag);
+        "patch-cti: add cache operand "PFX" for app operand "PFX" in tag "PFX" (opcode 0x%x)\n",
+        translated_operand_pc, app_operand_pc, f->tag, *(app_operand_pc - 1));
 
     TABLE_RWLOCK(dbr_translation_table, write, lock);
 
@@ -10458,6 +10461,7 @@ add_dbr_translation(fragment_t *f, app_pc app_operand_pc,
         generic_hash_add(GLOBAL_DCONTEXT, dbr_translation_table,
                          (ptr_uint_t) app_operand_pc, operand);
     } else {
+        ASSERT(operand->type == DIRECT_CTI_OPERAND);
         translated_operand->next_translated_operand = operand->translations;
     }
     operand->translations = translated_operand;
@@ -10475,6 +10479,7 @@ add_dbr_translation(fragment_t *f, app_pc app_operand_pc,
         generic_hash_add(GLOBAL_DCONTEXT, dbr_translation_table,
                          (ptr_uint_t) f->tag, tag);
     } else {
+        ASSERT(tag->type == DIRECT_CTI_TAG);
         fragment->next_fragment_at_tag = tag->fragment_list;
     }
     tag->fragment_list = fragment;
@@ -10514,6 +10519,13 @@ patch_cti_target(app_pc cti_target_operand_pc)
                 translation->containing_fragment->tag->tag,
                 translation->containing_fragment->fragment->start_pc,
                 translation->translated_operand_pc);
+
+
+            // 1. unlink outgoing
+            // 2. find the linkstub
+            // 3. change the linkstub target
+            // 4. link outgoing
+
             translation = translation->next_translated_operand;
         }
     }
