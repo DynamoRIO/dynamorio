@@ -290,9 +290,10 @@ line_chunk_print(line_chunk_t *chunk, char *start)
                                   chunk->info.test[i]);
             }
         } else {
-            if (chunk->info.exec[i] != SOURCE_LINE_STATUS_NONE) {
+            if (chunk->info.exec[i] != (byte)SOURCE_LINE_STATUS_NONE) {
                 res = dr_snprintf(start, MAX_CHAR_PER_LINE, "DA:%u,%u\n", line_num,
-                                  chunk->info.exec[i] == SOURCE_LINE_STATUS_SKIP ? 0 : 1);
+                                  chunk->info.exec[i] ==
+                                  (byte)SOURCE_LINE_STATUS_SKIP ? 0 : 1);
             }
         }
         ASSERT(res < MAX_CHAR_PER_LINE && res != -1, "Error on printing\n");
@@ -422,7 +423,8 @@ line_table_add(line_table_t *line_table, uint line, byte status, const char *tes
                  * modules.
                  */
                 if (chunk->info.exec[line - chunk->first_num] != status &&
-                    chunk->info.exec[line - chunk->first_num] != SOURCE_LINE_STATUS_EXEC)
+                    chunk->info.exec[line - chunk->first_num] !=
+                    (byte)SOURCE_LINE_STATUS_EXEC)
                     chunk->info.exec[line - chunk->first_num]  = status;
             }
             return;
