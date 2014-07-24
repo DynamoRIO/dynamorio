@@ -1,0 +1,11 @@
+Name: LCOV - the LTP GCOV extension
+Short Name: lcov
+URL: http://ltp.sourceforge.net/coverage/lcov.php
+Version: 1.11
+License: GPL v2
+License file: COPYING
+
+Description:
+This directory contains a stock genhtml from lcov-1.11 with the following changes:
+
+- Replaced all tabs with spaces.
