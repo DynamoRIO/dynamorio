@@ -655,8 +655,10 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f);
 void
 fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f);
 
+#ifdef SELECTIVE_FLUSHING
 void
 add_patchable_fragment(fragment_t *f, app_pc app_operand_pc);
+#endif
 
 void
 remove_patchable_fragments(app_pc patched_operand_pc);

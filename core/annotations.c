@@ -151,10 +151,12 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
+#ifdef FLUSH_STATS
 static uint ctiTargetFlushes = 0;
 static uint wordFlushes = 0;
 static uint segmentFlushes = 0;
 static uint regionFlushes = 0;
+#endif
 
 /**** Private Function Declarations ****/
 
@@ -950,6 +952,7 @@ annot_unmanage_code_area(app_pc start, size_t len)
         start, start+len);
 }
 
+#ifdef FLUSH_STATS
 static void
 report(uint count, const char *label)
 {
@@ -961,6 +964,7 @@ report(uint count, const char *label)
     if (count == i)
         dr_printf("%s: %d\n", label, count);
 }
+#endif
 
 static void
 annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
@@ -975,8 +979,10 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
     if (!executable_vm_area_executed_from(start, start+len))
         return;
 
+#ifdef SELECTIVE_FLUSHING
     if (is_direct_cti_target)
         remove_patchable_fragments(start);
+#endif
 
     flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
                                     false/*don't free futures*/, false/*exec valid*/,
@@ -984,6 +990,7 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 
     vm_area_isolate_region(dcontext, start, start+len);
 
+#ifdef FLUSH_STATS
     //TABLE_RWLOCK(handlers, write, lock);
     if (len <= 4) {
         if (is_direct_cti_target)
@@ -1001,6 +1008,7 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
             report(++regionFlushes, " > Region flushes");
     }
     //TABLE_RWLOCK(handlers, write, unlock);
+#endif
 
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
 }

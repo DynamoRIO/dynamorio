@@ -138,12 +138,30 @@ typedef struct _dead_table_lists_t {
 
 static dead_table_lists_t *dead_lists;
 
+#ifdef SELECTIVE_FLUSHING
+typedef enum _app_managed_patchable_type_t {
+    APP_MANAGED_FRAGMENT,
+    APP_MANAGED_OPERAND,
+} app_managed_patchable_type_t;
+
+typedef struct app_managed_patchable_operand_t app_managed_patchable_operand_t;
+
 typedef struct _app_managed_patchable_fragment_t {
-    app_pc fragment_tag;
-    app_pc app_operand_pc;
+    app_managed_patchable_type_t type;
+    app_pc tag;
+    app_managed_patchable_operand_t *operand;
+    struct _app_managed_patchable_fragment_t *next_containing_fragment;
 } app_managed_patchable_fragment_t;
 
+struct app_managed_patchable_operand_t {
+    app_managed_patchable_type_t type;
+    app_pc pc;
+    uint ref_count;
+    app_managed_patchable_fragment_t *containing_fragment_list;
+};
+
 generic_table_t *app_managed_patch_table;
+#endif
 
 DECLARE_CXTSWPROT_VAR(static mutex_t dead_tables_lock, INIT_LOCK_FREE(dead_tables_lock));
 
@@ -249,6 +267,10 @@ static const fragment_t unlinked_fragment = { FAKE_TAG, };
 static uint fragment_heap_size(uint flags, int direct_exits, int indirect_exits);
 
 static void fragment_free_future(dcontext_t *dcontext, future_fragment_t *fut);
+
+#ifdef SELECTIVE_FLUSHING
+static void free_app_managed_patchable(void *p);
+#endif
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 static void
@@ -1440,12 +1462,14 @@ fragment_init()
 
     fragment_reset_init();
 
+#ifdef SELECTIVE_FLUSHING
     app_managed_patch_table =
         generic_hash_create(GLOBAL_DCONTEXT, 9, 80,
                             HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                             HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
-                            NULL /* entries are double-mapped, so free externally */
+                            free_app_managed_patchable
                             _IF_DEBUG("App-managed patch table"));
+#endif
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && DYNAMO_OPTION(shared_traces)) {
@@ -1711,7 +1735,9 @@ fragment_exit()
         DELETE_LOCK(shared_traces_lock);
     }
 #endif
+#ifdef SELECTIVE_FLUSHING
     generic_hash_destroy(GLOBAL_DCONTEXT, app_managed_patch_table);
+#endif
  cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -3321,21 +3347,20 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      */
     incoming_remove_fragment(dcontext, f);
 
+#ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code(f->tag)) {
         app_managed_patchable_fragment_t *patchable;
         TABLE_RWLOCK(app_managed_patch_table, write, lock);
         patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                                         (ptr_uint_t) f->tag);
         if (patchable != NULL) {
+            ASSERT(patchable->tag == f->tag);
             generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
                                 (ptr_uint_t) f->tag);
-            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                (ptr_uint_t) patchable->fragment_tag);
-            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, patchable, app_managed_patchable_fragment_t,
-                           ACCT_OTHER, UNPROTECTED);
         }
         TABLE_RWLOCK(app_managed_patch_table, write, unlock);
     }
+#endif
 
     if (TEST(FRAG_SHARED, f->flags)) {
         /* we shouldn't need to worry about someone else changing the
@@ -3891,30 +3916,70 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
            IF_CLIENT_INTERFACE(|| TEST(FRAG_TEMP_PRIVATE, f->flags)));
 }
 
+#ifdef SELECTIVE_FLUSHING
 void
 add_patchable_fragment(fragment_t *f, app_pc app_operand_pc)
 {
-    app_managed_patchable_fragment_t *patchable;
+    app_managed_patchable_fragment_t *fragment;
+    app_managed_patchable_operand_t *operand;
 
     if (!is_app_managed_code(f->tag))
         return;
 
-    LOG(GLOBAL, LOG_VMAREAS, 1, "patchable fragment: "PFX"\n", app_operand_pc);
+    LOG(GLOBAL, LOG_VMAREAS, 1, "patchable fragment: "PFX", operand at "PFX"\n",
+        f->tag, app_operand_pc);
 
     TABLE_RWLOCK(app_managed_patch_table, write, lock);
 
-    patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                    (ptr_uint_t) f->tag);
-    if (patchable == NULL) {
-        patchable = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, app_managed_patchable_fragment_t,
+    fragment = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                   (ptr_uint_t) f->tag);
+    if (fragment == NULL) {
+        fragment = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, app_managed_patchable_fragment_t,
                                    ACCT_VMAREAS, UNPROTECTED);
-        patchable->fragment_tag = f->tag;
-        patchable->app_operand_pc = app_operand_pc;
+        fragment->type = APP_MANAGED_FRAGMENT;
+        fragment->tag = f->tag;
+        fragment->next_containing_fragment = NULL;
+        DODEBUG({ fragment->operand = NULL; });
         generic_hash_add(GLOBAL_DCONTEXT, app_managed_patch_table,
-                         (ptr_uint_t) f->tag, patchable);
-        generic_hash_add(GLOBAL_DCONTEXT, app_managed_patch_table,
-                         (ptr_uint_t) app_operand_pc, patchable);
+                         (ptr_uint_t) f->tag, fragment);
     }
+
+    operand = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                  (ptr_uint_t) app_operand_pc);
+    DODEBUG({
+        if (fragment->operand != NULL)
+            ASSERT(fragment->operand == operand);
+    });
+    if (operand == NULL) {
+        ASSERT(fragment->operand == NULL);
+        operand = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, app_managed_patchable_operand_t,
+                                  ACCT_VMAREAS, UNPROTECTED);
+        operand->type = APP_MANAGED_OPERAND;
+        operand->pc = app_operand_pc;
+        operand->ref_count = 1;
+        operand->containing_fragment_list = fragment;
+        generic_hash_add(GLOBAL_DCONTEXT, app_managed_patch_table,
+                         (ptr_uint_t) app_operand_pc, operand);
+    } else {
+        app_managed_patchable_fragment_t *next;
+        bool has_fragment = false;
+        ASSERT(operand->type == APP_MANAGED_OPERAND);
+        ASSERT(operand->pc == app_operand_pc);
+        next = operand->containing_fragment_list;
+        while (next != NULL) {
+            if (next == fragment) {
+                has_fragment = true;
+                break;
+            }
+            next = next->next_containing_fragment;
+        }
+        if (!has_fragment) {
+            operand->ref_count++;
+            fragment->next_containing_fragment = operand->containing_fragment_list;
+            operand->containing_fragment_list = fragment;
+        }
+    }
+    fragment->operand = operand;
 
     TABLE_RWLOCK(app_managed_patch_table, write, unlock);
 }
@@ -3922,24 +3987,30 @@ add_patchable_fragment(fragment_t *f, app_pc app_operand_pc)
 void
 remove_patchable_fragments(app_pc patched_operand_pc)
 {
-    app_managed_patchable_fragment_t *patchable;
+    app_managed_patchable_fragment_t *fragment;
+    app_managed_patchable_operand_t *operand;
 
     TABLE_RWLOCK(app_managed_patch_table, read, lock);
 
     ASSERT(is_app_managed_code(patched_operand_pc));
 
-    patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                    (ptr_uint_t) patched_operand_pc);
-    if (patchable == NULL) {
+    operand = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                  (ptr_uint_t) patched_operand_pc);
+    if (operand == NULL) {
         LOG(GLOBAL, LOG_VMAREAS, 1,
             "patchable fragment: warning: operand "PFX" not registered for patching "
             "(opcode 0x%x)\n", patched_operand_pc, *(byte *) patched_operand_pc - 1);
     } else {
-        ASSERT(patched_operand_pc == patchable->app_operand_pc);
+        ASSERT(patched_operand_pc == operand->pc);
 
         LOG(GLOBAL, LOG_VMAREAS, 1,
-            "patchable fragment: flush all instances of fragment with tag "PFX"\n",
-            patchable->fragment_tag);
+            "patchable fragment: flush all fragments containing operand "PFX":\n",
+            patched_operand_pc);
+        fragment = operand->containing_fragment_list;
+        while (fragment != NULL) {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "\ttag "PFX":\n", fragment->tag);
+            fragment = fragment->next_containing_fragment;
+        }
 
         // steal from the flush code in fragment.c
         // for each thread having an instance:
@@ -3950,6 +4021,7 @@ remove_patchable_fragments(app_pc patched_operand_pc)
 
     TABLE_RWLOCK(app_managed_patch_table, read, unlock);
 }
+#endif
 
 /* Remove f from ftable, replacing it in the hashtable with new_f,
  * which has an identical tag.
@@ -4587,6 +4659,28 @@ fragment_lookup_private_future(dcontext_t *dcontext, app_pc tag)
 
 /* END FUTURE FRAGMENTS
  **********************************************************************/
+
+#ifdef SELECTIVE_FLUSHING
+static void
+free_app_managed_patchable(void *p)
+{
+    if (*(app_managed_patchable_type_t *)p == APP_MANAGED_FRAGMENT) {
+        app_managed_patchable_fragment_t *f = (app_managed_patchable_fragment_t *)p;
+        if (f->operand->ref_count > 1) {
+            f->operand->ref_count--;
+        } else {
+            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                (ptr_uint_t) f->operand->pc);
+        }
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, f, app_managed_patchable_fragment_t,
+                       ACCT_OTHER, UNPROTECTED);
+    } else {
+        ASSERT(*(app_managed_patchable_type_t *)p == APP_MANAGED_OPERAND);
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, app_managed_patchable_operand_t,
+                       ACCT_OTHER, UNPROTECTED);
+    }
+}
+#endif
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 /* FIXME: move to rct.c when we move the whole app_pc table there */

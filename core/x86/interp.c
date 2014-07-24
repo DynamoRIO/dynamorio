@@ -226,7 +226,9 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
+#ifdef SELECTIVE_FLUSHING
     app_pc cti_pc;
+#endif
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -253,7 +255,9 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+#ifdef SELECTIVE_FLUSHING
     bb->cti_pc = NULL;
+#endif
     DODEBUG(bb->initialized = true;);
 }
 
@@ -3584,9 +3588,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } /* end of while (true) */
     KSTOP(bb_decoding);
 
+#ifdef SELECTIVE_FLUSHING
     if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
         is_app_managed_code(bb->instr_start))
         bb->cti_pc = bb->instr_start;
+#endif
 
 #ifdef DEBUG_MEMORY
     /* make sure anyone who destroyed also set to NULL */
@@ -4737,6 +4743,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
 
+#ifdef SELECTIVE_FLUSHING
     if (bb.cti_pc != NULL) {
         app_pc target_operand_app_pc = direct_cti_disp_pc(bb.cti_pc);
         if (target_operand_app_pc == NULL) {
@@ -4747,6 +4754,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             add_patchable_fragment(f, target_operand_app_pc);
         }
     }
+#endif
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;

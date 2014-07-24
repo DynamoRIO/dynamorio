@@ -365,8 +365,10 @@ is_in_futureexec_area(app_pc addr);
 bool
 is_valid_address(app_pc addr);
 
+#ifdef SELECTIVE_FLUSHING
 bool
 is_app_managed_code(app_pc addr);
+#endif
 
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas.

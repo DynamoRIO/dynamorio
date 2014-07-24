@@ -58,7 +58,9 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
-#include "../vmareas.h" /* for is_app_managed_code() */
+#ifdef SELECTIVE_FLUSHING
+# include "../vmareas.h" /* for is_app_managed_code() */
+#endif
 #include "../annotations.h"
 #include "../translate.h"
 #ifdef UNIX
@@ -6484,8 +6486,10 @@ dr_mark_trace_head(void *drcontext, void *tag)
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_mark_trace_head: drcontext is invalid");
 
+#ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code((app_pc) tag))
         return false;
+#endif
 
     /* Required to make the future-fragment lookup and add atomic and for
      * mark_trace_head.  We have to grab before fragment_delete_mutex so
