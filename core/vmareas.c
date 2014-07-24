@@ -3479,17 +3479,15 @@ is_valid_address(app_pc addr)
     return false;
 }
 
-#ifdef SELECTIVE_FLUSHING
 bool
 is_app_managed_code(app_pc addr)
 {
-    uint flags;
-    if (get_executable_area_vm_flags(addr, &flags))
-        return TEST(VM_APP_MANAGED, flags);
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_APP_MANAGED, vm_flags);
     else
         return false;
 }
-#endif
 
 /* Due to circular dependencies bet vmareas and global heap, we cannot
  * incrementally keep dynamo_areas up to date.
