@@ -161,6 +161,12 @@ struct app_managed_patchable_operand_t {
 };
 
 generic_table_t *app_managed_patch_table;
+
+# ifdef DEBUG
+#  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
+# else
+#  define RELEASE_LOG(file, category, level, ...) dr_printf(__VA_ARGS__)
+# endif
 #endif
 
 DECLARE_CXTSWPROT_VAR(static mutex_t dead_tables_lock, INIT_LOCK_FREE(dead_tables_lock));
@@ -3926,7 +3932,7 @@ add_patchable_fragment(fragment_t *f, app_pc app_operand_pc)
     if (!is_app_managed_code(f->tag))
         return;
 
-    LOG(GLOBAL, LOG_VMAREAS, 1, "patchable fragment: "PFX", operand at "PFX"\n",
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment: add tag "PFX", operand at "PFX"\n",
         f->tag, app_operand_pc);
 
     TABLE_RWLOCK(app_managed_patch_table, write, lock);
@@ -3997,18 +4003,18 @@ remove_patchable_fragments(app_pc patched_operand_pc)
     operand = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                                   (ptr_uint_t) patched_operand_pc);
     if (operand == NULL) {
-        LOG(GLOBAL, LOG_VMAREAS, 1,
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
             "patchable fragment: warning: operand "PFX" not registered for patching "
-            "(opcode 0x%x)\n", patched_operand_pc, *(byte *) patched_operand_pc - 1);
+            "(opcode 0x%x)\n", patched_operand_pc, *((byte *) patched_operand_pc - 1));
     } else {
         ASSERT(patched_operand_pc == operand->pc);
 
-        LOG(GLOBAL, LOG_VMAREAS, 1,
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
             "patchable fragment: flush all fragments containing operand "PFX":\n",
             patched_operand_pc);
         fragment = operand->containing_fragment_list;
         while (fragment != NULL) {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "\ttag "PFX":\n", fragment->tag);
+            RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "\ttag "PFX":\n", fragment->tag);
             fragment = fragment->next_containing_fragment;
         }
 

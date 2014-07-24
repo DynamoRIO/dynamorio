@@ -954,11 +954,14 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                               bool trace_sysenter_exit)
 {
     uint result = 0;
-    if (
 //#ifdef SELECTIVE_FLUSHING
-        !is_app_managed_code(to_tag) &&
+//    if (is_app_managed_code(to_tag)) {
+//        dr_printf("Blocking trace in app-managed code area "PFX"\n", to_tag);
+    if (true)
+        return 0;
+//    }
 //#endif
-        should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
+    if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
                                              trace_sysenter_exit)) {
         result |= TRACE_HEAD_YES;
         ASSERT(!have_link_lock || self_owns_recursive_lock(&change_linking_lock));
@@ -1534,7 +1537,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     /* find shared trace head fragment, if any */
     if (DYNAMO_OPTION(shared_bbs)
 //#ifdef SELECTIVE_FLUSHING
-        && !is_app_managed_code(tag)
+//        && !is_app_managed_code(tag)
 //#endif
     ) {
         trace_head_f =
@@ -1782,6 +1785,11 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
         release_vm_areas_lock(dcontext, f->flags);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     }
+
+    //hack
+    //dr_printf("After extending "PFX" with "PFX", trace looks like this:\n", md->trace_tag, f->tag);
+    //instrlist_disassemble(dcontext, md->trace_tag, &md->trace, STDOUT);
+    ///hack
 
     DOLOG(3, LOG_MONITOR, {
         LOG(THREAD, LOG_MONITOR, 4, "After extending, trace looks like this:\n");
