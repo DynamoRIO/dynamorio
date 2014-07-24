@@ -458,47 +458,6 @@ DECLARE_CXTSWPROT_VAR(static mutex_t lazy_delete_lock, INIT_LOCK_FREE(lazy_delet
 
 #define APP_MANAGED_VMAREA_SIZE PAGE_SIZE
 
-typedef enum _dbr_struct_type_t {
-    DIRECT_CTI_TAG,
-    DIRECT_CTI_OPERAND,
-} dbr_struct_type_t;
-
-typedef struct dbr_fragment_t dbr_fragment_t;
-typedef struct dbr_translated_operand_t dbr_translated_operand_t;
-
-// OPERAND singleton@dbr_translation_table
-typedef struct _dbr_operand_t {
-    dbr_struct_type_t type;
-    app_pc app_operand_pc;
-    dbr_translated_operand_t *translations; // --next_translated_operand->
-} dbr_operand_t;
-
-// TAG singleton@dbr_translation_table
-typedef struct _dbr_tag_t {
-    dbr_struct_type_t type;
-    app_pc tag;
-    dbr_operand_t *operand; // singleton
-    dbr_fragment_t *fragment_list; // --next_fragment_at_tag->
-} dbr_tag_t;
-
-// TAG per fragment
-struct dbr_fragment_t {
-    dbr_tag_t *tag;
-    fragment_t *fragment;
-    dbr_translated_operand_t *translated_operand;
-    dbr_fragment_t *next_fragment_at_tag; // per app tag singleton
-};
-
-// OPERAND per fragment
-struct dbr_translated_operand_t {
-    dbr_operand_t *operand;
-    cache_pc translated_operand_pc;
-    dbr_fragment_t *containing_fragment;
-    dbr_translated_operand_t *next_translated_operand; // per app operand singleton
-};
-
-generic_table_t *dbr_translation_table;
-
 /* forward declarations */
 static void
 vmvector_free_vector(dcontext_t *dcontext, vm_area_vector_t *v);
@@ -538,9 +497,6 @@ mark_unload_future_added(app_pc module_base, size_t size);
 static void
 vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                              vm_area_t *area, bool in_place);
-
-static void
-free_dbr_translations(void *translations);
 
 #ifdef SIMULATE_ATTACK
 /* synch simulate_at string parsing */
@@ -1686,13 +1642,6 @@ vm_areas_init()
                                        ACCT_VMAREAS, PROTECTED);
     *coarse_to_delete = NULL;
 
-    dbr_translation_table =
-        generic_hash_create(GLOBAL_DCONTEXT, 9, 80,
-                            HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
-                            HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
-                            free_dbr_translations
-                            _IF_DEBUG("Direct CTI translation table"));
-
     if (DYNAMO_OPTION(unloaded_target_exception)) {
         last_deallocated = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, last_deallocated_t,
                                            ACCT_VMAREAS, PROTECTED);
@@ -1869,7 +1818,6 @@ vm_areas_exit()
 #endif
     vmvector_delete_vector(GLOBAL_DCONTEXT, IAT_areas);
     IAT_areas = NULL;
-    generic_hash_destroy(GLOBAL_DCONTEXT, dbr_translation_table);
     return 0;
 }
 
@@ -8737,14 +8685,6 @@ remove_fraglist_entry(dcontext_t *dcontext, fragment_t *entry, vm_area_t *area)
     ASSERT(!TEST(VECTOR_SHARED, vector->flags) || !TEST(FRAG_WAS_DELETED, entry->flags));
     ASSERT(area_contains_frag_pc(area, entry));
 
-    // but what if only one `also` is being removed?
-    if ((area == NULL) || TEST(VM_APP_MANAGED, area->vm_flags)) {
-        TABLE_RWLOCK(dbr_translation_table, write, lock);
-        generic_hash_remove(GLOBAL_DCONTEXT, dbr_translation_table,
-                            (ptr_uint_t) entry->tag);
-        TABLE_RWLOCK(dbr_translation_table, write, unlock);
-    }
-
     prev = FRAG_PREV(entry);
     if (FRAG_NEXT(prev) == NULL || FRAG_NEXT(entry) == NULL) {
         /* need to know area */
@@ -10424,156 +10364,6 @@ vm_area_coarse_units_freeze(bool in_place)
         read_unlock(hotp_get_lock());
 #endif
     release_recursive_lock(&change_linking_lock);
-}
-
-void
-add_dbr_translation(fragment_t *f, app_pc app_operand_pc,
-                           cache_pc translated_operand_pc)
-{
-    dbr_tag_t *tag;
-    dbr_operand_t *operand;
-    dbr_fragment_t *fragment;
-    dbr_translated_operand_t *translated_operand;
-
-    if (!is_app_managed_code(f->tag))
-        return;
-
-    LOG(GLOBAL, LOG_VMAREAS, 1,
-        "patch-cti: add cache operand "PFX" for app operand "PFX" in tag "PFX" (opcode 0x%x)\n",
-        translated_operand_pc, app_operand_pc, f->tag, *(app_operand_pc - 1));
-
-    TABLE_RWLOCK(dbr_translation_table, write, lock);
-
-    fragment = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dbr_fragment_t,
-                               ACCT_VMAREAS, UNPROTECTED);
-    translated_operand = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dbr_translated_operand_t,
-                                         ACCT_VMAREAS, UNPROTECTED);
-
-    /* establish the operand and bind this translation */
-    operand = generic_hash_lookup(GLOBAL_DCONTEXT, dbr_translation_table,
-                                  (ptr_uint_t) app_operand_pc);
-    if (operand == NULL) {
-        operand = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dbr_operand_t,
-                                  ACCT_VMAREAS, UNPROTECTED);
-        operand->type = DIRECT_CTI_OPERAND;
-        operand->app_operand_pc = app_operand_pc;
-        translated_operand->next_translated_operand = NULL;
-        generic_hash_add(GLOBAL_DCONTEXT, dbr_translation_table,
-                         (ptr_uint_t) app_operand_pc, operand);
-    } else {
-        ASSERT(operand->type == DIRECT_CTI_OPERAND);
-        translated_operand->next_translated_operand = operand->translations;
-    }
-    operand->translations = translated_operand;
-
-    /* establish the tag and bind this fragment */
-    tag = generic_hash_lookup(GLOBAL_DCONTEXT, dbr_translation_table,
-                              (ptr_uint_t) f->tag);
-    if (tag == NULL) {
-        tag = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dbr_tag_t,
-                              ACCT_VMAREAS, UNPROTECTED);
-        tag->type = DIRECT_CTI_TAG;
-        tag->tag = f->tag;
-        tag->operand = operand;
-        fragment->next_fragment_at_tag = NULL;
-        generic_hash_add(GLOBAL_DCONTEXT, dbr_translation_table,
-                         (ptr_uint_t) f->tag, tag);
-    } else {
-        ASSERT(tag->type == DIRECT_CTI_TAG);
-        fragment->next_fragment_at_tag = tag->fragment_list;
-    }
-    tag->fragment_list = fragment;
-
-    fragment->tag = tag;
-    fragment->fragment = f;
-    fragment->translated_operand = translated_operand;
-
-    translated_operand->operand = operand;
-    translated_operand->translated_operand_pc = translated_operand_pc;
-    translated_operand->containing_fragment = fragment;
-
-    TABLE_RWLOCK(dbr_translation_table, write, unlock);
-}
-
-void
-patch_cti_target(app_pc cti_target_operand_pc)
-{
-    dbr_operand_t *operand;
-    dbr_translated_operand_t *translation;
-    TABLE_RWLOCK(dbr_translation_table, read, lock);
-
-    ASSERT(is_app_managed_code(cti_target_operand_pc));
-    operand = generic_hash_lookup(GLOBAL_DCONTEXT, dbr_translation_table,
-                                  (ptr_uint_t) cti_target_operand_pc);
-    if (operand == NULL) {
-        LOG(GLOBAL, LOG_VMAREAS, 1,
-            "patch-cti: error: operand "PFX" missing for opcode 0x%x\n",
-            cti_target_operand_pc,
-            *((byte *) cti_target_operand_pc - 1));
-    } else {
-        translation = operand->translations;
-        ASSERT(cti_target_operand_pc == operand->app_operand_pc);
-        while (translation != NULL) {
-            LOG(GLOBAL, LOG_VMAREAS, 1,
-                "patch-cti: tag "PFX", fragment "PFX", operand "PFX"\n",
-                translation->containing_fragment->tag->tag,
-                translation->containing_fragment->fragment->start_pc,
-                translation->translated_operand_pc);
-
-
-            // 1. unlink outgoing
-            // 2. find the linkstub
-            // 3. change the linkstub target
-            // 4. link outgoing
-
-            translation = translation->next_translated_operand;
-        }
-    }
-
-    TABLE_RWLOCK(dbr_translation_table, read, unlock);
-}
-
-static void
-free_dbr_translations(void *p)
-{
-    if (*(dbr_struct_type_t *) p == DIRECT_CTI_TAG) {
-        /* Remove each dbr_fragment_t for this tag, together with its
-         * corresponding dbr_translated_operand_t. If this leaves any
-         * dbr_operand_t empty of translations, remove it also.
-         */
-        dbr_tag_t *tag = (dbr_tag_t *) p;
-        dbr_fragment_t *fragment, *next_fragment = tag->fragment_list;
-        dbr_operand_t *operand;
-        ASSERT(tag->type == DIRECT_CTI_TAG);
-        while (next_fragment != NULL) {
-            fragment = next_fragment;
-            next_fragment = fragment->next_fragment_at_tag;
-            operand = fragment->translated_operand->operand;
-            if (operand->translations == fragment->translated_operand) {
-                operand->translations = operand->translations->next_translated_operand;
-                if (operand->translations == NULL) {
-                    generic_hash_remove(GLOBAL_DCONTEXT, dbr_translation_table,
-                                        (ptr_uint_t) operand->app_operand_pc);
-                }
-            } else {
-                dbr_translated_operand_t *translated_operand = operand->translations;
-                while (translated_operand->next_translated_operand != fragment->translated_operand)
-                    translated_operand = translated_operand->next_translated_operand;
-                translated_operand->next_translated_operand =
-                    translated_operand->next_translated_operand->next_translated_operand;
-            }
-            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment->translated_operand,
-                           dbr_translated_operand_t, ACCT_VMAREAS, UNPROTECTED);
-            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment, dbr_fragment_t,
-                           ACCT_VMAREAS, UNPROTECTED);
-        }
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, tag, dbr_tag_t, ACCT_VMAREAS, UNPROTECTED);
-    } else {
-        /* Remove only the dbr_operand_t; its operand instances occur per frag */
-        ASSERT(*(dbr_struct_type_t *) p == DIRECT_CTI_OPERAND);
-        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, dbr_operand_t,
-                       ACCT_VMAREAS, UNPROTECTED);
-    }
 }
 
 #if 0 /* not used */

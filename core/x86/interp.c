@@ -4738,26 +4738,13 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     KSTOP(bb_emit);
 
     if (bb.cti_pc != NULL) {
-        linkstub_t *l = FRAGMENT_EXIT_STUBS(f);
-        bool is_patchable;
-        byte single_byte_opcode = *bb.cti_pc;
-        if ((single_byte_opcode == 0xe8) || (single_byte_opcode == 0xe9))
-            is_patchable = true;
-        else
-            is_patchable = !LINKSTUB_FINAL(l) && LINKSTUB_FINAL(LINKSTUB_NEXT_EXIT(l)) &&
-                           LINKSTUB_DIRECT(l->flags); /* only tracking one branch pc! */
-        if (is_patchable) {
-            app_pc target_operand_app_pc =
-                dbr_disp_pc(bb.cti_pc);
-            app_pc target_operand_cache_pc =
-                exit_cti_disp_pc(EXIT_CTI_PC(f, l));
-            if (target_operand_app_pc == NULL) {
-                LOG(THREAD, LOG_EMIT, 1,
-                    "patch-cti: failed to locate operand pc of opcode 0x%x\n",
-                    *(byte *) bb.cti_pc);
-            } else {
-                add_dbr_translation(f, target_operand_app_pc, target_operand_cache_pc);
-            }
+        app_pc target_operand_app_pc = direct_cti_disp_pc(bb.cti_pc);
+        if (target_operand_app_pc == NULL) {
+            LOG(THREAD, LOG_EMIT, 1,
+                "patchable fragment: failed to locate operand pc of opcode 0x%x\n",
+                *(byte *) bb.cti_pc);
+        } else {
+            add_patchable_fragment(f, target_operand_app_pc);
         }
     }
 

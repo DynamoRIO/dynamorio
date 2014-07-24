@@ -138,6 +138,13 @@ typedef struct _dead_table_lists_t {
 
 static dead_table_lists_t *dead_lists;
 
+typedef struct _app_managed_patchable_fragment_t {
+    app_pc fragment_tag;
+    app_pc app_operand_pc;
+} app_managed_patchable_fragment_t;
+
+generic_table_t *app_managed_patch_table;
+
 DECLARE_CXTSWPROT_VAR(static mutex_t dead_tables_lock, INIT_LOCK_FREE(dead_tables_lock));
 
 #ifdef RETURN_AFTER_CALL
@@ -1433,6 +1440,13 @@ fragment_init()
 
     fragment_reset_init();
 
+    app_managed_patch_table =
+        generic_hash_create(GLOBAL_DCONTEXT, 9, 80,
+                            HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                            HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
+                            NULL /* entries are double-mapped, so free externally */
+                            _IF_DEBUG("App-managed patch table"));
+
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     if (TRACEDUMP_ENABLED() && DYNAMO_OPTION(shared_traces)) {
         ASSERT(USE_SHARED_PT());
@@ -1697,6 +1711,7 @@ fragment_exit()
         DELETE_LOCK(shared_traces_lock);
     }
 #endif
+    generic_hash_destroy(GLOBAL_DCONTEXT, app_managed_patch_table);
  cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -3306,6 +3321,22 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      */
     incoming_remove_fragment(dcontext, f);
 
+    if (is_app_managed_code(f->tag)) {
+        app_managed_patchable_fragment_t *patchable;
+        TABLE_RWLOCK(app_managed_patch_table, write, lock);
+        patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                        (ptr_uint_t) f->tag);
+        if (patchable != NULL) {
+            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                (ptr_uint_t) f->tag);
+            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                (ptr_uint_t) patchable->fragment_tag);
+            HEAP_TYPE_FREE(GLOBAL_DCONTEXT, patchable, app_managed_patchable_fragment_t,
+                           ACCT_OTHER, UNPROTECTED);
+        }
+        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+    }
+
     if (TEST(FRAG_SHARED, f->flags)) {
         /* we shouldn't need to worry about someone else changing the
          * link status, since nobody else is allowed to be in DR now,
@@ -3858,6 +3889,66 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
     ASSERT(cur_trace_tag(dcontext) == f->tag
            /* PR 299808: we have invisible temp trace bbs */
            IF_CLIENT_INTERFACE(|| TEST(FRAG_TEMP_PRIVATE, f->flags)));
+}
+
+void
+add_patchable_fragment(fragment_t *f, app_pc app_operand_pc)
+{
+    app_managed_patchable_fragment_t *patchable;
+
+    if (!is_app_managed_code(f->tag))
+        return;
+
+    LOG(GLOBAL, LOG_VMAREAS, 1, "patchable fragment: "PFX"\n", app_operand_pc);
+
+    TABLE_RWLOCK(app_managed_patch_table, write, lock);
+
+    patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                    (ptr_uint_t) f->tag);
+    if (patchable == NULL) {
+        patchable = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, app_managed_patchable_fragment_t,
+                                   ACCT_VMAREAS, UNPROTECTED);
+        patchable->fragment_tag = f->tag;
+        patchable->app_operand_pc = app_operand_pc;
+        generic_hash_add(GLOBAL_DCONTEXT, app_managed_patch_table,
+                         (ptr_uint_t) f->tag, patchable);
+        generic_hash_add(GLOBAL_DCONTEXT, app_managed_patch_table,
+                         (ptr_uint_t) app_operand_pc, patchable);
+    }
+
+    TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+}
+
+void
+remove_patchable_fragments(app_pc patched_operand_pc)
+{
+    app_managed_patchable_fragment_t *patchable;
+
+    TABLE_RWLOCK(app_managed_patch_table, read, lock);
+
+    ASSERT(is_app_managed_code(patched_operand_pc));
+
+    patchable = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                    (ptr_uint_t) patched_operand_pc);
+    if (patchable == NULL) {
+        LOG(GLOBAL, LOG_VMAREAS, 1,
+            "patchable fragment: warning: operand "PFX" not registered for patching "
+            "(opcode 0x%x)\n", patched_operand_pc, *(byte *) patched_operand_pc - 1);
+    } else {
+        ASSERT(patched_operand_pc == patchable->app_operand_pc);
+
+        LOG(GLOBAL, LOG_VMAREAS, 1,
+            "patchable fragment: flush all instances of fragment with tag "PFX"\n",
+            patchable->fragment_tag);
+
+        // steal from the flush code in fragment.c
+        // for each thread having an instance:
+        // 1. grab the private linking lock
+        // 2. remove the fragment
+        // for shared, what?
+    }
+
+    TABLE_RWLOCK(app_managed_patch_table, read, unlock);
 }
 
 /* Remove f from ftable, replacing it in the hashtable with new_f,
