@@ -8282,11 +8282,13 @@ vm_area_add_fragment(dcontext_t *dcontext, fragment_t *f, void *vmlist)
 
     LOG(THREAD, LOG_VMAREAS, 4, "vm_area_add_fragment for F%d("PFX")\n", f->id, f->tag);
 
-    ASSERT(!TESTANY(FRAG_IS_TRACE|FRAG_IS_TRACE_HEAD, f->flags)
+/*
+    ASSERT(!TESTANY(FRAG_IS_TRACE|FRAG_IS_TRACE_HEAD, f->flags));
 #ifdef SELECTIVE_FLUSHING
            || !is_app_managed_code(f->tag)
 #endif
     );
+*/
 
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         /* We went ahead and built up vmlist since we might decide later to not

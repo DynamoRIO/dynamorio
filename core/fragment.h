@@ -657,11 +657,14 @@ fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f);
 
 #ifdef SELECTIVE_FLUSHING
 void
-add_patchable_fragment(fragment_t *f, app_pc app_operand_pc);
-#endif
+add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
+
+void
+add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
 
 void
 remove_patchable_fragments(app_pc patched_operand_pc);
+#endif
 
 fragment_t *
 fragment_lookup(dcontext_t *dcontext, app_pc tag);

@@ -52,6 +52,8 @@
 #include "translate.h"
 #include <string.h> /* memcpy */
 
+#include "lib/instrument.h" // hack
+
 #ifdef DEBUG
 # include "decode_fast.h" /* for decode_next_pc for stress_recreate_pc */
 #endif

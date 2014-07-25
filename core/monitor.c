@@ -957,8 +957,8 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
 //#ifdef SELECTIVE_FLUSHING
 //    if (is_app_managed_code(to_tag)) {
 //        dr_printf("Blocking trace in app-managed code area "PFX"\n", to_tag);
-    if (true)
-        return 0;
+//    if (true)
+//        return 0;
 //    }
 //#endif
     if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
@@ -1787,7 +1787,8 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
     }
 
     //hack
-    //dr_printf("After extending "PFX" with "PFX", trace looks like this:\n", md->trace_tag, f->tag);
+    //dr_printf("Extending trace "PFX" with bb "PFX"\n", md->trace_tag, f->tag);
+    add_patchable_trace(md->trace_tag, f->tag);
     //instrlist_disassemble(dcontext, md->trace_tag, &md->trace, STDOUT);
     ///hack
 

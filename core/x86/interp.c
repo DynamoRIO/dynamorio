@@ -3590,8 +3590,16 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef SELECTIVE_FLUSHING
     if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
-        is_app_managed_code(bb->instr_start))
-        bb->cti_pc = bb->instr_start;
+        is_app_managed_code(bb->instr_start)) {
+        app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
+        if (target_operand_app_pc == NULL) {
+            LOG(THREAD, LOG_EMIT, 1,
+                "patchable fragment: failed to locate operand pc of opcode 0x%x\n",
+                *(byte *) bb->instr_start);
+        } else {
+            add_patchable_bb(bb->start_pc, target_operand_app_pc);
+        }
+    }
 #endif
 
 #ifdef DEBUG_MEMORY
@@ -4742,19 +4750,6 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     KSTART(bb_emit);
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
-
-#ifdef SELECTIVE_FLUSHING
-    if (bb.cti_pc != NULL) {
-        app_pc target_operand_app_pc = direct_cti_disp_pc(bb.cti_pc);
-        if (target_operand_app_pc == NULL) {
-            LOG(THREAD, LOG_EMIT, 1,
-                "patchable fragment: failed to locate operand pc of opcode 0x%x\n",
-                *(byte *) bb.cti_pc);
-        } else {
-            add_patchable_fragment(f, target_operand_app_pc);
-        }
-    }
-#endif
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;
