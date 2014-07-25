@@ -663,7 +663,7 @@ void
 add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
 
 void
-remove_patchable_fragments(app_pc patched_operand_pc);
+remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc);
 #endif
 
 fragment_t *

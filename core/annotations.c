@@ -974,21 +974,10 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 
-    if (len == 0 || is_couldbelinking(dcontext))
-        return;
-    if (!executable_vm_area_executed_from(start, start+len))
-        return;
-
-#ifdef SELECTIVE_FLUSHING
-    if (is_direct_cti_target)
-        remove_patchable_fragments(start);
-#endif
-
-    flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
-                                    false/*don't free futures*/, false/*exec valid*/,
-                                    false/*don't force synchall*/ _IF_DGCDIAG(NULL));
-
-    vm_area_isolate_region(dcontext, start, start+len);
+    //if (len == 0 || is_couldbelinking(dcontext))
+    //    return;
+    //if (!executable_vm_area_executed_from(start, start+len))
+    //    return;
 
 #ifdef FLUSH_STATS
     //TABLE_RWLOCK(handlers, write, lock);
@@ -1010,7 +999,21 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
     //TABLE_RWLOCK(handlers, write, unlock);
 #endif
 
-    flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
+#ifdef SELECTIVE_FLUSHING
+    if (is_direct_cti_target) {
+        remove_patchable_fragments(dcontext, start);
+    } else {
+#endif
+        flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
+                                        false/*don't free futures*/, false/*exec valid*/,
+                                        false/*don't force synchall*/ _IF_DGCDIAG(NULL));
+
+        vm_area_isolate_region(dcontext, start, start+len);
+
+        flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
+#ifdef SELECTIVE_FLUSHING
+    }
+#endif
 }
 
 static inline const char *

@@ -3288,7 +3288,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
     fragment_remove(GLOBAL_DCONTEXT, f);
     /* FIXME: we don't currently remove from thread-private ibl tables as that
      * requires walking all of the threads. */
-    ASSERT_NOT_IMPLEMENTED(!IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
+    ASSERT_NOT_IMPLEMENTED(true || !IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
 
     vm_area_remove_fragment(dcontext, f);
     /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
@@ -3320,6 +3320,30 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
      */
     add_to_lazy_deletion_list(dcontext, f);
 }
+
+#ifdef SELECTIVE_FLUSHING
+static void
+remove_app_managed_fragment(app_pc tag)
+{
+    if (is_app_managed_code(tag)) {
+        app_managed_patchable_bb_t *bb;
+        TABLE_RWLOCK(app_managed_patch_table, write, lock);
+        bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                 (ptr_uint_t) tag);
+        if (bb != NULL) {
+            // what if a trace gets removed but not the contained bbs?
+            // can I just leave the trace on the bbs?
+            ASSERT(bb->tag == tag);
+            ASSERT(bb->type == APP_MANAGED_BB);
+            RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment: "
+                        "remove app-managed bb "PFX"\n", tag);
+            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                (ptr_uint_t) tag);
+        }
+        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+    }
+}
+#endif
 
 /* Prepares a fragment for delayed deletion by unlinking it.
  * Caller is responsible for calling vm_area_remove_fragment().
@@ -3364,23 +3388,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
     incoming_remove_fragment(dcontext, f);
 
 #ifdef SELECTIVE_FLUSHING
-    if (is_app_managed_code(f->tag)) {
-        app_managed_patchable_bb_t *bb;
-        TABLE_RWLOCK(app_managed_patch_table, write, lock);
-        bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                        (ptr_uint_t) f->tag);
-        if (bb != NULL) {
-            // what if a trace gets removed but not the contained bbs?
-            // can I just leave the trace on the bbs?
-            ASSERT(bb->tag == f->tag);
-            ASSERT(bb->type == APP_MANAGED_BB);
-            RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment: "
-                        "remove app-managed bb "PFX"\n", bb->tag);
-            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                (ptr_uint_t) f->tag);
-        }
-        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
-    }
+    remove_app_managed_fragment(f->tag);
 #endif
 
     if (TEST(FRAG_SHARED, f->flags)) {
@@ -4042,11 +4050,16 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
 static void
 safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
 {
-    fragment_t *f = fragment_lookup_type(dcontext, tag, lookup_type|LOOKUP_PRIVATE);
+    fragment_t *f = fragment_lookup_type(dcontext, tag, lookup_type|LOOKUP_PRIVATE|LOOKUP_SHARED);
     if (f == NULL)
         return;
 
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
+                "    ("TIDFMT") %s tag "PFX"\n", dcontext->owning_thread,
+                (lookup_type == LOOKUP_TRACE) ? "trace" : "bb", tag);
+
     //acquire_recursive_lock(&change_linking_lock);
+    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
     acquire_vm_areas_lock(dcontext, f->flags);
 
     /* FIXME: share all this code w/ vm_area_unlink_fragments()
@@ -4073,6 +4086,7 @@ safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
     f->flags |= FRAG_WAS_DELETED;
 
     release_vm_areas_lock(dcontext, f->flags);
+    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     //release_recursive_lock(&change_linking_lock);
 
     /* if a flush occurs, this fragment will be ignored -- so we must store
@@ -4085,29 +4099,27 @@ safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
     ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
     ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
 
-    add_to_lazy_deletion_list(dcontext, f);
+    //add_to_lazy_deletion_list(dcontext, f);
 }
 
 void
-remove_patchable_fragments(app_pc patched_operand_pc)
+remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
 {
-    uint i;
-    int flush_num_threads;
-    thread_record_t **flush_threads;
-    dcontext_t *tgt_dcontext;
-    per_thread_t *tgt_pt;
-    app_managed_patchable_bb_t *bb;
     app_managed_patchable_operand_t *operand;
 
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return;
 
+    if (!is_app_managed_code(patched_operand_pc))
+        return;
+
+    //ASSERT(is_app_managed_code(patched_operand_pc));
+
     TABLE_RWLOCK(app_managed_patch_table, read, lock);
-
-    ASSERT(is_app_managed_code(patched_operand_pc));
-
     operand = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                                   (ptr_uint_t) patched_operand_pc);
+    TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+
     if (operand == NULL) {
         RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
             "patchable fragment: warning: operand "PFX" not registered for patching "
@@ -4116,69 +4128,63 @@ remove_patchable_fragments(app_pc patched_operand_pc)
         RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
             "patchable fragment: warning: "PFX" is not an operand\n", patched_operand_pc);
     } else {
-        app_managed_patchable_trace_t *trace;
-        fragment_t *f;
+        uint i;
+        int flush_num_threads;
+        thread_record_t **flush_threads;
+        dcontext_t *tgt_dcontext;
+        per_thread_t *tgt_pt; //, *pt = (per_thread_t *) dcontext->fragment_field;
+        app_managed_patchable_trace_t *trace, *next_trace;
+        app_managed_patchable_bb_t *bb, *next_bb;
+        //fragment_t *f;
+        //bool was_couldbelinking;
         ASSERT(patched_operand_pc == operand->pc);
 
         RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
             "patchable fragment: remove all fragments containing operand "PFX":\n",
             patched_operand_pc);
 
-        bb = operand->containing_bb_list;
-        while (bb != NULL) {
-            trace = bb->containing_trace_list;
-            while (trace != NULL) {
-                RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
-                            "    trace tag "PFX"\n", trace->tag);
-                f = fragment_lookup_type(GLOBAL_DCONTEXT, trace->tag,
-                                         LOOKUP_TRACE|LOOKUP_SHARED);
-                if (f != NULL)
-                    fragment_remove_shared_no_flush(GLOBAL_DCONTEXT, f);
-                trace = trace->next_trace;
-            }
-            RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
-                        "    bb tag "PFX"\n", bb->tag);
-            f = fragment_lookup_type(GLOBAL_DCONTEXT, bb->tag,
-                                     LOOKUP_BB|LOOKUP_SHARED);
-            if (f != NULL)
-                fragment_remove_shared_no_flush(GLOBAL_DCONTEXT, f);
-            bb = bb->next_containing_bb;
-        }
-
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&flush_threads, &flush_num_threads);
-        mutex_lock(&trace_building_lock);
-        /* grab bb building lock even for traces to further prevent link changes */
-        mutex_lock(&bb_building_lock);
+        mutex_unlock(&thread_initexit_lock);
+        //acquire_recursive_lock(&change_linking_lock);
 
         for (i=0; i<flush_num_threads; i++) {
             tgt_dcontext = flush_threads[i]->dcontext;
             // lookup here to see if there is any reason to synch?
             tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+
             mutex_lock(&tgt_pt->linking_lock);
-            if (tgt_pt->could_be_linking) {
+            if (tgt_dcontext != dcontext && tgt_pt->could_be_linking) {
                 /* remember we have a global lock, thread_initexit_lock, so two threads
                  * cannot be here at the same time!
                  */
-                LOG(GLOBAL, LOG_FRAGMENT, 2,
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
                 tgt_pt->wait_for_unlink = true;
                 mutex_unlock(&tgt_pt->linking_lock);
                 wait_for_event(tgt_pt->waiting_for_unlink);
                 mutex_lock(&tgt_pt->linking_lock);
                 tgt_pt->wait_for_unlink = false;
-                LOG(GLOBAL, LOG_FRAGMENT, 2,
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
             } else {
-                LOG(GLOBAL, LOG_FRAGMENT, 2,
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
             }
+            //ASSERT(tgt_dcontext == dcontext || !tgt_pt->could_be_linking);
+            mutex_unlock(&tgt_pt->linking_lock);
+
             if (tgt_pt->about_to_exit) {
                 /* thread is about to exit, it's waiting for us to give up
                  * thread_initexit_lock -- we don't need to flush it
                  */
                 goto next_thread;
             }
+
+            mutex_lock(&trace_building_lock);
+            /* grab bb building lock even for traces to further prevent link changes */
+            mutex_lock(&bb_building_lock);
+
             if (is_building_trace(tgt_dcontext)) {
                 /* what to do???
                 void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
@@ -4199,30 +4205,68 @@ remove_patchable_fragments(app_pc patched_operand_pc)
 
             bb = operand->containing_bb_list;
             while (bb != NULL) {
+                next_bb = bb->next_containing_bb;
                 trace = bb->containing_trace_list;
                 while (trace != NULL) {
-                    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
-                                "    trace tag "PFX"\n", trace->tag);
                     safe_remove_fragment(tgt_dcontext, trace->tag, LOOKUP_TRACE);
                     trace = trace->next_trace;
                 }
-                RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
-                            "    bb tag "PFX"\n", bb->tag);
                 safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_BB);
-                bb = bb->next_containing_bb;
+                bb = next_bb;
             }
 
-        next_thread:
-            if (!tgt_pt->could_be_linking)
+            mutex_unlock(&bb_building_lock);
+            mutex_unlock(&trace_building_lock);
+
+        next_thread:;
+            mutex_lock(&tgt_pt->linking_lock);
+            if (tgt_dcontext != dcontext && !tgt_pt->could_be_linking)
                 tgt_pt->wait_for_unlink = true; /* stop at cache exit */
             mutex_unlock(&tgt_pt->linking_lock);
         }
 
-        mutex_unlock(&bb_building_lock);
-        mutex_unlock(&trace_building_lock);
+        bb = operand->containing_bb_list;
+        while (bb != NULL) {
+            next_bb = bb->next_containing_bb;
+            trace = bb->containing_trace_list;
+            while (trace != NULL) {
+                next_trace = trace->next_trace;
+                if (trace->tag != bb->tag)
+                    remove_app_managed_fragment(trace->tag);
+                trace = next_trace;
+            }
+            remove_app_managed_fragment(bb->tag);
+            bb = next_bb;
+        }
+
+        for (i=0; i<flush_num_threads; i++) {
+            tgt_dcontext = flush_threads[i]->dcontext;
+            if (tgt_dcontext != dcontext) {
+                tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+                mutex_lock(&tgt_pt->linking_lock);
+                if (tgt_pt->could_be_linking) {
+                    signal_event(tgt_pt->finished_with_unlink);
+                } else {
+                    /* we don't need to wait on a !could_be_linking thread
+                     * so we use this bool to tell whether we should signal
+                     * the event.
+                     * FIXME: really we want a pulse that wakes ALL waiting
+                     * threads and then resets the event!
+                     */
+                    tgt_pt->wait_for_unlink = false;
+                    if (tgt_pt->soon_to_be_linking)
+                        signal_event(tgt_pt->finished_all_unlink);
+                }
+                mutex_unlock(&tgt_pt->linking_lock);
+            }
+        }
+
+        //release_recursive_lock(&change_linking_lock);
     }
 
-    TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+        "patchable fragment: done removing all fragments containing operand "PFX"\n",
+        patched_operand_pc);
 }
 #endif
 
