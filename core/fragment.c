@@ -4145,7 +4145,8 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
 
         mutex_lock(&thread_initexit_lock);
         get_list_of_threads(&flush_threads, &flush_num_threads);
-        mutex_unlock(&thread_initexit_lock);
+        mutex_unlock(&thread_initexit_lock); // can't hold trace_building_lock while waiting_for_unlink b/c waitee can't continue
+                                             // but can't acquire trace_building_lock while thread_initexit_lock is held... so let go
         //acquire_recursive_lock(&change_linking_lock);
 
         for (i=0; i<flush_num_threads; i++) {
@@ -4153,39 +4154,42 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             // lookup here to see if there is any reason to synch?
             tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
 
-            mutex_lock(&tgt_pt->linking_lock);
-            if (tgt_dcontext != dcontext && tgt_pt->could_be_linking) {
-                /* remember we have a global lock, thread_initexit_lock, so two threads
-                 * cannot be here at the same time!
-                 */
-                LOG(GLOBAL, LOG_FRAGMENT, 1,
-                    "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
-                tgt_pt->wait_for_unlink = true;
-                mutex_unlock(&tgt_pt->linking_lock);
-                wait_for_event(tgt_pt->waiting_for_unlink);
+            if (tgt_dcontext != dcontext) {
                 mutex_lock(&tgt_pt->linking_lock);
-                tgt_pt->wait_for_unlink = false;
-                LOG(GLOBAL, LOG_FRAGMENT, 1,
-                    "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
-            } else {
-                LOG(GLOBAL, LOG_FRAGMENT, 1,
-                    "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
+                if (tgt_pt->could_be_linking) {
+                    /* remember we have a global lock, thread_initexit_lock, so two threads
+                     * cannot be here at the same time!
+                     */
+                    LOG(GLOBAL, LOG_FRAGMENT, 1,
+                        "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
+                    tgt_pt->wait_for_unlink = true;
+                    mutex_unlock(&tgt_pt->linking_lock);
+                    wait_for_event(tgt_pt->waiting_for_unlink);
+                    mutex_lock(&tgt_pt->linking_lock);
+                    tgt_pt->wait_for_unlink = false;
+                    LOG(GLOBAL, LOG_FRAGMENT, 1,
+                        "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
+                } else {
+                    LOG(GLOBAL, LOG_FRAGMENT, 1,
+                        "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
+                    //mutex_unlock(&tgt_pt->linking_lock);
+                }
+                mutex_unlock(&tgt_pt->linking_lock);
             }
             //ASSERT(tgt_dcontext == dcontext || !tgt_pt->could_be_linking);
-            mutex_unlock(&tgt_pt->linking_lock);
 
-            if (tgt_pt->about_to_exit) {
+            //if (tgt_pt->about_to_exit) {
                 /* thread is about to exit, it's waiting for us to give up
                  * thread_initexit_lock -- we don't need to flush it
                  */
-                goto next_thread;
-            }
+            //    goto next_thread;
+            //}
 
             mutex_lock(&trace_building_lock);
             /* grab bb building lock even for traces to further prevent link changes */
             mutex_lock(&bb_building_lock);
 
-            if (is_building_trace(tgt_dcontext)) {
+            //if (is_building_trace(tgt_dcontext)) {
                 /* what to do???
                 void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
                 if (trace_vmlist != NULL &&
@@ -4195,13 +4199,13 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                     trace_abort(tgt_dcontext);
                 }
                 */
-            }
-            if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+            //}
+            //if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
                 // does this matter??
                 /* we have to know exactly which threads were at_syscall here when
                  * we get to post-flush, so we cache in this special bool
                  */
-            }
+            //}
 
             bb = operand->containing_bb_list;
             while (bb != NULL) {
@@ -4218,11 +4222,32 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             mutex_unlock(&bb_building_lock);
             mutex_unlock(&trace_building_lock);
 
-        next_thread:;
+        //next_thread:
+            if (tgt_dcontext != dcontext) {
+                tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+                mutex_lock(&tgt_pt->linking_lock);
+                if (tgt_pt->could_be_linking) {
+                    signal_event(tgt_pt->finished_with_unlink);
+                } else {
+                    /* we don't need to wait on a !could_be_linking thread
+                     * so we use this bool to tell whether we should signal
+                     * the event.
+                     * FIXME: really we want a pulse that wakes ALL waiting
+                     * threads and then resets the event!
+                     */
+                    //tgt_pt->wait_for_unlink = false;
+                    if (tgt_pt->soon_to_be_linking)
+                        signal_event(tgt_pt->finished_all_unlink);
+                }
+                mutex_unlock(&tgt_pt->linking_lock);
+            }
+
+            /*
             mutex_lock(&tgt_pt->linking_lock);
             if (tgt_dcontext != dcontext && !tgt_pt->could_be_linking)
-                tgt_pt->wait_for_unlink = true; /* stop at cache exit */
+                tgt_pt->wait_for_unlink = true; / * stop at cache exit * /
             mutex_unlock(&tgt_pt->linking_lock);
+            */
         }
 
         bb = operand->containing_bb_list;
@@ -4239,6 +4264,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             bb = next_bb;
         }
 
+        /*
         for (i=0; i<flush_num_threads; i++) {
             tgt_dcontext = flush_threads[i]->dcontext;
             if (tgt_dcontext != dcontext) {
@@ -4247,12 +4273,6 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                 if (tgt_pt->could_be_linking) {
                     signal_event(tgt_pt->finished_with_unlink);
                 } else {
-                    /* we don't need to wait on a !could_be_linking thread
-                     * so we use this bool to tell whether we should signal
-                     * the event.
-                     * FIXME: really we want a pulse that wakes ALL waiting
-                     * threads and then resets the event!
-                     */
                     tgt_pt->wait_for_unlink = false;
                     if (tgt_pt->soon_to_be_linking)
                         signal_event(tgt_pt->finished_all_unlink);
@@ -4260,13 +4280,15 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                 mutex_unlock(&tgt_pt->linking_lock);
             }
         }
+        */
 
         //release_recursive_lock(&change_linking_lock);
+
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+            "patchable fragment: done removing all fragments containing operand "PFX"\n",
+            patched_operand_pc);
     }
 
-    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "patchable fragment: done removing all fragments containing operand "PFX"\n",
-        patched_operand_pc);
 }
 #endif
 

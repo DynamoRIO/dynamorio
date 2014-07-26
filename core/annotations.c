@@ -1002,6 +1002,7 @@ annot_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 #ifdef SELECTIVE_FLUSHING
     if (is_direct_cti_target) {
         remove_patchable_fragments(dcontext, start);
+        //vm_area_isolate_region(dcontext, start, start+len);
     } else {
 #endif
         flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
