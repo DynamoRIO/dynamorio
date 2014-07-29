@@ -3325,22 +3325,18 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 static void
 remove_app_managed_fragment(app_pc tag)
 {
-    if (is_app_managed_code(tag)) {
-        app_managed_patchable_bb_t *bb;
-        TABLE_RWLOCK(app_managed_patch_table, write, lock);
-        bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                 (ptr_uint_t) tag);
-        if (bb != NULL) {
-            // what if a trace gets removed but not the contained bbs?
-            // can I just leave the trace on the bbs?
-            ASSERT(bb->tag == tag);
-            ASSERT(bb->type == APP_MANAGED_BB);
-            RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment: "
-                        "remove app-managed bb "PFX"\n", tag);
-            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
-                                (ptr_uint_t) tag);
-        }
-        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+    app_managed_patchable_bb_t *bb;
+    bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
+                             (ptr_uint_t) tag);
+    if (bb != NULL) {
+        // what if a trace gets removed but not the contained bbs?
+        // can I just leave the trace on the bbs?
+        ASSERT(bb->tag == tag);
+        ASSERT(bb->type == APP_MANAGED_BB);
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment: "
+                    "remove app-managed bb "PFX"\n", tag);
+        generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                            (ptr_uint_t) tag);
     }
 }
 #endif
@@ -3388,7 +3384,11 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
     incoming_remove_fragment(dcontext, f);
 
 #ifdef SELECTIVE_FLUSHING
-    remove_app_managed_fragment(f->tag);
+    if (is_app_managed_code(f->tag)) {
+        TABLE_RWLOCK(app_managed_patch_table, write, lock);
+        remove_app_managed_fragment(f->tag);
+        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+    }
 #endif
 
     if (TEST(FRAG_SHARED, f->flags)) {
@@ -4129,6 +4129,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             "patchable fragment: warning: "PFX" is not an operand\n", patched_operand_pc);
     } else {
         uint i;
+        bool thread_has_fragment;
         int flush_num_threads;
         thread_record_t **flush_threads;
         dcontext_t *tgt_dcontext;
@@ -4151,6 +4152,31 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
 
         for (i=0; i<flush_num_threads; i++) {
             tgt_dcontext = flush_threads[i]->dcontext;
+
+            thread_has_fragment = false;
+            TABLE_RWLOCK(app_managed_patch_table, read, lock);
+            bb = operand->containing_bb_list;
+            while (bb != NULL) {
+                if (fragment_lookup_type(tgt_dcontext, bb->tag, LOOKUP_BB|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                    thread_has_fragment = true;
+                    break;
+                }
+                trace = bb->containing_trace_list;
+                while (trace != NULL) {
+                    if (fragment_lookup_type(tgt_dcontext, trace->tag, LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                        thread_has_fragment = true;
+                        break;
+                    }
+                    trace = trace->next_trace;
+                }
+                if (thread_has_fragment)
+                    break;
+                bb = bb->next_containing_bb;
+            }
+            TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+            if (!thread_has_fragment)
+                continue;
+
             // lookup here to see if there is any reason to synch?
             tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
 
@@ -4207,6 +4233,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                  */
             //}
 
+            TABLE_RWLOCK(app_managed_patch_table, read, lock);
             bb = operand->containing_bb_list;
             while (bb != NULL) {
                 next_bb = bb->next_containing_bb;
@@ -4218,6 +4245,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                 safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_BB);
                 bb = next_bb;
             }
+            TABLE_RWLOCK(app_managed_patch_table, read, unlock);
 
             mutex_unlock(&bb_building_lock);
             mutex_unlock(&trace_building_lock);
@@ -4251,6 +4279,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
         }
 
         bb = operand->containing_bb_list;
+        TABLE_RWLOCK(app_managed_patch_table, write, lock);
         while (bb != NULL) {
             next_bb = bb->next_containing_bb;
             trace = bb->containing_trace_list;
@@ -4263,6 +4292,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             remove_app_managed_fragment(bb->tag);
             bb = next_bb;
         }
+        TABLE_RWLOCK(app_managed_patch_table, write, unlock);
 
         /*
         for (i=0; i<flush_num_threads; i++) {
@@ -4288,7 +4318,6 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             "patchable fragment: done removing all fragments containing operand "PFX"\n",
             patched_operand_pc);
     }
-
 }
 #endif
 
