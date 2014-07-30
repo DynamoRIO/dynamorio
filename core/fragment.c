@@ -4216,6 +4216,8 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             //mutex_lock(&bb_building_lock);
 
             //if (is_building_trace(tgt_dcontext)) {
+                //dr_printf("Error! Trace is being built on a thread while removing frags from that thread!\n");
+                //trace_abort(tgt_dcontext);
                 /* what to do???
                 void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
                 if (trace_vmlist != NULL &&
@@ -4226,12 +4228,13 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                 }
                 */
             //}
-            //if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+            if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+                dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
                 // does this matter??
                 /* we have to know exactly which threads were at_syscall here when
                  * we get to post-flush, so we cache in this special bool
                  */
-            //}
+            }
 
             TABLE_RWLOCK(app_managed_patch_table, read, lock);
             bb = operand->containing_bb_list;
