@@ -1450,7 +1450,7 @@ DR_API
  * \param[in]   argument        An argument passed to the client's nudge
  *                              handler.
  *
- * \param[in]   timeout_ms      Windows-only.  The number of milliseconds to wait for
+ * \param[in]   timeout_ms      Windows only.  The number of milliseconds to wait for
  *                              each nudge to complete before continuing. If INFINITE
  *                              is supplied then the wait is unbounded. If 0
  *                              is supplied the no wait is performed.  If a
@@ -1468,6 +1468,7 @@ DR_API
  * On Windows, nudges are implemented via remotely injected threads.
  * This routine returns whether or not the thread indicated by
  * \p drcontext is such a nudge thread.
+ * \note Windows only.
  */
 bool
 dr_is_nudge_thread(void *drcontext);
@@ -1854,7 +1855,7 @@ typedef enum {
      * can then be attached to by the debugger (use a non-invasive attach)
      * in order to view the memory dump contents.
      *
-     * \note Windows-only.
+     * \note Windows only.
      */
     DR_MEMORY_DUMP_LDMP    = 0x0001,
 } dr_memory_dump_flags_t;
@@ -2241,7 +2242,7 @@ DR_API
 /**
  * Equivalent to the win32 API function VirtualQuery().
  * See that routine for a description of
- * arguments and return values.  \note Windows-only.
+ * arguments and return values.  \note Windows only.
   *
  * \note DR may mark writable code pages as read-only but pretend they're
  * writable.  When this happens, this routine will indicate that the
@@ -2417,7 +2418,7 @@ DR_API
  * is needed versus application 64-bit state.  Consider use of this routine
  * experimental: use at your own risk!
  *
- * \note Windows-only.
+ * \note Windows only.
  *
  * \note Currently this routine does not support loading kernel32.dll
  * or any library that depends on it.
@@ -2436,7 +2437,7 @@ DR_API
  * NULL on failure.
  * The returned function can be called with dr_invoke_x64_routine().
  *
- * \note Windows-only.
+ * \note Windows only.
  *
  * \note Currently this routine does not support Windows 8.
  */
@@ -2448,7 +2449,7 @@ DR_API
  * Unloads the given library, which must have been loaded by
  * dr_load_aux_x64_library().  Returns whether successful.
  *
- * \note Windows-only.
+ * \note Windows only.
  */
 bool
 dr_unload_aux_x64_library(dr_auxlib64_handle_t lib);
@@ -2474,7 +2475,7 @@ DR_API
  * 32-bit callback makes a system call.  Consider use of this routine
  * experimental: use at your own risk!
  *
- * \note Windows-only.
+ * \note Windows only.
  */
 int64
 dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
@@ -3439,7 +3440,7 @@ DR_API
  *   call is executed in a WOW64 process.  This value should be obtainable
  *   by examining the system call wrapper.
  *
- * \note Windows-only.
+ * \note Windows only.
  */
 bool
 dr_syscall_intercept_natively(const char *name, int sysnum, int num_args,
@@ -3940,6 +3941,7 @@ DR_API
  * all of the above limitations.
  *
  * Returns whether successful.
+ * \note Windows only.
  */
 bool
 dr_enable_console_printing(void);
@@ -3953,6 +3955,7 @@ DR_API
  * dr_enable_console_printing() is called ahead of time, and even then
  * there are limitations detailed in dr_enable_console_printing().
  * This routine may result in loading a private copy of kernel32.dll.
+ * \note Windows only.
  */
 bool
 dr_using_console(void);
@@ -4120,6 +4123,7 @@ DR_API
  * at that point.
  *
  * The handle should have THREAD_ALL_ACCESS privileges.
+ * \note Windows only.
  */
 HANDLE
 dr_get_dr_thread_handle(void *drcontext);
@@ -5269,6 +5273,7 @@ DR_API
  * that this context is for the calling thread.
  *
  * \note floating-point values are not filled in for \p dst.
+ * \note Windows only.
  *
  * \return false if unsuccessful; if successful, does not return.
  */
