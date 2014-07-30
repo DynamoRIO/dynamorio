@@ -105,7 +105,6 @@ static annotation_receiver_t vg_receiver;
 static opnd_t vg_router_arg;
 #endif
 
-extern uint dr_internal_client_id;
 extern file_t main_logfile;
 extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
@@ -231,7 +230,7 @@ annot_init()
     vg_router.arg_stack_space = 0;
     vg_router.id.vg_request_id = 0; // routes all requests
     vg_router.receiver_list = &vg_receiver;
-    vg_receiver.client_id = dr_internal_client_id;
+    vg_receiver.client_id = DR_INTERNAL_CLIENT_ID;
     vg_receiver.instrumentation.callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
@@ -240,32 +239,32 @@ annot_init()
     dr_annot_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
 #ifdef DEBUG
-    dr_annot_register_call(dr_internal_client_id, DYNAMORIO_ANNOTATE_LOG_NAME,
+    dr_annot_register_call(DR_INTERNAL_CLIENT_ID, DYNAMORIO_ANNOTATE_LOG_NAME,
                            (void *) annot_printf, false, 20
                            _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 #endif
 
     if (true) {
-        dr_annot_register_call(dr_internal_client_id,
+        dr_annot_register_call(DR_INTERNAL_CLIENT_ID,
                                DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
                                (void *) annot_manage_code_area, false, 2
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 
-        dr_annot_register_call(dr_internal_client_id,
+        dr_annot_register_call(DR_INTERNAL_CLIENT_ID,
                                DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
                                (void *) annot_unmanage_code_area, false, 2
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 
-        dr_annot_register_call(dr_internal_client_id,
+        dr_annot_register_call(DR_INTERNAL_CLIENT_ID,
                                DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
                                (void *) annot_flush_fragments, false, 3
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
     }
 
-    dr_annot_register_valgrind(dr_internal_client_id, VG_ID__RUNNING_ON_VALGRIND,
+    dr_annot_register_valgrind(DR_INTERNAL_CLIENT_ID, VG_ID__RUNNING_ON_VALGRIND,
                                valgrind_running_on_valgrind);
 
-    dr_annot_register_valgrind(dr_internal_client_id, VG_ID__DISCARD_TRANSLATIONS,
+    dr_annot_register_valgrind(DR_INTERNAL_CLIENT_ID, VG_ID__DISCARD_TRANSLATIONS,
                                valgrind_discard_translations);
 }
 

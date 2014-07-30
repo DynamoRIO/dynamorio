@@ -496,9 +496,6 @@ add_client_lib(char *path, client_id_t id, char *options)
 void
 instrument_load_client_libs(void)
 {
-    uint i;
-    bool repeat;
-
     if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib)) {
         char buf[MAX_LIST_OPTION_LENGTH];
         char *path;
