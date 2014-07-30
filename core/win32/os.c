@@ -3776,10 +3776,9 @@ process_image_post_vmarea(app_pc base, size_t size, uint prot, bool add, bool re
         return;
 #endif
 
-#if defined(CLIENT_INTERFACE)
-    if (dynamo_initialized && add) {
+#ifdef CLIENT_INTERFACE
+    if (dynamo_initialized && add)
         instrument_module_load_trigger(base);
-    }
 #endif
 
     /* ensure header is readable */

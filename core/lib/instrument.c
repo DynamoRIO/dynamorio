@@ -58,9 +58,6 @@
 #include <stdarg.h> /* for varargs */
 #include "../nudge.h" /* for nudge_internal() */
 #include "../synch.h"
-#ifdef SELECTIVE_FLUSHING
-# include "../vmareas.h" /* for is_app_managed_code() */
-#endif
 #include "../annotations.h"
 #include "../translate.h"
 #ifdef UNIX
@@ -275,8 +272,6 @@ static ssize_t dr_write_to_console_varg(bool to_stdout, const char *fmt, ...);
 
 bool client_requested_exit;
 
-uint dr_internal_client_id;
-
 #ifdef WINDOWS
 /* used for nudge support */
 static bool block_client_nudge_threads = false;
@@ -401,16 +396,12 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
  * and since this routine assumes .data is writable.
  */
 static void
-add_client_lib(char *path, char *id_str, char *options)
+add_client_lib(char *path, client_id_t id, char *options)
 {
-    client_id_t id;
     shlib_handle_t client_lib;
     DEBUG_DECLARE(size_t i);
 
     ASSERT(!dynamo_initialized);
-
-    /* if ID not specified, we'll default to 0 */
-    id = (id_str == NULL) ? 0 : strtoul(id_str, NULL, 16);
 
 #ifdef DEBUG
     /* Check for conflicting IDs */
@@ -520,16 +511,22 @@ instrument_load_client_libs(void)
         /* We're expecting path;ID;options triples */
         path = buf;
         do {
-            char *id = NULL;
+            client_id_t id;
+            char *id_str = NULL;
             char *options = NULL;
             char *next_path = NULL;
 
-            id = strstr(path, ";");
-            if (id != NULL) {
-                id[0] = '\0';
-                id++;
+            id_str = strstr(path, ";");
+            if (id_str == NULL) {
+                id = 0; /* default to id 0 */
+            } else {
+                id_str[0] = '\0';
+                id_str++;
+                id = strtoul(id_str, NULL, 16);
+                CLIENT_ASSERT(id != DR_INTERNAL_CLIENT_ID,
+                              "Client id -1 is reserved for internal use.");
 
-                options = strstr(id, ";");
+                options = strstr(id_str, ";");
                 if (options != NULL) {
                     options[0] = '\0';
                     options++;
@@ -546,18 +543,6 @@ instrument_load_client_libs(void)
             path = next_path;
         } while (path != NULL);
     }
-
-    dr_internal_client_id = 0xffffffff;
-    do {
-        repeat = false;
-        for (i=0; i<num_client_libs; i++) {
-            if (dr_internal_client_id == client_libs[i].id) {
-                dr_internal_client_id--;
-                repeat = true;
-                break;
-            }
-        }
-    } while (repeat);
 }
 
 static void
@@ -4753,6 +4738,19 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
     }
 }
 
+/* Inserts a complete call to callee with the passed-in arguments, wrapped
+ * by an app save and restore.
+ *
+ * If "save_flags" includes DR_CLEANCALL_SAVE_FLOAT, saves the fp/mmx/sse state.
+ *
+ * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
+ * dr_prepare_for_call(). We guarantee to clients that all other slots
+ * (except the XAX mcontext slot) will remain untouched.
+ *
+ * NOTE : dr_insert_cbr_instrumentation has assumption about the clean call
+ * instrumentation layout, changes to the clean call instrumentation may break
+ * dr_insert_cbr_instrumentation.
+ */
 void
 dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
                              void *callee, dr_cleancall_save_t save_flags,
@@ -6012,7 +6010,6 @@ dr_delete_fragment(void *drcontext, void *tag)
     if (f != NULL && (f->flags & FRAG_CANNOT_DELETE) == 0) {
         client_todo_list_t * todo = HEAP_TYPE_ALLOC(dcontext, client_todo_list_t,
                                                     ACCT_CLIENT, UNPROTECTED);
-        // TODO: (cti registration) this can remove one but not all frags @ `tag`
         client_todo_list_t * iter = dcontext->client_data->to_do;
         todo->next = NULL;
         todo->ilist = NULL;
@@ -6485,11 +6482,6 @@ dr_mark_trace_head(void *drcontext, void *tag)
     CLIENT_ASSERT(drcontext != NULL, "dr_mark_trace_head: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_mark_trace_head: drcontext is invalid");
-
-#ifdef SELECTIVE_FLUSHING
-    if (is_app_managed_code((app_pc) tag))
-        return false;
-#endif
 
     /* Required to make the future-fragment lookup and add atomic and for
      * mark_trace_head.  We have to grab before fragment_delete_mutex so
