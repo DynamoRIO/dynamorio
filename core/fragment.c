@@ -4211,9 +4211,9 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             //    goto next_thread;
             //}
 
-            mutex_lock(&trace_building_lock);
+            //mutex_lock(&trace_building_lock);
             /* grab bb building lock even for traces to further prevent link changes */
-            mutex_lock(&bb_building_lock);
+            //mutex_lock(&bb_building_lock);
 
             //if (is_building_trace(tgt_dcontext)) {
                 /* what to do???
@@ -4247,8 +4247,8 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             }
             TABLE_RWLOCK(app_managed_patch_table, read, unlock);
 
-            mutex_unlock(&bb_building_lock);
-            mutex_unlock(&trace_building_lock);
+            //mutex_unlock(&bb_building_lock);
+            //mutex_unlock(&trace_building_lock);
 
         //next_thread:
             if (tgt_dcontext != dcontext) {
