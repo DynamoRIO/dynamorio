@@ -125,6 +125,15 @@ instr_t*
 instrlist_first(instrlist_t *ilist);
 
 DR_API
+/**
+ * Returns the first application (non-meta) instruction in the instruction list
+ * \p ilist.
+ * \note All preceding meta instructions will be skipped.
+ */
+instr_t *
+instrlist_first_app(instrlist_t *ilist);
+
+DR_API
 /** Returns the last instr_t in \p ilist. */
 instr_t*
 instrlist_last(instrlist_t *ilist);

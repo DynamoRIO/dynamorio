@@ -81,6 +81,12 @@
 
 #include "dbghelp_imports.h"
 
+#ifdef DEBUG
+# define ASSERT(x, msg) DR_ASSERT_MSG(x, msg)
+#else
+# define ASSERT(x, msg) /* nothing */
+#endif
+
 #if _MSC_VER <= 1400 /* VS2005- */
 /* Not present in VS2005 DbgHelp.h.  Our own dbghelp_imports.lib lets us link.
  * This is present in dbghelp.dll 6.0+ which we already say we require.
@@ -1553,6 +1559,39 @@ drsym_demangle_symbol(char *dst OUT, size_t dst_sz, const char *mangled,
     return r;
 }
 
+/* The routine returns type info in drsym_type_t structure by type_id and
+ * expands subtypes. The caller can pass 0 in levels_to_expand arg to avoid
+ * subtypes expanding. The caller should lock symbol_lock before call this routine.
+ * Returns DRSYM_ERROR_SUCCESS or error.
+ */
+static drsym_error_t
+drsym_get_type_by_id(mod_entry_t *mod, uint type_id, uint levels_to_expand,
+                     char *buf, size_t buf_sz, drsym_type_t **type OUT)
+{
+    type_query_t query;
+    drsym_error_t r;
+
+    /* Check that caller locked symbol_lock */
+    ASSERT(dr_recurlock_self_owns(symbol_lock),
+           "drsym_get_type_by_id called without symbol lock");
+    /* Prevent recursion by recording index to pointer mappings.
+     * We could perhaps try to stick this in buf but given the symbol_lock
+     * it seems simpler to just use a static data structure.
+     */
+    hashtable_init_ex(&query.type_map_table, TYPE_MAP_HASH_BITS, HASH_INTPTR,
+                      false/*!strdup*/, false/*!synch*/,
+                      NULL, NULL, NULL);
+
+    pool_init(&query.pool, buf, buf_sz);
+    query.base = mod->u.load_base;
+
+    r = decode_type(&query, type_id, levels_to_expand, type);
+
+    hashtable_delete(&query.type_map_table);
+
+    return r;
+}
+
 /* Shared path for lookup and expansion.  have_type_id specifies which of
  * modoffs and type_id should be used.
  */
@@ -1563,7 +1602,6 @@ drsym_get_type_common(const char *modpath,
                       char *buf, size_t buf_sz,
                       drsym_type_t **expanded_type OUT)
 {
-    type_query_t query;
     mod_entry_t *mod;
     drsym_error_t r;
     PSYMBOL_INFO info;
@@ -1609,20 +1647,8 @@ drsym_get_type_common(const char *modpath,
         free_symbol_info(info);
     }
 
-    /* Prevent recursion by recording index to pointer mappings.
-     * We could perhaps try to stick this in buf but given the symbol_lock
-     * it seems simpler to just use a static data structure.
-     */
-    hashtable_init_ex(&query.type_map_table, TYPE_MAP_HASH_BITS, HASH_INTPTR,
-                      false/*!strdup*/, false/*!synch*/,
-                      NULL, NULL, NULL);
-
-    pool_init(&query.pool, buf, buf_sz);
-    query.base = mod->u.load_base;
-
-    r = decode_type(&query, type_id, levels_to_expand, (drsym_type_t**)expanded_type);
-
-    hashtable_delete(&query.type_map_table);
+    r = drsym_get_type_by_id(mod, type_id, levels_to_expand, buf,
+                             buf_sz, expanded_type);
 
     dr_recurlock_unlock(symbol_lock);
 
@@ -1636,6 +1662,44 @@ drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
 {
     return drsym_get_type_common(modpath, false/*need to look up type index*/,
                                  modoffs, 0, levels_to_expand, buf, buf_sz, type);
+}
+
+DR_EXPORT
+drsym_error_t
+drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
+                       size_t buf_sz, drsym_type_t **type OUT)
+{
+    mod_entry_t *mod;
+    drsym_error_t r;
+    PSYMBOL_INFO info;
+    if (modpath == NULL || type_name == NULL || type == NULL)
+        return DRSYM_ERROR_INVALID_PARAMETER;
+
+    dr_recurlock_lock(symbol_lock);
+    mod = lookup_or_load(modpath, true/*use dbghelp*/);
+    if (mod == NULL) {
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_LOAD_FAILED;
+    }
+
+    if (mod->use_pecoff_symtable) {
+        /* The function supports only PDB lookup. */
+        dr_recurlock_unlock(symbol_lock);
+        return DRSYM_ERROR_NOT_IMPLEMENTED;
+    }
+
+    info = alloc_symbol_info();
+    if (SymGetTypeFromName(GetCurrentProcess(), mod->u.load_base,
+        type_name, info)) {
+            r = drsym_get_type_by_id(mod, info->TypeIndex, 0, buf,
+                                     buf_sz, type);
+    } else {
+        NOTIFY("SymGetTypeFromName error %d\n", GetLastError());
+        r = DRSYM_ERROR_SYMBOL_NOT_FOUND;
+    }
+    free_symbol_info(info);
+    dr_recurlock_unlock(symbol_lock);
+    return r;
 }
 
 DR_EXPORT
