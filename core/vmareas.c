@@ -8570,9 +8570,8 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
             /* src may be shared bb, its area may not be on tgt list (e.g., private trace) */
             if (src_data != tgt_data) { /* else, have area already */
                 vm_area_t *tgt_area = NULL;
-                ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);
-                if (ok) { /* check target area for existing entry */
-                    ok = false;
+                if (lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area)) {
+                    /* check target area for existing entry */
                     for (already = (fragment_t *) *vmlist; already != NULL;
                          already = FRAG_ALSO(already)) {
                         ASSERT(FRAG_MULTI(already));
@@ -8585,7 +8584,6 @@ vm_area_add_to_list(dcontext_t *dcontext, app_pc tag, void **vmlist,
                     if (ok)
                         break;
                 } else {
-                    //ASSERT(!TEST(VM_APP_MANAGED, area->vm_flags));
                     add_vm_area(&tgt_data->areas, area->start, area->end, area->vm_flags,
                                 area->frag_flags, NULL _IF_DEBUG(area->comment));
                     ok = lookup_addr(&tgt_data->areas, FRAG_PC(entry), &tgt_area);

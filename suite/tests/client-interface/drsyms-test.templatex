@@ -19,6 +19,7 @@ found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
 found name_outer::name_middle::name_inner::sample_class<char>::nested_class<int>::templated_func<int>
+drsym_get_type_by_name successfully found HasFields type
 #endif
 #ifdef UNIX
 Failed to unmangle xmlRelaxNGParseImportRefs

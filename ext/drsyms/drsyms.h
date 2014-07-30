@@ -332,6 +332,27 @@ drsym_get_type(const char *modpath, size_t modoffs, uint levels_to_expand,
 
 DR_EXPORT
 /**
+ * Retrieves symbol type information for a given \p type_name.  After a
+ * successful execution, \p *type points to the type of the symbol.  All memory
+ * used to represent the type comes from \p buf, so the caller only needs to
+ * dispose \p buf to free everything.  Returns DRSYM_ERROR_NOMEM if the buffer is not
+ * big enough.
+ *
+ * \note This function is currently implemented only for Windows PDB
+ * symbols (DRSYM_PDB).
+ *
+ * @param[in] modpath    The full path to the module to be queried.
+ * @param[in] type_name  The string name of the base type.
+ * @param[out] buf       Memory used for the type.
+ * @param[in] buf_sz     Number of bytes in \p buf.
+ * @param[out] type      Pointer to the type for the symbol.
+ */
+drsym_error_t
+drsym_get_type_by_name(const char *modpath, const char *type_name, char *buf,
+                       size_t buf_sz, drsym_type_t **type /*OUT*/);
+
+DR_EXPORT
+/**
  * Retrieves function type information for a given module offset.  After a
  * successful execution, \p *func_type points to the function type.  All memory
  * used to represent the types comes from \p buf, so the caller only needs to
