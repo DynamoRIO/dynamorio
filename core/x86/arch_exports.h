@@ -1089,9 +1089,6 @@ linkstub_cbr_disambiguate(dcontext_t *dcontext, fragment_t *f,
 cache_pc
 cbr_fallthrough_exit_cti(cache_pc prev_cti_pc);
 
-cache_pc
-exit_cti_disp_pc(cache_pc branch_pc);
-
 /* for use with patch_branch and insert_relative target */
 enum {
     NOT_HOT_PATCHABLE=false,

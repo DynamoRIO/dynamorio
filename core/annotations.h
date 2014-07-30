@@ -30,8 +30,10 @@
  * DAMAGE.
  */
 
-#ifndef _ANNOT_H_
-#define _ANNOT_H_ 1
+#ifndef _ANNOTATIONS_H_
+#define _ANNOTATIONS_H_ 1
+
+#ifdef ANNOTATIONS
 
 #define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr) \
     (instr_get_opcode(instr) == OP_xchg)
@@ -42,7 +44,6 @@
 # define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
     ((*(uint64 *) (xchg_start_pc - 0x10) == 0xdc7c14803c7c148ULL) && \
      (*(uint64 *) (xchg_start_pc - 8) == 0x33c7c1483dc7c148ULL))
-
 #else
 # define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
     (*(ushort *) instr_start_pc == 0xdb87)
@@ -58,9 +59,6 @@
 #define IS_ANNOTATION_RETURN_PLACEHOLDER(instr) ((instr != NULL) && \
     (instr_get_opcode(instr) == OP_mov_st) && \
     ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
-
-#define IS_ANNOTATION_STACK_ARG(opnd) \
-    opnd_is_base_disp(opnd) && (opnd_get_base(opnd) == REG_XSP)
 
 #if defined (WINDOWS) && defined (X64)
 # define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) instr_is_cbr(instr)
@@ -79,8 +77,8 @@
     (*(ushort *)instr_get_translation(instr) == ANNOTATION_JUMP_OVER_LABEL_REFERENCE))
 #endif
 
-#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[2])
-#define SET_ANNOTATION_APP_PC(label_data, pc) (label_data->data[2] = (ptr_uint_t) pc)
+#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[1])
+#define SET_ANNOTATION_APP_PC(label_data, pc) (label_data->data[1] = (ptr_uint_t) pc)
 
 #define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
@@ -102,6 +100,7 @@ do { \
         annot_register_call_varg(drcontext, target, call, false, num_args, __VA_ARGS__); \
 } while (0)
 
+/* Facilitates returning a value from an annotation clean call. */
 #define RETURN(type, value) \
 { \
     type return_value = (value); \
@@ -115,6 +114,7 @@ do { \
     return return_value; \
 }
 
+/* Synonyms for the Valgrind client request IDs (sequential from 0 for convenience) */
 typedef enum _valgrind_request_id_t {
     VG_ID__RUNNING_ON_VALGRIND,
     VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
@@ -122,11 +122,13 @@ typedef enum _valgrind_request_id_t {
     VG_ID__LAST
 } valgrind_request_id_t;
 
+/* Facilitates decoding Valgrind annotations */
 enum {
     VG_PATTERN_LENGTH = 5,
     VG_NUM_ARGS = 5,
 };
 
+/* The Valgrind client request object */
 typedef struct _vg_client_request_t {
     ptr_uint_t request;
     ptr_uint_t args[VG_NUM_ARGS];
@@ -134,10 +136,11 @@ typedef struct _vg_client_request_t {
 } vg_client_request_t;
 
 #ifndef X64
+/* Support common x86 calling conventions; there are no options on x64. */
 typedef enum _annotation_calling_convention_t {
     ANNOT_CALL_TYPE_FASTCALL,
     ANNOT_CALL_TYPE_STDCALL,
-    ANNOT_CALL_TYPE_NONE
+    ANNOT_CALL_TYPE_LAST
 } annotation_calling_convention_t;
 #endif
 
@@ -148,6 +151,7 @@ typedef enum _handler_type_t {
     ANNOT_HANDLER_LAST
 } handler_type_t;
 
+/* Each receiver represents one registered client (or core DR). */
 typedef struct _annotation_receiver_t {
     client_id_t client_id;
     union { // per annotation_handler_t.type
@@ -159,7 +163,7 @@ typedef struct _annotation_receiver_t {
     struct _annotation_receiver_t *next;
 } annotation_receiver_t;
 
-
+/* Each handler represents one distinct annotation name. */
 typedef struct _annotation_handler_t {
     handler_type_t type;
     union {
@@ -175,37 +179,44 @@ typedef struct _annotation_handler_t {
 
 /* DR_API EXPORT END */
 
-typedef enum _annotation_call_t {
-    ANNOT_NORMAL_CALL,
-    ANNOT_TAIL_CALL
-} annotation_call_t;
-
-
 DR_API
+/* Register a handler for a DR annotation. When the annotation is encountered, it will
+ * be replaced with a clean call to the specified callee, which must have the specified
+ * number of arguments.
+ */
 void dr_annot_register_call(client_id_t client_id, const char *annotation_name,
                             void *callee, bool save_fpstate, uint num_args
                             _IF_NOT_X64(annotation_calling_convention_t call_type));
-/*
+
 DR_API
-void dr_annot_register_call_in_module(client_id_t client_id, const char *annotation_name,
-                                      module_handle_t module, void *callee,
-                                      bool save_fpstate, uint num_args
-                                      _IF_NOT_X64(annotation_calling_convention_t call_type));
-*/
-DR_API
+/* Register a callback for a Valgrind client request id. When the request is encountered,
+ * the specified callback will be invoked by an internal routing function.
+ */
 void dr_annot_register_valgrind(client_id_t client_id, valgrind_request_id_t request,
     ptr_uint_t (*annotation_callback)(vg_client_request_t *request));
 
 DR_API
+/* Register a return value substitution for a DR annotation. When the annotation is
+ * encountered, it will be replaced with the specified return value.
+ */
 void dr_annot_register_return(const char *annotation_name, void *return_value);
-/*
+
 DR_API
-void dr_annot_register_return_in_module(const char *annotation_name, void *return_value);
-*/
-DR_API
+/* Unregister a client's handler from a DR annotation. Instances of the annotation that
+ * have already been substituted with a clean call to the registered callee will remain
+ * in the code cache, but any newly encountered instances of the annotation will no longer
+ * be substituted on behalf of client_id. This function does nothing in the case that no
+ * handler was ever registered for this annotation by client_id.
+ */
 void dr_annot_unregister(client_id_t client_id, const char *annotation_name);
 
 DR_API
+/* Unregister a client's callback from a Valgrind client request. The registered callback
+ * will not be invoked in association with this client request again (though if the same
+ * callback function is also registered for other Valgrind client requests, then it will
+ * still be invoked in association with those client requests). This function does nothing
+ * in the case that no handler was ever registered for this client request by client_id.
+ */
 void dr_annot_unregister_valgrind(client_id_t client_id, valgrind_request_id_t request);
 
 void
@@ -217,7 +228,6 @@ annot_exit();
 bool
 annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
             _IF_WINDOWS_X64(bool hint_is_safe));
-//            _IF_WINDOWS_X64(app_pc branch_pc) _IF_WINDOWS_X64(bool hint_is_safe));
 
 #if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
@@ -226,7 +236,7 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
  * Return true if the replacement occurred, and set next_instr to the first
  * instruction after the annotation sequence.
  *
- * Example Valgrind annotation sequence from annotations test (x86):
+ * Example Valgrind annotation sequence from 'vg-annot' test (x86):
  * <C code to fill _zzq_args>
  * lea    0xffffffe4(%ebp) -> %eax      ; lea _zzq_args -> %eax
  * mov    0x08(%ebp) -> %edx            ; mov _zzq_default -> %edx
@@ -239,6 +249,8 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
 bool
 match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
                        app_pc xchg_pc, uint bb_instr_count);
-#endif
+#endif /* !(defined (WINDOWS) && defined (X64)) */
+
+#endif /* ANNOTATIONS */
 
 #endif

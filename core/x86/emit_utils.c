@@ -1088,7 +1088,7 @@ insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
     return insert_exit_stub_other_flags(dcontext, f, l, stub_pc, l->flags);
 }
 
-cache_pc
+static cache_pc
 exit_cti_disp_pc(cache_pc branch_pc)
 {
     cache_pc byte_ptr = branch_pc;

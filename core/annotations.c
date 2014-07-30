@@ -168,6 +168,9 @@ static valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
 static ptr_uint_t
+valgrind_running_on_valgrind(vg_client_request_t *request);
+
+static ptr_uint_t
 valgrind_discard_translations(vg_client_request_t *request);
 #endif
 
@@ -258,6 +261,9 @@ annot_init()
                                (void *) annot_flush_fragments, false, 3
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
     }
+
+    dr_annot_register_valgrind(dr_internal_client_id, VG_ID__RUNNING_ON_VALGRIND,
+                               valgrind_running_on_valgrind);
 
     dr_annot_register_valgrind(dr_internal_client_id, VG_ID__DISCARD_TRANSLATIONS,
                                valgrind_discard_translations);
@@ -508,7 +514,6 @@ annot_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
 
                     instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
                     label_data->data[0] = (ptr_uint_t) handler;
-                    label_data->data[1] = ANNOT_NORMAL_CALL;
                     SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
                     instr_set_ok_to_mangle(call, false);
 
@@ -588,8 +593,7 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
     instr_set_note(instr, (void *) DR_NOTE_ANNOTATION);
     label_data = instr_get_label_data_area(instr);
     label_data->data[0] = (ptr_uint_t) &vg_router;
-    label_data->data[1] = ANNOT_NORMAL_CALL;
-    label_data->data[2] = (ptr_uint_t) xchg_pc;
+    SET_ANNOTATION_APP_PC(label_data, xchg_pc);
     instr_set_ok_to_mangle(instr, false);
     instrlist_append(bb, instr);
 
@@ -597,9 +601,11 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
      * and to avoid confusion with register analysis code (%xdx is written
      * by the clean callee).
      */
-    return_placeholder = INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX),
-                                             OPND_CREATE_INT32(0));
-    instr_set_ok_to_mangle(return_placeholder, false);
+    return_placeholder = INSTR_XL8(INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX),
+                                                       OPND_CREATE_INT32(0)),
+                                   xchg_pc);
+    instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
+    //instr_set_ok_to_mangle(return_placeholder, false);
     instrlist_append(bb, return_placeholder);
 
     return true;
@@ -660,6 +666,12 @@ lookup_valgrind_request(ptr_uint_t request)
             return VG_ID__DISCARD_TRANSLATIONS;
     }
     return VG_ID__LAST;
+}
+
+static ptr_uint_t
+valgrind_running_on_valgrind(vg_client_request_t *request)
+{
+    return 1;
 }
 
 static ptr_uint_t

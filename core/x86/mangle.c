@@ -4240,18 +4240,11 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                     args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
                                             ACCT_CLEANCALL, UNPROTECTED);
                     memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
-
-                    if (label_data->data[1] == ANNOT_TAIL_CALL) {
-                        uint i;
-                        for (i = 0; i < handler->num_args; i++) {
-                            if (IS_ANNOTATION_STACK_ARG(args[i]))
-                                opnd_set_disp(&args[i], opnd_get_disp(args[i]) + 4);
-                        }
-                    }
                 }
                 dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
                     receiver->instrumentation.callback,
-                    receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+                    /*DR_CLEANCALL_NOSAVE_XMM_NONPARAM | DR_CLEANCALL_NOSAVE_XMM_NONRET |*/
+                        receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
                     handler->num_args, args);
 
                 receiver = receiver->next;

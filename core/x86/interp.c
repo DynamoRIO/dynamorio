@@ -1,3 +1,4 @@
+
 /* **********************************************************
  * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
@@ -226,9 +227,6 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
-#ifdef SELECTIVE_FLUSHING
-    app_pc cti_pc;
-#endif
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -255,9 +253,6 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
-#ifdef SELECTIVE_FLUSHING
-    bb->cti_pc = NULL;
-#endif
     DODEBUG(bb->initialized = true;);
 }
 
@@ -2666,6 +2661,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
         if (!instr_ok_to_mangle(inst)) {
 #ifdef ANNOTATIONS
+            /* Save the trailing_annotation_pc in case a client trucates the bb there. */
             if (IS_ANNOTATION_LABEL(inst) && (last_app_instr == NULL)) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
                 trailing_annotation_pc = GET_ANNOTATION_APP_PC(label_data);
@@ -2831,6 +2827,7 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     if (last_app_instr != NULL) {
 #ifdef ANNOTATIONS
         if (trailing_annotation_pc != NULL) {
+            /* If the client truncated at an annotation, include the annotation. */
             bb->cur_pc = trailing_annotation_pc;
         } else {
 #endif
@@ -3095,14 +3092,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
                 if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start)) {
                     if (IS_ENCODED_VALGRIND_ANNOTATION(bb->instr_start)) {
-                        KSTOP(bb_decoding);
+                        KSTOP(bb_decoding); // Valgrind annotation needs full decode
                         instr_destroy(dcontext, bb->instr);
                         instrlist_clear_and_destroy(dcontext, bb->ilist);
                         if (bb->vmlist != NULL) {
                             vm_area_destroy_list(dcontext, bb->vmlist);
                             bb->vmlist = NULL;
                         }
-                        bb->full_decode = true; // Valgrind annotation needs full decode
+                        bb->full_decode = true;
                         build_bb_ilist(dcontext, bb);
                         return;
                     }
@@ -3330,7 +3327,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                             _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)))) {
                 instr_destroy(dcontext, bb->instr);
                 if (substitution == NULL)
-                    continue;
+                    continue; /* ignore annotation if no handlers are registered */
                 else
                     bb->instr = substitution;
             }
@@ -3588,17 +3585,12 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } /* end of while (true) */
     KSTOP(bb_decoding);
 
-#ifdef SELECTIVE_FLUSHING
+#ifdef ANNOTATIONS
     if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
         is_app_managed_code(bb->instr_start)) {
         app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
-        if (target_operand_app_pc == NULL) {
-            LOG(THREAD, LOG_EMIT, 1,
-                "patchable fragment: failed to locate operand pc of opcode 0x%x\n",
-                *(byte *) bb->instr_start);
-        } else {
+        if (target_operand_app_pc != NULL) /* NULL for non-patchable opcodes */
             add_patchable_bb(bb->start_pc, target_operand_app_pc);
-        }
     }
 #endif
 
