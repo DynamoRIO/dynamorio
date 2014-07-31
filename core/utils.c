@@ -752,6 +752,8 @@ utils_init()
 #ifdef UNIX /* after options_init(), before we open logfile or call instrument_init() */
     os_file_init();
 #endif
+
+    set_exception_strings(NULL, NULL); /* use defaults */
 }
 
 /* NOTE since used by spinmutex_lock_no_yield, can make no system calls before
@@ -2065,24 +2067,59 @@ under_internal_exception()
 }
 #endif /* DEBUG */
 
+/* Defaults, overridable by the client (i#1470) */
+const char *exception_label_core = PRODUCT_NAME;
+static const char *exception_report_url = BUG_REPORT_URL;
+#ifdef CLIENT_INTERFACE
+const char *exception_label_client = "Client";
+#endif
+
 /* HACK: to avoid duplicating the prefix of the event log message, we
  * skip it for the SYSLOG, but not the other notifications
  */
-#ifdef X64
-# define EXCEPTION_PREFIX "Platform exception at PC 0x0000000000000000"
-#else
-# define EXCEPTION_PREFIX "Platform exception at PC 0x00000000"
-#endif
+static char exception_prefix[MAXIMUM_PATH];
+
+static inline size_t
+report_exception_skip_prefix(void)
+{
+    return strlen(exception_prefix);
+}
+
 #ifdef CLIENT_INTERFACE
-# ifdef X64
-#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x0000000000000000"
-# else
-#  define CLIENT_EXCEPTION_PREFIX "Client exception at PC 0x00000000"
-# endif
+static char client_exception_prefix[MAXIMUM_PATH];
+
+static inline size_t
+report_client_exception_skip_prefix(void)
+{
+    return strlen(client_exception_prefix);
+}
 #endif
-#define REPORT_EXCEPTION_SKIP_PREFIX (sizeof(EXCEPTION_PREFIX) - 1/*NULL*/)
-#define REPORT_CLIENT_EXCEPTION_SKIP_PREFIX \
-    (sizeof(CLIENT_EXCEPTION_PREFIX) - 1/*NULL*/)
+
+void
+set_exception_strings(const char *override_label, const char *override_url)
+{
+    if (dynamo_initialized)
+        SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
+    if (override_url != NULL)
+        exception_report_url = override_url;
+    if (override_label != NULL)
+        exception_label_core = override_label;
+    snprintf(exception_prefix, BUFFER_SIZE_ELEMENTS(exception_prefix),
+             "%s %s at PC "PFX, exception_label_core, CRASH_NAME, 0);
+    NULL_TERMINATE_BUFFER(exception_prefix);
+#ifdef CLIENT_INTERFACE
+    if (override_label != NULL)
+        exception_label_client = override_label;
+    snprintf(client_exception_prefix, BUFFER_SIZE_ELEMENTS(client_exception_prefix),
+             "%s %s at PC "PFX, exception_label_client, CRASH_NAME, 0);
+    NULL_TERMINATE_BUFFER(client_exception_prefix);
+#endif
+#ifdef WINDOWS
+    debugbox_setup_title();
+#endif
+    if (dynamo_initialized)
+        SELF_PROTECT_DATASEC(DATASEC_RARELY_PROT);
+}
 
 /* Fine to pass NULL for dcontext, will obtain it for you.
  * If dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION, does a full SYSLOG;
@@ -2195,23 +2232,25 @@ report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
         snprintf(saddr, BUFFER_SIZE_ELEMENTS(saddr), PFX, exception_addr);
         NULL_TERMINATE_BUFFER(saddr);
         if (dumpcore_flag == DUMPCORE_INTERNAL_EXCEPTION) {
-            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 4,
+            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   saddr,
+                                   exception_label_core, CRASH_NAME,
+                                   saddr, exception_report_url,
                                    /* skip the prefix since the event log string
                                     * already has it */
-                                   reportbuf + REPORT_EXCEPTION_SKIP_PREFIX);
+                                   reportbuf + report_exception_skip_prefix());
         }
 #ifdef CLIENT_INTERFACE
         else {
-            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 4,
+            SYSLOG_NO_OPTION_SYNCH(SYSLOG_CRITICAL, CLIENT_EXCEPTION, 7/*#args*/,
                                    get_application_name(), get_application_pid(),
-                                   saddr,
-                                   reportbuf + REPORT_CLIENT_EXCEPTION_SKIP_PREFIX);
+                                   exception_label_client, CRASH_NAME,
+                                   saddr, exception_report_url,
+                                   reportbuf + report_client_exception_skip_prefix());
         }
 #endif
     } else if (dumpcore_flag == DUMPCORE_ASSERTION) {
-        /* We need to report ASSERTS in DEBUG=1 INTENERAL=0 builds since we're still
+        /* We need to report ASSERTS in DEBUG=1 INTERNAL=0 builds since we're still
          * going to kill the process. Xref PR 232783. internal_error() already
          * obfuscated the which file info. */
         SYSLOG_NO_OPTION_SYNCH(SYSLOG_ERROR, INTERNAL_SYSLOG_ERROR, 3,

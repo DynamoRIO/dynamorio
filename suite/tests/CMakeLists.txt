@@ -1453,6 +1453,7 @@ if (CLIENT_INTERFACE)
   include_directories("${PROJECT_BINARY_DIR}/suite/tests/annotations")
 
   tobuild_ci(client.abort client-interface/abort.c "" "" "")
+  tobuild_ci(client.crashmsg client-interface/crashmsg.c "" "" "")
   tobuild_ci(client.alloc client-interface/alloc.c "" "" "")
   tobuild_ci(client.call-retarget client-interface/call-retarget.c "" "" "")
   tobuild_ci(client.cleancall client-interface/cleancall.c "" "" "")

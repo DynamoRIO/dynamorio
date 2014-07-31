@@ -544,6 +544,7 @@ typedef struct _instr_t instr_t;
 
 #ifdef CLIENT_INTERFACE
 # define IF_CLIENT_INTERFACE(x) x
+# define IF_NOT_CLIENT_INTERFACE(x)
 # define IF_CLIENT_INTERFACE_ELSE(x, y) x
 # define _IF_CLIENT_INTERFACE(x) , x
 # define _IF_NOT_CLIENT_INTERFACE(x)
@@ -551,6 +552,7 @@ typedef struct _instr_t instr_t;
 # define _IF_CLIENT(x) , x
 #else
 # define IF_CLIENT_INTERFACE(x)
+# define IF_NOT_CLIENT_INTERFACE(x) x
 # define IF_CLIENT_INTERFACE_ELSE(x, y) y
 # define _IF_CLIENT_INTERFACE(x)
 # define _IF_NOT_CLIENT_INTERFACE(x) , x
@@ -881,6 +883,7 @@ typedef char liststring_t[MAX_LIST_OPTION_LENGTH];
 #define COMPANY_NAME_EVENTLOG "DynamoRIO" /* used for event log */
 /* used in (c) stmt in log file and in resources */
 #define COMPANY_LONG_NAME "DynamoRIO developers"
+#define BUG_REPORT_URL "http://dynamorio.org/issues/"
 
 #ifdef BUILD_NUMBER
 #  define BUILD_NUMBER_STRING "build "STRINGIFY(BUILD_NUMBER)

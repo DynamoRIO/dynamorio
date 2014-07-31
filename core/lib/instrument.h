@@ -1681,6 +1681,18 @@ byte *
 dr_get_client_base(client_id_t client_id);
 
 DR_API
+/**
+ * Sets information presented to users in diagnostic messages.
+ * Only one name is supported, regardless of how many clients are in use.
+ * If this routine is called a second time, the new values supersede
+ * the original.
+ * The \p report_URL is meant to be a bug tracker location where users
+ * should go to report errors in the client end-user tool.
+ */
+bool
+dr_set_client_name(const char *name, const char *report_URL);
+
+DR_API
 /** Returns the image name (without path) of the current application. */
 const char *
 dr_get_application_name(void);

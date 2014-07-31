@@ -554,6 +554,15 @@ instrument_init(void)
 
     init_client_aux_libs();
 
+    if (num_client_libs > 0) {
+        /* We no longer distinguish in-DR vs in-client crashes, as many crashes in
+         * the DR lib are really client bugs.
+         * We expect most end-user tools to call dr_set_client_name() so we
+         * have generic defaults here:
+         */
+        set_exception_strings("Tool", "your tool's issue tracker");
+    }
+
     /* Iterate over the client libs and call each dr_init */
     for (i=0; i<num_client_libs; i++) {
         void (*init)(client_id_t) = (void (*)(client_id_t))
@@ -2354,6 +2363,17 @@ dr_get_client_base(client_id_t id)
 
     CLIENT_ASSERT(false, "dr_get_client_base(): invalid client id");
     return NULL;
+}
+
+DR_API
+bool
+dr_set_client_name(const char *name, const char *report_URL)
+{
+    /* Although set_exception_strings() accepts NULL, clients should pass real vals. */
+    if (name == NULL || report_URL == NULL)
+        return false;
+    set_exception_strings(name, report_URL);
+    return true;
 }
 
 DR_API const char *

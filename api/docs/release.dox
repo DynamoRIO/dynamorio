@@ -133,6 +133,8 @@ following minor compatibility changes:
  - Added dr_call_on_clean_stack().
  - Added instr_get_next_app() and instrlist_first_app() to allow clients to
    traverse only application (non-meta) instructions.
+ - Added dr_set_client_name() for customizing the diagnostic message
+   presented to users when an error occurs.
 
 Further non-compatibility-affecting changes include:
 
