@@ -37,13 +37,28 @@
 
 #define IS_DECODED_VALGRIND_ANNOTATION_TAIL(instr) \
     (instr_get_opcode(instr) == OP_xchg)
-
+/*
+ * lea    0xffffffe4(%ebp) -> %eax      ; lea _zzq_args -> %eax
+ * mov    0x08(%ebp) -> %edx            ; mov _zzq_default -> %edx
+ * rol    $0x00000003 %edi -> %edi      ; Special sequence to replace
+ * rol    $0x0000000d %edi -> %edi
+ * rol    $0x0000001d %edi -> %edi
+ * rol    $0x00000013 %edi -> %edi
+ * xchg   %ebx %ebx -> %ebx %ebx
+ */
 #ifdef X64
+/* x64 encoding of "xchg %ebx,%ebx" (endian reversed) */
+# define ENCODED_VALGRIND_ANNOTATION_TAIL 0xdb8748
+/* x64 encoding of "rol $0x3,%edi; rol $0xd,%edi" (endian reversed) */
+# define ENCODED_VALGRIND_ANNOTATION_WORD_1 0xdc7c14803c7c148ULL
+/* x64 encoding of "rol $0x1d,%edi; rol $0x13,%edi" (endian reversed) */
+# define ENCODED_VALGRIND_ANNOTATION_WORD_2 0x33c7c1483dc7c148ULL
 # define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
-    ((*(uint *) instr_start_pc & 0xffffff) == 0xdb8748)
+    (((*(uint *) instr_start_pc) & 0xffffff) == ENCODED_VALGRIND_ANNOTATION_TAIL)
 # define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
-    ((*(uint64 *) (xchg_start_pc - 0x10) == 0xdc7c14803c7c148ULL) && \
-     (*(uint64 *) (xchg_start_pc - 8) == 0x33c7c1483dc7c148ULL))
+    ((*(uint64 *) (xchg_start_pc - (2 * sizeof(uint64))) == \
+     ENCODED_VALGRIND_ANNOTATION_WORD_1) && \
+    (*(uint64 *) (xchg_start_pc - sizeof(uint64)) == ENCODED_VALGRIND_ANNOTATION_WORD_2))
 #else
 # define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
     (*(ushort *) instr_start_pc == 0xdb87)
@@ -79,8 +94,6 @@
 
 #define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[1])
 #define SET_ANNOTATION_APP_PC(label_data, pc) (label_data->data[1] = (ptr_uint_t) pc)
-
-#define CURRENT_API_VERSION VERSION_NUMBER_INTEGER
 
 /* DR_API EXPORT TOFILE dr_annotation.h */
 /* DR_API EXPORT BEGIN */
