@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -71,6 +71,7 @@ static uint tls_offs;
 static bool child_alive;
 static bool child_continue;
 static bool child_dead;
+static bool nops_matched;
 
 #ifdef UNIX
 /* test PR 368737: add client timer support */
@@ -119,8 +120,8 @@ at_lea(uint opc, app_pc tag)
     /* FIXME: should do some fp ops and really test the fp state preservation */
 }
 
-static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+static dr_emit_flags_t
+bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
     int num_nops = 0;
@@ -152,24 +153,22 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
         } else
             in_nops = false;
     }
-    if (num_nops == 9) {
+    if (num_nops == 9 && !nops_matched) {
         /* PR 210591: test transparency by having client create a thread after
          * app has loaded a library and ensure its DllMain is not notified
          */
         bool success;
+        nops_matched = true;
         /* reset cond vars */
         child_alive = false;
         child_continue = false;
         child_dead = false;
+        dr_fprintf(STDERR, "PR 210591: testing client transparency\n");
         success = dr_create_client_thread(thread_func, THREAD_ARG);
         ASSERT(success);
         while (!child_alive)
             dr_thread_yield();
-        child_continue = true;
-        while (!child_dead)
-            dr_thread_yield();
-        dr_fprintf(STDERR, "PR 210591: client transparency test passed\n");
-        child_dead = true;
+        /* We leave the client thread alive until the app exits, to test i#1489 */
     }
     return DR_EMIT_DEFAULT;
 }
@@ -179,6 +178,7 @@ void exit_event(void)
     bool success = dr_raw_tls_cfree(tls_offs, NUM_TLS_SLOTS);
     ASSERT(success);
     ASSERT(num_lea > 0);
+    /* DR should have terminated the client thread for us */
 }
 
 static bool
@@ -273,7 +273,7 @@ void dr_init(client_id_t id)
         dr_fprintf(STDERR, "...passed\n");
     }
 
-    /* PR 222812: client thread */
+    /* PR 222812: start up and shut down a client thread */
     success = dr_create_client_thread(thread_func, THREAD_ARG);
     ASSERT(success);
     while (!child_alive)

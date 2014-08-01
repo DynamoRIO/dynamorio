@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -33,6 +33,29 @@
 
 #include "tools.h"
 
+#ifdef WINDOWS
+/* XXX: can we share w/ core somehow? */
+typedef enum _THREADINFOCLASS {
+    ThreadAmILastThread = 12,
+} THREADINFOCLASS;
+
+BOOL
+am_I_last_thread(void)
+{
+    ULONG got;
+    BOOL last;
+    GET_NTDLL(NtQueryInformationThread, (IN HANDLE ThreadHandle,
+                                         IN THREADINFOCLASS ThreadInformationClass,
+                                         OUT PVOID ThreadInformation,
+                                         IN ULONG ThreadInformationLength,
+                                         OUT PULONG ReturnLength OPTIONAL));
+    if (NT_SUCCESS(NtQueryInformationThread
+                   (GetCurrentThread(), ThreadAmILastThread, &last, sizeof(last), &got)))
+        return last;
+    return FALSE;
+}
+#endif
+
 int main()
 {
 #ifdef WINDOWS
@@ -48,6 +71,10 @@ int main()
         NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
         FreeLibrary(lib);
     }
+    /* Test i#1489 by querying for last thread while client thread is active */
+    print("i#1489 last-thread test\n");
+    if (!am_I_last_thread())
+        print("thread transparency error\n");
 #else
     /* test creating thread here */
     NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP; NOP;
