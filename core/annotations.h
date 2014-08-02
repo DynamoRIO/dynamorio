@@ -109,20 +109,34 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc)
 }
 #endif
 
-#define IS_ANNOTATION_LABEL(instr) ((instr != NULL) && instr_is_label(instr) && \
-    ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
+inline bool
+is_annotation_label(instr_t * instr)
+{
+    if (instr != NULL && instr_is_label(instr))
+        return (ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION;
 
-#define IS_ANNOTATION_RETURN_PLACEHOLDER(instr) ((instr != NULL) && \
-    (instr_get_opcode(instr) == OP_mov_st) && \
-    ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
+    return false;
+}
+
+inline bool
+is_annotation_return_placeholder(instr_t *instr)
+{
+    if (instr != NULL && instr_get_opcode(instr) == OP_mov_st)
+        return (ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION;
+
+    return false;
+}
 
 #if defined (WINDOWS) && defined (X64)
-/* Win64 uses a compiled annotation, so the jump over dead code is not fixed. */
-# define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) instr_is_cbr(instr)
+/* Win64 uses a compiled annotation, so the jump over dead code is not constant. */
+inline bool
+is_annotation_jump_over_dead_code(instr_t *instr)
+{
+    return instr_is_cbr(instr);
+}
 #else
 /* Other platforms use inline assembly, so the annotation starts with a constant jump
- * instruction for efficient identification. The annotation is always longer than this
- * jump, so the target is always a second jump having variable opcode and target.
+ * instruction for efficient identification.
  */
 # ifdef WINDOWS
 #  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x06eb
@@ -133,9 +147,12 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc)
 #   define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x0ceb
 #  endif
 # endif
-# define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) \
-    (instr_is_ubr(instr) &&  \
-    (*(ushort *)instr_get_translation(instr) == ANNOTATION_JUMP_OVER_LABEL_REFERENCE))
+inline bool
+is_annotation_jump_over_dead_code(instr_t *instr)
+{
+    app_pc xl8 = instr_get_translation(instr);
+    return (*(ushort *)xl8 == ANNOTATION_JUMP_OVER_LABEL_REFERENCE));
+}
 #endif
 
 #define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[1])
@@ -152,28 +169,24 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc)
  * @brief Annotation handler registration routines.
  */
 
-#define ANNOT_REGISTER_CALL_VARG(drcontext, handle, target_name, call, num_args, ...) \
-do { \
-    generic_func_t target = dr_get_proc_address(handle, target_name); \
-    if (target != NULL) \
-        annot_register_call_varg(drcontext, target, call, false, num_args, __VA_ARGS__); \
-} while (0)
-
-/* Facilitates returning a value from an annotation clean call. */
-#define RETURN(type, value) \
-{ \
-    type return_value = (value); \
-    dr_mcontext_t mcontext; \
-    void *dcontext = dr_get_current_drcontext(); \
-    mcontext.size = sizeof(dr_mcontext_t); \
-    mcontext.flags = DR_MC_INTEGER; \
-    dr_get_mcontext(dcontext, &mcontext); \
-    mcontext.xax = return_value; \
-    dr_set_mcontext(dcontext, &mcontext); \
-    return return_value; \
+/**
+  * Facilitates returning a value from an annotation clean call.
+  */
+inline void
+dr_annotation_set_return_value(reg_t value)
+{
+    dr_mcontext_t mcontext;
+    void *dcontext = dr_get_current_drcontext();
+    mcontext.size = sizeof(dr_mcontext_t);
+    mcontext.flags = DR_MC_INTEGER;
+    dr_get_mcontext(dcontext, &mcontext);
+    mcontext.xax = value;
+    dr_set_mcontext(dcontext, &mcontext);
 }
 
-/* Synonyms for the Valgrind client request IDs (sequential from 0 for convenience) */
+/**
+  * Synonyms for the Valgrind client request IDs (sequential from 0 for convenience).
+  */
 typedef enum _valgrind_request_id_t {
     VG_ID__RUNNING_ON_VALGRIND,
     VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
@@ -181,13 +194,18 @@ typedef enum _valgrind_request_id_t {
     VG_ID__LAST
 } valgrind_request_id_t;
 
-/* Facilitates decoding Valgrind annotations */
+/**
+  * Defines the number of arguments in a Valgrind annotation. Some arguments may not
+  * be used for some Valgrind client requests. See the Valgrind documentation.
+  */
 enum {
-    VG_PATTERN_LENGTH = 5,
     VG_NUM_ARGS = 5,
 };
 
-/* The Valgrind client request object */
+/**
+  * Defines the Valgrind client request object. An instance is passed to Valgrind
+  * annotation callback functions, to make the arguments available.
+  */
 typedef struct _vg_client_request_t {
     ptr_uint_t request;
     ptr_uint_t args[VG_NUM_ARGS];

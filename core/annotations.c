@@ -129,7 +129,10 @@ expected_rol_immeds[VG_PATTERN_LENGTH] = {
 };
 #endif
 
-#define VALGRIND_ANNOTATION_ROL_COUNT 4
+enum {
+    VG_ROL_COUNT = 4,
+    VG_PATTERN_LENGTH = 5,
+}
 
 typedef enum _annotation_type_t {
     ANNOTATION_TYPE_NONE,
@@ -576,9 +579,9 @@ match_valgrind_pattern(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
     /* Delete rol instructions--unless a previous BB contains some of them, in which
      * case they must be executed to avoid messing up %xdi.
      */
-    if (bb_instr_count > VALGRIND_ANNOTATION_ROL_COUNT) {
+    if (bb_instr_count > VG_ROL_COUNT) {
         instr = instrlist_last(bb);
-        for (i = 0; (i < VALGRIND_ANNOTATION_ROL_COUNT) && (instr != NULL); i++) {
+        for (i = 0; (i < VG_ROL_COUNT) && (instr != NULL); i++) {
             instr_walk = instr_get_prev(instr);
             instrlist_remove(bb, instr);
             instr_destroy(dcontext, instr);
