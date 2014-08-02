@@ -173,6 +173,7 @@ set_tls(ushort tls_offs, void *value)
 void
 os_thread_stack_exit(dcontext_t *dcontext);
 
+void debugbox_setup_title(void);
 int debugbox(char *msg);
 int os_countdown_messagebox(char *message, int time_in_milliseconds);
 

@@ -62,6 +62,8 @@
 #   2008-08-13 / Peter Oberparleiter: modified function coverage
 #                implementation (now enabled per default),
 #                introduced sorting option (enabled per default)
+#   2014-07-30 / Qin Zhao: added TNDA for per-line test coverage information,
+#                a feature from DrCov and DrCov2Lcov (www.dynamorio.org)
 #
 
 use strict;
@@ -69,6 +71,7 @@ use File::Basename;
 use File::Temp qw(tempfile);
 use Getopt::Long;
 use Digest::MD5 qw(md5_base64);
+use Scalar::Util qw(looks_like_number);
 
 
 # Global constants
@@ -1597,6 +1600,29 @@ sub read_info_file($)
                                 last;
                         };
 
+                        # DrCov from DynamoRIO (www.dynamorio.org) provides
+                        # per-line test coverage infomation.
+                        # The output is something like:
+                        # for code being executed within a test:
+                        #   TDNA:52,net::HostResolver_DnsTask_Test::TestBody
+                        # for code being executed without a test, e.g. init:
+                        #   TDNA:11,<NON-TEST>
+                        # for code not being executed:
+                        #   TDNA:87,0
+                        # We add TNDA handling here, and assume no 'DA' is
+                        # used in the input so we can re-use $sumcount->{$1}.
+                        /^TNDA:(\d+),([^,]+)?/ && do
+                        {
+                            # Execution with test info found, add to structure.
+                            # We overload the $sumcount for storing test info.
+                            my $str_len = length $2;
+                            $sumcount->{$1} = $2;
+                            if ($str_len >= $line_field_width) {
+                                $line_field_width = $str_len + 1;
+                            }
+                            last;
+                        };
+
                         /^FN:(\d+),([^,]+)/ && do
                         {
                                 last if (!$func_coverage);
@@ -1717,7 +1743,16 @@ sub read_info_file($)
 
                 foreach (keys(%{$sumcount}))
                 {
-                        if ($sumcount->{$_} > 0) { $hitcount++; }
+                    # Because we reuse sumcount to store test name for TNDA,
+                    # we need to check here if $sumcount->{$_} is a number
+                    # or a test name.
+                    if (looks_like_number($sumcount->{$_})) {
+                        if ($sumcount->{$_} > 0) {
+                            $hitcount++;
+                        }
+                    } else {
+                        $hitcount++;
+                    }
                 }
 
                 $data->{"hit"} = $hitcount;
@@ -4093,6 +4128,14 @@ sub format_count($$)
         my $result;
         my $exp;
 
+        # Because we reuse sumcount to store test name for TNDA,
+        # we need to check here if $sumcount->{$_} is a number
+        # or a test name.
+        if (!looks_like_number($count)) {
+            $result = sprintf("%*s", $width, $count);
+            return $result;
+        }
+
         $result = sprintf("%*.0f", $width, $count);
         while (length($result) > $width) {
                 last if ($count < 10);
@@ -4131,18 +4174,20 @@ sub write_source_line(*$$$$$$)
                 $result         = "";
                 $source_format  = "";
                 $count_format   = " "x$count_field_width;
-        }
-        elsif ($count == 0) {
+        } elsif (looks_like_number($count)) {
+            # Because we reuse sumcount to store test name for TNDA,
+            # we need to check here if $sumcount->{$_} is a number
+            # or a test name.
+            if ($count == 0) {
                 $result         = $count;
                 $source_format  = '<span class="lineNoCov">';
                 $count_format   = format_count($count, $count_field_width);
-        }
-        elsif ($converted && defined($highlight)) {
+            } elsif ($converted && defined($highlight)) {
                 $result         = "*".$count;
                 $source_format  = '<span class="lineDiffCov">';
                 $count_format   = format_count($count, $count_field_width);
-        }
-        else {
+            }
+        } else {
                 $result         = $count;
                 $source_format  = '<span class="lineCov">';
                 $count_format   = format_count($count, $count_field_width);

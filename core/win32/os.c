@@ -782,7 +782,6 @@ print_mem_quota()
 }
 
 /* os-specific initializations */
-static void init_debugbox_title_buf(void);
 void
 os_init(void)
 {
@@ -802,7 +801,7 @@ os_init(void)
      * multi-threaded and is no longer safe to do so on demand, this also
      * takes care of initializing the static buffer get_appilication_name
      * and get_application_pid */
-    init_debugbox_title_buf();
+    debugbox_setup_title();
 
     win32_pid =  get_process_id();
     LOG(GLOBAL, LOG_TOP, 1, "Process id: %d\n", win32_pid);
@@ -4649,10 +4648,10 @@ get_num_processors()
  * that the static buffers in get_application_name and get_application_pid
  * get initialized while we are still single threaded. */
 static wchar_t debugbox_title_buf[MAXIMUM_PATH+64];
-static void init_debugbox_title_buf()
+void debugbox_setup_title(void)
 {
     snwprintf(debugbox_title_buf, BUFFER_SIZE_ELEMENTS(debugbox_title_buf),
-              L_PRODUCT_NAME L" Notice: %hs(%hs)",
+              L"%hs Notice: %hs(%hs)", exception_label_core,
               get_application_name(), get_application_pid());
     NULL_TERMINATE_BUFFER(debugbox_title_buf);
 }
@@ -4670,7 +4669,7 @@ debugbox(char *msg)
     int res;
 
     if (debugbox_title_buf[0] == 0)
-        init_debugbox_title_buf();
+        debugbox_setup_title();
 
     /* FIXME: If we hit an assert in nt_messagebox, we'll deadlock when
      * we come back here.

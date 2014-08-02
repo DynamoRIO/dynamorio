@@ -207,7 +207,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_EXCEPTION
 Language=English
-Application %1!s! (%2!s!).  Platform exception at PC %3!s!.  Please report this.  Program aborted. %4!s!
+Application %1!s! (%2!s!).  %3!s! %4!s! at PC %5!s!.  Please report this at %6!s!.  Program aborted.%7!s!
 .
 
 MessageId =
@@ -215,7 +215,7 @@ Severity = Error
 Facility = DRCore
 SymbolicName = MSG_CLIENT_EXCEPTION
 Language=English
-Application %1!s! (%2!s!).  Client exception at PC %3!s!.  Program aborted. %4!s!
+Application %1!s! (%2!s!).  %3!s! %4!s! at PC %5!s!.  Please report this at %6!s!.  Program aborted.%7!s!
 .
 
 MessageId =

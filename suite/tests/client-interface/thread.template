@@ -11,14 +11,14 @@ PR 222812: client thread test passed
 thread.appdll.dll process attach
 loaded library
 #endif
+PR 210591: testing client transparency
 client thread is alive
 #ifdef UNIX
 event_timer fired
 #endif
-client thread is dying
-PR 210591: client transparency test passed
 #ifdef WINDOWS
 thread.appdll.dll process detach
+i#1489 last-thread test
 #endif
 thank you for testing the client interface
 #ifdef X64
