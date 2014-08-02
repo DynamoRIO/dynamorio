@@ -49,23 +49,64 @@
 #ifdef X64
 /* x64 encoding of "xchg %ebx,%ebx" (endian reversed) */
 # define ENCODED_VALGRIND_ANNOTATION_TAIL 0xdb8748
-/* x64 encoding of "rol $0x3,%edi; rol $0xd,%edi" (endian reversed) */
+/* x64 encoding of "rol $0x3,%edi; rol $0xd,%edi; rol $0x1d,%edi; rol $0x13,%edi"
+ * These constants facilitate efficient comparison of the raw bytes (endian reversed).
+ */
 # define ENCODED_VALGRIND_ANNOTATION_WORD_1 0xdc7c14803c7c148ULL
-/* x64 encoding of "rol $0x1d,%edi; rol $0x13,%edi" (endian reversed) */
 # define ENCODED_VALGRIND_ANNOTATION_WORD_2 0x33c7c1483dc7c148ULL
-# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
-    (((*(uint *) instr_start_pc) & 0xffffff) == ENCODED_VALGRIND_ANNOTATION_TAIL)
-# define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
-    ((*(uint64 *) (xchg_start_pc - (2 * sizeof(uint64))) == \
-     ENCODED_VALGRIND_ANNOTATION_WORD_1) && \
-    (*(uint64 *) (xchg_start_pc - sizeof(uint64)) == ENCODED_VALGRIND_ANNOTATION_WORD_2))
+
+/* Return true if instr_start_pc could be the last instruction of a Valgrind annotation,
+ * or false if it definitely is not a Valgrind annotation.
+ */
+inline bool
+is_encoded_valgrind_annotation_tail(app_pc instr_start_pc)
+{
+    return (((*(uint *) instr_start_pc) & 0xffffff) == ENCODED_VALGRIND_ANNOTATION_TAIL);
+}
+
+/* Return true if xchg_start_pc is definitely the last instruction of a Valgrind
+ * annotation. The caller must ensure it is safe to read 16 bytes before xchg_start_pc.
+ */
+inline bool
+is_encoded_valgrind_annotation(app_pc xchg_start_pc)
+{
+    app_pc word1_pc = xchg_start_pc - (2 * sizeof(uint64));
+    app_pc word2_pc = xchg_start_pc - sizeof(uint64);
+    return ((*(uint64 *) word1_pc) == ENCODED_VALGRIND_ANNOTATION_WORD_1 &&
+            (*(uint64 *) word2_pc) == ENCODED_VALGRIND_ANNOTATION_WORD_2);
+}
 #else
-# define IS_ENCODED_VALGRIND_ANNOTATION_TAIL(instr_start_pc) \
-    (*(ushort *) instr_start_pc == 0xdb87)
-# define IS_ENCODED_VALGRIND_ANNOTATION(xchg_start_pc) \
-    ((*(uint *) (xchg_start_pc - 0xc) == 0xc103c7c1UL) && \
-     (*(uint *) (xchg_start_pc - 8) == 0xc7c10dc7) && \
-     (*(uint *) (xchg_start_pc - 4) == 0x13c7c11d))
+/* x86 encoding of "xchg %ebx,%ebx" (endian reversed) */
+# define ENCODED_VALGRIND_ANNOTATION_TAIL 0xdb87
+/* x86 encoding of "rol $0x3,%edi; rol $0xd,%edi; rol $0x1d,%edi; rol $0x13,%edi"
+ * These constants facilitate efficient comparison of the raw bytes (endian reversed).
+ */
+# define ENCODED_VALGRIND_ANNOTATION_WORD_1 0xc103c7c1UL
+# define ENCODED_VALGRIND_ANNOTATION_WORD_2 0xc7c10dc7UL
+# define ENCODED_VALGRIND_ANNOTATION_WORD_3 0x13c7c11dUL
+
+/* Return true if instr_start_pc could be the last instruction of a Valgrind annotation,
+ * or false if it definitely is not a Valgrind annotation.
+ */
+inline bool
+is_encoded_valgrind_annotation_tail(app_pc instr_start_pc)
+{
+    return (*(ushort *) instr_start_pc == ENCODED_VALGRIND_ANNOTATION_TAIL);
+}
+
+/* Return true if xchg_start_pc is definitely the last instruction of a Valgrind
+ * annotation. The caller must ensure it is safe to read 16 bytes before xchg_start_pc.
+ */
+inline bool
+is_encoded_valgrind_annotation(app_pc xchg_start_pc)
+{
+    app_pc word1_pc = xchg_start_pc - (3 * sizeof(uint));
+    app_pc word2_pc = xchg_start_pc - (2 * sizeof(uint));
+    app_pc word3_pc = xchg_start_pc - sizeof(uint);
+    return ((*(uint *) word1_pc == ENCODED_VALGRIND_ANNOTATION_WORD_1) &&
+            (*(uint *) word2_pc == ENCODED_VALGRIND_ANNOTATION_WORD_2) &&
+            (*(uint *) word3_pc == ENCODED_VALGRIND_ANNOTATION_WORD_3));
+}
 #endif
 
 #define IS_ANNOTATION_LABEL(instr) ((instr != NULL) && instr_is_label(instr) && \
@@ -76,8 +117,13 @@
     ((ptr_uint_t) instr_get_note(instr) == DR_NOTE_ANNOTATION))
 
 #if defined (WINDOWS) && defined (X64)
+/* Win64 uses a compiled annotation, so the jump over dead code is not fixed. */
 # define IS_ANNOTATION_JUMP_OVER_DEAD_CODE(instr) instr_is_cbr(instr)
 #else
+/* Other platforms use inline assembly, so the annotation starts with a constant jump
+ * instruction for efficient identification. The annotation is always longer than this
+ * jump, so the target is always a second jump having variable opcode and target.
+ */
 # ifdef WINDOWS
 #  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x06eb
 # else
