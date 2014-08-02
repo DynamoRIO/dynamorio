@@ -1885,7 +1885,8 @@ struct _instr_t {
 
     /* this field is for the use of passes as an annotation.
      * it is also used to hold the offset of an instruction when encoding
-     * pc-relative instructions. See DR_NOTE_FIRST_RESERVED in instr.h.
+     * pc-relative instructions. A small range of values is reserved for internal use
+     * by DR and cannot be used by clients; see DR_NOTE_FIRST_RESERVED in globals.h.
      */
     void *note;
 
@@ -1976,7 +1977,7 @@ DR_API
 INSTR_INLINE
 /**
  * Returns the next application (non-meta) instruction in the instruction list
- * that contains \p instr.  
+ * that contains \p instr.
  *
  * \note As opposed to instr_get_next(), this routine skips all meta
  * instructions inserted by either DynamoRIO or its clients.

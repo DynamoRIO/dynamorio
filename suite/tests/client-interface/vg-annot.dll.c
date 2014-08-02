@@ -105,9 +105,9 @@ void dr_init(client_id_t id)
 #endif
     dr_register_exit_event(exit_event);
 
-    dr_annot_register_valgrind(client_id, VG_ID__RUNNING_ON_VALGRIND,
-                               handle_running_on_valgrind);
+    dr_annotation_register_valgrind(client_id, VG_ID__RUNNING_ON_VALGRIND,
+                                    handle_running_on_valgrind);
 
-    dr_annot_register_valgrind(client_id, VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
-                               handle_make_mem_defined_if_addressable);
+    dr_annotation_register_valgrind(client_id, VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+                                    handle_make_mem_defined_if_addressable);
 }

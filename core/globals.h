@@ -273,7 +273,7 @@ typedef struct _module_data_t module_data_t;
 #else
 # define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
-static const ptr_uint_t DR_NOTE_ANNOTATION = DR_NOTE_FIRST_RESERVED + 1;
+#define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)
 
 /**
  * Structure written by dr_get_time() to specify the current time.

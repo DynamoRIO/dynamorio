@@ -1391,6 +1391,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
     return (start_pc + sz);
 }
 
+// can it use exit_cti_disp_pc now?
 byte *
 direct_cti_disp_pc(byte *pc)
 {

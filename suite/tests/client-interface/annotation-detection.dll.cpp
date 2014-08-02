@@ -52,12 +52,12 @@ test_two_args(int a, int b)
     PRINTF("test_two_args(): %d, %d", a, b);
 }
 
-static int
+static void
 test_three_args(int a, int b, int c)
 {
     PRINTF("test_three_args(): %d * %d * %d = %d", a, b, c, a * b * c);
 
-    RETURN(int, a * b * c);
+    dr_annotation_set_return_value(a * b * c);
 }
 
 static void
@@ -138,8 +138,8 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb, bool, bool)
 static void
 register_call(const char *annotation, void *target, uint num_args)
 {
-    dr_annot_register_call(client_id, annotation, target, false, num_args
-                           _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    dr_annotation_register_call(client_id, annotation, target, false, num_args
+                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
 }
 
 static void

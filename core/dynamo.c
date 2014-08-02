@@ -628,7 +628,7 @@ dynamorio_app_init(void)
         }
 
 #ifdef ANNOTATIONS
-        annot_init();
+        annotation_init();
 #endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
@@ -957,7 +957,7 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
 #endif
     fragment_exit();
 #ifdef ANNOTATIONS
-    annot_exit();
+    annotation_exit();
 #endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other

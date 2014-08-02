@@ -4116,6 +4116,37 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 #endif /* UNIX */
 
+#ifdef ANNOTATIONS
+/***************************************************************************
+ * DR and Valgrind annotations
+ */
+static void
+mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+    dr_annotation_handler_t *handler = (dr_annotation_handler_t *) label_data->data[0];
+    dr_annotation_receiver_t *receiver = handler->receiver_list;
+    opnd_t *args = NULL;
+
+    ASSERT(handler->type == ANNOT_HANDLER_CALL);
+
+    while (receiver != NULL) {
+        if (handler->num_args != 0) {
+            /* Arguments are freed by dr_insert_clean_call_ex_varg() */
+            args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
+                                    ACCT_CLEANCALL, UNPROTECTED);
+            memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+        }
+        dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
+            receiver->instrumentation.callback,
+                receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+            handler->num_args, args);
+
+        receiver = receiver->next;
+    }
+}
+#endif
+
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
  * we'd like prior to placing it in the code cache
@@ -4159,7 +4190,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             continue;
 
 #ifdef ANNOTATIONS
-        if (IS_ANNOTATION_RETURN_PLACEHOLDER(instr)) {
+        if (is_annotation_return_placeholder(instr)) {
             instrlist_remove(ilist, instr);
             instr_destroy(dcontext, instr);
             continue;
@@ -4225,30 +4256,8 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 
 #ifdef ANNOTATIONS
-        if (IS_ANNOTATION_LABEL(instr)) {
-            annotation_handler_t *handler;
-            dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
-            opnd_t *args = NULL;
-            annotation_receiver_t *receiver;
-
-            handler = (annotation_handler_t *) label_data->data[0];
-            ASSERT(handler->type == ANNOT_HANDLER_CALL);
-            receiver = handler->receiver_list;
-
-            while (receiver != NULL) {
-                if (handler->num_args != 0) {
-                    args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
-                                            ACCT_CLEANCALL, UNPROTECTED);
-                    memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
-                }
-                dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
-                    receiver->instrumentation.callback,
-                    /*DR_CLEANCALL_NOSAVE_XMM_NONPARAM | DR_CLEANCALL_NOSAVE_XMM_NONRET |*/
-                        receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
-                    handler->num_args, args);
-
-                receiver = receiver->next;
-            }
+        if (is_annotation_label(instr)) {
+            mangle_annotation_helper(dcontext, instr, ilist);
             continue;
         }
 #endif

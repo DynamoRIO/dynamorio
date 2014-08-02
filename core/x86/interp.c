@@ -1,4 +1,3 @@
-
 /* **********************************************************
  * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
@@ -2661,8 +2660,8 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
         if (!instr_ok_to_mangle(inst)) {
 #ifdef ANNOTATIONS
-            /* Save the trailing_annotation_pc in case a client trucates the bb there. */
-            if (IS_ANNOTATION_LABEL(inst) && (last_app_instr == NULL)) {
+            /* Save the trailing_annotation_pc in case a client truncates the bb there. */
+            if (is_annotation_label(inst) && last_app_instr == NULL) {
                 dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
                 trailing_annotation_pc = GET_ANNOTATION_APP_PC(label_data);
             }
@@ -2959,6 +2958,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
+
     ASSERT(bb->initialized);
     /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start
      * will catch it
@@ -3090,9 +3090,13 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
 
 #if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
-                if (IS_ENCODED_VALGRIND_ANNOTATION_TAIL(bb->instr_start)) {
-                    if (IS_ENCODED_VALGRIND_ANNOTATION(bb->instr_start)) {
-                        KSTOP(bb_decoding); // Valgrind annotation needs full decode
+                /* Quickly check whether this may be a Valgrind annotation. */
+                if (is_encoded_valgrind_annotation_tail(bb->instr_start)) {
+                    /* Might be an annotation, so try the (slower) full check. */
+                    if (is_encoded_valgrind_annotation(bb->instr_start, bb->start_pc,
+                                                       (app_pc) PAGE_START(bb->cur_pc))) {
+                        /* Valgrind annotation needs full decode; clean up and repeat. */
+                        KSTOP(bb_decoding);
                         instr_destroy(dcontext, bb->instr);
                         instrlist_clear_and_destroy(dcontext, bb->ilist);
                         if (bb->vmlist != NULL) {
@@ -3315,16 +3319,21 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
 #ifdef ANNOTATIONS
 # if !(defined(X64) && defined(WINDOWS))
-        if (IS_DECODED_VALGRIND_ANNOTATION_TAIL(bb->instr)) {
-            if (match_valgrind_pattern(dcontext, bb->ilist, bb->instr, bb->instr_start,
-                                       total_instrs))
+        /* Quickly check whether this may be a Valgrind annotation. */
+        if (is_decoded_valgrind_annotation_tail(bb->instr)) {
+            /* Might be an annotation, so try the (slower) full check. */
+            if (is_encoded_valgrind_annotation(bb->instr_start, bb->start_pc,
+                                               (app_pc) PAGE_START(bb->cur_pc))) {
+                instrument_valgrind_annotation(dcontext, bb->ilist, bb->instr,
+                                               bb->instr_start, total_instrs);
                 continue;
-        } else
+            }
+        } else /* Top-level annotation recognition is unambiguous (xchg vs. jmp). */
 # endif
-        if (IS_ANNOTATION_JUMP_OVER_DEAD_CODE(bb->instr)) {
+        if (is_annotation_jump_over_dead_code(bb->instr)) {
             instr_t *substitution = NULL;
-            if (annot_match(dcontext, &bb->cur_pc, &substitution
-                            _IF_WINDOWS_X64((bb->cur_pc < bb->checked_end)))) {
+            if (annotation_match(dcontext, &bb->cur_pc, &substitution
+                                 _IF_WINDOWS_X64(bb->cur_pc < bb->checked_end))) {
                 instr_destroy(dcontext, bb->instr);
                 if (substitution == NULL)
                     continue; /* ignore annotation if no handlers are registered */

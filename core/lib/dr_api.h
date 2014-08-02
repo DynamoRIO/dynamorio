@@ -61,9 +61,6 @@ extern "C" {
  */
 #include "dr_tools.h"
 
-/* Annotation handler registration routines */
-#include "dr_annotation.h"
-
 /* Utility routines for identifying features of the processor. */
 #include "dr_proc.h"
 
@@ -81,6 +78,9 @@ extern "C" {
 
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h"
+
+/* Annotation handler registration routines */
+#include "dr_annotation.h"
 
 #ifndef DYNAMORIO_STANDALONE
 /**
