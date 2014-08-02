@@ -9,3 +9,5 @@ Description:
 This directory contains a stock genhtml from lcov-1.11 with the following changes:
 
 - Replaced all tabs with spaces.
+- Removed all trailing spaces.
+- Added support for DrCov output.

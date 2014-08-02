@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -48,6 +48,8 @@ The runtime options for this tool include:
     If set to "-", the tool prints to stderr.
  - \b -ignore_underscore:
     Ignores library routine names starting with "_".
+
+Here is an example:
 
 \code
 bin32/drrun -t drltrace -only_from_app -- hello.exe

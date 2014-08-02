@@ -3087,6 +3087,31 @@ postsys_SuspendThread(dcontext_t *dcontext, reg_t *param_base, bool success)
     }
 }
 
+#ifdef CLIENT_INTERFACE
+/* NtQueryInformationThread */
+static void
+postsys_QueryInformationThread(dcontext_t *dcontext, reg_t *param_base, bool success)
+{
+    THREADINFOCLASS class = (THREADINFOCLASS) postsys_param(dcontext, param_base, 1);
+    if (success && class == ThreadAmILastThread) {
+        HANDLE thread_handle = (HANDLE) postsys_param(dcontext, param_base, 0);
+        thread_id_t tid = thread_id_from_handle(thread_handle);
+        process_id_t pid = process_id_from_thread_handle(thread_handle);
+        if (pid != POINTER_MAX && is_pid_me(pid) &&
+            get_num_client_threads() > 0 && is_last_app_thread()) {
+            PVOID info = (PVOID) postsys_param(dcontext, param_base, 2);
+            ULONG info_sz = (ULONG) postsys_param(dcontext, param_base, 3);
+            BOOL pretend_val = TRUE;
+            LOG(THREAD, LOG_SYSCALLS|LOG_THREADS, IF_DGCDIAG_ELSE(1, 2),
+                "syscall: NtQueryInformationThread ThreadAmILastThread fooling\n");
+            ASSERT_CURIOSITY(info_sz == sizeof(BOOL));
+            if (info_sz == sizeof(BOOL))
+                safe_write(info, info_sz, &pretend_val);
+        }
+    }
+}
+#endif
+
 /* NtAllocateVirtualMemory */
 static void
 postsys_AllocateVirtualMemory(dcontext_t *dcontext, reg_t *param_base, bool success,
@@ -3827,6 +3852,11 @@ void post_system_call(dcontext_t *dcontext)
         }
         mutex_unlock(&thread_initexit_lock); /* need lock to lookup thread */
     }
+#ifdef CLIENT_INTERFACE
+    else if (sysnum == syscalls[SYS_QueryInformationThread]) {
+        postsys_QueryInformationThread(dcontext, param_base, success);
+    }
+#endif
     else if (sysnum == syscalls[SYS_AllocateVirtualMemory] ||
              /* i#899: new win8 syscall w/ similar params to NtAllocateVirtualMemory */
              sysnum == syscalls[SYS_Wow64AllocateVirtualMemory64]) {

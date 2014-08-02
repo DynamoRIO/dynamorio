@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -888,6 +888,8 @@ options_init(client_id_t id)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DrCov", "http://dynamorio.org/issues");
+
     drmgr_init();
     drx_init();
 

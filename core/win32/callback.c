@@ -4587,7 +4587,7 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
      * assumes the size here is MAX_PATH+11
      */
     const char *fmt =
-        "%s at PC "PFX"\n"
+        "%s %s at PC "PFX"\n"
         "0x%08x 0x%08x "PFX" "PFX" "PFX" "PFX"\n"
         "Base: "PFX"\n"
         "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
@@ -4636,7 +4636,7 @@ report_internal_exception(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
     report_dynamorio_problem(dcontext, dumpcore_flag,
                              (app_pc) pExcptRec->ExceptionAddress,
                              (app_pc) cxt->CXT_XBP,
-                             fmt, prefix,
+                             fmt, prefix, CRASH_NAME,
                              (app_pc) pExcptRec->ExceptionAddress,
                              pExcptRec->ExceptionCode, pExcptRec->ExceptionFlags,
                              cxt->CXT_XIP, pExcptRec->ExceptionAddress,
@@ -4659,8 +4659,10 @@ internal_exception_info(dcontext_t *dcontext, EXCEPTION_RECORD *pExcptRec,
                         CONTEXT *cxt, bool dstack_overflow)
 {
     report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_INTERNAL_EXCEPTION,
-                              dstack_overflow ? "Stack overflow" :
-                              "Platform exception");
+                              /* for clients we need to let them override the label */
+                              IF_NOT_CLIENT_INTERFACE(dstack_overflow ?
+                                                      "Stack overflow" :)
+                              exception_label_core);
 }
 
 static void
@@ -5234,7 +5236,7 @@ intercept_exception(app_state_at_intercept_t *state)
                 check_for_modified_code(dcontext, pExcptRec, cxt, MOD_CODE_APP_CXT, NULL);
             }
             report_internal_exception(dcontext, pExcptRec, cxt, DUMPCORE_CLIENT_EXCEPTION,
-                                      "Client exception");
+                                      exception_label_client);
             os_terminate(dcontext, TERMINATE_PROCESS);
             ASSERT_NOT_REACHED();
         }

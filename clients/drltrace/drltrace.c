@@ -1,5 +1,5 @@
 /* ***************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * ***************************************************************************/
 
 /*
@@ -282,6 +282,8 @@ dr_init(client_id_t id)
 {
     module_data_t *exe;
     IF_DEBUG(bool ok;)
+
+    dr_set_client_name("DrLTrace", "http://dynamorio.org/issues");
 
     options_init(id);
 

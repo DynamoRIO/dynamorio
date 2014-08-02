@@ -2607,7 +2607,7 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
                const char *prefix, const char *signame, const char *where)
 {
     const char *fmt =
-        "%s at PC "PFX"\n"
+        "%s %s at PC "PFX"\n"
         "Received SIG%s at%s pc "PFX" in thread "TIDFMT"\n"
         "Base: "PFX"\n"
         "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
@@ -2620,7 +2620,8 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
 
     report_dynamorio_problem(dcontext, dumpcore_flag,
                              pc, (app_pc) sc->SC_XBP,
-                             fmt, prefix, pc, signame, where, pc, get_thread_id(),
+                             fmt, prefix, CRASH_NAME, pc,
+                             signame, where, pc, get_thread_id(),
                              get_dynamorio_dll_start(),
                              sc->SC_XAX, sc->SC_XBX, sc->SC_XCX, sc->SC_XDX,
                              sc->SC_XSI, sc->SC_XDI, sc->SC_XSP, sc->SC_XBP,
@@ -2640,7 +2641,7 @@ abort_on_DR_fault(dcontext_t *dcontext, app_pc pc, sigcontext_t *sc,
                   const char *signame, const char *where)
 {
     abort_on_fault(dcontext, DUMPCORE_INTERNAL_EXCEPTION, pc, sc,
-                   "Platform exception", signame, where);
+                   exception_label_core, signame, where);
     ASSERT_NOT_REACHED();
 }
 
@@ -3769,7 +3770,7 @@ master_signal_handler_C(byte *xsp)
                 check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
                 break;
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
-                           "Client exception",  (sig == SIGSEGV) ? "SEGV" : "BUS",
+                           exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
                            " client library");
             ASSERT_NOT_REACHED();
         }

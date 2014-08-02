@@ -1836,6 +1836,16 @@ enum {LONGJMP_EXCEPTION = 1};
 # include "events.h"
 #endif
 
+extern const char *exception_label_core;
+#ifdef CLIENT_INTERFACE
+extern const char *exception_label_client;
+#endif
+#define CRASH_NAME "internal crash"
+
+/* pass NULL to use defaults */
+void
+set_exception_strings(const char *override_label, const char *override_url);
+
 void
 report_dynamorio_problem(dcontext_t *dcontext, uint dumpcore_flag,
                          app_pc exception_addr, app_pc report_ebp,

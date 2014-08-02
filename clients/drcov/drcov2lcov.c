@@ -286,8 +286,19 @@ line_chunk_print(line_chunk_t *chunk, char *start)
         /* only print lines that have test/exec info */
         if (options.test_pattern != NULL) {
             if (chunk->info.test[i] != NULL) {
-                res = dr_snprintf(start, MAX_CHAR_PER_LINE, "DA:%u,%s\n", line_num,
-                                  chunk->info.test[i]);
+                /* The output for per-line test coverage is something like:
+                 * for code being executed within a test:
+                 *   TDNA:52,net::HostResolver_DnsTask_Test::TestBody
+                 * for code being executed without a test, e.g. init:
+                 *   TDNA:11,<NON-TEST>
+                 * for code not being executed:
+                 *   TDNA:87,0
+                 * Note: the output must agree with the assumption in
+                 * third_party/lcov/genhtml about how TDNA is formated.
+                 */
+                res = dr_snprintf(start, MAX_CHAR_PER_LINE, "TNDA:%u,%s\n", line_num,
+                                  chunk->info.test[i] == non_exec ?
+                                  "0" : chunk->info.test[i]);
             }
         } else {
             if (chunk->info.exec[i] != (byte)SOURCE_LINE_STATUS_NONE) {
