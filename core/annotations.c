@@ -981,7 +981,11 @@ report(uint count, const char *label)
 static void
 annotation_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 {
+#ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
+#else
+    dcontext_t *dcontext = NULL; // FIXME
+#endif
 
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);

@@ -110,7 +110,7 @@ else ()
   endif (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
 endif ()
 if (NOT DEFINED diff_contents)
-  #message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
+  message(FATAL_ERROR "Unable to construct diff for pre-commit checks")
 endif ()
 
 # Check for tabs.  We already removed them from svn's diff format.
@@ -133,10 +133,10 @@ endif ()
 
 # Check for trailing space.  This is a diff with an initial column for +-,
 # so a blank line will have one space: thus we rule that out.
-string(REGEX MATCH "[^\n] \n" match "${diff_contents}")
+string(REGEX MATCH "\n[^-\n][^\n]* \n" match "${diff_contents}")
 if (NOT "${match}" STREQUAL "")
   # Get more context
-  string(REGEX MATCH "\n[^\n]+ \n" match "${diff_contents}")
+  string(REGEX MATCH "\n[^-\n][^\n]* \n" match "${diff_contents}")
   message(FATAL_ERROR "ERROR: diff contains trailing spaces: ${match}")
 endif ()
 

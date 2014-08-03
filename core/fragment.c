@@ -4229,7 +4229,9 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                 */
             //}
             if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+#ifdef CLIENT_INTERFACE
                 dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
+#endif
                 // does this matter??
                 /* we have to know exactly which threads were at_syscall here when
                  * we get to post-flush, so we cache in this special bool

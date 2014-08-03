@@ -6100,7 +6100,8 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
             "WARNING: "PFX"-"PFX" is writable, NOT adding to executable list\n",
             base, base+size);
 #ifdef DEBUG
-        dump_mcontext_callstack(dcontext);
+        if (dcontext != NULL)
+            dump_mcontext_callstack(dcontext);
 #endif
 
 #ifdef PROGRAM_SHEPHERDING
@@ -6749,17 +6750,13 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
      */
     else if (!is_executable && TEST(MEMPROT_EXEC, prot)) {
         if (TEST(MEMPROT_WRITE, prot)) {
-            dr_mcontext_t mcontext;
-            mcontext.size = sizeof(dr_mcontext_t);
-            mcontext.flags = DR_MC_INTEGER;
-            dr_get_mcontext(dcontext, &mcontext);
-
             /* do NOT add to executable list if writable */
             LOG(THREAD, LOG_SYSCALLS|LOG_VMAREAS, 1,
                 "WARNING: data region "PFX"-"PFX" made executable and "
                 "writable, not adding to exec list\n", base, base + size);
 #ifdef DEBUG
-            dump_mcontext_callstack(dcontext);
+            if (dcontext != NULL)
+                dump_mcontext_callstack(dcontext);
 #endif
         } else {
             bool add_to_exec_list = false;
@@ -6773,7 +6770,8 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
                 "WARNING: data region "PFX"-"PFX" is being made executable\n",
                 base, base+size);
 #ifdef DEBUG
-            dump_mcontext_callstack(dcontext);
+            if (dcontext != NULL)
+                dump_mcontext_callstack(dcontext);
 #endif
 #ifdef PROGRAM_SHEPHERDING
             /* if on future, no reason to add to exec list now
