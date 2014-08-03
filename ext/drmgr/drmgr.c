@@ -2131,6 +2131,7 @@ drmgr_pop_cls(void *drcontext)
  */
 
 enum {
+    /* if drmgr itself needed note values we'd put them here */
     DRMGR_NOTE_FIRST_FREE = DRMGR_NOTE_NONE + 1,
 };
 
