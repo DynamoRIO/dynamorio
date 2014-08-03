@@ -1974,18 +1974,6 @@ instr_get_next(instr_t *instr);
 
 DR_API
 INSTR_INLINE
-/**
- * Returns the next application (non-meta) instruction in the instruction list
- * that contains \p instr.  
- *
- * \note As opposed to instr_get_next(), this routine skips all meta
- * instructions inserted by either DynamoRIO or its clients.
- */
-instr_t *
-instr_get_next_app(instr_t *instr);
-
-DR_API
-INSTR_INLINE
 /** Returns the previous instr_t in the instrlist_t that contains \p instr. */
 instr_t*
 instr_get_prev(instr_t *instr);

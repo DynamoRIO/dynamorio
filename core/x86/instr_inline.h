@@ -351,18 +351,6 @@ instr_get_next(instr_t *instr)
 }
 
 INSTR_INLINE
-instr_t *
-instr_get_next_app(instr_t *instr)
-{
-    CLIENT_ASSERT(instr != NULL, "instr_get_next_app: passed NULL");
-    for (instr = instr->next; instr != NULL; instr = instr->next) {
-        if (instr_ok_to_mangle(instr))
-            return instr;
-    }
-    return NULL;
-}
-
-INSTR_INLINE
 instr_t*
 instr_get_prev(instr_t *instr)
 {

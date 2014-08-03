@@ -111,13 +111,13 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
 
-    for (instr = instrlist_first_app(bb), num_instrs = 0;
+    for (instr  = instrlist_first(bb), num_instrs = 0;
          instr != NULL;
-         instr = instr_get_next_app(instr)) {
+         instr = instr_get_next(instr)) {
         num_instrs++;
     }
 
-    dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb),
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
                          (void *)inscount, false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
 
