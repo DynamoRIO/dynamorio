@@ -1752,7 +1752,9 @@ fragment_exit()
     }
 #endif
 #ifdef SELECTIVE_FLUSHING
+    TABLE_RWLOCK(app_managed_patch_table, write, lock);
     generic_hash_destroy(GLOBAL_DCONTEXT, app_managed_patch_table);
+    TABLE_RWLOCK(app_managed_patch_table, write, unlock);
 #endif
  cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
@@ -3142,7 +3144,7 @@ fragment_delete(dcontext_t *dcontext, fragment_t *f, uint actions)
     }
 
     if (!TEST(FRAGDEL_NO_HTABLE, actions))
-        fragment_remove(dcontext, f);
+        fragment_remove(dcontext, f, false);
 
     if (!TEST(FRAGDEL_NO_VMAREA, actions))
         vm_area_remove_fragment(dcontext, f);
@@ -3285,7 +3287,7 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
      */
     fragment_prepare_for_removal(GLOBAL_DCONTEXT, f);
     /* fragment_remove ignores the ibl tables for shared fragments */
-    fragment_remove(GLOBAL_DCONTEXT, f);
+    fragment_remove(GLOBAL_DCONTEXT, f, false);
     /* FIXME: we don't currently remove from thread-private ibl tables as that
      * requires walking all of the threads. */
     ASSERT_NOT_IMPLEMENTED(true || !IS_IBL_TARGET(f->flags) || shared_ibt_table_used);
@@ -3413,7 +3415,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
      * incoming field at unlink time, and we must do all 3 of unlink,
      * vmarea, and htable freeing at once.
      */
-    fragment_remove(dcontext, f);
+    fragment_remove(dcontext, f, false);
 
     /* let recreate_fragment_ilist() know that this fragment is
      * pending deletion and might no longer match the app's state.
@@ -3912,7 +3914,7 @@ fragment_remove_all_ibl_in_region(dcontext_t *dcontext, app_pc start, app_pc end
 /* Removes f from any hashtables -- BB, trace, or future -- and IBT tables
  * it is in, except for shared IBT tables. */
 void
-fragment_remove(dcontext_t *dcontext, fragment_t *f)
+fragment_remove(dcontext_t *dcontext, fragment_t *f, bool remove_shared)
 {
     per_thread_t *pt = GET_PT(dcontext);
     fragment_table_t *table = GET_FTABLE(pt, f->flags);
@@ -3921,7 +3923,7 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f)
     /* For consistency we remove entries from the IBT
      * tables before we remove them from the trace table.
      */
-    fragment_remove_from_ibt_tables(dcontext, f, false/*leave in shared*/);
+    fragment_remove_from_ibt_tables(dcontext, f, remove_shared); // formerly left in shared
 
     /* We need the write lock since deleting shifts elements around (though we
      * technically may be ok in all scenarios there) and to avoid problems with
@@ -4021,7 +4023,8 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
     if (!is_app_managed_code(bb_tag))
         return;
 
-    TABLE_RWLOCK(app_managed_patch_table, read, lock);
+    /* Need write lock b/c modifying structure of thread-shared object */
+    TABLE_RWLOCK(app_managed_patch_table, write, lock);
 
     bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                              (ptr_uint_t) bb_tag);
@@ -4044,13 +4047,13 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
         }
     }
 
-    TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+    TABLE_RWLOCK(app_managed_patch_table, write, unlock);
 }
 
 static void
 safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
 {
-    fragment_t *f = fragment_lookup_type(dcontext, tag, lookup_type|LOOKUP_PRIVATE|LOOKUP_SHARED);
+    fragment_t *f = fragment_lookup_type(dcontext, tag, lookup_type);
     if (f == NULL)
         return;
 
@@ -4076,7 +4079,7 @@ safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
      */
     fragment_prepare_for_removal(dcontext, f);
     /* fragment_remove ignores the ibl tables for shared fragments */
-    fragment_remove(dcontext, f);
+    fragment_remove(dcontext, f, true);
 
     vm_area_remove_fragment(dcontext, f);
     /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
@@ -4092,14 +4095,14 @@ safe_remove_fragment(dcontext_t *dcontext, app_pc tag, uint lookup_type)
     /* if a flush occurs, this fragment will be ignored -- so we must store
      * translation info now, just in case
      */
-    if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags))
-        fragment_record_translation_info(dcontext, f, NULL);
+    //if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags))
+    //    fragment_record_translation_info(dcontext, f, NULL);
 
     /* try to catch any potential races */
     ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
     ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
 
-    //add_to_lazy_deletion_list(dcontext, f);
+    add_to_lazy_deletion_list(dcontext, f);
 }
 
 void
@@ -4150,14 +4153,16 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                                              // but can't acquire trace_building_lock while thread_initexit_lock is held... so let go
         //acquire_recursive_lock(&change_linking_lock);
 
+        enter_couldbelinking(dcontext, NULL, false);
+
         for (i=0; i<flush_num_threads; i++) {
             tgt_dcontext = flush_threads[i]->dcontext;
 
             thread_has_fragment = false;
-            TABLE_RWLOCK(app_managed_patch_table, read, lock);
+            // TABLE_RWLOCK(app_managed_patch_table, read, lock);
             bb = operand->containing_bb_list;
             while (bb != NULL) {
-                if (fragment_lookup_type(tgt_dcontext, bb->tag, LOOKUP_BB|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                if (fragment_lookup_type(tgt_dcontext, bb->tag, LOOKUP_BB|LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
                     thread_has_fragment = true;
                     break;
                 }
@@ -4173,7 +4178,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                     break;
                 bb = bb->next_containing_bb;
             }
-            TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+            // TABLE_RWLOCK(app_managed_patch_table, read, unlock);
             if (!thread_has_fragment)
                 continue;
 
@@ -4215,9 +4220,25 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             /* grab bb building lock even for traces to further prevent link changes */
             //mutex_lock(&bb_building_lock);
 
-            //if (is_building_trace(tgt_dcontext)) {
-                //dr_printf("Error! Trace is being built on a thread while removing frags from that thread!\n");
-                //trace_abort(tgt_dcontext);
+            if (is_building_trace(tgt_dcontext)) {
+                uint i;
+                bool clobbered = false;
+                monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+                for (i = 0; i < md->blk_info_length && !clobbered; i++) {
+                    bb = operand->containing_bb_list;
+                    while (bb != NULL) {
+                        next_bb = bb->next_containing_bb;
+                        if (bb->tag == md->blk_info[i].info.tag) {
+                            clobbered = true;
+                            break;
+                        }
+                        bb = next_bb;
+                    }
+                }
+                if (clobbered) {
+                    dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "PFX"\n", md->trace_tag, bb->tag);
+                    trace_abort(tgt_dcontext);
+                }
                 /* what to do???
                 void *trace_vmlist = cur_trace_vmlist(tgt_dcontext);
                 if (trace_vmlist != NULL &&
@@ -4227,7 +4248,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                     trace_abort(tgt_dcontext);
                 }
                 */
-            //}
+            }
             if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
 #ifdef CLIENT_INTERFACE
                 dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
@@ -4238,19 +4259,23 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
                  */
             }
 
-            TABLE_RWLOCK(app_managed_patch_table, read, lock);
+            //TABLE_RWLOCK(app_managed_patch_table, read, lock);
             bb = operand->containing_bb_list;
             while (bb != NULL) {
                 next_bb = bb->next_containing_bb;
                 trace = bb->containing_trace_list;
                 while (trace != NULL) {
-                    safe_remove_fragment(tgt_dcontext, trace->tag, LOOKUP_TRACE);
+                    safe_remove_fragment(tgt_dcontext, trace->tag, LOOKUP_TRACE|LOOKUP_SHARED);
+                    safe_remove_fragment(tgt_dcontext, trace->tag, LOOKUP_TRACE|LOOKUP_PRIVATE);
                     trace = trace->next_trace;
                 }
-                safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_BB);
+                safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_TRACE|LOOKUP_SHARED);
+                safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_TRACE|LOOKUP_PRIVATE);
+                safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_BB|LOOKUP_SHARED);
+                safe_remove_fragment(tgt_dcontext, bb->tag, LOOKUP_BB|LOOKUP_PRIVATE);
                 bb = next_bb;
             }
-            TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+            //TABLE_RWLOCK(app_managed_patch_table, read, unlock);
 
             //mutex_unlock(&bb_building_lock);
             //mutex_unlock(&trace_building_lock);
@@ -4282,6 +4307,8 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc)
             mutex_unlock(&tgt_pt->linking_lock);
             */
         }
+
+        enter_nolinking(dcontext, NULL, false);
 
         bb = operand->containing_bb_list;
         TABLE_RWLOCK(app_managed_patch_table, write, lock);
@@ -4973,6 +5000,7 @@ free_app_managed_patchable(void *p)
         if (bb->operand->ref_count > 1) {
             bb->operand->ref_count--;
             if (bb == bb->operand->containing_bb_list) {
+                ASSERT(bb->next_containing_bb != NULL);
                 bb->operand->containing_bb_list = bb->next_containing_bb;
             } else {
                 next_bb = bb->operand->containing_bb_list;
@@ -4983,6 +5011,7 @@ free_app_managed_patchable(void *p)
         } else {
             ASSERT(bb->operand->containing_bb_list == bb);
             ASSERT(bb->next_containing_bb == NULL);
+            bb->operand->containing_bb_list = NULL;
             generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
                                 (ptr_uint_t) bb->operand->pc);
         }
@@ -4996,6 +5025,7 @@ free_app_managed_patchable(void *p)
                        ACCT_OTHER, UNPROTECTED);
     } else {
         ASSERT(*(app_managed_patchable_type_t *)p == APP_MANAGED_OPERAND);
+        ASSERT(((app_managed_patchable_operand_t *)p)->containing_bb_list == NULL);
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, app_managed_patchable_operand_t,
                        ACCT_OTHER, UNPROTECTED);
     }

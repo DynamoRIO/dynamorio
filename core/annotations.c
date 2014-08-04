@@ -282,7 +282,9 @@ annotation_exit()
             free_annotation_handler(vg_handlers[i]);
     }
 
+    TABLE_RWLOCK(handlers, write, lock);
     strhash_hash_destroy(GLOBAL_DCONTEXT, handlers);
+    TABLE_RWLOCK(handlers, write, unlock);
 }
 
 void
@@ -1018,7 +1020,10 @@ annotation_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
 #ifdef SELECTIVE_FLUSHING
     if (is_direct_cti_target) {
         remove_patchable_fragments(dcontext, start);
-        //vm_area_isolate_region(dcontext, start, start+len);
+
+        executable_areas_lock();
+        vm_area_isolate_region(dcontext, start, start+len);
+        executable_areas_unlock();
     } else {
 #endif
         flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
