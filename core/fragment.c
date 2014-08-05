@@ -3968,6 +3968,13 @@ add_patchable_bb(app_pc tag, app_pc cti_operand_pc)
 
     bb = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                                    (ptr_uint_t) tag);
+    /*
+    if (bb != NULL && bb->type != APP_MANAGED_BB) { // hack!
+        bb = NULL;
+        generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                            (ptr_uint_t) tag);
+    }
+    */
     if (bb == NULL) {
         bb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, app_managed_patchable_bb_t,
                                    ACCT_OTHER, UNPROTECTED);
@@ -3981,6 +3988,13 @@ add_patchable_bb(app_pc tag, app_pc cti_operand_pc)
 
     operand = generic_hash_lookup(GLOBAL_DCONTEXT, app_managed_patch_table,
                                   (ptr_uint_t) cti_operand_pc);
+    /*
+    if (operand != NULL && operand->type != APP_MANAGED_OPERAND) { // hack!
+        operand = NULL;
+        generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                            (ptr_uint_t) cti_operand_pc);
+    }
+    */
     DODEBUG({
         if (bb->operand != NULL)
             ASSERT(bb->operand == operand);
@@ -4200,6 +4214,12 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_pc)
         if ((operand != NULL) && (operand->type != APP_MANAGED_OPERAND)) {
             RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
                 "patchable fragment: warning: "PFX" is not an operand\n", patched_pc);
+            /*
+            TABLE_RWLOCK(app_managed_patch_table, write, lock); // hack!
+            generic_hash_remove(GLOBAL_DCONTEXT, app_managed_patch_table,
+                                (ptr_uint_t) patched_pc);
+            TABLE_RWLOCK(app_managed_patch_table, write, unlock);
+            */
         }
 
         return false;

@@ -3599,12 +3599,24 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     KSTOP(bb_decoding);
 
 #if defined(ANNOTATIONS) && defined(SELECTIVE_FLUSHING)
-    if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
-        is_app_managed_code(bb->instr_start)) {
-        //app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
-        bb->target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
-    } else {
-        bb->target_operand_app_pc = NULL;
+    if (bb->instr != NULL) {
+        if (instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
+            is_app_managed_code(bb->instr_start)) {
+            //app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
+            bb->target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
+        } else {
+            bb->target_operand_app_pc = NULL;
+        }
+
+        if (bb->target_operand_app_pc == NULL) {
+            LOG(GLOBAL, LOG_INTERP, 1,
+                "> operands: bb "PFX" with cti opcode 0x%x and operand NULL\n",
+                bb->start_pc, instr_get_opcode(bb->instr));
+        } else {
+            LOG(GLOBAL, LOG_INTERP, 1,
+                "> operands: bb "PFX" with cti opcode 0x%x and operand "PFX"\n",
+                bb->start_pc, instr_get_opcode(bb->instr), bb->target_operand_app_pc);
+        }
     }
 #endif
 
@@ -4752,8 +4764,13 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
-    if (bb.target_operand_app_pc != NULL) /* NULL for non-patchable opcodes */
+#ifdef SELECTIVE_FLUSHING
+    if (visible && bb.target_operand_app_pc != NULL) { /* NULL for non-patchable opcodes */
         add_patchable_bb(bb.start_pc, bb.target_operand_app_pc);
+    }
+    LOG(GLOBAL, LOG_INTERP, 1,
+        "> operands: bb "PFX" is %s\n", bb.start_pc, visible ? "visible" : "invisible");
+#endif
 
     /* emit fragment into fcache */
     KSTART(bb_emit);

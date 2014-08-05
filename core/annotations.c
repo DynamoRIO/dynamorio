@@ -1023,20 +1023,25 @@ annotation_flush_fragments(app_pc start, size_t len)
     } else {
 #endif
 # ifdef FLUSH_STATS
-    //TABLE_RWLOCK(handlers, write, lock);
-    if (len < 4)
-        report(++microFlushes, " > Micro flushes");
-    else if (len == 4)
-        //return;
-        report(++wordFlushes, " > Word flushes");
-    else if (len <= 0x20)
-        report(++smallFlushes, " > Small flushes");
-    else if (len <= 0x100)
-        report(++segmentFlushes, " > Segment flushes");
-    else
-        report(++regionFlushes, " > Region flushes");
-    //TABLE_RWLOCK(handlers, write, unlock);
+        //TABLE_RWLOCK(handlers, write, lock);
+        if (len < 4)
+            report(++microFlushes, " > Micro flushes");
+        else if (len == 4)
+            //return;
+            report(++wordFlushes, " > Word flushes");
+        else if (len <= 0x20)
+            report(++smallFlushes, " > Small flushes");
+        else if (len <= 0x100)
+            report(++segmentFlushes, " > Segment flushes");
+        else
+            report(++regionFlushes, " > Region flushes");
+        //TABLE_RWLOCK(handlers, write, unlock);
 # endif
+
+        if ((len == 4) && (*(byte *) (start-1) == 0xe8)) {
+            LOG(GLOBAL, LOG_ANNOTATIONS, 1, "> operands: Missed call at "PFX"\n", start-1);
+        }
+
         mutex_lock(&thread_initexit_lock);
         flush_fragments_in_region_start(dcontext, start, len, true /*own initexit*/,
                                         false/*don't free futures*/, false/*exec valid*/,
