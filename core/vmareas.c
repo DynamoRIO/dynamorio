@@ -11246,32 +11246,36 @@ print_last_deallocated(file_t outf)
 }
 
 void
-set_region_app_managed(app_pc start, size_t len)
+set_region_app_managed(app_pc start, size_t len, bool app_managed)
 {
     vm_area_t *region;
     LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
     write_lock(&executable_areas->lock);
-    if (lookup_addr(executable_areas, start, &region)) {
-        if ((region->start == start) && (region->end == (start+len))) {
-            if (!TEST(VM_APP_MANAGED, region->vm_flags)) {
-                if (TEST(VM_MADE_READONLY, region->vm_flags))
-                   vm_make_writable(region->start, region->end - region->start);
-                region->vm_flags |= VM_APP_MANAGED;
-                region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
-                LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
-                    start, len);
+    if (app_managed) {
+        if (lookup_addr(executable_areas, start, &region)) {
+            if ((region->start == start) && (region->end == (start+len))) {
+                if (!TEST(VM_APP_MANAGED, region->vm_flags)) {
+                    if (TEST(VM_MADE_READONLY, region->vm_flags))
+                       vm_make_writable(region->start, region->end - region->start);
+                    region->vm_flags |= VM_APP_MANAGED;
+                    region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+                    LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
+                        start, len);
+                }
+            } else {
+                LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
+                    "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                    start, start+len, region->start, region->end);
             }
         } else {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
-                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
-                start, start+len, region->start, region->end);
+            LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new app-maanged vmarea: "PFX"-"PFX"\n",
+                start, start+len);
+
+            add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
+                        _IF_DEBUG("app-managed"));
         }
     } else {
-        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new app-maanged vmarea: "PFX"-"PFX"\n",
-            start, start+len);
-
-        add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
-                    _IF_DEBUG("app-managed"));
+        //remove_vm_area(&executable_areas, start, start+len, true);
     }
     write_unlock(&executable_areas->lock);
 }

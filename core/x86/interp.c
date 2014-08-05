@@ -3594,10 +3594,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } /* end of while (true) */
     KSTOP(bb_decoding);
 
-#ifdef ANNOTATIONS
+#if defined(ANNOTATIONS) && defined(SELECTIVE_FLUSHING)
     if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
         is_app_managed_code(bb->instr_start)) {
-        app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
+        //app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
+        app_pc target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
         if (target_operand_app_pc != NULL) /* NULL for non-patchable opcodes */
             add_patchable_bb(bb->start_pc, target_operand_app_pc);
     }

@@ -1072,6 +1072,9 @@ int insert_exit_stub(dcontext_t *dcontext, fragment_t *f,
 int insert_exit_stub_other_flags(dcontext_t *dcontext,  fragment_t *f, linkstub_t *l,
                                  cache_pc stub_pc, ushort l_flags);
 
+cache_pc
+exit_cti_disp_pc(cache_pc branch_pc);
+
 int
 linkstub_unlink_entry_offset(dcontext_t *dcontext, fragment_t *f, linkstub_t *l);
 

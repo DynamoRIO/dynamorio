@@ -830,6 +830,6 @@ bool
 is_in_last_unloaded_region(app_pc pc);
 
 void
-set_region_app_managed(app_pc start, size_t len);
+set_region_app_managed(app_pc start, size_t len, bool app_managed);
 
 #endif /* _VMAREAS_H_ */

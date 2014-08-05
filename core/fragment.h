@@ -662,8 +662,8 @@ add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
 void
 add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
 
-void
-remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_operand_pc);
+bool
+remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_pc);
 #endif
 
 fragment_t *
@@ -1050,6 +1050,9 @@ flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
 
 void
 flush_fragments_in_region_finish(dcontext_t *dcontext, bool keep_initexit_lock);
+
+void
+flush_and_delete_fragments_in_region_finish(dcontext_t *dcontext);
 
 void
 flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size,

@@ -154,9 +154,11 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
+#define FLUSH_STATS 1
 #ifdef FLUSH_STATS
 static uint ctiTargetFlushes = 0;
 static uint wordFlushes = 0;
+static uint smallFlushes = 0;
 static uint segmentFlushes = 0;
 static uint regionFlushes = 0;
 #endif
@@ -204,7 +206,7 @@ static void
 annotation_unmanage_code_area(app_pc start, size_t len);
 
 static void
-annotation_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target);
+annotation_flush_fragments(app_pc start, size_t len);
 
 static const char *
 heap_strcpy(const char *src);
@@ -261,7 +263,7 @@ annotation_init()
 
         dr_annotation_register_call(DR_INTERNAL_CLIENT_ID,
                                DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
-                               (void *) annotation_flush_fragments, false, 3
+                               (void *) annotation_flush_fragments, false, 2
                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
     }
 
@@ -678,7 +680,7 @@ valgrind_running_on_valgrind(vg_client_request_t *request)
 static ptr_uint_t
 valgrind_discard_translations(vg_client_request_t *request)
 {
-    annotation_flush_fragments((app_pc) request->args[0], request->args[1], false);
+    annotation_flush_fragments((app_pc) request->args[0], request->args[1]);
     return 0;
 }
 #endif
@@ -956,14 +958,23 @@ annotation_manage_code_area(app_pc start, size_t len)
 {
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
-    set_region_app_managed(start, len);
+    set_region_app_managed(start, len, true);
 }
 
 static void
 annotation_unmanage_code_area(app_pc start, size_t len)
 {
+#ifdef CLIENT_INTERFACE
+    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
+#else
+    dcontext_t *dcontext = NULL; // FIXME
+#endif
+
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);
+
+    flush_fragments_and_remove_region(dcontext, start, len, false, false);
+    //set_region_app_managed(start, len, false);
 }
 
 #ifdef FLUSH_STATS
@@ -981,7 +992,7 @@ report(uint count, const char *label)
 #endif
 
 static void
-annotation_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
+annotation_flush_fragments(app_pc start, size_t len)
 {
 #ifdef CLIENT_INTERFACE
     dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
@@ -997,42 +1008,36 @@ annotation_flush_fragments(app_pc start, size_t len, bool is_direct_cti_target)
     //if (!executable_vm_area_executed_from(start, start+len))
     //    return;
 
-#ifdef FLUSH_STATS
-    //TABLE_RWLOCK(handlers, write, lock);
-    if (len <= 4) {
-        if (is_direct_cti_target)
-            report(++ctiTargetFlushes, " > CTI target flushes");
-        else
-            report(++wordFlushes, " > Word flushes");
-    } else {
-        if (is_direct_cti_target)
-            dr_printf("Error! Jump target (%d) flush of 0x%x bytes!\n",
-                is_direct_cti_target, len);
-
-        if (len <= 0x100)
-            report(++segmentFlushes, " > Segment flushes");
-        else
-            report(++regionFlushes, " > Region flushes");
-    }
-    //TABLE_RWLOCK(handlers, write, unlock);
-#endif
-
 #ifdef SELECTIVE_FLUSHING
-    if (is_direct_cti_target) {
-        remove_patchable_fragments(dcontext, start);
-
+    if ((len == sizeof(ptr_uint_t)) && remove_patchable_fragments(dcontext, start)) {
+# ifdef FLUSH_STATS
+        report(++ctiTargetFlushes, " > CTI target flushes");
+# endif
         executable_areas_lock();
         vm_area_isolate_region(dcontext, start, start+len);
         executable_areas_unlock();
     } else {
 #endif
+# ifdef FLUSH_STATS
+    //TABLE_RWLOCK(handlers, write, lock);
+    if (len <= 4)
+        report(++wordFlushes, " > Word flushes");
+    else if (len <= 0x20)
+        report(++smallFlushes, " > Small flushes");
+    else if (len <= 0x100)
+        report(++segmentFlushes, " > Segment flushes");
+    else
+        report(++regionFlushes, " > Region flushes");
+    //TABLE_RWLOCK(handlers, write, unlock);
+# endif
         flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
                                         false/*don't free futures*/, false/*exec valid*/,
                                         false/*don't force synchall*/ _IF_DGCDIAG(NULL));
 
+        // TODO: is this leaving junk on the lazy delete list?
         vm_area_isolate_region(dcontext, start, start+len);
 
-        flush_fragments_in_region_finish(dcontext, false /*don't keep initexit*/);
+        flush_and_delete_fragments_in_region_finish(dcontext);
 #ifdef SELECTIVE_FLUSHING
     }
 #endif
