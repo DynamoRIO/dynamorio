@@ -117,6 +117,9 @@ The current version is \DR_VERSION.
 The changes between version \DR_VERSION and 4.2.0 include the
 following minor compatibility changes:
 
+ - Dropped official support for Windows 2000.  The core DynamoRIO engine
+   should continue to work there, but the official release package
+   will not run on Windows 2000.
  - Changed the third parameter to drsym_search_symbols_ex() from a bool to
    a uint flags in order to take in demangling flags.  Binary compatibility
    is maintained as drsym_info_t's size was changed, but source
@@ -130,9 +133,6 @@ following minor compatibility changes:
  - Changed the operand sizes of instructions that read or write only part
    of a multimedia register (mmx, xmm, or ymm) to reflect the partial size.
  - Added return value for dr_fprintf to indicate how many bytes are written.
- - Added dr_call_on_clean_stack().
- - Added dr_set_client_name() for customizing the diagnostic message
-   presented to users when an error occurs.
 
 Further non-compatibility-affecting changes include:
 
@@ -160,6 +160,9 @@ Further non-compatibility-affecting changes include:
    front-ends.  For more information see dr_frontend.h.
  - Added dr_create_memory_dump().
  - Added dr_mcontext_to_context().
+ - Added dr_call_on_clean_stack().
+ - Added dr_set_client_name() for customizing the diagnostic message
+   presented to users when an error occurs.
 
 **************************************************
 <hr>
@@ -1030,21 +1033,25 @@ not supported.
 \endif
 
 \subsection sec_limit_platforms Platform Limitations
-  - This version of DynamoRIO supports Windows 8.
+  - This version of DynamoRIO supports Windows 8 and 8.1.
     However, systemwide injection (-syswide_on) is not yet supported on
-    Windows 8.
+    Windows 8 or 8.1.
   - DynamoRIO currently supports the following NT-based 32-bit
-    Windows systems : NT (all service packs), 2000 (all service
-    packs), XP (32-bit, service packs 0-3), 2003 (32-bit, service
-    packs 0-2), Vista (32-bit, service packs 0-1), Windows 7 (32-bit,
-    service packs 0-1), and Windows 8. It does not support Windows 95, 98, or ME.
-    Windows Server 2008 is likely to work but has not been tested.
+    Windows systems: XP (32-bit, service packs 0-3), 2003 (32-bit, service
+    packs 0-2), Vista (32-bit, service packs 0-1),
+    Windows 7 (32-bit, service packs 0-1), Windows 8, and Windows 8.1.
+    It does not support Windows 95, 98, or ME.
+    It no longer officially supports NT (all service packs) or 2000 (all service
+    packs), although the core DynamoRIO library should still work there: it
+    is only the tools and utility programs that will fail to run.
+    Windows Server 2008 is expected to work but has not
+    been tested.
   - This release of DynamoRIO supports running 32-bit
     Windows applications on the following 64-bit Windows operating
     systems: Windows XP Professional x64 (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7
-    (service packs 0-1), and Windows 8.  Windows Server 2008 is likely to work but has not
-    been tested.  Only the 32-bit
+    (service packs 0-1), Windows Server 2008, Windows 8, and Windows 8.1.
+    Only the 32-bit
     code will be seen, and child processes created will not be injected
     into.  On 64-bit Windows 32-bit applications are automatically run
     through the Windows-On-Windows or WOW64 emulator so system call and
@@ -1056,7 +1063,8 @@ not supported.
     the following 64-bit Windows systems: Windows XP Professional x64
     (service pack 2), Windows 2003
     x64 (service pack 2), Vista x64 (service packs 0-1), Windows 7 x64
-    (service packs 0-1), and Windows 8. Windows Server 2008 is likely to work but has not
+    (service packs 0-1), Windows 8, and Windows 8.1.
+    Windows Server 2008 is expected to work but has not
     been tested.
   - DynamoRIO does not support any Itanium based Windows systems.
   - This release does not fully support applications that mix 32-bit and
@@ -1064,9 +1072,6 @@ not supported.
   - When running a cygwin application under control of DynamoRIO,
     stderr and stdout output from DynamoRIO or its clients may not
     be visible.
-  - The statistics viewer \c DRgui.exe is no longer supported on Windows
-    NT.  Statistics still work, but the graphical application itself will
-    not run on NT.
   - UTF-8 support is not yet present in drinjectlib, drconfiglib,
     drrun.exe, drconfig.exe, or drdeploy.exe.  It is present in the
     core DR API.
@@ -1123,16 +1128,9 @@ not supported.
   - On Windows 7 and Windows Server 2008 R2, the digital signature
     requirement for AppInit_DLLs libraries is disabled when systemwide
     injection is requested (-syswide_on).  This can be a security concern.
-  - On Windows 8, system wide injection (-syswide_on) is not yet supported.
+  - On Windows 8 or 8.1, system wide injection (-syswide_on) is not yet supported.
   - Cygwin processes may not work with DynamoRIO due to cygwin's
     implementation of fork being incompatible with DynamoRIO.
-  - Though DynamoRIO supports running on Windows NT, the provided
-    installer will only run on Windows 2000 and higher.  After
-    installation on a 2000 or higher machine the \ref sec_package may
-    be copied to the NT machine for use there.
-  - On Windows NT, a reboot is required after the initial
-    dr_register_process() in order for DynamoRIO to take control of any
-    applications.  The reboot will not change or undo the registration.
   - A Windows application that does not statically link with
     user32.dll will not be run under control of DynamoRIO using
     system-wide injection unless its
