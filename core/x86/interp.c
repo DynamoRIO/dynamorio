@@ -227,6 +227,9 @@ typedef struct {
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
     DEBUG_DECLARE(bool initialized;)
+#ifdef SELECTIVE_FLUSHING
+    app_pc target_operand_app_pc;
+#endif
 } build_bb_t;
 
 /* forward decl */
@@ -252,6 +255,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+    bb->target_operand_app_pc = NULL;
     DODEBUG(bb->initialized = true;);
 }
 
@@ -3598,9 +3602,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if ((bb->instr != NULL) && instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
         is_app_managed_code(bb->instr_start)) {
         //app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
-        app_pc target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
-        if (target_operand_app_pc != NULL) /* NULL for non-patchable opcodes */
-            add_patchable_bb(bb->start_pc, target_operand_app_pc);
+        bb->target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
+    } else {
+        bb->target_operand_app_pc = NULL;
     }
 #endif
 
@@ -4747,6 +4751,9 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
      */
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
+
+    if (bb.target_operand_app_pc != NULL) /* NULL for non-patchable opcodes */
+        add_patchable_bb(bb.start_pc, bb.target_operand_app_pc);
 
     /* emit fragment into fcache */
     KSTART(bb_emit);

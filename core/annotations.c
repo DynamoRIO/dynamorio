@@ -157,6 +157,7 @@ typedef struct _annotation_layout_t {
 #define FLUSH_STATS 1
 #ifdef FLUSH_STATS
 static uint ctiTargetFlushes = 0;
+static uint microFlushes = 0;
 static uint wordFlushes = 0;
 static uint smallFlushes = 0;
 static uint segmentFlushes = 0;
@@ -1000,6 +1001,9 @@ annotation_flush_fragments(app_pc start, size_t len)
     dcontext_t *dcontext = NULL; // FIXME
 #endif
 
+    if (!is_app_managed_code(start))
+        return;
+
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 
@@ -1020,7 +1024,10 @@ annotation_flush_fragments(app_pc start, size_t len)
 #endif
 # ifdef FLUSH_STATS
     //TABLE_RWLOCK(handlers, write, lock);
-    if (len <= 4)
+    if (len < 4)
+        report(++microFlushes, " > Micro flushes");
+    else if (len == 4)
+        //return;
         report(++wordFlushes, " > Word flushes");
     else if (len <= 0x20)
         report(++smallFlushes, " > Small flushes");
@@ -1030,14 +1037,19 @@ annotation_flush_fragments(app_pc start, size_t len)
         report(++regionFlushes, " > Region flushes");
     //TABLE_RWLOCK(handlers, write, unlock);
 # endif
-        flush_fragments_in_region_start(dcontext, start, len, false /*don't own initexit*/,
+        mutex_lock(&thread_initexit_lock);
+        flush_fragments_in_region_start(dcontext, start, len, true /*own initexit*/,
                                         false/*don't free futures*/, false/*exec valid*/,
                                         false/*don't force synchall*/ _IF_DGCDIAG(NULL));
 
+        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
         // TODO: is this leaving junk on the lazy delete list?
         vm_area_isolate_region(dcontext, start, start+len);
 
+        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+
         flush_and_delete_fragments_in_region_finish(dcontext);
+        mutex_unlock(&thread_initexit_lock);
 #ifdef SELECTIVE_FLUSHING
     }
 #endif

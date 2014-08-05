@@ -4184,9 +4184,6 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_pc)
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return true;
 
-    if (!is_app_managed_code(patched_pc))
-        return true;
-
     //ASSERT(is_app_managed_code(patched_pc));
 
     TABLE_RWLOCK(app_managed_patch_table, read, lock);
@@ -7443,6 +7440,7 @@ flush_and_delete_fragments_in_region_finish(dcontext_t *dcontext)
     per_thread_t *tgt_pt;
     int flush_num_threads;
     thread_record_t **flush_threads;
+    //bool has_thread_lock = dr_mutex_self_owns(&thread_initexit_lock);
     int i;
 
     free_nonexec_coarse_and_unlock();
@@ -7462,10 +7460,13 @@ flush_and_delete_fragments_in_region_finish(dcontext_t *dcontext)
 
     DODEBUG({ flush_last_stage = 0; });
 
-    if (!dr_mutex_self_owns(&thread_initexit_lock))
-        mutex_lock(&thread_initexit_lock);
+    //if (!has_thread_lock)
+    //mutex_lock(&thread_initexit_lock);
+    // TODO: globals should be valid, I think...?
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
     get_list_of_threads(&flush_threads, &flush_num_threads);
-    mutex_unlock(&thread_initexit_lock); // can't hold trace_building_lock while waiting_for_unlink b/c waitee can't continue
+    //if (!has_thread_lock) // can't hold trace_building_lock while waiting_for_unlink b/c waitee can't continue
+    //mutex_unlock(&thread_initexit_lock);
 
     /* now can let all threads at DR synch point go
      * FIXME: if implement thread-private optimization above, this would turn into
