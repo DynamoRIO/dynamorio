@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -60,6 +60,9 @@ set(srcs
   ${drwrap_asm_src}
   # add more here
   )
+if (WIN32)
+  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+endif ()
 
 add_library(drwrap ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient

@@ -88,7 +88,8 @@ if (WIN32)
   set(srcs
     drsyms_windows.c drsyms_unix_common.c drsyms_pecoff.c
     drsyms_dwarf.c demangle.cc drsyms_common.c
-    ${dbghelp_dep})
+    ${dbghelp_dep}
+    ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
   set(dwarf_dir "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}")
   set(dwarf_libpath "${dwarf_dir}/dwarf.lib")
   set(elftc_libpath "${dwarf_dir}/elftc.lib")
