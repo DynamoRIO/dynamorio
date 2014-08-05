@@ -2236,6 +2236,10 @@ fragment_thread_reset_free(dcontext_t *dcontext)
     hashtable_fragment_reset(dcontext, &pt->bb);
 # endif
 
+# ifdef SELECTIVE_FLUSHING
+    generic_hash_clear(GLOBAL_DCONTEXT, app_managed_patch_table);
+# endif
+
 #endif /* !DEBUG */
 }
 
