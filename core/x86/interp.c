@@ -227,9 +227,6 @@ typedef struct {
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
     DEBUG_DECLARE(bool initialized;)
-#ifdef SELECTIVE_FLUSHING
-    app_pc target_operand_app_pc;
-#endif
 } build_bb_t;
 
 /* forward decl */
@@ -255,7 +252,6 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
-    bb->target_operand_app_pc = NULL;
     DODEBUG(bb->initialized = true;);
 }
 
@@ -287,8 +283,15 @@ update_overlap_info(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc, bool jm
             bb->overlap_info->overlap = true;
         }
     }
-    if (bb->overlap_info->contiguous && jmp)
+    if (bb->overlap_info->contiguous && jmp) {
         bb->overlap_info->contiguous = false;
+        if (is_app_managed_code(bb->overlap_info->min_pc) || is_app_managed_code(bb->overlap_info->max_pc) ||
+            is_app_managed_code(bb->last_page) || is_app_managed_code(bb->overlap_info->region_end) ||
+            is_app_managed_code(new_pc)) {
+            dr_printf("Non-contiguous app-managed bb: "PFX" and "PFX"\n",
+                bb->start_pc, new_pc);
+        }
+    }
 }
 
 #ifdef DEBUG
@@ -3598,28 +3601,6 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     } /* end of while (true) */
     KSTOP(bb_decoding);
 
-#if defined(ANNOTATIONS) && defined(SELECTIVE_FLUSHING)
-    if (bb->instr != NULL) {
-        if (instr_is_cti(bb->instr) && !instr_is_return(bb->instr) &&
-            is_app_managed_code(bb->instr_start)) {
-            //app_pc target_operand_app_pc = direct_cti_disp_pc(bb->instr_start);
-            bb->target_operand_app_pc = exit_cti_disp_pc(bb->instr_start);
-        } else {
-            bb->target_operand_app_pc = NULL;
-        }
-
-        if (bb->target_operand_app_pc == NULL) {
-            LOG(GLOBAL, LOG_INTERP, 1,
-                "> operands: bb "PFX" with cti opcode 0x%x and operand NULL\n",
-                bb->start_pc, instr_get_opcode(bb->instr));
-        } else {
-            LOG(GLOBAL, LOG_INTERP, 1,
-                "> operands: bb "PFX" with cti opcode 0x%x and operand "PFX"\n",
-                bb->start_pc, instr_get_opcode(bb->instr), bb->target_operand_app_pc);
-        }
-    }
-#endif
-
 #ifdef DEBUG_MEMORY
     /* make sure anyone who destroyed also set to NULL */
     ASSERT(bb->instr == NULL ||
@@ -4765,11 +4746,12 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
 #ifdef SELECTIVE_FLUSHING
-    if (visible && bb.target_operand_app_pc != NULL) { /* NULL for non-patchable opcodes */
-        add_patchable_bb(bb.start_pc, bb.target_operand_app_pc);
+    if (visible && is_app_managed_code(bb.start_pc)) {
+        ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
+        add_patchable_bb(bb.start_pc, bb.end_pc);
     }
-    LOG(GLOBAL, LOG_INTERP, 1,
-        "> operands: bb "PFX" is %s\n", bb.start_pc, visible ? "visible" : "invisible");
+    //LOG(GLOBAL, LOG_INTERP, 1,
+    //    "> operands: bb "PFX" is %s\n", bb.start_pc, visible ? "visible" : "invisible");
 #endif
 
     /* emit fragment into fcache */

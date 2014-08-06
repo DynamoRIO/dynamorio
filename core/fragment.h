@@ -662,8 +662,8 @@ add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
 void
 add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
 
-bool
-remove_patchable_fragments(dcontext_t *dcontext, app_pc patched_pc);
+void
+remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end);
 #endif
 
 fragment_t *

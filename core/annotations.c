@@ -1013,7 +1013,8 @@ annotation_flush_fragments(app_pc start, size_t len)
     //    return;
 
 #ifdef SELECTIVE_FLUSHING
-    if ((len == sizeof(ptr_uint_t)) && remove_patchable_fragments(dcontext, start)) {
+    if (len < 0x100) {
+        remove_patchable_fragments(dcontext, start, start+len);
 # ifdef FLUSH_STATS
         report(++ctiTargetFlushes, " > CTI target flushes");
 # endif

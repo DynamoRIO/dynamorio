@@ -473,6 +473,7 @@ enum {
 #ifdef LINUX
     LOCK_RANK(sigfdtable_lock), /* < table_rwlock */
 #endif
+    LOCK_RANK(dgc_bb_tree_lock),
     LOCK_RANK(table_rwlock), /* > dr_client_mutex */
     LOCK_RANK(loaded_module_areas),  /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(aslr_areas), /* < dynamo_areas < global_alloc_lock */
