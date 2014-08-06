@@ -1,68 +1,54 @@
-/* **********************************************************
- * Copyright (c) 2014 Google, Inc.  All rights reserved.
- * Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
- * **********************************************************/
+// **********************************************************
+// Copyright (c) 2014 Google, Inc.  All rights reserved.
+// Copyright (c) 2003-2010 VMware, Inc.  All rights reserved.
+// **********************************************************
 
-/*
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * * Redistributions of source code must retain the above copyright notice,
- *   this list of conditions and the following disclaimer.
- *
- * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- *
- * * Neither the name of VMware, Inc. nor the names of its contributors may be
- *   used to endorse or promote products derived from this software without
- *   specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.
- */
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice,
+//   this list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of VMware, Inc. nor the names of its contributors may be
+//   used to endorse or promote products derived from this software without
+//   specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+// OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+// DAMAGE.
 
-/* Copyright (c) 2003-2007 Determina Corp. */
+// Copyright (c) 2003-2007 Determina Corp.
 
-/* resources.rc
- *
- * adds Version information to a dll
- * that can be used by the installer (and by forgetful engineers in Explorer
- * file properties), assumes that FILE_NAME, FILE_DESCRIPTION and FILE_TYPE are defined
- * externally to this file
- */
-
-/* Support Extensions including this file */
-#ifdef DEBUG
-# undef DEBUG
-#endif
-#ifdef WINDOWS
-# undef WINDOWS
-#endif
-#ifdef ASSEMBLE_WITH_MASM
-# undef ASSEMBLE_WITH_MASM
-#endif
+// resources.rc
+//
+// adds Version information to a dll
+// that can be used by the installer (and by forgetful engineers in Explorer
+// file properties), assumes that FILE_NAME, FILE_DESCRIPTION and FILE_TYPE are defined
+// externally to this file
 
 #include "configure.h"
-#include "winresrc.h"  /* avoiding winres.h from MFC */
+#include "winresrc.h"  // avoiding winres.h from MFC
 
 #ifdef INCLUDE_EVENTS
 # include "events.rc"
 #endif
 
-/* get PRODUCT_NAME, etc, constants */
+// get PRODUCT_NAME, etc, constants
 #include "globals_shared.h"
 
-/* difficult to pass spaces in defines from cmake to nmake so we hardcode */
+// difficult to pass spaces in defines from cmake to nmake so we hardcode
 #ifdef RC_IS_CORE
 # define FILE_NAME DYNAMORIO_LIBRARY_NAME
 # define FILE_DESCRIPTION PRODUCT_NAME " core library"
@@ -83,7 +69,7 @@
 # define FILE_NAME INJECT_HELPER_DLL2_NAME
 # define FILE_DESCRIPTION PRODUCT_NAME " additional win2k injector library"
 # define FILE_TYPE VFT_DLL
-/* libutil */
+// libutil
 #elif defined(RC_IS_DRCONFIGLIB)
 # define FILE_NAME "drconfiglib.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " configuration library"
@@ -96,104 +82,79 @@
 # define FILE_NAME "mfapi.dll"
 # define FILE_DESCRIPTION PRODUCT_NAME " MF API interface library"
 # define FILE_TYPE VFT_DLL
-/* tools */
+// tools
 #elif defined(RC_IS_DRview)
 # define FILE_NAME "DRview.Exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " cmd line status viewer"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line status viewer"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_DRcontrol)
 # define FILE_NAME "DRcontrol.Exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " cmd line configuration tool"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line configuration tool"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_DRkill)
 # define FILE_NAME "DRkill.Exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " process terminating utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "process terminating utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_closewnd)
 # define FILE_NAME "closewnd.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " closes window app"
+# define FILE_DESCRIPTION PRODUCT_NAME "closes window app"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_winstats)
 # define FILE_NAME "winstats.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " gathers memory stats"
+# define FILE_DESCRIPTION PRODUCT_NAME "gathers memory stats"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_svccntrl)
 # define FILE_NAME "svccntrl.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " cmd line services configuration utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "cmd line services configuration utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_DRload)
 # define FILE_NAME "DRload.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " loads a dll for analysis"
+# define FILE_DESCRIPTION PRODUCT_NAME "loads a dll for analysis"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_balloon)
 # define FILE_NAME "balloon.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " out of memory testing tool"
+# define FILE_DESCRIPTION PRODUCT_NAME "out of memory testing tool"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_dummy)
 # define FILE_NAME "dummy.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " dummy process for ldmp creation"
+# define FILE_DESCRIPTION PRODUCT_NAME "dummy process for ldmp creation"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_ldmp)
 # define FILE_NAME "ldmp.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " .ldmp reading tool"
+# define FILE_DESCRIPTION PRODUCT_NAME ".ldmp reading tool"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_drconfig)
 # define FILE_NAME "drconfig.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " configuration command-line utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "configuration command-line utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_drrun)
 # define FILE_NAME "drrun.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " configure-and-run command-line utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "configure-and-run command-line utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_drinject)
 # define FILE_NAME DRINJECT_NAME
-# define FILE_DESCRIPTION PRODUCT_NAME " injection utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "injection utility"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_runjob)
 # define FILE_NAME "runjob.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " job limit testing tool"
+# define FILE_DESCRIPTION PRODUCT_NAME "job limit testing tool"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_readproc)
 # define FILE_NAME "readproc.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " dump process memory"
+# define FILE_DESCRIPTION PRODUCT_NAME "dump process memory"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_drdel)
 # define FILE_NAME "drdel.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " delete from file cache"
+# define FILE_DESCRIPTION PRODUCT_NAME "delete from file cache"
 # define FILE_TYPE VFT_APP
 #elif defined(RC_IS_create_process)
 # define FILE_NAME "create_process.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " process creation utility"
+# define FILE_DESCRIPTION PRODUCT_NAME "process creation utility"
 # define FILE_TYPE VFT_APP
-/* extensions */
-#elif defined(RC_IS_drgui)
-# define FILE_NAME "drgui.exe"
-# define FILE_DESCRIPTION PRODUCT_NAME " GUI framework"
-# define FILE_TYPE VFT_APP
-#elif defined(RC_IS_drwrap) || defined(RC_IS_drwrap_static)
-# define FILE_NAME "drwrap.dll"
-# define FILE_DESCRIPTION PRODUCT_NAME " function wrapping extension"
-# define FILE_TYPE VFT_DLL
-#elif defined(RC_IS_drmgr) || defined(RC_IS_drmgr_static)
-# define FILE_NAME "drmgr.dll"
-# define FILE_DESCRIPTION PRODUCT_NAME " multi-component mediator"
-# define FILE_TYPE VFT_DLL
-#elif defined(RC_IS_drsyms) || defined(RC_IS_drsyms_static)
-# define FILE_NAME "drsyms.dll"
-# define FILE_DESCRIPTION PRODUCT_NAME " symbol extension"
-# define FILE_TYPE VFT_DLL
-#elif defined(RC_IS_drutil) || defined(RC_IS_drutil_static)
-# define FILE_NAME "drutil.dll"
-# define FILE_DESCRIPTION PRODUCT_NAME " LGPL utility extension"
-# define FILE_TYPE VFT_DLL
-#elif defined(RC_IS_drx) || defined(RC_IS_drx_static)
-# define FILE_NAME "drx.dll"
-# define FILE_DESCRIPTION PRODUCT_NAME " BSD utility extension"
-# define FILE_TYPE VFT_DLL
-/* tests */
+// tests
 #elif defined(RC_IS_TEST)
 # define FILE_NAME ""
-# define FILE_DESCRIPTION PRODUCT_NAME " regression test"
+# define FILE_DESCRIPTION PRODUCT_NAME "regression test"
 # define FILE_TYPE VFT_APP
 #else
 # error must define an RC_IS_xxx define
@@ -214,7 +175,7 @@
 #ifndef VERSION_COMMA_DELIMITED
 # define VERSION_COMMA_DELIMITED 4,2,0
 #endif
-/* resources may also expect a comma separated string */
+// resources may also expect a comma separated string
 #define VERSION_DOT_STRING STRINGIFY(VERSION_COMMA_DELIMITED)
 
 #ifndef BUILD_NUMBER
@@ -270,10 +231,10 @@
 # endif
 #endif
 
-/****************************************************************************
- *
- * Version
- */
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
@@ -290,8 +251,8 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-/* CHECK: make sure it is OK not to put the terminating null here */
-#define ASCIIZ /* original contents was in the form "string \0" */
+// CHECK: make sure it is OK not to put the terminating null here
+#define ASCIIZ // original contents was in the form "string \0"
             VALUE "Comments", COMMENT_STR ASCIIZ
             VALUE "CompanyName", COMPANY_LONG_NAME ASCIIZ
             VALUE "FileDescription", FILE_DESCRIPTION ASCIIZ

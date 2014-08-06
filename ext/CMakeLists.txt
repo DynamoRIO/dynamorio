@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
 # Copyright (c) 2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -90,11 +90,6 @@ macro(configure_extension target)
     # Doesn't hurt to apply to shared libs as well, though CMake
     # should already be adding it.
     append_property_string(TARGET ${target} COMPILE_FLAGS "-fPIC")
-  else ()
-    # For version info we need global_shared.h included in resources.rc.
-    # The extension must add core/win32/resources.rc as a source.
-    include_directories(${PROJECT_SOURCE_DIR}/core/lib)
-    append_property_list(TARGET ${target} COMPILE_DEFINITIONS "RC_IS_${target}")
   endif ()
 
   # documentation is put into main DR docs/ dir
