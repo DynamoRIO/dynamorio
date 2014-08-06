@@ -140,22 +140,24 @@ static dead_table_lists_t *dead_lists;
 
 #ifdef SELECTIVE_FLUSHING
 typedef struct _dgc_trace_t {
-    app_pc tag;
+    app_pc tags[2];
     struct _dgc_trace_t *next_trace;
 } dgc_trace_t;
 
 typedef struct _dgc_bb_t {
-    struct _dgc_bb_t *left;
-    struct _dgc_bb_t *right;
     app_pc start;
     app_pc end;
     dgc_trace_t *containing_trace_list;
-    // uint tree_level;
 } dgc_bb_t;
 
-static dgc_bb_t **dgc_bb_tree;
+typedef struct _dgc_bucket_t {
+    dgc_bb_t blocks[4];
+    struct _dgc_bucket_t *chain;
+} dgc_bucket_t;
 
-DECLARE_CXTSWPROT_VAR(mutex_t dgc_bb_tree_lock, INIT_LOCK_FREE(dgc_bb_tree_lock));
+#define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> 5)
+
+static generic_table_t *dgc_table;
 
 # ifdef DEBUG
 #  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
@@ -271,23 +273,8 @@ static uint fragment_heap_size(uint flags, int direct_exits, int indirect_exits)
 static void fragment_free_future(dcontext_t *dcontext, future_fragment_t *fut);
 
 #ifdef SELECTIVE_FLUSHING
-static bool
-dgc_bb_tree_lookup(app_pc start, app_pc end, dgc_bb_t **parent, dgc_bb_t **child);
-
 static void
-dgc_bb_delete(dgc_bb_t *bb);
-
-static void
-dgc_bb_tree_delete(dgc_bb_t *t);
-
-static void
-dgc_bb_tree_insert(dgc_bb_t *bb);
-
-static void
-dgc_bb_tree_remove(dgc_bb_t *parent, dgc_bb_t *child);
-
-static void
-dgc_bb_tree_delete_pc(app_pc tag);
+free_dgc_bucket_chain(void *p);
 #endif
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
@@ -1481,9 +1468,10 @@ fragment_init()
     fragment_reset_init();
 
 #ifdef SELECTIVE_FLUSHING
-    dgc_bb_tree = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bb_t*,
-                                  ACCT_OTHER, UNPROTECTED);
-    *dgc_bb_tree = NULL;
+    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 7, 80,
+                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                                    HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
+                                    free_dgc_bucket_chain _IF_DEBUG("DGC Coverage Table"));
 #endif
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -1751,10 +1739,9 @@ fragment_exit()
     }
 #endif
 #ifdef SELECTIVE_FLUSHING
-    mutex_lock(&dgc_bb_tree_lock);
-    dgc_bb_tree_delete(*dgc_bb_tree);
-    *dgc_bb_tree = NULL;
-    mutex_unlock(&dgc_bb_tree_lock);
+    TABLE_RWLOCK(dgc_table, write, lock);
+    generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
+    TABLE_RWLOCK(dgc_table, write, unlock);
 #endif
  cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
@@ -2237,10 +2224,9 @@ fragment_thread_reset_free(dcontext_t *dcontext)
 # endif
 
 # ifdef SELECTIVE_FLUSHING
-    mutex_lock(&dgc_bb_tree_lock);
-    dgc_bb_tree_delete(*dgc_bb_tree);
-    *dgc_bb_tree = NULL;
-    mutex_unlock(&dgc_bb_tree_lock);
+    TABLE_RWLOCK(dgc_table, write, lock);
+    generic_hash_clear(GLOBAL_DCONTEXT, dgc_table);
+    TABLE_RWLOCK(dgc_table, write, unlock);
 # endif
 
 #endif /* !DEBUG */
@@ -3331,149 +3317,129 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 }
 
 #ifdef SELECTIVE_FLUSHING
-static bool
-dgc_bb_tree_lookup(app_pc start, app_pc end, dgc_bb_t **parent, dgc_bb_t **child)
+static dgc_bb_t *
+dgc_table_find_bb(app_pc tag)
 {
-    dgc_bb_t *walk = *dgc_bb_tree;
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
-    if (walk == NULL)
-        return false;
-    if (parent != NULL)
-        *parent = NULL;
-    while (true) {
-        if (start < walk->end && end > walk->start) {
-            *child = walk;
-            return true;
-        }
-        if (parent != NULL)
-            *parent = walk;
-        if (end <= walk->start) {
-            walk = walk->left;
-        } else {
-            ASSERT(start >= walk->end);
-            walk = walk->right;
-        }
-        if (walk == NULL)
-            return false;
+    uint i;
+    ptr_uint_t bucket_id = BUCKET_ID(tag);
+    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    // assert table lock
+    if (bucket != NULL) {
+        do {
+            for (i = 0; i < 4; i++) {
+                if (bucket->blocks[i].start == tag)
+                    return &bucket->blocks[i];
+            }
+            bucket = bucket->chain;
+        } while (bucket != NULL);
     }
+    return NULL;
 }
 
 static void
-dgc_bb_delete(dgc_bb_t *bb)
-{
-    dgc_trace_t *next_trace, *trace = bb->containing_trace_list;
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
+free_dgc_traces(dgc_trace_t *trace) {
+    dgc_trace_t *next_trace;
     while (trace != NULL) {
         next_trace = trace->next_trace;
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, trace, dgc_trace_t, ACCT_OTHER, UNPROTECTED);
         trace = next_trace;
     }
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bb, dgc_bb_t, ACCT_OTHER, UNPROTECTED);
 }
 
 static void
-dgc_bb_tree_delete(dgc_bb_t *t)
+dgc_set_slot_empty(dgc_bb_t *bb)
 {
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
-    if (t->left != NULL)
-        dgc_bb_tree_delete(t->left);
-    if (t->right != NULL)
-        dgc_bb_tree_delete(t->right);
-    dgc_bb_delete(t);
+    bb->start = NULL;
+    free_dgc_traces(bb->containing_trace_list);
 }
 
-// if this stuff works, use AA tree to simplify?
-
-static void
-dgc_bb_tree_insert(dgc_bb_t *bb)
+static void free_dgc_bucket(dgc_bucket_t *bucket)
 {
-    dgc_bb_t *parent, *child = bb;
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
-    if (*dgc_bb_tree == NULL) {
-        *dgc_bb_tree = bb;
-        return;
+    uint i;
+    for (i = 0; i < 4; i++) {
+        if (bucket->blocks[i].start != NULL)
+            free_dgc_traces(bucket->blocks[i].containing_trace_list);
     }
-    if (dgc_bb_tree_lookup(bb->start, bb->end, &parent, &child)) {
-        LOG(GLOBAL, LOG_FRAGMENT, 1, "Warning: Attempt to insert DGC fragment "
-            PFX"-"PFX" overlapping existing DGC fragment "PFX"-"PFX"\n",
-            bb->start, bb->end, child->start, child->end);
-    } else {
-        ASSERT(child == bb);
-        if (parent->start > child->start) {
-            ASSERT(child->end <= parent->start);
-            ASSERT(parent->left == NULL);
-            parent->left = child;
-        } else {
-            ASSERT(child->start >= parent->end);
-            ASSERT(parent->right == NULL);
-            parent->right = child;
-        }
-        //DODEBUG(dgc_bb_tree_check(*dgc_bb_tree));
-    }
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bucket, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
 }
 
 static void
-dgc_bb_tree_remove(dgc_bb_t *parent, dgc_bb_t *child)
+free_dgc_bucket_chain(void *p)
 {
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
-    if (parent->left == child) {
-        if (child->left == NULL) {
-            parent->left = child->right;
-        } else if (child->right == NULL) {
-            parent->left = child->left;
-        } else {
-            if (child->right->left == NULL) {
-                parent->left = child->right;
-                parent->left->left = child->left;
-            } else {
-                dgc_bb_t *least_child = child->right;
-                while (least_child->left->left != NULL)
-                    least_child = least_child->left;
-                parent->left = least_child->left;
-                dgc_bb_tree_remove(least_child, least_child->left);
-                parent->left->left = child->left;
-                parent->left->right = child->right;
+    dgc_bucket_t *next_bucket, *bucket = (dgc_bucket_t *)p;
+    do {
+        next_bucket = bucket->chain;
+        free_dgc_bucket(bucket);
+        bucket = next_bucket;
+    } while (bucket != NULL);
+}
+
+static bool
+dgc_table_bucket_gc(ptr_uint_t bucket_id)
+{
+    uint i;
+    bool is_empty, all_empty;
+    dgc_bucket_t *bucket, *anchor;
+
+    bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    if (bucket != NULL) {
+        anchor = NULL;
+        all_empty = true;
+        do {
+            is_empty = true;
+            for (i = 0; i < 4; i++) {
+                if (bucket->blocks[i].start != NULL) {
+                    is_empty = false;
+                    break;
+                }
             }
-        }
-    } else {
-        ASSERT(parent->right == child);
-        if (child->left == NULL) {
-            parent->right = child->right;
-        } else if (child->right == NULL) {
-            parent->right = child->left;
-        } else {
-            if (child->right->left == NULL) {
-                parent->right = child->right;
-                parent->right->left = child->left;
+            if (is_empty) {
+                if (anchor == NULL) {
+                    if (bucket->chain != NULL) {
+                        memcpy(bucket->blocks, bucket->chain->blocks, sizeof(dgc_bb_t) * 4);
+                        anchor = bucket->chain->chain;
+                        // leave the traces!
+                        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bucket->chain, dgc_bucket_t,
+                                       ACCT_OTHER, UNPROTECTED);
+                        bucket->chain = anchor;
+                    }
+                } else {
+                    anchor->chain = bucket->chain;
+                    free_dgc_bucket(bucket);
+                    bucket = anchor;
+                }
             } else {
-                dgc_bb_t *least_child = child->right;
-                while (least_child->left->left != NULL)
-                    least_child = least_child->left;
-                parent->right = least_child->left;
-                dgc_bb_tree_remove(least_child, least_child->left);
-                parent->right->left = child->left;
-                parent->right->right = child->right;
+                all_empty = false;
             }
-        }
+            anchor = bucket;
+            bucket = bucket->chain;
+        } while (bucket != NULL);
+        if (all_empty)
+            return true;
     }
+    return false;
 }
 
 static void
-dgc_bb_tree_delete_pc(app_pc tag)
+dgc_table_remove_bb(app_pc tag)
 {
-    dgc_bb_t *parent, *child;
-    ASSERT_OWN_MUTEX(true, &dgc_bb_tree_lock);
-    if (dgc_bb_tree_lookup(tag, tag+1, &parent, &child)) {
-        if (parent == NULL) {
-            dgc_bb_t fake_parent;
-            fake_parent.left = NULL;
-            fake_parent.right = child;
-            dgc_bb_tree_remove(&fake_parent, child);
-            *dgc_bb_tree = fake_parent.right;
-        } else {
-            dgc_bb_tree_remove(parent, child);
+    uint i;
+    ptr_uint_t bucket_id = BUCKET_ID(tag);
+    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    // assert table lock
+    if (bucket != NULL) {
+        while (true) {
+            for (i = 0; i < 4; i++) {
+                if (bucket->blocks[i].start == tag) {
+                    bucket->blocks[i].start = NULL;
+                    return;
+                }
+            }
+            bucket = bucket->chain;
+            if (bucket == NULL)
+                return;
         }
-        dgc_bb_delete(child);
+        dgc_table_bucket_gc(bucket_id);
     }
 }
 #endif
@@ -3546,9 +3512,9 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
 
 #ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code(f->tag)) {
-        mutex_lock(&dgc_bb_tree_lock);
-        dgc_bb_tree_delete_pc(f->tag);
-        mutex_unlock(&dgc_bb_tree_lock);
+        TABLE_RWLOCK(dgc_table, write, lock);
+        dgc_table_remove_bb(f->tag);
+        TABLE_RWLOCK(dgc_table, write, unlock);
     }
 #endif
 
@@ -4086,36 +4052,64 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f, bool remove_shared)
 void
 add_patchable_bb(app_pc start, app_pc end)
 {
-    dgc_bb_t *bb;
+    ptr_uint_t bucket_id;
+    dgc_bucket_t *bucket;
+    uint i;
 
     if (!is_app_managed_code(start))
         return;
 
-    bb = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bb_t, ACCT_OTHER, UNPROTECTED);
-    bb->start = start;
-    bb->end = end;
-    bb->left = bb->right = NULL;
-    bb->containing_trace_list = NULL;
-
-    mutex_lock(&dgc_bb_tree_lock);
-    dgc_bb_tree_insert(bb);
-    mutex_unlock(&dgc_bb_tree_lock);
+    TABLE_RWLOCK(dgc_table, write, lock);
+    for (bucket_id = BUCKET_ID(start); bucket_id <= BUCKET_ID(end); bucket_id++) {
+        bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        if (bucket == NULL) {
+            bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
+            memset(bucket, 0, sizeof(dgc_bucket_t));
+            generic_hash_add(GLOBAL_DCONTEXT, dgc_table, bucket_id, bucket);
+        }
+        while(true) {
+            for (i = 0; i < 4; i++) {
+                if (bucket->blocks[i].start == NULL)
+                    break;
+            }
+            if (i < 4 || bucket->chain == NULL)
+                break;
+            bucket = bucket->chain;
+        }
+        if (i == 4) {
+            dgc_bucket_t *new_bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t,
+                                                       ACCT_OTHER, UNPROTECTED);
+            memset(new_bucket, 0, sizeof(dgc_bucket_t));
+            bucket->chain = new_bucket;
+            bucket = new_bucket;
+            i = 0;
+        }
+        bucket->blocks[i].start = start;
+        bucket->blocks[i].end = end;
+        bucket->blocks[i].containing_trace_list = NULL;
+    }
+    TABLE_RWLOCK(dgc_table, write, unlock);
 }
 
 void
 add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
 {
-    dgc_bb_t *bb;
     bool found_trace = false;
+    dgc_bb_t *bb;
 
     if (!is_app_managed_code(bb_tag))
         return;
 
-    mutex_lock(&dgc_bb_tree_lock);
-    if (dgc_bb_tree_lookup(bb_tag, bb_tag+1, NULL, &bb)) {
+    TABLE_RWLOCK(dgc_table, read, lock);
+    bb = dgc_table_find_bb(bb_tag);
+    if (bb != NULL) {
         dgc_trace_t *trace = bb->containing_trace_list;
         while (trace != NULL) {
-            if (trace->tag == trace_tag) {
+            if (trace->tags[0] == trace_tag) {
+                found_trace = true;
+                break;
+            }
+            if (trace->tags[1] == trace_tag) {
                 found_trace = true;
                 break;
             }
@@ -4124,12 +4118,13 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
         if (!found_trace) {
             trace = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_trace_t,
                                     ACCT_OTHER, UNPROTECTED);
-            trace->tag = trace_tag;
+            trace->tags[0] = trace_tag;
+            trace->tags[1] = NULL;
             trace->next_trace = bb->containing_trace_list;
             bb->containing_trace_list = trace;
         }
     }
-    mutex_unlock(&dgc_bb_tree_lock);
+    TABLE_RWLOCK(dgc_table, read, unlock);
 }
 
 static void
@@ -4247,16 +4242,144 @@ safe_remove_fragment(dcontext_t *dcontext, per_thread_t *pt, app_pc tag, uint lo
     ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
 }
 
+static void
+remove_patchable_fragment_list(dcontext_t *dcontext, dgc_bb_t **blocks, uint bb_count,
+                               int flush_num_threads, thread_record_t **flush_threads)
+{
+    uint i, j, k;
+    dgc_trace_t *trace;
+    bool thread_has_fragment;
+    per_thread_t *tgt_pt;
+    dcontext_t *tgt_dcontext;
+
+    for (i=0; i<flush_num_threads; i++) {
+        tgt_dcontext = flush_threads[i]->dcontext;
+
+        thread_has_fragment = false;
+        // not locking b/c racy decode should get correct contents
+        // TABLE_RWLOCK(app_managed_patch_table, read, lock);
+        for (j = 0; j < bb_count; j++) {
+            if (fragment_lookup_type(tgt_dcontext, blocks[j]->start, LOOKUP_BB|LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                thread_has_fragment = true;
+            } else {
+                trace = blocks[j]->containing_trace_list;
+                while (trace != NULL) {
+                    if (fragment_lookup_type(tgt_dcontext, trace->tags[0], LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                        thread_has_fragment = true;
+                        break;
+                    }
+                    if (fragment_lookup_type(tgt_dcontext, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                        thread_has_fragment = true;
+                        break;
+                    }
+                    trace = trace->next_trace;
+                }
+            }
+        }
+        // TABLE_RWLOCK(app_managed_patch_table, read, unlock);
+        if (!thread_has_fragment)
+            continue;
+
+        // lookup here to see if there is any reason to synch?
+        tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+
+        if (tgt_dcontext != dcontext) {
+            mutex_lock(&tgt_pt->linking_lock);
+            if (tgt_pt->could_be_linking) {
+                /* remember we have a global lock, thread_initexit_lock, so two threads
+                 * cannot be here at the same time!
+                 */
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
+                    "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
+                tgt_pt->wait_for_unlink = true;
+                mutex_unlock(&tgt_pt->linking_lock);
+                wait_for_event(tgt_pt->waiting_for_unlink);
+                mutex_lock(&tgt_pt->linking_lock);
+                tgt_pt->wait_for_unlink = false;
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
+                    "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
+            } else {
+                LOG(GLOBAL, LOG_FRAGMENT, 1,
+                    "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
+                //mutex_unlock(&tgt_pt->linking_lock);
+            }
+            mutex_unlock(&tgt_pt->linking_lock);
+        }
+        //ASSERT(tgt_dcontext == dcontext || !tgt_pt->could_be_linking);
+
+        if (is_building_trace(tgt_dcontext)) {
+            // not locking b/c a race should at worst abort a valid trace
+            bool clobbered = false;
+            monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+            for (j = 0; j < md->blk_info_length && !clobbered; j++) {
+                for (k = 0; k < bb_count; k++) {
+                    if (blocks[k]->start == md->blk_info[j].info.tag) {
+                        clobbered = true;
+                        break;
+                    }
+                }
+            }
+            if (clobbered) {
+                dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "PFX"\n", md->trace_tag, blocks[k]->start);
+                trace_abort(tgt_dcontext);
+            }
+        }
+        //if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
+#ifdef CLIENT_INTERFACE
+            //dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
+#endif
+            // does this matter??
+            /* we have to know exactly which threads were at_syscall here when
+             * we get to post-flush, so we cache in this special bool
+             */
+        //}
+
+        for (j = 0; j < bb_count; j++) {
+            trace = blocks[j]->containing_trace_list;
+            while (trace != NULL) {
+                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[0], LOOKUP_TRACE|LOOKUP_SHARED);
+                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[0], LOOKUP_TRACE|LOOKUP_PRIVATE);
+                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_SHARED);
+                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE);
+                trace = trace->next_trace;
+            }
+            safe_remove_fragment(tgt_dcontext, tgt_pt, blocks[j]->start, LOOKUP_TRACE|LOOKUP_SHARED);
+            safe_remove_fragment(tgt_dcontext, tgt_pt, blocks[j]->start, LOOKUP_TRACE|LOOKUP_PRIVATE);
+            safe_remove_fragment(tgt_dcontext, tgt_pt, blocks[j]->start, LOOKUP_BB|LOOKUP_SHARED);
+            safe_remove_fragment(tgt_dcontext, tgt_pt, blocks[j]->start, LOOKUP_BB|LOOKUP_PRIVATE);
+        }
+
+        if (tgt_dcontext != dcontext) {
+            tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
+            mutex_lock(&tgt_pt->linking_lock);
+            if (tgt_pt->could_be_linking) {
+                signal_event(tgt_pt->finished_with_unlink);
+            } else {
+                /* we don't need to wait on a !could_be_linking thread
+                 * so we use this bool to tell whether we should signal
+                 * the event.
+                 * FIXME: really we want a pulse that wakes ALL waiting
+                 * threads and then resets the event!
+                 */
+                //tgt_pt->wait_for_unlink = false;
+                if (tgt_pt->soon_to_be_linking)
+                    signal_event(tgt_pt->finished_all_unlink);
+            }
+            mutex_unlock(&tgt_pt->linking_lock);
+        }
+    }
+}
+
 /* returns false if there is translated code at `patched_pc` and it wasn't patched */
 void
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
-    uint i;
+    uint i, j, k;
+    ptr_uint_t bucket_id;
+    dgc_bucket_t *bucket;
+    dgc_bb_t *blocks[16];
     int flush_num_threads;
     thread_record_t **flush_threads;
-    dcontext_t *tgt_dcontext;
-    dgc_bb_t *bb, *parent;
-    dgc_trace_t *trace; //, *next_trace;
 
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return;
@@ -4270,138 +4393,57 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
     enter_couldbelinking(dcontext, NULL, false);
 
-    while (true) {
-        bool has_next_bb, thread_has_fragment;
-        per_thread_t *tgt_pt;
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+        "patchable fragment: remove all fragments containing "PFX"-"PFX":\n",
+        patch_start, patch_end);
 
-        mutex_lock(&dgc_bb_tree_lock);
-        has_next_bb = dgc_bb_tree_lookup(patch_start, patch_end, &parent, &bb);
-        mutex_unlock(&dgc_bb_tree_lock);
-
-        if (!has_next_bb)
-            break;
-
-        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-            "patchable fragment: remove all fragments containing "PFX"-"PFX":\n",
-            patch_start, patch_end);
-
-        for (i=0; i<flush_num_threads; i++) {
-            tgt_dcontext = flush_threads[i]->dcontext;
-
-            thread_has_fragment = false;
-            // not locking b/c racy decode should get correct contents
-            // TABLE_RWLOCK(app_managed_patch_table, read, lock);
-            if (fragment_lookup_type(tgt_dcontext, bb->start, LOOKUP_BB|LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
-                thread_has_fragment = true;
-            } else {
-                trace = bb->containing_trace_list;
-                while (trace != NULL) {
-                    if (fragment_lookup_type(tgt_dcontext, trace->tag, LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
-                        thread_has_fragment = true;
-                        break;
-                    }
-                    trace = trace->next_trace;
-                }
-            }
-            // TABLE_RWLOCK(app_managed_patch_table, read, unlock);
-            if (!thread_has_fragment)
-                continue;
-
-            // lookup here to see if there is any reason to synch?
-            tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
-
-            if (tgt_dcontext != dcontext) {
-                mutex_lock(&tgt_pt->linking_lock);
-                if (tgt_pt->could_be_linking) {
-                    /* remember we have a global lock, thread_initexit_lock, so two threads
-                     * cannot be here at the same time!
-                     */
-                    LOG(GLOBAL, LOG_FRAGMENT, 1,
-                        "\twaiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
-                    tgt_pt->wait_for_unlink = true;
-                    mutex_unlock(&tgt_pt->linking_lock);
-                    wait_for_event(tgt_pt->waiting_for_unlink);
-                    mutex_lock(&tgt_pt->linking_lock);
-                    tgt_pt->wait_for_unlink = false;
-                    LOG(GLOBAL, LOG_FRAGMENT, 1,
-                        "\tdone waiting for thread "TIDFMT"\n", tgt_dcontext->owning_thread);
-                } else {
-                    LOG(GLOBAL, LOG_FRAGMENT, 1,
-                        "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
-                    //mutex_unlock(&tgt_pt->linking_lock);
-                }
-                mutex_unlock(&tgt_pt->linking_lock);
-            }
-            //ASSERT(tgt_dcontext == dcontext || !tgt_pt->could_be_linking);
-
-            if (is_building_trace(tgt_dcontext)) {
-                // not locking b/c a race should at worst abort a valid trace
-                uint i;
-                bool clobbered = false;
-                monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-                for (i = 0; i < md->blk_info_length && !clobbered; i++) {
-                    if (bb->start == md->blk_info[i].info.tag) {
-                        clobbered = true;
-                        break;
+    j = 0;
+    for (bucket_id = BUCKET_ID(patch_start); bucket_id <= BUCKET_ID(patch_end); bucket_id++) {
+        TABLE_RWLOCK(dgc_table, read, lock);
+        bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        TABLE_RWLOCK(dgc_table, read, unlock);
+        while (bucket != NULL) {
+            for (i = 0; i < 4; i++) {
+                if (bucket->blocks[i].start != NULL && bucket->blocks[i].end > patch_start && bucket->blocks[i].start < patch_end) {
+                    blocks[j++] = &bucket->blocks[i];
+                    if (j == 16) {
+                        remove_patchable_fragment_list(dcontext, blocks, j,
+                                                       flush_num_threads, flush_threads);
+                        for (k = 0; k < 16; k++)
+                            dgc_set_slot_empty(blocks[k]);
+                        j = 0;
                     }
                 }
-                if (clobbered) {
-                    dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "PFX"\n", md->trace_tag, bb->start);
-                    trace_abort(tgt_dcontext);
-                }
             }
-            if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
-#ifdef CLIENT_INTERFACE
-                dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
-#endif
-                // does this matter??
-                /* we have to know exactly which threads were at_syscall here when
-                 * we get to post-flush, so we cache in this special bool
-                 */
-            }
-
-            //TABLE_RWLOCK(app_managed_patch_table, read, lock);
-            trace = bb->containing_trace_list;
-            while (trace != NULL) {
-                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tag, LOOKUP_TRACE|LOOKUP_SHARED);
-                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tag, LOOKUP_TRACE|LOOKUP_PRIVATE);
-                trace = trace->next_trace;
-            }
-            safe_remove_fragment(tgt_dcontext, tgt_pt, bb->start, LOOKUP_TRACE|LOOKUP_SHARED);
-            safe_remove_fragment(tgt_dcontext, tgt_pt, bb->start, LOOKUP_TRACE|LOOKUP_PRIVATE);
-            safe_remove_fragment(tgt_dcontext, tgt_pt, bb->start, LOOKUP_BB|LOOKUP_SHARED);
-            safe_remove_fragment(tgt_dcontext, tgt_pt, bb->start, LOOKUP_BB|LOOKUP_PRIVATE);
-            //TABLE_RWLOCK(app_managed_patch_table, read, unlock);
-
-            if (tgt_dcontext != dcontext) {
-                tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
-                mutex_lock(&tgt_pt->linking_lock);
-                if (tgt_pt->could_be_linking) {
-                    signal_event(tgt_pt->finished_with_unlink);
-                } else {
-                    /* we don't need to wait on a !could_be_linking thread
-                     * so we use this bool to tell whether we should signal
-                     * the event.
-                     * FIXME: really we want a pulse that wakes ALL waiting
-                     * threads and then resets the event!
-                     */
-                    //tgt_pt->wait_for_unlink = false;
-                    if (tgt_pt->soon_to_be_linking)
-                        signal_event(tgt_pt->finished_all_unlink);
-                }
-                mutex_unlock(&tgt_pt->linking_lock);
-            }
+            bucket = bucket->chain;
         }
-
-        mutex_lock(&dgc_bb_tree_lock);
-        if (dgc_bb_tree_lookup(bb->start, bb->start+1, &parent, &bb))
-            dgc_bb_tree_remove(parent, bb);
-        mutex_unlock(&dgc_bb_tree_lock);
-
-        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-            "patchable fragment: done removing all fragments "PFX"-"PFX"\n",
-            patch_start, patch_end);
     }
+    if (j > 0) {
+        remove_patchable_fragment_list(dcontext, blocks, j, flush_num_threads, flush_threads);
+        for (k = 0; k < j; k++)
+            dgc_set_slot_empty(blocks[k]);
+    }
+
+    // gc
+    TABLE_RWLOCK(dgc_table, write, lock);
+    bucket_id = BUCKET_ID(patch_start);
+    if (((ptr_uint_t)patch_start & 0x1f) == 0) {
+        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    } else {
+        if (dgc_table_bucket_gc(bucket_id))
+            generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    }
+    for (bucket_id++; bucket_id < BUCKET_ID(patch_end); bucket_id++) {
+        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    }
+    if (((ptr_uint_t)patch_end & 0x1f) == 0x1f || dgc_table_bucket_gc(bucket_id))
+        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    TABLE_RWLOCK(dgc_table, write, unlock);
+
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+        "patchable fragment: done removing all fragments "PFX"-"PFX"\n",
+        patch_start, patch_end);
+
     enter_nolinking(dcontext, NULL, false);
 }
 #endif
