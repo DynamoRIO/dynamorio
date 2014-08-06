@@ -1462,6 +1462,7 @@ if (CLIENT_INTERFACE)
   torunonly_ci(client.count-ctis-noopt client.count-ctis client.count-ctis.dll
     client-interface/count-ctis.c "" "-opt_cleancall 0" "")
   tobuild_ci(client.count-bbs client-interface/count-bbs.c "" "" "")
+  tobuild_ci(client.app_inscount client-interface/app_inscount.c "" "" "")
   tobuild_ci(client.syscall client-interface/syscall.c "" "-no_follow_children" "")
   tobuild_ci(client.modules client-interface/modules.c "" "" "")
   tobuild_appdll(client.modules client-interface/modules.c)

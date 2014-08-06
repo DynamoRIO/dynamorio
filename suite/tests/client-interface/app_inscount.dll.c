@@ -1,7 +1,8 @@
-/* ******************************************************************************
- * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
+/* ****************************************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011 Massachusetts Institute of Technology All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
- * ******************************************************************************/
+ * ***************************************************************************/
 
 /*
  * Redistribution and use in source and binary forms, with or without
@@ -31,32 +32,35 @@
  * DAMAGE.
  */
 
-/* Code Manipulation API Sample:
- * inscount.c
+/*
+ * Code Manipulation API Test for Instruction Traversal.
  *
- * Reports the dynamic count of the total number of instructions executed.
- * Illustrates how to perform performant clean calls.
- * Demonstrates effect of clean call optimization and auto-inlining with
- * different -opt_cleancall values.
+ * The code is to test API functions: instr_get_next_app() and
+ * instrlist_first_app(), by comparing with the output of instr_get_next() and
+ * instrlist_first()
+ *
+ * Note: Do not apply this test to multi-threading applications. And do not
+ * test it in multi-client experiments.
  */
 
 #include "dr_api.h"
 
-#ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-#else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-#endif
-
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
-
-
-/* we only have a global count */
+/* we have two global count variables used by two API sets */
 static uint64 global_count;
-/* A simple clean call that will be automatically inlined because it has only
- * one argument and contains no calls to other functions.
- */
-static void inscount(uint num_instrs) { global_count += num_instrs; }
+static uint64 global_count_app;
+
+static void
+inscount(uint num_instrs)
+{
+    global_count += num_instrs;
+}
+
+static void
+inscount_app(uint num_instrs)
+{
+    global_count_app += num_instrs;
+}
+
 static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                          bool for_trace, bool translating);
@@ -67,34 +71,13 @@ dr_init(client_id_t id)
     /* register events */
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);
-
-    /* make it easy to tell, by looking at log file, which client executed */
-    dr_log(NULL, LOG_ALL, 1, "Client 'inscount' initializing\n");
-#ifdef SHOW_RESULTS
-    /* also give notification to stderr */
-    if (dr_is_notify_on()) {
-# ifdef WINDOWS
-        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
-        dr_enable_console_printing();
-# endif
-        dr_fprintf(STDERR, "Client inscount is running\n");
-    }
-#endif
 }
 
 static void
 event_exit(void)
 {
-#ifdef SHOW_RESULTS
-    char msg[512];
-    int len;
-    len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
-                      "Instrumentation results: %llu instructions executed\n",
-                      global_count);
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
-    DISPLAY_STRING(msg);
-#endif /* SHOW_RESULTS */
+    if (global_count_app == global_count)
+        dr_fprintf(STDERR, "all instructions matched\n");
 }
 
 static dr_emit_flags_t
@@ -104,26 +87,27 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     instr_t *instr;
     uint num_instrs;
 
-#ifdef VERBOSE
-    dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
-# ifdef VERBOSE_VERBOSE
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-# endif
-#endif
+    /* first loop instruction count, using old API */
+    for (instr  = instrlist_first(bb), num_instrs = 0;
+         instr != NULL;
+         instr = instr_get_next(instr)) {
+        num_instrs++;
+    }
 
-    for (instr = instrlist_first_app(bb), num_instrs = 0;
+    dr_insert_clean_call(drcontext, bb, instrlist_first(bb),
+                         (void *)inscount, false /* save fpstate */, 1,
+                         OPND_CREATE_INT32(num_instrs));
+
+    /* second loop instruction count, using new API */
+    for (instr  = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
          instr = instr_get_next_app(instr)) {
         num_instrs++;
     }
 
     dr_insert_clean_call(drcontext, bb, instrlist_first_app(bb),
-                         (void *)inscount, false /* save fpstate */, 1,
+                         (void *)inscount_app, false /* save fpstate */, 1,
                          OPND_CREATE_INT32(num_instrs));
 
-#if defined(VERBOSE) && defined(VERBOSE_VERBOSE)
-    dr_printf("Finished instrumenting dynamorio_basic_block(tag="PFX")\n", tag);
-    instrlist_disassemble(drcontext, tag, bb, STDOUT);
-#endif
     return DR_EMIT_DEFAULT;
 }

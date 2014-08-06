@@ -181,6 +181,21 @@ instrlist_first(instrlist_t *ilist)
     return ilist->first;
 }
 
+/* returns the first app (non-meta) inst in the list */
+DR_API
+instr_t *
+instrlist_first_app(instrlist_t *ilist)
+{
+    instr_t *first = ilist->first;
+
+    if (first == NULL)
+        return NULL;
+    if (instr_ok_to_mangle(first))
+        return first;
+
+    return instr_get_next_app(first);
+}
+
 /* returns the last inst in the list */
 instr_t*
 instrlist_last(instrlist_t *ilist)

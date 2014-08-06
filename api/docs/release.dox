@@ -133,6 +133,8 @@ following minor compatibility changes:
  - Changed the operand sizes of instructions that read or write only part
    of a multimedia register (mmx, xmm, or ymm) to reflect the partial size.
  - Added return value for dr_fprintf to indicate how many bytes are written.
+ - Added instr_get_next_app() and instrlist_first_app() to allow clients to
+   traverse only application (non-meta) instructions.
 
 Further non-compatibility-affecting changes include:
 
