@@ -367,11 +367,11 @@ bool unregister_proc(const char *process, process_id_t pid,
 {
     dr_config_status_t status = dr_unregister_process(process, pid, global, dr_platform);
     if (status == DR_PROC_REG_INVALID) {
-        error("no existing registration");
+        error("no existing registration for %s", process == NULL ? "<null>" : process);
         return false;
     }
     else if (status == DR_FAILURE) {
-        error("unregistration failed");
+        error("unregistration failed for %s", process == NULL ? "<null>" : process);
         return false;
     }
     return true;
@@ -511,10 +511,12 @@ bool register_proc(const char *process,
                                     BUFFER_SIZE_ELEMENTS(buf)) == 0 &&
             GetEnvironmentVariableA("DYNAMORIO_CONFIGDIR", buf,
                                     BUFFER_SIZE_ELEMENTS(buf)) == 0) {
-            error("process registration failed: neither USERPROFILE nor DYNAMORIO_CONFIGDIR env var set!");
+            error("process %s registration failed: "
+                  "neither USERPROFILE nor DYNAMORIO_CONFIGDIR env var set!",
+                  process == NULL ? "<null>" : process);
         } else
 #endif
-            error("process registration failed");
+            error("process %s registration failed", process == NULL ? "<null>" : process);
         return false;
     }
     return true;
@@ -543,7 +545,8 @@ bool register_client(const char *process_name,
 
     if (!dr_process_is_registered(process_name, pid, global, dr_platform,
                                   NULL, NULL, NULL, NULL)) {
-        error("can't register client: process is not registered");
+        error("can't register client: process %s is not registered",
+              process_name == NULL ? "<null>" : process_name);
         return false;
     }
 
@@ -556,10 +559,13 @@ bool register_client(const char *process_name,
                                 priority, path, options);
 
     if (status != DR_SUCCESS) {
-        if (status == DR_CONFIG_STRING_TOO_LONG)
-            error("client registration failed: option string too long");
-        else
-            error("client registration failed with error code %d", status);
+        if (status == DR_CONFIG_STRING_TOO_LONG) {
+            error("client %s registration failed: option string too long: \"%s\"",
+                  path == NULL ? "<null>" : path, options);
+        } else {
+            error("client %s registration failed with error code %d",
+                  path == NULL ? "<null>" : path, status);
+        }
         return false;
     }
     return true;
