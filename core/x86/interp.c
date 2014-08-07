@@ -6592,6 +6592,13 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
     bool old_mode = get_x86_mode(dcontext);
     /* for decoding and get_ibl routines we need the dcontext mode set */
     set_x86_mode(dcontext, TEST(FRAG_32_BIT, f->flags));
+    /* i#1494: Decoding a code fragment from code cache, decode_fragment
+     * may mess up the 32-bit/64-bit mode in -x86_to_x64 because 32-bit
+     * application code is encoded as 64-bit code fragments into the code cache.
+     * Thus we currently do not support using decode_fragment with -x86_to_x64,
+     * including trace and coarse_units (coarse-grain code cache management)
+     */
+    ASSERT(!DYNAMO_OPTION(x86_to_x64));
 #endif
 
     instrlist_init(&intra_ctis);
