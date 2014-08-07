@@ -3992,12 +3992,22 @@ mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         PRE(ilist, next_instr,
             instr_create_restore_from_tls(dcontext, reg,
                                           tls_slots[reg - REG_XAX]));
-        if (dst_sz == OPSZ_2) {
-# ifdef X64
-            reg = reg_32_to_16(reg_64_to_32(reg));
-# else
+        switch (dst_sz) {
+        case OPSZ_8:
+            IF_NOT_X64(ASSERT(false);)
+            break;
+        case OPSZ_4:
+            IF_X64(reg = reg_64_to_32(reg);)
+            break;
+        case OPSZ_2:
+            IF_X64(reg = reg_64_to_32(reg);)
             reg = reg_32_to_16(reg);
-# endif
+            break;
+        case OPSZ_1:
+            IF_X64(reg = reg_64_to_32(reg);)
+            reg = reg_32_to_8(reg);
+        default:
+            ASSERT(false);
         }
         /* mov %gs:off => reg */
         ti = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), opnd);
