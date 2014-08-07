@@ -1839,10 +1839,12 @@ HTNAME(hashtable_,NAME_KEY,_study)(dcontext_t *dcontext,
             HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext, table);
         }
     });
+    /*
     ASSERT_CURIOSITY((total_len <= ave_len_threshold * num
                       || (TEST(HASHTABLE_RELAX_CLUSTER_CHECKS, table->table_flags) &&
                           table->capacity <= 513))
                      && "hash table high average collision length");
+    */
     DOLOG(3, LOG_HTABLE, {
         HTNAME(hashtable_,NAME_KEY,_dump_table)(dcontext, table);
     });

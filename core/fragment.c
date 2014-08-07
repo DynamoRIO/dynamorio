@@ -152,10 +152,13 @@ typedef struct _dgc_bb_t {
 
 typedef struct _dgc_bucket_t {
     dgc_bb_t blocks[4];
+    uint ref_counts;
     struct _dgc_bucket_t *chain;
 } dgc_bucket_t;
 
-#define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> 5)
+#define BUCKET_BIT_SIZE 6
+#define BUCKET_MASK 0x3f
+#define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> BUCKET_BIT_SIZE)
 
 static generic_table_t *dgc_table;
 
@@ -3317,21 +3320,49 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 }
 
 #ifdef SELECTIVE_FLUSHING
+static uint
+dgc_change_ref_count(dgc_bucket_t *bucket, uint i, int delta)
+{
+    uint shift = (i * 8);
+    uint mask = 0xff << shift;
+    int ref_count = (bucket->ref_counts & mask) >> shift;
+    ref_count += delta;
+    ASSERT(i < 4);
+    ASSERT(ref_count >= 0);
+    ASSERT(ref_count < 0xff);
+    bucket->ref_counts &= ~mask;
+    bucket->ref_counts |= (ref_count << shift);
+    return ref_count;
+}
+
+static void
+dgc_set_ref_count(dgc_bucket_t *bucket, uint i, uint value)
+{
+    uint shift = (i * 8);
+    uint mask = 0xff << shift;
+    ASSERT(value == 1);
+    bucket->ref_counts &= ~mask;
+    bucket->ref_counts |= (value << shift);
+}
+
 static dgc_bb_t *
-dgc_table_find_bb(app_pc tag)
+dgc_table_find_bb(app_pc tag, dgc_bucket_t **out_bucket, uint *out_i)
 {
     uint i;
     ptr_uint_t bucket_id = BUCKET_ID(tag);
     dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
     // assert table lock
-    if (bucket != NULL) {
-        do {
-            for (i = 0; i < 4; i++) {
-                if (bucket->blocks[i].start == tag)
-                    return &bucket->blocks[i];
+    while (bucket != NULL) {
+        for (i = 0; i < 4; i++) {
+            if (bucket->blocks[i].start == tag) {
+                if (out_bucket != NULL)
+                    *out_bucket = bucket;
+                if (out_i != NULL)
+                    *out_i = i;
+                return &bucket->blocks[i];
             }
-            bucket = bucket->chain;
-        } while (bucket != NULL);
+        }
+        bucket = bucket->chain;
     }
     return NULL;
 }
@@ -3347,13 +3378,17 @@ free_dgc_traces(dgc_trace_t *trace) {
 }
 
 static void
-dgc_set_slot_empty(dgc_bb_t *bb)
+dgc_set_slot_empty(dgc_bb_t *bb _IF_DEBUG(const char *reason))
 {
+    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: Removing bb "PFX"-"PFX" for %s\n",
+        bb->start, bb->end, reason);
+    ASSERT(bb->start != NULL);
     bb->start = NULL;
     free_dgc_traces(bb->containing_trace_list);
 }
 
-static void free_dgc_bucket(dgc_bucket_t *bucket)
+static void
+free_dgc_bucket(dgc_bucket_t *bucket)
 {
     uint i;
     for (i = 0; i < 4; i++) {
@@ -3374,7 +3409,8 @@ free_dgc_bucket_chain(void *p)
     } while (bucket != NULL);
 }
 
-static bool
+// TODO: often already have the bucket
+static void
 dgc_table_bucket_gc(ptr_uint_t bucket_id)
 {
     uint i;
@@ -3397,6 +3433,7 @@ dgc_table_bucket_gc(ptr_uint_t bucket_id)
                 if (anchor == NULL) {
                     if (bucket->chain != NULL) {
                         memcpy(bucket->blocks, bucket->chain->blocks, sizeof(dgc_bb_t) * 4);
+                        bucket->ref_counts = bucket->chain->ref_counts;
                         anchor = bucket->chain->chain;
                         // leave the traces!
                         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bucket->chain, dgc_bucket_t,
@@ -3415,32 +3452,153 @@ dgc_table_bucket_gc(ptr_uint_t bucket_id)
             bucket = bucket->chain;
         } while (bucket != NULL);
         if (all_empty)
-            return true;
+            generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
     }
-    return false;
 }
 
 static void
-dgc_table_remove_bb(app_pc tag)
+dgc_table_dereference_bb(app_pc tag)
 {
     uint i;
-    ptr_uint_t bucket_id = BUCKET_ID(tag);
-    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    ptr_uint_t next_bucket_id;
+    dgc_bucket_t *bucket;
+    dgc_bb_t *first_bb = dgc_table_find_bb(tag, &bucket, &i);
     // assert table lock
+    if (first_bb != NULL) {
+        if (dgc_change_ref_count(bucket, i, -1) == 0)
+            dgc_set_slot_empty(first_bb _IF_DEBUG("refcount"));
+        for (next_bucket_id = BUCKET_ID(tag) + 1; next_bucket_id <= BUCKET_ID(first_bb->end - 1); next_bucket_id++) {
+            bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, next_bucket_id);
+            // ASSERT(bucket != NULL); // race??
+            while (bucket != NULL) {
+                for (i = 0; i < 4; i++) {
+                    if (bucket->blocks[i].start == tag) {
+                        if (dgc_change_ref_count(bucket, i, -1) == 0)
+                            dgc_set_slot_empty(&bucket->blocks[i] _IF_DEBUG("refcount"));
+                        break;
+                    }
+                }
+                if (i < 4)
+                    break;
+                bucket = bucket->chain;
+            }
+            ASSERT(i < 4);
+        }
+        dgc_table_bucket_gc(next_bucket_id);
+    }
+}
+
+static void
+dgc_remove_bb_from_bucket(dgc_bucket_t *bucket, app_pc tag)
+{
+    uint i;
+    while (bucket != NULL) {
+        for (i = 0; i < 4; i++) {
+            if (bucket->blocks[i].start == tag) {
+                dgc_set_slot_empty(&bucket->blocks[i] _IF_DEBUG("clear outlier"));
+                return;
+            }
+        }
+        bucket = bucket->chain;
+    }
+}
+
+// super slow!!
+static void
+dgc_set_all_slots_empty(dgc_bb_t *bb)
+{
+    if (bb->start != NULL) {
+        ptr_uint_t bucket_id;
+        ptr_uint_t start_bucket = BUCKET_ID(bb->start);
+        ptr_uint_t end_bucket = BUCKET_ID(bb->end - 1);
+        dgc_bucket_t *bucket;
+        app_pc tag = bb->start;
+
+        dgc_set_slot_empty(bb _IF_DEBUG("patch"));
+        for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
+            bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+            dgc_remove_bb_from_bucket(bucket, tag);
+        }
+    }
+}
+
+static void
+dgc_clear_bucket(ptr_uint_t bucket_id, ptr_uint_t prev_bucket_id,
+                 ptr_uint_t next_bucket_id, dgc_bucket_t *prev_bucket,
+                 dgc_bucket_t *next_bucket)
+{
+    uint i;
+    ptr_uint_t outlier_bucket_id;
+    dgc_bucket_t *bucket, *outlier_bucket;
+
+    bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
     if (bucket != NULL) {
-        while (true) {
+        do {
             for (i = 0; i < 4; i++) {
-                if (bucket->blocks[i].start == tag) {
-                    bucket->blocks[i].start = NULL;
-                    return;
+                if (bucket->blocks[i].start != NULL) {
+                    if (BUCKET_ID(bucket->blocks[i].start) < prev_bucket_id) {
+                        for (outlier_bucket_id = BUCKET_ID(bucket->blocks[i].start);
+                             outlier_bucket_id < prev_bucket_id; outlier_bucket_id++) {
+                            outlier_bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, outlier_bucket_id);
+                            dgc_remove_bb_from_bucket(outlier_bucket, bucket->blocks[i].start);
+                        }
+                    }
+                    if (BUCKET_ID(bucket->blocks[i].end - 1) > next_bucket_id) {
+                        for (outlier_bucket_id = BUCKET_ID(bucket->blocks[i].end-1);
+                             outlier_bucket_id > next_bucket_id; outlier_bucket_id--) {
+                            outlier_bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, outlier_bucket_id);
+                            dgc_remove_bb_from_bucket(outlier_bucket, bucket->blocks[i].start);
+                        }
+                    }
+                    if (BUCKET_ID(bucket->blocks[i].start) == prev_bucket_id)
+                        dgc_remove_bb_from_bucket(prev_bucket, bucket->blocks[i].start);
+                    if (BUCKET_ID(bucket->blocks[i].end - 1) == next_bucket_id)
+                        dgc_remove_bb_from_bucket(next_bucket, bucket->blocks[i].start);
+
+                    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: Removing bb "PFX"-"PFX" for clear\n",
+                        bucket->blocks[i].start, bucket->blocks[i].end);
                 }
             }
             bucket = bucket->chain;
-            if (bucket == NULL)
-                return;
-        }
-        dgc_table_bucket_gc(bucket_id);
+        } while (bucket != NULL);
+        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
     }
+}
+
+/* Some fragments in these buckets may also appear in adjacent buckets.
+ * Need to check and remove :-(
+ */
+void
+dgc_notify_region_cleared(app_pc start, app_pc end)
+{
+    ptr_uint_t first_bucket_id = BUCKET_ID(start);
+    ptr_uint_t last_bucket_id = BUCKET_ID(end - 1);
+    ptr_uint_t prev_bucket_id = first_bucket_id - 1;
+    ptr_uint_t next_bucket_id = last_bucket_id + 1;
+    bool is_start_of_bucket = (((ptr_uint_t)start & BUCKET_MASK) == 0);
+    bool is_end_of_bucket = (((ptr_uint_t)end & BUCKET_MASK) == 0);
+    ptr_uint_t bucket_id = first_bucket_id;
+    dgc_bucket_t *prev_bucket;
+    dgc_bucket_t *next_bucket;
+
+    TABLE_RWLOCK(dgc_table, write, lock);
+    prev_bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, prev_bucket_id);
+    next_bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, next_bucket_id);
+    if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
+        dgc_clear_bucket(bucket_id, prev_bucket_id, next_bucket_id, prev_bucket, next_bucket);
+    else
+        dgc_table_bucket_gc(bucket_id);
+    for (++bucket_id; bucket_id < last_bucket_id; bucket_id++)
+        dgc_clear_bucket(bucket_id, prev_bucket_id, next_bucket_id, prev_bucket, next_bucket);
+    if (bucket_id == last_bucket_id) {
+        if (is_end_of_bucket && (bucket_id > first_bucket_id))
+            dgc_clear_bucket(bucket_id, prev_bucket_id, next_bucket_id, prev_bucket, next_bucket);
+        else
+            dgc_table_bucket_gc(bucket_id);
+    }
+    dgc_table_bucket_gc(prev_bucket_id);
+    dgc_table_bucket_gc(next_bucket_id);
+    TABLE_RWLOCK(dgc_table, write, unlock);
 }
 #endif
 
@@ -3513,7 +3671,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
 #ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code(f->tag)) {
         TABLE_RWLOCK(dgc_table, write, lock);
-        dgc_table_remove_bb(f->tag);
+        dgc_table_dereference_bb(f->tag);
         TABLE_RWLOCK(dgc_table, write, unlock);
     }
 #endif
@@ -4053,40 +4211,71 @@ void
 add_patchable_bb(app_pc start, app_pc end)
 {
     ptr_uint_t bucket_id;
-    dgc_bucket_t *bucket;
-    uint i;
+    dgc_bucket_t *bucket, *available_bucket;
+    bool found;
+    uint i, available_slot;
 
     if (!is_app_managed_code(start))
         return;
 
+    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX"-"PFX"\n", start, end);
+
     TABLE_RWLOCK(dgc_table, write, lock);
-    for (bucket_id = BUCKET_ID(start); bucket_id <= BUCKET_ID(end); bucket_id++) {
+    for (bucket_id = BUCKET_ID(start); bucket_id <= BUCKET_ID(end - 1); bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
         if (bucket == NULL) {
             bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
             memset(bucket, 0, sizeof(dgc_bucket_t));
             generic_hash_add(GLOBAL_DCONTEXT, dgc_table, bucket_id, bucket);
-        }
-        while(true) {
-            for (i = 0; i < 4; i++) {
-                if (bucket->blocks[i].start == NULL)
-                    break;
-            }
-            if (i < 4 || bucket->chain == NULL)
-                break;
-            bucket = bucket->chain;
-        }
-        if (i == 4) {
-            dgc_bucket_t *new_bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t,
-                                                       ACCT_OTHER, UNPROTECTED);
-            memset(new_bucket, 0, sizeof(dgc_bucket_t));
-            bucket->chain = new_bucket;
-            bucket = new_bucket;
             i = 0;
+        } else {
+            found = false;
+            available_bucket = NULL;
+            available_slot = 0xff;
+            while (true) {
+                for (i = 0; i < 4; i++) {
+                    if (bucket->blocks[i].start == start) {
+                        if (bucket->blocks[i].end == end) {
+                            found = true;
+                            break;
+                        } else {
+                            LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: stale bb "
+                                PFX"-"PFX"!\n", start, bucket->blocks[i].end);
+                            dgc_set_slot_empty(&bucket->blocks[i] _IF_DEBUG("stale"));
+                        }
+                    }
+                    if (available_bucket == NULL && bucket->blocks[i].start == NULL) {
+                        available_bucket = bucket;
+                        available_slot = i;
+                    }
+                }
+                if (found || bucket->chain == NULL)
+                    break;
+                bucket = bucket->chain;
+            }
+            if (found) {
+                DEBUG_DECLARE(uint ref_count =)
+                dgc_change_ref_count(bucket, i, 1);
+                ASSERT(ref_count > 1);
+                continue;
+            }
+            if (available_bucket == NULL) {
+                dgc_bucket_t *new_bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t,
+                                                           ACCT_OTHER, UNPROTECTED);
+                memset(new_bucket, 0, sizeof(dgc_bucket_t));
+                ASSERT(bucket->chain == NULL);
+                bucket->chain = new_bucket;
+                bucket = new_bucket;
+                i = 0;
+            } else {
+                bucket = available_bucket;
+                i = available_slot;
+            }
         }
         bucket->blocks[i].start = start;
         bucket->blocks[i].end = end;
         bucket->blocks[i].containing_trace_list = NULL;
+        dgc_set_ref_count(bucket, i, 1);
     }
     TABLE_RWLOCK(dgc_table, write, unlock);
 }
@@ -4100,8 +4289,10 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
     if (!is_app_managed_code(bb_tag))
         return;
 
+    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX" to trace "PFX"\n", bb_tag, trace_tag);
+
     TABLE_RWLOCK(dgc_table, read, lock);
-    bb = dgc_table_find_bb(bb_tag);
+    bb = dgc_table_find_bb(bb_tag, NULL, NULL);
     if (bb != NULL) {
         dgc_trace_t *trace = bb->containing_trace_list;
         while (trace != NULL) {
@@ -4109,6 +4300,8 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
                 found_trace = true;
                 break;
             }
+            if (trace->tags[1] == NULL)
+                break;
             if (trace->tags[1] == trace_tag) {
                 found_trace = true;
                 break;
@@ -4116,12 +4309,17 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
             trace = trace->next_trace;
         }
         if (!found_trace) {
-            trace = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_trace_t,
-                                    ACCT_OTHER, UNPROTECTED);
-            trace->tags[0] = trace_tag;
-            trace->tags[1] = NULL;
-            trace->next_trace = bb->containing_trace_list;
-            bb->containing_trace_list = trace;
+            if (trace != NULL) {
+                ASSERT(trace->tags[1] == NULL);
+                trace->tags[1] = trace_tag;
+            } else {
+                trace = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_trace_t,
+                                        ACCT_OTHER, UNPROTECTED);
+                trace->tags[0] = trace_tag;
+                trace->tags[1] = NULL;
+                trace->next_trace = bb->containing_trace_list;
+                bb->containing_trace_list = trace;
+            }
         }
     }
     TABLE_RWLOCK(dgc_table, read, unlock);
@@ -4268,7 +4466,7 @@ remove_patchable_fragment_list(dcontext_t *dcontext, dgc_bb_t **blocks, uint bb_
                         thread_has_fragment = true;
                         break;
                     }
-                    if (fragment_lookup_type(tgt_dcontext, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+                    if (trace->tags[1] != NULL && fragment_lookup_type(tgt_dcontext, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
                         thread_has_fragment = true;
                         break;
                     }
@@ -4339,8 +4537,10 @@ remove_patchable_fragment_list(dcontext_t *dcontext, dgc_bb_t **blocks, uint bb_
             while (trace != NULL) {
                 safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[0], LOOKUP_TRACE|LOOKUP_SHARED);
                 safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[0], LOOKUP_TRACE|LOOKUP_PRIVATE);
-                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_SHARED);
-                safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE);
+                if (trace->tags[1] != NULL) {
+                    safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_SHARED);
+                    safe_remove_fragment(tgt_dcontext, tgt_pt, trace->tags[1], LOOKUP_TRACE|LOOKUP_PRIVATE);
+                }
                 trace = trace->next_trace;
             }
             safe_remove_fragment(tgt_dcontext, tgt_pt, blocks[j]->start, LOOKUP_TRACE|LOOKUP_SHARED);
@@ -4376,10 +4576,13 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 {
     uint i, j, k;
     ptr_uint_t bucket_id;
+    ptr_uint_t start_bucket = BUCKET_ID(patch_start);
+    ptr_uint_t end_bucket = BUCKET_ID(patch_end - 1);
     dgc_bucket_t *bucket;
     dgc_bb_t *blocks[16];
     int flush_num_threads;
     thread_record_t **flush_threads;
+    DEBUG_DECLARE(bool found = false;)
 
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return;
@@ -4394,55 +4597,55 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     enter_couldbelinking(dcontext, NULL, false);
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "patchable fragment: remove all fragments containing "PFX"-"PFX":\n",
+        "DGC: remove all fragments containing "PFX"-"PFX":\n",
         patch_start, patch_end);
 
     j = 0;
-    for (bucket_id = BUCKET_ID(patch_start); bucket_id <= BUCKET_ID(patch_end); bucket_id++) {
-        TABLE_RWLOCK(dgc_table, read, lock);
+    TABLE_RWLOCK(dgc_table, read, lock);
+    for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
-        TABLE_RWLOCK(dgc_table, read, unlock);
         while (bucket != NULL) {
             for (i = 0; i < 4; i++) {
                 if (bucket->blocks[i].start != NULL && bucket->blocks[i].end > patch_start && bucket->blocks[i].start < patch_end) {
                     blocks[j++] = &bucket->blocks[i];
+                    /*
+                    if (BUCKET_ID(bucket->blocks[i].start) < start_bucket)
+                        dr_printf("Outlier! "PFX"-"PFX" in removal starting at "PFX"\n",
+                                  bucket->blocks[i].start, bucket->blocks[i].end, patch_start);
+                    else if (BUCKET_ID(bucket->blocks[i].end-1) > end_bucket)
+                        dr_printf("Outlier! "PFX"-"PFX" in removal ending at "PFX"\n",
+                                  bucket->blocks[i].start, bucket->blocks[i].end, patch_end);
+                    */
                     if (j == 16) {
+                        TABLE_RWLOCK(dgc_table, read, unlock);
                         remove_patchable_fragment_list(dcontext, blocks, j,
                                                        flush_num_threads, flush_threads);
-                        for (k = 0; k < 16; k++)
-                            dgc_set_slot_empty(blocks[k]);
+                        TABLE_RWLOCK(dgc_table, read, lock);
+                        for (k = 0; k < 16; k++) // no need to have duplicates in here!
+                            dgc_set_all_slots_empty(blocks[k]);
                         j = 0;
+                        DODEBUG(found = true;);
                     }
                 }
             }
             bucket = bucket->chain;
         }
     }
+    TABLE_RWLOCK(dgc_table, read, unlock);
     if (j > 0) {
         remove_patchable_fragment_list(dcontext, blocks, j, flush_num_threads, flush_threads);
+        TABLE_RWLOCK(dgc_table, read, lock);
         for (k = 0; k < j; k++)
-            dgc_set_slot_empty(blocks[k]);
+            dgc_set_all_slots_empty(blocks[k]);
+        TABLE_RWLOCK(dgc_table, read, unlock);
+        DODEBUG(found = true;);
     }
 
-    // gc
-    TABLE_RWLOCK(dgc_table, write, lock);
-    bucket_id = BUCKET_ID(patch_start);
-    if (((ptr_uint_t)patch_start & 0x1f) == 0) {
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
-    } else {
-        if (dgc_table_bucket_gc(bucket_id))
-            generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
-    }
-    for (bucket_id++; bucket_id < BUCKET_ID(patch_end); bucket_id++) {
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
-    }
-    if (((ptr_uint_t)patch_end & 0x1f) == 0x1f || dgc_table_bucket_gc(bucket_id))
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    dgc_notify_region_cleared(patch_start, patch_end);
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "patchable fragment: done removing all fragments "PFX"-"PFX"\n",
-        patch_start, patch_end);
+        "DGC: done removing all fragments "PFX"-"PFX"%s\n",
+        patch_start, patch_end, IF_DEBUG_ELSE(found ? "" : " (none found)", ""));
 
     enter_nolinking(dcontext, NULL, false);
 }
@@ -6323,6 +6526,9 @@ enter_nolinking(dcontext_t *dcontext, fragment_t *was_I_flushed, bool cache_tran
         if (reset_pending != 0) {
             uint target = reset_pending;
             reset_pending = 0;
+
+            dr_printf("Proactive reset!\n");
+
             /* fcache_reset_all_caches_proactively() will unlock */
             fcache_reset_all_caches_proactively(target);
             LOG(THREAD, LOG_DISPATCH, 2,

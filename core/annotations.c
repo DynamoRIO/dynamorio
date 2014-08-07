@@ -974,7 +974,11 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);
 
-    flush_fragments_and_remove_region(dcontext, start, len, false, false);
+    mutex_lock(&thread_initexit_lock);
+    flush_fragments_and_remove_region(dcontext, start, len,
+                                      true /* own initexit_lock */, false);
+    mutex_unlock(&thread_initexit_lock);
+    dgc_notify_region_cleared(start, start+len);
     //set_region_app_managed(start, len, false);
 }
 
@@ -1018,9 +1022,9 @@ annotation_flush_fragments(app_pc start, size_t len)
 # ifdef FLUSH_STATS
         report(++ctiTargetFlushes, " > CTI target flushes");
 # endif
-        executable_areas_lock();
-        vm_area_isolate_region(dcontext, start, start+len);
-        executable_areas_unlock();
+        //executable_areas_lock();
+        //vm_area_isolate_region(dcontext, start, start+len);
+        //executable_areas_unlock();
     } else {
 #endif
 # ifdef FLUSH_STATS
@@ -1056,6 +1060,8 @@ annotation_flush_fragments(app_pc start, size_t len)
 
         flush_and_delete_fragments_in_region_finish(dcontext);
         mutex_unlock(&thread_initexit_lock);
+
+        dgc_notify_region_cleared(start, start+len);
 #ifdef SELECTIVE_FLUSHING
     }
 #endif

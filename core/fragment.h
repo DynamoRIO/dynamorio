@@ -664,6 +664,9 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
 
 void
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end);
+
+void
+dgc_notify_region_cleared(app_pc start, app_pc end);
 #endif
 
 fragment_t *
