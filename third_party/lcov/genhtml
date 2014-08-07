@@ -305,11 +305,15 @@ our @rate_png = ("ruby.png", "amber.png", "emerald.png");
 our $lcov_func_coverage = 1;
 our $lcov_branch_coverage = 0;
 our $rc_desc_html = 0;  # lcovrc: genhtml_desc_html
+# truncate part of the test name for pretty printing, e.g., _Test::TestBody
+our $truncate_testname = "";
+# url for online test name code search, e.g.,
+# http://code.google.com/p/chromium/codesearch#search/&q=%s&type=cs
+our $code_search_url = "";
 
 our $cwd = `pwd`;       # Current working directory
 chomp($cwd);
 our $tool_dir = dirname($0);    # Directory where genhtml tool is installed
-
 
 #
 # Code entry point
@@ -421,6 +425,8 @@ if (!GetOptions("output-directory|o=s"  => \$output_directory,
                 "ignore-errors=s"       => \@opt_ignore_errors,
                 "config-file=s"         => \$opt_config_file,
                 "rc=s%"                 => \%opt_rc,
+                "truncate_testname=s"   => \$truncate_testname,
+                "code_search_url=s"     => \$code_search_url,
                 ))
 {
         print(STDERR "Use $tool_name --help to get usage information\n");
@@ -585,6 +591,11 @@ Misc:
       --config-file FILENAME        Specify configuration file location
       --rc SETTING=VALUE            Override configuration file setting
       --ignore-errors ERRORS        Continue after ERRORS (source)
+      --truncate_testname STRING    Truncate the test name for pretty printing,
+                                    perl string match is used.
+      --code_search_url URL         URL for online test name code search,
+                                    assuming the keyword is the last part of
+                                    test name.
 
 Operation:
   -o, --output-directory OUTDIR     Write HTML output to OUTDIR
@@ -1615,8 +1626,17 @@ sub read_info_file($)
                         {
                             # Execution with test info found, add to structure.
                             # We overload the $sumcount for storing test info.
-                            my $str_len = length $2;
-                            $sumcount->{$1} = $2;
+                            my $line_info = $1;
+                            my $test_info = $2;
+                            if ($truncate_testname) {
+                                # shrink the test info string for pretty print
+                                $test_info =~ s/$truncate_testname$//g;
+                                $test_info =~ s/\(anonymous namespace\)/\(anon.\)/g;
+                            }
+                            # remove <> for output in html
+                            $test_info =~ s/<NON-TEST>/NON-TEST/g;
+                            my $str_len = length $test_info;
+                            $sumcount->{$line_info} = $test_info;
                             if ($str_len >= $line_field_width) {
                                 $line_field_width = $str_len + 1;
                             }
@@ -4132,7 +4152,18 @@ sub format_count($$)
         # we need to check here if $sumcount->{$_} is a number
         # or a test name.
         if (!looks_like_number($count)) {
-            $result = sprintf("%*s", $width, $count);
+            if ($code_search_url && $count !~ "NON-TEST") {
+                # Add link to code_search_url if provided.
+                my $keyword = $count;
+                # Remove all the namespace/class before the last "::"
+                $keyword =~ s/^.*:://g;
+                my $link = sprintf($code_search_url, $keyword);
+                $width = $width - length $count;
+                $result = sprintf("%*s<a href=\"%s\">%s</a>",
+                                  $width, "", $link, $count);
+            } else {
+                $result = sprintf("%*s", $width, $count);
+            }
             return $result;
         }
 
