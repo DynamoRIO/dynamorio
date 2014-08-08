@@ -36,13 +36,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include "dr_frontend_private.h" /* for debuglevel/abortlevel */
 #include "dr_frontend.h"
 
 #ifdef WINDOWS
+#include <direct.h>
 /* It looks better to consistently use the same separator */
 # define DIRSEP '\\'
 # define snprintf _snprintf
 #else
+#include <sys/stat.h>
+#include <unistd.h>
 # define DIRSEP '/'
 #endif
 
@@ -180,4 +185,81 @@ drfront_appdata_logdir(const char *root, const char *subdir,
         res = DRFRONT_SUCCESS;
     }
     return res;
+}
+
+void
+drfront_string_replace_character(OUT char *str, char old_char, char new_char)
+{
+    while (*str != '\0') {
+        if (*str == old_char) {
+            *str = new_char;
+        }
+        str++;
+    }
+}
+
+void
+drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char)
+{
+    while (*str != _T('\0')) {
+        if (*str == old_char) {
+            *str = new_char;
+        }
+        str++;
+    }
+}
+/* XXX: Since we can't simply use dr_* routines, we implement create/remove directory
+ * here. It's a short-term solution for long-term we should implement solution from i#1409
+ * (xref i#1409).
+ */
+drfront_status_t
+drfront_create_dir(const char *dir)
+{
+    uint res;
+    if (dir == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+#ifdef WINDOWS
+    res = _mkdir(dir);
+#else
+    res = mkdir(dir, 0777);
+#endif
+    if (res != 0) {
+        if(errno == EEXIST) {
+            return DRFRONT_ERROR_FILE_EXISTS;
+        } else if(errno == EACCES) {
+            return DRFRONT_ERROR_ACCESS_DENIED;
+        } else {
+            DO_DEBUG(DL_WARN,
+                     printf("mkdir failed %d", errno);
+                     );
+            return DRFRONT_ERROR;
+        }
+    }
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_remove_dir(const char *dir)
+{
+    uint res;
+    if (dir == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+#ifdef WINDOWS
+    res = _rmdir(dir);
+#else
+    res = rmdir(dir);
+#endif
+    if (res != 0) {
+        if(errno == ENOENT) {
+            return DRFRONT_ERROR_INVALID_PATH;
+        } else if(errno == EACCES) {
+            return DRFRONT_ERROR_ACCESS_DENIED;
+        } else {
+            DO_DEBUG(DL_WARN,
+                     printf("rmdir failed %d", errno);
+                     );
+            return DRFRONT_ERROR;
+        }
+    }
+    return DRFRONT_SUCCESS;
 }
