@@ -154,14 +154,16 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
-#define FLUSH_STATS 1
-#ifdef FLUSH_STATS
+#ifdef SELECTIVE_FLUSHING
+# define FLUSH_STATS 1
+# ifdef FLUSH_STATS
 static uint ctiTargetFlushes = 0;
 static uint microFlushes = 0;
 static uint wordFlushes = 0;
 static uint smallFlushes = 0;
 static uint segmentFlushes = 0;
 static uint regionFlushes = 0;
+# endif
 #endif
 
 /**** Private Function Declarations ****/
@@ -285,9 +287,7 @@ annotation_exit()
             free_annotation_handler(vg_handlers[i]);
     }
 
-    TABLE_RWLOCK(handlers, write, lock);
     strhash_hash_destroy(GLOBAL_DCONTEXT, handlers);
-    TABLE_RWLOCK(handlers, write, unlock);
 }
 
 void
@@ -978,7 +978,9 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     flush_fragments_and_remove_region(dcontext, start, len,
                                       true /* own initexit_lock */, false);
     mutex_unlock(&thread_initexit_lock);
+#ifdef SELECTIVE_FLUSHING
     dgc_notify_region_cleared(start, start+len);
+#endif
     //set_region_app_managed(start, len, false);
 }
 
@@ -1017,10 +1019,10 @@ annotation_flush_fragments(app_pc start, size_t len)
     //    return;
 
 #ifdef SELECTIVE_FLUSHING
-    if (len < 0x100) {
+    if (len < 0x20) {
         remove_patchable_fragments(dcontext, start, start+len);
 # ifdef FLUSH_STATS
-        report(++ctiTargetFlushes, " > CTI target flushes");
+        report(++ctiTargetFlushes, " > Selective flushes");
 # endif
         //executable_areas_lock();
         //vm_area_isolate_region(dcontext, start, start+len);
@@ -1058,11 +1060,15 @@ annotation_flush_fragments(app_pc start, size_t len)
 
         ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
+#ifdef SELECTIVE_FLUSHING
         flush_and_delete_fragments_in_region_finish(dcontext);
+#else
+        flush_fragments_in_region_finish(dcontext, true);
+#endif
         mutex_unlock(&thread_initexit_lock);
 
-        dgc_notify_region_cleared(start, start+len);
 #ifdef SELECTIVE_FLUSHING
+        dgc_notify_region_cleared(start, start+len);
     }
 #endif
 }

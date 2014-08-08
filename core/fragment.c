@@ -144,6 +144,8 @@ static dead_table_lists_t *dead_lists;
 #define BUCKET_BBS 3
 #define BUCKET_OFFSET_SENTINEL 1
 #define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> BUCKET_BIT_SIZE)
+#define DGC_MAX_TAG_REMOVAL 0x50
+#define DGC_MAX_TRACE_REMOVAL 0x50
 
 typedef struct _dgc_trace_t {
     app_pc tags[2];
@@ -172,23 +174,40 @@ typedef struct _dgc_bucket_t {
     struct _dgc_bucket_t *chain;
 } dgc_bucket_t;
 
-#define DGC_BUCKET_GC_CAPACITY 0x40
+#define DGC_BUCKET_GC_CAPACITY 0x80
 typedef struct _dgc_bucket_gc_list_t {
     dgc_bucket_t *list[DGC_BUCKET_GC_CAPACITY];
+    bool allow_immediate_gc;
+    const char *current_operation;
 } dgc_bucket_gc_list_t;
 
 static dgc_bucket_gc_list_t *dgc_bucket_gc_list;
 static generic_table_t *dgc_table;
 
+typedef struct _dgc_stats_t {
+    uint allocated_bucket_count;
+    uint freed_bucket_count;
+    uint live_bucket_count;
+    uint allocated_trace_count;
+    uint freed_trace_count;
+    uint live_trace_count;
+} dgc_stats_t;
+
+static dgc_stats_t *dgc_stats;
+
 DECLARE_CXTSWPROT_VAR(static mutex_t dgc_table_lock, INIT_LOCK_FREE(dgc_table_lock));
 
 # ifdef DEBUG
 #  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
+#  define RELEASE_ASSERT(cond, ignored, ...) ASSERT(cond)
 # else
 #  define RELEASE_LOG(file, category, level, ...)
 //dr_printf(__VA_ARGS__)
+#  define RELEASE_ASSERT(cond, msg, ...) \
+    if (!(cond)) \
+        dr_printf("Fail: "#cond" \""msg"\"\n", __VA_ARGS__)
 # endif
-#endif
+#endif /* SELECTIVE_FLUSHING */
 
 DECLARE_CXTSWPROT_VAR(static mutex_t dead_tables_lock, INIT_LOCK_FREE(dead_tables_lock));
 
@@ -1498,6 +1517,8 @@ fragment_init()
 
     dgc_bucket_gc_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_gc_list_t,
                                          ACCT_OTHER, UNPROTECTED);
+    dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t,
+                                ACCT_OTHER, UNPROTECTED);
 #endif
 
 #if defined(INTERNAL) || defined(CLIENT_INTERFACE)
@@ -1765,11 +1786,11 @@ fragment_exit()
     }
 #endif
 #ifdef SELECTIVE_FLUSHING
-    TABLE_RWLOCK(dgc_table, write, lock);
     generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list, dgc_bucket_gc_list_t,
                    ACCT_OTHER, UNPROTECTED);
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t,
+                   ACCT_OTHER, UNPROTECTED);
     DELETE_LOCK(dgc_table_lock);
 #endif
  cleanup:
@@ -3346,6 +3367,22 @@ fragment_remove_shared_no_flush(dcontext_t *dcontext, fragment_t *f)
 }
 
 #ifdef SELECTIVE_FLUSHING
+static void
+dgc_stat_report(uint count)
+{
+    uint i = 1, log = count / 10;
+    while (log > 0) {
+        log /= 10;
+        i *= 10;
+    }
+    if (count == i) {
+        dr_printf("stats: ab %d | fb %d | lb %d || at %d | ft %d | lt %d\n",
+                  dgc_stats->allocated_bucket_count, dgc_stats->freed_bucket_count,
+                  dgc_stats->live_bucket_count, dgc_stats->allocated_trace_count,
+                  dgc_stats->freed_trace_count, dgc_stats->live_trace_count);
+    }
+}
+
 static inline bool
 dgc_bb_is_head(dgc_bb_t *bb)
 {
@@ -3466,6 +3503,8 @@ free_dgc_traces(dgc_bb_t *bb) {
     while (trace != NULL) {
         next_trace = trace->next_trace;
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, trace, dgc_trace_t, ACCT_OTHER, UNPROTECTED);
+        dgc_stats->live_trace_count--;
+        dgc_stat_report(++dgc_stats->freed_trace_count);
         trace = next_trace;
     }
 }
@@ -3516,6 +3555,8 @@ dgc_table_bucket_gc(dgc_bucket_t *bucket)
                     anchor->chain = bucket->chain;
                     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bucket, dgc_bucket_t,
                                    ACCT_OTHER, UNPROTECTED);
+                    dgc_stats->live_bucket_count--;
+                    dgc_stat_report(++dgc_stats->freed_bucket_count);
                     bucket = anchor->chain;
                 }
             } else {
@@ -3530,9 +3571,47 @@ dgc_table_bucket_gc(dgc_bucket_t *bucket)
 }
 
 static inline void
-dgc_bucket_gc_list_clear()
+dgc_bucket_gc_list_init(bool allow_immediate_gc, const char *current_operation)
 {
     dgc_bucket_gc_list->list[0] = NULL;
+    dgc_bucket_gc_list->allow_immediate_gc = allow_immediate_gc;
+    dgc_bucket_gc_list->current_operation = current_operation;
+}
+
+static bool
+dgc_bucket_is_packed(dgc_bucket_t *bucket)
+{
+    uint i;
+    bool packed;
+
+    if ((ptr_uint_t)bucket == 0xcdcdcdcdUL ||
+        bucket->offset_sentinel != BUCKET_OFFSET_SENTINEL) { // freed
+        return true;
+    }
+
+    while (bucket != NULL) {
+        for (i = 0; i < BUCKET_BBS; i++) {
+            if (bucket->blocks[i].start != NULL) {
+                packed = true;
+                break;
+            }
+        }
+        if (!packed)
+            return false;
+        bucket = bucket->chain;
+    }
+    return true;
+}
+
+static void
+dgc_bucket_gc()
+{
+    uint i;
+    for (i = 0; i < DGC_BUCKET_GC_CAPACITY && dgc_bucket_gc_list->list[i] != NULL; i++)
+        dgc_table_bucket_gc(dgc_bucket_gc_list->list[i]);
+
+    for (i = 0; i < DGC_BUCKET_GC_CAPACITY && dgc_bucket_gc_list->list[i] != NULL; i++)
+        RELEASE_ASSERT(dgc_bucket_is_packed(dgc_bucket_gc_list->list[i]), "not packed", "");
 }
 
 static inline void
@@ -3542,38 +3621,28 @@ dgc_bucket_gc_add(dgc_bucket_t *bucket)
     bool found = false;
     if (bucket == NULL)
         return;
+    RELEASE_ASSERT(bucket->offset_sentinel == BUCKET_OFFSET_SENTINEL, "Freed already?", "");
+    RELEASE_ASSERT(bucket == bucket->head, "No!", "");
     for (i = 0; i < DGC_BUCKET_GC_CAPACITY; i++) {
-        if (dgc_bucket_gc_list->list[i] == 0)
+        if (dgc_bucket_gc_list->list[i] == NULL)
             break;
-        if (dgc_bucket_gc_list->list[i] == bucket) {
+        if (dgc_bucket_gc_list->list[i]->bucket_id == bucket->bucket_id) {
             found = true;
             break;
         }
     }
     if (!found) {
-        ASSERT(i < DGC_BUCKET_GC_CAPACITY);
+        if (i >= (DGC_BUCKET_GC_CAPACITY-1)) {
+            if (dgc_bucket_gc_list->allow_immediate_gc) {
+                dgc_bucket_gc();
+                i = 0;
+            } else {
+                RELEASE_ASSERT(false, "GC list too full (%d) during %s",
+                               i, dgc_bucket_gc_list->current_operation);
+            }
+        }
         dgc_bucket_gc_list->list[i] = bucket;
         dgc_bucket_gc_list->list[i+1] = NULL;
-    }
-}
-
-static inline void
-dgc_bucket_gc_list_add_all(dgc_bb_t *bb)
-{
-    while (bb != NULL) {
-        dgc_bucket_gc_add(dgc_get_containing_bucket(bb)->head);
-        bb = bb->next;
-    }
-}
-
-static void
-dgc_bucket_gc()
-{
-    uint i;
-    for (i = 0; i < DGC_BUCKET_GC_CAPACITY; i++) {
-        if (dgc_bucket_gc_list->list[i] == NULL)
-            break;
-        dgc_table_bucket_gc(dgc_bucket_gc_list->list[i]);
     }
 }
 
@@ -3607,10 +3676,14 @@ free_dgc_bucket_chain(void *p)
     do {
         next_bucket = bucket->chain;
         for (i = 0; i < BUCKET_BBS; i++) {
-            if (bucket->blocks[i].start != NULL)
-                dgc_set_all_slots_empty(&bucket->blocks[i]);
+            if (bucket->blocks[i].start != NULL && dgc_bb_is_head(&bucket->blocks[i])) {
+                bucket->blocks[i].start = NULL;
+                free_dgc_traces(&bucket->blocks[i]);
+            }
         }
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, bucket, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
+        dgc_stats->live_bucket_count--;
+        dgc_stat_report(++dgc_stats->freed_bucket_count);
         bucket = next_bucket;
     } while (bucket != NULL);
 }
@@ -3623,11 +3696,29 @@ dgc_table_dereference_bb(app_pc tag)
     dgc_bb_t *bb = dgc_table_find_bb(tag, &bucket, &i);
     if (bb != NULL) {
         if (dgc_change_ref_count(bucket, i, -1) == 0) {
-            dgc_bucket_gc_list_clear();
+            dgc_bucket_gc_list_init(false, "dgc_table_dereference_bb");
             dgc_set_all_slots_empty(bb); // _IF_DEBUG("refcount"));
             dgc_bucket_gc();
         }
     }
+}
+
+void
+dgc_remove_bucket(ptr_uint_t bucket_id)
+{
+    uint i;
+    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    if (bucket != NULL) {
+        do {
+            ASSERT(bucket->offset_sentinel == BUCKET_OFFSET_SENTINEL);
+            for (i = 0; i < BUCKET_BBS; i++) {
+                if (bucket->blocks[i].start != NULL)
+                    dgc_set_all_slots_empty(&bucket->blocks[i]);
+            }
+            bucket = bucket->chain;
+        } while (bucket != NULL);
+    }
+    generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
 }
 
 void
@@ -3641,16 +3732,16 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
 
     mutex_lock(&dgc_table_lock);
     TABLE_RWLOCK(dgc_table, write, lock);
-    dgc_bucket_gc_list_clear();
+    dgc_bucket_gc_list_init(true, "dgc_notify_region_cleared");
     if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        dgc_remove_bucket(bucket_id);
     else
         dgc_bucket_gc_add(generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id));
     for (++bucket_id; bucket_id < last_bucket_id; bucket_id++)
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        dgc_remove_bucket(bucket_id);
     if (bucket_id == last_bucket_id) {
         if (is_end_of_bucket && (bucket_id > first_bucket_id))
-            generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+            dgc_remove_bucket(bucket_id);
         else
             dgc_bucket_gc_add(generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id));
     }
@@ -4293,6 +4384,8 @@ add_patchable_bb(app_pc start, app_pc end)
             bucket->bucket_id = bucket_id;
             bucket->head = bucket;
             i = 0;
+            dgc_stats->live_bucket_count++;
+            dgc_stat_report(++dgc_stats->allocated_bucket_count);
         } else {
             dgc_bucket_t *head_bucket = bucket, *available_bucket = NULL;
             uint available_slot = 0xff;
@@ -4309,7 +4402,7 @@ add_patchable_bb(app_pc start, app_pc end)
                             LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: stale bb "
                                 PFX"-"PFX"!\n", start, dgc_bb_end(&bucket->blocks[i]));
                             //bucket->blocks[i].start = NULL;
-                            dgc_bucket_gc_list_clear();
+                            dgc_bucket_gc_list_init(false, "add_patchable_bb");
                             dgc_set_all_slots_empty(&bucket->blocks[i]);
                             dgc_bucket_gc();
                         }
@@ -4342,6 +4435,8 @@ add_patchable_bb(app_pc start, app_pc end)
                 bucket->chain = new_bucket;
                 bucket = new_bucket;
                 i = 0;
+                dgc_stats->live_bucket_count++;
+                dgc_stat_report(++dgc_stats->allocated_bucket_count);
             } else {
                 bucket = available_bucket;
                 i = available_slot;
@@ -4407,6 +4502,8 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
                 trace->tags[1] = NULL;
                 trace->next_trace = bb->containing_trace_list;
                 bb->containing_trace_list = trace;
+                dgc_stats->live_trace_count++;
+                dgc_stat_report(++dgc_stats->allocated_trace_count);
             }
         }
     }
@@ -4671,10 +4768,21 @@ has_tag(app_pc tag, app_pc *tags)
     return false;
 }
 
+static bool
+buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
+{
+    ptr_uint_t i;
+    for (i = start; i < end; i++) {
+        if (generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, i) != NULL)
+            return true;
+    }
+    return false;
+}
+
 void
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
-    app_pc bb_tags[0x50], trace_tags[0x20];
+    app_pc bb_tags[DGC_MAX_TAG_REMOVAL], trace_tags[DGC_MAX_TRACE_REMOVAL];
     uint i, i_bb = 0, i_trace = 0;
     bool is_patch_start_bucket = true;
     ptr_uint_t bucket_id;
@@ -4704,7 +4812,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
     mutex_lock(&dgc_table_lock);
     TABLE_RWLOCK(dgc_table, write, lock);
-    dgc_bucket_gc_list_clear();
+    dgc_bucket_gc_list_init(false, "remove_patchable_fragments");
     for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
         while (bucket != NULL) {
@@ -4731,13 +4839,18 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
         is_patch_start_bucket = false;
     }
     dgc_bucket_gc();
+    RELEASE_ASSERT(!buckets_exist_in_range(start_bucket+1, end_bucket), "buckets exist", "");
     //dgc_notify_region_cleared(patch_start, patch_end) ?
     TABLE_RWLOCK(dgc_table, write, unlock);
     mutex_unlock(&dgc_table_lock);
 
     if (i_bb > 0) {
-        ASSERT(i_bb < 0x50);
-        ASSERT(i_trace < 0x20);
+        RELEASE_ASSERT(i_bb < DGC_MAX_TAG_REMOVAL, "Attempting %d tags", i_bb);
+        RELEASE_ASSERT(i_trace < DGC_MAX_TRACE_REMOVAL, "Attempting %d traces", i_trace);
+        if (i_bb >= DGC_MAX_TAG_REMOVAL)
+            dr_printf("Removing too many bbs: 0x%x!\n", i_bb);
+        if (i_trace >= DGC_MAX_TRACE_REMOVAL)
+            dr_printf("Removing too many traces: 0x%x!\n", i_trace);
         bb_tags[i_bb] = NULL;
         trace_tags[i_trace] = NULL;
         remove_patchable_fragment_list(dcontext, bb_tags, trace_tags,
@@ -7834,8 +7947,10 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
     ASSERT_OWN_MUTEX(own_initexit_lock, &thread_initexit_lock);
     ASSERT_DO_NOT_OWN_MUTEX(!own_initexit_lock, &thread_initexit_lock);
 
+#ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code(base))
         dgc_notify_region_cleared(base, base+size);
+#endif
 }
 
 /* Flushes fragments from the region without any changes to the exec list.

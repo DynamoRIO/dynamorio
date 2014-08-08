@@ -275,7 +275,7 @@
 #endif
 
 #define ANNOTATIONS
-#define SELECTIVE_FLUSHING
+//#define SELECTIVE_FLUSHING
 #ifdef CLIENT_INTERFACE
    /* standard client interface features */
 #  define DYNAMORIO_IR_EXPORTS
