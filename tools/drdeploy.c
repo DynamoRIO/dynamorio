@@ -114,10 +114,10 @@ static bool nocheck;
 
 const char *usage_str =
 #ifdef DRCONFIG
-    "usage: "TOOLNAME" [options]\n"
+    "USAGE: "TOOLNAME" [options]\n";
 #elif defined(DRRUN) || defined (DRINJECT)
-    "usage: "TOOLNAME" [options] <app and args to run>\n"
-    "usage: "TOOLNAME" [options] -- <app and args to run>\n"
+    "USAGE: "TOOLNAME" [options] <app and args to run>\n"
+    "   or: "TOOLNAME" [options] -- <app and args to run>\n"
 # if defined(DRRUN)
     "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
     "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
@@ -125,8 +125,11 @@ const char *usage_str =
     "   or: "TOOLNAME" [options] [DR options] -t <tool> [tool options]"
     " -- <app and args to run>\n"
 # endif
-    "\n"
+    ;
 #endif
+
+const char *options_list_str =
+    "\nOPTIONS:\n"
     "       -v                 Display version information\n"
     "       -verbose           Display additional information\n"
     "       -quiet             Do not display warnings\n"
@@ -261,10 +264,14 @@ const char *usage_str =
 #endif
     ;
 
-#define usage(msg, ...) do {                                    \
-    fprintf(stderr, "\n");                                      \
+#define usage(list_ops, msg, ...) do {                          \
     fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);       \
-    fprintf(stderr, "%s\n", usage_str);                         \
+    fprintf(stderr, "%s", usage_str);                           \
+    if (list_ops) {                                             \
+        fprintf(stderr, "%s", options_list_str);                \
+    } else {                                                    \
+        fprintf(stderr, "Run with -help to see option list\n"); \
+    }                                                           \
     die();                                                      \
 } while (0)
 
@@ -741,7 +748,7 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
     /* XXX i#943: we need to use _tfopen() on windows */
     f = fopen(config_file, "r");
     if (f == NULL) {
-        error("Cannot find tool config file %s\n", config_file);
+        error("cannot find tool config file %s", config_file);
         return false;
     }
     while (fgets(line, BUFFER_SIZE_ELEMENTS(line), f) != NULL) {
@@ -786,7 +793,7 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
                              "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
 # endif
         } else if (line[0] != '\0') {
-            error("Tool config file is malformed: unknown line %s\n", line);
+            error("tool config file is malformed: unknown line %s", line);
             return false;
         }
     }
@@ -1077,9 +1084,9 @@ int main(int argc, char *argv[])
             const char *pid_str = argv[++i];
             process_id_t pid = strtoul(pid_str, NULL, 10);
             if (pid == ULONG_MAX)
-                usage("-attach expects an integer pid");
+                usage(false, "-attach expects an integer pid");
             if (pid != 0)
-                usage("attaching to running processes is not yet implemented");
+                usage(false, "attaching to running processes is not yet implemented");
             use_ptrace = true;
             /* FIXME: use pid below to attach. */
             continue;
@@ -1098,9 +1105,15 @@ int main(int argc, char *argv[])
             continue;
         }
 #endif
+        else if (strcmp(argv[i], "-help") == 0 ||
+                 strcmp(argv[i], "--help") == 0 ||
+                 strcmp(argv[i], "-h") == 0) {
+            usage(true, "missing required arguments");
+            continue;
+        }
         /* all other flags have an argument -- make sure it exists */
         else if (argv[i][0] == '-' && i == argc - 1) {
-            usage("invalid arguments");
+            usage(false, "invalid arguments");
         }
 
         /* params with an arg */
@@ -1113,7 +1126,7 @@ int main(int argc, char *argv[])
             /* Accept this for compatibility with the old drrun shell script. */
             const char *dir = argv[++i];
             if (_access(dir, 0) == -1)
-                usage("-logdir %s does not exist", dir);
+                usage(false, "-logdir %s does not exist", dir);
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
                              &extra_ops_sofar, "-logdir `%s`", dir);
             continue;
@@ -1121,21 +1134,21 @@ int main(int argc, char *argv[])
 #ifdef DRCONFIG
         else if (strcmp(argv[i], "-reg") == 0) {
             if (action != action_none) {
-                usage("more than one action specified");
+                usage(false, "more than one action specified");
             }
             action = action_register;
             process = argv[++i];
         }
         else if (strcmp(argv[i], "-unreg") == 0) {
             if (action != action_none) {
-                usage("more than one action specified");
+                usage(false, "more than one action specified");
             }
             action = action_unregister;
             process = argv[++i];
         }
         else if (strcmp(argv[i], "-isreg") == 0) {
             if (action != action_none) {
-                usage("more than one action specified");
+                usage(false, "more than one action specified");
             }
             action = action_list;
             process = argv[++i];
@@ -1149,11 +1162,11 @@ int main(int argc, char *argv[])
                  strcmp(argv[i], "-nudge_pid") == 0 ||
                  strcmp(argv[i], "-nudge_all") == 0){
             if (action != action_none) {
-                usage("more than one action specified");
+                usage(false, "more than one action specified");
             }
             if (i + 2 >= argc ||
                 (strcmp(argv[i], "-nudge_all") != 0 && i + 3 >= argc)) {
-                usage("too few arguments to -nudge");
+                usage(false, "too few arguments to -nudge");
             }
             action = action_nudge;
             if (strcmp(argv[i], "-nudge") == 0)
@@ -1172,7 +1185,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-mode") == 0) {
             char *mode_str = argv[++i];
             if (dr_mode == DR_MODE_DO_NOT_RUN)
-                usage("cannot combine -norun with -mode");
+                usage(false, "cannot combine -norun with -mode");
             if (strcmp(mode_str, "code") == 0) {
                 dr_mode = DR_MODE_CODE_MANIPULATION;
             }
@@ -1187,7 +1200,7 @@ int main(int argc, char *argv[])
             }
 #  endif
             else {
-                usage("unknown mode: %s", mode_str);
+                usage(false, "unknown mode: %s", mode_str);
             }
         }
 # endif
@@ -1201,7 +1214,7 @@ int main(int argc, char *argv[])
                 int id;
                 const char *ops;
                 if (i + 3 >= argc) {
-                    usage("too few arguments to -client");
+                    usage(false, "too few arguments to -client");
                 }
 
                 /* Support relative client paths: very useful! */
@@ -1233,17 +1246,17 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-s") == 0) {
             limit = atoi(argv[++i]);
             if (limit <= 0)
-                usage("invalid time");
+                usage(false, "invalid time");
         }
         else if (strcmp(argv[i], "-m") == 0) {
             limit = atoi(argv[++i])*60;
             if (limit <= 0)
-                usage("invalid time");
+                usage(false, "invalid time");
         }
         else if (strcmp(argv[i], "-h") == 0) {
             limit = atoi(argv[++i])*3600;
             if (limit <= 0)
-                usage("invalid time");
+                usage(false, "invalid time");
         }
 # ifdef UNIX
         else if (strcmp(argv[i], "-killpg") == 0) {
@@ -1275,9 +1288,9 @@ int main(int argc, char *argv[])
                 char client_buf[MAXIMUM_PATH];
                 size_t client_sofar = 0;
                 if (i + 1 >= argc)
-                    usage("too few arguments to %s", argv[i]);
+                    usage(false, "too few arguments to %s", argv[i]);
                 if (num_clients != 0)
-                    usage("Cannot use -client with %s.", argv[i]);
+                    usage(false, "Cannot use -client with %s.", argv[i]);
                 client = argv[++i];
                 single_client_ops[0] = '\0';
 
@@ -1294,7 +1307,7 @@ int main(int argc, char *argv[])
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
                                         &client_sofar,
                                         native_tool, BUFFER_SIZE_ELEMENTS(native_tool)))
-                        usage("unknown tool requested");
+                        usage(false, "unknown tool \"%s\" requested", client);
                     client = client_buf;
                 }
 
@@ -1322,7 +1335,7 @@ int main(int argc, char *argv[])
 #endif
         else {
 #ifdef DRCONFIG
-            usage("unknown option: %s", argv[i]);
+            usage(false, "unknown option: %s", argv[i]);
 #else
             /* start of app and its args */
             break;
@@ -1336,7 +1349,7 @@ int main(int argc, char *argv[])
 
 #if defined(DRRUN) || defined(DRINJECT)
     if (i >= argc)
-        usage("%s", "no app specified");
+        usage(false, "%s", "no app specified");
     app_name = argv[i++];
     _searchenv(app_name, "PATH", full_app_name);
     NULL_TERMINATE_BUFFER(full_app_name);
@@ -1387,7 +1400,7 @@ int main(int argc, char *argv[])
 # endif
 #else
     if (i < argc)
-        usage("%s", "invalid extra arguments specified");
+        usage(false, "%s", "invalid extra arguments specified");
 #endif
 
 #ifdef WINDOWS
@@ -1415,7 +1428,7 @@ int main(int argc, char *argv[])
     }
 # ifndef WINDOWS
     else {
-        usage("no action specified");
+        usage(false, "no action specified");
     }
 # else /* WINDOWS */
     /* FIXME i#840: Nudge NYI on Linux. */
@@ -1458,7 +1471,7 @@ int main(int argc, char *argv[])
     }
 #  endif
     else if (!syswide_on && !syswide_off) {
-        usage("no action specified");
+        usage(false, "no action specified");
     }
     if (syswide_on) {
         DWORD platform;
