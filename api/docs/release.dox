@@ -167,6 +167,7 @@ Further non-compatibility-affecting changes include:
    traverse only application (non-meta) instructions.
  - Added dr_config_status_code_to_string().
  - Added custom tool front-end launching support to drrrun tool config files.
+ - Added a tool notification feature to drrun tool config files.
 
 **************************************************
 <hr>

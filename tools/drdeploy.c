@@ -724,6 +724,9 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
  * The options to DR can be included in a single token, preceded by a prefix,
  * via this line:
  *   TOOL_OP_DR_BUNDLE=<prefix>
+ *
+ * A notification message can be presented to the user with:
+ *   USER_NOTICE=This tool is currently experimental.  Please report issues to <url>.
  */
 static bool
 read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
@@ -792,6 +795,8 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
                              "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
 # endif
+        } else if (strstr(line, "USER_NOTICE=") == line) {
+            warn("%s", line + strlen("USER_NOTICE="));
         } else if (line[0] != '\0') {
             error("tool config file is malformed: unknown line %s", line);
             return false;

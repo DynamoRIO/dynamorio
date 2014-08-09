@@ -651,6 +651,12 @@ via this line, using "-dr_ops" as an example prefix:
 TOOL_OP_DR_BUNDLE=-dr_ops
 \endcode
 
+A warning message can be presented up front to the user with:
+
+\code
+USER_NOTICE=This tool is currently experimental.  Please report issues to mytool.com/issues.
+\endcode
+
 ****************************************************************************
 ****************************************************************************
 */
