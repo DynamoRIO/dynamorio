@@ -58,6 +58,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
+#include <ctype.h>
 #include "globals_shared.h"
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
@@ -704,12 +705,25 @@ add_extra_option(char *buf, size_t bufsz, size_t *sofar, const char *fmt, ...)
  * We take one token per line rather than a string of options to avoid
  * having to do any string parsing.
  * DR ops go last (thus, user can't override); tool ops go first.
+ *
+ * We also support tools with their own frontend launcher via the following
+ * tool config file lines:
+ *   FRONTEND_ABS=<absolute path to frontend>
+ *   FRONTEND_REL=<path to frontend relative to DR root>
+ * If either is present, drrun will launch the frontend and pass it the
+ * tool options followed by the app and its options.
+ * The path to DR can be included in the frontend options via this line:
+ *   TOOL_OP_DR_PATH
+ * The options to DR can be included in a single token, preceded by a prefix,
+ * via this line:
+ *   TOOL_OP_DR_BUNDLE=<prefix>
  */
 static bool
 read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platform,
                char *client, size_t client_size,
                char *ops, size_t ops_size, size_t *ops_sofar,
-               char *tool_ops, size_t tool_ops_size, size_t *tool_ops_sofar)
+               char *tool_ops, size_t tool_ops_size, size_t *tool_ops_sofar,
+               char *native_path OUT, size_t native_path_size)
 {
     FILE *f;
     char config_file[MAXIMUM_PATH];
@@ -753,6 +767,24 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
         } else if (strstr(line, "TOOL_OP=") == line) {
             add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
                              "%s", line + strlen("TOOL_OP="));
+# ifdef DRRUN /* native only supported for drrun */
+        } else if (strstr(line, "FRONTEND_ABS=") == line) {
+            _snprintf(native_path, native_path_size, "%s",
+                      line + strlen("FRONTEND_ABS="));
+            native_path[native_path_size-1] = '\0';
+            found_client = true;
+        } else if (strstr(line, "FRONTEND_REL=") == line) {
+            _snprintf(native_path, native_path_size, "%s/%s", dr_root,
+                      line + strlen("FRONTEND_REL="));
+            native_path[native_path_size-1] = '\0';
+            found_client = true;
+        } else if (strstr(line, "TOOL_OP_DR_PATH") == line) {
+            add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                             "%s", dr_root);
+        } else if (strstr(line, "TOOL_OP_DR_BUNDLE=") == line) {
+            add_extra_option(tool_ops, tool_ops_size, tool_ops_sofar,
+                             "%s `%s`", line + strlen("TOOL_OP_DR_BUNDLE="), ops);
+# endif
         } else if (line[0] != '\0') {
             error("Tool config file is malformed: unknown line %s\n", line);
             return false;
@@ -761,7 +793,89 @@ read_tool_file(const char *toolname, const char *dr_root, dr_platform_t dr_platf
     fclose(f);
     return found_client;
 }
-#endif
+#endif /* DRCONFIG || DRRUN */
+
+#ifdef DRRUN
+/* This parser modifies the string, adding nulls to split it up in place.
+ * Caller should continue iterating until *token == NULL.
+ */
+static char *
+split_option_token(char *s, char **token OUT, bool split)
+{
+    bool quoted = false;
+    char endquote = '\0';
+    if (s == NULL) {
+        *token = NULL;
+        return NULL;
+    }
+    /* first skip leading whitespace */
+    while (*s != '\0' && isspace(*s))
+        s++;
+    if (*s == '\"' || *s == '\'' || *s == '`') {
+        quoted = true;
+        endquote = *s;
+        s++;
+    }
+    *token = (*s == '\0' ? NULL : s);
+    while (*s != '\0' &&
+           ((!quoted && !isspace(*s)) || (quoted && *s != endquote)))
+        s++;
+    if (*s == '\0')
+        return NULL;
+    else {
+        if (quoted && !split)
+            s++;
+        if (split && *s != '\0')
+            *s++ = '\0';
+        return s;
+    }
+}
+
+/* Caller must free() the returned argv array.
+ * This routine writes to tool_ops.
+ */
+static const char **
+switch_to_native_tool(const char **app_argv, const char *native_tool,
+                      char *tool_ops)
+{
+    const char **new_argv, **arg;
+    char *s, *token;
+    uint count, i;
+    for (arg = app_argv, count = 0; *arg != NULL; arg++, count++)
+        ; /* empty */
+    for (s = split_option_token(tool_ops, &token, false/*do not mutate*/);
+         token != NULL;
+         s = split_option_token(s, &token, false/*do not mutate*/)) {
+        count++;
+    }
+    count++; /* for native_tool path */
+    count++; /* for "--" */
+    count++; /* for NULL */
+    new_argv = (const char **) malloc(count*sizeof(char*));
+    i = 0;
+    new_argv[i++] = native_tool;
+    for (s = split_option_token(tool_ops, &token, true);
+         token != NULL;
+         s = split_option_token(s, &token, true)) {
+        new_argv[i++] = token;
+    }
+    new_argv[i++] = "--";
+    for (arg = app_argv; *arg != NULL; arg++)
+        new_argv[i++] = *arg;
+    new_argv[i++] = NULL;
+    assert(i == count);
+    if (verbose) {
+        char buf[MAXIMUM_PATH];
+        char *c = buf;
+        for (i = 0; i < count - 1; i++) {
+            c += _snprintf(c, BUFFER_SIZE_ELEMENTS(buf) - (c - buf),
+                           " \"%s\"", new_argv[i]);
+        }
+        info("native tool cmdline: %s", buf);
+    }
+    return new_argv;
+}
+#endif /* DRRUN */
 
 int main(int argc, char *argv[])
 {
@@ -837,9 +951,19 @@ int main(int argc, char *argv[])
     char buf[MAXIMUM_PATH];
     char default_root[MAXIMUM_PATH];
     char *c;
+#if defined(DRCONFIG) || defined(DRRUN)
+    char native_tool[MAXIMUM_PATH];
+#endif
+#ifdef DRRUN
+    void *tofree = NULL;
+    bool configure = true;
+#endif
 
     memset(client_paths, 0, sizeof(client_paths));
     extra_ops[0] = '\0';
+#if defined(DRCONFIG) || defined(DRRUN)
+    native_tool[0] = '\0';
+#endif
 
     /* default root: we assume this tool is in <root>/bin{32,64}/dr*.exe */
     GetFullPathName(argv[0], BUFFER_SIZE_ELEMENTS(buf), buf, NULL);
@@ -1168,7 +1292,8 @@ int main(int argc, char *argv[])
                                         &extra_ops_sofar,
                                         single_client_ops,
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
-                                        &client_sofar))
+                                        &client_sofar,
+                                        native_tool, BUFFER_SIZE_ELEMENTS(native_tool)))
                         usage("unknown tool requested");
                     client = client_buf;
                 }
@@ -1247,7 +1372,19 @@ int main(int argc, char *argv[])
         }
         info("app cmdline: %s", buf);
     }
-
+# ifdef DRRUN
+    if (native_tool[0] != '\0') {
+        app_name = native_tool;
+        inject = false;
+        configure = false;
+        app_argv = switch_to_native_tool(app_argv, native_tool,
+                                         /* this will be changed, but we don't
+                                          * need it again
+                                          */
+                                         (char *)client_options[0]);
+        tofree = (void *) app_argv;
+    }
+# endif
 #else
     if (i < argc)
         usage("%s", "invalid extra arguments specified");
@@ -1429,15 +1566,17 @@ int main(int argc, char *argv[])
     /* even if !inject we create a config file, for use running standalone API
      * apps.  if user doesn't want a config file, should use "drinject -noinject".
      */
-    process = dr_inject_get_image_name(inject_data);
-    if (!register_proc(process, dr_inject_get_process_id(inject_data), global,
-                       dr_root, dr_mode, use_debug, dr_platform, extra_ops))
-        goto error;
-    for (j=0; j<num_clients; j++) {
-        if (!register_client(process, dr_inject_get_process_id(inject_data), global,
-                             dr_platform, client_ids[j],
-                             client_paths[j], client_options[j]))
+    if (configure) {
+        process = dr_inject_get_image_name(inject_data);
+        if (!register_proc(process, dr_inject_get_process_id(inject_data), global,
+                           dr_root, dr_mode, use_debug, dr_platform, extra_ops))
             goto error;
+        for (j=0; j<num_clients; j++) {
+            if (!register_client(process, dr_inject_get_process_id(inject_data), global,
+                                 dr_platform, client_ids[j],
+                                 client_paths[j], client_options[j]))
+                goto error;
+        }
     }
 # endif
 
@@ -1519,6 +1658,10 @@ int main(int argc, char *argv[])
      */
     if (inject_data != NULL)
         dr_inject_process_exit(inject_data, true/*kill process*/);
+# ifdef DRRUN
+    if (tofree != NULL)
+        free(tofree);
+# endif
     return 1;
 #endif /* !DRCONFIG */
 }

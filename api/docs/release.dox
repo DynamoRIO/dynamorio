@@ -166,6 +166,7 @@ Further non-compatibility-affecting changes include:
  - Added instr_get_next_app() and instrlist_first_app() to allow clients to
    traverse only application (non-meta) instructions.
  - Added dr_config_status_code_to_string().
+ - Added custom tool front-end launching support to drrrun tool config files.
 
 **************************************************
 <hr>

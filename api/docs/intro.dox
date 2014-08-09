@@ -620,6 +620,37 @@ creating cross-platform tools for configuring and launching applications
 under Dr. Memory.  For more information about the interfaces they provide,
 see their header files: dr_inject.h, dr_config.h, dr_frontend.h.
 
+A custom front-end executable can be invoked via a \p drrun \p -t
+configuration file using one of the following lines:
+
+\code
+FRONTEND_ABS=/absolute/path/to/front-end
+\endcode
+
+or
+
+\code
+FRONTEND_REL=relative/path/to/front-end/from/DynamoRIO/root
+\endcode
+
+This will cause \p drrun to transfer control to the specified front-end
+executable, passing any tool arguments followed by "--" and the target
+application command line.
+
+The path to the DynamoRIO install base can be included in the front-end
+options via this line
+
+\code
+TOOL_OP_DR_PATH
+\endcode
+
+The DynamoRIO runtime options can be included in a single token, preceded by a prefix,
+via this line, using "-dr_ops" as an example prefix:
+
+\code
+TOOL_OP_DR_BUNDLE=-dr_ops
+\endcode
+
 ****************************************************************************
 ****************************************************************************
 */
