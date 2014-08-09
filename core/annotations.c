@@ -157,12 +157,14 @@ typedef struct _annotation_layout_t {
 #ifdef SELECTIVE_FLUSHING
 # define FLUSH_STATS 1
 # ifdef FLUSH_STATS
-static uint ctiTargetFlushes = 0;
-static uint microFlushes = 0;
-static uint wordFlushes = 0;
-static uint smallFlushes = 0;
-static uint segmentFlushes = 0;
-static uint regionFlushes = 0;
+static uint64 selectiveRemovals = 0;
+static uint64 selectiveFragmentsRemoved = 0;
+static uint64 selectiveSkipped = 0;
+static uint64 microFlushes = 0;
+static uint64 wordFlushes = 0;
+static uint64 smallFlushes = 0;
+static uint64 segmentFlushes = 0;
+static uint64 regionFlushes = 0;
 # endif
 #endif
 
@@ -994,7 +996,7 @@ report(uint count, const char *label)
         i *= 10;
     }
     if (count == i)
-        dr_printf("%s: %d\n", label, count);
+        dr_printf("%s: %lu\n", label, count);
 }
 #endif
 
@@ -1020,9 +1022,15 @@ annotation_flush_fragments(app_pc start, size_t len)
 
 #ifdef SELECTIVE_FLUSHING
     if (len < 0x20) {
-        remove_patchable_fragments(dcontext, start, start+len);
+        uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
 # ifdef FLUSH_STATS
-        report(++ctiTargetFlushes, " > Selective flushes");
+        if (removal_count > 0) {
+            report(++selectiveRemovals, " > Selective removal invocations");
+            selectiveFragmentsRemoved += removal_count;
+            report(selectiveFragmentsRemoved, " > Selective fragments removed");
+        } else {
+            report(++selectiveSkipped, " > Selective removals skipped");
+        }
 # endif
         //executable_areas_lock();
         //vm_area_isolate_region(dcontext, start, start+len);
@@ -1060,11 +1068,11 @@ annotation_flush_fragments(app_pc start, size_t len)
 
         ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
-#ifdef SELECTIVE_FLUSHING
-        flush_and_delete_fragments_in_region_finish(dcontext);
-#else
+//#ifdef SELECTIVE_FLUSHING
+//        flush_and_delete_fragments_in_region_finish(dcontext);
+//#else
         flush_fragments_in_region_finish(dcontext, true);
-#endif
+//#endif
         mutex_unlock(&thread_initexit_lock);
 
 #ifdef SELECTIVE_FLUSHING
