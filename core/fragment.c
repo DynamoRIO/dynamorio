@@ -144,6 +144,8 @@ static dead_table_lists_t *dead_lists;
 #define BUCKET_BBS 3
 #define BUCKET_OFFSET_SENTINEL 1
 #define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> BUCKET_BIT_SIZE)
+#define DGC_REF_COUNT_BITS 0xa
+#define DGC_REF_COUNT_MASK 0x3ff
 #define DGC_MAX_TAG_REMOVAL 0x50
 #define DGC_MAX_TRACE_REMOVAL 0x100
 
@@ -156,6 +158,7 @@ typedef struct _dgc_trace_t {
 typedef struct _dgc_bb_t dgc_bb_t;
 struct _dgc_bb_t {
     app_pc start;
+    int ref_count;
     union {
         ptr_uint_t span;
         struct _dgc_bb_t *head;
@@ -164,11 +167,10 @@ struct _dgc_bb_t {
     dgc_trace_t *containing_trace_list;
 };
 
-/* x86: 64 bytes | x64 120 bytes */
+/* x86: 68 bytes | x64 128 bytes */
 typedef struct _dgc_bucket_t {
     dgc_bb_t blocks[BUCKET_BBS];
     uint offset_sentinel;
-    uint ref_counts;
     ptr_uint_t bucket_id;
     struct _dgc_bucket_t *head;
     struct _dgc_bucket_t *chain;
@@ -3454,20 +3456,21 @@ dgc_bb_overlaps(dgc_bb_t *bb, app_pc start, app_pc end)
            ((ptr_uint_t)head->start + (ptr_uint_t)head->span) >= (ptr_uint_t)start;
 }
 
+/*
 static uint
 dgc_change_ref_count(dgc_bucket_t *bucket, uint i, int delta)
 {
-    uint shift = (i * 8);
-    uint mask = 0xff << shift;
+    uint shift = (i * DGC_REF_COUNT_BITS);
+    uint mask = DGC_REF_COUNT_MASK << shift;
     int ref_count = (bucket->ref_counts & mask) >> shift;
     ref_count += delta;
     ASSERT(i < BUCKET_BBS);
     ASSERT(ref_count >= 0);
-    RELEASE_ASSERT(ref_count < 0x40, "Too many refs (%d) to bb "PFX"!",
-                   ref_count, bucket->blocks[i].start);
-    if (ref_count > 0x20)
-        LOG(GLOBAL, LOG_FRAGMENT, 1, "foo\n");
-    ASSERT(ref_count < 0xff);
+    if (ref_count > 0x2ff) {
+        LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: 0x%x refs to bb "PFX"\n",
+            ref_count, bucket->blocks[i].start);
+    }
+    ASSERT(ref_count < DGC_REF_COUNT_MASK);
     bucket->ref_counts &= ~mask;
     bucket->ref_counts |= (ref_count << shift);
     return ref_count;
@@ -3476,12 +3479,13 @@ dgc_change_ref_count(dgc_bucket_t *bucket, uint i, int delta)
 static void
 dgc_set_ref_count(dgc_bucket_t *bucket, uint i, uint value)
 {
-    uint shift = (i * 8);
-    uint mask = 0xff << shift;
+    uint shift = (i * DGC_REF_COUNT_BITS);
+    uint mask = DGC_REF_COUNT_MASK << shift;
     ASSERT(value == 1);
     bucket->ref_counts &= ~mask;
     bucket->ref_counts |= (value << shift);
 }
+*/
 
 static dgc_bb_t *
 dgc_table_find_bb(app_pc tag, dgc_bucket_t **out_bucket, uint *out_i)
@@ -3620,7 +3624,7 @@ dgc_bucket_gc()
             }
         }
         generic_hash_remove(GLOBAL_DCONTEXT, dgc_table,
-                            dgc_bucket_gc_list->removals[j]->bucket_id);
+                            dgc_bucket_gc_list->removals[i]->bucket_id);
     }
 
     for (i = 0; i < dgc_bucket_gc_list->staging_count; i++) {
@@ -3714,14 +3718,17 @@ free_dgc_bucket_chain(void *p)
 static void
 dgc_table_dereference_bb(app_pc tag)
 {
-    uint i;
-    dgc_bucket_t *bucket;
-    dgc_bb_t *bb = dgc_table_find_bb(tag, &bucket, &i);
+    //uint i;
+    //dgc_bucket_t *bucket;
+    dgc_bb_t *bb = dgc_table_find_bb(tag, NULL, NULL);
     if (bb != NULL) {
-        if (dgc_change_ref_count(bucket, i, -1) == 0) {
+        bb = dgc_bb_head(bb);
+        if ((--bb->ref_count) == 0) {
             dgc_bucket_gc_list_init(false, "dgc_table_dereference_bb");
             dgc_set_all_slots_empty(bb); // _IF_DEBUG("refcount"));
             dgc_bucket_gc();
+        } else {
+            ASSERT(bb->ref_count >= 0);
         }
     }
 }
@@ -4466,9 +4473,10 @@ add_patchable_bb(app_pc start, app_pc end)
                 bucket = bucket->chain;
             }
             if (found) {
-                DEBUG_DECLARE(uint ref_count =)
-                dgc_change_ref_count(bucket, i, 1);
-                ASSERT(ref_count > 1);
+                bucket->blocks[i].ref_count++;
+                //dgc_change_ref_count(bucket, i, 1);
+                ASSERT(bucket->blocks[i].ref_count > 1);
+                ASSERT(bucket->blocks[i].ref_count < 0x10000000);
                 ASSERT(first_bb == NULL);
                 break;
             }
@@ -4497,7 +4505,7 @@ add_patchable_bb(app_pc start, app_pc end)
             first_bb = &bucket->blocks[i];
             bucket->blocks[i].span = (end - start) - 1;
             bucket->blocks[i].containing_trace_list = NULL;
-            dgc_set_ref_count(bucket, i, 1);
+            bucket->blocks[i].ref_count = 1;
         } else {
             bucket->blocks[i].head = first_bb;
             last_bb->next = &bucket->blocks[i];
@@ -4582,134 +4590,10 @@ safe_delete_fragment(dcontext_t *dcontext, per_thread_t *pt, app_pc tag, uint lo
     }
 }
 
-/*static*/ void
-safe_remove_fragment(dcontext_t *dcontext, per_thread_t *pt, app_pc tag, uint lookup_type)
-{
-    fragment_t *f = fragment_lookup_type(dcontext, tag, lookup_type);
-    fragment_table_t *table;
-    bool shared_ibt_table;
-    if (f == NULL)
-        return;
-
-    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "patchable fragment:"
-                "    ("TIDFMT") %s tag "PFX"\n", dcontext->owning_thread,
-                (lookup_type == LOOKUP_TRACE) ? "trace" : "bb", tag);
-
-    //acquire_recursive_lock(&change_linking_lock);
-    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-    acquire_vm_areas_lock(dcontext, f->flags);
-
-    /* FIXME: share all this code w/ vm_area_unlink_fragments()
-     * The work there is just different enough to make that hard, though.
-     */
-    if (TEST(FRAG_LINKED_OUTGOING, f->flags))
-        unlink_fragment_outgoing(dcontext, f);
-    if (TEST(FRAG_LINKED_INCOMING, f->flags))
-        unlink_fragment_incoming(dcontext, f);
-    incoming_remove_fragment(dcontext, f);
-
-    /* remove from ib lookup tables in a safe manner. this removes the
-     * frag only from this thread's tables OR from shared tables.
-     */
-    fragment_prepare_for_removal(dcontext, f);
-
-    // mutex_lock(&shared_cache_flush_lock); // seems unnecessary
-    // mutex_lock(&shared_delete_lock); // seems unnecessary
-    fragment_delete(dcontext, f, 0);
-    /*
-                    FRAGDEL_NO_HTABLE | FRAGDEL_NO_UNLINK |
-                    FRAGDEL_NEED_CHLINK_LOCK |
-                    (dynamo_resetting ? 0 : FRAGDEL_NO_OUTPUT));
-    */
-
-    ASSERT(TEST(FRAG_SHARED, f->flags) || dcontext != GLOBAL_DCONTEXT);
-    /* For consistency we remove entries from the IBT
-     * tables before we remove them from the trace table.
-     */
-    shared_ibt_table =
-        (!TEST(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_bb_ibt_tables)) ||
-        (TEST(FRAG_IS_TRACE, f->flags) && DYNAMO_OPTION(shared_trace_ibt_tables));
-
-    ASSERT(!shared_ibt_table || !IS_IBL_TARGET(f->flags) ||
-           (dcontext == GLOBAL_DCONTEXT && dynamo_all_threads_synched));
-    if (((!shared_ibt_table && dcontext != GLOBAL_DCONTEXT) ||
-         (dcontext == GLOBAL_DCONTEXT && dynamo_all_threads_synched)) &&
-        IS_IBL_TARGET(f->flags)) {
-
-        /* trace_t tables should be all private and any deletions should follow strict
-         * two step deletion process, we don't need to be holding nested locks when
-         * removing any cached entries from the per-type IBL target tables.
-         */
-        /* FIXME: the stats on ibls_targeted are not quite correct - we need to
-         * gather these independently */
-        DEBUG_DECLARE(uint ibls_targeted = 0;)
-        ibl_branch_type_t branch_type;
-        //per_thread_t *pt = GET_PT(dcontext);
-        fragment_entry_t fe = FRAGENTRY_FROM_FRAGMENT(f);
-
-        ASSERT(TEST(FRAG_IS_TRACE, f->flags) || DYNAMO_OPTION(bb_ibl_targets));
-        for (branch_type = IBL_BRANCH_TYPE_START;
-             branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
-            /* assuming a single tag can't be both a trace and bb */
-            ibl_table_t *ibtable = GET_IBT_TABLE(pt, f->flags, branch_type);
-
-            ASSERT(!TEST(FRAG_TABLE_SHARED, ibtable->table_flags) ||
-                   dynamo_all_threads_synched);
-            TABLE_RWLOCK(ibtable, write, lock); /* satisfy asserts, even if allsynch */
-            if (hashtable_ibl_remove(fe, ibtable)) {
-                LOG(THREAD, LOG_FRAGMENT, 2,
-                    "  removed F%d("PFX") from IBT table %s\n",
-                    f->id, f->tag,
-                    TEST(FRAG_TABLE_TRACE, ibtable->table_flags) ?
-                    ibl_trace_table_type_names[branch_type] :
-                    ibl_bb_table_type_names[branch_type]);
-
-                DOSTATS({ibls_targeted++;});
-            }
-            TABLE_RWLOCK(ibtable, write, unlock);
-        }
-        DOSTATS({fragment_ibl_stat_account(f->flags, ibls_targeted);});
-    }
-
-    /* We need the write lock since deleting shifts elements around (though we
-     * technically may be ok in all scenarios there) and to avoid problems with
-     * multiple removes at once (shouldn't count on the bb building lock)
-     */
-    table = GET_FTABLE(pt, f->flags);
-    TABLE_RWLOCK(table, write, lock);
-    if (hashtable_fragment_remove(f, table)) {
-        LOG(THREAD, LOG_FRAGMENT, 4,
-            "fragment_remove: removed F%d("PFX") from fcache lookup table\n",
-            f->id, f->tag);
-    }
-    TABLE_RWLOCK(table, write, unlock);
-
-    vm_area_remove_fragment(dcontext, f);
-    /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
-     * invalidation, so that users of vm_area_add_to_list() can rely on this
-     * flag to determine validity
-     */
-    f->flags |= FRAG_WAS_DELETED;
-
-    release_vm_areas_lock(dcontext, f->flags);
-    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-    //release_recursive_lock(&change_linking_lock);
-
-
-    /* if a flush occurs, this fragment will be ignored -- so we must store
-     * translation info now, just in case
-     */
-    //if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags))
-    //    fragment_record_translation_info(dcontext, f, NULL);
-
-    /* try to catch any potential races */
-    ASSERT(!TEST(FRAG_LINKED_OUTGOING, f->flags));
-    ASSERT(!TEST(FRAG_LINKED_INCOMING, f->flags));
-}
-
 static void
 remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *trace_tags,
-                               int flush_num_threads, thread_record_t **flush_threads)
+                               int flush_num_threads, thread_record_t **flush_threads,
+                               app_pc patch_start, app_pc patch_end)
 {
     uint i, j;
     app_pc *bb_tag, *trace_tag;
@@ -4722,8 +4606,9 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
 
         thread_has_fragment = false;
 
-        // if (size == 0 || !thread_vm_area_overlap(tgt_dcontext, base, base+size))
-        //     punt
+        // why doesn't this work??
+        //if (!thread_vm_area_overlap(tgt_dcontext, patch_start, patch_end))
+        //    continue;
 
         bb_tag = bb_tags;
         while (*bb_tag != NULL) {
@@ -4944,7 +4829,8 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     bb_tags[i_bb] = NULL;
     trace_tags[i_trace] = NULL;
     remove_patchable_fragment_list(dcontext, bb_tags, trace_tags,
-                                   removal_num_threads, removal_threads);
+                                   removal_num_threads, removal_threads,
+                                   patch_start, patch_end);
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
         "DGC: done removing all fragments "PFX"-"PFX"%s\n",
@@ -7927,96 +7813,6 @@ flush_fragments_in_region_finish(dcontext_t *dcontext, bool keep_initexit_lock)
     free_nonexec_coarse_and_unlock();
 
     flush_fragments_end_synch(dcontext, keep_initexit_lock);
-    KSTOP(flush_region);
-}
-
-void
-flush_and_delete_fragments_in_region_finish(dcontext_t *dcontext)
-{
-    dcontext_t *tgt_dcontext;
-    per_thread_t *tgt_pt;
-    int flush_num_threads;
-    thread_record_t **flush_threads;
-    //bool has_thread_lock = dr_mutex_self_owns(&thread_initexit_lock);
-    int i;
-
-    free_nonexec_coarse_and_unlock();
-
-    LOG(THREAD, LOG_FRAGMENT, 2,
-        "FLUSH STAGE 3: end_synch(thread "TIDFMT"): flusher is "TIDFMT"\n",
-        dcontext->owning_thread, (flusher == NULL) ? -1 : flusher->owning_thread);
-
-    /*
-    if (!is_self_flushing() && !flush_synchall/ * doesn't set flusher * /) {
-        LOG(THREAD, LOG_FRAGMENT, 2, "\tnothing was flushed\n");
-        ASSERT_DO_NOT_OWN_MUTEX(!keep_initexit_lock, &thread_initexit_lock);
-        ASSERT_OWN_MUTEX(keep_initexit_lock, &thread_initexit_lock);
-        return;
-    }
-    */
-
-    DODEBUG({ flush_last_stage = 0; });
-
-    //if (!has_thread_lock)
-    //mutex_lock(&thread_initexit_lock);
-    // TODO: globals should be valid, I think...?
-    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-    get_list_of_threads(&flush_threads, &flush_num_threads);
-    //if (!has_thread_lock) // can't hold trace_building_lock while waiting_for_unlink b/c waitee can't continue
-    //mutex_unlock(&thread_initexit_lock);
-
-    /* now can let all threads at DR synch point go
-     * FIXME: if implement thread-private optimization above, this would turn into
-     * re-setting exec areas lock to treat all threads uniformly
-     */
-    for (i=flush_num_threads-1; i>=0; i--) {
-        DEBUG_DECLARE(uint pre_flushtime = flushtime_global;)
-        /*case 7966: has no pt, no flushing either */
-        if (RUNNING_WITHOUT_CODE_CACHE())
-            continue;
-
-        tgt_dcontext = flush_threads[i]->dcontext;
-        tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
-        /* re-acquire lock */
-        mutex_lock(&tgt_pt->linking_lock);
-
-        /* Act on behalf of the thread as though it's at a synch point, but
-         * only wrt shared fragments (we don't free private fragments here,
-         * though we could -- should we?  may make flush time while holding
-         * lock take too long?  FIXME)
-         * Currently this works w/ syscalls from dispatch, and w/
-         * -shared_syscalls by using unprotected storage (thus a slight hole
-         * but very hard to exploit for security purposes: can get stale code
-         * executed, but we already have that window, or crash us).
-         * FIXME: Does not work w/ -ignore_syscalls, but those are private
-         * for now.
-         */
-        vm_area_check_shared_pending(tgt_dcontext, NULL);
-        /* lazy deletion may inc flushtime_global, so may have a higher
-         * value than our cached one, but should never be lower
-         */
-        ASSERT(tgt_pt->flushtime_last_update >= pre_flushtime);
-        tgt_pt->at_syscall_at_flush = false;
-
-        if (tgt_dcontext != dcontext) {
-            if (tgt_pt->could_be_linking) {
-                signal_event(tgt_pt->finished_with_unlink);
-            } else {
-                /* we don't need to wait on a !could_be_linking thread
-                 * so we use this bool to tell whether we should signal
-                 * the event.
-                 * FIXME: really we want a pulse that wakes ALL waiting
-                 * threads and then resets the event!
-                 */
-                tgt_pt->wait_for_unlink = false;
-                if (tgt_pt->soon_to_be_linking)
-                    signal_event(tgt_pt->finished_all_unlink);
-            }
-        }
-        mutex_unlock(&tgt_pt->linking_lock);
-    }
-    global_heap_free(flush_threads, flush_num_threads*sizeof(thread_record_t*)
-                     HEAPACCT(ACCT_THREAD_MGT));
     KSTOP(flush_region);
 }
 

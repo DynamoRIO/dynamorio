@@ -988,15 +988,31 @@ annotation_unmanage_code_area(app_pc start, size_t len)
 
 #ifdef FLUSH_STATS
 static void
-report(uint count, const char *label)
+report_selective(uint64 count)
 {
-    uint i = 1, log = count / 10;
+    uint64 i = 1, log = count / 10;
+    while (log > 0) {
+        log /= 10;
+        i *= 10;
+    }
+    if (count == i) {
+        dr_printf("%s %llu | %s %llu | %s %llu\n",
+                  "Selective removal invocations", selectiveRemovals,
+                  "Selective fragments removed", selectiveFragmentsRemoved,
+                  "Selective removals skipped", selectiveSkipped);
+    }
+}
+
+static void
+report(uint64 count, const char *label)
+{
+    uint64 i = 1, log = count / 10;
     while (log > 0) {
         log /= 10;
         i *= 10;
     }
     if (count == i)
-        dr_printf("%s: %lu\n", label, count);
+        dr_printf("%s: %llu\n", label, count);
 }
 #endif
 
@@ -1021,20 +1037,21 @@ annotation_flush_fragments(app_pc start, size_t len)
     //    return;
 
 #ifdef SELECTIVE_FLUSHING
-    if (len < 0x20) {
+    if (len < 0x400) {
         uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
 # ifdef FLUSH_STATS
         if (removal_count > 0) {
-            report(++selectiveRemovals, " > Selective removal invocations");
-            selectiveFragmentsRemoved += removal_count;
-            report(selectiveFragmentsRemoved, " > Selective fragments removed");
+            report_selective(++selectiveRemovals);
+            selectiveFragmentsRemoved += (uint64) removal_count;
+            report_selective(selectiveFragmentsRemoved);
         } else {
-            report(++selectiveSkipped, " > Selective removals skipped");
+            report_selective(++selectiveSkipped);
         }
 # endif
-        //executable_areas_lock();
-        //vm_area_isolate_region(dcontext, start, start+len);
-        //executable_areas_unlock();
+        // causes some unstability in v8!
+        executable_areas_lock();
+        vm_area_isolate_region(dcontext, start, start+len);
+        executable_areas_unlock();
     } else {
 #endif
 # ifdef FLUSH_STATS

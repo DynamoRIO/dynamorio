@@ -1055,9 +1055,6 @@ void
 flush_fragments_in_region_finish(dcontext_t *dcontext, bool keep_initexit_lock);
 
 void
-flush_and_delete_fragments_in_region_finish(dcontext_t *dcontext);
-
-void
 flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size,
                                   bool own_initexit_lock, bool free_futures);
 
