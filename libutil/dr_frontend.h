@@ -94,7 +94,13 @@ typedef enum {
     DRFRONT_SUCCESS,                    /**< Operation succeeded */
     DRFRONT_ERROR,                      /**< Operation failed */
     DRFRONT_ERROR_INVALID_PARAMETER,    /**< Operation failed: invalid parameter */
-    DRFRONT_ERROR_INVALID_SIZE          /**< Operation failed: invalid size */
+    DRFRONT_ERROR_INVALID_SIZE,         /**< Operation failed: invalid size */
+    DRFRONT_ERROR_FILE_EXISTS,          /**< Operation failed: dir or file already
+                                         *   exists */
+    DRFRONT_ERROR_INVALID_PATH,         /**< Operation failed: wrong path */
+    DRFRONT_ERROR_ACCESS_DENIED,        /**< Operation failed: access denied */
+    DRFRONT_ERROR_LIB_UNSUPPORTED,      /**< Operation failed: old version
+                                         *   or invalid library */
 } drfront_status_t;
 
 /** Permission modes for drfront_access() */
@@ -288,6 +294,122 @@ drfront_status_t
 drfront_appdata_logdir(const char *root, const char *subdir,
                        OUT bool *use_root,
                        OUT char *buf, size_t buflen/*# elements*/);
+
+/**
+ * Replace occurences of \p old_char with \p new_char in \p str.  Typically used to
+ * canonicalize Windows paths into using forward slashes.
+ *
+ * @param[out] str       The string whose characters should be replaced.
+ * @param[in]  old_char  Old character to be replaced.
+ * @param[in]  new_char  New character to use.
+ */
+void
+drfront_string_replace_character(OUT char *str, char old_char, char new_char);
+
+/**
+  * Replace occurences of \p old_char with \p new_char in TCHAR \p str.
+  * Typically used to canonicalize Windows paths into using forward slashes.
+  *
+  * @param[out] str       A string whose characters should be replaced.
+  * @param[in]  old_char  Old character to be replaced.
+  * @param[in]  new_char  New character to use.
+  */
+void
+drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char);
+
+/**
+ * Sets the environment variable _NT_SYMBOL_PATH for symbol lookup.
+ * If the _NT_SYMBOL_PATH is specified, this routine uses that and adds the Microsoft
+ * symbol server if it's missing.  The drfront_sym_init() should be called
+ * before this routine.
+ *
+ * \note The routine requires DbgHelp.dll 6.0 or later.
+ *
+ * \warning The routine will fail when using the system copy of dbghelp.dll on
+ * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+ * version 6.0 or later.
+ *
+ * @param[in]  symdir       A local symbol cache directory to search/fetch symbols.
+ *                          It can be passed without srv* prepend.
+ * @param[in]  ignore_env   If TRUE routine creates new dir based on \p symdir and uses
+ *                          it as a local storage.  The routine sets _NT_SYMBOL_PATH to
+ *                          point on the new dir.
+ */
+drfront_status_t
+drfront_set_symbol_search_path(const char *symdir, bool ignore_env);
+
+/**
+  * The routine initializes the symbol handler for the current process. Should be called
+  * before drfront_set_symbol_search_path() and drfront_fetch_module_symbols().
+  *
+  * \note The routine requires DbgHelp.dll 6.0 or later.
+  *
+  * \warning The routine will fail when using the system copy of dbghelp.dll on
+  * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+  * version 6.0 or later.
+  *
+  * @param[in] wsymsrv_path   The path, or series of paths separated by a semicolon (;),
+  *                           that is used to search for symbol files.  If this parameter
+  *                           is NULL, the library attempts to form a symbol path from
+  *                           the following sources: the current working directory,
+  *                           _NT_SYMBOL_PATH, _NT_ALTERNATE_SYMBOL_PATH.
+  * @param[in] dbghelp_path   The path to dbghelp.dll.  If the string specifies a full
+  *                           path, the routine looks only in that path for the module.
+  *                           If the string specifies a relative path or a module name
+  *                           without a path, the function uses a standard Windows library
+  *                           search strategy to find the module.
+  */
+drfront_status_t
+drfront_sym_init(const char *wsymsrv_path, const char *dbghelp_path);
+
+/**
+  * The routine deallocates all symbol-related resources associated with the current
+  * process.
+  */
+drfront_status_t
+drfront_sym_exit(void);
+
+/**
+ * The routine tries to fetch all missed symbols for module specified in \p modpath
+ * using _NT_SYMBOL_PATH environment var.  User should call \p drfront_sym_init,
+ * drfront_sym_set_search_path() and drfront_sym_set_search_path() before calling
+ * this routine.  If success function returns full path to fetched symbol file in
+ * \p symbol_path.
+ *
+ * \note The routine will fetch symbols from remote MS Symbol Server only if symbols
+ *  don't exist in the search paths and _NT_SYMBOL_PATH has right srv* path & link.
+ *  The routine requires DbgHelp.dll 6.0 or later.
+ *
+  * \warning The routine will fail when using the system copy of dbghelp.dll on
+  * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+  * version 6.0 or later.
+ *
+ * @param[in] modpath    The name of the image to be loaded. This name can contain
+ *                       a partial path, a full path, or no path at all.  If the file
+ *                       cannot be located by the name provided, the routine returns
+ *                       DRFRONT_OBJ_NOEXIST.
+ * @param[in] symbol_path    The full path to fetched symbols file.
+ * @param[in] symbol_path_sz  Size of \p symbol_path argument.
+ */
+bool
+drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
+                             size_t symbol_path_sz);
+
+/**
+ * The routine creates the directory specified in \p dir.
+ *
+ * @param[in] dir      New directory name.
+ */
+drfront_status_t
+drfront_create_dir(const char *dir);
+
+/**
+ * The routine removes the empty directory specified in \p dir.
+ *
+ * @param[in] dir      Name of directory to remove.
+ */
+drfront_status_t
+drfront_remove_dir(const char *dir);
 
 /* DR_API EXPORT END */
 

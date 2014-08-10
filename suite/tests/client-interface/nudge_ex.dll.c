@@ -100,9 +100,15 @@ nudge_child(process_id_t child_pid)
     /* send two nudges to the child process */
     dr_config_status_t res;
     uint count = 0;
+    const char *msg;
     res = dr_nudge_client_ex(child_pid, client_id, NUDGE_ARG_PRINT, 0);
-    if (res != DR_SUCCESS)
-        dr_fprintf(STDERR, "nudge failed\n");
+    msg = dr_config_status_code_to_string(res);
+    if (res != DR_SUCCESS) {
+        dr_fprintf(STDERR, "nudge failed: %s\n", msg);
+        ASSERT_MSG(strcmp(msg, "success") != 0, "wrong dr_config_status msg");
+    } else {
+        ASSERT_MSG(strcmp(msg, "success") == 0, "wrong dr_config_status msg");
+    }
     /* On Linux, wait for child's signal handler to finish so this
      * nudge won't be blocked (xref i#744).
      * XXX: flaky!
@@ -110,8 +116,13 @@ nudge_child(process_id_t child_pid)
     dr_sleep(200);
     res = dr_nudge_client_ex(child_pid, client_id,
                              NUDGE_ARG_TERMINATE, NUDGE_TIMEOUT_MS);
-    if (res != DR_SUCCESS)
-        dr_fprintf(STDERR, "nudge failed or timed out\n");
+    msg = dr_config_status_code_to_string(res);
+    if (res != DR_SUCCESS) {
+        dr_fprintf(STDERR, "nudge failed or timed out: %s\n", msg);
+        ASSERT_MSG(strcmp(msg, "success") != 0, "wrong dr_config_status msg");
+    } else {
+        ASSERT_MSG(strcmp(msg, "success") == 0, "wrong dr_config_status msg");
+    }
 }
 
 static bool

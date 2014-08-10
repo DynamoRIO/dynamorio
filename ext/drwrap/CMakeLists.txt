@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # **********************************************************
 
 # drwrap: DynamoRIO Function Wrapping and Replacing Extension
@@ -61,6 +61,13 @@ set(srcs
   # add more here
   )
 
+# i#1491#2: VS generators fail if static lib has resources
+set(srcs_static ${srcs})
+
+if (WIN32)
+  set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+endif ()
+
 add_library(drwrap ${libtype} ${srcs})
 # while private loader means preferred base is not required, more efficient
 # to avoid rebase so we avoid conflict w/ client and other exts
@@ -96,7 +103,7 @@ configure_drwrap_target(drwrap)
 # We do provide the static library for those who are ok w/ the license and who
 # are building an end tool.
 if (NOT STATIC_LIBRARY)
-  add_library(drwrap_static STATIC ${srcs})
+  add_library(drwrap_static STATIC ${srcs_static})
   configure_extension(drwrap_static)
   use_DynamoRIO_extension(drwrap_static drmgr_static)
   use_DynamoRIO_extension(drwrap_static drcontainers)

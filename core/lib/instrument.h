@@ -164,6 +164,14 @@ DR_API
  * original basic block's instrumentation is unchanged by whatever
  * action is taken in the \p for_trace call.
  *
+ * DR constructs <em>dynamic basic blocks</em>, which are distinct
+ * from a compiler's classic basic blocks.  DR does not know all entry
+ * points ahead of time, and will end up duplicating the tail of a
+ * basic block if a later entry point is discovered that targets the
+ * middle of a block created earlier, or if a later entry point
+ * targets straight-line code that falls through into code already
+ * present in a block.
+ *
  * DR may call \p func again if it needs to translate from code cache
  * addresses back to application addresses, which happens on faulting
  * instructions as well as in certain situations involving suspended

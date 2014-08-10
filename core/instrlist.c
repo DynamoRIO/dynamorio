@@ -187,7 +187,7 @@ instr_t *
 instrlist_first_app(instrlist_t *ilist)
 {
     instr_t *first = ilist->first;
- 
+
     if (first == NULL)
         return NULL;
     if (instr_ok_to_mangle(first))

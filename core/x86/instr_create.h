@@ -3782,7 +3782,7 @@
  * but we stick with these as our tools (mainly windbg) don't understand
  * the OP_nop_modrm encoding (though should work on PPro+).
  * AMD recommends 0x66 0x66 ... 0x90 for older processors.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param dcontext The void * dcontext used to allocate memory for the instr_t.
  * \param reg A reg_id_t (NOT opnd_t) to use as source and destination.
  * For 64-bit mode, use a 64-bit register, but NOT rbp or rsp for the 3-byte form.
  */

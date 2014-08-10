@@ -4,7 +4,7 @@ Primary DynamoRIO License: BSD
 All of DynamoRIO except certain portions called out in subsequent sections
 on this page is licensed under the following BSD license:
 
-Copyright (c) 2010-2013 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
+Copyright (c) 2010-2014 Google, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
 Copyright (c) 2000-2009 VMware, Inc. licensed under the terms of the BSD.  All other rights reserved.
 
@@ -70,10 +70,11 @@ SUCH DAMAGE.
 ===========================================================================
 Certain Extensions are instead under the LGPL 2.1 License
 
-The drwrap and drutil Extensions are licensed under the LGPL 2.1 License
-and NOT the BSD license used for the rest of DynamoRIO.  These Extensions
-are provided as libraries distinct from the rest of DynamoRIO.  The details
-of this license are below:
+The drwrap and drutil Extensions, along with Dr. Memory and all of its
+libraries in the Dr. Memory Framework (if packaged with DynamoRIO), are
+licensed under the LGPL 2.1 License and NOT the BSD license used for the
+rest of DynamoRIO.  These Extensions are provided as libraries distinct
+from the rest of DynamoRIO.  The details of this license are below:
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
