@@ -667,6 +667,14 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
 void
 dgc_notify_region_cleared(app_pc start, app_pc end);
+
+/*
+void
+dgc_add_thread(thread_record_t *tr);
+
+void
+dgc_add_thread(thread_id_t tid);
+*/
 #endif
 
 fragment_t *

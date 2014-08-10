@@ -535,6 +535,7 @@ bool remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid);
 uint get_thread_num(thread_id_t tid);
 int get_num_threads(void);
 bool is_last_app_thread(void);
+uint get_thread_state_version();
 void get_list_of_threads(thread_record_t ***list, int *num);
 bool is_thread_known(thread_id_t tid);
 #ifdef UNIX

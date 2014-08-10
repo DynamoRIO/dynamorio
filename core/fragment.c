@@ -189,6 +189,23 @@ typedef struct _dgc_bucket_gc_list_t {
 static dgc_bucket_gc_list_t *dgc_bucket_gc_list;
 static generic_table_t *dgc_table;
 
+typedef struct _dgc_thread_state_t {
+    int count;
+    uint version;
+    thread_record_t **threads;
+} dgc_thread_state_t;
+
+static dgc_thread_state_t *thread_state;
+
+typedef struct _dgc_fragment_intersection_t {
+    app_pc *bb_tags;
+    uint bb_tag_max;
+    app_pc *trace_tags;
+    uint trace_tag_max;
+} dgc_fragment_intersection_t;
+
+static dgc_fragment_intersection_t *fragment_intersection;
+
 typedef struct _dgc_stats_t {
     uint allocated_bucket_count;
     uint freed_bucket_count;
@@ -199,8 +216,6 @@ typedef struct _dgc_stats_t {
 } dgc_stats_t;
 
 static dgc_stats_t *dgc_stats;
-
-DECLARE_CXTSWPROT_VAR(static mutex_t dgc_table_lock, INIT_LOCK_FREE(dgc_table_lock));
 
 # ifdef DEBUG
 #  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
@@ -1524,8 +1539,20 @@ fragment_init()
 
     dgc_bucket_gc_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_gc_list_t,
                                          ACCT_OTHER, UNPROTECTED);
-    dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t,
-                                ACCT_OTHER, UNPROTECTED);
+    thread_state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_thread_state_t,
+                                   ACCT_OTHER, UNPROTECTED);
+    memset(thread_state, 0, sizeof(dgc_thread_state_t));
+    fragment_intersection = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_fragment_intersection_t,
+                                            ACCT_OTHER, UNPROTECTED);
+    fragment_intersection->bb_tag_max = 0x20;
+    fragment_intersection->bb_tags =
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, fragment_intersection->bb_tag_max,
+                         ACCT_OTHER, UNPROTECTED);
+    fragment_intersection->trace_tag_max = 0x20;
+    fragment_intersection->trace_tags =
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, fragment_intersection->trace_tag_max,
+                         ACCT_OTHER, UNPROTECTED);
+    dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
 #endif
 
@@ -1797,9 +1824,19 @@ fragment_exit()
     generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list, dgc_bucket_gc_list_t,
                    ACCT_OTHER, UNPROTECTED);
+    global_heap_free(thread_state->threads,
+                     thread_state->count*sizeof(thread_record_t*)
+                     HEAPACCT(ACCT_THREAD_MGT));
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, thread_state, dgc_thread_state_t,
+                   ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->bb_tags, app_pc,
+                    fragment_intersection->bb_tag_max, ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->trace_tags, app_pc,
+                    fragment_intersection->trace_tag_max, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment_intersection, dgc_fragment_intersection_t,
+                   ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t,
                    ACCT_OTHER, UNPROTECTED);
-    DELETE_LOCK(dgc_table_lock);
 #endif
  cleanup:
     /* FIXME: we shouldn't need these locks anyway for hotp_only & thin_client */
@@ -3779,7 +3816,6 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
     bool is_end_of_bucket = (((ptr_uint_t)end & BUCKET_MASK) == 0);
     ptr_uint_t bucket_id = first_bucket_id;
 
-    mutex_lock(&dgc_table_lock);
     TABLE_RWLOCK(dgc_table, write, lock);
     dgc_bucket_gc_list_init(true, "dgc_notify_region_cleared");
     if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
@@ -3796,7 +3832,6 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
     }
     dgc_bucket_gc();
     TABLE_RWLOCK(dgc_table, write, unlock);
-    mutex_unlock(&dgc_table_lock);
 }
 #endif
 
@@ -3868,11 +3903,9 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
 
 #ifdef SELECTIVE_FLUSHING
     if (is_app_managed_code(f->tag)) {
-        mutex_lock(&dgc_table_lock);
         TABLE_RWLOCK(dgc_table, write, lock);
         dgc_table_dereference_bb(f->tag);
         TABLE_RWLOCK(dgc_table, write, unlock);
-        mutex_unlock(&dgc_table_lock);
     }
 #endif
 
@@ -4421,7 +4454,6 @@ add_patchable_bb(app_pc start, app_pc end)
 
     LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX"-"PFX"\n", start, end);
 
-    mutex_lock(&dgc_table_lock);
     TABLE_RWLOCK(dgc_table, write, lock);
     for (bucket_id = BUCKET_ID(start); bucket_id <= BUCKET_ID(end - 1); bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
@@ -4515,7 +4547,6 @@ add_patchable_bb(app_pc start, app_pc end)
     if (!found)
         last_bb->next = NULL;
     TABLE_RWLOCK(dgc_table, write, unlock);
-    mutex_unlock(&dgc_table_lock);
 }
 
 void
@@ -4529,8 +4560,7 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
 
     LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX" to trace "PFX"\n", bb_tag, trace_tag);
 
-    mutex_lock(&dgc_table_lock);
-    TABLE_RWLOCK(dgc_table, read, lock);
+    TABLE_RWLOCK(dgc_table, write, lock);
     bb = dgc_table_find_bb(bb_tag, NULL, NULL);
     if (bb != NULL) {
         dgc_trace_t *trace = bb->containing_trace_list;
@@ -4563,8 +4593,7 @@ add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
             }
         }
     }
-    TABLE_RWLOCK(dgc_table, read, unlock);
-    mutex_unlock(&dgc_table_lock);
+    TABLE_RWLOCK(dgc_table, write, unlock);
 }
 
 static void
@@ -4590,10 +4619,11 @@ safe_delete_fragment(dcontext_t *dcontext, per_thread_t *pt, app_pc tag, uint lo
     }
 }
 
+#define LOOKUP_ALL_FRAGMENTS LOOKUP_BB|LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED
+#define LOOKUP_ALL_TRACES LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED
+
 static void
-remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *trace_tags,
-                               int flush_num_threads, thread_record_t **flush_threads,
-                               app_pc patch_start, app_pc patch_end)
+remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
     uint i, j;
     app_pc *bb_tag, *trace_tag;
@@ -4601,8 +4631,8 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
     per_thread_t *tgt_pt;
     dcontext_t *tgt_dcontext;
 
-    for (i=0; i<flush_num_threads; i++) {
-        tgt_dcontext = flush_threads[i]->dcontext;
+    for (i=0; i < thread_state->count; i++) {
+        tgt_dcontext = thread_state->threads[i]->dcontext;
 
         thread_has_fragment = false;
 
@@ -4610,32 +4640,30 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
         //if (!thread_vm_area_overlap(tgt_dcontext, patch_start, patch_end))
         //    continue;
 
-        bb_tag = bb_tags;
-        while (*bb_tag != NULL) {
-            if (fragment_lookup_type(tgt_dcontext, *bb_tag, LOOKUP_BB|LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
+        // TODO: could put the fragments on the fragment_intersection, to avoid
+        // looking them up repeatedly.
+        for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
+            if (fragment_lookup_type(tgt_dcontext, *bb_tag,
+                                     LOOKUP_ALL_FRAGMENTS) != NULL) {
                 thread_has_fragment = true;
                 break;
             }
-            bb_tag++;
+        }
+
+        if (!thread_has_fragment) {
+            trace_tag = fragment_intersection->trace_tags;
+            for (; *trace_tag != NULL; trace_tag++) {
+                if (fragment_lookup_type(tgt_dcontext, *trace_tag,
+                                         LOOKUP_ALL_TRACES) != NULL) {
+                    thread_has_fragment = true;
+                    break;
+                }
+            }
         }
 
         if (!thread_has_fragment)
             continue;
 
-        trace_tag = trace_tags;
-        while (*trace_tag != NULL) {
-            if (fragment_lookup_type(tgt_dcontext, *trace_tag, LOOKUP_TRACE|LOOKUP_PRIVATE|LOOKUP_SHARED) != NULL) {
-                thread_has_fragment = true;
-                break;
-            }
-            trace_tag++;
-        }
-
-        // TABLE_RWLOCK(app_managed_patch_table, read, unlock);
-        if (!thread_has_fragment)
-            continue;
-
-        // lookup here to see if there is any reason to synch?
         tgt_pt = (per_thread_t *) tgt_dcontext->fragment_field;
 
         if (tgt_dcontext != dcontext) {
@@ -4656,29 +4684,25 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
             } else {
                 LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "\tthread "TIDFMT" synch not required\n", tgt_dcontext->owning_thread);
-                //mutex_unlock(&tgt_pt->linking_lock);
             }
             mutex_unlock(&tgt_pt->linking_lock);
         }
-        //ASSERT(tgt_dcontext == dcontext || !tgt_pt->could_be_linking);
 
         if (is_building_trace(tgt_dcontext)) {
-            // not locking b/c a race should at worst abort a valid trace
+            /* not locking b/c a race should at worst abort a valid trace */
             bool clobbered = false;
             monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
             for (j = 0; j < md->blk_info_length && !clobbered; j++) {
-                bb_tag = bb_tags;
-                while (*bb_tag != NULL) {
+                for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
                     if (*bb_tag == md->blk_info[j].info.tag) {
                         clobbered = true;
                         break;
                     }
-                    bb_tag++;
                 }
             }
             if (clobbered) {
-                dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "PFX"\n",
-                          md->trace_tag, *bb_tag);
+                dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "
+                           PFX"\n", md->trace_tag, *bb_tag);
                 trace_abort(tgt_dcontext);
             }
         }
@@ -4692,17 +4716,16 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
              */
         //}
 
-        while (*bb_tag != NULL) {
+        for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
             safe_delete_fragment(tgt_dcontext, tgt_pt, *bb_tag, LOOKUP_TRACE|LOOKUP_SHARED);
             safe_delete_fragment(tgt_dcontext, tgt_pt, *bb_tag, LOOKUP_TRACE|LOOKUP_PRIVATE);
             safe_delete_fragment(tgt_dcontext, tgt_pt, *bb_tag, LOOKUP_BB|LOOKUP_SHARED);
             safe_delete_fragment(tgt_dcontext, tgt_pt, *bb_tag, LOOKUP_BB|LOOKUP_PRIVATE);
-            bb_tag++;
         }
-        while (*trace_tag != NULL) {
+        trace_tag = fragment_intersection->trace_tags;
+        for (; *trace_tag != NULL; trace_tag++) {
             safe_delete_fragment(tgt_dcontext, tgt_pt, *trace_tag, LOOKUP_TRACE|LOOKUP_SHARED);
             safe_delete_fragment(tgt_dcontext, tgt_pt, *trace_tag, LOOKUP_TRACE|LOOKUP_PRIVATE);
-            trace_tag++;
         }
 
         if (tgt_dcontext != dcontext) {
@@ -4714,10 +4737,7 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
                 /* we don't need to wait on a !could_be_linking thread
                  * so we use this bool to tell whether we should signal
                  * the event.
-                 * FIXME: really we want a pulse that wakes ALL waiting
-                 * threads and then resets the event!
                  */
-                //tgt_pt->wait_for_unlink = false;
                 if (tgt_pt->soon_to_be_linking)
                     signal_event(tgt_pt->finished_all_unlink);
             }
@@ -4726,13 +4746,29 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc *bb_tags, app_pc *tr
     }
 }
 
-static inline bool
-has_tag(app_pc tag, app_pc *tags)
+static void
+update_thread_state()
 {
-    while (*tags != NULL) {
-        if (*tags == tag)
+    uint thread_state_version = get_thread_state_version();
+    if (thread_state->threads == NULL) {
+        thread_state->version = thread_state_version;
+        get_list_of_threads(&thread_state->threads, &thread_state->count);
+    } else if (thread_state_version != thread_state->version) {
+        thread_state->version = thread_state_version;
+        global_heap_free(thread_state->threads,
+                         thread_state->count*sizeof(thread_record_t*)
+                         HEAPACCT(ACCT_THREAD_MGT));
+        get_list_of_threads(&thread_state->threads, &thread_state->count);
+    }
+}
+
+static inline bool
+has_tag(app_pc tag, app_pc *tags, uint count)
+{
+    uint i;
+    for (i = 0; i < count; i++) {
+        if (tags[i] == tag)
             return true;
-        tags++;
     }
     return false;
 }
@@ -4748,60 +4784,74 @@ buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
     return false;
 }
 
-/* returns the number of fragments removed */
-uint
-remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
+static void
+expand_intersection_array(app_pc **array, uint *max_size)
 {
-    app_pc bb_tags[DGC_MAX_TAG_REMOVAL], trace_tags[DGC_MAX_TRACE_REMOVAL];
-    uint i, i_bb = 0, i_trace = 0;
-    bool is_patch_start_bucket = true;
+    app_pc *original_array = *array;
+
+    *array = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, *max_size * 2,
+                              ACCT_OTHER, UNPROTECTED);
+    memcpy(*array, original_array, *max_size * sizeof(app_pc));
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, original_array, app_pc, *max_size,
+                    ACCT_OTHER, UNPROTECTED);
+    *max_size *= 2;
+}
+
+static uint
+add_trace_intersection(dgc_trace_t *trace, uint i)
+{
+    if (!has_tag(trace->tags[0], fragment_intersection->trace_tags, i))
+        fragment_intersection->trace_tags[i++] = trace->tags[0];
+    if (i == fragment_intersection->trace_tag_max) {
+        expand_intersection_array(&fragment_intersection->trace_tags,
+                                  &fragment_intersection->trace_tag_max);
+    }
+    if (trace->tags[1] != NULL && !has_tag(trace->tags[1],
+                                           fragment_intersection->trace_tags, i))
+        fragment_intersection->trace_tags[i++] = trace->tags[1];
+    if (i == fragment_intersection->trace_tag_max) {
+        expand_intersection_array(&fragment_intersection->trace_tags,
+                                  &fragment_intersection->trace_tag_max);
+    }
+    return i;
+}
+
+uint
+extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
+{
     ptr_uint_t bucket_id;
     ptr_uint_t start_bucket = BUCKET_ID(patch_start);
     ptr_uint_t end_bucket = BUCKET_ID(patch_end - 1);
+    bool is_patch_start_bucket = true;
+    DEBUG_DECLARE(bool found = false;)
+    uint i, i_bb = 0, i_trace = 0;
+    uint fragment_total = 0;
     dgc_bucket_t *bucket;
     dgc_trace_t *trace;
-    int removal_num_threads;
-    thread_record_t **removal_threads;
-    DEBUG_DECLARE(bool found = false;)
+    dgc_bb_t *bb;
 
-    if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
-        return 0;
-
-    //ASSERT(is_app_managed_code(patched_pc));
-
-    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "DGC: remove all fragments containing "PFX"-"PFX":\n",
-        patch_start, patch_end);
-
-    bb_tags[0] = NULL;
-    trace_tags[0] = NULL;
-    mutex_lock(&dgc_table_lock);
     TABLE_RWLOCK(dgc_table, write, lock);
     dgc_bucket_gc_list_init(false, "remove_patchable_fragments");
     for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
         while (bucket != NULL) {
             for (i = 0; i < BUCKET_BBS; i++) {
-                if (bucket->blocks[i].start != NULL &&
-                    dgc_bb_overlaps(&bucket->blocks[i], patch_start, patch_end) &&
-                    (is_patch_start_bucket || dgc_bb_is_head(&bucket->blocks[i]))) {
-                    if (!has_tag(bucket->blocks[i].start, bb_tags)) {
-                        bb_tags[i_bb++] = bucket->blocks[i].start;
-                        bb_tags[i_bb] = NULL;
+                bb = &bucket->blocks[i];
+                if (bb->start != NULL &&
+                    dgc_bb_overlaps(bb, patch_start, patch_end) &&
+                    (is_patch_start_bucket || dgc_bb_is_head(bb))) {
+                    if (!has_tag(bb->start, fragment_intersection->bb_tags, i_bb))
+                        fragment_intersection->bb_tags[i_bb++] = bb->start;
+                    if (i_bb == DGC_MAX_TAG_REMOVAL) {
+                        expand_intersection_array(&fragment_intersection->bb_tags,
+                                                  &fragment_intersection->bb_tag_max);
                     }
-                    trace = dgc_bb_head(&bucket->blocks[i])->containing_trace_list;
+                    trace = dgc_bb_head(bb)->containing_trace_list;
                     while (trace != NULL) {
-                        if (!has_tag(trace->tags[0], trace_tags)) {
-                            trace_tags[i_trace++] = trace->tags[0];
-                            trace_tags[i_trace] = NULL;
-                        }
-                        if (trace->tags[1] != NULL && !has_tag(trace->tags[1], trace_tags)) {
-                            trace_tags[i_trace++] = trace->tags[1];
-                            trace_tags[i_trace] = NULL;
-                        }
+                        i_trace = add_trace_intersection(trace, i_trace);
                         trace = trace->next_trace;
                     }
-                    dgc_set_all_slots_empty(&bucket->blocks[i]);
+                    dgc_set_all_slots_empty(bb);
                     DODEBUG(found = true;);
                 }
             }
@@ -4809,38 +4859,50 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
         }
         is_patch_start_bucket = false;
     }
+    fragment_intersection->bb_tags[i_bb] = NULL;
+    fragment_intersection->trace_tags[i_trace] = NULL;
     dgc_bucket_gc();
     RELEASE_ASSERT(!buckets_exist_in_range(start_bucket+1, end_bucket), "buckets exist");
+    fragment_total = i_bb + i_trace;
     TABLE_RWLOCK(dgc_table, write, unlock);
-    mutex_unlock(&dgc_table_lock);
 
-    if (i_bb == 0 && i_trace == 0)
+    return fragment_total;
+}
+
+/* returns the number of fragments removed */
+uint
+remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
+{
+    uint fragment_intersection_count;
+
+    if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return 0;
 
-    mutex_lock(&thread_initexit_lock);
-    get_list_of_threads(&removal_threads, &removal_num_threads);
-    mutex_unlock(&thread_initexit_lock); // can't hold trace_building_lock while waiting_for_unlink b/c waitee can't continue
-                                         // but can't acquire trace_building_lock while thread_initexit_lock is held... so let go
-
-    enter_couldbelinking(dcontext, NULL, false);
-
-    RELEASE_ASSERT(i_bb < DGC_MAX_TAG_REMOVAL, "Attempting %d tags", i_bb);
-    RELEASE_ASSERT(i_trace < DGC_MAX_TRACE_REMOVAL, "Attempting %d traces", i_trace);
-    bb_tags[i_bb] = NULL;
-    trace_tags[i_trace] = NULL;
-    remove_patchable_fragment_list(dcontext, bb_tags, trace_tags,
-                                   removal_num_threads, removal_threads,
-                                   patch_start, patch_end);
-
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "DGC: done removing all fragments "PFX"-"PFX"%s\n",
-        patch_start, patch_end, IF_DEBUG_ELSE(found ? "" : " (none found)", ""));
+        "DGC: remove all fragments containing "PFX"-"PFX":\n",
+        patch_start, patch_end);
 
-    enter_nolinking(dcontext, NULL, false);
-    global_heap_free(removal_threads, removal_num_threads*sizeof(thread_record_t*)
-                     HEAPACCT(ACCT_THREAD_MGT));
+    mutex_lock(&thread_initexit_lock);
 
-    return i_bb + i_trace;
+    fragment_intersection_count = extract_fragment_intersection(patch_start, patch_end);
+    if (fragment_intersection_count > 0) {
+        update_thread_state();
+        enter_couldbelinking(dcontext, NULL, false);
+
+        remove_patchable_fragment_list(dcontext, patch_start, patch_end);
+
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+                    "DGC: done removing %d fragments in "PFX"-"PFX"%s\n",
+                    fragment_intersection_count, patch_start, patch_end);
+
+        enter_nolinking(dcontext, NULL, false);
+    } else {
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: no fragments found in "PFX"-"PFX"%s\n",
+                    patch_start, patch_end);
+    }
+    mutex_unlock(&thread_initexit_lock);
+
+    return fragment_intersection_count;
 }
 #endif
 

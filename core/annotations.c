@@ -1049,9 +1049,11 @@ annotation_flush_fragments(app_pc start, size_t len)
         }
 # endif
         // causes some unstability in v8!
+        /*
         executable_areas_lock();
         vm_area_isolate_region(dcontext, start, start+len);
         executable_areas_unlock();
+        */
     } else {
 #endif
 # ifdef FLUSH_STATS

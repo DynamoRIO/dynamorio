@@ -247,6 +247,7 @@ DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 /* FIXME : not static so os.c can hand walk it for dump core */
 /* FIXME: use new generic_table_t and generic_hash_* routines */
 thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
+static uint thread_state_version;
 
 /* these locks are used often enough that we put them in .cspdata: */
 
@@ -586,6 +587,7 @@ dynamorio_app_init(void)
         size = HASHTABLE_SIZE(ALL_THREADS_HASH_BITS) * sizeof(thread_record_t*);
         all_threads = (thread_record_t**) global_heap_alloc(size HEAPACCT(ACCT_THREAD_MGT));
         memset(all_threads, 0, size);
+        thread_state_version = 0;
         if (!INTERNAL_OPTION(nop_initial_bblock)
             IF_WINDOWS(|| !check_sole_thread())) /* some other thread is already here! */
             bb_lock_start = true;
@@ -1836,6 +1838,13 @@ get_list_of_threads_common(thread_record_t ***list, int *num
     mutex_unlock(&all_threads_lock);
 }
 
+uint
+get_thread_state_version()
+{
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    return thread_state_version;
+}
+
 void
 get_list_of_threads(thread_record_t ***list, int *num)
 {
@@ -1953,6 +1962,8 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
     RSTATS_INC(num_threads_created);
     num_known_threads++;
     mutex_unlock(&all_threads_lock);
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    thread_state_version++;
 }
 
 /* return false if couldn't find the thread */
@@ -1984,6 +1995,8 @@ remove_thread(IF_WINDOWS_(HANDLE hthread) thread_id_t tid)
             close_handle(tr->handle);
 #endif
             global_heap_free(tr, sizeof(thread_record_t) HEAPACCT(ACCT_THREAD_MGT));
+            ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+            thread_state_version++;
             break;
         }
     }
