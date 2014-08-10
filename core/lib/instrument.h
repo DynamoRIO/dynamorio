@@ -4870,6 +4870,23 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
                         void *callee, dr_cleancall_save_t save_flags,
                         uint num_args, ...);
 
+/* Inserts a complete call to callee with the passed-in arguments, wrapped
+ * by an app save and restore.
+ * If "save_fpstate" is true, saves the fp/mmx/sse state.
+ *
+ * NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
+ * dr_prepare_for_call(). We guarantee to clients that all other slots
+ * (except the XAX mcontext slot) will remain untouched.
+ *
+ * NOTE : dr_insert_cbr_instrumentation has assumption about the clean call
+ * instrumentation layout, changes to the clean call instrumentation may break
+ * dr_insert_cbr_instrumentation.
+ */
+void
+dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where,
+                             void *callee, dr_cleancall_save_t save_flags,
+                             uint num_args, opnd_t *args);
+
 DR_API
 /**
  * Inserts into \p ilist prior to \p where meta-instruction(s) to set

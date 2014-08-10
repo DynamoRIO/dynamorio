@@ -1976,9 +1976,10 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define LOG_MODULEDB       0x00800000
 #define LOG_LOADER         0x01000000
 #define LOG_CLEANCALL      0x02000000
+#define LOG_ANNOTATIONS    0x04000000
 
-#define LOG_ALL_RELEASE    0x03e0ffff
-#define LOG_ALL            0x03ffffff
+#define LOG_ALL_RELEASE    0x07e0ffff
+#define LOG_ALL            0x07ffffff
 
 #ifdef WINDOWS_PC_SAMPLE
 # define LOG_PROFILE       LOG_ALL

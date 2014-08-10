@@ -74,6 +74,10 @@
 # include "vmkuw.h" /* VMKUW_SYSCALL_GATEWAY */
 #endif
 
+#ifdef ANNOTATIONS
+# include "../annotations.h"
+#endif
+
 enum { DIRECT_XFER_LENGTH = 5 };
 
 /* forward declarations */
@@ -2553,6 +2557,9 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
     bool found_exit_cti = false;
     bool found_syscall = false;
     bool found_int = false;
+#ifdef ANNOTATIONS
+    app_pc trailing_annotation_pc = NULL;
+#endif
     instr_t *last_app_instr = NULL;
 
     /* This routine is called by more than just bb builder, also used
@@ -2651,8 +2658,16 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
             }
         }
 
-        if (!instr_ok_to_mangle(inst))
+        if (!instr_ok_to_mangle(inst)) {
+#ifdef ANNOTATIONS
+            /* Save the trailing_annotation_pc in case a client truncates the bb there. */
+            if (is_annotation_label(inst) && last_app_instr == NULL) {
+                dr_instr_label_data_t *label_data = instr_get_label_data_area(inst);
+                trailing_annotation_pc = GET_ANNOTATION_APP_PC(label_data);
+            }
+#endif
             continue;
+        }
 
         /* in case bb was truncated, find last non-meta fall-through */
         if (last_app_instr == NULL)
@@ -2809,11 +2824,20 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
 
     /* Client might have truncated: re-set fall-through. */
     if (last_app_instr != NULL) {
-        /* We do not take instr_length of what the client put in, but rather
-         * the length of the translation target
-         */
-        app_pc last_app_pc = instr_get_translation(last_app_instr);
-        bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
+#ifdef ANNOTATIONS
+        if (trailing_annotation_pc != NULL) {
+            /* If the client truncated at an annotation, include the annotation. */
+            bb->cur_pc = trailing_annotation_pc;
+        } else {
+#endif
+            /* We do not take instr_length of what the client put in, but rather
+             * the length of the translation target
+             */
+            app_pc last_app_pc = instr_get_translation(last_app_instr);
+            bb->cur_pc = decode_next_pc(dcontext, last_app_pc);
+#ifdef ANNOTATIONS
+        }
+#endif
         LOG(THREAD, LOG_INTERP, 3,
             "setting cur_pc (for fall-through) to" PFX"\n", bb->cur_pc);
         /* don't set bb->instr if last instr is still syscall/int.
@@ -3064,6 +3088,27 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 /* must reset, may go through loop multiple times */
                 instr_reset(dcontext, bb->instr);
                 bb->cur_pc = decode_cti(dcontext, bb->cur_pc, bb->instr);
+
+#if defined(ANNOTATIONS) && !(defined(X64) && defined(WINDOWS))
+                /* Quickly check whether this may be a Valgrind annotation. */
+                if (is_encoded_valgrind_annotation_tail(bb->instr_start)) {
+                    /* Might be an annotation, so try the (slower) full check. */
+                    if (is_encoded_valgrind_annotation(bb->instr_start, bb->start_pc,
+                                                       (app_pc) PAGE_START(bb->cur_pc))) {
+                        /* Valgrind annotation needs full decode; clean up and repeat. */
+                        KSTOP(bb_decoding);
+                        instr_destroy(dcontext, bb->instr);
+                        instrlist_clear_and_destroy(dcontext, bb->ilist);
+                        if (bb->vmlist != NULL) {
+                            vm_area_destroy_list(dcontext, bb->vmlist);
+                            bb->vmlist = NULL;
+                        }
+                        bb->full_decode = true;
+                        build_bb_ilist(dcontext, bb);
+                        return;
+                    }
+                }
+#endif
             }
 
             ASSERT(!bb->check_vm_area || bb->checked_end != NULL);
@@ -3272,6 +3317,32 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             break;
         }
 
+#ifdef ANNOTATIONS
+# if !(defined(X64) && defined(WINDOWS))
+        /* Quickly check whether this may be a Valgrind annotation. */
+        if (is_decoded_valgrind_annotation_tail(bb->instr)) {
+            /* Might be an annotation, so try the (slower) full check. */
+            if (is_encoded_valgrind_annotation(bb->instr_start, bb->start_pc,
+                                               (app_pc) PAGE_START(bb->cur_pc))) {
+                instrument_valgrind_annotation(dcontext, bb->ilist, bb->instr,
+                                               bb->instr_start, total_instrs);
+                continue;
+            }
+        } else /* Top-level annotation recognition is unambiguous (xchg vs. jmp). */
+# endif
+        if (is_annotation_jump_over_dead_code(bb->instr)) {
+            instr_t *substitution = NULL;
+            if (annotation_match(dcontext, &bb->cur_pc, &substitution
+                                 _IF_WINDOWS_X64(bb->cur_pc < bb->checked_end))) {
+                instr_destroy(dcontext, bb->instr);
+                if (substitution == NULL)
+                    continue; /* ignore annotation if no handlers are registered */
+                else
+                    bb->instr = substitution;
+            }
+        }
+#endif
+
 #ifdef WINDOWS
         if (DYNAMO_OPTION(process_SEH_push) &&
             instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS)) {
@@ -3478,6 +3549,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
              * dynamically handle the leaf functions here, which can change eip
              * and other state.  We'll need OP_getsec in decode_cti().
              */
+        }
         else if (instr_get_opcode(bb->instr) == OP_xend ||
                  instr_get_opcode(bb->instr) == OP_xabort) {
             /* XXX i#1314: support OP_xend failing and setting eip to the

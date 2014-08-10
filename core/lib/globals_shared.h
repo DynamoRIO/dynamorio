@@ -430,6 +430,11 @@ typedef struct _instr_t instr_t;
 # define IF_WINDOWS(x) x
 # define IF_WINDOWS_(x) x,
 # define _IF_WINDOWS(x) , x
+# ifdef X64
+#  define _IF_WINDOWS_X64(x) , x
+# else
+#  define _IF_WINDOWS_X64(x)
+# endif
 # define IF_WINDOWS_ELSE_0(x) (x)
 # define IF_WINDOWS_ELSE(x,y) (x)
 # define IF_WINDOWS_ELSE_NP(x,y) x
@@ -441,6 +446,7 @@ typedef struct _instr_t instr_t;
 # define IF_WINDOWS(x)
 # define IF_WINDOWS_(x)
 # define _IF_WINDOWS(x)
+# define _IF_WINDOWS_X64(x)
 # define IF_WINDOWS_ELSE_0(x) (0)
 # define IF_WINDOWS_ELSE(x,y) (y)
 # define IF_WINDOWS_ELSE_NP(x,y) y

@@ -1885,7 +1885,8 @@ struct _instr_t {
 
     /* this field is for the use of passes as an annotation.
      * it is also used to hold the offset of an instruction when encoding
-     * pc-relative instructions.
+     * pc-relative instructions. A small range of values is reserved for internal use
+     * by DR and cannot be used by clients; see DR_NOTE_FIRST_RESERVED in globals.h.
      */
     void *note;
 

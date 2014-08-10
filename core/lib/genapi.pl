@@ -158,7 +158,6 @@ if ($header) {
         # and we had a complex series of commands in core/Makefile to strip
         # them out while leaving the ifdefs at the top of the file.
         copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
-
     } else {
         if (!defined($defines{"APP_EXPORTS"})) {
             die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";
@@ -195,7 +194,8 @@ if ($header) {
      "$core/hotpatch.c",         # probe api
      "$core/lib/dr_config.h",
      "$core/lib/dr_inject.h",
-     "$core/../libutil/dr_frontend.h"
+     "$core/../libutil/dr_frontend.h",
+     "$core/annotations.h"
      );
 
 # PR 214947: VMware retroactively holds the copyright.

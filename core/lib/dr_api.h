@@ -79,6 +79,9 @@ extern "C" {
 /* CREATE_INSTR_ macros */
 #include "dr_ir_macros.h"
 
+/* Annotation handler registration routines */
+#include "dr_annotation.h"
+
 #ifndef DYNAMORIO_STANDALONE
 /**
  * When registering a process, users must provide a list of paths to
