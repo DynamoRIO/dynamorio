@@ -241,7 +241,6 @@ annotation_init()
     vg_router.arg_stack_space = 0;
     vg_router.id.vg_request_id = 0; // routes all requests
     vg_router.receiver_list = &vg_receiver;
-    vg_receiver.client_id = DR_INTERNAL_CLIENT_ID;
     vg_receiver.instrumentation.callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
