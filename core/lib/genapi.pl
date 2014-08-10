@@ -158,6 +158,7 @@ if ($header) {
         # and we had a complex series of commands in core/Makefile to strip
         # them out while leaving the ifdefs at the top of the file.
         copy_file("$core/lib/dr_app.h", "$dir/dr_app.h");
+
     } else {
         if (!defined($defines{"APP_EXPORTS"})) {
             die "Should not be invoked w/o APP_EXPORTS or CLIENT_INTERFACE\n";

@@ -1021,7 +1021,6 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     monitor_exit();
     synch_exit();
     arch_exit(IF_WINDOWS(detach_stacked_callbacks));
-
 #ifdef CALL_PROFILE
     /* above os_exit to avoid eventlog_mutex trigger if we're the first to
      * create a log file
