@@ -195,7 +195,8 @@ if ($header) {
      "$core/hotpatch.c",         # probe api
      "$core/lib/dr_config.h",
      "$core/lib/dr_inject.h",
-     "$core/../libutil/dr_frontend.h"
+     "$core/../libutil/dr_frontend.h",
+     "$core/annotations.h"
      );
 
 # PR 214947: VMware retroactively holds the copyright.

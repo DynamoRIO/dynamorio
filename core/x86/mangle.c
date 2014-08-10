@@ -67,6 +67,10 @@
 
 #include <string.h> /* for memset */
 
+#ifdef ANNOTATIONS
+# include "../annotations.h"
+#endif
+
 /* make code more readable by shortening long lines
  * we mark everything we add as a meta-instr to avoid hitting
  * client asserts on setting translation fields
@@ -4122,6 +4126,39 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
 }
 #endif /* UNIX */
 
+#ifdef ANNOTATIONS
+/***************************************************************************
+ * DR and Valgrind annotations
+ */
+static void
+mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+    dr_annotation_handler_t *handler = (dr_annotation_handler_t *) label_data->data[0];
+    dr_annotation_receiver_t *receiver = handler->receiver_list;
+    opnd_t *args = NULL;
+
+    ASSERT(handler->type == ANNOT_HANDLER_CALL);
+
+    while (receiver != NULL) {
+        if (handler->num_args != 0) {
+            args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
+                                    ACCT_CLEANCALL, UNPROTECTED);
+            memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
+        }
+        dr_insert_clean_call_ex_varg(dcontext, ilist, instr,
+            receiver->instrumentation.callback,
+                receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
+            handler->num_args, args);
+        if (handler->num_args != 0) {
+            HEAP_ARRAY_FREE(dcontext, args, opnd_t, handler->num_args,
+                            ACCT_CLEANCALL, UNPROTECTED);
+        }
+        receiver = receiver->next;
+    }
+}
+#endif
+
 /* TOP-LEVEL MANGLE
  * This routine is responsible for mangling a fragment into the form
  * we'd like prior to placing it in the code cache
@@ -4163,6 +4200,14 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 
         if (!instr_opcode_valid(instr))
             continue;
+
+#ifdef ANNOTATIONS
+        if (is_annotation_return_placeholder(instr)) {
+            instrlist_remove(ilist, instr);
+            instr_destroy(dcontext, instr);
+            continue;
+        }
+#endif
 
         if (record_translation) {
             /* make sure inserted instrs translate to the original instr */
@@ -4221,6 +4266,13 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
                 convert_to_near_rel(dcontext, instr);
             }
         }
+
+#ifdef ANNOTATIONS
+        if (is_annotation_label(instr)) {
+            mangle_annotation_helper(dcontext, instr, ilist);
+            continue;
+        }
+#endif
 
         /* PR 240258: wow64 call* gateway is considered is_syscall */
         if (instr_is_syscall(instr)) {

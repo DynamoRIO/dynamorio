@@ -64,6 +64,10 @@
 #include "synch.h"
 #include "native_exec.h"
 
+#ifdef ANNOTATIONS
+# include "annotations.h"
+#endif
+
 #include <string.h>
 
 #ifdef WINDOWS
@@ -623,6 +627,9 @@ dynamorio_app_init(void)
             dynamo_vm_areas_unlock();
         }
 
+#ifdef ANNOTATIONS
+        annotation_init();
+#endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).
@@ -949,6 +956,9 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
         rct_exit();
 #endif
     fragment_exit();
+#ifdef ANNOTATIONS
+    annotation_exit();
+#endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other
      * components.  Must be after fragment_exit() so that the client gets all the

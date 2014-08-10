@@ -2146,12 +2146,11 @@ drmgr_reserve_note_range(size_t size)
     if (size == 0)
         return DRMGR_NOTE_NONE;
     dr_mutex_lock(note_lock);
-    if (note_next + size < note_next)
-        res = DRMGR_NOTE_NONE;
-    else {
+    if (note_next + size < DR_NOTE_FIRST_RESERVED) {
         res = note_next;
         note_next += size;
-    }
+    } else
+        res = DRMGR_NOTE_NONE;
     dr_mutex_unlock(note_lock);
     return res;
 }
