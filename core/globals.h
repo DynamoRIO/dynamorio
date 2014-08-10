@@ -267,10 +267,15 @@ typedef struct _module_data_t module_data_t;
 
 /* DR_API EXPORT BEGIN */
 
-/* upper note values are reserved for core DR */
 #ifdef X64
+/**
+ * Upper note values are reserved for core DR.
+ */
 # define DR_NOTE_FIRST_RESERVED 0xfffffffffffffff0ULL
 #else
+/**
+ * Upper note values are reserved for core DR.
+ */
 # define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
 #define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)

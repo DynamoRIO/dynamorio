@@ -1824,9 +1824,11 @@ fragment_exit()
     generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list, dgc_bucket_gc_list_t,
                    ACCT_OTHER, UNPROTECTED);
-    global_heap_free(thread_state->threads,
-                     thread_state->count*sizeof(thread_record_t*)
-                     HEAPACCT(ACCT_THREAD_MGT));
+    if (thread_state->threads != NULL) {
+        global_heap_free(thread_state->threads,
+                         thread_state->count*sizeof(thread_record_t*)
+                         HEAPACCT(ACCT_THREAD_MGT));
+    }
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, thread_state, dgc_thread_state_t,
                    ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->bb_tags, app_pc,

@@ -227,8 +227,8 @@ bb_event_truncate(void *drcontext, void *tag, instrlist_t *bb,
 static void
 register_call(const char *annotation, void *target, uint num_args)
 {
-    dr_annotation_register_call(client_id, annotation, target, false, num_args
-                                _IF_NOT_X64(ANNOT_CALL_TYPE_FASTCALL));
+    dr_annotation_register_call(annotation, target, false, num_args,
+                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
 }
 
 static void

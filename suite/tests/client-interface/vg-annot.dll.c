@@ -11,13 +11,13 @@ static app_pc *skip_truncation = NULL;
 #endif
 
 static ptr_uint_t
-handle_running_on_valgrind(vg_client_request_t *request)
+handle_running_on_valgrind(dr_vg_client_request_t *request)
 {
     return 1;
 }
 
 static ptr_uint_t
-handle_make_mem_defined_if_addressable(vg_client_request_t *request)
+handle_make_mem_defined_if_addressable(dr_vg_client_request_t *request)
 {
     dr_printf("Make %d bytes defined if addressable.\n", request->args[1]);
 
@@ -105,9 +105,9 @@ void dr_init(client_id_t id)
 #endif
     dr_register_exit_event(exit_event);
 
-    dr_annotation_register_valgrind(client_id, VG_ID__RUNNING_ON_VALGRIND,
+    dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     handle_running_on_valgrind);
 
-    dr_annotation_register_valgrind(client_id, VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
+    dr_annotation_register_valgrind(DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE,
                                     handle_make_mem_defined_if_addressable);
 }

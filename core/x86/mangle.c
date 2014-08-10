@@ -4138,11 +4138,10 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
     dr_annotation_receiver_t *receiver = handler->receiver_list;
     opnd_t *args = NULL;
 
-    ASSERT(handler->type == ANNOT_HANDLER_CALL);
+    ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {
-            /* Arguments are freed by dr_insert_clean_call_ex_varg() */
             args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, handler->num_args,
                                     ACCT_CLEANCALL, UNPROTECTED);
             memcpy(args, handler->args, sizeof(opnd_t) * handler->num_args);
@@ -4151,7 +4150,10 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
             receiver->instrumentation.callback,
                 receiver->save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0,
             handler->num_args, args);
-
+        if (handler->num_args != 0) {
+            HEAP_ARRAY_FREE(dcontext, args, opnd_t, handler->num_args,
+                            ACCT_CLEANCALL, UNPROTECTED);
+        }
         receiver = receiver->next;
     }
 }

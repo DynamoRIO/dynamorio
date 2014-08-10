@@ -4639,14 +4639,27 @@ instrlist_meta_fault_append(instrlist_t *ilist, instr_t *inst)
 }
 
 static void
-convert_va_list_to_opnd(opnd_t *args, uint num_args, va_list ap)
+convert_va_list_to_opnd(dcontext_t *dcontext, opnd_t **args, uint num_args, va_list ap)
 {
     uint i;
-    /* There's no way to check num_args vs actual args passed in */
+    ASSERT(num_args > 0);
+    /* allocate at least one argument opnd */
+    /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
+    *args = HEAP_ARRAY_ALLOC(dcontext, opnd_t, num_args,
+                            ACCT_CLEANCALL, UNPROTECTED);
     for (i = 0; i < num_args; i++) {
-        args[i] = va_arg(ap, opnd_t);
-        CLIENT_ASSERT(opnd_is_valid(args[i]),
+        (*args)[i] = va_arg(ap, opnd_t);
+        CLIENT_ASSERT(opnd_is_valid((*args)[i]),
                       "Call argument: bad operand. Did you create a valid opnd_t?");
+    }
+}
+
+static void
+free_va_opnd_list(dcontext_t *dcontext, uint num_args, opnd_t *args)
+{
+    if (num_args != 0) {
+        HEAP_ARRAY_FREE(dcontext, args, opnd_t, num_args,
+                        ACCT_CLEANCALL, UNPROTECTED);
     }
 }
 
@@ -4660,20 +4673,15 @@ dr_insert_call(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd_t *args = NULL;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
-    /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
     if (num_args != 0) {
-        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
-                                ACCT_CLEANCALL, UNPROTECTED);
         va_start(ap, num_args);
-        convert_va_list_to_opnd(args, num_args, ap);
+        convert_va_list_to_opnd(dcontext, &args, num_args, ap);
         va_end(ap);
     }
     insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
                            vmcode_get_start(), callee, num_args, args);
-    if (num_args != 0) {
-        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
-                        ACCT_CLEANCALL, UNPROTECTED);
-    }
+    if (num_args != 0)
+        free_va_opnd_list(dcontext, num_args, args);
 }
 
 bool
@@ -4685,20 +4693,15 @@ dr_insert_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
     bool direct;
     va_list ap;
     CLIENT_ASSERT(drcontext != NULL, "dr_insert_call: drcontext cannot be NULL");
-    /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
     if (num_args != 0) {
-        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
-                                ACCT_CLEANCALL, UNPROTECTED);
         va_start(ap, num_args);
-        convert_va_list_to_opnd(args, num_args, ap);
+        convert_va_list_to_opnd(drcontext, &args, num_args, ap);
         va_end(ap);
     }
     direct = insert_meta_call_vargs(dcontext, ilist, where, false/*not clean*/,
                                     encode_pc, callee, num_args, args);
-    if (num_args != 0) {
-        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
-                        ACCT_CLEANCALL, UNPROTECTED);
-    }
+    if (num_args != 0)
+        free_va_opnd_list(dcontext, num_args, args);
     return direct;
 }
 
@@ -4790,10 +4793,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         STATS_INC(cleancall_inlined);
         LOG(THREAD, LOG_CLEANCALL, 2, "CLEANCALL: inlined callee "PFX"\n", callee);
         insert_inline_clean_call(dcontext, &cci, ilist, where, args);
-        if (num_args != 0) {
-            HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
-                            ACCT_CLEANCALL, UNPROTECTED);
-        }
         return;
 #else /* CLIENT_INTERFACE */
         ASSERT_NOT_REACHED();
@@ -4885,10 +4884,6 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         encode_pc = vmcode_get_start();
     insert_meta_call_vargs(dcontext, ilist, where, true/*clean*/,
                            encode_pc, callee, num_args, args);
-    if (num_args != 0) {
-        HEAP_ARRAY_FREE(drcontext, args, opnd_t, num_args,
-                        ACCT_CLEANCALL, UNPROTECTED);
-    }
     instrlist_set_our_mangling(ilist, false);
 
     if (save_fpstate) {
@@ -4910,15 +4905,13 @@ dr_insert_clean_call_ex(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (num_args != 0) {
         va_list ap;
         va_start(ap, num_args);
-        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-        /* allocate at least one argument opnd */
-        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
-                                ACCT_CLEANCALL, UNPROTECTED);
-        convert_va_list_to_opnd(args, num_args, ap);
+        convert_va_list_to_opnd(drcontext, &args, num_args, ap);
         va_end(ap);
     }
     dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, save_flags,
                                  num_args, args);
+    if (num_args != 0)
+        free_va_opnd_list(drcontext, num_args, args);
 }
 
 DR_API
@@ -4926,20 +4919,17 @@ void
 dr_insert_clean_call(void *drcontext, instrlist_t *ilist, instr_t *where,
                      void *callee, bool save_fpstate, uint num_args, ...)
 {
-    dr_cleancall_save_t flags;
+    dr_cleancall_save_t flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
     opnd_t *args = NULL;
     if (num_args != 0) {
         va_list ap;
         va_start(ap, num_args);
-        /* we don't check for GLOBAL_DCONTEXT since DR internally calls this */
-        /* allocate at least one argument opnd */
-        args = HEAP_ARRAY_ALLOC(drcontext, opnd_t, num_args,
-                                ACCT_CLEANCALL, UNPROTECTED);
-        convert_va_list_to_opnd(args, num_args, ap);
+        convert_va_list_to_opnd(drcontext, &args, num_args, ap);
         va_end(ap);
     }
-    flags = (save_fpstate ? DR_CLEANCALL_SAVE_FLOAT : 0);
     dr_insert_clean_call_ex_varg(drcontext, ilist, where, callee, flags, num_args, args);
+    if (num_args != 0)
+        free_va_opnd_list(drcontext, num_args, args);
 }
 
 /* Utility routine for inserting a clean call to an instrumentation routine
