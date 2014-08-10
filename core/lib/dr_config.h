@@ -139,6 +139,70 @@ typedef enum {
     DR_PLATFORM_64BIT,   /**< 64-bit settings (for native 64-bit processes). */
 } dr_platform_t;
 
+
+/* Note that we provide this as an inlined function for use by
+ * dr_nudge_client and dr_nudge_client_ex without requiring drconfiglib
+ * to be linked into a client.
+ */
+/**
+ * Translates dr_config_status_t code to its corresponding message string.
+ *
+ * \param[in]  code        dr_config_status_t code to be translated.
+ *
+ * \return     The translated message string.
+ */
+static inline const char *
+dr_config_status_code_to_string(dr_config_status_t code)
+{
+    const char *msg;
+    /* XXX: should we have a string array for lookup instead?
+     * If so, we must make sure the consistency between the array and
+     * the status enum.
+     */
+    switch (code) {
+    case DR_SUCCESS:
+        msg = "success";
+        break;
+    case DR_PROC_REG_EXISTS:
+        msg = "registration already exists";
+        break;
+    case DR_PROC_REG_INVALID:
+        msg = "target process is not registered";
+        break;
+    case DR_PRIORITY_INVALID:
+        msg = "invalid priority value";
+        break;
+    case DR_ID_CONFLICTING:
+        msg = "conflicting ID";
+        break;
+    case DR_ID_INVALID:
+        msg = "invalid client ID";
+        break;
+    case DR_NUDGE_PID_NOT_INJECTED:
+        msg = "target process is not under DynamoRIO";
+        break;
+    case DR_NUDGE_TIMEOUT:
+        msg = "timed out";
+        break;
+    case DR_CONFIG_STRING_TOO_LONG:
+        msg = "config option string too long";
+        break;
+    case DR_CONFIG_FILE_WRITE_FAILED:
+        msg = "failed to write to the config file";
+        break;
+    case DR_NUDGE_PID_NOT_FOUND:
+        msg = "target process id does not exist";
+        break;
+    case DR_FAILURE:
+        msg = "unknown failure";
+        break;
+    default:
+        msg = "invalid dr_config_status_t code";
+        break;
+    }
+    return msg;
+}
+
 DR_EXPORT
 /**
  * Register a process to run under DynamoRIO.

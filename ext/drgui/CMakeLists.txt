@@ -79,6 +79,10 @@ else () # Qt5 and CMake 2.8.10+
     ${CMAKE_CURRENT_SOURCE_DIR}/drgui_main_window.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
+  if (WIN32)
+    set(drgui_SOURCES ${drgui_SOURCES} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+  endif ()
+
   # Build
   # Ignore windows specific Qt warnings
   if (WIN32)
@@ -86,6 +90,11 @@ else () # Qt5 and CMake 2.8.10+
   endif (WIN32)
   add_executable(drgui ${drgui_SOURCES} ${drgui_MOC_OUTFILES})
   qt5_use_modules(drgui Widgets)
+  if (WIN32)
+    # For version info we need global_shared.h included in resources.rc.
+    include_directories(${PROJECT_SOURCE_DIR}/core/lib)
+    set_property(TARGET drgui PROPERTY COMPILE_DEFINITIONS "RC_IS_drgui")
+  endif ()
 
   # Install
   add_rel_rpaths(drgui)

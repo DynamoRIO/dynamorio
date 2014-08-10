@@ -89,6 +89,13 @@ if (WIN32)
     drsyms_windows.c drsyms_unix_common.c drsyms_pecoff.c
     drsyms_dwarf.c demangle.cc drsyms_common.c
     ${dbghelp_dep})
+
+  # i#1491#2: VS generators fail if static lib has resources
+  set(srcs_static ${srcs})
+  if (NOT STATIC_LIBRARY)
+    set(srcs ${srcs} ${PROJECT_SOURCE_DIR}/core/win32/resources.rc)
+  endif ()
+
   set(dwarf_dir "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc-pecoff/lib${BITS}")
   set(dwarf_libpath "${dwarf_dir}/dwarf.lib")
   set(elftc_libpath "${dwarf_dir}/elftc.lib")
@@ -116,6 +123,7 @@ elseif (UNIX)
     set(elftc_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelftc.a")
     set(elf_libpath "${PROJECT_SOURCE_DIR}/ext/drsyms/libelftc/lib${BITS}/libelf.a")
   endif (APPLE)
+  set(srcs_static ${srcs})
 endif (WIN32)
 
 add_library(drsyms ${libtype} ${srcs})
@@ -149,7 +157,7 @@ if (NOT STATIC_LIBRARY)
   # drsyms static lib for pre-VS2010, but VS2010 won't do that, so we go
   # with exported separate libs to match Linux (alternative would be a custom
   # command to combine via lib.exe).
-  add_library(drsyms_static STATIC ${srcs})
+  add_library(drsyms_static STATIC ${srcs_static})
   configure_extension(drsyms_static)
   configure_drsyms_target(drsyms_static)
   use_DynamoRIO_extension(drsyms_static drcontainers)

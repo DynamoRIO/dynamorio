@@ -1901,6 +1901,25 @@ check_option_compatibility_helper(int recurse_count)
         }
     }
 
+#ifdef X64
+    if (DYNAMO_OPTION(x86_to_x64)) {
+        /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,
+         * we do not support any cases of using decode_fragment, including
+         * trace and coarse_units (coarse-grain code cache management).
+         */
+        if (!DYNAMO_OPTION(disable_traces)) {
+            USAGE_ERROR("-x86_to_x64 does not support traces");
+            DISABLE_TRACES((&dynamo_options));
+            changed_options = true;
+        }
+        if (DYNAMO_OPTION(coarse_units)) {
+            USAGE_ERROR("-coarse_units incompatible with -x86_to_x64: disabling");
+            dynamo_options.coarse_units = false;
+            changed_options = true;
+        }
+    }
+#endif
+
 #ifndef NOT_DYNAMORIO_CORE
     /* fcache param checks rather involved, leave them in fcache.c */
     /* case 7626: don't short-circuit checks, as later ones may be needed */

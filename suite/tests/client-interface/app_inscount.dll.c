@@ -33,7 +33,7 @@
  */
 
 /*
- * Code Manipulation API Test for Instruction Traversal. 
+ * Code Manipulation API Test for Instruction Traversal.
  *
  * The code is to test API functions: instr_get_next_app() and
  * instrlist_first_app(), by comparing with the output of instr_get_next() and
@@ -49,16 +49,16 @@
 static uint64 global_count;
 static uint64 global_count_app;
 
-static void 
+static void
 inscount(uint num_instrs)
-{ 
-    global_count += num_instrs; 
+{
+    global_count += num_instrs;
 }
 
-static void 
-inscount_app(uint num_instrs) 
-{ 
-    global_count_app += num_instrs; 
+static void
+inscount_app(uint num_instrs)
+{
+    global_count_app += num_instrs;
 }
 
 static void event_exit(void);

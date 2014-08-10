@@ -58,6 +58,7 @@ void test_data16_mbr(void);
 void test_rip_rel_ind(void);
 void test_bsr(void);
 void test_SSE2(void);
+void test_mangle_seg(void);
 
 SIGJMP_BUF mark;
 static int count = 0;
@@ -266,6 +267,9 @@ int main(int argc, char *argv[])
     if (i == 0) {
         test_SSE2();
     }
+
+    /* i#1493: segment register mangling */
+    test_mangle_seg();
 
 #ifdef UNIX
     free(sigstack.ss_sp);
@@ -676,5 +680,17 @@ GLOBAL_LABEL(FUNCNAME:)
         ret
         END_FUNC(FUNCNAME)
 
+#undef FUNCNAME
+#define FUNCNAME test_mangle_seg
+        /* i#1493: test seg reg mangling code */
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        END_PROLOG
+        push     REG_XAX
+        mov      WORD [REG_XSP], fs
+        pop      REG_XAX
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        ret
+        END_FUNC(FUNCNAME)
 END_FILE
 #endif

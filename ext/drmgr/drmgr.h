@@ -315,6 +315,13 @@ DR_EXPORT
  *                             Can be NULL if analysis_func is non-NULL.
  * @param[in]  priority        Specifies the relative ordering of both callbacks.
  *                             Can be NULL, in which case a default priority is used.
+ *
+ * \note It is possible for meta instructions to be present and passed
+ * to the analysis and/or insertion stages, if they were added in the
+ * app2app or analysis stages.  While this is discouraged, it is
+ * sometimes unavoidable, such as for drwrap_replace_native().  We
+ * recommend that all instrumentation stages check for meta
+ * instructions (and ignore them, typically).
  */
 bool
 drmgr_register_bb_instrumentation_event(drmgr_analysis_cb_t analysis_func,

@@ -70,7 +70,7 @@ event_soft_kill(process_id_t pid, int exit_code)
 {
     dr_config_status_t res =
         dr_nudge_client_ex(pid, client_id, exit_code, 0);
-    CHECK(res == DR_SUCCESS, "nudge failed");
+    CHECK(res == DR_SUCCESS, dr_config_status_code_to_string(res));
     return true; /* skip kill */
 }
 
