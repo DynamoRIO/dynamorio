@@ -33,13 +33,22 @@
 #ifndef _JITOPT_H_
 #define _JITOPT_H_ 1
 
-#ifdef JITOPT
-
 void
 jitopt_init();
 
 void
 jitopt_exit();
+
+void
+annotation_manage_code_area(app_pc start, size_t len);
+
+void
+annotation_unmanage_code_area(app_pc start, size_t len);
+
+void
+annotation_flush_fragments(app_pc start, size_t len);
+
+#ifdef JITOPT
 
 void
 add_patchable_bb(app_pc tag, app_pc cti_operand_pc);

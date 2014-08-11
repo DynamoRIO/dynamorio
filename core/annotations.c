@@ -157,20 +157,6 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
-#ifdef JITOPT
-# define FLUSH_STATS 1
-# ifdef FLUSH_STATS
-static uint64 selectiveRemovals = 0;
-static uint64 selectiveFragmentsRemoved = 0;
-static uint64 selectiveSkipped = 0;
-static uint64 microFlushes = 0;
-static uint64 wordFlushes = 0;
-static uint64 smallFlushes = 0;
-static uint64 segmentFlushes = 0;
-static uint64 regionFlushes = 0;
-# endif
-#endif
-
 /*********************************************************
  * INTERNAL ROUTINE DECLARATIONS
  */
@@ -208,15 +194,6 @@ annotation_snprintf(char *buffer, uint length, const char *format, ...);
 static ssize_t
 annotation_printf(const char *format, ...);
 #endif
-
-static void
-annotation_manage_code_area(app_pc start, size_t len);
-
-static void
-annotation_unmanage_code_area(app_pc start, size_t len);
-
-static void
-annotation_flush_fragments(app_pc start, size_t len);
 
 static const char *
 heap_strcpy(const char *src);
@@ -989,150 +966,6 @@ annotation_printf(const char *format, ...)
     return count;
 }
 #endif
-
-static void
-annotation_manage_code_area(app_pc start, size_t len)
-{
-    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
-        start, start+len);
-    set_region_app_managed(start, len, true);
-}
-
-static void
-annotation_unmanage_code_area(app_pc start, size_t len)
-{
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
-
-    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
-        start, start+len);
-
-    mutex_lock(&thread_initexit_lock);
-    flush_fragments_and_remove_region(dcontext, start, len,
-                                      true /* own initexit_lock */, false);
-    mutex_unlock(&thread_initexit_lock);
-#ifdef JITOPT
-    dgc_notify_region_cleared(start, start+len);
-#endif
-    //set_region_app_managed(start, len, false);
-}
-
-#ifdef FLUSH_STATS
-static void
-report_selective(uint64 count)
-{
-    uint64 i = 1, log = count / 10;
-    while (log > 0) {
-        log /= 10;
-        i *= 10;
-    }
-    if (count == i) {
-        dr_printf("%s %llu | %s %llu | %s %llu\n",
-                  "Selective removal invocations", selectiveRemovals,
-                  "Selective fragments removed", selectiveFragmentsRemoved,
-                  "Selective removals skipped", selectiveSkipped);
-    }
-}
-
-static void
-report(uint64 count, const char *label)
-{
-    uint64 i = 1, log = count / 10;
-    while (log > 0) {
-        log /= 10;
-        i *= 10;
-    }
-    if (count == i)
-        dr_printf("%s: %llu\n", label, count);
-}
-#endif
-
-static void
-annotation_flush_fragments(app_pc start, size_t len)
-{
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
-
-    if (!is_app_managed_code(start))
-        return;
-
-    LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
-        start, start+len);
-
-    //if (len == 0 || is_couldbelinking(dcontext))
-    //    return;
-    //if (!executable_vm_area_executed_from(start, start+len))
-    //    return;
-
-#ifdef JITOPT
-    if (len < 0x400) {
-        uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
-# ifdef FLUSH_STATS
-        if (removal_count > 0) {
-            report_selective(++selectiveRemovals);
-            selectiveFragmentsRemoved += (uint64) removal_count;
-            report_selective(selectiveFragmentsRemoved);
-        } else {
-            report_selective(++selectiveSkipped);
-        }
-# endif
-        // causes some unstability in v8!
-        /*
-        executable_areas_lock();
-        vm_area_isolate_region(dcontext, start, start+len);
-        executable_areas_unlock();
-        */
-    } else {
-#endif
-# ifdef FLUSH_STATS
-        //TABLE_RWLOCK(handlers, write, lock);
-        if (len < 4)
-            report(++microFlushes, " > Micro flushes");
-        else if (len == 4)
-            //return;
-            report(++wordFlushes, " > Word flushes");
-        else if (len <= 0x20)
-            report(++smallFlushes, " > Small flushes");
-        else if (len <= 0x100)
-            report(++segmentFlushes, " > Segment flushes");
-        else
-            report(++regionFlushes, " > Region flushes");
-        //TABLE_RWLOCK(handlers, write, unlock);
-# endif
-
-        if ((len == 4) && (*(byte *) (start-1) == 0xe8)) {
-            LOG(GLOBAL, LOG_ANNOTATIONS, 1, "> operands: Missed call at "PFX"\n", start-1);
-        }
-
-        mutex_lock(&thread_initexit_lock);
-        flush_fragments_in_region_start(dcontext, start, len, true /*own initexit*/,
-                                        false/*don't free futures*/, false/*exec valid*/,
-                                        false/*don't force synchall*/ _IF_DGCDIAG(NULL));
-
-        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-        // TODO: is this leaving junk on the lazy delete list?
-        vm_area_isolate_region(dcontext, start, start+len);
-
-        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-
-//#ifdef JITOPT
-//        flush_and_delete_fragments_in_region_finish(dcontext);
-//#else
-        flush_fragments_in_region_finish(dcontext, true);
-//#endif
-        mutex_unlock(&thread_initexit_lock);
-
-#ifdef JITOPT
-        dgc_notify_region_cleared(start, start+len);
-    }
-#endif
-}
 
 static inline const char *
 heap_strcpy(const char *src)
