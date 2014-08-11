@@ -76,6 +76,9 @@
 
 #ifdef ANNOTATIONS
 # include "../annotations.h"
+# ifdef JITOPT
+#  include "../jitopt.h"
+# endif
 #endif
 
 enum { DIRECT_XFER_LENGTH = 5 };
@@ -4745,7 +4748,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     if (image_entry)
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
     if (visible && is_app_managed_code(bb.start_pc)) {
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
         add_patchable_bb(bb.start_pc, bb.end_pc);

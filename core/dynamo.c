@@ -66,6 +66,9 @@
 
 #ifdef ANNOTATIONS
 # include "annotations.h"
+# ifdef JITOPT
+#  include "jitopt.h"
+# endif
 #endif
 
 #include <string.h>
@@ -631,6 +634,9 @@ dynamorio_app_init(void)
 
 #ifdef ANNOTATIONS
         annotation_init();
+# ifdef JITOPT
+        jitopt_init();
+# endif
 #endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
@@ -960,6 +966,9 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     fragment_exit();
 #ifdef ANNOTATIONS
     annotation_exit();
+# ifdef JITOPT
+    jitopt_exit();
+# endif
 #endif
 #ifdef CLIENT_INTERFACE
     /* We tell the client as soon as possible in case it wants to use services from other

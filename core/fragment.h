@@ -655,28 +655,6 @@ fragment_remove(dcontext_t *dcontext, fragment_t *f, bool remove_shared);
 void
 fragment_replace(dcontext_t *dcontext, fragment_t *f, fragment_t *new_f);
 
-#ifdef SELECTIVE_FLUSHING
-void
-add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
-
-void
-add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
-
-uint
-remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end);
-
-void
-dgc_notify_region_cleared(app_pc start, app_pc end);
-
-/*
-void
-dgc_add_thread(thread_record_t *tr);
-
-void
-dgc_add_thread(thread_id_t tid);
-*/
-#endif
-
 fragment_t *
 fragment_lookup(dcontext_t *dcontext, app_pc tag);
 
@@ -688,6 +666,9 @@ fragment_lookup_shared_bb(dcontext_t *dcontext, app_pc tag);
 
 fragment_t *
 fragment_lookup_trace(dcontext_t *dcontext, app_pc tag);
+
+fragment_t *
+fragment_lookup_shared_trace(dcontext_t *dcontext, app_pc tag);
 
 fragment_t *
 fragment_lookup_same_sharing(dcontext_t *dcontext, app_pc tag, uint flags);

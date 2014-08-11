@@ -84,6 +84,8 @@
 /* features */
 #cmakedefine HAVE_FVISIBILITY
 #cmakedefine HAVE_TYPELIMITS_CONTROL
+#cmakedefine ANNOTATIONS
+#cmakedefine JITOPT 
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
@@ -274,8 +276,6 @@
 #  define RCT_IND_BRANCH
 #endif
 
-#define ANNOTATIONS
-#define SELECTIVE_FLUSHING
 #ifdef CLIENT_INTERFACE
    /* standard client interface features */
 #  define DYNAMORIO_IR_EXPORTS

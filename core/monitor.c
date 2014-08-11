@@ -52,6 +52,9 @@
 #include "instr.h"
 #include "perscache.h"
 #include "disassemble.h"
+#ifdef JITOPT
+# include "jitopt.h"
+#endif
 
 #ifdef CLIENT_INTERFACE
 /* in interp.c.  not declared in arch_exports.h to avoid having to go
@@ -1775,7 +1778,7 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     }
 
-#if defined(ANNOTATIONS) && defined(SELECTIVE_FLUSHING)
+#ifdef JITOPT
     add_patchable_trace(md->trace_tag, f->tag);
 #endif
 

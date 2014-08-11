@@ -8282,7 +8282,7 @@ vm_area_add_fragment(dcontext_t *dcontext, fragment_t *f, void *vmlist)
 
 /*
     ASSERT(!TESTANY(FRAG_IS_TRACE|FRAG_IS_TRACE_HEAD, f->flags));
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
            || !is_app_managed_code(f->tag)
 #endif
     );

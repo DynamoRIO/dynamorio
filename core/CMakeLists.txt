@@ -84,6 +84,7 @@ set(CORE_SRCS
   lib/instrument.c
   translate.c
   annotations.c
+  jitopt.c
   )
 
 if (UNIX)

@@ -40,9 +40,12 @@
 #include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
 #include "fragment.h"
+#include "jitopt.h"
 #include "vmareas.h"
 #include "annotations.h"
 #include "utils.h"
+
+#ifdef ANNOTATIONS
 
 #if !(defined (WINDOWS) && defined (X64))
 # include "../third_party/valgrind/valgrind.h"
@@ -154,7 +157,7 @@ typedef struct _annotation_layout_t {
     app_pc resume_pc;
 } annotation_layout_t;
 
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
 # define FLUSH_STATS 1
 # ifdef FLUSH_STATS
 static uint64 selectiveRemovals = 0;
@@ -1011,7 +1014,7 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     flush_fragments_and_remove_region(dcontext, start, len,
                                       true /* own initexit_lock */, false);
     mutex_unlock(&thread_initexit_lock);
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
     dgc_notify_region_cleared(start, start+len);
 #endif
     //set_region_app_managed(start, len, false);
@@ -1067,7 +1070,7 @@ annotation_flush_fragments(app_pc start, size_t len)
     //if (!executable_vm_area_executed_from(start, start+len))
     //    return;
 
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
     if (len < 0x400) {
         uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
 # ifdef FLUSH_STATS
@@ -1118,14 +1121,14 @@ annotation_flush_fragments(app_pc start, size_t len)
 
         ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
 
-//#ifdef SELECTIVE_FLUSHING
+//#ifdef JITOPT
 //        flush_and_delete_fragments_in_region_finish(dcontext);
 //#else
         flush_fragments_in_region_finish(dcontext, true);
 //#endif
         mutex_unlock(&thread_initexit_lock);
 
-#ifdef SELECTIVE_FLUSHING
+#ifdef JITOPT
         dgc_notify_region_cleared(start, start+len);
     }
 #endif
@@ -1168,3 +1171,5 @@ free_annotation_handler(void *p)
         heap_str_free(handler->id.symbol_name);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, dr_annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }
+
+#endif /* ANNOTATIONS */
