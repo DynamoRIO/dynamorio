@@ -509,7 +509,6 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
     IMAGEHLP_MODULEW64 mod_info;
     bool got_pdbs = FALSE;
     TCHAR wmodpath[MAXIMUM_PATH];
-    char buf[MAXIMUM_PATH];
     HANDLE proc = GetCurrentProcess();
 
     if (sym_load_module_func == NULL ||
@@ -562,12 +561,9 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
                  printf("SymGetModuleInfoEx failed: %d", GetLastError());
                  );
     }
-    if (symbol_path_sz != 0) {
-        drfront_tchar_to_char(mod_info.LoadedPdbName,
-                              buf, BUFFER_SIZE_ELEMENTS(buf));
-        strncpy(symbol_path, buf, symbol_path_sz);
-        NULL_TERMINATE_BUFFER(symbol_path);
-    }
+    if (symbol_path_sz != 0)
+        drfront_tchar_to_char(mod_info.LoadedPdbName, symbol_path, symbol_path_sz);
+
     /* Unload it. */
     if (!sym_unload_module_func(proc, base)) {
         DO_DEBUG(DL_WARN,
