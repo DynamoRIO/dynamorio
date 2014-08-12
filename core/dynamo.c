@@ -2735,13 +2735,17 @@ void
 dynamorio_earliest_init_takeover_C(byte *arg_ptr)
 {
     int res;
+    bool earliest_inject;
 
     /* Windows-specific code for the most part */
-    earliest_inject_init(arg_ptr);
+    earliest_inject = earliest_inject_init(arg_ptr);
 
     /* Initialize now that DR dll imports are hooked up */
-    dr_earliest_injected = true;
-    dr_earliest_inject_args = arg_ptr;
+    if (earliest_inject) {
+        dr_earliest_injected = true;
+        dr_earliest_inject_args = arg_ptr;
+    } else
+        dr_early_injected = true;
     res = dynamorio_app_init();
     ASSERT(res == SUCCESS);
     ASSERT(dynamo_initialized && !dynamo_exited);

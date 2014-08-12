@@ -4125,9 +4125,18 @@ dr_enable_console_printing(void)
                 locate_and_load_private_library("kernel32.dll", false/*!reachable*/);
         }
         if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
+            app_pc app_kernel32 = (app_pc)dr_lookup_module_by_name("kernel32.dll");
             kernel32_WriteFile = (kernel32_WriteFile_t)
                 lookup_library_routine(priv_kernel32, "WriteFile");
-            success = privload_console_share(priv_kernel32);
+            /* There is some problem in loading 32 bit kernel32.dll
+             * when 64 bit kernel32.dll is already loaded. If kernel32 is
+             * not loaded we can't call privload_console_share because it
+             * assumes kernel32 is loaded
+             */
+            if (app_kernel32 == NULL)
+                success = false;
+            else
+                success = privload_console_share(priv_kernel32);
         }
         /* We go ahead and cache whether dr_using_console().  If app really
          * changes its console, client could call this routine again

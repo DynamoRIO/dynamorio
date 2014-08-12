@@ -274,6 +274,7 @@ else (UNIX)
     win32/inject.c
     win32/ntdll.c
     win32/inject_shared.c
+    win32/module_shared.c
     ${x86_noncore_asm_src}
     win32/resources.rc
     config.c

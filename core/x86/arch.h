@@ -49,12 +49,6 @@
 #include "decode.h" /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 
-/* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
- * Keep in synch w/ defines in x86.asm
- */
-#define CS32_SELECTOR 0x23
-#define CS64_SELECTOR 0x33
-
 #ifdef X64
 static inline bool
 mixed_mode_enabled(void)

@@ -1009,71 +1009,147 @@ inject_gencode_at_ldr(HANDLE phandle, char *dynamo_path, uint inject_location,
 #define APP  instrlist_append
 #define GDC  GLOBAL_DCONTEXT
 
-/* i#234: earliest injection so we see every single user-mode instruction
- * XXX i#625: not supporting rebasing: assuming no conflict w/ executable
+#define SWITCH_MODE_DATA_SIZE   4 /* size of 32 bit stack ptr */
+
+#ifdef X64
+/* This function is necessary b/c the original logic push the hook location on
+ * the stack and jump to dynamorio. Dynamorio start translating the first
+ * return address and control transfer to it. It then run in translated
+ * mode and when it unwinds the stack at some point it will jump to hook
+ * location(which is pushed on the stack). If the dynamorio is 64 bit the
+ * first return address it will see will be 64 bit and hence when it finds
+ * the 32 bit address on the stack it will treat it as a 64 bit address.
+ * Instead of pushing the hook location on the stack we are pushing the
+ * location of the sequece of code which does a mode switch and jump to
+ * the hook location.
  */
-static void *
-inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
-                        byte hook_buf[EARLY_INJECT_HOOK_SIZE], void *must_reach)
+/* This function genearates the code for mode switch after returning
+ * from dynamorio. local_code_buf is the parent process buf which will
+ * temporarily hold the generated instructions. mode_switch_buf is the
+ * location where the actual switch_code will be stored in the target
+ * process, mode_switch_buf_sz is maximum size for switch code, and
+ * mode_switch_data is the address where the app stack pointer is stored.
+ */
+
+static size_t
+generate_switch_mode_jmp_to_hook(HANDLE phandle, byte *local_code_buf,
+                                 byte *mode_switch_buf, byte *hook_location,
+                                 size_t mode_switch_buf_sz, byte *mode_switch_data)
 {
-    bool success = false;
-    NTSTATUS res;
-    HANDLE file = INVALID_HANDLE_VALUE;
-    HANDLE section = INVALID_HANDLE_VALUE;
-    byte *map = NULL;
-    size_t view_size = 0;
-    wchar_t dllpath[MAX_PATH];
+    /* Switch to 32 bit mode
+     * Restore the stack
+     * Jump to the hook location
+     */
+    byte *pc;
+    instrlist_t ilist;
+    size_t num_bytes_out, sz;
+    uint target;
+    instr_t *jmp = INSTR_CREATE_jmp(GDC, opnd_create_pc((app_pc)hook_location));
+    instr_t *restore_esp = INSTR_CREATE_mov_ld
+        (GDC, opnd_create_reg(REG_ESP),
+         OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data));
+
+    instr_set_x86_mode(jmp, true);
+    instr_set_x86_mode(restore_esp, true);
+    instrlist_init(&ilist);
+    /* We patch the 0 with the correct target location in this function */
+    APP(&ilist, INSTR_CREATE_push_imm(GDC, OPND_CREATE_INT32(0)));
+    APP(&ilist, INSTR_CREATE_mov_st(GDC,
+                                    OPND_CREATE_MEM16(REG_RSP, 4),
+                                    OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
+
+    APP(&ilist, INSTR_CREATE_jmp_far_ind(GDC,
+                                         opnd_create_base_disp(REG_RSP, REG_NULL, 0,
+                                                               0, OPSZ_6)));
+    APP(&ilist, restore_esp);
+    APP(&ilist, jmp);
+
+    pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf,
+                                  mode_switch_buf, local_code_buf + mode_switch_buf_sz,
+                                  true/*has instr targets*/);
+    ASSERT(pc != NULL && pc < local_code_buf + mode_switch_buf_sz);
+
+    /* Calculate the offset of first instruction after switching
+     * to x86 mode
+     */
+    sz = (size_t)(pc - local_code_buf - instr_length(GDC, jmp) -
+                  instr_length(GDC, restore_esp));
+    instrlist_clear(GDC, &ilist);
+    /* For x86 code the address must be 32 bit */
+    ASSERT_TRUNCATE(target, uint, (size_t)mode_switch_buf);
+    target = (uint)(size_t)((byte*)mode_switch_buf + sz);
+    /* Patch the operand of push with target of jmp far indirect.
+     * 1 is the size of the opcode of push instruction.
+     */
+    *(uint*)(local_code_buf + 1) = target;
+
+    /* FIXME: Need to free this page after jumping to the hook location b/c
+     * after that it is no longer necessary
+     */
+
+    sz = (size_t)(pc - local_code_buf);
+    /* copy local buffer to child process */
+    if (!nt_write_virtual_memory(phandle, mode_switch_buf, local_code_buf,
+                                 pc - local_code_buf, &num_bytes_out) ||
+        num_bytes_out != sz) {
+        return false;
+    }
+    return sz;
+}
+#endif
+
+static byte *
+inject_gencode_mapped_helper(HANDLE phandle, char *dynamo_path, void *hook_location,
+                             byte hook_buf[EARLY_INJECT_HOOK_SIZE], byte *map,
+                             void *must_reach, bool x86_code, bool late_injection)
+{
     instrlist_t ilist;
     byte *remote_code_buf = NULL, *local_code_buf = NULL, *pc, *remote_data;
+    byte *hook_code_buf = NULL;
     static const size_t remote_alloc_sz = 2*PAGE_SIZE; /* one code, one data */
-    static const size_t code_sz = PAGE_SIZE;
+    static const size_t code_alloc_sz = PAGE_SIZE;
+    size_t hook_code_sz = PAGE_SIZE;
+    void *switch_code_location = hook_location;
+#ifdef X64
+    byte *mode_switch_buf = NULL;
+    byte *mode_switch_data = NULL;
+    size_t switch_code_sz = PAGE_SIZE;
+    static const size_t switch_data_sz = SWITCH_MODE_DATA_SIZE;
+#endif
     size_t num_bytes_out;
     uint old_prot;
     earliest_args_t args;
     int i;
 
-    /* map DR dll into child
-     *
-     * FIXME i#625: check memory in child for conflict w/ DR from executable
-     * (PEB->ImageBaseAddress doesn't seem to be set by kernel so how
-     * locate executable easily?) and fall back to late injection.
-     * Eventually we'll have to support rebasing from parent, or from
-     * contains-no-relocation code in DR.
-     */
-    if (!convert_to_NT_file_path(dllpath, dynamo_path, BUFFER_SIZE_ELEMENTS(dllpath)))
-        goto done;
-    NULL_TERMINATE_BUFFER(dllpath);
-    res = nt_create_module_file(&file, dllpath, NULL, FILE_EXECUTE | FILE_READ_DATA,
-                                FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, 0);
-    if (!NT_SUCCESS(res))
-        goto done;
-    res = nt_create_section(&section, SECTION_ALL_ACCESS, NULL, /* full file size */
-                            PAGE_EXECUTE_WRITECOPY, SEC_IMAGE, file,
-                            /* XXX: do we need security options to put in other process? */
-                            NULL /* unnamed */, 0, NULL, NULL);
-    if (!NT_SUCCESS(res))
-        goto done;
-    res = nt_raw_MapViewOfSection(section, /* 0 */
-                                  phandle, /* 1 */
-                                  &map, /* 2 */
-                                  0, /* 3 */
-                                  0 /* not page-file-backed */, /* 4 */
-                                  NULL, /* 5 */
-                                  (PSIZE_T) &view_size, /* 6 */
-                                  ViewUnmap, /* 7 */
-                                  0 /* no special top-down or anything */, /* 8 */
-                                  PAGE_EXECUTE_WRITECOPY); /* 9 */
-    if (!NT_SUCCESS(res))
-        goto done;
-
     /* generate code and data */
     remote_code_buf = allocate_remote_code_buffer(phandle, remote_alloc_sz, must_reach);
     if (remote_code_buf == NULL)
-        goto done;
+        goto error;
+
+    /* we can't use heap_mmap() in drinjectlib */
+    local_code_buf = allocate_remote_code_buffer(NT_CURRENT_PROCESS, code_alloc_sz, NULL);
+
+    hook_code_buf = remote_code_buf;
+    remote_data = remote_code_buf + code_alloc_sz;
+    ASSERT(sizeof(args) < PAGE_SIZE);
+
+#ifdef X64
+    if (x86_code) {
+        mode_switch_buf = remote_code_buf;
+        switch_code_location = mode_switch_buf;
+        mode_switch_data = remote_data;
+        remote_data += switch_data_sz;
+        switch_code_sz = generate_switch_mode_jmp_to_hook
+            (phandle, local_code_buf, mode_switch_buf, hook_location, switch_code_sz,
+             mode_switch_data);
+        if (!switch_code_sz || switch_code_sz == PAGE_SIZE)
+            goto error;
+        hook_code_sz -= switch_code_sz;
+        hook_code_buf += switch_code_sz;
+    }
+#endif
 
     /* see below on why it's easier to point at args in memory */
-    remote_data = remote_code_buf + code_sz;
-    ASSERT(sizeof(args) < PAGE_SIZE);
     args.dr_base = map;
 #ifdef NOT_DYNAMORIO_CORE_PROPER
     /* FIXME i#234 NYI: pass in ntdll_base */
@@ -1082,19 +1158,37 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
     args.ntdll_base = get_ntdll_base();
     args.tofree_base = remote_code_buf;
     args.hook_location = hook_location;
+    args.late_injection = late_injection;
     strncpy(args.dynamorio_lib_path, dynamo_path,
             BUFFER_SIZE_ELEMENTS(args.dynamorio_lib_path));
     NULL_TERMINATE_BUFFER(args.dynamorio_lib_path);
     if (!nt_write_virtual_memory(phandle, remote_data, &args,
                                  sizeof(args), &num_bytes_out) ||
         num_bytes_out != sizeof(args)) {
-        goto done;
+        goto error;
     }
 
-    /* we can't use heap_mmap() in drinjectlib */
-    local_code_buf = allocate_remote_code_buffer(NT_CURRENT_PROCESS, code_sz, NULL);
     instrlist_init(&ilist);
-
+#ifdef X64
+    if (x86_code) {
+        /* Mode Switch from 32 bit to 64 bit.
+         * Forward align stack.
+         */
+        instr_t *label64 = INSTR_CREATE_label(GDC);
+        instr_t *ljmp = INSTR_CREATE_jmp_far
+            (GDC, opnd_create_far_instr(CS64_SELECTOR, label64));
+        instr_t *save_esp = INSTR_CREATE_mov_st
+            (GDC, OPND_CREATE_MEM32(REG_NULL, (int)(size_t)mode_switch_data),
+             opnd_create_reg(REG_ESP));
+        instr_t *and_esp = INSTR_CREATE_and(GDC, opnd_create_reg(REG_ESP),
+                                            OPND_CREATE_INT32(-8));
+        instr_set_x86_mode(ljmp, true);
+        APP(&ilist, save_esp);
+        APP(&ilist, ljmp);
+        APP(&ilist, label64);
+        APP(&ilist, and_esp);
+    }
+#endif
     /* restore hook rather than trying to pass contents to C code
      * (we leave hooked page writable for this and C code restores)
      */
@@ -1132,13 +1226,13 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
      * clean them up.
      */
     APP(&ilist, INSTR_CREATE_push_imm
-        (GDC, OPND_CREATE_INT32((int)(ptr_int_t)hook_location)));
+        (GDC, OPND_CREATE_INT32((int)(ptr_int_t)switch_code_location)));
 #ifdef X64
     /* push is sign-extended, so we can skip top half if nothing in top 33 bits */
-    if ((ptr_uint_t)hook_location >= 0x80000000) {
+    if ((ptr_uint_t)switch_code_location >= 0x80000000) {
         APP(&ilist, INSTR_CREATE_mov_st
             (GDC, OPND_CREATE_MEM32(REG_XSP, 4),
-             OPND_CREATE_INT32((int)((ptr_int_t)hook_location >> 32))));
+             OPND_CREATE_INT32((int)((ptr_int_t)switch_code_location >> 32))));
     }
 #endif
 #ifdef NOT_DYNAMORIO_CORE_PROPER
@@ -1150,7 +1244,7 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
 #else
     pc = (byte *)dynamorio_earliest_init_takeover - get_dynamorio_dll_start() + map;
 #endif
-    if (REL32_REACHABLE(pc, remote_code_buf) &&
+    if (REL32_REACHABLE(pc, hook_code_buf) &&
         /* over-estimate to be sure: we assert below we're < PAGE_SIZE */
         REL32_REACHABLE(pc, remote_code_buf + PAGE_SIZE)) {
         APP(&ilist, INSTR_CREATE_jmp(GDC, opnd_create_pc(pc)));
@@ -1166,35 +1260,96 @@ inject_gencode_earliest(HANDLE phandle, char *dynamo_path, void *hook_location,
      * need to finalize and then do direct copy to child process
      */
     pc = instrlist_encode_to_copy(GDC, &ilist, local_code_buf,
-                                  remote_code_buf, local_code_buf + code_sz,
+                                  hook_code_buf, local_code_buf + hook_code_sz,
                                   true/*has instr targets*/);
-    ASSERT(pc != NULL && pc < local_code_buf + code_sz);
+    ASSERT(pc != NULL && pc < local_code_buf + hook_code_sz);
     instrlist_clear(GDC, &ilist);
 
     /* copy local buffer to child process */
-    if (!nt_write_virtual_memory(phandle, remote_code_buf, local_code_buf,
+    if (!nt_write_virtual_memory(phandle, hook_code_buf, local_code_buf,
                                  pc - local_code_buf, &num_bytes_out) ||
         num_bytes_out != (size_t)(pc - local_code_buf)) {
-        goto done;
+        goto error;
     }
-    if (!nt_remote_protect_virtual_memory(phandle, remote_code_buf, remote_alloc_sz,
-                                          PAGE_EXECUTE_READ, &old_prot)) {
-        ASSERT_NOT_REACHED();
-        goto done;
-    }
-    success = true;
 
- done:
-    close_handle(file);
-    close_handle(section);
+    if (!nt_remote_protect_virtual_memory(phandle, remote_code_buf, remote_alloc_sz,
+                                          PAGE_EXECUTE_READWRITE, &old_prot)) {
+        ASSERT_NOT_REACHED();
+        goto error;
+    }
+
+    free_remote_code_buffer(NT_CURRENT_PROCESS, local_code_buf);
+    return (void *) hook_code_buf;
+
+ error:
     if (local_code_buf != NULL)
         free_remote_code_buffer(NT_CURRENT_PROCESS, local_code_buf);
-    if (!success) {
-        if (remote_code_buf != NULL)
-            free_remote_code_buffer(phandle, remote_code_buf);
-        return NULL;
-    } else
-        return (void *) remote_code_buf;
+    if (remote_code_buf != NULL)
+        free_remote_code_buffer(phandle, remote_code_buf);
+    return NULL;
+}
+
+/* i#234: earliest injection so we see every single user-mode instruction
+ * XXX i#625: not supporting rebasing: assuming no conflict w/ executable
+ */
+static void *
+inject_gencode_mapped(HANDLE phandle, char *dynamo_path, void *hook_location,
+                      byte hook_buf[EARLY_INJECT_HOOK_SIZE], void *must_reach,
+                      bool x86_code, bool late_injection)
+{
+    bool success = false;
+    NTSTATUS res;
+    HANDLE file = INVALID_HANDLE_VALUE;
+    HANDLE section = INVALID_HANDLE_VALUE;
+    byte *map = NULL;
+    size_t view_size = 0;
+    wchar_t dllpath[MAX_PATH];
+    byte *ret = NULL;
+
+    /* map DR dll into child
+     *
+     * FIXME i#625: check memory in child for conflict w/ DR from executable
+     * (PEB->ImageBaseAddress doesn't seem to be set by kernel so how
+     * locate executable easily?) and fall back to late injection.
+     * Eventually we'll have to support rebasing from parent, or from
+     * contains-no-relocation code in DR.
+     */
+    if (!convert_to_NT_file_path(dllpath, dynamo_path, BUFFER_SIZE_ELEMENTS(dllpath)))
+        goto done;
+    NULL_TERMINATE_BUFFER(dllpath);
+    res = nt_create_module_file(&file, dllpath, NULL, FILE_EXECUTE | FILE_READ_DATA,
+                                FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, 0);
+    if (!NT_SUCCESS(res))
+        goto done;
+
+    res = nt_create_section(&section, SECTION_ALL_ACCESS, NULL, /* full file size */
+                            PAGE_EXECUTE_WRITECOPY, SEC_IMAGE, file,
+                            /* XXX: do we need security options to put in other process?*/
+                            NULL /* unnamed */, 0, NULL, NULL);
+    if (!NT_SUCCESS(res))
+        goto done;
+
+    res = nt_raw_MapViewOfSection(section,
+                                  phandle,
+                                  &map,
+                                  0,
+                                  0 /* not page-file-backed */,
+                                  NULL,
+                                  (PSIZE_T) &view_size,
+                                  ViewUnmap,
+                                  0 /* no special top-down or anything */,
+                                  PAGE_EXECUTE_WRITECOPY);
+    if (!NT_SUCCESS(res))
+        goto done;
+
+    ret = inject_gencode_mapped_helper(phandle, dynamo_path, hook_location, hook_buf,
+                                       map, must_reach, x86_code, late_injection);
+ done:
+    if (ret == NULL) {
+        close_handle(file);
+        close_handle(section);
+    }
+    return (void*)ret;
 }
 
 /* Early injection. */
@@ -1208,6 +1363,8 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
     uint old_prot;
     size_t num_bytes_out;
     byte hook_buf[EARLY_INJECT_HOOK_SIZE];
+    bool x86_code = false;
+    bool late_injection = false;
 
     /* Possible child hook points */
     GET_NTDLL(KiUserApcDispatcher, (IN PVOID Unknown1,
@@ -1254,6 +1411,10 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
     case INJECT_LOCATION_KiUserException:
         hook_location = (void *)KiUserExceptionDispatcher;
         break;
+    case INJECT_LOCATION_ImageEntry:
+        hook_location = get_remote_process_entry(phandle, &x86_code);
+        late_injection = true;
+        break;
     default:
         ASSERT_NOT_REACHED();
         goto error;
@@ -1276,25 +1437,30 @@ inject_into_new_process(HANDLE phandle, char *dynamo_path, bool map,
      * else.  Thus, we pass NULL instead of hook_location for must_reach.
      */
     if (map) {
-        hook_target = inject_gencode_earliest(phandle, dynamo_path, hook_location,
-                                              hook_buf, NULL);
+        hook_target = inject_gencode_mapped(phandle, dynamo_path, hook_location,
+                                            hook_buf, NULL, x86_code, late_injection);
     } else {
         hook_target = inject_gencode_at_ldr(phandle, dynamo_path, inject_location,
-                                            inject_address, hook_location, hook_buf, NULL);
+                                            inject_address, hook_location,
+                                            hook_buf, NULL);
     }
     if (hook_target == NULL)
         goto error;
 
     /* Place hook */
-#ifndef X64
-    hook_buf[0] = JMP_REL32;
-    *(int *)(&hook_buf[1]) = (int)((byte *)hook_target - ((byte *)hook_location + 5));
-#else
-    hook_buf[0] = JMP_ABS_IND64_OPCODE;
-    hook_buf[1] = JMP_ABS_MEM_IND64_MODRM;
-    *(int *)(&hook_buf[2]) = 0; /* rip-rel to following address */
-    *(byte **)(&hook_buf[6]) = hook_target;
+    if (IF_X64_ELSE(x86_code, true)) {
+        hook_buf[0] = JMP_REL32;
+        *(int *)(&hook_buf[1]) = (int)((byte *)hook_target - ((byte *)hook_location + 5));
+    }
+#ifdef X64
+    else {
+        hook_buf[0] = JMP_ABS_IND64_OPCODE;
+        hook_buf[1] = JMP_ABS_MEM_IND64_MODRM;
+        *(int *)(&hook_buf[2]) = 0; /* rip-rel to following address */
+        *(byte **)(&hook_buf[6]) = hook_target;
+    }
 #endif
+
     if (!nt_remote_protect_virtual_memory(phandle, hook_location,
                                           sizeof(hook_buf),
                                           PAGE_EXECUTE_READWRITE, &old_prot)) {

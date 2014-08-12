@@ -1672,4 +1672,10 @@ void *_dynamorio_runtime_resolve(void);
 # define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
 #endif
 
+/* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
+ * Keep in synch w/ defines in x86.asm
+ */
+#define CS32_SELECTOR 0x23
+#define CS64_SELECTOR 0x33
+
 #endif /* _ARCH_EXPORTS_H_ */

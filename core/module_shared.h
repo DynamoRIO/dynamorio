@@ -327,6 +327,11 @@ get_proc_address_resolve_forward(module_base_t lib, const char *name);
 
 #endif /* WINDOWS */
 
+#ifdef WINDOWS
+void *
+get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code);
+#endif
+
 void print_modules(file_t f, bool dump_xml);
 
 const char *get_module_short_name(app_pc pc HEAPACCT(which_heap_t which));
