@@ -178,9 +178,6 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type);
 
 #ifdef DEBUG
-static void
-annotation_snprintf(char *buffer, uint length, const char *format, ...);
-
 static ssize_t
 annotation_printf(const char *format, ...);
 #endif
@@ -900,15 +897,6 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
 #endif
 
 #ifdef DEBUG
-static void
-annotation_snprintf(char *buffer, uint length, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vsnprintf(buffer, length, format, ap);
-    va_end(ap);
-}
-
 static ssize_t
 annotation_printf(const char *format, ...)
 {
@@ -932,14 +920,14 @@ annotation_printf(const char *format, ...)
             char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, format_length,
                                                  ACCT_OTHER, UNPROTECTED);
 
-            annotation_snprintf(timestamped, length_before_token, "%s", format);
+            our_snprintf(timestamped, length_before_token, "%s", format);
             sec = (uint) (timestamp / 1000);
             msec = (uint) (timestamp % 1000);
             min = sec / 60;
             sec = sec % 60;
-            annotation_snprintf(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
+            our_snprintf(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
 
-            annotation_snprintf(timestamped + length_before_token,
+            our_snprintf(timestamped + length_before_token,
                            (format_length - length_before_token), "%s%s",
                            timestamp_buffer, timestamp_token_start + strlen("${timestamp}"));
             format = (const char *) timestamped;
@@ -958,23 +946,6 @@ annotation_printf(const char *format, ...)
     return count;
 }
 #endif
-
-static inline const char *
-heap_strcpy(const char *src)
-{
-    size_t len = strlen(src) + 1;
-    char *dst = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, len,
-                                 ACCT_OTHER, UNPROTECTED);
-    memcpy(dst, src, len);
-    return (const char *) dst;
-}
-
-static inline void
-heap_str_free(const char *str)
-{
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, str, char, strlen(str) + 1,
-                    ACCT_OTHER, UNPROTECTED);
-}
 
 static void
 free_annotation_handler(void *p)

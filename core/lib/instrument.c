@@ -396,12 +396,16 @@ remove_callback(callback_list_t *vec, void (*func)(void), bool unprotect)
  * and since this routine assumes .data is writable.
  */
 static void
-add_client_lib(char *path, client_id_t id, char *options)
+add_client_lib(char *path, char *id_str, char *options)
 {
+    client_id_t id;
     shlib_handle_t client_lib;
     DEBUG_DECLARE(size_t i);
 
     ASSERT(!dynamo_initialized);
+
+    /* if ID not specified, we'll default to 0 */
+    id = (id_str == NULL) ? 0 : strtoul(id_str, NULL, 16);
 
 #ifdef DEBUG
     /* Check for conflicting IDs */
@@ -451,7 +455,6 @@ add_client_lib(char *path, client_id_t id, char *options)
         if (uses_dr_version == NULL ||
             *uses_dr_version < OLDEST_COMPATIBLE_VERSION ||
             *uses_dr_version > NEWEST_COMPATIBLE_VERSION) {
-
             /* not a fatal usage error since we want release build to continue */
             CLIENT_ASSERT(false,
                           "client library is incompatible with this version of DR");
@@ -508,22 +511,16 @@ instrument_load_client_libs(void)
         /* We're expecting path;ID;options triples */
         path = buf;
         do {
-            client_id_t id;
-            char *id_str = NULL;
+            char *id = NULL;
             char *options = NULL;
             char *next_path = NULL;
 
-            id_str = strstr(path, ";");
-            if (id_str == NULL) {
-                id = 0; /* default to id 0 */
-            } else {
-                id_str[0] = '\0';
-                id_str++;
-                id = strtoul(id_str, NULL, 16);
-                CLIENT_ASSERT(id != DR_INTERNAL_CLIENT_ID,
-                              "Client id -1 is reserved for internal use.");
+            id = strstr(path, ";");
+            if (id != NULL) {
+                id[0] = '\0';
+                id++;
 
-                options = strstr(id_str, ";");
+                options = strstr(id, ";");
                 if (options != NULL) {
                     options[0] = '\0';
                     options++;
@@ -6489,7 +6486,6 @@ dr_mark_trace_head(void *drcontext, void *tag)
     CLIENT_ASSERT(drcontext != NULL, "dr_mark_trace_head: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_mark_trace_head: drcontext is invalid");
-
     /* Required to make the future-fragment lookup and add atomic and for
      * mark_trace_head.  We have to grab before fragment_delete_mutex so
      * we pay the cost of acquiring up front even when f->flags doesn't
