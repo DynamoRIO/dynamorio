@@ -52,8 +52,6 @@
 # include "../third_party/valgrind/memcheck.h"
 #endif
 
-#define MAX_ANNOTATION_INSTR_COUNT 100
-
 #ifdef UNIX
 # include <string.h>
 #endif

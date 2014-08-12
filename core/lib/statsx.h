@@ -1220,4 +1220,11 @@
     RSTATS_DEF("App-managed trace buckets allocated", app_managed_trace_buckets_allocated)
     RSTATS_DEF("App-managed trace buckets freed", app_managed_trace_buckets_freed)
     RSTATS_DEF("App-managed trace buckets live", app_managed_trace_buckets_live)
+    RSTATS_DEF("App-managed total bbs", app_managed_bb_count)
+    RSTATS_DEF("App-managed small bbs", app_managed_small_bb_count)
+    RSTATS_DEF("App-managed large bbs", app_managed_large_bb_count)
+    RSTATS_DEF("App-managed total bb bytes", app_managed_bb_bytes)
+    RSTATS_DEF("App-managed one-bucket bbs", app_managed_one_bucket_bbs)
+    RSTATS_DEF("App-managed two-bucket bbs", app_managed_two_bucket_bbs)
+    RSTATS_DEF("App-managed many-bucket bbs", app_managed_many_bucket_bbs)
 #endif

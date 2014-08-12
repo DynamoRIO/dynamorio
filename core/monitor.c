@@ -1291,6 +1291,10 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         }
     });
 
+#ifdef JITOPT
+    add_patchable_trace(md);
+#endif
+
 #ifdef CLIENT_INTERFACE
     if (md->pass_to_client) {
         /* PR 299808: we pass the unmangled ilist we've been maintaining to the
@@ -1777,10 +1781,6 @@ internal_extend_trace(dcontext_t *dcontext, fragment_t *f, linkstub_t *prev_l,
         release_vm_areas_lock(dcontext, f->flags);
         SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
     }
-
-#ifdef JITOPT
-    add_patchable_trace(md->trace_tag, f->tag);
-#endif
 
     DOLOG(3, LOG_MONITOR, {
         LOG(THREAD, LOG_MONITOR, 4, "After extending, trace looks like this:\n");

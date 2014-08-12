@@ -34,7 +34,6 @@
 #include "fragment.h"
 #include "hashtable.h"
 #include "instrument.h" // hackish...
-#include "monitor.h"
 #include "jitopt.h"
 
 #ifdef JITOPT
@@ -106,14 +105,15 @@ typedef struct _dgc_fragment_intersection_t {
 
 static dgc_fragment_intersection_t *fragment_intersection;
 
+//#define FULL_TRACE_LOG
+
 #ifdef DEBUG
 # define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
 # define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 #else
-# define RELEASE_LOG(file, category, level, ...)
-//dr_printf(__VA_ARGS__)
+# define RELEASE_LOG(file, category, level, ...) dr_printf(__VA_ARGS__)
 # define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
@@ -203,29 +203,6 @@ annotation_unmanage_code_area(app_pc start, size_t len)
 #endif
 }
 
-/*
-    RSTATS_DEF("App-managed writes observed", app_managed_writes_observed);
-    RSTATS_DEF("App-managed writes ignored", app_managed_writes_ignored);
-    RSTATS_DEF("App-managed writes handled", app_managed_writes_handled);
-    RSTATS_DEF("App-managed fragments removed", app_managed_fragments_removed);
-    RSTATS_DEF("App-managed micro writes", app_managed_micro_writes);
-    RSTATS_DEF("App-managed word writes", app_managed_word_writes);
-    RSTATS_DEF("App-managed small writes", app_managed_small_writes);
-    RSTATS_DEF("App-managed sub-page writes", app_managed_subpage_writes);
-    RSTATS_DEF("App-managed page writes", app_managed_page_writes);
-    RSTATS_DEF("App-managed multi-page writes", app_managed_multipage_writes);
-    RSTATS_DEF("App-managed BB buckets allocated", app_managed_bb_buckets_allocated);
-    RSTATS_DEF("App-managed BB buckets freed", app_managed_bb_buckets_freed);
-    RSTATS_DEF("App-managed BB buckets live", app_managed_bb_buckets_live);
-    RSTATS_DEF("App-managed trace buckets allocated", app_managed_trace_buckets_allocated);
-    RSTATS_DEF("App-managed trace buckets freed", app_managed_trace_buckets_freed);
-    RSTATS_DEF("App-managed trace buckets live", app_managed_trace_buckets_live);
-    RSTATS_DEC(x)
-    RSTATS_INC(x)
-    RSTATS_ADD(x)
-    RSTATS_SUB(x)
-*/
-
 void
 annotation_flush_fragments(app_pc start, size_t len)
 {
@@ -235,6 +212,7 @@ annotation_flush_fragments(app_pc start, size_t len)
     dcontext_t *dcontext = NULL; // FIXME
 #endif
 
+    // this is slow--maybe keep a local sorted list of app-managed regions
     if (!is_app_managed_code(start))
         return;
 
@@ -246,6 +224,7 @@ annotation_flush_fragments(app_pc start, size_t len)
     //if (!executable_vm_area_executed_from(start, start+len))
     //    return;
 
+    RSTATS_INC(app_managed_writes_observed);
 #ifdef JITOPT
     if (len < 0x400) {
         uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
@@ -255,14 +234,7 @@ annotation_flush_fragments(app_pc start, size_t len)
         } else {
             RSTATS_INC(app_managed_writes_ignored);
         }
-        // causes some unstability in v8!
-        /*
-        executable_areas_lock();
-        vm_area_isolate_region(dcontext, start, start+len);
-        executable_areas_unlock();
-        */
-    } else {
-# endif
+
         if (len < 4)
             RSTATS_INC(app_managed_micro_writes);
         else if (len == 4)
@@ -271,7 +243,14 @@ annotation_flush_fragments(app_pc start, size_t len)
             RSTATS_INC(app_managed_small_writes);
         else if (len <= 0x100)
             RSTATS_INC(app_managed_subpage_writes);
-        else if (len == PAGE_SIZE)
+
+        // causes some unstability in v8!
+        executable_areas_lock();
+        vm_area_isolate_region(dcontext, start, start+len);
+        executable_areas_unlock();
+    } else {
+# endif
+        if (len == PAGE_SIZE)
             RSTATS_INC(app_managed_page_writes);
         else
             RSTATS_INC(app_managed_multipage_writes);
@@ -677,6 +656,40 @@ dgc_stage_removal_gc_outliers(ptr_uint_t bucket_id)
     }
 }
 
+#define DGC_REPORT_ONE_STAT(stat) \
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " | %s: %d\n", \
+                stats->stat##_pair.name, \
+                stats->stat##_pair.value);
+
+static void
+dgc_stat_report()
+{
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
+    DGC_REPORT_ONE_STAT(app_managed_writes_observed);
+    DGC_REPORT_ONE_STAT(app_managed_writes_ignored);
+    DGC_REPORT_ONE_STAT(app_managed_writes_handled);
+    DGC_REPORT_ONE_STAT(app_managed_fragments_removed);
+    DGC_REPORT_ONE_STAT(app_managed_micro_writes);
+    DGC_REPORT_ONE_STAT(app_managed_word_writes);
+    DGC_REPORT_ONE_STAT(app_managed_small_writes);
+    DGC_REPORT_ONE_STAT(app_managed_subpage_writes);
+    DGC_REPORT_ONE_STAT(app_managed_page_writes);
+    DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_small_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_large_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_bb_bytes);
+    DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
+}
+
 void
 dgc_notify_region_cleared(app_pc start, app_pc end)
 {
@@ -702,6 +715,8 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
     }
     dgc_bucket_gc();
     TABLE_RWLOCK(dgc_table, write, unlock);
+
+    dgc_stat_report();
 }
 
 void
@@ -716,18 +731,33 @@ void
 add_patchable_bb(app_pc start, app_pc end)
 {
     bool found = false;
-    uint i;
+    uint i, span = end - start;
     ptr_uint_t bucket_id;
+    ptr_uint_t start_bucket_id = BUCKET_ID(start);
+    ptr_uint_t end_bucket_id = BUCKET_ID(end - 1);
     dgc_bb_t *last_bb = NULL, *first_bb = NULL;
     dgc_bucket_t *bucket;
 
+    // this is slow--maybe keep a local sorted list of app-managed regions
     if (!is_app_managed_code(start))
         return;
 
     LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX"-"PFX"\n", start, end);
+    RSTATS_INC(app_managed_bb_count);
+    RSTATS_ADD(app_managed_bb_bytes, end - start);
+    if (span < 12)
+        RSTATS_INC(app_managed_small_bb_count);
+    else if (span > 32)
+        RSTATS_INC(app_managed_large_bb_count);
+    if (start_bucket_id == end_bucket_id)
+        RSTATS_INC(app_managed_one_bucket_bbs);
+    else if ((end_bucket_id - start_bucket_id) == 1)
+        RSTATS_INC(app_managed_two_bucket_bbs);
+    else
+        RSTATS_INC(app_managed_many_bucket_bbs);
 
     TABLE_RWLOCK(dgc_table, write, lock);
-    for (bucket_id = BUCKET_ID(start); bucket_id <= BUCKET_ID(end - 1); bucket_id++) {
+    for (bucket_id = start_bucket_id; bucket_id <= end_bucket_id; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
         if (bucket == NULL) {
             bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
@@ -822,49 +852,61 @@ add_patchable_bb(app_pc start, app_pc end)
 }
 
 void
-add_patchable_trace(app_pc trace_tag, app_pc bb_tag)
+add_patchable_trace(monitor_data_t *md)
 {
     bool found_trace = false;
     dgc_bb_t *bb;
+    app_pc bb_tag;
+    uint i;
 
-    if (!is_app_managed_code(bb_tag))
+    if (md->num_blks == 1)
         return;
 
-    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX" to trace "PFX"\n", bb_tag, trace_tag);
-
     TABLE_RWLOCK(dgc_table, write, lock);
-    bb = dgc_table_find_bb(bb_tag, NULL, NULL);
-    if (bb != NULL) {
-        dgc_trace_t *trace = bb->containing_trace_list;
-        while (trace != NULL) {
-            if (trace->tags[0] == trace_tag) {
-                found_trace = true;
-                break;
+#ifdef FULL_TRACE_LOG
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add trace {"PFX, md->trace_tag);
+#endif
+    for (i = 1; i < md->num_blks; i++) {
+        bb_tag = md->blk_info[i].info.tag;
+#ifdef FULL_TRACE_LOG
+        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, ", "PFX, bb_tag);
+#endif
+        bb = dgc_table_find_bb(bb_tag, NULL, NULL);
+        if (bb != NULL) {
+            dgc_trace_t *trace = bb->containing_trace_list;
+            while (trace != NULL) {
+                if (trace->tags[0] == md->trace_tag) {
+                    found_trace = true;
+                    break;
+                }
+                if (trace->tags[1] == NULL)
+                    break;
+                if (trace->tags[1] == md->trace_tag) {
+                    found_trace = true;
+                    break;
+                }
+                trace = trace->next_trace;
             }
-            if (trace->tags[1] == NULL)
-                break;
-            if (trace->tags[1] == trace_tag) {
-                found_trace = true;
-                break;
-            }
-            trace = trace->next_trace;
-        }
-        if (!found_trace) {
-            if (trace != NULL) {
-                ASSERT(trace->tags[1] == NULL);
-                trace->tags[1] = trace_tag;
-            } else {
-                trace = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_trace_t,
-                                        ACCT_OTHER, UNPROTECTED);
-                trace->tags[0] = trace_tag;
-                trace->tags[1] = NULL;
-                trace->next_trace = bb->containing_trace_list;
-                bb->containing_trace_list = trace;
-                RSTATS_INC(app_managed_trace_buckets_live);
-                RSTATS_INC(app_managed_trace_buckets_allocated);
+            if (!found_trace) {
+                if (trace != NULL) {
+                    ASSERT(trace->tags[1] == NULL);
+                    trace->tags[1] = md->trace_tag;
+                } else {
+                    trace = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_trace_t,
+                                            ACCT_OTHER, UNPROTECTED);
+                    trace->tags[0] = md->trace_tag;
+                    trace->tags[1] = NULL;
+                    trace->next_trace = bb->containing_trace_list;
+                    bb->containing_trace_list = trace;
+                    RSTATS_INC(app_managed_trace_buckets_live);
+                    RSTATS_INC(app_managed_trace_buckets_allocated);
+                }
             }
         }
     }
+#ifdef FULL_TRACE_LOG
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "}\n");
+#endif
     TABLE_RWLOCK(dgc_table, write, unlock);
 }
 
@@ -1154,7 +1196,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return 0;
 
-    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+    LOG(GLOBAL, LOG_FRAGMENT, 1,
         "DGC: remove all fragments containing "PFX"-"PFX":\n",
         patch_start, patch_end);
 
@@ -1167,13 +1209,13 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
         remove_patchable_fragment_list(dcontext, patch_start, patch_end);
 
-        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
-                    "DGC: done removing %d fragments in "PFX"-"PFX"%s\n",
+        LOG(GLOBAL, LOG_FRAGMENT, 1,
+                    "DGC: done removing %d fragments in "PFX"-"PFX"\n",
                     fragment_intersection_count, patch_start, patch_end);
 
         enter_nolinking(dcontext, NULL, false);
     } else {
-        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: no fragments found in "PFX"-"PFX"%s\n",
+        LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: no fragments found in "PFX"-"PFX"\n",
                     patch_start, patch_end);
     }
     mutex_unlock(&thread_initexit_lock);

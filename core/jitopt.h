@@ -33,6 +33,8 @@
 #ifndef _JITOPT_H_
 #define _JITOPT_H_ 1
 
+#include "monitor.h"
+
 void
 jitopt_init();
 
@@ -54,7 +56,7 @@ void
 add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
 
 void
-add_patchable_trace(app_pc trace_tag, app_pc bb_tag);
+add_patchable_trace(monitor_data_t *md);
 
 uint
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end);
