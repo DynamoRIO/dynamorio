@@ -34,6 +34,7 @@
 #include "fragment.h"
 #include "hashtable.h"
 #include "instrument.h" // hackish...
+#include "annotations.h"
 #include "jitopt.h"
 
 #ifdef JITOPT
@@ -105,6 +106,15 @@ typedef struct _dgc_fragment_intersection_t {
 
 static dgc_fragment_intersection_t *fragment_intersection;
 
+#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_manage_code_area"
+
+#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_unmanage_code_area"
+
+#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
+    "dynamorio_annotate_flush_fragments"
+
 //#define FULL_TRACE_LOG
 
 #ifdef DEBUG
@@ -119,6 +129,11 @@ static dgc_fragment_intersection_t *fragment_intersection;
         dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 #endif
 
+#if !(defined (WINDOWS) && defined (X64))
+static ptr_uint_t
+valgrind_discard_translations(dr_vg_client_request_t *request);
+#endif
+
 static void
 free_dgc_bucket_chain(void *p);
 
@@ -127,6 +142,21 @@ free_dgc_bucket_chain(void *p);
 void
 jitopt_init()
 {
+    dr_annotation_register_call(DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
+                                (void *) annotation_manage_code_area, false, 2,
+                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
+
+    dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
+                                (void *) annotation_unmanage_code_area, false, 2,
+                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
+
+    dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
+                                (void *) annotation_flush_fragments, false, 2,
+                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
+
+    dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
+                                    valgrind_discard_translations);
+
 #ifdef JITOPT
     dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 7, 80,
                                     HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
@@ -274,6 +304,15 @@ annotation_flush_fragments(app_pc start, size_t len)
     }
 #endif
 }
+
+#if !(defined (WINDOWS) && defined (X64))
+static ptr_uint_t
+valgrind_discard_translations(dr_vg_client_request_t *request)
+{
+    annotation_flush_fragments((app_pc) request->args[0], request->args[1]);
+    return 0;
+}
+#endif
 
 #ifdef JITOPT
 

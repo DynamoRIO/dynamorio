@@ -89,15 +89,6 @@
 #define DYNAMORIO_ANNOTATE_LOG_NAME \
     "dynamorio_annotate_log"
 
-#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_manage_code_area"
-
-#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_unmanage_code_area"
-
-#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
-    "dynamorio_annotate_flush_fragments"
-
 static strhash_table_t *handlers;
 
 // locked under the `handlers` table lock
@@ -171,9 +162,6 @@ lookup_valgrind_request(ptr_uint_t request);
 
 static ptr_uint_t
 valgrind_running_on_valgrind(dr_vg_client_request_t *request);
-
-static ptr_uint_t
-valgrind_discard_translations(dr_vg_client_request_t *request);
 #endif
 
 static bool
@@ -219,7 +207,6 @@ annotation_init()
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
     vg_router.args = &vg_router_arg;
-    vg_router.arg_stack_space = 0;
     vg_router.id.vg_request_id = 0; // routes all requests
     vg_router.receiver_list = &vg_receiver;
     vg_receiver.instrumentation.vg_callback = (void *) handle_vg_annotation;
@@ -234,23 +221,8 @@ annotation_init()
                                 false, 20, DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif
 
-    dr_annotation_register_call(DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
-                                (void *) annotation_manage_code_area, false, 2,
-                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
-    dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
-                                (void *) annotation_unmanage_code_area, false, 2,
-                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
-    dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
-                                (void *) annotation_flush_fragments, false, 2,
-                                DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
     dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     valgrind_running_on_valgrind);
-
-    dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
-                                    valgrind_discard_translations);
 }
 
 void
@@ -618,7 +590,6 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 }
 
 /*********************************************************
-<<<<<<< HEAD
  * ANNOTATION IMPLEMENTATIONS
  */
 
@@ -651,11 +622,11 @@ handle_vg_annotation(app_pc request_args)
 
     /* The result code goes in xdx. */
     dcontext = get_thread_private_dcontext();
-#ifdef CLIENT_INTERFACE
+# ifdef CLIENT_INTERFACE
     if (dcontext->client_data->mcontext_in_dcontext) {
         get_mcontext(dcontext)->xdx = result;
     } else
-#endif
+# endif
     {
         char *state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
         ((priv_mcontext_t *)state)->xdx = result;
@@ -680,13 +651,6 @@ static ptr_uint_t
 valgrind_running_on_valgrind(dr_vg_client_request_t *request)
 {
     return 1;
-}
-
-static ptr_uint_t
-valgrind_discard_translations(dr_vg_client_request_t *request)
-{
-    annotation_flush_fragments((app_pc) request->args[0], request->args[1]);
-    return 0;
 }
 #endif
 
@@ -806,11 +770,11 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 {
     app_pc cur_pc = layout->start_pc;
     if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {
-#ifdef WINDOWS
+# ifdef WINDOWS
         if (*(cur_pc++) == 0x58) { // skip padding byte (`pop eax` indicates statement)
-#else
+# else
         if (instr_get_opcode(scratch) == OP_bsf) {
-#endif
+# endif
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
@@ -823,6 +787,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         layout->name = strchr(layout->name, ':') + 1;
     }
 }
+#endif
 
 #ifdef X64
 # ifdef UNIX
@@ -912,7 +877,6 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         case 1:
             handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
-    } else { // DR_ANNOTATION_CALL_TYPE_STDCALL
         /* Create the remaining args on the stack */
         for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
             /* The clean call will appear at the top of the annotation function body,
