@@ -270,6 +270,7 @@ endif()
 option(CALLPROF "internal caller profiling support")
 option(LINKCOUNT "internal linkcount profiling")
 option(PROFILE "profiling build: disables FPO and tweaks other flags" OFF)
+option(ANNOTATIONS "annotations" OFF)
 if (WIN32)
   # xref PR 192750 - runregression uses this to avoid over-ssh pdb issues
   option(GENERATE_PDBS "generate Windows debug information" ON)
@@ -322,6 +323,7 @@ mark_as_advanced(
   preferred_base
   GENERATE_PDBS
   DRSTATS_DEMO
+  ANNOTATIONS
   )
 
 # we clear both base and build-type cflags and then use just base.

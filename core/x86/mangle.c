@@ -4138,7 +4138,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
     dr_annotation_receiver_t *receiver = handler->receiver_list;
     opnd_t *args = NULL;
 
-    ASSERT(handler->type == ANNOT_HANDLER_CALL);
+    ASSERT(handler->type == DR_ANNOTATION_HANDLER_CALL);
 
     while (receiver != NULL) {
         if (handler->num_args != 0) {
