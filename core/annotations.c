@@ -49,13 +49,15 @@
 # include <string.h>
 #endif
 
-/* IS_ANNOTATION_LABEL_INSTRUCTION(instr):         evaluates to true for any `instr` that
- *                                                 could be the instruction from which the
- *                                                 label pointer is extracted.
- * IS_ANNOTATION_LABEL_REFERENCE(opnd):            evaluates to true for any `opnd` that
- *                                                 could be the instruction from which the
- *                                                 label pointer is extracted.
- * GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc):  extracts the label pointer
+/* Macros for identifying an annotation head and extracting the pointer to its name.
+ *
+ * IS_ANNOTATION_LABEL_INSTRUCTION(instr):         Evaluates to true for any `instr` that
+ *                                                 could be the instruction which encodes
+ *                                                 the pointer to the annotation name.
+ * IS_ANNOTATION_LABEL_REFERENCE(opnd):            Evaluates to true for any `opnd` that
+ *                                                 could be the operand which encodes
+ *                                                 the pointer to the annotation name.
+ * GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc):  Extracts the annotation name pointer.
  */
 #ifdef WINDOWS
 # ifdef X64
@@ -80,6 +82,42 @@
     ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
 #endif
 
+/* Annotation label components. */
+#define DYNAMORIO_ANNOTATION_LABEL "dynamorio-annotation"
+#define DYNAMORIO_ANNOTATION_LABEL_LENGTH 20
+#define ANNOTATION_STATEMENT_LABEL "statement"
+#define ANNOTATION_STATEMENT_LABEL_LENGTH 9
+#define ANNOTATION_EXPRESSION_LABEL "expression"
+#define ANNOTATION_EXPRESSION_LABEL_LENGTH 10
+#define ANNOTATION_VOID_LABEL "void"
+#define ANNOTATION_VOID_LABEL_LENGTH 4
+#define IS_ANNOTATION_STATEMENT_LABEL(annotation_name) \
+    (strncmp((const char *) annotation_name, ANNOTATION_STATEMENT_LABEL, \
+             ANNOTATION_STATEMENT_LABEL_LENGTH) == 0)
+#define IS_ANNOTATION_VOID(annotation_name) \
+    (strncmp((const char *) annotation_name, ANNOTATION_VOID_LABEL":", \
+             ANNOTATION_VOID_LABEL_LENGTH) == 0)
+
+/* Annotation detection factors exclusive to Windows x64. */
+#if defined (WINDOWS) && defined (X64)
+/* Instruction `int 2c` hints that the preceding cbr is probably an annotation head. */
+# define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
+# define X64_WINDOWS_ENCODED_ANNOTATION_HINT 0x2ccd
+/* Instruction `int 3` acts as a boundary for compiler optimizations, to prevent the
+ * the annotation from being transformed into something unrecognizable.
+ */
+# define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
+# define IS_ANNOTATION_HEADER(scratch, pc) \
+    (instr_is_cbr(scratch) && (*(ushort *) pc == X64_WINDOWS_ENCODED_ANNOTATION_HINT))
+#endif
+
+/* OPND_RETURN_VALUE: create the return value operand for `mov $return_value,%xax`. */
+#ifdef X64
+# define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT64(return_value)
+#else
+# define OPND_RETURN_VALUE(return_value) OPND_CREATE_INT32(return_value)
+#endif
+
 /* FASTCALL_REGISTER_ARG_COUNT: Specifies the number of arguments passed in registers. */
 #ifdef X64
 # ifdef UNIX
@@ -91,17 +129,18 @@
 # define FASTCALL_REGISTER_ARG_COUNT 2
 #endif
 
-/* Instruction `int 2c` hints that the preceding cbr is probably an annotation head. */
-#define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
-/* Instruction `int 3` acts as a kind of boundary for compiler optimizations. */
-#define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
-
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
 
 #define DYNAMORIO_ANNOTATE_LOG_NAME \
     "dynamorio_annotate_log"
 
+/* Facilitates timestamp substitution in `dynamorio_annotate_log()`. */
+#define LOG_ANNOTATION_TIMESTAMP_TOKEN "${timestamp}"
+#define LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH 12
+#define LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH 32
+
+/* Constant factors of the Valgrind annotation, as defined in valgrind.h. */
 enum {
     VG_ROL_COUNT = 4,
     VG_PATTERN_LENGTH = 5,
@@ -129,17 +168,36 @@ expected_rol_immeds[VG_PATTERN_LENGTH] = {
 #endif
 
 typedef enum _annotation_type_t {
+    /* Indicates that the analyzed instruction turned out not to be an annotation head. */
     ANNOTATION_TYPE_NONE,
+    /* To invoke an annotation as an expression, the target app calls the annotation as if
+     * it were a normal function. The annotation instruction sequence follows the preamble
+     * of each annotation function, and instrumentation replaces it with (1) a clean call
+     * to each registered handler for that annotation, or (2) a return value substitution,
+     * depending on the type of registration.
+     */
     ANNOTATION_TYPE_EXPRESSION,
+    /* To invoke an annotation as a statement, the target app calls a macro defined in
+     * the annotation header (via dr_annotations_asm.h), which places the annotation
+     * instruction sequence inline at the invocation site. The sequence includes a normal
+     * call to the annotation function, so instrumentation simply involves removing the
+     * surrounding components of the annotation to expose the call. The DR client's clean
+     * calls will be invoked within the annotation function itself (see above).
+     */
     ANNOTATION_TYPE_STATEMENT,
 } annotation_type_t;
 
+/* Specifies the exact byte position of the essential components of an annotation. */
 typedef struct _annotation_layout_t {
     app_pc start_pc;
     annotation_type_t type;
+    /* Indicates whether the annotation function in the target app is of void type. */
     bool is_void;
+    /* Points to the annotation name in the target app's data section. */
     const char *name;
+    /* Specifies the translation of the annotation instrumentation sequence. */
     app_pc substitution_xl8;
+    /* Specifies the byte at which app decoding should resume following the annotation. */
     app_pc resume_pc;
 } annotation_layout_t;
 
@@ -149,11 +207,15 @@ static strhash_table_t *handlers;
 static dr_annotation_handler_t *vg_handlers[DR_VG_ID__LAST];
 
 #if !(defined (WINDOWS) && defined (X64))
+/* Dispatching function for Valgrind annotations (required because id of the the Valgrind
+ * client request object cannot be determined statically).
+ */
 static dr_annotation_handler_t vg_router;
-static dr_annotation_receiver_t vg_receiver;
-static opnd_t vg_router_arg;
+static dr_annotation_receiver_t vg_receiver; /* The sole receiver for `vg_router`. */
+static opnd_t vg_router_arg; /* The sole argument for the clean call to `vg_router`. */
 #endif
 
+/* Required for passing the va_list in `dynamorio_annotate_log()` to the log function. */
 extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 /*********************************************************
@@ -161,9 +223,11 @@ extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
  */
 
 #if !(defined (WINDOWS) && defined (X64))
+/* Valgrind dispatcher, called by the instrumentation of the Valgrind annotations. */
 static void
 handle_vg_annotation(app_pc request_args);
 
+/* Maps a Valgrind request id into a (sequential) `DR_VG_ID__*` constant. */
 static dr_valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request);
 
@@ -185,6 +249,9 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type);
 
 #ifdef DEBUG
+/* Implements `dynamorio_annotate_log()`, including substitution of the string literal
+ * token "${timestamp}" with the current system time.
+ */
 static ssize_t
 annotation_printf(const char *format, ...);
 #endif
@@ -208,10 +275,11 @@ annotation_init()
 
 #if !(defined (WINDOWS) && defined (X64))
     vg_router.type = DR_ANNOTATION_HANDLER_CALL;
+    /* The Valgrind client request object is passed in %xax. */
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
     vg_router.args = &vg_router_arg;
-    vg_router.symbol_name = NULL;
+    vg_router.symbol_name = NULL; /* No symbols in Valgrind annotations. */
     vg_router.receiver_list = &vg_receiver;
     vg_receiver.instrumentation.vg_callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
@@ -221,10 +289,14 @@ annotation_init()
     dr_annotation_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
                              (void *) (ptr_uint_t) true);
 #ifdef DEBUG
+    /* The logging annotation requires a debug build of DR. Arbitrarily allows up to
+     * 20 arguments, since the clean call must have a fixed number of them.
+     */
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_LOG_NAME, (void *) annotation_printf,
                                 false, 20, DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif
 
+    /* DR pretends to be Valgrind. */
     dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     valgrind_running_on_valgrind);
 }
@@ -242,10 +314,10 @@ annotation_exit()
 }
 
 bool
-instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-                 _IF_WINDOWS_X64(bool hint_is_safe))
+instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
+                      OUT instr_t **substitution _IF_WINDOWS_X64(IN bool hint_is_safe))
 {
-    annotation_layout_t layout;
+    annotation_layout_t layout = {0};
     /* This instr_t is used for analytical decoding throughout the detection functions.
      * It is passed on the stack and its contents are considered void on function entry.
      */
@@ -256,24 +328,23 @@ instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitu
     byte hint_byte;
 #endif
 
-    memset(&layout, 0, sizeof(annotation_layout_t));
+    //memset(&layout, 0, sizeof(annotation_layout_t));
 
 #if defined (WINDOWS) && defined (X64)
     if (hint_is_safe) {
         hint_byte = *hint_pc;
     } else {
         if (!safe_read(hint_pc, 1, &hint_byte))
-            return NULL;
+            return false;
     }
     if (hint_byte != WINDOWS_X64_ANNOTATION_HINT_BYTE)
-        return NULL;
+        return false;
+    /* The hint is the first byte of the 2-byte instruction `int 2c`. Skip both bytes. */
     layout.start_pc = hint_pc + 2;
     layout.substitution_xl8 = layout.start_pc;
 #else
     layout.start_pc = *start_pc;
 #endif
-
-    // dr_printf("Look for annotation at "PFX"\n", *start_pc);
 
     instr_init(dcontext, &scratch);
     TRY_EXCEPT(dcontext, {
@@ -281,16 +352,13 @@ instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitu
     }, { /* EXCEPT */
         LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at "PFX"\n",
             *start_pc);
+        /* layout.type is already ANNOTATION_TYPE_NONE */
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
-        /*
-        dr_printf("Decoded %s of %s\n",
-                  (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
-                  layout.name);
-        dr_printf("\tSkip "PFX"-"PFX" and start decoding the annotation\n",
-                  *start_pc - 2, layout.resume_pc);
-        */
-
+        LOG(GLOBAL, LOG_ANNOTATIONS, 2, "Decoded %s instance of %s\n",
+           (layout.type == ANNOTATION_TYPE_EXPRESSION) ? "expression" : "statement",
+           layout.name);
+        /* Notify the caller where to resume decoding app instructions. */
         *start_pc = layout.resume_pc;
 
         if (layout.type == ANNOTATION_TYPE_EXPRESSION) {
@@ -300,101 +368,105 @@ instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitu
             handler = strhash_hash_lookup(GLOBAL_DCONTEXT, handlers, layout.name);
             if (handler != NULL) {
                 if (handler->type == DR_ANNOTATION_HANDLER_CALL) {
+                    /* Substitute the annotation with a label pointing to the handler. */
                     instr_t *call = INSTR_CREATE_label(dcontext);
                     dr_instr_label_data_t *label_data = instr_get_label_data_area(call);
-                    handler->is_void = layout.is_void;
-
-                    instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                    label_data->data[0] = (ptr_uint_t) handler;
+                    SET_ANNOTATION_HANDLER(label_data, handler);
                     SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
+                    instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
                     instr_set_ok_to_mangle(call, false);
-
                     *substitution = call;
 
+                    handler->is_void = layout.is_void;
                     if (!handler->is_void) {
+                        /* Append `mov $0x0,%eax` to the annotation substitution, so that
+                         * clients and tools recognize that %xax will be written here.
+                         * The placeholder is "ok to mangle" because it (partially)
+                         * implements the app's annotation. The placeholder will be
+                         * removed post-client during mangling.
+                         */
                         instr_t *return_placeholder =
                             INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
                                                           opnd_create_reg(REG_XAX),
                                                           OPND_CREATE_INT32(0)),
                                       layout.substitution_xl8);
                         instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
+                        /* Append the placeholder manually, because the caller can call
+                         * `instrlist_append()` with a "sublist" of instr_t.
+                         */
                         instr_set_next(*substitution, return_placeholder);
                         instr_set_prev(return_placeholder, *substitution);
                     }
                 } else {
+                    /* Substitute the annotation with `mov $return_value,%eax` */
                     void *return_value =
                         handler->receiver_list->instrumentation.return_value;
                     *substitution =
-                        INSTR_XL8(INSTR_CREATE_mov_st(dcontext,
-                                                      opnd_create_reg(REG_XAX),
-                                                      OPND_CREATE_INT32(return_value)),
+                        INSTR_XL8(INSTR_CREATE_mov_imm(dcontext,
+                                                       opnd_create_reg(REG_XAX),
+                                                       OPND_RETURN_VALUE(return_value)),
                                   layout.substitution_xl8);
-
-                    // instr_set_ok_to_mangle(*substitution, false);
                 }
-            }
+            } /* else no hnadlers, so replace the annotation with nothing */
             TABLE_RWLOCK(handlers, write, unlock);
         }
+        /* else (layout.type == ANNOTATION_TYPE_STATEMENT), in which case the only
+         * instrumentation is to remove the jump-over-annotation such that the annotation
+         * function gets called like a normal function. Instrumentation of clean calls and
+         * return values will then occur within the annotation function (the case above).
+         */
     }
-
     instr_free(dcontext, &scratch);
     return (layout.type != ANNOTATION_TYPE_NONE);
 }
 
 #if !(defined (WINDOWS) && defined (X64))
 void
-instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
+instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
                                app_pc xchg_pc, uint bb_instr_count)
 {
     int i;
     instr_t *return_placeholder;
-    instr_t *instr_walk;
+    instr_t *instr, *next_instr;
     dr_instr_label_data_t *label_data;
 
-    DOLOG(4, LOG_INTERP, {
-        LOG(THREAD, LOG_INTERP, 4, "Matched valgrind client request pattern at "PFX":\n",
-            instr_get_app_pc(instr));
-        LOG(THREAD, LOG_INTERP, 4, "\n");
-    });
+    LOG(THREAD, LOG_ANNOTATIONS, 2, "Matched valgrind client request pattern at "PFX"\n",
+        instr_get_app_pc(xchg_instr));
 
-    /* We leave the argument gathering code (typically "lea _zzq_args -> %xax"
-     * and "mov _zzq_default -> %xdx") as app instructions, as it writes to app
-     * registers (xref i#1423).
+    /* We leave the argument gathering code as app instructions, because it writes to app
+     * registers (xref i#1423). Now delete the `xchg` instruction, and the `rol`
+     * instructions--unless a previous BB contains some of the `rol`, in which case they
+     * must be executed to avoid messing up %xdi (the 4 `rol` compose to form a nop).
      */
-    instr_destroy(dcontext, instr);
-
-    /* Delete rol instructions--unless a previous BB contains some of them, in which
-     * case they must be executed to avoid messing up %xdi.
-     */
+    instr_destroy(dcontext, xchg_instr);
     if (bb_instr_count > VG_ROL_COUNT) {
         instr = instrlist_last(bb);
-        for (i = 0; (i < VG_ROL_COUNT) && (instr != NULL); i++) {
-            instr_walk = instr_get_prev(instr);
+        for (i = 0; i < VG_ROL_COUNT; i++) {
+            ASSERT(instr != NULL && instr_get_opcode(instr) == OP_rol);
+            next_instr = instr_get_prev(instr);
             instrlist_remove(bb, instr);
             instr_destroy(dcontext, instr);
-            instr = instr_walk;
+            instr = next_instr;
         }
     }
 
-    // TODO: if nobody is registered, return true here
-
+    /* Substitute the annotation tail with a label pointing to the Valgrind handler. */
     instr = INSTR_CREATE_label(dcontext);
     instr_set_note(instr, (void *) DR_NOTE_ANNOTATION);
     label_data = instr_get_label_data_area(instr);
-    label_data->data[0] = (ptr_uint_t) &vg_router;
+    SET_ANNOTATION_HANDLER(label_data, &vg_router);
     SET_ANNOTATION_APP_PC(label_data, xchg_pc);
     instr_set_ok_to_mangle(instr, false);
     instrlist_append(bb, instr);
 
-    /* Append a write to %xdx, both to ensure it's marked defined by DrMem
-     * and to avoid confusion with register analysis code (%xdx is written
-     * by the clean callee).
+    /* Append `mov $0x0,%edx` so that clients and tools recognize that %xdx will be
+     * written here. The placeholder is "ok to mangle" because it (partially) implements
+     * the app's annotation. The placeholder will be removed post-client during mangling.
      */
     return_placeholder = INSTR_XL8(INSTR_CREATE_mov_st(dcontext, opnd_create_reg(REG_XDX),
                                                        OPND_CREATE_INT32(0)),
                                    xchg_pc);
     instr_set_note(return_placeholder, (void *) DR_NOTE_ANNOTATION);
-    //instr_set_ok_to_mangle(return_placeholder, false);
     instrlist_append(bb, return_placeholder);
 }
 #endif
@@ -407,6 +479,7 @@ bool
 dr_annotation_register_call(const char *annotation_name, void *callee, bool save_fpstate,
                             uint num_args, dr_annotation_calling_convention_t call_type)
 {
+    bool result = true;
     dr_annotation_handler_t *handler;
     dr_annotation_receiver_t *receiver;
 
@@ -432,16 +505,23 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
 
         strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->symbol_name, handler);
     }
-
-    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
-                               ACCT_OTHER, UNPROTECTED);
-    receiver->instrumentation.callback = callee;
-    receiver->save_fpstate = save_fpstate;
-    receiver->next = handler->receiver_list; /* push the new receiver onto the list */
-    handler->receiver_list = receiver;
+    if (handler->type == DR_ANNOTATION_HANDLER_CALL || handler->receiver_list == NULL) {
+        /* If the annotation previously had a return value registration, it can be changed
+         * to clean call instrumentation, provided the return value was unregistered.
+         */
+        handler->type = DR_ANNOTATION_HANDLER_CALL;
+        receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
+                                   ACCT_OTHER, UNPROTECTED);
+        receiver->instrumentation.callback = callee;
+        receiver->save_fpstate = save_fpstate;
+        receiver->next = handler->receiver_list; /* push the new receiver onto the list */
+        handler->receiver_list = receiver;
+    } else {
+        result = false; /* A return value is registered, so no call can be added. */
+    }
 
     TABLE_RWLOCK(handlers, write, unlock);
-    return true;
+    return result;
 }
 
 bool
@@ -479,6 +559,7 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
 bool
 dr_annotation_register_return(const char *annotation_name, void *return_value)
 {
+    bool result = true;
     dr_annotation_handler_t *handler;
     dr_annotation_receiver_t *receiver;
 
@@ -493,18 +574,23 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
         handler->type = DR_ANNOTATION_HANDLER_RETURN_VALUE;
         handler->symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
         strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->symbol_name, handler);
-    } else {
-        ASSERT(handler->receiver_list == NULL);
     }
-
-    receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
-                               ACCT_OTHER, UNPROTECTED);
-    receiver->instrumentation.return_value = return_value;
-    receiver->save_fpstate = false;
-    receiver->next = NULL; /* return value can only have one implementation at a time */
-    handler->receiver_list = receiver;
+    if (handler->receiver_list == NULL) {
+        /* If the annotation previously had clean call registration, it can be changed to
+         * return value instrumentation, provided the calls have been unregistered.
+         */
+        handler->type = DR_ANNOTATION_HANDLER_RETURN_VALUE;
+        receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
+                                   ACCT_OTHER, UNPROTECTED);
+        receiver->instrumentation.return_value = return_value;
+        receiver->save_fpstate = false;
+        receiver->next = NULL; /* Return value can only have one implementation. */
+        handler->receiver_list = receiver;
+    } else {
+        result = false; /* Calls are registered, preventing the new return value. */
+    }
     TABLE_RWLOCK(handlers, write, unlock);
-    return true;
+    return result;
 }
 
 bool
@@ -603,19 +689,19 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 static void
 handle_vg_annotation(app_pc request_args)
 {
-    dcontext_t *dcontext;
+    dcontext_t *dcontext = get_thread_private_dcontext();
     dr_valgrind_request_id_t request_id;
     dr_annotation_receiver_t *receiver;
     dr_vg_client_request_t request;
-    ptr_uint_t result;
+    ptr_uint_t result = request.default_result;
 
-    if (!safe_read(request_args, sizeof(dr_vg_client_request_t), &request))
+    if (!safe_read(request_args, sizeof(dr_vg_client_request_t), &request)) {
+        LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to read Valgrind client request args at "
+            PFX". Skipping the annotation.\n", request_args);
         return;
-
-    result = request.default_result;
+    }
 
     request_id = lookup_valgrind_request(request.request);
-
     if (request_id < DR_VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
         receiver = vg_handlers[request_id]->receiver_list;
@@ -624,10 +710,13 @@ handle_vg_annotation(app_pc request_args)
             receiver = receiver->next;
         }
         TABLE_RWLOCK(handlers, read, unlock);
+    } else {
+        LOG(THREAD, LOG_ANNOTATIONS, 2,
+            "Skipping unrecognized Valgrind client request id %d\n", request.request);
+        return;
     }
 
-    /* The result code goes in xdx. */
-    dcontext = get_thread_private_dcontext();
+    /* Put the result in %xdx where the target app expects to find it. */
 # ifdef CLIENT_INTERFACE
     if (dcontext->client_data->mcontext_in_dcontext) {
         get_mcontext(dcontext)->xdx = result;
@@ -656,7 +745,7 @@ lookup_valgrind_request(ptr_uint_t request)
 static ptr_uint_t
 valgrind_running_on_valgrind(dr_vg_client_request_t *request)
 {
-    return 1;
+    return 1; /* Pretend to be Valgrind. */
 }
 #endif
 
@@ -664,6 +753,7 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
  * INTERNAL ROUTINES
  */
 
+/* See https://code.google.com/p/dynamorio/wiki/Annotations for pseudocode and examples */
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                   OUT const char **name)
@@ -682,8 +772,8 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
             app_pc got_ptr;
             instr_reset(dcontext, scratch);
             *cur_pc = decode(dcontext, *cur_pc, scratch);
-            if ((instr_get_opcode(scratch) != OP_bsf) &&
-                (instr_get_opcode(scratch) != OP_bsr))
+            if (instr_get_opcode(scratch) != OP_bsf &&
+                instr_get_opcode(scratch) != OP_bsr)
                 return false;
             src = instr_get_src(scratch, 0);
             if (!opnd_is_base_disp(src))
@@ -695,23 +785,25 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
 #endif
 #if defined (WINDOWS) && defined (X64)
             if (instr_get_opcode(scratch) == OP_prefetchw) {
-                if (!safe_read(src_ptr, 20, buf))
+                if (!safe_read(src_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                     return false;
-                buf[20] = '\0';
-                if (strcmp(buf, "dynamorio-annotation") == 0) {
-                    *name = (const char *) (src_ptr + 21);
+                buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
+                if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) == 0) {
+                    *name = (const char *) (src_ptr + DYNAMORIO_ANNOTATION_LABEL_LENGTH
+                                            + 1); /* skip the separator ":" */
                     return true;
                 }
             }
 #endif
             if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
                 return false;
-            if (!safe_read(buf_ptr, 20, buf))
+            if (!safe_read(buf_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                 return false;
-            buf[20] = '\0';
-            if (strcmp(buf, "dynamorio-annotation") != 0)
+            buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
+            if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) != 0)
                 return false;
-            *name = (const char *) (buf_ptr + 21);
+            *name = (const char *) (buf_ptr + DYNAMORIO_ANNOTATION_LABEL_LENGTH
+                                    + 1); /* skip the separator ":" */
             return true;
         }
     }
@@ -739,11 +831,11 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     cur_pc++;
     layout->resume_pc = cur_pc;
 
-    if (strncmp((const char *) layout->name, "statement:", 10) == 0) {
+    if (IS_ANNOTATION_STATEMENT_LABEL(layout->name)) {
         layout->type = ANNOTATION_TYPE_STATEMENT;
-        layout->name += 10;
-        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
-        layout->name = strchr(layout->name, ':') + 1;
+        layout->name += (ANNOTATION_STATEMENT_LABEL_LENGTH + 1);
+        //layout->is_void = IS_ANNOTATION_VOID(layout->name);
+        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
         /* If the target app contains an annotation whose argument is a function call that
          * gets inlined, and that function contains the same annotation, the compiler will
          * fuse the headers. See https://code.google.com/p/dynamorio/wiki/Annotations for
@@ -752,7 +844,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         while (true) {
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
-            if (instr_is_cbr(scratch) && (*(ushort *) cur_pc == 0x2ccd)) {
+            if (IS_ANNOTATION_HEADER(scratch, cur_pc)) {
                 cur_pc += 2;
                 while (instr_get_opcode(scratch) != OP_prefetchw) {
                     if (instr_is_ubr(scratch))
@@ -760,7 +852,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_reset(dcontext, scratch);
                     cur_pc = decode(dcontext, cur_pc, scratch);
                 }
-
                 ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);
                 cur_pc++;
                 layout->resume_pc = cur_pc;
@@ -769,12 +860,12 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         }
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
-        layout->name += 11;
-        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
-        layout->name = strchr(layout->name, ':') + 1;
+        layout->name += (ANNOTATION_EXPRESSION_LABEL_LENGTH + 1);
+        layout->is_void = IS_ANNOTATION_VOID(layout->name);
+        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
     }
 }
-#else
+#else /* Windows x86 and all Unix  */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch)
@@ -782,20 +873,25 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     app_pc cur_pc = layout->start_pc;
     if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {
 # ifdef WINDOWS
-        if (*(cur_pc++) == 0x58) { // skip padding byte (`pop eax` indicates statement)
+        if (*(cur_pc++) == 0x58) { /* `pop eax` indicates statement type on Windows... */
 # else
-        if (instr_get_opcode(scratch) == OP_bsf) {
+        if (instr_get_opcode(scratch) == OP_bsf) { /* ...or `bsf` on Unix */
 # endif
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
+            layout->is_void = IS_ANNOTATION_VOID(layout->name);
         }
-        instr_reset(dcontext, scratch);
         layout->substitution_xl8 = cur_pc;
-        cur_pc = decode_cti(dcontext, cur_pc, scratch); // assert is `jmp`
+        /* This jump skips over the annotation in a native run. Decode past it... */
+        instr_reset(dcontext, scratch);
+        cur_pc = decode_cti(dcontext, cur_pc, scratch);
+        ASSERT(instr_is_ubr(scratch));
+        /* ...and set the resume pc to the next instruction, which jumps over the native
+         * version of the annotation (which was specified by the target app).
+         */
         layout->resume_pc = cur_pc;
-        layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
-        layout->name = strchr(layout->name, ':') + 1;
+        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
     }
 }
 #endif
@@ -907,46 +1003,55 @@ annotation_printf(const char *format, ...)
     va_list ap;
     ssize_t count;
     const char *timestamp_token_start;
-    uint format_length = 0;
+    uint buffer_length = 0;
 
-    // TODO: sensitive to `#if defined(DEBUG) && !defined(STANDALONE_DECODER)`?
     if (stats == NULL || stats->loglevel == 0 || (stats->logmask & LOG_ANNOTATIONS) == 0)
-        return 0;
+        return 0; /* No log is available for writing. */
 
-    timestamp_token_start = strstr(format, "${timestamp}");
+    /* Substitute the first instance of the timestamp token with a timestamp string.
+     * Additional timestamp tokens will be ignored, because it would be pointless.
+     */
+    timestamp_token_start = strstr(format, LOG_ANNOTATION_TIMESTAMP_TOKEN);
     if (timestamp_token_start != NULL) {
         uint min, sec, msec, timestamp = query_time_seconds();
-        format_length = (uint) (strlen(format) + 32);
+        buffer_length = (uint) (strlen(format) + LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH);
         if (timestamp > 0) {
             uint length_before_token =
                 (uint)((ptr_uint_t) timestamp_token_start - (ptr_uint_t) format);
-            char timestamp_buffer[32];
-            char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, format_length,
+            /* print the timestamp into this small stack buffer */
+            char timestamp_buffer[LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH];
+            /* print the timestamped format string into this heap buffer */
+            char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, buffer_length,
                                                  ACCT_OTHER, UNPROTECTED);
 
-            our_snprintf(timestamped, length_before_token, "%s", format);
             sec = (uint) (timestamp / 1000);
             msec = (uint) (timestamp % 1000);
             min = sec / 60;
             sec = sec % 60;
-            our_snprintf(timestamp_buffer, 32, "(%ld:%02ld.%03ld)", min, sec, msec);
+            our_snprintf(timestamp_buffer, LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH,
+                         "(%ld:%02ld.%03ld)", min, sec, msec);
 
+            /* copy the original format string up to the timestamp token */
+            our_snprintf(timestamped, length_before_token, "%s", format);
+            /* copy the timestamp and the remainder of the original format string */
             our_snprintf(timestamped + length_before_token,
-                           (format_length - length_before_token), "%s%s",
-                           timestamp_buffer, timestamp_token_start + strlen("${timestamp}"));
+                         (buffer_length - length_before_token), "%s%s", timestamp_buffer,
+                         timestamp_token_start + LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH);
+            /* use the timestamped format string */
             format = (const char *) timestamped;
+        } else {
+            LOG(GLOBAL, LOG_ANNOTATIONS, 2, "Failed to obtain a system timestamp for "
+                "substitution in annotation log statements '%s'\n", format);
         }
     }
 
     va_start(ap, format);
     count = do_file_write(GLOBAL, format, ap);
     va_end(ap);
-
-    if (timestamp_token_start != NULL) {
-        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, format, char, format_length,
+    if (timestamp_token_start != NULL) { /* free the timestamp heap buffer, if any */
+        HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, format, char, buffer_length,
                         ACCT_OTHER, UNPROTECTED);
     }
-
     return count;
 }
 #endif

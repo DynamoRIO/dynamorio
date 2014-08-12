@@ -4134,7 +4134,7 @@ static void
 mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
-    dr_annotation_handler_t *handler = (dr_annotation_handler_t *) label_data->data[0];
+    dr_annotation_handler_t *handler = GET_ANNOTATION_HANDLER(label_data);
     dr_annotation_receiver_t *receiver = handler->receiver_list;
     opnd_t *args = NULL;
 
