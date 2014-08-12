@@ -1914,7 +1914,7 @@ check_option_compatibility_helper(int recurse_count)
         }
         if (DYNAMO_OPTION(coarse_units)) {
             USAGE_ERROR("-coarse_units incompatible with -x86_to_x64: disabling");
-            dynamo_options.coarse_units = false;
+            DISABLE_COARSE_UNITS((&dynamo_options));
             changed_options = true;
         }
     }

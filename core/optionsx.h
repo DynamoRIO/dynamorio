@@ -535,8 +535,16 @@
                             "mangle application's segment usage.")
 
 #ifdef X64
-    OPTION_DEFAULT(bool, x86_to_x64, false,
-                   "translate x86 code to x64 when on a 64-bit kernel.")
+    OPTION_COMMAND(bool, x86_to_x64, false, "x86_to_x64", {
+        /* i#1494: to avoid decode_fragment messing up the 32-bit/64-bit mode,
+         * we do not support any cases of using decode_fragment, including
+         * trace and coarse_units (coarse-grain code cache management).
+         */
+        if (options->x86_to_x64) {
+            DISABLE_TRACES(options);
+            DISABLE_COARSE_UNITS(options);
+        }
+     }, "translate x86 code to x64 when on a 64-bit kernel.", STATIC, OP_PCACHE_GLOBAL)
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE
@@ -1913,6 +1921,12 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
              * XXX: duplicated in -persist                                     \
              */                                                                \
             (prefix)->indirect_stubs = true;                                   \
+    }
+#   define DISABLE_COARSE_UNITS(prefix)                                        \
+    {                                                                          \
+            (prefix)->coarse_units = false;                                    \
+            /* We turned off -indirect_stubs by default. */                    \
+            (prefix)->indirect_stubs = false;                                  \
     }
     OPTION_COMMAND(bool, coarse_units, false, "coarse_units", {
         if (options->coarse_units) {

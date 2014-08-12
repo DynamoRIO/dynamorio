@@ -2040,10 +2040,13 @@ else (UNIX)
         win32/mixedmode.c
         "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;mixedmode")
+      # i#1494: Trace creation should be disabled for -x86_to_x64.
+      # We did not use -disable_traces here to check if trace creation is
+      # disabled automatically.
       torunonly(win32.x86_to_x64
         ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
         win32/mixedmode.c
-        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64 -disable_traces"
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
     else (X64)
       add_exe(win32.mixedmode win32/mixedmode.c)
