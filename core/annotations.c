@@ -34,18 +34,8 @@
 #include "../hashtable.h"
 #include "../x86/instr.h"
 #include "../x86/instr_create.h"
-
-// check these
-#include "../os_shared.h"
-#include "../module_shared.h"
-#include "../x86/disassemble.h"
 #include "../x86/decode_fast.h"
-#include "../lib/instrument.h"
-#include "fragment.h"
-#include "jitopt.h"
-#include "vmareas.h"
 #include "utils.h"
-
 #include "annotations.h"
 
 #ifdef ANNOTATIONS /* around whole file */
@@ -59,6 +49,14 @@
 # include <string.h>
 #endif
 
+/* IS_ANNOTATION_LABEL_INSTRUCTION(instr):         evaluates to true for any `instr` that
+ *                                                 could be the instruction from which the
+ *                                                 label pointer is extracted.
+ * IS_ANNOTATION_LABEL_REFERENCE(opnd):            evaluates to true for any `opnd` that
+ *                                                 could be the instruction from which the
+ *                                                 label pointer is extracted.
+ * GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc):  extracts the label pointer
+ */
 #ifdef WINDOWS
 # ifdef X64
 #  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) \
@@ -68,8 +66,7 @@
 # else
 #  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
 #  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
-#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
-    ((app_pc) opnd_get_disp(src))
+#  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
 # endif
 #else
 # define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
@@ -83,25 +80,27 @@
     ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
 #endif
 
+/* FASTCALL_REGISTER_ARG_COUNT: Specifies the number of arguments passed in registers. */
+#ifdef X64
+# ifdef UNIX
+#  define FASTCALL_REGISTER_ARG_COUNT 6
+# else /* WINDOWS x64 */
+#  define FASTCALL_REGISTER_ARG_COUNT 4
+# endif
+#else /* x86 (all) */
+# define FASTCALL_REGISTER_ARG_COUNT 2
+#endif
+
+/* Instruction `int 2c` hints that the preceding cbr is probably an annotation head. */
+#define WINDOWS_X64_ANNOTATION_HINT_BYTE 0xcd
+/* Instruction `int 3` acts as a kind of boundary for compiler optimizations. */
+#define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
+
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME \
     "dynamorio_annotate_running_on_dynamorio"
 
 #define DYNAMORIO_ANNOTATE_LOG_NAME \
     "dynamorio_annotate_log"
-
-static strhash_table_t *handlers;
-
-// locked under the `handlers` table lock
-static dr_annotation_handler_t *vg_handlers[DR_VG_ID__LAST];
-
-#if !(defined (WINDOWS) && defined (X64))
-static dr_annotation_handler_t vg_router;
-static dr_annotation_receiver_t vg_receiver;
-static opnd_t vg_router_arg;
-#endif
-
-extern file_t main_logfile;
-extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 enum {
     VG_ROL_COUNT = 4,
@@ -135,11 +134,6 @@ typedef enum _annotation_type_t {
     ANNOTATION_TYPE_STATEMENT,
 } annotation_type_t;
 
-typedef struct _annotation_instrumentation_t {
-    instr_t *head;
-    instr_t *tail;
-} annotation_instrumentation_t;
-
 typedef struct _annotation_layout_t {
     app_pc start_pc;
     annotation_type_t type;
@@ -148,6 +142,19 @@ typedef struct _annotation_layout_t {
     app_pc substitution_xl8;
     app_pc resume_pc;
 } annotation_layout_t;
+
+static strhash_table_t *handlers;
+
+/* locked under the `handlers` table lock */
+static dr_annotation_handler_t *vg_handlers[DR_VG_ID__LAST];
+
+#if !(defined (WINDOWS) && defined (X64))
+static dr_annotation_handler_t vg_router;
+static dr_annotation_receiver_t vg_receiver;
+static opnd_t vg_router_arg;
+#endif
+
+extern ssize_t do_file_write(file_t f, const char *fmt, va_list ap);
 
 /*********************************************************
  * INTERNAL ROUTINE DECLARATIONS
@@ -204,7 +211,7 @@ annotation_init()
     vg_router.num_args = 1;
     vg_router_arg = opnd_create_reg(DR_REG_XAX);
     vg_router.args = &vg_router_arg;
-    vg_router.id.vg_request_id = 0; // routes all requests
+    vg_router.symbol_name = NULL;
     vg_router.receiver_list = &vg_receiver;
     vg_receiver.instrumentation.vg_callback = (void *) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
@@ -235,10 +242,13 @@ annotation_exit()
 }
 
 bool
-annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-            _IF_WINDOWS_X64(bool hint_is_safe))
+instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
+                 _IF_WINDOWS_X64(bool hint_is_safe))
 {
     annotation_layout_t layout;
+    /* This instr_t is used for analytical decoding throughout the detection functions.
+     * It is passed on the stack and its contents are considered void on function entry.
+     */
     instr_t scratch;
 #if defined (WINDOWS) && defined (X64)
     app_pc hint_pc = *start_pc;
@@ -255,7 +265,7 @@ annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
         if (!safe_read(hint_pc, 1, &hint_byte))
             return NULL;
     }
-    if (hint_byte != 0xcd)
+    if (hint_byte != WINDOWS_X64_ANNOTATION_HINT_BYTE)
         return NULL;
     layout.start_pc = hint_pc + 2;
     layout.substitution_xl8 = layout.start_pc;
@@ -269,8 +279,8 @@ annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
     TRY_EXCEPT(dcontext, {
         identify_annotation(dcontext, &layout, &scratch);
     }, { /* EXCEPT */
-        // log it
-        //dr_printf("Failed to instrument annotation at "PFX"\n", *start_pc);
+        LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to instrument annotation at "PFX"\n",
+            *start_pc);
     });
     if (layout.type != ANNOTATION_TYPE_NONE) {
         /*
@@ -409,7 +419,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_CALL;
-        handler->id.symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
+        handler->symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
         handler->num_args = num_args;
 
         if (num_args == 0) {
@@ -420,7 +430,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
             create_arg_opnds(handler, num_args, call_type);
         }
 
-        strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->id.symbol_name, handler);
+        strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->symbol_name, handler);
     }
 
     receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
@@ -451,7 +461,6 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_VALGRIND;
-        handler->id.vg_request_id = request_id;
 
         vg_handlers[request_id] = handler;
     }
@@ -482,8 +491,8 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_RETURN_VALUE;
-        handler->id.symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
-        strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->id.symbol_name, handler);
+        handler->symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
+        strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->symbol_name, handler);
     } else {
         ASSERT(handler->receiver_list == NULL);
     }
@@ -726,7 +735,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         cur_pc = decode(dcontext, cur_pc, scratch);
     }
 
-    // debug assert: next byte is 0xcc
+    ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);
     cur_pc++;
     layout->resume_pc = cur_pc;
 
@@ -735,7 +744,12 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         layout->name += 10;
         layout->is_void = (strncmp((const char *) layout->name, "void:", 5) == 0);
         layout->name = strchr(layout->name, ':') + 1;
-        while (true) { // skip fused headers caused by inlining identical annotations
+        /* If the target app contains an annotation whose argument is a function call that
+         * gets inlined, and that function contains the same annotation, the compiler will
+         * fuse the headers. See https://code.google.com/p/dynamorio/wiki/Annotations for
+         * a complete example. This loop identifies fused headers and skips them.
+         */
+        while (true) {
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
             if (instr_is_cbr(scratch) && (*(ushort *) cur_pc == 0x2ccd)) {
@@ -747,7 +761,7 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     cur_pc = decode(dcontext, cur_pc, scratch);
                 }
 
-                // debug assert: next byte is 0xcc
+                ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);
                 cur_pc++;
                 layout->resume_pc = cur_pc;
             } else if (instr_is_cti(scratch))
@@ -788,16 +802,6 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
 
 #ifdef X64
 # ifdef UNIX
-#  define FASTCALL_ARG_COUNT 6
-# else /* WINDOWS x64 */
-#  define FASTCALL_ARG_COUNT 4
-# endif
-#else /* x86 (all) */
-# define FASTCALL_ARG_COUNT 2
-#endif
-
-#ifdef X64
-# ifdef UNIX
 static inline void /* UNIX x64 */
 create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
                  dr_annotation_calling_convention_t call_type)
@@ -820,12 +824,12 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         handler->args[0] = opnd_create_reg(DR_REG_XDI);
     }
     /* Create the remaining args on the stack */
-    for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+    for (i = FASTCALL_REGISTER_ARG_COUNT; i < num_args; i++) {
         /* The clean call will appear at the top of the annotation function body, where
          * the stack arguments follow the return address and the caller's saved stack
          * pointer. Rewind `i` to 0 and add 2 to skip over these pointers.
          */
-        arg_stack_location = sizeof(ptr_uint_t) * (i-FASTCALL_ARG_COUNT+2);
+        arg_stack_location = sizeof(ptr_uint_t) * (i-FASTCALL_REGISTER_ARG_COUNT+2);
         /* Use the stack pointer because the base pointer is a general register in x64 */
         handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XSP, arg_stack_location);
     }
@@ -849,7 +853,7 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         handler->args[0] = opnd_create_reg(DR_REG_XCX);
     }
     /* Create the remaining args on the stack */
-    for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+    for (i = FASTCALL_REGISTER_ARG_COUNT; i < num_args; i++) {
         /* The clean call will appear at the top of the annotation function body, where
          * the stack arguments follow the return address and 32 bytes of empty space.
          * Since `i` is already starting at 4, just add one more to reach the args.
@@ -875,7 +879,7 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
             handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
         /* Create the remaining args on the stack */
-        for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+        for (i = FASTCALL_REGISTER_ARG_COUNT; i < num_args; i++) {
             /* The clean call will appear at the top of the annotation function body,
              * where the stack args follow the return address and the caller's saved base
              * pointer. Since `i` already starts at 2, use it to skip those pointers.
@@ -964,7 +968,7 @@ free_annotation_handler(void *p)
     }
     if ((handler->type == DR_ANNOTATION_HANDLER_CALL) ||
         (handler->type == DR_ANNOTATION_HANDLER_RETURN_VALUE))
-        dr_strfree(handler->id.symbol_name, ACCT_OTHER);
+        dr_strfree(handler->symbol_name, ACCT_OTHER);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, dr_annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }
 

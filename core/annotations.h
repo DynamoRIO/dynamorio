@@ -254,6 +254,8 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 # define ENCODED_VALGRIND_ANNOTATION_WORD_3 0x13c7c11dUL
 #endif
 
+// TODO: move these into dr_annotation_asm.h, with assembly snippets?
+// not sure I want to include that file here, and client has no use for these...
 #if !(defined (WINDOWS) && defined (X64))
 # ifdef WINDOWS
 #  define ANNOTATION_JUMP_OVER_LABEL_REFERENCE 0x06eb
@@ -293,10 +295,7 @@ typedef struct _dr_annotation_receiver_t {
 /* Each handler represents one distinct annotation name. */
 typedef struct _dr_annotation_handler_t {
     dr_annotation_handler_type_t type;
-    union {
-        const char *symbol_name;
-        dr_valgrind_request_id_t vg_request_id;
-    } id;
+    const char *symbol_name; /* not used for Valgrind annotations */
     dr_annotation_receiver_t *receiver_list;
     uint num_args;
     opnd_t *args;
@@ -430,8 +429,8 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
 #endif
 
 bool
-annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-                 _IF_WINDOWS_X64(bool hint_is_safe));
+instrument_annotation(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
+                      _IF_WINDOWS_X64(bool hint_is_safe));
 
 #if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
