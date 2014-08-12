@@ -9347,7 +9347,7 @@ vm_area_unlink_fragments(dcontext_t *dcontext, app_pc start, app_pc end,
                         LOG(thread_log, LOG_VMAREAS, 1, "Flushing fragment "PFX"\n",
                             FRAG_PC(entry));
                         if (FRAG_PC(entry) < written_pc) {
-                            uint write_delta = written_pc - FRAG_PC(entry);
+                            uint write_delta = (uint)(written_pc - FRAG_PC(entry));
                             if (write_delta < smallest_write_delta) {
                                 nearest_written_bb = FRAG_PC(entry);
                                 smallest_write_delta = write_delta;

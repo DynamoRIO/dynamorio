@@ -35,7 +35,9 @@
 
 #include "dr_annotations_asm.h"
 
-#pragma GCC system_header
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
 
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()

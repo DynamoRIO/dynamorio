@@ -37,6 +37,17 @@
 #include "annotations.h"
 #include "jitopt.h"
 
+#ifdef ANNOTATIONS /* around whole file */
+
+#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_manage_code_area"
+
+#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
+    "dynamorio_annotate_unmanage_code_area"
+
+#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
+    "dynamorio_annotate_flush_fragments"
+
 #ifdef JITOPT
 
 #define BUCKET_BIT_SIZE 6
@@ -106,15 +117,6 @@ typedef struct _dgc_fragment_intersection_t {
 
 static dgc_fragment_intersection_t *fragment_intersection;
 
-#define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_manage_code_area"
-
-#define DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME \
-    "dynamorio_annotate_unmanage_code_area"
-
-#define DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME \
-    "dynamorio_annotate_flush_fragments"
-
 //#define FULL_TRACE_LOG
 
 #ifdef DEBUG
@@ -153,10 +155,10 @@ jitopt_init()
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
                                 (void *) annotation_flush_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
+#if !(defined (WINDOWS) && defined (X64))
     dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
                                     valgrind_discard_translations);
-
+#endif
 #ifdef JITOPT
     dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 7, 80,
                                     HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
@@ -516,7 +518,7 @@ static bool
 dgc_bucket_is_packed(dgc_bucket_t *bucket)
 {
     uint i;
-    bool packed;
+    bool packed = false;
 
     if ((ptr_uint_t)bucket == 0xcdcdcdcdUL ||
         bucket->offset_sentinel != BUCKET_OFFSET_SENTINEL) { // freed
@@ -643,8 +645,9 @@ free_dgc_bucket_chain(void *p)
 void
 dgc_table_dereference_bb(app_pc tag)
 {
+    dgc_bb_t *bb;
     TABLE_RWLOCK(dgc_table, write, lock);
-    dgc_bb_t *bb = dgc_table_find_bb(tag, NULL, NULL);
+    bb = dgc_table_find_bb(tag, NULL, NULL);
     if (bb != NULL) {
         bb = dgc_bb_head(bb);
         if ((--bb->ref_count) == 0) {
@@ -770,7 +773,7 @@ void
 add_patchable_bb(app_pc start, app_pc end)
 {
     bool found = false;
-    uint i, span = end - start;
+    uint i, span = (uint)(end - start);
     ptr_uint_t bucket_id;
     ptr_uint_t start_bucket_id = BUCKET_ID(start);
     ptr_uint_t end_bucket_id = BUCKET_ID(end - 1);
@@ -971,7 +974,8 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f)
 static void
 remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
-    uint i, j;
+    int i;
+    uint j;
     fragment_t *f;
     app_pc *bb_tag, *trace_tag;
     bool thread_has_fragment;
@@ -1261,6 +1265,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
     return fragment_intersection_count;
 }
+#endif /* ANNOTATIONS */
 #endif /* JIJTOPT */
 
 

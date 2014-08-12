@@ -248,7 +248,7 @@ DECLARE_FREQPROT_VAR(static uint threads_ever_count, 0);
 /* FIXME : not static so os.c can hand walk it for dump core */
 /* FIXME: use new generic_table_t and generic_hash_* routines */
 thread_record_t ** all_threads; /* ALL_THREADS_HASH_BITS-bit addressed hash table */
-static uint thread_state_version;
+DECLARE_NEVERPROT_VAR(static uint thread_state_version, 0);
 
 /* these locks are used often enough that we put them in .cspdata: */
 

@@ -37,7 +37,9 @@
  * overview, see the wiki page http://code.google.com/p/dynamorio/wiki/Annotations.
  */
 
-#pragma GCC system_header
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
 
 #include <stddef.h>
 #ifdef _MSC_VER
@@ -57,12 +59,16 @@
 # endif
 #endif
 
-#ifdef __cplusplus
-# define EXTERN extern "C"
-# define EXTERN_C extern "C"
-#else
+#ifdef _MSC_VER
 # define EXTERN extern
-# define EXTERN_C
+#else
+# ifdef __cplusplus
+#  define EXTERN extern "C"
+#  define EXTERN_C extern "C"
+# else
+#  define EXTERN extern
+#  define EXTERN_C
+# endif
 #endif
 
 #ifdef _MSC_VER /* Microsoft Visual Studio */
@@ -121,7 +127,7 @@ do { \
  * target of this jump is always the following jump, i.e. (mov=5 + pop/nop=1) => 6.
  */
 #  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
-        EXTERN const char *annotation##_label =
+        EXTERN const char *annotation##_label = \
             "dynamorio-annotation:"#return_type":"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \

@@ -281,7 +281,7 @@ annotation_init()
     vg_router.args = &vg_router_arg;
     vg_router.symbol_name = NULL; /* No symbols in Valgrind annotations. */
     vg_router.receiver_list = &vg_receiver;
-    vg_receiver.instrumentation.vg_callback = (void *) handle_vg_annotation;
+    vg_receiver.instrumentation.callback = (void *) (void (*)()) handle_vg_annotation;
     vg_receiver.save_fpstate = false;
     vg_receiver.next = NULL;
 #endif
@@ -296,9 +296,11 @@ annotation_init()
                                 false, 20, DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif
 
+#if !(defined (WINDOWS) && defined (X64))
     /* DR pretends to be Valgrind. */
     dr_annotation_register_valgrind(DR_VG_ID__RUNNING_ON_VALGRIND,
                                     valgrind_running_on_valgrind);
+#endif
 }
 
 void
@@ -407,7 +409,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                                                        OPND_RETURN_VALUE(return_value)),
                                   layout.substitution_xl8);
                 }
-            } /* else no hnadlers, so replace the annotation with nothing */
+            } /* else no handlers, so replace the annotation with nothing */
             TABLE_RWLOCK(handlers, write, unlock);
         }
         /* else (layout.type == ANNOTATION_TYPE_STATEMENT), in which case the only
@@ -693,7 +695,7 @@ handle_vg_annotation(app_pc request_args)
     dr_valgrind_request_id_t request_id;
     dr_annotation_receiver_t *receiver;
     dr_vg_client_request_t request;
-    ptr_uint_t result = request.default_result;
+    ptr_uint_t result;
 
     if (!safe_read(request_args, sizeof(dr_vg_client_request_t), &request)) {
         LOG(THREAD, LOG_ANNOTATIONS, 2, "Failed to read Valgrind client request args at "
@@ -701,6 +703,7 @@ handle_vg_annotation(app_pc request_args)
         return;
     }
 
+    result = request.default_result;
     request_id = lookup_valgrind_request(request.request);
     if (request_id < DR_VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
@@ -732,12 +735,12 @@ static dr_valgrind_request_id_t
 lookup_valgrind_request(ptr_uint_t request)
 {
     switch (request) {
-        case VG_USERREQ__RUNNING_ON_VALGRIND:
-            return DR_VG_ID__RUNNING_ON_VALGRIND;
-        case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
-            return DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
-        case VG_USERREQ__DISCARD_TRANSLATIONS:
-            return DR_VG_ID__DISCARD_TRANSLATIONS;
+    case VG_USERREQ__RUNNING_ON_VALGRIND:
+        return DR_VG_ID__RUNNING_ON_VALGRIND;
+    case VG_USERREQ__MAKE_MEM_DEFINED_IF_ADDRESSABLE:
+        return DR_VG_ID__MAKE_MEM_DEFINED_IF_ADDRESSABLE;
+    case VG_USERREQ__DISCARD_TRANSLATIONS:
+        return DR_VG_ID__DISCARD_TRANSLATIONS;
     }
     return DR_VG_ID__LAST;
 }
