@@ -83,6 +83,7 @@ set(CORE_SRCS
   native_exec.c
   lib/instrument.c
   translate.c
+  annotations.c
   )
 
 if (UNIX)

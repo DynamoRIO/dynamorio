@@ -33,7 +33,7 @@
 #ifndef _ANNOTATIONS_H_
 #define _ANNOTATIONS_H_ 1
 
-#ifdef ANNOTATIONS
+#ifdef ANNOTATIONS /* around whole file */
 
 #include "lib/instrument.h"
 
@@ -161,13 +161,12 @@ DR_API
  * the specified callback will be invoked by an internal routing function. Returns true
  * on successful registration.
  *
- * @param[in] request               The Valgrind request object that was constructed by
- *                                  the target app at the annotation site.
+ * @param[in] request_id            The Valgrind request id for which to register.
  * @param[in] annotation_callback   The client function to call when an instance of the
  *                                  specified Valgrind client request is executed.
  */
 bool
-dr_annotation_register_valgrind(dr_valgrind_request_id_t request,
+dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
                                 ptr_uint_t (*annotation_callback)
                                 (dr_vg_client_request_t *request));
 
@@ -285,7 +284,7 @@ typedef struct _dr_annotation_receiver_t {
     union { /* per annotation_handler_t.type */
         void *callback;
         void *return_value;
-        ptr_uint_t (*vg_callback)(vg_client_request_t *request);
+        ptr_uint_t (*vg_callback)(dr_vg_client_request_t *request);
     } instrumentation;
     bool save_fpstate;
     struct _dr_annotation_receiver_t *next;
@@ -301,7 +300,6 @@ typedef struct _dr_annotation_handler_t {
     dr_annotation_receiver_t *receiver_list;
     uint num_args;
     opnd_t *args;
-    uint arg_stack_space;
     bool is_void;
 } dr_annotation_handler_t;
 
@@ -347,10 +345,6 @@ is_annotation_jump_over_dead_code(instr_t *instr)
     return xl8 != NULL && *(ushort *)xl8 == ANNOTATION_JUMP_OVER_LABEL_REFERENCE;
 }
 #endif
-
-bool
-annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-                 _IF_WINDOWS_X64(bool hint_is_safe));
 
 static inline bool
 is_decoded_valgrind_annotation_tail(instr_t *instr)
@@ -434,6 +428,10 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
            word3 == ENCODED_VALGRIND_ANNOTATION_WORD_3;
 }
 #endif
+
+bool
+annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
+                 _IF_WINDOWS_X64(bool hint_is_safe));
 
 #if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to

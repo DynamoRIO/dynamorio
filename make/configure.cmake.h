@@ -84,6 +84,7 @@
 /* features */
 #cmakedefine HAVE_FVISIBILITY
 #cmakedefine HAVE_TYPELIMITS_CONTROL
+#cmakedefine ANNOTATIONS
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool
@@ -165,6 +166,8 @@
 #      functions, NOLIBC=0 causes the core to be linked against libc and kernel32.dll
 # external interface
 #    $(D)CLIENT_INTERFACE
+#    $(D)ANNOTATIONS -- optional instrumentation of binary annotations 
+#                       in the target program
 #    $(D)DR_APP_EXPORTS
 #    $(D)CUSTOM_EXIT_STUBS -- optional part of CLIENT_INTERFACE
 #      we may want it for our own internal use too, though
