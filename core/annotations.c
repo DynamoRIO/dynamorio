@@ -31,21 +31,24 @@
  */
 
 #include "../globals.h"
-#include "../os_shared.h"
-#include "../module_shared.h"
 #include "../hashtable.h"
 #include "../x86/instr.h"
 #include "../x86/instr_create.h"
+
+// check these
+#include "../os_shared.h"
+#include "../module_shared.h"
 #include "../x86/disassemble.h"
 #include "../x86/decode_fast.h"
 #include "../lib/instrument.h"
 #include "fragment.h"
 #include "jitopt.h"
 #include "vmareas.h"
-#include "annotations.h"
 #include "utils.h"
 
-#ifdef ANNOTATIONS
+#include "annotations.h"
+
+#ifdef ANNOTATIONS /* around whole file */
 
 #if !(defined (WINDOWS) && defined (X64))
 # include "../third_party/valgrind/valgrind.h"
@@ -181,9 +184,10 @@ static void
 identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch);
 
+/* Create argument operands for the instrumented clean call */
 static void
-specify_args(dr_annotation_handler_t *handler, uint num_args
-             _IF_NOT_X64(dr_annotation_calling_convention_t call_type));
+create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
+                 dr_annotation_calling_convention_t call_type);
 
 #ifdef DEBUG
 static void
@@ -193,12 +197,7 @@ static ssize_t
 annotation_printf(const char *format, ...);
 #endif
 
-static const char *
-heap_strcpy(const char *src);
-
-static void
-heap_str_free(const char *str);
-
+/* Invoked during hashtable entry removal */
 static void
 free_annotation_handler(void *p);
 
@@ -209,7 +208,7 @@ free_annotation_handler(void *p);
 void
 annotation_init()
 {
-    handlers = strhash_hash_create(GLOBAL_DCONTEXT, 8, 80,
+    handlers = strhash_hash_create(GLOBAL_DCONTEXT, 8, 80, /* favor a small table */
                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                    HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                    free_annotation_handler
@@ -436,12 +435,12 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
 
     handler = (dr_annotation_handler_t *) strhash_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                               annotation_name);
-    if (handler == NULL) {
+    if (handler == NULL) { /* make a new handler if never registered yet */
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_CALL;
-        handler->id.symbol_name = heap_strcpy(annotation_name);
+        handler->id.symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
         handler->num_args = num_args;
 
         if (num_args == 0) {
@@ -449,7 +448,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
         } else {
             handler->args = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, opnd_t, num_args,
                                              ACCT_OTHER, UNPROTECTED);
-            specify_args(handler, num_args, call_type);
+            create_arg_opnds(handler, num_args, call_type);
         }
 
         strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->id.symbol_name, handler);
@@ -459,7 +458,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
                                ACCT_OTHER, UNPROTECTED);
     receiver->instrumentation.callback = callee;
     receiver->save_fpstate = save_fpstate;
-    receiver->next = handler->receiver_list;
+    receiver->next = handler->receiver_list; /* push the new receiver onto the list */
     handler->receiver_list = receiver;
 
     TABLE_RWLOCK(handlers, write, unlock);
@@ -478,7 +477,7 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
 
     TABLE_RWLOCK(handlers, write, lock);
     handler = vg_handlers[request_id];
-    if (handler == NULL) {
+    if (handler == NULL) { /* make a new handler if never registered yet */
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
@@ -492,7 +491,7 @@ dr_annotation_register_valgrind(dr_valgrind_request_id_t request_id,
                                ACCT_OTHER, UNPROTECTED);
     receiver->instrumentation.vg_callback = annotation_callback;
     receiver->save_fpstate = false;
-    receiver->next = handler->receiver_list;
+    receiver->next = handler->receiver_list; /* push the new receiver onto the list */
     handler->receiver_list = receiver;
 
     TABLE_RWLOCK(handlers, write, unlock);
@@ -509,20 +508,22 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
     ASSERT_TABLE_SYNCHRONIZED(handlers, WRITE);
     handler = (dr_annotation_handler_t *) strhash_hash_lookup(GLOBAL_DCONTEXT, handlers,
                                                               annotation_name);
-    if (handler == NULL) {
+    if (handler == NULL) { /* make a new handler if never registered yet */
         handler = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_handler_t,
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_RETURN_VALUE;
-        handler->id.symbol_name = heap_strcpy(annotation_name);
+        handler->id.symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
         strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->id.symbol_name, handler);
+    } else {
+        ASSERT(handler->receiver_list == NULL);
     }
 
     receiver = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dr_annotation_receiver_t,
                                ACCT_OTHER, UNPROTECTED);
     receiver->instrumentation.return_value = return_value;
     receiver->save_fpstate = false;
-    receiver->next = handler->receiver_list;
+    receiver->next = NULL; /* return value can only have one implementation at a time */
     handler->receiver_list = receiver;
     TABLE_RWLOCK(handlers, write, unlock);
     return true;
@@ -536,15 +537,15 @@ dr_annotation_unregister_call(const char *annotation_name, void *callee)
 
     TABLE_RWLOCK(handlers, write, lock);
     handler = (dr_annotation_handler_t *) strhash_hash_lookup(GLOBAL_DCONTEXT, handlers,
-                                                           annotation_name);
-    if ((handler != NULL) && (handler->receiver_list != NULL)) {
+                                                              annotation_name);
+    if (handler != NULL && handler->receiver_list != NULL) {
         dr_annotation_receiver_t *receiver = handler->receiver_list;
-        if (receiver->instrumentation.callback == callee) {
+        if (receiver->instrumentation.callback == callee) { /* case 1: remove the head */
             handler->receiver_list = receiver->next;
             HEAP_TYPE_FREE(GLOBAL_DCONTEXT, receiver, dr_annotation_receiver_t,
                            ACCT_OTHER, UNPROTECTED);
             found = true;
-        } else {
+        } else { /* case 2: remove from within the list */
             while (receiver->next != NULL) {
                 if (receiver->next->instrumentation.callback == callee) {
                     dr_annotation_receiver_t *removal = receiver->next;
@@ -556,8 +557,7 @@ dr_annotation_unregister_call(const char *annotation_name, void *callee)
                 }
                 receiver = receiver->next;
             }
-        }
-        /* Leave the handler for the next registration (free it on exit) */
+        } /* Leave the handler for the next registration (free it on exit) */
     }
     TABLE_RWLOCK(handlers, write, unlock);
     return found;
@@ -578,8 +578,7 @@ dr_annotation_unregister_return(const char *annotation_name)
                        ACCT_OTHER, UNPROTECTED);
         handler->receiver_list = NULL;
         found = true;
-        /* Leave the handler for the next registration (free it on exit) */
-    }
+    } /* Leave the handler for the next registration (free it on exit) */
     TABLE_RWLOCK(handlers, write, unlock);
     return found;
 }
@@ -596,11 +595,11 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
     if ((handler != NULL) && (handler->receiver_list != NULL)) {
         dr_annotation_receiver_t *receiver = handler->receiver_list;
         if (receiver->instrumentation.vg_callback == annotation_callback) {
-            handler->receiver_list = receiver->next;
+            handler->receiver_list = receiver->next; /* case 1: remove the head */
             HEAP_TYPE_FREE(GLOBAL_DCONTEXT, receiver, dr_annotation_receiver_t,
                            ACCT_OTHER, UNPROTECTED);
             found = true;
-        } else {
+        } else { /* case 2: remove from within the list */
             while (receiver->next != NULL) {
                 if (receiver->next->instrumentation.vg_callback == annotation_callback) {
                     dr_annotation_receiver_t *removal = receiver->next;
@@ -612,14 +611,14 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
                 }
                 receiver = receiver->next;
             }
-        }
-        /* Leave the handler for the next registration (free it on exit) */
+        } /* Leave the handler for the next registration (free it on exit) */
     }
     TABLE_RWLOCK(handlers, write, unlock);
     return found;
 }
 
 /*********************************************************
+<<<<<<< HEAD
  * ANNOTATION IMPLEMENTATIONS
  */
 
@@ -824,83 +823,114 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
         layout->name = strchr(layout->name, ':') + 1;
     }
 }
+
+#ifdef X64
+# ifdef UNIX
+#  define FASTCALL_ARG_COUNT 6
+# else /* WINDOWS x64 */
+#  define FASTCALL_ARG_COUNT 4
+# endif
+#else /* x86 (all) */
+# define FASTCALL_ARG_COUNT 2
 #endif
 
 #ifdef X64
 # ifdef UNIX
-static inline void // UNIX x64
-specify_args(dr_annotation_handler_t *handler, uint num_args,
-             dr_annotation_calling_convention_t call_type)
+static inline void /* UNIX x64 */
+create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
+                 dr_annotation_calling_convention_t call_type)
 {
-    uint i;
-    for (i = 6; i < num_args; i++) {
-        handler->args[i] = OPND_CREATE_MEMPTR(
-            DR_REG_XSP, sizeof(ptr_uint_t) * (i-4));
+    uint i, arg_stack_location;
+    ASSERT(call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL); /* architecture constraint */
+    switch (num_args) { /* Create up to six register args */
+    default:
+    case 6:
+        handler->args[5] = opnd_create_reg(DR_REG_R9);
+    case 5:
+        handler->args[4] = opnd_create_reg(DR_REG_R8);
+    case 4:
+        handler->args[3] = opnd_create_reg(DR_REG_XCX);
+    case 3:
+        handler->args[2] = opnd_create_reg(DR_REG_XDX);
+    case 2:
+        handler->args[1] = opnd_create_reg(DR_REG_XSI);
+    case 1:
+        handler->args[0] = opnd_create_reg(DR_REG_XDI);
     }
-    switch (num_args) {
-        default:
-        case 6:
-            handler->args[5] = opnd_create_reg(DR_REG_R9);
-        case 5:
-            handler->args[4] = opnd_create_reg(DR_REG_R8);
-        case 4:
-            handler->args[3] = opnd_create_reg(DR_REG_XCX);
-        case 3:
-            handler->args[2] = opnd_create_reg(DR_REG_XDX);
-        case 2:
-            handler->args[1] = opnd_create_reg(DR_REG_XSI);
-        case 1:
-            handler->args[0] = opnd_create_reg(DR_REG_XDI);
+    /* Create the remaining args on the stack */
+    for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+        /* The clean call will appear at the top of the annotation function body, where
+         * the stack arguments follow the return address and the caller's saved stack
+         * pointer. Rewind `i` to 0 and add 2 to skip over these pointers.
+         */
+        arg_stack_location = sizeof(ptr_uint_t) * (i-FASTCALL_ARG_COUNT+2);
+        /* Use the stack pointer because the base pointer is a general register in x64 */
+        handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XSP, arg_stack_location);
     }
 }
-# else // WINDOWS x64
+# else /* WINDOWS x64 */
 static inline void
-specify_args(dr_annotation_handler_t *handler, uint num_args,
-             dr_annotation_calling_convention_t call_type)
+create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
+                 dr_annotation_calling_convention_t call_type)
 {
-    uint i;
-    for (i = 4; i < num_args; i++) {
-        handler->args[i] = OPND_CREATE_MEMPTR(
-            DR_REG_XSP, sizeof(ptr_uint_t) * (i+1));
+    uint i, arg_stack_location;
+    ASSERT(call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL); /* architecture constraint */
+    switch (num_args) { /* Create up to four register args */
+    default:
+    case 4:
+        handler->args[3] = opnd_create_reg(DR_REG_R9);
+    case 3:
+        handler->args[2] = opnd_create_reg(DR_REG_R8);
+    case 2:
+        handler->args[1] = opnd_create_reg(DR_REG_XDX);
+    case 1:
+        handler->args[0] = opnd_create_reg(DR_REG_XCX);
     }
-    switch (num_args) {
+    /* Create the remaining args on the stack */
+    for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+        /* The clean call will appear at the top of the annotation function body, where
+         * the stack arguments follow the return address and 32 bytes of empty space.
+         * Since `i` is already starting at 4, just add one more to reach the args.
+         */
+        arg_stack_location = sizeof(ptr_uint_t) * (i+1);
+        /* Use the stack pointer because the base pointer is a general register in x64 */
+        handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XSP, arg_stack_location);
+    }
+}
+# endif
+#else /* x86 (all) */
+static inline void
+create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
+                 dr_annotation_calling_convention_t call_type)
+{
+    uint i, arg_stack_location;
+    if (call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL) {
+        switch (num_args) { /* Create 1 or 2 register args */
         default:
-        case 4:
-            handler->args[3] = opnd_create_reg(DR_REG_R9);
-        case 3:
-            handler->args[2] = opnd_create_reg(DR_REG_R8);
         case 2:
             handler->args[1] = opnd_create_reg(DR_REG_XDX);
         case 1:
             handler->args[0] = opnd_create_reg(DR_REG_XCX);
-    }
-}
-# endif
-#else // x86 (all)
-static inline void
-specify_args(dr_annotation_handler_t *handler, uint num_args,
-             dr_annotation_calling_convention_t call_type)
-{
-    uint i;
-    if (call_type == DR_ANNOTATION_CALL_TYPE_FASTCALL) {
-        for (i = 2; i < num_args; i++) {
-            handler->args[i] = OPND_CREATE_MEMPTR(
-                DR_REG_XBP, sizeof(ptr_uint_t) * i);
-        }
-        switch (num_args) {
-            default:
-                handler->arg_stack_space = (sizeof(ptr_uint_t) * (num_args - 2));
-            case 2:
-                handler->args[1] = opnd_create_reg(DR_REG_XDX);
-            case 1:
-                handler->args[0] = opnd_create_reg(DR_REG_XCX);
         }
     } else { // DR_ANNOTATION_CALL_TYPE_STDCALL
-        for (i = 0; i < num_args; i++) {
-            handler->args[i] = OPND_CREATE_MEMPTR(
-                DR_REG_XBP, sizeof(ptr_uint_t) * i);
+        /* Create the remaining args on the stack */
+        for (i = FASTCALL_ARG_COUNT; i < num_args; i++) {
+            /* The clean call will appear at the top of the annotation function body,
+             * where the stack args follow the return address and the caller's saved base
+             * pointer. Since `i` already starts at 2, use it to skip those pointers.
+             */
+            arg_stack_location = sizeof(ptr_uint_t) * i;
+            handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XBP, arg_stack_location);
         }
-        handler->arg_stack_space = (sizeof(ptr_uint_t) * num_args);
+    } else { /* DR_ANNOTATION_CALL_TYPE_STDCALL: Create all args on the stack */
+        for (i = 0; i < num_args; i++) {
+            /* The clean call will appear at the top of the annotation function body,
+             * where the stack args follow the return address and the caller's saved base
+             * pointer. Since `i` already starts at 2, use it to skip those pointers.
+             */
+            arg_stack_location = sizeof(ptr_uint_t) * i;
+            handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XBP, arg_stack_location);
+        }
     }
 }
 #endif
@@ -999,7 +1029,7 @@ free_annotation_handler(void *p)
     }
     if ((handler->type == DR_ANNOTATION_HANDLER_CALL) ||
         (handler->type == DR_ANNOTATION_HANDLER_RETURN_VALUE))
-        heap_str_free(handler->id.symbol_name);
+        dr_strfree(handler->id.symbol_name, ACCT_OTHER);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, dr_annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }
 

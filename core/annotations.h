@@ -33,7 +33,7 @@
 #ifndef _ANNOTATIONS_H_
 #define _ANNOTATIONS_H_ 1
 
-#ifdef ANNOTATIONS
+#ifdef ANNOTATIONS /* around whole file */
 
 #include "lib/instrument.h"
 
@@ -300,7 +300,6 @@ typedef struct _dr_annotation_handler_t {
     dr_annotation_receiver_t *receiver_list;
     uint num_args;
     opnd_t *args;
-    uint arg_stack_space;
     bool is_void;
 } dr_annotation_handler_t;
 
@@ -346,10 +345,6 @@ is_annotation_jump_over_dead_code(instr_t *instr)
     return xl8 != NULL && *(ushort *)xl8 == ANNOTATION_JUMP_OVER_LABEL_REFERENCE;
 }
 #endif
-
-bool
-annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-                 _IF_WINDOWS_X64(bool hint_is_safe));
 
 static inline bool
 is_decoded_valgrind_annotation_tail(instr_t *instr)
@@ -433,6 +428,10 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
            word3 == ENCODED_VALGRIND_ANNOTATION_WORD_3;
 }
 #endif
+
+bool
+annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
+                 _IF_WINDOWS_X64(bool hint_is_safe));
 
 #if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
