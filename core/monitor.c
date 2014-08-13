@@ -411,6 +411,11 @@ monitor_thread_exit(dcontext_t *dcontext)
             trace_head_counter_t *e = md->thead_table.counter_table[i];
             while (e) {
                 trace_head_counter_t *nexte = e->next;
+                if (e->last_trace_size > 0) {
+                    HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
+                                    e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
+                    e->last_trace_size = 0;
+                }
                 COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
                              HEAPACCT(ACCT_THCOUNTER));
                 e = nexte;
@@ -451,6 +456,7 @@ thcounter_add(dcontext_t *dcontext, app_pc tag)
         COUNTER_ALLOC(dcontext, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
     e->tag = tag;
     e->counter = 0;
+    e->last_trace_size = 0;
     hindex = HASH_FUNC((ptr_uint_t)e->tag, &md->thead_table);
     e->next = md->thead_table.counter_table[hindex];
     md->thead_table.counter_table[hindex] = e;
@@ -471,6 +477,11 @@ thcounter_remove(dcontext_t *dcontext, app_pc tag)
                 prev_e->next = e->next;
             else
                 md->thead_table.counter_table[hindex] = e->next;
+            if (e->last_trace_size > 0) {
+                HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
+                                e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
+                e->last_trace_size = 0;
+            }
             COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
             break;
         }
@@ -497,6 +508,11 @@ thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
                     prev_e->next = next_e;
                 else
                     md->thead_table.counter_table[i] = next_e;
+                if (e->last_trace_size > 0) {
+                    HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
+                                    e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
+                    e->last_trace_size = 0;
+                }
                 COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
                              HEAPACCT(ACCT_THCOUNTER));
             } else
@@ -1292,7 +1308,22 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     });
 
 #ifdef JITOPT
-    add_patchable_trace(md);
+    if (add_patchable_trace(md)) {
+        trace_head_counter_t *counter = thcounter_lookup(dcontext, md->trace_tag);
+        ASSERT(counter != NULL);
+        if (counter->last_trace_size > 0 && (md->num_blks-1) != counter->last_trace_size) {
+            HEAP_ARRAY_FREE(dcontext, counter->last_trace, app_pc,
+                            counter->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
+            counter->last_trace_size = 0;
+        }
+        if (counter->last_trace_size == 0) {
+            counter->last_trace = HEAP_ARRAY_ALLOC(dcontext, app_pc, md->num_blks-1,
+                                                   ACCT_THCOUNTER, UNPROTECTED);
+            counter->last_trace_size = md->num_blks-1;
+        }
+        for (i = 1; i < md->num_blks; i++)
+            counter->last_trace[i-1] = md->blk_info[i].info.tag;
+    }
 #endif
 
 #ifdef CLIENT_INTERFACE
@@ -2005,6 +2036,12 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
      */
     check_fine_to_coarse_trace_head(dcontext, f);
 
+    // if (md->try_last_trace != NULL) {
+    //      ASSERT(md->trace_tag == NULL);
+    //      check N blocks for match (just 1 maybe?)
+    //          if matched, start the trace and build it up to this point
+    // How to handle all the special cases??
+
     if (md->trace_tag > 0) {      /* in trace selection mode */
         KSTART(trace_building);
 
@@ -2061,6 +2098,30 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 #endif
 
         if (!end_trace) {
+            ctr = thcounter_lookup(dcontext, md->trace_tag);
+            if (ctr == NULL) {
+                LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: Extending trace "PFX"(%d), but could not "
+                    "find the trace head counter!\n", md->trace_tag, md->num_blks);
+            } else if (ctr->last_trace_size > 0) {
+                if (md->num_blks > ctr->last_trace_size) {
+                    LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: Extending trace "PFX"(%d of %d), but the current "
+                        " trace is %d bbs long, and the last trace was only %d bbs.\n",
+                        md->trace_tag, md->num_blks, ctr->last_trace_size, md->num_blks, ctr->last_trace_size);
+                } else {
+                    app_pc last_bb = ctr->last_trace[md->num_blks-1];
+                    if (last_bb == f->tag) {
+                        LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: Extending trace "PFX"(%d of %d), with a match "
+                            "of bb "PFX".\n", md->trace_tag, md->num_blks, ctr->last_trace_size, f->tag);
+                    } else {
+                        LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: Extending trace "PFX"(%d of %d), but bb #%d "
+                            "in the last trace is "PFX", which does not match current bb "
+                            PFX"\n", md->trace_tag, md->num_blks, ctr->last_trace_size, md->num_blks, last_bb, f->tag);
+                    }
+                }
+            } else {
+                LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: No last trace on "PFX"\n", md->trace_tag);
+            }
+
 #ifdef CUSTOM_TRACES
             /* we need a regular bb here, not a trace */
             if (TEST(FRAG_IS_TRACE, f->flags)) {
@@ -2259,6 +2320,9 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     /* May not have been added for this thread yet */
     if (ctr == NULL)
         ctr = thcounter_add(dcontext, f->tag);
+    //else if (ctr->last_trace_length > 0)
+        // md->try_last_trace = ctr->last_trace
+        // md->try_last_trace_index = 0
     ASSERT(ctr != NULL);
 
     if (ctr->counter == TH_COUNTER_CREATED_TRACE_VALUE()) {

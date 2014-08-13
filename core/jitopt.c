@@ -893,16 +893,16 @@ add_patchable_bb(app_pc start, app_pc end)
     TABLE_RWLOCK(dgc_table, write, unlock);
 }
 
-void
+bool
 add_patchable_trace(monitor_data_t *md)
 {
-    bool found_trace = false;
+    bool found_trace = false, added = false;
     dgc_bb_t *bb;
     app_pc bb_tag;
     uint i;
 
     if (md->num_blks == 1)
-        return;
+        return false;
 
     TABLE_RWLOCK(dgc_table, write, lock);
 #ifdef FULL_TRACE_LOG
@@ -915,6 +915,8 @@ add_patchable_trace(monitor_data_t *md)
 #endif
         bb = dgc_table_find_bb(bb_tag, NULL, NULL);
         if (bb != NULL) {
+            added = true;
+            found_trace = false;
             dgc_trace_t *trace = bb->containing_trace_list;
             while (trace != NULL) {
                 if (trace->tags[0] == md->trace_tag) {
@@ -950,6 +952,8 @@ add_patchable_trace(monitor_data_t *md)
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "}\n");
 #endif
     TABLE_RWLOCK(dgc_table, write, unlock);
+
+    return added;
 }
 
 static void

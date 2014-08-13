@@ -117,6 +117,8 @@ mangle_trace_at_end(void);
 typedef struct _trace_head_counter_t {
     app_pc tag;
     uint   counter;
+    app_pc *last_trace; /* NULL-terminated array of tags */
+    uint   last_trace_size;
     /* FIXME: use open-address to save memory, and share code
      * w/ fragment.c?
      */

@@ -55,7 +55,7 @@ annotation_flush_fragments(app_pc start, size_t len);
 void
 add_patchable_bb(app_pc tag, app_pc cti_operand_pc);
 
-void
+bool
 add_patchable_trace(monitor_data_t *md);
 
 uint
