@@ -391,7 +391,7 @@ drfront_sym_exit(void);
  * @param[in] symbol_path    The full path to fetched symbols file.
  * @param[in] symbol_path_sz  Size of \p symbol_path argument.
  */
-bool
+drfront_status_t
 drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
                              size_t symbol_path_sz);
 

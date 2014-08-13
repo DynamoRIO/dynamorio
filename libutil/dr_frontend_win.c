@@ -501,7 +501,7 @@ drfront_sym_exit(void)
 }
 
 
-bool
+drfront_status_t
 drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
                              size_t symbol_path_sz)
 {
@@ -570,8 +570,9 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
                  printf("SymUnloadModule64 error %d", GetLastError());
                  );
     }
-
-    return got_pdbs;
+    if (!got_pdbs)
+        return DRFRONT_ERROR;
+    return DRFRONT_SUCCESS;
 }
 
 /* On failure returns INVALID_HANDLE_VALUE.
