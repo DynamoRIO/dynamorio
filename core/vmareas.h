@@ -368,6 +368,15 @@ is_valid_address(app_pc addr);
 bool
 is_app_managed_code(app_pc addr);
 
+void
+set_region_app_managed(app_pc start, size_t len);
+
+bool
+is_jit_monitored_area(app_pc addr);
+
+void
+set_region_jit_monitored(app_pc start, size_t len);
+
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas.
  * Must hold the DR areas lock across the combination of calling this and
@@ -831,8 +840,5 @@ bool
 is_unreadable_or_currently_unloaded_region(app_pc pc);
 bool
 is_in_last_unloaded_region(app_pc pc);
-
-void
-set_region_app_managed(app_pc start, size_t len, bool app_managed);
 
 #endif /* _VMAREAS_H_ */

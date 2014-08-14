@@ -153,10 +153,11 @@ jitopt_init()
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
                                 (void *) annotation_unmanage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
+#ifndef JIT_MANAGED_AREAS
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
                                 (void *) annotation_flush_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
+#endif
 #if !(defined (WINDOWS) && defined (X64))
     dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
                                     valgrind_discard_translations);
@@ -221,17 +222,17 @@ annotation_manage_code_area(app_pc start, size_t len)
 {
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
-    set_region_app_managed(start, len, true);
+#ifdef JIT_MANAGED_AREAS
+    set_region_jit_monitored(start, len);
+#else
+    set_region_app_managed(start, len);
+#endif
 }
 
 void
 annotation_unmanage_code_area(app_pc start, size_t len)
 {
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
+    dcontext_t *dcontext = get_thread_private_dcontext();
 
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);

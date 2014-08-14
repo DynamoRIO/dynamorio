@@ -1040,16 +1040,6 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 #ifdef PROGRAM_SHEPHERDING
             DODEBUG({ flagignore = flagignore | VM_PATTERN_REVERIFY; });
 #endif
-            /*
-            if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore) &&
-                TEST(VM_DELAY_READONLY, v->buf[i].vm_flags) &&
-                TEST(VM_APP_MANAGED, v->buf[i].vm_flags)) {
-                LOG(GLOBAL, LOG_VMAREAS, 1, "WARNING: Correcting broken flags "
-                    "on vmarea("PFX"-"PFX" 0x%x)\n",
-                    v->buf[i].start, v->buf[i].end, v->buf[i].vm_flags);
-                v->buf[i].vm_flags &= ~VM_DELAY_READONLY;
-            }
-            */
 #ifdef DEBUG
             if ((v->buf[i].vm_flags & ~flagignore) != (vm_flags & ~flagignore)) {
                 LOG(GLOBAL, LOG_VMAREAS, 1, "Flag mismatch new("PFX"-"PFX" 0x%x) != "
@@ -2685,10 +2675,10 @@ add_executable_vm_area(app_pc start, app_pc end, uint vm_flags, uint frag_flags,
     coarse_info_t *tofree = NULL;
     app_pc delay_start = NULL, delay_end = NULL;
     /* only expect to see the *_READONLY flags on WRITABLE regions */
-    ASSERT(!TEST(VM_DELAY_READONLY, vm_flags) ||
-           TEST(VM_WRITABLE, vm_flags));
-    ASSERT(!TEST(VM_MADE_READONLY, vm_flags) ||
-           TEST(VM_WRITABLE, vm_flags));
+    //ASSERT(!TEST(VM_DELAY_READONLY, vm_flags) ||
+    //       TEST(VM_WRITABLE, vm_flags));
+    //ASSERT(!TEST(VM_MADE_READONLY, vm_flags) ||
+    //       TEST(VM_WRITABLE, vm_flags));
 #ifdef DEBUG /* can't use DODEBUG b/c of ifdef inside */
     {
         /* we only expect certain flags */
@@ -3485,6 +3475,16 @@ is_app_managed_code(app_pc addr)
     uint vm_flags;
     if (get_executable_area_vm_flags(addr, &vm_flags))
         return TEST(VM_APP_MANAGED, vm_flags);
+    else
+        return false;
+}
+
+bool
+is_jit_monitored_area(app_pc addr)
+{
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_JIT_MONITORED, vm_flags);
     else
         return false;
 }
@@ -6349,6 +6349,28 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
 #endif
     ASSERT(new_memprot != NULL);
     /* old_memprot is optional */
+
+    if (is_jit_monitored_area(base)) {
+        ASSERT(is_jit_monitored_area(base + size - 1));
+        if (old_memprot != NULL) {
+            /* FIXME: case 10437 we should keep track of any previous values */
+            if (!get_memory_info(base, NULL, NULL, old_memprot)) {
+                /* FIXME: should we fail instead of feigning success? */
+                ASSERT_CURIOSITY(false && "prot change nop should fail");
+                *old_memprot = MEMPROT_NONE;
+            }
+        }
+
+        if (TEST(MEMPROT_WRITE, prot)) {
+            // if it's becoming writable, block that bit and keep it readonly
+            prot &= ~MEMPROT_WRITE;
+            *new_memprot = prot;
+            return SUBSET_APP_MEM_PROT_CHANGE;
+        } else { // otherwise any changes are ok
+            *new_memprot = prot;
+            return DO_APP_MEM_PROT_CHANGE;
+        }
+    }
 
 #if defined(PROGRAM_SHEPHERDING) && defined(WINDOWS)
     patch_proof_overlap = (!IS_STRING_OPTION_EMPTY(patch_proof_default_list) ||
@@ -10475,6 +10497,10 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
     });
     ASSERT(ok);
+
+    if (is_jit_monitored_area(target)) { // (redundant with caller)
+    }
+
     SYSLOG_INTERNAL_WARNING_ONCE("writing to executable region.");
     STATS_INC(num_write_faults);
     read_lock(&executable_areas->lock);
@@ -11266,36 +11292,64 @@ print_last_deallocated(file_t outf)
 }
 
 void
-set_region_app_managed(app_pc start, size_t len, bool app_managed)
+set_region_app_managed(app_pc start, size_t len)
 {
     vm_area_t *region;
     LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
     write_lock(&executable_areas->lock);
-    if (app_managed) {
-        if (lookup_addr(executable_areas, start, &region)) {
-            if ((region->start == start) && (region->end == (start+len))) {
-                if (!TEST(VM_APP_MANAGED, region->vm_flags)) {
-                    if (TEST(VM_MADE_READONLY, region->vm_flags))
-                       vm_make_writable(region->start, region->end - region->start);
-                    region->vm_flags |= VM_APP_MANAGED;
-                    region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
-                    LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
-                        start, len);
-                }
-            } else {
-                LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
-                    "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
-                    start, start+len, region->start, region->end);
+    if (lookup_addr(executable_areas, start, &region)) {
+        if ((region->start == start) && (region->end == (start+len))) {
+            if (!TEST(VM_APP_MANAGED, region->vm_flags)) {
+                if (TEST(VM_MADE_READONLY, region->vm_flags))
+                   vm_make_writable(region->start, region->end - region->start);
+                region->vm_flags |= VM_APP_MANAGED;
+                region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+                LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
+                    start, len);
             }
         } else {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new app-maanged vmarea: "PFX"-"PFX"\n",
-                start, start+len);
-
-            add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
-                        _IF_DEBUG("app-managed"));
+            LOG(GLOBAL, LOG_VMAREAS, 1, "App managed region has the wrong bounds!: "
+                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                start, start+len, region->start, region->end);
         }
     } else {
-        //remove_vm_area(&executable_areas, start, start+len, true);
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new app-maanged vmarea: "PFX"-"PFX"\n",
+            start, start+len);
+
+        add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
+                    _IF_DEBUG("app-managed"));
+    }
+    write_unlock(&executable_areas->lock);
+}
+
+void
+set_region_jit_monitored(app_pc start, size_t len)
+{
+    vm_area_t *region;
+    LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_jit_monitored("PFX" +0x%x)\n", start, len);
+    write_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, start, &region)) {
+        if ((region->start == start) && (region->end == (start+len))) {
+            if (!TEST(VM_JIT_MONITORED, region->vm_flags)) {
+                // how??
+                if (TEST(VM_MADE_READONLY, region->vm_flags))
+                   vm_make_writable(region->start, region->end - region->start);
+                region->vm_flags |= VM_APP_MANAGED;
+                region->vm_flags &= ~(VM_MADE_READONLY | VM_DELAY_READONLY);
+                LOG(GLOBAL, LOG_VMAREAS, 1, "Region ("PFX" +0x%x) no longer 'made readonly'\n",
+                    start, len);
+            }
+        } else {
+            LOG(GLOBAL, LOG_VMAREAS, 1, "JIT monitored region has the wrong bounds!: "
+                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                start, start+len, region->start, region->end);
+        }
+    } else {
+        LOG(GLOBAL, LOG_VMAREAS, 1, "Generating new JIT monitored vmarea: "PFX"-"PFX"\n",
+            start, start+len);
+
+        add_vm_area(executable_areas, start, start+len, VM_APP_MANAGED, 0, NULL
+                    _IF_DEBUG("JIT monitored"));
     }
     write_unlock(&executable_areas->lock);
 }
