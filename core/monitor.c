@@ -226,6 +226,16 @@ create_private_copy(dcontext_t *dcontext, fragment_t *f)
     return true;
 }
 
+#ifdef APP_MANAGED_TRACE_LIST
+static void
+free_last_trace(dcontext_t *dcontext, trace_head_counter_t *counter)
+{
+    HEAP_ARRAY_FREE(dcontext, counter->last_trace, app_pc,
+                    counter->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
+    counter->last_trace_size = 0;
+}
+#endif
+
 #ifdef CLIENT_INTERFACE
 static void
 extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
@@ -411,11 +421,10 @@ monitor_thread_exit(dcontext_t *dcontext)
             trace_head_counter_t *e = md->thead_table.counter_table[i];
             while (e) {
                 trace_head_counter_t *nexte = e->next;
-                if (e->last_trace_size > 0) {
-                    HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
-                                    e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
-                    e->last_trace_size = 0;
-                }
+#ifdef APP_MANAGED_TRACE_LIST
+                if (e->last_trace_size > 0)
+                    free_last_trace(dcontext, e);
+#endif
                 COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
                              HEAPACCT(ACCT_THCOUNTER));
                 e = nexte;
@@ -456,7 +465,10 @@ thcounter_add(dcontext_t *dcontext, app_pc tag)
         COUNTER_ALLOC(dcontext, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
     e->tag = tag;
     e->counter = 0;
+    e->is_jit_tweaked = false;
+#ifdef APP_MANAGED_TRACE_LIST
     e->last_trace_size = 0;
+#endif
     hindex = HASH_FUNC((ptr_uint_t)e->tag, &md->thead_table);
     e->next = md->thead_table.counter_table[hindex];
     md->thead_table.counter_table[hindex] = e;
@@ -477,11 +489,10 @@ thcounter_remove(dcontext_t *dcontext, app_pc tag)
                 prev_e->next = e->next;
             else
                 md->thead_table.counter_table[hindex] = e->next;
-            if (e->last_trace_size > 0) {
-                HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
-                                e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
-                e->last_trace_size = 0;
-            }
+#ifdef APP_MANAGED_TRACE_LIST
+            if (e->last_trace_size > 0)
+                free_last_trace(dcontext, e);
+#endif
             COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
             break;
         }
@@ -508,11 +519,10 @@ thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
                     prev_e->next = next_e;
                 else
                     md->thead_table.counter_table[i] = next_e;
-                if (e->last_trace_size > 0) {
-                    HEAP_ARRAY_FREE(dcontext, e->last_trace, app_pc,
-                                    e->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
-                    e->last_trace_size = 0;
-                }
+#ifdef APP_MANAGED_TRACE_LIST
+                if (e->last_trace_size > 0)
+                    free_last_trace(dcontext, e);
+#endif
                 COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
                              HEAPACCT(ACCT_THCOUNTER));
             } else
@@ -901,7 +911,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
 static bool
 should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
                                      linkstub_t *from_l, app_pc to_tag, uint to_flags,
-                                     bool trace_sysenter_exit)
+                                     bool trace_sysenter_exit, bool dgc_trace_head)
 {
     app_pc from_tag;
     uint from_flags;
@@ -913,7 +923,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
         return false;
 
     /* We know that the to_flags pass the test. */
-    if (trace_sysenter_exit)
+    if (trace_sysenter_exit || dgc_trace_head)
         return true;
 
     from_tag = from_f->tag;
@@ -973,8 +983,11 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                               bool trace_sysenter_exit)
 {
     uint result = 0;
+    bool dgc_trace_head;
+    //trace_head_counter_t *counter = thcounter_lookup(dcontext, to_tag);
+    dgc_trace_head = false; //(counter != NULL && counter->is_jit_tweaked);
     if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
-                                             trace_sysenter_exit)) {
+                                             trace_sysenter_exit, dgc_trace_head)) {
         result |= TRACE_HEAD_YES;
         ASSERT(!have_link_lock || self_owns_recursive_lock(&change_linking_lock));
         if (!have_link_lock) {
@@ -987,7 +1000,8 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                 acquire_recursive_lock(&change_linking_lock);
                 if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l,
                                                          to_tag, to_flags,
-                                                         trace_sysenter_exit)) {
+                                                         trace_sysenter_exit,
+                                                         dgc_trace_head)) {
                     result |= TRACE_HEAD_OBTAINED_LOCK;
                 } else {
                     result &= ~TRACE_HEAD_YES;
@@ -1278,8 +1292,9 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     instrlist_t *trace = &md->trace;
     fragment_t *trace_f;
     trace_only_t *trace_tr;
-    bool replace_trace_head = false;
     fragment_t wrapper;
+    bool /*is_jit_tweaked,*/ replace_trace_head = false;
+    //trace_head_counter_t *counter;
     uint i;
 #if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* was the trace passed through optimizations or the client interface? */
@@ -1308,14 +1323,18 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     });
 
 #ifdef JITOPT
-    if (add_patchable_trace(md)) {
-        trace_head_counter_t *counter = thcounter_lookup(dcontext, md->trace_tag);
+    add_patchable_trace(md);
+    /*
+    is_jit_tweaked  = add_patchable_trace(md);
+    counter = thcounter_lookup(dcontext, md->trace_tag);
+    if (counter != NULL)
+        counter->is_jit_tweaked = is_jit_tweaked;
+    */
+# ifdef APP_MANAGED_TRACE_LIST
+        trace_head_counter_t *
         ASSERT(counter != NULL);
-        if (counter->last_trace_size > 0 && (md->num_blks-1) != counter->last_trace_size) {
-            HEAP_ARRAY_FREE(dcontext, counter->last_trace, app_pc,
-                            counter->last_trace_size, ACCT_THCOUNTER, UNPROTECTED);
-            counter->last_trace_size = 0;
-        }
+        if (counter->last_trace_size > 0 && (md->num_blks-1) != counter->last_trace_size)
+            free_last_trace(dcontext, counter);
         if (counter->last_trace_size == 0) {
             counter->last_trace = HEAP_ARRAY_ALLOC(dcontext, app_pc, md->num_blks-1,
                                                    ACCT_THCOUNTER, UNPROTECTED);
@@ -1323,7 +1342,12 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
         }
         for (i = 1; i < md->num_blks; i++)
             counter->last_trace[i-1] = md->blk_info[i].info.tag;
+    } else {
+        trace_head_counter_t *counter = thcounter_lookup(dcontext, md->trace_tag);
+        if (counter != NULL && counter->last_trace_size > 0)
+            free_last_trace(dcontext, counter); // only maintain patchable traces
     }
+# endif
 #endif
 
 #ifdef CLIENT_INTERFACE
@@ -2098,6 +2122,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 #endif
 
         if (!end_trace) {
+#ifdef APP_MANAGED_TRACE_LIST
             ctr = thcounter_lookup(dcontext, md->trace_tag);
             if (ctr == NULL) {
                 LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: Extending trace "PFX"(%d), but could not "
@@ -2121,6 +2146,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
             } else {
                 LOG(THREAD, LOG_MONITOR, 1, "DGC[trace]: No last trace on "PFX"\n", md->trace_tag);
             }
+#endif
 
 #ifdef CUSTOM_TRACES
             /* we need a regular bb here, not a trace */
@@ -2320,9 +2346,14 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     /* May not have been added for this thread yet */
     if (ctr == NULL)
         ctr = thcounter_add(dcontext, f->tag);
-    //else if (ctr->last_trace_length > 0)
-        // md->try_last_trace = ctr->last_trace
-        // md->try_last_trace_index = 0
+#ifdef APP_MANAGED_TRACE_LIST
+    /*
+    else if (ctr->last_trace_size > 0) {
+        md->try_last_trace = ctr->last_trace
+        md->try_last_trace_index = 0
+    }
+    */
+#endif
     ASSERT(ctr != NULL);
 
     if (ctr->counter == TH_COUNTER_CREATED_TRACE_VALUE()) {
@@ -2335,12 +2366,13 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
          * sentinel value.
          */
         ctr->counter = INTERNAL_OPTION(trace_counter_on_delete);
+        ctr->is_jit_tweaked = false;
         STATS_INC(th_counter_reset);
     }
 
     ctr->counter++;
     /* Should never be > here (assert is down below) but we check just in case */
-    if (ctr->counter >= INTERNAL_OPTION(trace_threshold)) {
+    if (ctr->counter >= INTERNAL_OPTION(trace_threshold) || ctr->is_jit_tweaked) {
         /* if cannot delete fragment, do not start trace -- wait until
          * can delete it (w/ exceptions, deletion status changes). */
         if (!TEST(FRAG_CANNOT_DELETE, f->flags)) {
@@ -2557,6 +2589,16 @@ trace_abort(dcontext_t *dcontext)
     if (!prevlinking)
         enter_nolinking(dcontext, NULL, false/*not a cache transition*/);
 }
+
+#ifdef JITOPT
+void
+set_trace_head_jit_tweaked(dcontext_t *dcontext, app_pc head)
+{
+    trace_head_counter_t *counter = thcounter_lookup(dcontext, head);
+    if (counter != NULL)
+        counter->is_jit_tweaked = true;
+}
+#endif
 
 #if defined(RETURN_AFTER_CALL) || defined(RCT_IND_BRANCH)
 /* PR 204770: use trace component bb tag for RCT source address */

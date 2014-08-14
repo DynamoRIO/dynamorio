@@ -107,6 +107,9 @@ thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end);
 bool
 mangle_trace_at_end(void);
 
+void
+set_trace_head_jit_tweaked(dcontext_t *dcontext, app_pc head);
+
 /* trace head counters are thread-private and must be kept in a
  * separate table and not in the fragment_t structure.
  * FIXME: may want to do this for non-shared-cache, since persistent counters
@@ -117,8 +120,11 @@ mangle_trace_at_end(void);
 typedef struct _trace_head_counter_t {
     app_pc tag;
     uint   counter;
-    app_pc *last_trace; /* NULL-terminated array of tags */
+    bool   is_jit_tweaked;
+#ifdef APP_MANAGED_TRACE_LIST
+    app_pc *last_trace;
     uint   last_trace_size;
+#endif
     /* FIXME: use open-address to save memory, and share code
      * w/ fragment.c?
      */

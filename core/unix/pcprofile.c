@@ -121,6 +121,7 @@ pcprofile_thread_init(dcontext_t *dcontext, bool shared_itimer, void *parent_inf
          */
         ASSERT(parent_info != NULL);
         info = (thread_pc_info_t *) parent_info;
+        dcontext->pcprofile_field = (void *) info; // hack!
         ASSERT(info->thread_shared);
         return;
     }

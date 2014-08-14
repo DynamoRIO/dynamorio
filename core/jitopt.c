@@ -125,7 +125,8 @@ static dgc_fragment_intersection_t *fragment_intersection;
     if (!(cond)) \
         LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 #else
-# define RELEASE_LOG(file, category, level, ...) dr_printf(__VA_ARGS__)
+# define RELEASE_LOG(file, category, level, ...)
+    //dr_printf(__VA_ARGS__)
 # define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
@@ -296,7 +297,7 @@ annotation_flush_fragments(app_pc start, size_t len)
                                         false/*don't free futures*/, false/*exec valid*/,
                                         false/*don't force synchall*/ _IF_DGCDIAG(NULL));
         ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-        vm_area_isolate_region(dcontext, start, start+len);
+        vm_area_isolate_region(dcontext, start, start+len); // make sure per-thread regions are gone at this point
         ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
         flush_fragments_in_region_finish(dcontext, true);
         mutex_unlock(&thread_initexit_lock);
@@ -514,6 +515,7 @@ dgc_bucket_gc_list_init(bool allow_immediate_gc, const char *current_operation)
     dgc_bucket_gc_list->current_operation = current_operation;
 }
 
+#ifdef DEBUG
 static bool
 dgc_bucket_is_packed(dgc_bucket_t *bucket)
 {
@@ -538,6 +540,7 @@ dgc_bucket_is_packed(dgc_bucket_t *bucket)
     }
     return true;
 }
+#endif
 
 static void
 dgc_bucket_gc()
@@ -561,7 +564,7 @@ dgc_bucket_gc()
 
     for (i = 0; i < dgc_bucket_gc_list->staging_count; i++) {
         if (dgc_bucket_gc_list->staging[i] != NULL)
-            RELEASE_ASSERT(dgc_bucket_is_packed(dgc_bucket_gc_list->staging[i]), "not packed");
+            ASSERT(dgc_bucket_is_packed(dgc_bucket_gc_list->staging[i]));
     }
 }
 
@@ -957,12 +960,15 @@ add_patchable_trace(monitor_data_t *md)
 }
 
 static void
-safe_delete_fragment(dcontext_t *dcontext, fragment_t *f)
+safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 {
     if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
         dr_printf("Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
         return;
     }
+
+    if (TEST(FRAG_IS_TRACE_HEAD, f->flags) && is_tweak)
+        set_trace_head_jit_tweaked(dcontext, f->tag);
 
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
     acquire_vm_areas_lock(dcontext, f->flags);
@@ -982,7 +988,7 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     uint j;
     fragment_t *f;
     app_pc *bb_tag, *trace_tag;
-    bool thread_has_fragment;
+    bool thread_has_fragment, is_tweak = ((patch_end - patch_start) <= 4);
     per_thread_t *tgt_pt;
     dcontext_t *tgt_dcontext;
 
@@ -1072,25 +1078,25 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
         for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
             f = fragment_lookup_trace(dcontext, *bb_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
             f = fragment_lookup_shared_trace(dcontext, *bb_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
             f = fragment_lookup_bb(dcontext, *bb_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
             f = fragment_lookup_shared_bb(dcontext, *bb_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
         }
         trace_tag = fragment_intersection->trace_tags;
         for (; *trace_tag != NULL; trace_tag++) {
             f = fragment_lookup_trace(dcontext, *trace_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
             f = fragment_lookup_shared_trace(dcontext, *trace_tag);
             if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f);
+                safe_delete_fragment(tgt_dcontext, f, is_tweak);
         }
 
         if (tgt_dcontext != dcontext) {

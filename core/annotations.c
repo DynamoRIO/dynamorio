@@ -494,7 +494,7 @@ dr_annotation_register_call(const char *annotation_name, void *callee, bool save
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_CALL;
-        handler->symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
+        handler->symbol_name = dr_strdup(annotation_name HEAPACCT(ACCT_OTHER));
         handler->num_args = num_args;
 
         if (num_args == 0) {
@@ -574,7 +574,7 @@ dr_annotation_register_return(const char *annotation_name, void *return_value)
                                   ACCT_OTHER, UNPROTECTED);
         memset(handler, 0, sizeof(dr_annotation_handler_t));
         handler->type = DR_ANNOTATION_HANDLER_RETURN_VALUE;
-        handler->symbol_name = dr_strdup(annotation_name, ACCT_OTHER);
+        handler->symbol_name = dr_strdup(annotation_name HEAPACCT(ACCT_OTHER));
         strhash_hash_add(GLOBAL_DCONTEXT, handlers, handler->symbol_name, handler);
     }
     if (handler->receiver_list == NULL) {
@@ -1076,7 +1076,7 @@ free_annotation_handler(void *p)
     }
     if ((handler->type == DR_ANNOTATION_HANDLER_CALL) ||
         (handler->type == DR_ANNOTATION_HANDLER_RETURN_VALUE))
-        dr_strfree(handler->symbol_name, ACCT_OTHER);
+        dr_strfree(handler->symbol_name HEAPACCT(ACCT_OTHER));
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, dr_annotation_handler_t, ACCT_OTHER, UNPROTECTED);
 }
 

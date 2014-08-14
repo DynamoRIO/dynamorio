@@ -1284,7 +1284,8 @@
          "reset all when less then this much free committable memory remains")
     OPTION_DEFAULT(uint, report_reset_commit_threshold, 3,
         "syslog one thrash warning message after this many resets at low commit")
-    OPTION_DEFAULT(uint, reset_every_nth_pending, 35,
+    // hack! was 35
+    OPTION_DEFAULT(uint, reset_every_nth_pending, 3500,
         "reset all caches when pending deletion has this many entries")
     /* the reset-by-unit options focus on filled units and not created units
      * to avoid being triggered by new, empty, private units for new threads
