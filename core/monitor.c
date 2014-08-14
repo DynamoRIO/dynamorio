@@ -2446,7 +2446,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     if (start_trace) {
         KSTART(trace_building);
         /* ensure our sentinel counter value for counter clearing will work */
-        ASSERT(ctr->counter == INTERNAL_OPTION(trace_threshold));
+        ASSERT(ctr->counter == INTERNAL_OPTION(trace_threshold) || ctr->is_jit_tweaked);
         ctr->counter = TH_COUNTER_CREATED_TRACE_VALUE();
         /* Found a hot trace head.  Switch this thread into trace
            selection mode, and initialize the instrlist_t for the new

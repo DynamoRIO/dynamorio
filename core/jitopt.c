@@ -57,8 +57,6 @@
 #define BUCKET_ID(pc) (((ptr_uint_t) (pc)) >> BUCKET_BIT_SIZE)
 #define DGC_REF_COUNT_BITS 0xa
 #define DGC_REF_COUNT_MASK 0x3ff
-#define DGC_MAX_TAG_REMOVAL 0x50
-#define DGC_MAX_TRACE_REMOVAL 0x100
 
 typedef struct _dgc_trace_t {
     app_pc tags[2];
@@ -113,6 +111,9 @@ typedef struct _dgc_fragment_intersection_t {
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
+    fragment_t **shared_deletions;
+    uint shared_deletion_index;
+    uint shared_deletion_max;
 } dgc_fragment_intersection_t;
 
 static dgc_fragment_intersection_t *fragment_intersection;
@@ -181,6 +182,12 @@ jitopt_init()
     fragment_intersection->trace_tags =
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, fragment_intersection->trace_tag_max,
                          ACCT_OTHER, UNPROTECTED);
+    fragment_intersection->shared_deletion_index = 0;
+    fragment_intersection->shared_deletion_max = 0x20;
+    fragment_intersection->shared_deletions =
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, fragment_t *,
+                         fragment_intersection->shared_deletion_max, ACCT_OTHER,
+                         UNPROTECTED);
 #endif
 }
 
@@ -202,6 +209,8 @@ jitopt_exit()
                     fragment_intersection->bb_tag_max, ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->trace_tags, app_pc,
                     fragment_intersection->trace_tag_max, ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->shared_deletions, fragment_t *,
+                    fragment_intersection->shared_deletion_max, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment_intersection, dgc_fragment_intersection_t,
                    ACCT_OTHER, UNPROTECTED);
 #endif
@@ -236,6 +245,20 @@ annotation_unmanage_code_area(app_pc start, size_t len)
 #endif
 }
 
+static void
+flush_and_isolate_region(dcontext_t *dcontext, app_pc start, size_t len)
+{
+    mutex_lock(&thread_initexit_lock);
+    flush_fragments_in_region_start(dcontext, start, len, true /*own initexit*/,
+                                    false/*don't free futures*/, false/*exec valid*/,
+                                    false/*don't force synchall*/ _IF_DGCDIAG(NULL));
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    vm_area_isolate_region(dcontext, start, start+len); // make sure per-thread regions are gone at this point
+    ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    flush_fragments_in_region_finish(dcontext, true);
+    mutex_unlock(&thread_initexit_lock);
+}
+
 void
 annotation_flush_fragments(app_pc start, size_t len)
 {
@@ -260,27 +283,27 @@ annotation_flush_fragments(app_pc start, size_t len)
     RSTATS_INC(app_managed_writes_observed);
 #ifdef JITOPT
     if (len < 0x400) {
-        uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
-        if (removal_count > 0) {
-            RSTATS_INC(app_managed_writes_handled);
-            RSTATS_ADD(app_managed_fragments_removed, removal_count);
+        if (is_vm_area_region_isolated(dcontext, start, start+len)) {
+            uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
+            if (removal_count > 0) {
+                RSTATS_INC(app_managed_writes_handled);
+                RSTATS_ADD(app_managed_fragments_removed, removal_count);
+            } else {
+                RSTATS_INC(app_managed_writes_ignored);
+            }
+
+            if (len < 4)
+                RSTATS_INC(app_managed_micro_writes);
+            else if (len == 4)
+                RSTATS_INC(app_managed_word_writes);
+            else if (len <= 0x20)
+                RSTATS_INC(app_managed_small_writes);
+            else if (len <= 0x100)
+                RSTATS_INC(app_managed_subpage_writes);
         } else {
-            RSTATS_INC(app_managed_writes_ignored);
+            // causes some unstability in v8?
+            flush_and_isolate_region(dcontext, start, len);
         }
-
-        if (len < 4)
-            RSTATS_INC(app_managed_micro_writes);
-        else if (len == 4)
-            RSTATS_INC(app_managed_word_writes);
-        else if (len <= 0x20)
-            RSTATS_INC(app_managed_small_writes);
-        else if (len <= 0x100)
-            RSTATS_INC(app_managed_subpage_writes);
-
-        // causes some unstability in v8!
-        executable_areas_lock();
-        vm_area_isolate_region(dcontext, start, start+len);
-        executable_areas_unlock();
     } else {
 # endif
         if (len == PAGE_SIZE)
@@ -292,16 +315,7 @@ annotation_flush_fragments(app_pc start, size_t len)
             LOG(GLOBAL, LOG_ANNOTATIONS, 1, "> operands: Missed call at "PFX"\n", start-1);
         }
 
-        mutex_lock(&thread_initexit_lock);
-        flush_fragments_in_region_start(dcontext, start, len, true /*own initexit*/,
-                                        false/*don't free futures*/, false/*exec valid*/,
-                                        false/*don't force synchall*/ _IF_DGCDIAG(NULL));
-        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-        vm_area_isolate_region(dcontext, start, start+len); // make sure per-thread regions are gone at this point
-        ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
-        flush_fragments_in_region_finish(dcontext, true);
-        mutex_unlock(&thread_initexit_lock);
-
+        flush_and_isolate_region(dcontext, start, len);
 #ifdef JITOPT
         dgc_notify_region_cleared(start, start+len);
     }
@@ -960,6 +974,19 @@ add_patchable_trace(monitor_data_t *md)
 }
 
 static void
+expand_intersection_array(void **array, uint *max_size)
+{
+    void *original_array = *array;
+
+    *array = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, *max_size * 2,
+                              ACCT_OTHER, UNPROTECTED);
+    memcpy(*array, original_array, *max_size * sizeof(void *));
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, original_array, app_pc, *max_size,
+                    ACCT_OTHER, UNPROTECTED);
+    *max_size *= 2;
+}
+
+static void
 safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 {
     if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
@@ -970,15 +997,53 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
     if (TEST(FRAG_IS_TRACE_HEAD, f->flags) && is_tweak)
         set_trace_head_jit_tweaked(dcontext, f->tag);
 
-    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-    acquire_vm_areas_lock(dcontext, f->flags);
-    fragment_delete(dcontext, f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR | FRAGDEL_NO_HEAP |
-                                 FRAGDEL_NO_FCACHE);
-    release_vm_areas_lock(dcontext, f->flags);
-    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+    if (TEST(FRAG_SHARED, f->flags)) {
+        //acquire_recursive_lock(&change_linking_lock);
+        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
+        acquire_vm_areas_lock(dcontext, f->flags);
 
-    f->flags |= FRAG_WAS_DELETED;
-    fragment_delete(dcontext, f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_VMAREA | FRAGDEL_NO_UNLINK | FRAGDEL_NO_HTABLE);
+        /* FIXME: share all this code w/ vm_area_unlink_fragments()
+         * The work there is just different enough to make that hard, though.
+         */
+        if (TEST(FRAG_LINKED_OUTGOING, f->flags))
+            unlink_fragment_outgoing(GLOBAL_DCONTEXT, f);
+        if (TEST(FRAG_LINKED_INCOMING, f->flags))
+            unlink_fragment_incoming(GLOBAL_DCONTEXT, f);
+        incoming_remove_fragment(GLOBAL_DCONTEXT, f);
+
+        /* remove from ib lookup tables in a safe manner. this removes the
+         * frag only from this thread's tables OR from shared tables.
+         */
+        fragment_prepare_for_removal(GLOBAL_DCONTEXT, f);
+        /* fragment_remove ignores the ibl tables for shared fragments */
+        fragment_remove(GLOBAL_DCONTEXT, f, false);
+
+        vm_area_remove_fragment(dcontext, f);
+        /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
+         * invalidation, so that users of vm_area_add_to_list() can rely on this
+         * flag to determine validity
+         */
+        f->flags |= FRAG_WAS_DELETED;
+
+        release_vm_areas_lock(dcontext, f->flags);
+        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+        //release_recursive_lock(&change_linking_lock);
+
+        fragment_intersection->shared_deletions[fragment_intersection->shared_deletion_index++] = f;
+        if (fragment_intersection->shared_deletion_index == fragment_intersection->shared_deletion_max) {
+            expand_intersection_array((void **) &fragment_intersection->shared_deletions,
+                                      &fragment_intersection->shared_deletion_max);
+        }
+    } else {
+        acquire_vm_areas_lock(dcontext, f->flags);
+        fragment_delete(dcontext, f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR |
+                                     FRAGDEL_NO_HEAP | FRAGDEL_NO_FCACHE);
+        release_vm_areas_lock(dcontext, f->flags);
+
+        f->flags |= FRAG_WAS_DELETED;
+        fragment_delete(dcontext, f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_VMAREA |
+                                     FRAGDEL_NO_UNLINK | FRAGDEL_NO_HTABLE);
+    }
 }
 
 static void
@@ -1155,33 +1220,20 @@ buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
     return false;
 }
 
-static void
-expand_intersection_array(app_pc **array, uint *max_size)
-{
-    app_pc *original_array = *array;
-
-    *array = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, *max_size * 2,
-                              ACCT_OTHER, UNPROTECTED);
-    memcpy(*array, original_array, *max_size * sizeof(app_pc));
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, original_array, app_pc, *max_size,
-                    ACCT_OTHER, UNPROTECTED);
-    *max_size *= 2;
-}
-
 static uint
 add_trace_intersection(dgc_trace_t *trace, uint i)
 {
     if (!has_tag(trace->tags[0], fragment_intersection->trace_tags, i))
         fragment_intersection->trace_tags[i++] = trace->tags[0];
     if (i == fragment_intersection->trace_tag_max) {
-        expand_intersection_array(&fragment_intersection->trace_tags,
+        expand_intersection_array((void **) &fragment_intersection->trace_tags,
                                   &fragment_intersection->trace_tag_max);
     }
     if (trace->tags[1] != NULL && !has_tag(trace->tags[1],
                                            fragment_intersection->trace_tags, i))
         fragment_intersection->trace_tags[i++] = trace->tags[1];
     if (i == fragment_intersection->trace_tag_max) {
-        expand_intersection_array(&fragment_intersection->trace_tags,
+        expand_intersection_array((void **) &fragment_intersection->trace_tags,
                                   &fragment_intersection->trace_tag_max);
     }
     return i;
@@ -1213,8 +1265,8 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
                     (is_patch_start_bucket || dgc_bb_is_head(bb))) {
                     if (!has_tag(bb->start, fragment_intersection->bb_tags, i_bb))
                         fragment_intersection->bb_tags[i_bb++] = bb->start;
-                    if (i_bb == DGC_MAX_TAG_REMOVAL) {
-                        expand_intersection_array(&fragment_intersection->bb_tags,
+                    if (i_bb == fragment_intersection->bb_tag_max) {
+                        expand_intersection_array((void **) &fragment_intersection->bb_tags,
                                                   &fragment_intersection->bb_tag_max);
                     }
                     trace = dgc_bb_head(bb)->containing_trace_list;
@@ -1244,7 +1296,7 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
 uint
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
-    uint fragment_intersection_count;
+    uint i, fragment_intersection_count;
 
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return 0;
@@ -1256,6 +1308,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     mutex_lock(&thread_initexit_lock);
 
     fragment_intersection_count = extract_fragment_intersection(patch_start, patch_end);
+    fragment_intersection->shared_deletion_index = 0;
     if (fragment_intersection_count > 0) {
         update_thread_state();
         enter_couldbelinking(dcontext, NULL, false);
@@ -1272,6 +1325,13 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
                     patch_start, patch_end);
     }
     mutex_unlock(&thread_initexit_lock);
+
+    if (fragment_intersection->shared_deletion_index > 0) {
+        enter_couldbelinking(dcontext, NULL, false);
+        for (i = 0; i < fragment_intersection->shared_deletion_index; i++)
+            add_to_lazy_deletion_list(dcontext, fragment_intersection->shared_deletions[i]);
+        enter_nolinking(dcontext, NULL, false);
+    }
 
     return fragment_intersection_count;
 }

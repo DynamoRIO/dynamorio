@@ -713,6 +713,9 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc);
 bool
 vm_area_flush_fragments(dcontext_t *dcontext, fragment_t *was_I_flushed);
 
+bool
+is_vm_area_region_isolated(dcontext_t *dcontext, app_pc start, app_pc end);
+
 /* JIT optimization: isolate the written page in its own vmarea */
 void
 vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end);

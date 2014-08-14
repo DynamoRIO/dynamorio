@@ -9470,11 +9470,33 @@ vm_area_unlink_incoming(dcontext_t *dcontext, app_pc pc)
     }
 }
 
+bool
+is_vm_area_region_isolated(dcontext_t *dcontext, app_pc start, app_pc end)
+{
+    int i;
+    bool isolated = false;
+    app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, APP_MANAGED_VMAREA_SIZE);
+    app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, APP_MANAGED_VMAREA_SIZE);
+    executable_areas_lock();
+    for (i = executable_areas->length - 1; i >= 0; i--) {
+        app_pc area_start = executable_areas->buf[i].start;
+        app_pc area_end = executable_areas->buf[i].end;
+        if (isolation_start == area_start && isolation_end == area_end) {
+            isolated = true;
+            break;
+        }
+    }
+    executable_areas_unlock();
+    return isolated;
+}
+
 /* JIT optimization: isolate the written page in its own vmarea */
 void
 vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
 {
     int i;
+    app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, APP_MANAGED_VMAREA_SIZE);
+    app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, APP_MANAGED_VMAREA_SIZE);
     LOG_DECLARE(file_t thread_log = get_thread_private_logfile();)
     for (i = executable_areas->length - 1; i >= 0; i--) {
         app_pc area_start = executable_areas->buf[i].start;
@@ -9486,8 +9508,6 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
 
         ASSERT(TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags));
         if ((area_end - area_start) > APP_MANAGED_VMAREA_SIZE) {
-            app_pc isolation_start = (app_pc) ALIGN_BACKWARD(start, APP_MANAGED_VMAREA_SIZE);
-            app_pc isolation_end = (app_pc) ALIGN_FORWARD(end, APP_MANAGED_VMAREA_SIZE);
             if (isolation_start < area_start)
                 isolation_start = area_start;
             if (isolation_end > area_end)
