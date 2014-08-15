@@ -409,7 +409,7 @@ void detach_helper(int detach_type); /* needs to be exported for nudge.c */
 extern bool doing_detach;
 
 void early_inject_init(void);
-void earliest_inject_init(byte *arg_ptr);
+bool earliest_inject_init(byte *arg_ptr);
 void earliest_inject_cleanup(byte *arg_ptr);
 
 wait_status_t

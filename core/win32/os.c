@@ -8520,7 +8520,7 @@ early_inject_init()
 /* Called with DR library mapped in but without its imports processed.
  * DR is not initialized at all so be careful what you call here.
  */
-void
+bool
 earliest_inject_init(byte *arg_ptr)
 {
     earliest_args_t *args = (earliest_args_t *) arg_ptr;
@@ -8558,6 +8558,7 @@ earliest_inject_init(byte *arg_ptr)
      * which implies the hook should have 1st thread invoke DR and the others
      * spin in some fashion: for now not handling super-early threads
      */
+    return !args->late_injection;
 }
 
 /* For cleanup we can't do before DR syscalls are set up */
