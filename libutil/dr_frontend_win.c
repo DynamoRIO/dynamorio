@@ -400,7 +400,7 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
                           BUFFER_SIZE_ELEMENTS(wsymsrv_path));
     if (!sym_set_path_func(GetCurrentProcess(), wsymsrv_path))  {
          DO_DEBUG(DL_WARN,
-                  printf("SymSetSearchPathW failed %d", GetLastError);
+                  printf("SymSetSearchPathW failed %d", GetLastError());
                   );
         return DRFRONT_ERROR;
     }
@@ -423,21 +423,21 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
     hlib = LoadLibraryW(wdbghelp_path);
     if (hlib == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("dbghelp.dll load failed %d", GetLastError);
+                 printf("dbghelp.dll load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR;
     }
     sym_init_func = (dbghelp_SymInitializeW_t) GetProcAddress(hlib, "SymInitializeW");
     if (sym_init_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymInitializeW load failed %d", GetLastError);
+                 printf("SymInitializeW load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_cleanup_func = (dbghelp_SymCleanupW_t) GetProcAddress(hlib, "SymCleanup");
     if (sym_cleanup_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymCleanup load failed %d", GetLastError);
+                 printf("SymCleanup load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
@@ -445,7 +445,7 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
                                               GetProcAddress(hlib, "SymSetSearchPathW");
     if (sym_set_path_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymSetSearchPathW load failed %d", GetLastError);
+                 printf("SymSetSearchPathW load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
@@ -453,7 +453,7 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
                                               GetProcAddress(hlib, "SymLoadModuleExW");
     if (sym_load_module_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymLoadModuleExW load failed %d", GetLastError);
+                 printf("SymLoadModuleExW load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
@@ -461,7 +461,7 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
                                               GetProcAddress(hlib, "SymUnloadModule64");
     if (sym_unload_module_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymUnloadModule64 load failed %d", GetLastError);
+                 printf("SymUnloadModule64 load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
@@ -469,7 +469,7 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
                                               GetProcAddress(hlib, "SymGetModuleInfoW64");
     if (sym_get_module_info_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymGetModuleInfoW64 load failed %d", GetLastError);
+                 printf("SymGetModuleInfoW64 load failed %d", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
@@ -479,7 +479,7 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
     }
     if (!sym_init_func(proc_handle, wsymsrv_path, FALSE)) {
         DO_DEBUG(DL_WARN,
-                 printf("SymInitializeW failed %d", GetLastError);
+                 printf("SymInitializeW failed %d", GetLastError());
                  );
         return DRFRONT_ERROR;
     }
