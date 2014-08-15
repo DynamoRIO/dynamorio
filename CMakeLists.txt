@@ -286,6 +286,7 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 option(ANNOTATIONS "annotations")
 if (ANNOTATIONS)
   set(JITOPT ON)
+  set(JIT_MONITORED_AREAS ON)
 endif (ANNOTATIONS)
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING

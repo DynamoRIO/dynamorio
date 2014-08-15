@@ -371,11 +371,13 @@ is_app_managed_code(app_pc addr);
 void
 set_region_app_managed(app_pc start, size_t len);
 
+#ifdef JIT_MONITORED_AREAS
 bool
 is_jit_monitored_area(app_pc addr);
 
 void
 set_region_jit_monitored(app_pc start, size_t len);
+#endif
 
 /* Used for DR heap area changes as circular dependences prevent
  * directly adding or removing DR vm areas.
