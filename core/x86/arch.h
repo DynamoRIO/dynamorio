@@ -49,12 +49,6 @@
 #include "decode.h" /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 
-/* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
- * Keep in synch w/ defines in x86.asm
- */
-#define CS32_SELECTOR 0x23
-#define CS64_SELECTOR 0x33
-
 #ifdef X64
 static inline bool
 mixed_mode_enabled(void)
@@ -937,10 +931,11 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
+                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
+                      uint flags, bool tls, bool absolute
+                      _IF_X64(bool x86_to_x64_ibl_opt));
 
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 

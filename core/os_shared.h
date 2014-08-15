@@ -1030,7 +1030,14 @@ enum {
      */
     INJECT_LOCATION_KiUserApc        = 5,
     INJECT_LOCATION_KiUserException  = 6, /* No good, Ldr init issues */
-    INJECT_LOCATION_MAX = INJECT_LOCATION_KiUserException,
+    /* Clients that depend on private libraries have trouble running
+     * at the early and earliest injection points. At the image
+     * entry point all the app libraries are loaded and hence it is suitable
+     * for those clients which are using private libraries those depends
+     * on some app libraries being initialized
+     */
+    INJECT_LOCATION_ImageEntry       = 7,
+    INJECT_LOCATION_MAX = INJECT_LOCATION_ImageEntry,
 };
 #endif
 
