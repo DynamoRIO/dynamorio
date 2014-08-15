@@ -9603,6 +9603,14 @@ is_vm_area_region_isolated(dcontext_t *dcontext, app_pc start, app_pc end)
     return isolated;
 }
 
+#ifdef JIT_MONITORED_AREAS
+# define VM_ISOLATION_TYPE VM_JIT_MONITORED
+# define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_ISOLATION_TYPE|VM_MADE_READONLY
+#else
+# define VM_ISOLATION_TYPE VM_APP_MANAGED
+# define VM_ISOLATION_FLAGS VM_EXECUTED_FROM|VM_ISOLATION_TYPE
+#endif
+
 /* JIT optimization: isolate the written page in its own vmarea */
 void
 vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
@@ -9619,8 +9627,7 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
         if (start >= area_end || end <= area_start)
             continue;
 
-        ASSERT(TEST(VM_APP_MANAGED, executable_areas->buf[i].vm_flags) ||
-               TEST(VM_JIT_MONITORED, executable_areas->buf[i].vm_flags));
+        ASSERT(TEST(VM_ISOLATION_TYPE, executable_areas->buf[i].vm_flags));
         if ((area_end - area_start) > APP_MANAGED_VMAREA_SIZE) {
             if (isolation_start < area_start)
                 isolation_start = area_start;
@@ -9636,20 +9643,20 @@ vm_area_isolate_region(dcontext_t *dcontext, app_pc start, app_pc end)
             DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, thread_log); });
             if (isolation_start > area_start) {
                 add_vm_area(executable_areas, area_start,
-                            isolation_start, VM_EXECUTED_FROM|VM_APP_MANAGED, 0,
+                            isolation_start, VM_ISOLATION_FLAGS, 0,
                             NULL _IF_DEBUG("app-managed"));
                 LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso left: "PFX"-"PFX"\n",
                     area_start, isolation_start);
             }
             if (isolation_end < area_end) {
                 add_vm_area(executable_areas, isolation_end,
-                            area_end, VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                            area_end, VM_ISOLATION_FLAGS, 0, NULL
                             _IF_DEBUG("app-managed"));
                 LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso right: "PFX"-"PFX"\n",
                     isolation_end, area_end);
             }
             add_vm_area(executable_areas, isolation_start, isolation_end,
-                        VM_EXECUTED_FROM|VM_APP_MANAGED, 0, NULL
+                        VM_ISOLATION_FLAGS, 0, NULL
                         _IF_DEBUG("app-managed-iso"));
             LOG(thread_log, LOG_VMAREAS, 1, "AMVA: iso: "PFX"-"PFX"\n",
                 isolation_start, isolation_end);
@@ -10664,6 +10671,8 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         jit_monitored_area = get_jit_monitored_area(target);
         vm_make_writable(jit_monitored_area->start,
                          jit_monitored_area->end - jit_monitored_area->start);
+        jit_monitored_area->vm_flags &= ~VM_MADE_READONLY;
+        jit_monitored_area->vm_flags |= VM_DELAY_READONLY;
         return instr_app_pc;
     }
 #endif
