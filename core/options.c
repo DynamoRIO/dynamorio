@@ -1285,6 +1285,11 @@ check_option_compatibility_helper(int recurse_count)
         dynamo_options.private_ib_in_tls = true;
         changed_options = true;
     }
+    if (DYNAMO_OPTION(x86_to_x64_ibl_opt) && !DYNAMO_OPTION(x86_to_x64)) {
+        SYSLOG_INTERNAL_INFO("-x86_to_x64 is required for x86_to_x64_ibl_opt. disabling -x86_to_x64_ibl_opt.");
+        dynamo_options.x86_to_x64_ibl_opt = false;
+        changed_options = true;
+    }
 # endif
     /* We retain shared_fragment_shared_syscalls as a separate option since
      * it can be used -- but isn't required -- for shared BBs only mode. */

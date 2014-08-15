@@ -2017,7 +2017,8 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
      instr_create_save_to_dcontext((dc), (reg), (dc_offs)))
 
 #define SAVE_TO_DC_OR_TLS_OR_REG(dc, flags, reg, tls_offs, dc_offs, dest_reg)   \
-    ((X64_CACHE_MODE_DC(dc) && !X64_MODE_DC(dc)) ?                              \
+    ((X64_CACHE_MODE_DC(dc) && !X64_MODE_DC(dc)                                 \
+      IF_X64(&& DYNAMO_OPTION(x86_to_x64_ibl_opt))) ?                           \
      INSTR_CREATE_mov_ld(dc, opnd_create_reg(dest_reg), opnd_create_reg(reg)) : \
      SAVE_TO_DC_OR_TLS(dc, flags, reg, tls_offs, dc_offs))
 
@@ -4480,6 +4481,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
+    IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
     instr_t *next_app = next;
     DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
 
@@ -4507,7 +4509,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
 
     insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
                        _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                               !X64_MODE_DC(dcontext)));
+                               !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     PRE(ilist, instr,
@@ -4571,7 +4573,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     PRE(ilist, instr, ok);
     insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
                           _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                                  !X64_MODE_DC(dcontext)));
+                                  !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
 #ifdef X64
     if ((ptr_uint_t)start_pc > UINT_MAX || (ptr_uint_t)end_pc > UINT_MAX) {
         PRE(ilist, instr,
@@ -4628,6 +4630,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     uint flags =
         instr_eflags_to_fragment_eflags(forward_eflags_analysis(dcontext, ilist, next));
     bool use_tls = IF_X64_ELSE(true, false);
+    IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
     instr_t *next_app = next;
     instr_t *get_addr_at = next;
     int opcode = instr_get_opcode(instr);
@@ -4721,7 +4724,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     }
     insert_save_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
                        _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                               !X64_MODE_DC(dcontext)));
+                               !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
 #ifdef X64
     if ((ptr_uint_t)start_pc > UINT_MAX || (ptr_uint_t)end_pc > UINT_MAX) {
         PRE(ilist, next,
@@ -4768,7 +4771,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
         INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(ok)));
     insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
                           _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                                  !X64_MODE_DC(dcontext)));
+                                  !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     PRE(ilist, next,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
 #ifdef X64
@@ -4784,7 +4787,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     PRE(ilist, next, ok);
     insert_restore_eflags(dcontext, ilist, next, flags, use_tls, !use_tls
                           _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                                  !X64_MODE_DC(dcontext)));
+                                  !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     PRE(ilist, next,
         RESTORE_FROM_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
 #ifdef X64
@@ -4896,6 +4899,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
     instr_t *instr, *jmp;
     instr_t *restore_eflags_and_exit = NULL;
     bool use_tls = IF_X64_ELSE(true, false);
+    IF_X64(bool x86_to_x64_ibl_opt = DYNAMO_OPTION(x86_to_x64_ibl_opt);)
     bool saved_xcx = false;
     instr_t *check_results = INSTR_CREATE_label(dcontext);
 
@@ -4903,7 +4907,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
 
     insert_save_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
                        _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                               !X64_MODE_DC(dcontext)));
+                               !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
 
     if (s2ro) {
         /* It's difficult to use lea/jecxz here as we want to use a shared
@@ -5067,7 +5071,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
             PRE(ilist, instr, restore_eflags_and_exit);
         insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
                               _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                                      !X64_MODE_DC(dcontext)));
+                                      !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
         jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(start_pc));
         instr_branch_set_special_exit(jmp, true);
         /* an exit cti, not a meta instr */
@@ -5081,7 +5085,7 @@ sandbox_top_of_bb(dcontext_t *dcontext, instrlist_t *ilist,
     }
     insert_restore_eflags(dcontext, ilist, instr, flags, use_tls, !use_tls
                           _IF_X64(X64_CACHE_MODE_DC(dcontext) &&
-                                  !X64_MODE_DC(dcontext)));
+                                  !X64_MODE_DC(dcontext) && x86_to_x64_ibl_opt));
     /* fall-through to bb start */
 }
 

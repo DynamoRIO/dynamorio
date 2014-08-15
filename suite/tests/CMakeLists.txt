@@ -2048,6 +2048,11 @@ else (UNIX)
         win32/mixedmode.c
         "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64"
         "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
+      torunonly(win32.x86_to_x64_ibl_opt
+        ${MAIN_RUNTIME_OUTPUT_DIRECTORY}/create_process.exe
+        win32/mixedmode.c
+        "-early_inject_map -early_inject_location 5 -heap_in_lower_4GB -x86_to_x64 -x86_to_x64_ibl_opt"
+        "${TEST_32BIT_PATH}/win32.mixedmode.exe;x86_to_x64")
     else (X64)
       add_exe(win32.mixedmode win32/mixedmode.c)
     endif (X64)

@@ -4347,7 +4347,9 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         instrlist_append(bb->ilist, INSTR_CREATE_mov_imm
                          (dcontext, opnd_create_reg(REG_XAX),
                           OPND_CREATE_INTPTR((ptr_int_t)bb->start_pc)));
-        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
+        if (X64_CACHE_MODE_DC(dcontext) &&
+            !X64_MODE_DC(dcontext) &&
+            DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             jmp_tgt = opnd_create_reg(REG_R9);
         } else {
             jmp_tgt = opnd_create_tls_slot(os_tls_offset(MANGLE_XCX_SPILL_SLOT));
@@ -5297,7 +5299,9 @@ insert_restore_spilled_xcx(dcontext_t *dcontext, instrlist_t *trace, instr_t *ne
     int added_size = 0;
 
     if (DYNAMO_OPTION(private_ib_in_tls)) {
-        if (X64_CACHE_MODE_DC(dcontext) && !X64_MODE_DC(dcontext)) {
+        if (X64_CACHE_MODE_DC(dcontext) &&
+            !X64_MODE_DC(dcontext) &&
+            IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) {
             added_size += tracelist_add(dcontext, trace, next,
                 INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XCX),
                                     opnd_create_reg(REG_R9)));
@@ -5398,7 +5402,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                        instr_t *targeter, app_pc next_tag)
 {
     int added_size = 0;
-    if (X64_MODE_DC(dcontext)) {
+    if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
         added_size += tracelist_add
             (dcontext, trace, targeter, INSTR_CREATE_mov_st
              (dcontext, opnd_create_tls_slot(os_tls_offset(PREFIX_XAX_SPILL_SLOT)),
@@ -5421,7 +5425,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
      * -unsafe_ignore_eflags_{trace,ibl} must be equivalent
      */
     if (!DYNAMO_OPTION(unsafe_ignore_eflags_trace)) {
-        if (X64_MODE_DC(dcontext)) {
+        if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             added_size += tracelist_add
                 (dcontext, trace, targeter, INSTR_CREATE_mov_st
                  (dcontext, opnd_create_tls_slot
@@ -5437,7 +5441,7 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
                 (dcontext, trace, targeter,
                  INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
         }
-        if (X64_MODE_DC(dcontext)) {
+        if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             added_size += tracelist_add
                 (dcontext, trace, targeter,
                  INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
@@ -5453,8 +5457,9 @@ mangle_x64_ib_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         added_size += tracelist_add
             (dcontext, trace, targeter,
              INSTR_CREATE_cmp(dcontext, opnd_create_reg(REG_XCX),
-                              X64_MODE_DC(dcontext) ? opnd_create_reg(REG_XAX)
-                                                    : opnd_create_reg(REG_R10)));
+                              (X64_MODE_DC(dcontext) ||
+                               !DYNAMO_OPTION(x86_to_x64_ibl_opt)) ?
+                               opnd_create_reg(REG_XAX) : opnd_create_reg(REG_R10)));
     }
     /* change jmp into jne to trace cmp entry of ibl routine (special entry
      * that is after the eflags save) */
@@ -5662,7 +5667,7 @@ mangle_indirect_branch_in_trace(dcontext_t *dcontext, instrlist_t *trace,
         } else
             STATS_INC(trace_ib_no_flag_restore);
         /* TODO optimization: check if xax is live or not in next bb */
-        if (X64_MODE_DC(dcontext)) {
+        if (X64_MODE_DC(dcontext) || !DYNAMO_OPTION(x86_to_x64_ibl_opt)) {
             added_size += tracelist_add
                 (dcontext, trace, next, INSTR_CREATE_mov_ld
                  (dcontext, opnd_create_reg(REG_XAX),

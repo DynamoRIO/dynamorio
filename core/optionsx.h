@@ -545,6 +545,8 @@
             DISABLE_COARSE_UNITS(options);
         }
      }, "translate x86 code to x64 when on a 64-bit kernel.", STATIC, OP_PCACHE_GLOBAL)
+    OPTION_DEFAULT(bool, x86_to_x64_ibl_opt, false,
+                   "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
 #endif
 
 #ifdef WINDOWS_PC_SAMPLE

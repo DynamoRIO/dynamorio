@@ -931,10 +931,11 @@ emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
+                   uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64_ibl_opt));
 void
 insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
-                      uint flags, bool tls, bool absolute _IF_X64(bool x86_to_x64));
+                      uint flags, bool tls, bool absolute
+                      _IF_X64(bool x86_to_x64_ibl_opt));
 
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 
