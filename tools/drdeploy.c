@@ -62,6 +62,7 @@
 #include "globals_shared.h"
 #include "dr_config.h" /* MUST be before share.h (it sets HOT_PATCHING_INTERFACE) */
 #include "dr_inject.h"
+#include "dr_frontend.h"
 
 typedef enum _action_t {
     action_none,
@@ -83,6 +84,12 @@ static bool DR_dll_not_needed =
 static bool nocheck;
 
 #define die() exit(1)
+
+#define fatal(msg, ...) do { \
+    fprintf(stderr, "ERROR: " msg "\n", ##__VA_ARGS__);    \
+    fflush(stderr); \
+    exit(1); \
+} while (0)
 
 /* up to caller to call die() if necessary */
 #define error(msg, ...) do { \
@@ -111,100 +118,6 @@ static bool nocheck;
 #elif defined(DRINJECT)
 # define TOOLNAME "drinject"
 #endif
-
-#ifdef UNIX
-/* Minimal Windows compatibility layer.
- */
-
-# define _snprintf snprintf
-
-/* Semi-compatibility with the Windows CRT _access function.
- */
-static int
-_access(const char *fname, int mode)
-{
-    int r;
-    struct stat st;
-    if (mode != 0) {
-        error("_access called with non-zero mode");
-        die();
-    }
-    r = stat(fname, &st);
-    return (r == 0 ? 0 : -1);
-}
-
-# ifndef DRCONFIG
-/* Implements a normal path search for fname on the paths in env_var.  Assumes
- * full_path is at least MAXIMUM_PATH bytes long.  Resolves symlinks, which is
- * needed to get the right config filename (i#1062).
- */
-static int
-_searchenv(const char *fname, const char *env_var, char *full_path)
-{
-    const char *paths = getenv(env_var);
-    const char *cur;
-    const char *next;
-    const char *end;
-    char tmp[MAXIMUM_PATH];
-
-    /* Windows searches the current directory first. */
-    /* XXX: realpath resolves symlinks, which we may not want. */
-    if (realpath(fname, full_path) && _access(full_path, 0) == 0)
-        return 0;
-
-    cur = paths;
-    end = strchr(paths, '\0');
-    while (cur < end) {
-        next = strchr(cur, ':');
-        next = (next == NULL ? end : next);
-        snprintf(tmp, BUFFER_SIZE_ELEMENTS(tmp),
-                 "%.*s/%s", (int)(next - cur), cur, fname);
-        NULL_TERMINATE_BUFFER(tmp);
-        /* realpath checks for existence too. */
-        if (realpath(tmp, full_path) != NULL && _access(full_path, 0) == 0)
-            return 0;
-        cur = next + 1;
-    }
-    full_path[0] = '\0';
-    return -1;
-}
-
-static int
-GetLastError(void)
-{
-    return errno;
-}
-# endif
-
-/* Simply concatenates the cwd with the given relative path.  Previously we
- * called realpath, but this requires the path to exist and expands symlinks,
- * which is inconsistent with Windows GetFullPathName().
- */
-static void
-GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
-{
-    size_t len = 0;
-    assert(ext == NULL && "invalid param");
-    if (rel[0] != '/') {
-        char *err = getcwd(abs, abs_len);
-        if (err != NULL) {
-            len = strlen(abs);
-            /* Append a slash if it doesn't have a trailing slash. */
-            if (abs[len-1] != '/' && len < abs_len) {
-                abs[len++] = '/';
-                abs[len] = '\0';
-            }
-            /* Omit any leading ./. */
-            if (rel[0] == '.' && rel[0] == '/') {
-                rel += 2;
-            }
-        }
-    }
-    strncpy(abs + len, rel, abs_len - len);
-    abs[abs_len-1] = '\0';
-}
-
-#endif /* UNIX */
 
 const char *usage_str =
 #ifdef DRCONFIG
@@ -359,6 +272,42 @@ const char *options_list_str =
 #endif
     ;
 
+static bool
+file_exists(const char *path)
+{
+    bool ret = false;
+    return (drfront_access(path, DRFRONT_EXIST, &ret) == DRFRONT_SUCCESS && ret);
+}
+
+#if defined(DRRUN) || defined(DRINJECT)
+static bool
+search_env(const char *fname, const char *env_var, char *full_path,
+           const size_t full_path_size)
+{
+    bool ret = false;
+    return (drfront_searchenv(fname, env_var, full_path,
+                              full_path_size, &ret) == DRFRONT_SUCCESS && ret);
+}
+#endif
+
+#ifdef UNIX
+# ifndef DRCONFIG
+static int
+GetLastError(void)
+{
+    return errno;
+}
+# endif /* DRCONFIG */
+#endif /* UNIX */
+
+static void
+get_absolute_path(const char *src, char *buf, size_t buflen/*# elements*/)
+{
+    drfront_status_t sc = drfront_get_absolute_path(src, buf, buflen);
+    if (sc != DRFRONT_SUCCESS)
+        fatal("failed (status=%d) to convert %s to an absolute path", sc, src);
+}
+
 static char tool_list[MAXIMUM_PATH];
 
 static void
@@ -495,12 +444,12 @@ static bool check_dr_root(const char *dr_root, bool debug,
      * (warnings can also be suppressed via -quiet)
      */
     _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", dr_root, "CMakeCache.txt");
-    if (_access(buf, 0) == 0)
+    if (file_exists(buf))
         nowarn = true;
 
     for (i=0; i<BUFFER_SIZE_ELEMENTS(checked_files); i++) {
         _snprintf(buf, BUFFER_SIZE_ELEMENTS(buf), "%s/%s", dr_root, checked_files[i]);
-        if (_access(buf, 0) == -1) {
+        if (!file_exists(buf)) {
             ok = false;
             if (!nocheck &&
                 ((preinject && strstr(checked_files[i], "drpreinject")) ||
@@ -536,7 +485,7 @@ bool register_proc(const char *process,
     dr_config_status_t status;
 
     assert(dr_root != NULL);
-    if (_access(dr_root, 0) == -1) {
+    if (!file_exists(dr_root)) {
         error("cannot access DynamoRIO root directory %s", dr_root);
         return false;
     }
@@ -568,10 +517,10 @@ bool register_proc(const char *process,
         /* USERPROFILE is not set by default over cygwin ssh */
 #ifdef WINDOWS
         char buf[MAXIMUM_PATH];
-        if (GetEnvironmentVariableA("USERPROFILE", buf,
-                                    BUFFER_SIZE_ELEMENTS(buf)) == 0 &&
-            GetEnvironmentVariableA("DYNAMORIO_CONFIGDIR", buf,
-                                    BUFFER_SIZE_ELEMENTS(buf)) == 0) {
+        if (drfront_get_env_var("USERPROFILE", buf,
+                                BUFFER_SIZE_ELEMENTS(buf)) == DRFRONT_ERROR &&
+            drfront_get_env_var("DYNAMORIO_CONFIGDIR", buf,
+                                BUFFER_SIZE_ELEMENTS(buf)) == DRFRONT_ERROR) {
             error("process %s registration failed: "
                   "neither USERPROFILE nor DYNAMORIO_CONFIGDIR env var set!",
                   process == NULL ? "<null>" : process);
@@ -587,7 +536,7 @@ bool register_proc(const char *process,
 /* Check if the specified client library actually exists. */
 void check_client_lib(const char *client_lib)
 {
-    if (_access(client_lib, 0) == -1) {
+    if (!file_exists(client_lib)) {
         warn("%s does not exist", client_lib);
     }
 }
@@ -715,8 +664,8 @@ append_client(const char *client, int id, const char *client_ops,
               const char *client_options[MAX_CLIENT_LIBS],
               size_t *num_clients)
 {
-    GetFullPathName(client, BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]),
-                    client_paths[*num_clients], NULL);
+    get_absolute_path(client, client_paths[*num_clients],
+                      BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
     NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
     info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
     client_ids[*num_clients] = id;
@@ -1031,14 +980,14 @@ int main(int argc, char *argv[])
 #endif
 
     /* default root: we assume this tool is in <root>/bin{32,64}/dr*.exe */
-    GetFullPathName(argv[0], BUFFER_SIZE_ELEMENTS(buf), buf, NULL);
+    get_absolute_path(argv[0], buf, BUFFER_SIZE_ELEMENTS(buf));
     NULL_TERMINATE_BUFFER(buf);
     c = buf + strlen(buf) - 1;
     while (*c != '\\' && *c != '/' && c > buf)
         c--;
     _snprintf(c+1, BUFFER_SIZE_ELEMENTS(buf) - (c+1-buf), "..");
     NULL_TERMINATE_BUFFER(buf);
-    GetFullPathName(buf, BUFFER_SIZE_ELEMENTS(default_root), default_root, NULL);
+    get_absolute_path(buf, default_root, BUFFER_SIZE_ELEMENTS(default_root));
     NULL_TERMINATE_BUFFER(default_root);
     dr_root = default_root;
     info("default root: %s", default_root);
@@ -1189,7 +1138,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-logdir") == 0) {
             /* Accept this for compatibility with the old drrun shell script. */
             const char *dir = argv[++i];
-            if (_access(dir, 0) == -1)
+            if (!file_exists(dir))
                 usage(false, "-logdir %s does not exist", dir);
             add_extra_option(extra_ops, BUFFER_SIZE_ELEMENTS(extra_ops),
                              &extra_ops_sofar, "-logdir `%s`", dir);
@@ -1302,8 +1251,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-use_dll") == 0) {
             DR_dll_not_needed = true;
             /* Support relative path: very useful! */
-            GetFullPathName(argv[++i], BUFFER_SIZE_ELEMENTS(custom_dll),
-                            custom_dll, NULL);
+            get_absolute_path(argv[++i], custom_dll, BUFFER_SIZE_ELEMENTS(custom_dll));
             NULL_TERMINATE_BUFFER(custom_dll);
             drlib_path = custom_dll;
         }
@@ -1417,7 +1365,7 @@ int main(int argc, char *argv[])
     if (i >= argc)
         usage(false, "%s", "no app specified");
     app_name = argv[i++];
-    _searchenv(app_name, "PATH", full_app_name);
+    search_env(app_name, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
     NULL_TERMINATE_BUFFER(full_app_name);
     if (full_app_name[0] == '\0') {
         /* may need to append .exe, FIXME : other executable types */
@@ -1425,12 +1373,11 @@ int main(int argc, char *argv[])
         _snprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf),
                   "%s%s", app_name, ".exe");
         NULL_TERMINATE_BUFFER(tmp_buf);
-        _searchenv(tmp_buf, "PATH", full_app_name);
+        search_env(tmp_buf, "PATH", full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
     }
     if (full_app_name[0] == '\0') {
         /* last try */
-        GetFullPathName(app_name, BUFFER_SIZE_ELEMENTS(full_app_name),
-                        full_app_name, NULL);
+        get_absolute_path(app_name, full_app_name, BUFFER_SIZE_ELEMENTS(full_app_name));
         NULL_TERMINATE_BUFFER(full_app_name);
     }
     if (full_app_name[0] != '\0')
