@@ -1949,37 +1949,38 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
  * They are also duplicated in instrument.h -- too hard to get them to
  * automatically show up in right place in header files for release.
  */
-#define LOG_NONE           0x00000000
-#define LOG_STATS          0x00000001
-#define LOG_TOP            0x00000002
-#define LOG_THREADS        0x00000004
-#define LOG_SYSCALLS       0x00000008
-#define LOG_ASYNCH         0x00000010
-#define LOG_INTERP         0x00000020
-#define LOG_EMIT           0x00000040
-#define LOG_LINKS          0x00000080
-#define LOG_CACHE          0x00000100
-#define LOG_FRAGMENT       0x00000200
-#define LOG_DISPATCH       0x00000400
-#define LOG_MONITOR        0x00000800
-#define LOG_HEAP           0x00001000
-#define LOG_VMAREAS        0x00002000
-#define LOG_SYNCH          0x00004000
-#define LOG_MEMSTATS       0x00008000
-#define LOG_OPTS           0x00010000
-#define LOG_SIDELINE       0x00020000
-#define LOG_SYMBOLS        0x00040000
-#define LOG_RCT            0x00080000
-#define LOG_NT             0x00100000
-#define LOG_HOT_PATCHING   0x00200000
-#define LOG_HTABLE         0x00400000
-#define LOG_MODULEDB       0x00800000
-#define LOG_LOADER         0x01000000
-#define LOG_CLEANCALL      0x02000000
-#define LOG_ANNOTATIONS    0x04000000
+#define LOG_NONE              0x00000000
+#define LOG_STATS             0x00000001
+#define LOG_TOP               0x00000002
+#define LOG_THREADS           0x00000004
+#define LOG_SYSCALLS          0x00000008
+#define LOG_ASYNCH            0x00000010
+#define LOG_INTERP            0x00000020
+#define LOG_EMIT              0x00000040
+#define LOG_LINKS             0x00000080
+#define LOG_CACHE             0x00000100
+#define LOG_FRAGMENT          0x00000200
+#define LOG_DISPATCH          0x00000400
+#define LOG_MONITOR           0x00000800
+#define LOG_HEAP              0x00001000
+#define LOG_VMAREAS           0x00002000
+#define LOG_SYNCH             0x00004000
+#define LOG_MEMSTATS          0x00008000
+#define LOG_OPTS              0x00010000
+#define LOG_SIDELINE          0x00020000
+#define LOG_SYMBOLS           0x00040000
+#define LOG_RCT               0x00080000
+#define LOG_NT                0x00100000
+#define LOG_HOT_PATCHING      0x00200000
+#define LOG_HTABLE            0x00400000
+#define LOG_MODULEDB          0x00800000
+#define LOG_LOADER            0x01000000
+#define LOG_CLEANCALL         0x02000000
+#define LOG_ANNOTATIONS       0x04000000
+#define LOG_VIA_ANNOTATIONS   0x08000000
 
-#define LOG_ALL_RELEASE    0x07e0ffff
-#define LOG_ALL            0x07ffffff
+#define LOG_ALL_RELEASE       0x0fe0ffff
+#define LOG_ALL               0x0fffffff
 
 #ifdef WINDOWS_PC_SAMPLE
 # define LOG_PROFILE       LOG_ALL
@@ -1991,6 +1992,8 @@ notify(syslog_event_type_t priority, bool internal, bool synch,
 #define MAXIMUM_SYMBOL_LENGTH 80
 
 #ifdef DEBUG
+# define PRINT_TIMESTAMP_MAX_LENGTH 32
+
 /* given an array of size size of integers, computes and prints the
  * min, max, mean, and stddev
  */
@@ -2000,7 +2003,8 @@ void dump_global_stats(bool raw);
 void dump_thread_stats(dcontext_t *dcontext, bool raw);
 void stats_thread_init(dcontext_t *dcontext);
 void stats_thread_exit(dcontext_t *dcontext);
-void print_timestamp(file_t logfile);
+uint print_timestamp_to_buffer(char *buffer, size_t len);
+uint print_timestamp(file_t logfile);
 
 /* prints a symbolic name, or best guess of it into a caller provided buffer */
 void

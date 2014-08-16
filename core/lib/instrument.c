@@ -4125,7 +4125,7 @@ dr_enable_console_printing(void)
                 locate_and_load_private_library("kernel32.dll", false/*!reachable*/);
         }
         if (priv_kernel32 != NULL && kernel32_WriteFile == NULL) {
-            app_pc app_kernel32 = (app_pc)dr_lookup_module_by_name("kernel32.dll");
+            module_data_t *app_kernel32 = dr_lookup_module_by_name("kernel32.dll");
             kernel32_WriteFile = (kernel32_WriteFile_t)
                 lookup_library_routine(priv_kernel32, "WriteFile");
             /* There is some problem in loading 32 bit kernel32.dll
@@ -4133,10 +4133,12 @@ dr_enable_console_printing(void)
              * not loaded we can't call privload_console_share because it
              * assumes kernel32 is loaded
              */
-            if (app_kernel32 == NULL)
+            if (app_kernel32 == NULL) {
                 success = false;
-            else
+            } else {
                 success = privload_console_share(priv_kernel32);
+                dr_free_module_data(app_kernel32);
+            }
         }
         /* We go ahead and cache whether dr_using_console().  If app really
          * changes its console, client could call this routine again
@@ -5780,7 +5782,7 @@ dr_mcontext_xmm_fields_valid(void)
 bool
 dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *mc)
 {
-    char *state;
+    priv_mcontext_t *state;
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
     if (mc == NULL) {
@@ -5865,10 +5867,10 @@ dr_get_mcontext_priv(dcontext_t *dcontext, dr_mcontext_t *dmc, priv_mcontext_t *
      * fields are not valid otherwise.  so, we just have to copy the
      * state from the dstack.
      */
-    state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
+    state = get_priv_mcontext_from_dstack(dcontext);
     if (mc != NULL)
-        *mc = *(priv_mcontext_t *)state;
-    else if (!priv_mcontext_to_dr_mcontext(dmc, (priv_mcontext_t *)state))
+        *mc = *state;
+    else if (!priv_mcontext_to_dr_mcontext(dmc, state))
         return false;
 
     /* esp is a dstack value -- get the app stack's esp from the dcontext */
@@ -5893,7 +5895,7 @@ dr_get_mcontext(void *drcontext, dr_mcontext_t *dmc)
 DR_API bool
 dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
 {
-    char *state;
+    priv_mcontext_t *state;
     dcontext_t *dcontext = (dcontext_t *)drcontext;
     CLIENT_ASSERT(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)),
                   "DR context protection NYI");
@@ -5917,8 +5919,8 @@ dr_set_mcontext(void *drcontext, dr_mcontext_t *context)
      * dr_prepare_for_call().  note that xmm0-5 copied there
      * will override any save_fpstate xmm values, as desired.
      */
-    state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
-    if (!dr_mcontext_to_priv_mcontext((priv_mcontext_t *)state, context))
+    state = get_priv_mcontext_from_dstack(dcontext);
+    if (!dr_mcontext_to_priv_mcontext(state, context))
         return false;
 
     if (TEST(DR_MC_CONTROL, context->flags)) {

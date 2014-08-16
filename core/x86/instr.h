@@ -3864,6 +3864,7 @@ enum {
     RAW_OPCODE_ret             = 0xc3,
     RAW_OPCODE_jmp             = 0xe9,
     RAW_OPCODE_push_imm32      = 0x68,
+    RAW_OPCODE_pop_eax         = 0x58,
     RAW_OPCODE_jcc_short_start = 0x70,
     RAW_OPCODE_jcc_short_end   = 0x7f,
     RAW_OPCODE_jcc_byte1       = 0x0f,

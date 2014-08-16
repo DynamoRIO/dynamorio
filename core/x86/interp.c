@@ -3332,8 +3332,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 # endif
         if (is_annotation_jump_over_dead_code(bb->instr)) {
             instr_t *substitution = NULL;
-            if (annotation_match(dcontext, &bb->cur_pc, &substitution
-                                 _IF_WINDOWS_X64(bb->cur_pc < bb->checked_end))) {
+            if (instrument_annotation(dcontext, &bb->cur_pc, &substitution
+                                      _IF_WINDOWS_X64(bb->cur_pc < bb->checked_end))) {
                 instr_destroy(dcontext, bb->instr);
                 if (substitution == NULL)
                     continue; /* ignore annotation if no handlers are registered */
