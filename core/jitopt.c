@@ -233,6 +233,9 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     dcontext_t *dcontext = NULL; // FIXME
 #endif
 
+    if (!is_app_managed_code(start))
+        return;
+
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);
 
