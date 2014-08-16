@@ -1371,7 +1371,9 @@ int main(int argc, char *argv[])
                                         BUFFER_SIZE_ELEMENTS(single_client_ops),
                                         &client_sofar,
                                         native_tool, BUFFER_SIZE_ELEMENTS(native_tool)))
-                        usage(false, "unknown tool \"%s\" requested", client);
+                        usage(false, "unknown %s tool \"%s\" requested",
+                              (dr_platform == DR_PLATFORM_32BIT) ? "32-bit" : "64-bit",
+                              client);
                     client = client_buf;
                 }
 
