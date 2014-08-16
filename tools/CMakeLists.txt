@@ -41,6 +41,7 @@ if (UNIX)
   add_executable(drloader drloader.c)
 
   include_directories(
+   ${PROJECT_SOURCE_DIR}/libutil
    ${PROJECT_SOURCE_DIR}/core
    ${PROJECT_SOURCE_DIR}/core/lib
   )
@@ -188,12 +189,11 @@ foreach (deploytgt drconfig drrun drinject)
     target_link_libraries(${deploytgt}
       policy_static user32 advapi32 pdh imagehlp shell32)
   endif ()
-  target_link_libraries(${deploytgt} drconfiglib)
+  target_link_libraries(${deploytgt} drconfiglib drfrontendlib)
   add_rel_rpaths(${deploytgt} drconfiglib)
-  if (NOT ${deploytgt} MATCHES "drconfig")
-    target_link_libraries(${deploytgt} drinjectlib)
-    add_rel_rpaths(${deploytgt} drinjectlib)
-  endif ()
+  # XXX i#1409c#2: For now drfrontendlib is dependent on drinjectlib
+  target_link_libraries(${deploytgt} drinjectlib)
+  add_rel_rpaths(${deploytgt} drinjectlib)
 endforeach ()
 
 if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)
