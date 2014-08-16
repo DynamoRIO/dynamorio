@@ -234,6 +234,9 @@ annotation_unmanage_code_area(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
 
+    if (!is_app_managed_code(start))
+        return;
+
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
         start, start+len);
 
@@ -263,11 +266,7 @@ flush_and_isolate_region(dcontext_t *dcontext, app_pc start, size_t len)
 void
 annotation_flush_fragments(app_pc start, size_t len)
 {
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
+    dcontext_t *dcontext = get_thread_private_dcontext();
 
     // this is slow--maybe keep a local sorted list of app-managed regions
 #ifdef JIT_MONITORED_AREAS
