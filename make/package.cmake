@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2011 Google, Inc.    All rights reserved.
+# Copyright (c) 2011-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -71,7 +71,9 @@ foreach (arg ${CTEST_SCRIPT_ARG})
     string(REGEX REPLACE "^outdir=" "" arg_outdir "${arg}")
   endif ()
   if (${arg} MATCHES "^cacheappend=")
-    string(REGEX REPLACE "^cacheappend=" "" arg_cacheappend "${arg}")
+    # support multiple, appending each time
+    string(REGEX REPLACE "^cacheappend=" "" entry "${arg}")
+    set(arg_cacheappend "${arg_cacheappend}\n${entry}")
   endif ()
   if (${arg} MATCHES "^no64")
     set(arg_no64 ON)
