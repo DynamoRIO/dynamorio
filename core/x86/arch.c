@@ -3034,6 +3034,12 @@ dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
     return (priv_mcontext_t*)(&mc->xdi);
 }
 
+priv_mcontext_t *
+get_priv_mcontext_from_dstack(dcontext_t *dcontext)
+{
+    return (priv_mcontext_t *)((char *)dcontext->dstack - sizeof(priv_mcontext_t));
+}
+
 void
 dr_mcontext_init(dr_mcontext_t *mc)
 {

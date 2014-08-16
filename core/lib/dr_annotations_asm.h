@@ -37,6 +37,10 @@
  * overview, see the wiki page http://code.google.com/p/dynamorio/wiki/Annotations.
  */
 
+<<<<<<< HEAD
+=======
+/* To simplify project configuration, this pragma excludes the file from GCC warnings. */
+>>>>>>> master
 #ifdef __GNUC__
 # pragma GCC system_header
 #endif
@@ -222,7 +226,12 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
+<<<<<<< HEAD
     EXTERN_C const char *annotation##_label = "dynamorio-annotation:"#return_type":"#annotation; \
+=======
+    EXTERN_C const char *annotation##_label = \
+        "dynamorio-annotation:"#return_type":"#annotation; \
+>>>>>>> master
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \
