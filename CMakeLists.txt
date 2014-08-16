@@ -1481,6 +1481,27 @@ DR_install(CODE "file(MAKE_DIRECTORY \"\\\${CMAKE_INSTALL_PREFIX}/logs\")")
 # CPack seems to ignore empty dirs so add a README file
 DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/logs/README\" \"Empty dir for debug-build log files.\n\")")
 
+# i#1509: generate a list of tools for drrun usage messages.
+# This is fragile: we rely on package.cmake building release first, so we
+# can clear out the list file, and then append to it in debug builds.
+# A solution that searches at install time also has problems (with ordering
+# of subdirs).  Long-term we should add a dir iterator to drrun: but we want
+# to skip the legacy bbcov?  Add a marker to it "DEPRECATED"?
+if (NOT_DEBUG)
+  DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"\")")
+endif ()
+
+function (register_tool_file name)
+  if (X64)
+    set(listname "list64")
+  else ()
+    set(listname "list32")
+  endif ()
+  if (NOT DEBUG) # avoid duplicates for release + debug
+    DR_install(CODE "file(APPEND \"\\\${CMAKE_INSTALL_PREFIX}/tools/${listname}\" \"${name}\\n\"\n)")
+  endif ()
+endfunction ()
+
 ###########################################################################
 
 # create CMake configuration files for clients and tests to use

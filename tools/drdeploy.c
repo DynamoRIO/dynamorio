@@ -112,169 +112,6 @@ static bool nocheck;
 # define TOOLNAME "drinject"
 #endif
 
-const char *usage_str =
-#ifdef DRCONFIG
-    "USAGE: "TOOLNAME" [options]\n";
-#elif defined(DRRUN) || defined (DRINJECT)
-    "USAGE: "TOOLNAME" [options] <app and args to run>\n"
-    "   or: "TOOLNAME" [options] -- <app and args to run>\n"
-# if defined(DRRUN)
-    "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
-    "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
-    " -- <app and args to run>\n"
-    "   or: "TOOLNAME" [options] [DR options] -t <tool> [tool options]"
-    " -- <app and args to run>\n"
-# endif
-    ;
-#endif
-
-const char *options_list_str =
-    "\nOPTIONS:\n"
-    "       -v                 Display version information\n"
-    "       -verbose           Display additional information\n"
-    "       -quiet             Do not display warnings\n"
-    "       -nocheck           Do not fail due to invalid DynamoRIO installation or app\n"
-#ifdef DRCONFIG
-    "       -reg <process>     Register <process> to run under DR\n"
-    "       -unreg <process>   Unregister <process> from running under DR\n"
-    "       -isreg <process>   Display whether <process> is registered and if so its\n"
-    "                          configuration\n"
-    "       -list_registered   Display all registered processes and their configuration\n"
-#endif
-    "       -root <root>       DR root directory\n"
-#if defined(DRCONFIG) || defined(DRRUN)
-# if defined(MF_API) && defined(PROBE_API)
-    "       -mode <mode>       DR mode (code, probe, or security)\n"
-# elif defined(PROBE_API)
-    "       -mode <mode>       DR mode (code or probe)\n"
-# elif defined(MF_API)
-    "       -mode <mode>       DR mode (code or security)\n"
-# else
-    /* No mode argument, is always code. */
-# endif
-#endif
-#ifdef DRCONFIG
-    /* FIXME i#840: Syswide NYI on Linux. */
-# ifdef WINDOWS
-    "       -syswide_on        Set up systemwide injection so that registered\n"
-    "                          applications will run under DR however they are\n"
-    "                          launched.  Otherwise, drinject must be used to\n"
-    "                          launch a target configured application under DR.\n"
-    "                          This option requires administrative privileges.\n"
-    "       -syswide_off       Disable systemwide injection.\n"
-    "                          This option requires administrative privileges.\n"
-# endif
-    "       -global            Use global configuration files instead of local\n"
-    "                          user-private configuration files.  The global\n"
-    "                          config dir must be set up ahead of time.\n"
-    "                          This option may require administrative privileges.\n"
-    "                          If a local file already exists it will take precedence.\n"
-    "       -norun             Create a configuration that excludes the application\n"
-    "                          from running under DR control.  Useful for following\n"
-    "                          all child processes except a handful (blacklist).\n"
-#endif
-    "       -debug             Use the DR debug library\n"
-    "       -32                Target 32-bit or WOW64 applications\n"
-    "       -64                Target 64-bit (non-WOW64) applications\n"
-#if defined(DRCONFIG) || defined(DRRUN)
-    "\n"
-    "       -ops \"<options>\"   Additional DR control options.  When specifying\n"
-    "                          multiple options, enclose the entire list of\n"
-    "                          options in quotes, or repeat the -ops.\n"
-    "                          Alternatively, if the application is separated\n"
-    "                          by \"--\", the -ops may be omitted and DR options\n"
-    "                          specified prior to \"--\" without quotes.\n"
-    "\n"
-    "        -c <path> <options>*\n"
-    "                           Registers one client to run alongside DR.  Assigns\n"
-    "                           the client an id of 0.  All remaining arguments\n"
-    "                           until the -- arg before the app are interpreted as\n"
-    "                           client options.  Must come after all drrun and DR\n"
-    "                           ops.  Incompatible with -client.  Requires using --\n"
-    "                           to separate the app executable.\n"
-    "\n"
-    "       -client <path> <ID> \"<options>\"\n"
-    "                          Use -c instead, unless you need to set the client ID.\n"
-    "                          Registers one or more clients to run alongside DR.\n"
-    "                          This option is only valid when registering a\n"
-    "                          process.  The -client option takes three arguments:\n"
-    "                          the full path to a client library, a unique 8-digit\n"
-    "                          hex ID, and an optional list of client options\n"
-    "                          (use \"\" to specify no options).  Multiple clients\n"
-    "                          can be installed via multiple -client options.  In\n"
-    "                          this case, clients specified first on the command\n"
-    "                          line have higher priority.  Neither the path nor\n"
-    "                          the options may contain semicolon characters.\n"
-    "                          This option must precede any options to DynamoRIO.\n"
-#endif
-#ifdef DRCONFIG
-    "\n"
-    "       Note that nudging 64-bit processes is not yet supported.\n"
-    "       -nudge <process> <client ID> <argument>\n"
-    "                          Nudge the client with ID <client ID> in all running\n"
-    "                          processes with name <process>, and pass <argument>\n"
-    "                          to the nudge callback.  <client ID> must be the\n"
-    "                          8-digit hex ID of the target client.  <argument>\n"
-    "                          should be a hex literal (0, 1, 3f etc.).\n"
-    "       -nudge_pid <process_id> <client ID> <argument>\n"
-    "                          Nudge the client with ID <client ID> in the process with\n"
-    "                          id <process_id>, and pass <argument> to the nudge\n"
-    "                          callback.  <client ID> must be the 8-digit hex ID\n"
-    "                          of the target client.  <argument> should be a hex\n"
-    "                          literal (0, 1, 3f etc.).\n"
-    "       -nudge_all <client ID> <argument>\n"
-    "                          Nudge the client with ID <client ID> in all running\n"
-    "                          processes and pass <argument> to the nudge callback.\n"
-    "                          <client ID> must be the 8-digit hex ID of the target\n"
-    "                          client.  <argument> should be a hex literal\n"
-    "                          (0, 1, 3f etc.)\n"
-    "       -nudge_timeout <ms> Max time (in milliseconds) to wait for a nudge to\n"
-    "                          finish before continuing.  The default is an infinite\n"
-    "                          wait.  A value of 0 means don't wait for nudges to\n"
-    "                          complete."
-#else
-    "       -no_wait           Return immediately: do not wait for application exit.\n"
-    "       -s <seconds>       Kill the application if it runs longer than the\n"
-    "                          specified number of seconds.\n"
-    "       -m <minutes>       Kill the application if it runs longer than the\n"
-    "                          specified number of minutes.\n"
-    "       -h <hours>         Kill the application if it runs longer than the\n"
-    "                          specified number of hours.\n"
-# ifdef UNIX
-    "       -killpg            Create a new process group for the app.  If the app\n"
-    "                          times out, kill the entire process group.  This forces\n"
-    "                          the child to be a new process with a new pid, rather\n"
-    "                          than reusing the parent's pid.\n"
-# endif
-    "       -stats             Print /usr/bin/time-style elapsed time and memory used.\n"
-    "       -mem               Print memory usage statistics.\n"
-    "       -pidfile <file>    Print the pid of the child process to the given file.\n"
-    "       -no_inject         Run the application natively.\n"
-# ifdef UNIX  /* FIXME i#725: Windows attach NYI */
-    "       -early             Whether to use early injection.\n"
-    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
-    "                          for pid to launch and inject into a new process.\n"
-    "       -logdir <dir>      Logfiles will be stored in this directory.\n"
-# endif
-    "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
-    "       -force             Inject regardless of configuration.\n"
-    "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
-    "\n"
-    "       <app and args>     Application command line to execute under DR.\n"
-#endif
-    ;
-
-#define usage(list_ops, msg, ...) do {                          \
-    fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);       \
-    fprintf(stderr, "%s", usage_str);                           \
-    if (list_ops) {                                             \
-        fprintf(stderr, "%s", options_list_str);                \
-    } else {                                                    \
-        fprintf(stderr, "Run with -help to see option list\n"); \
-    }                                                           \
-    die();                                                      \
-} while (0)
-
 #ifdef UNIX
 /* Minimal Windows compatibility layer.
  */
@@ -368,6 +205,222 @@ GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
 }
 
 #endif /* UNIX */
+
+const char *usage_str =
+#ifdef DRCONFIG
+    "USAGE: "TOOLNAME" [options]\n";
+#elif defined(DRRUN) || defined (DRINJECT)
+    "USAGE: "TOOLNAME" [options] <app and args to run>\n"
+    "   or: "TOOLNAME" [options] -- <app and args to run>\n"
+# if defined(DRRUN)
+    "   or: "TOOLNAME" [options] [DR options] -- <app and args to run>\n"
+    "   or: "TOOLNAME" [options] [DR options] -c <client> [client options]"
+    " -- <app and args to run>\n"
+    "   or: "TOOLNAME" [options] [DR options] -t <tool> [tool options]"
+    " -- <app and args to run>\n"
+# endif
+    ;
+#endif
+
+const char *options_list_str =
+    "\n"TOOLNAME" options (these are distinct from DR runtime options):\n"
+    "       -v                 Display version information\n"
+    "       -verbose           Display additional information\n"
+    "       -quiet             Do not display warnings\n"
+    "       -nocheck           Do not fail due to invalid DynamoRIO installation or app\n"
+#ifdef DRCONFIG
+    "       -reg <process>     Register <process> to run under DR\n"
+    "       -unreg <process>   Unregister <process> from running under DR\n"
+    "       -isreg <process>   Display whether <process> is registered and if so its\n"
+    "                          configuration\n"
+    "       -list_registered   Display all registered processes and their configuration\n"
+#endif
+    "       -root <root>       DR root directory\n"
+#if defined(DRCONFIG) || defined(DRRUN)
+# if defined(MF_API) && defined(PROBE_API)
+    "       -mode <mode>       DR mode (code, probe, or security)\n"
+# elif defined(PROBE_API)
+    "       -mode <mode>       DR mode (code or probe)\n"
+# elif defined(MF_API)
+    "       -mode <mode>       DR mode (code or security)\n"
+# else
+    /* No mode argument, is always code. */
+# endif
+#endif
+#ifdef DRCONFIG
+    /* FIXME i#840: Syswide NYI on Linux. */
+# ifdef WINDOWS
+    "       -syswide_on        Set up systemwide injection so that registered\n"
+    "                          applications will run under DR however they are\n"
+    "                          launched.  Otherwise, drinject must be used to\n"
+    "                          launch a target configured application under DR.\n"
+    "                          This option requires administrative privileges.\n"
+    "       -syswide_off       Disable systemwide injection.\n"
+    "                          This option requires administrative privileges.\n"
+# endif
+    "       -global            Use global configuration files instead of local\n"
+    "                          user-private configuration files.  The global\n"
+    "                          config dir must be set up ahead of time.\n"
+    "                          This option may require administrative privileges.\n"
+    "                          If a local file already exists it will take precedence.\n"
+    "       -norun             Create a configuration that excludes the application\n"
+    "                          from running under DR control.  Useful for following\n"
+    "                          all child processes except a handful (blacklist).\n"
+#endif
+    "       -debug             Use the DR debug library\n"
+    "       -32                Target 32-bit or WOW64 applications\n"
+    "       -64                Target 64-bit (non-WOW64) applications\n"
+#if defined(DRCONFIG) || defined(DRRUN)
+    "\n"
+    "       -ops \"<options>\"   Specify DR runtime options.  When specifying\n"
+    "                          multiple options, enclose the entire list of\n"
+    "                          options in quotes, or repeat the -ops.\n"
+    "                          Alternatively, if the application is separated\n"
+    "                          by \"--\" or if -c or -t is specified, the -ops may be\n"
+    "                          omitted and DR options listed prior to \"--\", -c,\n"
+    "                          and -t, without quotes.\n"
+    "\n"
+    "        -c <path> <options>*\n"
+    "                           Registers one client to run alongside DR.  Assigns\n"
+    "                           the client an id of 0.  All remaining arguments\n"
+    "                           until the -- arg before the app are interpreted as\n"
+    "                           client options.  Must come after all drrun and DR\n"
+    "                           ops.  Incompatible with -client.  Requires using --\n"
+    "                           to separate the app executable.\n"
+    "\n"
+    "       -client <path> <ID> \"<options>\"\n"
+    "                          Use -c instead, unless you need to set the client ID.\n"
+    "                          Registers one or more clients to run alongside DR.\n"
+    "                          This option is only valid when registering a\n"
+    "                          process.  The -client option takes three arguments:\n"
+    "                          the full path to a client library, a unique 8-digit\n"
+    "                          hex ID, and an optional list of client options\n"
+    "                          (use \"\" to specify no options).  Multiple clients\n"
+    "                          can be installed via multiple -client options.  In\n"
+    "                          this case, clients specified first on the command\n"
+    "                          line have higher priority.  Neither the path nor\n"
+    "                          the options may contain semicolon characters.\n"
+    "                          This option must precede any options to DynamoRIO.\n"
+#endif
+#ifdef DRCONFIG
+    "\n"
+    "       Note that nudging 64-bit processes is not yet supported.\n"
+    "       -nudge <process> <client ID> <argument>\n"
+    "                          Nudge the client with ID <client ID> in all running\n"
+    "                          processes with name <process>, and pass <argument>\n"
+    "                          to the nudge callback.  <client ID> must be the\n"
+    "                          8-digit hex ID of the target client.  <argument>\n"
+    "                          should be a hex literal (0, 1, 3f etc.).\n"
+    "       -nudge_pid <process_id> <client ID> <argument>\n"
+    "                          Nudge the client with ID <client ID> in the process with\n"
+    "                          id <process_id>, and pass <argument> to the nudge\n"
+    "                          callback.  <client ID> must be the 8-digit hex ID\n"
+    "                          of the target client.  <argument> should be a hex\n"
+    "                          literal (0, 1, 3f etc.).\n"
+    "       -nudge_all <client ID> <argument>\n"
+    "                          Nudge the client with ID <client ID> in all running\n"
+    "                          processes and pass <argument> to the nudge callback.\n"
+    "                          <client ID> must be the 8-digit hex ID of the target\n"
+    "                          client.  <argument> should be a hex literal\n"
+    "                          (0, 1, 3f etc.)\n"
+    "       -nudge_timeout <ms> Max time (in milliseconds) to wait for a nudge to\n"
+    "                          finish before continuing.  The default is an infinite\n"
+    "                          wait.  A value of 0 means don't wait for nudges to\n"
+    "                          complete."
+#else
+    "       -no_wait           Return immediately: do not wait for application exit.\n"
+    "       -s <seconds>       Kill the application if it runs longer than the\n"
+    "                          specified number of seconds.\n"
+    "       -m <minutes>       Kill the application if it runs longer than the\n"
+    "                          specified number of minutes.\n"
+    "       -h <hours>         Kill the application if it runs longer than the\n"
+    "                          specified number of hours.\n"
+# ifdef UNIX
+    "       -killpg            Create a new process group for the app.  If the app\n"
+    "                          times out, kill the entire process group.  This forces\n"
+    "                          the child to be a new process with a new pid, rather\n"
+    "                          than reusing the parent's pid.\n"
+# endif
+    "       -stats             Print /usr/bin/time-style elapsed time and memory used.\n"
+    "       -mem               Print memory usage statistics.\n"
+    "       -pidfile <file>    Print the pid of the child process to the given file.\n"
+    "       -no_inject         Run the application natively.\n"
+# ifdef UNIX  /* FIXME i#725: Windows attach NYI */
+    "       -early             Whether to use early injection.\n"
+    "       -attach <pid>      Attach to the process with the given pid.  Pass 0\n"
+    "                          for pid to launch and inject into a new process.\n"
+    "       -logdir <dir>      Logfiles will be stored in this directory.\n"
+# endif
+    "       -use_dll <dll>     Inject given dll instead of configured DR dll.\n"
+    "       -force             Inject regardless of configuration.\n"
+    "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
+    "\n"
+    "       <app and args>     Application command line to execute under DR.\n"
+#endif
+    ;
+
+static char tool_list[MAXIMUM_PATH];
+
+static void
+print_tool_list(void)
+{
+#ifdef DRRUN
+    if (tool_list[0] != '\0')
+        fprintf(stderr, "       available tools include: %s\n", tool_list);
+#endif
+}
+
+/* i#1509: we want to list the available tools for the -t option.
+ * Since we don't have a dir iterator we use a list of tools
+ * in a text file tools/list{32,64} which we create at
+ * install time.  Thus we only expect to have it for a package build.
+ */
+static void
+read_tool_list(const char *dr_root, dr_platform_t dr_platform)
+{
+    FILE *f;
+    char list_file[MAXIMUM_PATH];
+    size_t sofar = 0;
+    const char *arch = IF_X64_ELSE("64", "32");
+    if (dr_platform == DR_PLATFORM_32BIT)
+        arch = "32";
+    else if (dr_platform == DR_PLATFORM_64BIT)
+        arch = "64";
+    _snprintf(list_file, BUFFER_SIZE_ELEMENTS(list_file),
+              "%s/tools/list%s", dr_root, arch);
+    NULL_TERMINATE_BUFFER(list_file);
+    /* XXX i#943: we need to use _tfopen() on windows */
+    f = fopen(list_file, "r");
+    if (f == NULL) {
+        /* no visible error: we only expect to have a list for a package build */
+        return;
+    }
+    while (fgets(tool_list + sofar,
+                 (int)(BUFFER_SIZE_ELEMENTS(tool_list) - sofar - 1/*space*/),
+                 f) != NULL) {
+        NULL_TERMINATE_BUFFER(tool_list);
+        sofar += strlen(tool_list + sofar);
+        tool_list[sofar - 1] = ','; /* replace newline with comma */
+        /* add space */
+        if (sofar < BUFFER_SIZE_ELEMENTS(tool_list))
+            tool_list[sofar++] = ' ';
+    }
+    fclose(f);
+    tool_list[sofar-2] = '\0';
+    NULL_TERMINATE_BUFFER(tool_list);
+}
+
+#define usage(list_ops, msg, ...) do {                          \
+    fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);       \
+    fprintf(stderr, "%s", usage_str);                           \
+    print_tool_list();                                          \
+    if (list_ops) {                                             \
+        fprintf(stderr, "%s", options_list_str);                \
+    } else {                                                    \
+        fprintf(stderr, "Run with -help to see "TOOLNAME" option list\n"); \
+    }                                                           \
+    die();                                                      \
+} while (0)
 
 /* Unregister a process */
 bool unregister_proc(const char *process, process_id_t pid,
@@ -990,6 +1043,9 @@ int main(int argc, char *argv[])
     dr_root = default_root;
     info("default root: %s", default_root);
 
+    /* we re-read the tool list if the root or platform change */
+    read_tool_list(dr_root, dr_platform);
+
     /* parse command line */
     for (i=1; i<argc; i++) {
 
@@ -1049,10 +1105,12 @@ int main(int argc, char *argv[])
 #endif
         else if (strcmp(argv[i], "-32") == 0) {
             dr_platform = DR_PLATFORM_32BIT;
+            read_tool_list(dr_root, dr_platform);
             continue;
         }
         else if (strcmp(argv[i], "-64") == 0) {
             dr_platform = DR_PLATFORM_64BIT;
+            read_tool_list(dr_root, dr_platform);
             continue;
         }
 #if defined(DRRUN) || defined(DRINJECT)
@@ -1126,6 +1184,7 @@ int main(int argc, char *argv[])
             /* support -dr_home alias used by script */
             strcmp(argv[i], "-dr_home") == 0) {
             dr_root = argv[++i];
+            read_tool_list(dr_root, dr_platform);
         }
         else if (strcmp(argv[i], "-logdir") == 0) {
             /* Accept this for compatibility with the old drrun shell script. */
