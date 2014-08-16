@@ -1440,6 +1440,7 @@ configure_DynamoRIO_standalone(libutil.frontend_test)
 # Now we link this library in UNIX env.
 if (UNIX)
   set(lib_to_build drinjectlib)
+  add_rel_rpaths(libutil.frontend_test drinjectlib)
 endif ()
 target_link_libraries(libutil.frontend_test ${lib_to_build} drfrontendlib)
 

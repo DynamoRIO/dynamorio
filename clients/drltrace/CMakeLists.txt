@@ -1,5 +1,5 @@
 # **********************************************************
-# Copyright (c) 2010-2013 Google, Inc.    All rights reserved.
+# Copyright (c) 2010-2014 Google, Inc.    All rights reserved.
 # Copyright (c) 2009-2010 VMware, Inc.    All rights reserved.
 # **********************************************************
 
@@ -87,3 +87,4 @@ file(APPEND ${CONFIG} "# client tool options\n")
 file(APPEND ${CONFIG} "TOOL_OP=\n")
 
 DR_install(FILES "${CONFIG}" DESTINATION ${INSTALL_DRLTRACE_CONFIG})
+register_tool_file("drltrace")

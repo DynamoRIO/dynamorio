@@ -83,6 +83,8 @@
     }                                                       \
 } while (0)
 
+#define DEFAULT_OUTPUT_FILE "coverage.info"
+
 const char *usage_str =
     "drcov2lcov: covert drcov file format to lcov file format\n"
     "usage: drcov2lcov [options]\n"
@@ -91,6 +93,7 @@ const char *usage_str =
     "      -warning <int>                     Warning level.\n"
     "      -list <input list file>            The file with a list of drcov files to be processed.\n"
     "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
+    "      -input <input file>                The single drcov file to be processed."
     "      -output <output file>              The output file.\n"
     "      -test_pattern <test name pattern>  Include test coverage information. Note that the output with this option is not compatible with lcov.\n"
     "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"
@@ -99,6 +102,7 @@ const char *usage_str =
     "      -src_skip_filter <source filter>   Skip processing the source file whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
 
+static char input_file_buf[MAXIMUM_PATH];
 static char input_dir_buf[MAXIMUM_PATH];
 static char input_list_buf[MAXIMUM_PATH];
 static char output_file_buf[MAXIMUM_PATH];
@@ -107,6 +111,7 @@ static char set_file_buf[MAXIMUM_PATH];
 typedef struct _option_t {
     int verbose;
     int warning;
+    char *input_file;
     char *input_list;
     char *input_dir;
     char *output_file;
@@ -937,8 +942,7 @@ read_drcov_dir(void)
             if (!has_sep)
                 strcat(path, "\\");
             strcat(path, ffd.cFileName);
-            read_drcov_file(path);
-            found_logs = true;
+            found_logs = read_drcov_file(path) || found_logs;
         }
     } while (FindNextFile(hFind, &ffd) != 0);
     FindClose(hFind);
@@ -971,8 +975,7 @@ read_drcov_list(void)
         NULL_TERMINATE_BUFFER(path);
         ptr = move_to_next_line(ptr);
         null_terminate_path(path);
-        read_drcov_file(path);
-        found_logs = true;
+        found_logs = read_drcov_file(path) || found_logs;
     }
     close_input_file(list, map, map_size);
     if (!found_logs)
@@ -984,10 +987,12 @@ static bool
 read_drcov_input(void)
 {
     bool res = true;
+    if (options.input_file != NULL)
+        res = read_drcov_file(options.input_file) && res;
     if (options.input_list != NULL)
-        res = res && read_drcov_list();
+        res = read_drcov_list() && res;
     if (options.input_dir  != NULL)
-        res = res && read_drcov_dir();
+        res = read_drcov_dir() && res;
     return res;
 }
 
@@ -1151,11 +1156,16 @@ option_init(int argc, char *argv[])
     options.warning = 1;
     for (i = 1; i < argc; i++) {
         char *ops = argv[i];
+        PRINT(4, "options: %s\n", ops);
         if (ops[0] == '-' && ops[1] == '-')
             ops++;
         if (strcmp(ops, "-help") == 0)
             return false;
-        if (strcmp(ops, "-list") == 0) {
+        if (strcmp(ops, "-input") == 0) {
+            if (++i >= argc)
+                return false;
+            options.input_file = argv[i];
+        } else if (strcmp(ops, "-list") == 0) {
             if (++i >= argc)
                 return false;
             options.input_list = argv[i];
@@ -1214,23 +1224,40 @@ option_init(int argc, char *argv[])
         }
     }
 
+    if (options.input_file != NULL) {
+        if (GetFullPathName(options.input_file,
+                            BUFFER_SIZE_ELEMENTS(input_file_buf),
+                            input_file_buf, NULL) == 0) {
+            WARN(1, "Failed to get full path of input file %s\n", options.input_file);
+            return false;
+        }
+        NULL_TERMINATE_BUFFER(input_file_buf);
+        options.input_file = input_file_buf;
+        PRINT(2, "Input file: %s\n", options.input_file);
+    }
+
     if (options.input_list != NULL) {
         if (GetFullPathName(options.input_list,
                             BUFFER_SIZE_ELEMENTS(input_list_buf),
                             input_list_buf, NULL) == 0) {
-            WARN(1, "Failed to get full path of input list\n");
+            WARN(1, "Failed to get full path of input list %s\n", options.input_list);
             return false;
         }
         NULL_TERMINATE_BUFFER(input_list_buf);
         options.input_list = input_list_buf;
         PRINT(2, "Input list: %s\n", options.input_list);
-    } else {
+    }
+
+    if (options.input_dir != NULL ||
+        (options.input_file == NULL && options.input_list == NULL)) {
+        char *input_dir;
         if (options.input_dir == NULL)
-            WARN(0, "Missing input, use current directory instead\n");
-        if (GetFullPathName(options.input_dir == NULL ? "./" : options.input_dir,
+            WARN(1, "Missing input, use current directory instead\n");
+        input_dir = options.input_dir == NULL ? (char *)"./" : options.input_dir;
+        if (GetFullPathName(input_dir,
                             BUFFER_SIZE_ELEMENTS(input_dir_buf),
                             input_dir_buf, NULL) == 0) {
-            WARN(1, "Failed to get full path of input dir\n");
+            WARN(1, "Failed to get full path of input dir %s\n", input_dir);
             return false;
         }
         NULL_TERMINATE_BUFFER(input_dir_buf);
@@ -1239,11 +1266,12 @@ option_init(int argc, char *argv[])
     }
 
     if (options.output_file == NULL)
-        WARN(1, "Missing output, use coverage.info instead\n");
-    if (GetFullPathName(options.output_file == NULL ? "coverage.info" : options.output_file,
+        WARN(1, "Missing output, use %s instead\n", DEFAULT_OUTPUT_FILE);
+    if (GetFullPathName(options.output_file == NULL ?
+                        DEFAULT_OUTPUT_FILE : options.output_file,
                         BUFFER_SIZE_ELEMENTS(output_file_buf),
                         output_file_buf, NULL) == 0) {
-        WARN(1, "Failed to get full path of output file");
+        WARN(1, "Failed to get full path of output file\n");
         return false;
     }
     NULL_TERMINATE_BUFFER(output_file_buf);
