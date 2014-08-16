@@ -286,7 +286,7 @@ annotation_flush_fragments(app_pc start, size_t len)
     RSTATS_INC(app_managed_writes_observed);
 #ifdef JITOPT
     if (len < 0x400) {
-        if (is_vm_area_region_isolated(dcontext, start, start+len)) {
+        //if (is_vm_area_region_isolated(dcontext, start, start+len)) {
             uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
             if (removal_count > 0) {
                 RSTATS_INC(app_managed_writes_handled);
@@ -303,10 +303,9 @@ annotation_flush_fragments(app_pc start, size_t len)
                 RSTATS_INC(app_managed_small_writes);
             else if (len <= 0x100)
                 RSTATS_INC(app_managed_subpage_writes);
-        } else {
-            // causes some unstability in v8?
-            flush_and_isolate_region(dcontext, start, len);
-        }
+        //} else {
+            //flush_and_isolate_region(dcontext, start, len);
+        //}
     } else {
 # endif
         if (len == PAGE_SIZE)
