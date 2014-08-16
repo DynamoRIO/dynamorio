@@ -51,35 +51,45 @@
 
 /* Macros for identifying an annotation head and extracting the pointer to its name.
  *
- * IS_ANNOTATION_LABEL_INSTRUCTION(instr):         Evaluates to true for any `instr` that
+ * IS_ANNOTATION_LABEL_INSTR(instr):               Evaluates to true for any `instr` that
  *                                                 could be the instruction which encodes
  *                                                 the pointer to the annotation name.
  * IS_ANNOTATION_LABEL_REFERENCE(opnd):            Evaluates to true for any `opnd` that
  *                                                 could be the operand which encodes
  *                                                 the pointer to the annotation name.
  * GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc):  Extracts the annotation name pointer.
+ * IS_ANNOTATION_LABEL_GOT_OFFSET_INSTR(instr):    Evaluates to true for any `instr` that
+ *                                                 could encode the offset of the label's
+ *                                                 GOT entry within the GOT table.
+ * IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(opnd): Evaluates to true for any `opnd` that
+ *                                                 could encode the offset of the label's
+ *                                                 GOT entry within the GOT table.
  */
 #ifdef WINDOWS
 # ifdef X64
-#  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) \
+#  define IS_ANNOTATION_LABEL_INSTR(instr) \
         (instr_is_mov(instr) || (instr_get_opcode(instr) == OP_prefetchw))
-#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(src)
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_rel_addr(opnd)
 #  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) opnd_get_addr(src)
 # else
-#  define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
-#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
+#  define IS_ANNOTATION_LABEL_INSTR(instr) instr_is_mov(instr)
+#  define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(opnd)
 #  define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) ((app_pc) opnd_get_disp(src))
 # endif
 #else
-# define IS_ANNOTATION_LABEL_INSTRUCTION(instr) instr_is_mov(instr)
-# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(src)
+# define IS_ANNOTATION_LABEL_INSTR(instr) instr_is_mov(instr)
+# define IS_ANNOTATION_LABEL_REFERENCE(opnd) opnd_is_base_disp(opnd)
 # ifdef X64
 #  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 4
 # else
 #  define ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET 0
 # endif
 # define GET_ANNOTATION_LABEL_REFERENCE(src, instr_pc) \
-    ((app_pc) (opnd_get_disp(src) + instr_pc + ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
+    ((app_pc) (opnd_get_disp(src) + (instr_pc) + \
+               ANNOTATION_LABEL_REFERENCE_OPERAND_OFFSET))
+# define IS_ANNOTATION_LABEL_GOT_OFFSET_INSTR(instr) \
+    (instr_get_opcode(scratch) == OP_bsf || instr_get_opcode(scratch) == OP_bsr)
+# define IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(opnd) opnd_is_base_disp(opnd)
 #endif
 
 /* Annotation label components. */
@@ -92,10 +102,10 @@
 #define ANNOTATION_VOID_LABEL "void"
 #define ANNOTATION_VOID_LABEL_LENGTH 4
 #define IS_ANNOTATION_STATEMENT_LABEL(annotation_name) \
-    (strncmp((const char *) annotation_name, ANNOTATION_STATEMENT_LABEL, \
+    (strncmp((const char *) (annotation_name), ANNOTATION_STATEMENT_LABEL, \
              ANNOTATION_STATEMENT_LABEL_LENGTH) == 0)
 #define IS_ANNOTATION_VOID(annotation_name) \
-    (strncmp((const char *) annotation_name, ANNOTATION_VOID_LABEL":", \
+    (strncmp((const char *) (annotation_name), ANNOTATION_VOID_LABEL":", \
              ANNOTATION_VOID_LABEL_LENGTH) == 0)
 
 /* Annotation detection factors exclusive to Windows x64. */
@@ -108,7 +118,7 @@
  */
 # define WINDOWS_X64_OPTIMIZATION_FENCE 0xcc
 # define IS_ANNOTATION_HEADER(scratch, pc) \
-    (instr_is_cbr(scratch) && (*(ushort *) pc == X64_WINDOWS_ENCODED_ANNOTATION_HINT))
+    (instr_is_cbr(scratch) && (*(ushort *) (pc) == X64_WINDOWS_ENCODED_ANNOTATION_HINT))
 #endif
 
 /* OPND_RETURN_VALUE: create the return value operand for `mov $return_value,%xax`. */
@@ -135,10 +145,11 @@
 #define DYNAMORIO_ANNOTATE_LOG_NAME \
     "dynamorio_annotate_log"
 
+#define DYNAMORIO_ANNOTATE_LOG_ARG_COUNT 20
+
 /* Facilitates timestamp substitution in `dynamorio_annotate_log()`. */
 #define LOG_ANNOTATION_TIMESTAMP_TOKEN "${timestamp}"
 #define LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH 12
-#define LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH 32
 
 /* Constant factors of the Valgrind annotation, as defined in valgrind.h. */
 enum {
@@ -195,7 +206,7 @@ typedef struct _annotation_layout_t {
     bool is_void;
     /* Points to the annotation name in the target app's data section. */
     const char *name;
-    /* Specifies the translation of the annotation instrumentation sequence. */
+    /* Specifies the translation of the annotation instrumentation (e.g., clean call). */
     app_pc substitution_xl8;
     /* Specifies the byte at which app decoding should resume following the annotation. */
     app_pc resume_pc;
@@ -207,7 +218,7 @@ static strhash_table_t *handlers;
 static dr_annotation_handler_t *vg_handlers[DR_VG_ID__LAST];
 
 #if !(defined (WINDOWS) && defined (X64))
-/* Dispatching function for Valgrind annotations (required because id of the the Valgrind
+/* Dispatching function for Valgrind annotations (required because id of the Valgrind
  * client request object cannot be determined statically).
  */
 static dr_annotation_handler_t vg_router;
@@ -287,13 +298,14 @@ annotation_init()
 #endif
 
     dr_annotation_register_return(DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO_NAME,
-                             (void *) (ptr_uint_t) true);
+                                  (void *) (ptr_uint_t) true);
 #ifdef DEBUG
     /* The logging annotation requires a debug build of DR. Arbitrarily allows up to
      * 20 arguments, since the clean call must have a fixed number of them.
      */
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_LOG_NAME, (void *) annotation_printf,
-                                false, 20, DR_ANNOTATION_CALL_TYPE_FASTCALL);
+                                false, DYNAMORIO_ANNOTATE_LOG_ARG_COUNT,
+                                DR_ANNOTATION_CALL_TYPE_VARARG);
 #endif
 
 #if !(defined (WINDOWS) && defined (X64))
@@ -330,8 +342,6 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     byte hint_byte;
 #endif
 
-    //memset(&layout, 0, sizeof(annotation_layout_t));
-
 #if defined (WINDOWS) && defined (X64)
     if (hint_is_safe) {
         hint_byte = *hint_pc;
@@ -342,7 +352,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
     if (hint_byte != WINDOWS_X64_ANNOTATION_HINT_BYTE)
         return false;
     /* The hint is the first byte of the 2-byte instruction `int 2c`. Skip both bytes. */
-    layout.start_pc = hint_pc + 2;
+    layout.start_pc = hint_pc + INT_LENGTH;
     layout.substitution_xl8 = layout.start_pc;
 #else
     layout.start_pc = *start_pc;
@@ -708,7 +718,7 @@ handle_vg_annotation(app_pc request_args)
     if (request_id < DR_VG_ID__LAST) {
         TABLE_RWLOCK(handlers, read, lock);
         receiver = vg_handlers[request_id]->receiver_list;
-        while (receiver != NULL) { // last receiver wins the result value
+        while (receiver != NULL) {
             result = receiver->instrumentation.vg_callback(&request);
             receiver = receiver->next;
         }
@@ -726,8 +736,8 @@ handle_vg_annotation(app_pc request_args)
     } else
 # endif
     {
-        char *state = (char *)dcontext->dstack - sizeof(priv_mcontext_t);
-        ((priv_mcontext_t *)state)->xdx = result;
+        priv_mcontext_t *state = get_priv_mcontext_from_dstack(dcontext);
+        state->xdx = result;
     }
 }
 
@@ -756,7 +766,55 @@ valgrind_running_on_valgrind(dr_vg_client_request_t *request)
  * INTERNAL ROUTINES
  */
 
-/* See https://code.google.com/p/dynamorio/wiki/Annotations for pseudocode and examples */
+/* If the app code at `*cur_pc` can be read as an encoded annotation label, then:
+ *   (1) advance `*cur_pc` beyond the last label instruction,
+ *   (2) point `**name` to the start of the label within the app image data section, and
+ *   (3) return true.
+ * If there is no annotation label at `*cur_pc`, or failure occurs while trying to read
+ * it, then return false with undefined values for `*cur_pc` and `**name`.
+ *
+ * On Unix and Windows x86, the label has the form
+ * "<annotation-label>:<return-type>:<annotation-name>, e.g.
+ *
+ *     "dynamorio-annotation:void:dynamorio_annotate_log"
+ *     "dynamorio-annotation:const char *:some_custom_client_annotation"
+ *
+ * On Windows x64, the label has an additional token for the annotation type:
+ * "<annotation-label>:<annotation-type>:<return-type>:<annotation-name>, e.g.
+ *
+ *     "dynamorio-annotation:statement:void:dynamorio_annotate_log"
+ *     "dynamorio-annotation:expression:const char *:some_custom_client_annotation"
+ *
+ * The encoding of the pointer to the label varies by platform:
+ *
+ *   Unix expression annotation label (two instructions form <GOT-base> + <GOT-offset>):
+ *
+ *     mov $<GOT-base>,%xax
+ *     bsr $<GOT-offset>,%xax
+ *
+ *   Windows x86 expression annotation label (direct pointer to the <label>):
+ *
+ *     mov $<label>,%eax
+ *
+ *   Windows x64 expression annotation label (same, in 2 variations):
+ *
+ *     mov $<label>,%rax      Or      prefetch $<label>
+ *     prefetch %rax
+ *
+ *   Decoding the label pointer proceeds as follows:
+ *
+ *     (step 1) check `*cur_pc` for the opcode of the first label-encoding instruction
+ *     (step 2) check the operand of that instruction for a label-encoding operand type
+ *     Unix only--dereference the GOT entry:
+ *         (step 3) check the next instruction for the label offset opcode (bsr or bsf)
+ *         (step 4) check its operand for the offset-encoding operand type (base disp)
+ *         (step 5) add the two operands and dereference as the label's GOT entry
+ *     (step 6) attempt to read the decoded pointer and compare to "dynamorio-annotation"
+ *              (note there is a special case for Windows x64, which is not inline asm)
+ *     (step 7) if it matches, point `**name` to the character beyond the separator ':'
+ *
+ * See https://code.google.com/p/dynamorio/wiki/Annotations for complete examples.
+ */
 static inline bool
 is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
                   OUT const char **name)
@@ -765,48 +823,53 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
 
     instr_reset(dcontext, scratch);
     *cur_pc = decode(dcontext, *cur_pc, scratch);
-    if (IS_ANNOTATION_LABEL_INSTRUCTION(scratch)) {
+    if (IS_ANNOTATION_LABEL_INSTR(scratch)) {                               /* step 1 */
         opnd_t src = instr_get_src(scratch, 0);
-        if (IS_ANNOTATION_LABEL_REFERENCE(src)) {
-            char buf[24];
+        if (IS_ANNOTATION_LABEL_REFERENCE(src)) {                           /* step 2 */
+            char buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH + 1/*nul*/];
             app_pc buf_ptr;
-            app_pc src_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
+            app_pc opnd_ptr = GET_ANNOTATION_LABEL_REFERENCE(src, start_pc);
 #ifdef UNIX
             app_pc got_ptr;
             instr_reset(dcontext, scratch);
             *cur_pc = decode(dcontext, *cur_pc, scratch);
-            if (instr_get_opcode(scratch) != OP_bsf &&
-                instr_get_opcode(scratch) != OP_bsr)
+            if (!IS_ANNOTATION_LABEL_GOT_OFFSET_INSTR(scratch))             /* step 3 */
                 return false;
             src = instr_get_src(scratch, 0);
-            if (!opnd_is_base_disp(src))
+            if (!IS_ANNOTATION_LABEL_GOT_OFFSET_REFERENCE(src))             /* step 4 */
                 return false;
-            src_ptr += opnd_get_disp(src);
-            if (!safe_read(src_ptr, sizeof(app_pc), &got_ptr))
+            opnd_ptr += opnd_get_disp(src);                                 /* step 5 */
+            if (!safe_read(opnd_ptr, sizeof(app_pc), &got_ptr))
                 return false;
-            src_ptr = got_ptr;
+            opnd_ptr = got_ptr;
 #endif
 #if defined (WINDOWS) && defined (X64)
-            if (instr_get_opcode(scratch) == OP_prefetchw) {
-                if (!safe_read(src_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
+            /* In Windows x64, if the `prefetch` instruction was found at
+             * `*cur_pc` with no intervening `mov` instruction, the label
+             * pointer must be an immediate operand to that `prefetch`.
+             */
+            if (instr_get_opcode(scratch) == OP_prefetchw) {                /* step 6 */
+                if (!safe_read(opnd_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                     return false;
                 buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
                 if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) == 0) {
-                    *name = (const char *) (src_ptr + DYNAMORIO_ANNOTATION_LABEL_LENGTH
-                                            + 1); /* skip the separator ":" */
+                    *name = (const char *) (opnd_ptr +                      /* step 7 */
+                                            DYNAMORIO_ANNOTATION_LABEL_LENGTH
+                                            + 1); /* skip the separator ':' */
                     return true;
                 }
-            }
+            } /* else the label pointer is the usual `mov` operand: */
 #endif
-            if (!safe_read(src_ptr, sizeof(app_pc), &buf_ptr))
+            if (!safe_read(opnd_ptr, sizeof(app_pc), &buf_ptr))             /* step 6 */
                 return false;
             if (!safe_read(buf_ptr, DYNAMORIO_ANNOTATION_LABEL_LENGTH, buf))
                 return false;
             buf[DYNAMORIO_ANNOTATION_LABEL_LENGTH] = '\0';
             if (strcmp(buf, DYNAMORIO_ANNOTATION_LABEL) != 0)
                 return false;
-            *name = (const char *) (buf_ptr + DYNAMORIO_ANNOTATION_LABEL_LENGTH
-                                    + 1); /* skip the separator ":" */
+            *name = (const char *) (buf_ptr +                               /* step 7 */
+                                    DYNAMORIO_ANNOTATION_LABEL_LENGTH
+                                    + 1); /* skip the separator ':' */
             return true;
         }
     }
@@ -814,41 +877,54 @@ is_annotation_tag(dcontext_t *dcontext, IN OUT app_pc *cur_pc, instr_t *scratch,
 }
 
 #if defined (WINDOWS) && defined (X64)
+/* Identify the annotation at layout->start_pc, if any. On Windows x64, some flexibility
+ * is required to recognize the annotation sequence because it is compiled instead of
+ * explicitly inserted with inline asm (which is unavailable in MSVC for this platform).
+ *   (step 1) check if the instruction at layout->start_pc encodes an annotation label.
+ *   (step 2) decode arbitrary instructions up to a `prefetch`,
+ *            following any direct branches decoded along the way.
+ *   (step 3) skip the `int 3` following the `prefetch`.
+ *   (step 4) set the resume pc, so execution resumes within the annotation body.
+ *   (step 5) compare the next label token to determine the annotation type.
+ *     Expression annotations only:
+ *       (step 6) compare the return type to determine whether the annotation is void.
+ *   (step 7) advance the label pointer to the name token
+ *            (note that the Statement annotation concludes with a special case).
+ */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
     app_pc cur_pc = layout->start_pc, last_call = NULL;
 
-    if (!is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name))
+    if (!is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name))      /* step 1 */
         return;
 
-    while (instr_get_opcode(scratch) != OP_prefetchw) {
+    while (instr_get_opcode(scratch) != OP_prefetchw) {                     /* step 2 */
         if (instr_is_ubr(scratch))
             cur_pc = instr_get_branch_target_pc(scratch);
         instr_reset(dcontext, scratch);
         cur_pc = decode(dcontext, cur_pc, scratch);
     }
 
-    ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);
+    ASSERT(*cur_pc == WINDOWS_X64_OPTIMIZATION_FENCE);                      /* step 3 */
     cur_pc++;
-    layout->resume_pc = cur_pc;
+    layout->resume_pc = cur_pc;                                             /* step 4 */
 
-    if (IS_ANNOTATION_STATEMENT_LABEL(layout->name)) {
+    if (IS_ANNOTATION_STATEMENT_LABEL(layout->name)) {                      /* step 5 */
         layout->type = ANNOTATION_TYPE_STATEMENT;
         layout->name += (ANNOTATION_STATEMENT_LABEL_LENGTH + 1);
-        //layout->is_void = IS_ANNOTATION_VOID(layout->name);
-        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
+        layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
         /* If the target app contains an annotation whose argument is a function call that
          * gets inlined, and that function contains the same annotation, the compiler will
          * fuse the headers. See https://code.google.com/p/dynamorio/wiki/Annotations for
-         * a complete example. This loop identifies fused headers and skips them.
+         * a sample of fused headers. This loop identifies and skips any fused headers.
          */
         while (true) {
             instr_reset(dcontext, scratch);
             cur_pc = decode(dcontext, cur_pc, scratch);
             if (IS_ANNOTATION_HEADER(scratch, cur_pc)) {
-                cur_pc += 2;
+                cur_pc += INT_LENGTH;
                 while (instr_get_opcode(scratch) != OP_prefetchw) {
                     if (instr_is_ubr(scratch))
                         cur_pc = instr_get_branch_target_pc(scratch);
@@ -864,37 +940,44 @@ identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
     } else {
         layout->type = ANNOTATION_TYPE_EXPRESSION;
         layout->name += (ANNOTATION_EXPRESSION_LABEL_LENGTH + 1);
-        layout->is_void = IS_ANNOTATION_VOID(layout->name);
-        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
+        layout->is_void = IS_ANNOTATION_VOID(layout->name);                 /* step 6 */
+        layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
     }
 }
 #else /* Windows x86 and all Unix  */
+/* Identify the annotation at layout->start_pc, if any. In summary:
+ *   (step 1) check if the instruction at layout->start_pc encodes an annotation label.
+ *   (step 2) determine the annotation type based on instruction opcodes
+ *     Expression annotations only:
+ *       (step 3) compare the return type to determine whether the annotation is void.
+ *   (step 4) adjust the substitution xl8 to the current pc.
+ *   (step 5) decode past the jump over the annotation body.
+ *   (step 6) set the resume pc to the current instruction, which is a jump over the
+ *            native version of the annotation body (specified by the target app).
+ *   (step 7) advance the label pointer to the name token.
+ */
 static inline void
 identify_annotation(dcontext_t *dcontext, IN OUT annotation_layout_t *layout,
                     instr_t *scratch)
 {
     app_pc cur_pc = layout->start_pc;
-    if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {
+    if (is_annotation_tag(dcontext, &cur_pc, scratch, &layout->name)) {     /* step 1 */
 # ifdef WINDOWS
-        if (*(cur_pc++) == 0x58) { /* `pop eax` indicates statement type on Windows... */
+        if (*(cur_pc++) == RAW_OPCODE_pop_eax) {                            /* step 2 */
 # else
-        if (instr_get_opcode(scratch) == OP_bsf) { /* ...or `bsf` on Unix */
+        if (instr_get_opcode(scratch) == OP_bsf) {                          /* step 2 */
 # endif
             layout->type = ANNOTATION_TYPE_STATEMENT;
         } else {
             layout->type = ANNOTATION_TYPE_EXPRESSION;
-            layout->is_void = IS_ANNOTATION_VOID(layout->name);
+            layout->is_void = IS_ANNOTATION_VOID(layout->name);             /* step 3 */
         }
-        layout->substitution_xl8 = cur_pc;
-        /* This jump skips over the annotation in a native run. Decode past it... */
+        layout->substitution_xl8 = cur_pc;                                  /* step 4 */
         instr_reset(dcontext, scratch);
-        cur_pc = decode_cti(dcontext, cur_pc, scratch);
+        cur_pc = decode_cti(dcontext, cur_pc, scratch);                     /* step 5 */
         ASSERT(instr_is_ubr(scratch));
-        /* ...and set the resume pc to the next instruction, which jumps over the native
-         * version of the annotation (which was specified by the target app).
-         */
-        layout->resume_pc = cur_pc;
-        layout->name = strchr(layout->name, ':') + 1; /* last token is the name */
+        layout->resume_pc = cur_pc;                                         /* step 6 */
+        layout->name = strchr(layout->name, ':') + 1;                       /* step 7 */
     }
 }
 #endif
@@ -990,9 +1073,9 @@ create_arg_opnds(dr_annotation_handler_t *handler, uint num_args,
         for (i = 0; i < num_args; i++) {
             /* The clean call will appear at the top of the annotation function body,
              * where the stack args follow the return address and the caller's saved base
-             * pointer. Since `i` already starts at 2, use it to skip those pointers.
+             * pointer. Since `i` starts at 0, add 2 to skip those pointers.
              */
-            arg_stack_location = sizeof(ptr_uint_t) * i;
+            arg_stack_location = sizeof(ptr_uint_t) * (i+2);
             handler->args[i] = OPND_CREATE_MEMPTR(DR_REG_XBP, arg_stack_location);
         }
     }
@@ -1006,42 +1089,36 @@ annotation_printf(const char *format, ...)
     va_list ap;
     ssize_t count;
     const char *timestamp_token_start;
+    char *timestamped_format = NULL;
     uint buffer_length = 0;
 
-    if (stats == NULL || stats->loglevel == 0 || (stats->logmask & LOG_ANNOTATIONS) == 0)
+    if (stats == NULL || stats->loglevel == 0)
         return 0; /* No log is available for writing. */
+    if ((stats->logmask & LOG_VIA_ANNOTATIONS) == 0)
+        return 0; /* Filtered out by the user. */
 
     /* Substitute the first instance of the timestamp token with a timestamp string.
      * Additional timestamp tokens will be ignored, because it would be pointless.
      */
     timestamp_token_start = strstr(format, LOG_ANNOTATION_TIMESTAMP_TOKEN);
     if (timestamp_token_start != NULL) {
-        uint min, sec, msec, timestamp = query_time_seconds();
-        buffer_length = (uint) (strlen(format) + LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH);
-        if (timestamp > 0) {
+        char timestamp_buffer[PRINT_TIMESTAMP_MAX_LENGTH];
+        buffer_length = (uint) (strlen(format) + PRINT_TIMESTAMP_MAX_LENGTH);
+        if (print_timestamp_to_buffer(timestamp_buffer, PRINT_TIMESTAMP_MAX_LENGTH) > 0) {
             uint length_before_token =
                 (uint)((ptr_uint_t) timestamp_token_start - (ptr_uint_t) format);
-            /* print the timestamp into this small stack buffer */
-            char timestamp_buffer[LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH];
             /* print the timestamped format string into this heap buffer */
-            char *timestamped = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, buffer_length,
-                                                 ACCT_OTHER, UNPROTECTED);
-
-            sec = (uint) (timestamp / 1000);
-            msec = (uint) (timestamp % 1000);
-            min = sec / 60;
-            sec = sec % 60;
-            our_snprintf(timestamp_buffer, LOG_ANNOTATION_MAX_TIMESTAMP_LENGTH,
-                         "(%ld:%02ld.%03ld)", min, sec, msec);
+            timestamped_format = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, char, buffer_length,
+                                                  ACCT_OTHER, UNPROTECTED);
 
             /* copy the original format string up to the timestamp token */
-            our_snprintf(timestamped, length_before_token, "%s", format);
+            our_snprintf(timestamped_format, length_before_token, "%s", format);
             /* copy the timestamp and the remainder of the original format string */
-            our_snprintf(timestamped + length_before_token,
+            our_snprintf(timestamped_format + length_before_token,
                          (buffer_length - length_before_token), "%s%s", timestamp_buffer,
                          timestamp_token_start + LOG_ANNOTATION_TIMESTAMP_TOKEN_LENGTH);
             /* use the timestamped format string */
-            format = (const char *) timestamped;
+            format = (const char *) timestamped_format;
         } else {
             LOG(GLOBAL, LOG_ANNOTATIONS, 2, "Failed to obtain a system timestamp for "
                 "substitution in annotation log statements '%s'\n", format);
@@ -1051,7 +1128,7 @@ annotation_printf(const char *format, ...)
     va_start(ap, format);
     count = do_file_write(GLOBAL, format, ap);
     va_end(ap);
-    if (timestamp_token_start != NULL) { /* free the timestamp heap buffer, if any */
+    if (timestamped_format != NULL) { /* free the timestamp heap buffer, if any */
         HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, format, char, buffer_length,
                         ACCT_OTHER, UNPROTECTED);
     }

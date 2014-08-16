@@ -133,14 +133,14 @@ static dgc_fragment_intersection_t *fragment_intersection;
         dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 #endif
 
-#if !(defined (WINDOWS) && defined (X64))
-static ptr_uint_t
-valgrind_discard_translations(dr_vg_client_request_t *request);
-#endif
-
 static void
 free_dgc_bucket_chain(void *p);
 
+#endif
+
+#if !(defined (WINDOWS) && defined (X64))
+static ptr_uint_t
+valgrind_discard_translations(dr_vg_client_request_t *request);
 #endif
 
 void
@@ -153,10 +153,11 @@ jitopt_init()
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
                                 (void *) annotation_unmanage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
-
+#ifndef JIT_MONITORED_AREAS
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
                                 (void *) annotation_flush_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
+#endif
 #if !(defined (WINDOWS) && defined (X64))
     dr_annotation_register_valgrind(DR_VG_ID__DISCARD_TRANSLATIONS,
                                     valgrind_discard_translations);
@@ -221,17 +222,20 @@ annotation_manage_code_area(app_pc start, size_t len)
 {
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
-    set_region_app_managed(start, len, true);
+#ifdef JIT_MONITORED_AREAS
+    set_region_jit_monitored(start, len);
+#else
+    set_region_app_managed(start, len);
+#endif
 }
 
 void
 annotation_unmanage_code_area(app_pc start, size_t len)
 {
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
+    dcontext_t *dcontext = get_thread_private_dcontext();
+
+    if (!is_app_managed_code(start))
+        return;
 
     if (!is_app_managed_code(start))
         return;
@@ -265,15 +269,16 @@ flush_and_isolate_region(dcontext_t *dcontext, app_pc start, size_t len)
 void
 annotation_flush_fragments(app_pc start, size_t len)
 {
-#ifdef CLIENT_INTERFACE
-    dcontext_t *dcontext = (dcontext_t *) dr_get_current_drcontext();
-#else
-    dcontext_t *dcontext = NULL; // FIXME
-#endif
+    dcontext_t *dcontext = get_thread_private_dcontext();
 
     // this is slow--maybe keep a local sorted list of app-managed regions
+#ifdef JIT_MONITORED_AREAS
+    if (!is_jit_monitored_area(start))
+        return;
+#else
     if (!is_app_managed_code(start))
         return;
+#endif
 
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
@@ -328,7 +333,9 @@ annotation_flush_fragments(app_pc start, size_t len)
 static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request)
 {
+# ifndef JIT_MONITORED_AREAS
     annotation_flush_fragments((app_pc) request->args[0], request->args[1]);
+# endif
     return 0;
 }
 #endif
@@ -1337,7 +1344,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
     return fragment_intersection_count;
 }
+#endif /* JITOPT */
 #endif /* ANNOTATIONS */
-#endif /* JIJTOPT */
 
 

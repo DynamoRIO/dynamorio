@@ -1203,8 +1203,10 @@
     /* i#107 handle application using same segment register */
     STATS_DEF("App reference with FS/GS seg being mangled", app_seg_refs_mangled)
     STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
-#ifdef JITOPT
     RSTATS_DEF("App-managed writes observed", app_managed_writes_observed)
+    RSTATS_DEF("App-managed page writes", app_managed_page_writes)
+    RSTATS_DEF("App-managed multi-page writes", app_managed_multipage_writes)
+#ifdef JITOPT
     RSTATS_DEF("App-managed writes ignored", app_managed_writes_ignored)
     RSTATS_DEF("App-managed writes handled", app_managed_writes_handled)
     RSTATS_DEF("App-managed fragments removed", app_managed_fragments_removed)
@@ -1212,8 +1214,6 @@
     RSTATS_DEF("App-managed word writes", app_managed_word_writes)
     RSTATS_DEF("App-managed small writes", app_managed_small_writes)
     RSTATS_DEF("App-managed sub-page writes", app_managed_subpage_writes)
-    RSTATS_DEF("App-managed page writes", app_managed_page_writes)
-    RSTATS_DEF("App-managed multi-page writes", app_managed_multipage_writes)
     RSTATS_DEF("App-managed BB buckets allocated", app_managed_bb_buckets_allocated)
     RSTATS_DEF("App-managed BB buckets freed", app_managed_bb_buckets_freed)
     RSTATS_DEF("App-managed BB buckets live", app_managed_bb_buckets_live)

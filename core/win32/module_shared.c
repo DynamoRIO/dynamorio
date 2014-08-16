@@ -151,6 +151,41 @@ is_readable_without_exception(const byte *pc, size_t size)
     return true;
 }
 
+#if defined(WINDOWS) && !defined(NOT_DYNAMORIO_CORE)
+/* Image entry point is stored at,
+ * PEB->DOS_HEADER->NT_HEADER->OptionalHeader.AddressOfEntryPoint
+ */
+void *
+get_remote_process_entry(HANDLE process_handle, OUT bool *x86_code)
+{
+    PEB peb;
+    LPVOID peb_base;
+    IMAGE_DOS_HEADER *dos_ptr, dos;
+    IMAGE_NT_HEADERS *nt_ptr, nt;
+    bool res;
+    size_t nbytes;
+
+    peb_base = get_peb(process_handle);
+    res = nt_read_virtual_memory(process_handle, (LPVOID)peb_base,
+                                 &peb, sizeof(peb), &nbytes);
+    if (!res || nbytes != sizeof(peb))
+        return NULL;
+    dos_ptr = (IMAGE_DOS_HEADER *)peb.ImageBaseAddress;
+    res = nt_read_virtual_memory(process_handle, (void*)dos_ptr,
+                                 &dos, sizeof(dos), &nbytes);
+    if (!res || nbytes != sizeof(dos))
+        return NULL;
+    nt_ptr = (IMAGE_NT_HEADERS *)(((ptr_uint_t)dos_ptr) + dos.e_lfanew);
+    res = nt_read_virtual_memory(process_handle, (void*)nt_ptr,
+                                 &nt, sizeof(nt), &nbytes);
+    if (!res || nbytes != sizeof(nt))
+        return NULL;
+    *x86_code = nt.FileHeader.Machine == IMAGE_FILE_MACHINE_I386;
+    return (void*)((byte*)dos_ptr +
+                   (size_t)nt.OptionalHeader.AddressOfEntryPoint);
+}
+#endif
+
 /* returns NULL if exports directory doesn't exist
  * if exports_size != NULL returns also exports section size
  * assumes base_addr is a safe is_readable_pe_base()

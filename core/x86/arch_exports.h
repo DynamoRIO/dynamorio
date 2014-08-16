@@ -630,6 +630,7 @@ void copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst);
 bool dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src);
 bool priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src);
 priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
+priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
 const char *get_branch_type_name(ibl_branch_type_t branch_type);
@@ -960,7 +961,9 @@ use_addr_prefix_on_short_disp(void)
 /* size of restore ecx prefix */
 #define XCX_IN_TLS(flags) (DYNAMO_OPTION(private_ib_in_tls) || TEST(FRAG_SHARED, (flags)))
 #define FRAGMENT_BASE_PREFIX_SIZE(flags) \
-    (FRAG_IS_X86_TO_X64(flags) ? SIZE64_MOV_R9_TO_XCX : \
+    ((FRAG_IS_X86_TO_X64(flags) && \
+      IF_X64_ELSE(DYNAMO_OPTION(x86_to_x64_ibl_opt), false)) ? \
+     SIZE64_MOV_R9_TO_XCX : \
      (XCX_IN_TLS(flags) ? SIZE_MOV_XBX_TO_TLS(flags, false) : SIZE32_MOV_XBX_TO_ABS))
 
 /* exported for DYNAMO_OPTION(separate_private_stubs)
@@ -1674,5 +1677,11 @@ void *_dynamorio_runtime_resolve(void);
 /* only takes integer literals */
 # define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
 #endif
+
+/* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
+ * Keep in synch w/ defines in x86.asm
+ */
+#define CS32_SELECTOR 0x23
+#define CS64_SELECTOR 0x33
 
 #endif /* _ARCH_EXPORTS_H_ */

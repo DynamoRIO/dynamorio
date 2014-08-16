@@ -70,6 +70,6 @@ int main()
 #endif
 
     /* XXX i#1488: We need more tests for frontend routines. */
-    printf("all done");
+    printf("all done\n");
     return 0;
 }

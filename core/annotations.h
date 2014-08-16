@@ -126,8 +126,17 @@ typedef struct _dr_vg_client_request_t {
  */
 typedef enum _dr_annotation_calling_convention_t {
     DR_ANNOTATION_CALL_TYPE_FASTCALL, /**< calling convention "fastcall" */
-#ifndef X64
+#ifdef X64
+    /**
+     * The calling convention for vararg functions on x64, which must be "fastcall".
+     */
+    DR_ANNOTATION_CALL_TYPE_VARARG = DR_ANNOTATION_CALL_TYPE_FASTCALL,
+#else
     DR_ANNOTATION_CALL_TYPE_STDCALL,  /**< x86 calling convention "stdcall" */
+    /**
+     * The calling convention for vararg functions on x86, which must be "stdcall".
+     */
+    DR_ANNOTATION_CALL_TYPE_VARARG = DR_ANNOTATION_CALL_TYPE_STDCALL,
 #endif
     DR_ANNOTATION_CALL_TYPE_LAST      /**< Sentinel value for iterator convenience */
 } dr_annotation_calling_convention_t;
@@ -269,16 +278,16 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 #endif
 
 #define GET_ANNOTATION_HANDLER(label_data) \
-    ((dr_annotation_handler_t *) label_data->data[0])
+    ((dr_annotation_handler_t *) (label_data)->data[0])
 #define SET_ANNOTATION_HANDLER(label_data, pc) \
 do { \
-    label_data->data[0] = (ptr_uint_t) pc; \
+    (label_data)->data[0] = (ptr_uint_t) (pc); \
 } while (0)
 
-#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[1])
+#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) (label_data)->data[1])
 #define SET_ANNOTATION_APP_PC(label_data, pc) \
 do { \
-    label_data->data[1] = (ptr_uint_t) pc; \
+    (label_data)->data[1] = (ptr_uint_t) (pc); \
 } while (0)
 
 typedef enum _dr_annotation_handler_type_t {

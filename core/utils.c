@@ -3129,26 +3129,40 @@ dump_global_stats(bool raw)
 # endif
 }
 
-/* prints elapsed time since program startup to the given logfile */
-/* TODO: should also print absolute timestamp
-   TODO: and relative time from thread start */
-void
-print_timestamp(file_t logfile)
+uint
+print_timestamp_to_buffer(char *buffer, size_t len)
 {
     uint min, sec, msec;
-    static uint64 initial_time = 0;   /* in milliseconds */
+    size_t print_len = MIN(len, PRINT_TIMESTAMP_MAX_LENGTH);
+    static uint64 initial_time = 0ULL;   /* in milliseconds */
     uint64 current_time;
 
-    if (!initial_time)
+    if (initial_time == 0ULL)
         initial_time = query_time_millis();
     current_time = query_time_millis();
-    if (current_time > 0) /* call did not fail */
-        current_time -= initial_time; /* elapsed */
+    if (current_time == 0ULL) /* call failed */
+        return 0;
+    current_time -= initial_time; /* elapsed */
     sec = (uint) (current_time / 1000);
     msec = (uint) (current_time % 1000);
     min = sec / 60;
     sec = sec % 60;
-    print_file(logfile, "(%ld:%02ld.%03ld)", min, sec, msec);
+    return our_snprintf(buffer, print_len, "(%ld:%02ld.%03ld)", min, sec, msec);
+}
+
+/* prints elapsed time since program startup to the given logfile
+ * TODO: should also print absolute timestamp
+ * TODO: and relative time from thread start
+ */
+uint
+print_timestamp(file_t logfile)
+{
+    char buffer[PRINT_TIMESTAMP_MAX_LENGTH];
+    uint len = print_timestamp_to_buffer(buffer, PRINT_TIMESTAMP_MAX_LENGTH);
+
+    if (len > 0)
+        print_file(logfile, buffer);
+    return len;
 }
 
 #endif /* DEBUG */
