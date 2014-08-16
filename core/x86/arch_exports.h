@@ -630,6 +630,7 @@ void copy_mcontext(priv_mcontext_t *src, priv_mcontext_t *dst);
 bool dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src);
 bool priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src);
 priv_mcontext_t *dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc);
+priv_mcontext_t *get_priv_mcontext_from_dstack(dcontext_t *dcontext);
 void dr_mcontext_init(dr_mcontext_t *mc);
 void dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml);
 const char *get_branch_type_name(ibl_branch_type_t branch_type);

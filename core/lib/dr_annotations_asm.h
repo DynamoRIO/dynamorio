@@ -37,6 +37,11 @@
  * overview, see the wiki page http://code.google.com/p/dynamorio/wiki/Annotations.
  */
 
+/* To simplify project configuration, this pragma excludes the file from GCC warnings. */
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
+
 #include <stddef.h>
 #ifdef _MSC_VER
 # include <intrin.h>
@@ -54,6 +59,18 @@
 # endif
 #endif
 
+#ifdef _MSC_VER
+# define EXTERN extern
+#else
+# ifdef __cplusplus
+#  define EXTERN extern "C"
+#  define EXTERN_C extern "C"
+# else
+#  define EXTERN extern
+#  define EXTERN_C
+# endif
+#endif
+
 #ifdef _MSC_VER /* Microsoft Visual Studio */
 # define PASTE1(x, y) x##y
 # define PASTE(x, y) PASTE1(x, y)
@@ -65,11 +82,11 @@
  */
 #  pragma intrinsic(_AddressOfReturnAddress, __debugbreak, __int2c, _m_prefetchw)
 #  define GET_RETURN_PTR _AddressOfReturnAddress
-#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
     const char *annotation##_expression_label = \
-        "dynamorio-annotation:expression:"#annotation; \
+        "dynamorio-annotation:expression:"#return_type":"#annotation; \
     const char *annotation##_statement_label = \
-        "dynamorio-annotation:statement:"#annotation;
+        "dynamorio-annotation:statement:"#return_type":"#annotation;
 /* The magic numbers for the head and tail are specially selected to establish immovable
  * "bookends" on the annotation around which the compiler and optimizers will not reorder
  * instructions. The values 0xfffffffffffffff0 and 0xfffffffffffffff1 are chosen because:
@@ -109,13 +126,9 @@ do { \
  * (jmp +6) to facilitate an optimized detection algorithm in the DR interpreter. The
  * target of this jump is always the following jump, i.e. (mov=5 + pop/nop=1) => 6.
  */
-#  ifdef __cplusplus
-#   define EXTERN extern "C"
-#  else
-#   define EXTERN extern
-#  endif
-#  define DR_DEFINE_ANNOTATION_LABELS(annotation) \
-        EXTERN const char *annotation##_label = "dynamorio-annotation:"#annotation;
+#  define DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
+        EXTERN const char *annotation##_label = \
+            "dynamorio-annotation:"#return_type":"#annotation;
 #  define DR_ANNOTATION_OR_NATIVE_INSTANCE(unique_id, annotation, native_version, ...) \
     { \
         extern const char *annotation##_label; \
@@ -150,7 +163,7 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
     return_type __fastcall annotation parameters
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    DR_DEFINE_ANNOTATION_LABELS(annotation) \
+    DR_DEFINE_ANNOTATION_LABELS(annotation, return_type) \
     return_type __fastcall annotation parameters \
     { \
         DR_ANNOTATION_FUNCTION(annotation, body) \
@@ -209,7 +222,8 @@ do { \
 # define DR_DECLARE_ANNOTATION(return_type, annotation, parameters) \
      DR_ANNOTATION_ATTRIBUTES return_type annotation parameters DR_WEAK_DECLARATION
 # define DR_DEFINE_ANNOTATION(return_type, annotation, parameters, body) \
-    const char *annotation##_label = "dynamorio-annotation:"#annotation; \
+    EXTERN_C const char *annotation##_label = \
+        "dynamorio-annotation:"#return_type":"#annotation; \
     DR_ANNOTATION_ATTRIBUTES return_type annotation parameters \
     { \
         __label__ native_run, native_end_marker; \

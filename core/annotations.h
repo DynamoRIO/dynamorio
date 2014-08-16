@@ -126,8 +126,17 @@ typedef struct _dr_vg_client_request_t {
  */
 typedef enum _dr_annotation_calling_convention_t {
     DR_ANNOTATION_CALL_TYPE_FASTCALL, /**< calling convention "fastcall" */
-#ifndef X64
+#ifdef X64
+    /**
+     * The calling convention for vararg functions on x64, which must be "fastcall".
+     */
+    DR_ANNOTATION_CALL_TYPE_VARARG = DR_ANNOTATION_CALL_TYPE_FASTCALL,
+#else
     DR_ANNOTATION_CALL_TYPE_STDCALL,  /**< x86 calling convention "stdcall" */
+    /**
+     * The calling convention for vararg functions on x86, which must be "stdcall".
+     */
+    DR_ANNOTATION_CALL_TYPE_VARARG = DR_ANNOTATION_CALL_TYPE_STDCALL,
 #endif
     DR_ANNOTATION_CALL_TYPE_LAST      /**< Sentinel value for iterator convenience */
 } dr_annotation_calling_convention_t;
@@ -266,10 +275,17 @@ dr_annotation_unregister_valgrind(dr_valgrind_request_id_t request_id,
 # endif
 #endif
 
-#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) label_data->data[1])
+#define GET_ANNOTATION_HANDLER(label_data) \
+    ((dr_annotation_handler_t *) (label_data)->data[0])
+#define SET_ANNOTATION_HANDLER(label_data, pc) \
+do { \
+    (label_data)->data[0] = (ptr_uint_t) (pc); \
+} while (0)
+
+#define GET_ANNOTATION_APP_PC(label_data) ((app_pc) (label_data)->data[1])
 #define SET_ANNOTATION_APP_PC(label_data, pc) \
 do { \
-    label_data->data[1] = (ptr_uint_t) pc; \
+    (label_data)->data[1] = (ptr_uint_t) (pc); \
 } while (0)
 
 typedef enum _dr_annotation_handler_type_t {
@@ -293,10 +309,7 @@ typedef struct _dr_annotation_receiver_t {
 /* Each handler represents one distinct annotation name. */
 typedef struct _dr_annotation_handler_t {
     dr_annotation_handler_type_t type;
-    union {
-        const char *symbol_name;
-        dr_valgrind_request_id_t vg_request_id;
-    } id;
+    const char *symbol_name; /* not used for Valgrind annotations */
     dr_annotation_receiver_t *receiver_list;
     uint num_args;
     opnd_t *args;
@@ -429,9 +442,15 @@ is_encoded_valgrind_annotation(app_pc xchg_start_pc, app_pc bb_start, app_pc pag
 }
 #endif
 
+/* Instrument the DR annotation at `start_pc` with an instruction sequence `substitution`,
+ * or return false if there is no DR annotation at `start_pc`. For Windows x64,
+ * `hint_is_safe` indicates whether the hint byte following `start_pc` is already known
+ * to be safe for reading. On successful instrumentation, `start_pc` is replaced with the
+ * pc following the annotation, where decoding of app instructions should resume.
+ */
 bool
-annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
-                 _IF_WINDOWS_X64(bool hint_is_safe));
+instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
+                      OUT instr_t **substitution _IF_WINDOWS_X64(IN bool hint_is_safe));
 
 #if !(defined (WINDOWS) && defined (X64))
 /* Replace the Valgrind annotation code sequence with a clean call to
@@ -451,7 +470,7 @@ annotation_match(dcontext_t *dcontext, app_pc *start_pc, instr_t **substitution
  * xchg   %ebx %ebx -> %ebx %ebx
  */
 void
-instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *instr,
+instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *xchg_instr,
                                app_pc xchg_pc, uint bb_instr_count);
 #endif /* !(defined (WINDOWS) && defined (X64)) */
 

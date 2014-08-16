@@ -35,11 +35,16 @@
 
 #include "dr_annotations_asm.h"
 
+/* To simplify project configuration, this pragma excludes the file from GCC warnings. */
+#ifdef __GNUC__
+# pragma GCC system_header
+#endif
+
 #define DYNAMORIO_ANNOTATE_RUNNING_ON_DYNAMORIO() \
     dynamorio_annotate_running_on_dynamorio()
 
 #define DYNAMORIO_ANNOTATE_LOG(format, ...) \
-    dynamorio_annotate_log(format, ##__VA_ARGS__)
+    DR_ANNOTATION(dynamorio_annotate_log, format, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 extern "C" {
