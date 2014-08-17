@@ -58,6 +58,22 @@
 #define DGC_REF_COUNT_BITS 0xa
 #define DGC_REF_COUNT_MASK 0x3ff
 
+#ifdef X64
+# define HASH_STEP_SIZE 8
+# define HASH_STEP_BITS 16
+# define HASH "%llx"
+#else
+# define HASH_STEP_SIZE 4
+# define HASH_STEP_BITS 8
+# define HASH "%x"
+#endif
+
+#define SHIFT_IN_EMPTY_BYTES(data, bytes_to_keep) \
+    (data << ((HASH_STEP_SIZE - bytes_to_keep)*HASH_STEP_BITS)) >> \
+    ((HASH_STEP_SIZE - bytes_to_keep)*HASH_STEP_BITS)
+
+typedef ptr_uint_t bb_hash_t;
+
 typedef struct _dgc_trace_t {
     app_pc tags[2];
     struct _dgc_trace_t *next_trace;
@@ -70,8 +86,9 @@ struct _dgc_bb_t {
     int ref_count;
     union {
         ptr_uint_t span;
-        struct _dgc_bb_t *head;
+        dgc_bb_t *head;
     };
+    bb_hash_t hash; // debug
     dgc_bb_t *next;
     dgc_trace_t *containing_trace_list;
 };
@@ -108,6 +125,7 @@ static dgc_thread_state_t *thread_state;
 
 typedef struct _dgc_fragment_intersection_t {
     app_pc *bb_tags;
+    //ptr_uint_t *bb_spans; // debug
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
@@ -118,25 +136,42 @@ typedef struct _dgc_fragment_intersection_t {
 
 static dgc_fragment_intersection_t *fragment_intersection;
 
-//#define FULL_TRACE_LOG
-
-#ifdef DEBUG
-# define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
-# define RELEASE_ASSERT(cond, msg, ...) \
-    if (!(cond)) \
-        LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
-#else
-# define RELEASE_LOG(file, category, level, ...)
-    //dr_printf(__VA_ARGS__)
-# define RELEASE_ASSERT(cond, msg, ...) \
-    if (!(cond)) \
-        dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
-#endif
-
 static void
 free_dgc_bucket_chain(void *p);
 
+#define IS_INCOMPATIBLE_OVERLAP(start1, end1, start2, end2) \
+    ((start1) < (end2) && (end1) > (start2) && (end1) != (end2))
+
 #endif
+
+//#define RELEASE_NOISE 1
+#ifdef RELEASE_NOISE
+# ifdef DEBUG
+#  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
+#  define RELEASE_ASSERT(cond, msg, ...) \
+    if (!(cond)) \
+        LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
+# else
+#  define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
+#  define RELEASE_ASSERT(cond, msg, ...) \
+    if (!(cond)) \
+        dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
+# endif
+#else
+# define RELEASE_LOG(file, category, level, ...)
+# define RELEASE_ASSERT(cond, msg, ...)
+#endif
+
+#define DGC_REPORT_ONE_STAT(stat) \
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " | %s: %d\n", \
+                stats->stat##_pair.name, \
+                stats->stat##_pair.value);
+
+typedef struct _dgc_stats_t {
+    uint timer;
+} dgc_stats_t;
+
+static dgc_stats_t *dgc_stats;
 
 #if !(defined (WINDOWS) && defined (X64))
 static ptr_uint_t
@@ -190,6 +225,8 @@ jitopt_init()
                          fragment_intersection->shared_deletion_max, ACCT_OTHER,
                          UNPROTECTED);
 #endif
+    dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
+    memset(dgc_stats, 0, sizeof(dgc_stats_t));
 }
 
 void
@@ -215,6 +252,82 @@ jitopt_exit()
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment_intersection, dgc_fragment_intersection_t,
                    ACCT_OTHER, UNPROTECTED);
 #endif
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
+}
+
+static void
+dgc_stat_report()
+{
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
+    DGC_REPORT_ONE_STAT(app_managed_writes_observed);
+    DGC_REPORT_ONE_STAT(app_managed_page_writes);
+    DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
+#ifdef JITOPT
+    DGC_REPORT_ONE_STAT(app_managed_writes_ignored);
+    DGC_REPORT_ONE_STAT(app_managed_writes_handled);
+    DGC_REPORT_ONE_STAT(app_managed_fragments_removed);
+    DGC_REPORT_ONE_STAT(app_managed_micro_writes);
+    DGC_REPORT_ONE_STAT(app_managed_cti_target_writes);
+    DGC_REPORT_ONE_STAT(app_managed_word_writes);
+    DGC_REPORT_ONE_STAT(app_managed_small_writes);
+    DGC_REPORT_ONE_STAT(app_managed_subpage_writes);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_small_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_large_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_bb_bytes);
+    DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
+#endif
+}
+
+static inline app_pc
+maybe_exit_cti_disp_pc(app_pc maybe_branch_pc)
+{
+    app_pc byte_ptr = maybe_branch_pc;
+    byte opcode = *byte_ptr;
+    uint length = 0;
+
+    if (opcode == RAW_PREFIX_jcc_taken || opcode == RAW_PREFIX_jcc_not_taken) {
+        length++;
+        byte_ptr++;
+        opcode = *byte_ptr;
+        /* branch hints are only valid with jcc instrs, and if present on
+         * other ctis we strip them out during mangling (i#435)
+         */
+        if (opcode != RAW_OPCODE_jcc_byte1)
+            return NULL;
+    }
+    if (opcode == ADDR_PREFIX_OPCODE) { /* used w/ jecxz/loop* */
+        length++;
+        byte_ptr++;
+        opcode = *byte_ptr;
+    }
+
+    if (opcode >= RAW_OPCODE_loop_start && opcode <= RAW_OPCODE_loop_end) {
+        /* assume that this is a mangled jcxz/loop*
+         * target pc is in last 4 bytes of "9-byte instruction"
+         */
+        length += CTI_SHORT_REWRITE_LENGTH;
+    } else if (opcode == RAW_OPCODE_jcc_byte1) {
+        /* 2-byte opcode, 6-byte instruction, except for branch hint */
+        if (*(byte_ptr+1) < RAW_OPCODE_jcc_byte2_start ||
+            *(byte_ptr+1) > RAW_OPCODE_jcc_byte2_end)
+            return NULL;
+        length += CBR_LONG_LENGTH;
+    } else {
+        /* 1-byte opcode, 5-byte instruction */
+        if (opcode != RAW_OPCODE_jmp && opcode != RAW_OPCODE_call)
+            return NULL;
+        length += JMP_LONG_LENGTH;
+    }
+    return maybe_branch_pc + length - 4; /* disp is 4 even on x64 */
 }
 
 void
@@ -233,9 +346,6 @@ void
 annotation_unmanage_code_area(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-
-    if (!is_app_managed_code(start))
-        return;
 
     if (!is_app_managed_code(start))
         return;
@@ -283,6 +393,11 @@ annotation_flush_fragments(app_pc start, size_t len)
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 
+    if (dgc_stats->timer++ > 1000) {
+        dgc_stat_report();
+        dgc_stats->timer = 0;
+    }
+
     //if (len == 0 || is_couldbelinking(dcontext))
     //    return;
     //if (!executable_vm_area_executed_from(start, start+len))
@@ -296,18 +411,23 @@ annotation_flush_fragments(app_pc start, size_t len)
             if (removal_count > 0) {
                 RSTATS_INC(app_managed_writes_handled);
                 RSTATS_ADD(app_managed_fragments_removed, removal_count);
+
+                if (len < 4)
+                    RSTATS_INC(app_managed_micro_writes);
+                else if (len == 4) {
+                    if (maybe_exit_cti_disp_pc(start - 1) != NULL ||
+                        maybe_exit_cti_disp_pc(start - 2) != NULL)
+                        RSTATS_INC(app_managed_cti_target_writes);
+                    else
+                        RSTATS_INC(app_managed_word_writes);
+                } else if (len <= 0x20)
+                    RSTATS_INC(app_managed_small_writes);
+                else if (len <= 0x100)
+                    RSTATS_INC(app_managed_subpage_writes);
             } else {
                 RSTATS_INC(app_managed_writes_ignored);
             }
 
-            if (len < 4)
-                RSTATS_INC(app_managed_micro_writes);
-            else if (len == 4)
-                RSTATS_INC(app_managed_word_writes);
-            else if (len <= 0x20)
-                RSTATS_INC(app_managed_small_writes);
-            else if (len <= 0x100)
-                RSTATS_INC(app_managed_subpage_writes);
         //} else {
             //flush_and_isolate_region(dcontext, start, len);
         //}
@@ -371,6 +491,13 @@ dgc_bb_end(dgc_bb_t *bb)
 {
     dgc_bb_t *head = dgc_bb_head(bb);
     return (app_pc)((ptr_uint_t)head->start + (ptr_uint_t)head->span + 1);
+}
+
+static inline bb_hash_t
+dgc_bb_hash(dgc_bb_t *bb)
+{
+    dgc_bb_t *head = dgc_bb_head(bb);
+    return head->hash;
 }
 
 static inline ptr_uint_t
@@ -724,40 +851,6 @@ dgc_stage_removal_gc_outliers(ptr_uint_t bucket_id)
     }
 }
 
-#define DGC_REPORT_ONE_STAT(stat) \
-    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " | %s: %d\n", \
-                stats->stat##_pair.name, \
-                stats->stat##_pair.value);
-
-static void
-dgc_stat_report()
-{
-    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
-    DGC_REPORT_ONE_STAT(app_managed_writes_observed);
-    DGC_REPORT_ONE_STAT(app_managed_writes_ignored);
-    DGC_REPORT_ONE_STAT(app_managed_writes_handled);
-    DGC_REPORT_ONE_STAT(app_managed_fragments_removed);
-    DGC_REPORT_ONE_STAT(app_managed_micro_writes);
-    DGC_REPORT_ONE_STAT(app_managed_word_writes);
-    DGC_REPORT_ONE_STAT(app_managed_small_writes);
-    DGC_REPORT_ONE_STAT(app_managed_subpage_writes);
-    DGC_REPORT_ONE_STAT(app_managed_page_writes);
-    DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_allocated);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_freed);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_live);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_allocated);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_freed);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_live);
-    DGC_REPORT_ONE_STAT(app_managed_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_small_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_large_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_bb_bytes);
-    DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
-    DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
-    DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
-}
-
 void
 dgc_notify_region_cleared(app_pc start, app_pc end)
 {
@@ -795,16 +888,37 @@ dgc_cache_reset()
     TABLE_RWLOCK(dgc_table, write, unlock);
 }
 
+static inline bb_hash_t
+hash_bits(uint length, byte *bits) {
+    ushort b;
+    bb_hash_t hash = 0;
+
+    while (length >= HASH_STEP_SIZE) {
+        hash = hash ^ (hash << 5) ^ *(uint *)(bits);
+        length -= HASH_STEP_SIZE;
+        bits += HASH_STEP_SIZE;
+    }
+    if (length != 0) {
+        uint tail = 0UL;
+        for (b = 0; b < length; b++)
+            tail |= ((uint)(*(bits + b)) << (b * HASH_STEP_BITS));
+        tail = SHIFT_IN_EMPTY_BYTES(tail, length);
+        hash = hash ^ (hash << 5) ^ tail;
+    }
+    return hash;
+}
+
 void
 add_patchable_bb(app_pc start, app_pc end)
 {
     bool found = false;
-    uint i, span = (uint)(end - start);
+    uint i, span = (uint)((end - start) - 1);
     ptr_uint_t bucket_id;
     ptr_uint_t start_bucket_id = BUCKET_ID(start);
     ptr_uint_t end_bucket_id = BUCKET_ID(end - 1);
     dgc_bb_t *last_bb = NULL, *first_bb = NULL;
     dgc_bucket_t *bucket;
+    ptr_uint_t hash = hash_bits(span+1, start);
 
     // this is slow--maybe keep a local sorted list of app-managed regions
     if (!is_app_managed_code(start))
@@ -846,14 +960,30 @@ add_patchable_bb(app_pc start, app_pc end)
                 for (i = 0; i < BUCKET_BBS; i++) {
                     if (bucket->blocks[i].start == start) {
 //#ifdef DEBUG
-                        if (dgc_bb_end(&bucket->blocks[i]) == end) {
+                        if (dgc_bb_end(&bucket->blocks[i]) == end &&
+                            dgc_bb_hash(&bucket->blocks[i]) == hash) {
+                            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                                        "Hash "HASH" == "HASH"?\n",
+                                        dgc_bb_hash(&bucket->blocks[i]), hash);
 //#endif
                             found = true;
                             break;
 //#ifdef DEBUG
                         } else {
-                            dr_printf("DGC: stale bb "
-                                PFX"-"PFX"!\n", start, dgc_bb_end(&bucket->blocks[i]));
+                            if (dgc_bb_end(&bucket->blocks[i]) != end) {
+                                RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                                            "DGC: stale bb "PFX"-"PFX"! Resetting span to %d\n",
+                                            start, dgc_bb_end(&bucket->blocks[i]), span);
+                                dgc_bb_head(&bucket->blocks[i])->span = span;
+                            }
+                            if (dgc_bb_hash(&bucket->blocks[i]) != hash) {
+                                RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                                            "DGC: stale bb "PFX"-"PFX" has hash "HASH
+                                            " but current bb has hash "HASH"!\n",
+                                            start, dgc_bb_end(&bucket->blocks[i]),
+                                            dgc_bb_hash(&bucket->blocks[i]), hash);
+                            }
+
                             /*
                             LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: stale bb "
                                 PFX"-"PFX"!\n", start, dgc_bb_end(&bucket->blocks[i]));
@@ -864,6 +994,12 @@ add_patchable_bb(app_pc start, app_pc end)
                             */
                         }
 //#endif
+                    } else if (IS_INCOMPATIBLE_OVERLAP(start, end,
+                               bucket->blocks[i].start,
+                               dgc_bb_end(&bucket->blocks[i]))) {
+                        RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                                    "DGC: stale bb "PFX"-"PFX" overlaps new bb "PFX"-"PFX"!\n",
+                                    start, dgc_bb_end(&bucket->blocks[i]), start, end);
                     }
                     if (available_bucket == NULL && bucket->blocks[i].start == NULL) {
                         available_bucket = bucket;
@@ -905,9 +1041,10 @@ add_patchable_bb(app_pc start, app_pc end)
         bucket->blocks[i].start = start;
         if (first_bb == NULL) {
             first_bb = &bucket->blocks[i];
-            bucket->blocks[i].span = (end - start) - 1;
+            bucket->blocks[i].span = span;
             bucket->blocks[i].containing_trace_list = NULL;
             bucket->blocks[i].ref_count = 1;
+            bucket->blocks[i].hash = hash;
         } else {
             bucket->blocks[i].head = first_bb;
             last_bb->next = &bucket->blocks[i];
@@ -999,7 +1136,8 @@ static void
 safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 {
     if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
-        dr_printf("Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
+        RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                    "Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
         return;
     }
 
@@ -1055,12 +1193,44 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
     }
 }
 
+static inline void
+safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
+{
+    if (f != NULL)
+        safe_delete_fragment(dcontext, f, is_tweak);
+}
+
+static inline void
+safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak)
+{
+    if (t != NULL) {
+        uint i;
+        bool found = false;
+        for (i = 0; i < t->t.num_bbs; i++) {
+            for (app_pc *bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
+                if (t->t.bbs[i].tag == *bb_tag) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                break;
+        }
+        if (!found) {
+            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: stale trace "PFX" no longer "
+                        "contains any bb in the intersection.\n", t->f.tag);
+        } else {
+            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX"\n", t->f.tag);
+            safe_delete_fragment(dcontext, (fragment_t *)t, is_tweak);
+        }
+    }
+}
+
 static void
 remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
     int i;
     uint j;
-    fragment_t *f;
     app_pc *bb_tag, *trace_tag;
     bool thread_has_fragment, is_tweak = ((patch_end - patch_start) <= 4);
     per_thread_t *tgt_pt;
@@ -1134,14 +1304,15 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
                 }
             }
             if (clobbered) {
-                dr_printf("Warning! Squashing trace "PFX" because it overlaps removal bb "
-                           PFX"\n", md->trace_tag, *bb_tag);
+                RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                            "Warning! Squashing trace "PFX" because it overlaps removal bb "
+                            PFX"\n", md->trace_tag, *bb_tag);
                 trace_abort(tgt_dcontext);
             }
         }
         //if (DYNAMO_OPTION(syscalls_synch_flush) && get_at_syscall(tgt_dcontext)) {
 #ifdef CLIENT_INTERFACE
-            //dr_printf("Warning! Thread is at syscall while removing frags from that thread.\n");
+            //RELEASE_LOG("Warning! Thread is at syscall while removing frags from that thread.\n");
 #endif
             // does this matter??
             /* we have to know exactly which threads were at_syscall here when
@@ -1150,27 +1321,21 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
         //}
 
         for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
-            f = fragment_lookup_trace(dcontext, *bb_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
-            f = fragment_lookup_shared_trace(dcontext, *bb_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
-            f = fragment_lookup_bb(dcontext, *bb_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
-            f = fragment_lookup_shared_bb(dcontext, *bb_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
+            safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
+                              *bb_tag), is_tweak);
+            safe_remove_trace(tgt_dcontext,
+                              (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
+                              *bb_tag), is_tweak);
+            safe_remove_bb(tgt_dcontext, fragment_lookup_bb(tgt_dcontext, *bb_tag), is_tweak);
+            safe_remove_bb(tgt_dcontext, fragment_lookup_shared_bb(tgt_dcontext, *bb_tag), is_tweak);
         }
         trace_tag = fragment_intersection->trace_tags;
         for (; *trace_tag != NULL; trace_tag++) {
-            f = fragment_lookup_trace(dcontext, *trace_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
-            f = fragment_lookup_shared_trace(dcontext, *trace_tag);
-            if (f != NULL)
-                safe_delete_fragment(tgt_dcontext, f, is_tweak);
+            safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
+                              *trace_tag), is_tweak);
+            safe_remove_trace(tgt_dcontext,
+                              (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
+                              *trace_tag), is_tweak);
         }
 
         if (tgt_dcontext != dcontext) {
@@ -1218,6 +1383,7 @@ has_tag(app_pc tag, app_pc *tags, uint count)
     return false;
 }
 
+#ifdef RELEASE_NOISE
 static bool
 buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
 {
@@ -1228,6 +1394,7 @@ buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
     }
     return false;
 }
+#endif
 
 static uint
 add_trace_intersection(dgc_trace_t *trace, uint i)
@@ -1272,8 +1439,11 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
                 if (bb->start != NULL &&
                     dgc_bb_overlaps(bb, patch_start, patch_end) &&
                     (is_patch_start_bucket || dgc_bb_is_head(bb))) {
-                    if (!has_tag(bb->start, fragment_intersection->bb_tags, i_bb))
-                        fragment_intersection->bb_tags[i_bb++] = bb->start;
+                    if (!has_tag(bb->start, fragment_intersection->bb_tags, i_bb)) {
+                        fragment_intersection->bb_tags[i_bb] = bb->start;
+                        //fragment_intersection->bb_spans[i_bb] = bb->span;
+                        i_bb++;
+                    }
                     if (i_bb == fragment_intersection->bb_tag_max) {
                         expand_intersection_array((void **) &fragment_intersection->bb_tags,
                                                   &fragment_intersection->bb_tag_max);

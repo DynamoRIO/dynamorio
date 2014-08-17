@@ -1211,6 +1211,7 @@
     RSTATS_DEF("App-managed writes handled", app_managed_writes_handled)
     RSTATS_DEF("App-managed fragments removed", app_managed_fragments_removed)
     RSTATS_DEF("App-managed micro writes", app_managed_micro_writes)
+    RSTATS_DEF("App-managed cti target writes", app_managed_cti_target_writes)
     RSTATS_DEF("App-managed word writes", app_managed_word_writes)
     RSTATS_DEF("App-managed small writes", app_managed_small_writes)
     RSTATS_DEF("App-managed sub-page writes", app_managed_subpage_writes)

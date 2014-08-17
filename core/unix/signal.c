@@ -3412,7 +3412,11 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * and if that post-syscall instr is a write that could have faulted,
      * how can we tell the difference?
      */
-    if (was_executable_area_writable(target) || is_jit_monitored_area(target)) {
+    if (was_executable_area_writable(target)
+#ifdef JIT_MONITORED_AREAS
+        || is_jit_monitored_area(target)
+#endif
+    ) {
         /* translate instr_cache_pc to original app pc
          * DO NOT use translate_sigcontext, don't want to change the
          * signal frame or else we'll lose control when we try to
