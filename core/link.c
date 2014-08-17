@@ -1213,9 +1213,17 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
             if (do_not_need_stub)
                 separate_stub_free(dcontext, f, l, false);
         }
+#ifdef JITOPT
+        if (is_app_managed_code(f->tag))
+            RSTATS_INC(app_managed_direct_links);
+#endif
     } else if (LINKSTUB_INDIRECT(l->flags)) {
         if (INTERNAL_OPTION(link_ibl))
             link_indirect_exit(dcontext, f, l, hot_patch);
+#ifdef JITOPT
+        if (is_app_managed_code(f->tag))
+            RSTATS_INC(app_managed_indirect_links);
+#endif
     } else
         ASSERT_NOT_REACHED();
 

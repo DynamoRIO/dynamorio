@@ -6867,17 +6867,17 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
     remove_executable_region(base, size, true/*have lock*/);
     flush_fragments_in_region_finish(dcontext, own_initexit_lock);
 
+#ifdef JITOPT
+    if (is_app_managed_code(base))
+        dgc_notify_region_cleared(base, base+size);
+#endif
+
     LOG(THREAD, LOG_FRAGMENT, 1, "flush_fragments_and_remove_region("PFX", 0x%x)\n",
         base, size);
 
     /* verify initexit lock is in the right state */
     ASSERT_OWN_MUTEX(own_initexit_lock, &thread_initexit_lock);
     ASSERT_DO_NOT_OWN_MUTEX(!own_initexit_lock, &thread_initexit_lock);
-
-#ifdef JITOPT
-    if (is_app_managed_code(base))
-        dgc_notify_region_cleared(base, base+size);
-#endif
 }
 
 /* Flushes fragments from the region without any changes to the exec list.
@@ -6900,6 +6900,11 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     /* if app managed, split out the page as a separate region */
 
     flush_fragments_in_region_finish(dcontext, false);
+
+#ifdef JITOPT
+    if (is_app_managed_code(base))
+        dgc_notify_region_cleared(base, base+size);
+#endif
 }
 
 /* Invalidate all fragments in all caches.  Currently executed
@@ -6952,6 +6957,12 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush,
                                         false/*no lock*/, free_futures, exec_invalid,
                                         false/*don't force synchall*/ _IF_DGCDIAG(NULL));
         flush_fragments_in_region_finish(dcontext, false/*no lock*/);
+
+#ifdef JITOPT
+        if (is_app_managed_code(start))
+            dgc_notify_region_cleared(start, end);
+#endif
+
         STATS_INC(num_flush_vmvector);
     }
     vmvector_iterator_stop(&vmvi);

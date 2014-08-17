@@ -68,7 +68,7 @@
 # include "synch.h" /* all_threads_synch_lock */
 #endif
 
-#ifdef JIT_MONITORED_AREAS
+#if defined(JITOPT) || defined(JIT_MONITORED_AREAS)
 # include "jitopt.h"
 #endif
 
@@ -7122,8 +7122,14 @@ app_memory_protection_change(dcontext_t *dcontext, app_pc base, size_t size,
         }
     }
 #endif /* PROGRAM_SHEPHERDING */
-    if (should_finish_flushing)
+    if (should_finish_flushing) {
         flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
+
+#ifdef JITOPT
+        if (is_app_managed_code(base))
+            dgc_notify_region_cleared(base, base+size);
+#endif
+    }
 
     return DO_APP_MEM_PROT_CHANGE; /* let syscall go through */
 }
@@ -10843,6 +10849,12 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             DOLOG(3, LOG_VMAREAS, { print_vm_areas(executable_areas, GLOBAL); });
             flush_fragments_in_region_finish(dcontext,
                                              false /*don't keep initexit_lock*/);
+#ifdef JITOPT
+//            if (is_app_managed_code((app_pc)tgt_pstart))
+//                dgc_notify_region_cleared((app_pc)tgt_pstart,
+//                                          (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+            dr_printf(" === modified code! ===\n");
+#endif
             /* must execute instr_app_pc next, even though that new bb will be
              * useless afterward (will most likely re-enter from bb_start)
              */
@@ -10983,6 +10995,12 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * FIXME - Redoing the write would be more efficient then going back to
      * dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
+#ifdef JITOPT
+//    if (is_app_managed_code((app_pc)tgt_pstart))
+//        dgc_notify_region_cleared((app_pc)tgt_pstart,
+//                                  (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+    dr_printf(" === modified code! ===\n");
+#endif
     return instr_app_pc;
 }
 
@@ -11196,6 +11214,12 @@ vm_area_selfmod_check_clear_exec_count(dcontext_t *dcontext, fragment_t *f)
 
     flush_fragments_in_region_finish(dcontext,
                                      false /*don't keep initexit_lock*/);
+
+#ifdef JITOPT
+    if (is_app_managed_code(start))
+        dgc_notify_region_cleared(start, end);
+#endif
+
     return true;
 }
 

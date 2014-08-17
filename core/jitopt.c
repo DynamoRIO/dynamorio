@@ -146,13 +146,12 @@ free_dgc_bucket_chain(void *p);
 
 //#define RELEASE_NOISE 1
 #ifdef RELEASE_NOISE
+# define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
 # ifdef DEBUG
-#  define RELEASE_LOG(file, category, level, ...) LOG(file, category, level, __VA_ARGS__)
 #  define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 # else
-#  define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
 #  define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
@@ -284,6 +283,17 @@ dgc_stat_report()
     DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
     DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
     DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_direct_links)
+    DGC_REPORT_ONE_STAT(app_managed_indirect_links)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(special_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_tweaked)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_tweaked)
+    DGC_REPORT_ONE_STAT(special_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(special_linked_bb_tweaked)
 #endif
 }
 
@@ -438,10 +448,6 @@ annotation_flush_fragments(app_pc start, size_t len)
         else
             RSTATS_INC(app_managed_multipage_writes);
 
-        if ((len == 4) && (*(byte *) (start-1) == 0xe8)) {
-            LOG(GLOBAL, LOG_ANNOTATIONS, 1, "> operands: Missed call at "PFX"\n", start-1);
-        }
-
         flush_and_isolate_region(dcontext, start, len);
 #ifdef JITOPT
         dgc_notify_region_cleared(start, start+len);
@@ -530,8 +536,8 @@ static inline bool
 dgc_bb_overlaps(dgc_bb_t *bb, app_pc start, app_pc end)
 {
     dgc_bb_t *head = dgc_bb_head(bb);
-    return (ptr_uint_t)head->start < (ptr_uint_t)end ||
-           ((ptr_uint_t)head->start + (ptr_uint_t)head->span) >= (ptr_uint_t)start;
+    ptr_uint_t bb_end = (ptr_uint_t)head->start + (ptr_uint_t)head->span;
+    return (ptr_uint_t)head->start < (ptr_uint_t)end && bb_end >= (ptr_uint_t)start;
 }
 
 /*
@@ -799,6 +805,7 @@ void
 dgc_table_dereference_bb(app_pc tag)
 {
     dgc_bb_t *bb;
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: dereferencing bb "PFX"\n", tag);
     TABLE_RWLOCK(dgc_table, write, lock);
     bb = dgc_table_find_bb(tag, NULL, NULL);
     if (bb != NULL) {
@@ -860,6 +867,8 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
     bool is_end_of_bucket = (((ptr_uint_t)end & BUCKET_MASK) == 0);
     ptr_uint_t bucket_id = first_bucket_id;
 
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: clearing ["PFX"-"PFX"]\n", start, end);
+
     TABLE_RWLOCK(dgc_table, write, lock);
     dgc_bucket_gc_list_init(true, "dgc_notify_region_cleared");
     if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
@@ -909,14 +918,14 @@ hash_bits(uint length, byte *bits) {
 }
 
 void
-add_patchable_bb(app_pc start, app_pc end)
+add_patchable_bb(app_pc start, app_pc end, bool link)
 {
     bool found = false;
     uint i, span = (uint)((end - start) - 1);
     ptr_uint_t bucket_id;
     ptr_uint_t start_bucket_id = BUCKET_ID(start);
     ptr_uint_t end_bucket_id = BUCKET_ID(end - 1);
-    dgc_bb_t *last_bb = NULL, *first_bb = NULL;
+    dgc_bb_t *bb, *last_bb = NULL, *first_bb = NULL;
     dgc_bucket_t *bucket;
     ptr_uint_t hash = hash_bits(span+1, start);
 
@@ -924,7 +933,8 @@ add_patchable_bb(app_pc start, app_pc end)
     if (!is_app_managed_code(start))
         return;
 
-    LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb "PFX"-"PFX"\n", start, end);
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb ["PFX"-"PFX"]%s\n",
+                start, end, link ? "" : " (not linked)");
     RSTATS_INC(app_managed_bb_count);
     RSTATS_ADD(app_managed_bb_bytes, end - start);
     if (span < 12)
@@ -958,50 +968,47 @@ add_patchable_bb(app_pc start, app_pc end)
             RELEASE_ASSERT(bucket == bucket->head, "No!");
             while (true) {
                 for (i = 0; i < BUCKET_BBS; i++) {
-                    if (bucket->blocks[i].start == start) {
+                    bb = &bucket->blocks[i];
+                    if (bb->start == start) {
 //#ifdef DEBUG
-                        if (dgc_bb_end(&bucket->blocks[i]) == end &&
-                            dgc_bb_hash(&bucket->blocks[i]) == hash) {
-                            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                                        "Hash "HASH" == "HASH"?\n",
-                                        dgc_bb_hash(&bucket->blocks[i]), hash);
+                        if (dgc_bb_end(bb) == end &&
+                            dgc_bb_hash(bb) == hash) {
 //#endif
                             found = true;
                             break;
 //#ifdef DEBUG
                         } else {
-                            if (dgc_bb_end(&bucket->blocks[i]) != end) {
+                            if (dgc_bb_end(bb) != end) {
                                 RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                                            "DGC: stale bb "PFX"-"PFX"! Resetting span to %d\n",
-                                            start, dgc_bb_end(&bucket->blocks[i]), span);
-                                dgc_bb_head(&bucket->blocks[i])->span = span;
+                                            "DGC: stale bb ["PFX"-"PFX"]! Resetting span to %d\n",
+                                            start, dgc_bb_end(bb), span);
+                                dgc_bb_head(bb)->span = span;
                             }
-                            if (dgc_bb_hash(&bucket->blocks[i]) != hash) {
+                            if (dgc_bb_hash(bb) != hash) {
                                 RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                                            "DGC: stale bb "PFX"-"PFX" has hash "HASH
+                                            "DGC: stale bb ["PFX"-"PFX"] has hash "HASH
                                             " but current bb has hash "HASH"!\n",
-                                            start, dgc_bb_end(&bucket->blocks[i]),
-                                            dgc_bb_hash(&bucket->blocks[i]), hash);
+                                            start, dgc_bb_end(bb),
+                                            dgc_bb_hash(bb), hash);
                             }
 
                             /*
                             LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: stale bb "
-                                PFX"-"PFX"!\n", start, dgc_bb_end(&bucket->blocks[i]));
+                                PFX"-"PFX"!\n", start, dgc_bb_end(bb));
                             //bucket->blocks[i].start = NULL;
                             dgc_bucket_gc_list_init(false, "add_patchable_bb");
-                            dgc_set_all_slots_empty(&bucket->blocks[i]);
+                            dgc_set_all_slots_empty(bb);
                             dgc_bucket_gc();
                             */
                         }
 //#endif
-                    } else if (IS_INCOMPATIBLE_OVERLAP(start, end,
-                               bucket->blocks[i].start,
-                               dgc_bb_end(&bucket->blocks[i]))) {
+                    } else if (bb->start != NULL &&
+                               IS_INCOMPATIBLE_OVERLAP(start, end, bb->start, dgc_bb_end(bb))) {
                         RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                                    "DGC: stale bb "PFX"-"PFX" overlaps new bb "PFX"-"PFX"!\n",
-                                    start, dgc_bb_end(&bucket->blocks[i]), start, end);
+                                    "DGC: stale bb ["PFX"-"PFX"] overlaps new bb ["PFX"-"PFX")!\n",
+                                    start, dgc_bb_end(bb), start, end-1);
                     }
-                    if (available_bucket == NULL && bucket->blocks[i].start == NULL) {
+                    if (available_bucket == NULL && bb->start == NULL) {
                         available_bucket = bucket;
                         available_slot = i;
                     }
@@ -1041,10 +1048,14 @@ add_patchable_bb(app_pc start, app_pc end)
         bucket->blocks[i].start = start;
         if (first_bb == NULL) {
             first_bb = &bucket->blocks[i];
-            bucket->blocks[i].span = span;
-            bucket->blocks[i].containing_trace_list = NULL;
-            bucket->blocks[i].ref_count = 1;
-            bucket->blocks[i].hash = hash;
+            first_bb->span = span;
+            first_bb->containing_trace_list = NULL;
+            first_bb->ref_count = 1;
+            first_bb->hash = hash;
+            if (span > 0x100) {
+                RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                            "DGC: Warning! giant bb ["PFX"-"PFX"] (0x%x)\n", start, end, span);
+            }
         } else {
             bucket->blocks[i].head = first_bb;
             last_bb->next = &bucket->blocks[i];
@@ -1194,14 +1205,49 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 }
 
 static inline void
-safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
+link_stats(fragment_t *f, bool is_tweak, bool is_cti_tweak)
 {
-    if (f != NULL)
-        safe_delete_fragment(dcontext, f, is_tweak);
+    linkstub_t *l;
+    for (l = FRAGMENT_EXIT_STUBS(f); l; l = LINKSTUB_NEXT_EXIT(l)) {
+        if (TESTANY(IF_WINDOWS(LINK_CALLBACK_RETURN |)
+                    LINK_SPECIAL_EXIT | LINK_NI_SYSCALL, l->flags)) {
+            if (is_cti_tweak)
+                RSTATS_INC(special_linked_bb_cti_tweaked);
+            else if (is_tweak)
+                RSTATS_INC(special_linked_bb_tweaked);
+            else
+                RSTATS_INC(special_linked_bb_removed);
+            return;
+        }
+        if (LINKSTUB_INDIRECT(l->flags)) {
+            if (is_cti_tweak)
+                RSTATS_INC(indirect_linked_bb_cti_tweaked);
+            else if (is_tweak)
+                RSTATS_INC(indirect_linked_bb_tweaked);
+            else
+                RSTATS_INC(indirect_linked_bb_removed);
+            return;
+        }
+    }
+    if (is_cti_tweak)
+        RSTATS_INC(direct_linked_bb_cti_tweaked);
+    else if (is_tweak)
+        RSTATS_INC(direct_linked_bb_tweaked);
+    else
+        RSTATS_INC(direct_linked_bb_removed);
 }
 
 static inline void
-safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak)
+safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak)
+{
+    if (f != NULL) {
+        link_stats(f, is_tweak, is_cti_tweak);
+        safe_delete_fragment(dcontext, f, is_tweak);
+    }
+}
+
+static inline void
+safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_tweak)
 {
     if (t != NULL) {
         uint i;
@@ -1220,7 +1266,8 @@ safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak)
             RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: stale trace "PFX" no longer "
                         "contains any bb in the intersection.\n", t->f.tag);
         } else {
-            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX"\n", t->f.tag);
+            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX
+                        " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
             safe_delete_fragment(dcontext, (fragment_t *)t, is_tweak);
         }
     }
@@ -1232,7 +1279,11 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     int i;
     uint j;
     app_pc *bb_tag, *trace_tag;
-    bool thread_has_fragment, is_tweak = ((patch_end - patch_start) <= 4);
+    bool thread_has_fragment;
+    bool is_tweak = ((patch_end - patch_start) <= 4);
+    bool is_cti_tweak = ((patch_end - patch_start) == 4 &&
+                         (maybe_exit_cti_disp_pc(patch_start-1) != NULL ||
+                          maybe_exit_cti_disp_pc(patch_start-2) != NULL));
     per_thread_t *tgt_pt;
     dcontext_t *tgt_dcontext;
 
@@ -1322,20 +1373,20 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
 
         for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
             safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
-                              *bb_tag), is_tweak);
+                              *bb_tag), is_tweak, is_cti_tweak);
             safe_remove_trace(tgt_dcontext,
                               (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
-                              *bb_tag), is_tweak);
-            safe_remove_bb(tgt_dcontext, fragment_lookup_bb(tgt_dcontext, *bb_tag), is_tweak);
-            safe_remove_bb(tgt_dcontext, fragment_lookup_shared_bb(tgt_dcontext, *bb_tag), is_tweak);
+                              *bb_tag), is_tweak, is_cti_tweak);
+            safe_remove_bb(tgt_dcontext, fragment_lookup_bb(tgt_dcontext, *bb_tag), is_tweak, is_cti_tweak);
+            safe_remove_bb(tgt_dcontext, fragment_lookup_shared_bb(tgt_dcontext, *bb_tag), is_tweak, is_cti_tweak);
         }
         trace_tag = fragment_intersection->trace_tags;
         for (; *trace_tag != NULL; trace_tag++) {
             safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
-                              *trace_tag), is_tweak);
+                              *trace_tag), is_tweak, is_cti_tweak);
             safe_remove_trace(tgt_dcontext,
                               (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
-                              *trace_tag), is_tweak);
+                              *trace_tag), is_tweak, is_cti_tweak);
         }
 
         if (tgt_dcontext != dcontext) {
@@ -1441,6 +1492,11 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
                     (is_patch_start_bucket || dgc_bb_is_head(bb))) {
                     if (!has_tag(bb->start, fragment_intersection->bb_tags, i_bb)) {
                         fragment_intersection->bb_tags[i_bb] = bb->start;
+
+                        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+                            "DGC: remove bb ["PFX"-"PFX"]:\n",
+                            bb->start, dgc_bb_end(bb));
+
                         //fragment_intersection->bb_spans[i_bb] = bb->span;
                         i_bb++;
                     }
@@ -1481,7 +1537,10 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
         return 0;
 
     LOG(GLOBAL, LOG_FRAGMENT, 1,
-        "DGC: remove all fragments containing "PFX"-"PFX":\n",
+        "DGC: remove all fragments containing ["PFX"-"PFX"]:\n",
+        patch_start, patch_end);
+    RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+        "DGC: remove all fragments containing ["PFX"-"PFX"]:\n",
         patch_start, patch_end);
 
     mutex_lock(&thread_initexit_lock);
@@ -1495,7 +1554,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
         remove_patchable_fragment_list(dcontext, patch_start, patch_end);
 
         LOG(GLOBAL, LOG_FRAGMENT, 1,
-                    "DGC: done removing %d fragments in "PFX"-"PFX"\n",
+                    "DGC: done removing %d fragments in ["PFX"-"PFX"]\n",
                     fragment_intersection_count, patch_start, patch_end);
 
         enter_nolinking(dcontext, NULL, false);
