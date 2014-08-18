@@ -4753,7 +4753,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 #ifdef JITOPT
     if (visible && is_app_managed_code(bb.start_pc)) {
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
-        add_patchable_bb(bb.start_pc, bb.end_pc, link);
+        add_patchable_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
     }
     //LOG(GLOBAL, LOG_INTERP, 1,
     //    "> operands: bb "PFX" is %s\n", bb.start_pc, visible ? "visible" : "invisible");

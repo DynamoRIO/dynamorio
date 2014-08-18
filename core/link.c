@@ -49,6 +49,8 @@
 #include "perscache.h"
 #include "instr.h" /* PC_RELATIVE_TARGET */
 
+#include "instrument.h" //hack
+
 /* fragment_t and future_fragment_t are guaranteed to have flags field at same offset,
  * so we use it to find incoming_stubs offset
  */
@@ -1414,6 +1416,10 @@ static bool
 incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                             fragment_t *targetf, common_direct_linkstub_t **inlist)
 {
+    static app_pc wonko_bb = NULL;
+    uint count = 0; //, recount = 0; // hack
+    common_direct_linkstub_t *t; //, *start = NULL; // hack
+    uint max = RSTATS_GET(max_incoming_direct_linkstubs);
     common_direct_linkstub_t *s, *prevs, *dl;
     dl = (common_direct_linkstub_t *) l;
     ASSERT(LINKSTUB_DIRECT(l->flags));
@@ -1422,18 +1428,42 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
            (LINKSTUB_COARSE_PROXY(l->flags) &&
             TEST(FRAG_COARSE_GRAIN, f->flags) && LINKSTUB_NORMAL_DIRECT(l->flags)));
     for (s = *inlist, prevs = NULL; s;
-         prevs = s, s = (common_direct_linkstub_t *) s->next_incoming) {
+         prevs = s, s = (common_direct_linkstub_t *) s->next_incoming, count++) {
         ASSERT(LINKSTUB_DIRECT(s->l.flags));
         if (incoming_direct_linkstubs_match(s, dl)) {
+            if (count > 100000 || wonko_bb == targetf->tag) {
+                bool from_app_managed = is_app_managed_code(f->tag);
+                bool to_app_managed = is_app_managed_code(targetf->tag);
+                if (wonko_bb == NULL)
+                    wonko_bb = targetf->tag;
+                //start = *inlist;
+                for (t = s; t; t = (common_direct_linkstub_t *) t->next_incoming, count++);
+                dr_printf("Many links (%d) removing linkstub (0x%x) "PFX" (0x%x %s) to "PFX
+                          " (0x%x, %s)\n",
+                          count, l->flags, f->tag, f->flags,
+                          from_app_managed ? "app-managed" : "not app-managed",
+                          targetf->tag, targetf->flags,
+                          to_app_managed ? "app-managed" : "not app-managed");
+
+            }
             /* We must remove s and NOT the passed-in l as coarse_remove_outgoing()
              * passes in a new proxy that we use only to match and find the
              * entry in the list to remove.
              */
             incoming_remove_link_nosearch(dcontext, f, (linkstub_t *)s,
                                           targetf, (linkstub_t *)prevs, inlist);
+            /*
+            if (count > 100000) {
+                for (t = start; t; t = (common_direct_linkstub_t *) t->next_incoming, recount++);
+                if (recount != (count-1))
+                    dr_printf("\tRemoval failed? pre-count=%d, post-count=%d\n", count, recount);
+            }
+            */
+            RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
             return true;
         }
     }
+    RSTATS_SET_MAX(max_incoming_direct_linkstubs, max, count);
     return false;
 }
 

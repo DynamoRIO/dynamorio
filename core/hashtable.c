@@ -37,6 +37,8 @@
 #include "hashtable.h"
 #include <string.h> /* memset */
 
+#include "lib/instrument.h" // hack
+
 /* Returns the proper number of hash bits to have a capacity with the
  * given load for the given number of entries
  */
@@ -94,6 +96,7 @@ hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
                                 generic_entry_t **old_table_unaligned,
                                 uint old_ref_count, uint old_table_flags)
 { /* nothing */
+        dr_printf("Hashtable resized to capacity 0x%x\n", htable->capacity);
 }
 
 # ifdef DEBUG

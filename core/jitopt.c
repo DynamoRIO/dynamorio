@@ -104,10 +104,12 @@ typedef struct _dgc_bucket_t {
 
 #define DGC_BUCKET_GC_CAPACITY 0x80
 typedef struct _dgc_bucket_gc_list_t {
-    dgc_bucket_t *staging[DGC_BUCKET_GC_CAPACITY];
-    dgc_bucket_t *removals[DGC_BUCKET_GC_CAPACITY];
+    dgc_bucket_t **staging;
+    dgc_bucket_t **removals;
     uint staging_count;
+    uint max_staging;
     uint removal_count;
+    uint max_removals;
     bool allow_immediate_gc;
     const char *current_operation;
 } dgc_bucket_gc_list_t;
@@ -197,13 +199,21 @@ jitopt_init()
                                     valgrind_discard_translations);
 #endif
 #ifdef JITOPT
-    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 7, 80,
+    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 20, 80,
                                     HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                     HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                     free_dgc_bucket_chain _IF_DEBUG("DGC Coverage Table"));
 
     dgc_bucket_gc_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_gc_list_t,
                                          ACCT_OTHER, UNPROTECTED);
+    dgc_bucket_gc_list->max_staging = DGC_BUCKET_GC_CAPACITY;
+    dgc_bucket_gc_list->staging = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t *,
+                                                   dgc_bucket_gc_list->max_staging,
+                                                   ACCT_OTHER, UNPROTECTED);
+    dgc_bucket_gc_list->max_removals = DGC_BUCKET_GC_CAPACITY;
+    dgc_bucket_gc_list->removals = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t *,
+                                                    dgc_bucket_gc_list->max_removals,
+                                                    ACCT_OTHER, UNPROTECTED);
     thread_state = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_thread_state_t,
                                    ACCT_OTHER, UNPROTECTED);
     memset(thread_state, 0, sizeof(dgc_thread_state_t));
@@ -233,6 +243,10 @@ jitopt_exit()
 {
 #ifdef JITOPT
     generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->staging, dgc_bucket_t *,
+                    dgc_bucket_gc_list->max_staging, ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->removals, dgc_bucket_t *,
+                    dgc_bucket_gc_list->max_removals, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list, dgc_bucket_gc_list_t,
                    ACCT_OTHER, UNPROTECTED);
     if (thread_state->threads != NULL) {
@@ -255,94 +269,27 @@ jitopt_exit()
 }
 
 static void
-dgc_stat_report()
-{
-    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
-    DGC_REPORT_ONE_STAT(app_managed_writes_observed);
-    DGC_REPORT_ONE_STAT(app_managed_page_writes);
-    DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
-#ifdef JITOPT
-    DGC_REPORT_ONE_STAT(app_managed_writes_ignored);
-    DGC_REPORT_ONE_STAT(app_managed_writes_handled);
-    DGC_REPORT_ONE_STAT(app_managed_fragments_removed);
-    DGC_REPORT_ONE_STAT(app_managed_micro_writes);
-    DGC_REPORT_ONE_STAT(app_managed_cti_target_writes);
-    DGC_REPORT_ONE_STAT(app_managed_word_writes);
-    DGC_REPORT_ONE_STAT(app_managed_small_writes);
-    DGC_REPORT_ONE_STAT(app_managed_subpage_writes);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_allocated);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_freed);
-    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_live);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_allocated);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_freed);
-    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_live);
-    DGC_REPORT_ONE_STAT(app_managed_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_small_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_large_bb_count);
-    DGC_REPORT_ONE_STAT(app_managed_bb_bytes);
-    DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
-    DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
-    DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
-    DGC_REPORT_ONE_STAT(app_managed_direct_links)
-    DGC_REPORT_ONE_STAT(app_managed_indirect_links)
-    DGC_REPORT_ONE_STAT(direct_linked_bb_removed)
-    DGC_REPORT_ONE_STAT(indirect_linked_bb_removed)
-    DGC_REPORT_ONE_STAT(special_linked_bb_removed)
-    DGC_REPORT_ONE_STAT(direct_linked_bb_cti_tweaked)
-    DGC_REPORT_ONE_STAT(direct_linked_bb_tweaked)
-    DGC_REPORT_ONE_STAT(indirect_linked_bb_cti_tweaked)
-    DGC_REPORT_ONE_STAT(indirect_linked_bb_tweaked)
-    DGC_REPORT_ONE_STAT(special_linked_bb_cti_tweaked)
-    DGC_REPORT_ONE_STAT(special_linked_bb_tweaked)
-#endif
-}
+update_thread_state();
+
+static void
+dgc_stat_report();
 
 static inline app_pc
-maybe_exit_cti_disp_pc(app_pc maybe_branch_pc)
-{
-    app_pc byte_ptr = maybe_branch_pc;
-    byte opcode = *byte_ptr;
-    uint length = 0;
+maybe_exit_cti_disp_pc(app_pc maybe_branch_pc);
 
-    if (opcode == RAW_PREFIX_jcc_taken || opcode == RAW_PREFIX_jcc_not_taken) {
-        length++;
-        byte_ptr++;
-        opcode = *byte_ptr;
-        /* branch hints are only valid with jcc instrs, and if present on
-         * other ctis we strip them out during mangling (i#435)
-         */
-        if (opcode != RAW_OPCODE_jcc_byte1)
-            return NULL;
-    }
-    if (opcode == ADDR_PREFIX_OPCODE) { /* used w/ jecxz/loop* */
-        length++;
-        byte_ptr++;
-        opcode = *byte_ptr;
-    }
+#ifdef CHECK_STALE_BBS
+static void
+check_stale_bbs();
+#endif
 
-    if (opcode >= RAW_OPCODE_loop_start && opcode <= RAW_OPCODE_loop_end) {
-        /* assume that this is a mangled jcxz/loop*
-         * target pc is in last 4 bytes of "9-byte instruction"
-         */
-        length += CTI_SHORT_REWRITE_LENGTH;
-    } else if (opcode == RAW_OPCODE_jcc_byte1) {
-        /* 2-byte opcode, 6-byte instruction, except for branch hint */
-        if (*(byte_ptr+1) < RAW_OPCODE_jcc_byte2_start ||
-            *(byte_ptr+1) > RAW_OPCODE_jcc_byte2_end)
-            return NULL;
-        length += CBR_LONG_LENGTH;
-    } else {
-        /* 1-byte opcode, 5-byte instruction */
-        if (opcode != RAW_OPCODE_jmp && opcode != RAW_OPCODE_call)
-            return NULL;
-        length += JMP_LONG_LENGTH;
-    }
-    return maybe_branch_pc + length - 4; /* disp is 4 even on x64 */
-}
+static void
+expand_intersection_array(void **array, uint *max_size);
 
 void
 annotation_manage_code_area(app_pc start, size_t len)
 {
+    //dr_printf("Manage code area "PFX"-"PFX"\n",
+    //    start, start+len);
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
 #ifdef JIT_MONITORED_AREAS
@@ -398,6 +345,10 @@ annotation_flush_fragments(app_pc start, size_t len)
 #else
     if (!is_app_managed_code(start))
         return;
+#endif
+
+#ifdef CHECK_STALE_BBS
+    check_stale_bbs();
 #endif
 
     LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
@@ -536,9 +487,139 @@ static inline bool
 dgc_bb_overlaps(dgc_bb_t *bb, app_pc start, app_pc end)
 {
     dgc_bb_t *head = dgc_bb_head(bb);
-    ptr_uint_t bb_end = (ptr_uint_t)head->start + (ptr_uint_t)head->span;
-    return (ptr_uint_t)head->start < (ptr_uint_t)end && bb_end >= (ptr_uint_t)start;
+    ptr_uint_t bb_end = (ptr_uint_t) dgc_bb_end(head);
+    return (ptr_uint_t)head->start < (ptr_uint_t)end && bb_end > (ptr_uint_t)start;
 }
+
+static void
+dgc_stat_report()
+{
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
+    DGC_REPORT_ONE_STAT(app_managed_writes_observed);
+    DGC_REPORT_ONE_STAT(app_managed_page_writes);
+    DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
+#ifdef JITOPT
+    DGC_REPORT_ONE_STAT(app_managed_writes_ignored);
+    DGC_REPORT_ONE_STAT(app_managed_writes_handled);
+    DGC_REPORT_ONE_STAT(app_managed_fragments_removed);
+    DGC_REPORT_ONE_STAT(app_managed_micro_writes);
+    DGC_REPORT_ONE_STAT(app_managed_cti_target_writes);
+    DGC_REPORT_ONE_STAT(app_managed_word_writes);
+    DGC_REPORT_ONE_STAT(app_managed_small_writes);
+    DGC_REPORT_ONE_STAT(app_managed_subpage_writes);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_bb_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_allocated);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_freed);
+    DGC_REPORT_ONE_STAT(app_managed_trace_buckets_live);
+    DGC_REPORT_ONE_STAT(app_managed_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_small_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_large_bb_count);
+    DGC_REPORT_ONE_STAT(app_managed_bb_bytes);
+    DGC_REPORT_ONE_STAT(app_managed_one_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_two_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
+    DGC_REPORT_ONE_STAT(app_managed_direct_links)
+    DGC_REPORT_ONE_STAT(app_managed_indirect_links)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(special_linked_bb_removed)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(direct_linked_bb_tweaked)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(indirect_linked_bb_tweaked)
+    DGC_REPORT_ONE_STAT(special_linked_bb_cti_tweaked)
+    DGC_REPORT_ONE_STAT(special_linked_bb_tweaked)
+    DGC_REPORT_ONE_STAT(max_incoming_direct_linkstubs)
+#endif
+}
+
+static inline app_pc
+maybe_exit_cti_disp_pc(app_pc maybe_branch_pc)
+{
+    app_pc byte_ptr = maybe_branch_pc;
+    byte opcode = *byte_ptr;
+    uint length = 0;
+
+    if (opcode == RAW_PREFIX_jcc_taken || opcode == RAW_PREFIX_jcc_not_taken) {
+        length++;
+        byte_ptr++;
+        opcode = *byte_ptr;
+        /* branch hints are only valid with jcc instrs, and if present on
+         * other ctis we strip them out during mangling (i#435)
+         */
+        if (opcode != RAW_OPCODE_jcc_byte1)
+            return NULL;
+    }
+    if (opcode == ADDR_PREFIX_OPCODE) { /* used w/ jecxz/loop* */
+        length++;
+        byte_ptr++;
+        opcode = *byte_ptr;
+    }
+
+    if (opcode >= RAW_OPCODE_loop_start && opcode <= RAW_OPCODE_loop_end) {
+        /* assume that this is a mangled jcxz/loop*
+         * target pc is in last 4 bytes of "9-byte instruction"
+         */
+        length += CTI_SHORT_REWRITE_LENGTH;
+    } else if (opcode == RAW_OPCODE_jcc_byte1) {
+        /* 2-byte opcode, 6-byte instruction, except for branch hint */
+        if (*(byte_ptr+1) < RAW_OPCODE_jcc_byte2_start ||
+            *(byte_ptr+1) > RAW_OPCODE_jcc_byte2_end)
+            return NULL;
+        length += CBR_LONG_LENGTH;
+    } else {
+        /* 1-byte opcode, 5-byte instruction */
+        if (opcode != RAW_OPCODE_jmp && opcode != RAW_OPCODE_call)
+            return NULL;
+        length += JMP_LONG_LENGTH;
+    }
+    return maybe_branch_pc + length - 4; /* disp is 4 even on x64 */
+}
+
+#ifdef CHECK_STALE_BBS
+static void
+check_stale_bbs()
+{
+    ptr_uint_t key;
+    void *bucket_void;
+    dgc_bucket_t *bucket;
+    dgc_bb_t *bb;
+    int iter;
+    uint i, j;
+    dcontext_t *tgt_dcontext;
+
+    mutex_lock(&thread_initexit_lock);
+    update_thread_state();
+    TABLE_RWLOCK(dgc_table, read, lock);
+    iter = 0;
+    do {
+        iter = generic_hash_iterate_next(GLOBAL_DCONTEXT, dgc_table,
+                                         iter, &key, &bucket_void);
+        if (iter < 0)
+            break;
+
+        bucket = (dgc_bucket_t *) bucket_void;
+        for (i=0; i < thread_state->count; i++) {
+            tgt_dcontext = thread_state->threads[i]->dcontext;
+            while (bucket != NULL) {
+                for (j = 0; j < BUCKET_BBS; j++) {
+                    bb = &bucket->blocks[j];
+                    if (bb->start != NULL && dgc_bb_is_head(bb) &&
+                        fragment_lookup(tgt_dcontext, bb->start) == NULL) {
+                        RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1,
+                                    "DGC: stale bb "PFX" found in scan\n", bb->start);
+                    }
+                }
+                bucket = bucket->chain;
+            }
+        }
+    } while (true);
+    TABLE_RWLOCK(dgc_table, read, unlock);
+    mutex_unlock(&thread_initexit_lock);
+}
+#endif
 
 /*
 static uint
@@ -663,11 +744,10 @@ dgc_table_bucket_gc(dgc_bucket_t *bucket)
 }
 
 static inline void
-dgc_bucket_gc_list_init(bool allow_immediate_gc, const char *current_operation)
+dgc_bucket_gc_list_init(const char *current_operation)
 {
     dgc_bucket_gc_list->staging_count = 0;
     dgc_bucket_gc_list->removal_count = 0;
-    dgc_bucket_gc_list->allow_immediate_gc = allow_immediate_gc;
     dgc_bucket_gc_list->current_operation = current_operation;
 }
 
@@ -740,14 +820,13 @@ dgc_stage_bucket_for_gc(dgc_bucket_t *bucket)
         }
     }
     if (!found) {
-        if (i >= (DGC_BUCKET_GC_CAPACITY-1)) {
-            if (dgc_bucket_gc_list->allow_immediate_gc) {
-                dgc_bucket_gc();
-                i = 0;
-            } else {
-                RELEASE_ASSERT(false, "GC staging list too full (%d) during %s",
-                               i, dgc_bucket_gc_list->current_operation);
-            }
+        if (i >= (dgc_bucket_gc_list->max_staging-1)) {
+            expand_intersection_array((void **) &dgc_bucket_gc_list->staging,
+                                      &dgc_bucket_gc_list->max_staging);
+            expand_intersection_array((void **) &dgc_bucket_gc_list->removals,
+                                      &dgc_bucket_gc_list->max_removals);
+            //RELEASE_ASSERT(false, "GC staging list too full (%d) during %s",
+            //               i, dgc_bucket_gc_list->current_operation);
         }
         dgc_bucket_gc_list->staging[dgc_bucket_gc_list->staging_count++] = bucket;
     }
@@ -811,7 +890,7 @@ dgc_table_dereference_bb(app_pc tag)
     if (bb != NULL) {
         bb = dgc_bb_head(bb);
         if ((--bb->ref_count) == 0) {
-            dgc_bucket_gc_list_init(false, "dgc_table_dereference_bb");
+            dgc_bucket_gc_list_init("dgc_table_dereference_bb");
             dgc_set_all_slots_empty(bb); // _IF_DEBUG("refcount"));
             dgc_bucket_gc();
         } else {
@@ -870,7 +949,7 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: clearing ["PFX"-"PFX"]\n", start, end);
 
     TABLE_RWLOCK(dgc_table, write, lock);
-    dgc_bucket_gc_list_init(true, "dgc_notify_region_cleared");
+    dgc_bucket_gc_list_init("dgc_notify_region_cleared");
     if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
         dgc_stage_removal_gc_outliers(bucket_id);
     else
@@ -918,7 +997,7 @@ hash_bits(uint length, byte *bits) {
 }
 
 void
-add_patchable_bb(app_pc start, app_pc end, bool link)
+add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
 {
     bool found = false;
     uint i, span = (uint)((end - start) - 1);
@@ -934,7 +1013,7 @@ add_patchable_bb(app_pc start, app_pc end, bool link)
         return;
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb ["PFX"-"PFX"]%s\n",
-                start, end, link ? "" : " (not linked)");
+                start, end, is_trace_head ? " (trace head)" : "");
     RSTATS_INC(app_managed_bb_count);
     RSTATS_ADD(app_managed_bb_bytes, end - start);
     if (span < 12)
@@ -996,7 +1075,7 @@ add_patchable_bb(app_pc start, app_pc end, bool link)
                             LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: stale bb "
                                 PFX"-"PFX"!\n", start, dgc_bb_end(bb));
                             //bucket->blocks[i].start = NULL;
-                            dgc_bucket_gc_list_init(false, "add_patchable_bb");
+                            dgc_bucket_gc_list_init("add_patchable_bb");
                             dgc_set_all_slots_empty(bb);
                             dgc_bucket_gc();
                             */
@@ -1266,8 +1345,21 @@ safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_t
             RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: stale trace "PFX" no longer "
                         "contains any bb in the intersection.\n", t->f.tag);
         } else {
+            dgc_bucket_t *bucket;
+            dgc_bb_t * bb;
+
+            TABLE_RWLOCK(dgc_table, read, lock); // yuk
+            bb = dgc_table_find_bb(t->f.tag, &bucket, NULL);
+            TABLE_RWLOCK(dgc_table, read, unlock);
+            if (bb != NULL) {
+                dgc_set_all_slots_empty(bb);
+                dgc_stage_bucket_for_gc(bucket->head);
+            }
+
             RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX
                         " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
+            dr_printf("DGC: removing trace "PFX
+                      " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
             safe_delete_fragment(dcontext, (fragment_t *)t, is_tweak);
         }
     }
@@ -1481,7 +1573,7 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
     dgc_bb_t *bb;
 
     TABLE_RWLOCK(dgc_table, write, lock);
-    dgc_bucket_gc_list_init(false, "remove_patchable_fragments");
+    dgc_bucket_gc_list_init("remove_patchable_fragments");
     for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
         while (bucket != NULL) {
@@ -1551,7 +1643,16 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
         update_thread_state();
         enter_couldbelinking(dcontext, NULL, false);
 
+        dgc_bucket_gc_list_init("remove_patchable_fragment_list");
+
         remove_patchable_fragment_list(dcontext, patch_start, patch_end);
+
+        TABLE_RWLOCK(dgc_table, write, lock);
+        dgc_bucket_gc();
+        RELEASE_ASSERT(!buckets_exist_in_range(BUCKET_ID(patch_start)+1,
+                                               BUCKET_ID(patch_end-1)),
+                       "buckets exist");
+        TABLE_RWLOCK(dgc_table, write, unlock);
 
         LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "DGC: done removing %d fragments in ["PFX"-"PFX"]\n",

@@ -53,7 +53,7 @@ annotation_flush_fragments(app_pc start, size_t len);
 #ifdef JITOPT
 
 void
-add_patchable_bb(app_pc start, app_pc end, bool link);
+add_patchable_bb(app_pc start, app_pc end, bool is_trace_head);
 
 bool
 add_patchable_trace(monitor_data_t *md);

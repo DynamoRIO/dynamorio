@@ -1239,4 +1239,5 @@
     RSTATS_DEF("App-managed bb tweaked having indirect links", indirect_linked_bb_tweaked)
     RSTATS_DEF("App-managed bb cti tweaked having special links", special_linked_bb_cti_tweaked)
     RSTATS_DEF("App-managed bb tweaked having special links", special_linked_bb_tweaked)
+    RSTATS_DEF("Max incoming direct linkstubs", max_incoming_direct_linkstubs)
 #endif

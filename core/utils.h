@@ -1593,6 +1593,17 @@ enum {LONGJMP_EXCEPTION = 1};
 #define RSTATS_SUB XSTATS_SUB
 #define RSTATS_ADD_PEAK XSTATS_ADD_PEAK
 
+#define RSTATS_GET(stat) stats->stat##_pair.value
+#define RSTATS_SET(stat, new_value) \
+do { \
+    stats->stat##_pair.value = (new_value); \
+} while (0)
+#define RSTATS_SET_MAX(stat, max, new_value) \
+do { \
+    if ((new_value) > (max)) \
+        stats->stat##_pair.value = (new_value); \
+} while (0)
+
 #if defined(DEBUG) && defined(INTERNAL)
 #   define DODEBUGINT DODEBUG
 #   define DOCHECKINT DOCHECK

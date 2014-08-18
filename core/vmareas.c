@@ -6147,6 +6147,15 @@ app_memory_allocation(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     });
 #endif
 
+    /*
+    dr_printf("app_memory_allocation ["PFX"-"PFX"] (0x%x)\n", base, base+size, size);
+    if (dcontext != NULL) {
+        dump_callstack((app_pc)get_mcontext(dcontext)->pc,
+                       (app_pc)get_mcontext(dcontext)->xbp,
+                       STDOUT, DUMP_NOT_XML);
+    }
+    */
+
     /* no current policies allow non-x code at allocation time onto exec list */
     if (!TEST(MEMPROT_EXEC, prot))
         return false;
@@ -10668,6 +10677,9 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
     ASSERT(next_pc != NULL);
     ASSERT(opnd_size != 0);
     instr_size = next_pc - instr_size_pc;
+
+    //dr_printf("JITMON: App writes code to ("PFX",+0x%x)\n", target, opnd_size);
+
 #ifdef JIT_MONITORED_AREAS
     if (is_jit_monitored_area(target)) {
         vm_area_t *jit_monitored_area;
@@ -10850,10 +10862,10 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
             flush_fragments_in_region_finish(dcontext,
                                              false /*don't keep initexit_lock*/);
 #ifdef JITOPT
-//            if (is_app_managed_code((app_pc)tgt_pstart))
-//                dgc_notify_region_cleared((app_pc)tgt_pstart,
-//                                          (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
-            dr_printf(" === modified code! ===\n");
+            if (is_app_managed_code((app_pc)tgt_pstart))
+                dgc_notify_region_cleared((app_pc)tgt_pstart,
+                                          (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+            dr_printf(" === modified code! (case 1) ===\n");
 #endif
             /* must execute instr_app_pc next, even though that new bb will be
              * useless afterward (will most likely re-enter from bb_start)
@@ -10996,10 +11008,9 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      * dispatch and should be the common case. */
     flush_fragments_in_region_finish(dcontext, false /*don't keep initexit_lock*/);
 #ifdef JITOPT
-//    if (is_app_managed_code((app_pc)tgt_pstart))
-//        dgc_notify_region_cleared((app_pc)tgt_pstart,
-//                                  (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
-    dr_printf(" === modified code! ===\n");
+    if (is_app_managed_code(flush_start))
+        dgc_notify_region_cleared(flush_start, flush_start+flush_size);
+    dr_printf(" === modified code! (case 2) ===\n");
 #endif
     return instr_app_pc;
 }
