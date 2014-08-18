@@ -146,6 +146,8 @@ free_dgc_bucket_chain(void *p);
 
 #endif
 
+//#define TRACE_ANALYSIS 1
+
 //#define RELEASE_NOISE 1
 #ifdef RELEASE_NOISE
 # define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
@@ -1358,8 +1360,10 @@ safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_t
 
             RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX
                         " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
+#ifdef TRACE_ANALYSIS
             dr_printf("DGC: removing trace "PFX
                       " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
+#endif
             safe_delete_fragment(dcontext, (fragment_t *)t, is_tweak);
         }
     }
