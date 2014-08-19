@@ -137,19 +137,18 @@ typedef struct _trace_head_counter_t {
     struct _trace_head_counter_t *next;
 } trace_head_counter_t;
 
-/*
 typedef struct _trace_head_table_t {
     trace_head_counter_t **counter_table;
     uint  hash_bits;
     ptr_uint_t  hash_mask;
     uint  hash_mask_offset;
     hash_function_t hash_func;
-    uint  capacity;           / * = 2^bits * /
+    uint  capacity;           /* = 2^bits */
     uint  entries;
-    uint  load_factor_percent; / * \alpha = load_factor_percent/100 * /
-    uint  resize_threshold;    / *  = capacity * load_factor * /
+    uint  load_factor_percent; /* \alpha = load_factor_percent/100 */
+    uint  resize_threshold;    /*  = capacity * load_factor */
+    uint  resize_scale;
 } trace_head_table_t;
-*/
 
 typedef struct _trace_bb_build_t {
     trace_bb_info_t info;
@@ -190,8 +189,7 @@ typedef struct _monitor_data_t {
     /* trace head counters are thread-private and must be kept in a
      * separate table and not in the fragment_t structure.
      */
-    /* FIXME: use new generic_table_t and generic_hash_* routines */
-    generic_table_t *thead_table;
+    trace_head_table_t thead_table;
 
 #ifdef CLIENT_INTERFACE
     /* PR 299808: we re-build each bb and pass to the client */

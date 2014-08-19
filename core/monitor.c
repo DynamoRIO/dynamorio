@@ -103,10 +103,10 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
 
 static void reset_trace_state(dcontext_t *dcontext, bool grab_link_lock);
 
-static void free_trace_head_counter(void *p);
-
 /* synchronization of shared traces */
 DECLARE_CXTSWPROT_VAR(mutex_t trace_building_lock, INIT_LOCK_FREE(trace_building_lock));
+
+DECLARE_NEVERPROT_VAR(static uint thcounter_resize_scale, 1);
 
 /* For clearing counters on trace deletion we follow a lazy strategy
  * using a sentinel value to determine whether we've built a trace or not
@@ -298,6 +298,30 @@ extend_unmangled_ilist(dcontext_t *dcontext, fragment_t *f)
 }
 #endif
 
+static void
+thcounter_init(dcontext_t *dcontext)
+{
+    monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+
+    /* FIXME : we should gather statistics on the hash table */
+    /* trace head counters are thread-private and must be kept in a
+     * separate table and not in the fragment_t structure.
+     */
+    md->thead_table.hash_mask = HASH_MASK(md->thead_table.hash_bits);
+    md->thead_table.hash_mask_offset = 0;
+    md->thead_table.hash_func = (hash_function_t)INTERNAL_OPTION(alt_hash_func);
+    md->thead_table.capacity = HASHTABLE_SIZE(md->thead_table.hash_bits);
+    md->thead_table.entries = 0;
+    md->thead_table.load_factor_percent = COUNTER_TABLE_LOAD;
+    md->thead_table.resize_threshold =
+        md->thead_table.capacity * md->thead_table.load_factor_percent / 100;
+    md->thead_table.counter_table = (trace_head_counter_t **)
+        COUNTER_ALLOC(dcontext, md->thead_table.capacity*sizeof(trace_head_counter_t*)
+                      HEAPACCT(ACCT_THCOUNTER));
+    memset(md->thead_table.counter_table, 0, md->thead_table.capacity*
+           sizeof(trace_head_counter_t*));
+}
+
 bool
 mangle_trace_at_end(void)
 {
@@ -375,15 +399,8 @@ monitor_thread_init(dcontext_t *dcontext)
     if (RUNNING_WITHOUT_CODE_CACHE())
         return;
 
-    /* FIXME : we should gather statistics on the hash table */
-    /* trace head counters are thread-private and must be kept in a
-     * separate table and not in the fragment_t structure.
-     */
-    md->thead_table = generic_hash_create(GLOBAL_DCONTEXT, INIT_COUNTER_TABLE_SIZE,
-                                          COUNTER_TABLE_LOAD,
-                                          HASHTABLE_PERSISTENT|HASHTABLE_LOCKLESS_ACCESS,
-                                          free_trace_head_counter
-                                          _IF_DEBUG("Trace head counter table"));
+    md->thead_table.hash_bits = INIT_COUNTER_TABLE_SIZE;
+    thcounter_init(dcontext);
 }
 
 /* atexit cleanup */
@@ -411,28 +428,79 @@ monitor_thread_exit(dcontext_t *dcontext)
     /* case 7966: don't initialize at all for hotp_only
      * FIXME: could set initial sizes to 0 for all configurations, instead
      */
-    if (!RUNNING_WITHOUT_CODE_CACHE())
-        generic_hash_destroy(dcontext, md->thead_table);
+    if (!RUNNING_WITHOUT_CODE_CACHE()) {
+        for (i = 0; i < md->thead_table.capacity; i++) {
+            trace_head_counter_t *e = md->thead_table.counter_table[i];
+            while (e) {
+                trace_head_counter_t *nexte = e->next;
+#ifdef APP_MANAGED_TRACE_LIST
+                if (e->last_trace_size > 0)
+                    free_last_trace(dcontext, e);
+#endif
+                COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
+                             HEAPACCT(ACCT_THCOUNTER));
+                e = nexte;
+            }
+            md->thead_table.counter_table[i] = NULL;
+        }
+        COUNTER_FREE(dcontext, md->thead_table.counter_table,
+                     md->thead_table.capacity*sizeof(trace_head_counter_t*)
+                     HEAPACCT(ACCT_THCOUNTER));
+    }
     heap_free(dcontext, md, sizeof(monitor_data_t) HEAPACCT(ACCT_TRACE));
 #endif
-}
-
-static void
-free_trace_head_counter(void *p)
-{
-#ifdef APP_MANAGED_TRACE_LIST
-    if (e->last_trace_size > 0)
-        free_last_trace(e);
-#endif
-    COUNTER_FREE(GLOBAL_DCONTEXT, p, sizeof(trace_head_counter_t)
-                 HEAPACCT(ACCT_THCOUNTER));
 }
 
 static inline trace_head_counter_t *
 thcounter_lookup(dcontext_t *dcontext, app_pc tag)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-    return (trace_head_counter_t *) generic_hash_lookup(dcontext, md->thead_table, (ptr_uint_t) tag);
+    trace_head_counter_t *e;
+    uint hindex = HASH_FUNC((ptr_uint_t)tag, &md->thead_table);
+    for (e = md->thead_table.counter_table[hindex]; e; e = e->next) {
+        if (e->tag == tag)
+            return e;
+    }
+    return NULL;
+}
+
+static void
+thcounter_insert(trace_head_table_t *t, trace_head_counter_t *e)
+{
+    uint hindex;
+    hindex = HASH_FUNC((ptr_uint_t)e->tag, t);
+    e->next = t->counter_table[hindex];
+    t->counter_table[hindex] = e;
+    t->entries++;
+}
+
+static void
+thcounter_resize(dcontext_t *dcontext, trace_head_table_t *t)
+{
+    trace_head_counter_t *e, *prev_e, *next_e;
+    trace_head_counter_t **old_counter_table = t->counter_table;
+    uint old_capacity = t->capacity;
+    uint i;
+
+    /* ensure no synch needed */
+    ASSERT(dcontext == get_thread_private_dcontext() ||
+           is_self_flushing() || is_self_allsynch_flushing());
+
+    t->hash_bits += thcounter_resize_scale;
+    thcounter_init(dcontext);
+
+    for (i = 0; i < old_capacity; i++) {
+        for (e = old_counter_table[i], prev_e = NULL; e != NULL; e = next_e) {
+            next_e = e->next;
+            thcounter_insert(t, e);
+        }
+    }
+
+    COUNTER_FREE(dcontext, old_counter_table, old_capacity*sizeof(trace_head_counter_t*)
+                 HEAPACCT(ACCT_THCOUNTER));
+
+    dr_printf("Trace head table resized to capacity 0x%x on dc "PFX"\n",
+              t->capacity, dcontext);
 }
 
 static trace_head_counter_t *
@@ -440,19 +508,21 @@ thcounter_add(dcontext_t *dcontext, app_pc tag)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
     /* counters may be persistent while fragment comes and goes from cache */
-    trace_head_counter_t *counter = thcounter_lookup(dcontext, tag);
-    if (counter != NULL)
-        return counter;
-    counter = (trace_head_counter_t *) // TODO: allocate on `dcontext`
-        COUNTER_ALLOC(GLOBAL_DCONTEXT, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
-    counter->tag = tag;
-    counter->counter = 0;
-    counter->is_jit_tweaked = false;
+    trace_head_counter_t *e = thcounter_lookup(dcontext, tag);
+    if (e)
+        return e;
+    e = (trace_head_counter_t *)
+        COUNTER_ALLOC(dcontext, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
+    e->tag = tag;
+    e->counter = 0;
+    e->is_jit_tweaked = false;
 #ifdef APP_MANAGED_TRACE_LIST
-    counter->last_trace_size = 0;
+    e->last_trace_size = 0;
 #endif
-    generic_hash_add(dcontext, md->thead_table, (ptr_uint_t) tag, counter);
-    return counter;
+    if (md->thead_table.entries >= md->thead_table.resize_threshold)
+        thcounter_resize(dcontext, &md->thead_table);
+    thcounter_insert(&md->thead_table, e);
+    return e;
 }
 
 #if 0 /* not used */
@@ -473,6 +543,7 @@ thcounter_remove(dcontext_t *dcontext, app_pc tag)
             if (e->last_trace_size > 0)
                 free_last_trace(dcontext, e);
 #endif
+            md->thead_table.entries--;
             COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
             break;
         }
@@ -485,20 +556,31 @@ void
 thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end)
 {
     monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
-    ptr_uint_t key;
-    trace_head_counter_t *counter;
-    int iter;
-    iter = 0;
-    do {
-        iter = generic_hash_iterate_next(dcontext, md->thead_table, iter,
-                                         &key, (void **) &counter);
-        if (iter < 0)
-            break;
-        if (counter->tag >= start && counter->tag < end) {
-            /* remove from hashtable */
-            iter = generic_hash_iterate_remove(dcontext, md->thead_table, iter, key);
+    trace_head_counter_t *e, *prev_e = NULL, *next_e;
+    uint i;
+    /* ensure no synch needed */
+    ASSERT(dcontext == get_thread_private_dcontext() ||
+           is_self_flushing() || is_self_allsynch_flushing());
+    for (i = 0; i < md->thead_table.capacity; i++) {
+        for (e = md->thead_table.counter_table[i], prev_e = NULL;
+             e != NULL; e = next_e) {
+            next_e = e->next;
+            if (e->tag >= start && e->tag < end) {
+                if (prev_e != NULL)
+                    prev_e->next = next_e;
+                else
+                    md->thead_table.counter_table[i] = next_e;
+#ifdef APP_MANAGED_TRACE_LIST
+                if (e->last_trace_size > 0)
+                    free_last_trace(dcontext, e);
+#endif
+                md->thead_table.entries--;
+                COUNTER_FREE(dcontext, e, sizeof(trace_head_counter_t)
+                             HEAPACCT(ACCT_THCOUNTER));
+            } else
+                prev_e = e;
         }
-    } while (true);
+    }
 }
 
 bool
@@ -2581,20 +2663,7 @@ set_trace_head_jit_tweaked(dcontext_t *dcontext, app_pc head)
 void
 set_trace_head_table_resize_scale(uint scale)
 {
-    uint i;
-    int count;
-    thread_record_t **threads;
-    monitor_data_t *md;
-
-    mutex_lock(&thread_initexit_lock);
-    get_list_of_threads(&threads, &count);
-    for (i = 0; i < count; i++) {
-        md = (monitor_data_t *) threads[i]->dcontext->monitor_field;
-        generic_hash_set_resize_scale(md->thead_table, scale);
-        // dr_printf("Setting scale factor of table on dc "PFX" to %d\n", threads[i]->dcontext, scale);
-    }
-    global_heap_free(threads, count*sizeof(thread_record_t*) HEAPACCT(ACCT_THREAD_MGT));
-    mutex_unlock(&thread_initexit_lock);
+    thcounter_resize_scale = scale; // race--does it matter?
 }
 #endif
 

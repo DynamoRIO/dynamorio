@@ -326,7 +326,7 @@ annotation_manage_code_area(app_pc start, size_t len)
 
     if (!thread_state->scaled_trace_head_tables) {
         thread_state->scaled_trace_head_tables = true;
-        set_trace_head_table_resize_scale(8);
+        set_trace_head_table_resize_scale(5);
     }
 #endif
 }
