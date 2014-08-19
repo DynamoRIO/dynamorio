@@ -96,7 +96,8 @@ hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
                                 generic_entry_t **old_table_unaligned,
                                 uint old_ref_count, uint old_table_flags)
 { /* nothing */
-        dr_printf("Hashtable resized to capacity 0x%x\n", htable->capacity);
+        dr_printf("Hashtable resized to capacity 0x%x on dc "PFX"\n",
+                  htable->capacity, dcontext);
 }
 
 # ifdef DEBUG
@@ -237,6 +238,12 @@ generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int i
         hashtable_generic_free_entry(dcontext, htable, e);
     }
     return res;
+}
+
+void
+generic_hash_set_resize_scale(generic_table_t *htable, uint scale)
+{
+    htable->resize_scale = scale;
 }
 
 /*******************************************************************************

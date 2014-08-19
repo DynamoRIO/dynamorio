@@ -121,6 +121,7 @@ typedef struct _dgc_thread_state_t {
     int count;
     uint version;
     thread_record_t **threads;
+    bool scaled_trace_head_tables;
 } dgc_thread_state_t;
 
 static dgc_thread_state_t *thread_state;
@@ -322,6 +323,11 @@ annotation_manage_code_area(app_pc start, size_t len)
     set_region_jit_monitored(start, len);
 #else
     set_region_app_managed(start, len);
+
+    if (!thread_state->scaled_trace_head_tables) {
+        thread_state->scaled_trace_head_tables = true;
+        set_trace_head_table_resize_scale(8);
+    }
 #endif
 }
 
@@ -392,7 +398,7 @@ annotation_flush_fragments(app_pc start, size_t len)
 
     RSTATS_INC(app_managed_writes_observed);
 #ifdef JITOPT
-    if (len < 0x400) {
+    if (len < 0x1000) {
         //if (is_vm_area_region_isolated(dcontext, start, start+len)) {
             uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
             if (removal_count > 0) {

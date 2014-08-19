@@ -233,6 +233,10 @@ int
 generic_hash_iterate_remove(dcontext_t *dcontext, generic_table_t *htable, int iter,
                             ptr_uint_t key);
 
+/* lock free (atomic) */
+void
+generic_hash_set_resize_scale(generic_table_t *htable, uint scale);
+
 /*******************************************************************************
  * STRING KEY HASHTABLE INSTANTIATION
  */

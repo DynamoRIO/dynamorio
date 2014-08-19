@@ -43,6 +43,7 @@
 
 #include "fragment.h" /* for trace_bb_info_t, and for CUSTOM_TRACES
                        * the "fragment_t wrapper" struct */
+#include "hashtable.h"
 
 /* synchronization of shared traces */
 extern mutex_t trace_building_lock;
@@ -107,8 +108,13 @@ thcounter_range_remove(dcontext_t *dcontext, app_pc start, app_pc end);
 bool
 mangle_trace_at_end(void);
 
+#ifdef JITOPT
 void
 set_trace_head_jit_tweaked(dcontext_t *dcontext, app_pc head);
+
+void
+set_trace_head_table_resize_scale(uint scale);
+#endif
 
 /* trace head counters are thread-private and must be kept in a
  * separate table and not in the fragment_t structure.
@@ -131,17 +137,19 @@ typedef struct _trace_head_counter_t {
     struct _trace_head_counter_t *next;
 } trace_head_counter_t;
 
+/*
 typedef struct _trace_head_table_t {
     trace_head_counter_t **counter_table;
     uint  hash_bits;
     ptr_uint_t  hash_mask;
     uint  hash_mask_offset;
     hash_function_t hash_func;
-    uint  capacity;           /* = 2^bits */
+    uint  capacity;           / * = 2^bits * /
     uint  entries;
-    uint  load_factor_percent; /* \alpha = load_factor_percent/100 */
-    uint  resize_threshold;    /*  = capacity * load_factor */
+    uint  load_factor_percent; / * \alpha = load_factor_percent/100 * /
+    uint  resize_threshold;    / *  = capacity * load_factor * /
 } trace_head_table_t;
+*/
 
 typedef struct _trace_bb_build_t {
     trace_bb_info_t info;
@@ -183,7 +191,7 @@ typedef struct _monitor_data_t {
      * separate table and not in the fragment_t structure.
      */
     /* FIXME: use new generic_table_t and generic_hash_* routines */
-    trace_head_table_t thead_table;
+    generic_table_t *thead_table;
 
 #ifdef CLIENT_INTERFACE
     /* PR 299808: we re-build each bb and pass to the client */
