@@ -284,12 +284,9 @@ option(DISABLE_WARNINGS "disable warnings")
 
 option(SET_PREFERRED_BASE "set a preferred library base address")
 if (ANNOTATIONS)
-  message(STATUS "Setting JITOPT on")
   set(JITOPT ON)
   #set(TRACE_ANALYSIS ON)
   set(JIT_MONITORED_AREAS OFF)
-else (ANNOTATIONS)
-  message(STATUS "Setting JITOPT off")
 endif (ANNOTATIONS)
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING

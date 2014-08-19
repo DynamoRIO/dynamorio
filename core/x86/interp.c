@@ -4756,19 +4756,12 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
         add_patchable_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
     }
-    //LOG(GLOBAL, LOG_INTERP, 1,
-    //    "> operands: bb "PFX" is %s\n", bb.start_pc, visible ? "visible" : "invisible");
 #endif
 
     /* emit fragment into fcache */
     KSTART(bb_emit);
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
-
-#ifdef JITOPT
-    //if (TEST(FRAG_APP_MANAGED, f->flags) && link)
-    //    patchable_bb_linked(dcontext, f);
-#endif
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;

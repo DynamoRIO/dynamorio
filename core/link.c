@@ -1805,10 +1805,9 @@ debug_after_link_change(dcontext_t *dcontext, fragment_t *f, const char *msg)
 
 /* Link all incoming links from other fragments to f
  */
-void //uint
+void
 link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
 {
-    //uint count = 0;
     linkstub_t *l;
     LOG(THREAD, LOG_LINKS, 4, "  linking incoming links for F%d("PFX")\n",
         f->id, f->tag);
@@ -1822,7 +1821,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     f->flags |= FRAG_LINKED_INCOMING;
 
     /* link incoming links */
-    for (l = f->in_xlate.incoming_stubs; l; l = LINKSTUB_NEXT_INCOMING(l) /*, count++*/) {
+    for (l = f->in_xlate.incoming_stubs; l; l = LINKSTUB_NEXT_INCOMING(l)) {
         bool local_trace_head = false;
         fragment_t *in_f = linkstub_fragment(dcontext, l);
         if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -1852,7 +1851,6 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
         if (local_trace_head && !TEST(FRAG_IS_TRACE_HEAD, f->flags))
             f->flags |= FRAG_IS_TRACE_HEAD;
     }
-    //return count;
 }
 
 /* Link outgoing links of f to other fragments in the fcache (and
@@ -2020,11 +2018,10 @@ unlink_fragment_outgoing(dcontext_t *dcontext, fragment_t *f)
 void
 link_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    //uint incoming_link_count;
     future_fragment_t *future;
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         link_new_coarse_grain_fragment(dcontext, f);
-        return; // 0;
+        return;
     }
     LOG(THREAD, LOG_LINKS, 4, "linking new fragment F%d("PFX")\n", f->id, f->tag);
     /* ensure some higher-level lock is held if f is shared
@@ -2088,9 +2085,8 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
     /* link incoming branches first, so no conflicts w/ self-loops
      * that were just linked being added to future unlinked list
      */
-    /*incoming_link_count = */link_fragment_incoming(dcontext, f, true/*new*/);
+    link_fragment_incoming(dcontext, f, true/*new*/);
     link_fragment_outgoing(dcontext, f, true/*new*/);
-    //return incoming_link_count;
 }
 
 /* Changes all incoming links to old_f to point to new_f
