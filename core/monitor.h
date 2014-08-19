@@ -131,9 +131,6 @@ typedef struct _trace_head_counter_t {
     app_pc *last_trace;
     uint   last_trace_size;
 #endif
-    /* FIXME: use open-address to save memory, and share code
-     * w/ fragment.c?
-     */
     struct _trace_head_counter_t *next;
 } trace_head_counter_t;
 
