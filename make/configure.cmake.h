@@ -86,7 +86,8 @@
 #cmakedefine HAVE_TYPELIMITS_CONTROL
 #cmakedefine ANNOTATIONS
 #cmakedefine JITOPT
-#cmakedefine JIT_MONITORED_AREAS 
+#cmakedefine TRACE_ANALYSIS
+#cmakedefine JIT_MONITORED_AREAS
 
 /* typedef conflicts */
 #cmakedefine DR_DO_NOT_DEFINE_bool

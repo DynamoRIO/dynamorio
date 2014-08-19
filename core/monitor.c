@@ -84,8 +84,10 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
 
 #define INITIAL_NUM_BLKS 8
 
-#define INIT_COUNTER_TABLE_SIZE 9
-#define COUNTER_TABLE_LOAD 75
+//#define INIT_COUNTER_TABLE_SIZE 9
+#define INIT_COUNTER_TABLE_SIZE 21
+//#define COUNTER_TABLE_LOAD 75
+#define COUNTER_TABLE_LOAD 45
 /* counters must be in unprotected memory
  * we don't support local unprotected so we use global
  */
@@ -938,9 +940,18 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
      * head and trace boundaries (CUSTOM_TRACES).
      */
     /* trace heads can be created across private/shared cache bounds */
-    if (TEST(FRAG_IS_TRACE, from_flags) ||
-        (to_tag <= from_tag && LINKSTUB_DIRECT(from_l->flags)))
+    if (TEST(FRAG_IS_TRACE, from_flags)) {
+#ifdef TRACE_ANALYSIS
+        //dr_printf("Trace head at "PFX" b/c exit target of trace.\n", to_tag);
+#endif
         return true;
+    }
+    if (to_tag <= from_tag && LINKSTUB_DIRECT(from_l->flags)) {
+#ifdef TRACE_ANALYSIS
+        //dr_printf("Trace head at "PFX" b/c target of back link.\n", to_tag);
+#endif
+        return true;
+    }
 
     DOSTATS({
         if (!DYNAMO_OPTION(disable_traces) &&
@@ -2372,7 +2383,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
 
     ctr->counter++;
     /* Should never be > here (assert is down below) but we check just in case */
-    if (ctr->counter >= INTERNAL_OPTION(trace_threshold) || ctr->is_jit_tweaked) {
+    if (ctr->counter >= INTERNAL_OPTION(trace_threshold)) { // || ctr->is_jit_tweaked) {
         /* if cannot delete fragment, do not start trace -- wait until
          * can delete it (w/ exceptions, deletion status changes). */
         if (!TEST(FRAG_CANNOT_DELETE, f->flags)) {

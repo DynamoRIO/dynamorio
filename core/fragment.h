@@ -102,6 +102,9 @@
 /* for now, only used to identify regions that fail our policies */
 #  define FRAG_DYNGEN_RESTRICTED    0x200000
 # endif
+#else
+/* frag is in an app-managed code area */
+# define FRAG_APP_MANAGED            0x100000
 #endif
 
 #ifndef DGC_DIAGNOSTICS

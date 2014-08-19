@@ -49,7 +49,10 @@
 #include "perscache.h"
 #include "instr.h" /* PC_RELATIVE_TARGET */
 
-#include "instrument.h" //hack
+#ifdef JITOPT
+# include "jitopt.h"
+# include "instrument.h" //hack
+#endif
 
 /* fragment_t and future_fragment_t are guaranteed to have flags field at same offset,
  * so we use it to find incoming_stubs offset
@@ -1216,14 +1219,14 @@ link_branch(dcontext_t *dcontext, fragment_t *f, linkstub_t *l, fragment_t *targ
                 separate_stub_free(dcontext, f, l, false);
         }
 #ifdef JITOPT
-        if (is_app_managed_code(f->tag))
+        if (TEST(FRAG_APP_MANAGED, f->flags))
             RSTATS_INC(app_managed_direct_links);
 #endif
     } else if (LINKSTUB_INDIRECT(l->flags)) {
         if (INTERNAL_OPTION(link_ibl))
             link_indirect_exit(dcontext, f, l, hot_patch);
 #ifdef JITOPT
-        if (is_app_managed_code(f->tag))
+        if (TEST(FRAG_APP_MANAGED, f->flags))
             RSTATS_INC(app_managed_indirect_links);
 #endif
     } else
@@ -1417,8 +1420,8 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                             fragment_t *targetf, common_direct_linkstub_t **inlist)
 {
     uint count = 0; //, recount = 0;
-    common_direct_linkstub_t *t; //, *start = NULL;
 #ifdef TRACE_ANALYSIS
+    common_direct_linkstub_t *t; //, *start = NULL;
     static app_pc wonko_bb = NULL;
     uint recount = 0;
     common_direct_linkstub_t *start = NULL;
@@ -1435,20 +1438,26 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
          prevs = s, s = (common_direct_linkstub_t *) s->next_incoming, count++) {
         ASSERT(LINKSTUB_DIRECT(s->l.flags));
         if (incoming_direct_linkstubs_match(s, dl)) {
-            for (t = s; t; t = (common_direct_linkstub_t *) t->next_incoming, count++);
 #ifdef TRACE_ANALYSIS
+            for (t = s; t; t = (common_direct_linkstub_t *) t->next_incoming, count++);
             if (count > 100000 || wonko_bb == targetf->tag) {
                 bool from_app_managed = is_app_managed_code(f->tag);
                 bool to_app_managed = is_app_managed_code(targetf->tag);
+                int bb_count = -1;
                 if (wonko_bb == NULL)
                     wonko_bb = targetf->tag;
+                if (TEST(FRAG_IS_TRACE_HEAD, f->flags)) {
+                    trace_t *t = (trace_t*) fragment_lookup_trace(dcontext, f->tag);
+                    if (t != NULL)
+                        bb_count = t->t.num_bbs;
+                }
                 start = *inlist;
-                dr_printf("Many links (%d) removing linkstub (0x%x) "PFX" (0x%x %s) to "PFX
-                          " (0x%x, %s)\n",
+                dr_printf("Many links (%d) removing linkstub (0x%x) from "PFX
+                          " (0x%x %s) to "PFX" (0x%x, %s) -- trace has %d blocks\n",
                           count, l->flags, f->tag, f->flags,
                           from_app_managed ? "app-managed" : "not app-managed",
                           targetf->tag, targetf->flags,
-                          to_app_managed ? "app-managed" : "not app-managed");
+                          to_app_managed ? "app-managed" : "not app-managed", bb_count);
 
             }
 #endif
@@ -1796,9 +1805,10 @@ debug_after_link_change(dcontext_t *dcontext, fragment_t *f, const char *msg)
 
 /* Link all incoming links from other fragments to f
  */
-void
+void //uint
 link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
 {
+    //uint count = 0;
     linkstub_t *l;
     LOG(THREAD, LOG_LINKS, 4, "  linking incoming links for F%d("PFX")\n",
         f->id, f->tag);
@@ -1812,7 +1822,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
     f->flags |= FRAG_LINKED_INCOMING;
 
     /* link incoming links */
-    for (l = f->in_xlate.incoming_stubs; l != NULL; l = LINKSTUB_NEXT_INCOMING(l)) {
+    for (l = f->in_xlate.incoming_stubs; l; l = LINKSTUB_NEXT_INCOMING(l) /*, count++*/) {
         bool local_trace_head = false;
         fragment_t *in_f = linkstub_fragment(dcontext, l);
         if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
@@ -1842,6 +1852,7 @@ link_fragment_incoming(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
         if (local_trace_head && !TEST(FRAG_IS_TRACE_HEAD, f->flags))
             f->flags |= FRAG_IS_TRACE_HEAD;
     }
+    //return count;
 }
 
 /* Link outgoing links of f to other fragments in the fcache (and
@@ -1901,6 +1912,10 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                         ((l->flags & LINK_LINKED) != 0)?" (linked)":"",
                         ((l->flags & LINK_SPECIAL_EXIT) != 0)?" (special)":"");
                 }
+#ifdef JITOPT
+                if (TEST(FRAG_APP_MANAGED, f->flags))
+                    patchable_bb_linked(dcontext, g);
+#endif
             } else {
                 if (new_fragment)
                     add_future_incoming(dcontext, f, l);
@@ -2005,10 +2020,11 @@ unlink_fragment_outgoing(dcontext_t *dcontext, fragment_t *f)
 void
 link_new_fragment(dcontext_t *dcontext, fragment_t *f)
 {
+    //uint incoming_link_count;
     future_fragment_t *future;
     if (TEST(FRAG_COARSE_GRAIN, f->flags)) {
         link_new_coarse_grain_fragment(dcontext, f);
-        return;
+        return; // 0;
     }
     LOG(THREAD, LOG_LINKS, 4, "linking new fragment F%d("PFX")\n", f->id, f->tag);
     /* ensure some higher-level lock is held if f is shared
@@ -2072,8 +2088,9 @@ link_new_fragment(dcontext_t *dcontext, fragment_t *f)
     /* link incoming branches first, so no conflicts w/ self-loops
      * that were just linked being added to future unlinked list
      */
-    link_fragment_incoming(dcontext, f, true/*new*/);
+    /*incoming_link_count = */link_fragment_incoming(dcontext, f, true/*new*/);
     link_fragment_outgoing(dcontext, f, true/*new*/);
+    //return incoming_link_count;
 }
 
 /* Changes all incoming links to old_f to point to new_f

@@ -58,6 +58,9 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head);
 bool
 add_patchable_trace(monitor_data_t *md);
 
+void
+patchable_bb_linked(dcontext_t *dcontext, fragment_t *f);
+
 uint
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end);
 

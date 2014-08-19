@@ -138,13 +138,19 @@ typedef struct _dgc_fragment_intersection_t {
 
 static dgc_fragment_intersection_t *fragment_intersection;
 
-static void
-free_dgc_bucket_chain(void *p);
-
 #define IS_INCOMPATIBLE_OVERLAP(start1, end1, start2, end2) \
     ((start1) < (end2) && (end1) > (start2) && (end1) != (end2))
 
 #endif
+
+typedef struct _dgc_removal_queue_t {
+    app_pc *tags;
+    uint index;
+    uint max;
+    uint sample_index;
+} dgc_removal_queue_t;
+
+static dgc_removal_queue_t *dgc_removal_queue;
 
 //#define TRACE_ANALYSIS 1
 
@@ -180,6 +186,29 @@ static dgc_stats_t *dgc_stats;
 static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request);
 #endif
+
+static void
+safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak);
+
+static void
+free_dgc_bucket_chain(void *p);
+
+static void
+update_thread_state();
+
+static void
+dgc_stat_report();
+
+static inline app_pc
+maybe_exit_cti_disp_pc(app_pc maybe_branch_pc);
+
+#ifdef CHECK_STALE_BBS
+static void
+check_stale_bbs();
+#endif
+
+static void
+expand_intersection_array(void **array, uint *max_size);
 
 void
 jitopt_init()
@@ -235,6 +264,14 @@ jitopt_init()
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, fragment_t *,
                          fragment_intersection->shared_deletion_max, ACCT_OTHER,
                          UNPROTECTED);
+    dgc_removal_queue = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_removal_queue_t,
+                                        ACCT_OTHER, UNPROTECTED);
+    dgc_removal_queue->index = 0;
+    dgc_removal_queue->max = 0x20;
+    dgc_removal_queue->tags =
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, dgc_removal_queue->max,
+                         ACCT_OTHER, UNPROTECTED);
+    dgc_removal_queue->sample_index = 0;
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -266,26 +303,13 @@ jitopt_exit()
                     fragment_intersection->shared_deletion_max, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment_intersection, dgc_fragment_intersection_t,
                    ACCT_OTHER, UNPROTECTED);
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_removal_queue->tags, app_pc,
+                    dgc_removal_queue->max, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_removal_queue, dgc_removal_queue_t,
+                   ACCT_OTHER, UNPROTECTED);
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
 }
-
-static void
-update_thread_state();
-
-static void
-dgc_stat_report();
-
-static inline app_pc
-maybe_exit_cti_disp_pc(app_pc maybe_branch_pc);
-
-#ifdef CHECK_STALE_BBS
-static void
-check_stale_bbs();
-#endif
-
-static void
-expand_intersection_array(void **array, uint *max_size);
 
 void
 annotation_manage_code_area(app_pc start, size_t len)
@@ -1211,6 +1235,41 @@ add_patchable_trace(monitor_data_t *md)
     return added;
 }
 
+void
+patchable_bb_linked(dcontext_t *dcontext, fragment_t *f)
+{
+#define MAX_LINKSTUBS 0x1000
+#define LINKSTUB_SAMPLE_INTERVAL 0x40
+    if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_COARSE_GRAIN, f->flags) &&
+        (++dgc_removal_queue->sample_index > LINKSTUB_SAMPLE_INTERVAL)) {
+        uint count = 0;
+        common_direct_linkstub_t *s, *t;
+        TABLE_RWLOCK(dgc_table, write, lock);
+        dgc_removal_queue->sample_index = 0;
+        s = (common_direct_linkstub_t *)f->in_xlate.incoming_stubs;
+        for (; s; s = (common_direct_linkstub_t *)s->next_incoming, count++);
+        if (count > MAX_LINKSTUBS) {
+            RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Incoming links crowded on "PFX
+                        "; removing oldest %d fan-in bbs.\n", f->tag, (count - MAX_LINKSTUBS));
+            s = (common_direct_linkstub_t *)f->in_xlate.incoming_stubs;
+            while (count > MAX_LINKSTUBS) {
+                t = (common_direct_linkstub_t *)s->next_incoming;
+                fragment_t *in = linkstub_fragment(dcontext, (linkstub_t *)s);
+                dgc_removal_queue->tags[dgc_removal_queue->index++] = in->tag;
+                if (dgc_removal_queue->index == dgc_removal_queue->max) {
+                    expand_intersection_array((void **) &dgc_removal_queue->tags,
+                                              &dgc_removal_queue->max);
+                }
+                s = t;
+                count--;
+            }
+        }
+        TABLE_RWLOCK(dgc_table, write, unlock);
+    }
+#undef MAX_LINKSTUBS
+#undef LINKSTUB_SAMPLE_INTERVAL
+}
+
 static void
 expand_intersection_array(void **array, uint *max_size)
 {
@@ -1361,8 +1420,8 @@ safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_t
             RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "DGC: removing trace "PFX
                         " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
 #ifdef TRACE_ANALYSIS
-            dr_printf("DGC: removing trace "PFX
-                      " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
+            //dr_printf("DGC: removing trace "PFX
+            //          " for overlap with bb "PFX"\n", t->f.tag, t->t.bbs[i].tag);
 #endif
             safe_delete_fragment(dcontext, (fragment_t *)t, is_tweak);
         }
@@ -1613,6 +1672,16 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
         }
         is_patch_start_bucket = false;
     }
+
+    for (i = 0; i < dgc_removal_queue->index; i++) {
+        fragment_intersection->bb_tags[i_bb++] = dgc_removal_queue->tags[i];
+        if (i_bb == fragment_intersection->bb_tag_max) {
+            expand_intersection_array((void **) &fragment_intersection->bb_tags,
+                                      &fragment_intersection->bb_tag_max);
+        }
+    }
+    dgc_removal_queue->index = 0;
+
     fragment_intersection->bb_tags[i_bb] = NULL;
     fragment_intersection->trace_tags[i_trace] = NULL;
     dgc_bucket_gc();
