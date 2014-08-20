@@ -597,29 +597,32 @@ privload_unload(privmod_t *privmod)
 # define LIB_SUBDIR "lib32"
 #endif
 #define EXT_SUBDIR "ext"
-void
-privload_add_drext_path(void)
+#define DRMF_SUBDIR "drmemory/drmf"
+
+static void
+privload_add_subdir_path(const char *subdir)
 {
     const char *path, *mid, *end;
     ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
 
-    /* We support loading from the Extensions dir.  We locate it by
-     * assuming dynamorio.dll is in <prefix>/lib{32,64}/{debug,release}/
-     * and that the Extensions are in <prefix>/ext/lib{32,64}/{debug,release}/
-     * Xref i#277/PR 540817.
-     * FIXME: this does not work from a build dir: only using exports!
+    /* We support loading from various subdirs of the DR package.  We
+     * locate these by assuming dynamorio.dll is in
+     * <prefix>/lib{32,64}/{debug,release}/ and searching backward for
+     * that lib{32,64} part.  We assume that "subdir" is followed
+     * by the same /lib{32,64}/{debug,release}/.
+     * XXX: this does not work from a build dir: only using exports!
      */
     path = get_dynamorio_library_path();
     mid = strstr(path, LIB_SUBDIR);
     if (mid != NULL &&
         search_paths_idx < SEARCH_PATHS_NUM &&
-        (strlen(path)+strlen(EXT_SUBDIR)+1/*sep*/) <
+        (strlen(path)+strlen(subdir)+1/*sep*/) <
         BUFFER_SIZE_ELEMENTS(search_paths[search_paths_idx])) {
         char *s = search_paths[search_paths_idx];
         snprintf(s, mid - path, "%s", path);
         s += (mid - path);
-        snprintf(s, strlen(EXT_SUBDIR)+1/*sep*/, "%s%c", EXT_SUBDIR, DIRSEP);
-        s += strlen(EXT_SUBDIR)+1/*sep*/;
+        snprintf(s, strlen(subdir)+1/*sep*/, "%s%c", subdir, DIRSEP);
+        s += strlen(subdir)+1/*sep*/;
         end = double_strrchr(path, DIRSEP, ALT_DIRSEP);
         if (end != NULL && search_paths_idx < SEARCH_PATHS_NUM) {
             snprintf(s, end - mid, "%s", mid);
@@ -629,6 +632,19 @@ privload_add_drext_path(void)
             search_paths_idx++;
         }
     }
+}
+
+void
+privload_add_drext_path(void)
+{
+    /* We support loading from the Extensions dir:
+     * <prefix>/ext/lib{32,64}/{debug,release}/
+     * Xref i#277/PR 540817.
+     */
+    privload_add_subdir_path(EXT_SUBDIR);
+
+    /* We also support loading from a co-located DRMF package. */
+    privload_add_subdir_path(DRMF_SUBDIR);
 }
 
 /* most uses should call privload_load() instead
