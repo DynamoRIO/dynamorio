@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -103,7 +103,7 @@ use the signal event.
 The sample <a href="../../samples/stl_test.c">stl_test.c</a> is provided
 as an example client that uses C++ STL containers.
 
-The sample <a href="../../samples/strace.c">strace.c</a> displays how to
+The sample <a href="../../samples/syscall.c">syscall.c</a> displays how to
 use the system call events and API routines.
 
 The sample <a href="../../samples/tracedump.c">tracedump.c</a> is provided

@@ -114,7 +114,12 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 \section sec_changes Changes Since Prior Releases
 
 The current version is \DR_VERSION.
-The changes between version \DR_VERSION and 4.2.0 include the
+
+Version \DR_VERSION includes Dr. Memory and the Dr. Memory Framework (DRMF)
+in the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version \DR_VERSION and 4.2.0 also include the
 following minor compatibility changes:
 
  - Dropped official support for Windows 2000.  The core DynamoRIO engine
@@ -172,8 +177,8 @@ Further non-compatibility-affecting changes include:
  - Added a tool notification feature to drrun tool config files.
  - Added get_visualstudio_info() for looking up visual studio
    installation information.
- - Changed the strace sample into the syscall sample in favor of a superior
-   strace sample inside DRMF.
+ - Renamed the strace sample to "syscall" and removed its tracing feature,
+   in favor of a superior strace sample inside DRMF.
 
 **************************************************
 <hr>

@@ -32,7 +32,7 @@
  */
 
 /* Code Manipulation API Sample:
- * strace.c
+ * syscall.c
  *
  * Monitors system calls.  As an example, we modify SYS_write/NtWriteFile.
  * On Windows we have to take extra steps to find system call numbers
@@ -118,7 +118,7 @@ dr_init(client_id_t id)
         /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
         dr_enable_console_printing();
 # endif
-        dr_fprintf(STDERR, "Client strace is running\n");
+        dr_fprintf(STDERR, "Client syscall is running\n");
     }
 #endif
 }
@@ -184,7 +184,7 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
-    return true; /* intercept everything */
+    return true; /* intercept everything, for our count of syscalls seen */
 }
 
 static bool
@@ -201,13 +201,7 @@ event_pre_syscall(void *drcontext, int sysnum)
 # endif
     }
 #endif
-#ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "[%d] "PFX" "PFX" "PFX"\n",
-               sysnum,
-               dr_syscall_get_param(drcontext, 0),
-               dr_syscall_get_param(drcontext, 1),
-               dr_syscall_get_param(drcontext, 2));
-#else
+#ifndef SHOW_RESULTS
     /* for sanity tests that don't show results we don't change the app's output */
     modify_write = false;
 #endif
@@ -252,14 +246,14 @@ event_pre_syscall(void *drcontext, int sysnum)
             dr_syscall_set_result(drcontext, 0);
 #endif
 #ifdef SHOW_RESULTS
-            dr_fprintf(STDERR, "  [%d] => skipped\n", sysnum);
+            dr_fprintf(STDERR, "<---- skipping write to stderr ---->\n");
 #endif
             return false; /* skip syscall */
         } else if (dr_syscall_get_param(drcontext, 0) == (reg_t) STDOUT) {
             if (!data->repeat) {
                 /* redirect stdout to stderr (unless it's our repeat) */
 #ifdef SHOW_RESULTS
-                dr_fprintf(STDERR, "  [%d] STDOUT => STDERR\n", sysnum);
+                dr_fprintf(STDERR, "<---- changing stdout to stderr ---->\n");
 #endif
                 dr_syscall_set_param(drcontext, 0, (reg_t) STDERR);
             }
@@ -276,9 +270,15 @@ event_post_syscall(void *drcontext, int sysnum)
 #ifdef SHOW_RESULTS
     dr_syscall_result_info_t info = { sizeof(info), };
     dr_syscall_get_result_ex(drcontext, &info);
-    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")%s\n",
-               sysnum, info.value, (ptr_int_t)info.value,
-               info.succeeded ? "" : " (failed)");
+    if (!info.succeeded) {
+        /* XXX: we could use the "drsyscall" Extension from the Dr. Memory
+         * Framework (DRMF) to obtain the name of the system call (as well as
+         * the number of arguments and the type of each).  Please see the strace
+         * sample and drstrace tool within DRMF for further information.
+         */
+        dr_fprintf(STDERR, "<---- syscall %d failed (returned "PFX" == "SZFMT") ---->\n",
+                   sysnum, info.value, (ptr_int_t)info.value);
+    }
 #endif
     if (sysnum == write_sysnum) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
@@ -289,7 +289,7 @@ event_post_syscall(void *drcontext, int sysnum)
             /* repeat syscall with stdout */
             int i;
 #ifdef SHOW_RESULTS
-            dr_fprintf(STDERR, "  [%d] => repeating\n", sysnum);
+            dr_fprintf(STDERR, "<---- repeating write ---->\n");
 #endif
             dr_syscall_set_sysnum(drcontext, write_sysnum);
             dr_syscall_set_param(drcontext, 0, (reg_t) STDOUT);
@@ -317,6 +317,9 @@ event_post_syscall(void *drcontext, int sysnum)
 static int
 get_write_sysnum(void)
 {
+    /* XXX: we could use the "drsyscall" Extension from the Dr. Memory Framework
+     * (DRMF) to obtain the number of any system call from the name.
+     */
 #ifdef UNIX
     return SYS_write;
 #else

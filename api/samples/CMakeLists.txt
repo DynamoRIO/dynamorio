@@ -215,7 +215,7 @@ add_sample_client(inscount    "inscount.c"      "")
 add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
 add_sample_client(prefetch    "prefetch.c"      "")
 add_sample_client(signal      "signal.c"        "")
-add_sample_client(strace      "strace.c"        "drmgr")
+add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
 # add utils.h for installation  # NON-PUBLIC
