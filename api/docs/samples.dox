@@ -34,9 +34,12 @@
 /**
 \page API_samples Sample Use Cases
 
-We provide several examples in <a href="../../samples">../../samples/</a>
-to illustrate how the DynamoRIO API is used to
-build a DynamoRIO client.
+We provide several examples in the <tt>samples</tt> directory of the
+release package to illustrate how the DynamoRIO API is used to build a
+DynamoRIO client.
+
+There are also samples for the Dr. Memory Framework located in the
+<tt>drmemory/drmf/samples</tt> directory of the release package.
 
 ********************
 \section sample_list List of Samples
