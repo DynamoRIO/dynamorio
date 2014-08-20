@@ -37,6 +37,15 @@
 #include "annotations.h"
 #include "jitopt.h"
 
+#define _GNU_SOURCE 1
+#include <unistd.h>
+#ifdef LINUX
+#include <linux/mman.h>
+# include "include/syscall.h"            /* our own local copy */
+#else
+# include <sys/syscall.h>
+#endif
+
 #ifdef ANNOTATIONS /* around whole file */
 
 #define DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME \
@@ -142,6 +151,19 @@ static dgc_fragment_intersection_t *fragment_intersection;
 #define IS_INCOMPATIBLE_OVERLAP(start1, end1, start2, end2) \
     ((start1) < (end2) && (end1) > (start2) && (end1) != (end2))
 
+typedef struct _double_mapping_t {
+    app_pc app_memory_start;
+    app_pc mapping_start;
+    size_t size;
+} double_mapping_t;
+
+typedef struct double_mapping_list_t {
+    uint index;
+    double_mapping_t *mappings;
+} double_mapping_list_t;
+
+#define MAX_DOUBLE_MAPPINGS 100
+static double_mapping_list_t *double_mappings;
 #endif
 
 typedef struct _dgc_removal_queue_t {
@@ -273,6 +295,13 @@ jitopt_init()
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, dgc_removal_queue->max,
                          ACCT_OTHER, UNPROTECTED);
     dgc_removal_queue->sample_index = 0;
+
+    double_mappings = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, double_mapping_list_t,
+                                      ACCT_OTHER, UNPROTECTED);
+    double_mappings->index = 0;
+    double_mappings->mappings =
+        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, double_mapping_t, MAX_DOUBLE_MAPPINGS,
+                         ACCT_OTHER, UNPROTECTED);
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -444,28 +473,141 @@ valgrind_discard_translations(dr_vg_client_request_t *request)
 #endif
 
 #ifdef JITOPT
+/*
+typedef struct _double_mapping_t {
+    app_pc app_memory_start;
+    app_pc mapping_start;
+    size_t size;
+} double_mapping_t;
+
+typedef struct double_mapping_list_t {
+    uint index;
+    double_mapping_t *mappings;
+} double_mapping_list_t;
+*/
+
+// TODO: synch?
+static ptr_uint_t
+get_double_mapped_page_delta(app_pc app_memory_start, size_t size)
+{
+    uint i;
+    app_pc remap_pc;
+    double_mapping_t *new_mapping;
+    heap_error_code_t error;
+
+    for (i = 0; i < double_mappings->index; i++) {
+        if (double_mappings->mappings[i].app_memory_start == app_memory_start) {
+            ASSERT(double_mappings->mappings[i].size == size);
+            return double_mappings->mappings[i].mapping_start - app_memory_start;
+        }
+    }
+
+    double_mappings->index++;
+    ASSERT(double_mappings->index < MAX_DOUBLE_MAPPINGS);
+    new_mapping = &double_mappings->mappings[double_mappings->index];
+    new_mapping->app_memory_start = app_memory_start;
+    new_mapping->size = size;
+    new_mapping->mapping_start = os_heap_reserve(NULL, size, &error, false);
+    if (error != HEAP_ERROR_SUCCESS) {
+        dr_printf("Failed to double-map "PFX" +0x%x\n", app_memory_start, size);
+        double_mappings->index--;
+        return 0;
+    }
+
+    //remap_pc = dr_raw_mremap(new_mapping->mapping_start, size, size,
+    //                         MREMAP_MAYMOVE|MREMAP_FIXED, app_memory_start);
+    remap_pc = (app_pc) dynamorio_syscall(SYS_mremap, 5, app_memory_start, size, size,
+                                 MREMAP_MAYMOVE|MREMAP_FIXED, new_mapping->mapping_start);
+
+    dr_printf("remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
+              remap_pc, new_mapping->mapping_start, app_memory_start);
+    //ASSERT(remap_pc == new_mapping->mapping_start);
+
+    if (dynamorio_syscall(SYS_mprotect, 3, new_mapping->mapping_start, size,
+                          PROT_READ|PROT_WRITE) != 0) {
+        dr_printf("Failed to make double-map "PFX" +0x%x writable\n",
+                  app_memory_start, size);
+        double_mappings->index--;
+        return 0;
+    }
+    return new_mapping->mapping_start - app_memory_start;
+}
+
 app_pc
 instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, app_pc area_start,
-                  app_pc area_end)
+                  app_pc write_target, size_t write_size, app_pc app_memory_start,
+                  size_t size)
 {
-    uint memop_index = 0, op_index;
-    app_pc write_target = 0, resume_pc;
+    int *target_access;
+    app_pc resume_pc;
     instr_t writer;
-    opnd_t write_opnd;
+    reg_t *target;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-
     instr_init(dcontext, &writer);
-    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
 
+    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
+    if (!instr_valid(&writer)) {
+        resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+    if (instr_get_opcode(&writer) == OP_mov_st) {
+        reg_t val;
+        ptr_int_t page_delta;
+        opnd_t src = instr_get_src(&writer, 0);
+        opnd_t dst = instr_get_dst(&writer, 0);
+        uint sz = opnd_size_in_bytes(opnd_get_size(dst));
+
+        ASSERT(opnd_is_memory_reference(dst));
+        if (sz != 4) {
+            resume_pc = NULL;
+            goto instrumentation_failure;
+        }
+
+        target = (reg_t *) opnd_compute_address_priv(dst, mc);
+        if ((app_pc) target != write_target) {
+            dr_printf("Warning: signal target "PFX" does not match decoded target "PFX"\n",
+                      write_target, target);
+            ASSERT(write_target >= app_memory_start &&
+                   write_target < (app_memory_start + size));
+        }
+        //    target = (reg_t *) opnd_compute_address_priv(dst, mc);
+        //ASSERT((app_pc) target == write_target); // no? using sig addr?
+
+        if (opnd_is_reg(src)) {
+            val = reg_get_value_priv(opnd_get_reg(src), mc);
+        } else if (opnd_is_immed_int(src)) {
+            val = (reg_t) opnd_get_immed_int(src);
+        } else {
+            resume_pc = NULL;
+            goto instrumentation_failure;
+        }
+
+        page_delta = get_double_mapped_page_delta(app_memory_start, size);
+        if (sz == 4) {
+            target_access = (int*)((ptr_int_t)write_target + page_delta);
+            *target_access = (int) val;
+            dr_printf("Successfully wrote to "PFX" via "PFX"\n", target, target_access);
+        } else {
+            resume_pc = NULL;
+        }
+    }
+
+instrumentation_failure:
+    if (resume_pc == NULL)
+        dr_printf("Failed to write "PFX" via "PFX"\n", target, target_access);
+    instr_free(dcontext, &writer);
+    return resume_pc;
+
+
+    /*
     while (target != write_target &&
            instr_compute_address_ex_pos(&writer, mc, memop_index++, &write_target, NULL,
                                         &op_index);
 
     ASSERT(target == write_target);
+    */
 
-    write_opnd = instr_get_dst(&writer, op_index);
-    switch (opnd.kind) {
+    /*
     case BASE_DISP_kind:
     case IMMED_INTEGER_kind:
     case IMMED_FLOAT_kind:
@@ -475,8 +617,7 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
     case FAR_PC_kind:
     case FAR_INSTR_kind:
     case MEM_INSTR_kind:
-
-    return resume_pc;
+    */
 }
 
 static inline bool

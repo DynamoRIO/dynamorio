@@ -53,8 +53,8 @@ annotation_flush_fragments(app_pc start, size_t len);
 #ifdef JITOPT
 app_pc
 instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, app_pc area_start,
-                  app_pc area_end);
+                  app_pc write_target, size_t write_size, app_pc app_memory_start,
+                  size_t size);
 
 void
 add_patchable_bb(app_pc start, app_pc end, bool is_trace_head);
