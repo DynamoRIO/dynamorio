@@ -366,17 +366,14 @@ bool
 is_valid_address(app_pc addr);
 
 bool
-is_app_managed_code(app_pc addr);
-
-void
-set_region_app_managed(app_pc start, size_t len);
+is_jit_managed_area(app_pc addr);
 
 #ifdef JIT_MONITORED_AREAS
-bool
-is_jit_monitored_area(app_pc addr);
-
 void
 set_region_jit_monitored(app_pc start, size_t len);
+#else
+void
+set_region_app_managed(app_pc start, size_t len);
 #endif
 
 /* Used for DR heap area changes as circular dependences prevent

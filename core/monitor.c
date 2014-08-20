@@ -85,7 +85,7 @@ extern bool mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_
 #define INITIAL_NUM_BLKS 8
 
 #define INIT_COUNTER_TABLE_SIZE 10
-#define COUNTER_TABLE_LOAD 45
+#define COUNTER_TABLE_LOAD 50
 /* counters must be in unprotected memory
  * we don't support local unprotected so we use global
  */

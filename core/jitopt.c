@@ -323,12 +323,12 @@ annotation_manage_code_area(app_pc start, size_t len)
     set_region_jit_monitored(start, len);
 #else
     set_region_app_managed(start, len);
+#endif
 
     if (!thread_state->scaled_trace_head_tables) {
         thread_state->scaled_trace_head_tables = true;
         set_trace_head_table_resize_scale(5);
     }
-#endif
 }
 
 void
@@ -336,7 +336,7 @@ annotation_unmanage_code_area(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
 
-    if (!is_app_managed_code(start))
+    if (!is_jit_managed_area(start))
         return;
 
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
@@ -371,19 +371,14 @@ annotation_flush_fragments(app_pc start, size_t len)
     dcontext_t *dcontext = get_thread_private_dcontext();
 
     // this is slow--maybe keep a local sorted list of app-managed regions
-#ifdef JIT_MONITORED_AREAS
-    if (!is_jit_monitored_area(start))
+    if (!is_jit_managed_area(start))
         return;
-#else
-    if (!is_app_managed_code(start))
-        return;
-#endif
 
 #ifdef CHECK_STALE_BBS
     check_stale_bbs();
 #endif
 
-    LOG(THREAD, LOG_ANNOTATIONS, 2, "Flush fragments "PFX"-"PFX"\n",
+    LOG(THREAD, LOG_ANNOTATIONS, 1, "Flush fragments "PFX"-"PFX"\n",
         start, start+len);
 
     if (dgc_stats->timer++ > 1000) {
@@ -398,32 +393,31 @@ annotation_flush_fragments(app_pc start, size_t len)
 
     RSTATS_INC(app_managed_writes_observed);
 #ifdef JITOPT
-    if (len < 0x1000) {
-        //if (is_vm_area_region_isolated(dcontext, start, start+len)) {
-            uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
-            if (removal_count > 0) {
-                RSTATS_INC(app_managed_writes_handled);
-                RSTATS_ADD(app_managed_fragments_removed, removal_count);
+    if (true) {
+        uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
+        if (removal_count > 0) {
+            RSTATS_INC(app_managed_writes_handled);
+            RSTATS_ADD(app_managed_fragments_removed, removal_count);
 
-                if (len < 4)
-                    RSTATS_INC(app_managed_micro_writes);
-                else if (len == 4) {
-                    if (maybe_exit_cti_disp_pc(start - 1) != NULL ||
-                        maybe_exit_cti_disp_pc(start - 2) != NULL)
-                        RSTATS_INC(app_managed_cti_target_writes);
-                    else
-                        RSTATS_INC(app_managed_word_writes);
-                } else if (len <= 0x20)
-                    RSTATS_INC(app_managed_small_writes);
-                else if (len <= 0x100)
-                    RSTATS_INC(app_managed_subpage_writes);
-            } else {
-                RSTATS_INC(app_managed_writes_ignored);
-            }
-
-        //} else {
-            //flush_and_isolate_region(dcontext, start, len);
-        //}
+            if (len < 4)
+                RSTATS_INC(app_managed_micro_writes);
+            else if (len == 4) {
+                if (maybe_exit_cti_disp_pc(start - 1) != NULL ||
+                    maybe_exit_cti_disp_pc(start - 2) != NULL)
+                    RSTATS_INC(app_managed_cti_target_writes);
+                else
+                    RSTATS_INC(app_managed_word_writes);
+            } else if (len <= 0x20)
+                RSTATS_INC(app_managed_small_writes);
+            else if (len <= 0x100)
+                RSTATS_INC(app_managed_subpage_writes);
+            else if (len == PAGE_SIZE)
+                RSTATS_INC(app_managed_page_writes);
+            else
+                RSTATS_INC(app_managed_multipage_writes);
+        } else {
+            RSTATS_INC(app_managed_writes_ignored);
+        }
     } else {
 # endif
         if (len == PAGE_SIZE)
@@ -450,6 +444,40 @@ valgrind_discard_translations(dr_vg_client_request_t *request)
 #endif
 
 #ifdef JITOPT
+app_pc
+instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
+                  app_pc write_target, size_t write_size, app_pc area_start,
+                  app_pc area_end)
+{
+    uint memop_index = 0, op_index;
+    app_pc write_target = 0, resume_pc;
+    instr_t writer;
+    opnd_t write_opnd;
+    priv_mcontext_t *mc = get_mcontext(dcontext);
+
+    instr_init(dcontext, &writer);
+    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
+
+    while (target != write_target &&
+           instr_compute_address_ex_pos(&writer, mc, memop_index++, &write_target, NULL,
+                                        &op_index);
+
+    ASSERT(target == write_target);
+
+    write_opnd = instr_get_dst(&writer, op_index);
+    switch (opnd.kind) {
+    case BASE_DISP_kind:
+    case IMMED_INTEGER_kind:
+    case IMMED_FLOAT_kind:
+    case PC_kind:
+    case INSTR_kind:
+    case REG_kind:
+    case FAR_PC_kind:
+    case FAR_INSTR_kind:
+    case MEM_INSTR_kind:
+
+    return resume_pc;
+}
 
 static inline bool
 dgc_bb_is_head(dgc_bb_t *bb)
@@ -1041,7 +1069,7 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
     ptr_uint_t hash = hash_bits(span+1, start);
 
     // this is slow--maybe keep a local sorted list of app-managed regions
-    if (!is_app_managed_code(start))
+    if (!is_jit_managed_area(start))
         return;
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb ["PFX"-"PFX"]%s\n",

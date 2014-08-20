@@ -3347,7 +3347,7 @@ fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f)
     fragment_remove(dcontext, f, false);
 
 #ifdef JITOPT
-    if (is_app_managed_code(f->tag))
+    if (is_jit_managed_area(f->tag))
         dgc_table_dereference_bb(f->tag);
 #endif
 
@@ -6868,7 +6868,7 @@ flush_fragments_and_remove_region(dcontext_t *dcontext, app_pc base, size_t size
     flush_fragments_in_region_finish(dcontext, own_initexit_lock);
 
 #ifdef JITOPT
-    if (is_app_managed_code(base))
+    if (is_jit_managed_area(base))
         dgc_notify_region_cleared(base, base+size);
 #endif
 
@@ -6902,7 +6902,7 @@ flush_fragments_from_region(dcontext_t *dcontext, app_pc base, size_t size,
     flush_fragments_in_region_finish(dcontext, false);
 
 #ifdef JITOPT
-    if (is_app_managed_code(base))
+    if (is_jit_managed_area(base))
         dgc_notify_region_cleared(base, base+size);
 #endif
 }
@@ -6959,7 +6959,7 @@ flush_vmvector_regions(dcontext_t *dcontext, vm_area_vector_t *toflush,
         flush_fragments_in_region_finish(dcontext, false/*no lock*/);
 
 #ifdef JITOPT
-        if (is_app_managed_code(start))
+        if (is_jit_managed_area(start))
             dgc_notify_region_cleared(start, end);
 #endif
 

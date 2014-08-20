@@ -3414,7 +3414,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
      */
     if (was_executable_area_writable(target)
 #ifdef JIT_MONITORED_AREAS
-        || is_jit_monitored_area(target)
+        || is_jit_managed_area(target)
 #endif
     ) {
         /* translate instr_cache_pc to original app pc

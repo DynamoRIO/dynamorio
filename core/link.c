@@ -1441,8 +1441,8 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
 #ifdef TRACE_ANALYSIS
             for (t = s; t; t = (common_direct_linkstub_t *) t->next_incoming, count++);
             if (count > 100000 || wonko_bb == targetf->tag) {
-                bool from_app_managed = is_app_managed_code(f->tag);
-                bool to_app_managed = is_app_managed_code(targetf->tag);
+                bool from_jit_managed = is_jit_managed_area(f->tag);
+                bool to_jit_managed = is_jit_managed_area(targetf->tag);
                 int bb_count = -1;
                 if (wonko_bb == NULL)
                     wonko_bb = targetf->tag;
@@ -1455,9 +1455,9 @@ incoming_remove_link_search(dcontext_t *dcontext, fragment_t *f, linkstub_t *l,
                 dr_printf("Many links (%d) removing linkstub (0x%x) from "PFX
                           " (0x%x %s) to "PFX" (0x%x, %s) -- trace has %d blocks\n",
                           count, l->flags, f->tag, f->flags,
-                          from_app_managed ? "app-managed" : "not app-managed",
+                          from_jit_managed ? "app-managed" : "not app-managed",
                           targetf->tag, targetf->flags,
-                          to_app_managed ? "app-managed" : "not app-managed", bb_count);
+                          to_jit_managed ? "app-managed" : "not app-managed", bb_count);
 
             }
 #endif

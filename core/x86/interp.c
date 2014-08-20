@@ -288,9 +288,9 @@ update_overlap_info(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc, bool jm
     }
     if (bb->overlap_info->contiguous && jmp) {
         bb->overlap_info->contiguous = false;
-        if (is_app_managed_code(bb->overlap_info->min_pc) || is_app_managed_code(bb->overlap_info->max_pc) ||
-            is_app_managed_code(bb->last_page) || is_app_managed_code(bb->overlap_info->region_end) ||
-            is_app_managed_code(new_pc)) {
+        if (is_jit_managed_area(bb->overlap_info->min_pc) || is_jit_managed_area(bb->overlap_info->max_pc) ||
+            is_jit_managed_area(bb->last_page) || is_jit_managed_area(bb->overlap_info->region_end) ||
+            is_jit_managed_area(new_pc)) {
             dr_printf("Non-contiguous app-managed bb: "PFX" and "PFX"\n",
                 bb->start_pc, new_pc);
         }
@@ -4751,7 +4751,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
 #ifdef JITOPT
-    if (visible && is_app_managed_code(bb.start_pc)) {
+    if (visible && is_jit_managed_area(bb.start_pc)) {
         bb.flags |= FRAG_APP_MANAGED;
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
         add_patchable_bb(bb.start_pc, bb.end_pc, TEST(FRAG_IS_TRACE_HEAD, bb.flags));
