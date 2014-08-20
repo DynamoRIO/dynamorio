@@ -994,3 +994,9 @@ function (use_DynamoRIO_annotations target target_srcs)
   configure_DynamoRIO_annotation_sources("${dr_annotation_srcs}")
   set(${target_srcs} ${${target_srcs}} ${dr_annotation_srcs} PARENT_SCOPE)
 endfunction (use_DynamoRIO_annotations target target_srcs)
+
+# Support co-located DRMF without having to separately specify it
+if (NOT DrMemoryFramework_DIR AND EXISTS "${DynamoRIO_DIR}/../drmemory/drmf")
+  set(DrMemoryFramework_DIR "${DynamoRIO_DIR}/../drmemory/drmf")
+  find_package(DrMemoryFramework)
+endif ()
