@@ -291,10 +291,4 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   )
 
-# Include a copy of a recent (> 6.0) redistributable version of dbghelp, if
-# we found one, so our drsyms-using samples work pre-Vista.
-if (dbghelp_path)
-  DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_SAMPLES_BIN})
-endif ()
-
 DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/${INSTALL_SAMPLES}/README\" \"This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n\")")

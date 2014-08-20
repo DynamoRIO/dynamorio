@@ -179,6 +179,7 @@ Further non-compatibility-affecting changes include:
    installation information.
  - Renamed the strace sample to "syscall" and removed its tracing feature,
    in favor of a superior strace sample inside DRMF.
+ - Included a copy of dbghelp.dll for drsyms
 
 **************************************************
 <hr>

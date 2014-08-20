@@ -225,5 +225,9 @@ if (WIN32)
   # We need separate 32-bit and 64-bit versions so we put into lib dir.
   # We put into base dir and not ext for easy sharing w/ including clients.
   DR_install(FILES ${dbghelp_lib} DESTINATION ${INSTALL_LIB_BASE})
+  # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
+  # if we found one, so our drsyms works pre-Vista.
+  if (dbghelp_path)
+    DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_EXT_LIB})
+  endif ()
 endif (WIN32)
-
