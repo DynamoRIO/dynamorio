@@ -1020,9 +1020,15 @@ string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
+
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION "401")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "401")
+set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
+  "Oldest compatible version: leave empty for default")
+if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
+  set(OLDEST_COMPATIBLE_VERSION ${OLDEST_COMPATIBLE_VERSION_DEFAULT})
+endif()
 
 # i#955: a Windows version of ELF DT_RPATH where a local file stores lib paths
 set(DR_RPATH_SUFFIX "drpath")

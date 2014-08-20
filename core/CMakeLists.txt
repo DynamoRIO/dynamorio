@@ -560,8 +560,9 @@ if (UNIX)
   if (NOT APPLE) # FIXME i#1374: versioning causing problems
     set_target_properties(dynamorio PROPERTIES
       VERSION "${VERSION_MAJOR_MINOR}" SOVERSION "${VERSION_MAJOR_MINOR}")
-    # We assume we're still on 3.x
     if (NOT STATIC_LIBRARY)
+      # We assume OLDEST_COMPATIBLE_VERSION and cur ver have the same major #.
+      # If they don't we need additional calls here.
       generate_soversions(${OLDEST_COMPATIBLE_VERSION} ${VERSION_NUMBER_INTEGER})
     endif ()
   endif (NOT APPLE)
