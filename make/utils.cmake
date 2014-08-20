@@ -42,7 +42,7 @@ function (identify_clang)
 endfunction (identify_clang)
 
 function (append_property_string type target name value)
-  _DR_append_property_string(${type} ${target} ${name} ${value})
+  _DR_append_property_string(${type} ${target} ${name} "${value}")
 endfunction (append_property_string)
 
 function (append_property_list type target name value)
