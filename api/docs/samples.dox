@@ -58,6 +58,9 @@ The sample <a href="../../samples/cbr.c">cbr.c</a> collects conditional branch
 execution information and shows how to dynamically
 update or replace instrumented code after it executes.
 
+The sample <a href="../../samples/cbrtrace.c">cbrtrace.c</a> collects
+conditional branch execution traces and writes them into files.
+
 The sample <a href="../../samples/countcalls.c">countcalls.c</a>
 reports the dynamic execution count for direct calls, indirect calls, and
 returns in the target application. It illustrates how to perform
@@ -112,6 +115,9 @@ use the system call events and API routines.
 The sample <a href="../../samples/tracedump.c">tracedump.c</a> is provided
 as a standalone application that disassembles a trace dump in binary format
 produced by the -tracedump_binary option.
+
+The sample <a href="../../samples/wrap.c">wrap.c</a> demonstrates how to use
+the drwrap extension (see \ref page_drwrap).
 
 \if vmsafe
 \section probe_samples Probe API Examples
