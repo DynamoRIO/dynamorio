@@ -563,7 +563,7 @@ proc_get_cache_size_str(cache_size_t size)
         "2 MB",
         "unknown"
     };
-    CLIENT_ASSERT(size <= CACHE_SIZE_UNKNOWN, "proc_get_cache_size_str: invalid size");
+    //CLIENT_ASSERT(size <= CACHE_SIZE_UNKNOWN, "proc_get_cache_size_str: invalid size");
     return strings[size];
 }
 
