@@ -10581,7 +10581,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end)
  * If instr_cache_pc==NULL, assumes the cache is unavailable (due to reset).
  */
 app_pc
-handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
+handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_cache_pc,
                      app_pc instr_app_pc, app_pc target, fragment_t *f)
 {
     /* FIXME: for Linux, this is all happening inside signal handler...
@@ -10699,11 +10699,11 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
     if (is_jit_managed_area(target)) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
         if (is_jit_self_write)
-            dr_printf("JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
+            dr_fprintf(STDERR, "JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
         else if (!is_unmod_image(instr_app_pc))
-            dr_printf("DGC instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
+            dr_fprintf(STDERR, "DGC instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
         //vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
-        app_pc resume_pc = instrument_writer(dcontext, f, instr_app_pc, target, opnd_size,
+        app_pc resume_pc = instrument_writer(dcontext, mc, f, instr_app_pc, target, opnd_size,
                                              //jit_monitored_area->start,
                                              //jit_monitored_area->end - jit_monitored_area->start,
                                              prot, is_jit_self_write);

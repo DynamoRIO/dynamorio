@@ -52,7 +52,7 @@ annotation_flush_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
 app_pc
-instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
+instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
                   app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write);
 
 void

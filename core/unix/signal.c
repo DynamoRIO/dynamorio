@@ -3278,11 +3278,11 @@ is_sys_kill(dcontext_t *dcontext, byte *pc, byte *xsp, siginfo_t *info)
 
 static byte *
 compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                      sigcontext_t *sc, siginfo_t *si, bool *write)
+                      priv_mcontext_t *mc, siginfo_t *si, bool *write)
 {
     byte *target = NULL;
     instr_t instr;
-    priv_mcontext_t mc;
+    //priv_mcontext_t mc;
     uint memopidx, memoppos, memopsize;
     opnd_t memop;
     bool found_target = false;
@@ -3314,7 +3314,6 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         return NULL;
     }
 
-    sigcontext_to_mcontext(&mc, sc);
     ASSERT(write != NULL);
 
     /* i#1009: If si_addr is plausibly one of the memory operands of the
@@ -3326,7 +3325,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
      */
     if (si->si_code == SEGV_ACCERR && si->si_addr != NULL) {
         for (memopidx = 0;
-             instr_compute_address_ex_priv(&instr, &mc, memopidx,
+             instr_compute_address_ex_priv(&instr, mc, memopidx,
                                            &target, write, &memoppos);
              memopidx++) {
             /* i#1045: check whether operand and si_addr overlap */
@@ -3350,7 +3349,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
      */
     if (DYNAMO_OPTION(use_all_memory_areas)) {
         use_allmem = safe_is_in_fcache(dcontext, instr_cache_pc,
-                                       (byte *)sc->SC_XSP);
+                                       (byte *)mc->xsp);
     }
     if (!found_target) {
         if (si->si_addr != NULL) {
@@ -3359,7 +3358,7 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
         /* i#115/PR 394984: consider all memops */
         for (memopidx = 0;
-             instr_compute_address_ex_priv(&instr, &mc, memopidx,
+             instr_compute_address_ex_priv(&instr, mc, memopidx,
                                            &target, write, NULL);
              memopidx++) {
             if (use_allmem) {
@@ -3401,8 +3400,8 @@ compute_memory_target(dcontext_t *dcontext, cache_pc instr_cache_pc,
  * does not need translation but rather should always be re-executed.
  */
 static bool
-check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
-                        sigcontext_t *sc, byte *target, bool native_state)
+check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontext_t *sc,
+                        priv_mcontext_t *mc, byte *target, bool native_state)
 {
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
@@ -3440,7 +3439,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         }
 
         next_pc =
-            handle_modified_code(dcontext, instr_cache_pc, translated_pc,
+            handle_modified_code(dcontext, mc, instr_cache_pc, translated_pc,
                                  target, f);
 
         if (!native_state) {
@@ -3712,6 +3711,7 @@ master_signal_handler_C(byte *xsp)
         bool is_write = false;
         byte *target;
         bool is_DR_exception = false;
+        priv_mcontext_t mc;
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -3719,6 +3719,9 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 #endif
+
+        sigcontext_to_mcontext(&mc, sc);
+
         if (is_safe_read_ucxt(ucxt) ||
             (!dynamo_initialized && global_try_except.try_except_state != NULL) ||
             dcontext->try_except.try_except_state != NULL) {
@@ -3761,7 +3764,7 @@ master_signal_handler_C(byte *xsp)
             ASSERT_NOT_REACHED();
         }
 
-        target = compute_memory_target(dcontext, pc, sc, siginfo, &is_write);
+        target = compute_memory_target(dcontext, pc, &mc, siginfo, &is_write);
 
 #ifdef CLIENT_INTERFACE
         if (!IS_INTERNAL_STRING_OPTION_EMPTY(client_lib) && is_in_client_lib(pc)) {
@@ -3771,7 +3774,7 @@ master_signal_handler_C(byte *xsp)
              */
             if (is_write && !is_couldbelinking(dcontext) &&
                 OWN_NO_LOCKS(dcontext) &&
-                check_for_modified_code(dcontext, pc, sc, target, true/*native*/))
+                check_for_modified_code(dcontext, pc, sc, &mc, target, true/*native*/))
                 break;
             abort_on_fault(dcontext, DUMPCORE_CLIENT_EXCEPTION, pc, sc,
                            exception_label_client,  (sig == SIGSEGV) ? "SEGV" : "BUS",
@@ -3885,7 +3888,7 @@ master_signal_handler_C(byte *xsp)
              * that were writable and marked read-only by us.
              */
             if (is_write &&
-                check_for_modified_code(dcontext, pc, sc, target, false/*!native*/)) {
+                check_for_modified_code(dcontext, pc, sc, &mc, target, false/*!native*/)) {
                 /* it was our signal, so don't pass to app -- return now */
                 break;
             }

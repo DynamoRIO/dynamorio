@@ -1618,6 +1618,14 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_XSI: return XSI_OFFSET;
     case REG_XDI: return XDI_OFFSET;
 #ifdef X64
+    case REG_EAX: return XAX_OFFSET;
+    case REG_EBX: return XBX_OFFSET;
+    case REG_ECX: return XCX_OFFSET;
+    case REG_EDX: return XDX_OFFSET;
+    case REG_ESP: return XSP_OFFSET;
+    case REG_EBP: return XBP_OFFSET;
+    case REG_ESI: return XSI_OFFSET;
+    case REG_EDI: return XDI_OFFSET;
     case REG_R8:  return  R8_OFFSET;
     case REG_R9:  return  R9_OFFSET;
     case REG_R10: return R10_OFFSET;

@@ -186,7 +186,7 @@ static dgc_removal_queue_t *dgc_removal_queue;
 
 //#define TRACE_ANALYSIS 1
 
-//#define RELEASE_NOISE 1
+#define RELEASE_NOISE 1
 #ifdef RELEASE_NOISE
 # define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
 # ifdef DEBUG
@@ -353,7 +353,7 @@ jitopt_exit()
                                        double_mappings->mappings[i].mapping_start,
                                        double_mappings->mappings[i].size);
         if (result < 0) {
-            dr_printf("Failed to unmap the double-mapping at "PFX"\n",
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unmap the double-mapping at "PFX"\n",
                       double_mappings->mappings[i].mapping_start);
         }
     }
@@ -449,6 +449,7 @@ annotation_flush_fragments(app_pc start, size_t len)
     if (true) {
         uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
         if (removal_count > 0) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Removed %d fragments in ["PFX"-"PFX"].\n", removal_count, start, start+len);
             RSTATS_INC(app_managed_writes_handled);
             RSTATS_ADD(app_managed_fragments_removed, removal_count);
 
@@ -469,6 +470,7 @@ annotation_flush_fragments(app_pc start, size_t len)
             else
                 RSTATS_INC(app_managed_multipage_writes);
         } else {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Ignored write to ["PFX"-"PFX"].\n", start, start+len);
             RSTATS_INC(app_managed_writes_ignored);
         }
     } else {
@@ -510,9 +512,15 @@ typedef struct double_mapping_list_t {
 } double_mapping_list_t;
 */
 
+#ifdef X64
+# define MMAP SYS_mmap
+#else
+# define MMAP SYS_mmap2
+#endif
+
 // TODO: synch?
 static ptr_uint_t
-get_double_mapped_page_delta(app_pc app_memory_start, size_t app_memory_size, uint prot)
+get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size_t app_memory_size, uint prot)
 {
     int fd, result;
     uint i;
@@ -535,38 +543,38 @@ get_double_mapped_page_delta(app_pc app_memory_start, size_t app_memory_size, ui
     memcpy(file, "/dev/shm/jit_", 13);
     file[13] = '0' + double_mappings->index;
     file[14] = '\0';
-    dr_printf("Mapping "PFX" +0x%x to shmem %s\n", app_memory_start, app_memory_size, file);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Mapping "PFX" +0x%x to shmem %s\n", app_memory_start, app_memory_size, file);
     fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_NOFOLLOW, S_IRUSR | S_IWUSR);
     if (fd < 0) {
-        dr_printf("Failed to create the backing file %s for the double-mapping\n", file);
-        dr_printf("Error: '%s'\n", strerror(fd));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to create the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error: '%s'\n", strerror(fd));
         return 0;
     }
     result = dynamorio_syscall(SYS_ftruncate, 2, fd, app_memory_size);
     if (result < 0) {
-        dr_printf("Failed to resize the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to resize the backing file %s for the double-mapping\n", file);
         return 0;
     }
     new_mapping->fd = fd;
     result = dynamorio_syscall(SYS_unlink, 1, file);
     if (result < 0) {
-        dr_printf("Failed to unlink the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unlink the backing file %s for the double-mapping\n", file);
         return 0;
     }
 
-    new_mapping->mapping_start = (app_pc) dynamorio_syscall(SYS_mmap2, 6, NULL, app_memory_size,
+    new_mapping->mapping_start = (app_pc) dynamorio_syscall(MMAP, 6, NULL, app_memory_size,
                                                    PROT_READ|PROT_WRITE, MAP_SHARED,
                                                    fd, 0/*offset*/);
     memcpy(new_mapping->mapping_start, app_memory_start, app_memory_size);
     result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, app_memory_size);
     if (result < 0) {
-        dr_printf("Failed to unmap the original memory at "PFX"\n", app_memory_start);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unmap the original memory at "PFX"\n", app_memory_start);
         return 0;
     }
-    remap_pc = (app_pc) dynamorio_syscall(SYS_mmap2, 6, app_memory_start, app_memory_size,
+    remap_pc = (app_pc) dynamorio_syscall(MMAP, 6, app_memory_start, app_memory_size,
                                  prot, MAP_SHARED | MAP_FIXED, fd, 0/*offset*/);
 
-    dr_printf("remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
               remap_pc, new_mapping->mapping_start, app_memory_start);
 
     ASSERT(remap_pc == app_memory_start);
@@ -576,7 +584,7 @@ get_double_mapped_page_delta(app_pc app_memory_start, size_t app_memory_size, ui
 }
 
 app_pc
-instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
+instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
                   app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
 {
     instr_t writer;
@@ -589,7 +597,7 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
     size_t app_memory_size;
     app_pc app_memory_start;
     uint *target_access = NULL;
-    priv_mcontext_t *mc = get_mcontext(dcontext);
+    //priv_mcontext_t *mc = get_mcontext(dcontext);
 
     uint i;
     ptr_int_t page_delta;
@@ -607,7 +615,7 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
     case OP_movdqa:
         break;
     default:
-        dr_printf("Can't instrument opcode 0x%x.\n", instr_get_opcode(&writer));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Can't instrument opcode 0x%x.\n", instr_get_opcode(&writer));
         resume_pc = NULL;
         goto skip_instrumentation;
     }
@@ -618,7 +626,7 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
 
     ASSERT(opnd_is_memory_reference(dst));
     if (sz < 4 || sz > 128 || sz % 4 != 0) {
-        dr_printf("Cannot instrument instruction with opcode 0x%x and dst size %d\n",
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Cannot instrument instruction with opcode 0x%x and dst size %d\n",
                   instr_get_opcode(&writer), sz);
         resume_pc = NULL;
         goto instrumentation_failure;
@@ -637,34 +645,34 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
 
     if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
         resume_pc = NULL;
-        dr_printf("Skipping instrumentation of "PFX"\n", write_target);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Skipping instrumentation of "PFX"\n", write_target);
         goto skip_instrumentation;
     }
 
     ASSERT(write_target >= app_memory_start &&
            write_target < (app_memory_start + app_memory_size));
 
-    page_delta = get_double_mapped_page_delta(app_memory_start, app_memory_size, prot);
+    page_delta = get_double_mapped_page_delta(dcontext, app_memory_start, app_memory_size, prot);
     if (page_delta == 0) {
-        dr_printf("Can't find page delta for app memory at "PFX"\n", app_memory_start);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Can't find page delta for app memory at "PFX"\n", app_memory_start);
         resume_pc = NULL;
         goto instrumentation_failure;
     }
 
     target_access = (uint *)((ptr_int_t)write_target + page_delta);
-    dr_printf("Attempting to write %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Attempting to write %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
     for (i = 0; i < (sz/4); i++, target_access++, value++)
         *target_access = *value;
     target_access = (uint *)((ptr_int_t)write_target + page_delta);
     ASSERT(*target_access == *value_base);
     ASSERT(*(uint*)write_target == *value_base);
-    dr_printf("Successfully wrote %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-    //if (!is_jit_self_write)
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully wrote %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
+    if (!is_jit_self_write)
         annotation_flush_fragments(write_target, sz);
 
 instrumentation_failure:
     if (resume_pc == NULL)
-        dr_printf("Failed to write "PFX" via "PFX"\n", write_target, target_access);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to write "PFX" via "PFX"\n", write_target, target_access);
 skip_instrumentation:
     instr_free(dcontext, &writer);
     return resume_pc;

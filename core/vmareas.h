@@ -767,7 +767,7 @@ thread_vm_area_overlap(dcontext_t *dcontext, app_pc start, app_pc end);
  * Pass in the fragment containing instr_cache_pc if known: else pass NULL.
  */
 app_pc
-handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
+handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_cache_pc,
                      app_pc instr_app_pc, app_pc target, fragment_t *f);
 
 /* Returns the counter a selfmod fragment should execute for -sandbox2ro_threshold */
