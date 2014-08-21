@@ -218,6 +218,7 @@ add_sample_client(signal      "signal.c"        "")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
+add_sample_client(cbrtrace    "cbrtrace.c;utils.c"         "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
