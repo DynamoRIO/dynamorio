@@ -10679,7 +10679,8 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
         vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
         app_pc resume_pc = instrument_writer(dcontext, f, instr_app_pc, target, opnd_size,
                                              jit_monitored_area->start,
-                                             jit_monitored_area->end - jit_monitored_area->start);
+                                             jit_monitored_area->end - jit_monitored_area->start,
+                                             prot);
 
         LOG(THREAD, LOG_VMAREAS, 1, "JITMON: App writes ("PFX",+0x%x) from "PFX
             " to JIT monitored area.\n", target, opnd_size, instr_size_pc);

@@ -37,10 +37,18 @@
 #include "annotations.h"
 #include "jitopt.h"
 
-#define _GNU_SOURCE 1
-#include <unistd.h>
+#include <string.h>
+
+#define O_TMPFILE 0x40010000
+
+#include <stdlib.h>
+//#define _GNU_SOURCE 1
 #ifdef LINUX
-#include <linux/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+//#include <unistd.h>
 # include "include/syscall.h"            /* our own local copy */
 #else
 # include <sys/syscall.h>
@@ -155,6 +163,7 @@ typedef struct _double_mapping_t {
     app_pc app_memory_start;
     app_pc mapping_start;
     size_t size;
+    int fd;
 } double_mapping_t;
 
 typedef struct double_mapping_list_t {
@@ -486,14 +495,17 @@ typedef struct double_mapping_list_t {
 } double_mapping_list_t;
 */
 
+#define JIT_CODE_MAPPING_BASENAME "jit_code_mapping_XXXXXX"
+
 // TODO: synch?
 static ptr_uint_t
-get_double_mapped_page_delta(app_pc app_memory_start, size_t size)
+get_double_mapped_page_delta(app_pc app_memory_start, size_t size, uint prot)
 {
+    int fd, result;
     uint i;
+    char file[0x20];
     app_pc remap_pc;
     double_mapping_t *new_mapping;
-    heap_error_code_t error;
 
     for (i = 0; i < double_mappings->index; i++) {
         if (double_mappings->mappings[i].app_memory_start == app_memory_start) {
@@ -502,41 +514,48 @@ get_double_mapped_page_delta(app_pc app_memory_start, size_t size)
         }
     }
 
-    double_mappings->index++;
     ASSERT(double_mappings->index < MAX_DOUBLE_MAPPINGS);
     new_mapping = &double_mappings->mappings[double_mappings->index];
     new_mapping->app_memory_start = app_memory_start;
     new_mapping->size = size;
-    new_mapping->mapping_start = os_heap_reserve(NULL, size, &error, false);
-    if (error != HEAP_ERROR_SUCCESS) {
-        dr_printf("Failed to double-map "PFX" +0x%x\n", app_memory_start, size);
-        double_mappings->index--;
+
+    strcpy(file, JIT_CODE_MAPPING_BASENAME);
+    fd = mkstemp(file);
+    if (fd < 0) {
+        dr_printf("Failed to create the backing file %s for the double-mapping\n", file);
         return 0;
     }
-
-    //remap_pc = dr_raw_mremap(new_mapping->mapping_start, size, size,
-    //                         MREMAP_MAYMOVE|MREMAP_FIXED, app_memory_start);
-    remap_pc = (app_pc) dynamorio_syscall(SYS_mremap, 5, app_memory_start, size, size,
-                                 MREMAP_MAYMOVE|MREMAP_FIXED, new_mapping->mapping_start);
+    new_mapping->fd = fd;
+    new_mapping->mapping_start = (app_pc) dynamorio_syscall(SYS_mmap2, 6, NULL, size,
+                                                   PROT_READ|PROT_WRITE, MAP_SHARED,
+                                                   fd, 0/*offset*/);
+    result = dynamorio_syscall(SYS_ftruncate, 2, fd, size);
+    if (result < 0) {
+        dr_printf("Failed to resize the backing file %s for the double-mapping\n", file);
+        return 0;
+    }
+    memcpy(new_mapping->mapping_start, app_memory_start, size);
+    result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, size);
+    if (result < 0) {
+        dr_printf("Failed to unmap the original memory at "PFX"\n", app_memory_start);
+        return 0;
+    }
+    remap_pc = (app_pc) dynamorio_syscall(SYS_mmap2, 6, app_memory_start, size,
+                                 prot, MAP_SHARED | MAP_FIXED, fd, 0/*offset*/);
 
     dr_printf("remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
               remap_pc, new_mapping->mapping_start, app_memory_start);
-    //ASSERT(remap_pc == new_mapping->mapping_start);
 
-    if (dynamorio_syscall(SYS_mprotect, 3, new_mapping->mapping_start, size,
-                          PROT_READ|PROT_WRITE) != 0) {
-        dr_printf("Failed to make double-map "PFX" +0x%x writable\n",
-                  app_memory_start, size);
-        double_mappings->index--;
-        return 0;
-    }
+    ASSERT(remap_pc == app_memory_start);
+
+    double_mappings->index++;
     return new_mapping->mapping_start - app_memory_start;
 }
 
 app_pc
 instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
                   app_pc write_target, size_t write_size, app_pc app_memory_start,
-                  size_t size)
+                  size_t size, uint prot)
 {
     int *target_access;
     app_pc resume_pc;
@@ -567,6 +586,7 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
         if ((app_pc) target != write_target) {
             dr_printf("Warning: signal target "PFX" does not match decoded target "PFX"\n",
                       write_target, target);
+            //write_target = (app_pc) target;
             ASSERT(write_target >= app_memory_start &&
                    write_target < (app_memory_start + size));
         }
@@ -582,11 +602,21 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
             goto instrumentation_failure;
         }
 
-        page_delta = get_double_mapped_page_delta(app_memory_start, size);
+        page_delta = get_double_mapped_page_delta(app_memory_start, size, prot);
         if (sz == 4) {
+            int result;
             target_access = (int*)((ptr_int_t)write_target + page_delta);
+            dr_printf("Attempting to write 0x%x to "PFX" via "PFX"\n", val, target, target_access);
             *target_access = (int) val;
-            dr_printf("Successfully wrote to "PFX" via "PFX"\n", target, target_access);
+            result = dynamorio_syscall(SYS_msync, 3, ALIGN_BACKWARD(write_target, PAGE_SIZE),
+                                       PAGE_SIZE, MS_INVALIDATE);
+            if (result < 0) {
+                dr_printf("Failed to msync the write! Error code %d.\n", result);
+                goto instrumentation_failure;
+            }
+            ASSERT(*target_access == val);
+            ASSERT(*(int*)write_target == val);
+            dr_printf("Successfully wrote 0x%x to "PFX" via "PFX"\n", val, target, target_access);
         } else {
             resume_pc = NULL;
         }
