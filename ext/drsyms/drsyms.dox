@@ -57,7 +57,8 @@ To use \p drsyms with your client simply include this line in your client's
 That will automatically set up the include path and library dependence.
 
 The \p drsyms library on Windows relies on the \p dbghelp.dll library from
-Microsoft.  You will need to download the Debugging Tools for Windows
+Microsoft.  A copy of the \p dbghelp.dll library is included.
+You can also download the Debugging Tools for Windows
 package from http://www.microsoft.com/whdc/devtools/debugging/default.mspx
 and place the \p dbghelp.dll in the same directory as either \p drsyms.dll
 or as your client library.  Version 6.0 or higher of \p dbghelp.dll is

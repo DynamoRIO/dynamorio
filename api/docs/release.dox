@@ -114,7 +114,12 @@ find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx 
 \section sec_changes Changes Since Prior Releases
 
 The current version is \DR_VERSION.
-The changes between version \DR_VERSION and 4.2.0 include the
+
+Version \DR_VERSION includes Dr. Memory and the Dr. Memory Framework (DRMF)
+in the same package as DynamoRIO.  DRMF provides the umbra, drsyscall, and
+drsymcache Extensions for use by clients.
+
+The changes between version \DR_VERSION and 4.2.0 also include the
 following minor compatibility changes:
 
  - Dropped official support for Windows 2000.  The core DynamoRIO engine
@@ -133,6 +138,8 @@ following minor compatibility changes:
  - Changed the operand sizes of instructions that read or write only part
    of a multimedia register (mmx, xmm, or ymm) to reflect the partial size.
  - Added return value for dr_fprintf to indicate how many bytes are written.
+ - Renamed the function add_rel_rpaths() in DynamoRIOConfig.cmake to
+   DynamoRIO_add_rel_rpaths().
 
 Further non-compatibility-affecting changes include:
 
@@ -168,6 +175,13 @@ Further non-compatibility-affecting changes include:
  - Added dr_config_status_code_to_string().
  - Added custom tool front-end launching support to drrrun tool config files.
  - Added a tool notification feature to drrun tool config files.
+ - Added get_visualstudio_info() for looking up visual studio
+   installation information.
+ - Renamed the strace sample to "syscall" and removed its tracing feature,
+   in favor of a superior strace sample inside DRMF.
+ - Included a copy of dbghelp.dll for drsyms
+ - Added dr_insert_cbr_instrumentation_ex(),
+   which provides the fall-through address.
 
 **************************************************
 <hr>

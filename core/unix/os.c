@@ -4284,6 +4284,12 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
     } else
         return !TEST(EFLAGS_CF, mc->eflags);
 #else
+    if (normalized_sysnum == SYS_mmap ||
+# ifndef X64
+        normalized_sysnum == SYS_mmap2 ||
+# endif
+        normalized_sysnum == SYS_mremap)
+        return mmap_syscall_succeeded((byte *)mc->xax);
     return ((ptr_int_t)mc->xax >= 0);
 #endif
 }
