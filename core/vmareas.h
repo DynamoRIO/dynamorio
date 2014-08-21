@@ -369,6 +369,9 @@ bool
 is_jit_managed_area(app_pc addr);
 
 #ifdef JIT_MONITORED_AREAS
+bool
+get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size);
+
 void
 set_region_jit_monitored(app_pc start, size_t len);
 #else

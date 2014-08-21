@@ -3498,6 +3498,16 @@ is_jit_managed_area(app_pc addr)
         return false;
 }
 
+bool
+is_unmod_image(app_pc addr)
+{
+    uint vm_flags;
+    if (get_executable_area_vm_flags(addr, &vm_flags))
+        return TEST(VM_UNMOD_IMAGE, vm_flags);
+    else
+        return false;
+}
+
 #ifdef JIT_MONITORED_AREAS
 static vm_area_t *
 get_jit_monitored_area(app_pc addr)
@@ -3512,6 +3522,17 @@ get_jit_monitored_area(app_pc addr)
         return area;
     else
         return NULL;
+}
+
+bool
+get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size)
+{
+    vm_area_t *area = get_jit_monitored_area(addr);
+    if (area == NULL)
+        return false;
+    *start = area->start;
+    *size = (area->end - area->start);
+    return true;
 }
 
 void
@@ -10676,23 +10697,28 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
 
 #ifdef JIT_MONITORED_AREAS
     if (is_jit_managed_area(target)) {
-        vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
+        bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
+        if (is_jit_self_write)
+            dr_printf("JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
+        else if (!is_unmod_image(instr_app_pc))
+            dr_printf("DGC instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
+        //vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
         app_pc resume_pc = instrument_writer(dcontext, f, instr_app_pc, target, opnd_size,
-                                             jit_monitored_area->start,
-                                             jit_monitored_area->end - jit_monitored_area->start,
-                                             prot);
+                                             //jit_monitored_area->start,
+                                             //jit_monitored_area->end - jit_monitored_area->start,
+                                             prot, is_jit_self_write);
+        if (resume_pc != NULL) {
+            LOG(THREAD, LOG_VMAREAS, 1, "JITMON: App writes ("PFX",+0x%x) from "PFX
+                " to JIT monitored area.\n", target, opnd_size, instr_size_pc);
+            /*
+            vm_make_writable(jit_monitored_area->start,
+                             jit_monitored_area->end - jit_monitored_area->start);
+            jit_monitored_area->vm_flags &= ~VM_MADE_READONLY;
+            jit_monitored_area->vm_flags |= VM_DELAY_READONLY;
+            */
 
-        LOG(THREAD, LOG_VMAREAS, 1, "JITMON: App writes ("PFX",+0x%x) from "PFX
-            " to JIT monitored area.\n", target, opnd_size, instr_size_pc);
-        /*
-        annotation_flush_fragments(target, opnd_size);
-        vm_make_writable(jit_monitored_area->start,
-                         jit_monitored_area->end - jit_monitored_area->start);
-        jit_monitored_area->vm_flags &= ~VM_MADE_READONLY;
-        jit_monitored_area->vm_flags |= VM_DELAY_READONLY;
-        */
-
-        return resume_pc;
+            return resume_pc;
+        }
     }
 #endif
     /* FIXME case 7492: if write crosses page boundary, the reported faulting
@@ -11011,7 +11037,7 @@ handle_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc,
 #ifdef JITOPT
     if (is_jit_managed_area(flush_start))
         dgc_notify_region_cleared(flush_start, flush_start+flush_size);
-    dr_printf(" === modified code! (case 2) ===\n");
+    //dr_printf(" === modified code! (case 2) ===\n");
 #endif
     return instr_app_pc;
 }

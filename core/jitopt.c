@@ -319,6 +319,7 @@ jitopt_init()
 void
 jitopt_exit()
 {
+    uint i;
 #ifdef JITOPT
     generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->staging, dgc_bucket_t *,
@@ -345,6 +346,20 @@ jitopt_exit()
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_removal_queue->tags, app_pc,
                     dgc_removal_queue->max, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_removal_queue, dgc_removal_queue_t,
+                   ACCT_OTHER, UNPROTECTED);
+
+    for (i = 0; i < double_mappings->index; i++) {
+        int result = dynamorio_syscall(SYS_munmap, 2,
+                                       double_mappings->mappings[i].mapping_start,
+                                       double_mappings->mappings[i].size);
+        if (result < 0) {
+            dr_printf("Failed to unmap the double-mapping at "PFX"\n",
+                      double_mappings->mappings[i].mapping_start);
+        }
+    }
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, double_mappings->mappings, double_mapping_t,
+                    MAX_DOUBLE_MAPPINGS, ACCT_OTHER, UNPROTECTED);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, double_mappings, double_mapping_list_t,
                    ACCT_OTHER, UNPROTECTED);
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
@@ -520,20 +535,27 @@ get_double_mapped_page_delta(app_pc app_memory_start, size_t size, uint prot)
     new_mapping->size = size;
 
     strcpy(file, JIT_CODE_MAPPING_BASENAME);
-    fd = mkstemp(file);
+    //fd = mkstemp(file);
+    memcpy(file, "/dev/shm/jit_", 13);
+    file[13] = '0' + double_mappings->index;
+    file[14] = '\0';
+    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_NOFOLLOW,
+                           S_IRUSR | S_IWUSR);
     if (fd < 0) {
         dr_printf("Failed to create the backing file %s for the double-mapping\n", file);
+        dr_printf("Error: '%s'\n", strerror(fd));
         return 0;
     }
-    new_mapping->fd = fd;
-    new_mapping->mapping_start = (app_pc) dynamorio_syscall(SYS_mmap2, 6, NULL, size,
-                                                   PROT_READ|PROT_WRITE, MAP_SHARED,
-                                                   fd, 0/*offset*/);
     result = dynamorio_syscall(SYS_ftruncate, 2, fd, size);
     if (result < 0) {
         dr_printf("Failed to resize the backing file %s for the double-mapping\n", file);
         return 0;
     }
+    new_mapping->fd = fd;
+
+    new_mapping->mapping_start = (app_pc) dynamorio_syscall(SYS_mmap2, 6, NULL, size,
+                                                   PROT_READ|PROT_WRITE, MAP_SHARED,
+                                                   fd, 0/*offset*/);
     memcpy(new_mapping->mapping_start, app_memory_start, size);
     result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, size);
     if (result < 0) {
@@ -554,14 +576,25 @@ get_double_mapped_page_delta(app_pc app_memory_start, size_t size, uint prot)
 
 app_pc
 instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, app_pc app_memory_start,
-                  size_t size, uint prot)
+                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
 {
-    int *target_access;
-    app_pc resume_pc;
     instr_t writer;
-    reg_t *target;
+    reg_t immediate;
+    uint *value, *value_base;
+    opnd_t src, dst;
+    uint sz;
+
+    app_pc resume_pc;
+    size_t app_memory_size;
+    app_pc app_memory_start;
+    uint *target_access = NULL;
     priv_mcontext_t *mc = get_mcontext(dcontext);
+
+    uint i;
+    //int result;
+    ptr_int_t page_delta;
+    //app_pc first_written_page, last_written_page;
+
     instr_init(dcontext, &writer);
 
     resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
@@ -569,85 +602,89 @@ instrument_writer(dcontext_t *dcontext, fragment_t *f, app_pc instr_app_pc,
         resume_pc = NULL;
         goto instrumentation_failure;
     }
-    if (instr_get_opcode(&writer) == OP_mov_st) {
-        reg_t val;
-        ptr_int_t page_delta;
-        opnd_t src = instr_get_src(&writer, 0);
-        opnd_t dst = instr_get_dst(&writer, 0);
-        uint sz = opnd_size_in_bytes(opnd_get_size(dst));
+    switch (instr_get_opcode(&writer)) {
+    case OP_mov_st:
+    case OP_movdqu:
+    case OP_movdqa:
+        break;
+    default:
+        dr_printf("Can't instrument opcode 0x%x.\n", instr_get_opcode(&writer));
+        resume_pc = NULL;
+        goto skip_instrumentation;
+    }
 
-        ASSERT(opnd_is_memory_reference(dst));
-        if (sz != 4) {
-            resume_pc = NULL;
+    src = instr_get_src(&writer, 0);
+    dst = instr_get_dst(&writer, 0);
+    sz = opnd_size_in_bytes(opnd_get_size(dst));
+
+    ASSERT(opnd_is_memory_reference(dst));
+    if (sz < 4 || sz > 128 || sz % 4 != 0) {
+        dr_printf("Cannot instrument instruction with opcode 0x%x and dst size %d\n",
+                  instr_get_opcode(&writer), sz);
+        resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+
+    if (opnd_is_reg(src)) {
+        value = (uint *)((byte *)mc + opnd_get_reg_mcontext_offs(opnd_get_reg(src)));
+    } else if (opnd_is_immed_int(src)) {
+        immediate = (reg_t) opnd_get_immed_int(src);
+        value = (uint *)&immediate;
+    } else {
+        resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+    value_base = value;
+
+    if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
+        resume_pc = NULL;
+        dr_printf("Skipping instrumentation of "PFX"\n", target);
+        goto skip_instrumentation;
+    }
+
+    ASSERT(write_target >= app_memory_start &&
+           write_target < (app_memory_start + app_memory_size));
+
+    page_delta = get_double_mapped_page_delta(app_memory_start, app_memory_size, prot);
+    if (page_delta == 0) {
+        dr_printf("Can't find page delta for app memory at "PFX"\n", app_memory_start);
+        resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+
+    target_access = (uint *)((ptr_int_t)write_target + page_delta);
+    dr_printf("Attempting to write %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
+    for (i = 0; i < (sz/4); i++, target_access++, value++)
+        *target_access = *value;
+    /*
+    first_written_page = (app_pc) ALIGN_BACKWARD(target, PAGE_SIZE);
+    result = dynamorio_syscall(SYS_msync, 3, first_written_page, PAGE_SIZE, MS_INVALIDATE);
+    if (result < 0) {
+        dr_printf("Failed to msync the write! Error code %d.\n", result);
+        goto instrumentation_failure;
+    }
+    last_written_page = (app_pc) ALIGN_BACKWARD(target + sz, PAGE_SIZE);
+    if (last_written_page != first_written_page) {
+        result = dynamorio_syscall(SYS_msync, 3, last_written_page, PAGE_SIZE, MS_INVALIDATE);
+        if (result < 0) {
+            dr_printf("Failed to msync the write! Error code %d.\n", result);
             goto instrumentation_failure;
-        }
-
-        target = (reg_t *) opnd_compute_address_priv(dst, mc);
-        if ((app_pc) target != write_target) {
-            dr_printf("Warning: signal target "PFX" does not match decoded target "PFX"\n",
-                      write_target, target);
-            //write_target = (app_pc) target;
-            ASSERT(write_target >= app_memory_start &&
-                   write_target < (app_memory_start + size));
-        }
-        //    target = (reg_t *) opnd_compute_address_priv(dst, mc);
-        //ASSERT((app_pc) target == write_target); // no? using sig addr?
-
-        if (opnd_is_reg(src)) {
-            val = reg_get_value_priv(opnd_get_reg(src), mc);
-        } else if (opnd_is_immed_int(src)) {
-            val = (reg_t) opnd_get_immed_int(src);
-        } else {
-            resume_pc = NULL;
-            goto instrumentation_failure;
-        }
-
-        page_delta = get_double_mapped_page_delta(app_memory_start, size, prot);
-        if (sz == 4) {
-            int result;
-            target_access = (int*)((ptr_int_t)write_target + page_delta);
-            dr_printf("Attempting to write 0x%x to "PFX" via "PFX"\n", val, target, target_access);
-            *target_access = (int) val;
-            result = dynamorio_syscall(SYS_msync, 3, ALIGN_BACKWARD(write_target, PAGE_SIZE),
-                                       PAGE_SIZE, MS_INVALIDATE);
-            if (result < 0) {
-                dr_printf("Failed to msync the write! Error code %d.\n", result);
-                goto instrumentation_failure;
-            }
-            ASSERT(*target_access == val);
-            ASSERT(*(int*)write_target == val);
-            dr_printf("Successfully wrote 0x%x to "PFX" via "PFX"\n", val, target, target_access);
-        } else {
-            resume_pc = NULL;
         }
     }
+    */
+    target_access = (uint *)((ptr_int_t)write_target + page_delta);
+    ASSERT(*target_access == *value_base);
+    ASSERT(*(uint*)write_target == *value_base);
+    dr_printf("Successfully wrote %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
+    if (!is_jit_self_write)
+        annotation_flush_fragments(write_target, sz);
 
 instrumentation_failure:
     if (resume_pc == NULL)
-        dr_printf("Failed to write "PFX" via "PFX"\n", target, target_access);
+        dr_printf("Failed to write "PFX" via "PFX"\n", write_target, target_access);
+skip_instrumentation:
     instr_free(dcontext, &writer);
     return resume_pc;
-
-
-    /*
-    while (target != write_target &&
-           instr_compute_address_ex_pos(&writer, mc, memop_index++, &write_target, NULL,
-                                        &op_index);
-
-    ASSERT(target == write_target);
-    */
-
-    /*
-    case BASE_DISP_kind:
-    case IMMED_INTEGER_kind:
-    case IMMED_FLOAT_kind:
-    case PC_kind:
-    case INSTR_kind:
-    case REG_kind:
-    case FAR_PC_kind:
-    case FAR_INSTR_kind:
-    case MEM_INSTR_kind:
-    */
 }
 
 static inline bool

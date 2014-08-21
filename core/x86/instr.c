@@ -1607,6 +1607,7 @@ reg_parameter_num(reg_id_t reg)
 int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
+    uint xmm_index;
     switch (reg) {
     case REG_XAX: return XAX_OFFSET;
     case REG_XBX: return XBX_OFFSET;
@@ -1626,6 +1627,25 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_R14: return R14_OFFSET;
     case REG_R15: return R15_OFFSET;
 #endif
+    case DR_REG_XMM0:
+    case DR_REG_XMM1:
+    case DR_REG_XMM2:
+    case DR_REG_XMM3:
+    case DR_REG_XMM4:
+    case DR_REG_XMM5:
+    case DR_REG_XMM6:
+    case DR_REG_XMM7:
+    case DR_REG_XMM8:
+    case DR_REG_XMM9:
+    case DR_REG_XMM10:
+    case DR_REG_XMM11:
+    case DR_REG_XMM12:
+    case DR_REG_XMM13:
+    case DR_REG_XMM14:
+    case DR_REG_XMM15:
+        xmm_index = (reg - DR_REG_XMM0);
+        return XMM_OFFSET + (0x20 * xmm_index);
+
     default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
         return -1;
     }
