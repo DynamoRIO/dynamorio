@@ -67,6 +67,16 @@ static void at_br_cond(app_pc src, app_pc dst, int taken)
     num_br_cond++;
 }
 
+static
+void at_br_cond_ex(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken)
+{
+    void *drcontext = dr_get_current_drcontext();
+    if (fall_addr != decode_next_pc(drcontext, inst_addr)) {
+        dr_fprintf(STDERR, "ERROR: wrong fall-through addr: "PFX" vs "PFX"\n",
+                   fall_addr, decode_next_pc(drcontext, inst_addr));
+    }
+}
+
 static void at_ret(app_pc src, app_pc dst)
 {
     num_ret++;
@@ -108,6 +118,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
             else if (instr_is_cbr(instr)) {
                 dr_insert_cbr_instrumentation(drcontext, bb, instr, at_br_cond);
+                dr_insert_cbr_instrumentation_ex(drcontext, bb, instr, at_br_cond_ex);
             }
 
             else {

@@ -1025,9 +1025,15 @@ string(REGEX REPLACE
   "^[0-9]+\\.([0-9]+)\\..*" "\\1" VERSION_NUMBER_MINOR "${VERSION_NUMBER}")
 math(EXPR VERSION_NUMBER_INTEGER
   "${VERSION_NUMBER_MAJOR}*100 + ${VERSION_NUMBER_MINOR}")
+
 # 4.1 broke backcompat in drsyms + 64-bit core (opcodes + reachability)
 # 4.0 broke backcompat in drmgr, drsyms, drinjectlib, and dr_get_milliseconds()
-set(OLDEST_COMPATIBLE_VERSION "401")
+set(OLDEST_COMPATIBLE_VERSION_DEFAULT "401")
+set(OLDEST_COMPATIBLE_VERSION "" CACHE STRING
+  "Oldest compatible version: leave empty for default")
+if ("${OLDEST_COMPATIBLE_VERSION}" STREQUAL "")
+  set(OLDEST_COMPATIBLE_VERSION ${OLDEST_COMPATIBLE_VERSION_DEFAULT})
+endif()
 
 # i#955: a Windows version of ELF DT_RPATH where a local file stores lib paths
 set(DR_RPATH_SUFFIX "drpath")
@@ -1270,7 +1276,10 @@ endif (BUILD_DRSTATS)
 
 # create empty logs dir for running out of build dir
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/logs")
-
+# export visual studio lookup file just like full install, for using from build dir
+# with projects that include DR sources
+configure_file(${PROJECT_SOURCE_DIR}/suite/lookup_visualstudio.cmake
+  ${BUILD_CMAKE}/lookup_visualstudio.cmake COPYONLY)
 # export cpp2asm files just like full install, for using from build dir
 # with projects that include DR sources
 configure_file(${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
@@ -1543,7 +1552,10 @@ DR_install(FILES
   ${PROJECT_SOURCE_DIR}/suite/runsuite_common_post.cmake
   DESTINATION ${INSTALL_CMAKE}
 )
-
+# export visual studio lookup support
+DR_install(FILES ${PROJECT_SOURCE_DIR}/suite/lookup_visualstudio.cmake
+  DESTINATION ${INSTALL_CMAKE}
+)
 # export cpp2asm support, with consistent names
 DR_install(FILES ${PROJECT_SOURCE_DIR}/make/cpp2asm_support.cmake
   DESTINATION ${INSTALL_CMAKE}

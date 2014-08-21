@@ -70,8 +70,17 @@ log_file_open(client_id_t id, void *drcontext,
     DR_ASSERT(len > 0);
     NULL_TERMINATE_BUFFER(logname);
     log = dr_open_file(logname, flags);
-    if (log != INVALID_FILE)
-        dr_log(drcontext, LOG_ALL, 1, "log file %s\n", logname);
+    if (log != INVALID_FILE) {
+        char msg[MAXIMUM_PATH];
+        len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg),
+                          "log file %s is created", logname);
+        DR_ASSERT(len > 0);
+        NULL_TERMINATE_BUFFER(msg);
+        dr_log(drcontext, LOG_ALL, 1, "%s", msg);
+#ifdef SHOW_RESULTS
+        DISPLAY_STRING(msg);
+#endif
+    }
     return log;
 }
 

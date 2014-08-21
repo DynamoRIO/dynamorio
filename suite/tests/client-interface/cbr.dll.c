@@ -71,7 +71,8 @@ void at_bb(void *drcontext, app_pc bb_addr)
 #define MINSERT instrlist_meta_preinsert
 
 static
-dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool translating)
+dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb,
+                         bool for_trace, bool translating)
 {
     instr_t *instr, *next_instr;
 

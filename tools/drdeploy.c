@@ -121,7 +121,9 @@ static bool nocheck;
 
 const char *usage_str =
 #ifdef DRCONFIG
-    "USAGE: "TOOLNAME" [options]\n";
+    "USAGE: "TOOLNAME" [options]\n"
+    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -c <client> [client options]\n"
+    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -t <tool> [tool options]";
 #elif defined(DRRUN) || defined (DRINJECT)
     "USAGE: "TOOLNAME" [options] <app and args to run>\n"
     "   or: "TOOLNAME" [options] -- <app and args to run>\n"
@@ -146,8 +148,10 @@ const char *options_list_str =
     "       -unreg <process>   Unregister <process> from running under DR\n"
     "       -isreg <process>   Display whether <process> is registered and if so its\n"
     "                          configuration\n"
+# ifdef WINDOWS
     "       -list_registered   Display all registered processes and their configuration\n"
-#endif
+# endif /* WINDOWS */
+#endif /* DRCONFIG */
     "       -root <root>       DR root directory\n"
 #if defined(DRCONFIG) || defined(DRRUN)
 # if defined(MF_API) && defined(PROBE_API)
@@ -1328,6 +1332,11 @@ int main(int argc, char *argv[])
                 /* Treat everything up to -- or end of argv as client args. */
                 i++;
                 while (i < argc && strcmp(argv[i], "--") != 0) {
+# ifdef DRCONFIG
+                    if (action == action_none && strcmp(argv[i], "-reg") == 0) {
+                        warn("-reg is taken as a client option!");
+                    }
+# endif /* DRCONFIG */
                     add_extra_option(single_client_ops,
                                      BUFFER_SIZE_ELEMENTS(single_client_ops),
                                      &client_sofar, "%s", argv[i]);
