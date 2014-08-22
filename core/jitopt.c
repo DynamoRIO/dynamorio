@@ -454,7 +454,7 @@ valgrind_discard_translations(dr_vg_client_request_t *request)
 static inline bool
 dgc_bb_is_head(dgc_bb_t *bb)
 {
-    return (ptr_uint_t)bb->span < 0x1000;
+    return (ptr_uint_t)bb->span < 0x4000;
 }
 
 static inline dgc_bb_t *
