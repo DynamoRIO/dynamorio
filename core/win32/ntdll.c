@@ -225,12 +225,6 @@ static void tls_exit(void);
  * declarations for ntdll exports shared by several routines in this file
  */
 
-GET_NTDLL(NtQueryInformationThread, (IN HANDLE ThreadHandle,
-                                     IN THREADINFOCLASS ThreadInformationClass,
-                                     OUT PVOID ThreadInformation,
-                                     IN ULONG ThreadInformationLength,
-                                     OUT PULONG ReturnLength OPTIONAL));
-
 GET_NTDLL(NtQueryInformationProcess, (IN HANDLE ProcessHandle,
                                       IN PROCESSINFOCLASS ProcessInformationClass,
                                       OUT PVOID ProcessInformation,
@@ -307,6 +301,13 @@ GET_RAW_SYSCALL(ProtectVirtualMemory,
                 IN OUT PSIZE_T ProtectSize,
                 IN ULONG NewProtect,
                 OUT PULONG OldProtect);
+
+GET_RAW_SYSCALL(QueryInformationThread,
+                IN HANDLE ThreadHandle,
+                IN THREADINFOCLASS ThreadInformationClass,
+                OUT PVOID ThreadInformation,
+                IN ULONG ThreadInformationLength,
+                OUT PULONG ReturnLength OPTIONAL);
 
 /* CreateFile is defined CreateFileW (Unicode) or CreateFileA (ANSI),
  * undefine here for system call.
@@ -651,8 +652,8 @@ query_thread_info(HANDLE h, THREAD_BASIC_INFORMATION *info)
     NTSTATUS res;
     ULONG got;
     memset(info, 0, sizeof(THREAD_BASIC_INFORMATION));
-    res = NtQueryInformationThread(h, ThreadBasicInformation,
-                                   info, sizeof(THREAD_BASIC_INFORMATION), &got);
+    res = NT_SYSCALL(QueryInformationThread, h, ThreadBasicInformation,
+                     info, sizeof(THREAD_BASIC_INFORMATION), &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(THREAD_BASIC_INFORMATION));
     return res;
 }
@@ -664,8 +665,8 @@ query_seg_descriptor(HANDLE hthread, DESCRIPTOR_TABLE_ENTRY *entry)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationThread(hthread, ThreadDescriptorTableEntry,
-                                   entry, sizeof(DESCRIPTOR_TABLE_ENTRY), &got);
+    res = NT_SYSCALL(QueryInformationThread, hthread, ThreadDescriptorTableEntry,
+                     entry, sizeof(DESCRIPTOR_TABLE_ENTRY), &got);
 
     /* This call only writes the LDT_ENTRY portion of the table entry */
     ASSERT(!NT_SUCCESS(res) || got == sizeof(LDT_ENTRY));
@@ -681,8 +682,8 @@ query_win32_start_addr(HANDLE hthread, PVOID start_addr)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationThread(hthread, ThreadQuerySetWin32StartAddress,
-                                   start_addr, sizeof(app_pc), &got);
+    res = NT_SYSCALL(QueryInformationThread, hthread, ThreadQuerySetWin32StartAddress,
+                     start_addr, sizeof(app_pc), &got);
     ASSERT(!NT_SUCCESS(res) || got == sizeof(PVOID));
     return res;
 }
@@ -2302,7 +2303,8 @@ am_I_sole_thread(HANDLE hthread, int *amI /*OUT*/)
 {
     NTSTATUS res;
     ULONG got;
-    res = NtQueryInformationThread(hthread, ThreadAmILastThread, amI, sizeof(*amI), &got);
+    res = NT_SYSCALL(QueryInformationThread, hthread, ThreadAmILastThread,
+                     amI, sizeof(*amI), &got);
     return NT_SUCCESS(res);
 }
 

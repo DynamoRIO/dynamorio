@@ -389,9 +389,10 @@ optimizable_system_call(int num)
         int i;
 
         /* FIXME: switch to a bit vector, just as for the syscalls array? */
-        for (i = 0; i < SYS_MAX; i++)
+        for (i = 0; i < SYS_MAX; i++) {
             if (num == syscalls[i])
                 return !syscall_requires_action[i];
+        }
 
         /* If the syscall isn't in the array, DR doesn't care about it. */
         return true;
@@ -706,6 +707,21 @@ exit_syscall_trampolines(void)
 void
 check_syscall_array_sizes()
 {
+    ASSERT(sizeof(windows_81_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_81_wow64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_81_x86_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_8_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_8_wow64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_8_x86_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_7_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_7_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_vista_sp1_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_vista_sp1_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_vista_sp0_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_vista_sp0_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_2003_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_XP_x64_syscalls) == sizeof(windows_2000_syscalls));
+    ASSERT(sizeof(windows_XP_wow64_index) == sizeof(windows_2000_syscalls));
     ASSERT(sizeof(windows_2003_syscalls) == sizeof(windows_2000_syscalls));
     ASSERT(sizeof(windows_XP_syscalls) == sizeof(windows_2000_syscalls));
     ASSERT(sizeof(windows_NT_sp4_syscalls) == sizeof(windows_2000_syscalls));
