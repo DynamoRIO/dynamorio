@@ -554,45 +554,56 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     new_mapping->app_memory_start = app_memory_start;
     new_mapping->size = app_memory_size;
 
-    memcpy(file, "/dev/shm/jit_", 13);
+    memcpy(file, "/tmp/shm_jit_", 13);
     file[13] = '0' + double_mappings->index;
     file[14] = '\0';
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "Mapping "PFX" +0x%x to shmem %s\n",
+                "DGC: Mapping "PFX" +0x%x to shmem %s\n",
                 app_memory_start, app_memory_size, file);
-    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
+    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_NOFOLLOW,
                            S_IRUSR | S_IWUSR);
     if (fd < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Failed to create the backing file %s for the double-mapping\n", file);
+                    "DGC: Failed to create the backing file %s for the double-mapping\n", file);
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error: '%s'\n", strerror(fd));
         return 0;
     }
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Created the backing file %s\n", file);
     result = dynamorio_syscall(SYS_ftruncate, 2, fd, app_memory_size);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Failed to resize the backing file %s for the double-mapping\n", file);
+                    "DGC: Failed to resize the backing file %s for the double-mapping\n", file);
         return 0;
     }
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Extended the backing file %s to 0x%x bytes\n", file, app_memory_size);
     new_mapping->fd = fd;
+
     /*
     result = dynamorio_syscall(SYS_unlink, 1, file);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Failed to unlink the backing file %s for the double-mapping\n", file);
+                    "DGC: Failed to unlink the backing file %s for the double-mapping\n", file);
         return 0;
     }
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Unlinked the backing file %s\n", file);
     */
+
     new_mapping->mapping_start = (app_pc) dynamorio_syscall(MMAP, 6, NULL, app_memory_size,
                                                    PROT_READ|PROT_WRITE, MAP_SHARED,
                                                    fd, 0/*offset*/);
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Mapped the backing file %s to "PFX"\n", file, new_mapping->mapping_start);
 
     memcpy(new_mapping->mapping_start, app_memory_start, app_memory_size);
 
     result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, app_memory_size);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Failed to unmap the original memory at "PFX"\n", app_memory_start);
+                    "DGC: Failed to unmap the original memory at "PFX"\n", app_memory_start);
         return 0;
     }
 
@@ -600,7 +611,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
                                  prot, MAP_SHARED | MAP_FIXED, fd, 0/*offset*/);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
+                "DGC: Remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
               remap_pc, new_mapping->mapping_start, app_memory_start);
 
     ASSERT(remap_pc == app_memory_start);
