@@ -41,6 +41,9 @@ DynamoRIO client.
 There are also samples for the Dr. Memory Framework located in the
 <tt>drmemory/drmf/samples</tt> directory of the release package.
 
+For larger examples of clients, see the provided \ref page_tool, which are
+larger and more polished end-user clients than these samples.
+
 ********************
 \section sample_list List of Samples
 
