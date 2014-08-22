@@ -210,6 +210,24 @@ typedef struct _dgc_stats_t {
 
 static dgc_stats_t *dgc_stats;
 
+typedef enum _emulation_operation_t {
+    EMUL_MOV,
+    EMUL_OR,
+    EMUL_AND,
+    EMUL_SUB,
+} emulation_operation_t;
+
+typedef struct _emulation_plan_t {
+    emulation_operation_t op;
+    bool src_in_reg;
+    union {
+        uint mcontext_reg_offset;
+        reg_t immediate;
+    } src;
+    opnd_t dst;
+    uint dst_size;
+} emulation_plan_t;
+
 #if !(defined (WINDOWS) && defined (X64))
 static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request);
@@ -539,38 +557,50 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     memcpy(file, "/dev/shm/jit_", 13);
     file[13] = '0' + double_mappings->index;
     file[14] = '\0';
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Mapping "PFX" +0x%x to shmem %s\n", app_memory_start, app_memory_size, file);
-    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_NOFOLLOW, S_IRUSR | S_IWUSR);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "Mapping "PFX" +0x%x to shmem %s\n",
+                app_memory_start, app_memory_size, file);
+    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW,
+                           S_IRUSR | S_IWUSR);
     if (fd < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to create the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Failed to create the backing file %s for the double-mapping\n", file);
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error: '%s'\n", strerror(fd));
         return 0;
     }
     result = dynamorio_syscall(SYS_ftruncate, 2, fd, app_memory_size);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to resize the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Failed to resize the backing file %s for the double-mapping\n", file);
         return 0;
     }
     new_mapping->fd = fd;
+    /*
     result = dynamorio_syscall(SYS_unlink, 1, file);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unlink the backing file %s for the double-mapping\n", file);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Failed to unlink the backing file %s for the double-mapping\n", file);
         return 0;
     }
-
+    */
     new_mapping->mapping_start = (app_pc) dynamorio_syscall(MMAP, 6, NULL, app_memory_size,
                                                    PROT_READ|PROT_WRITE, MAP_SHARED,
                                                    fd, 0/*offset*/);
+
     memcpy(new_mapping->mapping_start, app_memory_start, app_memory_size);
+
     result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, app_memory_size);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unmap the original memory at "PFX"\n", app_memory_start);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Failed to unmap the original memory at "PFX"\n", app_memory_start);
         return 0;
     }
+
     remap_pc = (app_pc) dynamorio_syscall(MMAP, 6, app_memory_start, app_memory_size,
                                  prot, MAP_SHARED | MAP_FIXED, fd, 0/*offset*/);
 
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
               remap_pc, new_mapping->mapping_start, app_memory_start);
 
     ASSERT(remap_pc == app_memory_start);
@@ -579,90 +609,116 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     return new_mapping->mapping_start - app_memory_start;
 }
 
-typedef enum _emulation_operation_t {
-    EMUL_MOV,
-    EMUL_OR,
-    EMUL_AND,
-    EMUL_SUB,
-} emulation_operation_t;
-
-app_pc
-instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
+static void
+emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta, app_pc write_target)
 {
-    instr_t writer;
-    reg_t immediate;
-    uint *value, *value_base;
-    opnd_t src, dst;
-    uint sz;
-    emulation_operation_t op;
-
-    app_pc resume_pc;
-    size_t app_memory_size;
-    app_pc app_memory_start;
-    uint *target_access = NULL;
-    //priv_mcontext_t *mc = get_mcontext(dcontext);
-
     uint i;
-    ptr_int_t page_delta;
+    uint *value, *value_base;
+    uint *target_access = (uint *)((ptr_int_t)write_target + page_delta);
 
-    instr_init(dcontext, &writer);
-
-    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
-    if (!instr_valid(&writer)) {
-        resume_pc = NULL;
-        goto instrumentation_failure;
-    }
-    switch (instr_get_opcode(&writer)) {
-    case OP_mov_st:
-    case OP_movdqu:
-    case OP_movdqa:
-        op = EMUL_MOV;
-        break;
-    case OP_or:
-        op = EMUL_OR;
-        break;
-    case OP_and:
-        op = EMUL_AND;
-        break;
-    case OP_sub:
-        op = EMUL_SUB;
-        break;
-    default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&writer));
-        resume_pc = NULL;
-        goto skip_instrumentation;
-    }
-
-    src = instr_get_src(&writer, 0);
-    dst = instr_get_dst(&writer, 0);
-    sz = opnd_size_in_bytes(opnd_get_size(dst));
-
-    ASSERT((op != EMUL_OR && op != EMUL_AND && op != EMUL_SUB) || sz == 4 || sz == 8);
-    ASSERT(opnd_is_memory_reference(dst));
-    if (sz < 1 || sz > 128 || (sz > 1 && sz % 4 != 0)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
-                  instr_get_opcode(&writer), sz);
-        resume_pc = NULL;
-        goto instrumentation_failure;
-    }
-
-    if (opnd_is_reg(src)) {
-        value = (uint *)((byte *)mc + opnd_get_reg_mcontext_offs(opnd_get_reg(src)));
-    } else if (opnd_is_immed_int(src)) {
-        immediate = (reg_t) opnd_get_immed_int(src);
-        value = (uint *)&immediate;
-    } else {
-        resume_pc = NULL;
-        goto instrumentation_failure;
-    }
+    if (plan->src_in_reg)
+        value = (uint *)((byte *)mc + plan->src.mcontext_reg_offset);
+    else
+        value = (uint *)&plan->src.immediate;
     value_base = value;
 
-    if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
-        resume_pc = NULL;
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping instrumentation of "PFX"\n", write_target);
-        goto skip_instrumentation;
+    if (plan->op == EMUL_MOV) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to write %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+        if (plan->dst_size == 1) {
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+             *byte_target_access = byte_value;
+            ASSERT(*byte_target_access == byte_value);
+            ASSERT(*(byte*)write_target == byte_value);
+        } else {
+            for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++)
+                *target_access = *value;
+            target_access = (uint *)((ptr_int_t)write_target + page_delta);
+            ASSERT(*target_access == *value_base);
+            ASSERT(*(uint*)write_target == *value_base);
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully wrote %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else if (plan->op == EMUL_OR) {
+        if (plan->dst_size == 1) {
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *byte_target_access |= byte_value;
+            ASSERT((*byte_target_access & byte_value) == byte_value);
+            ASSERT((*(byte*)write_target & byte_value) == byte_value);
+        } else if (plan->dst_size == 4) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *target_access |= *value;
+            ASSERT((*target_access & *value) == *value);
+            ASSERT((*(uint*)write_target & *value) == *value);
+        } else if (plan->dst_size == 8) {
+            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
+            ptr_uint_t *word_value = (ptr_uint_t *)value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *word_target_access |= *word_value;
+            ASSERT((*word_target_access & *word_value) == *word_value);
+            ASSERT((*(ptr_uint_t*)write_target & *word_value) == *word_value);
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'or'd %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else if (plan->op == EMUL_AND) {
+        if (plan->dst_size == 1) {
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *byte_target_access &= byte_value;
+            ASSERT((*byte_target_access & ~byte_value) == 0);
+            ASSERT((*(byte*)write_target & ~byte_value) == 0);
+        } else if (plan->dst_size == 4) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *target_access &= *value;
+            ASSERT((*target_access & ~(*value)) == 0);
+            ASSERT((*(uint*)write_target & ~(*value)) == 0);
+        } else if (plan->dst_size == 8) {
+            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
+            ptr_uint_t *word_value = (ptr_uint_t *)value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *word_target_access &= *word_value;
+            ASSERT((*word_target_access & ~(*word_value)) == 0);
+            ASSERT((*(ptr_uint_t*)write_target & ~(*word_value)) == 0);
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'and'd %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else if (plan->op == EMUL_SUB) {
+        if (plan->dst_size == 1) {
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *byte_target_access -= byte_value;
+        } else if (plan->dst_size == 4) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *target_access -= *value;
+        } else if (plan->dst_size == 8) {
+            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
+            ptr_uint_t *word_value = (ptr_uint_t *)value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            *word_target_access -= *word_value;
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtraced %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     }
+}
+
+static bool
+synch_jit(dcontext_t *dcontext, priv_mcontext_t *mc, emulation_plan_t *plan,
+          bool is_jit_self_write, uint prot)
+{
+    app_pc app_memory_start;
+    size_t app_memory_size;
+    ptr_int_t page_delta;
+    app_pc write_target = opnd_compute_address_priv(plan->dst, mc);
+    DEBUG_DECLARE(bool ok;);
+
+    if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping instrumentation of "PFX"\n", write_target);
+        return false;
+    }
+
+    DEBUG_DECLARE(ok =)
+    set_region_dgc_writer(app_memory_start, app_memory_size);
+    ASSERT(ok);
 
     ASSERT(write_target >= app_memory_start &&
            write_target < (app_memory_start + app_memory_size));
@@ -670,76 +726,88 @@ instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_
     page_delta = get_double_mapped_page_delta(dcontext, app_memory_start, app_memory_size, prot);
     if (page_delta == 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to find page delta for app memory at "PFX"\n", app_memory_start);
+        return false;
+    }
+
+    emulate_writer(mc, plan, page_delta, write_target);
+
+    if (!is_jit_self_write)
+        annotation_flush_fragments(write_target, plan->dst_size);
+
+    return true;
+}
+
+app_pc
+instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
+                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
+{
+    instr_t writer;
+    opnd_t src;
+    emulation_plan_t plan;
+    app_pc resume_pc;
+
+    instr_init(dcontext, &writer);
+
+    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
+    if (!instr_valid(&writer)) {
+        resume_pc = NULL;
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to decode writer at "PFX"\n", write_target);
+        goto instrumentation_failure;
+    }
+    switch (instr_get_opcode(&writer)) {
+    case OP_mov_st:
+    case OP_movdqu:
+    case OP_movdqa:
+        plan.op = EMUL_MOV;
+        break;
+    case OP_or:
+        plan.op = EMUL_OR;
+        break;
+    case OP_and:
+        plan.op = EMUL_AND;
+        break;
+    case OP_sub:
+        plan.op = EMUL_SUB;
+        break;
+    default:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&writer));
         resume_pc = NULL;
         goto instrumentation_failure;
     }
 
-    target_access = (uint *)((ptr_int_t)write_target + page_delta);
-    if (op == EMUL_MOV) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to write %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-        if (sz == 1) {
-            byte byte_value = (*value & 0xff);
-            byte *byte_target_access = (byte *)target_access;
-             *byte_target_access = byte_value;
-            ASSERT(*byte_target_access == byte_value);
-            ASSERT(*(byte*)write_target == byte_value);
-        } else {
-            for (i = 0; i < (sz/sizeof(uint)); i++, target_access++, value++)
-                *target_access = *value;
-            target_access = (uint *)((ptr_int_t)write_target + page_delta);
-            ASSERT(*target_access == *value_base);
-            ASSERT(*(uint*)write_target == *value_base);
-        }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully wrote %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-    } else if (op == EMUL_OR) {
-        if (sz == 4) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *target_access |= *value;
-            ASSERT((*target_access & *value) == *value);
-            ASSERT((*(uint*)write_target & *value) == *value);
-        } else if (sz == 8) {
-            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
-            ptr_uint_t *word_value = (ptr_uint_t *)value;
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *word_target_access |= *word_value;
-            ASSERT((*word_target_access & *word_value) == *word_value);
-            ASSERT((*(ptr_uint_t*)write_target & *word_value) == *word_value);
-        }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'or'd %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-    } else if (op == EMUL_AND) {
-        if (sz == 4) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *target_access &= *value;
-            ASSERT((*target_access & ~(*value)) == 0);
-            ASSERT((*(uint*)write_target & ~(*value)) == 0);
-        } else if (sz == 8) {
-            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
-            ptr_uint_t *word_value = (ptr_uint_t *)value;
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *word_target_access &= *word_value;
-            ASSERT((*word_target_access & ~(*word_value)) == 0);
-            ASSERT((*(ptr_uint_t*)write_target & ~(*word_value)) == 0);
-        }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'and'd %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-    } else if (op == EMUL_SUB) {
-        if (sz == 4) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *target_access -= *value;
-        } else if (sz == 8) {
-            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
-            ptr_uint_t *word_value = (ptr_uint_t *)value;
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
-            *word_target_access -= *word_value;
-        }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtraced %d bytes to "PFX" via "PFX"\n", sz, write_target, target_access);
+    src = instr_get_src(&writer, 0);
+    plan.dst = instr_get_dst(&writer, 0);
+    plan.dst_size = opnd_size_in_bytes(opnd_get_size(plan.dst));
+
+    ASSERT((plan.op != EMUL_OR && plan.op != EMUL_AND && plan.op != EMUL_SUB)
+           || plan.dst_size == 1 || plan.dst_size == 4 || plan.dst_size == 8);
+    ASSERT(opnd_is_memory_reference(plan.dst));
+    if (plan.dst_size < 1 || plan.dst_size > 128 || (plan.dst_size > 1 && plan.dst_size % 4 != 0)) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
+                  instr_get_opcode(&writer), plan.dst_size);
+        resume_pc = NULL;
+        goto instrumentation_failure;
     }
-    if (!is_jit_self_write)
-        annotation_flush_fragments(write_target, sz);
+
+    if (opnd_is_reg(src)) {
+        plan.src.mcontext_reg_offset = opnd_get_reg_mcontext_offs(opnd_get_reg(src));
+        plan.src_in_reg = true;
+    } else if (opnd_is_immed_int(src)) {
+        plan.src.immediate = (reg_t) opnd_get_immed_int(src);
+        plan.src_in_reg = false;
+    } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to instrument instruction with opcode 0x%x and unsupported src operand type\n",
+                    instr_get_opcode(&writer));
+        resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+
+    if (!synch_jit(dcontext, mc, &plan, is_jit_self_write, prot))
+        resume_pc = NULL;
 
 instrumentation_failure:
-    if (resume_pc == NULL)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to write "PFX" via "PFX"\n", write_target, target_access);
-skip_instrumentation:
     instr_free(dcontext, &writer);
     return resume_pc;
 }

@@ -143,6 +143,7 @@ enum {
      * followed by a call to annotation_flush_fragments().
      */
     VM_JIT_MONITORED = 0X2000,
+    VM_DGC_WRITER = 0x4000,
 #else
     /* Cache consistency managed by the app via annotations. */
     VM_APP_MANAGED = 0x2000,
@@ -3565,6 +3566,21 @@ set_region_jit_monitored(app_pc start, size_t len)
                     _IF_DEBUG("JIT monitored"));
     }
     write_unlock(&executable_areas->lock);
+}
+
+bool
+set_region_dgc_writer(app_pc start, size_t len)
+{
+    vm_area_t *region;
+    LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
+    write_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, start, &region)) {
+        ASSERT((region->start == start) && (region->end == (start+len)));
+        region->vm_flags |= VM_DGC_WRITER;
+        return true;
+    } else {
+        return false;
+    }
 }
 #else
 void
@@ -7417,7 +7433,7 @@ allow_xfer_for_frag_flags(dcontext_t *dcontext, app_pc pc,
  */
 bool
 check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
-                     uint *flags, app_pc *stop, bool xfer)
+                     uint *flags, app_pc *stop, bool *may_be_dgc_writer, bool xfer)
 {
     bool result;
     thread_data_t *data;
@@ -7875,8 +7891,11 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                 write_lock(&executable_areas->lock);
                 own_execareas_writelock = true;
             }
-       }
+        }
 #endif
+
+        if (may_be_dgc_writer != NULL)
+            *may_be_dgc_writer = TEST(VM_DGC_WRITER, area->vm_flags);
     }
 
     /* Ensure we looked up the mem attributes, if a new area */
@@ -8415,7 +8434,7 @@ remove_shared_vmlist(dcontext_t *dcontext, void *vmlist, fragment_t *f,
             if (DYNAMO_OPTION(shared_bbs))
                 check_flags = f->flags | FRAG_SHARED; /*indicator to NOT use global*/
             ok = check_thread_vm_area(dcontext, pc, f->tag, local_vmlist, &check_flags,
-                                      NULL, false /*xfer should not matter now*/);
+                                      NULL, NULL, false /*xfer should not matter now*/);
             ASSERT(ok);
         }
         entry = next;

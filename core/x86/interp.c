@@ -229,6 +229,7 @@ typedef struct {
     instr_t *instr;             /* the current instr */
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
+    bool may_be_dgc_writer;
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -255,6 +256,7 @@ init_build_bb(build_bb_t *bb, app_pc start_pc, bool app_interp, bool for_cache,
     bb->follow_direct = !TEST(FRAG_SELFMOD_SANDBOXED, known_flags);
     bb->flags = known_flags;
     bb->ibl_branch_type = IBL_GENERIC; /* initialization only */
+    bb->may_be_dgc_writer = false;
     DODEBUG(bb->initialized = true;);
 }
 
@@ -686,7 +688,7 @@ check_new_page_start(dcontext_t *dcontext, build_bb_t *bb)
     DEBUG_DECLARE(ok =) check_thread_vm_area(dcontext, bb->start_pc, bb->start_pc,
                                              (bb->record_vmlist ? &bb->vmlist : NULL),
                                              &bb->flags, &bb->checked_end,
-                                             false/*!xfer*/);
+                                             &bb->may_be_dgc_writer, false/*!xfer*/);
     ASSERT(ok); /* cannot return false on non-xfer */
     bb->last_page = bb->start_pc;
     if (bb->overlap_info != NULL)
@@ -720,7 +722,7 @@ check_new_page_contig(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
                                    * false to forcibly merge in the vmarea
                                    * flags.
                                    */
-                                  !is_first_instr/*xfer*/)) {
+                                  &bb->may_be_dgc_writer, !is_first_instr/*xfer*/)) {
             return false;
         }
     }
@@ -779,7 +781,8 @@ check_new_page_jmp(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc)
     /* need to check this even if an intra-page jmp b/c we allow sub-page vm regions */
     if (!check_thread_vm_area(dcontext, new_pc, bb->start_pc,
                               (bb->record_vmlist ? &bb->vmlist : NULL),
-                              &bb->flags, &bb->checked_end, true/*xfer*/))
+                              &bb->flags, &bb->checked_end, &bb->may_be_dgc_writer,
+                              true/*xfer*/))
         return false;
     if (bb->overlap_info != NULL)
         update_overlap_info(dcontext, bb, new_pc, true/*jmp*/);

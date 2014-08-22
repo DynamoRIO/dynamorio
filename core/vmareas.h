@@ -374,6 +374,9 @@ get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size);
 
 void
 set_region_jit_monitored(app_pc start, size_t len);
+
+bool
+set_region_dgc_writer(app_pc start, size_t len);
 #else
 void
 set_region_app_managed(app_pc start, size_t len);
@@ -659,7 +662,7 @@ bool was_address_flush_start(dcontext_t *dcontext, app_pc pc);
  */
 bool
 check_thread_vm_area(dcontext_t *dcontext, app_pc start, app_pc tag, void **vmlist,
-                     uint *flags, app_pc *stop, bool xfer);
+                     uint *flags, app_pc *stop, bool *may_be_dgc_writer, bool xfer);
 
 void
 check_thread_vm_area_abort(dcontext_t *dcontext, void **vmlist, uint flags);
