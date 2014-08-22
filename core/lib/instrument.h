@@ -5086,10 +5086,12 @@ DR_API
  * -# target address of branch
  * -# fall-through address of branch
  * -# 0 if the branch is not taken, 1 if it is taken
+ * -# user defined operand (e.g., TLS slot, immed value, register, etc.)
+ * \note The user defined operand cannot use register ebx!
  */
 void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist,
-                                 instr_t *instr, void *callee);
+                                 instr_t *instr, void *callee, opnd_t user_data);
 
 /* FIXME: will never see any ubrs! */
 DR_API

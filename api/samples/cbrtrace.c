@@ -35,7 +35,7 @@
  *
  * Collects the conditional branch address, fall-through address,
  * target address, and taken information.
- * Writes that info into per-thread files named cbrtrace.<tid>.log
+ * Writes that info into per-thread files named cbrtrace.<pid>.<tid>.log
  * in the client library directory.
  *
  * Illustrates how to use dr_insert_cbr_instrument_ex().
@@ -48,13 +48,12 @@ client_id_t client_id;
 
 /* Clean call for the cbr */
 static void
-at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken)
+at_cbr(app_pc inst_addr, app_pc targ_addr, app_pc fall_addr, int taken, void *bb_addr)
 {
-
     void *drcontext = dr_get_current_drcontext();
     file_t log = (file_t)(ptr_uint_t)dr_get_tls_field(drcontext);
-    dr_fprintf(log, "["PFX", "PFX", "PFX"] => "PFX"\n",
-               inst_addr, fall_addr, targ_addr,
+    dr_fprintf(log, ""PFX" ["PFX", "PFX", "PFX"] => "PFX"\n",
+               bb_addr, inst_addr, fall_addr, targ_addr,
                taken == 0 ? fall_addr : targ_addr);
 }
 
@@ -67,8 +66,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          instr != NULL;
          instr  = instr_get_next_app(instr)) {
         if (instr_is_cbr(instr)) {
-            dr_insert_cbr_instrumentation_ex(drcontext, bb, instr,
-                                             (void *)at_cbr);
+            dr_insert_cbr_instrumentation_ex
+                (drcontext, bb, instr, (void *)at_cbr,
+                 OPND_CREATE_INTPTR(dr_fragment_app_pc(tag)));
         }
     }
     return DR_EMIT_DEFAULT;
@@ -81,7 +81,8 @@ event_thread_init(void *drcontext)
     file_t log;
     char name[MAXIMUM_PATH];
     len = dr_snprintf(name, BUFFER_SIZE_ELEMENTS(name),
-                      "cbrtrace.%d.log", dr_get_thread_id(drcontext));
+                      "cbrtrace.%d.%d.log",
+                      dr_get_process_id(), dr_get_thread_id(drcontext));
     DR_ASSERT(len > 0);
     NULL_TERMINATE_BUFFER(name);
     log = log_file_open(client_id, drcontext, NULL /* using client lib path */,

@@ -5536,7 +5536,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
  */
 static void
 dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                                   void *callee, bool has_fallthrough)
+                                   void *callee, bool has_fallthrough, opnd_t user_data)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address, target;
@@ -5568,8 +5568,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     app_flags_ok = instr_get_prev(instr);
     if (has_fallthrough) {
         ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
+        CLIENT_ASSERT(!opnd_uses_reg(user_data, DR_REG_XBX),
+                      "register ebx should not be used");
         CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 4,
+        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 5,
                              /* push address of mbr onto stack as 1st parameter */
                              OPND_CREATE_INTPTR(address),
                              /* target is 2nd parameter */
@@ -5577,7 +5579,9 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
                              /* fall-throug is 3rd parameter */
                              OPND_CREATE_INTPTR(fallthrough),
                              /* branch direction (put in ebx below) is 4th parameter */
-                             opnd_create_reg(REG_XBX));
+                             opnd_create_reg(REG_XBX),
+                             /* user defined data is 5th parameter */
+                             opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
     } else {
         dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 3,
                              /* push address of mbr onto stack as 1st parameter */
@@ -5748,16 +5752,16 @@ DR_API void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee)
 {
-    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
-                                       callee, false /* no fallthrough */);
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr, callee,
+                                       false /* no fallthrough */, opnd_create_null());
 }
 
 DR_API void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                                 void *callee)
+                                 void *callee, opnd_t user_data)
 {
-    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
-                                       callee, true /* has fallthrough */);
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr, callee,
+                                       true /* has fallthrough */, user_data);
 }
 
 

@@ -118,7 +118,8 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
 
             else if (instr_is_cbr(instr)) {
                 dr_insert_cbr_instrumentation(drcontext, bb, instr, at_br_cond);
-                dr_insert_cbr_instrumentation_ex(drcontext, bb, instr, at_br_cond_ex);
+                dr_insert_cbr_instrumentation_ex(drcontext, bb, instr, at_br_cond_ex,
+                                                 opnd_create_null());
             }
 
             else {
