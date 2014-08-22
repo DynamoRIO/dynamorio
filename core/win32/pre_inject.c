@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -214,12 +214,7 @@ load_dynamorio_lib(IF_NOT_X64(bool x64_in_wow64))
              */
             LDR_MODULE *mod = get_ldr_module_by_name(L"user32.dll");
             ASSERT(mod != NULL);
-            /* The ldr uses -1 as the load count for statically linked dlls
-             * (signals to not bother to keep track of the load count/never
-             * unload).  It doesn't appear to ever use this value for non-
-             * statically linked dlls (including user32.dll if late loaded).
-             */
-            if (mod->LoadCount == -1) {
+            if (ldr_module_statically_linked(mod)) {
 #ifndef X64
                 if (x64_in_wow64)
                     dll = load_library_64(path);

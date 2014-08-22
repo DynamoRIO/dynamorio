@@ -1500,7 +1500,10 @@ int main(int argc, char *argv[])
         if (get_platform(&platform) != ERROR_SUCCESS)
             platform = PLATFORM_UNKNOWN;
         if (platform >= PLATFORM_WIN_8) {
-            error("syswide_on is not yet supported on Windows 8");
+            /* FIXME i#1522: enable AppInit for non-WOW64 on win8+
+             * FIXME i#1035: enable AppInit for WOW64 win8+
+             */
+            error("syswide_on is not yet supported on Windows 8+");
             die();
         }
         if (!check_dr_root(dr_root, false, dr_platform, true))
@@ -1512,7 +1515,7 @@ int main(int argc, char *argv[])
             }
             else if (platform >= PLATFORM_WIN_7) {
                 /* i#323 will fix this but good to warn the user */
-                warn("on Windows 7, syswide_on relaxes system security by removing certain code signing requirements");
+                warn("on Windows 7+, syswide_on relaxes system security by removing certain code signing requirements");
             }
         }
         if (dr_register_syswide(dr_platform, dr_root) != ERROR_SUCCESS) {

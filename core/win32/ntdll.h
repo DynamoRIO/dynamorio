@@ -147,6 +147,18 @@ typedef struct _RTL_RB_TREE {
     PRTL_BALANCED_NODE Min;
 } RTL_RB_TREE, *PRTL_RB_TREE;
 
+/* Used for Windows 8 ntdll!_LDR_DATA_TABLE_ENTRY.LoadReason */
+typedef enum _LDR_DLL_LOAD_REASON {
+   LoadReasonStaticDependency = 0,
+   LoadReasonStaticForwarderDependency = 1,
+   LoadReasonDynamicForwarderDependency = 2,
+   LoadReasonDelayloadDependency = 3,
+   LoadReasonDynamicLoad = 4,
+   LoadReasonAsImageLoad = 5,
+   LoadReasonAsDataLoad = 6,
+   LoadReasonUnknown = -1,
+} LDR_DLL_LOAD_REASON;
+
 /* Note that these lists are walked through corresponding LIST_ENTRY pointers
  * i.e., for InInit*Order*, Flink points 16 bytes into the LDR_MODULE structure.
  * The MS symbols refer to this data struct as ntdll!_LDR_DATA_TABLE_ENTRY
@@ -187,7 +199,7 @@ typedef struct _LDR_MODULE {                         /* offset: 32bit / 64bit */
     ULONG_PTR OriginalBase;                                  /* 0x080 / 0x0f8 */
     LARGE_INTEGER LoadTime;                                  /* 0x088 / 0x100 */
     ULONG BaseNameHashValue;                                 /* 0x090 / 0x108 */
-    ULONG LoadReason;                                        /* 0x094 / 0x10c */
+    LDR_DLL_LOAD_REASON LoadReason;                          /* 0x094 / 0x10c */
 } LDR_MODULE, *PLDR_MODULE;
 
 /* This macro is defined so that 32-bit dlls can be handled in 64-bit DR.
@@ -216,9 +228,12 @@ typedef struct _LDR_MODULE {                         /* offset: 32bit / 64bit */
 /* For use by routines that walk the module lists. */
 enum {MAX_MODULE_LIST_INFINITE_LOOP_THRESHOLD = 2048};
 
-/* from winternl.h from wine (thus not official)
- * these defines are (some of the) regular LDR_MODULE.Flags values
+/* Originally from winternl.h from wine (thus not official),
+ * these defines are (some of the) regular LDR_MODULE.Flags values.
+ * Windows 8 has these as named bitfields so we now have official
+ * confirmation.
  */
+#define LDR_PROCESS_STATIC_IMPORT       0x00000020
 #define LDR_IMAGE_IS_DLL                0x00000004
 #define LDR_LOAD_IN_PROGRESS            0x00001000
 #define LDR_UNLOAD_IN_PROGRESS          0x00002000
@@ -2127,6 +2142,9 @@ enum { /* can't put w/ os_exports.h enum b/c needed for non-core */
 
 LDR_MODULE *
 get_ldr_module_by_name(wchar_t *name);;
+
+bool
+ldr_module_statically_linked(LDR_MODULE *mod);
 
 #ifndef X64
 void *

@@ -730,6 +730,37 @@ get_ldr_module_by_name(wchar_t *name)
     }
     return NULL;
 }
+
+bool
+ldr_module_statically_linked(LDR_MODULE *mod)
+{
+    /* The ldr uses -1 as the load count for statically linked dlls
+     * (signals to not bother to keep track of the load count/never
+     * unload).  It doesn't appear to ever use this value for non-
+     * statically linked dlls (including user32.dll if late loaded).
+     *
+     * i#1522: However, on Win8, they renamed the LoadCount field to
+     * ObsoleteLoadCount, and it seems that many statically linked dlls have
+     * a positive value.  There are 2 other fields: LDR_PROCESS_STATIC_IMPORT
+     * in the Flags ("ProcessStaticImport" bitfield in PDB types), and
+     * LoadReasonStaticDependency.  Looking at real data, though, the fields
+     * are very confusingly used, so for now we accept any of the 3.
+     */
+    bool win8plus = false;
+# if defined(NOT_DYNAMORIO_CORE) || defined(NOT_DYNAMORIO_CORE_PROPER)
+    PEB *peb = get_own_peb();
+    win8plus = (peb->OSMajorVersion >= 6 && peb->OSMinorVersion >= 2);
+# else
+    win8plus = (get_os_version() >= WINDOWS_VERSION_8);
+# endif
+    if (win8plus) {
+        return (mod->LoadCount == -1 ||
+                TEST(LDR_PROCESS_STATIC_IMPORT, mod->Flags) ||
+                mod->LoadReason == LoadReasonStaticDependency ||
+                mod->LoadReason == LoadReasonStaticForwarderDependency);
+    } else
+        return (mod->LoadCount == -1);
+}
 #endif /* !NOT_DYNAMORIO_CORE */
 
 /****************************************************************************/
