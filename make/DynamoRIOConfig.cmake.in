@@ -988,7 +988,7 @@ endfunction (use_DynamoRIO_extension)
 function (configure_DynamoRIO_annotation_sources srcs)
   if (UNIX)
     foreach (src ${srcs})
-      DR_append_property_string(SOURCE ${src} COMPILE_FLAGS
+      _DR_append_property_string(SOURCE ${src} COMPILE_FLAGS
         "-O0 -fno-omit-frame-pointer -Wno-unused-variable -Wno-return-type")
     endforeach (src ${srcs})
   else (UNIX)

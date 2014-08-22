@@ -405,9 +405,9 @@ annotation_flush_fragments(app_pc start, size_t len)
                 RSTATS_INC(app_managed_writes_handled);
                 RSTATS_ADD(app_managed_fragments_removed, removal_count);
 
-                if (len < 4)
+                if (len < sizeof(ptr_uint_t))
                     RSTATS_INC(app_managed_micro_writes);
-                else if (len == 4) {
+                else if (len == sizeof(ptr_uint_t)) {
                     if (maybe_exit_cti_disp_pc(start - 1) != NULL ||
                         maybe_exit_cti_disp_pc(start - 2) != NULL)
                         RSTATS_INC(app_managed_cti_target_writes);
@@ -505,11 +505,11 @@ dgc_bb_end_bucket_id(dgc_bb_t *bb)
 static inline dgc_bucket_t *
 dgc_get_containing_bucket(dgc_bb_t *bb)
 {
-    if (*(ptr_uint_t *)(bb + 1) == BUCKET_OFFSET_SENTINEL)
+    if (*(uint *)(bb + 1) == BUCKET_OFFSET_SENTINEL)
         return (dgc_bucket_t *)(bb - 2);
-    if (*(ptr_uint_t *)(bb + 2) == BUCKET_OFFSET_SENTINEL)
+    if (*(uint *)(bb + 2) == BUCKET_OFFSET_SENTINEL)
         return (dgc_bucket_t *)(bb - 1);
-    if (*(ptr_uint_t *)(bb + 3) == BUCKET_OFFSET_SENTINEL)
+    if (*(uint *)(bb + 3) == BUCKET_OFFSET_SENTINEL)
         return (dgc_bucket_t *)bb;
     ASSERT(false);
     return NULL;
@@ -1441,8 +1441,8 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     uint j;
     app_pc *bb_tag, *trace_tag;
     bool thread_has_fragment;
-    bool is_tweak = ((patch_end - patch_start) <= 4);
-    bool is_cti_tweak = ((patch_end - patch_start) == 4 &&
+    bool is_tweak = ((patch_end - patch_start) <= sizeof(ptr_uint_t));
+    bool is_cti_tweak = ((patch_end - patch_start) == sizeof(ptr_uint_t) &&
                          (maybe_exit_cti_disp_pc(patch_start-1) != NULL ||
                           maybe_exit_cti_disp_pc(patch_start-2) != NULL));
     per_thread_t *tgt_pt;
