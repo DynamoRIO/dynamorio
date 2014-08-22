@@ -554,7 +554,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     new_mapping->app_memory_start = app_memory_start;
     new_mapping->size = app_memory_size;
 
-    memcpy(file, "/tmp/shm_jit_", 13);
+    memcpy(file, "/dev/shm/jit_", 13);
     file[13] = '0' + double_mappings->index;
     file[14] = '\0';
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -580,7 +580,6 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
                 "DGC: Extended the backing file %s to 0x%x bytes\n", file, app_memory_size);
     new_mapping->fd = fd;
 
-    /*
     result = dynamorio_syscall(SYS_unlink, 1, file);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -589,7 +588,6 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     }
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Unlinked the backing file %s\n", file);
-    */
 
     new_mapping->mapping_start = (app_pc) dynamorio_syscall(MMAP, 6, NULL, app_memory_size,
                                                    PROT_READ|PROT_WRITE, MAP_SHARED,
