@@ -726,6 +726,8 @@ static uint spinlock_count = 0;     /* initialized in utils_init, but 0 is alway
 DECLARE_FREQPROT_VAR(static uint random_seed, 1234); /* initialized in utils_init */
 DEBUG_DECLARE(static uint initial_random_seed;)
 
+bool verbose;
+
 void
 utils_init()
 {
@@ -748,6 +750,8 @@ utils_init()
     ASSERT(sizeof(uint32) == 4);
     ASSERT(sizeof(uint) == 4);
     ASSERT(sizeof(reg_t) == sizeof(void *));
+
+    verbose = DYNAMO_OPTION(verbose);
 
 #ifdef UNIX /* after options_init(), before we open logfile or call instrument_init() */
     os_file_init();

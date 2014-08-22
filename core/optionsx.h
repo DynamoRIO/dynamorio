@@ -252,6 +252,7 @@
     /* this takes precedence over the DYNAMORIO_VAR_LOGDIR config var */
     OPTION_DEFAULT(pathstring_t, logdir, EMPTY_STRING,
         "directory for log files")
+    OPTION_DEFAULT(bool, verbose, false, "enable verbose output on stderr")
 #ifdef DEBUG /* options that only work for debug build */
     /* we do allow logging for customers for forensics/diagnostics that requires
      * debug build for more information.

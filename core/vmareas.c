@@ -3571,16 +3571,17 @@ set_region_jit_monitored(app_pc start, size_t len)
 bool
 set_region_dgc_writer(app_pc start, size_t len)
 {
+    bool result = false;
     vm_area_t *region;
     LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
     write_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, start, &region)) {
         ASSERT((region->start == start) && (region->end == (start+len)));
         region->vm_flags |= VM_DGC_WRITER;
-        return true;
-    } else {
-        return false;
+        result = true;
     }
+    write_unlock(&executable_areas->lock);
+    return result;
 }
 #else
 void

@@ -39,7 +39,6 @@
 
 #include <string.h>
 
-#define RELEASE_NOISE 1
 //#define TRACE_ANALYSIS 1
 
 #include <stdlib.h>
@@ -182,22 +181,6 @@ typedef struct _dgc_removal_queue_t {
 } dgc_removal_queue_t;
 
 static dgc_removal_queue_t *dgc_removal_queue;
-
-#ifdef RELEASE_NOISE
-# define RELEASE_LOG(file, category, level, ...) dr_fprintf(STDERR, __VA_ARGS__)
-# ifdef DEBUG
-#  define RELEASE_ASSERT(cond, msg, ...) \
-    if (!(cond)) \
-        LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
-# else
-#  define RELEASE_ASSERT(cond, msg, ...) \
-    if (!(cond)) \
-        dr_printf("Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
-# endif
-#else
-# define RELEASE_LOG(file, category, level, ...)
-# define RELEASE_ASSERT(cond, msg, ...)
-#endif
 
 #define DGC_REPORT_ONE_STAT(stat) \
     RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " | %s: %d\n", \
@@ -1965,7 +1948,6 @@ has_tag(app_pc tag, app_pc *tags, uint count)
     return false;
 }
 
-#ifdef RELEASE_NOISE
 static bool
 buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
 {
@@ -1976,7 +1958,6 @@ buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
     }
     return false;
 }
-#endif
 
 static uint
 add_trace_intersection(dgc_trace_t *trace, uint i)

@@ -497,8 +497,9 @@ thcounter_resize(dcontext_t *dcontext, trace_head_table_t *t)
     COUNTER_FREE(dcontext, old_counter_table, old_capacity*sizeof(trace_head_counter_t*)
                  HEAPACCT(ACCT_THCOUNTER));
 
-    dr_printf("Trace head table resized to capacity 0x%x on dc "PFX"\n",
-              t->capacity, dcontext);
+    RELEASE_LOG(THREAD, LOG_MONITOR, 1,
+                "Trace head table resized to capacity 0x%x on dc "PFX"\n",
+                t->capacity, dcontext);
 }
 
 static trace_head_counter_t *
