@@ -215,9 +215,10 @@ add_sample_client(inscount    "inscount.c"      "")
 add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
 add_sample_client(prefetch    "prefetch.c"      "")
 add_sample_client(signal      "signal.c"        "")
-add_sample_client(strace      "strace.c"        "drmgr")
+add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
+add_sample_client(cbrtrace    "cbrtrace.c;utils.c"         "")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
@@ -291,8 +292,4 @@ DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   REGEX ".*.dSYM/.*DWARF/.*" # too painful to get right # of backslash for literal .
   )
 
-# Include a copy of a recent (> 6.0) redistributable version of dbghelp, if
-# we found one, so our drsyms-using samples work pre-Vista.
-if (dbghelp_path)
-  DR_install(FILES "${dbghelp_path}" DESTINATION ${INSTALL_SAMPLES_BIN})
-endif ()
+DR_install(CODE "file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/${INSTALL_SAMPLES}/README\" \"This directory contains sample clients that show how to use the DR API.  If this is an official release package that includes DRMF, for samples that use the DRMF API, see ../drmemory/drmf/samples/.\n\")")

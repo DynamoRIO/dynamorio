@@ -1614,7 +1614,7 @@ insert_mov_immed_common(dcontext_t *dcontext, instr_t *src_inst, byte *encode_es
             /* mov high32 => [mem32+4] */
             if (opnd_is_base_disp(dst)) {
                 int disp = opnd_get_disp(dst);
-                CLIENT_ASSERT(disp + 4 > disp, "disp overflow");
+                //CLIENT_ASSERT(disp + 4 > disp, "disp overflow");
                 opnd_set_disp(&dst, disp+4);
             } else {
                 byte *addr = opnd_get_addr(dst);

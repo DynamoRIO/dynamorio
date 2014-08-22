@@ -5077,6 +5077,20 @@ void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist,
                               instr_t *instr, void *callee);
 
+DR_API
+/**
+ * Assumes that \p instr is a conditional branch
+ * Inserts into \p ilist prior to \p instr instruction(s) to call callee passing
+ * four arguments:
+ * -# address of branch instruction
+ * -# target address of branch
+ * -# fall-through address of branch
+ * -# 0 if the branch is not taken, 1 if it is taken
+ */
+void
+dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist,
+                                 instr_t *instr, void *callee);
+
 /* FIXME: will never see any ubrs! */
 DR_API
 /**

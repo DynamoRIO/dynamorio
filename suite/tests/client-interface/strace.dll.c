@@ -56,7 +56,7 @@
 #endif
 
 /* Due to differences among platforms we don't display syscall #s and args
- * so we leave SHOW_RESULTS undefined
+ * so we leave SHOW_RESULTS undefined.
  */
 
 /* Unlike in api sample, always print to stderr. */
@@ -68,16 +68,16 @@
 # define ATOMIC_INC(var) __asm__ __volatile__("lock incl %0" : "=m" (var) : : "memory")
 #endif
 
-/***************************************************************************
- * BELOW HERE SHOULD BE KEPT IDENTICAL TO api/samples/strace.c
- */
-
 /* Some syscalls have more args, but this is the max we need for SYS_write/NtWriteFile */
 #ifdef WINDOWS
 # define SYS_MAX_ARGS 9
 #else
 # define SYS_MAX_ARGS 3
 #endif
+
+/***************************************************************************
+ * This is mostly based on api/samples/syscall.c
+ */
 
 /* Thread-context-local data structure for storing system call
  * parameters.  Since this state spans application system call
@@ -123,8 +123,13 @@ dr_init(client_id_t id)
                                         event_thread_context_exit);
     DR_ASSERT(tcls_idx != -1);
 #ifdef SHOW_RESULTS
-    if (dr_is_notify_on())
-        dr_fprintf(STDERR, "Client strace is running\n");
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        /* ask for best-effort printing to cmd window.  must be called in dr_init(). */
+        dr_enable_console_printing();
+# endif
+        dr_fprintf(STDERR, "Client syscall is running\n");
+    }
 #endif
 }
 
@@ -190,7 +195,7 @@ event_thread_context_exit(void *drcontext, bool thread_exit)
 static bool
 event_filter_syscall(void *drcontext, int sysnum)
 {
-    return true; /* intercept everything */
+    return true; /* intercept everything, for our count of syscalls seen */
 }
 
 static bool
@@ -207,13 +212,6 @@ event_pre_syscall(void *drcontext, int sysnum)
 # endif
     }
 #endif
-#ifdef SHOW_RESULTS
-    dr_fprintf(STDERR, "[%d] "PFX" "PFX" "PFX"\n",
-               sysnum,
-               dr_syscall_get_param(drcontext, 0),
-               dr_syscall_get_param(drcontext, 1),
-               dr_syscall_get_param(drcontext, 2));
-#endif
     if (sysnum == write_sysnum) {
         /* store params for access post-syscall */
         int i;
@@ -229,7 +227,7 @@ event_pre_syscall(void *drcontext, int sysnum)
             return true; /* data unreadable: execute normally */
         if (dr_is_wow64()) {
             /* store the xcx emulation parameter for wow64 */
-            dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL,};
+            dr_mcontext_t mc = {sizeof(mc),DR_MC_INTEGER/*only need xcx*/};
             dr_get_mcontext(drcontext, &mc);
             data->xcx = mc.xcx;
         }
@@ -255,14 +253,14 @@ event_pre_syscall(void *drcontext, int sysnum)
             dr_syscall_set_result(drcontext, 0);
 #endif
 #ifdef SHOW_RESULTS
-            dr_fprintf(STDERR, "  [%d] => skipped\n", sysnum);
+            dr_fprintf(STDERR, "<---- skipping write to stderr ---->\n");
 #endif
             return false; /* skip syscall */
         } else if (dr_syscall_get_param(drcontext, 0) == (reg_t) STDOUT) {
             if (!data->repeat) {
                 /* redirect stdout to stderr (unless it's our repeat) */
 #ifdef SHOW_RESULTS
-                dr_fprintf(STDERR, "  [%d] STDOUT => STDERR\n", sysnum);
+                dr_fprintf(STDERR, "<---- changing stdout to stderr ---->\n");
 #endif
                 dr_syscall_set_param(drcontext, 0, (reg_t) STDERR);
             }
@@ -292,15 +290,11 @@ event_post_syscall(void *drcontext, int sysnum)
 {
 #ifdef SHOW_RESULTS
     dr_syscall_result_info_t info = { sizeof(info), };
-    info.user_errno = true;
     dr_syscall_get_result_ex(drcontext, &info);
-    dr_fprintf(STDERR, "  [%d] => "PFX" ("SZFMT")%s\n",
-               sysnum, info.value, (ptr_int_t)info.value,
-               info.succeeded ? "" : " (failed)");
-# ifndef WINDOWS
-    DR_ASSERT((info.succeeded && info.errno == 0) ||
-              (!info.succeeded && info.errno > 0));
-# endif
+    if (!info.succeeded) {
+        dr_fprintf(STDERR, "<---- syscall %d failed (returned "PFX" == "SZFMT") ---->\n",
+                   sysnum, info.value, (ptr_int_t)info.value);
+    }
 #endif
     if (sysnum == write_sysnum) {
         per_thread_t *data = (per_thread_t *) drmgr_get_cls_field(drcontext, tcls_idx);
@@ -311,7 +305,7 @@ event_post_syscall(void *drcontext, int sysnum)
             /* repeat syscall with stdout */
             int i;
 #ifdef SHOW_RESULTS
-            dr_fprintf(STDERR, "  [%d] => repeating\n", sysnum);
+            dr_fprintf(STDERR, "<---- repeating write ---->\n");
 #endif
             dr_syscall_set_sysnum(drcontext, write_sysnum);
             dr_syscall_set_param(drcontext, 0, (reg_t) STDOUT);
@@ -325,7 +319,7 @@ event_post_syscall(void *drcontext, int sysnum)
                  * need to determine the parameter from the ntdll
                  * wrapper.
                  */
-                dr_mcontext_t mc = {sizeof(mc),DR_MC_ALL,};
+                dr_mcontext_t mc = {sizeof(mc),DR_MC_INTEGER/*only need xcx*/};
                 dr_get_mcontext(drcontext, &mc);
                 mc.xcx = data->xcx;
                 dr_set_mcontext(drcontext, &mc);

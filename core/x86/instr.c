@@ -1626,6 +1626,46 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_EBP: return XBP_OFFSET;
     case REG_ESI: return XSI_OFFSET;
     case REG_EDI: return XDI_OFFSET;
+    case REG_R8D:  return  R8_OFFSET;
+    case REG_R9D:  return  R9_OFFSET;
+    case REG_R10D: return R10_OFFSET;
+    case REG_R11D: return R11_OFFSET;
+    case REG_R12D: return R12_OFFSET;
+    case REG_R13D: return R13_OFFSET;
+    case REG_R14D: return R14_OFFSET;
+    case REG_R15D: return R15_OFFSET;
+
+    case REG_AX: return XAX_OFFSET;
+    case REG_BX: return XBX_OFFSET;
+    case REG_CX: return XCX_OFFSET;
+    case REG_DX: return XDX_OFFSET;
+    case REG_SP: return XSP_OFFSET;
+    case REG_BP: return XBP_OFFSET;
+    case REG_SI: return XSI_OFFSET;
+    case REG_DI: return XDI_OFFSET;
+
+    case REG_AL: return XAX_OFFSET;
+    case REG_BL: return XBX_OFFSET;
+    case REG_CL: return XCX_OFFSET;
+    case REG_DL: return XDX_OFFSET;
+    case REG_SPL: return XSP_OFFSET;
+    case REG_BPL: return XBP_OFFSET;
+    case REG_SIL: return XSI_OFFSET;
+    case REG_DIL: return XDI_OFFSET;
+    case REG_R8L:  return  R8_OFFSET;
+    case REG_R9L:  return  R9_OFFSET;
+    case REG_R10L: return R10_OFFSET;
+    case REG_R11L: return R11_OFFSET;
+    case REG_R12L: return R12_OFFSET;
+    case REG_R13L: return R13_OFFSET;
+    case REG_R14L: return R14_OFFSET;
+    case REG_R15L: return R15_OFFSET;
+
+    case REG_AH: return XAX_OFFSET;
+    case REG_BH: return XBX_OFFSET;
+    case REG_CH: return XCX_OFFSET;
+    case REG_DH: return XDX_OFFSET;
+
     case REG_R8:  return  R8_OFFSET;
     case REG_R9:  return  R9_OFFSET;
     case REG_R10: return R10_OFFSET;

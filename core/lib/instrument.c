@@ -5534,9 +5534,9 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
  * NOTE : this routine has assumption about the layout of the clean call,
  * so any change to clean call instrumentation layout may break this routine.
  */
-DR_API void
-dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                              void *callee)
+static void
+dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                                   void *callee, bool has_fallthrough)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address, target;
@@ -5566,13 +5566,27 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     }
 
     app_flags_ok = instr_get_prev(instr);
-    dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 3,
-                         /* push address of mbr onto stack as 1st parameter */
-                         OPND_CREATE_INTPTR(address),
-                         /* target is 2nd parameter */
-                         OPND_CREATE_INTPTR(target),
-                         /* branch direction (put in ebx below) is 3rd parameter */
-                         opnd_create_reg(REG_XBX));
+    if (has_fallthrough) {
+        ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
+        CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
+        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 4,
+                             /* push address of mbr onto stack as 1st parameter */
+                             OPND_CREATE_INTPTR(address),
+                             /* target is 2nd parameter */
+                             OPND_CREATE_INTPTR(target),
+                             /* fall-throug is 3rd parameter */
+                             OPND_CREATE_INTPTR(fallthrough),
+                             /* branch direction (put in ebx below) is 4th parameter */
+                             opnd_create_reg(REG_XBX));
+    } else {
+        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 3,
+                             /* push address of mbr onto stack as 1st parameter */
+                             OPND_CREATE_INTPTR(address),
+                             /* target is 2nd parameter */
+                             OPND_CREATE_INTPTR(target),
+                             /* branch direction (put in ebx below) is 3rd parameter */
+                             opnd_create_reg(REG_XBX));
+    }
 
     /* calculate whether branch taken or not
      * since the clean call mechanism clobbers eflags, we
@@ -5729,6 +5743,23 @@ dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     }
     /* now branch dir is in ebx and will be passed to clean call */
 }
+
+DR_API void
+dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                              void *callee)
+{
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
+                                       callee, false /* no fallthrough */);
+}
+
+DR_API void
+dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
+                                 void *callee)
+{
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
+                                       callee, true /* has fallthrough */);
+}
+
 
 DR_API void
 dr_insert_ubr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
