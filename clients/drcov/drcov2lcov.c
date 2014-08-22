@@ -637,7 +637,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
         PRINT(5, "function %s: "PFX"-"PFX"\n",
-              name, info->start_offs, info->end_offs);
+              name, (ptr_uint_t)info->start_offs, (ptr_uint_t)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
