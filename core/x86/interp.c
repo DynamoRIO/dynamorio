@@ -3091,6 +3091,11 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                                              dcontext : my_dcontext, page_start_pc);
             }
 
+            if (apply_dgc_plan(bb->cur_pc)) {
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                            "DGC: Found DGC writer at "PFX"\n", bb->cur_pc);
+            }
+
             bb->instr_start = bb->cur_pc;
             if (bb->full_decode) {
                 /* only going through this do loop once! */

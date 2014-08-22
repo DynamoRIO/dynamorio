@@ -209,7 +209,10 @@ typedef struct _emulation_plan_t {
     } src;
     opnd_t dst;
     uint dst_size;
+    app_pc resume_pc;
 } emulation_plan_t;
+
+generic_table_t *emulation_plans;
 
 #if !(defined (WINDOWS) && defined (X64))
 static ptr_uint_t
@@ -221,6 +224,9 @@ safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_t
 
 static void
 free_dgc_bucket_chain(void *p);
+
+static void
+free_emulation_plan(void *p);
 
 static void
 update_thread_state();
@@ -308,6 +314,11 @@ jitopt_init()
     double_mappings->mappings =
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, double_mapping_t, MAX_DOUBLE_MAPPINGS,
                          ACCT_OTHER, UNPROTECTED);
+
+    emulation_plans = generic_hash_create(GLOBAL_DCONTEXT, 7, 80,
+                                        HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
+                                        HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
+                                        free_emulation_plan _IF_DEBUG("DGC Emulation Plans"));
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -358,6 +369,8 @@ jitopt_exit()
                     MAX_DOUBLE_MAPPINGS, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, double_mappings, double_mapping_list_t,
                    ACCT_OTHER, UNPROTECTED);
+
+    generic_hash_destroy(GLOBAL_DCONTEXT, emulation_plans);
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
 }
@@ -689,7 +702,7 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *word_target_access -= *word_value;
         }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtraced %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtracted %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     }
 }
 
@@ -729,79 +742,116 @@ synch_jit(dcontext_t *dcontext, priv_mcontext_t *mc, emulation_plan_t *plan,
     return true;
 }
 
-app_pc
-instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
+static emulation_plan_t *
+create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc)
 {
     instr_t writer;
     opnd_t src;
-    emulation_plan_t plan;
-    app_pc resume_pc;
+    emulation_plan_t *plan;
 
     instr_init(dcontext, &writer);
+    plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 
-    resume_pc = decode(dcontext, instr_app_pc, &writer); // assume readable (already decoded)
+    plan->resume_pc = decode(dcontext, writer_app_pc, &writer); // assume readable (already decoded)
     if (!instr_valid(&writer)) {
-        resume_pc = NULL;
+        plan->resume_pc = NULL;
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: Failed to decode writer at "PFX"\n", write_target);
+                    "DGC: Failed to decode writer at "PFX"\n", writer_app_pc);
         goto instrumentation_failure;
     }
     switch (instr_get_opcode(&writer)) {
     case OP_mov_st:
     case OP_movdqu:
     case OP_movdqa:
-        plan.op = EMUL_MOV;
+        plan->op = EMUL_MOV;
         break;
     case OP_or:
-        plan.op = EMUL_OR;
+        plan->op = EMUL_OR;
         break;
     case OP_and:
-        plan.op = EMUL_AND;
+        plan->op = EMUL_AND;
         break;
     case OP_sub:
-        plan.op = EMUL_SUB;
+        plan->op = EMUL_SUB;
         break;
     default:
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&writer));
-        resume_pc = NULL;
+        plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
 
     src = instr_get_src(&writer, 0);
-    plan.dst = instr_get_dst(&writer, 0);
-    plan.dst_size = opnd_size_in_bytes(opnd_get_size(plan.dst));
+    plan->dst = instr_get_dst(&writer, 0);
+    plan->dst_size = opnd_size_in_bytes(opnd_get_size(plan->dst));
 
-    ASSERT((plan.op != EMUL_OR && plan.op != EMUL_AND && plan.op != EMUL_SUB)
-           || plan.dst_size == 1 || plan.dst_size == 4 || plan.dst_size == 8);
-    ASSERT(opnd_is_memory_reference(plan.dst));
-    if (plan.dst_size < 1 || plan.dst_size > 128 || (plan.dst_size > 1 && plan.dst_size % 4 != 0)) {
+    ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
+           || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
+    ASSERT(opnd_is_memory_reference(plan->dst));
+    if (plan->dst_size < 1 || plan->dst_size > 128 || (plan->dst_size > 1 && plan->dst_size % 4 != 0)) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
-                  instr_get_opcode(&writer), plan.dst_size);
-        resume_pc = NULL;
+                  instr_get_opcode(&writer), plan->dst_size);
+        plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
 
     if (opnd_is_reg(src)) {
-        plan.src.mcontext_reg_offset = opnd_get_reg_mcontext_offs(opnd_get_reg(src));
-        plan.src_in_reg = true;
+        plan->src.mcontext_reg_offset = opnd_get_reg_mcontext_offs(opnd_get_reg(src));
+        plan->src_in_reg = true;
     } else if (opnd_is_immed_int(src)) {
-        plan.src.immediate = (reg_t) opnd_get_immed_int(src);
-        plan.src_in_reg = false;
+        plan->src.immediate = (reg_t) opnd_get_immed_int(src);
+        plan->src_in_reg = false;
     } else {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to instrument instruction with opcode 0x%x and unsupported src operand type\n",
                     instr_get_opcode(&writer));
-        resume_pc = NULL;
-        goto instrumentation_failure;
+        plan->resume_pc = NULL;
     }
-
-    if (!synch_jit(dcontext, mc, &plan, is_jit_self_write, prot))
-        resume_pc = NULL;
 
 instrumentation_failure:
     instr_free(dcontext, &writer);
-    return resume_pc;
+    if (plan->resume_pc == NULL) {
+        free_emulation_plan(plan);
+        return NULL;
+    } else {
+        generic_hash_add(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc, plan);
+        return plan;
+    }
+}
+
+app_pc
+instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc writer_app_pc,
+                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
+{
+    emulation_plan_t *plan;
+    bool is_tweak = (write_size <= sizeof(ptr_uint_t));
+    bool is_cti_tweak = (is_tweak &&
+                         (maybe_exit_cti_disp_pc(write_target-1) != NULL ||
+                          maybe_exit_cti_disp_pc(write_target-2) != NULL));
+
+    TABLE_RWLOCK(emulation_plans, write, lock);
+    plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
+    if (plan == NULL)
+        plan = create_emulation_plan(dcontext, writer_app_pc);
+    TABLE_RWLOCK(emulation_plans, write, unlock);
+
+    if (plan == NULL)
+        return NULL;
+
+    synch_jit(dcontext, mc, plan, is_jit_self_write, prot);
+
+    safe_remove_bb(dcontext, f, is_tweak, is_cti_tweak);
+
+    return plan->resume_pc;
+}
+
+bool
+apply_dgc_plan(app_pc pc)
+{
+    bool found;
+    TABLE_RWLOCK(emulation_plans, read, lock);
+    found = (generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) pc) != NULL);
+    TABLE_RWLOCK(emulation_plans, read, unlock);
+    return found;
 }
 
 static inline bool
@@ -1263,6 +1313,12 @@ free_dgc_bucket_chain(void *p)
         RSTATS_INC(app_managed_bb_buckets_freed);
         bucket = next_bucket;
     } while (bucket != NULL);
+}
+
+static void
+free_emulation_plan(void *p)
+{
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 }
 
 void
@@ -1795,7 +1851,7 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     app_pc *bb_tag, *trace_tag;
     bool thread_has_fragment;
     bool is_tweak = ((patch_end - patch_start) <= sizeof(ptr_uint_t));
-    bool is_cti_tweak = ((patch_end - patch_start) == sizeof(ptr_uint_t) &&
+    bool is_cti_tweak = (is_tweak &&
                          (maybe_exit_cti_disp_pc(patch_start-1) != NULL ||
                           maybe_exit_cti_disp_pc(patch_start-2) != NULL));
     per_thread_t *tgt_pt;
