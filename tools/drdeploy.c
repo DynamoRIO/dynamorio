@@ -289,8 +289,12 @@ search_env(const char *fname, const char *env_var, char *full_path,
            const size_t full_path_size)
 {
     bool ret = false;
-    return (drfront_searchenv(fname, env_var, full_path,
-                              full_path_size, &ret) == DRFRONT_SUCCESS && ret);
+    if (drfront_searchenv(fname, env_var, full_path,
+                          full_path_size, &ret) != DRFRONT_SUCCESS || !ret) {
+        full_path[0] = '\0';
+        return false;
+    }
+    return true;
 }
 #endif
 
