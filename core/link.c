@@ -1890,6 +1890,11 @@ link_fragment_outgoing(dcontext_t *dcontext, fragment_t *f, bool new_fragment)
                 g = f;
             else /* primarily interested in fragment of same sharing */
                 g = fragment_link_lookup_same_sharing(dcontext, target_tag, l, f->flags);
+
+            //if (((ptr_uint_t)target_tag & 0xfffULL) == 0xe30ULL)
+            if ((ptr_uint_t)target_tag == 0x414980ULL)
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+
             if (g != NULL) {
                 if (is_linkable(dcontext, f, l, g,
                                 NEED_SHARED_LOCK(f->flags) ||

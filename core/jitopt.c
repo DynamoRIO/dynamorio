@@ -165,7 +165,7 @@ static dgc_fragment_intersection_t *fragment_intersection;
 #endif
 
 #define DGC_MAPPING_TABLE_SHIFT 0xc
-#define DGC_MAPPING_TABLE_MASK 0xfff
+#define DGC_MAPPING_TABLE_MASK 0x3ff
 #define DGC_MAPPING_TABLE_SIZE 0x400
 
 typedef struct dgc_writer_mapping_t dgc_writer_mapping_t;
@@ -236,6 +236,7 @@ typedef struct _emulation_plan_t {
     opnd_t dst;
     uint dst_size;
     app_pc resume_pc;
+    bool is_jit_self_write;
 } emulation_plan_t;
 
 generic_table_t *emulation_plans;
@@ -618,8 +619,8 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
         mapping->offset = offset;
         mapping->next = dgc_writer_mapping_table->table[key];
         dgc_writer_mapping_table->table[key] = mapping;
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Inserted writer offset "
-                    "for page "PFX" (key 0x%x).\n", page_id, key);
+        //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Inserted writer offset "
+        //            "for page "PFX" (key 0x%x).\n", page_id, key);
     }
 }
 
@@ -660,8 +661,8 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
             mapping->next = mapping->next->next;
             free_dgc_writer_mapping(removal); // FIXME: race with reader!
         }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Removed writer offset "
-                    "for page "PFX" (key 0x%x).\n", page_id, key);
+        //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Removed writer offset "
+        //            "for page "PFX" (key 0x%x).\n", page_id, key);
     }
 }
 
@@ -764,16 +765,26 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     value_base = value;
 
     if (plan->op == EMUL_MOV) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to write %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Attempting to write %d bytes to "PFX" via "PFX"\n",
+                    plan->dst_size, write_target, target_access);
+        if (((ptr_uint_t)target_access & 0xfffULL) == 0x8c0ULL)
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
              *byte_target_access = byte_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    Writing 0x%x to "PFX"\n",
+                        byte_value, byte_target_access);
             ASSERT(*byte_target_access == byte_value);
             ASSERT(*(byte*)write_target == byte_value);
         } else {
-            for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++)
+            for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++) {
                 *target_access = *value;
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    Writing 0x%x to "PFX"\n",
+                            *value, target_access);
+            }
             target_access = (uint *)((ptr_int_t)write_target + page_delta);
             ASSERT(*target_access == *value_base);
             ASSERT(*(uint*)write_target == *value_base);
@@ -897,7 +908,7 @@ clear_double_mapping(app_pc start)
 }
 
 static emulation_plan_t *
-create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc)
+create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_self_write)
 {
     instr_t writer;
     opnd_t src;
@@ -906,6 +917,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc)
     instr_init(dcontext, &writer);
     plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 
+    plan->is_jit_self_write = is_jit_self_write;
     plan->resume_pc = decode(dcontext, writer_app_pc, &writer); // assume readable (already decoded)
     if (!instr_valid(&writer)) {
         plan->resume_pc = NULL;
@@ -980,14 +992,19 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     dgc_writer_mapping_t *mapping;
     ptr_uint_t offset;
 
+    if (true)
+        return NULL;
+
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
     if (plan == NULL)
-        plan = create_emulation_plan(dcontext, writer_app_pc);
+        plan = create_emulation_plan(dcontext, writer_app_pc, is_jit_self_write);
     TABLE_RWLOCK(emulation_plans, write, unlock);
 
     if (plan == NULL)
         return NULL;
+
+    ASSERT(plan->resume_pc > writer_app_pc);
 
     mutex_lock(&dgc_mapping_lock);
     mapping = lookup_dgc_writer_offset(write_target);
@@ -1000,6 +1017,10 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         if (offset == 0)
             return NULL;
     }
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Emulating write "PFX" -> "PFX" via page fault\n",
+                writer_app_pc, write_target);
 
     emulate_writer(mc, plan, offset, write_target);
     if (!is_jit_self_write)
@@ -1041,13 +1062,28 @@ emulate_dgc_write(app_pc writer_pc)
 
     mapping = lookup_dgc_writer_offset(write_target);
     if (mapping == NULL) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Cannot find double-mapping "
-                    "for DGC writer at "PFX"\n", writer_pc);
-        return;
+        uint prot;
+
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Creating new double-mapping "
+                    "for DGC writer at "PFX" via clean call\n", writer_pc);
+
+        if (!get_memory_info(write_target, NULL, NULL, &prot)) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Failed to get prot "
+                        "for mapping of "PFX" via clean call\n", writer_pc);
+            return;
+        }
+        if (setup_double_mapping(dcontext, write_target, prot) == 0)
+            return;
+        mapping = lookup_dgc_writer_offset(write_target);
     }
 
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Emulating write "PFX" -> "PFX" via clean call\n",
+                writer_pc, write_target);
+
     emulate_writer(mc, plan, mapping->offset, write_target);
-    annotation_flush_fragments(write_target, plan->dst_size);
+    if (!plan->is_jit_self_write)
+        annotation_flush_fragments(write_target, plan->dst_size);
 }
 
 bool
@@ -1064,6 +1100,13 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     if (plan == NULL)
         return false;
 
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Instrumenting clean call for writer at "PFX"\n", *pc);
+
+    //if (*pc == (app_pc) 0x5f9123)
+    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+
+    // with in-cache offsetting; skip clean call for plan->is_jit_self_write
     label = INSTR_CREATE_label(dcontext);
     label_data = instr_get_label_data_area(label);
     label_data->data[0] = (ptr_uint_t) (void *) emulate_dgc_write;

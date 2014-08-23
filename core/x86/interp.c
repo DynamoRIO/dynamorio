@@ -3092,6 +3092,9 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                                              dcontext : my_dcontext, page_start_pc);
             }
 
+            bb->instr_start = bb->cur_pc;
+            ASSERT(bb->instr_start >= non_cti_start_pc);
+
             if (apply_dgc_emulation_plan(dcontext, &bb->cur_pc, &dgc_writer_instrumentation)) {
                 if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
                     /* instr now holds the cti, so create an instr_t for the non-cti */
@@ -3104,15 +3107,14 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                     /* add non-cti instructions to instruction list */
                     instrlist_append(bb->ilist, non_cti);
                 }
+
                 instrlist_append(bb->ilist, dgc_writer_instrumentation);
                 non_cti_start_pc = bb->cur_pc;
                 bb->instr_start = bb->cur_pc;
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                            "DGC: Found DGC writer at "PFX"\n", bb->instr_start);
                 continue;
             }
 
-            bb->instr_start = bb->cur_pc;
+            ASSERT(bb->instr_start >= non_cti_start_pc);
             if (bb->full_decode) {
                 /* only going through this do loop once! */
                 bb->cur_pc = decode(dcontext, bb->cur_pc, bb->instr);
@@ -4775,6 +4777,9 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
 #ifdef JITOPT
+    if (!is_unmod_image(bb.start_pc) && !is_jit_managed_area(bb.start_pc))
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Skipping non-image bb "PFX"\n", bb.start_pc);
+
     if (visible && is_jit_managed_area(bb.start_pc)) {
         bb.flags |= FRAG_APP_MANAGED;
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);
