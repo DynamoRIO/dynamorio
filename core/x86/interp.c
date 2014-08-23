@@ -2971,6 +2971,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     dcontext_t *my_dcontext = get_thread_private_dcontext();
     DEBUG_DECLARE(bool regenerated = false;)
     bool stop_bb_on_fallthrough = false;
+    instr_t *dgc_writer_instrumentation;
 
     ASSERT(bb->initialized);
     /* note that it's ok for bb->start_pc to be NULL as our check_new_page_start
@@ -3091,9 +3092,24 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                                              dcontext : my_dcontext, page_start_pc);
             }
 
-            if (apply_dgc_emulation_plan(bb->cur_pc)) {
+            if (apply_dgc_emulation_plan(dcontext, &bb->cur_pc, &dgc_writer_instrumentation)) {
+                if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
+                    /* instr now holds the cti, so create an instr_t for the non-cti */
+                    non_cti = instr_create(dcontext);
+                    IF_X64(ASSERT(CHECK_TRUNCATE_TYPE_uint(bb->instr_start - non_cti_start_pc)));
+                    instr_set_raw_bits(non_cti, non_cti_start_pc,
+                                       (uint)(bb->instr_start - non_cti_start_pc));
+                    if (bb->record_translation)
+                        instr_set_translation(non_cti, non_cti_start_pc);
+                    /* add non-cti instructions to instruction list */
+                    instrlist_append(bb->ilist, non_cti);
+                }
+                instrlist_append(bb->ilist, dgc_writer_instrumentation);
+                non_cti_start_pc = bb->cur_pc;
+                bb->instr_start = bb->cur_pc;
                 RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                            "DGC: Found DGC writer at "PFX"\n", bb->cur_pc);
+                            "DGC: Found DGC writer at "PFX"\n", bb->instr_start);
+                continue;
             }
 
             bb->instr_start = bb->cur_pc;

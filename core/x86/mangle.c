@@ -69,6 +69,9 @@
 
 #ifdef ANNOTATIONS
 # include "../annotations.h"
+# ifdef JITOPT
+#  include "../jitopt.h"
+# endif
 #endif
 
 /* make code more readable by shortening long lines
@@ -4158,6 +4161,18 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
         receiver = receiver->next;
     }
 }
+
+static void
+mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
+{
+    dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
+    void *clean_callee = (void *) label_data->data[0];
+    app_pc writer_pc = (app_pc) label_data->data[1];
+    opnd_t arg = OPND_CREATE_INTPTR(writer_pc);
+
+    dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
+
+}
 #endif
 
 /* TOP-LEVEL MANGLE
@@ -4273,6 +4288,12 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             mangle_annotation_helper(dcontext, instr, ilist);
             continue;
         }
+
+        if (is_dgc_optimization_label(instr)) {
+            mangle_dgc_optimization_helper(dcontext, instr, ilist);
+            continue;
+        }
+
 #endif
 
         /* PR 240258: wow64 call* gateway is considered is_syscall */

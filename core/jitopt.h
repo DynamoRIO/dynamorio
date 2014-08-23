@@ -59,7 +59,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
                       app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write);
 
 bool
-apply_dgc_emulation_plan(app_pc pc);
+apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **instr);
 
 void
 add_patchable_bb(app_pc start, app_pc end, bool is_trace_head);
@@ -81,6 +81,15 @@ dgc_notify_region_cleared(app_pc start, app_pc end);
 
 void
 dgc_cache_reset();
+
+static inline bool
+is_dgc_optimization_label(instr_t * instr)
+{
+    if (instr != NULL && instr_is_label(instr))
+        return (ptr_uint_t) instr_get_note(instr) == DR_NOTE_DGC_OPTIMIZATION;
+
+    return false;
+}
 
 #endif /* JIJTOPT */
 

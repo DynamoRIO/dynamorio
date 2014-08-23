@@ -35,6 +35,7 @@
 #include "hashtable.h"
 #include "instrument.h" // hackish...
 #include "annotations.h"
+#include "x86/instr_create.h"
 #include "jitopt.h"
 
 #include <string.h>
@@ -247,7 +248,7 @@ valgrind_discard_translations(dr_vg_client_request_t *request);
 static void
 safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak);
 
-static void
+static bool
 safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f);
 
 static void
@@ -1005,10 +1006,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         annotation_flush_fragments(write_target, plan->dst_size);
 
     if (TEST(FRAG_SHARED, f->flags)) {
-        safe_delete_shared_fragment(dcontext, f);
-        enter_couldbelinking(dcontext, NULL, false);
-        add_to_lazy_deletion_list(dcontext, f);
-        enter_nolinking(dcontext, NULL, false);
+        if (safe_delete_shared_fragment(dcontext, f)) {
+            enter_couldbelinking(dcontext, NULL, false);
+            add_to_lazy_deletion_list(dcontext, f);
+            enter_nolinking(dcontext, NULL, false);
+        }
     } else {
         safe_delete_fragment(dcontext, f, false);
     }
@@ -1049,17 +1051,31 @@ emulate_dgc_write(app_pc writer_pc)
 }
 
 bool
-apply_dgc_emulation_plan(app_pc pc)
+apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **instr)
 {
-    bool found;
+    emulation_plan_t *plan;
+    instr_t *label;
+    dr_instr_label_data_t *label_data;
+
     TABLE_RWLOCK(emulation_plans, read, lock);
-    found = (generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) pc) != NULL);
+    plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
     TABLE_RWLOCK(emulation_plans, read, unlock);
 
-    if (false)
-        emulate_dgc_write(NULL);
+    if (plan == NULL)
+        return false;
 
-    return found;
+    label = INSTR_CREATE_label(dcontext);
+    label_data = instr_get_label_data_area(label);
+    label_data->data[0] = (ptr_uint_t) (void *) emulate_dgc_write;
+    label_data->data[1] = (ptr_uint_t) *pc;
+    instr_set_note(label, (void *) DR_NOTE_DGC_OPTIMIZATION);
+    instr_set_ok_to_mangle(label, false);
+
+    ASSERT(plan->resume_pc > *pc);
+
+    *instr = label;
+    *pc = plan->resume_pc;
+    return true;
 }
 
 static inline bool
@@ -1919,9 +1935,10 @@ expand_intersection_array(void **array, uint *max_size)
     *max_size *= 2;
 }
 
-static void
+static bool
 safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f)
 {
+    bool deleted = false;
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
     acquire_vm_areas_lock(dcontext, f->flags);
     if (TEST(FRAG_WAS_DELETED, f->flags)) {
@@ -1951,9 +1968,11 @@ safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f)
          * flag to determine validity
          */
         f->flags |= FRAG_WAS_DELETED;
+        deleted = true;
     }
     release_vm_areas_lock(dcontext, f->flags);
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+    return deleted;
 }
 
 static void

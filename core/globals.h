@@ -279,6 +279,7 @@ typedef struct _module_data_t module_data_t;
 # define DR_NOTE_FIRST_RESERVED 0xfffffff0UL
 #endif
 #define DR_NOTE_ANNOTATION (DR_NOTE_FIRST_RESERVED + 1)
+#define DR_NOTE_DGC_OPTIMIZATION (DR_NOTE_FIRST_RESERVED + 2)
 
 /**
  * Structure written by dr_get_time() to specify the current time.
