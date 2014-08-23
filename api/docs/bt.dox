@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -323,7 +323,7 @@ key actions during execution of the application.  The \ref sec_events
 section describes events common to the entire DynamoRIO API. Here we
 discuss the events specific to the Code Manipulation portion.
 
-DynamoRIO provides two events related to fragment creation: one for
+DynamoRIO provides two events related to application code fragments: one for
 basic blocks and one for traces (see dr_register_bb_event() and
 dr_register_trace_event()).  Through these fragment-creation hooks,
 the client has the ability to inspect and modify any piece of code
@@ -332,13 +332,31 @@ a client sees \e all application code.  The trace-creation hook
 provides a mechanism for clients to instrument only
 frequently-executed code paths.
 
-The code manipulation API is highly efficient in that fragment
-creation comprises a small part of DynamoRIO's overhead.  A client's
-analysis time rarely impacts execution time; only instrumentation code
-inserted by the client affects efficiency.
+********************
+\subsection sec_control_points Transformation Versus Execution Time
 
+DynamoRIO's basic block and trace events are raised when the corresponding
+application code is being transferred to the software code cache for
+execution.  <em>No event is raised on each execution of this code from the
+code cache</em>.  In a typical run, a particular block of code will only be
+seen once in an event.  It will subsequently execute many times in the code
+cache.
 
-******************** \subsection sec_events_bb Basic Block Creation
+The point where the event is raised, where the application code is being
+copied into the cache, is called <em>transformation time</em>.  This is
+where a client can insert instrumentation to monitor the code, or can
+modify the application code itself.  The repeated executions within the
+code cache of this instrumented or modified code are referred to as
+<em>execution time</em>.  It is important to understand the distinction.
+
+The code manipulation API is highly efficient in that fragment creation
+comprises a small part of DynamoRIO's overhead.  A client's instrumentation
+time actions rarely add substantial overhead for most target applications.
+Instead, it is extra actions taken by added instrumentation code acting at
+execution time that affects efficiency.
+
+********************
+\subsection sec_events_bb Basic Block Creation
 
 Through the basic block creation event, registered via
 dr_register_bb_event(), the client has the ability to inspect and transform
