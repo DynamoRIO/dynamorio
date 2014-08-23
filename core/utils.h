@@ -460,6 +460,7 @@ enum {
     LOCK_RANK(patch_proof_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(emulate_write_areas), /* < dynamo_areas < global_alloc_lock */
     LOCK_RANK(IAT_areas), /* < dynamo_areas < global_alloc_lock */
+    LOCK_RANK(dgc_mapping_lock),
 #ifdef CLIENT_INTERFACE
     /* PR 198871: this same label is used for all client locks */
     LOCK_RANK(dr_client_mutex), /* > module_data_lock */

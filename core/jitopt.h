@@ -51,12 +51,15 @@ void
 annotation_flush_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
+bool
+clear_double_mapping(app_pc start);
+
 app_pc
-instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
-                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write);
+instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc instr_app_pc,
+                      app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write);
 
 bool
-apply_dgc_plan(app_pc pc);
+apply_dgc_emulation_plan(app_pc pc);
 
 void
 add_patchable_bb(app_pc start, app_pc end, bool is_trace_head);

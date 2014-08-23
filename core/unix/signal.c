@@ -3842,6 +3842,8 @@ master_signal_handler_C(byte *xsp)
             /* kill(getpid(), SIGSEGV) looks just like a SIGSEGV in the store of eax
              * to mcontext after the syscall instr in do_syscall -- try to distinguish:
              */
+            RELEASE_LOG(GLOBAL, LOG_ALL, 1, "Exception in DR at {DR:"PFX", App:"PFX"}\n",
+                        pc, target);
             if (is_sys_kill(dcontext, pc, (byte*)sc->SC_XSP, siginfo)) {
                 LOG(THREAD, LOG_ALL, 2,
                     "assuming SIGSEGV at post-do-syscall is kill, not our write fault\n");

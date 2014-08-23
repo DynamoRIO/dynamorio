@@ -157,6 +157,31 @@ static dgc_fragment_intersection_t *fragment_intersection;
 #define IS_INCOMPATIBLE_OVERLAP(start1, end1, start2, end2) \
     ((start1) < (end2) && (end1) > (start2) && (end1) != (end2))
 
+#ifdef X64
+# define MMAP SYS_mmap
+#else
+# define MMAP SYS_mmap2
+#endif
+
+#define DGC_MAPPING_TABLE_SHIFT 0xc
+#define DGC_MAPPING_TABLE_MASK 0xfff
+#define DGC_MAPPING_TABLE_SIZE 0x400
+
+typedef struct dgc_writer_mapping_t dgc_writer_mapping_t;
+struct dgc_writer_mapping_t {
+    ptr_uint_t page_id;
+    ptr_uint_t offset;
+    dgc_writer_mapping_t *next;
+};
+
+typedef struct _dgc_writer_mapping_table_t {
+    dgc_writer_mapping_t *table[DGC_MAPPING_TABLE_SIZE];
+} dgc_writer_mapping_table_t;
+
+static dgc_writer_mapping_table_t *dgc_writer_mapping_table;
+
+DECLARE_CXTSWPROT_VAR(static mutex_t dgc_mapping_lock, INIT_LOCK_FREE(dgc_mapping_lock));
+
 typedef struct _double_mapping_t {
     app_pc app_memory_start;
     app_pc mapping_start;
@@ -223,7 +248,16 @@ static void
 safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak);
 
 static void
+safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f);
+
+static void
+safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak);
+
+static void
 free_dgc_bucket_chain(void *p);
+
+static void
+free_double_mapping(double_mapping_t *mapping);
 
 static void
 free_emulation_plan(void *p);
@@ -236,6 +270,23 @@ dgc_stat_report();
 
 static inline app_pc
 maybe_exit_cti_disp_pc(app_pc maybe_branch_pc);
+
+#ifdef JITOPT
+static void
+free_dgc_writer_mapping(dgc_writer_mapping_t *mapping);
+
+static void
+clear_dgc_writer_table();
+
+static dgc_writer_mapping_t *
+lookup_dgc_writer_offset(app_pc addr);
+
+static void
+insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset);
+
+static void
+remove_dgc_writer_offsets(app_pc start, size_t size);
+#endif
 
 #ifdef CHECK_STALE_BBS
 static void
@@ -319,6 +370,10 @@ jitopt_init()
                                         HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                         HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                         free_emulation_plan _IF_DEBUG("DGC Emulation Plans"));
+
+    dgc_writer_mapping_table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_writer_mapping_table_t,
+                                               ACCT_OTHER, UNPROTECTED);
+    memset(dgc_writer_mapping_table, 0, sizeof(dgc_writer_mapping_table_t));
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -356,21 +411,19 @@ jitopt_exit()
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_removal_queue, dgc_removal_queue_t,
                    ACCT_OTHER, UNPROTECTED);
 
-    for (i = 0; i < double_mappings->index; i++) {
-        int result = dynamorio_syscall(SYS_munmap, 2,
-                                       double_mappings->mappings[i].mapping_start,
-                                       double_mappings->mappings[i].size);
-        if (result < 0) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Failed to unmap the double-mapping at "PFX"\n",
-                      double_mappings->mappings[i].mapping_start);
-        }
-    }
+    for (i = 0; i < double_mappings->index; i++)
+        free_double_mapping(&double_mappings->mappings[i]);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, double_mappings->mappings, double_mapping_t,
                     MAX_DOUBLE_MAPPINGS, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, double_mappings, double_mapping_list_t,
                    ACCT_OTHER, UNPROTECTED);
 
     generic_hash_destroy(GLOBAL_DCONTEXT, emulation_plans);
+
+    clear_dgc_writer_table();
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_writer_mapping_table, dgc_writer_mapping_table_t,
+                   ACCT_OTHER, UNPROTECTED);
+    DELETE_LOCK(dgc_mapping_lock);
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
 }
@@ -509,26 +562,108 @@ valgrind_discard_translations(dr_vg_client_request_t *request)
 #endif
 
 #ifdef JITOPT
-/*
-typedef struct _double_mapping_t {
-    app_pc app_memory_start;
-    app_pc mapping_start;
-    size_t size;
-} double_mapping_t;
+static void
+free_dgc_writer_mapping(dgc_writer_mapping_t *mapping)
+{
+    if (mapping != NULL) {
+        HEAP_TYPE_FREE(GLOBAL_DCONTEXT, mapping, dgc_writer_mapping_t,
+                       ACCT_OTHER, UNPROTECTED);
+    }
+}
 
-typedef struct double_mapping_list_t {
-    uint index;
-    double_mapping_t *mappings;
-} double_mapping_list_t;
-*/
+static void
+clear_dgc_writer_table()
+{
+    uint i;
+    dgc_writer_mapping_t *mapping, *next_mapping;
+    for (i = 0; i < DGC_MAPPING_TABLE_SIZE; i++) {
+        mapping = dgc_writer_mapping_table->table[i];
+        for (; mapping != NULL; mapping = next_mapping) {
+            next_mapping = mapping->next;
+            free_dgc_writer_mapping(mapping);
+        }
+    }
+}
 
-#ifdef X64
-# define MMAP SYS_mmap
-#else
-# define MMAP SYS_mmap2
-#endif
+static dgc_writer_mapping_t *
+lookup_dgc_writer_offset(app_pc addr)
+{
+    ptr_uint_t page_id = (((ptr_uint_t)addr) >> DGC_MAPPING_TABLE_SHIFT);
+    uint key = (page_id & DGC_MAPPING_TABLE_MASK);
+    dgc_writer_mapping_t *mapping = dgc_writer_mapping_table->table[key];
+    while (mapping != NULL && mapping->page_id != page_id)
+        mapping = mapping->next;
+    return mapping;
+}
 
-// TODO: synch?
+static void
+insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
+{
+    uint key;
+    dgc_writer_mapping_t *mapping;
+    ptr_uint_t page_id = (((ptr_uint_t)start) >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t last_page_id = page_id + page_span;
+
+    ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Insert writer offsets "PFX" +0x%x "
+                "(page "PFX" +0x%x pages)\n", start, size, page_id, page_span);
+
+    for (; page_id < last_page_id; page_id++) {
+        key = (page_id & DGC_MAPPING_TABLE_MASK);
+        mapping = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_writer_mapping_t,
+                                  ACCT_OTHER, UNPROTECTED);
+        mapping->page_id = page_id;
+        mapping->offset = offset;
+        mapping->next = dgc_writer_mapping_table->table[key];
+        dgc_writer_mapping_table->table[key] = mapping;
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Inserted writer offset "
+                    "for page "PFX" (key 0x%x).\n", page_id, key);
+    }
+}
+
+static void
+remove_dgc_writer_offsets(app_pc start, size_t size)
+{
+    uint key;
+    dgc_writer_mapping_t *mapping, *removal;
+    ptr_uint_t page_id = (((ptr_uint_t)start) >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t last_page_id = page_id + page_span;
+
+    ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Remove writer offsets "PFX" +0x%x "
+                "(page "PFX" +0x%x pages)\n", start, size, page_id, page_span);
+
+    for (; page_id < last_page_id; page_id++) {
+        key = (page_id & DGC_MAPPING_TABLE_MASK);
+        if (dgc_writer_mapping_table->table[key] == NULL) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to remove writer offset "
+                        "for page "PFX": bucket is empty.\n", page_id);
+            continue;
+        }
+        if (dgc_writer_mapping_table->table[key]->page_id == page_id) { // remove head
+            removal = dgc_writer_mapping_table->table[key];
+            dgc_writer_mapping_table->table[key] = dgc_writer_mapping_table->table[key]->next;
+            free_dgc_writer_mapping(removal);
+        } else { // remove internal entry
+            mapping = dgc_writer_mapping_table->table[key];
+            while (mapping->next != NULL && mapping->next->page_id != page_id)
+                mapping = mapping->next;
+            if (mapping->next == NULL) {
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to remove writer "
+                            " offset for page "PFX": not in bucket.\n", page_id);
+                continue;
+            }
+            removal = mapping->next;
+            mapping->next = mapping->next->next;
+            free_dgc_writer_mapping(removal); // FIXME: race with reader!
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Removed writer offset "
+                    "for page "PFX" (key 0x%x).\n", page_id, key);
+    }
+}
+
 static ptr_uint_t
 get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size_t app_memory_size, uint prot)
 {
@@ -706,19 +841,17 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     }
 }
 
-static bool
-synch_jit(dcontext_t *dcontext, priv_mcontext_t *mc, emulation_plan_t *plan,
-          bool is_jit_self_write, uint prot)
+static ptr_uint_t
+setup_double_mapping(dcontext_t *dcontext, app_pc write_target, uint prot)
 {
     app_pc app_memory_start;
     size_t app_memory_size;
     ptr_int_t page_delta;
-    app_pc write_target = opnd_compute_address_priv(plan->dst, mc);
     DEBUG_DECLARE(bool ok;);
 
     if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping instrumentation of "PFX"\n", write_target);
-        return false;
+        return 0;
     }
 
     DEBUG_DECLARE(ok =)
@@ -731,15 +864,35 @@ synch_jit(dcontext_t *dcontext, priv_mcontext_t *mc, emulation_plan_t *plan,
     page_delta = get_double_mapped_page_delta(dcontext, app_memory_start, app_memory_size, prot);
     if (page_delta == 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to find page delta for app memory at "PFX"\n", app_memory_start);
-        return false;
+        return 0;
     }
 
-    emulate_writer(mc, plan, page_delta, write_target);
+    mutex_lock(&dgc_mapping_lock);
+    insert_dgc_writer_offsets(app_memory_start, app_memory_size, page_delta);
+    mutex_unlock(&dgc_mapping_lock);
+    return page_delta;
+}
 
-    if (!is_jit_self_write)
-        annotation_flush_fragments(write_target, plan->dst_size);
-
-    return true;
+bool
+clear_double_mapping(app_pc start)
+{
+    uint i, j;
+    bool removed = false;
+    mutex_lock(&dgc_mapping_lock);
+    for (i = 0; i < double_mappings->index; i++) {
+        if (double_mappings->mappings[i].app_memory_start == start)
+            break;
+    }
+    if (i < double_mappings->index) {
+        removed = true;
+        remove_dgc_writer_offsets(start, double_mappings->mappings[i].size);
+        free_double_mapping(&double_mappings->mappings[i]);
+        double_mappings->index--;
+        for (j = i; j < double_mappings->index; j++)
+            double_mappings->mappings[j] = double_mappings->mappings[j+1];
+    }
+    mutex_unlock(&dgc_mapping_lock);
+    return removed;
 }
 
 static emulation_plan_t *
@@ -819,14 +972,12 @@ instrumentation_failure:
 }
 
 app_pc
-instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc writer_app_pc,
-                  app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
+instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc writer_app_pc,
+                      app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
 {
     emulation_plan_t *plan;
-    bool is_tweak = (write_size <= sizeof(ptr_uint_t));
-    bool is_cti_tweak = (is_tweak &&
-                         (maybe_exit_cti_disp_pc(write_target-1) != NULL ||
-                          maybe_exit_cti_disp_pc(write_target-2) != NULL));
+    dgc_writer_mapping_t *mapping;
+    ptr_uint_t offset;
 
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
@@ -837,20 +988,77 @@ instrument_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_
     if (plan == NULL)
         return NULL;
 
-    synch_jit(dcontext, mc, plan, is_jit_self_write, prot);
+    mutex_lock(&dgc_mapping_lock);
+    mapping = lookup_dgc_writer_offset(write_target);
+    if (mapping != NULL)
+        offset = mapping->offset;
+    mutex_unlock(&dgc_mapping_lock);
 
-    safe_remove_bb(dcontext, f, is_tweak, is_cti_tweak);
+    if (mapping == NULL) {
+        offset = setup_double_mapping(dcontext, write_target, prot);
+        if (offset == 0)
+            return NULL;
+    }
+
+    emulate_writer(mc, plan, offset, write_target);
+    if (!is_jit_self_write)
+        annotation_flush_fragments(write_target, plan->dst_size);
+
+    if (TEST(FRAG_SHARED, f->flags)) {
+        safe_delete_shared_fragment(dcontext, f);
+        enter_couldbelinking(dcontext, NULL, false);
+        add_to_lazy_deletion_list(dcontext, f);
+        enter_nolinking(dcontext, NULL, false);
+    } else {
+        safe_delete_fragment(dcontext, f, false);
+    }
 
     return plan->resume_pc;
 }
 
+static void
+emulate_dgc_write(app_pc writer_pc)
+{
+    emulation_plan_t *plan;
+    dgc_writer_mapping_t *mapping;
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
+    app_pc write_target;
+
+    TABLE_RWLOCK(emulation_plans, read, lock);
+    plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_pc);
+    TABLE_RWLOCK(emulation_plans, read, unlock);
+
+    if (plan == NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Cannot find emulation plan "
+                    "for DGC writer at "PFX"\n", writer_pc);
+        return;
+    }
+
+    write_target = opnd_compute_address_priv(plan->dst, mc);
+
+    mapping = lookup_dgc_writer_offset(write_target);
+    if (mapping == NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Cannot find double-mapping "
+                    "for DGC writer at "PFX"\n", writer_pc);
+        return;
+    }
+
+    emulate_writer(mc, plan, mapping->offset, write_target);
+    annotation_flush_fragments(write_target, plan->dst_size);
+}
+
 bool
-apply_dgc_plan(app_pc pc)
+apply_dgc_emulation_plan(app_pc pc)
 {
     bool found;
     TABLE_RWLOCK(emulation_plans, read, lock);
     found = (generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) pc) != NULL);
     TABLE_RWLOCK(emulation_plans, read, unlock);
+
+    if (false)
+        emulate_dgc_write(NULL);
+
     return found;
 }
 
@@ -925,6 +1133,7 @@ dgc_bb_overlaps(dgc_bb_t *bb, app_pc start, app_pc end)
     ptr_uint_t bb_end = (ptr_uint_t) dgc_bb_end(head);
     return (ptr_uint_t)head->start < (ptr_uint_t)end && bb_end > (ptr_uint_t)start;
 }
+#endif /* JITOPT */
 
 static void
 dgc_stat_report()
@@ -970,6 +1179,7 @@ dgc_stat_report()
 #endif
 }
 
+#ifdef JITOPT
 static inline app_pc
 maybe_exit_cti_disp_pc(app_pc maybe_branch_pc)
 {
@@ -1313,6 +1523,17 @@ free_dgc_bucket_chain(void *p)
         RSTATS_INC(app_managed_bb_buckets_freed);
         bucket = next_bucket;
     } while (bucket != NULL);
+}
+
+static void
+free_double_mapping(double_mapping_t *mapping)
+{
+    int result = dynamorio_syscall(SYS_munmap, 2, mapping->mapping_start, mapping->size);
+    if (result < 0) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Failed to unmap the double-mapping at "PFX"\n",
+                    mapping->mapping_start);
+    }
 }
 
 static void
@@ -1699,22 +1920,15 @@ expand_intersection_array(void **array, uint *max_size)
 }
 
 static void
-safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
+safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f)
 {
-    if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
-        RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                    "Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
-        return;
-    }
-
-    if (TEST(FRAG_IS_TRACE_HEAD, f->flags) && is_tweak)
-        set_trace_head_jit_tweaked(dcontext, f->tag);
-
-    if (TEST(FRAG_SHARED, f->flags)) {
-        //acquire_recursive_lock(&change_linking_lock);
-        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
-        acquire_vm_areas_lock(dcontext, f->flags);
-
+    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
+    acquire_vm_areas_lock(dcontext, f->flags);
+    if (TEST(FRAG_WAS_DELETED, f->flags)) {
+        RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Warning: duplicate deletion of %s"
+                    "app-managed fragment "PFX"\n",
+                    TEST(FRAG_APP_MANAGED, f->flags) ? "" : "non-", f->tag);
+    } else {
         /* FIXME: share all this code w/ vm_area_unlink_fragments()
          * The work there is just different enough to make that hard, though.
          */
@@ -1737,10 +1951,25 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
          * flag to determine validity
          */
         f->flags |= FRAG_WAS_DELETED;
+    }
+    release_vm_areas_lock(dcontext, f->flags);
+    SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+}
 
-        release_vm_areas_lock(dcontext, f->flags);
-        SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
-        //release_recursive_lock(&change_linking_lock);
+static void
+safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
+{
+    if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
+        RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
+                    "Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
+        return;
+    }
+
+    if (TEST(FRAG_IS_TRACE_HEAD, f->flags) && is_tweak)
+        set_trace_head_jit_tweaked(dcontext, f->tag);
+
+    if (TEST(FRAG_SHARED, f->flags)) {
+        safe_delete_shared_fragment(dcontext, f);
 
         fragment_intersection->shared_deletions[fragment_intersection->shared_deletion_index++] = f;
         if (fragment_intersection->shared_deletion_index == fragment_intersection->shared_deletion_max) {

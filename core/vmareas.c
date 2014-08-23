@@ -1412,6 +1412,8 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         for (i = overlap_start; i < overlap_end; i++) {
             LOG(GLOBAL, LOG_VMAREAS, 3, "\tcompletely removing "PFX"-"PFX" %s\n",
                 v->buf[i].start, v->buf[i].end, v->buf[i].comment);
+            if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags))
+                clear_double_mapping(v->buf[i].start);
             if (restore_prot && TEST(VM_MADE_READONLY, v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
@@ -10723,7 +10725,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
         else if (!is_unmod_image(instr_app_pc))
             dr_fprintf(STDERR, "DGC instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
         //vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
-        app_pc resume_pc = instrument_writer(dcontext, mc, f, instr_app_pc, target, opnd_size,
+        app_pc resume_pc = instrument_dgc_writer(dcontext, mc, f, instr_app_pc, target, opnd_size,
                                              //jit_monitored_area->start,
                                              //jit_monitored_area->end - jit_monitored_area->start,
                                              prot, is_jit_self_write);
