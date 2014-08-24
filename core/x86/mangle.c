@@ -4161,7 +4161,7 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
         receiver = receiver->next;
     }
 }
-
+# ifdef JITOPT
 static void
 mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
 {
@@ -4171,8 +4171,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     opnd_t arg = OPND_CREATE_INTPTR(writer_pc);
 
     dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
-
 }
+# endif
 #endif
 
 /* TOP-LEVEL MANGLE

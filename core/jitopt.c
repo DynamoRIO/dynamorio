@@ -768,21 +768,19 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Attempting to write %d bytes to "PFX" via "PFX"\n",
                     plan->dst_size, write_target, target_access);
-        if (((ptr_uint_t)target_access & 0xfffULL) == 0x8c0ULL)
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
 
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
              *byte_target_access = byte_value;
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    Writing 0x%x to "PFX"\n",
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    mov 0x%x to "PFX"\n",
                         byte_value, byte_target_access);
             ASSERT(*byte_target_access == byte_value);
             ASSERT(*(byte*)write_target == byte_value);
         } else {
             for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++) {
                 *target_access = *value;
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    Writing 0x%x to "PFX"\n",
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    mov 0x%x to "PFX"\n",
                             *value, target_access);
             }
             target_access = (uint *)((ptr_int_t)write_target + page_delta);
@@ -796,11 +794,15 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             byte *byte_target_access = (byte *)target_access;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *byte_target_access |= byte_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
+                        byte_value, byte_target_access);
             ASSERT((*byte_target_access & byte_value) == byte_value);
             ASSERT((*(byte*)write_target & byte_value) == byte_value);
         } else if (plan->dst_size == 4) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *target_access |= *value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
+                        *value, target_access);
             ASSERT((*target_access & *value) == *value);
             ASSERT((*(uint*)write_target & *value) == *value);
         } else if (plan->dst_size == 8) {
@@ -808,6 +810,8 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ptr_uint_t *word_value = (ptr_uint_t *)value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *word_target_access |= *word_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
+                        *word_value, word_target_access);
             ASSERT((*word_target_access & *word_value) == *word_value);
             ASSERT((*(ptr_uint_t*)write_target & *word_value) == *word_value);
         }
@@ -818,11 +822,15 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             byte *byte_target_access = (byte *)target_access;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *byte_target_access &= byte_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
+                        byte_value, byte_target_access);
             ASSERT((*byte_target_access & ~byte_value) == 0);
             ASSERT((*(byte*)write_target & ~byte_value) == 0);
         } else if (plan->dst_size == 4) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *target_access &= *value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
+                        *value, target_access);
             ASSERT((*target_access & ~(*value)) == 0);
             ASSERT((*(uint*)write_target & ~(*value)) == 0);
         } else if (plan->dst_size == 8) {
@@ -830,6 +838,8 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ptr_uint_t *word_value = (ptr_uint_t *)value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
             *word_target_access &= *word_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
+                        *word_value, word_target_access);
             ASSERT((*word_target_access & ~(*word_value)) == 0);
             ASSERT((*(ptr_uint_t*)write_target & ~(*word_value)) == 0);
         }
@@ -862,9 +872,13 @@ setup_double_mapping(dcontext_t *dcontext, app_pc write_target, uint prot)
     DEBUG_DECLARE(bool ok;);
 
     if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping instrumentation of "PFX"\n", write_target);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping double-mapping of "PFX
+                    " because it is not in a JIT-managed area.\n", write_target);
         return 0;
     }
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Setup double-mapping around "PFX"\n",
+                write_target);
 
     DEBUG_DECLARE(ok =)
     set_region_dgc_writer(app_memory_start, app_memory_size);
@@ -913,6 +927,9 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     instr_t writer;
     opnd_t src;
     emulation_plan_t *plan;
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC:    Creating emulation plan for writer "PFX"\n", writer_app_pc);
 
     instr_init(dcontext, &writer);
     plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
@@ -992,9 +1009,6 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     dgc_writer_mapping_t *mapping;
     ptr_uint_t offset;
 
-    if (true)
-        return NULL;
-
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
     if (plan == NULL)
@@ -1018,6 +1032,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
             return NULL;
     }
 
+    /*
+    if ((ptr_uint_t)writer_app_pc > 0x1000000 && ((ptr_uint_t)writer_app_pc & 0xfffULL) == 0xf19ULL)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+    */
+
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Emulating write "PFX" -> "PFX" via page fault\n",
                 writer_app_pc, write_target);
@@ -1028,11 +1047,21 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 
     if (TEST(FRAG_SHARED, f->flags)) {
         if (safe_delete_shared_fragment(dcontext, f)) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: Deleting shared fragment "PFX" for future instrumentation\n",
+                        f->tag);
             enter_couldbelinking(dcontext, NULL, false);
             add_to_lazy_deletion_list(dcontext, f);
             enter_nolinking(dcontext, NULL, false);
+        } else {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: Warning: failed to delete shared fragment "PFX" for future instrumentation\n",
+                        f->tag);
         }
     } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Deleting private fragment "PFX" for future instrumentation\n",
+                    f->tag);
         safe_delete_fragment(dcontext, f, false);
     }
 
@@ -1046,6 +1075,7 @@ emulate_dgc_write(app_pc writer_pc)
     dgc_writer_mapping_t *mapping;
     dcontext_t *dcontext = get_thread_private_dcontext();
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
+    //priv_mcontext_t *mc = get_mcontext(dcontext);
     app_pc write_target;
 
     TABLE_RWLOCK(emulation_plans, read, lock);
@@ -1059,13 +1089,23 @@ emulate_dgc_write(app_pc writer_pc)
     }
 
     write_target = opnd_compute_address_priv(plan->dst, mc);
+    /* 1) if base/disp
+          a) multiply scale * index (reg)
+          b) add the base (reg) and disp
+       2) if absolute, take immediate
+       3) if relative, see calculation of opnd.value.addr
+    */
 
     mapping = lookup_dgc_writer_offset(write_target);
     if (mapping == NULL) {
         uint prot;
 
+        if (!is_jit_managed_area(write_target))
+            return;
+
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Creating new double-mapping "
-                    "for DGC writer at "PFX" via clean call\n", writer_pc);
+                    "for DGC write "PFX" -> "PFX" via clean call\n",
+                    writer_pc, write_target);
 
         if (!get_memory_info(write_target, NULL, NULL, &prot)) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Failed to get prot "
@@ -1093,12 +1133,25 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     instr_t *label;
     dr_instr_label_data_t *label_data;
 
+    //if (true)
+    //    return false;
+
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
     TABLE_RWLOCK(emulation_plans, read, unlock);
 
+    /*
+    if (*pc == (app_pc) 0x5f90fb) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: What plan for writer at "PFX"? "PFX"\n", *pc, plan);
+    i}
+    */
+
     if (plan == NULL)
         return false;
+
+    if ((ptr_uint_t)*pc > 0x1000000 && ((ptr_uint_t)*pc & 0xfffULL) == 0xe39ULL)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Instrumenting clean call for writer at "PFX"\n", *pc);

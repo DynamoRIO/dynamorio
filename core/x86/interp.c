@@ -230,6 +230,7 @@ typedef struct {
     int eflags;
     app_pc pretend_pc;          /* selfmod only: decode from separate pc */
     bool may_be_dgc_writer;
+    bool is_dgc_instrumented;
     DEBUG_DECLARE(bool initialized;)
 } build_bb_t;
 
@@ -3048,12 +3049,17 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * instructions, (i.e. check_for_stopping_point()) */
     bb->instr_start = bb->cur_pc;
 
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Interp "PFX"\n", bb->start_pc);
+    if (bb->start_pc == (app_pc) 0x5f91f8)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+
     /* create instrlist after check_new_page_start to avoid memory leak
      * on unreadable memory -- though we now properly clean up and won't leak
      * on unreadable on any check_thread_vm_area call
      */
     bb->ilist = instrlist_create(dcontext);
     bb->instr = NULL;
+    bb->is_dgc_instrumented = false;
 
     /* avoid discrepancy in finding invalid instructions between fast decode
      * and the full decode of sandboxing by doing full decode up front
@@ -3094,8 +3100,10 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
             bb->instr_start = bb->cur_pc;
             ASSERT(bb->instr_start >= non_cti_start_pc);
-
-            if (apply_dgc_emulation_plan(dcontext, &bb->cur_pc, &dgc_writer_instrumentation)) {
+#ifdef JITOPT
+            if (bb->for_cache && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
+                                                          &dgc_writer_instrumentation)) {
+                bb->is_dgc_instrumented = true;
                 if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
                     /* instr now holds the cti, so create an instr_t for the non-cti */
                     non_cti = instr_create(dcontext);
@@ -3113,7 +3121,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 bb->instr_start = bb->cur_pc;
                 continue;
             }
-
+#endif
             ASSERT(bb->instr_start >= non_cti_start_pc);
             if (bb->full_decode) {
                 /* only going through this do loop once! */
@@ -4777,8 +4785,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
 #ifdef JITOPT
-    if (!is_unmod_image(bb.start_pc) && !is_jit_managed_area(bb.start_pc))
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Skipping non-image bb "PFX"\n", bb.start_pc);
+    //if (!is_unmod_image(bb.start_pc) && !is_jit_managed_area(bb.start_pc))
+    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Skipping non-image bb "PFX"\n", bb.start_pc);
 
     if (visible && is_jit_managed_area(bb.start_pc)) {
         bb.flags |= FRAG_APP_MANAGED;
@@ -4791,6 +4799,9 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     KSTART(bb_emit);
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
+
+    if (bb.is_dgc_instrumented)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: "PFX" is instrumented n", bb.start_pc);
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;

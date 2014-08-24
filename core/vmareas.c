@@ -3542,7 +3542,7 @@ void
 set_region_jit_monitored(app_pc start, size_t len)
 {
     vm_area_t *region;
-    LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: set_region_jit_monitored("PFX" +0x%x)\n",
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: set_region_jit_monitored("PFX" +0x%x)\n",
         start, len);
     write_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, start, &region)) {
@@ -3575,7 +3575,7 @@ set_region_dgc_writer(app_pc start, size_t len)
 {
     bool result = false;
     vm_area_t *region;
-    LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "set_region_app_managed("PFX" +0x%x)\n", start, len);
     write_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, start, &region)) {
         ASSERT((region->start == start) && (region->end == (start+len)));
