@@ -404,6 +404,10 @@ jitopt_thread_init(dcontext_t *dcontext)
 {
     local_state_extended_t *state = (local_state_extended_t *) dcontext->local_state;
     state->dgc_mapping_table = dgc_writer_mapping_table;
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "Initialized thread 0x%x with dgc mapping table "PFX"\n",
+                get_thread_id(), state->dgc_mapping_table);
 }
 
 void
@@ -511,7 +515,8 @@ annotation_flush_fragments(app_pc start, size_t len)
             else
                 RSTATS_INC(app_managed_multipage_writes);
         } else {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Ignored write to ["PFX"-"PFX"].\n", start, start+len);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "No fragments to remove in write to ["PFX"-"PFX"].\n", start, start+len);
             RSTATS_INC(app_managed_writes_ignored);
         }
     } else {

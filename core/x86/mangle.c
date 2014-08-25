@@ -4171,7 +4171,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     emulation_plan_t *plan = (emulation_plan_t *) label_data->data[1];
     opnd_t arg = OPND_CREATE_INTPTR(plan->writer_pc);
     reg_t temp1, temp2, temp3;
-    instr_t *bucket_iterator, *found_bucket, *no_bucket;
+    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page, *execute_write;
     bool base_in_xax = false;
 
     temp1 = REG_XBX;
@@ -4180,7 +4180,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         app_pc abs_addr = opnd_get_addr(plan->dst);
         // [bucket:temp1] addr -> temp2
-        found_bucket = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
+        write_to_double_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
                                             OPND_CREATE_INTPTR(abs_addr));
     } else {
         ASSERT(opnd_is_base_disp(plan->dst));
@@ -4201,24 +4201,39 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
         // [bucket:temp1] base -> temp2
         if (base_in_xax) {
-            found_bucket = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
+            write_to_double_page = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
                                                   TLS_XAX_SLOT, XAX_OFFSET);
         } else {
-            found_bucket = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp2),
-                                               opnd_create_reg(opnd_get_base(plan->dst)));
+            write_to_double_page =
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
+                                 opnd_create_base_disp(opnd_get_base(plan->dst),
+                                                       opnd_get_index(plan->dst),
+                                                       opnd_get_scale(plan->dst),
+                                                       opnd_get_disp(plan->dst),
+                                                       OPSZ_lea));
         }
     }
+
+    write_to_original_page =
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
+                                 opnd_create_base_disp(opnd_get_base(plan->dst),
+                                                       opnd_get_index(plan->dst),
+                                                       opnd_get_scale(plan->dst),
+                                                       opnd_get_disp(plan->dst),
+                                                       OPSZ_lea));
 
     // cmp page_id(temp2), bucket->page_id(temp1)
     bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp2),
                                        OPND_CREATE_MEMPTR(temp1, 0));
 
+    execute_write = instr_create_1dst_1src(dcontext, plan->writer.opcode,
+                            opnd_create_base_disp(temp2, temp1, 1, 0,
+                                                  opnd_get_size(plan->writer.src0)),
+                            instr_get_src(&plan->writer, 0));
+
     // check clobber of base in base/disp
     insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                        false/*absolute*/ _IF_X64(false));
-
-    no_bucket = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
-                                       MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
 
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp1, MANGLE_DGC_TEMP_SLOT_1,
@@ -4274,18 +4289,24 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     //                      opnd_size_t size)
     // opnd_create_base_disp(REG_XCX, REG_XBX, sizeof(app_pc), 0, OPSZ_PTR)
 
-    // [table:temp1, key:temp3] bucket head -> temp1
+    // [table:temp1, key:temp3] head_bucket -> temp1
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
                             opnd_create_base_disp(temp1, temp3, sizeof(app_pc), 0,
                                                   OPSZ_PTR)));
 
+    // [head_bucket:temp1] cmp head_bucket(temp1), head_bucket(temp1)
+    PRE(ilist, instr,
+        INSTR_CREATE_test(dcontext, opnd_create_reg(temp1), opnd_create_reg(temp1)));
+    // jz write_to_original_page
+    PRE(ilist, instr,
+        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
 
     // cmp page_id(temp2), bucket->page_id(temp1)
     PRE(ilist, instr, bucket_iterator);
-    // [bucket:temp1] je found_bucket
+    // [bucket:temp1] je write_to_double_page
     PRE(ilist, instr,
-        INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(found_bucket)));
+        INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(write_to_double_page)));
     // [bucket:temp1] bucket->next -> temp1
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
@@ -4299,7 +4320,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         INSTR_CREATE_test(dcontext, opnd_create_reg(temp1), opnd_create_reg(temp1)));
     // jz no_bucket
     PRE(ilist, instr,
-        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(no_bucket)));
+        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
     // [bucket->next:temp1] *bucket->next -> temp1
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
@@ -4308,28 +4329,70 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
 
-    // [bucket:temp1] {addr,base} -> temp2
-    PRE(ilist, instr, found_bucket);
-    // [bucket:temp1, {addr,base}:temp2] offset +> temp2
+    // [bucket:temp1] write_target -> temp2
+    PRE(ilist, instr, write_to_double_page);
+    // [bucket:temp1, write_target:temp2] offset +> temp2
+    //PRE(ilist, instr,
+    //    INSTR_CREATE_add(dcontext, opnd_create_reg(temp2),
+    //                     OPND_CREATE_MEMPTR(temp1,
+    //                                        offsetof(dgc_writer_mapping_t, offset))));
     PRE(ilist, instr,
-        INSTR_CREATE_add(dcontext, opnd_create_reg(temp2),
-                         OPND_CREATE_MEMPTR(temp1,
-                                            offsetof(dgc_writer_mapping_t, offset))));
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
+                            OPND_CREATE_MEMPTR(temp1,
+                                               offsetof(dgc_writer_mapping_t, offset))));
+
+    PRE(ilist, instr,
+        INSTR_CREATE_jmp(dcontext, opnd_create_instr(execute_write)));
+
+    PRE(ilist, instr, write_to_original_page);
 
     // TODO: may need to mask
-    // TODO: may need to loop several stores
     // TODO: and, or, sub
+    /*
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp2, 0),
                                 instr_get_src(&plan->writer, 0)));
     } else {
         PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp2, 0),
+            INSTR_CREATE_mov_st(dcontext,
+                                OPND_CREATE_MEMPTR(temp2, 0),
                                 instr_get_src(&plan->writer, 0)));
     }
+    */
+    PRE(ilist, instr, execute_write);
 
-    PRE(ilist, instr, no_bucket);
+    switch (plan->writer.opcode) {
+    case OP_and:
+    case OP_or:
+    case OP_sub:
+    case OP_mov_st:
+    case OP_movdqa:
+        break;
+    case OP_movdqu:
+        break;
+    /*
+        PRE(ilist, instr,
+            INSTR_CREATE_movdqa(dcontext,
+                                opnd_create_base_disp(temp2, temp1, 1, 0,
+                                                      opnd_get_size(plan->writer.src0)),
+                                instr_get_src(&plan->writer, 0)));
+        break;
+        PRE(ilist, instr,
+            INSTR_CREATE_movdqu(dcontext,
+                                opnd_create_base_disp(temp2, temp1, 1, 0,
+                                                      opnd_get_size(plan->writer.src0)),
+                                instr_get_src(&plan->writer, 0)));
+    */
+    default:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to mangle opcode 0x%x\n", plan->writer.opcode);
+        ASSERT(false);
+    }
+
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp1,
+                                       MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
                                MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
@@ -4340,10 +4403,12 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                           false/*absolute*/ _IF_X64(false));
 
-    dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
+    if (!plan->is_jit_self_write)
+        dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Inserting clean call in fragment with flags 0x%x\n", flags);
+                "DGC: Instrumented write "PFX" (opcode 0x%x) in fragment having flags 0x%x\n",
+                plan->writer_pc, plan->writer.opcode, flags);
 }
 # endif
 #endif
