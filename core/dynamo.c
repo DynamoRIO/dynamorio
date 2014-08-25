@@ -548,6 +548,10 @@ dynamorio_app_init(void)
         fcache_init();
         link_init();
         fragment_init();
+#ifdef ANNOTATIONS
+        annotation_init();
+        jitopt_init();
+#endif
         moduledb_init(); /* before vm_areas_init, after heap_init */
         perscache_init(); /* before vm_areas_init */
         native_exec_init(); /* before vm_areas_init, after arch_init */
@@ -630,10 +634,6 @@ dynamorio_app_init(void)
             dynamo_vm_areas_unlock();
         }
 
-#ifdef ANNOTATIONS
-        annotation_init();
-        jitopt_init();
-#endif
 #ifdef CLIENT_INTERFACE
         /* client last, in case it depends on other inits: must be after
          * dynamo_thread_init so the client can use a dcontext (PR 216936).

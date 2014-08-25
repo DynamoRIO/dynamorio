@@ -4163,37 +4163,182 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
 }
 # ifdef JITOPT
 static void
-mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist, uint flags)
+mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist,
+                               uint flags)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
     void *clean_callee = (void *) label_data->data[0];
-    app_pc writer_pc = (app_pc) label_data->data[1];
-    opnd_t arg = OPND_CREATE_INTPTR(writer_pc);
+    emulation_plan_t *plan = (emulation_plan_t *) label_data->data[1];
+    opnd_t arg = OPND_CREATE_INTPTR(plan->writer_pc);
+    reg_t temp1, temp2, temp3;
+    instr_t *bucket_iterator, *found_bucket, *no_bucket;
+    bool base_in_xax = false;
+
+    temp1 = REG_XBX;
+    temp2 = REG_XCX;
+    temp3 = REG_XDX;
+    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+        app_pc abs_addr = opnd_get_addr(plan->dst);
+        // [bucket:temp1] addr -> temp2
+        found_bucket = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
+                                            OPND_CREATE_INTPTR(abs_addr));
+    } else {
+        ASSERT(opnd_is_base_disp(plan->dst));
+        switch (opnd_get_base(plan->dst)) { /* keep base in a register */
+        case REG_XAX:
+            base_in_xax = true;
+            break;
+        case REG_XBX:
+            temp1 = REG_XDI;
+            break;
+        case REG_XCX:
+            temp2 = REG_XDI;
+            break;
+        case REG_XDX:
+            temp3 = REG_XDI;
+            break;
+        }
+
+        // [bucket:temp1] base -> temp2
+        if (base_in_xax) {
+            found_bucket = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
+                                                  TLS_XAX_SLOT, XAX_OFFSET);
+        } else {
+            found_bucket = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp2),
+                                               opnd_create_reg(opnd_get_base(plan->dst)));
+        }
+    }
+
+    // cmp page_id(temp2), bucket->page_id(temp1)
+    bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp2),
+                                       OPND_CREATE_MEMPTR(temp1, 0));
+
+    // check clobber of base in base/disp
+    insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
+                       false/*absolute*/ _IF_X64(false));
+
+    no_bucket = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
+                                       MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
 
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XAX,
-                                 MANGLE_DGC_TEMP_SLOT_1, XAX_OFFSET, REG_R9));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp1, MANGLE_DGC_TEMP_SLOT_1,
+                                 MANGLE_DGC_TEMP_OFFSET_1, REG_R9));
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX,
-                                 MANGLE_DGC_TEMP_SLOT_2, XBX_OFFSET, REG_R10));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp2, MANGLE_DGC_TEMP_SLOT_2,
+                                 MANGLE_DGC_TEMP_OFFSET_2, REG_R10));
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XDX,
-                                 MANGLE_DGC_TEMP_SLOT_3, XDX_OFFSET, REG_R11));
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp3, MANGLE_DGC_TEMP_SLOT_3,
+                                 MANGLE_DGC_TEMP_OFFSET_3, REG_R11));
 
-    APP(ilist,
-        INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XCX),
-                         OPND_TLS_FIELD(DGC_SHADOW_MAPPING_SLOT))); /* always in TLS? */
+    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+        app_pc abs_addr = opnd_get_addr(plan->dst);
+        ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(abs_addr);
+        uint key =  DGC_SHADOW_KEY(page_id);
+        // page_id -> temp2
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
+                                 OPND_CREATE_INTPTR(page_id)));
+        // mask temp2 -> temp3
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp3),
+                                 OPND_CREATE_INTPTR(key)));
+    } else {
+        ASSERT(opnd_is_base_disp(plan->dst));
+
+        // target -> temp2
+        PRE(ilist, instr,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
+                             opnd_create_base_disp(opnd_get_base(plan->dst),
+                                                   opnd_get_index(plan->dst),
+                                                   opnd_get_scale(plan->dst),
+                                                   opnd_get_disp(plan->dst),
+                                                   OPSZ_lea)));
+        // [target:temp2] temp2 >> DGC_MAPPING_TABLE_SHIFT
+        PRE(ilist, instr,
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp2),
+                             OPND_CREATE_INT8(DGC_MAPPING_TABLE_SHIFT)));
+        // mask temp2 -> temp3
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp3),
+                                opnd_create_reg(temp2)));
+        PRE(ilist, instr,
+            INSTR_CREATE_and(dcontext, opnd_create_reg(temp3),
+                             OPND_CREATE_INT32(DGC_MAPPING_TABLE_MASK)));
+    }
+
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1), /* always in TLS? */
+                            opnd_create_tls_slot(os_tls_offset(DGC_SHADOW_MAPPING_SLOT))));
+
+    //opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
+    //                      opnd_size_t size)
+    // opnd_create_base_disp(REG_XCX, REG_XBX, sizeof(app_pc), 0, OPSZ_PTR)
+
+    // [table:temp1, key:temp3] bucket head -> temp1
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
+                            opnd_create_base_disp(temp1, temp3, sizeof(app_pc), 0,
+                                                  OPSZ_PTR)));
 
 
-    PRE(ilist, next_instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
-                               MANGLE_DGC_TEMP_SLOT_1, XAX_OFFSET));
-    PRE(ilist, next_instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XBX,
-                               MANGLE_DGC_TEMP_SLOT_2, XBX_OFFSET));
-    PRE(ilist, next_instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX,
-                               MANGLE_DGC_TEMP_SLOT_3, XDX_OFFSET));
+    // cmp page_id(temp2), bucket->page_id(temp1)
+    PRE(ilist, instr, bucket_iterator);
+    // [bucket:temp1] je found_bucket
+    PRE(ilist, instr,
+        INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(found_bucket)));
+    // [bucket:temp1] bucket->next -> temp1
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
+                            OPND_CREATE_MEMPTR(temp1,
+                                               offsetof(dgc_writer_mapping_t, next))));
+                        //opnd_create_base_disp(temp1, REG_NULL, 0,
+                        //                      offsetof(dgc_writer_mapping_t, next),
+                        //                      OPSZ_PTR));
+    // [bucket->next:temp1] cmp next(temp1), next(temp1)
+    PRE(ilist, instr,
+        INSTR_CREATE_test(dcontext, opnd_create_reg(temp1), opnd_create_reg(temp1)));
+    // jz no_bucket
+    PRE(ilist, instr,
+        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(no_bucket)));
+    // [bucket->next:temp1] *bucket->next -> temp1
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
+                            OPND_CREATE_MEMPTR(temp1, 0)));
+    // jmp bucket_iterator
+    PRE(ilist, instr,
+        INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
+
+    // [bucket:temp1] {addr,base} -> temp2
+    PRE(ilist, instr, found_bucket);
+    // [bucket:temp1, {addr,base}:temp2] offset +> temp2
+    PRE(ilist, instr,
+        INSTR_CREATE_add(dcontext, opnd_create_reg(temp2),
+                         OPND_CREATE_MEMPTR(temp1,
+                                            offsetof(dgc_writer_mapping_t, offset))));
+
+    // TODO: may need to mask
+    // TODO: may need to loop several stores
+    // TODO: and, or, sub
+    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp2, 0),
+                                instr_get_src(&plan->writer, 0)));
+    } else {
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp2, 0),
+                                instr_get_src(&plan->writer, 0)));
+    }
+
+    PRE(ilist, instr, no_bucket);
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
+                               MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp3,
+                               MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+
+    insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
+                          false/*absolute*/ _IF_X64(false));
 
     dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
 

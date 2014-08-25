@@ -460,11 +460,15 @@ enum {
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
 #ifdef JITOPT
-    MANGLE_DGC_TEMP_SLOT_1      = TLS_XAX_SLOT,
-    MANGLE_DGC_TEMP_SLOT_2      = TLS_XBX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_1      = TLS_XBX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_2      = TLS_XCX_SLOT,
     MANGLE_DGC_TEMP_SLOT_3      = TLS_XDX_SLOT,
 #endif
 };
+
+#define MANGLE_DGC_TEMP_OFFSET_1 XBX_OFFSET
+#define MANGLE_DGC_TEMP_OFFSET_2 XCX_OFFSET
+#define MANGLE_DGC_TEMP_OFFSET_3 XDX_OFFSET
 
 void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             bool mangle_calls, bool record_translation);

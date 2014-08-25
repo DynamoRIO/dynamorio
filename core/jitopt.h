@@ -35,6 +35,42 @@
 
 #include "monitor.h"
 
+#define DGC_MAPPING_TABLE_SHIFT 0xc
+#define DGC_MAPPING_TABLE_MASK 0x3ff
+#define DGC_MAPPING_TABLE_SIZE 0x400
+
+#define DGC_SHADOW_PAGE_ID(pc) (((ptr_uint_t)(pc)) >> DGC_MAPPING_TABLE_SHIFT)
+#define DGC_SHADOW_KEY(page_id) ((page_id) & DGC_MAPPING_TABLE_MASK)
+
+typedef enum _emulation_operation_t {
+    EMUL_MOV,
+    EMUL_OR,
+    EMUL_AND,
+    EMUL_SUB,
+} emulation_operation_t;
+
+typedef struct _emulation_plan_t {
+    instr_t writer;
+    emulation_operation_t op;
+    bool src_in_reg;
+    union {
+        uint mcontext_reg_offset;
+        reg_t immediate;
+    } src;
+    opnd_t dst;
+    uint dst_size;
+    app_pc writer_pc;
+    app_pc resume_pc;
+    bool is_jit_self_write;
+} emulation_plan_t;
+
+typedef struct dgc_writer_mapping_t dgc_writer_mapping_t;
+struct dgc_writer_mapping_t {
+    ptr_uint_t page_id;
+    ptr_uint_t offset;
+    dgc_writer_mapping_t *next;
+};
+
 void
 jitopt_init();
 

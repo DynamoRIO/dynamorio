@@ -164,17 +164,6 @@ static dgc_fragment_intersection_t *fragment_intersection;
 # define MMAP SYS_mmap2
 #endif
 
-#define DGC_MAPPING_TABLE_SHIFT 0xc
-#define DGC_MAPPING_TABLE_MASK 0x3ff
-#define DGC_MAPPING_TABLE_SIZE 0x400
-
-typedef struct dgc_writer_mapping_t dgc_writer_mapping_t;
-struct dgc_writer_mapping_t {
-    ptr_uint_t page_id;
-    ptr_uint_t offset;
-    dgc_writer_mapping_t *next;
-};
-
 typedef struct _dgc_writer_mapping_table_t {
     dgc_writer_mapping_t *table[DGC_MAPPING_TABLE_SIZE];
 } dgc_writer_mapping_table_t;
@@ -218,26 +207,6 @@ typedef struct _dgc_stats_t {
 } dgc_stats_t;
 
 static dgc_stats_t *dgc_stats;
-
-typedef enum _emulation_operation_t {
-    EMUL_MOV,
-    EMUL_OR,
-    EMUL_AND,
-    EMUL_SUB,
-} emulation_operation_t;
-
-typedef struct _emulation_plan_t {
-    emulation_operation_t op;
-    bool src_in_reg;
-    union {
-        uint mcontext_reg_offset;
-        reg_t immediate;
-    } src;
-    opnd_t dst;
-    uint dst_size;
-    app_pc resume_pc;
-    bool is_jit_self_write;
-} emulation_plan_t;
 
 generic_table_t *emulation_plans;
 
@@ -597,8 +566,8 @@ clear_dgc_writer_table()
 static dgc_writer_mapping_t *
 lookup_dgc_writer_offset(app_pc addr)
 {
-    ptr_uint_t page_id = (((ptr_uint_t)addr) >> DGC_MAPPING_TABLE_SHIFT);
-    uint key = (page_id & DGC_MAPPING_TABLE_MASK);
+    ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(addr);
+    uint key = DGC_SHADOW_KEY(page_id);
     dgc_writer_mapping_t *mapping = dgc_writer_mapping_table->table[key];
     while (mapping != NULL && mapping->page_id != page_id)
         mapping = mapping->next;
@@ -610,7 +579,7 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
 {
     uint key;
     dgc_writer_mapping_t *mapping;
-    ptr_uint_t page_id = (((ptr_uint_t)start) >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
 
@@ -619,7 +588,7 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
                 "(page "PFX" +0x%x pages)\n", start, size, page_id, page_span);
 
     for (; page_id < last_page_id; page_id++) {
-        key = (page_id & DGC_MAPPING_TABLE_MASK);
+        key = DGC_SHADOW_KEY(page_id);
         mapping = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_writer_mapping_t,
                                   ACCT_OTHER, UNPROTECTED);
         mapping->page_id = page_id;
@@ -636,7 +605,7 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
 {
     uint key;
     dgc_writer_mapping_t *mapping, *removal;
-    ptr_uint_t page_id = (((ptr_uint_t)start) >> DGC_MAPPING_TABLE_SHIFT);
+    ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
 
@@ -645,7 +614,7 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
                 "(page "PFX" +0x%x pages)\n", start, size, page_id, page_span);
 
     for (; page_id < last_page_id; page_id++) {
-        key = (page_id & DGC_MAPPING_TABLE_MASK);
+        key = DGC_SHADOW_KEY(page_id);
         if (dgc_writer_mapping_table->table[key] == NULL) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to remove writer offset "
                         "for page "PFX": bucket is empty.\n", page_id);
@@ -931,25 +900,25 @@ clear_double_mapping(app_pc start)
 static emulation_plan_t *
 create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_self_write)
 {
-    instr_t writer;
     opnd_t src;
     emulation_plan_t *plan;
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC:    Creating emulation plan for writer "PFX"\n", writer_app_pc);
 
-    instr_init(dcontext, &writer);
     plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 
+    plan->writer_pc = writer_app_pc;
     plan->is_jit_self_write = is_jit_self_write;
-    plan->resume_pc = decode(dcontext, writer_app_pc, &writer); // assume readable (already decoded)
-    if (!instr_valid(&writer)) {
+    instr_init(dcontext, &plan->writer);
+    plan->resume_pc = decode(dcontext, writer_app_pc, &plan->writer); // assume readable (already decoded)
+    if (!instr_valid(&plan->writer)) {
         plan->resume_pc = NULL;
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to decode writer at "PFX"\n", writer_app_pc);
         goto instrumentation_failure;
     }
-    switch (instr_get_opcode(&writer)) {
+    switch (instr_get_opcode(&plan->writer)) {
     case OP_mov_st:
     case OP_movdqu:
     case OP_movdqa:
@@ -965,13 +934,13 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
         plan->op = EMUL_SUB;
         break;
     default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&writer));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&plan->writer));
         plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
 
-    src = instr_get_src(&writer, 0);
-    plan->dst = instr_get_dst(&writer, 0);
+    src = instr_get_src(&plan->writer, 0);
+    plan->dst = instr_get_dst(&plan->writer, 0);
     plan->dst_size = opnd_size_in_bytes(opnd_get_size(plan->dst));
 
     ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
@@ -979,7 +948,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     ASSERT(opnd_is_memory_reference(plan->dst));
     if (plan->dst_size < 1 || plan->dst_size > 128 || (plan->dst_size > 1 && plan->dst_size % 4 != 0)) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
-                  instr_get_opcode(&writer), plan->dst_size);
+                  instr_get_opcode(&plan->writer), plan->dst_size);
         plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
@@ -993,12 +962,12 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     } else {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to instrument instruction with opcode 0x%x and unsupported src operand type\n",
-                    instr_get_opcode(&writer));
+                    instr_get_opcode(&plan->writer));
         plan->resume_pc = NULL;
     }
 
 instrumentation_failure:
-    instr_free(dcontext, &writer);
+    instr_free(dcontext, &plan->writer);
     if (plan->resume_pc == NULL) {
         free_emulation_plan(plan);
         return NULL;
@@ -1033,7 +1002,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         offset = mapping->offset;
     mutex_unlock(&dgc_mapping_lock);
 
-    if (mapping == NULL) {
+    if (mapping == NULL) { // maybe do this when an area becomes JIT managed?
         offset = setup_double_mapping(dcontext, write_target, prot);
         if (offset == 0)
             return NULL;
@@ -1079,7 +1048,7 @@ static void
 emulate_dgc_write(app_pc writer_pc)
 {
     emulation_plan_t *plan;
-    dgc_writer_mapping_t *mapping;
+    //dgc_writer_mapping_t *mapping;
     dcontext_t *dcontext = get_thread_private_dcontext();
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
     //priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -1103,6 +1072,7 @@ emulate_dgc_write(app_pc writer_pc)
        3) if relative, try applying offset to opnd.value.addr
     */
 
+    /*
     mapping = lookup_dgc_writer_offset(write_target);
     if (mapping == NULL) {
         uint prot;
@@ -1129,6 +1099,7 @@ emulate_dgc_write(app_pc writer_pc)
                 writer_pc, write_target);
 
     emulate_writer(mc, plan, mapping->offset, write_target);
+    */
     if (!plan->is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 }
@@ -1140,8 +1111,8 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     instr_t *label;
     dr_instr_label_data_t *label_data;
 
-    if (true)
-        return false;
+    //if (true)
+    //    return false;
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
@@ -1170,7 +1141,7 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     label = INSTR_CREATE_label(dcontext);
     label_data = instr_get_label_data_area(label);
     label_data->data[0] = (ptr_uint_t) (void *) emulate_dgc_write;
-    label_data->data[1] = (ptr_uint_t) *pc;
+    label_data->data[1] = (ptr_uint_t) (void *) plan;
     instr_set_note(label, (void *) DR_NOTE_DGC_OPTIMIZATION);
     instr_set_ok_to_mangle(label, false);
 
