@@ -115,7 +115,7 @@ static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
-    instr_t *instr, *first = instrlist_first(bb);
+    instr_t *instr, *first = instrlist_first_app(bb);
     uint flags;
 
 #ifdef VERBOSE
@@ -126,7 +126,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 #endif
 
     /* Our inc can go anywhere, so find a spot where flags are dead. */
-    for (instr = first; instr != NULL; instr = instr_get_next(instr)) {
+    for (instr = first; instr != NULL; instr = instr_get_next_app(instr)) {
         flags = instr_get_arith_flags(instr);
         /* OP_inc doesn't write CF but not worth distinguishing */
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags))

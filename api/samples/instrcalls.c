@@ -237,8 +237,8 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     instrlist_disassemble(drcontext, tag, bb, STDOUT);
 # endif
 #endif
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
+    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next_app(instr);
         if (!instr_opcode_valid(instr))
             continue;
         /* instrument calls and returns -- ignore far calls/rets */

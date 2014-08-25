@@ -130,9 +130,9 @@ event_trace(void *drcontext, void *tag, instrlist_t *trace, bool translating)
     instrlist_disassemble(drcontext, tag, trace, STDOUT);
 #endif
 
-    for (instr = instrlist_first(trace); instr != NULL; instr = next_instr) {
+    for (instr = instrlist_first_app(trace); instr != NULL; instr = next_instr) {
         /* grab next now so we don't go over instructions we insert */
-        next_instr = instr_get_next(instr);
+        next_instr = instr_get_next_app(instr);
         opcode = instr_get_opcode(instr);
         if (opcode == OP_inc || opcode == OP_dec) {
             if (!translating)

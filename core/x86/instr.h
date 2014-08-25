@@ -1981,6 +1981,13 @@ INSTR_INLINE
  *
  * \note As opposed to instr_get_next(), this routine skips all meta
  * instructions inserted by either DynamoRIO or its clients.
+ *
+ * \note We do recommend using this routine during the phase of application
+ * code analysis, as any non-app instructions present are guaranteed to be ok
+ * to skip.
+ * However, the caution should be exercised if using this routine after any
+ * instrumentation insertion has already happened, as instrumentation might
+ * affect register usage or other factors being analyzed.
  */
 instr_t *
 instr_get_next_app(instr_t *instr);

@@ -128,7 +128,15 @@ DR_API
 /**
  * Returns the first application (non-meta) instruction in the instruction list
  * \p ilist.
+ *
  * \note All preceding meta instructions will be skipped.
+ *
+ * \note We do recommend using this routine during the phase of application
+ * code analysis, as any non-app instructions present are guaranteed to be ok
+ * to skip.
+ * However, the caution should be exercised if using this routine after any
+ * instrumentation insertion has already happened, as instrumentation might
+ * affect register usage or other factors being analyzed.
  */
 instr_t *
 instrlist_first_app(instrlist_t *ilist);

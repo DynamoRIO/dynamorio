@@ -319,7 +319,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
     /* count up # flops, then do single increment at end */
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+    for (instr  = instrlist_first_app(bb);
+         instr != NULL;
+         instr  = instr_get_next_app(instr)) {
         num_instrs++;
         if (instr_is_floating_ex(instr, &fp_type) &&
             /* We exclude loads and stores (and reg-reg moves) and state preservation */

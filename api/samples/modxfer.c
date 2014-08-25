@@ -252,12 +252,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
 
-    for (instr  = instrlist_first(bb), num_instrs = 0;
+    for (instr  = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
-         instr = instr_get_next(instr)) {
-        /* only care about app instr */
-        if (!instr_ok_to_mangle(instr))
-            continue;
+         instr  = instr_get_next_app(instr)) {
         num_instrs++;
         /* Assuming most of the transfers between modules are paired, we
          * instrument indirect branches but not returns for better performance.

@@ -112,7 +112,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     proc_save_fpstate(fp_align);
 
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr))
+    for (instr  = instrlist_first_app(bb);
+         instr != NULL;
+         instr  = instr_get_next_app(instr))
         cur_size++;
 
     dr_mutex_lock(stats_mutex);

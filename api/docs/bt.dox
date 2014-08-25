@@ -463,6 +463,18 @@ instr_get_next_app()
 instrlist_first_app()
 \endcode
 
+We recommend that clients follow a disciplined model that separates application
+code analysis versus insertion of instrumentation.  The \ref page_drmgr
+Extension facilitates this by separating application transformation, application
+analysis, and instrumentation.  However, even with this separation, label
+instructions and in some cases other meta instructions (e.g., from
+drwrap_replace_native()) are added during application transformation which
+should be skipped during analysis.  Using instrlist_first_app() and
+instr_get_next_app() is recommended during application analysis: it
+automatically skips non-application instructions, which at that stage are
+guaranteed to be either labels or to have no effect on register state or other
+key aspects of application code analysis.
+
 While DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
 
