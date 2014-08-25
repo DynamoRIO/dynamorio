@@ -10630,6 +10630,8 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     /* FIXME: what if seg fault is b/c target is unreadable?  then should have
      * app die, not us trigger assertion!
      */
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: handle_modified_code() in "PFX"\n", f->tag);
     /* In the absence of reset, f MUST still be in the cache since we're still
      * nolinking, and pclookup will find it even if it's no longer in htables.
      * But, a reset can result in not having the fragment available at all.  In

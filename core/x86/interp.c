@@ -4156,6 +4156,11 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");
         instrlist_disassemble(dcontext, bb->start_pc, bb->ilist, THREAD);
     });
+    if (bb->is_dgc_instrumented) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Mangling fragment "PFX" with flags 0x%x%s\n", bb->start_pc,
+                    bb->flags, bb->for_trace ? " (for trace)" : "");
+    }
     mangle(dcontext, bb->ilist, &bb->flags, true, bb->record_translation);
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist after mangling:\n");
@@ -4801,7 +4806,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     KSTOP(bb_emit);
 
     if (bb.is_dgc_instrumented)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: "PFX" is instrumented n", bb.start_pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: "PFX" is instrumented\n", bb.start_pc);
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;

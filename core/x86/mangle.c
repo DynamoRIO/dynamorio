@@ -4163,14 +4163,42 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
 }
 # ifdef JITOPT
 static void
-mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist)
+mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist, uint flags)
 {
     dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
     void *clean_callee = (void *) label_data->data[0];
     app_pc writer_pc = (app_pc) label_data->data[1];
     opnd_t arg = OPND_CREATE_INTPTR(writer_pc);
 
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XAX,
+                                 MANGLE_DGC_TEMP_SLOT_1, XAX_OFFSET, REG_R9));
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XBX,
+                                 MANGLE_DGC_TEMP_SLOT_2, XBX_OFFSET, REG_R10));
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, REG_XDX,
+                                 MANGLE_DGC_TEMP_SLOT_3, XDX_OFFSET, REG_R11));
+
+    APP(ilist,
+        INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XCX),
+                         OPND_TLS_FIELD(DGC_SHADOW_MAPPING_SLOT))); /* always in TLS? */
+
+
+    PRE(ilist, next_instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
+                               MANGLE_DGC_TEMP_SLOT_1, XAX_OFFSET));
+    PRE(ilist, next_instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XBX,
+                               MANGLE_DGC_TEMP_SLOT_2, XBX_OFFSET));
+    PRE(ilist, next_instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XDX,
+                               MANGLE_DGC_TEMP_SLOT_3, XDX_OFFSET));
+
     dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Inserting clean call in fragment with flags 0x%x\n", flags);
 }
 # endif
 #endif
@@ -4290,7 +4318,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 
         if (is_dgc_optimization_label(instr)) {
-            mangle_dgc_optimization_helper(dcontext, instr, ilist);
+            mangle_dgc_optimization_helper(dcontext, instr, ilist, *flags);
             continue;
         }
 

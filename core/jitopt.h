@@ -42,6 +42,9 @@ void
 jitopt_exit();
 
 void
+jitopt_thread_init(dcontext_t *dcontext);
+
+void
 annotation_manage_code_area(app_pc start, size_t len);
 
 void

@@ -431,6 +431,13 @@ jitopt_exit()
 }
 
 void
+jitopt_thread_init(dcontext_t *dcontext)
+{
+    local_state_extended_t *state = (local_state_extended_t *) dcontext->local_state;
+    state->dgc_mapping_table = dgc_writer_mapping_table;
+}
+
+void
 annotation_manage_code_area(app_pc start, size_t len)
 {
     //dr_printf("Manage code area "PFX"-"PFX"\n",
@@ -1046,22 +1053,22 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         annotation_flush_fragments(write_target, plan->dst_size);
 
     if (TEST(FRAG_SHARED, f->flags)) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Deleting shared fragment "PFX" (0x%x) for future instrumentation\n",
+                    f->tag, f->flags);
         if (safe_delete_shared_fragment(dcontext, f)) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                        "DGC: Deleting shared fragment "PFX" for future instrumentation\n",
-                        f->tag);
             enter_couldbelinking(dcontext, NULL, false);
             add_to_lazy_deletion_list(dcontext, f);
             enter_nolinking(dcontext, NULL, false);
         } else {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                        "DGC: Warning: failed to delete shared fragment "PFX" for future instrumentation\n",
-                        f->tag);
+                        "DGC: Warning: failed to delete shared fragment "PFX" (0x%x) for future instrumentation\n",
+                        f->tag, f->flags);
         }
     } else {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: Deleting private fragment "PFX" for future instrumentation\n",
-                    f->tag);
+                    "DGC: Deleting private fragment "PFX" (0x%x) for future instrumentation\n",
+                    f->tag, f->flags);
         safe_delete_fragment(dcontext, f, false);
     }
 
@@ -1089,11 +1096,11 @@ emulate_dgc_write(app_pc writer_pc)
     }
 
     write_target = opnd_compute_address_priv(plan->dst, mc);
-    /* 1) if base/disp
+    /* 1) if base/disp, try applying offset to disp (or change base reg and add there?)
           a) multiply scale * index (reg)
           b) add the base (reg) and disp
-       2) if absolute, take immediate
-       3) if relative, see calculation of opnd.value.addr
+       2) if absolute or relative, apply offset to opnd.value.addr
+       3) if relative, try applying offset to opnd.value.addr
     */
 
     mapping = lookup_dgc_writer_offset(write_target);
@@ -1133,8 +1140,8 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     instr_t *label;
     dr_instr_label_data_t *label_data;
 
-    //if (true)
-    //    return false;
+    if (true)
+        return false;
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);

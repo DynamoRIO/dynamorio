@@ -459,6 +459,11 @@ enum {
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
+#ifdef JITOPT
+    MANGLE_DGC_TEMP_SLOT_1      = TLS_XAX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_2      = TLS_XBX_SLOT,
+    MANGLE_DGC_TEMP_SLOT_3      = TLS_XDX_SLOT,
+#endif
 };
 
 void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
