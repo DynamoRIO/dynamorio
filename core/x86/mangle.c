@@ -374,7 +374,7 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
             opnd_t tgt = instr_get_target(instr);
             instr_t *nottaken = INSTR_CREATE_label(dcontext);
             instr_t *taken = INSTR_CREATE_jmp(dcontext, tgt);
-            ASSERT(!instr_ok_to_mangle(instr));
+            ASSERT(instr_is_meta(instr));
             instrlist_meta_postinsert(ilist, instr, nottaken);
             instrlist_meta_postinsert(ilist, instr, taken);
             instrlist_meta_postinsert(ilist, instr, INSTR_CREATE_jmp_short
@@ -1447,7 +1447,7 @@ insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     else
         in = instr_get_next(in);
     while (in != instr) {
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
         in = instr_get_next(in);
     }
     return direct;
@@ -2716,12 +2716,12 @@ cti_is_normal_elision(instr_t *instr)
     instr_t *next;
     opnd_t   tgt;
     app_pc   next_pc;
-    if (instr == NULL || !instr_ok_to_mangle(instr))
+    if (instr == NULL || instr_is_meta(instr))
         return false;
     if (!instr_is_ubr(instr) && !instr_is_call_direct(instr))
         return false;
     next = instr_get_next(instr);
-    if (next == NULL || !instr_ok_to_mangle(next))
+    if (next == NULL || instr_is_meta(next))
         return false;
     tgt = instr_get_target(instr);
     next_pc = instr_get_translation(next);
@@ -2876,7 +2876,7 @@ mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *inst
                          (byte *) get_new_thread_start(dcontext _IF_X64(mode)),
                          true/*jmp*/, false/*!precise*/, DR_REG_NULL/*no scratch*/,
                          NULL);
-    instr_set_ok_to_mangle(instr_get_prev(in), false);
+    instr_set_meta(instr_get_prev(in));
     PRE(ilist, in, parent);
     PRE(ilist, in, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XAX),
                                      opnd_create_reg(REG_XCX)));
@@ -2890,7 +2890,7 @@ int
 ilist_find_sysnum(instrlist_t *ilist, instr_t *instr)
 {
     for (; instr != NULL; instr = instr_get_prev(instr)) {
-        if (instr_ok_to_mangle(instr) &&
+        if (instr_is_app(instr) &&
             instr_get_opcode(instr) == OP_mov_imm &&
             opnd_is_reg(instr_get_dst(instr, 0)) &&
             opnd_get_reg(instr_get_dst(instr, 0)) == REG_EAX &&
@@ -2967,7 +2967,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
          */
         INSTR_XL8(nop, (instr_get_translation(instr) +
                         instr_length(dcontext, instr)));
-        instr_set_ok_to_mangle(instr, true);
+        instr_set_app(instr);
         instrlist_postinsert(ilist, instr, nop);
     }
 
@@ -3170,7 +3170,7 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
              */
             /* 'next_instr' is executed after the after-syscall vsyscall
              * 'ret', which is executed natively. */
-            instr_set_ok_to_mangle(instr_get_prev(instr), false);
+            instr_set_meta(instr_get_prev(instr));
             return; /* leave syscall instr alone */
         }
     } else {
@@ -3468,7 +3468,7 @@ mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
              prev != NULL;
              prev = instr_get_prev_expanded(dcontext, ilist, prev)) {
             dr_fp_type_t type;
-            if (instr_ok_to_mangle(prev) &&
+            if (instr_is_app(prev) &&
                 instr_is_floating_ex(prev, &type)) {
                 bool control_instr = false;
                 if (type == DR_FP_STATE /* quick check */ &&
@@ -4226,7 +4226,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
 #endif
 
 #ifdef UNIX
-        if (INTERNAL_OPTION(mangle_app_seg) && instr_ok_to_mangle(instr)) {
+        if (INTERNAL_OPTION(mangle_app_seg) && instr_is_app(instr)) {
             /* The instr might be changed by client, and we cannot rely on
              * PREFIX_SEG_FS/GS. So we simply call mangle_seg_ref on every
              * instruction and mangle it if necessary.
@@ -4237,7 +4237,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif
 
-        if (instr_saves_float_pc(instr) && instr_ok_to_mangle(instr)) {
+        if (instr_saves_float_pc(instr) && instr_is_app(instr)) {
             mangle_float_pc(dcontext, ilist, instr, next_instr, flags);
         }
 
@@ -4301,7 +4301,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         }
 #endif
 
-        if (!instr_is_cti(instr) || !instr_ok_to_mangle(instr)) {
+        if (!instr_is_cti(instr) || instr_is_meta(instr)) {
 #ifdef STEAL_REGISTER
             steal_reg(dcontext, instr, ilist);
 #endif
@@ -4488,7 +4488,7 @@ sandbox_rep_instr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, inst
     ASSERT(!instr_is_call_indirect(instr)); /* FIXME: can you have REP on on CALL's */
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
-    while (next_app != NULL && !instr_ok_to_mangle(next_app))
+    while (next_app != NULL && instr_is_meta(next_app))
         next_app = instr_get_next(next_app);
 
     if (next_app != NULL) {
@@ -4637,7 +4637,7 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     DOLOG(3, LOG_INTERP, { loginst(dcontext, 3, instr, "writes memory"); });
 
     /* skip meta instrs to find next app instr (xref PR 472190) */
-    while (next_app != NULL && !instr_ok_to_mangle(next_app))
+    while (next_app != NULL && instr_is_meta(next_app))
         next_app = instr_get_next(next_app);
 
     if (next_app != NULL) {
@@ -5110,7 +5110,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     instrlist_set_our_mangling(ilist, true); /* PR 267260 */
     if (record_translation) {
         /* skip client instrumentation, if any, as is done below */
-        while (instr != NULL && !instr_ok_to_mangle(instr))
+        while (instr != NULL && instr_is_meta(instr))
             instr = instr_get_next_expanded(dcontext, ilist, instr);
         /* make sure inserted instrs translate to the proper original instr */
         ASSERT(instr != NULL && instr_get_translation(instr) != NULL);
@@ -5142,7 +5142,7 @@ insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
 
             /* don't mangle anything that mangle inserts! */
             next = instr_get_next_expanded(dcontext, ilist, instr);
-            if (!instr_ok_to_mangle(instr))
+            if (instr_is_meta(instr))
                 continue;
             if (record_translation) {
                 /* make sure inserted instrs translate to the proper original instr */

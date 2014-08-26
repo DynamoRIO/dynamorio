@@ -463,9 +463,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
                                      ilist, where, &first, &second);
-    instr_set_ok_to_mangle(first, false/*meta*/);
+    instr_set_meta(first);
     if (second != NULL)
-        instr_set_ok_to_mangle(second, false/*meta*/);
+        instr_set_meta(second);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);

@@ -1599,7 +1599,7 @@ instrlist_disassemble(dcontext_t *dcontext,
              */
             int extra_sz;
             print_file(outfile, " +%-4d %c%d @"PFX" ",
-                       offs, instr_ok_to_mangle(instr) ? 'L' : 'm', level, instr);
+                       offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
             extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr_valid(instr));
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");
@@ -1612,7 +1612,7 @@ instrlist_disassemble(dcontext_t *dcontext,
         }
         while (len) {
             print_file(outfile, " +%-4d %c%d "IF_X64_ELSE("%20s","%12s"),
-                       offs, instr_ok_to_mangle(instr) ? 'L' : 'm', level, " ");
+                       offs, instr_is_app(instr) ? 'L' : 'm', level, " ");
             next_addr = internal_disassemble_to_file
                 (dcontext, addr, addr, outfile, false, true,
                  IF_X64_ELSE("                               ","                       "));
@@ -1630,7 +1630,7 @@ instrlist_disassemble(dcontext_t *dcontext,
 
 #ifdef CUSTOM_EXIT_STUBS
         /* custom exit stub? */
-        if (instr_is_exit_cti(instr) && instr_ok_to_mangle(instr)) {
+        if (instr_is_exit_cti(instr) && instr_is_app(instr)) {
             instrlist_t * custom = instr_exit_stub_code(instr);
             if (custom != NULL) {
                 print_file(outfile, "\t=> custom exit stub code:\n");

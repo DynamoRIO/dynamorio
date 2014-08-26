@@ -280,7 +280,7 @@ drutil_expand_rep_string_ex(void *drcontext, instrlist_t *bb, bool *expanded OUT
         if (delete_rest) {
             instrlist_remove(bb, inst);
             instr_destroy(drcontext, inst);
-        } else if (instr_ok_to_mangle(inst)) {
+        } else if (instr_is_app(inst)) {
             /* We have to handle meta instrs, as drwrap_replace_native() and
              * some other app2app xforms use them.
              */

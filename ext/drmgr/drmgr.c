@@ -531,14 +531,14 @@ drmgr_fix_app_ctis(void *drcontext, instrlist_t *bb)
         /* Any CTI with an instr target must have an intra-bb target and thus
          * we assume it should not be mangled.  We mark it meta.
          */
-        if (instr_ok_to_mangle(inst) &&
+        if (instr_is_app(inst) &&
             instr_opcode_valid(inst) &&
             /* For -fast_client_decode we can have level 0 instrs so check
              * to ensure this is an single instr with valid opcode.
              */
             instr_is_cti(inst) &&
             opnd_is_instr(instr_get_target(inst))) {
-            instr_set_ok_to_mangle(inst, false);
+            instr_set_meta(inst);
             /* instrumentation passes should set the translation field
              * so other passes can see what app pc these app instrs
              * correspond to: but DR complains if there's a meta instr

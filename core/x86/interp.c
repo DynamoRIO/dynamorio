@@ -538,7 +538,7 @@ bb_add_native_direct_xfer(dcontext_t *dcontext, build_bb_t *bb, bool appended)
      * However, we must mangle this to ensure it reaches (i#992)
      * which we special-case in mangle().
      */
-    instr_set_ok_to_mangle(bb->instr, false);
+    instr_set_meta(bb->instr);
     instr_set_raw_bits_valid(bb->instr, false);
 #endif
 }
@@ -1085,8 +1085,8 @@ instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter)
     instr_t *instr;
     if (call == NULL || mov == NULL || sysenter == NULL)
         return false;
-    if (!instr_ok_to_mangle(call) || !instr_ok_to_mangle(mov) ||
-        !instr_ok_to_mangle(sysenter))
+    if (instr_is_meta(call) || instr_is_meta(mov) ||
+        instr_is_meta(sysenter))
         return false;
     if (instr_get_next(call) != mov || instr_get_next(mov) != sysenter)
         return false;
@@ -2494,7 +2494,7 @@ static bool
 instr_will_be_exit_cti(instr_t *inst)
 {
     /* can't use instr_is_exit_cti() on pre-mangled instrs */
-    return (instr_ok_to_mangle(inst) &&
+    return (instr_is_app(inst) &&
             instr_is_cti(inst) &&
             (!instr_is_near_call_direct(inst) ||
              !must_not_be_inlined(instr_get_branch_target_pc(inst)))
@@ -2652,13 +2652,13 @@ client_process_bb(dcontext_t *dcontext, build_bb_t *bb)
              * i#665: we now support intra-fragment meta ctis
              * to make persistence usable for clients
              */
-            if (!opnd_is_instr(instr_get_target(inst)) || instr_ok_to_mangle(inst)) {
+            if (!opnd_is_instr(instr_get_target(inst)) || instr_is_app(inst)) {
                 bb->flags &= ~FRAG_COARSE_GRAIN;
                 STATS_INC(coarse_prevent_client);
             }
         }
 
-        if (!instr_ok_to_mangle(inst)) {
+        if (instr_is_meta(inst)) {
 #ifdef ANNOTATIONS
             /* Save the trailing_annotation_pc in case a client truncates the bb there. */
             if (is_annotation_label(inst) && last_app_instr == NULL) {
@@ -3899,7 +3899,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 
     if (bb->mangle_ilist &&
         (bb->instr == NULL || !instr_opcode_valid(bb->instr) ||
-         !instr_is_near_ubr(bb->instr) || !instr_ok_to_mangle(bb->instr))) {
+         !instr_is_near_ubr(bb->instr) || instr_is_meta(bb->instr))) {
         instr_t *exit_instr = INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
         if (bb->record_translation) {
             app_pc translation = NULL;
@@ -4375,7 +4375,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
      * of selfmod only really needed for the jmp to native code)
      */
     for (in = instrlist_first(bb->ilist); in != NULL; in = instr_get_next(in))
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
 
     /* this is a jump for a dummy exit cti */
     instrlist_append(bb->ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
@@ -5178,7 +5178,7 @@ regenerate_custom_exit_stub(dcontext_t *dcontext, instr_t *exit_cti, linkstub_t 
                 /* indicate that relative target must be
                  * re-encoded, and that it is not an exit cti
                  */
-                instr_set_ok_to_mangle(in, false);
+                instr_set_meta(in);
                 instr_set_raw_bits_valid(in, false);
             } else if (opnd_is_near_pc(instr_get_target(in))) {
                 /* intra-fragment target: we'll change its target operand
@@ -5382,7 +5382,7 @@ insert_transparent_comparison(dcontext_t *dcontext, instrlist_t *trace,
                                 -((int)(ptr_int_t)speculative_tag), OPSZ_lea)));
     jecxz = INSTR_CREATE_jecxz(dcontext, opnd_create_instr(continue_label));
     /* do not treat jecxz as exit cti! */
-    instr_set_ok_to_mangle(jecxz, false);
+    instr_set_meta(jecxz);
     added_size += tracelist_add(dcontext, trace, targeter, jecxz);
     /* need to recover address in ecx */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!X64_MODE_DC(dcontext)));
@@ -6322,7 +6322,7 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
         app_pc xl8 = instr_get_translation(inst);
         next_inst = instr_get_next(inst);
 
-        if (!instr_ok_to_mangle(inst))
+        if (instr_is_meta(inst))
             continue;
 
         DOLOG(5, LOG_INTERP, {
@@ -6870,7 +6870,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     /* Append the sysenter. */
                     instr_set_raw_bits(instr, cur_buf, (int)(pc - prev_pc));
                     instrlist_append(ilist, instr);
-                    instr_set_ok_to_mangle(instr, false);
+                    instr_set_meta(instr);
 
                     /* skip current instr -- the sysenter */
                     cur_buf += (int)(pc - prev_pc);
@@ -6891,8 +6891,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     /* Point the pre-sysenter mov to the post-sysenter instr. */
                     instr_set_src(sysenter_prev, 0,
                                   opnd_create_instr(sysenter_post));
-                    instr_set_ok_to_mangle(sysenter_prev, false);
-                    instr_set_ok_to_mangle(sysenter_post, false);
+                    instr_set_meta(sysenter_prev);
+                    instr_set_meta(sysenter_post);
 
                     DOLOG(DF_LOGLEVEL(dcontext), LOG_INTERP, {
                         LOG(THREAD, LOG_INTERP, DF_LOGLEVEL(dcontext),
@@ -7018,7 +7018,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                         /* now append cti, indicating that relative target must be
                          * re-encoded, and that it is not an exit cti
                          */
-                        instr_set_ok_to_mangle(instr, false);
+                        instr_set_meta(instr);
                         if (re_relativize)
                             instr_set_raw_bits_valid(instr, false);
                         else if (!instr_is_cti_short_rewrite(instr, NULL))
@@ -7252,7 +7252,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                 /* make sure non-mangled short ctis, which are generated by
                  * us and never left there from apps, are not marked as exit ctis
                  */
-                instr_set_ok_to_mangle(instr, false);
+                instr_set_meta(instr);
             }
         }
         instrlist_append(ilist, instr);
@@ -7345,7 +7345,7 @@ decode_fragment_exact(dcontext_t *dcontext, fragment_t *f, byte *buf,
         decode_fragment(dcontext, f, buf, bufsz, target_flags, dir_exits, indir_exits);
     /* If the final jmp was elided we do NOT want to count it in the size! */
     if (instr_get_raw_bits(instrlist_last(ilist)) == NULL) {
-        instr_set_ok_to_emit(instrlist_last(ilist), false);
+        instr_set_meta(instrlist_last(ilist));
     }
     return ilist;
 }

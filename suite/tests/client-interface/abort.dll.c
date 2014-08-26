@@ -76,22 +76,22 @@ bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool trans
     /* test push_imm */
     instrlist_insert_push_immed_ptrsz(drcontext, (ptr_int_t)1,
                                       bb, instr, &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
     if (ins2 != NULL) /* ins2 should be NULL */
         dr_fprintf(STDERR, "Error on push 1\n");
     instrlist_insert_push_immed_ptrsz(drcontext, (ptr_int_t)-1,
                                       bb, instr, &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
     if (ins2 != NULL) /* ins2 should be NULL */
         dr_fprintf(STDERR, "Error on push -1\n");
     instrlist_insert_push_immed_ptrsz(drcontext, global_var,
                                       bb, instr, &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
 #ifdef X64
     if (ins2 == NULL) /* ins2 should not be NULL */
         dr_fprintf(STDERR, "Error on push tag\n");
     else
-        instr_set_ok_to_mangle(ins2, false);
+        instr_set_meta(ins2);
 #endif
 
     /* test mov_imm */
@@ -99,23 +99,23 @@ bb_event(void* drcontext, void *tag, instrlist_t* bb, bool for_trace, bool trans
                                      OPND_CREATE_ABSMEM(&var0, OPSZ_PTR),
                                      bb, instr,
                                      &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
 #ifdef X64
     if (ins2 == NULL) /* ins2 should not be NULL */
         dr_fprintf(STDERR, "Error on mov %p\n", global_var);
     else
-        instr_set_ok_to_mangle(ins2, false);
+        instr_set_meta(ins2);
 #endif
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)-1,
                                      OPND_CREATE_ABSMEM(&var1, OPSZ_PTR),
                                      bb, instr, &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
     if (ins2 != NULL) /* ins2 should be NULL */
         dr_fprintf(STDERR, "Error on mov -1\n");
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t)1,
                                      OPND_CREATE_ABSMEM(&var2, OPSZ_PTR),
                                      bb, instr, &ins1, &ins2);
-    instr_set_ok_to_mangle(ins1, false);
+    instr_set_meta(ins1);
     if (ins2 != NULL) /* ins2 should be NULL */
         dr_fprintf(STDERR, "Error on mov 1\n");
 

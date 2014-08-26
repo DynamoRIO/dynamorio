@@ -1370,13 +1370,13 @@ check_ilist_translations(instrlist_t *ilist)
     for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
         if (!instr_opcode_valid(in)) {
             CLIENT_ASSERT(INTERNAL_OPTION(fast_client_decode), "level 0 instr found");
-        } else if (instr_ok_to_mangle(in)) {
+        } else if (instr_is_app(in)) {
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) == NULL)
                     loginst(get_thread_private_dcontext(), 1, in, "translation is NULL");
             });
             CLIENT_ASSERT(instr_get_translation(in) != NULL,
-                          "translation field must be set for every non-meta instruction");
+                          "translation field must be set for every app instruction");
         } else {
             /* The meta instr could indeed not affect app state, but
              * better I think to assert and make them put in an
@@ -4600,7 +4600,7 @@ DR_API
 void
 instrlist_meta_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_preinsert(ilist, where, inst);
 }
 
@@ -4609,7 +4609,7 @@ DR_API
 void
 instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_postinsert(ilist, where, inst);
 }
 
@@ -4618,7 +4618,7 @@ DR_API
 void
 instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_append(ilist, inst);
 }
 
@@ -4732,7 +4732,7 @@ prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
     else
         in = instr_get_next(in);
     while (in != where) {
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
         in = instr_get_next(in);
     }
     return dstack_offs;
@@ -4761,7 +4761,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
     else
         in = instr_get_next(in);
     while (in != where) {
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
         in = instr_get_next(in);
     }
 }

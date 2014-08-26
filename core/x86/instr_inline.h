@@ -239,10 +239,25 @@ opnd_create_pc(app_pc pc)
 
 INSTR_INLINE
 bool
+instr_is_app(instr_t *instr)
+{
+    CLIENT_ASSERT(instr != NULL, "instr_is_app: passed NULL");
+    return ((instr->flags & INSTR_DO_NOT_MANGLE) == 0);
+}
+
+INSTR_INLINE
+bool
 instr_ok_to_mangle(instr_t *instr)
 {
-    CLIENT_ASSERT(instr != NULL, "instr_ok_to_mangle: passed NULL");
-    return ((instr->flags & INSTR_DO_NOT_MANGLE) == 0);
+    return instr_is_app(instr);
+}
+
+INSTR_INLINE
+bool
+instr_is_meta(instr_t *instr)
+{
+    CLIENT_ASSERT(instr != NULL, "instr_is_meta: passed NULL");
+    return ((instr->flags & INSTR_DO_NOT_MANGLE) != 0);
 }
 
 #ifdef AVOID_API_EXPORT
@@ -356,7 +371,7 @@ instr_get_next_app(instr_t *instr)
 {
     CLIENT_ASSERT(instr != NULL, "instr_get_next_app: passed NULL");
     for (instr = instr->next; instr != NULL; instr = instr->next) {
-        if (instr_ok_to_mangle(instr))
+        if (instr_is_app(instr))
             return instr;
     }
     return NULL;

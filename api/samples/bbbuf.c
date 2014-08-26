@@ -155,9 +155,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                      OPND_CREATE_MEMPTR(reg, 0),
                                      bb, first, &mov1, &mov2);
     DR_ASSERT(mov1 != NULL);
-    instr_set_ok_to_mangle(mov1, false);
+    instr_set_meta(mov1);
     if (mov2 != NULL)
-        instr_set_ok_to_mangle(mov2, false);
+        instr_set_meta(mov2);
 
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer

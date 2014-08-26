@@ -163,12 +163,12 @@ drx_aflags_are_dead(instr_t *where)
         if (TESTALL(EFLAGS_WRITE_6, flags))
             return true;
         if (instr_is_cti(instr)) {
-            if (instr_ok_to_mangle(instr) &&
+            if (instr_is_app(instr) &&
                 (instr_is_ubr(instr) || instr_is_call_direct(instr))) {
                 instr_t *next = instr_get_next(instr);
                 opnd_t   tgt  = instr_get_target(instr);
                 /* continue on elision */
-                if (next != NULL && instr_ok_to_mangle(next) &&
+                if (next != NULL && instr_is_app(next) &&
                     opnd_is_pc(tgt) &&
                     opnd_get_pc(tgt) == instr_get_app_pc(next))
                     continue;
@@ -312,7 +312,7 @@ merge_prev_drx_aflags_switch(instr_t *where)
     for (instr  = instr_get_prev(instr);
          instr != NULL;
          instr  = instr_get_prev(instr)) {
-        if (instr_ok_to_mangle(instr)) {
+        if (instr_is_app(instr)) {
             /* we do not expect any app instr */
             ASSERT(false, "drx aflags restore is corrupted");
             return NULL;

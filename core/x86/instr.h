@@ -1947,7 +1947,7 @@ DR_API
  * Frees all dynamically allocated storage that was allocated by \p instr,
  * except for allocated bits.
  * Also zeroes out \p instr's fields, except for raw bit fields,
- * whether \p instr is instr_ok_to_mangle(), and the x86 mode of \p instr.
+ * whether \p instr is instr_is_meta(), and the x86 mode of \p instr.
  * \p instr must have been initialized.
  */
 void
@@ -1983,7 +1983,7 @@ INSTR_INLINE
  * instructions inserted by either DynamoRIO or its clients.
  *
  * \note We do recommend using this routine during the phase of application
- * code analysis, as any non-app instructions present are guaranteed to be ok
+ * code analysis, as any meta instructions present are guaranteed to be ok
  * to skip.
  * However, the caution should be exercised if using this routine after any
  * instrumentation insertion has already happened, as instrumentation might
@@ -2109,8 +2109,53 @@ instr_branch_set_special_exit(instr_t *instr, bool val);
 DR_API
 INSTR_INLINE
 /**
+ * Return true iff \p instr is an application (non-meta) instruction
+ * (see instr_set_app() for more information).
+ */
+bool
+instr_is_app(instr_t *instr);
+
+DR_API
+/**
+ * Sets \p instr as an application (non-meta) instruction.
+ * An application instruction might be mangled by DR if necessary,
+ * e.g., to create an exit stub for a branch instruction.
+ * All application instructions that are added to basic blocks or
+ * traces should have their translation fields set (via
+ * #instr_set_translation()).
+ */
+void
+instr_set_app(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
+ * Return true iff \p instr is a meta instruction
+ * (see instr_set_meta() for more information).
+ */
+bool
+instr_is_meta(instr_t *instr);
+
+DR_API
+/**
+ * Sets \p instr as a meta instruction.
+ * A meta instruction will not be mangled by DR in any way, which is necessary
+ * to have DR not create an exit stub for a branch instruction.
+ * Meta instructions should not fault (unless such faults are handled
+ * by the client) and are not considered
+ * application instructions but rather added instrumentation code (see
+ * #dr_register_bb_event() for further information).
+ */
+void
+instr_set_meta(instr_t *instr);
+
+DR_API
+INSTR_INLINE
+/**
  * Return true iff \p instr is not a meta-instruction
- * (see instr_set_ok_to_mangle() for more information).
+ * (see instr_set_app() for more information).
+ *
+ * \deprecated instr_is_app()/instr_is_meta() should be used instead.
  */
 bool
 instr_ok_to_mangle(instr_t *instr);
@@ -2118,18 +2163,9 @@ instr_ok_to_mangle(instr_t *instr);
 DR_API
 /**
  * Sets \p instr to "ok to mangle" if \p val is true and "not ok to
- * mangle" if \p val is false.  An instruction that is "not ok to
- * mangle" is treated by DR as a "meta-instruction", distinct from
- * normal application instructions, and is not mangled in any way.
- * This is necessary to have DR not create an exit stub for a direct
- * jump.  All non-meta instructions that are added to basic blocks or
- * traces should have their translation fields set (via
- * #instr_set_translation(), or the convenience routine
- * #instr_set_meta_no_translation()) when recreating state at a fault;
- * meta instructions should not fault (unless such faults are handled
- * by the client) and are not considered
- * application instructions but rather added instrumentation code (see
- * #dr_register_bb_event() for further information on recreating).
+ * mangle" if \p val is false.
+ *
+ * \deprecated instr_set_app()/instr_set_meta() should be used instead.
  */
 void
 instr_set_ok_to_mangle(instr_t *instr, bool val);
@@ -2137,7 +2173,7 @@ instr_set_ok_to_mangle(instr_t *instr, bool val);
 DR_API
 /**
  * A convenience routine that calls both
- * #instr_set_ok_to_mangle (instr, false) and
+ * #instr_set_meta (instr) and
  * #instr_set_translation (instr, NULL).
  */
 void
@@ -2193,7 +2229,7 @@ instr_exit_stub_code(instr_t *instr);
 DR_API
 /**
  * Returns the length of \p instr.
- * As a side effect, if instr_ok_to_mangle(instr) and \p instr's raw bits
+ * As a side effect, if instr_is_app(instr) and \p instr's raw bits
  * are invalid, encodes \p instr into bytes allocated with
  * instr_allocate_raw_bits(), after which instr is marked as having
  * valid raw bits.
@@ -2501,8 +2537,8 @@ DR_API
  * Sets the translation pointer for \p instr, used to recreate the
  * application address corresponding to this instruction.  When adding
  * or modifying instructions that are to be considered application
- * instructions (i.e., non meta-instructions: see
- * #instr_ok_to_mangle), the translation should always be set.  Pick
+ * instructions (i.e., non meta-instructions: see #instr_is_app),
+ * the translation should always be set.  Pick
  * the application address that if executed will be equivalent to
  * restarting \p instr.  Currently the translation address must lie
  * within the existing bounds of the containing code block.
@@ -3371,16 +3407,16 @@ instr_invert_cbr(instr_t *instr);
 /* PR 266292 */
 DR_API
 /**
- * Assumes that instr is a meta instruction (!instr_ok_to_mangle())
- * and an instr_is_cti_short() (8-bit reach).  Converts instr's opcode
+ * Assumes that instr is a meta instruction (instr_is_meta())
+ * and an instr_is_cti_short() (8-bit reach). Converts instr's opcode
  * to a long form (32-bit reach).  If instr's opcode is OP_loop* or
  * OP_jecxz, converts it to a sequence of multiple instructions (which
  * is different from instr_is_cti_short_rewrite()).  Each added instruction
- * is marked !instr_ok_to_mangle().
+ * is marked instr_is_meta().
  * Returns the long form of the instruction, which is identical to \p instr
  * unless \p instr is OP_loop* or OP_jecxz, in which case the return value
  * is the final instruction in the sequence, the one that has long reach.
- * \note DR automatically converts non-meta short ctis to long form.
+ * \note DR automatically converts app short ctis to long form.
  */
 instr_t *
 instr_convert_short_meta_jmp_to_long(dcontext_t *dcontext, instrlist_t *ilist,

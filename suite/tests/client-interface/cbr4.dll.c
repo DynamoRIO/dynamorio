@@ -313,7 +313,7 @@ instrument_bb(void *drcontext, void *tag, instrlist_t *bb, bool for_trace,
                  * address.
                  */
                 instr_t *label = INSTR_CREATE_label(drcontext);
-                instr_set_ok_to_mangle(instr, false);
+                instr_set_meta(instr);
                 instr_set_translation(instr, NULL);
                 /* If this is a short cti, make sure it can reach its new target */
                 if (instr_is_cti_short(instr)) {

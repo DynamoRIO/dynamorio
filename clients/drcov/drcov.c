@@ -650,22 +650,20 @@ event_basic_block_analysis(void *drcontext, void *tag, instrlist_t *bb,
      */
     start_pc = dr_fragment_app_pc(tag);
     end_pc   = start_pc; /* for finding the size */
-    for (instr  = instrlist_first(bb);
+    for (instr  = instrlist_first_app(bb);
          instr != NULL;
-         instr  = instr_get_next(instr)) {
+         instr  = instr_get_next_app(instr)) {
         app_pc pc = instr_get_app_pc(instr);
-        if (instr_ok_to_mangle(instr)) {
-            int len = instr_length(drcontext, instr);
-            /* -opt_speed (elision) is not supported */
-            ASSERT(pc != NULL && pc >= start_pc, "-opt_speed is not supported");
-            if (pc + len > end_pc)
-                end_pc = pc + len;
+        int len = instr_length(drcontext, instr);
+        /* -opt_speed (elision) is not supported */
+        ASSERT(pc != NULL && pc >= start_pc, "-opt_speed is not supported");
+        if (pc + len > end_pc)
+            end_pc = pc + len;
 #ifdef CBR_COVERAGE
-            num_instrs++;
-            if (instr_opcode_valid(instr) && instr_is_cbr(instr))
-                cbr_tgt = opnd_get_pc(instr_get_target(instr));
+        num_instrs++;
+        if (instr_opcode_valid(instr) && instr_is_cbr(instr))
+            cbr_tgt = opnd_get_pc(instr_get_target(instr));
 #endif
-        }
     }
     /* We allow duplicated basic blocks for the following reasons:
      * 1. Avoids handling issues like code cache consistency, e.g.,

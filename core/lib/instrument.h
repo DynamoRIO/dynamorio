@@ -205,11 +205,11 @@ DR_API
  *
  * The user is free to inspect and modify the block before it
  * executes, but must adhere to the following restrictions:
- * - If there is more than one non-meta branch, only the last can be
+ * - If there is more than one application branch, only the last can be
  * conditional.
- * - A non-meta conditional branch must be the final
+ * - An application conditional branch must be the final
  * instruction in the block.
- * - A non-meta direct call must be the final
+ * - An application direct call must be the final
  * instruction in the block unless it is inserted by DR for elision and the
  * subsequent instructions are the callee.
  * - There can only be one indirect branch (call, jump, or return) in
@@ -250,7 +250,7 @@ DR_API
  * must also be able to translate when a suspended thread is examined by
  * the application or by DR itself for internal synchronization purposes.
  * If the client is only adding observational instrumentation (i.e., meta
- * instructions: see #instr_set_ok_to_mangle()) (which should not fault) and
+ * instructions: see #instr_set_meta()) (which should not fault) and
  * is not modifying, reordering, or removing application instructions,
  * these details can be ignored.  In that case the client should return
  * #DR_EMIT_DEFAULT and set up its basic block callback to be deterministic
@@ -260,7 +260,7 @@ DR_API
  * the corresponding application address (the address that should be
  * presented to the application as the faulting address, or the address
  * that should be restarted after a suspend) for each modified instruction
- * and each added non-meta instruction (see #instr_set_ok_to_mangle()).
+ * and each added application instruction (see #instr_set_app()).
  *
  * There are two methods for using the translated addresses:
  *
@@ -286,7 +286,7 @@ DR_API
  *    it saves memory.  Naturally, global state changes triggered by
  *    block creation should be wrapped in checks for \p translating
  *    being false.  Even in this case, #instr_set_translation() should
- *    be called for non-meta instructions even when \p translating is
+ *    be called for application instructions even when \p translating is
  *    false, as DR may decide to store the translations at creation
  *    time for reasons of its own.
  *
@@ -298,7 +298,7 @@ DR_API
  *
  * For meta instructions that do not reference application memory
  * (i.e., they should not fault), leave the translation field as NULL.
- * A NULL value instructs DR to use the subsequent non-meta
+ * A NULL value instructs DR to use the subsequent application
  * instruction's translation as the application address, and to fail
  * when translating the full state.  Since the full state will only be
  * needed when relocating a thread (as stated, there will not be a
@@ -349,7 +349,7 @@ DR_API
  * \note A client can change the control flow of the application by
  * changing the control transfer instruction at end of the basic block.
  * If a basic block is ended with a non-control transfer instruction,
- * a non-meta jump instruction can be inserted.
+ * an application jump instruction can be inserted.
  * If a basic block is ended with a conditional branch,
  * \p instrlist_set_fall_through_target can be used to change the
  * fall-through target.
@@ -418,9 +418,9 @@ DR_API
  *   the trace is created.  Instead, modify the component blocks by
  *   changing the block continuation addresses in the basic block callbacks
  *   (called with \p for_trace set to true) as the trace is being built.
- * - The (non-meta) control flow instruction (if any) terminating each
+ * - The (application) control flow instruction (if any) terminating each
  *   component block cannot be changed.
- * - Non-meta control flow instructions cannot be added.
+ * - Application control flow instructions cannot be added.
  * - The parameter to a system call, normally kept in the eax register,
  *   cannot be changed.
  * - A system call or interrupt instruction cannot be added.
@@ -453,7 +453,7 @@ DR_API
  *
  * \note Certain control flow modifications applied to a basic block
  * can prevent it from becoming part of a trace: e.g., adding
- * additional non-meta control transfers.
+ * additional application control transfers.
  *
  * \note If multiple clients are present, the instruction list for a
  * trace passed to earlier-registered clients will contain the
@@ -579,7 +579,7 @@ DR_API
  * purposes.
  *
  * If a client is only adding instrumentation (meta-code: see
- * #instr_ok_to_mangle()) that does not reference application memory,
+ * #instr_is_meta()) that does not reference application memory,
  * and is not reordering or removing application instructions, then it
  * need not register for this event.  If, however, a client is
  * modifying application code or is adding code that can fault, the

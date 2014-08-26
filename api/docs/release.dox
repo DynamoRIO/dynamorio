@@ -140,6 +140,7 @@ following minor compatibility changes:
  - Added return value for dr_fprintf to indicate how many bytes are written.
  - Renamed the function add_rel_rpaths() in DynamoRIOConfig.cmake to
    DynamoRIO_add_rel_rpaths().
+ - Deprecated instr_ok_to_mangle() and instr_set_ok_to_mangle().
 
 Further non-compatibility-affecting changes include:
 
@@ -182,6 +183,7 @@ Further non-compatibility-affecting changes include:
  - Included a copy of dbghelp.dll for drsyms
  - Added dr_insert_cbr_instrumentation_ex(),
    which provides the fall-through address.
+ - Added instr_is_app(), instr_is_meta(), instr_set_app(), and instr_set_meta().
 
 **************************************************
 <hr>
