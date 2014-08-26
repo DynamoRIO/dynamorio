@@ -734,7 +734,8 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
 }
 
 static void
-emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta, app_pc write_target)
+emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta,
+               app_pc write_target, bool simulate)
 {
     uint i;
     uint *value, *value_base;
@@ -754,16 +755,21 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
-             *byte_target_access = byte_value;
+            if (!simulate)
+                *byte_target_access = byte_value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    mov 0x%x to "PFX"\n",
                         byte_value, byte_target_access);
             ASSERT(*byte_target_access == byte_value);
             ASSERT(*(byte*)write_target == byte_value);
         } else {
-            for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++) {
-                *target_access = *value;
+            uint *write_target_access = (uint *)write_target;
+            for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++, write_target_access++) {
+                if (!simulate)
+                    *target_access = *value;
                 RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    mov 0x%x to "PFX"\n",
                             *value, target_access);
+                ASSERT(*target_access == *value);
+                ASSERT(*write_target_access == *value);
             }
             target_access = (uint *)((ptr_int_t)write_target + page_delta);
             ASSERT(*target_access == *value_base);
@@ -777,14 +783,16 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *byte_target_access |= byte_value;
+            if (!simulate)
+                *byte_target_access |= byte_value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
                         byte_value, byte_target_access);
             ASSERT((*byte_target_access & byte_value) == byte_value);
             ASSERT((*(byte*)write_target & byte_value) == byte_value);
         } else if (plan->dst_size == 4) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *target_access |= *value;
+            if (!simulate)
+                *target_access |= *value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
                         *value, target_access);
             ASSERT((*target_access & *value) == *value);
@@ -793,7 +801,8 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
             ptr_uint_t *word_value = (ptr_uint_t *)value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'or' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *word_target_access |= *word_value;
+            if (!simulate)
+                *word_target_access |= *word_value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    or 0x%x into "PFX"\n",
                         *word_value, word_target_access);
             ASSERT((*word_target_access & *word_value) == *word_value);
@@ -805,14 +814,16 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *byte_target_access &= byte_value;
+            if (!simulate)
+                *byte_target_access &= byte_value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
                         byte_value, byte_target_access);
             ASSERT((*byte_target_access & ~byte_value) == 0);
             ASSERT((*(byte*)write_target & ~byte_value) == 0);
         } else if (plan->dst_size == 4) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *target_access &= *value;
+            if (!simulate)
+                *target_access &= *value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
                         *value, target_access);
             ASSERT((*target_access & ~(*value)) == 0);
@@ -821,7 +832,8 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
             ptr_uint_t *word_value = (ptr_uint_t *)value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *word_target_access &= *word_value;
+            if (!simulate)
+                *word_target_access &= *word_value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    and 0x%x into "PFX"\n",
                         *word_value, word_target_access);
             ASSERT((*word_target_access & ~(*word_value)) == 0);
@@ -833,15 +845,18 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             byte byte_value = (*value & 0xff);
             byte *byte_target_access = (byte *)target_access;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *byte_target_access -= byte_value;
+            if (!simulate)
+                *byte_target_access -= byte_value;
         } else if (plan->dst_size == 4) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *target_access -= *value;
+            if (!simulate)
+                *target_access -= *value;
         } else if (plan->dst_size == 8) {
             ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
             ptr_uint_t *word_value = (ptr_uint_t *)value;
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to sub %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
-            *word_target_access -= *word_value;
+            if (!simulate)
+                *word_target_access -= *word_value;
         }
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtracted %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     }
@@ -1024,7 +1039,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
                 "DGC: Emulating write "PFX" -> "PFX" via page fault\n",
                 writer_app_pc, write_target);
 
-    emulate_writer(mc, plan, offset, write_target);
+    emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
     if (!is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 
@@ -1059,6 +1074,12 @@ emulate_dgc_write(app_pc writer_pc)
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
     //priv_mcontext_t *mc = get_mcontext(dcontext);
     app_pc write_target;
+    bool simulating =
+#ifdef JITOPT_EMULATE
+    false;
+#else
+    true;
+#endif
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_pc);
@@ -1072,7 +1093,7 @@ emulate_dgc_write(app_pc writer_pc)
 
     write_target = opnd_compute_address_priv(plan->dst, mc);
 
-#ifdef JITOPT_EMULATE
+//#ifdef JITOPT_EMULATE
     ptr_uint_t offset = 0;
     dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(write_target);
     if (mapping == NULL) {
@@ -1104,11 +1125,12 @@ emulate_dgc_write(app_pc writer_pc)
     }
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Emulating write "PFX" -> "PFX" via clean call\n",
+                "DGC: %s write "PFX" -> "PFX" via clean call\n",
+                simulating ? "Simulating" : "Emulating",
                 writer_pc, write_target);
 
-    emulate_writer(mc, plan, offset, write_target);
-#endif
+    emulate_writer(mc, plan, offset, write_target, simulating);
+//#endif
     if (!plan->is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 }
