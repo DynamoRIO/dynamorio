@@ -3538,36 +3538,48 @@ get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size)
     return true;
 }
 
-void
-set_region_jit_monitored(app_pc start, size_t len)
+bool
+set_region_jit_monitored(app_pc start, size_t len, uint *prot)
 {
     vm_area_t *region;
-    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: set_region_jit_monitored("PFX" +0x%x)\n",
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "DGC: set_region_jit_monitored("PFX" +0x%x)\n",
         start, len);
     write_lock(&executable_areas->lock);
     if (lookup_addr(executable_areas, start, &region)) {
         if ((region->start == start) && (region->end == (start+len))) {
             if (!TEST(VM_JIT_MONITORED, region->vm_flags)) {
                 region->vm_flags |= VM_JIT_MONITORED;
+                region->vm_flags |= VM_DGC_WRITER;
                 if (!TEST(VM_MADE_READONLY, region->vm_flags))
                     region->vm_flags |= VM_DELAY_READONLY;
-                LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: Region ("PFX" +0x%x) 'made readonly'"
-                    " and JIT monitored.\n", start, len);
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                            "DGC: Region ("PFX" +0x%x) 'made readonly'"
+                            " and JIT monitored.\n", start, len);
             }
         } else {
-            LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: region has the wrong bounds!: "
-                "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
-                start, start+len, region->start, region->end);
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                        "DGC: Error! Region has the wrong bounds!: "
+                        "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
+                        start, start+len, region->start, region->end);
+            return false;
         }
     } else {
-        LOG(GLOBAL, LOG_VMAREAS, 1, "JITMON: Generating new JIT monitored vmarea: "PFX"-"PFX"\n",
-            start, start+len);
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                    "DGC: Generating new JIT monitored vmarea: "PFX"-"PFX"\n",
+                    start, start+len);
 
         add_vm_area(executable_areas, start, start+len,
-                    VM_JIT_MONITORED | VM_DELAY_READONLY, 0, NULL
+                    VM_JIT_MONITORED | VM_DELAY_READONLY | VM_DGC_WRITER, 0, NULL
                     _IF_DEBUG("JIT monitored"));
     }
+    if (!get_memory_info(start, NULL, NULL, prot)) {
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                    "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
+                    start, len);
+        return false;
+    }
     write_unlock(&executable_areas->lock);
+    return true;
 }
 
 bool

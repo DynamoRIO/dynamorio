@@ -216,6 +216,9 @@ valgrind_discard_translations(dr_vg_client_request_t *request);
 #endif
 
 static void
+setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot);
+
+static void
 safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak);
 
 static bool
@@ -413,12 +416,15 @@ jitopt_thread_init(dcontext_t *dcontext)
 void
 annotation_manage_code_area(app_pc start, size_t len)
 {
+    dcontext_t *dcontext = get_thread_private_dcontext();
     //dr_printf("Manage code area "PFX"-"PFX"\n",
     //    start, start+len);
     LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
         start, start+len);
 #ifdef JIT_MONITORED_AREAS
-    set_region_jit_monitored(start, len);
+    uint prot;
+    set_region_jit_monitored(start, len, &prot);
+    setup_double_mapping(dcontext, start, len, prot);
 #else
     set_region_app_managed(start, len);
 #endif
@@ -595,14 +601,17 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
 
     for (; page_id < last_page_id; page_id++) {
         key = DGC_SHADOW_KEY(page_id);
+        if (dgc_writer_mapping_table->table[key] != NULL) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: Multiple writer offset buckets at "PFX" (key 0x%x).\n",
+                        page_id, key);
+        }
         mapping = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_writer_mapping_t,
                                   ACCT_OTHER, UNPROTECTED);
         mapping->page_id = page_id;
         mapping->offset = offset;
         mapping->next = dgc_writer_mapping_table->table[key];
         dgc_writer_mapping_table->table[key] = mapping;
-        //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Inserted writer offset "
-        //            "for page "PFX" (key 0x%x).\n", page_id, key);
     }
 }
 
@@ -651,7 +660,8 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
 static ptr_uint_t
 get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size_t app_memory_size, uint prot)
 {
-    int fd, result;
+    ptr_int_t fd;
+    int result;
     uint i;
     char file[0x20];
     app_pc remap_pc;
@@ -675,8 +685,8 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Mapping "PFX" +0x%x to shmem %s\n",
                 app_memory_start, app_memory_size, file);
-    fd = dynamorio_syscall(SYS_open, 3, file, O_RDWR | O_CREAT | O_NOFOLLOW,
-                           S_IRUSR | S_IWUSR);
+    fd = dynamorio_syscall(SYS_open, 3ULL, file, (ptr_uint_t)(O_RDWR | O_CREAT | O_NOFOLLOW),
+                           (ptr_uint_t)(S_IRUSR | S_IWUSR));
     if (fd < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to create the backing file %s for the double-mapping\n", file);
@@ -685,7 +695,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     }
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Created the backing file %s\n", file);
-    result = dynamorio_syscall(SYS_ftruncate, 2, fd, app_memory_size);
+    result = dynamorio_syscall(SYS_ftruncate, 2ULL, fd, app_memory_size);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to resize the backing file %s for the double-mapping\n", file);
@@ -695,7 +705,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
                 "DGC: Extended the backing file %s to 0x%x bytes\n", file, app_memory_size);
     new_mapping->fd = fd;
 
-    result = dynamorio_syscall(SYS_unlink, 1, file);
+    result = dynamorio_syscall(SYS_unlink, 1ULL, file);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to unlink the backing file %s for the double-mapping\n", file);
@@ -704,24 +714,27 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Unlinked the backing file %s\n", file);
 
-    new_mapping->mapping_start = (app_pc) dynamorio_syscall(MMAP, 6, NULL, app_memory_size,
-                                                   PROT_READ|PROT_WRITE, MAP_SHARED,
-                                                   fd, 0/*offset*/);
+    new_mapping->mapping_start =
+        (app_pc) dynamorio_syscall(MMAP, 6ULL, 0ULL, app_memory_size,
+                                   (ptr_uint_t)PROT_READ|PROT_WRITE, (ptr_uint_t)MAP_SHARED,
+                                   fd, 0ULL/*offset*/);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Mapped the backing file %s to "PFX"\n", file, new_mapping->mapping_start);
 
     memcpy(new_mapping->mapping_start, app_memory_start, app_memory_size);
 
-    result = dynamorio_syscall(SYS_munmap, 2, app_memory_start, app_memory_size);
+    result = dynamorio_syscall(SYS_munmap, 2ULL, app_memory_start, app_memory_size);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Failed to unmap the original memory at "PFX"\n", app_memory_start);
         return 0;
     }
 
-    remap_pc = (app_pc) dynamorio_syscall(MMAP, 6, app_memory_start, app_memory_size,
-                                 prot, MAP_SHARED | MAP_FIXED, fd, 0/*offset*/);
+    remap_pc =
+        (app_pc) dynamorio_syscall(MMAP, 6ULL, app_memory_start, app_memory_size,
+                                   (ptr_uint_t)prot, (ptr_uint_t)(MAP_SHARED | MAP_FIXED),
+                                   fd, 0ULL/*offset*/);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
@@ -862,40 +875,34 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     }
 }
 
-static ptr_uint_t
-setup_double_mapping(dcontext_t *dcontext, app_pc write_target, uint prot)
+static void
+setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
 {
-    app_pc app_memory_start;
-    size_t app_memory_size;
     ptr_int_t page_delta;
-    DEBUG_DECLARE(bool ok;);
+    //DEBUG_DECLARE(bool ok;);
 
-    if (!get_jit_monitored_area_bounds(write_target, &app_memory_start, &app_memory_size)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Skipping double-mapping of "PFX
-                    " because it is not in a JIT-managed area.\n", write_target);
-        return 0;
-    }
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Setup double-mapping for "PFX" +0x%x\n",
+                start, len);
 
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Setup double-mapping around "PFX"\n",
-                write_target);
+    //DEBUG_DECLARE(ok =)
+    //set_region_dgc_writer(app_memory_start, app_memory_size);
+    //ASSERT(ok);
 
-    DEBUG_DECLARE(ok =)
-    set_region_dgc_writer(app_memory_start, app_memory_size);
-    ASSERT(ok);
+    //ASSERT(write_target >= app_memory_start &&
+    //       write_target < (app_memory_start + app_memory_size));
 
-    ASSERT(write_target >= app_memory_start &&
-           write_target < (app_memory_start + app_memory_size));
-
-    page_delta = get_double_mapped_page_delta(dcontext, app_memory_start, app_memory_size, prot);
+    page_delta = get_double_mapped_page_delta(dcontext, start, len, prot);
     if (page_delta == 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to find page delta for app memory at "PFX"\n", app_memory_start);
-        return 0;
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to setup page delta for app memory "PFX" +0x%x\n",
+                    start, len);
+        return;
     }
 
     mutex_lock(&dgc_mapping_lock);
-    insert_dgc_writer_offsets(app_memory_start, app_memory_size, page_delta);
+    insert_dgc_writer_offsets(start, len, page_delta);
     mutex_unlock(&dgc_mapping_lock);
-    return page_delta;
 }
 
 bool
@@ -969,7 +976,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
-    if (plan->dst_size < 1 || plan->dst_size > 128 || (plan->dst_size > 1 && plan->dst_size % 4 != 0)) {
+    if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 1 && plan->dst_size % 4 != 0)) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
                   instr_get_opcode(&plan->writer), plan->dst_size);
         plan->resume_pc = NULL;
@@ -1005,7 +1012,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 {
     emulation_plan_t *plan;
     dgc_writer_mapping_t *mapping;
-    ptr_uint_t offset;
+    ptr_uint_t offset = 0;
 
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
@@ -1024,11 +1031,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         offset = mapping->offset;
     mutex_unlock(&dgc_mapping_lock);
 
+    /*
     if (mapping == NULL) { // maybe do this when an area becomes JIT managed?
-        offset = setup_double_mapping(dcontext, write_target, prot);
-        if (offset == 0)
-            return NULL;
+        return NULL;
     }
+    */
 
     /*
     if ((ptr_uint_t)writer_app_pc > 0x1000000 && ((ptr_uint_t)writer_app_pc & 0xfffULL) == 0xf19ULL)

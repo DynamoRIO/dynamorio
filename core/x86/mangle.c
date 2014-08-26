@@ -4165,10 +4165,10 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
 # ifdef JITOPT
 static const reg_t dgc_available_temp_regs[] = {
     REG_R15, REG_R14, REG_R13, REG_R12, REG_R11, REG_R10, REG_R9,
-    REG_R8, REG_RDI, REG_RSI, REG_RBX, REG_RDX, REG_RCX, REG_RAX
+    REG_R8, REG_RDI, REG_RSI, REG_RBX, REG_RDX, REG_RCX //, REG_RAX
 };
 #define DGC_TEMP_REG_32_START 8
-#define DGC_TEMP_REG_AVAILABLE_COUNT 14
+#define DGC_TEMP_REG_AVAILABLE_COUNT 13
 #define DGC_TEMP_REG_COUNT 3
 
 static void
@@ -4182,7 +4182,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
 #ifndef JITOPT_EMULATE
     reg_t temp[DGC_TEMP_REG_COUNT];
-    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page, *execute_write;
+    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page,
+            *execute_write, *prepare_write;
     uint j = 0, i = 0;
 
     //if (plan->writer_pc == (app_pc) 0x4b138d)
@@ -4264,6 +4265,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                                instr_get_src(&plan->writer, 0));
     }
 
+    prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
+                                        opnd_create_reg(REG_XAX));
+
     // check clobber of base in base/disp
     insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                        false/*absolute*/ _IF_X64(false));
@@ -4341,9 +4345,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
 
-    // cmp page_id(temp[1]), bucket->page_id(temp[0])
+    // [bucket:temp[0], page_id:temp[1]] cmp page_id(temp[1]), bucket->page_id(temp[0])
     PRE(ilist, instr, bucket_iterator);
-    // [bucket:temp[0]] je write_to_double_page
+    // [bucket:temp[0], page_id:temp[1]] je write_to_double_page
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(write_to_double_page)));
     // [bucket:temp[0]] bucket->next -> temp[0]
@@ -4361,9 +4365,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
     // [bucket->next:temp[0]] *bucket->next -> temp[0]
-    PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-                            OPND_CREATE_MEMPTR(temp[0], 0)));
+    //PRE(ilist, instr,
+    //    INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+    //                        OPND_CREATE_MEMPTR(temp[0], 0)));
     // jmp bucket_iterator
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
@@ -4388,7 +4392,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     }
 
     PRE(ilist, instr,
-        INSTR_CREATE_jmp(dcontext, opnd_create_instr(execute_write)));
+        INSTR_CREATE_jmp(dcontext, opnd_create_instr(prepare_write)));
 
     // [0:temp[0]] write_target -> temp[1]
     PRE(ilist, instr, write_to_original_page);
@@ -4414,6 +4418,16 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                 instr_get_src(&plan->writer, 0)));
     }
     */
+
+    /* Restore flags now so the app instruction's flag changes are not lost */
+    PRE(ilist, instr, prepare_write); // move %rax to temp[2]
+    PRE(ilist, instr, // restore flag values to %rax
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
+                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+    insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
+                          false/*absolute*/ _IF_X64(false));
+    PRE(ilist, instr, // move temp[2] back to %rax
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
 
     // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
@@ -4455,14 +4469,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
                                MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, TLS_XAX_SLOT, XAX_OFFSET));
-    PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
-                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-
-    insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
-                          false/*absolute*/ _IF_X64(false));
 
     if (!plan->is_jit_self_write)
 #endif /* JITOPT_EMULATE */

@@ -6280,6 +6280,8 @@ process_mmap(dcontext_t *dcontext, app_pc base, size_t size, uint prot,
     bool inform_client = false;
 #endif
 
+    RELEASE_LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
+        base, size, memprot_string(memprot) _IF_DEBUG(map_type));
     LOG(THREAD, LOG_SYSCALLS, 4, "process_mmap("PFX","PFX",%s,%s)\n",
         base, size, memprot_string(memprot), map_type);
     /* Notes on how ELF SOs are mapped in.
