@@ -4806,9 +4806,12 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     KSTOP(bb_emit);
 
     if (bb.is_dgc_instrumented) {
+        extern bool verbose;
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: "PFX" is instrumented\n", bb.start_pc);
-        disassemble_app_bb(dcontext, start, STDERR);
-        instrlist_disassemble(dcontext, bb.start_pc, bb.ilist, STDERR);
+        if (verbose) {
+            disassemble_app_bb(dcontext, start, STDERR);
+            instrlist_disassemble(dcontext, bb.start_pc, bb.ilist, STDERR);
+        }
     }
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
