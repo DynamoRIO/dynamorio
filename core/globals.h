@@ -199,6 +199,9 @@ typedef byte * cache_pc;  /* fragment cache pc */
 //# define IF_DGCDIAG_ELSE(x, y) y
 //#endif
 
+//#define JITOPT_EMULATE 1
+//#define JITOPT_PAGE_FAULT 1
+
 /* make sure defines are consistent */
 #ifndef X86
 #error Must define X86, no other platforms are supported

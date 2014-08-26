@@ -4161,7 +4161,15 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
         receiver = receiver->next;
     }
 }
+
 # ifdef JITOPT
+static const reg_t dgc_available_temp_regs[] = {
+    REG_R15, REG_R14, REG_R13, REG_R12, REG_R8,
+    REG_RDI, REG_RSI, REG_RBX, REG_RDX, REG_RCX,
+};
+#define DGC_AVAILABLE_TEMP_REG_COUNT 10
+#define DGC_TEMP_REG_COUNT 3
+
 static void
 mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist,
                                uint flags)
@@ -4170,180 +4178,215 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     void *clean_callee = (void *) label_data->data[0];
     emulation_plan_t *plan = (emulation_plan_t *) label_data->data[1];
     opnd_t arg = OPND_CREATE_INTPTR(plan->writer_pc);
-    reg_t temp1, temp2, temp3;
-    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page, *execute_write;
-    bool base_in_xax = false;
 
-    temp1 = REG_XBX;
-    temp2 = REG_XCX;
-    temp3 = REG_XDX;
+#ifndef JITOPT_EMULATE
+    reg_t temp[DGC_TEMP_REG_COUNT];
+    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page, *execute_write;
+    bool base_in_xax = false, src_in_xax = false;
+    uint j, i = 0;
+
+    //if (plan->writer_pc == (app_pc) 0x4b138d)
+    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Bad reg assignment happening...\n");
+
+    for (j = 0; j < DGC_AVAILABLE_TEMP_REG_COUNT; j++) {
+        if (!instr_uses_reg(&plan->writer, dgc_available_temp_regs[j])) {
+            /*
+              instr_writes_to_reg(&plan->writer, dgc_available_temp_regs[j]) ||
+              instr_reg_in_dst(&plan->writer, dgc_available_temp_regs[j]))) {
+            */
+            temp[i++] = dgc_available_temp_regs[j];
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: instrumentation of "PFX" steals register 0x%x\n",
+                        plan->writer_pc, dgc_available_temp_regs[j]);
+            if (i == DGC_TEMP_REG_COUNT)
+                break;
+        }
+    }
+    ASSERT(i == DGC_TEMP_REG_COUNT);
+
+    src_in_xax = instr_reg_in_src(&plan->writer, REG_XAX);
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         app_pc abs_addr = opnd_get_addr(plan->dst);
-        // [bucket:temp1] addr -> temp2
-        write_to_double_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
+        // [bucket:temp[0]] addr -> temp[1]
+        write_to_double_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
                                             OPND_CREATE_INTPTR(abs_addr));
-    } else {
+        write_to_original_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
+                                            OPND_CREATE_INTPTR(abs_addr));
+    } else { // don't clobber src operands!!
         ASSERT(opnd_is_base_disp(plan->dst));
-        switch (opnd_get_base(plan->dst)) { /* keep base in a register */
-        case REG_XAX:
-            base_in_xax = true;
-            break;
-        case REG_XBX:
-            temp1 = REG_XDI;
-            break;
-        case REG_XCX:
-            temp2 = REG_XDI;
-            break;
-        case REG_XDX:
-            temp3 = REG_XDI;
-            break;
-        }
+        base_in_xax = (opnd_get_base(plan->dst) == REG_XAX);
 
-        // [bucket:temp1] base -> temp2
+        // [bucket:temp[0]] base -> temp[1]
         if (base_in_xax) {
-            write_to_double_page = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
+            write_to_double_page = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+                                                  TLS_XAX_SLOT, XAX_OFFSET);
+            write_to_original_page = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
                                                   TLS_XAX_SLOT, XAX_OFFSET);
         } else {
             write_to_double_page =
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
                                  opnd_create_base_disp(opnd_get_base(plan->dst),
                                                        opnd_get_index(plan->dst),
                                                        opnd_get_scale(plan->dst),
                                                        opnd_get_disp(plan->dst),
                                                        OPSZ_lea));
+            write_to_original_page =
+                        INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
+                                         opnd_create_base_disp(opnd_get_base(plan->dst),
+                                                               opnd_get_index(plan->dst),
+                                                               opnd_get_scale(plan->dst),
+                                                               opnd_get_disp(plan->dst),
+                                                               OPSZ_lea));
         }
     }
 
-    write_to_original_page =
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
-                                 opnd_create_base_disp(opnd_get_base(plan->dst),
-                                                       opnd_get_index(plan->dst),
-                                                       opnd_get_scale(plan->dst),
-                                                       opnd_get_disp(plan->dst),
-                                                       OPSZ_lea));
+    // cmp page_id(temp[1]), bucket->page_id(temp[0])
+    bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
+                                       OPND_CREATE_MEMPTR(temp[0], 0));
 
-    // cmp page_id(temp2), bucket->page_id(temp1)
-    bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp2),
-                                       OPND_CREATE_MEMPTR(temp1, 0));
-
-    execute_write = instr_create_1dst_1src(dcontext, plan->writer.opcode,
-                            opnd_create_base_disp(temp2, temp1, 1, 0,
-                                                  opnd_get_size(plan->writer.src0)),
-                            instr_get_src(&plan->writer, 0));
+    if (src_in_xax) {
+        // <original-op> <src>, <dst>+offset
+        instr_t *transformed_write = instr_create_1dst_1src(dcontext, plan->writer.opcode,
+                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
+                                                      opnd_get_size(plan->writer.src0)),
+                                instr_get_src(&plan->writer, 0));
+        opnd_t src_swap = instr_get_src(transformed_write, 0);
+        if (!opnd_replace_reg(&src_swap, REG_AL, temp[2] + 0x30)) { // doesn't work for rdi or rsi
+            if (!opnd_replace_reg(&src_swap, REG_AX, temp[2] + 0x20)) {
+                if (!opnd_replace_reg(&src_swap, REG_EAX, temp[2] + 0x10)) {
+                    DEBUG_DECLARE(bool ok =) opnd_replace_reg(&src_swap, REG_RAX, temp[2]);
+                    ASSERT(ok); // REG_AH is a lot of trouble (may require shifting)
+                }
+            }
+        }
+        instr_set_src(transformed_write, 0, src_swap);
+        ASSERT(!instr_uses_reg(transformed_write, REG_XAX));
+        execute_write = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
+                                               TLS_XAX_SLOT, XAX_OFFSET);
+        instr_set_next(execute_write, transformed_write);
+        instr_set_prev(transformed_write, execute_write);
+    } else {
+        // <original-op> <src>, <dst>+offset
+        execute_write = instr_create_1dst_1src(dcontext, plan->writer.opcode,
+                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
+                                                      opnd_get_size(plan->writer.src0)),
+                                instr_get_src(&plan->writer, 0));
+    }
 
     // check clobber of base in base/disp
     insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                        false/*absolute*/ _IF_X64(false));
 
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp1, MANGLE_DGC_TEMP_SLOT_1,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp[0], MANGLE_DGC_TEMP_SLOT_1,
                                  MANGLE_DGC_TEMP_OFFSET_1, REG_R9));
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp2, MANGLE_DGC_TEMP_SLOT_2,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp[1], MANGLE_DGC_TEMP_SLOT_2,
                                  MANGLE_DGC_TEMP_OFFSET_2, REG_R10));
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp3, MANGLE_DGC_TEMP_SLOT_3,
+        SAVE_TO_DC_OR_TLS_OR_REG(dcontext, flags, temp[2], MANGLE_DGC_TEMP_SLOT_3,
                                  MANGLE_DGC_TEMP_OFFSET_3, REG_R11));
 
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         app_pc abs_addr = opnd_get_addr(plan->dst);
         ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(abs_addr);
         uint key =  DGC_SHADOW_KEY(page_id);
-        // page_id -> temp2
+        // page_id -> temp[1]
         PRE(ilist, instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp2),
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
                                  OPND_CREATE_INTPTR(page_id)));
-        // mask temp2 -> temp3
+        // mask temp[1] -> temp[2]
         PRE(ilist, instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp3),
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[2]),
                                  OPND_CREATE_INTPTR(key)));
     } else {
         ASSERT(opnd_is_base_disp(plan->dst));
 
-        // target -> temp2
+        // target -> temp[1]
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp2),
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
                              opnd_create_base_disp(opnd_get_base(plan->dst),
                                                    opnd_get_index(plan->dst),
                                                    opnd_get_scale(plan->dst),
                                                    opnd_get_disp(plan->dst),
                                                    OPSZ_lea)));
-        // [target:temp2] temp2 >> DGC_MAPPING_TABLE_SHIFT
+        // [target:temp[1]] temp[1] >> DGC_MAPPING_TABLE_SHIFT
         PRE(ilist, instr,
-            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp2),
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[1]),
                              OPND_CREATE_INT8(DGC_MAPPING_TABLE_SHIFT)));
-        // mask temp2 -> temp3
+        // mask temp[1] -> temp[2]
         PRE(ilist, instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp3),
-                                opnd_create_reg(temp2)));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
+                                opnd_create_reg(temp[1])));
         PRE(ilist, instr,
-            INSTR_CREATE_and(dcontext, opnd_create_reg(temp3),
+            INSTR_CREATE_and(dcontext, opnd_create_reg(temp[2]),
                              OPND_CREATE_INT32(DGC_MAPPING_TABLE_MASK)));
     }
 
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1), /* always in TLS? */
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]), /* always in TLS? */
                             opnd_create_tls_slot(os_tls_offset(DGC_SHADOW_MAPPING_SLOT))));
 
     //opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
     //                      opnd_size_t size)
     // opnd_create_base_disp(REG_XCX, REG_XBX, sizeof(app_pc), 0, OPSZ_PTR)
 
-    // [table:temp1, key:temp3] head_bucket -> temp1
+    // [table:temp[0], key:temp[2]] head_bucket -> temp[0]
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
-                            opnd_create_base_disp(temp1, temp3, sizeof(app_pc), 0,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+                            opnd_create_base_disp(temp[0], temp[2], sizeof(app_pc), 0,
                                                   OPSZ_PTR)));
 
-    // [head_bucket:temp1] cmp head_bucket(temp1), head_bucket(temp1)
+    // [head_bucket:temp[0]] cmp head_bucket(temp[0]), head_bucket(temp[0])
     PRE(ilist, instr,
-        INSTR_CREATE_test(dcontext, opnd_create_reg(temp1), opnd_create_reg(temp1)));
+        INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
     // jz write_to_original_page
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
 
-    // cmp page_id(temp2), bucket->page_id(temp1)
+    // cmp page_id(temp[1]), bucket->page_id(temp[0])
     PRE(ilist, instr, bucket_iterator);
-    // [bucket:temp1] je write_to_double_page
+    // [bucket:temp[0]] je write_to_double_page
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(write_to_double_page)));
-    // [bucket:temp1] bucket->next -> temp1
+    // [bucket:temp[0]] bucket->next -> temp[0]
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
-                            OPND_CREATE_MEMPTR(temp1,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+                            OPND_CREATE_MEMPTR(temp[0],
                                                offsetof(dgc_writer_mapping_t, next))));
-                        //opnd_create_base_disp(temp1, REG_NULL, 0,
+                        //opnd_create_base_disp(temp[0], REG_NULL, 0,
                         //                      offsetof(dgc_writer_mapping_t, next),
                         //                      OPSZ_PTR));
-    // [bucket->next:temp1] cmp next(temp1), next(temp1)
+    // [bucket->next:temp[0]] cmp next(temp[0]), next(temp[0])
     PRE(ilist, instr,
-        INSTR_CREATE_test(dcontext, opnd_create_reg(temp1), opnd_create_reg(temp1)));
+        INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
     // jz no_bucket
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
-    // [bucket->next:temp1] *bucket->next -> temp1
+    // [bucket->next:temp[0]] *bucket->next -> temp[0]
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
-                            OPND_CREATE_MEMPTR(temp1, 0)));
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+                            OPND_CREATE_MEMPTR(temp[0], 0)));
     // jmp bucket_iterator
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
 
-    // [bucket:temp1] write_target -> temp2
+    // [bucket:temp[0]] write_target -> temp[1]
     PRE(ilist, instr, write_to_double_page);
-    // [bucket:temp1, write_target:temp2] offset +> temp2
+    // [bucket:temp[0], write_target:temp[1]] offset +> temp[1]
     //PRE(ilist, instr,
-    //    INSTR_CREATE_add(dcontext, opnd_create_reg(temp2),
-    //                     OPND_CREATE_MEMPTR(temp1,
+    //    INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]),
+    //                     OPND_CREATE_MEMPTR(temp[0],
     //                                        offsetof(dgc_writer_mapping_t, offset))));
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp1),
-                            OPND_CREATE_MEMPTR(temp1,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+                            OPND_CREATE_MEMPTR(temp[0],
                                                offsetof(dgc_writer_mapping_t, offset))));
 
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(execute_write)));
 
+    // [0:temp[0]] write_target -> temp[1]
     PRE(ilist, instr, write_to_original_page);
 
     // TODO: may need to mask
@@ -4351,15 +4394,17 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     /*
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp2, 0),
+            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp[1], 0),
                                 instr_get_src(&plan->writer, 0)));
     } else {
         PRE(ilist, instr,
             INSTR_CREATE_mov_st(dcontext,
-                                OPND_CREATE_MEMPTR(temp2, 0),
+                                OPND_CREATE_MEMPTR(temp[1], 0),
                                 instr_get_src(&plan->writer, 0)));
     }
     */
+
+    // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
 
     switch (plan->writer.opcode) {
@@ -4374,13 +4419,13 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     /*
         PRE(ilist, instr,
             INSTR_CREATE_movdqa(dcontext,
-                                opnd_create_base_disp(temp2, temp1, 1, 0,
+                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
                                                       opnd_get_size(plan->writer.src0)),
                                 instr_get_src(&plan->writer, 0)));
         break;
         PRE(ilist, instr,
             INSTR_CREATE_movdqu(dcontext,
-                                opnd_create_base_disp(temp2, temp1, 1, 0,
+                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
                                                       opnd_get_size(plan->writer.src0)),
                                 instr_get_src(&plan->writer, 0)));
     */
@@ -4391,23 +4436,24 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     }
 
     PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp1,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
                                        MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
     PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp2,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
                                MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
     PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp3,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
                                MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
 
     insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                           false/*absolute*/ _IF_X64(false));
 
     if (!plan->is_jit_self_write)
+#endif /* JITOPT_EMULATE */
         dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Instrumented write "PFX" (opcode 0x%x) in fragment having flags 0x%x\n",
+                "DGC: Instrumented write at "PFX" (opcode 0x%x) in fragment having flags 0x%x\n",
                 plan->writer_pc, plan->writer.opcode, flags);
 }
 # endif

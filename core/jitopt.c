@@ -516,7 +516,8 @@ annotation_flush_fragments(app_pc start, size_t len)
                 RSTATS_INC(app_managed_multipage_writes);
         } else {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                        "No fragments to remove in write to ["PFX"-"PFX"].\n", start, start+len);
+                        "DGC: No fragments to remove in write to ["PFX"-"PFX"].\n",
+                        start, start+len);
             RSTATS_INC(app_managed_writes_ignored);
         }
     } else {
@@ -768,7 +769,9 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ASSERT(*target_access == *value_base);
             ASSERT(*(uint*)write_target == *value_base);
         }
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully wrote %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: "PFX" successfully wrote %d bytes to "PFX" via "PFX"\n",
+                    plan->writer_pc, plan->dst_size, write_target, target_access);
     } else if (plan->op == EMUL_OR) {
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
@@ -972,7 +975,6 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     }
 
 instrumentation_failure:
-    instr_free(dcontext, &plan->writer);
     if (plan->resume_pc == NULL) {
         free_emulation_plan(plan);
         return NULL;
@@ -1053,7 +1055,6 @@ static void
 emulate_dgc_write(app_pc writer_pc)
 {
     emulation_plan_t *plan;
-    //dgc_writer_mapping_t *mapping;
     dcontext_t *dcontext = get_thread_private_dcontext();
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
     //priv_mcontext_t *mc = get_mcontext(dcontext);
@@ -1070,16 +1071,16 @@ emulate_dgc_write(app_pc writer_pc)
     }
 
     write_target = opnd_compute_address_priv(plan->dst, mc);
-    /* 1) if base/disp, try applying offset to disp (or change base reg and add there?)
-          a) multiply scale * index (reg)
-          b) add the base (reg) and disp
-       2) if absolute or relative, apply offset to opnd.value.addr
-       3) if relative, try applying offset to opnd.value.addr
-    */
 
-    /*
-    mapping = lookup_dgc_writer_offset(write_target);
+#ifdef JITOPT_EMULATE
+    ptr_uint_t offset = 0;
+    dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(write_target);
     if (mapping == NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: No double-mapping "
+                    "for DGC write "PFX" -> "PFX" via clean call\n",
+                    writer_pc, write_target);
+        //return;
+        /*
         uint prot;
 
         if (!is_jit_managed_area(write_target))
@@ -1097,14 +1098,17 @@ emulate_dgc_write(app_pc writer_pc)
         if (setup_double_mapping(dcontext, write_target, prot) == 0)
             return;
         mapping = lookup_dgc_writer_offset(write_target);
+        */
+    } else {
+        offset = mapping->offset;
     }
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Emulating write "PFX" -> "PFX" via clean call\n",
                 writer_pc, write_target);
 
-    emulate_writer(mc, plan, mapping->offset, write_target);
-    */
+    emulate_writer(mc, plan, offset, write_target);
+#endif
     if (!plan->is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 }
@@ -1116,8 +1120,10 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     instr_t *label;
     dr_instr_label_data_t *label_data;
 
-    //if (true)
-    //    return false;
+#ifdef JITOPT_PAGE_FAULT
+    if (true)
+        return false;
+#endif
 
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
@@ -1634,7 +1640,10 @@ free_double_mapping(double_mapping_t *mapping)
 static void
 free_emulation_plan(void *p)
 {
-    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, p, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
+    dcontext_t *dcontext = get_thread_private_dcontext();
+    emulation_plan_t *plan = (emulation_plan_t *)p;
+    instr_free(dcontext, &plan->writer);
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, plan, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 }
 
 void
