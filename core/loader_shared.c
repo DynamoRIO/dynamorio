@@ -340,6 +340,28 @@ privload_lookup_by_base(app_pc modbase)
     return NULL;
 }
 
+/* Lookup the private loaded library by base */
+privmod_t *
+privload_lookup_by_pc(app_pc pc)
+{
+    privmod_t *mod;
+    ASSERT_OWN_RECURSIVE_LOCK(true, &privload_lock);
+    if (!privload_modlist_initialized()) {
+        uint i;
+        for (i = 0; i < privmod_static_idx; i++) {
+            if (pc >= privmod_static[i].base &&
+                pc < privmod_static[i].base + privmod_static[i].size)
+                return &privmod_static[i];
+        }
+    } else {
+        for (mod = modlist; mod != NULL; mod = mod->next) {
+            if (pc >= mod->base && pc < mod->base + mod->size)
+                return mod;
+        }
+    }
+    return NULL;
+}
+
 /* Insert privmod after *after
  * name is assumed to be in immutable persistent storage.
  * a copy of path is made.

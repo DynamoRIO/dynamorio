@@ -1736,13 +1736,6 @@ redirect_RtlLookupFunctionEntry (
     );
 #endif
 
-PVOID
-NTAPI
-redirect_RtlPcToFileHeader(
-    __in PVOID PcValue,
-    __out PVOID *BaseOfImage
-    );
-
 VOID
 NTAPI
 redirect_RtlUnwind (
