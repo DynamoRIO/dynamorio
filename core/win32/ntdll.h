@@ -1447,7 +1447,7 @@ bool
 nt_raise_exception(EXCEPTION_RECORD* pexcrec, CONTEXT* pcontext);
 
 bool
-nt_messagebox(wchar_t *msg, wchar_t *title);
+nt_messagebox(const wchar_t *msg, const wchar_t *title);
 
 bool
 tls_alloc(int synch, uint *teb_offs /* OUT */);

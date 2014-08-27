@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -53,6 +54,8 @@ static int prefetches_removed = 0, prefetchws_removed = 0;
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'prefetch'",
+                       "http://dynamorio.org/issues");
     dr_register_exit_event(event_exit);
     /* Only need to remove prefetches for Intel processors. */
     if (proc_get_vendor() == VENDOR_INTEL) {

@@ -100,29 +100,15 @@ event_thread_exit(void *drcontext)
 static void
 event_exit(void)
 {
-    int len;
-    char msg[MAXIMUM_PATH];
-    len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), "Client 'cbrtrace' exiting");
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE_BUFFER(msg);
-    dr_log(NULL, LOG_ALL, 1, "%s", msg);
-#ifdef SHOW_RESULTS
-    DISPLAY_STRING(msg);
-#endif
+    dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' exiting");
 }
 
 DR_EXPORT
 void dr_init(client_id_t id)
 {
-    int len;
-    char msg[MAXIMUM_PATH];
-    len = dr_snprintf(msg, BUFFER_SIZE_ELEMENTS(msg), "Client 'cbrtrace' initializing");
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE_BUFFER(msg);
-    dr_log(NULL, LOG_ALL, 1, "%s", msg);
-#ifdef SHOW_RESULTS
-    DISPLAY_STRING(msg);
-#endif
+    dr_set_client_name("DynamoRIO Sample Client 'cbrtrace'",
+                       "http://dynamorio.org/issues");
+    dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' initializing");
     client_id = id;
     dr_register_thread_init_event(event_thread_init);
     dr_register_thread_exit_event(event_thread_exit);

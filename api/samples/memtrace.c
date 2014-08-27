@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -133,6 +133,8 @@ dr_init(client_id_t id)
         NULL,             /* optional name of operation we should precede */
         NULL,             /* optional name of operation we should follow */
         0};               /* numeric priority */
+    dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
+                       "http://dynamorio.org/issues");
     drmgr_init();
     drutil_init();
     client_id = id;

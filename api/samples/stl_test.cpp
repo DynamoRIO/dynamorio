@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -72,6 +72,9 @@ dr_init(client_id_t client_id)
 {
     int i;
     bool success = true;
+
+    dr_set_client_name("DynamoRIO Sample Client 'stl_test'",
+                       "http://dynamorio.org/issues");
 
 #ifdef SHOW_RESULTS
     cout << "Start..." << endl;

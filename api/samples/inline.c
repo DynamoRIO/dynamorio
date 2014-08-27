@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -192,6 +193,9 @@ remove_trace_head_entry(void *drcontext, void *tag)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'inline'",
+                       "http://dynamorio.org/issues");
+
     htable_mutex = dr_mutex_create();
 
     /* global HASH_BITS-bit addressed hash table */

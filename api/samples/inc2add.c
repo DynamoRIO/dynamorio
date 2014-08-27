@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -70,6 +71,8 @@ event_exit(void);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'inc2add'",
+                       "http://dynamorio.org/issues");
     dr_register_exit_event(event_exit);
     dr_register_trace_event(event_trace);
     /* this optimization is only worthwhile on the Pentium 4, where

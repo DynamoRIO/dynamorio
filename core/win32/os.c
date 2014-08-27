@@ -4656,6 +4656,12 @@ void debugbox_setup_title(void)
     NULL_TERMINATE_BUFFER(debugbox_title_buf);
 }
 
+const wchar_t *
+debugbox_get_title(void)
+{
+    return debugbox_title_buf;
+}
+
 /* Static buffer for debugbox.  If stack-allocated, debugbox is one of
  * the big space hogs when reporting a crash and we risk exhausting
  * the stack.

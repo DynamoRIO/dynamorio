@@ -170,7 +170,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_mcontext_to_context().
  - Added dr_call_on_clean_stack().
  - Added dr_set_client_name() for customizing the diagnostic message
-   presented to users when an error occurs.
+   presented to users when an error occurs or when dr_messagebox() is called.
  - Added instr_get_next_app() and instrlist_first_app() to allow clients to
    traverse only application (non-meta) instructions.
  - Added dr_config_status_code_to_string().

@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -223,7 +223,7 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     uint i;
-
+    dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");

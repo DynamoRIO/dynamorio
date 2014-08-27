@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -93,8 +93,10 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    module_data_t *appmod  = dr_get_main_module();
-
+    module_data_t *appmod;
+    dr_set_client_name("DynamoRIO Sample Client 'modxfer_app2lib'",
+                       "http://dynamorio.org/issues");
+    appmod = dr_get_main_module();
     DR_ASSERT(appmod != NULL);
     app_base = appmod->start;
     app_end  = appmod->end;

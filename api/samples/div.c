@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -55,6 +56,7 @@ static void *count_mutex; /* for multithread support */
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'div'", "http://dynamorio.org/issues");
     dr_register_exit_event(exit_event);
     dr_register_bb_event(bb_event);
     count_mutex = dr_mutex_create();

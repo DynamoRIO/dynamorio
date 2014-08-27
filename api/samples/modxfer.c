@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -149,6 +149,8 @@ dr_init(client_id_t id)
 {
     char logname[64];
     int len;
+    dr_set_client_name("DynamoRIO Sample Client 'modxfer'",
+                       "http://dynamorio.org/issues");
     drx_init();
     /* register events */
     dr_register_exit_event(event_exit);

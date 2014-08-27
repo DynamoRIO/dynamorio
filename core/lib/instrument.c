@@ -4038,7 +4038,7 @@ dr_messagebox(const char *fmt, ...)
     NULL_TERMINATE_BUFFER(wmsg);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
-    nt_messagebox(wmsg, L"Notice");
+    nt_messagebox(wmsg, debugbox_get_title());
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
     va_end(ap);

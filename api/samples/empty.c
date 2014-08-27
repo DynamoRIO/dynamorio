@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -45,6 +46,7 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     /* empty client */
+    dr_set_client_name("DynamoRIO Sample Client 'empty'", "http://dynamorio.org/issues");
     dr_register_exit_event(event_exit);
 }
 

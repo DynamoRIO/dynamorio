@@ -93,6 +93,7 @@ void module_load_event(void *drcontext, const module_data_t *mod, bool loaded)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'wrap'", "http://dynamorio.org/issues");
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'wrap' initializing\n");
     /* also give notification to stderr */

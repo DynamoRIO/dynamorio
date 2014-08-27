@@ -3651,7 +3651,7 @@ open_pipe(PCWSTR pipename, HANDLE hsync)
 #define STATUS_SHOW_MESSAGEBOX_UNDOCUMENTED (NTSTATUS)0x50000018L
 
 bool
-nt_messagebox(wchar_t *msg, wchar_t *title)
+nt_messagebox(const wchar_t *msg, const wchar_t *title)
 {
     UNICODE_STRING m, t;
     NTSTATUS res;

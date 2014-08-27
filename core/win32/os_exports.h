@@ -175,6 +175,7 @@ os_thread_stack_exit(dcontext_t *dcontext);
 
 void debugbox_setup_title(void);
 int debugbox(char *msg);
+const wchar_t * debugbox_get_title(void);
 int os_countdown_messagebox(char *message, int time_in_milliseconds);
 
 /* raise an exception in the application context */
