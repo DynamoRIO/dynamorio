@@ -7345,7 +7345,7 @@ decode_fragment_exact(dcontext_t *dcontext, fragment_t *f, byte *buf,
         decode_fragment(dcontext, f, buf, bufsz, target_flags, dir_exits, indir_exits);
     /* If the final jmp was elided we do NOT want to count it in the size! */
     if (instr_get_raw_bits(instrlist_last(ilist)) == NULL) {
-        instr_set_meta(instrlist_last(ilist));
+        instr_set_ok_to_emit(instrlist_last(ilist), false);
     }
     return ilist;
 }
