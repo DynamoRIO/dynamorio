@@ -1325,8 +1325,6 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Psapi-Ansi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Psapi-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
@@ -1346,6 +1344,14 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
         return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1")) {
+        /* i#1528: moved to sechost.dll on win8.1 */
+        if (get_os_version() >= WINDOWS_VERSION_8_1)
+            return "sechost.dll";
+        else
+            return "kernelbase.dll";
+    }
     /**************************************************/
     /* Added in Win8.1 */
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
