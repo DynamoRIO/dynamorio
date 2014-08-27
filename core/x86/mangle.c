@@ -4277,15 +4277,17 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
                                         opnd_create_reg(REG_XAX));
 
-    insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
-                       false/*absolute*/ _IF_X64(false));
-
+    /* Save flags to MANGLE_DGC_FLAGS_SLOT */
+    PRE(ilist, instr, SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, TLS_XAX_SLOT, XAX_OFFSET));
+    PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, MANGLE_DGC_FLAGS_SLOT,
-                                 MANGLE_DGC_FLAGS_OFFSET));
+        INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                       TLS_XAX_SLOT, XAX_OFFSET));
+
     PRE(ilist, instr,
         SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0], MANGLE_DGC_TEMP_SLOT_1,
                                  MANGLE_DGC_TEMP_OFFSET_1));
@@ -4401,17 +4403,53 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr, // restore flag values to %rax
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-    insert_restore_eflags(dcontext, ilist, instr, 0, true/*tls*/,
-                          false/*absolute*/ _IF_X64(false));
+    PRE(ilist, instr, // restore flags
+        INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+    PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
     PRE(ilist, instr, // move temp[2] back to %rax
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
 
     // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
 
+    /* Move DGC coverage bucket into the flags TLS slot */
+    PRE(ilist, instr, // move %rax to temp[2]
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]), opnd_create_reg(REG_XAX)));
+    PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
+    PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+
+    // lea write_target -> temp[0]
+    PRE(ilist, instr,
+        INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]),
+                         opnd_create_base_disp(opnd_get_base(plan->dst),
+                                               opnd_get_index(plan->dst),
+                                               opnd_get_scale(plan->dst),
+                                               opnd_get_disp(plan->dst),
+                                               OPSZ_lea)));
+    // mask -> temp[0]
+    PRE(ilist, instr,
+        INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
+                         opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
+    // load table -> temp[1]
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                            opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
+    // cmp $0x0, opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                            opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
+    // DGC coverage bucket -> temp[1]
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
+                          MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+    PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
+    PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+    PRE(ilist, instr, // move temp[2] back to %rax
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
-                                       MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
                                MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));

@@ -95,9 +95,12 @@ hashtable_generic_resized_custom(dcontext_t *dcontext, generic_table_t *htable,
                                 uint old_capacity, generic_entry_t **old_table,
                                 generic_entry_t **old_table_unaligned,
                                 uint old_ref_count, uint old_table_flags)
-{ /* nothing */
-        dr_printf("Hashtable resized to capacity 0x%x on dc "PFX"\n",
-                  htable->capacity, dcontext);
+{
+    RELEASE_LOG(THREAD, LOG_STATS, 1, "Hashtable resized to capacity 0x%x on dc "PFX"\n",
+                htable->capacity, dcontext);
+
+    if (htable->resize_callback_func != NULL)
+        htable->resize_callback_func();
 }
 
 # ifdef DEBUG
@@ -131,6 +134,7 @@ generic_hash_create(dcontext_t *dcontext, uint bits, uint load_factor_percent,
                            0 /* hash_mask_offset */, table_flags
                            _IF_DEBUG(table_name));
     table->free_payload_func = free_payload_func;
+    table->resize_callback_func = NULL;
     return table;
 }
 
@@ -244,6 +248,19 @@ void
 generic_hash_set_resize_scale(generic_table_t *htable, uint scale)
 {
     htable->resize_scale = scale;
+}
+
+void
+generic_hash_set_resize_callback(generic_table_t *htable,
+                                 void (*resize_callback_func)(void))
+{
+    htable->resize_callback_func = resize_callback_func;
+}
+
+void
+generic_hash_set_hash_func(generic_table_t *htable, hash_function_t hash_func)
+{
+    htable->hash_func = hash_func;
 }
 
 /*******************************************************************************

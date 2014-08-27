@@ -228,6 +228,9 @@ static void
 safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak);
 
 static void
+dgc_table_resized();
+
+static void
 free_dgc_bucket_chain(void *p);
 
 static void
@@ -294,6 +297,8 @@ jitopt_init()
                                     HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                     HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                     free_dgc_bucket_chain _IF_DEBUG("DGC Coverage Table"));
+    generic_hash_set_resize_callback(dgc_table, dgc_table_resized);
+    generic_hash_set_hash_func(dgc_table, HASH_FUNCTION_NONE);
 
     dgc_bucket_gc_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_gc_list_t,
                                          ACCT_OTHER, UNPROTECTED);
@@ -407,6 +412,8 @@ jitopt_thread_init(dcontext_t *dcontext)
 {
     local_state_extended_t *state = (local_state_extended_t *) dcontext->local_state;
     state->dgc_mapping_table = dgc_writer_mapping_table;
+    state->dgc_coverage_table = dgc_table->table;
+    state->dgc_coverage_mask = dgc_table->hash_mask;
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "Initialized thread 0x%x with dgc mapping table "PFX"\n",
@@ -1582,6 +1589,24 @@ dgc_set_all_slots_empty(dgc_bb_t *bb)
         DODEBUG(bb->span = 0;);
         bb = next_bb;
     } while (bb != NULL);
+}
+
+static void
+dgc_table_resized()
+{
+    uint i;
+    dcontext_t *dc;
+    local_state_extended_t *state;
+
+    mutex_lock(&thread_initexit_lock);
+    update_thread_state();
+    for (i=0; i < thread_state->count; i++) {
+        dc = thread_state->threads[i]->dcontext;
+        state = (local_state_extended_t *) dc->local_state;
+        state->dgc_coverage_table = dgc_table->table; // TODO: race!
+        state->dgc_coverage_mask = dgc_table->hash_mask;
+    }
+    mutex_unlock(&thread_initexit_lock);
 }
 
 static void
