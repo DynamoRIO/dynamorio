@@ -212,13 +212,13 @@ add_sample_client(empty       "empty.c"         "")
 add_sample_client(inc2add     "inc2add.c"       "")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "")
-add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
+add_sample_client(memtrace    "memtrace.c;utils.c"  "drmgr;drutil;drx")
 add_sample_client(prefetch    "prefetch.c"      "")
 add_sample_client(signal      "signal.c"        "")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
-add_sample_client(cbrtrace    "cbrtrace.c;utils.c"         "")
+add_sample_client(cbrtrace    "cbrtrace.c;utils.c"      "drx")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
@@ -227,7 +227,7 @@ add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
 
 if (WIN32)
   # This client is Windows-only.
-  add_sample_client(stats     "stats.c"         "")
+  add_sample_client(stats     "stats.c;utils.c"         "drx")
 
   # XXX i#893: drwrap's asm isn't SEH compliant.
   append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")

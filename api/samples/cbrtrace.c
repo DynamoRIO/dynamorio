@@ -77,16 +77,13 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 static void
 event_thread_init(void *drcontext)
 {
-    int len;
     file_t log;
-    char name[MAXIMUM_PATH];
-    len = dr_snprintf(name, BUFFER_SIZE_ELEMENTS(name),
-                      "cbrtrace.%d.%d.log",
-                      dr_get_process_id(), dr_get_thread_id(drcontext));
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE_BUFFER(name);
     log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
-                        name, DR_FILE_WRITE_OVERWRITE);
+                        "cbrtrace",
+#ifndef WINDOWS
+                        DR_FILE_CLOSE_ON_FORK |
+#endif
+                        DR_FILE_ALLOW_LARGE);
     DR_ASSERT(log != INVALID_FILE);
     dr_set_tls_field(drcontext, (void *)(ptr_uint_t)log);
 }
@@ -101,6 +98,10 @@ static void
 event_exit(void)
 {
     dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' exiting");
+#ifdef SHOW_RESULTS
+    if (dr_is_notify_on())
+        dr_fprintf(STDERR, "Client 'cbrtrace' exiting\n");
+#endif
 }
 
 DR_EXPORT
@@ -109,9 +110,19 @@ void dr_init(client_id_t id)
     dr_set_client_name("DynamoRIO Sample Client 'cbrtrace'",
                        "http://dynamorio.org/issues");
     dr_log(NULL, LOG_ALL, 1, "Client 'cbrtrace' initializing");
+
     client_id = id;
     dr_register_thread_init_event(event_thread_init);
     dr_register_thread_exit_event(event_thread_exit);
     dr_register_bb_event(event_basic_block);
     dr_register_exit_event(event_exit);
+
+#ifdef SHOW_RESULTS
+    if (dr_is_notify_on()) {
+# ifdef WINDOWS
+        dr_enable_console_printing();
+# endif /* WINDOWS */
+        dr_fprintf(STDERR, "Client 'cbrtrace' is running\n");
+    }
+#endif /* SHOW_RESULTS */
 }

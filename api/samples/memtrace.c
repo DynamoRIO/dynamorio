@@ -53,15 +53,8 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
-
-#ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-#else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-#endif
-
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
-
+#include "utils.h"
+#include "drx.h" /* for log_file_open */
 
 /* Each mem_ref_t includes the type of reference (read or write),
  * the address referenced, and the size of the reference.
@@ -137,6 +130,7 @@ dr_init(client_id_t id)
                        "http://dynamorio.org/issues");
     drmgr_init();
     drutil_init();
+    drx_init();
     client_id = id;
     mutex = dr_mutex_create();
     dr_register_exit_event(event_exit);
@@ -180,12 +174,13 @@ event_exit()
                       "  saw %llu memory references\n",
                       num_refs);
     DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
+    NULL_TERMINATE_BUFFER(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     code_cache_exit();
     drmgr_unregister_tls_field(tls_index);
     dr_mutex_destroy(mutex);
+    drx_exit();
     drutil_exit();
     drmgr_exit();
 }
@@ -199,9 +194,6 @@ event_exit()
 static void
 event_thread_init(void *drcontext)
 {
-    char logname[MAXIMUM_PATH];
-    char *dirsep;
-    int len;
     per_thread_t *data;
 
     /* allocate thread private data */
@@ -218,28 +210,12 @@ event_thread_init(void *drcontext)
      * the same directory as our library. We could also pass
      * in a path and retrieve with dr_get_options().
      */
-    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
-                      "%s", dr_get_client_path(client_id));
-    DR_ASSERT(len > 0);
-    for (dirsep = logname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
-        DR_ASSERT(dirsep > logname);
-    len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
-                      "memtrace.%d.log", dr_get_thread_id(drcontext));
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(logname);
-    data->log = dr_open_file(logname,
-                             DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(data->log != INVALID_FILE);
-    dr_log(drcontext, LOG_ALL, 1,
-           "memtrace: log for thread "TIDFMT" is memtrace.%03d\n",
-           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
-#ifdef SHOW_RESULTS
-    if (dr_is_notify_on()) {
-        dr_fprintf(STDERR, "<memtrace results for thread "TIDFMT" in %s>\n",
-                   dr_get_thread_id(drcontext), logname);
-    }
+    data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
+                              "memtrace",
+#ifndef WINDOWS
+                              DR_FILE_CLOSE_ON_FORK |
 #endif
+                              DR_FILE_ALLOW_LARGE);
 }
 
 
