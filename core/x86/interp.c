@@ -291,12 +291,14 @@ update_overlap_info(dcontext_t *dcontext, build_bb_t *bb, app_pc new_pc, bool jm
     }
     if (bb->overlap_info->contiguous && jmp) {
         bb->overlap_info->contiguous = false;
+#ifdef DEBUG
         if (is_jit_managed_area(bb->overlap_info->min_pc) || is_jit_managed_area(bb->overlap_info->max_pc) ||
             is_jit_managed_area(bb->last_page) || is_jit_managed_area(bb->overlap_info->region_end) ||
             is_jit_managed_area(new_pc)) {
             dr_printf("Non-contiguous app-managed bb: "PFX" and "PFX"\n",
                 bb->start_pc, new_pc);
         }
+#endif
     }
 }
 
@@ -4790,9 +4792,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
         bb.flags &= ~FRAG_COARSE_GRAIN;
 
 #ifdef JITOPT
-    //if (!is_unmod_image(bb.start_pc) && !is_jit_managed_area(bb.start_pc))
-    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Skipping non-image bb "PFX"\n", bb.start_pc);
-
+    // is_jit_managed_area--maybe keep a sorted list of app-managed regions?
     if (visible && is_jit_managed_area(bb.start_pc)) {
         bb.flags |= FRAG_APP_MANAGED;
         ASSERT(bb.overlap_info == NULL || bb.overlap_info->contiguous);

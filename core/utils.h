@@ -1123,12 +1123,16 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 # define MAX_LOG_LENGTH_MINUS_ONE IF_CLIENT_INTERFACE_ELSE(2047,1383)
 #endif
 
-#define RELEASE_LOG(file, category, level, ...) \
+#ifdef RELEASE_LOGGING
+# define RELEASE_LOG(file, category, level, ...) \
 do { \
     extern bool verbose; \
     if (verbose) \
         dr_fprintf(STDERR, __VA_ARGS__); \
 } while(0)
+#else
+# define RELEASE_LOG(file, category, level, ...)
+#endif
 
 #ifdef DEBUG
 # define RELEASE_ASSERT(cond, msg, ...) \

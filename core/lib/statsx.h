@@ -1230,6 +1230,7 @@
     RSTATS_DEF("App-managed many-bucket bbs", app_managed_many_bucket_bbs)
     RSTATS_DEF("App-managed direct links", app_managed_direct_links)
     RSTATS_DEF("App-managed indirect links", app_managed_indirect_links)
+    RSTATS_DEF("App-managed micro flush with no bucket", app_managed_micro_flush_no_bucket)
     RSTATS_DEF("App-managed bb removed having direct links", direct_linked_bb_removed)
     RSTATS_DEF("App-managed bb removed having indirect links", indirect_linked_bb_removed)
     RSTATS_DEF("App-managed bb removed having special links", special_linked_bb_removed)

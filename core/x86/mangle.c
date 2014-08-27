@@ -4186,14 +4186,23 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             *execute_write, *prepare_write;
     uint j = 0, i = 0;
 
-    //if (plan->writer_pc == (app_pc) 0x4b138d)
-    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Bad reg assignment happening...\n");
+    switch (plan->writer.opcode) {
+    case OP_and:
+    case OP_or:
+    case OP_sub:
+    case OP_mov_st:
+    case OP_movdqa:
+        break;
+    case OP_movdqu:
+        break;
+    default:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to mangle opcode 0x%x\n", plan->writer.opcode);
+        ASSERT(false);
+    }
+
     for (; j < DGC_TEMP_REG_AVAILABLE_COUNT; j++) {
         if (!instr_uses_reg(&plan->writer, dgc_available_temp_regs[j])) {
-            /*
-              instr_writes_to_reg(&plan->writer, dgc_available_temp_regs[j]) ||
-              instr_reg_in_dst(&plan->writer, dgc_available_temp_regs[j]))) {
-            */
             temp[i++] = dgc_available_temp_regs[j];
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                         "DGC: instrumentation of "PFX" steals register 0x%x\n",
@@ -4268,7 +4277,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
                                         opnd_create_reg(REG_XAX));
 
-    // check clobber of base in base/disp
     insert_save_eflags(dcontext, ilist, instr, 0, true/*tls*/,
                        false/*absolute*/ _IF_X64(false));
 
@@ -4328,10 +4336,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]), /* always in TLS? */
                             opnd_create_tls_slot(os_tls_offset(DGC_SHADOW_MAPPING_SLOT))));
 
-    //opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
-    //                      opnd_size_t size)
-    // opnd_create_base_disp(REG_XCX, REG_XBX, sizeof(app_pc), 0, OPSZ_PTR)
-
     // [table:temp[0], key:temp[2]] head_bucket -> temp[0]
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
@@ -4355,30 +4359,18 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
                             OPND_CREATE_MEMPTR(temp[0],
                                                offsetof(dgc_writer_mapping_t, next))));
-                        //opnd_create_base_disp(temp[0], REG_NULL, 0,
-                        //                      offsetof(dgc_writer_mapping_t, next),
-                        //                      OPSZ_PTR));
     // [bucket->next:temp[0]] cmp next(temp[0]), next(temp[0])
     PRE(ilist, instr,
         INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
     // jz no_bucket
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
-    // [bucket->next:temp[0]] *bucket->next -> temp[0]
-    //PRE(ilist, instr,
-    //    INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-    //                        OPND_CREATE_MEMPTR(temp[0], 0)));
     // jmp bucket_iterator
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
 
     // [bucket:temp[0]] write_target -> temp[1]
     PRE(ilist, instr, write_to_double_page);
-    // [bucket:temp[0], write_target:temp[1]] offset +> temp[1]
-    //PRE(ilist, instr,
-    //    INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]),
-    //                     OPND_CREATE_MEMPTR(temp[0],
-    //                                        offsetof(dgc_writer_mapping_t, offset))));
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
                             OPND_CREATE_MEMPTR(temp[0],
@@ -4404,21 +4396,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             INSTR_CREATE_add(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[1])));
     }
 
-    // TODO: may need to mask
-    // TODO: and, or, sub
-    /*
-    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
-        PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext, OPND_CREATE_MEMPTR(temp[1], 0),
-                                instr_get_src(&plan->writer, 0)));
-    } else {
-        PRE(ilist, instr,
-            INSTR_CREATE_mov_st(dcontext,
-                                OPND_CREATE_MEMPTR(temp[1], 0),
-                                instr_get_src(&plan->writer, 0)));
-    }
-    */
-
     /* Restore flags now so the app instruction's flag changes are not lost */
     PRE(ilist, instr, prepare_write); // move %rax to temp[2]
     PRE(ilist, instr, // restore flag values to %rax
@@ -4431,34 +4408,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
     // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
-
-    switch (plan->writer.opcode) {
-    case OP_and:
-    case OP_or:
-    case OP_sub:
-    case OP_mov_st:
-    case OP_movdqa:
-        break;
-    case OP_movdqu:
-        break;
-    /*
-        PRE(ilist, instr,
-            INSTR_CREATE_movdqa(dcontext,
-                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
-                                                      opnd_get_size(plan->writer.src0)),
-                                instr_get_src(&plan->writer, 0)));
-        break;
-        PRE(ilist, instr,
-            INSTR_CREATE_movdqu(dcontext,
-                                opnd_create_base_disp(temp[1], temp[0], 1, 0,
-                                                      opnd_get_size(plan->writer.src0)),
-                                instr_get_src(&plan->writer, 0)));
-    */
-    default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: Failed to mangle opcode 0x%x\n", plan->writer.opcode);
-        ASSERT(false);
-    }
 
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],

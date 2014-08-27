@@ -290,7 +290,7 @@ jitopt_init()
                                     valgrind_discard_translations);
 #endif
 #ifdef JITOPT
-    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 20, 80,
+    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 20, 45,
                                     HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
                                     HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
                                     free_dgc_bucket_chain _IF_DEBUG("DGC Coverage Table"));
@@ -652,8 +652,6 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
             mapping->next = mapping->next->next;
             free_dgc_writer_mapping(removal); // FIXME: race with reader!
         }
-        //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Removed writer offset "
-        //            "for page "PFX" (key 0x%x).\n", page_id, key);
     }
 }
 
@@ -879,18 +877,10 @@ static void
 setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
 {
     ptr_int_t page_delta;
-    //DEBUG_DECLARE(bool ok;);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Setup double-mapping for "PFX" +0x%x\n",
                 start, len);
-
-    //DEBUG_DECLARE(ok =)
-    //set_region_dgc_writer(app_memory_start, app_memory_size);
-    //ASSERT(ok);
-
-    //ASSERT(write_target >= app_memory_start &&
-    //       write_target < (app_memory_start + app_memory_size));
 
     page_delta = get_double_mapped_page_delta(dcontext, start, len, prot);
     if (page_delta == 0) {
@@ -1031,17 +1021,6 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         offset = mapping->offset;
     mutex_unlock(&dgc_mapping_lock);
 
-    /*
-    if (mapping == NULL) { // maybe do this when an area becomes JIT managed?
-        return NULL;
-    }
-    */
-
-    /*
-    if ((ptr_uint_t)writer_app_pc > 0x1000000 && ((ptr_uint_t)writer_app_pc & 0xfffULL) == 0xf19ULL)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
-    */
-
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Emulating write "PFX" -> "PFX" via page fault\n",
                 writer_app_pc, write_target);
@@ -1079,7 +1058,6 @@ emulate_dgc_write(app_pc writer_pc)
     emulation_plan_t *plan;
     dcontext_t *dcontext = get_thread_private_dcontext();
     priv_mcontext_t *mc = get_priv_mcontext_from_dstack(dcontext);
-    //priv_mcontext_t *mc = get_mcontext(dcontext);
     app_pc write_target;
     bool simulating =
 #ifdef JITOPT_EMULATE
@@ -1100,44 +1078,25 @@ emulate_dgc_write(app_pc writer_pc)
 
     write_target = opnd_compute_address_priv(plan->dst, mc);
 
-//#ifdef JITOPT_EMULATE
-    ptr_uint_t offset = 0;
-    dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(write_target);
-    if (mapping == NULL) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: No double-mapping "
-                    "for DGC write "PFX" -> "PFX" via clean call\n",
-                    writer_pc, write_target);
-        //return;
-        /*
-        uint prot;
-
-        if (!is_jit_managed_area(write_target))
-            return;
-
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Creating new double-mapping "
-                    "for DGC write "PFX" -> "PFX" via clean call\n",
-                    writer_pc, write_target);
-
-        if (!get_memory_info(write_target, NULL, NULL, &prot)) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Failed to get prot "
-                        "for mapping of "PFX" via clean call\n", writer_pc);
-            return;
+    if (!simulating) {
+        ptr_uint_t offset = 0;
+        dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(write_target);
+        if (mapping == NULL) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: No double-mapping "
+                        "for DGC write "PFX" -> "PFX" via clean call\n",
+                        writer_pc, write_target);
+        } else {
+            offset = mapping->offset;
         }
-        if (setup_double_mapping(dcontext, write_target, prot) == 0)
-            return;
-        mapping = lookup_dgc_writer_offset(write_target);
-        */
-    } else {
-        offset = mapping->offset;
+
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: %s write "PFX" -> "PFX" via clean call\n",
+                    simulating ? "Simulating" : "Emulating",
+                    writer_pc, write_target);
+
+        emulate_writer(mc, plan, offset, write_target, simulating);
     }
 
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: %s write "PFX" -> "PFX" via clean call\n",
-                simulating ? "Simulating" : "Emulating",
-                writer_pc, write_target);
-
-    emulate_writer(mc, plan, offset, write_target, simulating);
-//#endif
     if (!plan->is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 }
@@ -1158,13 +1117,6 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) *pc);
     TABLE_RWLOCK(emulation_plans, read, unlock);
 
-    /*
-    if (*pc == (app_pc) 0x5f90fb) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: What plan for writer at "PFX"? "PFX"\n", *pc, plan);
-    i}
-    */
-
     if (plan == NULL)
         return false;
 
@@ -1173,9 +1125,6 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Instrumenting clean call for writer at "PFX"\n", *pc);
-
-    //if (*pc == (app_pc) 0x5f9123)
-    //    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
 
     // with in-cache offsetting; skip clean call for plan->is_jit_self_write
     label = INSTR_CREATE_label(dcontext);
@@ -1296,6 +1245,7 @@ dgc_stat_report()
     DGC_REPORT_ONE_STAT(app_managed_many_bucket_bbs);
     DGC_REPORT_ONE_STAT(app_managed_direct_links)
     DGC_REPORT_ONE_STAT(app_managed_indirect_links)
+    DGC_REPORT_ONE_STAT(app_managed_micro_flush_no_bucket)
     DGC_REPORT_ONE_STAT(direct_linked_bb_removed)
     DGC_REPORT_ONE_STAT(indirect_linked_bb_removed)
     DGC_REPORT_ONE_STAT(special_linked_bb_removed)
@@ -1802,10 +1752,6 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
     dgc_bb_t *bb, *last_bb = NULL, *first_bb = NULL;
     dgc_bucket_t *bucket;
     ptr_uint_t hash = hash_bits(span+1, start);
-
-    // this is slow--maybe keep a local sorted list of app-managed regions
-    if (!is_jit_managed_area(start))
-        return;
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb ["PFX"-"PFX"]%s\n",
                 start, end, is_trace_head ? " (trace head)" : "");
@@ -2417,6 +2363,11 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
     dgc_bucket_gc_list_init("remove_patchable_fragments");
     for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
         bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+
+        // logging only
+        if (bucket == NULL && start_bucket == end_bucket && (patch_end - patch_start) <= 8)
+            RSTATS_INC(app_managed_micro_flush_no_bucket);
+
         while (bucket != NULL) {
             for (i = 0; i < BUCKET_BBS; i++) {
                 bb = &bucket->blocks[i];
