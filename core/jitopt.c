@@ -66,7 +66,7 @@
 
 #ifdef JITOPT
 
-#define BUCKET_BIT_SIZE 6
+#define BUCKET_BIT_SIZE DGC_OVERLAP_BUCKET_BIT_SIZE
 #define BUCKET_MASK 0x3f
 #define BUCKET_BBS 3
 #define BUCKET_OFFSET_SENTINEL 1
@@ -482,9 +482,10 @@ annotation_flush_fragments(app_pc start, size_t len)
     dcontext_t *dcontext = get_thread_private_dcontext();
 
     // this is slow--maybe keep a local sorted list of app-managed regions
-    if (!is_jit_managed_area(start))
+    if (!is_jit_managed_area(start)) {
+        RSTATS_INC(non_app_managed_writes_observed);
         return;
-
+    }
 #ifdef CHECK_STALE_BBS
     check_stale_bbs();
 #endif
@@ -1011,6 +1012,8 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     dgc_writer_mapping_t *mapping;
     ptr_uint_t offset = 0;
 
+    RSTATS_INC(app_managed_instrumentations);
+
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
     if (plan == NULL)
@@ -1073,10 +1076,13 @@ emulate_dgc_write(app_pc writer_pc)
     true;
 #endif
 
+    RSTATS_INC(app_managed_clean_calls);
+
     TABLE_RWLOCK(emulation_plans, read, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_pc);
     TABLE_RWLOCK(emulation_plans, read, unlock);
 
+    ASSERT(plan != NULL);
     if (plan == NULL) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Error! Cannot find emulation plan "
                     "for DGC writer at "PFX"\n", writer_pc);
@@ -1104,6 +1110,9 @@ emulate_dgc_write(app_pc writer_pc)
         emulate_writer(mc, plan, offset, write_target, simulating);
     }
 
+#ifndef JITOPT_EMULATE
+    ASSERT(!plan->is_jit_self_write);
+#endif
     if (!plan->is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 }
@@ -1226,6 +1235,7 @@ dgc_stat_report()
 {
     RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, " |   ==== DGC Stats ====\n");
     DGC_REPORT_ONE_STAT(app_managed_writes_observed);
+    DGC_REPORT_ONE_STAT(non_app_managed_writes_observed);
     DGC_REPORT_ONE_STAT(app_managed_page_writes);
     DGC_REPORT_ONE_STAT(app_managed_multipage_writes);
 #ifdef JITOPT
@@ -1253,6 +1263,8 @@ dgc_stat_report()
     DGC_REPORT_ONE_STAT(app_managed_direct_links)
     DGC_REPORT_ONE_STAT(app_managed_indirect_links)
     DGC_REPORT_ONE_STAT(app_managed_micro_flush_no_bucket)
+    DGC_REPORT_ONE_STAT(app_managed_clean_calls)
+    DGC_REPORT_ONE_STAT(app_managed_instrumentations)
     DGC_REPORT_ONE_STAT(direct_linked_bb_removed)
     DGC_REPORT_ONE_STAT(indirect_linked_bb_removed)
     DGC_REPORT_ONE_STAT(special_linked_bb_removed)

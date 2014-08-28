@@ -1204,6 +1204,7 @@
     STATS_DEF("App reference with FS/GS seg being mangled", app_seg_refs_mangled)
     STATS_DEF("App access FS/GS seg being mangled", app_mov_seg_mangled)
     RSTATS_DEF("App-managed writes observed", app_managed_writes_observed)
+    RSTATS_DEF("Non-app-managed writes observed", non_app_managed_writes_observed)
     RSTATS_DEF("App-managed page writes", app_managed_page_writes)
     RSTATS_DEF("App-managed multi-page writes", app_managed_multipage_writes)
 #ifdef JITOPT
@@ -1240,5 +1241,7 @@
     RSTATS_DEF("App-managed bb tweaked having indirect links", indirect_linked_bb_tweaked)
     RSTATS_DEF("App-managed bb cti tweaked having special links", special_linked_bb_cti_tweaked)
     RSTATS_DEF("App-managed bb tweaked having special links", special_linked_bb_tweaked)
+    RSTATS_DEF("App-managed clean calls", app_managed_clean_calls)
+    RSTATS_DEF("App-managed instrumentations", app_managed_instrumentations)
     RSTATS_DEF("Max incoming direct linkstubs", max_incoming_direct_linkstubs)
 #endif

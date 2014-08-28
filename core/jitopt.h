@@ -42,6 +42,8 @@
 #define DGC_SHADOW_PAGE_ID(pc) (((ptr_uint_t)(pc)) >> DGC_MAPPING_TABLE_SHIFT)
 #define DGC_SHADOW_KEY(page_id) ((page_id) & DGC_MAPPING_TABLE_MASK)
 
+#define DGC_OVERLAP_BUCKET_BIT_SIZE 6
+
 typedef enum _emulation_operation_t {
     EMUL_MOV,
     EMUL_OR,

@@ -4171,6 +4171,8 @@ static const reg_t dgc_available_temp_regs[] = {
 #define DGC_TEMP_REG_AVAILABLE_COUNT 13
 #define DGC_TEMP_REG_COUNT 3
 
+#define ELIDE_CLEAN_CALL 1
+
 static void
 mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist,
                                uint flags)
@@ -4182,8 +4184,11 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
 #ifndef JITOPT_EMULATE
     reg_t temp[DGC_TEMP_REG_COUNT];
+    opnd_t opnd_write_target;
     instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page,
-            *execute_write, *prepare_write;
+            *execute_write, *prepare_write, *skip_clean_call,
+            *check_dgc_coverage, *check_next_dgc_bucket, *find_dgc_bucket,
+            *store_dgc_skip, *store_dgc_bucket;
     uint j = 0, i = 0;
 
     switch (plan->writer.opcode) {
@@ -4213,6 +4218,12 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     }
     ASSERT(i == DGC_TEMP_REG_COUNT);
 
+    opnd_write_target = opnd_create_base_disp(opnd_get_base(plan->dst),
+                                              opnd_get_index(plan->dst),
+                                              opnd_get_scale(plan->dst),
+                                              opnd_get_disp(plan->dst),
+                                              OPSZ_lea);
+
     if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
         app_pc abs_addr = opnd_get_addr(plan->dst);
         // [bucket:temp[0]] addr -> temp[1]
@@ -4224,24 +4235,32 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         ASSERT(opnd_is_base_disp(plan->dst));
 
         write_to_double_page =
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
-                             opnd_create_base_disp(opnd_get_base(plan->dst),
-                                                   opnd_get_index(plan->dst),
-                                                   opnd_get_scale(plan->dst),
-                                                   opnd_get_disp(plan->dst),
-                                                   OPSZ_lea));
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
         write_to_original_page =
-                    INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
-                                     opnd_create_base_disp(opnd_get_base(plan->dst),
-                                                           opnd_get_index(plan->dst),
-                                                           opnd_get_scale(plan->dst),
-                                                           opnd_get_disp(plan->dst),
-                                                           OPSZ_lea));
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     }
 
     // cmp page_id(temp[1]), bucket->page_id(temp[0])
     bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
                                        OPND_CREATE_MEMPTR(temp[0], 0));
+    skip_clean_call = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
+                                           MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
+    check_dgc_coverage =
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                            opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT)));
+    if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+        check_next_dgc_bucket =
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
+    } else
+        check_next_dgc_bucket = NULL;
+
+    store_dgc_skip = INSTR_CREATE_xor(dcontext, opnd_create_reg(temp[1]),
+                                      opnd_create_reg(temp[1]));
+    store_dgc_bucket =
+        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
+                          MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET);
+    find_dgc_bucket = INSTR_CREATE_cmp(dcontext, OPND_CREATE_MEMPTR(temp[1], 0),
+                                       OPND_CREATE_INT8(0));
 
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:
@@ -4315,12 +4334,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
         // target -> temp[1]
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
-                             opnd_create_base_disp(opnd_get_base(plan->dst),
-                                                   opnd_get_index(plan->dst),
-                                                   opnd_get_scale(plan->dst),
-                                                   opnd_get_disp(plan->dst),
-                                                   OPSZ_lea)));
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target));
         // [target:temp[1]] temp[1] >> DGC_MAPPING_TABLE_SHIFT
         PRE(ilist, instr,
             INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[1]),
@@ -4412,55 +4426,162 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
 
-    /* Move DGC coverage bucket into the flags TLS slot */
-    PRE(ilist, instr, // move %rax to temp[2]
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]), opnd_create_reg(REG_XAX)));
-    PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
-    PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+    if (plan->is_jit_self_write) {
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+                                   MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
+                                   MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+    } else {
+#ifdef ELIDE_CLEAN_CALL
+        /* Move DGC coverage bucket into the flags TLS slot */
+        PRE(ilist, instr, // move %rax to temp[2]
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]), opnd_create_reg(REG_XAX)));
+        PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
+        PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
 
-    // lea write_target -> temp[0]
-    PRE(ilist, instr,
-        INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]),
-                         opnd_create_base_disp(opnd_get_base(plan->dst),
-                                               opnd_get_index(plan->dst),
-                                               opnd_get_scale(plan->dst),
-                                               opnd_get_disp(plan->dst),
-                                               OPSZ_lea)));
-    // mask -> temp[0]
-    PRE(ilist, instr,
-        INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
-                         opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
-    // load table -> temp[1]
-    PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                            opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
-    // cmp $0x0, opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)
-    PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                            opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
-    // DGC coverage bucket -> temp[1]
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
-                          MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-    PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
-    PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
-    PRE(ilist, instr, // move temp[2] back to %rax
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+        // lea write_target -> temp[0]
+        PRE(ilist, instr,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
+        // temp[0] >> DGC_OVERLAP_BUCKET_BIT_SIZE
+        PRE(ilist, instr,
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+                             OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
+        // temp[0] &= *DGC_COVERAGE_MASK_SLOT
+        PRE(ilist, instr,
+            INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
+                             opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
+        // [key:temp[0]] load table -> temp[1]
+        PRE(ilist, instr, check_dgc_coverage);
+        // [key:temp[0], table:temp[1]] DGC coverage bucket* -> temp[1]
+        PRE(ilist, instr,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
+                             opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_lea)));
+        PRE(ilist, instr,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
+        PRE(ilist, instr,
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+                             OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
 
-    PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
-                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-    PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
-                               MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-    PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
-                               MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+        /* while (bucket != NULL && bucket->key != temp[0])
+         *     bucket = bucket->next
+         */
+        // [bucket_id:temp[0], bucket*:temp[1]]
+        PRE(ilist, instr, find_dgc_bucket); // cmp *temp[1], 0
+        // [bucket_id:temp[0], bucket*:temp[1]]
+        if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(check_next_dgc_bucket)));
+        } else {
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_bucket))); //skip)));
+        }
+        PRE(ilist, instr, // bucket scan pointer to flag slot
+            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
+                              MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        // [bucket_id:temp[0], bucket:temp[1]]
+        PRE(ilist, instr, // bucket -> temp[1]
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                                OPND_CREATE_MEMPTR(temp[1], 0)));
+        PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
+            INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
+                             OPND_CREATE_MEMPTR(temp[1], 0)));
+        // [bucket_id:temp[0], bucket*:temp[1]] je store_dgc_bucket
+        PRE(ilist, instr,
+            INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(store_dgc_bucket)));
+        PRE(ilist, instr, // restore bucket scan pointer from flag slot
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+                                   MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        // [bucket_id:temp[0], bucket*:temp[1]]
+        PRE(ilist, instr, /* next bucket */
+            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), OPND_CREATE_INT8(sizeof(app_pc))));
+        // [bucket_id:temp[0], bucket*:temp[1]]
+        PRE(ilist, instr,
+            INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket)));
 
-    if (!plan->is_jit_self_write)
-#endif /* JITOPT_EMULATE */
+        if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+            // [bucket_id:temp[0]]
+            // if ((write_target & 0x3f) > (64 - write_size))
+            PRE(ilist, instr, check_next_dgc_bucket); // write_target -> temp[1]
+            PRE(ilist, instr,
+                INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[1]),
+                                 OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
+            PRE(ilist, instr,
+                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[1]),
+                                 opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[1])));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc_short(dcontext, OP_jne, opnd_create_instr(store_dgc_skip)));
+            PRE(ilist, instr,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target));
+            PRE(ilist, instr,
+                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[1]),
+                                 OPND_CREATE_INT8(0x3f))); // bucket span
+            PRE(ilist, instr,
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
+                                 OPND_CREATE_INT8(0x40 - opnd_size_in_bytes(opnd_get_size(plan->dst)))));
+            PRE(ilist, instr,
+                INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(store_dgc_skip)));
+            //     temp[0]++
+            PRE(ilist, instr,
+                INSTR_CREATE_inc(dcontext, opnd_create_reg(temp[0])));
+            //     jmp check_dgc_coverage
+            PRE(ilist, instr,
+                INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(check_dgc_coverage)));
+        }
+
+        // $0x0 -> temp[1]
+        PRE(ilist, instr, store_dgc_skip);
+        // DGC coverage bucket(temp[1]) -> TLS flags slot
+        PRE(ilist, instr, store_dgc_bucket);
+        PRE(ilist, instr, // restore flags
+            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+        PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
+        PRE(ilist, instr, // move temp[2] back to %rax
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+#endif
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+                                   MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
+                                   MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+#ifdef ELIDE_CLEAN_CALL
+        // %rcx -> slot 0
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
+                              MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+        // bucket * (flag slot) -> %rcx
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
+                                   MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        // jrcxz <no-clean-call> (note: barely reaches in 8-bit range)
+        PRE(ilist, instr,
+            INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_clean_call)));
+        // slot 0 -> %rcx
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
+                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+#endif
+#endif /* !JITOPT_EMULATE */
         dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
-
+#ifndef JITOPT_EMULATE
+#ifdef ELIDE_CLEAN_CALL
+        // jmp <done>
+        PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(instr)));
+        // restore %rcx
+        PRE(ilist, instr, skip_clean_call);
+# endif
+    }
+#endif /* !JITOPT_EMULATE */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Instrumented write at "PFX" (opcode 0x%x) in fragment having flags 0x%x\n",
                 plan->writer_pc, plan->writer.opcode, flags);
