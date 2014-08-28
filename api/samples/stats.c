@@ -50,7 +50,6 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 
 #include "dr_api.h"
-#include "drx.h"
 #include "utils.h"
 #include <stddef.h> /* for offsetof */
 #include <wchar.h> /* _snwprintf */
@@ -219,7 +218,6 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     uint i;
-    drx_init();
     dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
@@ -268,7 +266,6 @@ event_exit(void)
     dr_close_file(f);
 
     shared_memory_exit();
-    drx_exit();
 }
 
 static void

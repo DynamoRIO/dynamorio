@@ -223,7 +223,7 @@ add_sample_client(cbrtrace    "cbrtrace.c;utils.c"      "drx")
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
 add_sample_client(stl_test    "stl_test.cpp"    "")
-add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
+add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drsyms;drx")
 
 if (WIN32)
   # This client is Windows-only.

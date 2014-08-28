@@ -55,6 +55,7 @@
 #ifdef SHOW_SYMBOLS
 # include "drsyms.h"
 #endif
+#include "utils.h"
 
 static void event_exit(void);
 static void event_thread_init(void *drcontext);
@@ -113,39 +114,27 @@ static void
 event_thread_init(void *drcontext)
 {
     file_t f;
-    char logname[512];
-    char *dirsep;
-    int len;
     /* We're going to dump our data to a per-thread file.
      * On Windows we need an absolute path so we place it in
      * the same directory as our library. We could also pass
      * in a path and retrieve with dr_get_options().
      */
-    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
-                      "%s", dr_get_client_path(my_id));
-    DR_ASSERT(len > 0);
-    for (dirsep = logname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
-        DR_ASSERT(dirsep > logname);
-    len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname)-(dirsep-logname))/sizeof(logname[0]) - 1,
-                      "instrcalls.%d.log", dr_get_thread_id(drcontext));
-    DR_ASSERT(len > 0);
-    logname[sizeof(logname)/sizeof(logname[0])-1] = '\0';
-    f = dr_open_file(logname, DR_FILE_WRITE_OVERWRITE);
+    f = log_file_open(my_id, drcontext, NULL /* client lib path */,
+                      "instrcalls",
+#ifndef WINDOWS
+                      DR_FILE_CLOSE_ON_FORK |
+#endif
+                      DR_FILE_ALLOW_LARGE);
     DR_ASSERT(f != INVALID_FILE);
 
     /* store it in the slot provided in the drcontext */
     dr_set_tls_field(drcontext, (void *)(ptr_uint_t)f);
-    dr_log(drcontext, LOG_ALL, 1,
-           "instrcalls: log for thread "TIDFMT" is instrcalls.%03d\n",
-           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
 }
 
 static void
 event_thread_exit(void *drcontext)
 {
-    file_t f = (file_t)(ptr_uint_t) dr_get_tls_field(drcontext);
-    dr_close_file(f);
+    log_file_close((file_t)(ptr_uint_t) dr_get_tls_field(drcontext));
 }
 
 #ifdef SHOW_SYMBOLS

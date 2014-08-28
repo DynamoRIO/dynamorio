@@ -66,6 +66,7 @@ log_file_open(client_id_t id, void *drcontext,
     else if (sizeof(log_dir) > (dirsep + 1 - log_dir)/sizeof(log_dir[0]))
         *(dirsep + 1) = 0;
     NULL_TERMINATE_BUFFER(log_dir);
+    /* we do not need call drx_init before using drx_open_unique_appid_file */
     log = drx_open_unique_appid_file(log_dir, dr_get_process_id(),
                                      name, "log", flags,
                                      buf, BUFFER_SIZE_ELEMENTS(buf));
@@ -77,11 +78,13 @@ log_file_open(client_id_t id, void *drcontext,
         dr_log(drcontext, LOG_ALL, 1, "%s", msg);
 #ifdef SHOW_RESULTS
         DISPLAY_STRING(msg);
+# ifdef WINDOWS
         if (dr_is_notify_on()) {
             /* assuming dr_enable_console_printing() is called in the initialization */
             dr_fprintf(STDERR, "%s\n", msg);
         }
-#endif
+# endif /* WINDOWS */
+#endif /* SHOW_RESULTS */
     }
     return log;
 }

@@ -54,7 +54,6 @@
 #include "drmgr.h"
 #include "drutil.h"
 #include "utils.h"
-#include "drx.h" /* for log_file_open */
 
 /* Each mem_ref_t includes the type of reference (read or write),
  * the address referenced, and the size of the reference.
@@ -130,7 +129,6 @@ dr_init(client_id_t id)
                        "http://dynamorio.org/issues");
     drmgr_init();
     drutil_init();
-    drx_init();
     client_id = id;
     mutex = dr_mutex_create();
     dr_register_exit_event(event_exit);
@@ -180,7 +178,6 @@ event_exit()
     code_cache_exit();
     drmgr_unregister_tls_field(tls_index);
     dr_mutex_destroy(mutex);
-    drx_exit();
     drutil_exit();
     drmgr_exit();
 }
@@ -229,7 +226,7 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    dr_close_file(data->log);
+    log_file_close(data->log);
     dr_thread_free(drcontext, data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
