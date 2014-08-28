@@ -589,8 +589,6 @@ bool register_client(const char *process_name,
     return true;
 }
 
-/* FIXME i#840: Port registered process iterator. */
-#ifdef WINDOWS
 static const char *
 platform_name(dr_platform_t platform)
 {
@@ -599,6 +597,8 @@ platform_name(dr_platform_t platform)
         "64-bit" : "32-bit/WOW64";
 }
 
+/* FIXME i#840: Port registered process iterator. */
+#ifdef WINDOWS
 static void
 list_process(char *name, bool global, dr_platform_t platform,
              dr_registered_process_iterator_t *iter)
@@ -1328,8 +1328,7 @@ int main(int argc, char *argv[])
                                         &client_sofar,
                                         native_tool, BUFFER_SIZE_ELEMENTS(native_tool)))
                         usage(false, "unknown %s tool \"%s\" requested",
-                              (dr_platform == DR_PLATFORM_32BIT) ? "32-bit" : "64-bit",
-                              client);
+                              platform_name(dr_platform), client);
                     client = client_buf;
                 }
 
