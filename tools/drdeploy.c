@@ -589,6 +589,7 @@ bool register_client(const char *process_name,
     return true;
 }
 
+#if defined(WINDOWS) || defined(DRRUN) || defined(DRCONFIG)
 static const char *
 platform_name(dr_platform_t platform)
 {
@@ -596,6 +597,7 @@ platform_name(dr_platform_t platform)
             IF_X64(|| platform == DR_PLATFORM_DEFAULT)) ?
         "64-bit" : "32-bit/WOW64";
 }
+#endif
 
 /* FIXME i#840: Port registered process iterator. */
 #ifdef WINDOWS
@@ -672,10 +674,13 @@ append_client(const char *client, int id, const char *client_ops,
               const char *client_options[MAX_CLIENT_LIBS],
               size_t *num_clients)
 {
-    get_absolute_path(client, client_paths[*num_clients],
-                      BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
-    NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
-    info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+    /* We support an empty client for native -t usage */
+    if (client[0] != '\0') {
+        get_absolute_path(client, client_paths[*num_clients],
+                          BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
+        NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
+        info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+    }
     client_ids[*num_clients] = id;
     client_options[*num_clients] = client_ops;
     (*num_clients)++;
