@@ -35,6 +35,7 @@
 #include "hashtable.h"
 #include "instrument.h" // hackish...
 #include "annotations.h"
+#include "asmtable.h"
 #include "x86/instr_create.h"
 #include "jitopt.h"
 
@@ -111,9 +112,10 @@ struct _dgc_bb_t {
 
 /* x86: 68 bytes | x64 128 bytes */
 typedef struct _dgc_bucket_t {
+    ptr_uint_t bucket_id;
+    struct _dgc_bucket_t *hashtable_next;
     dgc_bb_t blocks[BUCKET_BBS];
     uint offset_sentinel;
-    ptr_uint_t bucket_id;
     struct _dgc_bucket_t *head;
     struct _dgc_bucket_t *chain;
 } dgc_bucket_t;
@@ -131,7 +133,9 @@ typedef struct _dgc_bucket_gc_list_t {
 } dgc_bucket_gc_list_t;
 
 static dgc_bucket_gc_list_t *dgc_bucket_gc_list;
-static generic_table_t *dgc_table;
+static asmtable_t *dgc_table;
+
+DECLARE_CXTSWPROT_VAR(static mutex_t dgc_table_lock, INIT_LOCK_FREE(dgc_table_lock));
 
 typedef struct _dgc_thread_state_t {
     int count;
@@ -293,12 +297,8 @@ jitopt_init()
                                     valgrind_discard_translations);
 #endif
 #ifdef JITOPT
-    dgc_table = generic_hash_create(GLOBAL_DCONTEXT, 20, 45,
-                                    HASHTABLE_ENTRY_SHARED | HASHTABLE_SHARED |
-                                    HASHTABLE_RELAX_CLUSTER_CHECKS | HASHTABLE_PERSISTENT,
-                                    free_dgc_bucket_chain _IF_DEBUG("DGC Coverage Table"));
-    generic_hash_set_resize_callback(dgc_table, dgc_table_resized);
-    generic_hash_set_hash_func(dgc_table, HASH_FUNCTION_NONE);
+    dgc_table = asmtable_create(20, 45, &dgc_table_lock,
+                                (void *)free_dgc_bucket_chain, dgc_table_resized);
 
     dgc_bucket_gc_list = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_gc_list_t,
                                          ACCT_OTHER, UNPROTECTED);
@@ -363,7 +363,7 @@ jitopt_exit()
 {
     uint i;
 #ifdef JITOPT
-    generic_hash_destroy(GLOBAL_DCONTEXT, dgc_table);
+    asmtable_destroy(dgc_table);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->staging, dgc_bucket_t *,
                     dgc_bucket_gc_list->max_staging, ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->removals, dgc_bucket_t *,
@@ -1212,11 +1212,11 @@ static inline dgc_bucket_t *
 dgc_get_containing_bucket(dgc_bb_t *bb)
 {
     if (*(uint *)(bb + 1) == BUCKET_OFFSET_SENTINEL)
-        return (dgc_bucket_t *)(bb - 2);
+        return (dgc_bucket_t *)((ptr_uint_t)(bb - 2) - sizeof(asmtable_entry_t));
     if (*(uint *)(bb + 2) == BUCKET_OFFSET_SENTINEL)
-        return (dgc_bucket_t *)(bb - 1);
+        return (dgc_bucket_t *)((ptr_uint_t)(bb - 1) - sizeof(asmtable_entry_t));
     if (*(uint *)(bb + 3) == BUCKET_OFFSET_SENTINEL)
-        return (dgc_bucket_t *)bb;
+        return (dgc_bucket_t *)((ptr_uint_t)bb - sizeof(asmtable_entry_t));
     ASSERT(false);
     return NULL;
 }
@@ -1401,7 +1401,7 @@ dgc_table_find_bb(app_pc tag, dgc_bucket_t **out_bucket, uint *out_i)
 {
     uint i;
     ptr_uint_t bucket_id = BUCKET_ID(tag);
-    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    dgc_bucket_t *bucket = (dgc_bucket_t *)asmtable_lookup(dgc_table, bucket_id);
     // assert table lock
     while (bucket != NULL) {
         for (i = 0; i < BUCKET_BBS; i++) {
@@ -1456,9 +1456,9 @@ dgc_table_bucket_gc(dgc_bucket_t *bucket)
                         break;
                     anchor = bucket->chain;
                     bucket->chain = NULL;
-                    generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket->bucket_id);
+                    asmtable_remove(dgc_table, bucket->bucket_id);
                     RELEASE_ASSERT(anchor->offset_sentinel == BUCKET_OFFSET_SENTINEL, "Freed already?");
-                    generic_hash_add(GLOBAL_DCONTEXT, dgc_table, anchor->bucket_id, anchor);
+                    asmtable_insert(dgc_table, (asmtable_entry_t *)anchor);
                     walk = anchor;
                     do {
                         walk->head = anchor;
@@ -1483,7 +1483,7 @@ dgc_table_bucket_gc(dgc_bucket_t *bucket)
             }
         } while (bucket != NULL);
         if (all_empty)
-            generic_hash_remove(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+            asmtable_remove(dgc_table, bucket_id);
     }
 }
 
@@ -1533,8 +1533,7 @@ dgc_bucket_gc()
                 break;
             }
         }
-        generic_hash_remove(GLOBAL_DCONTEXT, dgc_table,
-                            dgc_bucket_gc_list->removals[i]->bucket_id);
+        asmtable_remove(dgc_table, dgc_bucket_gc_list->removals[i]->bucket_id);
     }
 
     for (i = 0; i < dgc_bucket_gc_list->staging_count; i++) {
@@ -1579,7 +1578,7 @@ dgc_stage_bucket_for_gc(dgc_bucket_t *bucket)
 static inline void
 dgc_stage_bucket_id_for_gc(ptr_uint_t bucket_id)
 {
-    dgc_stage_bucket_for_gc(generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id));
+    dgc_stage_bucket_for_gc(asmtable_lookup(dgc_table, bucket_id));
 }
 
 static void
@@ -1667,7 +1666,7 @@ dgc_table_dereference_bb(app_pc tag)
 {
     dgc_bb_t *bb;
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: dereferencing bb "PFX"\n", tag);
-    TABLE_RWLOCK(dgc_table, write, lock);
+    asmtable_lock(dgc_table);
     bb = dgc_table_find_bb(tag, NULL, NULL);
     if (bb != NULL) {
         bb = dgc_bb_head(bb);
@@ -1679,7 +1678,7 @@ dgc_table_dereference_bb(app_pc tag)
             ASSERT(bb->ref_count >= 0);
         }
     }
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_unlock(dgc_table);
 }
 
 static void
@@ -1687,7 +1686,7 @@ dgc_stage_removal_gc_outliers(ptr_uint_t bucket_id)
 {
     uint i;
     bool found = false;
-    dgc_bucket_t *bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+    dgc_bucket_t *bucket = (dgc_bucket_t *)asmtable_lookup(dgc_table, bucket_id);
     if (bucket != NULL) {
         dgc_bucket_t *head_bucket = bucket;
         RELEASE_ASSERT(bucket->offset_sentinel == BUCKET_OFFSET_SENTINEL, "Freed already?");
@@ -1730,7 +1729,7 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: clearing ["PFX"-"PFX"]\n", start, end);
 
-    TABLE_RWLOCK(dgc_table, write, lock);
+    asmtable_lock(dgc_table);
     dgc_bucket_gc_list_init("dgc_notify_region_cleared");
     if (is_start_of_bucket && (is_end_of_bucket || bucket_id < last_bucket_id))
         dgc_stage_removal_gc_outliers(bucket_id);
@@ -1745,7 +1744,7 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
             dgc_stage_bucket_id_for_gc(bucket_id);
     }
     dgc_bucket_gc();
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_unlock(dgc_table);
 
     dgc_stat_report();
 }
@@ -1753,9 +1752,7 @@ dgc_notify_region_cleared(app_pc start, app_pc end)
 void
 dgc_cache_reset()
 {
-    TABLE_RWLOCK(dgc_table, write, lock);
-    generic_hash_clear(GLOBAL_DCONTEXT, dgc_table);
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_clear(dgc_table);
 }
 
 static inline bb_hash_t
@@ -1805,16 +1802,16 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
     else
         RSTATS_INC(app_managed_many_bucket_bbs);
 
-    TABLE_RWLOCK(dgc_table, write, lock);
+    asmtable_lock(dgc_table);
     for (bucket_id = start_bucket_id; bucket_id <= end_bucket_id; bucket_id++) {
-        bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        bucket = (dgc_bucket_t *)asmtable_lookup(dgc_table, bucket_id);
         if (bucket == NULL) {
             bucket = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_bucket_t, ACCT_OTHER, UNPROTECTED);
             memset(bucket, 0, sizeof(dgc_bucket_t));
-            generic_hash_add(GLOBAL_DCONTEXT, dgc_table, bucket_id, bucket);
-            bucket->offset_sentinel = BUCKET_OFFSET_SENTINEL;
             bucket->bucket_id = bucket_id;
+            bucket->offset_sentinel = BUCKET_OFFSET_SENTINEL;
             bucket->head = bucket;
+            asmtable_insert(dgc_table, (asmtable_entry_t *)bucket);
             i = 0;
             RSTATS_INC(app_managed_bb_buckets_live);
             RSTATS_INC(app_managed_bb_buckets_allocated);
@@ -1921,7 +1918,7 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
     }
     if (!found)
         last_bb->next = NULL;
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_unlock(dgc_table);
 }
 
 bool
@@ -1935,7 +1932,7 @@ add_patchable_trace(monitor_data_t *md)
     if (md->num_blks == 1)
         return false;
 
-    TABLE_RWLOCK(dgc_table, write, lock);
+    asmtable_lock(dgc_table);
 #ifdef FULL_TRACE_LOG
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add trace {"PFX, md->trace_tag);
 #endif
@@ -1982,7 +1979,7 @@ add_patchable_trace(monitor_data_t *md)
 #ifdef FULL_TRACE_LOG
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "}\n");
 #endif
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_unlock(dgc_table);
 
     return added;
 }
@@ -1996,7 +1993,7 @@ patchable_bb_linked(dcontext_t *dcontext, fragment_t *f)
         (++dgc_removal_queue->sample_index > LINKSTUB_SAMPLE_INTERVAL)) {
         uint count = 0;
         common_direct_linkstub_t *s, *t;
-        TABLE_RWLOCK(dgc_table, write, lock);
+        asmtable_lock(dgc_table);
         dgc_removal_queue->sample_index = 0;
         s = (common_direct_linkstub_t *)f->in_xlate.incoming_stubs;
         for (; s; s = (common_direct_linkstub_t *)s->next_incoming, count++);
@@ -2016,7 +2013,7 @@ patchable_bb_linked(dcontext_t *dcontext, fragment_t *f)
                 count--;
             }
         }
-        TABLE_RWLOCK(dgc_table, write, unlock);
+        asmtable_unlock(dgc_table);
     }
 #undef MAX_LINKSTUBS
 #undef LINKSTUB_SAMPLE_INTERVAL
@@ -2172,9 +2169,9 @@ safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_t
             dgc_bucket_t *bucket;
             dgc_bb_t * bb;
 
-            TABLE_RWLOCK(dgc_table, read, lock); // yuk
+            asmtable_lock(dgc_table); // yuk
             bb = dgc_table_find_bb(t->f.tag, &bucket, NULL);
-            TABLE_RWLOCK(dgc_table, read, unlock);
+            asmtable_unlock(dgc_table);
             if (bb != NULL) {
                 dgc_set_all_slots_empty(bb);
                 dgc_stage_bucket_for_gc(bucket->head);
@@ -2357,7 +2354,7 @@ buckets_exist_in_range(ptr_uint_t start, ptr_uint_t end)
 {
     ptr_uint_t i;
     for (i = start; i < end; i++) {
-        if (generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, i) != NULL)
+        if (asmtable_lookup(dgc_table, i) != NULL)
             return true;
     }
     return false;
@@ -2396,10 +2393,10 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
     dgc_trace_t *trace;
     dgc_bb_t *bb;
 
-    TABLE_RWLOCK(dgc_table, write, lock);
+    asmtable_lock(dgc_table);
     dgc_bucket_gc_list_init("remove_patchable_fragments");
     for (bucket_id = start_bucket; bucket_id <= end_bucket; bucket_id++) {
-        bucket = generic_hash_lookup(GLOBAL_DCONTEXT, dgc_table, bucket_id);
+        bucket = (dgc_bucket_t *)asmtable_lookup(dgc_table, bucket_id);
 
         // logging only
         if (bucket == NULL && start_bucket == end_bucket && (patch_end - patch_start) <= 8)
@@ -2453,7 +2450,7 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
     dgc_bucket_gc();
     RELEASE_ASSERT(!buckets_exist_in_range(start_bucket+1, end_bucket), "buckets exist");
     fragment_total = i_bb + i_trace;
-    TABLE_RWLOCK(dgc_table, write, unlock);
+    asmtable_unlock(dgc_table);
 
     return fragment_total;
 }
@@ -2486,12 +2483,12 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
         remove_patchable_fragment_list(dcontext, patch_start, patch_end);
 
-        TABLE_RWLOCK(dgc_table, write, lock);
+        asmtable_lock(dgc_table);
         dgc_bucket_gc();
         RELEASE_ASSERT(!buckets_exist_in_range(BUCKET_ID(patch_start)+1,
                                                BUCKET_ID(patch_end-1)),
                        "buckets exist");
-        TABLE_RWLOCK(dgc_table, write, unlock);
+        asmtable_unlock(dgc_table);
 
         LOG(GLOBAL, LOG_FRAGMENT, 1,
                     "DGC: done removing %d fragments in ["PFX"-"PFX"]\n",

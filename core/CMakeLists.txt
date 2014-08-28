@@ -85,6 +85,7 @@ set(CORE_SRCS
   translate.c
   annotations.c
   jitopt.c
+  asmtable.c
   )
 
 if (UNIX)

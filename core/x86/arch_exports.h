@@ -86,7 +86,7 @@ typedef enum {
 struct _fragment_entry_t; /* in fragment.h */
 struct _ibl_table_t; /* in fragment.h */
 struct _dgc_writer_mapping_table_t; /* in jitopt.h */
-struct _generic_entry_t; /* in hashtable.h */
+struct asmtable_entry_t; /* in asmtable.h */
 
 /* Scratch space and state required to be easily accessible from
  * in-cache indirect branch lookup routines, store in thread-local storage.
@@ -143,7 +143,7 @@ typedef struct _local_state_extended_t {
     spill_state_t spill_space;
     table_stat_state_t table_space;
     struct _dgc_writer_mapping_table_t *dgc_mapping_table;
-    struct _generic_entry_t **dgc_coverage_table;
+    struct asmtable_entry_t **dgc_coverage_table;
     ptr_uint_t dgc_coverage_mask;
 } local_state_extended_t;
 

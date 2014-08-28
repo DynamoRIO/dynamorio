@@ -71,6 +71,7 @@
 # include "../annotations.h"
 # ifdef JITOPT
 #  include "../jitopt.h"
+#  include "../asmtable.h"
 # endif
 #endif
 
@@ -4190,6 +4191,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             *check_next_dgc_bucket, *find_dgc_bucket1, *find_dgc_bucket2,
             *store_dgc_skip, *store_dgc_bucket;
     uint j = 0, i = 0;
+    bool bucket_overlap_possible;
 
     switch (plan->writer.opcode) {
     case OP_and:
@@ -4245,7 +4247,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                        OPND_CREATE_MEMPTR(temp[0], 0));
     skip_clean_call = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                            MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
-    if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+    ASSERT(opnd_size_in_bytes(opnd_get_size(plan->dst)) <= 64);
+    bucket_overlap_possible = (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4);
+    if (bucket_overlap_possible) {
         check_next_dgc_bucket =
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     } else
@@ -4256,9 +4260,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     store_dgc_bucket =
         SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
                           MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET);
-    find_dgc_bucket1 = INSTR_CREATE_cmp(dcontext, OPND_CREATE_MEMPTR(temp[1], 0),
+    find_dgc_bucket1 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
                                         OPND_CREATE_INT8(0));
-    find_dgc_bucket2 = INSTR_CREATE_cmp(dcontext, OPND_CREATE_MEMPTR(temp[1], 0),
+    find_dgc_bucket2 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
                                         OPND_CREATE_INT8(0));
 
     switch (instr_get_opcode(&plan->writer)) {
@@ -4446,6 +4450,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         // lea write_target -> temp[0]
         PRE(ilist, instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
+
         // temp[0] >> DGC_OVERLAP_BUCKET_BIT_SIZE
         PRE(ilist, instr,
             INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
@@ -4460,8 +4465,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                 opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
         // [key:temp[0], table:temp[1]] DGC coverage bucket* -> temp[1]
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
-                             opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_lea)));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                                opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
         PRE(ilist, instr,
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
         PRE(ilist, instr,
@@ -4472,54 +4477,34 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
          *     bucket = bucket->next
          */
         // [bucket_id:temp[0], bucket*:temp[1]]
-        PRE(ilist, instr, find_dgc_bucket1); // cmp *temp[1], 0
+        PRE(ilist, instr, find_dgc_bucket1); // cmp temp[1], 0
         // [bucket_id:temp[0], bucket*:temp[1]]
-        if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+        if (bucket_overlap_possible) {
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(check_next_dgc_bucket)));
         } else {
             PRE(ilist, instr,
-                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_skip)));
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(/*already 0*/store_dgc_skip))); // skip target maybe not needed now...
         }
-        PRE(ilist, instr, // bucket scan pointer to flag slot
-            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
-                              MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
         // [bucket_id:temp[0], bucket:temp[1]]
-        PRE(ilist, instr, // bucket -> temp[1]
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                OPND_CREATE_MEMPTR(temp[1], 0)));
         PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
             INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
                              OPND_CREATE_MEMPTR(temp[1], 0)));
         // [bucket_id:temp[0], bucket*:temp[1]] je store_dgc_bucket
         PRE(ilist, instr,
             INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(store_dgc_bucket)));
-        PRE(ilist, instr, // restore bucket scan pointer from flag slot
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
-                                   MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
         // [bucket_id:temp[0], bucket*:temp[1]]
         PRE(ilist, instr, /* next bucket */
-            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), OPND_CREATE_INT8(sizeof(app_pc))));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                                OPND_CREATE_MEMPTR(temp[1], offsetof(asmtable_entry_t, next))));
         // [bucket_id:temp[0], bucket*:temp[1]]
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket1)));
 
-        if (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 4) {
+        if (bucket_overlap_possible) {
             // [bucket_id:temp[0]]
             // if ((write_target & 0x3f) > (64 - write_size))
             PRE(ilist, instr, check_next_dgc_bucket); // write_target -> temp[1]
-            PRE(ilist, instr,
-                INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[1]),
-                                 OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
-            PRE(ilist, instr,
-                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[1]),
-                                 opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
-            PRE(ilist, instr,
-                INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[1])));
-            PRE(ilist, instr,
-                INSTR_CREATE_jcc_short(dcontext, OP_jne, opnd_create_instr(store_dgc_skip)));
-            PRE(ilist, instr,
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target));
             PRE(ilist, instr,
                 INSTR_CREATE_and(dcontext, opnd_create_reg(temp[1]),
                                  OPND_CREATE_INT8(0x3f))); // bucket span
@@ -4531,14 +4516,18 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             //     temp[0]++
             PRE(ilist, instr,
                 INSTR_CREATE_inc(dcontext, opnd_create_reg(temp[0])));
+            // temp[0] &= *DGC_COVERAGE_MASK_SLOT
+            PRE(ilist, instr,
+                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
+                                 opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
             // [key:temp[0]] load table -> temp[1]
             PRE(ilist, instr,
                 INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
                                     opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
             // [key:temp[0], table:temp[1]] DGC coverage bucket* -> temp[1]
             PRE(ilist, instr,
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]),
-                                 opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_lea)));
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                                    opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
             PRE(ilist, instr,
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
             PRE(ilist, instr,
@@ -4552,29 +4541,21 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
              *     bucket = bucket->next
              */
             // [bucket_id:temp[0], bucket*:temp[1]]
-            PRE(ilist, instr, find_dgc_bucket2); // cmp *temp[1], 0
+            PRE(ilist, instr, find_dgc_bucket2); // cmp temp[1], 0
             // [bucket_id:temp[0], bucket*:temp[1]]
             PRE(ilist, instr,
-                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_skip)));
-            PRE(ilist, instr, // bucket scan pointer to flag slot
-                SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
-                                  MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_skip))); // skip target maybe not needed now...
             // [bucket_id:temp[0], bucket:temp[1]]
-            PRE(ilist, instr, // bucket -> temp[1]
-                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                    OPND_CREATE_MEMPTR(temp[1], 0)));
             PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
                 INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
                                  OPND_CREATE_MEMPTR(temp[1], 0)));
             // [bucket_id:temp[0], bucket*:temp[1]] je store_dgc_bucket
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(store_dgc_bucket)));
-            PRE(ilist, instr, // restore bucket scan pointer from flag slot
-                RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
-                                       MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
             // [bucket_id:temp[0], bucket*:temp[1]]
             PRE(ilist, instr, /* next bucket */
-                INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), OPND_CREATE_INT8(sizeof(app_pc))));
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                                    OPND_CREATE_MEMPTR(temp[1], offsetof(asmtable_entry_t, next))));
             // [bucket_id:temp[0], bucket*:temp[1]]
             PRE(ilist, instr,
                 INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket2)));
