@@ -57,6 +57,8 @@ configure_DynamoRIO_client(drcov)
 use_DynamoRIO_extension(drcov drmgr)
 use_DynamoRIO_extension(drcov drx)
 use_DynamoRIO_extension(drcov drcontainers)
+# We keep our shared libs in the lib dir, not the bin dir:
+place_shared_lib_in_lib_dir(drcov)
 
 # ensure we rebuild if includes change
 add_dependencies(drcov api_headers)
@@ -101,9 +103,8 @@ if (WIN32 AND GENERATE_PDBS)
   append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
-DR_export_target(drcov)
-install_exported_target(drcov ${INSTALL_CLIENTS_LIB})
-install_exported_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
+install_target(drcov ${INSTALL_CLIENTS_LIB})
+install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 # Create a legacy-named copy of the executable
 get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
 get_filename_component(legacy_exe "${exe_path}" NAME)

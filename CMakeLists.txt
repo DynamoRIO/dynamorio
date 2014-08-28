@@ -983,6 +983,11 @@ function (install_exported_target target dest)
       ${ARGN})
   endif (DO_DR_INSTALL_TARGETS)
 endfunction (install_exported_target)
+function (install_target target dest)
+  if (DO_DR_INSTALL_TARGETS)
+    DR_target_install_dst(${dest} TARGETS ${target} ${ARGN})
+  endif (DO_DR_INSTALL_TARGETS)
+endfunction (install_target)
 
 # mirror install path for easier use from build dir
 # most libs go in base; DR and preload go in {debug,release} subdir

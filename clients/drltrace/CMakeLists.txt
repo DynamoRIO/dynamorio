@@ -41,6 +41,8 @@ configure_DynamoRIO_client(drltrace)
 use_DynamoRIO_extension(drltrace drmgr)
 use_DynamoRIO_extension(drltrace drwrap)
 use_DynamoRIO_extension(drltrace drx)
+# We keep our shared libs in the lib dir, not the bin dir:
+place_shared_lib_in_lib_dir(drltrace)
 
 # ensure we rebuild if includes change
 add_dependencies(drltrace api_headers)
@@ -59,8 +61,7 @@ if (WIN32 AND GENERATE_PDBS)
   append_property_string(TARGET drltrace LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
-DR_export_target(drltrace)
-install_exported_target(drltrace ${INSTALL_CLIENTS_LIB})
+install_target(drltrace ${INSTALL_CLIENTS_LIB})
 
 set(INSTALL_DRLTRACE_CONFIG ${INSTALL_CLIENTS_BASE})
 
