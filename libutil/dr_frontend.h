@@ -339,38 +339,38 @@ drfront_status_t
 drfront_set_symbol_search_path(const char *symdir, bool ignore_env);
 
 /**
-  * The routine initializes the symbol handler for the current process. Should be called
-  * before drfront_set_symbol_search_path() and drfront_fetch_module_symbols().
-  *
-  * \note The routine requires DbgHelp.dll 6.0 or later.
-  *
-  * \warning The routine will fail when using the system copy of dbghelp.dll on
-  * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
-  * version 6.0 or later.
-  *
-  * @param[in] wsymsrv_path   The path, or series of paths separated by a semicolon (;),
-  *                           that is used to search for symbol files.  If this parameter
-  *                           is NULL, the library attempts to form a symbol path from
-  *                           the following sources: the current working directory,
-  *                           _NT_SYMBOL_PATH, _NT_ALTERNATE_SYMBOL_PATH.
-  * @param[in] dbghelp_path   The path to dbghelp.dll.  If the string specifies a full
-  *                           path, the routine looks only in that path for the module.
-  *                           If the string specifies a relative path or a module name
-  *                           without a path, the function uses a standard Windows library
-  *                           search strategy to find the module.
-  */
+ * This routine initializes the symbol handler for the current process. Should be called
+ * before drfront_set_symbol_search_path() and drfront_fetch_module_symbols().
+ *
+ * \note The routine requires DbgHelp.dll 6.0 or later.
+ *
+ * \warning The routine will fail when using the system copy of dbghelp.dll on
+ * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+ * version 6.0 or later.
+ *
+ * @param[in] wsymsrv_path   The path, or series of paths separated by a semicolon (;),
+ *                           that is used to search for symbol files.  If this parameter
+ *                           is NULL, the library attempts to form a symbol path from
+ *                           the following sources: the current working directory,
+ *                           _NT_SYMBOL_PATH, _NT_ALTERNATE_SYMBOL_PATH.
+ * @param[in] dbghelp_path   The path to dbghelp.dll.  If the string specifies a full
+ *                           path, the routine looks only in that path for the module.
+ *                           If the string specifies a relative path or a module name
+ *                           without a path, the function uses a standard Windows library
+ *                           search strategy to find the module.
+ */
 drfront_status_t
 drfront_sym_init(const char *wsymsrv_path, const char *dbghelp_path);
 
 /**
-  * The routine deallocates all symbol-related resources associated with the current
-  * process.
-  */
+ * This routine deallocates all symbol-related resources associated with the current
+ * process.
+ */
 drfront_status_t
 drfront_sym_exit(void);
 
 /**
- * The routine tries to fetch all missed symbols for module specified in \p modpath
+ * This routine tries to fetch all missed symbols for module specified in \p modpath
  * using _NT_SYMBOL_PATH environment var.  User should call \p drfront_sym_init,
  * drfront_sym_set_search_path() and drfront_sym_set_search_path() before calling
  * this routine.  If success function returns full path to fetched symbol file in
@@ -380,9 +380,9 @@ drfront_sym_exit(void);
  *  don't exist in the search paths and _NT_SYMBOL_PATH has right srv* path & link.
  *  The routine requires DbgHelp.dll 6.0 or later.
  *
-  * \warning The routine will fail when using the system copy of dbghelp.dll on
-  * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
-  * version 6.0 or later.
+ * \warning The routine will fail when using the system copy of dbghelp.dll on
+ * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+ * version 6.0 or later.
  *
  * @param[in] modpath    The name of the image to be loaded. This name can contain
  *                       a partial path, a full path, or no path at all.  If the file
@@ -396,7 +396,7 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
                              size_t symbol_path_sz);
 
 /**
- * The routine creates the directory specified in \p dir.
+ * This routine creates the directory specified in \p dir.
  *
  * @param[in] dir      New directory name.
  */
@@ -404,12 +404,21 @@ drfront_status_t
 drfront_create_dir(const char *dir);
 
 /**
- * The routine removes the empty directory specified in \p dir.
+ * This routine removes the empty directory specified in \p dir.
  *
  * @param[in] dir      Name of directory to remove.
  */
 drfront_status_t
 drfront_remove_dir(const char *dir);
+
+/**
+ * This routine checks whether \p path is a valid directory.
+ *
+ * @param[in]  path      The path to be checked
+ * @param[out] is_dir    Returns whether \p path is a valid directory.
+ */
+drfront_status_t
+drfront_dir_exists(const char *path, bool *is_dir);
 
 /* DR_API EXPORT END */
 

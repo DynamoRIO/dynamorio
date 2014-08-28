@@ -260,14 +260,19 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
     TCHAR wbuf[MAX_PATH];
     TCHAR wapp[MAX_PATH];
     drfront_status_t status_check = DRFRONT_ERROR;
+    bool is_dir = false;
 
     status_check = drfront_char_to_tchar(app, wapp, BUFFER_SIZE_ELEMENTS(wapp));
     if (status_check != DRFRONT_SUCCESS)
         return status_check;
-
     _tsearchenv(wapp, _T("PATH"), wbuf);
     NULL_TERMINATE_BUFFER(wbuf);
-    if (wbuf[0] == _T('\0')) {
+    status_check = drfront_tchar_to_char(wbuf, buf, buflen);
+    if (status_check != DRFRONT_SUCCESS)
+        return status_check;
+    if (wbuf[0] == _T('\0') ||
+        /* DrM-i#1617: we might have a same-name directory on the path */
+        (drfront_dir_exists(buf, &is_dir) == DRFRONT_SUCCESS && is_dir)) {
         /* may need to append .exe, FIXME : other executable types */
         TCHAR tmp_buf[MAX_PATH];
         _sntprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), _T("%s%s"), wapp, _T(".exe"));
