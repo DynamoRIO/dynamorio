@@ -505,8 +505,9 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
     if (symsrv_path != NULL) {
         drfront_char_to_tchar(symsrv_path, wsymsrv_path,
                               BUFFER_SIZE_ELEMENTS(wsymsrv_path));
-    }
-    if (!sym_init_func(proc_handle, wsymsrv_path, FALSE)) {
+    } else
+        wsymsrv_path[0] = '\0';
+    if (!sym_init_func(proc_handle, symsrv_path == NULL ? NULL : wsymsrv_path, FALSE)) {
         DO_DEBUG(DL_WARN,
                  printf("SymInitializeW failed %d\n", GetLastError());
                  );
