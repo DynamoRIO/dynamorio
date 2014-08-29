@@ -289,11 +289,11 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
 }
 
 drfront_status_t
-drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
+drfront_set_client_symbol_search_path(const char *symdir, bool ignore_env,
+                                      OUT char *symsrv_path, size_t symsrv_path_sz)
 {
     char app_symsrv_path[MAX_SYMSRV_PATH];
     TCHAR wapp_symsrv_path[MAX_SYMSRV_PATH];
-    TCHAR wsymsrv_path[MAX_SYMSRV_PATH];
     char tmp_srv_path[MAX_SYMSRV_PATH];
     char tmp_symsrv_path[MAX_SYMSRV_PATH];
     char *cur;
@@ -374,7 +374,8 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
                      printf("No _NT_SYMBOL_PATH dir exists. Trying to"\
                             "use user-provided path.\n");
                      );
-            return drfront_set_symbol_search_path(symdir, true);
+            return drfront_set_client_symbol_search_path(symdir, true, symsrv_path,
+                                                         symsrv_path_sz);
         } else {
             DO_DEBUG(DL_WARN,
                      printf("Error parsing _NT_SYMBOL_PATH: may fail to fetch syms\n");
@@ -398,10 +399,33 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
                  );
         return DRFRONT_ERROR;
     }
-    /* We're using SymSetSearchPath here to allow symbols fetching with
-     * SymLoadModuleEx.
+    /* Set it for our own use as well (dbghelp cached _NT_SYMBOL_PATH when it
+     * initialized (if NULL was passed to drfront_sym_init) but we validated
+     * and potentially changed it here).  It's up to the caller to use
+     * the MS symbol server path we're returning to them.
+     * This allows the caller to test for local pdbs before incurring the
+     * cost of a network query.
      */
-    drfront_char_to_tchar(tmp_symsrv_path, wsymsrv_path,
+    if (!sym_set_path_func(GetCurrentProcess(), wapp_symsrv_path))  {
+         DO_DEBUG(DL_WARN,
+                  printf("SymSetSearchPathW failed %d\n", GetLastError());
+                  );
+        return DRFRONT_ERROR;
+    }
+    if (symsrv_path != NULL) {
+        strncpy(symsrv_path, tmp_symsrv_path, symsrv_path_sz);
+        symsrv_path[symsrv_path_sz - 1] = '\0';
+    }
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_set_symbol_search_path(const char *symsrv_path)
+{
+    TCHAR wsymsrv_path[MAX_SYMSRV_PATH];
+    if (sym_set_path_func == NULL)
+        return DRFRONT_ERROR_LIB_UNSUPPORTED;
+    drfront_char_to_tchar(symsrv_path, wsymsrv_path,
                           BUFFER_SIZE_ELEMENTS(wsymsrv_path));
     if (!sym_set_path_func(GetCurrentProcess(), wsymsrv_path))  {
          DO_DEBUG(DL_WARN,

@@ -318,10 +318,44 @@ void
 drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_char);
 
 /**
- * Sets the environment variable _NT_SYMBOL_PATH for symbol lookup.
- * If the _NT_SYMBOL_PATH is specified, this routine uses that and adds the Microsoft
- * symbol server if it's missing.  The drfront_sym_init() should be called
- * before this routine.
+ * Sets the environment variable _NT_SYMBOL_PATH and the dbghelp
+ * search path for symbol lookup in a client, without any network
+ * symbol server component (such components are unsafe in a client).
+ *
+ * If the _NT_SYMBOL_PATH is already specified, this routine validates it and
+ * if invalid replaces it.
+ *
+ * This routine also takes the client symbol lookup path and adds the Microsoft
+ * symbol server for use in a frontend itself (not in a client) and returns that
+ * path in \p symsrv_path.  The frontend can enable use of this path by calling
+ * drfront_set_symbol_search_path().
+ *
+ * drfront_sym_init() must be called before calling this routine.
+ *
+ * \note This routine requires DbgHelp.dll 6.0 or later.
+ *
+ * \warning This routine will fail when using the system copy of dbghelp.dll on
+ * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
+ * version 6.0 or later.
+ *
+ * @param[in]  symdir       A local symbol cache directory.
+ *                          It can be passed without srv* prepended.
+ *                          It will have "/symbols" appended to it.
+ * @param[in]  ignore_env   If TRUE, any existing _NT_SYMBOL_PATH value is ignored.
+ * @param[out] symsrv_path  Returns a symbol path that includes the Microsoft
+ *                          symbol server.
+ * @param[in]  symsrv_path_sz  The maximum length, in characters, of \p symsrv_path.
+ */
+drfront_status_t
+drfront_set_client_symbol_search_path(const char *symdir, bool ignore_env,
+                                      OUT char *symsrv_path, size_t symsrv_path_sz);
+
+/**
+ * Sets the symbol search path for this frontend process to the specified value.
+ * Typically this would be used with the output value from
+ * drfront_set_client_symbol_search_path().
+ *
+ * drfront_sym_init() must be called before calling this routine.
  *
  * \note The routine requires DbgHelp.dll 6.0 or later.
  *
@@ -329,14 +363,10 @@ drfront_string_replace_character_wide(OUT TCHAR *str, TCHAR old_char, TCHAR new_
  * Windows XP or 2003.  The client should use its own copy of dbghelp.dll
  * version 6.0 or later.
  *
- * @param[in]  symdir       A local symbol cache directory to search/fetch symbols.
- *                          It can be passed without srv* prepend.
- * @param[in]  ignore_env   If TRUE routine creates new dir based on \p symdir and uses
- *                          it as a local storage.  The routine sets _NT_SYMBOL_PATH to
- *                          point on the new dir.
+ * @param[in]  symsrv_path  The symbol search path to use.
  */
 drfront_status_t
-drfront_set_symbol_search_path(const char *symdir, bool ignore_env);
+drfront_set_symbol_search_path(const char *symsrv_path);
 
 /**
  * This routine initializes the symbol handler for the current process. Should be called
@@ -389,7 +419,7 @@ drfront_sym_exit(void);
  *                       cannot be located by the name provided, the routine returns
  *                       DRFRONT_OBJ_NOEXIST.
  * @param[in] symbol_path    The full path to fetched symbols file.
- * @param[in] symbol_path_sz  Size of \p symbol_path argument.
+ * @param[in] symbol_path_sz  Size of \p symbol_path argument in characters.
  */
 drfront_status_t
 drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
