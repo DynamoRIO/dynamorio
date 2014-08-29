@@ -4166,13 +4166,14 @@ mangle_annotation_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilis
 # ifdef JITOPT
 static const reg_t dgc_available_temp_regs[] = {
     REG_R15, REG_R14, REG_R13, REG_R12, REG_R11, REG_R10, REG_R9,
-    REG_R8, REG_RDI, REG_RSI, REG_RBX, REG_RDX, REG_RCX //, REG_RAX
+    REG_R8, REG_RDI, REG_RSI, REG_RBX, REG_RDX, REG_RCX
 };
 #define DGC_TEMP_REG_32_START 8
 #define DGC_TEMP_REG_AVAILABLE_COUNT 13
 #define DGC_TEMP_REG_COUNT 3
 
 #define ELIDE_CLEAN_CALL 1
+//#define BUCKET_OVERLAP 1
 
 static void
 mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t *ilist,
@@ -4188,10 +4189,13 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     opnd_t opnd_write_target;
     instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page,
             *execute_write, *prepare_write, *skip_clean_call,
-            *check_next_dgc_bucket, *find_dgc_bucket1, *find_dgc_bucket2,
+            *find_dgc_bucket1, *find_dgc_bucket2,
             *store_dgc_skip, *store_dgc_bucket;
     uint j = 0, i = 0;
+#ifdef BUCKET_OVERLAP
+    instr_t *check_next_dgc_bucket;
     bool bucket_overlap_possible;
+#endif
 
     switch (plan->writer.opcode) {
     case OP_and:
@@ -4209,6 +4213,11 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     }
     ASSERT(opnd_size_in_bytes(opnd_get_size(plan->dst)) <= 64);
     ASSERT(opnd_is_base_disp(plan->dst));
+
+    switch (opnd_size_in_bytes(opnd_get_size(plan->dst))) {
+    case 1: case 2: case 4: case 8: case 16: break;
+    default: RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Hmmm...\n");
+    }
 
     for (; j < DGC_TEMP_REG_AVAILABLE_COUNT; j++) {
         if (!instr_uses_reg(&plan->writer, dgc_available_temp_regs[j])) {
@@ -4249,12 +4258,15 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                        OPND_CREATE_MEMPTR(temp[0], 0));
     skip_clean_call = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                            MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
-    bucket_overlap_possible = (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
+
+#ifdef BUCKET_OVERLAP
+    bucket_overlap_possible = false; //(opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
     if (bucket_overlap_possible) {
         check_next_dgc_bucket =
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     } else
         check_next_dgc_bucket = NULL;
+#endif
 
     store_dgc_skip = INSTR_CREATE_xor(dcontext, opnd_create_reg(temp[1]),
                                       opnd_create_reg(temp[1]));
@@ -4485,13 +4497,17 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         // [bucket_id:temp[0], bucket*:temp[1]]
         PRE(ilist, instr, find_dgc_bucket1); // cmp temp[1], 0
         // [bucket_id:temp[0], bucket*:temp[1]]
+#ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(check_next_dgc_bucket)));
         } else {
+#endif
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(/*already 0*/store_dgc_skip))); // skip target maybe not needed now...
+#ifdef BUCKET_OVERLAP
         }
+#endif
         // [bucket_id:temp[0], bucket:temp[1]]
         PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
             INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
@@ -4507,6 +4523,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket1)));
 
+#ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
             // [bucket_id:temp[0]]
             // if ((write_target & 0x3f) > (64 - write_size))
@@ -4571,7 +4588,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             PRE(ilist, instr,
                 INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket2)));
         }
-
+#endif
         // $0x0 -> temp[1]
         PRE(ilist, instr, store_dgc_skip);
         // %rax -> temp[0]

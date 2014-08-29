@@ -188,7 +188,7 @@ typedef struct double_mapping_list_t {
     double_mapping_t *mappings;
 } double_mapping_list_t;
 
-#define MAX_DOUBLE_MAPPINGS 100
+#define MAX_DOUBLE_MAPPINGS 500
 static double_mapping_list_t *double_mappings;
 #endif
 
@@ -780,6 +780,15 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
                         byte_value, byte_target_access);
             ASSERT(*byte_target_access == byte_value);
             ASSERT(*(byte*)write_target == byte_value);
+        } else  if (plan->dst_size == 2) {
+            short short_value = (*value & 0xffff);
+            short *short_target_access = (short *)target_access;
+            if (!simulate)
+                *short_target_access = short_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    mov 0x%x to "PFX"\n",
+                        short_value, short_target_access);
+            ASSERT(*short_target_access == short_value);
+            ASSERT(*(short*)write_target == short_value);
         } else {
             uint *write_target_access = (uint *)write_target;
             for (i = 0; i < (plan->dst_size/sizeof(uint)); i++, target_access++, value++, write_target_access++) {
@@ -962,7 +971,9 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
         plan->op = EMUL_SUB;
         break;
     default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n", instr_get_opcode(&plan->writer));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n",
+                    instr_get_opcode(&plan->writer));
+        ASSERT(false);
         plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
@@ -974,9 +985,10 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
-    if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 1 && plan->dst_size % 4 != 0)) {
+    if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 2 && plan->dst_size % 4 != 0)) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
                   instr_get_opcode(&plan->writer), plan->dst_size);
+        ASSERT(false);
         plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
