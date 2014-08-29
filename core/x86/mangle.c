@@ -4190,12 +4190,13 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page,
             *execute_write, *prepare_write, *skip_clean_call,
             *find_dgc_bucket1, *find_dgc_bucket2,
-            *store_dgc_skip, *store_dgc_bucket;
+            *store_dgc_skip, *store_dgc_bucket,
+            *skip_overlap_check, *restore_temps;
     uint j = 0, i = 0;
-#ifdef BUCKET_OVERLAP
+# ifdef BUCKET_OVERLAP
     instr_t *check_next_dgc_bucket;
     bool bucket_overlap_possible;
-#endif
+# endif /* BUCKET_OVERLAP */
 
     switch (plan->writer.opcode) {
     case OP_and:
@@ -4253,20 +4254,25 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     }
 
+    // xchg %rcx with temp[0]
+    skip_overlap_check = INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]),
+                                           opnd_create_reg(REG_XCX));
+    restore_temps = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
     // cmp page_id(temp[1]), bucket->page_id(temp[0])
     bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
                                        OPND_CREATE_MEMPTR(temp[0], 0));
     skip_clean_call = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                            MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
 
-#ifdef BUCKET_OVERLAP
+# ifdef BUCKET_OVERLAP
     bucket_overlap_possible = false; //(opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
     if (bucket_overlap_possible) {
         check_next_dgc_bucket =
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     } else
         check_next_dgc_bucket = NULL;
-#endif
+# endif /* BUCKET_OVERLAP */
 
     store_dgc_skip = INSTR_CREATE_xor(dcontext, opnd_create_reg(temp[1]),
                                       opnd_create_reg(temp[1]));
@@ -4282,14 +4288,14 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         // and <src>, <dst+offset>
         execute_write =
             INSTR_CREATE_and(dcontext,
-                             OPND_CREATE_MEM32(temp[0], 0),
+                             OPND_CREATE_MEM32(temp[1], 0),
                              instr_get_src(&plan->writer, 0));
         break;
     case OP_or:
         // or <src>, <dst+offset>
         execute_write =
             INSTR_CREATE_or(dcontext,
-                            OPND_CREATE_MEM32(temp[0], 0),
+                            OPND_CREATE_MEM32(temp[1], 0),
                             instr_get_src(&plan->writer, 0));
         break;
     case OP_sub:
@@ -4412,7 +4418,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     case OP_and:
     case OP_or:
         PRE(ilist, instr,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[1])));
+            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), opnd_create_reg(temp[0])));
     }
 
     PRE(ilist, instr,
@@ -4425,7 +4431,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     case OP_and:
     case OP_or:
         PRE(ilist, instr,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[1])));
+            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), opnd_create_reg(temp[0])));
     }
 
     /* Restore flags now so the app instruction's flag changes are not lost */
@@ -4454,6 +4460,20 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                    MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
     } else {
 #ifdef ELIDE_CLEAN_CALL
+        if (temp[0] == REG_XCX) {
+            PRE(ilist, instr,
+                SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+                                  MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+            PRE(ilist, instr,
+                INSTR_CREATE_jecxz(dcontext, opnd_create_instr(restore_temps)));
+        } else {
+            PRE(ilist, instr, // xchg %rcx with temp[0]
+                INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(REG_XCX)));
+            PRE(ilist, instr,
+                INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_overlap_check)));
+            PRE(ilist, instr, // xchg %rcx with temp[0]
+                INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(REG_XCX)));
+        }
         /* Move DGC coverage bucket into the flags TLS slot */
         PRE(ilist, instr, // move %rax to temp[2]
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]), opnd_create_reg(REG_XAX)));
@@ -4497,17 +4517,17 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         // [bucket_id:temp[0], bucket*:temp[1]]
         PRE(ilist, instr, find_dgc_bucket1); // cmp temp[1], 0
         // [bucket_id:temp[0], bucket*:temp[1]]
-#ifdef BUCKET_OVERLAP
+# ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(check_next_dgc_bucket)));
         } else {
-#endif
+# endif /* BUCKET_OVERLAP */
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(/*already 0*/store_dgc_skip))); // skip target maybe not needed now...
-#ifdef BUCKET_OVERLAP
+# ifdef BUCKET_OVERLAP
         }
-#endif
+# endif /* BUCKET_OVERLAP */
         // [bucket_id:temp[0], bucket:temp[1]]
         PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
             INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
@@ -4523,7 +4543,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket1)));
 
-#ifdef BUCKET_OVERLAP
+# ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
             // [bucket_id:temp[0]]
             // if ((write_target & 0x3f) > (64 - write_size))
@@ -4588,7 +4608,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             PRE(ilist, instr,
                 INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket2)));
         }
-#endif
+# endif /* BUCKET_OVERLAP */
         // $0x0 -> temp[1]
         PRE(ilist, instr, store_dgc_skip);
         // %rax -> temp[0]
@@ -4606,17 +4626,28 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
         PRE(ilist, instr, // move temp[0] back to %rax
             INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[0])));
-#endif
         PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
-                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+            INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(restore_temps)));
+#else
+        // [offset:temp[0], write_target: temp[1]] offset (temp[0]) -> temp[1] for jecxz
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+                              MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        PRE(ilist, instr,
+            INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(restore_temps)));
+#endif /* ELIDE_CLEAN_CALL */
+        PRE(ilist, instr, skip_overlap_check); // xchg %rcx with temp[0]
+        PRE(ilist, instr,
+            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+                              MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        PRE(ilist, instr, restore_temps); // restore temp[0]
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
                                    MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
                                    MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
-#ifdef ELIDE_CLEAN_CALL
+//#ifdef ELIDE_CLEAN_CALL
         // %rcx -> slot 0
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
@@ -4632,16 +4663,16 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                    MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-#endif
+//#endif /* ELIDE_CLEAN_CALL */
 #endif /* !JITOPT_EMULATE */
         dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
 #ifndef JITOPT_EMULATE
-#ifdef ELIDE_CLEAN_CALL
+//# ifdef ELIDE_CLEAN_CALL
         // jmp <done>
         PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(instr)));
         // restore %rcx
         PRE(ilist, instr, skip_clean_call);
-# endif
+//# endif /* ELIDE_CLEAN_CALL */
     }
 #endif /* !JITOPT_EMULATE */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
