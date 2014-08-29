@@ -320,7 +320,7 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
         NULL_TERMINATE_BUFFER(pdb_dir);
         drfront_string_replace_character(pdb_dir, '/', '\\'); /* canonicalize */
         sc = drfront_create_dir(pdb_dir);
-        if (sc != DRFRONT_SUCCESS ||
+        if ((sc != DRFRONT_SUCCESS && sc != DRFRONT_ERROR_FILE_EXISTS) ||
             drfront_access(pdb_dir, DRFRONT_READ, &dir_exists) != DRFRONT_SUCCESS ||
             !dir_exists) {
             DO_DEBUG(DL_WARN,
