@@ -662,7 +662,7 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
     for (; page_id < last_page_id; page_id++) {
         key = DGC_SHADOW_KEY(page_id);
         if (dgc_writer_mapping_table->table[key] == NULL) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to remove writer offset "
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Found no writer offset "
                         "for page "PFX": bucket is empty.\n", page_id);
             continue;
         }
@@ -675,7 +675,7 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
             while (mapping->next != NULL && mapping->next->page_id != page_id)
                 mapping = mapping->next;
             if (mapping->next == NULL) {
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to remove writer "
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Found no writer"
                             " offset for page "PFX": not in bucket.\n", page_id);
                 continue;
             }
@@ -931,8 +931,35 @@ setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
     }
 
     mutex_lock(&dgc_mapping_lock);
+    remove_dgc_writer_offsets(start, len);
     insert_dgc_writer_offsets(start, len, page_delta);
     mutex_unlock(&dgc_mapping_lock);
+}
+
+void
+notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly)
+{
+    mutex_lock(&dgc_mapping_lock);
+    if (now_readonly) {
+        dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(start);
+        if (mapping == NULL)
+            insert_dgc_writer_offsets(start, size, 1);
+    } else {
+        remove_dgc_writer_offsets(start, size);
+    }
+    mutex_unlock(&dgc_mapping_lock);
+}
+
+void
+locate_and_manage_code_area(app_pc pc)
+{
+    // TODO: check & prevent flush in this region!
+    app_pc start;
+    size_t size;
+    if (get_jit_monitored_area_bounds(pc, &start, &size))
+        annotation_manage_code_area(start, size);
+    else
+        RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area failed at "PFX"\n", pc);
 }
 
 void
@@ -1091,7 +1118,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 
     mutex_lock(&dgc_mapping_lock);
     mapping = lookup_dgc_writer_offset(write_target);
-    if (mapping != NULL)
+    if (mapping != NULL && mapping->offset != 1)
         offset = mapping->offset;
     mutex_unlock(&dgc_mapping_lock);
 

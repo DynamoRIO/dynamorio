@@ -35,9 +35,9 @@
 
 #include "monitor.h"
 
-#define DGC_MAPPING_TABLE_SHIFT 0xc
-#define DGC_MAPPING_TABLE_MASK 0x3ff
-#define DGC_MAPPING_TABLE_SIZE 0x400
+#define DGC_MAPPING_TABLE_SHIFT 0xc    /* extract page id */
+#define DGC_MAPPING_TABLE_MASK 0x3ff   /* mask per size */
+#define DGC_MAPPING_TABLE_SIZE 0x400  /* arbitrary size (maskable) */
 
 #define DGC_SHADOW_PAGE_ID(pc) (((ptr_uint_t)(pc)) >> DGC_MAPPING_TABLE_SHIFT)
 #define DGC_SHADOW_KEY(page_id) ((page_id) & DGC_MAPPING_TABLE_MASK)
@@ -92,6 +92,12 @@ void
 annotation_flush_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
+void
+notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly);
+
+void
+locate_and_manage_code_area(app_pc pc);
+
 void
 notify_exec_invalidation(app_pc start, size_t size);
 

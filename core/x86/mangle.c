@@ -4187,7 +4187,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 #ifndef JITOPT_EMULATE
     reg_t temp[DGC_TEMP_REG_COUNT];
     opnd_t opnd_write_target;
-    instr_t *bucket_iterator, *write_to_double_page, *write_to_original_page,
+    instr_t *instrumentation_start, *bucket_iterator, *check_readonly,
+            *write_to_original_page, *write_to_double_page,
             *execute_write, *prepare_write, *skip_clean_call,
             *find_dgc_bucket1, *find_dgc_bucket2,
             *store_dgc_skip, *store_dgc_bucket,
@@ -4238,19 +4239,23 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                               opnd_get_disp(plan->dst),
                                               OPSZ_lea);
 
-    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
-        app_pc abs_addr = opnd_get_addr(plan->dst);
-        // [bucket:temp[0]] addr -> temp[1]
-        write_to_double_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
-                                            OPND_CREATE_INTPTR(abs_addr));
-        write_to_original_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
-                                            OPND_CREATE_INTPTR(abs_addr));
-    } else { // don't clobber src operands!!
-        ASSERT(opnd_is_base_disp(plan->dst));
+    check_readonly =
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
+                            OPND_CREATE_MEMPTR(temp[0],
+                                               offsetof(dgc_writer_mapping_t, offset)));
 
+    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+        // [bucket:temp[0]] addr -> temp[1]
+        write_to_original_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
+                                            OPND_CREATE_INTPTR(opnd_get_addr(plan->dst)));
         write_to_double_page =
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
+                                 OPND_CREATE_INTPTR(opnd_get_addr(plan->dst)));
+    } else {
+        ASSERT(opnd_is_base_disp(plan->dst));
         write_to_original_page =
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
+        write_to_double_page =
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     }
 
@@ -4266,7 +4271,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                            MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
 
 # ifdef BUCKET_OVERLAP
-    bucket_overlap_possible = false; //(opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
+    bucket_overlap_possible = opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
     if (bucket_overlap_possible) {
         check_next_dgc_bucket =
             INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
@@ -4313,12 +4318,15 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                                                      opnd_get_size(plan->dst)),
                                                instr_get_src(&plan->writer, 0));
     }
+    instr_set_translation(execute_write, plan->writer_pc);
 
     prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
                                         opnd_create_reg(REG_XAX));
 
+    instrumentation_start = SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, TLS_XAX_SLOT, XAX_OFFSET);
+
     /* Save flags to MANGLE_DGC_FLAGS_SLOT */
-    PRE(ilist, instr, SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, TLS_XAX_SLOT, XAX_OFFSET));
+    PRE(ilist, instr, instrumentation_start);
     PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
     PRE(ilist, instr,
         INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
@@ -4385,13 +4393,13 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
     // jz write_to_original_page
     PRE(ilist, instr,
-        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
+        INSTR_CREATE_jcc(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
 
     // [bucket:temp[0], page_id:temp[1]] cmp page_id(temp[1]), bucket->page_id(temp[0])
     PRE(ilist, instr, bucket_iterator);
-    // [bucket:temp[0], page_id:temp[1]] je write_to_double_page
+    // [bucket:temp[0], page_id:temp[1]] je check_readonly
     PRE(ilist, instr,
-        INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(write_to_double_page)));
+        INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(check_readonly)));
     // [bucket:temp[0]] bucket->next -> temp[0]
     PRE(ilist, instr,
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
@@ -4402,17 +4410,55 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
     // jz no_bucket
     PRE(ilist, instr,
-        INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
+        INSTR_CREATE_jcc(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
     // jmp bucket_iterator
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
 
-    // [bucket:temp[0]] write_target -> temp[1]
-    PRE(ilist, instr, write_to_double_page);
+    // [bucket:temp[0]] offset -> temp[0]
+    PRE(ilist, instr, check_readonly);
+    // [offset:temp[0]] cmp offset == 1
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-                            OPND_CREATE_MEMPTR(temp[0],
-                                               offsetof(dgc_writer_mapping_t, offset))));
+        INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]), OPND_CREATE_INT8(1)));
+    // [offset:temp[0]] no: continue with write
+    PRE(ilist, instr,
+        INSTR_CREATE_jcc(dcontext, OP_jne, opnd_create_instr(write_to_double_page)));
+
+    /****** Exit to double-map the page (start) ******/
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
+                                                opnd_create_reg(REG_XAX)));
+    PRE(ilist, instr, // restore flag values to %rax
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
+                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+    PRE(ilist, instr, // restore flags
+        INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+    PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
+    PRE(ilist, instr, // move temp[2] back to %rax
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+                               MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
+                               MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+
+    ASSERT(opnd_is_base_disp(plan->dst));
+    dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area, 0/*flags*/, 1,
+                            opnd_create_base_disp(opnd_get_base(plan->dst),
+                                              opnd_get_index(plan->dst),
+                                              opnd_get_scale(plan->dst),
+                                              opnd_get_disp(plan->dst),
+                                              OPSZ_PTR));
+    PRE(ilist, instr,
+        INSTR_CREATE_jmp(dcontext, opnd_create_instr(instrumentation_start)));
+    /****** Exit to double-map the page (end) ******/
+
+    // [offset:temp[0]] write_target -> temp[1]
+    PRE(ilist, instr, write_to_double_page);
 
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:

@@ -664,6 +664,8 @@ vm_make_writable(byte *pc, size_t size)
         make_writable(start_pc, final_size);
     ASSERT(ok);
     ASSERT(INTERNAL_OPTION(cache_consistency));
+
+    notify_readonly_for_cache_consistency(pc, size, false);
 }
 
 static void
@@ -687,6 +689,8 @@ vm_make_unwritable(byte *pc, size_t size)
                                                                NULL, NULL));
         }
     });
+
+    notify_readonly_for_cache_consistency(pc, size, true);
 }
 
 /* since dynamorio changes some readwrite memory regions to read only,
