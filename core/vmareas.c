@@ -3543,6 +3543,22 @@ get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size)
 }
 
 bool
+get_non_jit_area_bounds(app_pc addr, app_pc *start, size_t *size)
+{
+    vm_area_t *area;
+    bool found = false;
+    read_lock(&executable_areas->lock);
+    if (lookup_addr(executable_areas, addr, &area))
+        found = !TEST(VM_JIT_MONITORED, area->vm_flags);
+    read_unlock(&executable_areas->lock);
+    if (found) {
+        *start = area->start;
+        *size = (area->end - area->start);
+    }
+    return found;
+}
+
+bool
 set_region_jit_monitored(app_pc start, size_t len, uint *prot)
 {
     vm_area_t *region;

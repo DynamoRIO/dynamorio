@@ -376,6 +376,9 @@ bool
 get_jit_monitored_area_bounds(app_pc addr, app_pc *start, size_t *size);
 
 bool
+get_non_jit_area_bounds(app_pc addr, app_pc *start, size_t *size);
+
+bool
 set_region_jit_monitored(app_pc start, size_t len, uint *prot);
 
 bool

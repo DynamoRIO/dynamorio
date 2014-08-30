@@ -956,7 +956,7 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
-    if (get_jit_monitored_area_bounds(pc, &start, &size))
+    if (get_non_jit_area_bounds(pc, &start, &size))
         annotation_manage_code_area(start, size);
     else
         RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area failed at "PFX"\n", pc);

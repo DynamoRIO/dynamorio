@@ -1210,6 +1210,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
          */
         opnd_t arg = args[i];
         CLIENT_ASSERT(opnd_get_size(arg) == OPSZ_PTR || opnd_is_immed_int(arg)
+                      || opnd_get_size(arg) == OPSZ_lea
                       IF_X64(|| opnd_get_size(arg) == OPSZ_4),
                       "Clean call arg has unsupported size");
 
@@ -1263,10 +1264,17 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp),
                                                  opnd_create_reg(regparms[0])));
-                        /* If sub-ptr-size, zero-extend is what we want so no movsxd */
-                        POST(ilist, prev, INSTR_CREATE_mov_ld
-                             (dcontext, opnd_create_reg
-                              (shrink_reg_for_param(regparms[0], arg)), arg));
+                        if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
+                            /* If sub-ptr-size, zero-extend is what we want so no movsxd */
+                            POST(ilist, prev, INSTR_CREATE_lea
+                                 (dcontext, opnd_create_reg
+                                  (shrink_reg_for_param(regparms[0], arg)), arg));
+                        } else {
+                            /* If sub-ptr-size, zero-extend is what we want so no movsxd */
+                            POST(ilist, prev, INSTR_CREATE_mov_ld
+                                 (dcontext, opnd_create_reg
+                                  (shrink_reg_for_param(regparms[0], arg)), arg));
+                        }
                         if (reg_overlap(used, REG_XSP)) {
                             int xsp_disp = opnd_get_reg_dcontext_offs(REG_XSP) +
                                 clean_call_beyond_mcontext() + total_stack;
@@ -1302,8 +1310,13 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                 POST(ilist, mark,
                     INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparm), arg));
             } else {
-                POST(ilist, mark,
-                    INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(regparm), arg));
+                if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
+                    POST(ilist, mark,
+                        INSTR_CREATE_lea(dcontext, opnd_create_reg(regparm), arg));
+                } else {
+                    POST(ilist, mark,
+                        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(regparm), arg));
+                }
             }
         } else {
             if (push) {
@@ -4172,7 +4185,7 @@ static const reg_t dgc_available_temp_regs[] = {
 #define DGC_TEMP_REG_AVAILABLE_COUNT 13
 #define DGC_TEMP_REG_COUNT 3
 
-//#define ELIDE_CLEAN_CALL 1
+#define ELIDE_CLEAN_CALL 1
 //#define BUCKET_OVERLAP 1
 
 static void
@@ -4232,6 +4245,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         }
     }
     ASSERT(i == DGC_TEMP_REG_COUNT);
+
+    if (opnd_get_base(plan->dst) == REG_RBP)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "rilly?\n");
 
     opnd_write_target = opnd_create_base_disp(opnd_get_base(plan->dst),
                                               opnd_get_index(plan->dst),
@@ -4447,12 +4463,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                                MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
 
     ASSERT(opnd_is_base_disp(plan->dst));
-    dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area, 0/*flags*/, 1,
-                            opnd_create_base_disp(opnd_get_base(plan->dst),
-                                              opnd_get_index(plan->dst),
-                                              opnd_get_scale(plan->dst),
-                                              opnd_get_disp(plan->dst),
-                                              OPSZ_PTR));
+    dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
+                            0/*flags*/, 1, opnd_write_target);
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(instrumentation_start)));
     /****** Exit to double-map the page (end) ******/
