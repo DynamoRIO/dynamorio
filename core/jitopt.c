@@ -214,6 +214,22 @@ static dgc_stats_t *dgc_stats;
 
 generic_table_t *emulation_plans;
 
+#define JIT_MANAGED_FLUSH_THRESHOLD 10
+#define MAX_EXEC_AREA_COUNTERS 100
+
+typedef struct _exec_area_counter_t {
+    app_pc start;
+    size_t size;
+    uint count;
+} exec_area_counter_t;
+
+typedef struct _exec_area_counters_t {
+    uint size;
+    exec_area_counter_t counters[MAX_EXEC_AREA_COUNTERS];
+} exec_area_counters_t;
+
+static exec_area_counters_t *exec_area_counters;
+
 #if !(defined (WINDOWS) && defined (X64))
 static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request);
@@ -280,6 +296,7 @@ expand_intersection_array(void **array, uint *max_size);
 void
 jitopt_init()
 {
+#ifndef JIT_MONITORED_AREAS
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_MANAGE_CODE_AREA_NAME,
                                 (void *) annotation_manage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
@@ -287,7 +304,6 @@ jitopt_init()
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_UNMANAGE_CODE_AREA_NAME,
                                 (void *) annotation_unmanage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
-#ifndef JIT_MONITORED_AREAS
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
                                 (void *) annotation_flush_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
@@ -353,6 +369,10 @@ jitopt_init()
     dgc_writer_mapping_table = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_writer_mapping_table_t,
                                                ACCT_OTHER, UNPROTECTED);
     memset(dgc_writer_mapping_table, 0, sizeof(dgc_writer_mapping_table_t));
+
+    exec_area_counters = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, exec_area_counters_t,
+                                         ACCT_OTHER, UNPROTECTED);
+    memset(exec_area_counters, 0, sizeof(exec_area_counters_t));
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -403,6 +423,9 @@ jitopt_exit()
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_writer_mapping_table, dgc_writer_mapping_table_t,
                    ACCT_OTHER, UNPROTECTED);
     DELETE_LOCK(dgc_mapping_lock);
+
+    HEAP_TYPE_FREE(GLOBAL_DCONTEXT, exec_area_counters, exec_area_counters_t,
+                   ACCT_OTHER, UNPROTECTED);
 #endif
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, dgc_stats, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
 }
@@ -426,8 +449,8 @@ annotation_manage_code_area(app_pc start, size_t len)
     dcontext_t *dcontext = get_thread_private_dcontext();
     //dr_printf("Manage code area "PFX"-"PFX"\n",
     //    start, start+len);
-    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
-        start, start+len);
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Manage code area "PFX"-"PFX"\n",
+                start, start+len);
 #ifdef JIT_MONITORED_AREAS
     uint prot;
     set_region_jit_monitored(start, len, &prot);
@@ -450,8 +473,8 @@ annotation_unmanage_code_area(app_pc start, size_t len)
     if (!is_jit_managed_area(start))
         return;
 
-    LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
-        start, start+len);
+    RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1, "Unmanage code area "PFX"-"PFX"\n",
+                start, start+len);
 
     mutex_lock(&thread_initexit_lock);
     flush_fragments_and_remove_region(dcontext, start, len,
@@ -910,6 +933,35 @@ setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
     mutex_lock(&dgc_mapping_lock);
     insert_dgc_writer_offsets(start, len, page_delta);
     mutex_unlock(&dgc_mapping_lock);
+}
+
+void
+notify_exec_invalidation(app_pc start, size_t size)
+{
+    uint i;
+    RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_exec_invalidation("PFX", 0x%x)\n",
+                start, size);
+    //ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    for (i = 0; i < exec_area_counters->size; i++) {
+        if (exec_area_counters->counters[i].start == start) {
+            ASSERT(exec_area_counters->counters[i].size == size);
+            exec_area_counters->counters[i].count++;
+            RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "exec_invalidation_count %d for "PFX"\n",
+                        exec_area_counters->counters[i].count, start);
+            if (exec_area_counters->counters[i].count > JIT_MANAGED_FLUSH_THRESHOLD) {
+                RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "Time to manage vmarea "PFX"\n",
+                            start);
+                annotation_manage_code_area(start, size);
+            }
+            return;
+        }
+    }
+    i = exec_area_counters->size;
+    exec_area_counters->size++;
+    ASSERT(exec_area_counters->size < MAX_EXEC_AREA_COUNTERS);
+    exec_area_counters->counters[i].start = start;
+    exec_area_counters->counters[i].size = size;
+    exec_area_counters->counters[i].count = 0;
 }
 
 bool

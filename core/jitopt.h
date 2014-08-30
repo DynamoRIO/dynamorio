@@ -92,6 +92,9 @@ void
 annotation_flush_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
+void
+notify_exec_invalidation(app_pc start, size_t size);
+
 bool
 clear_double_mapping(app_pc start);
 

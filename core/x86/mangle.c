@@ -4172,7 +4172,7 @@ static const reg_t dgc_available_temp_regs[] = {
 #define DGC_TEMP_REG_AVAILABLE_COUNT 13
 #define DGC_TEMP_REG_COUNT 3
 
-#define ELIDE_CLEAN_CALL 1
+//#define ELIDE_CLEAN_CALL 1
 //#define BUCKET_OVERLAP 1
 
 static void

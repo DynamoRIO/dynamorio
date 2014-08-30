@@ -6777,6 +6777,7 @@ flush_fragments_end_synch(dcontext_t *dcontext, bool keep_initexit_lock)
     global_heap_free(flush_threads, flush_num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
     flush_threads = NULL;
+
     if (!keep_initexit_lock)
         mutex_unlock(&thread_initexit_lock);
 }

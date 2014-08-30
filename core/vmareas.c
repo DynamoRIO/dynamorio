@@ -10227,6 +10227,7 @@ vm_area_allsynch_flush_fragments(dcontext_t *dcontext, dcontext_t *del_dcontext,
      */
     for (i = v->length - 1; i >= 0; i--) {
         if (start < v->buf[i].end && end > v->buf[i].start) {
+            ASSERT(!TEST(v->buf[i].vm_flags, VM_JIT_MANAGED_TYPE));
             if (v->buf[i].start < start ||
                 v->buf[i].end > end) {
                 /* see comments in vm_area_unlink_fragments() */
@@ -10732,7 +10733,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     instr_size = next_pc - instr_size_pc;
 
 #ifdef JIT_MONITORED_AREAS
-    if (is_jit_managed_area(target)) {
+    if (is_jit_managed_area(target) && instr_app_pc != NULL) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
         if (is_jit_self_write)
             dr_fprintf(STDERR, "JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
@@ -10925,9 +10926,14 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
             flush_fragments_in_region_finish(dcontext,
                                              false /*don't keep initexit_lock*/);
 #ifdef JITOPT
-            if (is_jit_managed_area((app_pc)tgt_pstart))
+            if (is_jit_managed_area((app_pc)tgt_pstart)) {
                 dgc_notify_region_cleared((app_pc)tgt_pstart,
                                           (app_pc)(tgt_pend+PAGE_SIZE-tgt_pstart));
+            } else {
+                notify_exec_invalidation((app_pc)tgt_pstart,
+                                         tgt_pend+PAGE_SIZE-tgt_pstart);
+            }
+
             dr_printf(" === modified code! (case 1) ===\n");
 #endif
             /* must execute instr_app_pc next, even though that new bb will be
@@ -11073,6 +11079,8 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
 #ifdef JITOPT
     if (is_jit_managed_area(flush_start))
         dgc_notify_region_cleared(flush_start, flush_start+flush_size);
+    else
+        notify_exec_invalidation(flush_start, flush_size);
     //dr_printf(" === modified code! (case 2) ===\n");
 #endif
     return instr_app_pc;
