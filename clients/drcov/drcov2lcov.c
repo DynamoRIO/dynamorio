@@ -85,6 +85,21 @@
 
 #define DEFAULT_OUTPUT_FILE "coverage.info"
 
+/* Rather than skip these in the client and put them into the unknown module,
+ * we give the user a chance to display these if desired.
+ * But by default we hide them, as they are confusing in the output.
+ * They are present on the app module list for various reasons (xref i#479).
+ */
+#ifdef WINDOWS
+# define DR_LIB_NAME "dynamorio.dll"
+# define DR_PRELOAD_NAME "preinject.dll"
+# define DRCOV_LIB_NAME "drcov.dll"
+#else
+# define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
+# define DR_PRELOAD_NAME "libdrpreload."
+# define DRCOV_LIB_NAME "libdrcov."
+#endif
+
 const char *usage_str =
     "drcov2lcov: covert drcov file format to lcov file format\n"
     "usage: drcov2lcov [options]\n"
@@ -100,7 +115,8 @@ const char *usage_str =
     "      -mod_skip_filter <module filter>   Skip processing the module whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -src_filter <source filter>        Only process the source file whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -src_skip_filter <source filter>   Skip processing the source file whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
+    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n"
+    "      -include_tool_code                 Include execution from the drcov tool libraries themselves, which are normally excluded.\n";
 
 static char input_file_buf[MAXIMUM_PATH];
 static char input_dir_buf[MAXIMUM_PATH];
@@ -121,6 +137,7 @@ typedef struct _option_t {
     char *mod_skip_filter;
     char *set_file;
     char *test_pattern; /* i#1465: test cov info */
+    bool include_tool_code;
 } option_t;
 static option_t options;
 
@@ -697,6 +714,14 @@ module_table_create(const char *module, size_t size)
     return table;
 }
 
+static bool
+module_is_from_tool(const char * path)
+{
+    return (strstr(path, DR_LIB_NAME) != NULL ||
+            strstr(path, DR_PRELOAD_NAME) != NULL ||
+            strstr(path, DRCOV_LIB_NAME) != NULL);
+}
+
 static char *
 read_module_list(char *buf, void ***tables, uint *num_mods)
 {
@@ -730,11 +755,15 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
         if (mod_table == NULL) {
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
+            /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+             * so these should be case-insensitive on Windows.
+             */
             if (strstr(path, "<unknown>") != NULL ||
                 (options.mod_filter != NULL &&
                  strstr(path, options.mod_filter) == NULL) ||
                 (options.mod_skip_filter != NULL &&
-                 strstr(path, options.mod_skip_filter) != NULL))
+                 strstr(path, options.mod_skip_filter) != NULL) ||
+                (!options.include_tool_code && module_is_from_tool(path)))
                 mod_table = MODULE_TABLE_IGNORE;
             else
                 mod_table = module_table_create(path, (size_t)mod_size);
@@ -1035,7 +1064,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
     const char *test_info = NULL;
-    /* i#1445: we have seen the pdb convert paths to all-lowercase,
+    /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||
@@ -1085,13 +1114,7 @@ enumerate_line_info(void)
             PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
             if (strcmp((char *)e->key, "<unknown>") == 0)
                 continue;
-            /* i#1445: we have seen the pdb convert paths to all-lowercase,
-             * so these should be case-insensitive on Windows.
-             */
-            if ((options.mod_filter != NULL &&
-                 strstr((char *)e->key, options.mod_filter) == NULL) ||
-                (options.mod_skip_filter != NULL &&
-                 strstr((char *)e->key, options.mod_skip_filter) != NULL))
+            if (e->payload == MODULE_TABLE_IGNORE)
                 continue;
             res = drsym_enumerate_lines(e->key, enum_line_cb, e->payload);
             if (res != DRSYM_SUCCESS)
@@ -1229,6 +1252,8 @@ option_init(int argc, char *argv[])
             if (++i >= argc)
                 return false;
             options.set_file = argv[i];
+        } else if (strcmp(ops, "-include_tool_code") == 0) {
+            options.include_tool_code = true;
         } else if (strcmp(ops, "-verbose") == 0) {
             char *end;
             long int res;
