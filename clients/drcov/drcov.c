@@ -462,6 +462,7 @@ version_print(file_t log)
         return;
     }
     dr_fprintf(log, "DRCOV VERSION: %d\n", DRCOV_VERSION);
+    dr_fprintf(log, "DRCOV FLAVOR: %s\n", DRCOV_FLAVOR);
 }
 
 static void

@@ -702,18 +702,8 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
 {
     char  path[MAXIMUM_PATH];
     uint  i;
-    uint  version;
 
     PRINT(3, "Reading module table...\n");
-    /* versione number */
-    PRINT(4, "Reading version number");
-    if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1 &&
-        version != DRCOV_VERSION) {
-        WARN(2, "Failed to read version number");
-        return NULL;
-    }
-    buf = move_to_next_line(buf);
-
     /* module table header */
     PRINT(4, "Reading Module Table Header\n");
     if (dr_sscanf(buf, "Module Table: %d\n", num_mods) != 1) {
@@ -784,6 +774,42 @@ read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
     return add_new_bb;
 }
 
+static char *
+read_file_header(char *buf)
+{
+    char  str[MAXIMUM_PATH];
+    uint  version;
+
+    PRINT(3, "Reading file header...\n");
+    /* version number */
+    PRINT(4, "Reading version number\n");
+    if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
+        WARN(2, "Failed to read version number");
+        return NULL;
+    }
+    if (version != DRCOV_VERSION) {
+        WARN(2, "Version mismatch: file version %d vs tool version %d\n",
+             version, DRCOV_VERSION);
+        return NULL;
+    }
+    buf = move_to_next_line(buf);
+
+    /* flavor */
+    PRINT(4, "Reading flavor\n");
+    /* XXX i#1143: switch to dr_sscanf once it supports %[] */
+    if (sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
+        WARN(2, "Failed to read version number");
+        return NULL;
+    }
+    if (strcmp(str, DRCOV_FLAVOR) != 0) {
+        WARN(2, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
+        return NULL;
+    }
+    buf = move_to_next_line(buf);
+
+    return buf;
+}
+
 static file_t
 open_input_file(const char *fname, char **map_out OUT,
                 size_t *map_size OUT, uint64 *file_sz OUT)
@@ -844,7 +870,13 @@ read_drcov_file(char *input)
         WARN(1, "Failed to read drcov log file %s\n", input);
         return false;
     }
-    ptr = read_module_list(map, &tables, &num_mods);
+    ptr = read_file_header(map);
+    if (ptr == NULL) {
+        WARN(1, "Invalid version or bitwidth in drcov log file %s\n", input);
+        return false;
+    }
+
+    ptr = read_module_list(ptr, &tables, &num_mods);
     if (ptr == NULL)
         return false;
 
