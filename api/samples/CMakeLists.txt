@@ -51,9 +51,13 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+
+set(output_dir "${PROJECT_BINARY_DIR}/bin")
+# For a DR build dir, ensure rpath to DR lib matches install dir: # NON-PUBLIC
+set(output_dir "${PROJECT_BINARY_DIR}/../bin") # NON-PUBLIC
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${output_dir}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${output_dir}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # we don't support the Debug and Release subdirs
   foreach (config ${CMAKE_CONFIGURATION_TYPES})
@@ -166,11 +170,6 @@ endfunction (add_sample_client)
 function (add_sample_standalone name source_file_list)
   add_executable(${name} ${source_file_list})
 
-  # We don't want an rpath as it makes it hard to switch
-  # between debug and release at runtime (rpath is removed
-  # on "make install"; here we avoid in build dir).
-  # DynamoRIOConfig.cmake sets for standalone but not lib.
-  set(DynamoRIO_RPATH OFF)
   configure_DynamoRIO_standalone(${name})
 
   # Provide a hint for running
