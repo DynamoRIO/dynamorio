@@ -141,6 +141,6 @@ is_dgc_optimization_label(instr_t * instr)
     return false;
 }
 
-#endif /* JIJTOPT */
+#endif /* JITOPT */
 
 #endif

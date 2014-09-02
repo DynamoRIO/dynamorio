@@ -379,7 +379,7 @@ bool
 get_non_jit_area_bounds(app_pc addr, app_pc *start, size_t *size);
 
 bool
-set_region_jit_monitored(app_pc start, size_t len, uint *prot);
+set_region_jit_monitored(app_pc start, size_t len);
 
 bool
 set_region_dgc_writer(app_pc start, size_t len);

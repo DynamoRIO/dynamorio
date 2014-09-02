@@ -3559,8 +3559,9 @@ get_non_jit_area_bounds(app_pc addr, app_pc *start, size_t *size)
 }
 
 bool
-set_region_jit_monitored(app_pc start, size_t len, uint *prot)
+set_region_jit_monitored(app_pc start, size_t len)
 {
+    bool set = false;
     vm_area_t *region;
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "DGC: set_region_jit_monitored("PFX" +0x%x)\n",
         start, len);
@@ -3575,13 +3576,13 @@ set_region_jit_monitored(app_pc start, size_t len, uint *prot)
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
                             "DGC: Region ("PFX" +0x%x) 'made readonly'"
                             " and JIT monitored.\n", start, len);
+                set = true;
             }
         } else {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
                         "DGC: Error! Region has the wrong bounds!: "
                         "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
                         start, start+len, region->start, region->end);
-            return false;
         }
     } else {
         RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
@@ -3591,15 +3592,10 @@ set_region_jit_monitored(app_pc start, size_t len, uint *prot)
         add_vm_area(executable_areas, start, start+len,
                     VM_JIT_MONITORED | VM_DELAY_READONLY | VM_DGC_WRITER, 0, NULL
                     _IF_DEBUG("JIT monitored"));
-    }
-    if (!get_memory_info(start, NULL, NULL, prot)) {
-        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
-                    "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
-                    start, len);
-        return false;
+        set = true;
     }
     write_unlock(&executable_areas->lock);
-    return true;
+    return set;
 }
 
 bool
@@ -10664,7 +10660,8 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
      * app die, not us trigger assertion!
      */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: handle_modified_code() in "PFX"\n", f->tag);
+                "DGC: handle_modified_code() in "PFX" on thread 0x%x\n",
+                f->tag, get_thread_id());
     /* In the absence of reset, f MUST still be in the cache since we're still
      * nolinking, and pclookup will find it even if it's no longer in htables.
      * But, a reset can result in not having the fragment available at all.  In

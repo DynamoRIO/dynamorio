@@ -6809,6 +6809,9 @@ flush_fragments_in_region_start(dcontext_t *dcontext, app_pc base, size_t size,
                                 bool exec_invalid, bool force_synchall
                                 _IF_DGCDIAG(app_pc written_pc))
 {
+    RELEASE_LOG(THREAD, LOG_FRAGMENT, 1, "flush_fragments_in_region_start("PFX", 0x%x)%s\n",
+                base, size, exec_invalid ? "" : " <exec invalid>");
+
     KSTART(flush_region);
     while (true) {
         if (flush_fragments_synch_unlink_priv(dcontext, base, size, own_initexit_lock,

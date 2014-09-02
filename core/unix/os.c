@@ -3932,6 +3932,8 @@ make_writable(byte *pc, size_t size)
     res = mprotect_syscall((void *) start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_writable: pc "PFX" -> "PFX"-"PFX" %d\n",
         pc, start_page, start_page + prot_size, res);
+    RELEASE_LOG(THREAD_GET, LOG_VMAREAS, 3, "make_writable: pc "PFX" -> "PFX"-"PFX" %d\n",
+                pc, start_page, start_page + prot_size, res);
     ASSERT(res == 0);
     if (res != 0)
         return false;
@@ -3992,6 +3994,8 @@ make_unwritable(byte *pc, size_t size)
     res = mprotect_syscall((void *) start_page, prot_size, prot);
     LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc "PFX" -> "PFX"-"PFX"\n",
         pc, start_page, start_page + prot_size);
+    RELEASE_LOG(THREAD_GET, LOG_VMAREAS, 3, "make_unwritable: pc "PFX" -> "PFX"-"PFX"\n",
+                pc, start_page, start_page + prot_size);
     ASSERT(res == 0);
 
 # ifndef HAVE_MEMINFO_QUERY

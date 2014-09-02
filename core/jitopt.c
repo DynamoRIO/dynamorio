@@ -215,7 +215,7 @@ static dgc_stats_t *dgc_stats;
 generic_table_t *emulation_plans;
 
 #define JIT_MANAGED_FLUSH_THRESHOLD 10
-#define MAX_EXEC_AREA_COUNTERS 100
+#define MAX_EXEC_AREA_COUNTERS 1000
 
 typedef struct _exec_area_counter_t {
     app_pc start;
@@ -225,10 +225,22 @@ typedef struct _exec_area_counter_t {
 
 typedef struct _exec_area_counters_t {
     uint size;
-    exec_area_counter_t counters[MAX_EXEC_AREA_COUNTERS];
+    uint max_size;
+    exec_area_counter_t *counters;
 } exec_area_counters_t;
 
 static exec_area_counters_t *exec_area_counters;
+
+#define EXPAND_ARRAY(array, max_size, type) \
+do { \
+    void *original_array = (void *)(array); \
+    (array) = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, type, (max_size) * 2, \
+                               ACCT_OTHER, UNPROTECTED); \
+    memcpy((array), original_array, (max_size) * sizeof(type)); \
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, original_array, type, (max_size), \
+                    ACCT_OTHER, UNPROTECTED); \
+    (max_size) *= 2; \
+} while (0)
 
 #if !(defined (WINDOWS) && defined (X64))
 static ptr_uint_t
@@ -289,9 +301,6 @@ remove_dgc_writer_offsets(app_pc start, size_t size);
 static void
 check_stale_bbs();
 #endif
-
-static void
-expand_intersection_array(void **array, uint *max_size);
 
 void
 jitopt_init()
@@ -373,6 +382,12 @@ jitopt_init()
     exec_area_counters = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, exec_area_counters_t,
                                          ACCT_OTHER, UNPROTECTED);
     memset(exec_area_counters, 0, sizeof(exec_area_counters_t));
+    exec_area_counters->max_size = 100;
+    exec_area_counters->counters = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, exec_area_counter_t,
+                                                    exec_area_counters->max_size,
+                                                    ACCT_OTHER, UNPROTECTED);
+    memset(exec_area_counters->counters, 0,
+           sizeof(exec_area_counter_t) * exec_area_counters->max_size);
 #endif
     dgc_stats = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_stats_t, ACCT_OTHER, UNPROTECTED);
     memset(dgc_stats, 0, sizeof(dgc_stats_t));
@@ -424,6 +439,8 @@ jitopt_exit()
                    ACCT_OTHER, UNPROTECTED);
     DELETE_LOCK(dgc_mapping_lock);
 
+    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, exec_area_counters->counters, exec_area_counter_t,
+                    exec_area_counters->max_size, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, exec_area_counters, exec_area_counters_t,
                    ACCT_OTHER, UNPROTECTED);
 #endif
@@ -443,8 +460,8 @@ jitopt_thread_init(dcontext_t *dcontext)
                 get_thread_id(), state->dgc_mapping_table);
 }
 
-void
-annotation_manage_code_area(app_pc start, size_t len)
+static void
+manage_code_area(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
     //dr_printf("Manage code area "PFX"-"PFX"\n",
@@ -453,7 +470,18 @@ annotation_manage_code_area(app_pc start, size_t len)
                 start, start+len);
 #ifdef JIT_MONITORED_AREAS
     uint prot;
-    set_region_jit_monitored(start, len, &prot);
+    if (!set_region_jit_monitored(start, len)) {
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                    "DGC: Failed to manage area; already managed! "PFX" +0x%x \n",
+                    start, len);
+        return;
+    }
+    if (!get_memory_info(start, NULL, NULL, &prot)) {
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                    "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
+                    start, len);
+        return;
+    }
     setup_double_mapping(dcontext, start, len, prot);
 #else
     set_region_app_managed(start, len);
@@ -463,6 +491,12 @@ annotation_manage_code_area(app_pc start, size_t len)
         thread_state->scaled_trace_head_tables = true;
         set_trace_head_table_resize_scale(5);
     }
+}
+
+void
+annotation_manage_code_area(app_pc start, size_t len)
+{
+    manage_code_area(start, len);
 }
 
 void
@@ -531,7 +565,9 @@ annotation_flush_fragments(app_pc start, size_t len)
     if (true) {
         uint removal_count = remove_patchable_fragments(dcontext, start, start+len);
         if (removal_count > 0) {
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Removed %d fragments in ["PFX"-"PFX"].\n", removal_count, start, start+len);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "Removed %d fragments in ["PFX"-"PFX"].\n",
+                        removal_count, start, start+len);
             RSTATS_INC(app_managed_writes_handled);
             RSTATS_ADD(app_managed_fragments_removed, removal_count);
 
@@ -919,8 +955,8 @@ setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
     ptr_int_t page_delta;
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Setup double-mapping for "PFX" +0x%x\n",
-                start, len);
+                "DGC: Setup double-mapping for "PFX" +0x%x on thread 0x%x\n",
+                start, len, get_thread_id());
 
     page_delta = get_double_mapped_page_delta(dcontext, start, len, prot);
     if (page_delta == 0) {
@@ -940,10 +976,13 @@ void
 notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly)
 {
     mutex_lock(&dgc_mapping_lock);
+    RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_readonly_for_cache_consistency("PFX", 0x%x, %s)\n",
+                start, size, now_readonly ? "readonly" : "writable");
     if (now_readonly) {
         dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(start);
         if (mapping == NULL)
             insert_dgc_writer_offsets(start, size, 1);
+        // else there is a double-mapping, so leave it intact
     } else {
         remove_dgc_writer_offsets(start, size);
     }
@@ -956,9 +995,13 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
-    if (get_non_jit_area_bounds(pc, &start, &size))
-        annotation_manage_code_area(start, size);
-    else
+    if (get_non_jit_area_bounds(pc, &start, &size)) {
+        DEBUG_DECLARE(uint prot;);
+        ASSERT(get_memory_info(start, NULL, NULL, &prot));
+        ASSERT(!TEST(PROT_WRITE, prot));
+        manage_code_area(start, size);
+
+    } else
         RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area failed at "PFX"\n", pc);
 }
 
@@ -968,27 +1011,32 @@ notify_exec_invalidation(app_pc start, size_t size)
     uint i;
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_exec_invalidation("PFX", 0x%x)\n",
                 start, size);
-    //ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    mutex_lock(&dgc_mapping_lock);
     for (i = 0; i < exec_area_counters->size; i++) {
         if (exec_area_counters->counters[i].start == start) {
+            uint count = exec_area_counters->counters[i].count++;
+            mutex_unlock(&dgc_mapping_lock);
             ASSERT(exec_area_counters->counters[i].size == size);
-            exec_area_counters->counters[i].count++;
             RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "exec_invalidation_count %d for "PFX"\n",
                         exec_area_counters->counters[i].count, start);
-            if (exec_area_counters->counters[i].count > JIT_MANAGED_FLUSH_THRESHOLD) {
+            if (count > JIT_MANAGED_FLUSH_THRESHOLD) {
                 RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "Time to manage vmarea "PFX"\n",
                             start);
-                annotation_manage_code_area(start, size);
+                manage_code_area(start, size);
             }
             return;
         }
     }
     i = exec_area_counters->size;
     exec_area_counters->size++;
-    ASSERT(exec_area_counters->size < MAX_EXEC_AREA_COUNTERS);
+    if (exec_area_counters->size >= exec_area_counters->max_size) {
+        EXPAND_ARRAY(exec_area_counters->counters,
+                     exec_area_counters->max_size, exec_area_counter_t);
+    }
     exec_area_counters->counters[i].start = start;
     exec_area_counters->counters[i].size = size;
     exec_area_counters->counters[i].count = 0;
+    mutex_unlock(&dgc_mapping_lock);
 }
 
 bool
@@ -1655,10 +1703,10 @@ dgc_stage_bucket_for_gc(dgc_bucket_t *bucket)
     }
     if (!found) {
         if (i >= (dgc_bucket_gc_list->max_staging-1)) {
-            expand_intersection_array((void **) &dgc_bucket_gc_list->staging,
-                                      &dgc_bucket_gc_list->max_staging);
-            expand_intersection_array((void **) &dgc_bucket_gc_list->removals,
-                                      &dgc_bucket_gc_list->max_removals);
+            EXPAND_ARRAY(dgc_bucket_gc_list->staging,
+                         dgc_bucket_gc_list->max_staging, dgc_bucket_t *);
+            EXPAND_ARRAY(dgc_bucket_gc_list->removals,
+                         dgc_bucket_gc_list->max_removals, dgc_bucket_t *);
             //RELEASE_ASSERT(false, "GC staging list too full (%d) during %s",
             //               i, dgc_bucket_gc_list->current_operation);
         }
@@ -2097,8 +2145,8 @@ patchable_bb_linked(dcontext_t *dcontext, fragment_t *f)
                 fragment_t *in = linkstub_fragment(dcontext, (linkstub_t *)s);
                 dgc_removal_queue->tags[dgc_removal_queue->index++] = in->tag;
                 if (dgc_removal_queue->index == dgc_removal_queue->max) {
-                    expand_intersection_array((void **) &dgc_removal_queue->tags,
-                                              &dgc_removal_queue->max);
+                    EXPAND_ARRAY(dgc_removal_queue->tags,
+                                 dgc_removal_queue->max, app_pc);
                 }
                 s = t;
                 count--;
@@ -2108,19 +2156,6 @@ patchable_bb_linked(dcontext_t *dcontext, fragment_t *f)
     }
 #undef MAX_LINKSTUBS
 #undef LINKSTUB_SAMPLE_INTERVAL
-}
-
-static void
-expand_intersection_array(void **array, uint *max_size)
-{
-    void *original_array = *array;
-
-    *array = HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, *max_size * 2,
-                              ACCT_OTHER, UNPROTECTED);
-    memcpy(*array, original_array, *max_size * sizeof(void *));
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, original_array, app_pc, *max_size,
-                    ACCT_OTHER, UNPROTECTED);
-    *max_size *= 2;
 }
 
 static bool
@@ -2180,8 +2215,8 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 
         fragment_intersection->shared_deletions[fragment_intersection->shared_deletion_index++] = f;
         if (fragment_intersection->shared_deletion_index == fragment_intersection->shared_deletion_max) {
-            expand_intersection_array((void **) &fragment_intersection->shared_deletions,
-                                      &fragment_intersection->shared_deletion_max);
+            EXPAND_ARRAY(fragment_intersection->shared_deletions,
+                         fragment_intersection->shared_deletion_max, fragment_t *);
         }
     } else {
         acquire_vm_areas_lock(dcontext, f->flags);
@@ -2457,15 +2492,15 @@ add_trace_intersection(dgc_trace_t *trace, uint i)
     if (!has_tag(trace->tags[0], fragment_intersection->trace_tags, i))
         fragment_intersection->trace_tags[i++] = trace->tags[0];
     if (i == fragment_intersection->trace_tag_max) {
-        expand_intersection_array((void **) &fragment_intersection->trace_tags,
-                                  &fragment_intersection->trace_tag_max);
+        EXPAND_ARRAY(fragment_intersection->trace_tags,
+                     fragment_intersection->trace_tag_max, app_pc);
     }
     if (trace->tags[1] != NULL && !has_tag(trace->tags[1],
                                            fragment_intersection->trace_tags, i))
         fragment_intersection->trace_tags[i++] = trace->tags[1];
     if (i == fragment_intersection->trace_tag_max) {
-        expand_intersection_array((void **) &fragment_intersection->trace_tags,
-                                  &fragment_intersection->trace_tag_max);
+        EXPAND_ARRAY(fragment_intersection->trace_tags,
+                     fragment_intersection->trace_tag_max, app_pc);
     }
     return i;
 }
@@ -2510,8 +2545,8 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
                         i_bb++;
                     }
                     if (i_bb == fragment_intersection->bb_tag_max) {
-                        expand_intersection_array((void **) &fragment_intersection->bb_tags,
-                                                  &fragment_intersection->bb_tag_max);
+                        EXPAND_ARRAY(fragment_intersection->bb_tags,
+                                     fragment_intersection->bb_tag_max, app_pc);
                     }
                     trace = dgc_bb_head(bb)->containing_trace_list;
                     while (trace != NULL) {
@@ -2530,8 +2565,8 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
     for (i = 0; i < dgc_removal_queue->index; i++) {
         fragment_intersection->bb_tags[i_bb++] = dgc_removal_queue->tags[i];
         if (i_bb == fragment_intersection->bb_tag_max) {
-            expand_intersection_array((void **) &fragment_intersection->bb_tags,
-                                      &fragment_intersection->bb_tag_max);
+            EXPAND_ARRAY(fragment_intersection->bb_tags,
+                         fragment_intersection->bb_tag_max, app_pc);
         }
     }
     dgc_removal_queue->index = 0;
