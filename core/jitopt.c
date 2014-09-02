@@ -745,7 +745,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     new_mapping->size = app_memory_size;
 
     memcpy(file, "/dev/shm/jit_", 13);
-    file[13] = '0' + double_mappings->index;
+    file[13] = 'a' + double_mappings->index;
     file[14] = '\0';
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Mapping "PFX" +0x%x to shmem %s\n",
@@ -996,11 +996,16 @@ locate_and_manage_code_area(app_pc pc)
     app_pc start;
     size_t size;
     if (get_non_jit_area_bounds(pc, &start, &size)) {
+        dcontext_t *dcontext = get_thread_private_dcontext();
         DEBUG_DECLARE(uint prot;);
         ASSERT(get_memory_info(start, NULL, NULL, &prot));
         ASSERT(!TEST(PROT_WRITE, prot));
-        manage_code_area(start, size);
-
+        //manage_code_area(start, size);
+        mutex_lock(&thread_initexit_lock);
+        flush_fragments_and_remove_region(dcontext, start, size,
+                                          true /* own initexit_lock */, false);
+        mutex_unlock(&thread_initexit_lock);
+        notify_exec_invalidation(start, size);
     } else
         RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area failed at "PFX"\n", pc);
 }

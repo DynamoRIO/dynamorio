@@ -3571,8 +3571,9 @@ set_region_jit_monitored(app_pc start, size_t len)
             if (!TEST(VM_JIT_MONITORED, region->vm_flags)) {
                 region->vm_flags |= VM_JIT_MONITORED;
                 region->vm_flags |= VM_DGC_WRITER;
-                if (!TEST(VM_MADE_READONLY, region->vm_flags))
-                    region->vm_flags |= VM_DELAY_READONLY;
+                ASSERT(TEST(VM_MADE_READONLY, region->vm_flags));
+                //if (!TEST(VM_MADE_READONLY, region->vm_flags))
+                //    region->vm_flags |= VM_DELAY_READONLY;
                 RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
                             "DGC: Region ("PFX" +0x%x) 'made readonly'"
                             " and JIT monitored.\n", start, len);
