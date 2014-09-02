@@ -280,6 +280,12 @@ DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 DR_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt"
   DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
+if (WIN32)                                                    # NON-PUBLIC
+  # have a copy of dynamorio library for tracedump            # NON-PUBLIC
+  get_target_property(DR_TARGET_LOCATION dynamorio LOCATION)  # NON-PUBLIC
+  DR_install(FILES "${DR_TARGET_LOCATION}"                    # NON-PUBLIC
+    DESTINATION "${INSTALL_SAMPLES_BIN}")                     # NON-PUBLIC
+endif (WIN32)                                                 # NON-PUBLIC
 
 DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_SAMPLES_BIN}

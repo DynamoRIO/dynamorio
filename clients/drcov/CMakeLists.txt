@@ -121,8 +121,7 @@ if (WIN32)
   DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
     DESTINATION "${INSTALL_CLIENTS_BIN}"
     FILES_MATCHING
-    PATTERN "dynamorio.dll" PATTERN "libdynamorio.so*"
-    PATTERN "lib*.debug" EXCLUDE)
+    PATTERN "dynamorio.dll")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drcov2lcov works pre-Vista.
   if (dbghelp_path)
