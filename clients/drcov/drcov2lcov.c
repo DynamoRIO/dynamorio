@@ -108,7 +108,7 @@ const char *usage_str =
     "      -warning <int>                     Warning level.\n"
     "      -list <input list file>            The file with a list of drcov files to be processed.\n"
     "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
-    "      -input <input file>                The single drcov file to be processed."
+    "      -input <input file>                The single drcov file to be processed.\n"
     "      -output <output file>              The output file.\n"
     "      -test_pattern <test name pattern>  Include test coverage information. Note that the output with this option is not compatible with lcov.\n"
     "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"

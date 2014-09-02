@@ -101,7 +101,7 @@ foreach (src ${srcs})
 
   target_link_libraries(${tgt} imagehlp.lib)
 
-  get_target_property(tgtnm ${tgt} LOCATION)
+  get_target_property(tgtnm ${tgt} LOCATION${location_suffix})
   if (UNIX)
     set(FIND_MSG "(set LD_LIBRARY_PATH)")
   else (UNIX)
