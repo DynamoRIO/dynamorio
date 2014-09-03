@@ -145,6 +145,8 @@ static void free_table();
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'MF_moduledb'",
+                       "http://dynamorio.org/issues");
     VDISPLAY_FUNC(NAME" initializing.");
 
     /* register the events we wish to handle */

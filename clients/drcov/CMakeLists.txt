@@ -57,6 +57,8 @@ configure_DynamoRIO_client(drcov)
 use_DynamoRIO_extension(drcov drmgr)
 use_DynamoRIO_extension(drcov drx)
 use_DynamoRIO_extension(drcov drcontainers)
+# We keep our shared libs in the lib dir, not the bin dir:
+place_shared_lib_in_lib_dir(drcov)
 
 # ensure we rebuild if includes change
 add_dependencies(drcov api_headers)
@@ -101,9 +103,8 @@ if (WIN32 AND GENERATE_PDBS)
   append_property_string(TARGET drcov2lcov LINK_FLAGS "/debug")
 endif (WIN32 AND GENERATE_PDBS)
 
-DR_export_target(drcov)
-install_exported_target(drcov ${INSTALL_CLIENTS_LIB})
-install_exported_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
+install_target(drcov ${INSTALL_CLIENTS_LIB})
+install_target(drcov2lcov ${INSTALL_CLIENTS_BIN})
 # Create a legacy-named copy of the executable
 get_target_property(exe_path drcov2lcov LOCATION${location_suffix})
 get_filename_component(legacy_exe "${exe_path}" NAME)
@@ -117,11 +118,8 @@ DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 
 # On Linux we rely on the rpath
 if (WIN32)
-  DR_install(DIRECTORY "${DR_LIBRARY_OUTPUT_DIRECTORY}/"
-    DESTINATION "${INSTALL_CLIENTS_BIN}"
-    FILES_MATCHING
-    PATTERN "dynamorio.dll" PATTERN "libdynamorio.so*"
-    PATTERN "lib*.debug" EXCLUDE)
+  get_target_property(DR_TARGET_LOCATION dynamorio LOCATION${location_suffix})
+  DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drcov2lcov works pre-Vista.
   if (dbghelp_path)

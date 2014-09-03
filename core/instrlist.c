@@ -190,7 +190,7 @@ instrlist_first_app(instrlist_t *ilist)
 
     if (first == NULL)
         return NULL;
-    if (instr_ok_to_mangle(first))
+    if (instr_is_app(first))
         return first;
 
     return instr_get_next_app(first);

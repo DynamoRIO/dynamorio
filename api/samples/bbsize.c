@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -58,6 +59,8 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'bbsize'",
+                       "http://dynamorio.org/issues");
     num_bb = 0;
     ave_size = 0.;
     max_size = 0;
@@ -112,7 +115,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     proc_save_fpstate(fp_align);
 
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr))
+    for (instr  = instrlist_first_app(bb);
+         instr != NULL;
+         instr  = instr_get_next_app(instr))
         cur_size++;
 
     dr_mutex_lock(stats_mutex);

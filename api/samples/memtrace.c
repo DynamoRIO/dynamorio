@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2010 Massachusetts Institute of Technology  All rights reserved.
  * ******************************************************************************/
 
@@ -53,15 +53,7 @@
 #include "dr_api.h"
 #include "drmgr.h"
 #include "drutil.h"
-
-#ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-#else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
-#endif
-
-#define NULL_TERMINATE(buf) buf[(sizeof(buf)/sizeof(buf[0])) - 1] = '\0'
-
+#include "utils.h"
 
 /* Each mem_ref_t includes the type of reference (read or write),
  * the address referenced, and the size of the reference.
@@ -133,6 +125,8 @@ dr_init(client_id_t id)
         NULL,             /* optional name of operation we should precede */
         NULL,             /* optional name of operation we should follow */
         0};               /* numeric priority */
+    dr_set_client_name("DynamoRIO Sample Client 'memtrace'",
+                       "http://dynamorio.org/issues");
     drmgr_init();
     drutil_init();
     client_id = id;
@@ -178,7 +172,7 @@ event_exit()
                       "  saw %llu memory references\n",
                       num_refs);
     DR_ASSERT(len > 0);
-    NULL_TERMINATE(msg);
+    NULL_TERMINATE_BUFFER(msg);
     DISPLAY_STRING(msg);
 #endif /* SHOW_RESULTS */
     code_cache_exit();
@@ -197,9 +191,6 @@ event_exit()
 static void
 event_thread_init(void *drcontext)
 {
-    char logname[MAXIMUM_PATH];
-    char *dirsep;
-    int len;
     per_thread_t *data;
 
     /* allocate thread private data */
@@ -216,28 +207,12 @@ event_thread_init(void *drcontext)
      * the same directory as our library. We could also pass
      * in a path and retrieve with dr_get_options().
      */
-    len = dr_snprintf(logname, sizeof(logname)/sizeof(logname[0]),
-                      "%s", dr_get_client_path(client_id));
-    DR_ASSERT(len > 0);
-    for (dirsep = logname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
-        DR_ASSERT(dirsep > logname);
-    len = dr_snprintf(dirsep + 1,
-                      (sizeof(logname) - (dirsep - logname))/sizeof(logname[0]),
-                      "memtrace.%d.log", dr_get_thread_id(drcontext));
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE(logname);
-    data->log = dr_open_file(logname,
-                             DR_FILE_WRITE_OVERWRITE | DR_FILE_ALLOW_LARGE);
-    DR_ASSERT(data->log != INVALID_FILE);
-    dr_log(drcontext, LOG_ALL, 1,
-           "memtrace: log for thread "TIDFMT" is memtrace.%03d\n",
-           dr_get_thread_id(drcontext), dr_get_thread_id(drcontext));
-#ifdef SHOW_RESULTS
-    if (dr_is_notify_on()) {
-        dr_fprintf(STDERR, "<memtrace results for thread "TIDFMT" in %s>\n",
-                   dr_get_thread_id(drcontext), logname);
-    }
+    data->log = log_file_open(client_id, drcontext, NULL /* using client lib path */,
+                              "memtrace",
+#ifndef WINDOWS
+                              DR_FILE_CLOSE_ON_FORK |
 #endif
+                              DR_FILE_ALLOW_LARGE);
 }
 
 
@@ -251,7 +226,7 @@ event_thread_exit(void *drcontext)
     dr_mutex_lock(mutex);
     num_refs += data->num_refs;
     dr_mutex_unlock(mutex);
-    dr_close_file(data->log);
+    log_file_close(data->log);
     dr_thread_free(drcontext, data->buf_base, MEM_BUF_SIZE);
     dr_thread_free(drcontext, data, sizeof(per_thread_t));
 }
@@ -463,9 +438,9 @@ instrument_mem(void *drcontext, instrlist_t *ilist, instr_t *where,
     opnd1 = OPND_CREATE_MEMPTR(reg2, offsetof(mem_ref_t, pc));
     instrlist_insert_mov_immed_ptrsz(drcontext, (ptr_int_t) pc, opnd1,
                                      ilist, where, &first, &second);
-    instr_set_ok_to_mangle(first, false/*meta*/);
+    instr_set_meta(first);
     if (second != NULL)
-        instr_set_ok_to_mangle(second, false/*meta*/);
+        instr_set_meta(second);
 
     /* Increment reg value by pointer size using lea instr */
     opnd1 = opnd_create_reg(reg2);

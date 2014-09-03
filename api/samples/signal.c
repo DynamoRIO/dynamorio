@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -57,6 +58,8 @@ static dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'signal'",
+                       "http://dynamorio.org/issues");
 #ifdef UNIX
     dr_register_signal_event(event_signal);
 #endif

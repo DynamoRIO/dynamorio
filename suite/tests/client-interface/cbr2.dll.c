@@ -145,7 +145,7 @@ dr_emit_flags_t bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_t
              * Redirect the cbr to jump to our 'taken' callback.
              * The fallthrough will hit the 'not-taken' callback.
              */
-            instr_set_ok_to_mangle(instr, false);
+            instr_set_meta(instr);
             instr_set_translation(instr, NULL);
             /* If this is a short cti, make sure it can reach its new target */
             if (instr_is_cti_short(instr)) {

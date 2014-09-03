@@ -55,8 +55,9 @@ extern "C" {
 
 DR_EXPORT
 /**
- * Initializes the drx extension.  Must be called prior to any of the
- * other routines.  Can be called multiple times (by separate components,
+ * Initializes the drx extension.  Must be called prior to any drx routine
+ * that does not explicitly state otherwise.
+ * Can be called multiple times (by separate components,
  * normally) but each call must be paired with a corresponding call to
  * drx_exit().
  *
@@ -97,6 +98,8 @@ drx_reserve_note_range(size_t size);
 DR_EXPORT
 /**
  * Analyze if arithmetic flags are dead after (including) instruction \p where.
+ *
+ * \note May be called without calling drx_init().
  */
 bool
 drx_aflags_are_dead(instr_t *where);
@@ -130,6 +133,8 @@ DR_EXPORT
  * same \p where instruction and no other instructions should be inserted in
  * between. In that case, \p drx will try to merge the instrumentation for
  * better performance.
+ *
+ * \note May be called without calling drx_init().
  */
 bool
 drx_insert_counter_update(void *drcontext, instrlist_t *ilist, instr_t *where,
@@ -205,6 +210,8 @@ DR_EXPORT
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * \note May be called without calling drx_init().
  */
 file_t
 drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
@@ -222,6 +229,8 @@ DR_EXPORT
  *
  * On success, returns the file handle and optionally the resulting path
  * in \p result.  On failure, returns INVALID_FILE.
+ *
+ * \note May be called without calling drx_init().
  */
 file_t
 drx_open_unique_appid_file(const char *dir, ptr_int_t id,

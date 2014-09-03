@@ -289,8 +289,12 @@ search_env(const char *fname, const char *env_var, char *full_path,
            const size_t full_path_size)
 {
     bool ret = false;
-    return (drfront_searchenv(fname, env_var, full_path,
-                              full_path_size, &ret) == DRFRONT_SUCCESS && ret);
+    if (drfront_searchenv(fname, env_var, full_path,
+                          full_path_size, &ret) != DRFRONT_SUCCESS || !ret) {
+        full_path[0] = '\0';
+        return false;
+    }
+    return true;
 }
 #endif
 
@@ -585,8 +589,7 @@ bool register_client(const char *process_name,
     return true;
 }
 
-/* FIXME i#840: Port registered process iterator. */
-#ifdef WINDOWS
+#if defined(WINDOWS) || defined(DRRUN) || defined(DRCONFIG)
 static const char *
 platform_name(dr_platform_t platform)
 {
@@ -594,7 +597,10 @@ platform_name(dr_platform_t platform)
             IF_X64(|| platform == DR_PLATFORM_DEFAULT)) ?
         "64-bit" : "32-bit/WOW64";
 }
+#endif
 
+/* FIXME i#840: Port registered process iterator. */
+#ifdef WINDOWS
 static void
 list_process(char *name, bool global, dr_platform_t platform,
              dr_registered_process_iterator_t *iter)
@@ -668,10 +674,13 @@ append_client(const char *client, int id, const char *client_ops,
               const char *client_options[MAX_CLIENT_LIBS],
               size_t *num_clients)
 {
-    get_absolute_path(client, client_paths[*num_clients],
-                      BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
-    NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
-    info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+    /* We support an empty client for native -t usage */
+    if (client[0] != '\0') {
+        get_absolute_path(client, client_paths[*num_clients],
+                          BUFFER_SIZE_ELEMENTS(client_paths[*num_clients]));
+        NULL_TERMINATE_BUFFER(client_paths[*num_clients]);
+        info("client %d path: %s", (int)*num_clients, client_paths[*num_clients]);
+    }
     client_ids[*num_clients] = id;
     client_options[*num_clients] = client_ops;
     (*num_clients)++;
@@ -1324,8 +1333,7 @@ int main(int argc, char *argv[])
                                         &client_sofar,
                                         native_tool, BUFFER_SIZE_ELEMENTS(native_tool)))
                         usage(false, "unknown %s tool \"%s\" requested",
-                              (dr_platform == DR_PLATFORM_32BIT) ? "32-bit" : "64-bit",
-                              client);
+                              platform_name(dr_platform), client);
                     client = client_buf;
                 }
 
@@ -1500,7 +1508,10 @@ int main(int argc, char *argv[])
         if (get_platform(&platform) != ERROR_SUCCESS)
             platform = PLATFORM_UNKNOWN;
         if (platform >= PLATFORM_WIN_8) {
-            error("syswide_on is not yet supported on Windows 8");
+            /* FIXME i#1522: enable AppInit for non-WOW64 on win8+
+             * FIXME i#1035: enable AppInit for WOW64 win8+
+             */
+            error("syswide_on is not yet supported on Windows 8+");
             die();
         }
         if (!check_dr_root(dr_root, false, dr_platform, true))
@@ -1512,7 +1523,7 @@ int main(int argc, char *argv[])
             }
             else if (platform >= PLATFORM_WIN_7) {
                 /* i#323 will fix this but good to warn the user */
-                warn("on Windows 7, syswide_on relaxes system security by removing certain code signing requirements");
+                warn("on Windows 7+, syswide_on relaxes system security by removing certain code signing requirements");
             }
         }
         if (dr_register_syswide(dr_platform, dr_root) != ERROR_SUCCESS) {

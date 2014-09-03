@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -147,8 +147,8 @@ event_module_unload(void *drcontext, const module_data_t *info);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
-    char logname[64];
-    int len;
+    dr_set_client_name("DynamoRIO Sample Client 'modxfer'",
+                       "http://dynamorio.org/issues");
     drx_init();
     /* register events */
     dr_register_exit_event(event_exit);
@@ -158,13 +158,13 @@ dr_init(client_id_t id)
 
     mod_lock = dr_mutex_create();
 
-    len = dr_snprintf(logname, BUFFER_SIZE_ELEMENTS(logname),
-                      "modxfer.%d.log", dr_get_process_id());
-    DR_ASSERT(len > 0);
-    NULL_TERMINATE_BUFFER(logname);
     logfile = log_file_open(id, NULL /* drcontext */,
-                            NULL/* path */, logname,
-                            DR_FILE_WRITE_OVERWRITE);
+                            NULL/* path */, "modxfer",
+#ifndef WINDOWS
+                            DR_FILE_CLOSE_ON_FORK |
+#endif
+                            DR_FILE_ALLOW_LARGE);
+
     DR_ASSERT(logfile != INVALID_FILE);
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'modxfer' initializing\n");
@@ -252,12 +252,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
 
-    for (instr  = instrlist_first(bb), num_instrs = 0;
+    for (instr  = instrlist_first_app(bb), num_instrs = 0;
          instr != NULL;
-         instr = instr_get_next(instr)) {
-        /* only care about app instr */
-        if (!instr_ok_to_mangle(instr))
-            continue;
+         instr  = instr_get_next_app(instr)) {
         num_instrs++;
         /* Assuming most of the transfers between modules are paired, we
          * instrument indirect branches but not returns for better performance.

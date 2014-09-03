@@ -7070,7 +7070,9 @@ output_trace_binary(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
         stub.stub_pc = stub_pc;
         stub.target = EXIT_TARGET_TAG(dcontext, f, l);
         stub.linked = TEST(LINK_LINKED, l->flags);
-        stub.stub_size = DIRECT_EXIT_STUB_SIZE(f->flags);
+        stub.stub_size = EXIT_HAS_STUB(l->flags, f->flags) ?
+            DIRECT_EXIT_STUB_SIZE(f->flags) :
+            0 /* no stub neededd: -no_indirect_stubs */;
         ASSERT(DIRECT_EXIT_STUB_SIZE(f->flags) <= SEPARATE_STUB_MAX_SIZE);
 
         TRACEBUF_MAKE_ROOM(p, buf, STUB_DATA_FIXED_SIZE);

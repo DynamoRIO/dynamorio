@@ -143,7 +143,7 @@ dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 void
 instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_postinsert(ilist, where, inst);
 }
 

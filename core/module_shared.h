@@ -500,6 +500,9 @@ privload_lookup(const char *name);
 privmod_t *
 privload_lookup_by_base(app_pc modbase);
 
+privmod_t *
+privload_lookup_by_pc(app_pc modbase);
+
 /* name is assumed to be in immutable persistent storage.
  * a copy of path is made.
  */

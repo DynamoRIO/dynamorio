@@ -61,6 +61,7 @@ static strhash_table_t *ntdll_win7_table;
 static const redirect_import_t redirect_ntdll[] = {
     {"LdrGetProcedureAddress",            (app_pc)redirect_LdrGetProcedureAddress},
     {"LdrLoadDll",                        (app_pc)redirect_LdrLoadDll},
+    {"RtlPcToFileHeader",                 (app_pc)redirect_RtlPcToFileHeader},
     /* kernel32 passes some of its routines to ntdll where they are
      * stored in function pointers.  xref PR 215408 where on x64 we had
      * issues w/ these not showing up b/c no longer in relocs.
@@ -890,6 +891,29 @@ redirect_LdrLoadDll(IN PWSTR path OPTIONAL,
     }
 }
 
+PVOID NTAPI
+redirect_RtlPcToFileHeader(
+    __in PVOID PcValue,
+    __out PVOID *BaseOfImage
+    )
+{
+    PVOID res = NULL;
+    privmod_t *mod;
+    if (BaseOfImage == NULL) {
+        /* The real thing seems to just crash, but we can be more robust */
+        set_last_error(ERROR_INVALID_PARAMETER);
+        return NULL;
+    }
+    acquire_recursive_lock(&privload_lock);
+    mod = privload_lookup_by_pc(PcValue);
+    if (mod != NULL)
+        res = mod->base;
+    release_recursive_lock(&privload_lock);
+    *BaseOfImage = res;
+    LOG(GLOBAL, LOG_LOADER, 2, "%s "PFX" => "PFX"\n", __FUNCTION__, PcValue, res);
+    return res;
+}
+
 /***************************************************************************
  * i#875: FLS isolation
  */
@@ -1059,3 +1083,9 @@ redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
     }
     return STATUS_SUCCESS;
 }
+
+/* XXX: unfortunately we don't yet have a nice way to add unit tests for
+ * library lookup and other redirections that aren't as isolated as
+ * file or synch operations.
+ */
+

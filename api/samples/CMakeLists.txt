@@ -51,9 +51,13 @@ endif ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
 
 project(DynamoRIO_samples)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+
+set(output_dir "${PROJECT_BINARY_DIR}/bin")
+# For a DR build dir, ensure rpath to DR lib matches install dir: # NON-PUBLIC
+set(output_dir "${PROJECT_BINARY_DIR}/../bin") # NON-PUBLIC
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${output_dir}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${output_dir}")
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # we don't support the Debug and Release subdirs
   foreach (config ${CMAKE_CONFIGURATION_TYPES})
@@ -166,11 +170,6 @@ endfunction (add_sample_client)
 function (add_sample_standalone name source_file_list)
   add_executable(${name} ${source_file_list})
 
-  # We don't want an rpath as it makes it hard to switch
-  # between debug and release at runtime (rpath is removed
-  # on "make install"; here we avoid in build dir).
-  # DynamoRIOConfig.cmake sets for standalone but not lib.
-  set(DynamoRIO_RPATH OFF)
   configure_DynamoRIO_standalone(${name})
 
   # Provide a hint for running
@@ -212,22 +211,22 @@ add_sample_client(empty       "empty.c"         "")
 add_sample_client(inc2add     "inc2add.c"       "")
 add_sample_client(inline      "inline.c"        "")
 add_sample_client(inscount    "inscount.c"      "")
-add_sample_client(memtrace    "memtrace.c"      "drmgr;drutil")
+add_sample_client(memtrace    "memtrace.c;utils.c"  "drmgr;drutil;drx")
 add_sample_client(prefetch    "prefetch.c"      "")
 add_sample_client(signal      "signal.c"        "")
 add_sample_client(syscall     "syscall.c"       "drmgr")
 add_sample_client(wrap        "wrap.c"          "drwrap")
 add_sample_client(modxfer     "modxfer.c;utils.c"       "drx")
-add_sample_client(cbrtrace    "cbrtrace.c;utils.c"         "")
+add_sample_client(cbrtrace    "cbrtrace.c;utils.c"      "drx")
 # add utils.h for installation  # NON-PUBLIC
 set(srcs ${srcs} "utils.h")     # NON-PUBLIC
 add_sample_client(modxfer_app2lib "modxfer_app2lib.c"   "")
 add_sample_client(stl_test    "stl_test.cpp"    "")
-add_sample_client(instrcalls  "instrcalls.c"    "drsyms")
+add_sample_client(instrcalls  "instrcalls.c;utils.c"  "drsyms;drx")
 
 if (WIN32)
   # This client is Windows-only.
-  add_sample_client(stats     "stats.c"         "")
+  add_sample_client(stats     "stats.c;utils.c"         "drx")
 
   # XXX i#893: drwrap's asm isn't SEH compliant.
   append_property_string(TARGET wrap LINK_FLAGS "/safeseh:no")
@@ -281,6 +280,13 @@ DR_install(TARGETS ${tgts} DESTINATION ${INSTALL_SAMPLES_BIN})
 DR_install(FILES ${srcs} DESTINATION ${INSTALL_SAMPLES})
 DR_install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CMakeLists-public.txt"
   DESTINATION "${INSTALL_SAMPLES}" RENAME CMakeLists.txt)
+if (WIN32)                                                    # NON-PUBLIC
+  # have a copy of dynamorio library for tracedump            # NON-PUBLIC
+  get_target_property(DR_TARGET_LOCATION dynamorio            # NON-PUBLIC
+    LOCATION${location_suffix})                               # NON-PUBLIC
+  DR_install(FILES "${DR_TARGET_LOCATION}"                    # NON-PUBLIC
+    DESTINATION "${INSTALL_SAMPLES_BIN}")                     # NON-PUBLIC
+endif (WIN32)                                                 # NON-PUBLIC
 
 DR_install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/
   DESTINATION ${INSTALL_SAMPLES_BIN}

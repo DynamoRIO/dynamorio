@@ -280,7 +280,7 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             /* nothing to do */
         }
 #endif
-        else if (instr_ok_to_mangle(inst)) {
+        else if (instr_is_app(inst)) {
             /* To have reg spill+restore in the same mangle region, we mark
              * the (modified) app instr for rip-rel and for segment mangling as
              * "our mangling".  There's nothing specific to do for it.
@@ -632,7 +632,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                  * since although we can get full app state we can't relocate
                  * in the middle of client meta code.
                  */
-                ASSERT(!instr_ok_to_mangle(inst));
+                ASSERT(instr_is_meta(inst));
                 /* PR 302951: our clean calls do show up here and have full state */
                 if (instr_is_our_mangling(inst))
                     translate_restore_clean_call(tdcontext, &walk);
@@ -711,7 +711,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
             DOLOG(5, LOG_INTERP, loginst(get_thread_private_dcontext(),
                                          5, prev_ok, "\tok instr"););
             prev_bytes = instr_get_translation(inst);
-            if (instr_ok_to_mangle(inst)) {
+            if (instr_is_app(inst)) {
                 /* we really want the pc after the translation target since we'll
                  * use this if we pass up the target without hitting it:
                  * unless this is a meta instr in which case we assume the
@@ -1380,7 +1380,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
         if (instr_is_label(inst))
             continue;
         /* PR 302951: clean call args are instr_is_our_mangling so no assert for that */
-        ASSERT(app != NULL || !instr_ok_to_mangle(inst));
+        ASSERT(app != NULL || instr_is_meta(inst));
         /* see whether we need a new entry, or the current stride (contig
          * or identical) holds
          */

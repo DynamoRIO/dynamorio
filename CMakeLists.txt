@@ -983,6 +983,11 @@ function (install_exported_target target dest)
       ${ARGN})
   endif (DO_DR_INSTALL_TARGETS)
 endfunction (install_exported_target)
+function (install_target target dest)
+  if (DO_DR_INSTALL_TARGETS)
+    DR_target_install_dst(${dest} TARGETS ${target} ${ARGN})
+  endif (DO_DR_INSTALL_TARGETS)
+endfunction (install_target)
 
 # mirror install path for easier use from build dir
 # most libs go in base; DR and preload go in {debug,release} subdir
@@ -1302,6 +1307,12 @@ if (CLIENT_INTERFACE OR APP_EXPORTS)
   # set VERSION_NUMBER_INTEGER in dr_api.h
   configure_file(${PROJECT_SOURCE_DIR}/core/lib/dr_api.h
     ${BUILD_INCLUDE}/dr_api.h)
+  if (NOT ANNOTATIONS)
+    # Kind of a hack but only temporary as we expect to turn on ANNOTATIONS soon.
+    file(READ ${BUILD_INCLUDE}/dr_api.h contents)
+    string(REGEX REPLACE "\n[^\n]*nnotation[^\n]*" "" contents "${contents}")
+    file(WRITE ${BUILD_INCLUDE}/dr_api.h "${contents}")
+  endif ()
   set(EXTRA_HEADERS ${BUILD_INCLUDE}/dr_app.h ${BUILD_INCLUDE}/dr_api.h)
   add_custom_target(api_headers
     DEPENDS ${EXTRA_HEADERS})

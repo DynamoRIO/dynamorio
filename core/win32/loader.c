@@ -1152,19 +1152,9 @@ privload_call_entry(privmod_t *privmod, uint reason)
             str_case_prefix(privmod->name, "kernelbase")) {
             /* XXX i#915: win8 kernelbase entry fails on initial csrss setup.
              * Xref i#364, i#440.
-             * We can ignore and continue for at least small apps.
-             * Once larger ones seem ok we can remove the warning.
+             * We can ignore and continue for at least small apps, and
+             * so far we have not seen problems on larger apps.
              */
-            /* I'm making this debug-only as an intermediate step since we're
-             * getting more confident about Win8+.
-             */
-#ifdef DEBUG
-            DO_ONCE({
-                SYSLOG(SYSLOG_WARNING,
-                       WIN8_PRIVATE_KERNELBASE_NYI, 2,
-                       get_application_name(), get_application_pid());
-            });
-#endif
         }
 
         TRY_EXCEPT_ALLOW_NO_DCONTEXT(dcontext, {
@@ -1325,8 +1315,6 @@ map_api_set_dll(const char *name, privmod_t *dependent)
              str_case_prefix(name, "API-MS-Win-Core-Psapi-Ansi-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Psapi-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Appcontainer-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
-             str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Registry-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-String-Obsolete-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Core-Heap-Obsolete-L1-1") ||
@@ -1346,6 +1334,14 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Service-Private-L1-1") ||
              str_case_prefix(name, "API-MS-Win-Security-Audit-L1-1"))
         return "sechost.dll";
+    else if (str_case_prefix(name, "API-MS-Win-Eventing-Controller-L1-1") ||
+             str_case_prefix(name, "API-MS-Win-Eventing-Consumer-L1-1")) {
+        /* i#1528: moved to sechost.dll on win8.1 */
+        if (get_os_version() >= WINDOWS_VERSION_8_1)
+            return "sechost.dll";
+        else
+            return "kernelbase.dll";
+    }
     /**************************************************/
     /* Added in Win8.1 */
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||

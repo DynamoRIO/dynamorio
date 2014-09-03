@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -50,17 +50,12 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 
 #include "dr_api.h"
+#include "utils.h"
 #include <stddef.h> /* for offsetof */
 #include <wchar.h> /* _snwprintf */
 
 #ifndef WINDOWS
 # error WINDOWS-only!
-#endif
-
-#ifdef WINDOWS
-# define DISPLAY_STRING(msg) dr_messagebox(msg)
-#else
-# define DISPLAY_STRING(msg) dr_printf("%s\n", msg);
 #endif
 
 #define ALIGNED(x, alignment) ((((ptr_uint_t)x) & ((alignment)-1)) == 0)
@@ -223,7 +218,7 @@ DR_EXPORT void
 dr_init(client_id_t id)
 {
     uint i;
-
+    dr_set_client_name("DynamoRIO Sample Client 'stats'", "http://dynamorio.org/issues");
     my_id = id;
     /* make it easy to tell, by looking at log file, which client executed */
     dr_log(NULL, LOG_ALL, 1, "Client 'stats' initializing\n");
@@ -252,8 +247,6 @@ event_exit(void)
     file_t f;
     /* display the results */
     char msg[512];
-    char fname[512];
-    char *dirsep;
     int len;
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Instrumentation results:\n"
@@ -267,16 +260,7 @@ event_exit(void)
     /* On Windows we need an absolute path so we place it in
      * the same directory as our library.
      */
-    len = dr_snprintf(fname, sizeof(fname)/sizeof(fname[0]),
-                      "%s", dr_get_client_path(my_id));
-    DR_ASSERT(len > 0);
-    for (dirsep = fname + len; *dirsep != '/' IF_WINDOWS(&& *dirsep != '\\'); dirsep--)
-        DR_ASSERT(dirsep > fname);
-    len = dr_snprintf(dirsep + 1, (sizeof(fname) - (dirsep - fname))/sizeof(fname[0]),
-                      "stats.%d.log", dr_get_process_id());
-    DR_ASSERT(len > 0);
-    fname[sizeof(fname)/sizeof(fname[0])-1] = '\0';
-    f = dr_open_file(fname, DR_FILE_WRITE_OVERWRITE);
+    f = log_file_open(my_id, NULL, NULL /* client lib path */, "stats", 0);
     DR_ASSERT(f != INVALID_FILE);
     dr_fprintf(f, "%s\n", msg);
     dr_close_file(f);
@@ -319,7 +303,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 # endif
 #endif
     /* count up # flops, then do single increment at end */
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+    for (instr  = instrlist_first_app(bb);
+         instr != NULL;
+         instr  = instr_get_next_app(instr)) {
         num_instrs++;
         if (instr_is_floating_ex(instr, &fp_type) &&
             /* We exclude loads and stores (and reg-reg moves) and state preservation */
