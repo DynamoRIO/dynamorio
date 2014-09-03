@@ -1401,6 +1401,28 @@ reg_get_value(reg_id_t reg, dr_mcontext_t *mc)
     return reg_get_value_priv(reg, dr_mcontext_as_priv_mcontext(mc));
 }
 
+DR_API
+/* Supports all but floating-point */
+bool
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
+{
+    if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
+        get_mmx_val((uint64 *)val, reg - DR_REG_START_MMX);
+    } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->ymm[reg - DR_REG_START_XMM], XMM_REG_SIZE);
+    } else if (reg >= DR_REG_START_YMM && reg <= DR_REG_STOP_YMM) {
+        if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
+            return false;
+        memcpy(val, &mc->ymm[reg - DR_REG_START_YMM], YMM_REG_SIZE);
+    } else {
+        reg_t regval = reg_get_value(reg, mc);
+        *(reg_t *)val = regval;
+    }
+    return true;
+}
+
 /* Sets the register reg in the passed in mcontext to value.  Currently only works
  * with ptr sized registers. FIXME - handle other sized registers. */
 void

@@ -184,6 +184,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_insert_cbr_instrumentation_ex(),
    which provides the fall-through address.
  - Added instr_is_app(), instr_is_meta(), instr_set_app(), and instr_set_meta().
+ - Added reg_get_value_ex().
 
 **************************************************
 <hr>

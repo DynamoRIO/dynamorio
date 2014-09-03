@@ -1642,6 +1642,20 @@ DR_API
 reg_t
 reg_get_value(reg_id_t reg, dr_mcontext_t *mc);
 
+DR_API
+/**
+ * Returns the value of the register \p reg as stored in \p mc, or
+ * for an mmx register as stored in the physical register.
+ * Up to sizeof(dr_ymm_t) bytes will be written to \p val.
+ *
+ * This routine does not support floating-point registers.
+ *
+ * \note \p mc->flags must include the appropriate flag for the
+ * requested register.
+ */
+bool
+reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val);
+
 /* internal version */
 reg_t
 reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc);
