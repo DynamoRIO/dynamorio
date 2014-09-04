@@ -211,8 +211,11 @@ os_loader_init_prologue(void)
             }
         }
 
-        /* We need a custom setup for FLS structures */
-        ntdll_redir_fls_init(own_peb, private_peb);
+        if (get_os_version() >= WINDOWS_VERSION_2003) {
+            /* FLS is supported in WinXP-64 or later */
+            /* We need a custom setup for FLS structures */
+            ntdll_redir_fls_init(own_peb, private_peb);
+        }
 
         private_peb_initialized = true;
         swap_peb_pointer(NULL, true/*to priv*/);
@@ -334,7 +337,10 @@ os_loader_exit(void)
              */
         });
 
-        ntdll_redir_fls_exit(private_peb);
+        if (get_os_version() >= WINDOWS_VERSION_2003) {
+            /* FLS is supported in WinXP-64 or later */
+            ntdll_redir_fls_exit(private_peb);
+        }
 
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);

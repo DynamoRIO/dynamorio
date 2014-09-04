@@ -921,6 +921,8 @@ redirect_RtlPcToFileHeader(
 void
 ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
 {
+    /* FLS is supported in WinXP-64 or later */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
     /* We need a deep copy of FLS structures */
     private_peb->FlsBitmap = HEAP_TYPE_ALLOC
         (GLOBAL_DCONTEXT, RTL_BITMAP, ACCT_LIBDUP, UNPROTECTED);
@@ -948,6 +950,8 @@ ntdll_redir_fls_init(PEB *app_peb, PEB *private_peb)
 void
 ntdll_redir_fls_exit(PEB *private_peb)
 {
+    /* FLS is supported in WinXP-64 or later */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, private_peb->FlsCallback,
                     PVOID, private_peb->FlsBitmap->SizeOfBitMap,
                     ACCT_LIBDUP, UNPROTECTED);
@@ -961,6 +965,8 @@ redirect_RtlFlsAlloc(IN PFLS_CALLBACK_FUNCTION cb, OUT PDWORD index_out)
     PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
     DWORD index;
     NTSTATUS res;
+    /* FLS is supported in WinXP-64 or later */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
     /* We avoid the synchronization done normally (RtlAcquireSRWLockExclusive
      * on RtlpFlsLock) and instead use the private PEB lock to keep things
      * isolated.
@@ -998,6 +1004,9 @@ redirect_RtlFlsFree(IN DWORD index)
     PEB *peb = IF_CLIENT_INTERFACE_ELSE(get_private_peb(), get_peb(NT_CURRENT_PROCESS));
     TEB *teb = get_own_teb();
     NTSTATUS res;
+    /* FLS is supported in WinXP-64 or later */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
+
     if (index >= peb->FlsBitmap->SizeOfBitMap)
         return STATUS_INVALID_PARAMETER;
 
@@ -1035,6 +1044,8 @@ redirect_RtlProcessFlsData(IN PLIST_ENTRY fls_data)
      */
     size_t fls_data_sz = sizeof(LIST_ENTRY) +
         sizeof(void*) * peb->FlsBitmap->SizeOfBitMap;
+    /* FLS is supported in WinXP-64 or later */
+    ASSERT(get_os_version() >= WINDOWS_VERSION_2003);
     if (fls_data == NULL) {
         NTSTATUS res;
         LIST_ENTRY *tmp;
