@@ -78,6 +78,8 @@ add_executable(drcov2lcov drcov2lcov.c)
 configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
+# drfrontendlib depends on drinjectlib, DR-i#1409 should be the solution
+target_link_libraries(drcov2lcov drinjectlib drfrontendlib)
 
 # ensure we rebuild if includes change
 add_dependencies(drcov2lcov api_headers)

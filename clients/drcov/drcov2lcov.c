@@ -43,6 +43,7 @@
 #include "drcov.h"
 #include "drsyms.h"
 #include "hashtable.h"
+#include "dr_frontend.h"
 
 #include "../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
@@ -173,39 +174,6 @@ null_terminate_path(char *path)
         len--;
     }
 }
-
-#ifdef UNIX
-/* XXX: i#1079, the code is copied from drdeploy.c, we should share them
- * via a front-end lib.
- * Simply concatenates the cwd with the given relative path.  Previously we
- * called realpath, but this requires the path to exist and expands symlinks,
- * which is inconsistent with Windows GetFullPathName().
- */
-static int
-GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
-{
-    size_t len = 0;
-    ASSERT(ext == NULL, "invalid param");
-    if (rel[0] != '/') {
-        char *err = getcwd(abs, abs_len);
-        if (err != NULL) {
-            len = strlen(abs);
-            /* Append a slash if it doesn't have a trailing slash. */
-            if (abs[len-1] != '/' && len < abs_len) {
-                abs[len++] = '/';
-                abs[len] = '\0';
-            }
-            /* Omit any leading ./. */
-            if (rel[0] == '.' && rel[0] == '/') {
-                rel += 2;
-            }
-        }
-    }
-    strncpy(abs + len, rel, abs_len - len);
-    abs[abs_len-1] = '\0';
-    return strlen(abs);
-}
-#endif
 
 /****************************************************************************
  * Line-Table Data Structures & Functions
@@ -952,8 +920,9 @@ read_drcov_dir(void)
     if ((dir = opendir(options.input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_drcov_log_file(ent->d_name)) {
-                if (GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL) == 0) {
-                    WARN(2, "Fail to get full path of log file %s\n", ent->d_name);
+                if (drfront_get_absolute_path(ent->d_name, path, MAXIMUM_PATH) !=
+                    DRFRONT_SUCCESS) {
+                    WARN(1, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
                     NULL_TERMINATE_BUFFER(path);
                     read_drcov_file(path);
@@ -1282,9 +1251,10 @@ option_init(int argc, char *argv[])
     }
 
     if (options.input_file != NULL) {
-        if (GetFullPathName(options.input_file,
-                            BUFFER_SIZE_ELEMENTS(input_file_buf),
-                            input_file_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.input_file,
+                                      input_file_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_file_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input file %s\n", options.input_file);
             return false;
         }
@@ -1294,9 +1264,10 @@ option_init(int argc, char *argv[])
     }
 
     if (options.input_list != NULL) {
-        if (GetFullPathName(options.input_list,
-                            BUFFER_SIZE_ELEMENTS(input_list_buf),
-                            input_list_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.input_list,
+                                      input_list_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_list_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input list %s\n", options.input_list);
             return false;
         }
@@ -1311,9 +1282,10 @@ option_init(int argc, char *argv[])
         if (options.input_dir == NULL)
             WARN(1, "Missing input, use current directory instead\n");
         input_dir = options.input_dir == NULL ? (char *)"./" : options.input_dir;
-        if (GetFullPathName(input_dir,
-                            BUFFER_SIZE_ELEMENTS(input_dir_buf),
-                            input_dir_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(input_dir,
+                                      input_dir_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_dir_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input dir %s\n", input_dir);
             return false;
         }
@@ -1324,20 +1296,23 @@ option_init(int argc, char *argv[])
 
     if (options.output_file == NULL)
         WARN(1, "Missing output, use %s instead\n", DEFAULT_OUTPUT_FILE);
-    if (GetFullPathName(options.output_file == NULL ?
-                        DEFAULT_OUTPUT_FILE : options.output_file,
-                        BUFFER_SIZE_ELEMENTS(output_file_buf),
-                        output_file_buf, NULL) == 0) {
+    if (drfront_get_absolute_path(options.output_file == NULL ?
+                                  DEFAULT_OUTPUT_FILE : options.output_file,
+                                  output_file_buf,
+                                  BUFFER_SIZE_ELEMENTS(output_file_buf)) !=
+        DRFRONT_SUCCESS) {
         WARN(1, "Failed to get full path of output file\n");
         return false;
     }
     NULL_TERMINATE_BUFFER(output_file_buf);
     options.output_file = output_file_buf;
     PRINT(2, "Output file: %s\n", options.output_file);
+
     if (options.set_file != NULL) {
-        if (GetFullPathName(options.set_file,
-                            BUFFER_SIZE_ELEMENTS(set_file_buf),
-                            set_file_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.set_file,
+                                      set_file_buf,
+                                      BUFFER_SIZE_ELEMENTS(set_file_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of reduce_set file\n");
             return false;
         }
