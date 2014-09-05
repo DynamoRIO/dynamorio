@@ -291,7 +291,7 @@ static dgc_writer_mapping_t *
 lookup_dgc_writer_offset(app_pc addr);
 
 static void
-insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset);
+insert_dgc_writer_offsets(app_pc start, size_t size, ptr_int_t offset);
 
 static void
 remove_dgc_writer_offsets(app_pc start, size_t size);
@@ -654,7 +654,7 @@ lookup_dgc_writer_offset(app_pc addr)
 }
 
 static void
-insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
+insert_dgc_writer_offsets(app_pc start, size_t size, ptr_int_t offset)
 {
     uint key;
     dgc_writer_mapping_t *mapping;
@@ -663,8 +663,8 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_uint_t offset)
     ptr_uint_t last_page_id = page_id + page_span;
 
     ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Insert writer offsets "PFX" +0x%x "
-                "(page "PFX" +0x%x pages)\n", start, size, page_id, page_span);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Insert writer offsets "PFX" +0x%x = "PFX" "
+                "(page "PFX" +0x%x pages)\n", start, size, offset, page_id, page_span);
 
     for (; page_id < last_page_id; page_id++) {
         key = DGC_SHADOW_KEY(page_id);
@@ -995,7 +995,10 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
-    if (get_non_jit_area_bounds(pc, &start, &size)) {
+    bool found = get_non_jit_area_bounds(pc, &start, &size);
+    if (!found)
+        found = get_non_jit_area_bounds(*(app_pc *)pc, &start, &size);
+    if (found) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         DEBUG_DECLARE(uint prot;);
         ASSERT(get_memory_info(start, NULL, NULL, &prot));
@@ -1049,6 +1052,9 @@ clear_double_mapping(app_pc start)
 {
     uint i, j;
     bool removed = false;
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "clear_double_mapping("PFX")\n", start);
+
     mutex_lock(&dgc_mapping_lock);
     for (i = 0; i < double_mappings->index; i++) {
         if (double_mappings->mappings[i].app_memory_start == start)
@@ -1154,7 +1160,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 {
     emulation_plan_t *plan;
     dgc_writer_mapping_t *mapping;
-    ptr_uint_t offset = 0;
+    ptr_int_t offset = 0;
 
     RSTATS_INC(app_managed_instrumentations);
 
@@ -1176,8 +1182,24 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     mutex_unlock(&dgc_mapping_lock);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Emulating write "PFX" -> "PFX" via page fault\n",
-                writer_app_pc, write_target);
+                "DGC: Emulating write "PFX" -> "PFX" (offset "PFX") via page fault\n",
+                writer_app_pc, write_target, offset);
+
+    ASSERT(offset != 0);
+    if (offset == 0) {
+        app_pc start;
+        size_t size;
+        bool found = get_jit_monitored_area_bounds(write_target, &start, &size);
+        if (!found)
+            dr_printf("Mapping is gone, and can't find vm area at all!\n");
+        mutex_lock(&thread_initexit_lock);
+        flush_fragments_and_remove_region(dcontext, start, size,
+                                          true /* own initexit_lock */, false);
+        mutex_unlock(&thread_initexit_lock);
+        //notify_exec_invalidation(start, size);
+        //emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
+        return NULL; //plan->resume_pc;
+    }
 
     emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
     if (!is_jit_self_write)

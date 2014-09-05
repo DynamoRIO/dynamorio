@@ -69,7 +69,7 @@ typedef struct _emulation_plan_t {
 typedef struct dgc_writer_mapping_t dgc_writer_mapping_t;
 struct dgc_writer_mapping_t {
     ptr_uint_t page_id;
-    ptr_uint_t offset;
+    ptr_int_t offset;
     dgc_writer_mapping_t *next;
 };
 

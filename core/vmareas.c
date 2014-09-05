@@ -690,6 +690,8 @@ vm_make_unwritable(byte *pc, size_t size)
         }
     });
 
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "vm_make_unwritable "PFX" "PFX"\n",
+                pc, (ptr_uint_t) pc + size);
     notify_readonly_for_cache_consistency(pc, size, true);
 }
 
@@ -901,7 +903,6 @@ vm_area_merge_fraglists(vm_area_t *dst, vm_area_t *src)
     }
 }
 
-#ifdef DEBUG
 static const char *
 name_vm_area_vector(vm_area_vector_t *v)
 {
@@ -912,7 +913,6 @@ name_vm_area_vector(vm_area_vector_t *v)
     else
         return "unnamed areas";
 }
-#endif
 
 /* Assumes caller holds v->lock, if necessary.
  * Does not return the area added since it may be merged or split depending
@@ -947,8 +947,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" %s to %s\n", start, end, comment,
-        name_vm_area_vector(v));
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s\n", start, end,
+                name_vm_area_vector(v));
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -1348,9 +1348,12 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
      */
     bool official_coarse_vector = (v == executable_areas);
 
+    //if ((v == executable_areas) || (v == &shared_data->areas))
+    //    notify_readonly_for_cache_consistency(start, end-start, false);
+
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    LOG(GLOBAL, LOG_VMAREAS, 1, "remove_vm_area "PFX" "PFX" from %s\n", start, end,
-        name_vm_area_vector(v));
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "remove_vm_area "PFX" "PFX" from %s\n", start, end,
+                name_vm_area_vector(v));
     /* N.B.: removed area could span multiple areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap */
@@ -1401,7 +1404,8 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
             end, v->buf[overlap_end-1].end);
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_end-1].vm_flags)) {
-            vm_make_writable(v->buf[overlap_end-1].start, end - v->buf[overlap_end-1].start);
+            vm_make_writable(v->buf[overlap_end-1].start,
+                             end - v->buf[overlap_end-1].start);
         }
         v->buf[overlap_end-1].start = end;
         /* FIXME: add a vmvector callback function for changing bounds? */
