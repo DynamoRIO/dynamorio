@@ -1724,15 +1724,34 @@ dr_get_parent_id(void);
 #ifdef WINDOWS
 
 /** Windows versions */
+/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
-    DR_WINDOWS_VERSION_8_1   = 63,
-    DR_WINDOWS_VERSION_8     = 62,
-    DR_WINDOWS_VERSION_7     = 61,
-    DR_WINDOWS_VERSION_VISTA = 60,
-    DR_WINDOWS_VERSION_2003  = 52, /**< 64-bit XP is this version as well */
-    DR_WINDOWS_VERSION_XP    = 51,
-    DR_WINDOWS_VERSION_2000  = 50,
-    DR_WINDOWS_VERSION_NT    = 40,
+    /** Windows 8.1 */
+    DR_WINDOWS_VERSION_8_1     = 63,
+    /** Windows Server 2012 R2 */
+    DR_WINDOWS_VERSION_2012_R2 = DR_WINDOWS_VERSION_8_1,
+    /** Windows 8 */
+    DR_WINDOWS_VERSION_8       = 62,
+    /** Windows Server 2012 */
+    DR_WINDOWS_VERSION_2012    = DR_WINDOWS_VERSION_8,
+    /** Windows 7 */
+    DR_WINDOWS_VERSION_7       = 61,
+    /** Windows Server 2008 R2 */
+    DR_WINDOWS_VERSION_2008_R2 = DR_WINDOWS_VERSION_7,
+    /** Windows Vista */
+    DR_WINDOWS_VERSION_VISTA   = 60,
+    /** Windows Server 2008 */
+    DR_WINDOWS_VERSION_2008    = DR_WINDOWS_VERSION_VISTA,
+    /** Windows Server 2003 */
+    DR_WINDOWS_VERSION_2003    = 52,
+    /** Windows XP 64-bit */
+    DR_WINDOWS_VERSION_XP_X64  = DR_WINDOWS_VERSION_2003,
+    /** Windows XP */
+    DR_WINDOWS_VERSION_XP      = 51,
+    /** Windows 2000 */
+    DR_WINDOWS_VERSION_2000    = 50,
+    /** Windows NT */
+    DR_WINDOWS_VERSION_NT      = 40,
 } dr_os_version_t;
 
 /** Data structure used with dr_get_os_version() */
