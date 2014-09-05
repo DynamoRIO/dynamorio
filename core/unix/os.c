@@ -1199,7 +1199,10 @@ is_segment_register_initialized(void)
         ASSERT(tls_global_type == TLS_TYPE_ARCH_PRCTL);
         if (base != (byte *) POINTER_MAX && base != NULL) {
             os_local_state_t *os_tls = (os_local_state_t *) base;
-            return (os_tls->tid == get_sys_thread_id());
+            return (os_tls->tid == get_sys_thread_id() ||
+                    /* The child of a fork will initially come here */
+                    os_tls->state.spill_space.dcontext->owning_process ==
+                    get_parent_id());
         }
     }
 #endif
@@ -5700,17 +5703,16 @@ pre_system_call(dcontext_t *dcontext)
          * to dstack).  xref i#149/PR 403015.
          * Note: This must be done after sys_param0 is set.
          */
-        if (is_thread_create_syscall(dcontext))
+        if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
-        else  /* This is really a fork. */
+            /* We switch the lib tls segment back to app's segment.
+             * Please refer to comment on os_switch_lib_tls.
+             */
+            if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+                os_switch_lib_tls(dcontext, true/*to app*/);
+            }
+        } else  /* This is really a fork. */
             os_fork_pre(dcontext);
-        /* We switch the lib tls segment back to app's segment.
-         * Please refer to comment on os_switch_lib_tls.
-         */
-        if (TEST(CLONE_VM, flags) /* not creating process */ &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, true/*to app*/);
-        }
         break;
     }
 #elif defined(MACOS)
@@ -6796,7 +6798,8 @@ post_system_call(dcontext_t *dcontext)
          * It is only called in parent thread.
          * The child thread's tls setup is done in os_tls_app_seg_init.
          */
-        if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
+        if (was_thread_create_syscall(dcontext) &&
+            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
             os_switch_lib_tls(dcontext, false/*to dr*/);
         }
         break;
