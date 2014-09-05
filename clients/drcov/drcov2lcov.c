@@ -920,8 +920,10 @@ read_drcov_dir(void)
     if ((dir = opendir(options.input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_drcov_log_file(ent->d_name)) {
-                if (drfront_get_absolute_path(ent->d_name, path, MAXIMUM_PATH) !=
-                    DRFRONT_SUCCESS) {
+                ASSERT(ent->d_name[0] != '/',
+                       "ent->d_name: %s should not be an absolute path\n", ent->d_name);
+                if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path),
+                                "%s/%s", options.input_dir, ent->d_name) <= 0) {
                     WARN(1, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
                     NULL_TERMINATE_BUFFER(path);
