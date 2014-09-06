@@ -4245,15 +4245,22 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         }
     }
     ASSERT(i == DGC_TEMP_REG_COUNT);
+    if (!opnd_is_base_disp(plan->dst)) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "Error! Write target is not base-disp at "PFX"\n", plan->writer_pc);
+    }
 
-    if (opnd_get_base(plan->dst) == REG_RBP)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "rilly?\n");
-
-    opnd_write_target = opnd_create_base_disp(opnd_get_base(plan->dst),
-                                              opnd_get_index(plan->dst),
-                                              opnd_get_scale(plan->dst),
-                                              opnd_get_disp(plan->dst),
-                                              OPSZ_lea);
+    /*
+    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+        opnd_write_target = opnd_create_base_disp(REG_NULL, REG_NULL, 0, 0, OPSZ_lea);
+    } else {
+    */
+        opnd_write_target = opnd_create_base_disp(opnd_get_base(plan->dst),
+                                                  opnd_get_index(plan->dst),
+                                                  opnd_get_scale(plan->dst),
+                                                  opnd_get_disp(plan->dst),
+                                                  OPSZ_lea);
+    //}
 
     check_readonly =
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),

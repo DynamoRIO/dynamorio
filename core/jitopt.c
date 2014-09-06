@@ -1165,6 +1165,14 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     plan->dst = instr_get_dst(&plan->writer, 0);
     plan->dst_size = opnd_size_in_bytes(opnd_get_size(plan->dst));
 
+    if (!opnd_is_base_disp(plan->dst)) {
+        ASSERT(false);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Unsupported writer operand kind 0x%x\n", plan->writer.src0.kind);
+        plan->resume_pc = NULL;
+        goto instrumentation_failure;
+    }
+
     ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
