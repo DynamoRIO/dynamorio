@@ -48,7 +48,8 @@ void
 kernel32_redir_init_proc(void)
 {
     PEB *peb = get_own_peb();
-    ASSERT(peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT);
+    ASSERT(get_os_version() < WINDOWS_VERSION_2003 ||
+           peb->FlsBitmap->SizeOfBitMap == FLS_MAX_COUNT);
 #ifdef CLIENT_INTERFACE
     /* We rely on -private_peb for FLS isolation.  Otherwise we'd have to
      * put back in place all the code to handle mixing private and app FLS

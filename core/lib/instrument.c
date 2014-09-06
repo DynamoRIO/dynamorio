@@ -4136,7 +4136,7 @@ dr_enable_console_printing(void)
             if (app_kernel32 == NULL) {
                 success = false;
             } else {
-                success = privload_console_share(priv_kernel32);
+                success = privload_console_share(priv_kernel32, app_kernel32->start);
                 dr_free_module_data(app_kernel32);
             }
         }

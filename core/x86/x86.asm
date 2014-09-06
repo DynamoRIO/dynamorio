@@ -2928,6 +2928,57 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
+/* void get_mmx_val(OUT uint64 *val, uint index)
+ * Returns the value of mmx register #index in val.
+ */
+#define FUNCNAME get_mmx_val
+        DECLARE_FUNC_SEH(FUNCNAME)
+GLOBAL_LABEL(FUNCNAME:)
+        mov      REG_XAX, ARG1
+        mov      REG_XCX, ARG2
+        END_PROLOG
+        cmp      ecx, 0
+        je       get_mmx_0
+        cmp      ecx, 1
+        je       get_mmx_1
+        cmp      ecx, 2
+        je       get_mmx_2
+        cmp      ecx, 3
+        je       get_mmx_3
+        cmp      ecx, 4
+        je       get_mmx_4
+        cmp      ecx, 5
+        je       get_mmx_5
+        cmp      ecx, 6
+        je       get_mmx_6
+        movq     QWORD [REG_XAX], mm7
+        jmp get_mmx_done
+get_mmx_6:
+        movq     QWORD [REG_XAX], mm6
+        jmp get_mmx_done
+get_mmx_5:
+        movq     QWORD [REG_XAX], mm5
+        jmp get_mmx_done
+get_mmx_4:
+        movq     QWORD [REG_XAX], mm4
+        jmp get_mmx_done
+get_mmx_3:
+        movq     QWORD [REG_XAX], mm3
+        jmp get_mmx_done
+get_mmx_2:
+        movq     QWORD [REG_XAX], mm2
+        jmp get_mmx_done
+get_mmx_1:
+        movq     QWORD [REG_XAX], mm1
+        jmp get_mmx_done
+get_mmx_0:
+        movq     QWORD [REG_XAX], mm0
+get_mmx_done:
+        add      REG_XSP, 0 /* make a legal SEH64 epilog */
+        ret
+        END_FUNC(FUNCNAME)
+#undef FUNCNAME
+
 #ifdef WINDOWS
 
 /* byte *get_stack_ptr(void)

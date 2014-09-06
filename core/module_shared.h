@@ -592,7 +592,7 @@ privload_load_finalized(privmod_t *mod);
 
 #ifdef WINDOWS
 bool
-privload_console_share(app_pc priv_kernel32);
+privload_console_share(app_pc priv_kernel32, app_pc app_kernel32);
 #endif
 
 #endif /* MODULE_LIST_H */

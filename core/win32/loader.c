@@ -211,8 +211,11 @@ os_loader_init_prologue(void)
             }
         }
 
-        /* We need a custom setup for FLS structures */
-        ntdll_redir_fls_init(own_peb, private_peb);
+        if (get_os_version() >= WINDOWS_VERSION_2003) {
+            /* FLS is supported in WinXP-64 or later */
+            /* We need a custom setup for FLS structures */
+            ntdll_redir_fls_init(own_peb, private_peb);
+        }
 
         private_peb_initialized = true;
         swap_peb_pointer(NULL, true/*to priv*/);
@@ -334,7 +337,10 @@ os_loader_exit(void)
              */
         });
 
-        ntdll_redir_fls_exit(private_peb);
+        if (get_os_version() >= WINDOWS_VERSION_2003) {
+            /* FLS is supported in WinXP-64 or later */
+            ntdll_redir_fls_exit(private_peb);
+        }
 
         HEAP_TYPE_FREE(GLOBAL_DCONTEXT, private_peb->FastPebLock,
                        RTL_CRITICAL_SECTION, ACCT_OTHER, UNPROTECTED);
@@ -1669,7 +1675,7 @@ typedef BOOL (WINAPI *kernel32_AttachConsole_t) (IN DWORD);
 static kernel32_AttachConsole_t kernel32_AttachConsole;
 
 bool
-privload_console_share(app_pc priv_kernel32)
+privload_console_share(app_pc priv_kernel32, app_pc app_kernel32)
 {
     app_pc pc;
     instr_t instr;
@@ -1677,14 +1683,11 @@ privload_console_share(app_pc priv_kernel32)
     bool success = false;
     size_t console_handle_diff, console_heap_diff, console_delta_diff;
     app_pc console_handle = NULL, console_heap = NULL, console_delta = NULL;
-    app_pc kernel32 = (app_pc) get_module_handle(L"kernel32.dll");
-    app_pc get_console_cp = (app_pc) get_proc_address(kernel32, "GetConsoleCP");
+    app_pc get_console_cp;
     BOOL status = false;
     static const uint MAX_DECODE = 1024;
 
-    ASSERT(kernel32 != NULL && get_console_cp != NULL);
-    if (get_os_version() != WINDOWS_VERSION_7)
-        return true;
+    ASSERT(app_kernel32 != NULL);
     /* GUI apps are initialized without a console. To enable writing to the console
      * we attach to the parent's console.
      * XXX: if an app attempts to create/attach to a console w/o first freeing itself
@@ -1694,7 +1697,9 @@ privload_console_share(app_pc priv_kernel32)
      */
     if (get_own_peb()->ImageSubsystem != IMAGE_SUBSYSTEM_WINDOWS_CUI) {
         kernel32_AttachConsole = (kernel32_AttachConsole_t)
-            get_proc_address(kernel32, "AttachConsole");
+            get_proc_address(app_kernel32, "AttachConsole");
+        if (kernel32_AttachConsole == NULL)
+            return false;
         status = kernel32_AttachConsole(ATTACH_PARENT_PROCESS);
         if (status == 0) {
             return false;
@@ -1706,6 +1711,12 @@ privload_console_share(app_pc priv_kernel32)
     if (is_wow64_process(NT_CURRENT_PROCESS)) {
         return true;
     }
+
+    /* Below here is win7-specific */
+    if (get_os_version() != WINDOWS_VERSION_7)
+        return true;
+    get_console_cp = (app_pc) get_proc_address(app_kernel32, "GetConsoleCP");
+    ASSERT(get_console_cp != NULL);
     /* No exported routines directly reference the globals. The easiest and shortest
      * path is through GetConsoleCP, where we look for a call to ConsoleClientCallServer
      * which then references ConsoleLpcHandle and ConsolePortMemoryRemoteDelta.
@@ -1783,8 +1794,8 @@ privload_console_share(app_pc priv_kernel32)
      * add a checksum to ensure app's kernel32 is same as private kernel32.
      */
     if (success) {
-        console_handle_diff = console_handle - kernel32;
-        console_delta_diff = console_delta - kernel32;
+        console_handle_diff = console_handle - app_kernel32;
+        console_delta_diff = console_delta - app_kernel32;
         console_heap_diff = console_delta_diff - sizeof(PVOID);
 
         if (!safe_write_ex(priv_kernel32 + console_handle_diff, sizeof(PHANDLE),
@@ -1792,7 +1803,7 @@ privload_console_share(app_pc priv_kernel32)
             !safe_write_ex(priv_kernel32 + console_delta_diff, sizeof(ULONG_PTR),
                            console_delta, NULL) ||
             !safe_write_ex(priv_kernel32 + console_heap_diff, sizeof(PVOID),
-                           kernel32 + console_heap_diff, NULL))
+                           app_kernel32 + console_heap_diff, NULL))
             success = false;
     }
     instr_free(dcontext, &instr);

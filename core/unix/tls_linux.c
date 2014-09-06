@@ -446,8 +446,10 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
                 /* Kernel should have written %gs for us if using GDT */
-                if (!dynamo_initialized && read_selector(SEG_TLS) == 0)
+                if (!dynamo_initialized && read_selector(SEG_TLS) == 0) {
+                    LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");
                     tls_using_msr = true;
+                }
                 if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                     res = dynamorio_syscall(SYS_arch_prctl, 2, ARCH_SET_FS,
                                             os_tls->os_seg_info.dr_fs_base);
