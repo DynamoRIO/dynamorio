@@ -178,8 +178,9 @@ DECLARE_CXTSWPROT_VAR(static mutex_t dgc_mapping_lock, INIT_LOCK_FREE(dgc_mappin
 
 typedef struct _double_mapping_t {
     app_pc app_memory_start;
-    app_pc mapping_start;
     size_t size;
+    app_pc double_mapping_start;
+    size_t double_mapping_size;
     int fd;
 } double_mapping_t;
 
@@ -457,7 +458,7 @@ jitopt_thread_init(dcontext_t *dcontext)
                 get_thread_id(), state->dgc_mapping_table);
 }
 
-static void
+void
 manage_code_area(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
@@ -735,7 +736,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     for (i = 0; i < double_mappings->index; i++) {
         if (double_mappings->mappings[i].app_memory_start == app_memory_start) {
             ASSERT(double_mappings->mappings[i].size == app_memory_size);
-            return double_mappings->mappings[i].mapping_start - app_memory_start;
+            return double_mappings->mappings[i].double_mapping_start - app_memory_start;
         }
     }
 
@@ -743,6 +744,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     new_mapping = &double_mappings->mappings[double_mappings->index];
     new_mapping->app_memory_start = app_memory_start;
     new_mapping->size = app_memory_size;
+    new_mapping->double_mapping_size = app_memory_size;
 
     memcpy(file, "/dev/shm/jit_", 13);
     file[13] = 'a' + double_mappings->index;
@@ -779,15 +781,15 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Unlinked the backing file %s\n", file);
 
-    new_mapping->mapping_start =
+    new_mapping->double_mapping_start =
         (app_pc) dynamorio_syscall(MMAP, 6ULL, 0ULL, app_memory_size,
                                    (ptr_uint_t)PROT_READ|PROT_WRITE, (ptr_uint_t)MAP_SHARED,
                                    fd, 0ULL/*offset*/);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Mapped the backing file %s to "PFX"\n", file, new_mapping->mapping_start);
+                "DGC: Mapped the backing file %s to "PFX"\n", file, new_mapping->double_mapping_start);
 
-    memcpy(new_mapping->mapping_start, app_memory_start, app_memory_size);
+    memcpy(new_mapping->double_mapping_start, app_memory_start, app_memory_size);
 
     result = dynamorio_syscall(SYS_munmap, 2ULL, app_memory_start, app_memory_size);
     if (result < 0) {
@@ -803,12 +805,12 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Remap says "PFX"; new mapping is "PFX" and app memory is "PFX"\n",
-              remap_pc, new_mapping->mapping_start, app_memory_start);
+              remap_pc, new_mapping->double_mapping_start, app_memory_start);
 
     ASSERT(remap_pc == app_memory_start);
 
     double_mappings->index++;
-    return new_mapping->mapping_start - app_memory_start;
+    return new_mapping->double_mapping_start - app_memory_start;
 }
 
 static void
@@ -1236,9 +1238,9 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     ASSERT(offset != 0);
     if (offset == 0) {
         RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
-                    "Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
+                    "Error! Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
         //if (created_plan)
-        dr_printf("Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
+        dr_printf("Error! Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
         //else
         //generic_hash_remove(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
         /*
@@ -1863,11 +1865,15 @@ free_dgc_bucket_chain(void *p)
 static void
 free_double_mapping(double_mapping_t *mapping)
 {
-    int result = dynamorio_syscall(SYS_munmap, 2, mapping->mapping_start, mapping->size);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "free_double_mapping of "PFX": "PFX" + 0x%x\n",
+                mapping->app_memory_start, mapping->double_mapping_start,
+                mapping->double_mapping_size);
+    int result = dynamorio_syscall(SYS_munmap, 2, mapping->double_mapping_start,
+                                   mapping->double_mapping_size);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Failed to unmap the double-mapping at "PFX"\n",
-                    mapping->mapping_start);
+                    "free_double_mapping error: failed to unmap the double-mapping at "PFX"\n",
+                    mapping->double_mapping_start);
     }
 }
 

@@ -99,6 +99,9 @@ void
 notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly);
 
 void
+manage_code_area(app_pc start, size_t len);
+
+void
 locate_and_manage_code_area(app_pc pc);
 
 void

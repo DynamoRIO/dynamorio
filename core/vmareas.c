@@ -949,8 +949,8 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     get_memory_info(start, NULL, NULL, &prot);
-    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s (0x%x)\n", start, end,
-                name_vm_area_vector(v), prot);
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s (0x%x)\n",
+                start, end, name_vm_area_vector(v), prot);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -1379,14 +1379,18 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         /* need to split? */
         if (overlap_start == overlap_end-1 && end < v->buf[overlap_start].end) {
             /* don't call add_vm_area now, that will mess up our vector */
-            if (TEST(VM_JIT_MANAGED_TYPE, v->buf[overlap_start].vm_flags)) {
-                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
-                            "Error! Unsupported JIT code area split.\n");
-            }
             new_area = v->buf[overlap_start]; /* make a copy */
             new_area.start = end;
             /* rest of fields are correct */
             add_new_area = true;
+
+            if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
+                            "\tremove_vm_area: split "PFX"-"PFX", adding tail section "
+                            PFX"-"PFX" %s\n",
+                            v->buf[overlap_start].start, v->buf[overlap_start].end,
+                            new_area.start, new_area.end, name_vm_area_vector(v));
+            }
         }
         /* move ending bound backward */
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
@@ -1394,7 +1398,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             v->buf[overlap_start].start, start);
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
-                        "\tremove_vm_area: changing "PFX"-"PFX" to "PFX"-"PFX" %s\n",
+                        "\tremove_vm_area: left-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
                         v->buf[overlap_start].start, v->buf[overlap_start].end,
                         v->buf[overlap_start].start, start,
                         name_vm_area_vector(v));
@@ -1419,7 +1423,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
             end, v->buf[overlap_end-1].end);
         if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
-                        "\tremove_vm_area: changing "PFX"-"PFX" to "PFX"-"PFX" %s\n",
+                        "\tremove_vm_area: right-shrinking "PFX"-"PFX" to "PFX"-"PFX" %s\n",
                         v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
                         end, v->buf[overlap_end-1].end,
                         name_vm_area_vector(v));
@@ -1513,6 +1517,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         v->length -= diff;
     }
     if (add_new_area) {
+        bool was_jit_managed = TEST(VM_JIT_MANAGED_TYPE, new_area.vm_flags);
         /* Case 8640: Do not propagate coarse-grain-ness to split-off region,
          * for now only for simplicity.  FIXME: come up with better policy.  We
          * do keep it on original part of split region.  FIXME: assert that
@@ -1524,6 +1529,8 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
          * -unsafe_ignore_IAT_writes) we can have VM_ADD_TO_SHARED_DATA set
          */
         new_area.vm_flags &= ~VM_ADD_TO_SHARED_DATA;
+        new_area.vm_flags &= ~VM_JIT_MANAGED_TYPE;
+        new_area.vm_flags &= ~VM_DGC_WRITER;
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tadding "PFX"-"PFX"\n", new_area.start, new_area.end);
         /* we copied v->buf[overlap_start] above and so already have a copy
          * of the client field
@@ -1534,6 +1541,9 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         add_vm_area(v, new_area.start, new_area.end, new_area.vm_flags,
                     new_area.frag_flags, new_area.custom.client
                     _IF_DEBUG(new_area.comment));
+
+        if (was_jit_managed)
+            manage_code_area(new_area.start, new_area.end - new_area.start);
     }
     DOLOG(5, LOG_VMAREAS, { print_vm_areas(v, GLOBAL); });
     return true;
