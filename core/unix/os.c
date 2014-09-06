@@ -5713,21 +5713,14 @@ pre_system_call(dcontext_t *dcontext)
          */
         if (is_thread_create_syscall(dcontext)) {
             create_clone_record(dcontext, sys_param_addr(dcontext, 1) /*newsp*/);
-             /* We switch the lib tls segment back to app's segment.
-              * Please refer to comment on os_switch_lib_tls.
-              */
+            /* We switch the lib tls segment back to app's segment.
+             * Please refer to comment on os_switch_lib_tls.
+             */
             if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
                 os_switch_lib_tls(dcontext, true/*to app*/);
             }
         } else  /* This is really a fork. */
             os_fork_pre(dcontext);
-        /* We switch the lib tls segment back to app's segment.
-         * Please refer to comment on os_switch_lib_tls.
-         */
-        if (TEST(CLONE_VM, flags) /* not creating process */ &&
-            IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-            os_switch_lib_tls(dcontext, true/*to app*/);
-        }
         break;
     }
 #elif defined(MACOS)

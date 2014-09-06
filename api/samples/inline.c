@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -192,6 +193,9 @@ remove_trace_head_entry(void *drcontext, void *tag)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'inline'",
+                       "http://dynamorio.org/issues");
+
     htable_mutex = dr_mutex_create();
 
     /* global HASH_BITS-bit addressed hash table */
@@ -245,7 +249,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     trace_head_entry_t *e = NULL;
     if (translating)
         return DR_EMIT_DEFAULT;
-    for (instr = instrlist_first(bb); instr != NULL; instr = instr_get_next(instr)) {
+    for (instr  = instrlist_first_app(bb);
+         instr != NULL;
+         instr  = instr_get_next_app(instr)) {
         /* blocks containing calls are trace heads */
         if (instr_is_call(instr)) {
             dr_mark_trace_head(drcontext, tag);

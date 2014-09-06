@@ -1,4 +1,5 @@
 /* **********************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -284,8 +285,8 @@ bb_event(void *drcontext, void *tag, instrlist_t *bb, bool for_trace, bool trans
 {
     instr_t *instr, *next_instr;
 
-    for (instr = instrlist_first(bb); instr != NULL; instr = next_instr) {
-        next_instr = instr_get_next(instr);
+    for (instr = instrlist_first_app(bb); instr != NULL; instr = next_instr) {
+        next_instr = instr_get_next_app(instr);
 
         if (instr_is_cbr(instr)) {
             /* Conditional branch.  We can determine the target and
@@ -428,6 +429,8 @@ void dr_exit(void)
 DR_EXPORT
 void dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'cbr'",
+                       "http://dynamorio.org/issues");
     table = new_table();
     dr_register_bb_event(bb_event);
     dr_register_exit_event(dr_exit);

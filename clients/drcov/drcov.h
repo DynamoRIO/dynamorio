@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -36,15 +36,29 @@
 
 #include "dr_api.h"
 
+/* file format version */
+#define DRCOV_VERSION 2
+
+/* i#1532: drsyms can't mix arch for ELF */
+#ifdef LINUX
+# ifdef X64
+#  define DRCOV_ARCH_FLAVOR "-64"
+# else
+#  define DRCOV_ARCH_FLAVOR "-32"
+# endif
+#else
+# define DRCOV_ARCH_FLAVOR ""
+#endif
+
 /* The bb_entry_t is used by both drcov client and post processing drcov2lcov.
  * It has different sizes and members with and without CBR_COVERAGE.
- * We use different DRCOV_VERSION to make sure the drcov2lcov process the
+ * We use different flavor markers to make sure the drcov2lcov process the
  * right log file generated from corrsponding drcov client.
  */
 #ifdef CBR_COVERAGE
-# define DRCOV_VERSION 2
+# define DRCOV_FLAVOR "cbr" DRCOV_ARCH_FLAVOR
 #else
-# define DRCOV_VERSION 1
+# define DRCOV_FLAVOR "drcov" DRCOV_ARCH_FLAVOR
 #endif
 
 /* data structure used in drcov.log */

@@ -103,6 +103,8 @@ static void event_post_syscall(void *drcontext, int sysnum);
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'syscall'",
+                       "http://dynamorio.org/issues");
     drmgr_init();
     write_sysnum = get_write_sysnum();
     dr_register_filter_syscall_event(event_filter_syscall);

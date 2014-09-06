@@ -79,7 +79,7 @@ static bool verbose;
  * ELF helpers.
  */
 
-/* XXX: If we ever need to worry about ELF32 objects in an x64 process, we can
+/* XXX i#1532: If we ever need to worry about ELF32 objects in an x64 process, we can
  * use gelf or some other library to translate elf32/64 structs into a common
  * representation.
  */

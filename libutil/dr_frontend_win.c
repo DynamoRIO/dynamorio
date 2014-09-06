@@ -64,7 +64,7 @@ typedef BOOL (WINAPI *dbghelp_SymInitializeW_t)(IN HANDLE hProcess,
                                                  IN BOOL fInvadeProcess);
 typedef BOOL (WINAPI *dbghelp_SymCleanupW_t)(IN HANDLE hProcess);
 typedef BOOL (WINAPI *dbghelp_SymSetSearchPathW_t)(IN HANDLE hProcess,
-                                                      IN PCTSTR SearchPath);
+                                                   IN PCTSTR SearchPath);
 typedef BOOL (WINAPI *dbghelp_SymLoadModuleExW_t)(IN HANDLE hProcess,
                                                     IN HANDLE hFile,
                                                     IN PCTSTR ImageName,
@@ -260,14 +260,19 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
     TCHAR wbuf[MAX_PATH];
     TCHAR wapp[MAX_PATH];
     drfront_status_t status_check = DRFRONT_ERROR;
+    bool is_dir = false;
 
     status_check = drfront_char_to_tchar(app, wapp, BUFFER_SIZE_ELEMENTS(wapp));
     if (status_check != DRFRONT_SUCCESS)
         return status_check;
-
     _tsearchenv(wapp, _T("PATH"), wbuf);
     NULL_TERMINATE_BUFFER(wbuf);
-    if (wbuf[0] == _T('\0')) {
+    status_check = drfront_tchar_to_char(wbuf, buf, buflen);
+    if (status_check != DRFRONT_SUCCESS)
+        return status_check;
+    if (wbuf[0] == _T('\0') ||
+        /* DrM-i#1617: we might have a same-name directory on the path */
+        (drfront_dir_exists(buf, &is_dir) == DRFRONT_SUCCESS && is_dir)) {
         /* may need to append .exe, FIXME : other executable types */
         TCHAR tmp_buf[MAX_PATH];
         _sntprintf(tmp_buf, BUFFER_SIZE_ELEMENTS(tmp_buf), _T("%s%s"), wapp, _T(".exe"));
@@ -284,11 +289,11 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
 }
 
 drfront_status_t
-drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
+drfront_set_client_symbol_search_path(const char *symdir, bool ignore_env,
+                                      OUT char *symsrv_path, size_t symsrv_path_sz)
 {
     char app_symsrv_path[MAX_SYMSRV_PATH];
     TCHAR wapp_symsrv_path[MAX_SYMSRV_PATH];
-    TCHAR wsymsrv_path[MAX_SYMSRV_PATH];
     char tmp_srv_path[MAX_SYMSRV_PATH];
     char tmp_symsrv_path[MAX_SYMSRV_PATH];
     char *cur;
@@ -315,7 +320,7 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
         NULL_TERMINATE_BUFFER(pdb_dir);
         drfront_string_replace_character(pdb_dir, '/', '\\'); /* canonicalize */
         sc = drfront_create_dir(pdb_dir);
-        if (sc != DRFRONT_SUCCESS ||
+        if ((sc != DRFRONT_SUCCESS && sc != DRFRONT_ERROR_FILE_EXISTS) ||
             drfront_access(pdb_dir, DRFRONT_READ, &dir_exists) != DRFRONT_SUCCESS ||
             !dir_exists) {
             DO_DEBUG(DL_WARN,
@@ -366,22 +371,23 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
         if (!ignore_env) {
             /* Easiest to recurse.  Bool prevents 2nd recursion. */
             DO_DEBUG(DL_WARN,
-                     printf("All _NT_SYMBOL_PATH dirs doesn't exist. Trying to"\
-                            "use user-provided path.");
+                     printf("No _NT_SYMBOL_PATH dir exists. Trying to"\
+                            "use user-provided path.\n");
                      );
-            return drfront_set_symbol_search_path(symdir, true);
+            return drfront_set_client_symbol_search_path(symdir, true, symsrv_path,
+                                                         symsrv_path_sz);
         } else {
             DO_DEBUG(DL_WARN,
-                     printf("error parsing _NT_SYMBOL_PATH: may fail to fetch symbols\n");
+                     printf("Error parsing _NT_SYMBOL_PATH: may fail to fetch syms\n");
                      );
             return DRFRONT_ERROR;
         }
     }
     DO_DEBUG(DL_INFO,
-             printf("using symbol path %s as the local store\n", app_symsrv_path);
+             printf("Using symbol path %s as the local store\n", app_symsrv_path);
              );
     DO_DEBUG(DL_INFO,
-             printf("using symbol path %s to fetch symbols\n", tmp_symsrv_path);
+             printf("Using symbol path %s to fetch symbols\n", tmp_symsrv_path);
              );
 
     /* Set _NT_SYMBOL_PATH for dbghelp in the app. */
@@ -393,14 +399,37 @@ drfront_set_symbol_search_path(const char *symdir, bool ignore_env)
                  );
         return DRFRONT_ERROR;
     }
-    /* We're using SymSetSearchPath here to allow symbols fetching with
-     * SymLoadModuleEx.
+    /* Set it for our own use as well (dbghelp cached _NT_SYMBOL_PATH when it
+     * initialized (if NULL was passed to drfront_sym_init) but we validated
+     * and potentially changed it here).  It's up to the caller to use
+     * the MS symbol server path we're returning to them.
+     * This allows the caller to test for local pdbs before incurring the
+     * cost of a network query.
      */
-    drfront_char_to_tchar(tmp_symsrv_path, wsymsrv_path,
+    if (!sym_set_path_func(GetCurrentProcess(), wapp_symsrv_path))  {
+         DO_DEBUG(DL_WARN,
+                  printf("SymSetSearchPathW failed %d\n", GetLastError());
+                  );
+        return DRFRONT_ERROR;
+    }
+    if (symsrv_path != NULL) {
+        strncpy(symsrv_path, tmp_symsrv_path, symsrv_path_sz);
+        symsrv_path[symsrv_path_sz - 1] = '\0';
+    }
+    return DRFRONT_SUCCESS;
+}
+
+drfront_status_t
+drfront_set_symbol_search_path(const char *symsrv_path)
+{
+    TCHAR wsymsrv_path[MAX_SYMSRV_PATH];
+    if (sym_set_path_func == NULL)
+        return DRFRONT_ERROR_LIB_UNSUPPORTED;
+    drfront_char_to_tchar(symsrv_path, wsymsrv_path,
                           BUFFER_SIZE_ELEMENTS(wsymsrv_path));
     if (!sym_set_path_func(GetCurrentProcess(), wsymsrv_path))  {
          DO_DEBUG(DL_WARN,
-                  printf("SymSetSearchPathW failed %d", GetLastError());
+                  printf("SymSetSearchPathW failed %d\n", GetLastError());
                   );
         return DRFRONT_ERROR;
     }
@@ -423,63 +452,64 @@ drfront_sym_init(const char *symsrv_path, const char *dbghelp_path)
     hlib = LoadLibraryW(wdbghelp_path);
     if (hlib == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("dbghelp.dll load failed %d", GetLastError());
+                 printf("dbghelp.dll load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR;
     }
     sym_init_func = (dbghelp_SymInitializeW_t) GetProcAddress(hlib, "SymInitializeW");
     if (sym_init_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymInitializeW load failed %d", GetLastError());
+                 printf("SymInitializeW load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_cleanup_func = (dbghelp_SymCleanupW_t) GetProcAddress(hlib, "SymCleanup");
     if (sym_cleanup_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymCleanup load failed %d", GetLastError());
+                 printf("SymCleanup load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_set_path_func = (dbghelp_SymSetSearchPathW_t)
-                                              GetProcAddress(hlib, "SymSetSearchPathW");
+        GetProcAddress(hlib, "SymSetSearchPathW");
     if (sym_set_path_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymSetSearchPathW load failed %d", GetLastError());
+                 printf("SymSetSearchPathW load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_load_module_func = (dbghelp_SymLoadModuleExW_t)
-                                              GetProcAddress(hlib, "SymLoadModuleExW");
+        GetProcAddress(hlib, "SymLoadModuleExW");
     if (sym_load_module_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymLoadModuleExW load failed %d", GetLastError());
+                 printf("SymLoadModuleExW load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_unload_module_func = (dbghelp_SymUnloadModule64_t)
-                                              GetProcAddress(hlib, "SymUnloadModule64");
+        GetProcAddress(hlib, "SymUnloadModule64");
     if (sym_unload_module_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymUnloadModule64 load failed %d", GetLastError());
+                 printf("SymUnloadModule64 load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     sym_get_module_info_func = (dbghelp_SymGetModuleInfoW64_t)
-                                              GetProcAddress(hlib, "SymGetModuleInfoW64");
+        GetProcAddress(hlib, "SymGetModuleInfoW64");
     if (sym_get_module_info_func == NULL) {
         DO_DEBUG(DL_WARN,
-                 printf("SymGetModuleInfoW64 load failed %d", GetLastError());
+                 printf("SymGetModuleInfoW64 load failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR_LIB_UNSUPPORTED;
     }
     if (symsrv_path != NULL) {
         drfront_char_to_tchar(symsrv_path, wsymsrv_path,
                               BUFFER_SIZE_ELEMENTS(wsymsrv_path));
-    }
-    if (!sym_init_func(proc_handle, wsymsrv_path, FALSE)) {
+    } else
+        wsymsrv_path[0] = '\0';
+    if (!sym_init_func(proc_handle, symsrv_path == NULL ? NULL : wsymsrv_path, FALSE)) {
         DO_DEBUG(DL_WARN,
-                 printf("SymInitializeW failed %d", GetLastError());
+                 printf("SymInitializeW failed %d\n", GetLastError());
                  );
         return DRFRONT_ERROR;
     }
@@ -525,7 +555,7 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
     base = sym_load_module_func(proc, NULL, wmodpath, NULL, 0, 0, NULL, 0);
     if (base == 0) {
         DO_DEBUG(DL_WARN,
-                 printf("SymLoadModuleEx error: %d", GetLastError());
+                 printf("SymLoadModuleEx %S error: %d\n", wmodpath, GetLastError());
                  );
         return DRFRONT_ERROR;
     }
@@ -538,27 +568,27 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
         case SymPdb:
         case SymDeferred:
             DO_DEBUG(DL_INFO,
-                     printf("  pdb for %s stored at %S",
+                     printf("  pdb for %s stored at %S\n",
                             modpath, mod_info.LoadedPdbName);
                      );
             got_pdbs = TRUE;
             break;
         case SymExport:
             DO_DEBUG(DL_WARN,
-                     printf("  failed to fetch pdb for %s, exports only",
+                     printf("  failed to fetch pdb for %s, exports only\n",
                             modpath);
                      );
             break;
         default:
             DO_DEBUG(DL_WARN,
-                     printf("  failed to fetch pdb for %s, got SymType %d",
+                     printf("  failed to fetch pdb for %s, got SymType %d\n",
                             modpath, mod_info.SymType);
                      );
             break;
         }
     } else {
         DO_DEBUG(DL_WARN,
-                 printf("SymGetModuleInfoEx failed: %d", GetLastError());
+                 printf("SymGetModuleInfoEx failed: %d\n", GetLastError());
                  );
     }
     if (symbol_path_sz != 0)
@@ -567,7 +597,7 @@ drfront_fetch_module_symbols(const char *modpath, OUT char *symbol_path,
     /* Unload it. */
     if (!sym_unload_module_func(proc, base)) {
         DO_DEBUG(DL_WARN,
-                 printf("SymUnloadModule64 error %d", GetLastError());
+                 printf("SymUnloadModule64 error %d\n", GetLastError());
                  );
     }
     if (!got_pdbs)

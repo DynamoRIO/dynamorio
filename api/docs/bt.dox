@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2009 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -323,7 +323,7 @@ key actions during execution of the application.  The \ref sec_events
 section describes events common to the entire DynamoRIO API. Here we
 discuss the events specific to the Code Manipulation portion.
 
-DynamoRIO provides two events related to fragment creation: one for
+DynamoRIO provides two events related to application code fragments: one for
 basic blocks and one for traces (see dr_register_bb_event() and
 dr_register_trace_event()).  Through these fragment-creation hooks,
 the client has the ability to inspect and modify any piece of code
@@ -332,13 +332,31 @@ a client sees \e all application code.  The trace-creation hook
 provides a mechanism for clients to instrument only
 frequently-executed code paths.
 
-The code manipulation API is highly efficient in that fragment
-creation comprises a small part of DynamoRIO's overhead.  A client's
-analysis time rarely impacts execution time; only instrumentation code
-inserted by the client affects efficiency.
+********************
+\subsection sec_control_points Transformation Versus Execution Time
 
+DynamoRIO's basic block and trace events are raised when the corresponding
+application code is being transferred to the software code cache for
+execution.  <em>No event is raised on each execution of this code from the
+code cache</em>.  In a typical run, a particular block of code will only be
+seen once in an event.  It will subsequently execute many times in the code
+cache.
 
-******************** \subsection sec_events_bb Basic Block Creation
+The point where the event is raised, where the application code is being
+copied into the cache, is called <em>transformation time</em>.  This is
+where a client can insert instrumentation to monitor the code, or can
+modify the application code itself.  The repeated executions within the
+code cache of this instrumented or modified code are referred to as
+<em>execution time</em>.  It is important to understand the distinction.
+
+The code manipulation API is highly efficient in that fragment creation
+comprises a small part of DynamoRIO's overhead.  A client's instrumentation
+time actions rarely add substantial overhead for most target applications.
+Instead, it is extra actions taken by added instrumentation code acting at
+execution time that affects efficiency.
+
+********************
+\subsection sec_events_bb Basic Block Creation
 
 Through the basic block creation event, registered via
 dr_register_bb_event(), the client has the ability to inspect and transform
@@ -399,7 +417,7 @@ dr_emit_flags_t new_block(void *drcontext, void *tag, instrlist_t *bb,
 \endcode
 
 ********************
-\subsection sec_Meta Meta Instructions
+\subsection sec_Meta Application Versus Meta Instructions
 
 Changes to the instruction stream made by a client fall into two
 categories: changes or additions that should be considered part of the
@@ -410,7 +428,7 @@ meta instructions.
 Meta instructions are marked using these API routines:
 
 \code
-instr_set_ok_to_mangle(,false)
+instr_set_meta()
 instrlist_meta_preinsert()
 instrlist_meta_postinsert()
 instrlist_meta_append()
@@ -445,23 +463,35 @@ instr_get_next_app()
 instrlist_first_app()
 \endcode
 
+We recommend that clients follow a disciplined model that separates application
+code analysis versus insertion of instrumentation.  The \ref page_drmgr
+Extension facilitates this by separating application transformation, application
+analysis, and instrumentation.  However, even with this separation, label
+instructions and in some cases other meta instructions (e.g., from
+drwrap_replace_native()) are added during application transformation which
+should be skipped during analysis.  Using instrlist_first_app() and
+instr_get_next_app() is recommended during application analysis: it
+automatically skips non-application (meta) instructions, which at that stage are
+guaranteed to be either labels or to have no effect on register state or other
+key aspects of application code analysis.
+
 While DynamoRIO attempts to support arbitrary code transformations, its
 internal operation requires that we impose the following limitations:
 
- - If there is more than one non-meta branch, only the last can be
+ - If there is more than one application branch, only the last can be
    conditional.
- - A non-meta conditional branch must be the final instruction in the
+ - An application conditional branch must be the final instruction in the
    block.
  - There can only be one indirect branch (call, jump, or return) in
-   a basic block, and it must be the final non-meta branch in the block.
+   a basic block, and it must be the final application branch in the block.
  - The exit control-flow of a block ending in a system call cannot be
    changed.
 
 Application instructions, or non-meta instructions, in addition to being
 processed (and followed if control flow), are also considered safe points
 for relocation for the rare times when DynamoRIO must move threads
-around.  Thus a client should ensure that it is safe to re-start a
-non-meta instruction at the translation field address provided.
+around.  Thus a client should ensure that it is safe to re-start an
+application instruction at the translation field address provided.
 
 ********************
 \subsection sec_events_trace Trace Creation
@@ -805,8 +835,8 @@ slots:
 
 \code dr_save_reg(), dr_restore_reg(), and dr_reg_spill_slot_opnd() \endcode
 
-The values stored in these spill slots remain valid until the next non-meta
-(i.e. application) instruction and as such can be accessed from clean calls using:
+The values stored in these spill slots remain valid until the next application
+(i.e. non-meta) instruction and as such can be accessed from clean calls using:
 
 \code dr_read_saved_reg(), dr_write_saved_reg() \endcode
 
@@ -988,7 +1018,7 @@ properly translate a code cache address the client must use
 instr_set_translation() (chainable via INSTR_XL8()) in the basic block and
 trace creation callbacks to set the corresponding application address for
 each added meta instruction that can fault, each modified instruction, and
-each added non-meta instruction.  The
+each added application instruction.  The
 translation value is the application address that should be presented to
 the application as the faulting address, or the application address that
 should be restarted after a suspend.  Currently the translation address
@@ -1030,7 +1060,7 @@ original application values.
 
 For meta instructions that do not reference application memory (i.e., they
 should not fault), leave the translation field as NULL.  A NULL value
-instructs DynamoRIO to use the subsequent non-meta instruction's
+instructs DynamoRIO to use the subsequent application instruction's
 translation as the application address, and to fail when translating the
 full state.  Since the full state will only be needed when relocating a
 thread (as stated, there will not be a fault here), failure indicates that

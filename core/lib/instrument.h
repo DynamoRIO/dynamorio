@@ -205,11 +205,11 @@ DR_API
  *
  * The user is free to inspect and modify the block before it
  * executes, but must adhere to the following restrictions:
- * - If there is more than one non-meta branch, only the last can be
+ * - If there is more than one application branch, only the last can be
  * conditional.
- * - A non-meta conditional branch must be the final
+ * - An application conditional branch must be the final
  * instruction in the block.
- * - A non-meta direct call must be the final
+ * - An application direct call must be the final
  * instruction in the block unless it is inserted by DR for elision and the
  * subsequent instructions are the callee.
  * - There can only be one indirect branch (call, jump, or return) in
@@ -250,7 +250,7 @@ DR_API
  * must also be able to translate when a suspended thread is examined by
  * the application or by DR itself for internal synchronization purposes.
  * If the client is only adding observational instrumentation (i.e., meta
- * instructions: see #instr_set_ok_to_mangle()) (which should not fault) and
+ * instructions: see #instr_set_meta()) (which should not fault) and
  * is not modifying, reordering, or removing application instructions,
  * these details can be ignored.  In that case the client should return
  * #DR_EMIT_DEFAULT and set up its basic block callback to be deterministic
@@ -260,7 +260,7 @@ DR_API
  * the corresponding application address (the address that should be
  * presented to the application as the faulting address, or the address
  * that should be restarted after a suspend) for each modified instruction
- * and each added non-meta instruction (see #instr_set_ok_to_mangle()).
+ * and each added application instruction (see #instr_set_app()).
  *
  * There are two methods for using the translated addresses:
  *
@@ -286,7 +286,7 @@ DR_API
  *    it saves memory.  Naturally, global state changes triggered by
  *    block creation should be wrapped in checks for \p translating
  *    being false.  Even in this case, #instr_set_translation() should
- *    be called for non-meta instructions even when \p translating is
+ *    be called for application instructions even when \p translating is
  *    false, as DR may decide to store the translations at creation
  *    time for reasons of its own.
  *
@@ -298,7 +298,7 @@ DR_API
  *
  * For meta instructions that do not reference application memory
  * (i.e., they should not fault), leave the translation field as NULL.
- * A NULL value instructs DR to use the subsequent non-meta
+ * A NULL value instructs DR to use the subsequent application
  * instruction's translation as the application address, and to fail
  * when translating the full state.  Since the full state will only be
  * needed when relocating a thread (as stated, there will not be a
@@ -349,7 +349,7 @@ DR_API
  * \note A client can change the control flow of the application by
  * changing the control transfer instruction at end of the basic block.
  * If a basic block is ended with a non-control transfer instruction,
- * a non-meta jump instruction can be inserted.
+ * an application jump instruction can be inserted.
  * If a basic block is ended with a conditional branch,
  * \p instrlist_set_fall_through_target can be used to change the
  * fall-through target.
@@ -418,9 +418,9 @@ DR_API
  *   the trace is created.  Instead, modify the component blocks by
  *   changing the block continuation addresses in the basic block callbacks
  *   (called with \p for_trace set to true) as the trace is being built.
- * - The (non-meta) control flow instruction (if any) terminating each
+ * - The (application) control flow instruction (if any) terminating each
  *   component block cannot be changed.
- * - Non-meta control flow instructions cannot be added.
+ * - Application control flow instructions cannot be added.
  * - The parameter to a system call, normally kept in the eax register,
  *   cannot be changed.
  * - A system call or interrupt instruction cannot be added.
@@ -453,7 +453,7 @@ DR_API
  *
  * \note Certain control flow modifications applied to a basic block
  * can prevent it from becoming part of a trace: e.g., adding
- * additional non-meta control transfers.
+ * additional application control transfers.
  *
  * \note If multiple clients are present, the instruction list for a
  * trace passed to earlier-registered clients will contain the
@@ -579,7 +579,7 @@ DR_API
  * purposes.
  *
  * If a client is only adding instrumentation (meta-code: see
- * #instr_ok_to_mangle()) that does not reference application memory,
+ * #instr_is_meta()) that does not reference application memory,
  * and is not reordering or removing application instructions, then it
  * need not register for this event.  If, however, a client is
  * modifying application code or is adding code that can fault, the
@@ -1724,15 +1724,34 @@ dr_get_parent_id(void);
 #ifdef WINDOWS
 
 /** Windows versions */
+/* http://msdn.microsoft.com/en-us/library/windows/desktop/ms724832(v=vs.85).aspx */
 typedef enum {
-    DR_WINDOWS_VERSION_8_1   = 63,
-    DR_WINDOWS_VERSION_8     = 62,
-    DR_WINDOWS_VERSION_7     = 61,
-    DR_WINDOWS_VERSION_VISTA = 60,
-    DR_WINDOWS_VERSION_2003  = 52, /**< 64-bit XP is this version as well */
-    DR_WINDOWS_VERSION_XP    = 51,
-    DR_WINDOWS_VERSION_2000  = 50,
-    DR_WINDOWS_VERSION_NT    = 40,
+    /** Windows 8.1 */
+    DR_WINDOWS_VERSION_8_1     = 63,
+    /** Windows Server 2012 R2 */
+    DR_WINDOWS_VERSION_2012_R2 = DR_WINDOWS_VERSION_8_1,
+    /** Windows 8 */
+    DR_WINDOWS_VERSION_8       = 62,
+    /** Windows Server 2012 */
+    DR_WINDOWS_VERSION_2012    = DR_WINDOWS_VERSION_8,
+    /** Windows 7 */
+    DR_WINDOWS_VERSION_7       = 61,
+    /** Windows Server 2008 R2 */
+    DR_WINDOWS_VERSION_2008_R2 = DR_WINDOWS_VERSION_7,
+    /** Windows Vista */
+    DR_WINDOWS_VERSION_VISTA   = 60,
+    /** Windows Server 2008 */
+    DR_WINDOWS_VERSION_2008    = DR_WINDOWS_VERSION_VISTA,
+    /** Windows Server 2003 */
+    DR_WINDOWS_VERSION_2003    = 52,
+    /** Windows XP 64-bit */
+    DR_WINDOWS_VERSION_XP_X64  = DR_WINDOWS_VERSION_2003,
+    /** Windows XP */
+    DR_WINDOWS_VERSION_XP      = 51,
+    /** Windows 2000 */
+    DR_WINDOWS_VERSION_2000    = 50,
+    /** Windows NT */
+    DR_WINDOWS_VERSION_NT      = 40,
 } dr_os_version_t;
 
 /** Data structure used with dr_get_os_version() */
@@ -5086,10 +5105,12 @@ DR_API
  * -# target address of branch
  * -# fall-through address of branch
  * -# 0 if the branch is not taken, 1 if it is taken
+ * -# user defined operand (e.g., TLS slot, immed value, register, etc.)
+ * \note The user defined operand cannot use register ebx!
  */
 void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist,
-                                 instr_t *instr, void *callee);
+                                 instr_t *instr, void *callee, opnd_t user_data);
 
 /* FIXME: will never see any ubrs! */
 DR_API

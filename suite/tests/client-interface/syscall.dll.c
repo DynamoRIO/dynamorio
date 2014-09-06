@@ -52,6 +52,20 @@ at_syscall()
         dr_get_mcontext(drcontext, &mcontext);
         dr_fprintf(STDERR, PFX"\n", mcontext.xax);
 
+        {
+            /* Sanity checks for reg_get_value_ex() */
+            byte val[sizeof(dr_ymm_t)];
+            if (!reg_get_value_ex(DR_REG_XMM0, &mcontext, val) ||
+                memcmp(val, &mcontext.ymm[0], sizeof(dr_xmm_t)) != 0)
+                dr_fprintf(STDERR, "reg_get_value_ex xmm0 mismatch\n");
+            if (!reg_get_value_ex(DR_REG_YMM0, &mcontext, val) ||
+                memcmp(val, &mcontext.ymm[0], sizeof(dr_ymm_t)) != 0)
+                dr_fprintf(STDERR, "reg_get_value_ex ymm0 mismatch\n");
+            if (!reg_get_value_ex(DR_REG_XBP, &mcontext, val) ||
+                *(reg_t*)val != reg_get_value(DR_REG_XBP, &mcontext))
+                dr_fprintf(STDERR, "reg_get_value_ex xbp mismatch\n");
+        }
+
 #ifdef WINDOWS
         {
             /* Test dr_mcontext_to_context */

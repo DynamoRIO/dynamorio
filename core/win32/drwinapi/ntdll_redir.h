@@ -242,5 +242,11 @@ redirect_LdrLoadDll(IN PWSTR path OPTIONAL,
                     IN PUNICODE_STRING name,
                     OUT PVOID *handle);
 
+/* This is exported by some kernel32.dll versions, but it's just forwarded
+ * directly or there's a stub that calls the real impl in ntdll.
+ */
+PVOID NTAPI
+redirect_RtlPcToFileHeader(__in PVOID PcValue,
+                           __out PVOID *BaseOfImage);
 
 #endif /* _NTDLL_REDIR_H_ */

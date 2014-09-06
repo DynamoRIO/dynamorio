@@ -1370,13 +1370,13 @@ check_ilist_translations(instrlist_t *ilist)
     for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
         if (!instr_opcode_valid(in)) {
             CLIENT_ASSERT(INTERNAL_OPTION(fast_client_decode), "level 0 instr found");
-        } else if (instr_ok_to_mangle(in)) {
+        } else if (instr_is_app(in)) {
             DOLOG(LOG_INTERP, 1, {
                 if (instr_get_translation(in) == NULL)
                     loginst(get_thread_private_dcontext(), 1, in, "translation is NULL");
             });
             CLIENT_ASSERT(instr_get_translation(in) != NULL,
-                          "translation field must be set for every non-meta instruction");
+                          "translation field must be set for every app instruction");
         } else {
             /* The meta instr could indeed not affect app state, but
              * better I think to assert and make them put in an
@@ -4038,7 +4038,7 @@ dr_messagebox(const char *fmt, ...)
     NULL_TERMINATE_BUFFER(wmsg);
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = true;
-    nt_messagebox(wmsg, L"Notice");
+    nt_messagebox(wmsg, debugbox_get_title());
     if (IS_CLIENT_THREAD(dcontext))
         dcontext->client_data->client_thread_safe_for_synch = false;
     va_end(ap);
@@ -4136,7 +4136,7 @@ dr_enable_console_printing(void)
             if (app_kernel32 == NULL) {
                 success = false;
             } else {
-                success = privload_console_share(priv_kernel32);
+                success = privload_console_share(priv_kernel32, app_kernel32->start);
                 dr_free_module_data(app_kernel32);
             }
         }
@@ -4600,7 +4600,7 @@ DR_API
 void
 instrlist_meta_preinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_preinsert(ilist, where, inst);
 }
 
@@ -4609,7 +4609,7 @@ DR_API
 void
 instrlist_meta_postinsert(instrlist_t *ilist, instr_t *where, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_postinsert(ilist, where, inst);
 }
 
@@ -4618,7 +4618,7 @@ DR_API
 void
 instrlist_meta_append(instrlist_t *ilist, instr_t *inst)
 {
-    instr_set_ok_to_mangle(inst, false);
+    instr_set_meta(inst);
     instrlist_append(ilist, inst);
 }
 
@@ -4732,7 +4732,7 @@ prepare_for_call_ex(dcontext_t  *dcontext, clean_call_info_t *cci,
     else
         in = instr_get_next(in);
     while (in != where) {
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
         in = instr_get_next(in);
     }
     return dstack_offs;
@@ -4761,7 +4761,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
     else
         in = instr_get_next(in);
     while (in != where) {
-        instr_set_ok_to_mangle(in, false);
+        instr_set_meta(in);
         in = instr_get_next(in);
     }
 }
@@ -5536,7 +5536,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
  */
 static void
 dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                                   void *callee, bool has_fallthrough)
+                                   void *callee, bool has_fallthrough, opnd_t user_data)
 {
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address, target;
@@ -5568,8 +5568,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
     app_flags_ok = instr_get_prev(instr);
     if (has_fallthrough) {
         ptr_uint_t fallthrough = address + instr_length(drcontext, instr);
+        CLIENT_ASSERT(!opnd_uses_reg(user_data, DR_REG_XBX),
+                      "register ebx should not be used");
         CLIENT_ASSERT(fallthrough > address, "wrong fallthrough address");
-        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 4,
+        dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 5,
                              /* push address of mbr onto stack as 1st parameter */
                              OPND_CREATE_INTPTR(address),
                              /* target is 2nd parameter */
@@ -5577,7 +5579,9 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
                              /* fall-throug is 3rd parameter */
                              OPND_CREATE_INTPTR(fallthrough),
                              /* branch direction (put in ebx below) is 4th parameter */
-                             opnd_create_reg(REG_XBX));
+                             opnd_create_reg(REG_XBX),
+                             /* user defined data is 5th parameter */
+                             opnd_is_null(user_data) ? OPND_CREATE_INT32(0) : user_data);
     } else {
         dr_insert_clean_call(drcontext, ilist, instr, callee, false/*no fpstate*/, 3,
                              /* push address of mbr onto stack as 1st parameter */
@@ -5748,16 +5752,16 @@ DR_API void
 dr_insert_cbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee)
 {
-    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
-                                       callee, false /* no fallthrough */);
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr, callee,
+                                       false /* no fallthrough */, opnd_create_null());
 }
 
 DR_API void
 dr_insert_cbr_instrumentation_ex(void *drcontext, instrlist_t *ilist, instr_t *instr,
-                                 void *callee)
+                                 void *callee, opnd_t user_data)
 {
-    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr,
-                                       callee, true /* has fallthrough */);
+    dr_insert_cbr_instrumentation_help(drcontext, ilist, instr, callee,
+                                       true /* has fallthrough */, user_data);
 }
 
 

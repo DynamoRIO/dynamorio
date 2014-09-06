@@ -1,5 +1,5 @@
 /* ******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * ******************************************************************************/
 
 /*
@@ -155,9 +155,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                                      OPND_CREATE_MEMPTR(reg, 0),
                                      bb, first, &mov1, &mov2);
     DR_ASSERT(mov1 != NULL);
-    instr_set_ok_to_mangle(mov1, false);
+    instr_set_meta(mov1);
     if (mov2 != NULL)
-        instr_set_ok_to_mangle(mov2, false);
+        instr_set_meta(mov2);
 
     /* update the TLS buffer pointer by incrementing just the bottom 16 bits of
      * the pointer
@@ -242,6 +242,8 @@ event_exit(void)
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'bbbuf'",
+                       "http://dynamorio.org/issues");
     /* register events */
     dr_register_thread_init_event(event_thread_init);
     dr_register_thread_exit_event(event_thread_exit);

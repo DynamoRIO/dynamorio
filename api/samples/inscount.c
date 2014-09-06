@@ -1,4 +1,5 @@
 /* ******************************************************************************
+ * Copyright (c) 2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * Copyright (c) 2008 VMware, Inc.  All rights reserved.
  * ******************************************************************************/
@@ -64,6 +65,8 @@ static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t
 DR_EXPORT void
 dr_init(client_id_t id)
 {
+    dr_set_client_name("DynamoRIO Sample Client 'inscount'",
+                       "http://dynamorio.org/issues");
     /* register events */
     dr_register_exit_event(event_exit);
     dr_register_bb_event(event_basic_block);

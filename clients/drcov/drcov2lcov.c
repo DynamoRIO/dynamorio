@@ -43,6 +43,7 @@
 #include "drcov.h"
 #include "drsyms.h"
 #include "hashtable.h"
+#include "dr_frontend.h"
 
 #include "../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
@@ -85,6 +86,21 @@
 
 #define DEFAULT_OUTPUT_FILE "coverage.info"
 
+/* Rather than skip these in the client and put them into the unknown module,
+ * we give the user a chance to display these if desired.
+ * But by default we hide them, as they are confusing in the output.
+ * They are present on the app module list for various reasons (xref i#479).
+ */
+#ifdef WINDOWS
+# define DR_LIB_NAME "dynamorio.dll"
+# define DR_PRELOAD_NAME "preinject.dll"
+# define DRCOV_LIB_NAME "drcov.dll"
+#else
+# define DR_LIB_NAME "libdynamorio." /* cover .so and .dylib */
+# define DR_PRELOAD_NAME "libdrpreload."
+# define DRCOV_LIB_NAME "libdrcov."
+#endif
+
 const char *usage_str =
     "drcov2lcov: covert drcov file format to lcov file format\n"
     "usage: drcov2lcov [options]\n"
@@ -93,14 +109,15 @@ const char *usage_str =
     "      -warning <int>                     Warning level.\n"
     "      -list <input list file>            The file with a list of drcov files to be processed.\n"
     "      -dir <input directory>             The directory with all drcov.*.log files to be processed.\n"
-    "      -input <input file>                The single drcov file to be processed."
+    "      -input <input file>                The single drcov file to be processed.\n"
     "      -output <output file>              The output file.\n"
     "      -test_pattern <test name pattern>  Include test coverage information. Note that the output with this option is not compatible with lcov.\n"
     "      -mod_filter <module filter>        Only process the module whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -mod_skip_filter <module filter>   Skip processing the module whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -src_filter <source filter>        Only process the source file whose path contains the filter string.  Only one such filter can be specified.\n"
     "      -src_skip_filter <source filter>   Skip processing the source file whose path contains the filter string.  Only one such filter can be specified.\n"
-    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n";
+    "      -reduce_set <reduce_set file>      Find a smaller set of log files from the inputs that have the same code coverage and write those file paths into <reduce_set file>.\n"
+    "      -include_tool_code                 Include execution from the drcov tool libraries themselves, which are normally excluded.\n";
 
 static char input_file_buf[MAXIMUM_PATH];
 static char input_dir_buf[MAXIMUM_PATH];
@@ -121,6 +138,7 @@ typedef struct _option_t {
     char *mod_skip_filter;
     char *set_file;
     char *test_pattern; /* i#1465: test cov info */
+    bool include_tool_code;
 } option_t;
 static option_t options;
 
@@ -156,39 +174,6 @@ null_terminate_path(char *path)
         len--;
     }
 }
-
-#ifdef UNIX
-/* XXX: i#1079, the code is copied from drdeploy.c, we should share them
- * via a front-end lib.
- * Simply concatenates the cwd with the given relative path.  Previously we
- * called realpath, but this requires the path to exist and expands symlinks,
- * which is inconsistent with Windows GetFullPathName().
- */
-static int
-GetFullPathName(const char *rel, size_t abs_len, char *abs, char **ext)
-{
-    size_t len = 0;
-    ASSERT(ext == NULL, "invalid param");
-    if (rel[0] != '/') {
-        char *err = getcwd(abs, abs_len);
-        if (err != NULL) {
-            len = strlen(abs);
-            /* Append a slash if it doesn't have a trailing slash. */
-            if (abs[len-1] != '/' && len < abs_len) {
-                abs[len++] = '/';
-                abs[len] = '\0';
-            }
-            /* Omit any leading ./. */
-            if (rel[0] == '.' && rel[0] == '/') {
-                rel += 2;
-            }
-        }
-    }
-    strncpy(abs + len, rel, abs_len - len);
-    abs[abs_len-1] = '\0';
-    return strlen(abs);
-}
-#endif
 
 /****************************************************************************
  * Line-Table Data Structures & Functions
@@ -637,7 +622,7 @@ search_cb(drsym_info_t *info, drsym_error_t status, void *data)
         /* strdup is deprecated on Windows */
         strncpy(name, info->name, strlen(info->name) + 1);
         PRINT(5, "function %s: "PFX"-"PFX"\n",
-              name, info->start_offs, info->end_offs);
+              name, (ptr_uint_t)info->start_offs, (ptr_uint_t)info->end_offs);
         ASSERT(info->start_offs <= table->size, "wrong offset");
         hashtable_add(&table->test_htable, (void *)info->start_offs, name);
     }
@@ -697,23 +682,21 @@ module_table_create(const char *module, size_t size)
     return table;
 }
 
+static bool
+module_is_from_tool(const char * path)
+{
+    return (strstr(path, DR_LIB_NAME) != NULL ||
+            strstr(path, DR_PRELOAD_NAME) != NULL ||
+            strstr(path, DRCOV_LIB_NAME) != NULL);
+}
+
 static char *
 read_module_list(char *buf, void ***tables, uint *num_mods)
 {
     char  path[MAXIMUM_PATH];
     uint  i;
-    uint  version;
 
     PRINT(3, "Reading module table...\n");
-    /* versione number */
-    PRINT(4, "Reading version number");
-    if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1 &&
-        version != DRCOV_VERSION) {
-        WARN(2, "Failed to read version number");
-        return NULL;
-    }
-    buf = move_to_next_line(buf);
-
     /* module table header */
     PRINT(4, "Reading Module Table Header\n");
     if (dr_sscanf(buf, "Module Table: %d\n", num_mods) != 1) {
@@ -740,11 +723,15 @@ read_module_list(char *buf, void ***tables, uint *num_mods)
         if (mod_table == NULL) {
             if (mod_size >= UINT_MAX)
                 ASSERT(false, "module size is too large");
+            /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
+             * so these should be case-insensitive on Windows.
+             */
             if (strstr(path, "<unknown>") != NULL ||
                 (options.mod_filter != NULL &&
                  strstr(path, options.mod_filter) == NULL) ||
                 (options.mod_skip_filter != NULL &&
-                 strstr(path, options.mod_skip_filter) != NULL))
+                 strstr(path, options.mod_skip_filter) != NULL) ||
+                (!options.include_tool_code && module_is_from_tool(path)))
                 mod_table = MODULE_TABLE_IGNORE;
             else
                 mod_table = module_table_create(path, (size_t)mod_size);
@@ -782,6 +769,42 @@ read_bb_list(char *buf, void **tables, uint num_mods, uint num_bbs)
     }
     free(tables);
     return add_new_bb;
+}
+
+static char *
+read_file_header(char *buf)
+{
+    char  str[MAXIMUM_PATH];
+    uint  version;
+
+    PRINT(3, "Reading file header...\n");
+    /* version number */
+    PRINT(4, "Reading version number\n");
+    if (dr_sscanf(buf, "DRCOV VERSION: %u\n", &version) != 1) {
+        WARN(2, "Failed to read version number");
+        return NULL;
+    }
+    if (version != DRCOV_VERSION) {
+        WARN(2, "Version mismatch: file version %d vs tool version %d\n",
+             version, DRCOV_VERSION);
+        return NULL;
+    }
+    buf = move_to_next_line(buf);
+
+    /* flavor */
+    PRINT(4, "Reading flavor\n");
+    /* XXX i#1143: switch to dr_sscanf once it supports %[] */
+    if (sscanf(buf, "DRCOV FLAVOR: %[^\n\r]\n", str) != 1) {
+        WARN(2, "Failed to read version number");
+        return NULL;
+    }
+    if (strcmp(str, DRCOV_FLAVOR) != 0) {
+        WARN(2, "Fatal file mismatch: file %s vs tool %s\n", str, DRCOV_FLAVOR);
+        return NULL;
+    }
+    buf = move_to_next_line(buf);
+
+    return buf;
 }
 
 static file_t
@@ -844,7 +867,13 @@ read_drcov_file(char *input)
         WARN(1, "Failed to read drcov log file %s\n", input);
         return false;
     }
-    ptr = read_module_list(map, &tables, &num_mods);
+    ptr = read_file_header(map);
+    if (ptr == NULL) {
+        WARN(1, "Invalid version or bitwidth in drcov log file %s\n", input);
+        return false;
+    }
+
+    ptr = read_module_list(ptr, &tables, &num_mods);
     if (ptr == NULL)
         return false;
 
@@ -891,8 +920,11 @@ read_drcov_dir(void)
     if ((dir = opendir(options.input_dir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             if (is_drcov_log_file(ent->d_name)) {
-                if (GetFullPathName(ent->d_name, MAXIMUM_PATH, path, NULL) == 0) {
-                    WARN(2, "Fail to get full path of log file %s\n", ent->d_name);
+                ASSERT(ent->d_name[0] != '/',
+                       "ent->d_name: %s should not be an absolute path\n", ent->d_name);
+                if (dr_snprintf(path, BUFFER_SIZE_ELEMENTS(path),
+                                "%s/%s", options.input_dir, ent->d_name) <= 0) {
+                    WARN(1, "Fail to get full path of log file %s\n", ent->d_name);
                 } else {
                     NULL_TERMINATE_BUFFER(path);
                     read_drcov_file(path);
@@ -1003,7 +1035,7 @@ enum_line_cb(drsym_line_info_t *info, void *data)
     module_table_t *table = (module_table_t *)data;
     line_table_t *line_table;
     const char *test_info = NULL;
-    /* i#1445: we have seen the pdb convert paths to all-lowercase,
+    /* FIXME i#1445: we have seen the pdb convert paths to all-lowercase,
      * so these should be case-insensitive on Windows.
      */
     if (info->file == NULL ||
@@ -1053,13 +1085,7 @@ enumerate_line_info(void)
             PRINT(3, "Enumerate line info for %s\n", (char *)e->key);
             if (strcmp((char *)e->key, "<unknown>") == 0)
                 continue;
-            /* i#1445: we have seen the pdb convert paths to all-lowercase,
-             * so these should be case-insensitive on Windows.
-             */
-            if ((options.mod_filter != NULL &&
-                 strstr((char *)e->key, options.mod_filter) == NULL) ||
-                (options.mod_skip_filter != NULL &&
-                 strstr((char *)e->key, options.mod_skip_filter) != NULL))
+            if (e->payload == MODULE_TABLE_IGNORE)
                 continue;
             res = drsym_enumerate_lines(e->key, enum_line_cb, e->payload);
             if (res != DRSYM_SUCCESS)
@@ -1197,6 +1223,8 @@ option_init(int argc, char *argv[])
             if (++i >= argc)
                 return false;
             options.set_file = argv[i];
+        } else if (strcmp(ops, "-include_tool_code") == 0) {
+            options.include_tool_code = true;
         } else if (strcmp(ops, "-verbose") == 0) {
             char *end;
             long int res;
@@ -1225,9 +1253,10 @@ option_init(int argc, char *argv[])
     }
 
     if (options.input_file != NULL) {
-        if (GetFullPathName(options.input_file,
-                            BUFFER_SIZE_ELEMENTS(input_file_buf),
-                            input_file_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.input_file,
+                                      input_file_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_file_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input file %s\n", options.input_file);
             return false;
         }
@@ -1237,9 +1266,10 @@ option_init(int argc, char *argv[])
     }
 
     if (options.input_list != NULL) {
-        if (GetFullPathName(options.input_list,
-                            BUFFER_SIZE_ELEMENTS(input_list_buf),
-                            input_list_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.input_list,
+                                      input_list_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_list_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input list %s\n", options.input_list);
             return false;
         }
@@ -1254,9 +1284,10 @@ option_init(int argc, char *argv[])
         if (options.input_dir == NULL)
             WARN(1, "Missing input, use current directory instead\n");
         input_dir = options.input_dir == NULL ? (char *)"./" : options.input_dir;
-        if (GetFullPathName(input_dir,
-                            BUFFER_SIZE_ELEMENTS(input_dir_buf),
-                            input_dir_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(input_dir,
+                                      input_dir_buf,
+                                      BUFFER_SIZE_ELEMENTS(input_dir_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of input dir %s\n", input_dir);
             return false;
         }
@@ -1267,20 +1298,23 @@ option_init(int argc, char *argv[])
 
     if (options.output_file == NULL)
         WARN(1, "Missing output, use %s instead\n", DEFAULT_OUTPUT_FILE);
-    if (GetFullPathName(options.output_file == NULL ?
-                        DEFAULT_OUTPUT_FILE : options.output_file,
-                        BUFFER_SIZE_ELEMENTS(output_file_buf),
-                        output_file_buf, NULL) == 0) {
+    if (drfront_get_absolute_path(options.output_file == NULL ?
+                                  DEFAULT_OUTPUT_FILE : options.output_file,
+                                  output_file_buf,
+                                  BUFFER_SIZE_ELEMENTS(output_file_buf)) !=
+        DRFRONT_SUCCESS) {
         WARN(1, "Failed to get full path of output file\n");
         return false;
     }
     NULL_TERMINATE_BUFFER(output_file_buf);
     options.output_file = output_file_buf;
     PRINT(2, "Output file: %s\n", options.output_file);
+
     if (options.set_file != NULL) {
-        if (GetFullPathName(options.set_file,
-                            BUFFER_SIZE_ELEMENTS(set_file_buf),
-                            set_file_buf, NULL) == 0) {
+        if (drfront_get_absolute_path(options.set_file,
+                                      set_file_buf,
+                                      BUFFER_SIZE_ELEMENTS(set_file_buf)) !=
+            DRFRONT_SUCCESS) {
             WARN(1, "Failed to get full path of reduce_set file\n");
             return false;
         }

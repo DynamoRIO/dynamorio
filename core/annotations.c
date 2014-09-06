@@ -386,7 +386,7 @@ instrument_annotation(dcontext_t *dcontext, IN OUT app_pc *start_pc,
                     SET_ANNOTATION_HANDLER(label_data, handler);
                     SET_ANNOTATION_APP_PC(label_data, layout.resume_pc);
                     instr_set_note(call, (void *) DR_NOTE_ANNOTATION);
-                    instr_set_ok_to_mangle(call, false);
+                    instr_set_meta(call);
                     *substitution = call;
 
                     handler->is_void = layout.is_void;
@@ -468,7 +468,7 @@ instrument_valgrind_annotation(dcontext_t *dcontext, instrlist_t *bb, instr_t *x
     label_data = instr_get_label_data_area(instr);
     SET_ANNOTATION_HANDLER(label_data, &vg_router);
     SET_ANNOTATION_APP_PC(label_data, xchg_pc);
-    instr_set_ok_to_mangle(instr, false);
+    instr_set_meta(instr);
     instrlist_append(bb, instr);
 
     /* Append `mov $0x0,%edx` so that clients and tools recognize that %xdx will be

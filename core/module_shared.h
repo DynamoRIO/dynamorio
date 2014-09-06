@@ -500,6 +500,9 @@ privload_lookup(const char *name);
 privmod_t *
 privload_lookup_by_base(app_pc modbase);
 
+privmod_t *
+privload_lookup_by_pc(app_pc modbase);
+
 /* name is assumed to be in immutable persistent storage.
  * a copy of path is made.
  */
@@ -589,7 +592,7 @@ privload_load_finalized(privmod_t *mod);
 
 #ifdef WINDOWS
 bool
-privload_console_share(app_pc priv_kernel32);
+privload_console_share(app_pc priv_kernel32, app_pc app_kernel32);
 #endif
 
 #endif /* MODULE_LIST_H */
