@@ -92,6 +92,9 @@ void
 annotation_flush_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
+ptr_int_t
+lookup_dgc_writer_offset(app_pc addr);
+
 void
 notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly);
 
@@ -100,6 +103,9 @@ locate_and_manage_code_area(app_pc pc);
 
 void
 notify_exec_invalidation(app_pc start, size_t size);
+
+bool
+shrink_double_mapping(app_pc old_start, app_pc new_start, size_t new_size);
 
 bool
 clear_double_mapping(app_pc start);

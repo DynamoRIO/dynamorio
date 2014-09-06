@@ -943,12 +943,14 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     /* if we have overlap, we extend an existing area -- else we add a new area */
     int overlap_start = -1, overlap_end = -1;
     DEBUG_DECLARE(uint flagignore;)
+    uint prot;
 
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s\n", start, end,
-                name_vm_area_vector(v));
+    get_memory_info(start, NULL, NULL, &prot);
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s (0x%x)\n", start, end,
+                name_vm_area_vector(v), prot);
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never
@@ -1377,7 +1379,10 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         /* need to split? */
         if (overlap_start == overlap_end-1 && end < v->buf[overlap_start].end) {
             /* don't call add_vm_area now, that will mess up our vector */
-            ASSERT(!TEST(VM_JIT_MANAGED_TYPE, v->buf[overlap_start].vm_flags));
+            if (TEST(VM_JIT_MANAGED_TYPE, v->buf[overlap_start].vm_flags)) {
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
+                            "Error! Unsupported JIT code area split.\n");
+            }
             new_area = v->buf[overlap_start]; /* make a copy */
             new_area.start = end;
             /* rest of fields are correct */
@@ -1387,6 +1392,15 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_start].start, v->buf[overlap_start].end,
             v->buf[overlap_start].start, start);
+        if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
+                        "\tremove_vm_area: changing "PFX"-"PFX" to "PFX"-"PFX" %s\n",
+                        v->buf[overlap_start].start, v->buf[overlap_start].end,
+                        v->buf[overlap_start].start, start,
+                        name_vm_area_vector(v));
+            shrink_double_mapping(v->buf[overlap_start].start, v->buf[overlap_start].start,
+                                  start - v->buf[overlap_start].start);
+        }
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_start].vm_flags)) {
             vm_make_writable(start, end - start);
         }
@@ -1403,6 +1417,15 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tchanging "PFX"-"PFX" to "PFX"-"PFX"\n",
             v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
             end, v->buf[overlap_end-1].end);
+        if (TEST(VM_DGC_WRITER, v->buf[overlap_start].vm_flags) && (v == executable_areas)) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
+                        "\tremove_vm_area: changing "PFX"-"PFX" to "PFX"-"PFX" %s\n",
+                        v->buf[overlap_end-1].start, v->buf[overlap_end-1].end,
+                        end, v->buf[overlap_end-1].end,
+                        name_vm_area_vector(v));
+            shrink_double_mapping(v->buf[overlap_end-1].start, end,
+                                  v->buf[overlap_end-1].end - end);
+        }
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_end-1].vm_flags)) {
             vm_make_writable(v->buf[overlap_end-1].start,
                              end - v->buf[overlap_end-1].start);
@@ -1420,8 +1443,14 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
         for (i = overlap_start; i < overlap_end; i++) {
             LOG(GLOBAL, LOG_VMAREAS, 3, "\tcompletely removing "PFX"-"PFX" %s\n",
                 v->buf[i].start, v->buf[i].end, v->buf[i].comment);
-            if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags))
+            if (TEST(VM_DGC_WRITER, v->buf[i].vm_flags) && (v == executable_areas)) {
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 3,
+                            "\tremove_vm_area: completely removing "PFX"-"PFX" %s\n",
+                            v->buf[i].start, v->buf[i].end, name_vm_area_vector(v));
                 clear_double_mapping(v->buf[i].start);
+                v->buf[i].vm_flags &= ~VM_DGC_WRITER;
+                v->buf[i].vm_flags &= ~VM_JIT_MANAGED_TYPE;
+            }
             if (restore_prot && TEST(VM_MADE_READONLY, v->buf[i].vm_flags)) {
                 vm_make_writable(v->buf[i].start, v->buf[i].end - v->buf[i].start);
             }
@@ -3460,6 +3489,14 @@ was_executable_area_writable(app_pc addr)
         uint prot;
         if (get_memory_info(addr, NULL, NULL, &prot))
             was_writable = TEST(MEMPROT_WRITE, prot) && !is_dynamo_address(addr);
+    } else if (was_writable) {
+        uint prot;
+        if (get_memory_info(addr, NULL, NULL, &prot)) {
+            if (TEST(MEMPROT_WRITE, prot)) {
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                            "Error: made_readonly area "PFX" is writable!\n", addr);
+            }
+        }
     }
     read_unlock(&executable_areas->lock);
     return was_writable;
@@ -10654,6 +10691,9 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     app_pc bb_pstart = NULL, bb_pend = NULL; /* pages occupied by instr's bb */
     vm_area_t *a = NULL;
     fragment_t wrapper;
+#ifdef JIT_MONITORED_AREAS
+    ptr_int_t offset = lookup_dgc_writer_offset(target);
+#endif
     /* get the "region" size (don't use exec list, it merges regions),
      * the os merges regions too, and we might have changed the protections
      * on the region and caused it do so, so below we take the intersection
@@ -10665,8 +10705,8 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
      * app die, not us trigger assertion!
      */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: handle_modified_code() in "PFX" on thread 0x%x\n",
-                f->tag, get_thread_id());
+                "DGC: handle_modified_code() in bb "PFX" at "PFX" writing to "PFX" on thread 0x%x\n",
+                f->tag, instr_app_pc, target, get_thread_id());
     /* In the absence of reset, f MUST still be in the cache since we're still
      * nolinking, and pclookup will find it even if it's no longer in htables.
      * But, a reset can result in not having the fragment available at all.  In
@@ -10755,7 +10795,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     instr_size = next_pc - instr_size_pc;
 
 #ifdef JIT_MONITORED_AREAS
-    if (is_jit_managed_area(target) && instr_app_pc != NULL) {
+    if (is_jit_managed_area(target) && offset != 0 && offset != 1 && instr_app_pc != NULL) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
         if (is_jit_self_write)
             dr_fprintf(STDERR, "JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
@@ -10956,7 +10996,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
                                          tgt_pend+PAGE_SIZE-tgt_pstart);
             }
 
-            dr_printf(" === modified code! (case 1) ===\n");
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, " === modified code! (case 1) ===\n");
 #endif
             /* must execute instr_app_pc next, even though that new bb will be
              * useless afterward (will most likely re-enter from bb_start)
@@ -11101,9 +11141,10 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
 #ifdef JITOPT
     if (is_jit_managed_area(flush_start))
         dgc_notify_region_cleared(flush_start, flush_start+flush_size);
-    else
+    else {
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "handle_modified_code() case 2 -> notify_exec_invalidation()\n");
         notify_exec_invalidation(flush_start, flush_size);
-    //dr_printf(" === modified code! (case 2) ===\n");
+    }
 #endif
     return instr_app_pc;
 }

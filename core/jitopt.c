@@ -287,9 +287,6 @@ free_dgc_writer_mapping(dgc_writer_mapping_t *mapping);
 static void
 clear_dgc_writer_table();
 
-static dgc_writer_mapping_t *
-lookup_dgc_writer_offset(app_pc addr);
-
 static void
 insert_dgc_writer_offsets(app_pc start, size_t size, ptr_int_t offset);
 
@@ -642,7 +639,7 @@ clear_dgc_writer_table()
     }
 }
 
-static dgc_writer_mapping_t *
+ptr_int_t
 lookup_dgc_writer_offset(app_pc addr)
 {
     ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(addr);
@@ -650,7 +647,10 @@ lookup_dgc_writer_offset(app_pc addr)
     dgc_writer_mapping_t *mapping = dgc_writer_mapping_table->table[key];
     while (mapping != NULL && mapping->page_id != page_id)
         mapping = mapping->next;
-    return mapping;
+    if (mapping == NULL)
+        return 0;
+    else
+        return mapping->offset;
 }
 
 static void
@@ -979,8 +979,8 @@ notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readon
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_readonly_for_cache_consistency("PFX", 0x%x, %s)\n",
                 start, size, now_readonly ? "readonly" : "writable");
     if (now_readonly) {
-        dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(start);
-        if (mapping == NULL)
+        ptr_int_t offset = lookup_dgc_writer_offset(start);
+        if (offset == 0)
             insert_dgc_writer_offsets(start, size, 1);
         // else there is a double-mapping, so leave it intact
     } else {
@@ -995,14 +995,21 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
+
+    RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area() at "PFX"\n", pc);
+
     bool found = get_non_jit_area_bounds(pc, &start, &size);
     if (!found)
         found = get_non_jit_area_bounds(*(app_pc *)pc, &start, &size);
     if (found) {
         dcontext_t *dcontext = get_thread_private_dcontext();
-        DEBUG_DECLARE(uint prot;);
-        ASSERT(get_memory_info(start, NULL, NULL, &prot));
-        ASSERT(!TEST(PROT_WRITE, prot));
+        uint prot;
+        get_memory_info(start, NULL, NULL, &prot);
+        if (TEST(PROT_WRITE, prot)) {
+            RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area ignored for writable area at "PFX"\n", pc);
+            return;
+        }
+
         //manage_code_area(start, size);
         mutex_lock(&thread_initexit_lock);
         flush_fragments_and_remove_region(dcontext, start, size,
@@ -1048,12 +1055,46 @@ notify_exec_invalidation(app_pc start, size_t size)
 }
 
 bool
+shrink_double_mapping(app_pc old_start, app_pc new_start, size_t new_size)
+{
+    uint i;
+    bool shrunk = false;
+
+    mutex_lock(&dgc_mapping_lock);
+    for (i = 0; i < double_mappings->index; i++) {
+        if (double_mappings->mappings[i].app_memory_start == old_start)
+            break;
+    }
+    if (i < double_mappings->index) {
+        app_pc new_end = new_start + new_size;
+        app_pc old_end = old_start + double_mappings->mappings[i].size;
+
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "shrink_double_mapping "PFX"-"PFX" to "PFX"-"PFX"\n",
+                    old_start, old_end, new_start, new_end);
+        ASSERT(new_start >= old_start);
+        ASSERT(new_end <= old_end);
+
+        shrunk = true;
+        if (old_start < new_start)
+            remove_dgc_writer_offsets(old_start, new_start - old_start);
+        else
+            remove_dgc_writer_offsets(new_end, old_end - new_end);
+        double_mappings->mappings[i].app_memory_start = new_start;
+        double_mappings->mappings[i].size = new_size;
+    } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "shrink_double_mapping("PFX") failed to locate the mapping\n", old_start);
+    }
+    mutex_unlock(&dgc_mapping_lock);
+    return shrunk;
+}
+
+bool
 clear_double_mapping(app_pc start)
 {
     uint i, j;
     bool removed = false;
-
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "clear_double_mapping("PFX")\n", start);
 
     mutex_lock(&dgc_mapping_lock);
     for (i = 0; i < double_mappings->index; i++) {
@@ -1061,12 +1102,17 @@ clear_double_mapping(app_pc start)
             break;
     }
     if (i < double_mappings->index) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "clear_double_mapping "PFX"-"PFX"\n",
+                    start, start + double_mappings->mappings[i].size);
         removed = true;
         remove_dgc_writer_offsets(start, double_mappings->mappings[i].size);
         free_double_mapping(&double_mappings->mappings[i]);
         double_mappings->index--;
         for (j = i; j < double_mappings->index; j++)
             double_mappings->mappings[j] = double_mappings->mappings[j+1];
+    } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "clear_double_mapping("PFX") failed to locate the mapping\n", start);
     }
     mutex_unlock(&dgc_mapping_lock);
     return removed;
@@ -1159,15 +1205,17 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
                       app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
 {
     emulation_plan_t *plan;
-    dgc_writer_mapping_t *mapping;
     ptr_int_t offset = 0;
+    bool created_plan = false;
 
     RSTATS_INC(app_managed_instrumentations);
 
     TABLE_RWLOCK(emulation_plans, write, lock);
     plan = generic_hash_lookup(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
-    if (plan == NULL)
+    if (plan == NULL) {
         plan = create_emulation_plan(dcontext, writer_app_pc, is_jit_self_write);
+        created_plan = true;
+    }
     TABLE_RWLOCK(emulation_plans, write, unlock);
 
     if (plan == NULL)
@@ -1176,9 +1224,9 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     ASSERT(plan->resume_pc > writer_app_pc);
 
     mutex_lock(&dgc_mapping_lock);
-    mapping = lookup_dgc_writer_offset(write_target);
-    if (mapping != NULL && mapping->offset != 1)
-        offset = mapping->offset;
+    offset = lookup_dgc_writer_offset(write_target);
+    if (offset == 1) // readonly marker
+        offset = 0;
     mutex_unlock(&dgc_mapping_lock);
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -1187,6 +1235,13 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 
     ASSERT(offset != 0);
     if (offset == 0) {
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                    "Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
+        //if (created_plan)
+        dr_printf("Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
+        //else
+        //generic_hash_remove(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
+        /*
         app_pc start;
         size_t size;
         bool found = get_jit_monitored_area_bounds(write_target, &start, &size);
@@ -1194,10 +1249,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
             dr_printf("Mapping is gone, and can't find vm area at all!\n");
         mutex_lock(&thread_initexit_lock);
         flush_fragments_and_remove_region(dcontext, start, size,
-                                          true /* own initexit_lock */, false);
+                                          true / * own initexit_lock * /, false);
         mutex_unlock(&thread_initexit_lock);
         //notify_exec_invalidation(start, size);
-        //emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
+        //emulate_writer(mc, plan, offset, write_target, false/ *simulate* /);
+        */
         return NULL; //plan->resume_pc;
     }
 
@@ -1258,14 +1314,11 @@ emulate_dgc_write(app_pc writer_pc)
     write_target = opnd_compute_address_priv(plan->dst, mc);
 
     if (!simulating) {
-        ptr_uint_t offset = 0;
-        dgc_writer_mapping_t *mapping = lookup_dgc_writer_offset(write_target);
-        if (mapping == NULL) {
+        ptr_int_t offset = lookup_dgc_writer_offset(write_target);
+        if (offset == 0 || offset == 1) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: No double-mapping "
                         "for DGC write "PFX" -> "PFX" via clean call\n",
                         writer_pc, write_target);
-        } else {
-            offset = mapping->offset;
         }
 
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
