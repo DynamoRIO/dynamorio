@@ -44,6 +44,10 @@
 #include "disassemble.h"
 #include "decode_fast.h"
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+# include "../lib/instrument.h" // hack!
+#endif
+
 #include <string.h> /* memcpy, memset */
 
 #ifdef DEBUG
@@ -2261,6 +2265,19 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
     opnd_t opnd;
     ptr_uint_t target;
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+    if (copy_pc == NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX"\n",
+                    instr->opcode, pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX" (0x%x)\n",
+                    instr->opcode, pc, *pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "info: "PFX"\n",
+                    info);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "info opcode: 0x%x\n",
+                    info->opcode);
+    }
+#endif
+
     if (instr->prefixes != 0) {
         if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
             *pc = RAW_PREFIX_jcc_taken;
@@ -2511,6 +2528,18 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             /* FIXME: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
              */
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            dr_printf("Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
+            if (instr->opcode == OP_lea) {
+                opnd_t src = instr_get_src(instr, 0);
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "base: "PFX"; disp: "PFX"; "
+                            "index: 0x%x; scale: 0x%x\n", opnd_get_base(src),
+                            opnd_get_disp(src), opnd_get_index(src),
+                            opnd_get_scale(src));
+            }
+#endif
             return NULL;
         }
     }

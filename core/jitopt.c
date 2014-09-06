@@ -1097,6 +1097,18 @@ clear_double_mapping(app_pc start)
         double_mappings->index--;
         for (j = i; j < double_mappings->index; j++)
             double_mappings->mappings[j] = double_mappings->mappings[j+1];
+
+        for (i = 0; i < exec_area_counters->size; i++) {
+            if (exec_area_counters->counters[i].start == start)
+                break;
+        }
+        if (i < exec_area_counters->size) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "clear_double_mapping: removing "
+                        "exec_area_counter at "PFX"\n", start);
+            exec_area_counters->size--;
+            for (j = i; j < exec_area_counters->size; j++)
+                exec_area_counters->counters[j] = exec_area_counters->counters[j+1];
+        }
     } else {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "clear_double_mapping("PFX") failed to locate the mapping\n", start);
@@ -1347,6 +1359,9 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Instrumenting clean call for writer at "PFX"\n", *pc);
+
+    if ((((ptr_uint_t) *pc) & 0xfff) == 0x139)
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "stop here\n");
 
     // with in-cache offsetting; skip clean call for plan->is_jit_self_write
     label = INSTR_CREATE_label(dcontext);
