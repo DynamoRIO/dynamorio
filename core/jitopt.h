@@ -107,6 +107,9 @@ locate_and_manage_code_area(app_pc pc);
 void
 notify_exec_invalidation(app_pc start, size_t size);
 
+void
+setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot);
+
 bool
 shrink_double_mapping(app_pc old_start, app_pc new_start, size_t new_size);
 

@@ -249,9 +249,6 @@ valgrind_discard_translations(dr_vg_client_request_t *request);
 #endif
 
 static void
-setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot);
-
-static void
 safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak);
 
 static bool
@@ -741,14 +738,20 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     }
 
     ASSERT(double_mappings->index < MAX_DOUBLE_MAPPINGS);
+    if (double_mappings->index >= MAX_DOUBLE_MAPPINGS) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error! Too many double-mappings: %d\n",
+                    double_mappings->index);
+    }
+
     new_mapping = &double_mappings->mappings[double_mappings->index];
     new_mapping->app_memory_start = app_memory_start;
     new_mapping->size = app_memory_size;
     new_mapping->double_mapping_size = app_memory_size;
 
     memcpy(file, "/dev/shm/jit_", 13);
-    file[13] = 'a' + double_mappings->index;
-    file[14] = '\0';
+    file[13] = 'a' + (double_mappings->index / 26);
+    file[14] = 'a' + (double_mappings->index % 26);
+    file[15] = '\0';
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Mapping "PFX" +0x%x to shmem %s\n",
                 app_memory_start, app_memory_size, file);
@@ -951,7 +954,7 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     }
 }
 
-static void
+void
 setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
 {
     ptr_int_t page_delta;
@@ -1059,37 +1062,19 @@ notify_exec_invalidation(app_pc start, size_t size)
 bool
 shrink_double_mapping(app_pc old_start, app_pc new_start, size_t new_size)
 {
-    uint i;
-    bool shrunk = false;
-
-    mutex_lock(&dgc_mapping_lock);
-    for (i = 0; i < double_mappings->index; i++) {
-        if (double_mappings->mappings[i].app_memory_start == old_start)
-            break;
+    if (clear_double_mapping(old_start)) {
+        uint prot;
+        dcontext_t *dcontext = get_thread_private_dcontext();
+        if (!get_memory_info(new_start, NULL, NULL, &prot)) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                        "DGC: Failed to get memory protection info for "PFX" +0x%x\n",
+                        new_start, new_size);
+            return false;
+        }
+        setup_double_mapping(dcontext, new_start, new_size, prot);
+        return true;
     }
-    if (i < double_mappings->index) {
-        app_pc new_end = new_start + new_size;
-        app_pc old_end = old_start + double_mappings->mappings[i].size;
-
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "shrink_double_mapping "PFX"-"PFX" to "PFX"-"PFX"\n",
-                    old_start, old_end, new_start, new_end);
-        ASSERT(new_start >= old_start);
-        ASSERT(new_end <= old_end);
-
-        shrunk = true;
-        if (old_start < new_start)
-            remove_dgc_writer_offsets(old_start, new_start - old_start);
-        else
-            remove_dgc_writer_offsets(new_end, old_end - new_end);
-        double_mappings->mappings[i].app_memory_start = new_start;
-        double_mappings->mappings[i].size = new_size;
-    } else {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "shrink_double_mapping("PFX") failed to locate the mapping\n", old_start);
-    }
-    mutex_unlock(&dgc_mapping_lock);
-    return shrunk;
+    return false;
 }
 
 bool
@@ -1870,6 +1855,7 @@ free_double_mapping(double_mapping_t *mapping)
                 mapping->double_mapping_size);
     int result = dynamorio_syscall(SYS_munmap, 2, mapping->double_mapping_start,
                                    mapping->double_mapping_size);
+    dynamorio_syscall(SYS_close, 1ULL, (ptr_uint_t) mapping->fd);
     if (result < 0) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "free_double_mapping error: failed to unmap the double-mapping at "PFX"\n",

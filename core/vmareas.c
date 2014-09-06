@@ -1529,8 +1529,8 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
          * -unsafe_ignore_IAT_writes) we can have VM_ADD_TO_SHARED_DATA set
          */
         new_area.vm_flags &= ~VM_ADD_TO_SHARED_DATA;
-        new_area.vm_flags &= ~VM_JIT_MANAGED_TYPE;
-        new_area.vm_flags &= ~VM_DGC_WRITER;
+        //new_area.vm_flags &= ~VM_JIT_MANAGED_TYPE;
+        //new_area.vm_flags &= ~VM_DGC_WRITER;
         LOG(GLOBAL, LOG_VMAREAS, 3, "\tadding "PFX"-"PFX"\n", new_area.start, new_area.end);
         /* we copied v->buf[overlap_start] above and so already have a copy
          * of the client field
@@ -1542,8 +1542,12 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                     new_area.frag_flags, new_area.custom.client
                     _IF_DEBUG(new_area.comment));
 
-        if (was_jit_managed)
-            manage_code_area(new_area.start, new_area.end - new_area.start);
+        if (was_jit_managed) {
+            uint prot;
+            dcontext_t *dcontext = get_thread_private_dcontext();
+            get_memory_info(new_area.start, NULL, NULL, &prot);
+            setup_double_mapping(dcontext, new_area.start, new_area.end - new_area.start, prot);
+        }
     }
     DOLOG(5, LOG_VMAREAS, { print_vm_areas(v, GLOBAL); });
     return true;
