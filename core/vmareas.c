@@ -943,14 +943,12 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     /* if we have overlap, we extend an existing area -- else we add a new area */
     int overlap_start = -1, overlap_end = -1;
     DEBUG_DECLARE(uint flagignore;)
-    uint prot;
 
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    get_memory_info(start, NULL, NULL, &prot);
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s (0x%x)\n",
-                start, end, name_vm_area_vector(v), prot);
+                start, end, name_vm_area_vector(v)); // can't call get_memory_info() here (ever)
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
         /* look for overlap, or adjacency of same type (including all flags, and never

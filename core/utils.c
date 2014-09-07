@@ -751,7 +751,7 @@ utils_init()
     ASSERT(sizeof(uint) == 4);
     ASSERT(sizeof(reg_t) == sizeof(void *));
 
-    verbose = DYNAMO_OPTION(verbose);
+    verbose = DYNAMO_OPTION(release_log);
 
 #ifdef UNIX /* after options_init(), before we open logfile or call instrument_init() */
     os_file_init();

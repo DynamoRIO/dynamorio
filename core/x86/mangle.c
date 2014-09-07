@@ -4215,6 +4215,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     switch (plan->writer.opcode) {
     case OP_and:
     case OP_or:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: instrumenting bitwise write\n");
+        break;
     case OP_sub:
     case OP_mov_st:
     case OP_movdqa:
@@ -4233,7 +4235,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
     switch (opnd_size_in_bytes(opnd_get_size(plan->dst))) {
     case 1: case 2: case 4: case 8: case 16: break;
-    default: RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Hmmm...\n");
+    default: RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                         "Warning: large operand (%d bytes)\n",
+                         opnd_size_in_bytes(opnd_get_size(plan->dst)));
     }
 
     for (; j < DGC_TEMP_REG_AVAILABLE_COUNT; j++) {
@@ -4329,7 +4333,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                             instr_get_src(&plan->writer, 0));
         break;
     case OP_sub:
-        // or <src>, <dst+offset>
+        // sub <src>, <dst+offset>
         execute_write =
             INSTR_CREATE_sub(dcontext,
                              opnd_create_base_disp(temp[1], temp[0], 1, 0,
@@ -4494,6 +4498,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     // [0:temp[0]] write_target -> temp[1]
     PRE(ilist, instr, write_to_original_page);
 
+    // what's this for? Isn't the offset (temp[0]) zero?
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:
     case OP_or:
@@ -4512,7 +4517,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr, // move temp[2] back to %rax
         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
 
-    // <original-op> <src>, write_target(temp[1])+offset(temp[0])
     PRE(ilist, instr, execute_write);
 
     if (plan->is_jit_self_write) {
