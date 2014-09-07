@@ -1142,6 +1142,8 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     case OP_mov_st:
     case OP_movdqu:
     case OP_movdqa:
+    case OP_movups:
+    case OP_movaps:
         plan->op = EMUL_MOV;
         break;
     case OP_or:
@@ -1153,6 +1155,11 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     case OP_sub:
         plan->op = EMUL_SUB;
         break;
+    case OP_nop_modrm:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Warning: skipping instrumentation of opcode 0x%x.\n",
+                    instr_get_opcode(&plan->writer));
+        plan->resume_pc = NULL;
+        goto instrumentation_failure;
     default:
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument opcode 0x%x.\n",
                     instr_get_opcode(&plan->writer));

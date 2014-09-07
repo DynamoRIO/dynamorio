@@ -4218,8 +4218,10 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     case OP_sub:
     case OP_mov_st:
     case OP_movdqa:
+    case OP_movaps:
         break;
     case OP_movdqu:
+    case OP_movups:
         break;
     default:
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
