@@ -123,7 +123,7 @@ const char *usage_str =
 #ifdef DRCONFIG
     "USAGE: "TOOLNAME" [options]\n"
     "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -c <client> [client options]\n"
-    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -t <tool> [tool options]";
+    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -t <tool> [tool options]\n";
 #elif defined(DRRUN) || defined (DRINJECT)
     "USAGE: "TOOLNAME" [options] <app and args to run>\n"
     "   or: "TOOLNAME" [options] -- <app and args to run>\n"
@@ -221,6 +221,7 @@ const char *options_list_str =
 #endif
 #ifdef DRCONFIG
     "\n"
+# ifdef WINDOWS
     "       Note that nudging 64-bit processes is not yet supported.\n"
     "       -nudge <process> <client ID> <argument>\n"
     "                          Nudge the client with ID <client ID> in all running\n"
@@ -244,7 +245,11 @@ const char *options_list_str =
     "                          finish before continuing.  The default is an infinite\n"
     "                          wait.  A value of 0 means don't wait for nudges to\n"
     "                          complete."
-#else
+# else /* WINDOWS */
+    /* FIXME i#840: integrate nudgeunix into drconfig on Unix */
+    "Note: please use the nudgeunix tool to nudge processes on Unix.\n";
+# endif /* !WINDOWS */
+#else /* DRCONFIG */
     "       -no_wait           Return immediately: do not wait for application exit.\n"
     "       -s <seconds>       Kill the application if it runs longer than the\n"
     "                          specified number of seconds.\n"
@@ -273,7 +278,7 @@ const char *options_list_str =
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
     "\n"
     "       <app and args>     Application command line to execute under DR.\n"
-#endif
+#endif /* !DRCONFIG */
     ;
 
 static bool
@@ -368,7 +373,8 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
 }
 
 #define usage(list_ops, msg, ...) do {                          \
-    fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);       \
+    if ((msg)[0] != '\0')                                       \
+      fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);     \
     fprintf(stderr, "%s", usage_str);                           \
     print_tool_list();                                          \
     if (list_ops) {                                             \
@@ -1133,7 +1139,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-help") == 0 ||
                  strcmp(argv[i], "--help") == 0 ||
                  strcmp(argv[i], "-h") == 0) {
-            usage(true, "missing required arguments");
+            usage(true, ""/* no error msg */);
             continue;
         }
         /* all other flags have an argument -- make sure it exists */
