@@ -3346,7 +3346,7 @@ common_heap_alloc(thread_units_t *tu, size_t size HEAPACCT(which_heap_t which))
         } else {
             /* fixed-length free block available */
             p = tu->free_list[bucket];
-            tu->free_list[bucket] = *((heap_pc *)p);
+            tu->free_list[bucket] = *((heap_pc *)p); // crashed here in Chrome
             ASSERT(ALIGNED(tu->free_list[bucket], HEAP_ALIGNMENT));
 #ifdef DEBUG_MEMORY
             /* ensure memory we got from the free list is in a heap unit */

@@ -1141,9 +1141,12 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
 {
     opnd_t src;
     emulation_plan_t *plan;
+    extern bool verbose;
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC:    Creating emulation plan for writer "PFX"\n", writer_app_pc);
+    if (verbose)
+        disassemble_app_bb(dcontext, writer_app_pc, STDERR);
 
     plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 

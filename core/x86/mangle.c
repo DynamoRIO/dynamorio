@@ -4211,6 +4211,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     void *clean_callee = (void *) label_data->data[0];
     emulation_plan_t *plan = (emulation_plan_t *) label_data->data[1];
     opnd_t arg = OPND_CREATE_INTPTR(plan->writer_pc);
+    extern bool verbose;
 
 #ifndef JITOPT_EMULATE
     reg_t temp[DGC_TEMP_REG_COUNT], t0, t1, t2;
@@ -4231,6 +4232,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: instrumenting writer at "PFX"\n",
                 plan->writer_pc);
+    if (verbose)
+        instr_disassemble(dcontext, &plan->writer, STDERR);
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "\n");
 
     switch (plan->writer.opcode) {
     case OP_and:
@@ -4870,6 +4874,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(restore_temps)));
+        PRE(ilist, instr, skip_clean_call_trampoline);
 #endif /* ELIDE_CLEAN_CALL */
         /* t0(app.rcx), t1((mapped-write-target)), t2((app.rax)): xchg(%rcx, %t0) */
         PRE(ilist, instr, skip_overlap_check);
