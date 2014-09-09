@@ -73,6 +73,12 @@ The following are part of the DynamoRIO release distribution:
    for each of 32-bit and 64-bit.
    The debug library enables assertion messages to more easily diagnose
    API usage errors.
+ - A variety of DynamoRIO Extension libraries that augment the core
+   DynamoRIO API (see \ref page_ext).
+ - Additional Extension libraries from the Dr. Memory Framework (DRMF).
+   If this documentation is part of a DynamoRIO public release, <a
+   href="../../drmemory/drmemory/docs/html/page_drmf.html">this link</a> should
+   point at the local documentation for DRMF.
  - The DynamoRIO configuration and execution libraries and command-line
    utilities \c drconfiglib.dll, \c drinjectlib.dll, \c drfrontendlib.dll,
    \c drconfig.exe, \c drrun.exe, and \c drinject.exe.
@@ -94,11 +100,17 @@ The following are part of the DynamoRIO release distribution:
    client using DynamoRIO as a standalone library (see \ref
    sec_standalone).
 \endif
+ - A number of end-user tools including a code coverage tool (see \ref
+   page_drcov) and a library tracing tool (see \ref page_drltrace).
+   If this is a DynamoRIO public release, it also includes the
+   Dr. Memory memory debugging tool (see \ref page_drmemory), a system call
+   tracer for Windows (see \ref page_drstrace), and a symbol querying tool
+   (see \ref page_symquery).
 
 When unpacking the release package on Windows, be aware that the Cygwin
 unzip utility does not preserve executable permissions properly.  After
-unzipping, add ugo+rx permissions to all of the .dll and .exe files in the
-resulting directory tree:
+unzipping with Cygwin, add ugo+rx permissions to all of the .dll and .exe
+files in the resulting directory tree:
 \code
 find . -name \*.dll -exec chmod ugo+rx {} \; -o -name \*.exe -exec chmod ugo+rx {} \;
 \endcode
@@ -140,7 +152,9 @@ following minor compatibility changes:
  - Added return value for dr_fprintf to indicate how many bytes are written.
  - Renamed the function add_rel_rpaths() in DynamoRIOConfig.cmake to
    DynamoRIO_add_rel_rpaths().
- - Deprecated instr_ok_to_mangle() and instr_set_ok_to_mangle().
+ - Deprecated instr_ok_to_mangle() and instr_set_ok_to_mangle()
+   (replaced with instr_is_app(), instr_is_meta(), instr_set_app(), and
+   instr_set_meta()).
 
 Further non-compatibility-affecting changes include:
 
