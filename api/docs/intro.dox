@@ -1643,7 +1643,8 @@ Options controlling notifications from DynamoRIO:
    routine dr_is_notify_on() can be used to determine if -stderr_mask is
    non-zero.  Messages printed to stderr will only be visible for
    applications that have an attached console.  They will not be visible
-   in the \p cmd console on Windows 7 or earlier (even with dr_enable_console_printing(),
+   in the \p cmd console on Windows 7 or earlier or on any Windows version
+   when running a graphical application in \p cmd (even with dr_enable_console_printing(),
    as that only affects clients calling dr_printf() or dr_fprintf()) but
    the output can be viewed from \p cmd by redirecting to a file.
    For the provided Linux

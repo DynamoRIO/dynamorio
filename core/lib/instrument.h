@@ -3951,21 +3951,18 @@ DR_API
  * If called later, it will fail.
  *
  * Without calling this routine, dr_printf() and dr_fprintf() will not
- * print anything in a console window on Windows 7 or earlier.
+ * print anything in a console window on Windows 7 or earlier, nor will they
+ * print anything when running a graphical application.
  *
  * Even after calling this routine, there are significant limitations
  * to console printing support in DR:
  *
- *  - On Windows Vista and Windows 7, it does not work for
- *    64-bit applications.
- *  - On Windows versions prior to Vista, it does not work from
- *    the exit event.  Once the application terminates its state with
- *    csrss (toward the very end of ExitProcess), no output will show
- *    up on the console.  We have no good solution here yet as exiting
- *    early is not ideal.  Printing from the exit event works fine
- *    on Windows 8+.
- *  - It does not work at all from graphical applications, even when they are
- *    launched from a console.  This is true on Windows 8+ as well.
+ *  - On Windows 8.1, it does not work for graphical applications.
+ *  - On Windows versions prior to Vista, and for WOW64 applications
+ *    on Vista, it does not work from the exit event.  Once the
+ *    application terminates its state with csrss (toward the very end
+ *    of ExitProcess), no output will show up on the console.  We have
+ *    no good solution here yet as exiting early is not ideal.
  *  - In the future, with earliest injection (Issue 234), writing to the
  *    console may not work from the client init event on Windows 7 and
  *    earlier (it will work on Windows 8).
