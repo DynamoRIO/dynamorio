@@ -78,8 +78,7 @@ add_executable(drcov2lcov drcov2lcov.c)
 configure_DynamoRIO_standalone(drcov2lcov)
 use_DynamoRIO_extension(drcov2lcov drsyms_static)
 use_DynamoRIO_extension(drcov2lcov drcontainers)
-# drfrontendlib depends on drinjectlib, DR-i#1409 should be the solution
-target_link_libraries(drcov2lcov drinjectlib drfrontendlib)
+target_link_libraries(drcov2lcov drfrontendlib)
 
 # ensure we rebuild if includes change
 add_dependencies(drcov2lcov api_headers)
@@ -122,9 +121,6 @@ DR_install(FILES ${exe_path} DESTINATION ${inst_dst} RENAME ${legacy_exe})
 if (WIN32)
   get_target_property(DR_TARGET_LOCATION dynamorio LOCATION${location_suffix})
   DR_install(FILES "${DR_TARGET_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
-  # i#1519: a static drinjectlib would help
-  get_target_property(DR_INJECT_LOCATION drinjectlib LOCATION${location_suffix})
-  DR_install(FILES "${DR_INJECT_LOCATION}"  DESTINATION "${INSTALL_CLIENTS_BIN}")
   # i#1344: Include a copy of a recent (> 6.0) redistributable version of dbghelp,
   # if we found one, so our drcov2lcov works pre-Vista.
   if (dbghelp_path)

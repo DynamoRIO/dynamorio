@@ -1436,13 +1436,7 @@ tobuild(common.segfault common/segfault.c)
 
 tobuild(libutil.frontend_test libutil/frontend_test.c)
 configure_DynamoRIO_standalone(libutil.frontend_test)
-# drfrontendlib depends on drinjectlib, DR-i#1409 should be the solution.
-# Now we link this library in UNIX env.
-if (UNIX)
-  set(lib_to_build drinjectlib)
-  add_rel_rpaths(libutil.frontend_test drinjectlib)
-endif ()
-target_link_libraries(libutil.frontend_test ${lib_to_build} drfrontendlib)
+target_link_libraries(libutil.frontend_test drfrontendlib)
 
 if (CLIENT_INTERFACE)
   set(BUILD_TEST_ANNOTATION "${PROJECT_BINARY_DIR}/suite/tests/annotations")
