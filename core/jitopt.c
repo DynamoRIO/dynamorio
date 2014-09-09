@@ -1168,6 +1168,9 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     case OP_or:
         plan->op = EMUL_OR;
         break;
+    case OP_xor:
+        plan->op = EMUL_XOR;
+        break;
     case OP_and:
         plan->op = EMUL_AND;
         break;
@@ -1204,7 +1207,8 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
         goto instrumentation_failure;
     }
 
-    ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_ADD && plan->op != EMUL_SUB)
+    ASSERT((plan->op != EMUL_OR && plan->op != EMUL_XOR && plan->op != EMUL_AND &&
+            plan->op != EMUL_ADD && plan->op != EMUL_SUB)
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
     if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 2 && plan->dst_size % 4 != 0)) {
