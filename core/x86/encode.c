@@ -2326,6 +2326,14 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         /* offset is from start of next instr */
         offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            extern bool verbose;
+            if (verbose) {
+                dcontext_t *dcontext = get_thread_private_dcontext();
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "encode_cti error: target beyond 8-bit reach\n");
+                instr_disassemble(dcontext, instr, STDERR);
+            }
+#endif
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 8-bit reach");
             return NULL;
@@ -2338,6 +2346,15 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
 #ifdef X64
         if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            extern bool verbose;
+            if (verbose) {
+                dcontext_t *dcontext = get_thread_private_dcontext();
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "encode_cti error: target beyond 32-bit reach:\n");
+                instr_disassemble(dcontext, instr, STDERR);
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "\n");
+            }
+#endif
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 32-bit reach");
             return NULL;
@@ -2519,6 +2536,14 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->opcode == OP_CONTD) {
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+            extern bool verbose;
+            if (verbose) {
+                RELEASE_LOG(THREAD, LOG_EMIT, 1, "Error! Could not find encoding for: ");
+                instr_disassemble(dcontext, instr, STDERR);
+                RELEASE_LOG(THREAD, LOG_EMIT, 1, "\n");
+            }
+#endif
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
                 instr_disassemble(dcontext, instr, THREAD);

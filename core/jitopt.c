@@ -932,6 +932,25 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ASSERT((*(ptr_uint_t*)write_target & ~(*word_value)) == 0);
         }
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'and'd %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else if (plan->op == EMUL_ADD) {
+        if (plan->dst_size == 1) {
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to add %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *byte_target_access += byte_value;
+        } else if (plan->dst_size == 4) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to add %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *target_access += *value;
+        } else if (plan->dst_size == 8) {
+            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
+            ptr_uint_t *word_value = (ptr_uint_t *)value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to add %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *word_target_access += *word_value;
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtracted %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     } else if (plan->op == EMUL_SUB) {
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
@@ -1152,6 +1171,9 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     case OP_and:
         plan->op = EMUL_AND;
         break;
+    case OP_add:
+        plan->op = EMUL_ADD;
+        break;
     case OP_sub:
         plan->op = EMUL_SUB;
         break;
@@ -1172,20 +1194,23 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     plan->dst = instr_get_dst(&plan->writer, 0);
     plan->dst_size = opnd_size_in_bytes(opnd_get_size(plan->dst));
 
-    if (!opnd_is_base_disp(plan->dst)) {
+    if (!(opnd_is_base_disp(plan->dst) || opnd_is_abs_addr(plan->dst)
+          IF_X64( || opnd_is_rel_addr(plan->dst)))) {
         ASSERT(false);
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: Unsupported writer operand kind 0x%x\n", plan->writer.src0.kind);
+                    "DGC: Error! Unsupported writer operand kind 0x%x\n",
+                    plan->writer.src0.kind);
         plan->resume_pc = NULL;
         goto instrumentation_failure;
     }
 
-    ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_SUB)
+    ASSERT((plan->op != EMUL_OR && plan->op != EMUL_AND && plan->op != EMUL_ADD && plan->op != EMUL_SUB)
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
     if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 2 && plan->dst_size % 4 != 0)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
-                  instr_get_opcode(&plan->writer), plan->dst_size);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
+                    instr_get_opcode(&plan->writer), plan->dst_size);
         ASSERT(false);
         plan->resume_pc = NULL;
         goto instrumentation_failure;
@@ -1232,8 +1257,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     }
     TABLE_RWLOCK(emulation_plans, write, unlock);
 
-    if (plan == NULL)
+    if (plan == NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                    "DGC: Skipping instrumentation of "PFX"\n", writer_app_pc);
         return NULL;
+    }
 
     ASSERT(plan->resume_pc > writer_app_pc);
 

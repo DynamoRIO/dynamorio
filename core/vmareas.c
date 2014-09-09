@@ -947,7 +947,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
     ASSERT(start < end);
 
     ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
-    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s (0x%x)\n",
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s\n",
                 start, end, name_vm_area_vector(v)); // can't call get_memory_info() here (ever)
     /* N.B.: new area could span multiple existing areas! */
     for (i = 0; i < v->length; i++) {
@@ -10806,14 +10806,21 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     ASSERT(opnd_size != 0);
     instr_size = next_pc - instr_size_pc;
 
+    RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "handle_modified_code(): prot 0x%x, JIT managed? %d, "
+                "offset: "PFX", instr_app_pc: "PFX"\n", prot, is_jit_managed_area(target),
+                offset, instr_app_pc);
+
 #ifdef JIT_MONITORED_AREAS
     if (!TEST(MEMPROT_WRITE, prot) && is_jit_managed_area(target) &&
         offset != 0 && offset != 1 && instr_app_pc != NULL) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
-        if (is_jit_self_write)
-            dr_fprintf(STDERR, "JIT instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
-        else if (!is_unmod_image(instr_app_pc))
-            dr_fprintf(STDERR, "DGC instr "PFX" writes to JIT at "PFX"\n", instr_app_pc, target);
+        if (is_jit_self_write) {
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "JIT instr "PFX" writes to JIT at "PFX"\n",
+                        instr_app_pc, target);
+        } else if (!is_unmod_image(instr_app_pc)) {
+            //RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "DGC instr "PFX" writes to JIT at "PFX"\n",
+            //            instr_app_pc, target);
+        }
         //vm_area_t *jit_monitored_area = get_jit_monitored_area(target);
         app_pc resume_pc = instrument_dgc_writer(dcontext, mc, f, instr_app_pc, target, opnd_size,
                                              //jit_monitored_area->start,

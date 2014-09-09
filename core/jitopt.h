@@ -48,6 +48,7 @@ typedef enum _emulation_operation_t {
     EMUL_MOV,
     EMUL_OR,
     EMUL_AND,
+    EMUL_ADD,
     EMUL_SUB,
 } emulation_operation_t;
 

@@ -784,12 +784,12 @@ dynamorio_fork_init(dcontext_t *dcontext)
         else
             dynamo_other_thread_exit(threads[i]);
     }
-    mutex_unlock(&thread_initexit_lock);
     global_heap_free(threads, num_threads*sizeof(thread_record_t*)
                      HEAPACCT(ACCT_THREAD_MGT));
 
     add_thread(get_process_id(), get_thread_id(), true/*under dynamo control*/,
                dcontext);
+    mutex_unlock(&thread_initexit_lock);
 
     GLOBAL_STAT(num_threads) = 1;
 # ifdef DEBUG

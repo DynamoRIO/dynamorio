@@ -5686,6 +5686,7 @@ pre_system_call(dcontext_t *dcontext)
          *     void __user *parent_tid, void __user *child_tid, struct pt_regs *regs)
          */
         uint flags = (uint) sys_param(dcontext, 0);
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = "PFX"\n", flags);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone with flags = "PFX"\n", flags);
         LOG(THREAD, LOG_SYSCALLS, 2, "args: "PFX", "PFX", "PFX", "PFX", "PFX"\n",
             sys_param(dcontext, 0), sys_param(dcontext, 1), sys_param(dcontext, 2),
@@ -5749,6 +5750,7 @@ pre_system_call(dcontext_t *dcontext)
         /* treat as if sys_clone with flags just as sys_vfork does */
         /* in /usr/src/linux/arch/i386/kernel/process.c */
         uint flags = CLONE_VFORK | CLONE_VM | SIGCHLD;
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork\n");
         handle_clone(dcontext, flags);
         cleanup_after_vfork_execve(dcontext);
@@ -5777,6 +5779,7 @@ pre_system_call(dcontext_t *dcontext)
     }
 
     case SYS_fork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork\n");
         os_fork_pre(dcontext);
         break;
@@ -6800,6 +6803,7 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n", mc->xax);
         /* We switch the lib tls segment back to dr's segment.
          * Please refer to comment on os_switch_lib_tls.
@@ -6823,11 +6827,13 @@ post_system_call(dcontext_t *dcontext)
 #endif
 
     case SYS_fork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n", mc->xax);
         break;
     }
 
     case SYS_vfork: {
+        RELEASE_LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
         LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
         IF_LINUX(ASSERT(was_thread_create_syscall(dcontext)));
         /* restore xsp in parent */

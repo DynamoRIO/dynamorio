@@ -1117,6 +1117,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
     instr_t *mark = INSTR_CREATE_label(dcontext);
     PRE(ilist, instr, mark);
 
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "insert_parameter_preparation for %d args\n", num_args);
     /* For a clean call, xax is dead (clobbered by prepare_for_clean_call()).
      * Rather than use as scratch and restore prior to each param that uses it,
      * we restore once up front if any use it, and use regparms[0] as scratch,
@@ -1266,10 +1267,18 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                                                  opnd_create_reg(regparms[0])));
                         if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
                             /* If sub-ptr-size, zero-extend is what we want so no movsxd */
+                            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with lea\n");
                             POST(ilist, prev, INSTR_CREATE_lea
                                  (dcontext, opnd_create_reg
                                   (shrink_reg_for_param(regparms[0], arg)), arg));
+                        } else if (opnd_is_immed_int(arg) && opnd_get_size(arg) == OPSZ_lea) {
+                            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with mov_imm\n");
+                            opnd_set_size(&arg, OPSZ_PTR);
+                            POST(ilist, prev,
+                                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg
+                                  (shrink_reg_for_param(regparms[0], arg)), arg));
                         } else {
+                            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg is mov_ld!\n");
                             /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                             POST(ilist, prev, INSTR_CREATE_mov_ld
                                  (dcontext, opnd_create_reg
@@ -1307,13 +1316,19 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
         if (i < NUM_REGPARM) {
             reg_id_t regparm = shrink_reg_for_param(regparms[i], arg);
             if (opnd_is_immed_int(arg) || opnd_is_instr(arg)) {
+                if (opnd_get_size(arg) == OPSZ_lea) {
+                    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with mov_imm\n");
+                    opnd_set_size(&arg, OPSZ_PTR);
+                }
                 POST(ilist, mark,
                     INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(regparm), arg));
             } else {
                 if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
+                    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with lea\n");
                     POST(ilist, mark,
                         INSTR_CREATE_lea(dcontext, opnd_create_reg(regparm), arg));
                 } else {
+                    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with mov_ld!\n");
                     POST(ilist, mark,
                         INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(regparm), arg));
                 }
@@ -4198,7 +4213,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     opnd_t arg = OPND_CREATE_INTPTR(plan->writer_pc);
 
 #ifndef JITOPT_EMULATE
-    reg_t temp[DGC_TEMP_REG_COUNT];
+    reg_t temp[DGC_TEMP_REG_COUNT], t0, t1, t2;
     opnd_t opnd_write_target;
     instr_t *instrumentation_start, *bucket_iterator, *check_readonly,
             *write_to_original_page, *write_to_double_page,
@@ -4207,16 +4222,21 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             *store_dgc_skip, *store_dgc_bucket,
             *skip_overlap_check, *restore_temps;
     uint j = 0, i = 0;
+    bool is_dst_absolute;
 # ifdef BUCKET_OVERLAP
     instr_t *check_next_dgc_bucket;
     bool bucket_overlap_possible;
 # endif /* BUCKET_OVERLAP */
+
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: instrumenting writer at "PFX"\n",
+                plan->writer_pc);
 
     switch (plan->writer.opcode) {
     case OP_and:
     case OP_or:
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: instrumenting bitwise write\n");
         break;
+    case OP_add:
     case OP_sub:
     case OP_mov_st:
     case OP_movdqa:
@@ -4231,7 +4251,6 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         ASSERT(false);
     }
     ASSERT(opnd_size_in_bytes(opnd_get_size(plan->dst)) <= 64);
-    ASSERT(opnd_is_base_disp(plan->dst));
 
     switch (opnd_size_in_bytes(opnd_get_size(plan->dst))) {
     case 1: case 2: case 4: case 8: case 16: break;
@@ -4243,6 +4262,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     for (; j < DGC_TEMP_REG_AVAILABLE_COUNT; j++) {
         if (!instr_uses_reg(&plan->writer, dgc_available_temp_regs[j])) {
             temp[i++] = dgc_available_temp_regs[j];
+            if (dgc_available_temp_regs[j] == REG_RCX)
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Warning: stealing %rcx!\n");
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                         "DGC: instrumentation of "PFX" steals register 0x%x\n",
                         plan->writer_pc, dgc_available_temp_regs[j]);
@@ -4251,499 +4272,626 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         }
     }
     ASSERT(i == DGC_TEMP_REG_COUNT);
-    if (!opnd_is_base_disp(plan->dst)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "Error! Write target is not base-disp at "PFX"\n", plan->writer_pc);
-    }
+    t0 = temp[0]; t1 = temp[1]; t2 = temp[2];
 
-    /*
-    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
-        opnd_write_target = opnd_create_base_disp(REG_NULL, REG_NULL, 0, 0, OPSZ_lea);
+    is_dst_absolute = opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst));
+
+    if (is_dst_absolute) {
+        opnd_write_target = OPND_CREATE_INTPTR(opnd_get_addr(plan->dst));
     } else {
-    */
+        ASSERT(opnd_is_base_disp(plan->dst));
         opnd_write_target = opnd_create_base_disp(opnd_get_base(plan->dst),
                                                   opnd_get_index(plan->dst),
                                                   opnd_get_scale(plan->dst),
                                                   opnd_get_disp(plan->dst),
                                                   OPSZ_lea);
-    //}
-
-    check_readonly =
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-                            OPND_CREATE_MEMPTR(temp[0],
-                                               offsetof(dgc_writer_mapping_t, offset)));
-
-    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
-        // [bucket:temp[0]] addr -> temp[1]
-        write_to_original_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
-                                            OPND_CREATE_INTPTR(opnd_get_addr(plan->dst)));
-        write_to_double_page =
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
-                                 OPND_CREATE_INTPTR(opnd_get_addr(plan->dst)));
-    } else {
-        ASSERT(opnd_is_base_disp(plan->dst));
-        write_to_original_page =
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
-        write_to_double_page =
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
     }
 
-    // xchg %rcx with temp[0]
-    skip_overlap_check = INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]),
+    /* %t0 = <mapping-offset> */
+    check_readonly =
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t0),
+                            OPND_CREATE_MEMPTR(t0,
+                                               offsetof(dgc_writer_mapping_t, offset)));
+
+    if (is_dst_absolute) {
+        /* %t1 = <write-target> */
+        write_to_original_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t1),
+                                                      opnd_write_target);
+        /* %t1 = <write-target> */
+        write_to_double_page = INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t1),
+                                                    opnd_write_target);
+    } else {
+        /* %t1 = <write-target> */
+        write_to_original_page =
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(t1), opnd_write_target);
+        /* %t1 = <write-target> */
+        write_to_double_page =
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(t1), opnd_write_target);
+    }
+
+    /* xchg(%rcx, t0) */
+    skip_overlap_check = INSTR_CREATE_xchg(dcontext, opnd_create_reg(t0),
                                            opnd_create_reg(REG_XCX));
-    restore_temps = RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
-                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
-    // cmp page_id(temp[1]), bucket->page_id(temp[0])
-    bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
-                                       OPND_CREATE_MEMPTR(temp[0], 0));
-    skip_clean_call = RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
-                                           MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1);
+    /* %t0 = T0 */
+    restore_temps = RESTORE_FROM_DC_OR_TLS(dcontext, flags, t0, MANGLE_DGC_TEMP_SLOT_0,
+                                           MANGLE_DGC_TEMP_OFFSET_0);
+    /* [bucket:%t0] cmp(%t1, bucket->page_id) */
+    bucket_iterator = INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
+                                       OPND_CREATE_MEMPTR(t0, 0));
+    /* %rcx = T0 */
+    skip_clean_call =
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
+                               MANGLE_DGC_TEMP_SLOT_0, MANGLE_DGC_TEMP_OFFSET_0);
 
 # ifdef BUCKET_OVERLAP
-    bucket_overlap_possible = opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
+    bucket_overlap_possible = (opnd_size_in_bytes(opnd_get_size(plan->dst)) > 1);
     if (bucket_overlap_possible) {
-        check_next_dgc_bucket =
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target);
+        if (is_dst_absolute) {
+            /* %t1 = <write-target> */
+            check_next_dgc_bucket =
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t1), opnd_write_target);
+        } else {
+            /* %t1 = <write-target> */
+            check_next_dgc_bucket =
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(t1), opnd_write_target);
+        }
     } else
         check_next_dgc_bucket = NULL;
 # endif /* BUCKET_OVERLAP */
 
-    store_dgc_skip = INSTR_CREATE_xor(dcontext, opnd_create_reg(temp[1]),
-                                      opnd_create_reg(temp[1]));
+    /* %t1 = 0 */
+    store_dgc_skip = INSTR_CREATE_xor(dcontext, opnd_create_reg(t1), opnd_create_reg(t1));
+    /* %t0 = %rax */
     store_dgc_bucket =
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(REG_XAX));
-    find_dgc_bucket1 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t0), opnd_create_reg(REG_XAX));
+    /* cmp(%t1, 0) */
+    find_dgc_bucket1 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
                                         OPND_CREATE_INT8(0));
-    find_dgc_bucket2 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
+    /* cmp(%t1, 0) */
+    find_dgc_bucket2 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
                                         OPND_CREATE_INT8(0));
 
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:
         // and <src>, <dst+offset>
+        /* %t1 &= <src> */
         execute_write =
             INSTR_CREATE_and(dcontext,
-                             OPND_CREATE_MEM32(temp[1], 0),
+                             OPND_CREATE_MEM32(t1, 0),
                              instr_get_src(&plan->writer, 0));
         break;
     case OP_or:
-        // or <src>, <dst+offset>
+        /* %t1 |= <src> */
         execute_write =
             INSTR_CREATE_or(dcontext,
-                            OPND_CREATE_MEM32(temp[1], 0),
+                            OPND_CREATE_MEM32(t1, 0),
                             instr_get_src(&plan->writer, 0));
         break;
+    case OP_add:
+        /* %t1 += <src> */
+        execute_write =
+            INSTR_CREATE_add(dcontext,
+                             opnd_create_base_disp(t1, t0, 1, 0,
+                                                   opnd_get_size(plan->dst)),
+                             instr_get_src(&plan->writer, 0));
+        break;
     case OP_sub:
-        // sub <src>, <dst+offset>
+        /* %t1 -= <src> */
         execute_write =
             INSTR_CREATE_sub(dcontext,
-                             opnd_create_base_disp(temp[1], temp[0], 1, 0,
+                             opnd_create_base_disp(t1, t0, 1, 0,
                                                    opnd_get_size(plan->dst)),
                              instr_get_src(&plan->writer, 0));
         break;
     default:
-        // <original-op> <src>, <dst>+offset
+        /* <dst>+<offset> ?= <src> : ? is the original operation (e.g., mov) */
         execute_write = instr_create_1dst_1src(dcontext, plan->writer.opcode,
-                                               opnd_create_base_disp(temp[1], temp[0], 1, 0,
+                                               opnd_create_base_disp(t1, t0, 1, 0,
                                                                      opnd_get_size(plan->dst)),
                                                instr_get_src(&plan->writer, 0));
     }
     instr_set_translation(execute_write, plan->writer_pc);
 
-    prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
+    /* %t2 = %rax */
+    prepare_write = INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t2),
                                         opnd_create_reg(REG_XAX));
+    /* XAX = %rax */
+    instrumentation_start = SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX,
+                                              TLS_XAX_SLOT, XAX_OFFSET);
 
-    instrumentation_start = SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, TLS_XAX_SLOT, XAX_OFFSET);
+    /********************* Build ilist **********************/
 
-    /* Save flags to MANGLE_DGC_FLAGS_SLOT */
+    /* XAX = %rax */
     PRE(ilist, instr, instrumentation_start);
+    /* %ah = <eflags> */
     PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
+    /* %al = <oflags> */
     PRE(ilist, instr,
         INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+    /* FLAGS = %rax */
     PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX, MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX,
+                          MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+    /* %rax = XAX */
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                       TLS_XAX_SLOT, XAX_OFFSET));
 
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0], MANGLE_DGC_TEMP_SLOT_1,
-                                 MANGLE_DGC_TEMP_OFFSET_1));
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1], MANGLE_DGC_TEMP_SLOT_2,
-                                 MANGLE_DGC_TEMP_OFFSET_2));
-    PRE(ilist, instr,
-        SAVE_TO_DC_OR_TLS(dcontext, flags, temp[2], MANGLE_DGC_TEMP_SLOT_3,
-                                 MANGLE_DGC_TEMP_OFFSET_3));
+    /* t0(app) t1(app) t2(app) rax(app)
+     * XAX(free) T0(free) T1(free) T2(free) FLAGS(app.flags)
+     */
 
-    if (opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst))) {
+    /* T0 = %t0 */
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, t0, MANGLE_DGC_TEMP_SLOT_0,
+                          MANGLE_DGC_TEMP_OFFSET_0));
+    /* T1 = %t1 */
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, t1, MANGLE_DGC_TEMP_SLOT_1,
+                          MANGLE_DGC_TEMP_OFFSET_1));
+    /* T2 = %t2 */
+    PRE(ilist, instr,
+        SAVE_TO_DC_OR_TLS(dcontext, flags, t2, MANGLE_DGC_TEMP_SLOT_2,
+                          MANGLE_DGC_TEMP_OFFSET_2));
+
+    /* t0(free) t1(free) t2(free) rax(app)
+     * XAX(free) T0(app.t0) T1(app.t1) T2(app.t2) FLAGS(app.flags)
+     */
+
+    if (is_dst_absolute) {
         app_pc abs_addr = opnd_get_addr(plan->dst);
         ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(abs_addr);
         uint key =  DGC_SHADOW_KEY(page_id);
-        // page_id -> temp[1]
+        /* %t1 = <page-id> */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[1]),
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t1),
                                  OPND_CREATE_INTPTR(page_id)));
-        // mask temp[1] -> temp[2]
+        /* t1(page-id): %t2 = <key> */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(temp[2]),
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t2),
                                  OPND_CREATE_INTPTR(key)));
-        ASSERT(false);
     } else {
-        ASSERT(opnd_is_base_disp(plan->dst));
-
-        // target -> temp[1]
+        /* %t1 = <write-target> */
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[1]), opnd_write_target));
-        // [target:temp[1]] temp[1] >> DGC_MAPPING_TABLE_SHIFT
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(t1), opnd_write_target));
+        /* t1(write-target): %t1 >> DGC_MAPPING_TABLE_SHIFT */
         PRE(ilist, instr,
-            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[1]),
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(t1),
                              OPND_CREATE_INT8(DGC_MAPPING_TABLE_SHIFT)));
-        // mask temp[1] -> temp[2]
+        /* t1(page-id): %t2 = %t1 */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
-                                opnd_create_reg(temp[1])));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t2),
+                                opnd_create_reg(t1)));
+        /* t1(page-id), t2(page-id): %t2 &= DGC_MAPPING_TABLE_MASK */
         PRE(ilist, instr,
-            INSTR_CREATE_and(dcontext, opnd_create_reg(temp[2]),
+            INSTR_CREATE_and(dcontext, opnd_create_reg(t2),
                              OPND_CREATE_INT32(DGC_MAPPING_TABLE_MASK)));
     }
-
+    /* t1(page-id), t2(key): %t0 = <mapping-table> */
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]), /* always in TLS? */
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t0),
                             opnd_create_tls_slot(os_tls_offset(DGC_SHADOW_MAPPING_SLOT))));
-
-    // [table:temp[0], key:temp[2]] head_bucket -> temp[0]
+    /* t0(mapping-table), t1(page-id), t2(key): %t0 = <head-bucket> */
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-                            opnd_create_base_disp(temp[0], temp[2], sizeof(app_pc), 0,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t0),
+                            opnd_create_base_disp(t0, t2, sizeof(app_pc), 0,
                                                   OPSZ_PTR)));
-
-    // [head_bucket:temp[0]] cmp head_bucket(temp[0]), head_bucket(temp[0])
+    /* t0(head-bucket), t1(page-id), t2((key)): <head-bucket> == 0 */
     PRE(ilist, instr,
-        INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
-    // jz write_to_original_page
+        INSTR_CREATE_test(dcontext, opnd_create_reg(t0), opnd_create_reg(t0)));
+    /* t0(head-bucket), t1(page-id), t2((key)): ++> write_to_original_page */
     PRE(ilist, instr,
         INSTR_CREATE_jcc(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
 
-    // [bucket:temp[0], page_id:temp[1]] cmp page_id(temp[1]), bucket->page_id(temp[0])
+    /* t0(head-bucket) t1(page-id) t2((key)) rax(app)
+     * XAX(free) T0(app.t0) T1(app.t1) T2(app.t2) FLAGS(app.flags)
+     */
+
+    /* cmp(%t1, bucket->page_id) */
     PRE(ilist, instr, bucket_iterator);
-    // [bucket:temp[0], page_id:temp[1]] je check_readonly
+    /* t0(bucket), t1((page-id)), t2((key)): ++> check_readonly */
     PRE(ilist, instr,
         INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(check_readonly)));
-    // [bucket:temp[0]] bucket->next -> temp[0]
+    /* t0(bucket), t1((page-id)), t2((key)): %t0 = bucket->next */
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[0]),
-                            OPND_CREATE_MEMPTR(temp[0],
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t0),
+                            OPND_CREATE_MEMPTR(t0,
                                                offsetof(dgc_writer_mapping_t, next))));
-    // [bucket->next:temp[0]] cmp next(temp[0]), next(temp[0])
+    /* t0(bucket), t1((page-id)), t2((key)): <bucket> == 0 */
     PRE(ilist, instr,
-        INSTR_CREATE_test(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(temp[0])));
-    // jz no_bucket
+        INSTR_CREATE_test(dcontext, opnd_create_reg(t0), opnd_create_reg(t0)));
+    /* t0(bucket), t1((page-id)), t2((key)): ++> write_to_original_page */
     PRE(ilist, instr,
         INSTR_CREATE_jcc(dcontext, OP_jz, opnd_create_instr(write_to_original_page)));
-    // jmp bucket_iterator
+    /* t0(bucket), t1((page-id)), t2((key)): ==> bucket_iterator */
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(bucket_iterator)));
 
-    // [bucket:temp[0]] offset -> temp[0]
+    /* t0(bucket), t1((page-id)), t2((key)): %t0 = <mapping-offset> */
     PRE(ilist, instr, check_readonly);
-    // [offset:temp[0]] cmp offset == 1
+    /* t0(offset), t1((page-id)), t2((key)): <offset> == 1 */
     PRE(ilist, instr,
-        INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]), OPND_CREATE_INT8(1)));
-    // [offset:temp[0]] no: continue with write
+        INSTR_CREATE_cmp(dcontext, opnd_create_reg(t0), OPND_CREATE_INT8(1)));
+    /* t0(offset), t1((page-id)), t2((key)): --> write_to_double_page */
     PRE(ilist, instr,
         INSTR_CREATE_jcc(dcontext, OP_jne, opnd_create_instr(write_to_double_page)));
 
-    /****** Exit to double-map the page (start) ******/
+    /*     === Exit to double-map the page (start) ===
+     *
+     * t0(offset) t1((page-id)) t2((key)) rax(app)
+     * XAX(free) T0(app.t0) T1(app.t1) T2(app.t2) FLAGS(app.flags)
+     */
+
+
+    /* t0((offset)), t1((page-id)), t2((key)): %t2 = %rax */
     PRE(ilist, instr,
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]),
-                                                opnd_create_reg(REG_XAX)));
-    PRE(ilist, instr, // restore flag values to %rax
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t2), opnd_create_reg(REG_XAX)));
+    /* t0((offset)), t1((page-id)), t2(app.rax): %rax = FLAGS */
+    PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-    PRE(ilist, instr, // restore flags
+    /* t0((offset)), t1((page-id)), t2(app.rax): <oflags> = %al */
+    PRE(ilist, instr,
         INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+    /* t0((offset)), t1((page-id)), t2(app.rax): <eflags> = %ah */
     PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
-    PRE(ilist, instr, // move temp[2] back to %rax
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+    /* t0((offset)), t1((page-id)), t2(app.rax): %rax = %t2 */
     PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(t2)));
+    /* t0((offset)), t1((page-id)), t2((app.rax)): %t0 = T0 */
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, t0,
+                               MANGLE_DGC_TEMP_SLOT_0, MANGLE_DGC_TEMP_OFFSET_0));
+    /* t0(app), t1((page-id)), t2((app.rax)): %t1 = T1 */
+    PRE(ilist, instr,
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, t1,
                                MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+    /* t0(app), t1(app), t2((app.rax)): %t2 = T2 */
     PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+        RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
                                MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-    PRE(ilist, instr,
-        RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
-                               MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
 
-    ASSERT(opnd_is_base_disp(plan->dst));
-    dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
-                            0/*flags*/, 1, opnd_write_target);
+    /* t0(app) t1(app) t2(app) rax(app)
+     * XAX(free) T0((app.t0)) T1((app.t1)) T2((app.t2)) FLAGS((app.flags))
+     */
+
+    if (is_dst_absolute) {
+        opnd_t fake_dst = OPND_CREATE_INTPTR(opnd_get_addr(plan->dst));
+        opnd_set_size(&fake_dst, OPSZ_lea);
+        dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
+                                0/*flags*/, 1, fake_dst);
+    } else {
+        dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
+                                0/*flags*/, 1, opnd_write_target);
+    }
+    /* t0(app), t1(app), t2(app): ==> instrumentation_start */
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(instrumentation_start)));
-    /****** Exit to double-map the page (end) ******/
 
-    // [offset:temp[0]] write_target -> temp[1]
+    /*      === Write to double-mapped page ===
+     *
+     * t0(offset) t1((page-id)) t2((key)) rax(app)
+     * XAX(free) T0(app.t0) T1(app.t1) T2(app.t2) FLAGS(app.flags)
+     */
+
+    /* %t1 = <write-target> */
     PRE(ilist, instr, write_to_double_page);
 
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:
     case OP_or:
+        /* t0(offset), t1(write-target), t2((key)): %t1 = <write-target> + <offset> */
         PRE(ilist, instr,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), opnd_create_reg(temp[0])));
+            INSTR_CREATE_add(dcontext, opnd_create_reg(t1), opnd_create_reg(t0)));
     }
 
+    /* t0(offset), t1(mapped-write-target), t2((key)): ==> prepare_write */
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(prepare_write)));
 
-    // [0:temp[0]] write_target -> temp[1]
+    /* t0(bucket == 0), t1((page-id)), t2((key)): %t1 = <write-target> */
     PRE(ilist, instr, write_to_original_page);
 
-    // what's this for? Isn't the offset (temp[0]) zero?
-    switch (instr_get_opcode(&plan->writer)) {
-    case OP_and:
-    case OP_or:
-        PRE(ilist, instr,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(temp[1]), opnd_create_reg(temp[0])));
-    }
-
-    /* Restore flags now so the app instruction's flag changes are not lost */
-    PRE(ilist, instr, prepare_write); // move %rax to temp[2]
-    PRE(ilist, instr, // restore flag values to %rax
+    /* t0(offset), t1(mapped-write-target), t2((key)): %t2 = %rax */
+    PRE(ilist, instr, prepare_write);
+    /* t0(offset), t1(mapped-write-target), t2(app.rax): %rax = FLAGS */
+    PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-    PRE(ilist, instr, // restore flags
+    /* t0(offset), t1(mapped-write-target), t2(app.rax): <oflags> = %al */
+    PRE(ilist, instr,
         INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+    /* t0(offset), t1(mapped-write-target), t2(app.rax): <eflags> = %ah */
     PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
-    PRE(ilist, instr, // move temp[2] back to %rax
-        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+    /* t0(offset), t1(mapped-write-target), t2(app.rax): %rax = %t2 */
+    PRE(ilist, instr,
+        INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(t2)));
 
     PRE(ilist, instr, execute_write);
 
     if (plan->is_jit_self_write) {
+        /* t0(offset), t1((mapped-write-target)), t2((app.rax)): %t0 = T0 */
         PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[0],
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t0,
+                                   MANGLE_DGC_TEMP_SLOT_0, MANGLE_DGC_TEMP_OFFSET_0));
+        /* t0(app), t1((mapped-write-target)), t2((app.rax)): %t1 = T1 */
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t1,
                                    MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+        /* t0(app), t1((app)), t2((app.rax)): %t2 = T2 */
         PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
                                    MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
-                                   MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
+        /* Instrumentation ends: t0(app), t1((app)), t2(app) */
     } else {
 #ifdef ELIDE_CLEAN_CALL
-        if (temp[0] == REG_XCX) {
-            PRE(ilist, instr,
-                SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+        if (t0 == REG_XCX) {
+            /* t0(offset), t1((mapped-write-target)), t2((app.rax)): FLAGS = <offset> */
+            PRE(ilist, instr, // why???
+                SAVE_TO_DC_OR_TLS(dcontext, flags, t0,
                                   MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+            /* t0(offset), t1((mapped-write-target)), t2((app.rax)):
+             * <offset> == 0 ? ++> restore_temps
+             */
             PRE(ilist, instr,
                 INSTR_CREATE_jecxz(dcontext, opnd_create_instr(restore_temps)));
         } else {
-            PRE(ilist, instr, // xchg %rcx with temp[0]
-                INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(REG_XCX)));
+            /* t0(offset), t1((mapped-write-target)), t2((app.rax)): xchg(%t0, %rcx) */
+            PRE(ilist, instr,
+                INSTR_CREATE_xchg(dcontext, opnd_create_reg(t0), opnd_create_reg(REG_XCX)));
+            /* t0(app.rcx), t1((mapped-write-target)), t2((app.rax)):
+             * <offset> == 0 ? ++> skip_overlap_check
+             */
             PRE(ilist, instr,
                 INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_overlap_check)));
-            PRE(ilist, instr, // xchg %rcx with temp[0]
-                INSTR_CREATE_xchg(dcontext, opnd_create_reg(temp[0]), opnd_create_reg(REG_XCX)));
+            /* t0(app.rcx), t1((mapped-write-target)), t2((app.rax)): xchg(%t0, %rcx) */
+            PRE(ilist, instr,
+                INSTR_CREATE_xchg(dcontext, opnd_create_reg(t0), opnd_create_reg(REG_XCX)));
         }
-        /* Move DGC coverage bucket into the flags TLS slot */
-        PRE(ilist, instr, // move %rax to temp[2]
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[2]), opnd_create_reg(REG_XAX)));
+        /* t0(offset), t1((mapped-write-target)), t2((app.rax)): %t2 = %rax */
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t2), opnd_create_reg(REG_XAX)));
+        /* t0(offset), t1((mapped-write-target)), t2(app.rax): %ah = <eflags> */
         PRE(ilist, instr, INSTR_CREATE_lahf(dcontext));
+        /* t0(offset), t1((mapped-write-target)), t2(app.rax): %al = <oflags> */
         PRE(ilist, instr, INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+        /* t0(offset), t1((mapped-write-target)), t2(app.rax): FLAGS = <flags> */
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XAX,
                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
+        /* t0(offset), t1((mapped-write-target)), t2(app.rax): %rax = %t2 */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[2])));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(t2)));
 
-        // lea write_target -> temp[0]
+        if (is_dst_absolute) {
+            /* t0(offset), t1(free), t2((app.rax)): %t0 = <write-target> */
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t0), opnd_write_target));
+        } else {
+            /* t0(offset), t1(free), t2((app.rax)): %t0 = <write-target> */
+            PRE(ilist, instr,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(t0), opnd_write_target));
+        }
+        /* t0(write-target), t1(free), t2((app.rax)): t0 >> DGC_OVERLAP_BUCKET_BIT_SIZE */
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
-
-        // temp[0] >> DGC_OVERLAP_BUCKET_BIT_SIZE
-        PRE(ilist, instr,
-            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(t0),
                              OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
-        // temp[0] &= *DGC_COVERAGE_MASK_SLOT
+        /* t0(page-id), t1(free), t2((app.rax)): t0 &= *DGC_COVERAGE_MASK_SLOT */
         PRE(ilist, instr,
-            INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
+            INSTR_CREATE_and(dcontext, opnd_create_reg(t0),
                              opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
-        // [key:temp[0]] load table -> temp[1]
+        /* t0(key), t1(free), t2((app.rax)): %t1 = <dgc-mapping-table> */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
                                 opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
-        // [key:temp[0], table:temp[1]] DGC coverage bucket* -> temp[1]
+        /* t0(key), t1(dgc-mapping-table), t2((app.rax)): %t1 = <bucket> */
         PRE(ilist, instr,
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
+                                opnd_create_base_disp(t1, t0, sizeof(app_pc), 0, OPSZ_PTR)));
+        if (is_dst_absolute) {
+            /* t0(key), t1(bucket), t2((app.rax)): %t0 = <write-target> */
+            PRE(ilist, instr,
+                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t0), opnd_write_target));
+        } else {
+            /* t0(key), t1(bucket), t2((app.rax)): %t0 = <write-target> */
+            PRE(ilist, instr,
+                INSTR_CREATE_lea(dcontext, opnd_create_reg(t0), opnd_write_target));
+        }
+        /* t0(write-target), t1(bucket), t2((app.rax)): %t0 << DGC_OVERLAP_BUCKET_BIT_SIZE */
         PRE(ilist, instr,
-            INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
-        PRE(ilist, instr,
-            INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+            INSTR_CREATE_shr(dcontext, opnd_create_reg(t0),
                              OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
 
-        /* while (bucket != NULL && bucket->key != temp[0])
-         *     bucket = bucket->next
+        /*      === Find overlapping fragment bucket ===
+         *
+         *          while (bucket != NULL && bucket->key != t0)
+         *              bucket = bucket->next
+         *
+         * t0(page-id) t1(bucket) t2((app.rax)) rax(app)
+         * XAX(free) T0(app.t0) T1(app.t1) T2(app.t2) FLAGS(app.flags)
          */
-        // [bucket_id:temp[0], bucket*:temp[1]]
-        PRE(ilist, instr, find_dgc_bucket1); // cmp temp[1], 0
-        // [bucket_id:temp[0], bucket*:temp[1]]
+
+        /* t0(page-id), t1(bucket), t2((app.rax)): %t1 == 0 */
+        PRE(ilist, instr, find_dgc_bucket1);
 # ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(check_next_dgc_bucket)));
         } else {
 # endif /* BUCKET_OVERLAP */
+            /* t0(page-id), t1(bucket), t2((app.rax)): ++> store_dgc_skip */
             PRE(ilist, instr,
-                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(/*already 0*/store_dgc_skip))); // skip target maybe not needed now...
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, // skip target maybe not needed now...
+                                       opnd_create_instr(/*already 0*/store_dgc_skip)));
 # ifdef BUCKET_OVERLAP
         }
 # endif /* BUCKET_OVERLAP */
-        // [bucket_id:temp[0], bucket:temp[1]]
-        PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
-            INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
-                             OPND_CREATE_MEMPTR(temp[1], 0)));
-        // [bucket_id:temp[0], bucket*:temp[1]] je store_dgc_bucket
+        /* t0(page-id), t1(bucket), t2((app.rax)): bucket->id == <page-id> */
+        PRE(ilist, instr, // cmp key(t0, bucket(t1)->key
+            INSTR_CREATE_cmp(dcontext, opnd_create_reg(t0),
+                             OPND_CREATE_MEMPTR(t1, 0)));
+        /* t0(page-id), t1(bucket), t2((app.rax)): ++> store_dgc_bucket */
         PRE(ilist, instr,
             INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(store_dgc_bucket)));
-        // [bucket_id:temp[0], bucket*:temp[1]]
+        /* t0(page-id), t1(bucket), t2((app.rax)): %t1 = bucket->next */
         PRE(ilist, instr, /* next bucket */
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                OPND_CREATE_MEMPTR(temp[1], offsetof(asmtable_entry_t, next))));
-        // [bucket_id:temp[0], bucket*:temp[1]]
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
+                                OPND_CREATE_MEMPTR(t1, offsetof(asmtable_entry_t, next))));
+        /* t0(page-id), t1(bucket), t2((app.rax)): ==> find_dgc_bucket1 */
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket1)));
 
 # ifdef BUCKET_OVERLAP
         if (bucket_overlap_possible) {
-            // [bucket_id:temp[0]]
             // if ((write_target & 0x3f) > (64 - write_size))
-            PRE(ilist, instr, check_next_dgc_bucket); // write_target -> temp[1]
+            /* %t1 = <write-target> */
+            PRE(ilist, instr, check_next_dgc_bucket); // write_target -> t1
             PRE(ilist, instr,
-                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[1]),
+                INSTR_CREATE_and(dcontext, opnd_create_reg(t1),
                                  OPND_CREATE_INT8(0x3f))); // bucket span
             PRE(ilist, instr,
-                INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[1]),
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
                                  OPND_CREATE_INT8(0x40 - opnd_size_in_bytes(opnd_get_size(plan->dst)))));
             PRE(ilist, instr,
                 INSTR_CREATE_jcc(dcontext, OP_jle, opnd_create_instr(store_dgc_skip)));
+            if (is_dst_absolute) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t0), opnd_write_target));
+            } else {
+                PRE(ilist, instr, // redundant
+                    INSTR_CREATE_lea(dcontext, opnd_create_reg(t0), opnd_write_target));
+            }
             PRE(ilist, instr, // redundant
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
-            PRE(ilist, instr, // redundant
-                INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+                INSTR_CREATE_shr(dcontext, opnd_create_reg(t0),
                                  OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
-            //     temp[0]++
+            //     t0++
             PRE(ilist, instr,
-                INSTR_CREATE_inc(dcontext, opnd_create_reg(temp[0])));
-            // temp[0] &= *DGC_COVERAGE_MASK_SLOT
+                INSTR_CREATE_inc(dcontext, opnd_create_reg(t0)));
+            // t0 &= *DGC_COVERAGE_MASK_SLOT
             PRE(ilist, instr,
-                INSTR_CREATE_and(dcontext, opnd_create_reg(temp[0]),
+                INSTR_CREATE_and(dcontext, opnd_create_reg(t0),
                                  opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_MASK_SLOT))));
-            // [key:temp[0]] load table -> temp[1]
+            // [key:t0] load table -> t1
             PRE(ilist, instr,
-                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
                                     opnd_create_tls_slot(os_tls_offset(DGC_COVERAGE_TABLE_SLOT))));
-            // [key:temp[0], table:temp[1]] DGC coverage bucket* -> temp[1]
+            // [key:t0, table:t1] DGC coverage bucket* -> t1
             PRE(ilist, instr,
-                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                    opnd_create_base_disp(temp[1], temp[0], sizeof(app_pc), 0, OPSZ_PTR)));
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
+                                    opnd_create_base_disp(t1, t0, sizeof(app_pc), 0, OPSZ_PTR)));
+            if (is_dst_absolute) {
+                PRE(ilist, instr,
+                    INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t0), opnd_write_target));
+            } else {
+                PRE(ilist, instr,
+                    INSTR_CREATE_lea(dcontext, opnd_create_reg(t0), opnd_write_target));
+            }
             PRE(ilist, instr,
-                INSTR_CREATE_lea(dcontext, opnd_create_reg(temp[0]), opnd_write_target));
-            PRE(ilist, instr,
-                INSTR_CREATE_shr(dcontext, opnd_create_reg(temp[0]),
+                INSTR_CREATE_shr(dcontext, opnd_create_reg(t0),
                                  OPND_CREATE_INT8(DGC_OVERLAP_BUCKET_BIT_SIZE)));
-            //     temp[0]++
+            //     t0++
             PRE(ilist, instr,
-                INSTR_CREATE_inc(dcontext, opnd_create_reg(temp[0])));
+                INSTR_CREATE_inc(dcontext, opnd_create_reg(t0)));
 
-            /* while (bucket != NULL && bucket->key != temp[0])
+            /* while (bucket != NULL && bucket->key != t0)
              *     bucket = bucket->next
              */
-            // [bucket_id:temp[0], bucket*:temp[1]]
-            PRE(ilist, instr, find_dgc_bucket2); // cmp temp[1], 0
-            // [bucket_id:temp[0], bucket*:temp[1]]
-            PRE(ilist, instr,
-                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_skip))); // skip target maybe not needed now...
-            // [bucket_id:temp[0], bucket:temp[1]]
-            PRE(ilist, instr, // cmp key(temp[0], bucket(temp[1])->key
-                INSTR_CREATE_cmp(dcontext, opnd_create_reg(temp[0]),
-                                 OPND_CREATE_MEMPTR(temp[1], 0)));
-            // [bucket_id:temp[0], bucket*:temp[1]] je store_dgc_bucket
+            // [bucket_id:t0, bucket*:t1]
+            /* cmp(%t1, 0) */
+            PRE(ilist, instr, find_dgc_bucket2); // cmp t1, 0
+            // [bucket_id:t0, bucket*:t1]
+            PRE(ilist, instr, // skip target maybe not needed now...
+                INSTR_CREATE_jcc_short(dcontext, OP_jz, opnd_create_instr(store_dgc_skip)));
+            // [bucket_id:t0, bucket:t1]
+            PRE(ilist, instr, // cmp key(t0, bucket(t1)->key
+                INSTR_CREATE_cmp(dcontext, opnd_create_reg(t0),
+                                 OPND_CREATE_MEMPTR(t1, 0)));
+            // [bucket_id:t0, bucket*:t1] je store_dgc_bucket
+            /* %t0 = %rax */
             PRE(ilist, instr,
                 INSTR_CREATE_jcc_short(dcontext, OP_je, opnd_create_instr(store_dgc_bucket)));
-            // [bucket_id:temp[0], bucket*:temp[1]]
+            // [bucket_id:t0, bucket*:t1]
             PRE(ilist, instr, /* next bucket */
-                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(temp[1]),
-                                    OPND_CREATE_MEMPTR(temp[1], offsetof(asmtable_entry_t, next))));
-            // [bucket_id:temp[0], bucket*:temp[1]]
+                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(t1),
+                                    OPND_CREATE_MEMPTR(t1, offsetof(asmtable_entry_t, next))));
+            // [bucket_id:t0, bucket*:t1]
             PRE(ilist, instr,
                 INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(find_dgc_bucket2)));
         }
 # endif /* BUCKET_OVERLAP */
-        // $0x0 -> temp[1]
+        /* t0((page-id)), t1(bucket), t2((app.rax)): %t1 = 0 */
         PRE(ilist, instr, store_dgc_skip);
-        // %rax -> temp[0]
+        /* t0((page-id)), t1(0), t2((app.rax)): %t0 = %rax */
         PRE(ilist, instr, store_dgc_bucket);
-        // restore flags to %rax
+        /* t0(app.rax), t1(0), t2((app.rax)): %rax = FLAGS */
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XAX,
                                    MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-        // DGC coverage bucket(temp[1]) -> MANGLE_DGC_FLAGS_SLOT
+        /* t0(app.rax), t1(0), t2((app.rax)): FLAGS = %t1 */
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[1],
+            SAVE_TO_DC_OR_TLS(dcontext, flags, t1,
                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-        PRE(ilist, instr, // restore flags
+        /* t0(app.rax), t1(0), t2((app.rax)): <oflags> = %al */
+        PRE(ilist, instr,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
+        /* t0(app.rax), t1(0), t2((app.rax)): <eflags> = %ah */
         PRE(ilist, instr, INSTR_CREATE_sahf(dcontext));
-        PRE(ilist, instr, // move temp[0] back to %rax
-            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(temp[0])));
+        /* t0(app.rax), t1(0), t2((app.rax)): %rax = %t0 */
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XAX), opnd_create_reg(t0)));
+        /* t0((app.rax)), t1(0), t2((app.rax)): ==> restore_temps */
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(restore_temps)));
 #else
-        // [offset:temp[0], write_target: temp[1]] offset (temp[0]) -> temp[1] for jecxz
+        // [offset:t0, write_target: t1] offset (t0) -> t1 for jecxz
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+            SAVE_TO_DC_OR_TLS(dcontext, flags, t0,
                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
         PRE(ilist, instr,
             INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(restore_temps)));
 #endif /* ELIDE_CLEAN_CALL */
-        PRE(ilist, instr, skip_overlap_check); // xchg %rcx with temp[0]
+        /* t0(app.rcx), t1((mapped-write-target)), t2((app.rax)): xchg(%rcx, %t0) */
+        PRE(ilist, instr, skip_overlap_check);
+        /* t0(offset), t1((mapped-write-target)), t2((app.rax)): FLAGS = <offset> */
         PRE(ilist, instr,
-            SAVE_TO_DC_OR_TLS(dcontext, flags, temp[0],
+            SAVE_TO_DC_OR_TLS(dcontext, flags, t0,
                               MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-        PRE(ilist, instr, restore_temps); // restore temp[0]
+        /* t0((offset)), t1((mapped-write-target)), t2((app.rax)): t0 = T0 */
+        PRE(ilist, instr, restore_temps);
+        /* t0(app), t1((mapped-write-target)), t2((app.rax)): t1 = T1 */
         PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[1],
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t1,
+                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+        /* t0(app), t1(app), t2((app.rax)): t2 = T2 */
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
                                    MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, temp[2],
-                                   MANGLE_DGC_TEMP_SLOT_3, MANGLE_DGC_TEMP_OFFSET_3));
-//#ifdef ELIDE_CLEAN_CALL
-        // %rcx -> slot 0
+        /* t0(app), t1(app), t2(app): T0 = %rcx */
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
-                              MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-        // bucket * (flag slot) -> %rcx
+                              MANGLE_DGC_TEMP_SLOT_0, MANGLE_DGC_TEMP_OFFSET_0));
+        /* t0(app), t1(app), t2(app): %rcx = <fragment-overlap-bucket> */
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                    MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-        // jrcxz <no-clean-call> (note: barely reaches in 8-bit range)
+        /* t0(app), t1(app), t2(app):
+         * <fragment-overlap-bucket> == 0 ? ++> skip_clean_call
+         * (note: jrcxz barely reaches in 8-bit range)
+         */
         PRE(ilist, instr,
             INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_clean_call)));
-        // slot 0 -> %rcx
+        /* t0(app), t1(app), t2(app): %rcx = <app.rcx> */
         PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
-                                   MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-//#endif /* ELIDE_CLEAN_CALL */
+           RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
+                                   MANGLE_DGC_TEMP_SLOT_0, MANGLE_DGC_TEMP_OFFSET_0));
 #endif /* !JITOPT_EMULATE */
         dr_insert_clean_call_ex(dcontext, ilist, instr, clean_callee, 0/*flags*/, 1, arg);
 #ifndef JITOPT_EMULATE
-//# ifdef ELIDE_CLEAN_CALL
         // jmp <done>
+        /* t0(app), t1(app), t2(app): ==> done */
         PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(instr)));
-        // restore %rcx
+        /* t0(app), t1(app), t2(app): %rcx = <app.rcx> */
         PRE(ilist, instr, skip_clean_call);
-//# endif /* ELIDE_CLEAN_CALL */
     }
 #endif /* !JITOPT_EMULATE */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,

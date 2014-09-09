@@ -3051,9 +3051,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
      * instructions, (i.e. check_for_stopping_point()) */
     bb->instr_start = bb->cur_pc;
 
-    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Interp "PFX"\n", bb->start_pc);
-    if (bb->start_pc == (app_pc) 0x5f91f8)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
+    //RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Interp "PFX"\n", bb->start_pc);
 
     /* create instrlist after check_new_page_start to avoid memory leak
      * on unreadable memory -- though we now properly clean up and won't leak
