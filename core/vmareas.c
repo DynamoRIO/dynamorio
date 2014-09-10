@@ -3505,7 +3505,7 @@ was_executable_area_writable(app_pc addr)
         uint prot;
         if (get_memory_info(addr, NULL, NULL, &prot)) {
             if (TEST(MEMPROT_WRITE, prot)) {
-                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+                RELEASE_LOG(GLOBAL, LOG_VMAREAS, 0,
                             "Error: made_readonly area "PFX" is writable!\n", addr);
             }
         }
@@ -3633,7 +3633,7 @@ set_region_jit_monitored(app_pc start, size_t len)
                 set = true;
             }
         } else {
-            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+            RELEASE_LOG(GLOBAL, LOG_VMAREAS, 0,
                         "DGC: Error! Region has the wrong bounds!: "
                         "request("PFX"-"PFX") vs. vmarea("PFX"-"PFX")\n",
                         start, start+len, region->start, region->end);
@@ -10812,7 +10812,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
 
 #ifdef JIT_MONITORED_AREAS
     if (!TEST(MEMPROT_WRITE, prot) && is_jit_managed_area(target) &&
-        offset != 0 && offset != 1 && instr_app_pc != NULL) {
+        /*offset != 0 && offset != 1 && */ instr_app_pc != NULL) {
         bool is_jit_self_write = is_jit_managed_area(instr_app_pc);
         if (is_jit_self_write) {
             RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "JIT instr "PFX" writes to JIT at "PFX"\n",

@@ -1123,22 +1123,36 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 # define MAX_LOG_LENGTH_MINUS_ONE IF_CLIENT_INTERFACE_ELSE(2047,1383)
 #endif
 
-#ifdef RELEASE_LOGGING
-# define RELEASE_LOG(file, category, level, ...) \
-do { \
-    extern bool verbose; \
-    if (verbose) \
-        dr_fprintf(STDERR, __VA_ARGS__); \
-} while(0)
-#else
-# define RELEASE_LOG(file, category, level, ...)
-#endif
 
 #ifdef DEBUG
+# ifdef RELEASE_LOGGING
+#  define RELEASE_LOG(file, category, level, ...) \
+do { \
+    extern bool verbose; \
+    if (verbose || level == 0) \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+    if (level == 0) \
+        LOG(file, category, 1, __VA_ARGS__); \
+    else \
+        LOG(file, category, level, __VA_ARGS__); \
+} while(0)
+# else
+#  define RELEASE_LOG(file, category, level, ...)
+# endif
 # define RELEASE_ASSERT(cond, msg, ...) \
     if (!(cond)) \
         LOG(GLOBAL, LOG_FRAGMENT, 1, "Fail: "#cond" \""msg"\"\n", ##__VA_ARGS__)
 #else
+# ifdef RELEASE_LOGGING
+#  define RELEASE_LOG(file, category, level, ...) \
+do { \
+    extern bool verbose; \
+    if (verbose || level == 0) \
+        dr_fprintf(STDERR, __VA_ARGS__); \
+} while(0)
+# else
+#  define RELEASE_LOG(file, category, level, ...)
+# endif
 # define RELEASE_ASSERT(cond, msg, ...) \
 do { \
     extern bool verbose; \

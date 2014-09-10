@@ -21,6 +21,9 @@ asmtable_expand(asmtable_t *table)
     asmtable_entry_t **old_table = table->table;
     uint old_capacity = table->capacity;
     uint i;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     asmtable_init(table, table->hash_bits + 1);
 

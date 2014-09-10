@@ -3101,7 +3101,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bb->instr_start = bb->cur_pc;
             ASSERT(bb->instr_start >= non_cti_start_pc);
 #ifdef JITOPT
-            if (/*bb->for_cache && */apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
+            if (bb->for_cache && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
                                                           &dgc_writer_instrumentation)) {
                 bb->is_dgc_instrumented = true;
                 if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
@@ -4805,7 +4805,8 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
 
     if (bb.is_dgc_instrumented) {
         extern bool verbose;
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: "PFX" is instrumented\n", bb.start_pc);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: bb "PFX"-"PFX" is instrumented at cache pc "
+                    PFX"\n", bb.start_pc, bb.end_pc, f->start_pc);
         if (verbose) {
             disassemble_app_bb(dcontext, start, STDERR);
             instrlist_disassemble(dcontext, bb.start_pc, bb.ilist, STDERR);

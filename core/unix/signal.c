@@ -3408,7 +3408,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontex
                         priv_mcontext_t *mc, byte *target, bool native_state)
 {
 #ifdef JIT_MONITORED_AREAS
-    ptr_int_t offset = lookup_dgc_writer_offset(target);
+    //ptr_int_t offset = lookup_dgc_writer_offset(target);
 #endif
     /* special case: we expect a seg fault for executable regions
      * that were writable and marked read-only by us.
@@ -3420,7 +3420,7 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontex
      */
     if (was_executable_area_writable(target)
 #ifdef JIT_MONITORED_AREAS
-        || (is_jit_managed_area(target) && offset != 0 && offset != 1)
+        || is_jit_managed_area(target) // && offset != 0 && offset != 1)
 #endif
     ) {
         /* translate instr_cache_pc to original app pc
@@ -3445,7 +3445,8 @@ check_for_modified_code(dcontext_t *dcontext, cache_pc instr_cache_pc, sigcontex
             mutex_unlock(&thread_initexit_lock);
         }
 
-        RELEASE_LOG(GLOBAL, LOG_ALL, 1, "sig: was executable? %d; is jit area? %d\n",
+        RELEASE_LOG(GLOBAL, LOG_ALL, 1, "sig at {cache pc "PFX", app pc "PFX"}: "
+                    "was executable? %d; is jit area? %d\n", instr_cache_pc, translated_pc,
                     was_executable_area_writable(target), is_jit_managed_area(target));
 
         next_pc =
@@ -3722,6 +3723,7 @@ master_signal_handler_C(byte *xsp)
         byte *target;
         bool is_DR_exception = false;
         priv_mcontext_t mc;
+        extern bool verbose;
 
 #ifdef SIDELINE
         if (dcontext == NULL) {
@@ -3906,6 +3908,14 @@ master_signal_handler_C(byte *xsp)
             }
         }
         /* pass it to the application (or client) */
+        RELEASE_LOG(THREAD, LOG_ALL, 1,
+                    "** Received SIG%s at cache pc "PFX" in thread 0x%x %s "PFX"\n",
+                    (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id(),
+                    is_write ? "writing to" : "reading from", target);
+        if (verbose && !is_DR_exception) {
+            disassemble_app_bb(dcontext, pc, STDERR);
+            RELEASE_LOG(THREAD, LOG_ALL, 1, "\n");
+        }
         LOG(THREAD, LOG_ALL, 1,
             "** Received SIG%s at cache pc "PFX" in thread "TIDFMT"\n",
             (sig == SIGSEGV) ? "SEGV" : "BUS", pc, get_thread_id());

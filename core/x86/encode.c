@@ -2267,6 +2267,10 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER
     if (copy_pc == NULL) {
+# ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+# endif
+
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX"\n",
                     instr->opcode, pc);
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Encode a 0x%x to "PFX" (0x%x)\n",
@@ -2330,7 +2334,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
             extern bool verbose;
             if (verbose) {
                 dcontext_t *dcontext = get_thread_private_dcontext();
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "encode_cti error: target beyond 8-bit reach\n");
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
+                            "encode_cti error: target beyond 8-bit reach\n");
                 instr_disassemble(dcontext, instr, STDERR);
             }
 #endif
@@ -2350,7 +2355,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
             extern bool verbose;
             if (verbose) {
                 dcontext_t *dcontext = get_thread_private_dcontext();
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "encode_cti error: target beyond 32-bit reach:\n");
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
+                            "encode_cti error: target beyond 32-bit reach:\n");
                 instr_disassemble(dcontext, instr, STDERR);
                 RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "\n");
             }
@@ -2537,12 +2543,9 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->opcode == OP_CONTD) {
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-            extern bool verbose;
-            if (verbose) {
-                RELEASE_LOG(THREAD, LOG_EMIT, 1, "Error! Could not find encoding for: ");
-                instr_disassemble(dcontext, instr, STDERR);
-                RELEASE_LOG(THREAD, LOG_EMIT, 1, "\n");
-            }
+            RELEASE_LOG(THREAD, LOG_EMIT, 0, "Error! Could not find encoding for: ");
+            instr_disassemble(dcontext, instr, STDERR);
+            RELEASE_LOG(THREAD, LOG_EMIT, 0, "\n");
 #endif
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
@@ -2554,12 +2557,11 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
              * we may want to return a separate status code for failure.
              */
 #ifndef NOT_DYNAMORIO_CORE_PROPER
-            dr_printf("Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
-            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                         "Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
             if (instr->opcode == OP_lea) {
                 opnd_t src = instr_get_src(instr, 0);
-                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "base: "PFX"; disp: "PFX"; "
+                RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "base: "PFX"; disp: "PFX"; "
                             "index: 0x%x; scale: 0x%x\n", opnd_get_base(src),
                             opnd_get_disp(src), opnd_get_index(src),
                             opnd_get_scale(src));

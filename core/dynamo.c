@@ -1966,6 +1966,7 @@ add_thread(IF_WINDOWS_ELSE_NP(HANDLE hthread, process_id_t pid),
     num_known_threads++;
     mutex_unlock(&all_threads_lock);
     ASSERT_OWN_MUTEX(true, &thread_initexit_lock);
+    RELEASE_LOG(THREAD, LOG_THREADS, 1, "New thread 0x%x\n", tid);
     thread_state_version++;
 }
 

@@ -659,6 +659,9 @@ insert_dgc_writer_offsets(app_pc start, size_t size, ptr_int_t offset)
     ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Insert writer offsets "PFX" +0x%x = "PFX" "
@@ -688,6 +691,9 @@ remove_dgc_writer_offsets(app_pc start, size_t size)
     ptr_uint_t page_id = DGC_SHADOW_PAGE_ID(start);
     ptr_uint_t page_span = (size >> DGC_MAPPING_TABLE_SHIFT);
     ptr_uint_t last_page_id = page_id + page_span;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     ASSERT_OWN_MUTEX(true, &dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Remove writer offsets "PFX" +0x%x "
@@ -733,13 +739,20 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     for (i = 0; i < double_mappings->index; i++) {
         if (double_mappings->mappings[i].app_memory_start == app_memory_start) {
             ASSERT(double_mappings->mappings[i].size == app_memory_size);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: Found existing double-mapping "PFX" +0x%x\n",
+                        app_memory_start, app_memory_size);
             return double_mappings->mappings[i].double_mapping_start - app_memory_start;
         }
     }
 
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                "DGC: Creating new double-mapping "PFX" +0x%x with index %d\n",
+                app_memory_start, app_memory_size, double_mappings->index);
+
     ASSERT(double_mappings->index < MAX_DOUBLE_MAPPINGS);
     if (double_mappings->index >= MAX_DOUBLE_MAPPINGS) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error! Too many double-mappings: %d\n",
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error! Too many double-mappings: %d\n",
                     double_mappings->index);
     }
 
@@ -749,8 +762,8 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     new_mapping->double_mapping_size = app_memory_size;
 
     memcpy(file, "/dev/shm/jit_", 13);
-    file[13] = 'a' + (double_mappings->index / 26);
-    file[14] = 'a' + (double_mappings->index % 26);
+    file[13] = 'a'; // + (double_mappings->index / 26);
+    file[14] = 'a'; // + (double_mappings->index % 26);
     file[15] = '\0';
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Mapping "PFX" +0x%x to shmem %s\n",
@@ -758,16 +771,17 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
     fd = dynamorio_syscall(SYS_open, 3ULL, file, (ptr_uint_t)(O_RDWR | O_CREAT | O_NOFOLLOW),
                            (ptr_uint_t)(S_IRUSR | S_IWUSR));
     if (fd < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to create the backing file %s for the double-mapping\n", file);
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Error: '%s'\n", strerror(fd));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error: '%s'\n", strerror(fd));
         return 0;
     }
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                "DGC: Created the backing file %s\n", file);
+                "DGC: Created the backing file %s (0x%x) for the double-mapping in process 0x%x\n",
+                file, fd, get_process_id());
     result = dynamorio_syscall(SYS_ftruncate, 2ULL, fd, app_memory_size);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to resize the backing file %s for the double-mapping\n", file);
         return 0;
     }
@@ -777,7 +791,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
 
     result = dynamorio_syscall(SYS_unlink, 1ULL, file);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to unlink the backing file %s for the double-mapping\n", file);
         return 0;
     }
@@ -796,7 +810,7 @@ get_double_mapped_page_delta(dcontext_t *dcontext, app_pc app_memory_start, size
 
     result = dynamorio_syscall(SYS_munmap, 2ULL, app_memory_start, app_memory_size);
     if (result < 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to unmap the original memory at "PFX"\n", app_memory_start);
         return 0;
     }
@@ -823,12 +837,22 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     uint i;
     uint *value, *value_base;
     uint *target_access = (uint *)((ptr_int_t)write_target + page_delta);
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     if (plan->src_in_reg)
         value = (uint *)((byte *)mc + plan->src.mcontext_reg_offset);
     else
         value = (uint *)&plan->src.immediate;
     value_base = value;
+
+    switch (plan->dst_size) {
+    case 1: case 2: case 4: case 8: case 16:
+        break;
+    default:
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Cannot emulate operand size %d!\n", plan->dst_size);
+    }
 
     if (plan->op == EMUL_MOV) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -970,6 +994,8 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
                 *word_target_access -= *word_value;
         }
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtracted %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Cannot emulate opcode 0x%x!\n", instr_get_opcode(&plan->writer));
     }
 }
 
@@ -982,23 +1008,26 @@ setup_double_mapping(dcontext_t *dcontext, app_pc start, uint len, uint prot)
                 "DGC: Setup double-mapping for "PFX" +0x%x on thread 0x%x\n",
                 start, len, get_thread_id());
 
+    mutex_lock(&dgc_mapping_lock);
     page_delta = get_double_mapped_page_delta(dcontext, start, len, prot);
     if (page_delta == 0) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to setup page delta for app memory "PFX" +0x%x\n",
                     start, len);
-        return;
+    } else {
+        remove_dgc_writer_offsets(start, len);
+        insert_dgc_writer_offsets(start, len, page_delta);
     }
-
-    mutex_lock(&dgc_mapping_lock);
-    remove_dgc_writer_offsets(start, len);
-    insert_dgc_writer_offsets(start, len, page_delta);
     mutex_unlock(&dgc_mapping_lock);
 }
 
 void
 notify_readonly_for_cache_consistency(app_pc start, size_t size, bool now_readonly)
 {
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
+
     mutex_lock(&dgc_mapping_lock);
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_readonly_for_cache_consistency("PFX", 0x%x, %s)\n",
                 start, size, now_readonly ? "readonly" : "writable");
@@ -1019,12 +1048,19 @@ locate_and_manage_code_area(app_pc pc)
     // TODO: check & prevent flush in this region!
     app_pc start;
     size_t size;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area() at "PFX"\n", pc);
 
     bool found = get_non_jit_area_bounds(pc, &start, &size);
-    if (!found)
+    if (!found) {
         found = get_non_jit_area_bounds(*(app_pc *)pc, &start, &size);
+        RELEASE_LOG(THREAD, LOG_VMAREAS, 1,
+                    "locate_and_manage_code_area() strange indirection through "PFX"\n",
+                    *(app_pc *)pc);
+    }
     if (found) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         uint prot;
@@ -1040,14 +1076,20 @@ locate_and_manage_code_area(app_pc pc)
                                           true /* own initexit_lock */, false);
         mutex_unlock(&thread_initexit_lock);
         notify_exec_invalidation(start, size);
-    } else
-        RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area failed at "PFX"\n", pc);
+    } else {
+        RELEASE_LOG(THREAD, LOG_VMAREAS, 0, "locate_and_manage_code_area failed at "PFX"\n", pc);
+        dr_exit_process(666);
+    }
 }
 
 void
 notify_exec_invalidation(app_pc start, size_t size)
 {
     uint i;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
+
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "notify_exec_invalidation("PFX", 0x%x)\n",
                 start, size);
     mutex_lock(&dgc_mapping_lock);
@@ -1101,6 +1143,9 @@ clear_double_mapping(app_pc start)
 {
     uint i, j;
     bool removed = false;
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
 
     mutex_lock(&dgc_mapping_lock);
     for (i = 0; i < double_mappings->index; i++) {
@@ -1141,12 +1186,9 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
 {
     opnd_t src;
     emulation_plan_t *plan;
-    extern bool verbose;
 
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC:    Creating emulation plan for writer "PFX"\n", writer_app_pc);
-    if (verbose)
-        disassemble_app_bb(dcontext, writer_app_pc, STDERR);
 
     plan = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, emulation_plan_t, ACCT_OTHER, UNPROTECTED);
 
@@ -1156,7 +1198,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     plan->resume_pc = decode(dcontext, writer_app_pc, &plan->writer); // assume readable (already decoded)
     if (!instr_valid(&plan->writer)) {
         plan->resume_pc = NULL;
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to decode writer at "PFX"\n", writer_app_pc);
         goto instrumentation_failure;
     }
@@ -1203,7 +1245,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
     if (!(opnd_is_base_disp(plan->dst) || opnd_is_abs_addr(plan->dst)
           IF_X64( || opnd_is_rel_addr(plan->dst)))) {
         ASSERT(false);
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Error! Unsupported writer operand kind 0x%x\n",
                     plan->writer.src0.kind);
         plan->resume_pc = NULL;
@@ -1215,7 +1257,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
            || plan->dst_size == 1 || plan->dst_size == 4 || plan->dst_size == 8);
     ASSERT(opnd_is_memory_reference(plan->dst));
     if (plan->dst_size < 1 || plan->dst_size > 16 || (plan->dst_size > 2 && plan->dst_size % 4 != 0)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to instrument instruction with opcode 0x%x and dst size %d\n",
                     instr_get_opcode(&plan->writer), plan->dst_size);
         ASSERT(false);
@@ -1230,7 +1272,7 @@ create_emulation_plan(dcontext_t *dcontext, app_pc writer_app_pc, bool is_jit_se
         plan->src.immediate = (reg_t) opnd_get_immed_int(src);
         plan->src_in_reg = false;
     } else {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to instrument instruction with opcode 0x%x and unsupported src operand type\n",
                     instr_get_opcode(&plan->writer));
         plan->resume_pc = NULL;
@@ -1253,6 +1295,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     emulation_plan_t *plan;
     ptr_int_t offset = 0;
     bool created_plan = false;
+    extern bool verbose;
 
     RSTATS_INC(app_managed_instrumentations);
 
@@ -1263,6 +1306,9 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
         created_plan = true;
     }
     TABLE_RWLOCK(emulation_plans, write, unlock);
+
+    if (created_plan && verbose)
+        disassemble_app_bb(dcontext, writer_app_pc, STDERR);
 
     if (plan == NULL) {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -1284,10 +1330,9 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
 
     ASSERT(offset != 0);
     if (offset == 0) {
-        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1,
+        RELEASE_LOG(GLOBAL, LOG_VMAREAS, 0,
                     "Error! Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
         //if (created_plan)
-        dr_printf("Error! Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
         //else
         //generic_hash_remove(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
         /*
@@ -1310,19 +1355,21 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     if (!is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 
-    if (TEST(FRAG_SHARED, f->flags)) {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                    "DGC: Deleting shared fragment "PFX" (0x%x) for future instrumentation\n",
-                    f->tag, f->flags);
+    if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_CANNOT_DELETE, f->flags)) {
+        enter_couldbelinking(dcontext, NULL, false);
         if (safe_delete_shared_fragment(dcontext, f)) {
-            enter_couldbelinking(dcontext, NULL, false);
-            add_to_lazy_deletion_list(dcontext, f);
-            enter_nolinking(dcontext, NULL, false);
-        } else {
+            /*
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: Deleting shared fragment "PFX" (0x%x) for future instrumentation\n",
+                        f->tag, f->flags);
+            add_to_lazy_deletion_list(dcontext, f);
+            */
+        } else {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                         "DGC: Warning: failed to delete shared fragment "PFX" (0x%x) for future instrumentation\n",
                         f->tag, f->flags);
         }
+        enter_nolinking(dcontext, NULL, false);
     } else {
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                     "DGC: Deleting private fragment "PFX" (0x%x) for future instrumentation\n",
@@ -1404,14 +1451,8 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     if (plan == NULL)
         return false;
 
-    if ((ptr_uint_t)*pc > 0x1000000 && ((ptr_uint_t)*pc & 0xfffULL) == 0xe39ULL)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "boo\n");
-
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                 "DGC: Instrumenting clean call for writer at "PFX"\n", *pc);
-
-    if ((((ptr_uint_t) *pc) & 0xfff) == 0x139)
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "stop here\n");
 
     // with in-cache offsetting; skip clean call for plan->is_jit_self_write
     label = INSTR_CREATE_label(dcontext);
@@ -1915,6 +1956,10 @@ free_dgc_bucket_chain(void *p)
 static void
 free_double_mapping(double_mapping_t *mapping)
 {
+#ifdef DEBUG
+    dcontext_t *dcontext = get_thread_private_dcontext();
+#endif
+
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "free_double_mapping of "PFX": "PFX" + 0x%x\n",
                 mapping->app_memory_start, mapping->double_mapping_start,
                 mapping->double_mapping_size);
@@ -2340,7 +2385,7 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
 {
     if (TEST(FRAG_CANNOT_DELETE, f->flags)) {
         RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
-                    "Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
+                    "Warning: Cannot delete fragment "PFX" with flags 0x%x!\n", f->tag, f->flags);
         return;
     }
 

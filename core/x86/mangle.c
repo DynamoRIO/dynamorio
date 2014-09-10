@@ -4252,7 +4252,7 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     case OP_movups:
         break;
     default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                     "DGC: Failed to mangle opcode 0x%x\n", plan->writer.opcode);
         ASSERT(false);
     }
