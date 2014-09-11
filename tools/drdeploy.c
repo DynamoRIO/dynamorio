@@ -139,7 +139,7 @@ const char *usage_str =
 
 const char *options_list_str =
     "\n"TOOLNAME" options (these are distinct from DR runtime options):\n"
-    "       -v                 Display version information\n"
+    "       -version           Display version information\n"
     "       -verbose           Display additional information\n"
     "       -quiet             Do not display warnings\n"
     "       -nocheck           Do not fail due to invalid DynamoRIO installation or app\n"
