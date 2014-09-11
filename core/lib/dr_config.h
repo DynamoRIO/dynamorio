@@ -130,6 +130,9 @@ typedef enum {
     /** Nudge operation failed because the specified process id does not exist. */
     DR_NUDGE_PID_NOT_FOUND,
 
+    /** Client options contain invalid characters (';' or all 3 quotes). */
+    DR_CONFIG_OPTIONS_INVALID,
+
 } dr_config_status_t;
 
 /** Allow targeting both 32-bit and native 64-bit processes separately. */
@@ -612,12 +615,16 @@ DR_EXPORT
  * \param[in]   client_path     A NULL-terminated string specifying the full path
  *                              to a valid client library.  The string length
  *                              cannot exceed MAX_PATH.  The client path may not
- *                              include any semicolons.
+ *                              include any semicolons and when combined with
+ *                              \p client_options may not include all
+ *                              three quote characters (', ", `) simultaneously.
  *
  * \param[in]   client_options  A NULL-terminated string specifying options that
  *                              are available to the client via dr_get_options().
  *                              The string length cannot exceed #DR_MAX_OPTIONS_LENGTH.
- *                              The client options may not include any semicolons.
+ *                              The client options may not include any semicolons
+ *                              and when combined with \p client_path may not include
+ *                              all three quote characters (', ", `) simultaneously.
  *
  * \return      A dr_config_status_t code indicating the result of registration.
  */

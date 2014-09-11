@@ -505,30 +505,34 @@ All of the earlier examples did not need to pass any arguments to the client.
 When using the -c argument to set the client, all arguments between the client
 path and the double dash are passed to the client.  When using the -client
 argument to drrun, the third argument following -client is passed through to
-the client.  For example, all these invocations of drrun pass "-client_op1
--client_op2" to the client:
+the client.  For example, all these invocations of drrun pass '-op1
+-op2 "value with spaces"' to the client:
 
 \code
-bin32/drrun.exe -c libmyclient.dll -client_op1 -client_op2 -- calc
-bin32/drrun.exe -client myclient.dll 0 "-client_op1 -client_op2" -- calc
+bin32/drrun.exe -c libmyclient.dll -op1 -op2 \"value with spaces\" -- calc
+bin32/drrun.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"' -- calc
 \endcode
 
 On Linux:
 
 \code
-bin32/drrun -c libmyclient.so client_op1 -client_op2 -- ls
-bin32/drrun -client libmyclient.so 0 "-client_op1 -client_op2" -- ls
+bin32/drrun -c libmyclient.so -op1 -op2 \"value with spaces\" -- ls
+bin32/drrun -client libmyclient.so 0 '-op1 -op2 "value with spaces"' -- ls
 \endcode
 
 When using a two-step model, the options are passed to \p drconfig:
 
 \code
-bin32/drconfig.exe -reg calc.exe -c myclient.dll -client_op1 -client_op2
-bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 "-client_op1 -client_op2"
+bin32/drconfig.exe -reg calc.exe -c myclient.dll -op1 -op2 \"value with spaces\"
+bin32/drconfig.exe -reg calc.exe -client myclient.dll 0 '-op1 -op2 "value with spaces"'
 \endcode
 
 The client can call dr_get_options() to retrieve the option string passed
 to it.
+
+Client options are not allowed to contain semicolons.  Additionally, the
+client option string combined with the path to the client library cannot
+contain all three quote characters (', ", `) simultaneously.
 
 \section multi_client Multiple Clients
 
@@ -1711,7 +1715,7 @@ Options available only in the debug build of DynamoRIO:
 
  - \b -ignore_assert_list \b '*': \anchor op_ignore_assert
     Ignores all DynamoRIO asserts of the form "<file>:1234". * may be
-    replaced by a ; separated lists of individual asserts to ignore
+    replaced by a ; separated list of individual asserts to ignore
     "foo.c:333;bar.c:12".
 
 ***************************************************************************

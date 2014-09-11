@@ -586,6 +586,10 @@ bool register_client(const char *process_name,
         if (status == DR_CONFIG_STRING_TOO_LONG) {
             error("client %s registration failed: option string too long: \"%s\"",
                   path == NULL ? "<null>" : path, options);
+        } else if (status == DR_CONFIG_OPTIONS_INVALID) {
+            error("client %s registration failed: options cannot contain ';' or all "
+                  "3 quote types: %s",
+                  path == NULL ? "<null>" : path, options);
         } else {
             error("client %s registration failed with error code %d",
                   path == NULL ? "<null>" : path, status);
