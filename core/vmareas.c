@@ -903,6 +903,7 @@ vm_area_merge_fraglists(vm_area_t *dst, vm_area_t *src)
     }
 }
 
+#ifdef RELEASE_LOGGING
 static const char *
 name_vm_area_vector(vm_area_vector_t *v)
 {
@@ -913,6 +914,7 @@ name_vm_area_vector(vm_area_vector_t *v)
     else
         return "unnamed areas";
 }
+#endif
 
 /* Assumes caller holds v->lock, if necessary.
  * Does not return the area added since it may be merged or split depending
@@ -10703,7 +10705,7 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
     app_pc bb_pstart = NULL, bb_pend = NULL; /* pages occupied by instr's bb */
     vm_area_t *a = NULL;
     fragment_t wrapper;
-#ifdef JIT_MONITORED_AREAS
+#if defined(JIT_MONITORED_AREAS) && defined(RELEASE_LOGGING)
     ptr_int_t offset = lookup_dgc_writer_offset(target);
 #endif
     /* get the "region" size (don't use exec list, it merges regions),

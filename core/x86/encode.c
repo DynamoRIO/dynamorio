@@ -2542,7 +2542,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
         if (info == NULL || info->opcode == OP_CONTD) {
-#ifndef NOT_DYNAMORIO_CORE_PROPER
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(RELEASE_LOGGING)
             RELEASE_LOG(THREAD, LOG_EMIT, 0, "Error! Could not find encoding for: ");
             instr_disassemble(dcontext, instr, STDERR);
             RELEASE_LOG(THREAD, LOG_EMIT, 0, "\n");
@@ -2556,7 +2556,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             /* FIXME: since labels (case 4468) have a legal length 0
              * we may want to return a separate status code for failure.
              */
-#ifndef NOT_DYNAMORIO_CORE_PROPER
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && defined(RELEASE_LOGGING)
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                         "Error! Cannot encode instr with opcode 0x%x!\n", instr->opcode);
             if (instr->opcode == OP_lea) {

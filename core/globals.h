@@ -201,7 +201,7 @@ typedef byte * cache_pc;  /* fragment cache pc */
 
 //#define JITOPT_EMULATE 1
 //#define JITOPT_PAGE_FAULT 1
-#define RELEASE_LOGGING 1
+//#define RELEASE_LOGGING 1
 
 /* make sure defines are consistent */
 #ifndef X86

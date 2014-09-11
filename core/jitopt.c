@@ -105,7 +105,9 @@ struct _dgc_bb_t {
         ptr_uint_t span;
         dgc_bb_t *head;
     };
+#ifdef DEBUG
     bb_hash_t hash; // debug
+#endif
     dgc_bb_t *next;
     dgc_trace_t *containing_trace_list;
 };
@@ -148,7 +150,6 @@ static dgc_thread_state_t *thread_state;
 
 typedef struct _dgc_fragment_intersection_t {
     app_pc *bb_tags;
-    //ptr_uint_t *bb_spans; // debug
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
@@ -1534,12 +1535,14 @@ dgc_bb_end(dgc_bb_t *bb)
     return (app_pc)((ptr_uint_t)head->start + (ptr_uint_t)head->span + 1);
 }
 
+#ifdef DEBUG
 static inline bb_hash_t
 dgc_bb_hash(dgc_bb_t *bb)
 {
     dgc_bb_t *head = dgc_bb_head(bb);
     return head->hash;
 }
+#endif
 
 static inline ptr_uint_t
 dgc_bb_start_bucket_id(dgc_bb_t *bb)
@@ -2110,6 +2113,7 @@ dgc_cache_reset()
     asmtable_clear(dgc_table);
 }
 
+#ifdef DEBUG
 static inline bb_hash_t
 hash_bits(uint length, byte *bits) {
     ushort b;
@@ -2129,6 +2133,7 @@ hash_bits(uint length, byte *bits) {
     }
     return hash;
 }
+#endif
 
 void
 add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
@@ -2140,7 +2145,9 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
     ptr_uint_t end_bucket_id = BUCKET_ID(end - 1);
     dgc_bb_t *bb, *last_bb = NULL, *first_bb = NULL;
     dgc_bucket_t *bucket;
+#ifdef DEBUG
     ptr_uint_t hash = hash_bits(span+1, start);
+#endif
 
     RELEASE_LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: add bb ["PFX"-"PFX"]%s\n",
                 start, end, is_trace_head ? " (trace head)" : "");
@@ -2179,13 +2186,13 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
                 for (i = 0; i < BUCKET_BBS; i++) {
                     bb = &bucket->blocks[i];
                     if (bb->start == start) {
-//#ifdef DEBUG
+#ifdef DEBUG
                         if (dgc_bb_end(bb) == end &&
                             dgc_bb_hash(bb) == hash) {
-//#endif
+#endif
                             found = true;
                             break;
-//#ifdef DEBUG
+#ifdef DEBUG
                         } else {
                             if (dgc_bb_end(bb) != end) {
                                 RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
@@ -2210,7 +2217,7 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
                             dgc_bucket_gc();
                             */
                         }
-//#endif
+#endif
                     } else if (bb->start != NULL &&
                                IS_INCOMPATIBLE_OVERLAP(start, end, bb->start, dgc_bb_end(bb))) {
                         RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
@@ -2260,7 +2267,9 @@ add_patchable_bb(app_pc start, app_pc end, bool is_trace_head)
             first_bb->span = span;
             first_bb->containing_trace_list = NULL;
             first_bb->ref_count = 1;
+#ifdef DEBUG
             first_bb->hash = hash;
+#endif
             if (span > 0x100) {
                 RELEASE_LOG(GLOBAL, LOG_ANNOTATIONS, 1,
                             "DGC: Warning! giant bb ["PFX"-"PFX"] (0x%x)\n", start, end, span);
@@ -2446,6 +2455,7 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f, bool is_tweak)
     }
 }
 
+#ifdef RELEASE_LOGGING
 static inline void
 link_stats(fragment_t *f, bool is_tweak, bool is_cti_tweak)
 {
@@ -2478,12 +2488,15 @@ link_stats(fragment_t *f, bool is_tweak, bool is_cti_tweak)
     else
         RSTATS_INC(direct_linked_bb_removed);
 }
+#endif
 
 static inline void
 safe_remove_bb(dcontext_t *dcontext, fragment_t *f, bool is_tweak, bool is_cti_tweak)
 {
     if (f != NULL) {
+#ifdef RELEASE_LOGGING
         link_stats(f, is_tweak, is_cti_tweak);
+#endif
         safe_delete_fragment(dcontext, f, is_tweak);
     }
 }
@@ -2492,8 +2505,8 @@ static inline void
 safe_remove_trace(dcontext_t *dcontext, trace_t *t, bool is_tweak, bool is_cti_tweak)
 {
     if (t != NULL) {
-        uint i;
         bool found = false;
+        uint i;
         for (i = 0; i < t->t.num_bbs; i++) {
             for (app_pc *bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
                 if (t->t.bbs[i].tag == *bb_tag) {
@@ -2538,9 +2551,10 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     app_pc *bb_tag, *trace_tag;
     bool thread_has_fragment;
     bool is_tweak = ((patch_end - patch_start) <= sizeof(ptr_uint_t));
-    bool is_cti_tweak = (is_tweak &&
+    bool is_cti_tweak = (is_tweak && // needed?
                          (maybe_exit_cti_disp_pc(patch_start-1) != NULL ||
                           maybe_exit_cti_disp_pc(patch_start-2) != NULL));
+    //bool must_be_private, must_be_shared;
     per_thread_t *tgt_pt;
     dcontext_t *tgt_dcontext;
 
@@ -2631,9 +2645,9 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
         for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
             safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
                               *bb_tag), is_tweak, is_cti_tweak);
-            safe_remove_trace(tgt_dcontext,
-                              (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
-                              *bb_tag), is_tweak, is_cti_tweak);
+            //safe_remove_trace(tgt_dcontext,
+            //                  (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
+            //                  *bb_tag), is_tweak, is_cti_tweak);
             safe_remove_bb(tgt_dcontext, fragment_lookup_bb(tgt_dcontext, *bb_tag), is_tweak, is_cti_tweak);
             safe_remove_bb(tgt_dcontext, fragment_lookup_shared_bb(tgt_dcontext, *bb_tag), is_tweak, is_cti_tweak);
         }
@@ -2641,9 +2655,9 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
         for (; *trace_tag != NULL; trace_tag++) {
             safe_remove_trace(tgt_dcontext, (trace_t *)fragment_lookup_trace(tgt_dcontext,
                               *trace_tag), is_tweak, is_cti_tweak);
-            safe_remove_trace(tgt_dcontext,
-                              (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
-                              *trace_tag), is_tweak, is_cti_tweak);
+            //safe_remove_trace(tgt_dcontext,
+            //                      (trace_t *)fragment_lookup_shared_trace(tgt_dcontext,
+            //                      *trace_tag), is_tweak, is_cti_tweak);
         }
 
         if (tgt_dcontext != dcontext) {
