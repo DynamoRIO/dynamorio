@@ -2590,11 +2590,10 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
     bool thread_has_fragment;
 #ifdef RELEASE_LOGGING
     bool is_tweak = ((patch_end - patch_start) <= sizeof(ptr_uint_t));
-    bool is_cti_tweak = (is_tweak && // needed?
+    bool is_cti_tweak = (is_tweak &&
                          (maybe_exit_cti_disp_pc(patch_start-1) != NULL ||
                           maybe_exit_cti_disp_pc(patch_start-2) != NULL));
 #endif
-    //bool must_be_private, must_be_shared;
     per_thread_t *tgt_pt;
     dcontext_t *tgt_dcontext;
 
