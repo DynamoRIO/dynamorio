@@ -851,7 +851,7 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
     case 1: case 2: case 4: case 8: case 16:
         break;
     default:
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Cannot emulate operand size %d!\n", plan->dst_size);
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error! Cannot emulate operand size %d!\n", plan->dst_size);
     }
 
     if (plan->op == EMUL_MOV) {
@@ -956,6 +956,40 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
             ASSERT((*(ptr_uint_t*)write_target & ~(*word_value)) == 0);
         }
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'and'd %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+    } else if (plan->op == EMUL_XOR) {
+        if (plan->dst_size == 1) { // TODO:
+            byte byte_value = (*value & 0xff);
+            byte *byte_target_access = (byte *)target_access;
+            DEBUG_DECLARE(byte original_value = *byte_target_access;);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *byte_target_access ^= byte_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    xor 0x%x into "PFX"\n",
+                        byte_value, byte_target_access);
+            ASSERT(((*byte_target_access & byte_value) & original_value) == 0);
+            ASSERT(((*(byte*)write_target & ~byte_value) & original_value) == 0);
+        } else if (plan->dst_size == 4) {
+            DEBUG_DECLARE(uint original_value = *target_access;);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *target_access ^= *value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    xor 0x%x into "PFX"\n",
+                        *value, target_access);
+            ASSERT(((*target_access & (*value)) & original_value) == 0);
+            ASSERT(((*(uint*)write_target & (*value)) & original_value) == 0);
+        } else if (plan->dst_size == 8) {
+            ptr_uint_t *word_target_access = (ptr_uint_t *)((ptr_int_t)write_target + page_delta);
+            ptr_uint_t *word_value = (ptr_uint_t *)value;
+            DEBUG_DECLARE(ptr_uint_t original_value = *(ptr_uint_t *)target_access;);
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: Attempting to 'and' %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
+            if (!simulate)
+                *word_target_access ^= *word_value;
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC:    xor 0x%x into "PFX"\n",
+                        *word_value, word_target_access);
+            ASSERT(((*word_target_access & ~(*word_value)) & original_value) == 0);
+            ASSERT(((*(ptr_uint_t*)write_target & ~(*word_value)) & original_value) == 0);
+        }
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully 'xor'd %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     } else if (plan->op == EMUL_ADD) {
         if (plan->dst_size == 1) {
             byte byte_value = (*value & 0xff);
@@ -995,7 +1029,7 @@ emulate_writer(priv_mcontext_t *mc, emulation_plan_t *plan, ptr_int_t page_delta
         }
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Successfully subtracted %d bytes to "PFX" via "PFX"\n", plan->dst_size, write_target, target_access);
     } else {
-        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Cannot emulate opcode 0x%x!\n", instr_get_opcode(&plan->writer));
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0, "Error! Cannot emulate opcode 0x%x!\n", instr_get_opcode(&plan->writer));
     }
 }
 

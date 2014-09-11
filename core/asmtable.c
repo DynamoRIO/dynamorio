@@ -122,6 +122,7 @@ asmtable_clear(asmtable_t *table)
             next = entry->next;
             table->free_entry_func(entry);
         }
+        table->table[i] = NULL;
     }
     table->entry_count = 0;
 }
