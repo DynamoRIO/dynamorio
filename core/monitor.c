@@ -514,7 +514,6 @@ thcounter_add(dcontext_t *dcontext, app_pc tag)
         COUNTER_ALLOC(dcontext, sizeof(trace_head_counter_t) HEAPACCT(ACCT_THCOUNTER));
     e->tag = tag;
     e->counter = 0;
-    e->is_jit_tweaked = false;
 #ifdef APP_MANAGED_TRACE_LIST
     e->last_trace_size = 0;
 #endif
@@ -962,7 +961,7 @@ mark_trace_head(dcontext_t *dcontext_in, fragment_t *f, fragment_t *src_f,
 static bool
 should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
                                      linkstub_t *from_l, app_pc to_tag, uint to_flags,
-                                     bool trace_sysenter_exit, bool dgc_trace_head)
+                                     bool trace_sysenter_exit)
 {
     app_pc from_tag;
     uint from_flags;
@@ -974,7 +973,7 @@ should_be_trace_head_internal_unsafe(dcontext_t *dcontext, fragment_t *from_f,
         return false;
 
     /* We know that the to_flags pass the test. */
-    if (trace_sysenter_exit || dgc_trace_head)
+    if (trace_sysenter_exit)
         return true;
 
     from_tag = from_f->tag;
@@ -1034,11 +1033,8 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                               bool trace_sysenter_exit)
 {
     uint result = 0;
-    bool dgc_trace_head;
-    //trace_head_counter_t *counter = thcounter_lookup(dcontext, to_tag);
-    dgc_trace_head = false; //(counter != NULL && counter->is_jit_tweaked);
     if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l, to_tag, to_flags,
-                                             trace_sysenter_exit, dgc_trace_head)) {
+                                             trace_sysenter_exit)) {
         result |= TRACE_HEAD_YES;
         ASSERT(!have_link_lock || self_owns_recursive_lock(&change_linking_lock));
         if (!have_link_lock) {
@@ -1051,8 +1047,7 @@ should_be_trace_head_internal(dcontext_t *dcontext, fragment_t *from_f, linkstub
                 acquire_recursive_lock(&change_linking_lock);
                 if (should_be_trace_head_internal_unsafe(dcontext, from_f, from_l,
                                                          to_tag, to_flags,
-                                                         trace_sysenter_exit,
-                                                         dgc_trace_head)) {
+                                                         trace_sysenter_exit)) {
                     result |= TRACE_HEAD_OBTAINED_LOCK;
                 } else {
                     result &= ~TRACE_HEAD_YES;
@@ -1344,8 +1339,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     fragment_t *trace_f;
     trace_only_t *trace_tr;
     fragment_t wrapper;
-    bool /*is_jit_tweaked,*/ replace_trace_head = false;
-    //trace_head_counter_t *counter;
+    bool replace_trace_head = false;
     uint i;
 #if defined(DEBUG) || defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* was the trace passed through optimizations or the client interface? */
@@ -1375,12 +1369,6 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
 
 #ifdef JITOPT
     add_patchable_trace(md);
-    /*
-    is_jit_tweaked  = add_patchable_trace(md);
-    counter = thcounter_lookup(dcontext, md->trace_tag);
-    if (counter != NULL)
-        counter->is_jit_tweaked = is_jit_tweaked;
-    */
 # ifdef APP_MANAGED_TRACE_LIST
         trace_head_counter_t *
         ASSERT(counter != NULL);
@@ -2417,13 +2405,12 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
          * sentinel value.
          */
         ctr->counter = INTERNAL_OPTION(trace_counter_on_delete);
-        ctr->is_jit_tweaked = false;
         STATS_INC(th_counter_reset);
     }
 
     ctr->counter++;
     /* Should never be > here (assert is down below) but we check just in case */
-    if (ctr->counter >= INTERNAL_OPTION(trace_threshold)) { // || ctr->is_jit_tweaked) {
+    if (ctr->counter >= INTERNAL_OPTION(trace_threshold)) {
         /* if cannot delete fragment, do not start trace -- wait until
          * can delete it (w/ exceptions, deletion status changes). */
         if (!TEST(FRAG_CANNOT_DELETE, f->flags)) {
@@ -2497,7 +2484,7 @@ monitor_cache_enter(dcontext_t *dcontext, fragment_t *f)
     if (start_trace) {
         KSTART(trace_building);
         /* ensure our sentinel counter value for counter clearing will work */
-        ASSERT(ctr->counter == INTERNAL_OPTION(trace_threshold) || ctr->is_jit_tweaked);
+        ASSERT(ctr->counter == INTERNAL_OPTION(trace_threshold));
         ctr->counter = TH_COUNTER_CREATED_TRACE_VALUE();
         /* Found a hot trace head.  Switch this thread into trace
            selection mode, and initialize the instrlist_t for the new
@@ -2642,14 +2629,6 @@ trace_abort(dcontext_t *dcontext)
 }
 
 #ifdef JITOPT
-void
-set_trace_head_jit_tweaked(dcontext_t *dcontext, app_pc head)
-{
-    trace_head_counter_t *counter = thcounter_lookup(dcontext, head);
-    if (counter != NULL)
-        counter->is_jit_tweaked = true;
-}
-
 void
 set_trace_head_table_resize_scale(uint scale)
 {
