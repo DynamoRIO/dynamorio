@@ -1406,7 +1406,7 @@ remove_vm_area(vm_area_vector_t *v, app_pc start, app_pc end, bool restore_prot)
                                   start - v->buf[overlap_start].start);
         }
         if (restore_prot && TEST(VM_MADE_READONLY, v->buf[overlap_start].vm_flags)) {
-            vm_make_writable(start, end - start);
+            vm_make_writable(start, end - start); // even if DGC writer?
         }
         v->buf[overlap_start].end = start;
         /* FIXME: add a vmvector callback function for changing bounds? */

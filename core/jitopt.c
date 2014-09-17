@@ -1109,16 +1109,20 @@ locate_and_manage_code_area(app_pc pc)
 
     RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area() at "PFX"\n", pc);
 
+    bool strange_case = false;
     bool found = get_non_jit_area_bounds(pc, &start, &size);
     if (!found) {
         found = get_non_jit_area_bounds(*(app_pc *)pc, &start, &size);
-        RELEASE_LOG(THREAD, LOG_VMAREAS, 1,
-                    "locate_and_manage_code_area() strange indirection through "PFX"\n",
-                    *(app_pc *)pc);
+        strange_case = true;
     }
     if (found) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         uint prot;
+        if (strange_case) {
+            RELEASE_LOG(THREAD, LOG_VMAREAS, 1,
+                        "locate_and_manage_code_area() strange indirection through "PFX"\n",
+                        *(app_pc *)pc);
+        }
         get_memory_info(start, NULL, NULL, &prot);
         if (TEST(PROT_WRITE, prot)) {
             RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "locate_and_manage_code_area ignored for writable area at "PFX"\n", pc);
@@ -1152,7 +1156,12 @@ notify_exec_invalidation(app_pc start, size_t size)
         if (exec_area_counters->counters[i].start == start) {
             uint count = exec_area_counters->counters[i].count++;
             mutex_unlock(&dgc_mapping_lock);
-            ASSERT(exec_area_counters->counters[i].size == size);
+            if (exec_area_counters->counters[i].size != size) {
+                RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "Warning: exec_invalidation_count: "
+                            "area size changed for counter %d from 0x%x to 0x%x\n",
+                            i, exec_area_counters->counters[i].size, size);
+                exec_area_counters->counters[i].size = size;
+            }
             RELEASE_LOG(THREAD, LOG_VMAREAS, 1, "exec_invalidation_count %d for "PFX"\n",
                         exec_area_counters->counters[i].count, start);
             if (count > JIT_MANAGED_FLUSH_THRESHOLD) {
