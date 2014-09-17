@@ -75,6 +75,12 @@ DR_EXPORT
  * references. For far memory references via DS and ES, we assume that
  * the segment base is 0.
  *
+ * All registers used in \p memref must hold their original
+ * application values in order for the proper address to be computed
+ * into \p dst.  The \p dst register may overlap with the registers
+ * used in \p memref, but \p scratch must be different from those used
+ * in \p memref (as well as from \p dst).
+ *
  * To obtain each memory address referenced in a single-instruction
  * string loop, use drutil_expand_rep_string() to transform such loops
  * into regular loops containing (non-loop) string instructions.
