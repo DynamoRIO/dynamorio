@@ -5,14 +5,24 @@ DA:64,0
 DA:65,1
 DA:66,1
 DA:70,1
+#if defined(WINDOWS)
+DA:73,1
+DA:74,1
+#endif
 DA:76,1
 DA:77,1
 DA:79,1
 DA:82,1
 DA:83,1
 DA:84,1
+#if defined(WINDOWS)
+DA:85,1
+#endif
 DA:87,1
 DA:88,1
+#if defined(WINDOWS)
+DA:89,1
+#endif
 DA:91,1
 DA:92,1
 end_of_record

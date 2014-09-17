@@ -1720,13 +1720,10 @@ if (CLIENT_INTERFACE)
       "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
 
-    if (UNIX)
-      # FIXME i#1483: enable test on Windows
-      torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
-      set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
-      set(tool.drcov.fib_expectbase "tool.drcov.fib")
-      get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
-    endif (UNIX)
+    torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
+    set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
+    set(tool.drcov.fib_expectbase "tool.drcov.fib")
+    get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
