@@ -91,7 +91,7 @@ The following are part of the DynamoRIO release distribution:
 \ifnot vmsafe
  - A graphical statistics viewer \c DRstats.exe that displays internal
    DynamoRIO statistics as well as custom statistics defined
-   by a client (see \ref sec_ex7) (Windows package only).
+   by a client (see \ref sec_drstats) (Windows package only).
    DynamoRIO exports a large number of statistics in its debug build, and
    a handful in release builds.
 \endif

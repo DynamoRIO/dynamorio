@@ -1385,6 +1385,8 @@ target application process.  These include:
    clients. See dr_nudge_process() and dr_register_nudge_event().
  - Files can be used to send data out.  An external process can wait on
    the file.
+ - Shared memory can be used for bi-directional communication.  For an
+   example of this on Windows, see the stats sample (see \ref sec_drstats).
 
 ***************************************************************************
 \section sec_options Fine-Tuning DynamoRIO: Runtime Parameters
