@@ -1095,6 +1095,7 @@ endfunction(rundr_cmd)
 
 # if test != exe we assume exe is already added as a build target
 # key is the test name without the options, and is used to look up ${key}_expectbase
+# and ${key}_postcmd, which points to the post-processing executable if necessary.
 function(torun test key source native use_drinject dr_ops exe_ops added_out)
   # Avoid running some tests with invalid option combinations.  For example,
   # coarse fragments are incompatible with thread private code caches.
@@ -1146,6 +1147,12 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   if (NOT exepath)
     set(exepath ${exe})
   endif (NOT exepath)
+
+  if (DEFINED ${key}_expectbase)
+    set(expectbase ${${key}_expectbase})
+  else ()
+    set(expectbase ${srcbase})
+  endif ()
 
   if (${test} MATCHES "linux.execve32")
     # We're an x64 build, but we need to launch a 32-bit app under DR.  The
@@ -1213,20 +1220,18 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
     else ()
       set(runcmp_script ${CMAKE_CURRENT_SOURCE_DIR}/runcmp.cmake)
     endif ()
+    if (NOT DEFINED ${key}_postcmd)
+      set(${key}_postcmd "")
+    endif ()
     add_test(${test} ${CMAKE_COMMAND} -D cmd=${cmd_with_at}
-      -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${srcbase}.expect
+      -D postcmd=${${key}_postcmd}
+      -D cmp=${CMAKE_CURRENT_BINARY_DIR}/${expectbase}.expect
       -P ${runcmp_script})
     # No support for regex here (ctest can't handle large regex)
     set(ALREADY_REGEX ON)
   else (is_runcmp)
     add_test(${test} ${rundr} ${exepath} ${exe_ops})
   endif (is_runall)
-
-  if (DEFINED ${key}_expectbase)
-    set(expectbase ${${key}_expectbase})
-  else ()
-    set(expectbase ${srcbase})
-  endif ()
 
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect)
     file(READ ${CMAKE_CURRENT_SOURCE_DIR}/${srcpath}/${expectbase}.expect expect)
@@ -1714,6 +1719,14 @@ if (CLIENT_INTERFACE)
     torunonly_ci(tool.drltrace common.eflags drltrace common/eflags.c
       "-only_from_app" "" "")
     set(tool.drltrace_runcmp "${PROJECT_SOURCE_DIR}/clients/drltrace/runtest.cmake")
+
+    if (UNIX)
+      # FIXME i#1483: enable test on Windows
+      torunonly_ci(tool.drcov.fib common.fib drcov common/fib.c "" "" "")
+      set(tool.drcov.fib_runcmp "${PROJECT_SOURCE_DIR}/clients/drcov/runtest.cmake")
+      set(tool.drcov.fib_expectbase "tool.drcov.fib")
+      get_target_property(tool.drcov.fib_postcmd drcov2lcov LOCATION${location_suffix})
+    endif (UNIX)
   endif (BUILD_CLIENTS)
 
 endif (CLIENT_INTERFACE)
