@@ -1170,6 +1170,11 @@ drx_register_soft_kills(bool (*event_cb)(process_id_t pid, int exit_code))
 /***************************************************************************
  * LOGGING
  */
+#ifdef WINDOWS
+# define DIRSEP '\\'
+#else
+# define DIRSEP '/'
+#endif
 
 file_t
 drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
@@ -1181,7 +1186,7 @@ drx_open_unique_file(const char *dir, const char *prefix, const char *suffix,
     ssize_t len;
     for (i = 0; i < 10000; i++) {
         len = dr_snprintf(buf, BUFFER_SIZE_ELEMENTS(buf),
-                          "%s/%s.%04d.%s", dir, prefix, i, suffix);
+                          "%s%c%s.%04d.%s", dir, DIRSEP, prefix, i, suffix);
         if (len < 0)
             return false;
         NULL_TERMINATE_BUFFER(buf);
