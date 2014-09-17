@@ -203,7 +203,9 @@ const char *options_list_str =
     "                           until the -- arg before the app are interpreted as\n"
     "                           client options.  Must come after all drrun and DR\n"
     "                           ops.  Incompatible with -client.  Requires using --\n"
-    "                           to separate the app executable.\n"
+    "                           to separate the app executable.  Neither the path nor\n"
+    "                           the options may contain semicolon characters or\n"
+    "                           all 3 quote characters (\", \', `).\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Use -c instead, unless you need to set the client ID.\n"
@@ -216,7 +218,8 @@ const char *options_list_str =
     "                          can be installed via multiple -client options.  In\n"
     "                          this case, clients specified first on the command\n"
     "                          line have higher priority.  Neither the path nor\n"
-    "                          the options may contain semicolon characters.\n"
+    "                          the options may contain semicolon characters or\n"
+    "                          all 3 quote characters (\", \', `).\n"
     "                          This option must precede any options to DynamoRIO.\n"
 #endif
 #ifdef DRCONFIG
