@@ -1398,25 +1398,11 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     if (offset == 0) {
         RELEASE_LOG(GLOBAL, LOG_VMAREAS, 0,
                     "Error! Mapping is gone at "PFX"! Created plan? %d\n", write_target, created_plan);
-        //if (created_plan)
-        //else
-        //generic_hash_remove(GLOBAL_DCONTEXT, emulation_plans, (ptr_uint_t) writer_app_pc);
-        /*
-        app_pc start;
-        size_t size;
-        bool found = get_jit_monitored_area_bounds(write_target, &start, &size);
-        if (!found)
-            dr_printf("Mapping is gone, and can't find vm area at all!\n");
-        mutex_lock(&thread_initexit_lock);
-        flush_fragments_and_remove_region(dcontext, start, size,
-                                          true / * own initexit_lock * /, false);
-        mutex_unlock(&thread_initexit_lock);
-        //notify_exec_invalidation(start, size);
-        //emulate_writer(mc, plan, offset, write_target, false/ *simulate* /);
-        */
-        return NULL; //plan->resume_pc;
+        return NULL;
     }
 
+    /* TODO: can't we just go back in the code cache via dispatch to rebuild the
+     * fragment starting at the faulting write? */
     emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
     if (!is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
@@ -1424,12 +1410,13 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_CANNOT_DELETE, f->flags)) {
         enter_couldbelinking(dcontext, NULL, false);
         if (safe_delete_shared_fragment(dcontext, f)) {
-            /*
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                        "DGC: Deleting shared fragment "PFX" (0x%x) for future instrumentation\n",
+                        "DGC: add_to_lazy_deletion_list("PFX") (0x%x) for future instrumentation\n",
                         f->tag, f->flags);
             add_to_lazy_deletion_list(dcontext, f);
-            */
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: add_to_lazy_deletion_list("PFX") (0x%x) done\n",
+                        f->tag, f->flags);
         } else {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 0,
                         "DGC: Warning: failed to delete shared fragment "PFX" (0x%x) for future instrumentation\n",
@@ -1490,6 +1477,7 @@ emulate_dgc_write(app_pc writer_pc)
                     simulating ? "Simulating" : "Emulating",
                     writer_pc, write_target);
 
+        /* TODO: can't we just go back in the code cache after flushing? */
         emulate_writer(mc, plan, offset, write_target, simulating);
     }
 

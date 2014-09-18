@@ -9166,7 +9166,9 @@ add_to_pending_list(dcontext_t *dcontext, fragment_t *f,
          * but that's not a problem, except we have to move our stats inc
          * into the reset routine itself.
          */
-        schedule_reset(RESET_PENDING_DELETION/*NYI: currently this is ignored and we
+        schedule_reset(RESET_PENDING_DELETION/* Comment appears to be stale (see
+                                              *    fcache_reset_all_caches_proactively):
+                                              * NYI: currently this is ignored and we
                                               * do a full reset*/);
     }
 
@@ -9234,6 +9236,8 @@ remove_from_lazy_deletion_list(dcontext_t *dcontext, fragment_t *remove)
 static void
 move_lazy_list_to_pending_delete(dcontext_t *dcontext)
 {
+    RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "move_lazy_list_to_pending_delete\n");
+
     ASSERT_OWN_NO_LOCKS();
     ASSERT(is_self_couldbelinking());
     /* to properly set up ref count we MUST get a flushtime synched with a
@@ -9287,6 +9291,13 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
 
 /* adds the list of fragments beginning with f and chained by {next,prev}_vmarea
  * to a new pending-lazy-deletion entry.
+ *
+ * This comment appears to be stale--fragments attached to `f` may be added to a shared
+ * deletion list entry, which will have a pending ref count for each thread, but the ref
+ * count will not be decremented for the current thread until it returns from this
+ * function (otherwise this function would have to call vm_area_check_shared_pending(),
+ * and it does not)--so fragments should be free before this routine returns:
+ *
  * This routine may become nolinking, meaning that fragments may be freed
  * before this routine returns, so the caller should invalidate all pointers.
  * It also means that no locks may be held by the caller!
@@ -9937,6 +9948,13 @@ vm_area_check_shared_pending(dcontext_t *dcontext, fragment_t *was_I_flushed)
         } else
             pend_prev = pend;
         DODEBUG({ i++; });
+    }
+
+    if (tofree != NULL) {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "Free some pending deletion entries.\n");
+    } else {
+        RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "No pending deletion entries to free; "
+                    "%d are pending.\n", todelete->shared_delete_count);
     }
 
     for (pend = tofree; pend != NULL; pend = pend_nxt) {

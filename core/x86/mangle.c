@@ -1265,6 +1265,7 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp),
                                                  opnd_create_reg(regparms[0])));
+#ifdef JITOPT
                         if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
                             /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with lea\n");
@@ -1278,12 +1279,15 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                                 INSTR_CREATE_mov_imm(dcontext, opnd_create_reg
                                   (shrink_reg_for_param(regparms[0], arg)), arg));
                         } else {
+#endif
                             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg is mov_ld!\n");
                             /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                             POST(ilist, prev, INSTR_CREATE_mov_ld
                                  (dcontext, opnd_create_reg
                                   (shrink_reg_for_param(regparms[0], arg)), arg));
+#ifdef JITOPT
                         }
+#endif
                         if (reg_overlap(used, REG_XSP)) {
                             int xsp_disp = opnd_get_reg_dcontext_offs(REG_XSP) +
                                 clean_call_beyond_mcontext() + total_stack;
