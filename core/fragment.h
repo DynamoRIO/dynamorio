@@ -641,6 +641,10 @@ void
 fragment_unlink_for_deletion(dcontext_t *dcontext, fragment_t *f);
 
 bool
+fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
+                                        ibl_table_t *ftable);
+
+bool
 fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f);
 
 /* Removes f from any IBT tables it is in. */

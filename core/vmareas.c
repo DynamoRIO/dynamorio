@@ -948,7 +948,7 @@ add_vm_area(vm_area_vector_t *v, app_pc start, app_pc end,
 
     ASSERT(start < end);
 
-    ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
+    //ASSERT_VMAREA_VECTOR_PROTECTED(v, WRITE);
     RELEASE_LOG(GLOBAL, LOG_VMAREAS, 1, "add_vm_area "PFX" "PFX" to %s\n",
                 start, end, name_vm_area_vector(v)); // can't call get_memory_info() here (ever)
     /* N.B.: new area could span multiple existing areas! */
@@ -9256,6 +9256,12 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
     mutex_lock(&shared_delete_lock);
     mutex_lock(&lazy_delete_lock);
     if (todelete->move_pending) {
+        fragment_t *f;
+        for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
+            *f->start_pc = 0x0f;
+            *(f->start_pc + 1) = 0x0b;
+        }
+
         /* it's possible for remove_from_lazy_deletion_list to drop the count */
         DODEBUG({
             if (todelete->lazy_delete_count <=
@@ -9360,6 +9366,8 @@ add_to_lazy_deletion_list(dcontext_t *dcontext, fragment_t *f)
     ASSERT(todelete->lazy_delete_tail != NULL);
     LOG(THREAD, LOG_VMAREAS, 3, "adding F%d to lazy deletion list @ timestamp %u\n",
         f->id, flushtime);
+    RELEASE_LOG(THREAD, LOG_VMAREAS, 3, "adding "PFX"("PFX") to lazy deletion list @ timestamp %u\n",
+                f->tag, f->start_pc, flushtime);
     STATS_INC(num_lazy_deletion_appends);
     DOLOG(5, LOG_VMAREAS, {
         print_lazy_deletion_list(dcontext,
@@ -9402,6 +9410,9 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
             LOG(THREAD, LOG_VMAREAS, 3,
                 "freeing F%d on lazy deletion list @ timestamp %u\n",
                 f->id, flushtime);
+            RELEASE_LOG(THREAD, LOG_VMAREAS, 3,
+                        "freeing "PFX"("PFX") on lazy deletion list @ timestamp %u\n",
+                        f->tag, f->start_pc, flushtime);
             DOSTATS({
                 if (dcontext == GLOBAL_DCONTEXT) /* at exit */
                     STATS_INC(num_lazy_deletion_frees_atexit);
@@ -9417,6 +9428,8 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                 ASSERT(todelete->lazy_delete_list == NULL);
                 todelete->lazy_delete_tail = NULL;
             }
+            *f->start_pc = 0x0f;
+            *(f->start_pc + 1) = 0x0b;
             fragment_delete(dcontext, f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
                             FRAGDEL_NO_HTABLE | FRAGDEL_NO_VMAREA);

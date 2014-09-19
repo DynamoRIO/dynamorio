@@ -4223,7 +4223,10 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     instr_t *instrumentation_start, *bucket_iterator, *check_readonly,
             *write_to_original_page, *write_to_double_page,
             *execute_write, *prepare_write, *skip_clean_call, *skip_clean_call_trampoline,
-            *find_dgc_bucket1, *find_dgc_bucket2,
+            *find_dgc_bucket1,
+# ifdef BUCKET_OVERLAP
+            *find_dgc_bucket2,
+# endif
             *store_dgc_skip, *store_dgc_bucket,
             *skip_overlap_check, *skip_overlap_check_trampoline,
             *restore_temps, *restore_temps_trampoline;
@@ -4357,10 +4360,11 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     /* cmp(%t1, 0) */
     find_dgc_bucket1 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
                                         OPND_CREATE_INT8(0));
+# ifdef BUCKET_OVERLAP
     /* cmp(%t1, 0) */
     find_dgc_bucket2 = INSTR_CREATE_cmp(dcontext, opnd_create_reg(t1),
                                         OPND_CREATE_INT8(0));
-
+# endif
     switch (instr_get_opcode(&plan->writer)) {
     case OP_and:
         // and <src>, <dst+offset>

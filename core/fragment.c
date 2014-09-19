@@ -3560,7 +3560,7 @@ update_all_private_ibt_table_ptrs(dcontext_t *dcontext, per_thread_t *pt)
  *
  * Returns true if the fragment was found & removed.
  */
-static bool
+bool
 fragment_prepare_for_removal_from_table(dcontext_t *dcontext, fragment_t *f,
                                         ibl_table_t *ftable)
 {

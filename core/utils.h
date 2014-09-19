@@ -1129,7 +1129,12 @@ bool bitmap_check_consistency(bitmap_t b, uint bitmap_size, uint expect_free);
 #  define RELEASE_LOG(file, category, level, ...) \
 do { \
     extern bool verbose; \
-    if (verbose || level == 0) \
+    if (verbose) { \
+        if (level == 0) \
+            dr_fprintf(STDOUT, __VA_ARGS__); \
+        else \
+            dr_fprintf(STDERR, __VA_ARGS__); \
+    } else if (level == 0) \
         dr_fprintf(STDERR, __VA_ARGS__); \
     if (level == 0) \
         LOG(file, category, 1, __VA_ARGS__); \

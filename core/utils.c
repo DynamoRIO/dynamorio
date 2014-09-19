@@ -2458,18 +2458,18 @@ memprot_string(uint prot)
 bool
 is_region_memset_to_char(byte *addr, size_t size, byte val)
 {
-    return true;
+    //return true;
 
     /* FIXME : we could make this much faster with arch specific implementation
      * (for x86 repe scasd w/proper alignment handling) */
-    /*
+    /**/
     size_t i;
     for (i = 0; i < size; i++) {
         if (*addr++ != val)
             return false;
     }
     return true;
-    */
+    /**/
 }
 
 /* returns pointer to first char of string that matches either c1 or c2

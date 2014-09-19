@@ -153,7 +153,8 @@ typedef struct _dgc_fragment_intersection_t {
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
-    fragment_t **shared_deletions;
+    fragment_t **fragments;
+    fragment_t *shared_deletion_list;
     uint shared_deletion_index;
     uint shared_deletion_max;
 } dgc_fragment_intersection_t;
@@ -355,10 +356,6 @@ jitopt_init()
                          ACCT_OTHER, UNPROTECTED);
     fragment_intersection->shared_deletion_index = 0;
     fragment_intersection->shared_deletion_max = 0x20;
-    fragment_intersection->shared_deletions =
-        HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, fragment_t *,
-                         fragment_intersection->shared_deletion_max, ACCT_OTHER,
-                         UNPROTECTED);
     dgc_removal_queue = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_removal_queue_t,
                                         ACCT_OTHER, UNPROTECTED);
     dgc_removal_queue->index = 0;
@@ -404,6 +401,7 @@ jitopt_exit()
     uint i;
 #ifdef JITOPT
     asmtable_destroy(dgc_table);
+    DELETE_LOCK(dgc_table_lock);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->staging, dgc_bucket_t *,
                     dgc_bucket_gc_list->max_staging, ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_bucket_gc_list->removals, dgc_bucket_t *,
@@ -421,8 +419,6 @@ jitopt_exit()
                     fragment_intersection->bb_tag_max, ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->trace_tags, app_pc,
                     fragment_intersection->trace_tag_max, ACCT_OTHER, UNPROTECTED);
-    HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, fragment_intersection->shared_deletions, fragment_t *,
-                    fragment_intersection->shared_deletion_max, ACCT_OTHER, UNPROTECTED);
     HEAP_TYPE_FREE(GLOBAL_DCONTEXT, fragment_intersection, dgc_fragment_intersection_t,
                    ACCT_OTHER, UNPROTECTED);
     HEAP_ARRAY_FREE(GLOBAL_DCONTEXT, dgc_removal_queue->tags, app_pc,
@@ -1136,7 +1132,8 @@ locate_and_manage_code_area(app_pc pc)
         mutex_unlock(&thread_initexit_lock);
         notify_exec_invalidation(start, size);
     } else {
-        RELEASE_LOG(THREAD, LOG_VMAREAS, 0, "locate_and_manage_code_area failed at "PFX"\n", pc);
+        RELEASE_LOG(THREAD, LOG_VMAREAS, 0, "locate_and_manage_code_area failed at "
+                PFX"%s\n", pc, strange_case ? " (strange indirection case)" : "");
         dr_exit_process(666);
     }
 }
@@ -1352,6 +1349,49 @@ instrumentation_failure:
     }
 }
 
+static inline void
+remove_from_all_threads(fragment_t *f)
+{
+    uint i;
+    dcontext_t *dc;
+    per_thread_t *pt;
+    ibl_branch_type_t branch_type;
+    bool remove_trace_from_all_threads = false;
+    bool remove_bb_from_all_threads = false;
+
+    if (IS_IBL_TARGET(f->flags)) {
+        if (TEST(FRAG_IS_TRACE, f->flags))
+            remove_trace_from_all_threads = !DYNAMO_OPTION(shared_trace_ibt_tables);
+        if (DYNAMO_OPTION(bb_ibl_targets) &&
+            (!TEST(FRAG_IS_TRACE, f->flags) ||
+             DYNAMO_OPTION(bb_ibt_table_includes_traces))) {
+            remove_bb_from_all_threads = !DYNAMO_OPTION(shared_bb_ibt_tables);
+        }
+    }
+
+    if (!remove_trace_from_all_threads && !remove_bb_from_all_threads)
+        return;
+
+    for (i=0; i < thread_state->count; i++) {
+        dc = thread_state->threads[i]->dcontext;
+        pt = (per_thread_t *) dc->fragment_field;
+        if (remove_trace_from_all_threads) {
+            for (branch_type = IBL_BRANCH_TYPE_START;
+                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+                fragment_prepare_for_removal_from_table(dc, f,
+                                                        &pt->trace_ibt[branch_type]);
+            }
+        }
+        if (remove_bb_from_all_threads) {
+            for (branch_type = IBL_BRANCH_TYPE_START;
+                 branch_type < IBL_BRANCH_TYPE_END; branch_type++) {
+                fragment_prepare_for_removal_from_table(dc, f,
+                                                        &pt->bb_ibt[branch_type]);
+            }
+        }
+    }
+}
+
 app_pc
 instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, app_pc writer_app_pc,
                       app_pc write_target, size_t write_size, uint prot, bool is_jit_self_write)
@@ -1407,12 +1447,30 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     if (!is_jit_self_write)
         annotation_flush_fragments(write_target, plan->dst_size);
 
-    if (TEST(FRAG_SHARED, f->flags) && !TEST(FRAG_CANNOT_DELETE, f->flags)) {
+    if (TEST(FRAG_CANNOT_DELETE, f->flags))
+        return plan->resume_pc;
+
+    if (TEST(FRAG_SHARED, f->flags)) {
         enter_couldbelinking(dcontext, NULL, false);
+        if (!TEST(FRAG_LINKED_INCOMING, f->flags)) {
+            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
+                        "DGC: warning: add_to_lazy_deletion_list("PFX") (0x%x) "
+                        "without unlinking incoming (not linked, supposedly)\n",
+                        f->tag, f->flags);
+        }
         if (safe_delete_shared_fragment(dcontext, f)) {
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
-                        "DGC: add_to_lazy_deletion_list("PFX") (0x%x) for future instrumentation\n",
-                        f->tag, f->flags);
+                        "DGC: add_to_lazy_deletion_list("PFX"/"PFX") (0x%x) for future instrumentation\n",
+                        f->tag, f->start_pc, f->flags);
+
+            enter_nolinking(dcontext, NULL, false);
+
+            mutex_lock(&thread_initexit_lock);
+            update_thread_state();
+            remove_from_all_threads(f);
+            mutex_unlock(&thread_initexit_lock);
+
+            enter_couldbelinking(dcontext, NULL, false);
             add_to_lazy_deletion_list(dcontext, f);
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
                         "DGC: add_to_lazy_deletion_list("PFX") (0x%x) done\n",
@@ -2421,6 +2479,7 @@ static bool
 safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f)
 {
     bool deleted = false;
+    mutex_lock(&bb_building_lock);
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, acquire, change_linking_lock);
     acquire_vm_areas_lock(dcontext, f->flags);
     if (TEST(FRAG_WAS_DELETED, f->flags)) {
@@ -2445,15 +2504,22 @@ safe_delete_shared_fragment(dcontext_t *dcontext, fragment_t *f)
         fragment_remove(GLOBAL_DCONTEXT, f, false);
 
         vm_area_remove_fragment(dcontext, f);
+
         /* case 8419: make marking as deleted atomic w/ fragment_t.also_vmarea field
          * invalidation, so that users of vm_area_add_to_list() can rely on this
          * flag to determine validity
          */
         f->flags |= FRAG_WAS_DELETED;
+
+        if (!TEST(FRAG_HAS_TRANSLATION_INFO, f->flags)) {
+            fragment_record_translation_info(dcontext, f, NULL);
+        }
+
         deleted = true;
     }
     release_vm_areas_lock(dcontext, f->flags);
     SHARED_FLAGS_RECURSIVE_LOCK(f->flags, release, change_linking_lock);
+    mutex_unlock(&bb_building_lock);
     return deleted;
 }
 
@@ -2469,11 +2535,8 @@ safe_delete_fragment(dcontext_t *dcontext, fragment_t *f)
     if (TEST(FRAG_SHARED, f->flags)) {
         safe_delete_shared_fragment(dcontext, f);
 
-        fragment_intersection->shared_deletions[fragment_intersection->shared_deletion_index++] = f;
-        if (fragment_intersection->shared_deletion_index == fragment_intersection->shared_deletion_max) {
-            EXPAND_ARRAY(fragment_intersection->shared_deletions,
-                         fragment_intersection->shared_deletion_max, fragment_t *);
-        }
+        f->next_vmarea = fragment_intersection->shared_deletion_list;
+        fragment_intersection->shared_deletion_list = f;
     } else {
         acquire_vm_areas_lock(dcontext, f->flags);
         fragment_delete(dcontext, f, FRAGDEL_NO_OUTPUT | FRAGDEL_NO_MONITOR |
@@ -2652,7 +2715,7 @@ remove_patchable_fragment_list(dcontext_t *dcontext, app_pc patch_start, app_pc 
         if (is_building_trace(tgt_dcontext)) {
             /* not locking b/c a race should at worst abort a valid trace */
             bool clobbered = false;
-            monitor_data_t *md = (monitor_data_t *) dcontext->monitor_field;
+            monitor_data_t *md = (monitor_data_t *) tgt_dcontext->monitor_field;
             for (j = 0; j < md->blk_info_length && !clobbered; j++) {
                 for (bb_tag = fragment_intersection->bb_tags; *bb_tag != NULL; bb_tag++) {
                     if (*bb_tag == md->blk_info[j].info.tag) {
@@ -2850,7 +2913,7 @@ extract_fragment_intersection(app_pc patch_start, app_pc patch_end)
 uint
 remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patch_end)
 {
-    uint i, fragment_intersection_count;
+    uint /*i,*/ fragment_intersection_count;
 
     if (RUNNING_WITHOUT_CODE_CACHE()) /* case 7966: nothing to flush, ever */
         return 0;
@@ -2865,8 +2928,10 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
     mutex_lock(&thread_initexit_lock);
 
     fragment_intersection_count = extract_fragment_intersection(patch_start, patch_end);
-    fragment_intersection->shared_deletion_index = 0;
+    fragment_intersection->shared_deletion_list = NULL;
     if (fragment_intersection_count > 0) {
+        fragment_t *f;
+
         update_thread_state();
         enter_couldbelinking(dcontext, NULL, false);
 
@@ -2886,16 +2951,21 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
                     fragment_intersection_count, patch_start, patch_end);
 
         enter_nolinking(dcontext, NULL, false);
+
+        for (f = fragment_intersection->shared_deletion_list;
+             f != NULL; f = f->next_vmarea) {
+            remove_from_all_threads(f);
+        }
     } else {
         LOG(GLOBAL, LOG_FRAGMENT, 1, "DGC: no fragments found in "PFX"-"PFX"\n",
                     patch_start, patch_end);
     }
+
     mutex_unlock(&thread_initexit_lock);
 
     if (fragment_intersection->shared_deletion_index > 0) {
         enter_couldbelinking(dcontext, NULL, false);
-        for (i = 0; i < fragment_intersection->shared_deletion_index; i++)
-            add_to_lazy_deletion_list(dcontext, fragment_intersection->shared_deletions[i]);
+        add_to_lazy_deletion_list(dcontext, fragment_intersection->shared_deletion_list);
         enter_nolinking(dcontext, NULL, false);
     }
 

@@ -3591,6 +3591,9 @@ master_signal_handler_C(byte *xsp)
 # endif
 #endif
 
+    if (sig == SIGILL)
+        RELEASE_LOG(THREAD, LOG_ALL, 1, "sigill at "PFX"\n", sc->SC_XIP);
+
     /* i#350: To support safe_read or TRY_EXCEPT without a dcontext, use the
      * global dcontext
      * when handling safe_read faults.  This lets us pass the check for a
