@@ -1103,10 +1103,12 @@ locate_and_manage_code_area(app_pc pc)
 
     bool strange_case = false;
     bool found = get_non_jit_area_bounds(pc, &start, &size);
+    /*
     if (!found) {
         found = get_non_jit_area_bounds(*(app_pc *)pc, &start, &size);
         strange_case = true;
     }
+    */
     if (found) {
         dcontext_t *dcontext = get_thread_private_dcontext();
         uint prot;
@@ -1128,8 +1130,9 @@ locate_and_manage_code_area(app_pc pc)
         mutex_unlock(&thread_initexit_lock);
         notify_exec_invalidation(start, size);
     } else {
+        ptr_int_t offset = lookup_dgc_writer_offset(start);
         RELEASE_LOG(THREAD, LOG_VMAREAS, 0, "locate_and_manage_code_area failed at "
-                PFX"%s\n", pc, strange_case ? " (strange indirection case)" : "");
+                PFX". DGC writer offset is 0x%llx.\n", offset);
         dr_exit_process(666);
     }
 }

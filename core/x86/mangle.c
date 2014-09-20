@@ -1265,29 +1265,11 @@ insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *
                              INSTR_CREATE_mov_st(dcontext,
                                                  OPND_CREATE_MEMPTR(REG_XSP, disp),
                                                  opnd_create_reg(regparms[0])));
-#ifdef JITOPT
-                        if (opnd_is_base_disp(arg) && opnd_get_size(arg) == OPSZ_lea) {
-                            /* If sub-ptr-size, zero-extend is what we want so no movsxd */
-                            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with lea\n");
-                            POST(ilist, prev, INSTR_CREATE_lea
-                                 (dcontext, opnd_create_reg
-                                  (shrink_reg_for_param(regparms[0], arg)), arg));
-                        } else if (opnd_is_immed_int(arg) && opnd_get_size(arg) == OPSZ_lea) {
-                            RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg setup with mov_imm\n");
-                            opnd_set_size(&arg, OPSZ_PTR);
-                            POST(ilist, prev,
-                                INSTR_CREATE_mov_imm(dcontext, opnd_create_reg
-                                  (shrink_reg_for_param(regparms[0], arg)), arg));
-                        } else {
-#endif
                             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: clean call arg is mov_ld!\n");
                             /* If sub-ptr-size, zero-extend is what we want so no movsxd */
                             POST(ilist, prev, INSTR_CREATE_mov_ld
                                  (dcontext, opnd_create_reg
                                   (shrink_reg_for_param(regparms[0], arg)), arg));
-#ifdef JITOPT
-                        }
-#endif
                         if (reg_overlap(used, REG_XSP)) {
                             int xsp_disp = opnd_get_reg_dcontext_offs(REG_XSP) +
                                 clean_call_beyond_mcontext() + total_stack;
@@ -4214,7 +4196,8 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     dr_instr_label_data_t *label_data = instr_get_label_data_area(instr);
     emulation_plan_t *plan = (emulation_plan_t *) label_data->data[0];
     opnd_t flush_target = opnd_create_reg(REG_XCX);
-    opnd_t flush_size = OPND_CREATE_INTPTR(plan->dst_size);
+    opnd_t flush_size;
+    opnd_t manage_target;
     extern bool verbose;
 
 #ifndef JITOPT_EMULATE
@@ -4286,6 +4269,9 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     }
     ASSERT(i == DGC_TEMP_REG_COUNT);
     t0 = temp[0]; t1 = temp[1]; t2 = temp[2];
+
+    manage_target = opnd_create_reg(t2);
+    flush_size = opnd_create_reg(t2);
 
     is_dst_absolute = opnd_is_abs_addr(plan->dst) IF_X64( || opnd_is_rel_addr(plan->dst));
 
@@ -4574,24 +4560,27 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, t1,
                                MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-    /* t0(app), t1(app), t2((app.rax)): %t2 = T2 */
+
+    /* t0(app), t1((page-id)), t2((app.rax)): %t2 = write_target */
+    if (is_dst_absolute) {
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t2),
+                                 OPND_CREATE_INTPTR(opnd_get_addr(plan->dst))));
+    } else {
+        PRE(ilist, instr,
+            INSTR_CREATE_lea(dcontext, opnd_create_reg(t2), opnd_write_target));
+    }
+
+    /* t0(app) t1(app) t2(write-target) rax(app)
+     * XAX(free) T0((app.t0)) T1((app.t1)) T2((app.t2)) FLAGS((app.flags))
+     */
+    dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
+                            0/*flags*/, 1, manage_target);
+
+    /* t0(app), t1(app), t2(write-target): %t2 = T2 */
     PRE(ilist, instr,
         RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
                                MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-
-    /* t0(app) t1(app) t2(app) rax(app)
-     * XAX(free) T0((app.t0)) T1((app.t1)) T2((app.t2)) FLAGS((app.flags))
-     */
-
-    if (is_dst_absolute) {
-        opnd_t fake_dst = OPND_CREATE_INTPTR(opnd_get_addr(plan->dst));
-        opnd_set_size(&fake_dst, OPSZ_lea);
-        dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
-                                0/*flags*/, 1, fake_dst);
-    } else {
-        dr_insert_clean_call_ex(dcontext, ilist, instr, locate_and_manage_code_area,
-                                0/*flags*/, 1, opnd_write_target);
-    }
     /* t0(app), t1(app), t2(app): ==> instrumentation_start */
     PRE(ilist, instr,
         INSTR_CREATE_jmp(dcontext, opnd_create_instr(instrumentation_start)));
@@ -4896,28 +4885,20 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, t1,
                                    MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-        /* t0(app), t1(app), t2((app.rax)): t2 = T2 */
-        PRE(ilist, instr,
-            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
-                                   MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
-        /* t0(app), t1(app), t2(app): T0 = %rcx */
+        /* t0(app), t1(app), t2((app.rax)): T1 = %rcx */
         PRE(ilist, instr,
             SAVE_TO_DC_OR_TLS(dcontext, flags, REG_XCX,
                               MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
-        /* t0(app), t1(app), t2(app): %rcx = <fragment-overlap-bucket> */
+        /* t0(app), t1(app), t2((app.rax)): %rcx = <fragment-overlap-bucket> */
         PRE(ilist, instr,
             RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX,
                                    MANGLE_DGC_FLAGS_SLOT, MANGLE_DGC_FLAGS_OFFSET));
-        /* t0(app), t1(app), t2(app):
+        /* t0(app), t1(app), t2((app.rax)):
          * <fragment-overlap-bucket> == 0 ? ++> skip_clean_call
-         * (note: jrcxz barely reaches in 8-bit range)
          */
         PRE(ilist, instr,
-            INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_clean_call /*_trampoline*/)));
-        /* t0(app), t1(app), t2(app): %rcx = <app.rcx> */
-        //PRE(ilist, instr,
-        //   RESTORE_FROM_DC_OR_TLS(dcontext, flags, REG_XCX, // no xax here!
-        //                           MANGLE_DGC_TEMP_SLOT_1, MANGLE_DGC_TEMP_OFFSET_1));
+            INSTR_CREATE_jecxz(dcontext, opnd_create_instr(skip_clean_call_trampoline)));
+        /* t0(app), t1(app), t2((app.rax)): %rcx = <write-target> */
         if (is_dst_absolute) {
             PRE(ilist, instr,
                 INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XCX),
@@ -4926,15 +4907,25 @@ mangle_dgc_optimization_helper(dcontext_t *dcontext, instr_t *instr, instrlist_t
             PRE(ilist, instr,
                 INSTR_CREATE_lea(dcontext, opnd_create_reg(REG_XCX), opnd_write_target));
         }
+        /* t0(app), t1(app), t2((app.rax)), rcx(write-target): t2 = <write-size> */
+        PRE(ilist, instr,
+            INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(t2),
+                                 OPND_CREATE_INTPTR(plan->dst_size)));
+
 #endif /* !JITOPT_EMULATE */
+        /* t0(app), t1(app), t2(write-size), rcx(write-target)
+         * XAX(free) T0(free) T1(app.rcx) T2(app.t2) FLAGS((fragment-overlap-bucket))
+         */
         dr_insert_clean_call_ex(dcontext, ilist, instr, flush_jit_fragments, 0/*flags*/,
                                 2, flush_target, flush_size);
 #ifndef JITOPT_EMULATE
-        // jmp <done>
-        /* t0(app), t1(app), t2(app): ==> done */
-        //PRE(ilist, instr, INSTR_CREATE_jmp_short(dcontext, opnd_create_instr(instr)));
-        /* t0(app), t1(app), t2(app): %rcx = <app.rcx> */
+        /* t0(app), t1(app), t2(write-size): %rcx = <app.rcx> */
         PRE(ilist, instr, skip_clean_call);
+        /* t0(app), t1(app), t2(write-size): t2 = T2 */
+        PRE(ilist, instr,
+            RESTORE_FROM_DC_OR_TLS(dcontext, flags, t2,
+                                   MANGLE_DGC_TEMP_SLOT_2, MANGLE_DGC_TEMP_OFFSET_2));
+        /* t0(app), t1(app), t2(app) */
     }
 #endif /* !JITOPT_EMULATE */
     RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
