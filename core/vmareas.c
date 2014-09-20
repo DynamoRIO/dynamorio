@@ -9256,12 +9256,14 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
     mutex_lock(&shared_delete_lock);
     mutex_lock(&lazy_delete_lock);
     if (todelete->move_pending) {
+#ifdef DEBUG
+            /* Raise a SIGILL if this fragment gets executed again! */
         fragment_t *f;
         for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
             *f->start_pc = 0x0f;
             *(f->start_pc + 1) = 0x0b;
         }
-
+#endif
         /* it's possible for remove_from_lazy_deletion_list to drop the count */
         DODEBUG({
             if (todelete->lazy_delete_count <=
@@ -9428,8 +9430,11 @@ check_lazy_deletion_list(dcontext_t *dcontext, uint flushtime)
                 ASSERT(todelete->lazy_delete_list == NULL);
                 todelete->lazy_delete_tail = NULL;
             }
+#ifdef DEBUG
+            /* Raise a SIGILL if this fragment gets executed again! */
             *f->start_pc = 0x0f;
             *(f->start_pc + 1) = 0x0b;
+#endif
             fragment_delete(dcontext, f,
                             FRAGDEL_NO_OUTPUT | FRAGDEL_NO_UNLINK |
                             FRAGDEL_NO_HTABLE | FRAGDEL_NO_VMAREA);

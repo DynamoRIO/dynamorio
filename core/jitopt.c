@@ -153,10 +153,8 @@ typedef struct _dgc_fragment_intersection_t {
     uint bb_tag_max;
     app_pc *trace_tags;
     uint trace_tag_max;
-    fragment_t **fragments;
+    fragment_t **fragments; // maybe cache deletions in this array, but need dc per frag
     fragment_t *shared_deletion_list;
-    uint shared_deletion_index;
-    uint shared_deletion_max;
 } dgc_fragment_intersection_t;
 
 static dgc_fragment_intersection_t *fragment_intersection;
@@ -320,7 +318,7 @@ jitopt_init()
                                 (void *) annotation_unmanage_code_area, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
     dr_annotation_register_call(DYNAMORIO_ANNOTATE_FLUSH_FRAGMENTS_NAME,
-                                (void *) annotation_flush_fragments, false, 2,
+                                (void *) flush_jit_fragments, false, 2,
                                 DR_ANNOTATION_CALL_TYPE_FASTCALL);
 #endif
 #if !(defined (WINDOWS) && defined (X64))
@@ -354,8 +352,6 @@ jitopt_init()
     fragment_intersection->trace_tags =
         HEAP_ARRAY_ALLOC(GLOBAL_DCONTEXT, app_pc, fragment_intersection->trace_tag_max,
                          ACCT_OTHER, UNPROTECTED);
-    fragment_intersection->shared_deletion_index = 0;
-    fragment_intersection->shared_deletion_max = 0x20;
     dgc_removal_queue = HEAP_TYPE_ALLOC(GLOBAL_DCONTEXT, dgc_removal_queue_t,
                                         ACCT_OTHER, UNPROTECTED);
     dgc_removal_queue->index = 0;
@@ -535,7 +531,7 @@ flush_and_isolate_region(dcontext_t *dcontext, app_pc start, size_t len)
 }
 
 void
-annotation_flush_fragments(app_pc start, size_t len)
+flush_jit_fragments(app_pc start, size_t len)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
 
@@ -624,7 +620,7 @@ static ptr_uint_t
 valgrind_discard_translations(dr_vg_client_request_t *request)
 {
 # ifndef JIT_MONITORED_AREAS
-    annotation_flush_fragments((app_pc) request->args[0], request->args[1]);
+    flush_jit_fragments((app_pc) request->args[0], request->args[1]);
 # endif
     return 0;
 }
@@ -1445,7 +1441,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
      * fragment starting at the faulting write? */
     emulate_writer(mc, plan, offset, write_target, false/*simulate*/);
     if (!is_jit_self_write)
-        annotation_flush_fragments(write_target, plan->dst_size);
+        flush_jit_fragments(write_target, plan->dst_size);
 
     if (TEST(FRAG_CANNOT_DELETE, f->flags))
         return plan->resume_pc;
@@ -1470,6 +1466,8 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
             remove_from_all_threads(f);
             mutex_unlock(&thread_initexit_lock);
 
+            // TODO: squash trace if in construction
+
             enter_couldbelinking(dcontext, NULL, false);
             add_to_lazy_deletion_list(dcontext, f);
             RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1,
@@ -1491,7 +1489,7 @@ instrument_dgc_writer(dcontext_t *dcontext, priv_mcontext_t *mc, fragment_t *f, 
     return plan->resume_pc;
 }
 
-static void
+void
 emulate_dgc_write(app_pc writer_pc)
 {
     emulation_plan_t *plan;
@@ -1543,7 +1541,7 @@ emulate_dgc_write(app_pc writer_pc)
     ASSERT(!plan->is_jit_self_write);
 #endif
     if (!plan->is_jit_self_write)
-        annotation_flush_fragments(write_target, plan->dst_size);
+        flush_jit_fragments(write_target, plan->dst_size);
 }
 
 bool
@@ -1571,8 +1569,7 @@ apply_dgc_emulation_plan(dcontext_t *dcontext, OUT app_pc *pc, OUT instr_t **ins
     // with in-cache offsetting; skip clean call for plan->is_jit_self_write
     label = INSTR_CREATE_label(dcontext);
     label_data = instr_get_label_data_area(label);
-    label_data->data[0] = (ptr_uint_t) (void *) emulate_dgc_write;
-    label_data->data[1] = (ptr_uint_t) (void *) plan;
+    label_data->data[0] = (ptr_uint_t) (void *) plan;
     instr_set_note(label, (void *) DR_NOTE_DGC_OPTIMIZATION);
     instr_set_ok_to_mangle(label, false);
 
@@ -2963,7 +2960,7 @@ remove_patchable_fragments(dcontext_t *dcontext, app_pc patch_start, app_pc patc
 
     mutex_unlock(&thread_initexit_lock);
 
-    if (fragment_intersection->shared_deletion_index > 0) {
+    if (fragment_intersection->shared_deletion_list != NULL) {
         enter_couldbelinking(dcontext, NULL, false);
         add_to_lazy_deletion_list(dcontext, fragment_intersection->shared_deletion_list);
         enter_nolinking(dcontext, NULL, false);

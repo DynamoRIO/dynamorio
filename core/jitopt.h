@@ -91,7 +91,7 @@ void
 annotation_unmanage_code_area(app_pc start, size_t len);
 
 void
-annotation_flush_fragments(app_pc start, size_t len);
+flush_jit_fragments(app_pc start, size_t len);
 
 #ifdef JITOPT
 ptr_int_t

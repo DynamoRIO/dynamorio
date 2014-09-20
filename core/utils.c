@@ -2458,7 +2458,7 @@ memprot_string(uint prot)
 bool
 is_region_memset_to_char(byte *addr, size_t size, byte val)
 {
-    //return true;
+    return true;
 
     /* FIXME : we could make this much faster with arch specific implementation
      * (for x86 repe scasd w/proper alignment handling) */
