@@ -4778,6 +4778,13 @@ DR_API
  * underlying 32-bit or 64-bit binary interface convention ("cdecl"). Other
  * calling conventions, such as "fastcall" and "stdcall", are not supported.
  *
+ * This routine expects to be passed a number of arguments beyond \p
+ * num_args equal to the value of \p num_args.  Each of those
+ * arguments is a parameter to pass to the clean call, in the order
+ * passed to this routine.  Each argument should be of type #opnd_t
+ * and will be copied into the proper location for that argument
+ * slot as specified by the calling convention.
+ *
  * Stores the application state information on the DR stack, where it can
  * be accessed from \c callee using dr_get_mcontext() and modified using
  * dr_set_mcontext().
