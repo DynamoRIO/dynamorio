@@ -392,13 +392,20 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                 /* Attempt to make things work for non-interactive users (i#939) */
                 if (!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
                     !env_var_exists("TEMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir))) {
+                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir))) {
 #ifdef WINDOWS
+                    /* There is no straightforward hardcoded fallback for temp dirs
+                     * on Windows.  But for that reason even a sandbox will leave
+                     * TMP and/or TEMP set so we don't expect to hit this case.
+                     */
                     return false;
 #else
+                    /* Prefer /tmp to PWD as the former is more likely writable */
                     strncpy(dir, "/tmp", BUFFER_SIZE_ELEMENTS(dir));
                     NULL_TERMINATE_BUFFER(dir);
+                    if (!file_exists(dir) &&
+                        !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir)))
+                        return false;
 #endif
                 }
             }
@@ -434,6 +441,9 @@ get_config_file_name(const char *process_name,
                      size_t fname_len)
 {
     size_t dir_len;
+    /* i#939: we can't fall back to tmp dirs here b/c it's too late to set
+     * the DYNAMORIO_CONFIGDIR env var (child is already created).
+     */
     if (!get_config_dir(global, fname, fname_len, false)) {
         DO_ASSERT(false && "get_config_dir failed");
         return false;
@@ -1060,7 +1070,7 @@ dr_register_process(const char *process_name,
             return DR_PROC_REG_EXISTS;
         else
 # endif
-            return DR_FAILURE;
+            return DR_CONFIG_DIR_NOT_FOUND;
     }
 #endif
 
@@ -1926,6 +1936,6 @@ dr_get_config_dir(bool global,
          */
         return DR_SUCCESS;
     } else
-        return DR_FAILURE;
+        return DR_CONFIG_DIR_NOT_FOUND;
 }
 

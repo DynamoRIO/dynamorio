@@ -133,6 +133,12 @@ typedef enum {
     /** Client options contain invalid characters (';' or all 3 quotes). */
     DR_CONFIG_OPTIONS_INVALID,
 
+    /**
+     * Failed to locate a valid config dir.
+     * Consider calling dr_get_config_dir(, true, ,).
+     */
+    DR_CONFIG_DIR_NOT_FOUND,
+
 } dr_config_status_t;
 
 /** Allow targeting both 32-bit and native 64-bit processes separately. */
@@ -196,6 +202,9 @@ dr_config_status_code_to_string(dr_config_status_t code)
     case DR_NUDGE_PID_NOT_FOUND:
         msg = "target process id does not exist";
         break;
+    case DR_CONFIG_DIR_NOT_FOUND:
+        msg = "failed to locate a valid config directory";
+        break;
     case DR_FAILURE:
         msg = "unknown failure";
         break;
@@ -213,6 +222,15 @@ DR_EXPORT
  * under DynamoRIO.  To register one or more clients, call
  * dr_register_client() subsequently.
  *
+ * In order to use local config files when the normal interactive user
+ * home directory environment variable (HOME on Linux or MacOS;
+ * USERPROFILE on Windows) is not set and when using one-step
+ * configure-and-run (i.e., when \p pid != 0), call
+ * dr_get_config_dir() prior to creating the child process (and prior
+ * to calling this routine) and pass true for \p alternative_local.
+ * For multi-step, the caller must set the DYNAMORIO_CONFIGDIR
+ * environment variable before calling this routine.
+ *
  * \param[in]   process_name    A NULL-terminated string specifying the name
  *                              of the target process.  The string should
  *                              identify the base name of the process, not the
@@ -220,8 +238,8 @@ DR_EXPORT
  *
  * \param[in]   pid             A process id of a target process, typically just
  *                              created and suspended via dr_inject_process_exit().
- *                              If pid != 0, a one-time configuration is created
- *                              just for it.  If pid == 0, a general configuration
+ *                              If \p pid != 0, a one-time configuration is created
+ *                              just for it.  If \p pid == 0, a general configuration
  *                              is created for all future instances of process_name.
  *
  * \param[in]   global          Whether to use global or user-local config
@@ -264,7 +282,7 @@ DR_EXPORT
  * After registration, a process will run under DynamoRIO when launched by the
  * drinject tool or using drinjectlib.  Note that some processes may require a
  * system reboot to restart.  Process registration that is not specific to one
- * pid (i.e., if pid == 0) persists across reboots until explicitly
+ * pid (i.e., if \p pid == 0) persists across reboots until explicitly
  * unregistered.
  */
 dr_config_status_t
@@ -1015,7 +1033,8 @@ DR_EXPORT
  * home directory environment variable (HOME on Linux or MacOS; USERPROFILE on Windows)
  * is not set and when using one-step configure-and-run, call this routine prior
  * to creating the child process and pass true for \p alternative_local.  For
- * multi-step, the caller must set the DYNAMORIO_CONFIGDIR environment variable.
+ * multi-step, the caller must set the DYNAMORIO_CONFIGDIR environment variable
+ * (in the child process) to point at the resulting \p config_dir.
  *
  * \param[in]   global          Whether to use global or user-local config
  *                              files.  On Windows, global config files are
