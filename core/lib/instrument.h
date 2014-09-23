@@ -6068,9 +6068,9 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 
 DR_API
 /**
- * Create instructions for storing pointer-size integer \p val to \p dst,
+ * Create meta instructions for storing pointer-size integer \p val to \p dst,
  * and then insert them into \p ilist prior to \p where.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6080,9 +6080,9 @@ instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
 
 DR_API
 /**
- * Create instructions for pushing pointer-size integer \p val on the stack,
+ * Create meta instructions for pushing pointer-size integer \p val on the stack,
  * and then insert them into \p ilist prior to \p where.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6092,7 +6092,7 @@ instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
 
 DR_API
 /**
- * Create instructions for storing the address of \p src_inst to \p dst,
+ * Create meta instructions for storing the address of \p src_inst to \p dst,
  * and then insert them into \p ilist prior to \p where.
  * The \p encode_estimate parameter, used only for 64-bit mode,
  * indicates whether the final address of \p src_inst, when it is
@@ -6100,7 +6100,7 @@ DR_API
  * If the encoding will be in DynamoRIO's code cache, pass NULL.
  * If the final encoding location is unknown, pass a high address to be on
  * the safe side.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6111,7 +6111,7 @@ instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
 
 DR_API
 /**
- * Create instructions for pushing the address of \p src_inst on the stack,
+ * Create meta instructions for pushing the address of \p src_inst on the stack,
  * and then insert them into \p ilist prior to \p where.
  * The \p encode_estimate parameter, used only for 64-bit mode,
  * indicates whether the final address of \p src_inst, when it is
@@ -6119,7 +6119,7 @@ DR_API
  * If the encoding will be in DynamoRIO's code cache, pass NULL.
  * If the final encoding location is unknown, pass a high address to be on
  * the safe side.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
