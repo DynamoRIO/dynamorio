@@ -7598,7 +7598,10 @@ query_memory_ex_from_os(const byte *pc, OUT dr_mem_info_t *info)
 {
     bool have_type = false;
     bool res = memquery_from_os(pc, info, &have_type);
-    if (res && !have_type) {
+    if (!res) {
+        /* No other failure types for now */
+        info->type = DR_MEMTYPE_ERROR;
+    } else if (res && !have_type) {
         /* We pass 0 instead of info->size b/c even if marked as +r we can still
          * get SIGBUS if beyond end of mmapped file: not uncommon if querying
          * in middle of library load before .bss fully set up (PR 528744).

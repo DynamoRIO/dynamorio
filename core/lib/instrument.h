@@ -2261,8 +2261,13 @@ DR_API
  * Provides additional information beyond dr_query_memory().
  * Returns true if it was able to obtain information (including about
  * free regions) and sets the fields of \p info.  This routine can be
- * used to iterate over the entire address space.
- * Returns false on failure.
+ * used to iterate over the entire address space.  Such an iteration
+ * should stop on reaching the top of the address space, or on
+ * reaching kernel memory (look for #DR_MEMTYPE_ERROR_WINKERNEL) on
+ * Windows.
+ *
+ * Returns false on failure and sets info->type to a DR_MEMTYPE_ERROR*
+ * code indicating the reason for failure.
  *
  * \note To examine only application memory, skip memory for which
  * dr_memory_is_dr_internal() returns true.
