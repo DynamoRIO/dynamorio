@@ -1,9 +1,10 @@
 #ifdef WINDOWS
 compound arg std::nothrow_t has 0 field\(s\), size 1
-compound arg `anonymous-namespace'::HasFields has 3 field\(s\), size 8
+compound arg `anonymous-namespace'::HasFields has 4 field\(s\), size 12
   class field 0 is type 1 and size 4
   class field 1 is type 1 and size 1
   class field 2 is type 1 and size 2
+  class field 3 is type 6 and size 4
 compound arg `anonymous-namespace'::Foo has 1 field\(s\), size 1
   class field 0 is type 3 and size 0
     func has 1 args
@@ -47,11 +48,11 @@ drsyms-test\.appdll\.cpp:52!dll_public
 #if !(defined(WINDOWS) && defined(X64))
 drsyms-test\.appdll\.cpp:59!dll_static
 drsyms-test\.appdll\.cpp:65!dll_export
-drsyms-test\.cpp:74!.anonymous namespace.::Foo::Bar
-drsyms-test\.cpp:81!exe_export
-drsyms-test\.cpp:87!exe_public
-drsyms-test\.cpp:93!exe_static
-drsyms-test\.cpp:179!main
+drsyms-test\.cpp:75!.anonymous namespace.::Foo::Bar
+drsyms-test\.cpp:82!exe_export
+drsyms-test\.cpp:88!exe_public
+drsyms-test\.cpp:94!exe_static
+drsyms-test\.cpp:180!main
 #endif
 overloaded: 1
 overloaded: 2

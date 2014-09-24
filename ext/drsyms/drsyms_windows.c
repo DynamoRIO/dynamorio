@@ -1260,6 +1260,29 @@ decode_base_type(type_query_t *query, ULONG type_idx, uint expand_sub,
 }
 
 static drsym_error_t
+decode_array_type(type_query_t *query, ULONG type_idx, uint expand_sub,
+                  drsym_type_t **type_out OUT)
+{
+    DWORD type_id; /* BasicType */
+    ULONG64 length;
+    drsym_ptr_type_t *array_type;
+    array_type = POOL_ALLOC(&query->pool, drsym_ptr_type_t);
+    if (array_type == NULL)
+        return DRSYM_ERROR_NOMEM;
+    /* get array length */
+    if (!get_type_info(query->base, type_idx, TI_GET_LENGTH, &length))
+        return DRSYM_ERROR;
+    array_type->type.size = (size_t)length;
+    array_type->type.kind = DRSYM_TYPE_ARRAY;
+    array_type->type.id = type_idx;
+    /* get basic type of array elements */
+    if (!get_type_info(query->base, type_idx, TI_GET_TYPEID, &type_id))
+        return DRSYM_ERROR;
+    *type_out = &array_type->type;
+    return decode_type(query, type_id, expand_sub, &array_type->elt_type);
+}
+
+static drsym_error_t
 decode_typedef(type_query_t *query, ULONG type_idx, uint expand_sub,
                drsym_type_t **type_out OUT)
 {
@@ -1422,6 +1445,9 @@ decode_type(type_query_t *query, ULONG type_idx, uint expand_sub,
         break;
     case SymTagPointerType:
         res = decode_ptr_type(query, type_idx, expand_sub, type_out);
+        break;
+    case SymTagArrayType:
+        res = decode_array_type(query, type_idx, expand_sub, type_out);
         break;
     case SymTagBaseType:
         res = decode_base_type(query, type_idx, expand_sub, type_out);
