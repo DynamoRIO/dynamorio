@@ -240,7 +240,7 @@ if (WIN32)
     message(STATUS "gcc not found: some Windows tests will be disabled")
   else (NOT GCC)
     # check gcc target architecture
-    execute_process(COMMAND gcc.exe -dumpmachine
+    execute_process(COMMAND ${GCC} -dumpmachine
       RESULT_VARIABLE cmd_result
       ERROR_VARIABLE cmd_err
       OUTPUT_VARIABLE cmd_out)
@@ -248,7 +248,10 @@ if (WIN32)
       set(GCC_IS64 ON)
     endif ()
     # check cygwin gcc
-    if (cmd_out MATCHES "cygwin")
+    if (cmd_out MATCHES "cygwin" OR
+        # cmake can't launch gcc.exe as it's a symlink to /etc/alternatives/gcc --
+        # we assume this error always means that it's that symlink:
+        cmd_result MATCHES "Access is denied")
       set(GCC_IS_CYGWIN ON)
     endif()
   endif (NOT GCC)
