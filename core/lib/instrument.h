@@ -1878,6 +1878,12 @@ DR_API
  * for a normal exit.  If bits 9..16 are not all zero, DR will send an
  * unhandled signal of that signal number instead of performing a normal
  * exit.
+ *
+ * \note Calling this from \p dr_init or from the primary thread's
+ * initialization event is not guaranteed to always work, as DR may
+ * invoke a thread exit event where a thread init event was never
+ * called.  We recommend using dr_abort() or waiting for full
+ * initialization prior to use of this routine.
  */
 void
 dr_exit_process(int exit_code);
