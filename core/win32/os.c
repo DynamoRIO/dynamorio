@@ -3030,8 +3030,8 @@ get_dynamorio_dll_preferred_base(void)
     return dynamo_dll_preferred_base;
 }
 
-/* IF_X64(ASSERT_NOT_IMPLEMENTED(false)) -- need to update */
-static app_pc highest_user_address = (app_pc)(ptr_uint_t)0x7ffeffff;
+static app_pc highest_user_address = (app_pc)(ptr_uint_t)
+    IF_X64_ELSE(0x000007fffffeffffLL, 0x7ffeffff);
 /* 0x7ffeffff on 2GB:2GB default */
 /* or 0xbffeffff with /3GB in boot.ini, */
 /* /userva switch may also change the actual value seen */
@@ -5009,8 +5009,16 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
     byte *alloc_base;
     int num_blocks = 0;
     ASSERT(info != NULL);
-    if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi))
+    if (query_virtual_memory(pb, &mbi, sizeof(mbi)) != sizeof(mbi)) {
+        /* Kernel memory returns STATUS_INVALID_PARAMETER.  We want to
+         * distinguish that from some other failure (i#1538).
+         */
+        if (!is_user_address((app_pc)pc))
+            info->type = DR_MEMTYPE_ERROR_WINKERNEL;
+        else
+            info->type = DR_MEMTYPE_ERROR;
         return false;
+    }
     if (mbi.State == MEM_FREE /* free memory doesn't have AllocationBase */ ||
         !get_real_base) {
         info->base_pc = mbi.BaseAddress;
@@ -5095,6 +5103,7 @@ query_memory_internal(const byte *pc, OUT dr_mem_info_t *info,
         } while (num_blocks < MAX_QUERY_VM_BLOCKS);
         ASSERT_CURIOSITY(num_blocks < MAX_QUERY_VM_BLOCKS);
     }
+    info->type = DR_MEMTYPE_ERROR;
     return false;
 }
 

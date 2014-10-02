@@ -557,7 +557,7 @@ href="../../samples/bbsize.c">../../samples/bbsize.c</a>.
 
 \ifnot vmsafe
 ********************
-\subsection sec_ex7 Use of Custom Client Statistics with the Windows GUI
+\subsection sec_drstats Use of Custom Client Statistics with the Windows GUI
 
 The new Windows GUI will display custom client statistics, if they are
 placed in shared memory with a certain name.  The sample <a

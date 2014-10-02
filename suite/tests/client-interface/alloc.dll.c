@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -472,6 +472,28 @@ void custom_unix_test(void)
 }
 #endif
 
+static
+void memory_iteration_test(void)
+{
+    dr_mem_info_t info;
+    byte *pc = NULL;
+    while (true) {
+        bool res = dr_query_memory_ex(pc, &info);
+        if (!res) {
+            ASSERT(info.type == DR_MEMTYPE_ERROR
+                   IF_WINDOWS(|| info.type == DR_MEMTYPE_ERROR_WINKERNEL));
+            if (info.type == DR_MEMTYPE_ERROR)
+                dr_fprintf(STDERR, "error: memory iteration failed\n");
+            break;
+        }
+        ASSERT(info.type != DR_MEMTYPE_ERROR
+               IF_WINDOWS(&& info.type != DR_MEMTYPE_ERROR_WINKERNEL));
+        if (POINTER_OVERFLOW_ON_ADD(pc, info.size))
+            break;
+        pc += info.size;
+    }
+}
+
 #ifdef UNIX
 static void
 calloc_test(void)
@@ -638,6 +660,7 @@ void dr_init(client_id_t id)
 #else
     custom_unix_test();
 #endif
+    memory_iteration_test();
 
     dr_register_bb_event(bb_event);
     dr_register_thread_init_event(thread_init_event);

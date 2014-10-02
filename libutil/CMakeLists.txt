@@ -181,5 +181,9 @@ else () #UNIX
 endif ()
 set(dr_frontend_srcs ${dr_frontend_srcs} dr_frontend_common.c)
 add_library(drfrontendlib STATIC ${dr_frontend_srcs})
+# XXX i#1409: we need dynamo_options and dynamorio_syscall for core/unix/*.
+# We'd like a small lib for that, but for now our best option is to use
+# drdecode.
+target_link_libraries(drfrontendlib drdecode)
 DR_export_target(drfrontendlib)
 install_exported_target(drfrontendlib ${INSTALL_BIN})

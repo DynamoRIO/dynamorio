@@ -123,7 +123,7 @@ const char *usage_str =
 #ifdef DRCONFIG
     "USAGE: "TOOLNAME" [options]\n"
     "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -c <client> [client options]\n"
-    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -t <tool> [tool options]";
+    "   or: "TOOLNAME" [options] [-ops \"<DR options>\"] -t <tool> [tool options]\n";
 #elif defined(DRRUN) || defined (DRINJECT)
     "USAGE: "TOOLNAME" [options] <app and args to run>\n"
     "   or: "TOOLNAME" [options] -- <app and args to run>\n"
@@ -139,7 +139,7 @@ const char *usage_str =
 
 const char *options_list_str =
     "\n"TOOLNAME" options (these are distinct from DR runtime options):\n"
-    "       -v                 Display version information\n"
+    "       -version           Display version information\n"
     "       -verbose           Display additional information\n"
     "       -quiet             Do not display warnings\n"
     "       -nocheck           Do not fail due to invalid DynamoRIO installation or app\n"
@@ -203,7 +203,9 @@ const char *options_list_str =
     "                           until the -- arg before the app are interpreted as\n"
     "                           client options.  Must come after all drrun and DR\n"
     "                           ops.  Incompatible with -client.  Requires using --\n"
-    "                           to separate the app executable.\n"
+    "                           to separate the app executable.  Neither the path nor\n"
+    "                           the options may contain semicolon characters or\n"
+    "                           all 3 quote characters (\", \', `).\n"
     "\n"
     "       -client <path> <ID> \"<options>\"\n"
     "                          Use -c instead, unless you need to set the client ID.\n"
@@ -216,11 +218,13 @@ const char *options_list_str =
     "                          can be installed via multiple -client options.  In\n"
     "                          this case, clients specified first on the command\n"
     "                          line have higher priority.  Neither the path nor\n"
-    "                          the options may contain semicolon characters.\n"
+    "                          the options may contain semicolon characters or\n"
+    "                          all 3 quote characters (\", \', `).\n"
     "                          This option must precede any options to DynamoRIO.\n"
 #endif
 #ifdef DRCONFIG
     "\n"
+# ifdef WINDOWS
     "       Note that nudging 64-bit processes is not yet supported.\n"
     "       -nudge <process> <client ID> <argument>\n"
     "                          Nudge the client with ID <client ID> in all running\n"
@@ -244,7 +248,11 @@ const char *options_list_str =
     "                          finish before continuing.  The default is an infinite\n"
     "                          wait.  A value of 0 means don't wait for nudges to\n"
     "                          complete."
-#else
+# else /* WINDOWS */
+    /* FIXME i#840: integrate nudgeunix into drconfig on Unix */
+    "Note: please use the nudgeunix tool to nudge processes on Unix.\n";
+# endif /* !WINDOWS */
+#else /* DRCONFIG */
     "       -no_wait           Return immediately: do not wait for application exit.\n"
     "       -s <seconds>       Kill the application if it runs longer than the\n"
     "                          specified number of seconds.\n"
@@ -273,7 +281,7 @@ const char *options_list_str =
     "       -exit0             Return a 0 exit code instead of the app's exit code.\n"
     "\n"
     "       <app and args>     Application command line to execute under DR.\n"
-#endif
+#endif /* !DRCONFIG */
     ;
 
 static bool
@@ -368,7 +376,8 @@ read_tool_list(const char *dr_root, dr_platform_t dr_platform)
 }
 
 #define usage(list_ops, msg, ...) do {                          \
-    fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);       \
+    if ((msg)[0] != '\0')                                       \
+      fprintf(stderr, "ERROR: " msg "\n\n", ##__VA_ARGS__);     \
     fprintf(stderr, "%s", usage_str);                           \
     print_tool_list();                                          \
     if (list_ops) {                                             \
@@ -579,6 +588,10 @@ bool register_client(const char *process_name,
     if (status != DR_SUCCESS) {
         if (status == DR_CONFIG_STRING_TOO_LONG) {
             error("client %s registration failed: option string too long: \"%s\"",
+                  path == NULL ? "<null>" : path, options);
+        } else if (status == DR_CONFIG_OPTIONS_INVALID) {
+            error("client %s registration failed: options cannot contain ';' or all "
+                  "3 quote types: %s",
                   path == NULL ? "<null>" : path, options);
         } else {
             error("client %s registration failed with error code %d",
@@ -1133,7 +1146,7 @@ int main(int argc, char *argv[])
         else if (strcmp(argv[i], "-help") == 0 ||
                  strcmp(argv[i], "--help") == 0 ||
                  strcmp(argv[i], "-h") == 0) {
-            usage(true, "missing required arguments");
+            usage(true, ""/* no error msg */);
             continue;
         }
         /* all other flags have an argument -- make sure it exists */

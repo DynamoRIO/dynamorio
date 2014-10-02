@@ -4682,8 +4682,9 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
     PRE(ilist, get_addr_at,
         SAVE_TO_DC_OR_TLS(dcontext, REG_XBX, TLS_XBX_SLOT, XBX_OFFSET));
     /* XXX: Basically reimplementing drutil_insert_get_mem_addr(). */
-    /* FIXME: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
+    /* FIXME i#986: Sandbox far writes.  Not a hypothetical problem!  NaCl uses
      * segments for its x86 sandbox, although they are 0 based with a limit.
+     * qq.exe has them in sandboxed code.
      */
     ASSERT_CURIOSITY(!opnd_is_far_memory_reference(op) ||
                      /* Standard far refs */

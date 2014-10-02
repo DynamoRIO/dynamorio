@@ -98,7 +98,13 @@
 /****************************************************/
 #elif defined(ASSEMBLE_WITH_MASM)
 # ifdef X64
-#  define START_FILE .CODE
+#  define START_FILE \
+/* We add blank lines to match the 32-bit line count */ \
+/* match .686 */  @N@\
+/* match .XMM */  @N@\
+/* match .MODEL */@N@\
+/* match ASSUME */@N@\
+.CODE
 # else
 #  define START_FILE \
 .686 /* default is 8086! need 686 for sysenter */ @N@\
@@ -143,8 +149,8 @@ ASSUME fs:_DATA @N@\
 #  define END_PROLOG .endprolog
 # else
 #  define DECLARE_FUNC_SEH(symbol) DECLARE_FUNC(symbol)
-#  define PUSH_SEH(reg) push reg
-#  define PUSH_NONCALLEE_SEH(reg) push reg
+#  define PUSH_SEH(reg) push reg @N@ /* add a line to match x64 line count */
+#  define PUSH_NONCALLEE_SEH(reg) push reg @N@ /* add a line to match x64 line count */
 #  define END_PROLOG /* nothing */
 # endif
 /****************************************************/

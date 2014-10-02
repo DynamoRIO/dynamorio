@@ -392,13 +392,20 @@ get_config_dir(bool global, char *fname, size_t fname_len, bool find_temp)
                 /* Attempt to make things work for non-interactive users (i#939) */
                 if (!env_var_exists("TMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
                     !env_var_exists("TEMP", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir)) &&
-                    !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir))) {
+                    !env_var_exists("TMPDIR", dir, BUFFER_SIZE_ELEMENTS(dir))) {
 #ifdef WINDOWS
+                    /* There is no straightforward hardcoded fallback for temp dirs
+                     * on Windows.  But for that reason even a sandbox will leave
+                     * TMP and/or TEMP set so we don't expect to hit this case.
+                     */
                     return false;
 #else
+                    /* Prefer /tmp to PWD as the former is more likely writable */
                     strncpy(dir, "/tmp", BUFFER_SIZE_ELEMENTS(dir));
                     NULL_TERMINATE_BUFFER(dir);
+                    if (!file_exists(dir) &&
+                        !env_var_exists("PWD", dir, BUFFER_SIZE_ELEMENTS(dir)))
+                        return false;
 #endif
                 }
             }
@@ -434,6 +441,9 @@ get_config_file_name(const char *process_name,
                      size_t fname_len)
 {
     size_t dir_len;
+    /* i#939: we can't fall back to tmp dirs here b/c it's too late to set
+     * the DYNAMORIO_CONFIGDIR env var (child is already created).
+     */
     if (!get_config_dir(global, fname, fname_len, false)) {
         DO_ASSERT(false && "get_config_dir failed");
         return false;
@@ -806,7 +816,7 @@ read_options(opt_info_t *opt_info, IF_REG_ELSE(ConfigGroup *proc_policy, FILE *f
 /* Write the options stored in an opt_info_t to 'wbuf' in the form expected
  * by the DYNAMORIO_OPTIONS registry entry.
  */
-static void
+static dr_config_status_t
 write_options(opt_info_t *opt_info, TCHAR *wbuf)
 {
     size_t i;
@@ -874,14 +884,30 @@ write_options(opt_info_t *opt_info, TCHAR *wbuf)
     /* client lib options */
     for (i=0; i<opt_info->num_clients; i++) {
         client_opt_t *client_opts = opt_info->client_opts[i];
+        /* i#1542: pick a delimiter that avoids conflicts w/ the client strings */
+        char delim = '\"';
+        if (strchr(client_opts->path, delim) || strchr(client_opts->opts, delim)) {
+             delim = '\'';
+             if (strchr(client_opts->path, delim) || strchr(client_opts->opts, delim)) {
+                 delim = '`';
+                 if (strchr(client_opts->path, delim) ||
+                     strchr(client_opts->opts, delim)) {
+                     return DR_CONFIG_OPTIONS_INVALID;
+                 }
+             }
+        }
+        /* no ; allowed */
+        if (strchr(client_opts->path, ';') || strchr(client_opts->opts, ';'))
+            return DR_CONFIG_OPTIONS_INVALID;
         len = _sntprintf(wbuf + sofar, bufsz - sofar,
-                         _TEXT(" -client_lib \"%s;%x;%s\""),
-                         client_opts->path, client_opts->id, client_opts->opts);
+                         _TEXT(" -client_lib %c%s;%x;%s%c"), delim,
+                         client_opts->path, client_opts->id, client_opts->opts, delim);
         if (len >= 0 && len <= bufsz - sofar)
             sofar += len;
     }
 
     wbuf[DR_MAX_OPTIONS_LENGTH-1] = L'\0';
+    return DR_SUCCESS;
 }
 
 #ifdef PARAMS_IN_REGISTRY
@@ -1044,7 +1070,7 @@ dr_register_process(const char *process_name,
             return DR_PROC_REG_EXISTS;
         else
 # endif
-            return DR_FAILURE;
+            return DR_CONFIG_DIR_NOT_FOUND;
     }
 #endif
 
@@ -1095,7 +1121,9 @@ dr_register_process(const char *process_name,
     /* set the options string last for faster updating w/ config files */
     opt_info.mode = dr_mode;
     add_extra_option_char(&opt_info, dr_options);
-    write_options(&opt_info, wbuf);
+    status = write_options(&opt_info, wbuf);
+    if (status != DR_SUCCESS)
+        return status;
     status = write_config_param(IF_REG_ELSE(proc_policy, f),
                                 PARAM_STR(DYNAMORIO_VAR_OPTIONS), wbuf);
     free_opt_info(&opt_info);
@@ -1668,7 +1696,9 @@ dr_register_client(const char *process_name,
     }
 
     /* write the registry */
-    write_options(&opt_info, new_opts);
+    status = write_options(&opt_info, new_opts);
+    if (status != DR_SUCCESS)
+        goto exit;
 #ifndef PARAMS_IN_REGISTRY
     /* shift rest of file up, overwriting old value, so we can append new value */
     read_config_ex(f, DYNAMORIO_VAR_OPTIONS, NULL, 0, true);
@@ -1906,6 +1936,6 @@ dr_get_config_dir(bool global,
          */
         return DR_SUCCESS;
     } else
-        return DR_FAILURE;
+        return DR_CONFIG_DIR_NOT_FOUND;
 }
 
