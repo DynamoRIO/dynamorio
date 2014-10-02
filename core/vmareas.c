@@ -9257,7 +9257,7 @@ move_lazy_list_to_pending_delete(dcontext_t *dcontext)
     mutex_lock(&lazy_delete_lock);
     if (todelete->move_pending) {
 #ifdef DEBUG
-            /* Raise a SIGILL if this fragment gets executed again! */
+        /* Raise a SIGILL if this fragment gets executed again! */
         fragment_t *f;
         for (f = todelete->lazy_delete_list; f != NULL; f = f->next_vmarea) {
             *f->start_pc = 0x0f;
@@ -10875,6 +10875,8 @@ handle_modified_code(dcontext_t *dcontext, priv_mcontext_t *mc, cache_pc instr_c
             */
 
             return resume_pc;
+        //} else {
+        //    return instr_app_pc;
         }
     }
 #endif

@@ -3101,8 +3101,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
             bb->instr_start = bb->cur_pc;
             ASSERT(bb->instr_start >= non_cti_start_pc);
 #ifdef JITOPT
-            if (bb->for_cache && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
-                                                          &dgc_writer_instrumentation)) {
+            if (bb->app_interp && apply_dgc_emulation_plan(dcontext, &bb->cur_pc,
+                                                           &dgc_writer_instrumentation)) {
                 bb->is_dgc_instrumented = true;
                 if (!bb->full_decode && bb->instr_start != non_cti_start_pc) {
                     /* instr now holds the cti, so create an instr_t for the non-cti */
@@ -4803,6 +4803,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
     f = emit_fragment_ex(dcontext, start, bb.ilist, bb.flags, bb.vmlist, link, visible);
     KSTOP(bb_emit);
 
+#ifdef JITOPT
     if (bb.is_dgc_instrumented) {
         extern bool verbose;
         RELEASE_LOG(THREAD, LOG_ANNOTATIONS, 1, "DGC: bb "PFX"-"PFX" is instrumented at cache pc "
@@ -4812,6 +4813,7 @@ build_basic_block_fragment(dcontext_t *dcontext, app_pc start, uint initial_flag
             instrlist_disassemble(dcontext, bb.start_pc, bb.ilist, STDERR);
         }
     }
+#endif
 
 #ifdef CUSTOM_TRACES_RET_REMOVAL
     f->num_calls = dcontext->num_calls;
