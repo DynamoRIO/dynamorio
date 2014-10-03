@@ -247,6 +247,7 @@ enum {
     DRSYM_TYPE_FUNC,   /**< Function, cast to drsym_func_type_t. */
     DRSYM_TYPE_VOID,   /**< Void.  No further information. */
     DRSYM_TYPE_COMPOUND, /**< Struct, union, or class; cast to drsym_compound_type_t. */
+    DRSYM_TYPE_ARRAY,   /** <Array cast to drsym_array_type_t. */
     /* Additional type kinds will be added as needed. */
 };
 
@@ -284,7 +285,7 @@ typedef struct _drsym_int_type_t {
     bool is_signed;
 } drsym_int_type_t;
 
-/** Type information for a pointer type. */
+/** Type information for a pointer & array types. */
 typedef struct _drsym_ptr_type_t {
     drsym_type_t type;
     drsym_type_t *elt_type;

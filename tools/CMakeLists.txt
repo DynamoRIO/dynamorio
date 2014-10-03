@@ -191,9 +191,10 @@ foreach (deploytgt drconfig drrun drinject)
   endif ()
   target_link_libraries(${deploytgt} drconfiglib drfrontendlib)
   add_rel_rpaths(${deploytgt} drconfiglib)
-  # XXX i#1409c#2: For now drfrontendlib is dependent on drinjectlib
-  target_link_libraries(${deploytgt} drinjectlib)
-  add_rel_rpaths(${deploytgt} drinjectlib)
+  if (NOT ${deploytgt} MATCHES "drconfig")
+    target_link_libraries(${deploytgt} drinjectlib)
+    add_rel_rpaths(${deploytgt} drinjectlib)
+  endif ()
 endforeach ()
 
 if (DEFINED DR_INSTALL_DEPLOY_BIN_DEST)

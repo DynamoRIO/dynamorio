@@ -94,6 +94,8 @@ drutil_exit(void)
 /* Could be optimized to have scratch==dst for many common cases, but
  * need way to get a 2nd reg for corner cases: simpler to ask caller
  * to give us scratch reg distinct from dst
+ * XXX: however, this means that a client must spill the scratch reg
+ * every time, even though it's only used for far or xlat memref.
  *
  * XXX: provide a version that calls clean call?  would have to hardcode
  * what gets included: memory size?  perhaps should try to create a

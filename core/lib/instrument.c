@@ -1227,6 +1227,13 @@ instrument_thread_exit_event(dcontext_t *dcontext)
         return;
     }
 #endif
+
+    /* i#1394: best-effort to try to avoid crashing thread exit events
+     * where thread init was never called.
+     */
+    if (!dynamo_initialized)
+        return;
+
     /* support dr_get_mcontext() from the exit event */
     dcontext->client_data->mcontext_in_dcontext = true;
     /* Note - currently own initexit lock when this is called (see PR 227619). */

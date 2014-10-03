@@ -2320,7 +2320,7 @@ syscall_wrapper_ilist(dcontext_t *dcontext,
 
         /* replace the call w/ a push */
         instrlist_append(ilist, INSTR_CREATE_push_imm
-                         (dcontext, OPND_CREATE_INTPTR((ptr_int_t)pc)));
+                         (dcontext, OPND_CREATE_INTPTR((ptr_int_t)*ret_pc)));
 
         /* the callee, inlined later in wrapper, or KiFastSystemCall */
         pc = (byte *) opnd_get_pc(instr_get_target(instr));

@@ -1878,6 +1878,12 @@ DR_API
  * for a normal exit.  If bits 9..16 are not all zero, DR will send an
  * unhandled signal of that signal number instead of performing a normal
  * exit.
+ *
+ * \note Calling this from \p dr_init or from the primary thread's
+ * initialization event is not guaranteed to always work, as DR may
+ * invoke a thread exit event where a thread init event was never
+ * called.  We recommend using dr_abort() or waiting for full
+ * initialization prior to use of this routine.
  */
 void
 dr_exit_process(int exit_code);
@@ -2261,8 +2267,13 @@ DR_API
  * Provides additional information beyond dr_query_memory().
  * Returns true if it was able to obtain information (including about
  * free regions) and sets the fields of \p info.  This routine can be
- * used to iterate over the entire address space.
- * Returns false on failure.
+ * used to iterate over the entire address space.  Such an iteration
+ * should stop on reaching the top of the address space, or on
+ * reaching kernel memory (look for #DR_MEMTYPE_ERROR_WINKERNEL) on
+ * Windows.
+ *
+ * Returns false on failure and sets info->type to a DR_MEMTYPE_ERROR*
+ * code indicating the reason for failure.
  *
  * \note To examine only application memory, skip memory for which
  * dr_memory_is_dr_internal() returns true.
@@ -3951,21 +3962,18 @@ DR_API
  * If called later, it will fail.
  *
  * Without calling this routine, dr_printf() and dr_fprintf() will not
- * print anything in a console window on Windows 7 or earlier.
+ * print anything in a console window on Windows 7 or earlier, nor will they
+ * print anything when running a graphical application.
  *
  * Even after calling this routine, there are significant limitations
  * to console printing support in DR:
  *
- *  - On Windows Vista and Windows 7, it does not work for
- *    64-bit applications.
- *  - On Windows versions prior to Vista, it does not work from
- *    the exit event.  Once the application terminates its state with
- *    csrss (toward the very end of ExitProcess), no output will show
- *    up on the console.  We have no good solution here yet as exiting
- *    early is not ideal.  Printing from the exit event works fine
- *    on Windows 8+.
- *  - It does not work at all from graphical applications, even when they are
- *    launched from a console.  This is true on Windows 8+ as well.
+ *  - On Windows 8.1, it does not work for graphical applications.
+ *  - On Windows versions prior to Vista, and for WOW64 applications
+ *    on Vista, it does not work from the exit event.  Once the
+ *    application terminates its state with csrss (toward the very end
+ *    of ExitProcess), no output will show up on the console.  We have
+ *    no good solution here yet as exiting early is not ideal.
  *  - In the future, with earliest injection (Issue 234), writing to the
  *    console may not work from the client init event on Windows 7 and
  *    earlier (it will work on Windows 8).
@@ -4780,6 +4788,13 @@ DR_API
  * The callee must use the standard C calling convention that matches the
  * underlying 32-bit or 64-bit binary interface convention ("cdecl"). Other
  * calling conventions, such as "fastcall" and "stdcall", are not supported.
+ *
+ * This routine expects to be passed a number of arguments beyond \p
+ * num_args equal to the value of \p num_args.  Each of those
+ * arguments is a parameter to pass to the clean call, in the order
+ * passed to this routine.  Each argument should be of type #opnd_t
+ * and will be copied into the proper location for that argument
+ * slot as specified by the calling convention.
  *
  * Stores the application state information on the DR stack, where it can
  * be accessed from \c callee using dr_get_mcontext() and modified using
@@ -6071,9 +6086,9 @@ dr_unregister_persist_patch(bool (*func_patch)(void *drcontext, void *perscxt,
 
 DR_API
 /**
- * Create instructions for storing pointer-size integer \p val to \p dst,
+ * Create meta instructions for storing pointer-size integer \p val to \p dst,
  * and then insert them into \p ilist prior to \p where.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6083,9 +6098,9 @@ instrlist_insert_mov_immed_ptrsz(void *drcontext, ptr_int_t val, opnd_t dst,
 
 DR_API
 /**
- * Create instructions for pushing pointer-size integer \p val on the stack,
+ * Create meta instructions for pushing pointer-size integer \p val on the stack,
  * and then insert them into \p ilist prior to \p where.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6095,7 +6110,7 @@ instrlist_insert_push_immed_ptrsz(void *drcontext, ptr_int_t val,
 
 DR_API
 /**
- * Create instructions for storing the address of \p src_inst to \p dst,
+ * Create meta instructions for storing the address of \p src_inst to \p dst,
  * and then insert them into \p ilist prior to \p where.
  * The \p encode_estimate parameter, used only for 64-bit mode,
  * indicates whether the final address of \p src_inst, when it is
@@ -6103,7 +6118,7 @@ DR_API
  * If the encoding will be in DynamoRIO's code cache, pass NULL.
  * If the final encoding location is unknown, pass a high address to be on
  * the safe side.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
@@ -6114,7 +6129,7 @@ instrlist_insert_mov_instr_addr(void *drcontext, instr_t *src_inst,
 
 DR_API
 /**
- * Create instructions for pushing the address of \p src_inst on the stack,
+ * Create meta instructions for pushing the address of \p src_inst on the stack,
  * and then insert them into \p ilist prior to \p where.
  * The \p encode_estimate parameter, used only for 64-bit mode,
  * indicates whether the final address of \p src_inst, when it is
@@ -6122,7 +6137,7 @@ DR_API
  * If the encoding will be in DynamoRIO's code cache, pass NULL.
  * If the final encoding location is unknown, pass a high address to be on
  * the safe side.
- * The created instructions are returned in \p first and \p second.
+ * The created meta instructions are returned in \p first and \p second.
  * Note that \p second may return NULL if only one instruction is created.
  */
 void
