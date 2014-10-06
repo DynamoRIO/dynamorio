@@ -2429,7 +2429,7 @@ get_pinsrw_entry(dcontext_t *dcontext)
 }
 #endif
 
-/* exported beyond x86/ */
+/* exported beyond arch/ */
 fcache_enter_func_t
 get_fcache_enter_shared_routine(dcontext_t *dcontext)
 {

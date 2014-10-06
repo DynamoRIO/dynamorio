@@ -634,7 +634,7 @@ GLOBAL_LABEL(FUNCNAME:)
  * initialize TLS segments, so the TLS is actually *shared* with the parent
  * (xref i#500).
  *
- * Copied from core/x86/x86.asm dynamorio_syscall.
+ * Copied from core/arch/x86.asm dynamorio_syscall.
  */
 #undef FUNCNAME
 #define FUNCNAME nolibc_syscall

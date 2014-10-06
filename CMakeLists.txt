@@ -1289,7 +1289,7 @@ configure_file(${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   ${BUILD_CMAKE}/cpp2asm_add_newlines.cmake COPYONLY)
 # we need to strip out the #include of configure.h
 # XXX: this should be a build-time rule as it depends on asm_defines.asm!
-file(READ "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm" str)
+file(READ "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm" str)
 string(REPLACE "#include \"configure.h\"" "" str "${str}")
 file(WRITE "${BUILD_CMAKE}/cpp2asm_defines.h" "${str}")
 
@@ -1571,7 +1571,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm\" str)
+DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
   string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
   file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 

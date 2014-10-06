@@ -282,7 +282,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set_per_config_ouput_to_match_single_config()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}) # tools.h
-include_directories(${PROJECT_SOURCE_DIR}/core/x86) # asm_defines.asm
+include_directories(${PROJECT_SOURCE_DIR}/core/arch) # asm_defines.asm
 
 # FIXME i#98: improve code so can set Wall/W4
 if (UNIX)
@@ -409,11 +409,11 @@ endif (UNIX)
 ##################################################
 
 set(asm_deps
-  "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
+  "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
 set(asm_defs
   -I "${CMAKE_CURRENT_SOURCE_DIR}" # tools.h
-  -I "${PROJECT_SOURCE_DIR}/core/x86") # asm_defines.asm
+  -I "${PROJECT_SOURCE_DIR}/core/arch") # asm_defines.asm
 
 # some tests need to link with tools.c and its embedded asm code
 set(tools_c ${CMAKE_CURRENT_SOURCE_DIR}/tools.c)

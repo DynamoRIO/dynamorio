@@ -32,9 +32,9 @@
 
 #include "../globals.h"
 #include "../hashtable.h"
-#include "../x86/instr.h"
-#include "../x86/instr_create.h"
-#include "../x86/decode_fast.h"
+#include "../arch/instr.h"
+#include "../arch/instr_create.h"
+#include "../arch/decode_fast.h"
 #include "utils.h"
 #include "annotations.h"
 

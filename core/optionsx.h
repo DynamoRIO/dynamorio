@@ -2676,9 +2676,9 @@ IF_RCT_IND_BRANCH(options->rct_ind_jump = OPTION_DISABLED;)
     OPTION_DEFAULT(liststring_t, ignore_assert_list,
         EMPTY_STRING, "convert into warnings these ;-separated assert identifiers")
      /* Should be an exact match of message after Internal Error.
-      * Most common ones look like 'x86/arch.c:142', but could also
-      * look like 'Not implemented @x86/arch.c:142' or
-      * 'Bug #4809 @x86/arch.c:145;Ignore message @x86/arch.c:146'
+      * Most common ones look like 'arch/arch.c:142', but could also
+      * look like 'Not implemented @arch/arch.c:142' or
+      * 'Bug #4809 @arch/arch.c:145;Ignore message @arch/arch.c:146'
       */
 
     /* needed primarily for CLIENT_INTERFACE but technically all configurations

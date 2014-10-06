@@ -40,7 +40,7 @@
 #include "../module_shared.h"
 #include "os_private.h"
 #include "os_exports.h"   /* os_get_dr_seg_base */
-#include "../x86/instr.h" /* SEG_GS/SEG_FS */
+#include "../arch/instr.h" /* SEG_GS/SEG_FS */
 #include "module.h"
 #include "module_private.h"
 #include "../heap.h"    /* HEAPACCT */

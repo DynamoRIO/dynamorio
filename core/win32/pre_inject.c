@@ -163,7 +163,7 @@ display_error(char *msg)
 typedef int (*int_func_t) ();
 typedef void (*void_func_t) ();
 
-/* in x86/x86.asm */
+/* in arch/x86.asm */
 extern int
 switch_modes_and_call(void_func_t func, void *arg1, void *arg2, void *arg3);
 
@@ -430,7 +430,7 @@ process_attach()
     ntdll_exit();
 }
 
-/* DLL entry point is in x86/pre_inject.asm */
+/* DLL entry point is in arch/pre_inject.asm */
 BOOL APIENTRY
 DllMain(HANDLE hModule, DWORD reason_for_call, LPVOID Reserved);
 

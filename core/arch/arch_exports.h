@@ -35,7 +35,7 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "arch_exports.h" -- x86-specific exported declarations
+/* file "arch_exports.h" -- arch-specific exported declarations
  *
  * References:
  *   "Intel Architecture Software Developer's Manual", 1999.

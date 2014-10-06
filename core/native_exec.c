@@ -183,7 +183,7 @@ native_exec_module_unload(module_area_t *ma)
 
 /* Clean call called on every fcache to native transition.  Turns on and off
  * asynch handling and updates some state.  Called from native bbs built by
- * build_native_exec_bb() in x86/interp.c.
+ * build_native_exec_bb() in arch/interp.c.
  *
  * N.B.: all the actions of this routine are mirrored in insert_enter_native(),
  * so any changes here should be mirrored there.

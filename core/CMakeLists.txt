@@ -44,13 +44,15 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
+set(ARCH_DIRNAME arch)
 set(asm_deps
-  "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm"
+  "${PROJECT_SOURCE_DIR}/core/${ARCH_DIRNAME}/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
-add_asm_target(x86/x86.asm x86_core_asm_src x86_core_asm_tgt "_core" "" "${asm_deps}")
-add_asm_target(x86/x86.asm x86_noncore_asm_src x86_noncore_asm_tgt "_noncore"
-  "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
-add_asm_target(x86/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
+add_asm_target(${ARCH_DIRNAME}/x86.asm arch_core_asm_src arch_core_asm_tgt
+  "_core" "" "${asm_deps}")
+add_asm_target(${ARCH_DIRNAME}/x86.asm arch_noncore_asm_src arch_noncore_asm_tgt
+  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
 set(CORE_SRCS
@@ -107,29 +109,28 @@ if (WIN32 AND NOT X64)
   set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
-set(ARCH_DIRNAME x86)
 set(ARCH_SRCS
-  x86/arch.c
-  x86/decode.c
-  x86/decode_table.c
-  x86/encode.c
-  x86/emit_utils.c
-  x86/instr.c
-  x86/interp.c
-  x86/proc.c
-  x86/mangle.c
-  x86/steal_reg.c
-  x86/x86_code.c
-  x86/disassemble.c
-  ${x86_core_asm_src}
-  x86/decode_fast.c
-  x86/optimize.c
-  x86/sideline.c
-  x86/retcheck.c
+  ${ARCH_DIRNAME}/arch.c
+  ${ARCH_DIRNAME}/decode.c
+  ${ARCH_DIRNAME}/decode_table.c
+  ${ARCH_DIRNAME}/encode.c
+  ${ARCH_DIRNAME}/emit_utils.c
+  ${ARCH_DIRNAME}/instr.c
+  ${ARCH_DIRNAME}/interp.c
+  ${ARCH_DIRNAME}/proc.c
+  ${ARCH_DIRNAME}/mangle.c
+  ${ARCH_DIRNAME}/steal_reg.c
+  ${ARCH_DIRNAME}/x86_code.c
+  ${ARCH_DIRNAME}/disassemble.c
+  ${arch_core_asm_src}
+  ${ARCH_DIRNAME}/decode_fast.c
+  ${ARCH_DIRNAME}/optimize.c
+  ${ARCH_DIRNAME}/sideline.c
+  ${ARCH_DIRNAME}/retcheck.c
   )
 
 if (X64)
-  set(ARCH_SRCS ${ARCH_SRCS} x86/x86_to_x64.c)
+  set(ARCH_SRCS ${ARCH_SRCS} ${ARCH_DIRNAME}/x86_to_x64.c)
 endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
@@ -206,7 +207,7 @@ if (UNIX)
     unix/preload.c
     config.c
     unix/os.c
-    ${x86_noncore_asm_src}
+    ${arch_noncore_asm_src}
     # i#1334: private string routines for libc independence
     string.c
     io.c
@@ -217,7 +218,7 @@ if (UNIX)
     unix/os.c  # for file_t interface
     string.c
     io.c
-    ${x86_noncore_asm_src}  # for dynamorio_syscall
+    ${arch_noncore_asm_src}  # for dynamorio_syscall
     )
   if (APPLE)
     set(INJECTOR_SRCS ${INJECTOR_SRCS} unix/module_macho.c)
@@ -260,7 +261,7 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/drmarker.c
-    ${x86_noncore_asm_src}
+    ${arch_noncore_asm_src}
     ${preinject_asm_src}
     win32/module_shared.c
     win32/resources.rc
@@ -275,7 +276,7 @@ else (UNIX)
     win32/ntdll.c
     win32/inject_shared.c
     win32/module_shared.c
-    ${x86_noncore_asm_src}
+    ${arch_noncore_asm_src}
     win32/resources.rc
     config.c
     win32/os.c
@@ -310,7 +311,7 @@ set_target_properties(dynamorio PROPERTIES
 add_gen_events_deps(dynamorio)
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(dynamorio ${x86_core_asm_tgt} ntimp_tgt)
+  add_dependencies(dynamorio ${arch_core_asm_tgt} ntimp_tgt)
 endif ()
 
 if (UNIX)
@@ -384,21 +385,21 @@ set_target_properties(${PRELOAD_NAME} PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY${location_suffix} "${preload_dest}")
 add_gen_events_deps(${PRELOAD_NAME})
 if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-  add_dependencies(${PRELOAD_NAME} ${x86_noncore_asm_tgt} ${preinject_asm_tgt})
+  add_dependencies(${PRELOAD_NAME} ${arch_noncore_asm_tgt} ${preinject_asm_tgt})
 endif ()
 
 # static decoding library
 add_library(drdecode
   instrlist.c
-  x86/decode.c
-  x86/decode_table.c
-  x86/encode.c
-  x86/instr.c
-  x86/disassemble.c
-  x86/decode_fast.c
-  x86/mangle.c
-  x86/decodelib.c
-  ${x86_noncore_asm_src}
+  ${ARCH_DIRNAME}/decode.c
+  ${ARCH_DIRNAME}/decode_table.c
+  ${ARCH_DIRNAME}/encode.c
+  ${ARCH_DIRNAME}/instr.c
+  ${ARCH_DIRNAME}/disassemble.c
+  ${ARCH_DIRNAME}/decode_fast.c
+  ${ARCH_DIRNAME}/mangle.c
+  ${ARCH_DIRNAME}/decodelib.c
+  ${arch_noncore_asm_src}
   )
 set_target_properties(drdecode PROPERTIES
   COMPILE_FLAGS "-DNOT_DYNAMORIO_CORE_PROPER -DSTANDALONE_DECODER")
@@ -407,7 +408,7 @@ if (UNIX)
 endif (UNIX)
 if (WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
   # for parallel build correctness we need a target dependence
-  add_dependencies(drdecode ${x86_noncore_asm_tgt})
+  add_dependencies(drdecode ${arch_noncore_asm_tgt})
 endif ()
 add_gen_events_deps(drdecode)
 
@@ -813,7 +814,7 @@ set_target_properties(drinjectlib PROPERTIES
 if (WIN32)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(drinjectlib ${x86_noncore_asm_tgt} ntimp_tgt)
+    add_dependencies(drinjectlib ${arch_noncore_asm_tgt} ntimp_tgt)
   endif ()
   set(drinjectlib_link_flags
     # not bothering with map files
@@ -858,7 +859,7 @@ if (BUILD_TESTS)
   add_gen_events_deps(unit_tests)
   if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
     # for parallel build correctness we need a target dependence
-    add_dependencies(unit_tests ${x86_core_asm_tgt} ntimp_tgt)
+    add_dependencies(unit_tests ${arch_core_asm_tgt} ntimp_tgt)
   endif ()
   set_target_properties(unit_tests PROPERTIES
     COMPILE_FLAGS "-DRC_IS_TEST -DSTANDALONE_UNIT_TEST"
