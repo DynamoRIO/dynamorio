@@ -37,7 +37,7 @@
 
 /* file "instr_list.c" */
 
-#include "globals.h"
+#include "../globals.h"
 #include "instrlist.h"
 #include "instr.h"
 #include <string.h>

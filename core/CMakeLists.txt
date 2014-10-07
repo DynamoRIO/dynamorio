@@ -67,7 +67,6 @@ set(CORE_SRCS
   config.c
   stats.c
   heap.c
-  instrlist.c
   monitor.c
   perfctr.c
   vmareas.c
@@ -116,6 +115,7 @@ set(ARCH_SRCS
   ${ARCH_DIRNAME}/encode.c
   ${ARCH_DIRNAME}/emit_utils.c
   ${ARCH_DIRNAME}/instr.c
+  ${ARCH_DIRNAME}/instrlist.c
   ${ARCH_DIRNAME}/interp.c
   ${ARCH_DIRNAME}/proc.c
   ${ARCH_DIRNAME}/mangle.c
@@ -390,7 +390,7 @@ endif ()
 
 # static decoding library
 add_library(drdecode
-  instrlist.c
+  ${ARCH_DIRNAME}/instrlist.c
   ${ARCH_DIRNAME}/decode.c
   ${ARCH_DIRNAME}/decode_table.c
   ${ARCH_DIRNAME}/encode.c
