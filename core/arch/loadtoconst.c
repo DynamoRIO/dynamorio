@@ -38,10 +38,10 @@
 #ifdef LOAD_TO_CONST
 
 #include "../globals.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
-#include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "disassemble.h"

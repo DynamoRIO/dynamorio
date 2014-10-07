@@ -49,10 +49,10 @@
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
-#include "instrlist.h"
 #include "instrument.h" /* for dr_insert_call() */
 #include "proc.h"
 #include <string.h> /* for memcpy */
+#include "../instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
 #ifdef DEBUG

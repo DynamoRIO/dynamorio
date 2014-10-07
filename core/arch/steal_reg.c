@@ -37,10 +37,10 @@
 /* x86/steal_reg.c */
 
 #include "../globals.h"
+#include "../instrlist.h"
 
 #include "arch.h"
 #include "instr.h"
-#include "instrlist.h"
 #include "steal_reg.h"
 #include "../fragment.h"
 

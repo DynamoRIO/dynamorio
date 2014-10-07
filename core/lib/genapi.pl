@@ -176,7 +176,7 @@ if ($header) {
 # by comments in the header files.
 @headers =
     (
-     "$core/arch/instrlist.h",
+     "$core/instrlist.h",
      "$core/lib/globals_shared.h", # defs
      "$core/globals.h",
      "$core/arch/arch_exports.h", # encode routines

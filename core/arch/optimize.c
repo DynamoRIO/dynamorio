@@ -45,10 +45,10 @@
 #ifdef INTERNAL /* around whole file */
 
 #include "../globals.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
-#include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "../fragment.h"

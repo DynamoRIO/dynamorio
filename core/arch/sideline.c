@@ -63,9 +63,9 @@
 #endif
 
 #include "sideline.h"
+#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
-#include "instrlist.h"
 #include "decode.h"
 #include "../fragment.h"
 #include "../emit.h"
