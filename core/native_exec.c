@@ -44,9 +44,9 @@
 #include "../globals.h"
 #include "../vmareas.h"
 #include "../module_shared.h"
-#include "../instrlist.h"
 #include "arch_exports.h"
 #include "instr.h"
+#include "instrlist.h"
 #include "decode_fast.h"
 #include "monitor.h"
 

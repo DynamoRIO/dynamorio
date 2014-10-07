@@ -41,10 +41,10 @@
  */
 
 #include "../globals.h"
-#include "../instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
+#include "instrlist.h"
 #include "decode.h"
 
 #include "../link.h"               /* for frag tag */

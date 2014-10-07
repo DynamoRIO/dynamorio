@@ -44,12 +44,12 @@
 #include "../fragment.h"
 #include "../emit.h"
 #include "../dispatch.h"
-#include "../instrlist.h"
 #include "../fcache.h"
 #include "../monitor.h" /* for trace_abort and monitor_data_t */
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
+#include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "disassemble.h"
