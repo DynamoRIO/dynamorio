@@ -44,13 +44,13 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
-set(ARCH_DIRNAME arch)
+set(ARCH_NAME x86)
 set(asm_deps
-  "${PROJECT_SOURCE_DIR}/core/${ARCH_DIRNAME}/asm_defines.asm"
+  "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
-add_asm_target(${ARCH_DIRNAME}/x86.asm arch_core_asm_src arch_core_asm_tgt
+add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
-add_asm_target(${ARCH_DIRNAME}/x86.asm arch_noncore_asm_src arch_noncore_asm_tgt
+add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src arch_noncore_asm_tgt
   "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
@@ -109,28 +109,28 @@ if (WIN32 AND NOT X64)
 endif (WIN32 AND NOT X64)
 
 set(ARCH_SRCS
-  ${ARCH_DIRNAME}/arch.c
-  ${ARCH_DIRNAME}/decode.c
-  ${ARCH_DIRNAME}/decode_table.c
-  ${ARCH_DIRNAME}/encode.c
-  ${ARCH_DIRNAME}/emit_utils.c
-  ${ARCH_DIRNAME}/instr.c
-  ${ARCH_DIRNAME}/instrlist.c
-  ${ARCH_DIRNAME}/interp.c
-  ${ARCH_DIRNAME}/proc.c
-  ${ARCH_DIRNAME}/mangle.c
-  ${ARCH_DIRNAME}/steal_reg.c
-  ${ARCH_DIRNAME}/x86_code.c
-  ${ARCH_DIRNAME}/disassemble.c
+  arch/arch.c
+  arch/decode.c
+  arch/decode_table.c
+  arch/encode.c
+  arch/emit_utils.c
+  arch/instr.c
+  arch/instrlist.c
+  arch/interp.c
+  arch/proc.c
+  arch/mangle.c
+  arch/steal_reg.c
+  arch/x86_code.c
+  arch/disassemble.c
   ${arch_core_asm_src}
-  ${ARCH_DIRNAME}/decode_fast.c
-  ${ARCH_DIRNAME}/optimize.c
-  ${ARCH_DIRNAME}/sideline.c
-  ${ARCH_DIRNAME}/retcheck.c
+  arch/decode_fast.c
+  arch/optimize.c
+  arch/sideline.c
+  arch/retcheck.c
   )
 
 if (X64)
-  set(ARCH_SRCS ${ARCH_SRCS} ${ARCH_DIRNAME}/x86_to_x64.c)
+  set(ARCH_SRCS ${ARCH_SRCS} arch/${ARCH_NAME}/x86_to_x64.c)
 endif (X64)
 
 # These custom commands are per-subdir so can't just place at top level
@@ -390,15 +390,15 @@ endif ()
 
 # static decoding library
 add_library(drdecode
-  ${ARCH_DIRNAME}/instrlist.c
-  ${ARCH_DIRNAME}/decode.c
-  ${ARCH_DIRNAME}/decode_table.c
-  ${ARCH_DIRNAME}/encode.c
-  ${ARCH_DIRNAME}/instr.c
-  ${ARCH_DIRNAME}/disassemble.c
-  ${ARCH_DIRNAME}/decode_fast.c
-  ${ARCH_DIRNAME}/mangle.c
-  ${ARCH_DIRNAME}/decodelib.c
+  arch/instrlist.c
+  arch/decode.c
+  arch/decode_table.c
+  arch/encode.c
+  arch/instr.c
+  arch/disassemble.c
+  arch/decode_fast.c
+  arch/mangle.c
+  arch/decodelib.c
   ${arch_noncore_asm_src}
   )
 set_target_properties(drdecode PROPERTIES
@@ -886,7 +886,7 @@ endif (BUILD_TESTS)
 # with /usr/include/link.h!
 include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
-  ${CMAKE_CURRENT_SOURCE_DIR}/${ARCH_DIRNAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
   )
 
