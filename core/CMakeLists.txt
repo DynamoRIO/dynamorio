@@ -124,7 +124,8 @@ set(ARCH_SRCS
   arch/${ARCH_NAME}/decode_fast.c
   arch/${ARCH_NAME}/encode.c
   arch/emit_utils.c
-  arch/instr.c
+  arch/opnd_shared.c
+  arch/instr_shared.c
   arch/instrlist.c
   arch/interp.c
   arch/proc.c
@@ -405,7 +406,8 @@ add_library(drdecode
   arch/${ARCH_NAME}/decode_table.c
   arch/${ARCH_NAME}/decode_fast.c
   arch/${ARCH_NAME}/encode.c
-  arch/instr.c
+  arch/opnd_shared.c
+  arch/instr_shared.c
   arch/disassemble.c
   arch/mangle.c
   arch/decodelib.c

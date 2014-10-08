@@ -184,6 +184,8 @@ if ($header) {
      "$core/os_shared.h",        # before instrument.h
      "$core/module_shared.h",    # before instrument.h
      "$core/lib/instrument.h",
+     "$core/arch/opcode.h",
+     "$core/arch/opnd.h",
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
      "$core/arch/instr_create.h",
@@ -557,7 +559,7 @@ sub process_header_line($)
                 $l =~ s/(OP_[a-zA-Z0-9_]*,) *\/\*[^\*]*\*\/(.*)/\1\2/;
             }
             # PR 227381: auto-insert doxygen comments for DR_REG_ enum lines w/o any
-            if ($file =~ "/instr.h" &&
+            if ($file =~ "/opnd.h" &&
                 $l =~ /^ *DR_[RS]EG_/ && $l !~ /\/\*\*</) {
                 $l =~ s|(DR_[RS]EG_)(\w+), *|\1\2, /**< The "\L\2" register. */\n    |g;
             }
