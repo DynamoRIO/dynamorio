@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -35,7 +35,7 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "instr_list.c" */
+/* file "instrlist.c" */
 
 #include "../globals.h"
 #include "instrlist.h"
@@ -457,4 +457,43 @@ void instrlist_append_instrlist(dcontext_t *dcontext,instrlist_t *ilist,
     instrlist_append(ilist,first);
     instrlist_init(appendee);
     instrlist_destroy(dcontext,appendee);
+}
+
+
+/* If has_instr_jmp_targets is true, this routine trashes the note field
+ * of each instr_t to store the offset in order to properly encode
+ * the relative pc for an instr_t jump target
+ */
+byte *
+instrlist_encode_to_copy(dcontext_t *dcontext, instrlist_t *ilist, byte *copy_pc,
+                         byte *final_pc, byte *max_pc, bool has_instr_jmp_targets)
+{
+    instr_t *inst;
+    int len = 0;
+    if (has_instr_jmp_targets || max_pc != NULL) {
+        /* must set note fields first with offset, or compute length */
+        for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
+            if (has_instr_jmp_targets)
+                instr_set_note(inst, (void *)(ptr_int_t)len);
+            len += instr_length(dcontext, inst);
+        }
+    }
+    if (max_pc != NULL &&
+        (copy_pc + len > max_pc || POINTER_OVERFLOW_ON_ADD(copy_pc, len)))
+        return NULL;
+    for (inst = instrlist_first(ilist); inst != NULL; inst = instr_get_next(inst)) {
+        byte *pc = instr_encode_to_copy(dcontext, inst, copy_pc, final_pc);
+        if (pc == NULL)
+            return NULL;
+        final_pc += pc - copy_pc;
+        copy_pc = pc;
+    }
+    return copy_pc;
+}
+
+byte *
+instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
+                 bool has_instr_jmp_targets)
+{
+    return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
 }
