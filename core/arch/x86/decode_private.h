@@ -319,7 +319,7 @@ struct _decode_info_t {
 /* operand types have 2 parts, type and size */
 enum {
     /* operand types */
-    TYPE_NONE,
+    TYPE_NONE, /* must be 0 for invalid_instr */
     TYPE_A, /* immediate that is absolute address */
     TYPE_B, /* vex.vvvv field selects general-purpose register */
     TYPE_C, /* reg of modrm selects control reg */

@@ -112,6 +112,7 @@ set(ARCH_SRCS
   arch/arch.c
   arch/decode.c
   arch/decode_table.c
+  arch/decode_shared.c
   arch/encode.c
   arch/emit_utils.c
   arch/instr.c
@@ -393,6 +394,7 @@ add_library(drdecode
   arch/instrlist.c
   arch/decode.c
   arch/decode_table.c
+  arch/decode_shared.c
   arch/encode.c
   arch/instr.c
   arch/disassemble.c
