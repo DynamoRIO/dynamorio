@@ -43,6 +43,7 @@
 #include "decode.h"
 #include "disassemble.h"
 #include "decode_fast.h"
+#include "x86/decode_private.h"
 
 #include <string.h> /* memcpy, memset */
 

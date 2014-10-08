@@ -42,6 +42,7 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
+#include "x86/decode_private.h"
 #include <string.h> /* for memcpy */
 
 /*
@@ -675,6 +676,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
     pc++;
 
     if (info->code == PREFIX_VEX_2B) {
+        CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
         /* fields are: R, vvvv, L, PP.  R is inverted. */
         vex_last = instr_byte;
         if (!TEST(0x80, vex_last))
@@ -684,6 +686,7 @@ read_vex(byte *pc, decode_info_t *di, byte instr_byte,
         /* rest are shared w/ 3-byte form's final byte */
     } else if (info->code == PREFIX_VEX_3B || info->code == PREFIX_XOP) {
         byte vex_mm;
+        CLIENT_ASSERT(info->type == PREFIX, "internal vex decoding error");
         /* fields are: R, X, B, m-mmmm.  R, X, and B are inverted. */
         if (!TEST(0x80, instr_byte))
             di->prefixes |= PREFIX_REX_R;

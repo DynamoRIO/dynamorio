@@ -55,8 +55,9 @@
 #include <string.h> /* for memcpy */
 #include "decode.h"
 #include "decode_fast.h"
+#include "x86/decode_private.h"
 #ifdef DEBUG
-#include "disassemble.h"
+# include "disassemble.h"
 #endif
 #include <limits.h> /* for UCHAR_MAX */
 #include "../perscache.h"

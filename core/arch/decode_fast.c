@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -44,6 +44,7 @@
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
+#include "x86/decode_private.h"
 #include "disassemble.h"
 
 #ifdef DEBUG

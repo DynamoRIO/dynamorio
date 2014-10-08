@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -51,6 +51,8 @@
 #include "instrlist.h"
 #include "decode.h"
 #include "decode_fast.h"
+/* XXX i#1551: eliminate PREFIX_{DATA,ADDR} refs and then remove this include */
+#include "x86/decode_private.h"
 #include "../fragment.h"
 #include "disassemble.h"
 #include "proc.h"

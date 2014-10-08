@@ -58,6 +58,8 @@
 #include "../link.h"
 #include "decode.h"
 #include "decode_fast.h"
+/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+#include "x86/decode_private.h"
 #include "instr_create.h"
 
 #include <string.h> /* for memcpy */
@@ -990,6 +992,9 @@ static bool
 opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
     opnd_size_t s1_default, s2_default;
+    /* XXX i#1551: add decode_info_init() or sthg, and expose resolve_variable_size(),
+     * to make this a cross-arch routine.
+     */
     decode_info_t di;
     if (s1 == s2)
         return true;

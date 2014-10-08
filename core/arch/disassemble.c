@@ -58,6 +58,8 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
+/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
+#include "x86/decode_private.h"
 #include "disassemble.h"
 #include "../module_shared.h"
 #include <string.h>
