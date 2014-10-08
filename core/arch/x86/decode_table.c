@@ -42,7 +42,7 @@
 #include "arch.h"    /* need this to include decode.h (byte, etc. */
 #include "instr.h" /* for REG_ constants */
 #include "decode.h"
-#include "x86/decode_private.h"
+#include "decode_private.h"
 
 /****************************************************************************
  * All code below based on tables in the ``Intel Architecture Software

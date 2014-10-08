@@ -44,7 +44,7 @@
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
-#include "x86/decode_private.h"
+#include "decode_private.h"
 #include "disassemble.h"
 
 #ifdef DEBUG
