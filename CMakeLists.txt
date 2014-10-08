@@ -176,7 +176,7 @@ if ("${INTERNAL}" STREQUAL "")
   set(INTERNAL ${INTERNAL_DEFAULT})
 endif()
 
-# target
+# The target OS:
 if (APPLE)
   set(MACOS 1)
 elseif (UNIX)
@@ -186,6 +186,15 @@ if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
 
+# The target architecture.
+# For cross-compilation this should still work as you're supposed to set this var.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(ARM 1)
+else ()
+  set(X86 1) # This means IA-32 or AMD64
+endif ()
+
+# The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for
 # Linux the user should set CFLAGS to -m32 or -m64

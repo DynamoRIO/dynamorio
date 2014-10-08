@@ -44,7 +44,15 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
-set(ARCH_NAME x86)
+if (X86)
+  set(ARCH_NAME x86)
+else ()
+  if (ARM)
+    set(ARCH_NAME arm)
+  else ()
+    message(FATAL_ERROR "Unknown architecture target")
+  endif ()
+endif ()
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
