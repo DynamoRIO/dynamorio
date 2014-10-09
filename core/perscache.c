@@ -863,7 +863,7 @@ coarse_unit_freeze(dcontext_t *dcontext, coarse_info_t *info, bool in_place)
     return res;
 }
 
-/* These decode-and-instr-using routines could go in x86/ as they assume that direct
+/* These decode-and-instr-using routines could go in arch/ as they assume that direct
  * jump operands are 4 bytes and are at the end of the instruction.
  */
 

@@ -44,6 +44,8 @@
 #cmakedefine STATIC_LIBRARY
 
 /* target */
+#cmakedefine X86
+#cmakedefine ARM
 #cmakedefine X64
 #cmakedefine WINDOWS
 #cmakedefine LINUX
@@ -215,9 +217,6 @@
 
 ###################################
 */
-
-/* only architecture we support (this is set for X64 as well) */
-#define X86
 
 #ifdef WINDOWS
    /* we do not support linking to libc.  we should probably remove

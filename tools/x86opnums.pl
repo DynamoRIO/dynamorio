@@ -32,7 +32,7 @@
 # DAMAGE.
 
 ### I use this script to add the numbers in comments in the OP_
-### enum in src/x86/instr.h
+### enum in src/arch/instr.h
 ### Instructions: send the modified enum from decode_table.c
 ### as stdin for this script, it sends to standard out the enum
 ### with the numbers re-calculated.

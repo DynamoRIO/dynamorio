@@ -65,7 +65,7 @@
  * Naturally the ARG* macros are only valid at function entry.
  */
 
-#include "asm_defines.asm"
+#include "../asm_defines.asm"
 START_FILE
 
 #ifdef UNIX

@@ -1398,7 +1398,7 @@ end_and_emit_trace(dcontext_t *dcontext, fragment_t *cur_f)
     });
 
     /* WARNING: if you change how optimizations are performed, you
-     * must change recreate_app_state in x86/arch.c as well
+     * must change recreate_app_state in arch/arch.c as well
      */
 
 #ifdef INTERNAL

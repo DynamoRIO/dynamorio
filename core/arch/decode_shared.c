@@ -1,0 +1,191 @@
+/* **********************************************************
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
+ * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
+ */
+
+/* Copyright (c) 2003-2007 Determina Corp. */
+/* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
+/* Copyright (c) 2001 Hewlett-Packard Company */
+
+/* decode_shared.c -- shared decoding data */
+
+#include "../globals.h"
+#include "arch.h"
+#include "instr.h"
+#include "decode.h"
+
+#if defined(DEBUG) && defined(CLIENT_INTERFACE)
+/* case 10450: give messages to clients */
+# undef ASSERT /* N.B.: if have issues w/ DYNAMO_OPTION, re-instate */
+# undef ASSERT_TRUNCATE
+# undef ASSERT_BITFIELD_TRUNCATE
+# undef ASSERT_NOT_REACHED
+# define ASSERT DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+# define ASSERT_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+# define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+# define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
+#endif
+
+const char * const size_names[] = {
+    "<invalid>"/* was <NULL> */,
+    "<invalid>"/* was rax */,  "<invalid>"/* was rcx */,
+    "<invalid>"/* was rdx */,  "<invalid>"/* was rbx */,
+    "<invalid>"/* was rsp */,  "<invalid>"/* was rbp */,
+    "<invalid>"/* was rsi */,  "<invalid>"/* was rdi */,
+    "<invalid>"/* was r8 */,   "<invalid>"/* was r9 */,
+    "<invalid>"/* was r10 */,  "<invalid>"/* was r11 */,
+    "<invalid>"/* was r12 */,  "<invalid>"/* was r13 */,
+    "<invalid>"/* was r14 */,  "<invalid>"/* was r15 */,
+    "<invalid>"/* was eax */,  "<invalid>"/* was ecx */,
+    "<invalid>"/* was edx */,  "<invalid>"/* was ebx */,
+    "<invalid>"/* was esp */,  "<invalid>"/* was ebp */,
+    "<invalid>"/* was esi */,  "<invalid>"/* was edi */,
+    "<invalid>"/* was r8d */,  "<invalid>"/* was r9d */,
+    "<invalid>"/* was r10d */, "<invalid>"/* was r11d */,
+    "<invalid>"/* was r12d */, "<invalid>"/* was r13d */,
+    "<invalid>"/* was r14d */, "<invalid>"/* was r15d */,
+    "<invalid>"/* was ax */,   "<invalid>"/* was cx */,
+    "<invalid>"/* was dx */,   "<invalid>"/* was bx */,
+    "<invalid>"/* was sp */,   "<invalid>"/* was bp */,
+    "<invalid>"/* was si */,   "<invalid>"/* was di */,
+    "<invalid>"/* was r8w */,  "<invalid>"/* was r9w */,
+    "<invalid>"/* was r10w */, "<invalid>"/* was r11w */,
+    "<invalid>"/* was r12w */, "<invalid>"/* was r13w */,
+    "<invalid>"/* was r14w */, "<invalid>"/* was r15w */,
+    "<invalid>"/* was al */,   "<invalid>"/* was cl */,
+    "<invalid>"/* was dl */,   "<invalid>"/* was bl */,
+    "<invalid>"/* was ah */,   "<invalid>"/* was ch */,
+    "<invalid>"/* was dh */,   "<invalid>"/* was bh */,
+    "<invalid>"/* was r8l */,  "<invalid>"/* was r9l */,
+    "<invalid>"/* was r10l */, "<invalid>"/* was r11l */,
+    "<invalid>"/* was r12l */, "<invalid>"/* was r13l */,
+    "<invalid>"/* was r14l */, "<invalid>"/* was r15l */,
+    "<invalid>"/* was spl */,  "<invalid>"/* was bpl */,
+    "<invalid>"/* was sil */,  "<invalid>"/* was dil */,
+    "<invalid>"/* was mm0 */,  "<invalid>"/* was mm1 */,
+    "<invalid>"/* was mm2 */,  "<invalid>"/* was mm3 */,
+    "<invalid>"/* was mm4 */,  "<invalid>"/* was mm5 */,
+    "<invalid>"/* was mm6 */,  "<invalid>"/* was mm7 */,
+    "<invalid>"/* was xmm0 */, "<invalid>"/* was xmm1 */,
+    "<invalid>"/* was xmm2 */, "<invalid>"/* was xmm3 */,
+    "<invalid>"/* was xmm4 */, "<invalid>"/* was xmm5 */,
+    "<invalid>"/* was xmm6 */, "<invalid>"/* was xmm7 */,
+    "<invalid>"/* was xmm8 */, "<invalid>"/* was xmm9 */,
+    "<invalid>"/* was xmm10 */,"<invalid>"/* was xmm11 */,
+    "<invalid>"/* was xmm12 */,"<invalid>"/* was xmm13 */,
+    "<invalid>"/* was xmm14 */,"<invalid>"/* was xmm15 */,
+    "<invalid>"/* was st0 */,  "<invalid>"/* was st1 */,
+    "<invalid>"/* was st2 */,  "<invalid>"/* was st3 */,
+    "<invalid>"/* was st4 */,  "<invalid>"/* was st5 */,
+    "<invalid>"/* was st6 */,  "<invalid>"/* was st7 */,
+    "<invalid>"/* was es */,   "<invalid>"/* was cs */,
+    "<invalid>"/* was ss */,   "<invalid>"/* was ds */,
+    "<invalid>"/* was fs */,   "<invalid>"/* was gs */,
+    "<invalid>"/* was dr0 */,  "<invalid>"/* was dr1 */,
+    "<invalid>"/* was dr2 */,  "<invalid>"/* was dr3 */,
+    "<invalid>"/* was dr4 */,  "<invalid>"/* was dr5 */,
+    "<invalid>"/* was dr6 */,  "<invalid>"/* was dr7 */,
+    "<invalid>"/* was dr8 */,  "<invalid>"/* was dr9 */,
+    "<invalid>"/* was dr10 */, "<invalid>"/* was dr11 */,
+    "<invalid>"/* was dr12 */, "<invalid>"/* was dr13 */,
+    "<invalid>"/* was dr14 */, "<invalid>"/* was dr15 */,
+    "<invalid>"/* was cr0 */,  "<invalid>"/* was cr1 */,
+    "<invalid>"/* was cr2 */,  "<invalid>"/* was cr3 */,
+    "<invalid>"/* was cr4 */,  "<invalid>"/* was cr5 */,
+    "<invalid>"/* was cr6 */,  "<invalid>"/* was cr7 */,
+    "<invalid>"/* was cr8 */,  "<invalid>"/* was cr9 */,
+    "<invalid>"/* was cr10 */, "<invalid>"/* was cr11 */,
+    "<invalid>"/* was cr12 */, "<invalid>"/* was cr13 */,
+    "<invalid>"/* was cr14 */, "<invalid>"/* was cr15 */,
+    "<invalid>"/* was <invalid> */,
+    "OPSZ_NA",
+    "OPSZ_lea",
+    "OPSZ_1",
+    "OPSZ_2",
+    "OPSZ_4",
+    "OPSZ_6",
+    "OPSZ_8",
+    "OPSZ_10",
+    "OPSZ_16",
+    "OPSZ_14",
+    "OPSZ_28",
+    "OPSZ_94",
+    "OPSZ_108",
+    "OPSZ_512",
+    "OPSZ_2_short1",
+    "OPSZ_4_short2",
+    "OPSZ_4_rex8_short2",
+    "OPSZ_4_rex8",
+    "OPSZ_6_irex10_short4",
+    "OPSZ_8_short2",
+    "OPSZ_8_short4",
+    "OPSZ_28_short14",
+    "OPSZ_108_short94",
+    "OPSZ_4x8",
+    "OPSZ_6x10",
+    "OPSZ_4x8_short2",
+    "OPSZ_4x8_short2xi8",
+    "OPSZ_4_short2xi4",
+    "OPSZ_1_reg4",
+    "OPSZ_2_reg4",
+    "OPSZ_4_reg16",
+    "OPSZ_xsave",
+    "OPSZ_12",
+    "OPSZ_32",
+    "OPSZ_40",
+    "OPSZ_32_short16",
+    "OPSZ_8_rex16",
+    "OPSZ_8_rex16_short4",
+    "OPSZ_12_rex40_short6",
+    "OPSZ_16_vex32",
+    "OPSZ_15",
+    "OPSZ_2_of_8",
+    "OPSZ_4_of_8",
+    "OPSZ_1_of_16",
+    "OPSZ_2_of_16",
+    "OPSZ_4_of_16",
+    "OPSZ_4_rex8_of_16",
+    "OPSZ_8_of_16",
+    "OPSZ_12_of_16",
+    "OPSZ_12_rex8_of_16",
+    "OPSZ_14_of_16",
+    "OPSZ_15_of_16",
+    "OPSZ_8_of_16_vex32",
+    "OPSZ_16_of_32",
+};
+
+/* point at this when you need a canonical invalid instr
+ * type is OP_INVALID so can be copied to instr->opcode
+ */
+#define xx  0 /* TYPE_NONE */, OPSZ_NA
+const instr_info_t invalid_instr =
+    {OP_INVALID,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
+#undef xx

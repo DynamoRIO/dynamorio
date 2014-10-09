@@ -151,10 +151,10 @@ internal_error(const char *file, int line, const char *expr)
          */
 
         /* Assert identifiers should be an exact match of message
-         * after Internal Error.  Most common look like 'x86/arch.c:142',
-         * but could also look like 'Not implemented @x86/arch.c:142'
-         * or 'Bug #4809 @x86/arch.c:145;Ignore message
-         * @x86/arch.c:146'
+         * after Internal Error.  Most common look like 'arch/arch.c:142',
+         * but could also look like 'Not implemented @arch/arch.c:142'
+         * or 'Bug #4809 @arch/arch.c:145;Ignore message
+         * @arch/arch.c:146'
          */
         snprintf(assert_stmt, BUFFER_SIZE_ELEMENTS(assert_stmt),
                  "%s:%d", file, line);

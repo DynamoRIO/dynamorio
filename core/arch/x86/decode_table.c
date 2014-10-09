@@ -42,6 +42,7 @@
 #include "arch.h"    /* need this to include decode.h (byte, etc. */
 #include "instr.h" /* for REG_ constants */
 #include "decode.h"
+#include "decode_private.h"
 
 /****************************************************************************
  * All code below based on tables in the ``Intel Architecture Software
@@ -1651,12 +1652,6 @@ const instr_info_t * const op_instr[] =
 #define tvex (ptr_int_t)&vex_extensions
 #define tvexw (ptr_int_t)&vex_W_extensions
 #define txop (ptr_int_t)&xop_extensions
-
-/* point at this when you need a canonical invalid instr
- * type is OP_INVALID so can be copied to instr->opcode
- */
-const instr_info_t invalid_instr =
-    {OP_INVALID,  0x000000, "(bad)", xx, xx, xx, xx, xx, no, x, NA};
 
 /****************************************************************************
  * One-byte opcodes

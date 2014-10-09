@@ -1589,13 +1589,13 @@ enum {
  *
  * If any field offsets are changed, or fields are added, update
  * the following:
- *   - OFFSET defines in x86/arch.h and their uses in fcache_{enter,return}
- *   - DR_MCONTEXT_SIZE and PUSH_DR_MCONTEXT in x86/x86.asm
- *   - clean call layout of dr_mcontext_t on the stack in x86/mangle.c
+ *   - OFFSET defines in arch/arch.h and their uses in fcache_{enter,return}
+ *   - DR_MCONTEXT_SIZE and PUSH_DR_MCONTEXT in arch/x86.asm
+ *   - clean call layout of dr_mcontext_t on the stack in arch/mangle.c
  *   - interception layout of dr_mcontext_t on the stack in win32/callback.c
  *   - context_to_mcontext (and vice versa) in win32/ntdll.c
  *   - sigcontext_to_mcontext (and vice versa) in unix/signal.c
- *   - dump_mcontext in x86/arch.c
+ *   - dump_mcontext in arch/arch.c
  *   - inject_into_thread in win32/inject.c
  * Also, hotp_context_t exposes the dr_mcontext_t struct to hot patches,
  * so be careful when changing any field offsets.

@@ -175,7 +175,7 @@ enum { MAX_FRAGMENT_SIZE = USHRT_MAX };
  * trace heads and traces extend it below
  */
 struct _fragment_t {
-    /* WARNING: the tag offset is assumed to be 0 in x86/emit_utils.c
+    /* WARNING: the tag offset is assumed to be 0 in arch/emit_utils.c
      * Also, next and flags' offsets must match future_fragment_t's
      * And flags' offset must match fcache.c's empty_slot_t as well as
      * vmarea.c's multi_entry_t structs
@@ -351,7 +351,7 @@ typedef struct _unprot_ht_statistics_t {
     hashtable_statistics_t trace_ibl_stats[IBL_BRANCH_TYPE_END];
     hashtable_statistics_t bb_ibl_stats[IBL_BRANCH_TYPE_END];
 
-    /* FIXME: this should really go to x86/arch.c instead of here */
+    /* FIXME: this should really go to arch/arch.c instead of here */
 # ifdef WINDOWS
     hashtable_statistics_t shared_syscall_hit_stats; /* miss path is shared with trace_ibl */
 #  endif
@@ -376,7 +376,7 @@ typedef struct _fragment_entry_t {
  * IBL targeted tables
  */
 /* Updates to these flags should be reflected in
- * x86/arch.c:table_flags_to_frag_flags() */
+ * arch/arch.c:table_flags_to_frag_flags() */
 #define FRAG_TABLE_INCLUSIVE_HIERARCHY   HASHTABLE_NOT_PRIMARY_STORAGE
 /* Set for IBL targeted tables, used in conjuction with FRAG_INCLUSIVE_HIERARCHY */
 #define FRAG_TABLE_IBL_TARGETED          HASHTABLE_LOCKLESS_ACCESS
@@ -1111,7 +1111,7 @@ void study_all_hashtables(dcontext_t *dcontext);
 #endif /* DEBUG */
 
 #ifdef HASHTABLE_STATISTICS
-/* in x86/interp.c */
+/* in arch/interp.c */
 int
 append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
                                    app_pc speculate_next_tag);

@@ -4749,7 +4749,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
     DOLOG(3, LOG_VMAREAS, { instrlist_disassemble(dcontext, addr, ilist, GLOBAL); });
 
 #ifndef X86
-    /* FIXME: move the x86-specific analysis to an x86/ file! */
+    /* FIXME: move the x86-specific analysis to an arch/ file! */
     ASSERT_NOT_IMPLEMENTED();
 #endif
 
@@ -4778,7 +4778,7 @@ check_origins_bb_pattern(dcontext_t *dcontext, app_pc addr, app_pc *base, size_t
      * all of these must be targeted by a call
      */
     if (instr_get_opcode(first) == OP_mov_imm ||
-        /* funny case where store of immed is mov_st -- see x86/decode_table.c */
+        /* funny case where store of immed is mov_st -- see arch/decode_table.c */
         (instr_get_opcode(first) == OP_mov_st &&
          opnd_is_immed(instr_get_src(first, 0)))) {
         bool ok = false;

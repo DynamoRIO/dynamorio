@@ -48,7 +48,7 @@
      * 64-bit machine, or a 32-byte or 64-byte cache line, they will
      * still be on the same line, assuming this struct is
      * cache-line-aligned (which it is if in dcontext).
-     * Any changes in order here must be mirrored in x86/x86.asm offsets.
+     * Any changes in order here must be mirrored in arch/x86.asm offsets.
      * UPDATE: actually we now use TLS for scratch slots.
      * See the list above of places that assume dr_mcxt_t layout.
      */

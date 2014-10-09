@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* drcov2lcov.c
+/* main.c
  *
  * Covert client drcov binary format to lcov text format.
  */
@@ -40,12 +40,12 @@
  */
 
 #include "dr_api.h"
-#include "drcov.h"
+#include "../drcov.h"
 #include "drsyms.h"
 #include "hashtable.h"
 #include "dr_frontend.h"
 
-#include "../common/utils.h"
+#include "../../common/utils.h"
 #undef ASSERT /* we're standalone, so no client assert */
 
 #include <string.h> /* strlen */

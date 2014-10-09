@@ -504,7 +504,7 @@ void set_last_error(int error);
 HANDLE get_stderr_handle(void);
 HANDLE get_stdout_handle(void);
 HANDLE get_stdin_handle(void);
-/* used in certain asserts in x86/interp.c otherwise should be in os_private.h */
+/* used in certain asserts in arch/interp.c otherwise should be in os_private.h */
 bool use_ki_syscall_routines(void);
 
 wchar_t *get_application_cmdline(void);

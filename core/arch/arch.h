@@ -76,7 +76,7 @@ mixed_mode_enabled(void)
  * can tell unprotected from normal!
  * unprotected are raw 0..sizeof(unprotected_context_t)
  * protected are raw + sizeof(unprotected_context_t)
- * (see the instr.c routines for dcontext instr building)
+ * (see the instr_shared.c routines for dcontext instr building)
  * FIXME: we could get rid of this hack if unprotected_context_t == priv_mcontext_t
  */
 #define PROT_OFFS         (sizeof(unprotected_context_t))
@@ -1027,7 +1027,7 @@ byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, by
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                        byte *dst_pc, byte *final_pc);
 
-/* in instr.c */
+/* in instr_shared.c */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
 

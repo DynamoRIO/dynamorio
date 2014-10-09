@@ -176,7 +176,7 @@ if ("${INTERNAL}" STREQUAL "")
   set(INTERNAL ${INTERNAL_DEFAULT})
 endif()
 
-# target
+# The target OS:
 if (APPLE)
   set(MACOS 1)
 elseif (UNIX)
@@ -186,6 +186,15 @@ if (WIN32)
   set(WINDOWS 1)
 endif (WIN32)
 
+# The target architecture.
+# For cross-compilation this should still work as you're supposed to set this var.
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+  set(ARM 1)
+else ()
+  set(X86 1) # This means IA-32 or AMD64
+endif ()
+
+# The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for
 # Linux the user should set CFLAGS to -m32 or -m64
@@ -1289,7 +1298,7 @@ configure_file(${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   ${BUILD_CMAKE}/cpp2asm_add_newlines.cmake COPYONLY)
 # we need to strip out the #include of configure.h
 # XXX: this should be a build-time rule as it depends on asm_defines.asm!
-file(READ "${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm" str)
+file(READ "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm" str)
 string(REPLACE "#include \"configure.h\"" "" str "${str}")
 file(WRITE "${BUILD_CMAKE}/cpp2asm_defines.h" "${str}")
 
@@ -1571,7 +1580,7 @@ DR_install(FILES ${PROJECT_SOURCE_DIR}/make/CMake_asm.cmake
   DESTINATION ${INSTALL_CMAKE} RENAME cpp2asm_add_newlines.cmake
 )
 # we need to strip out the #include of configure.h
-DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/x86/asm_defines.asm\" str)
+DR_install(CODE "file(READ \"\${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm\" str)
   string(REPLACE \"#include \\\\\"configure.h\\\\\"\" \"\" str \"\\\${str}\")
   file(WRITE \"\\\${CMAKE_INSTALL_PREFIX}/\${INSTALL_CMAKE}/cpp2asm_defines.h\" \"\\\${str}\")")
 
