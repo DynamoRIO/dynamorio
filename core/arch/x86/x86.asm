@@ -357,9 +357,10 @@ GLOBAL_LABEL(call_switch_stack:)
 #endif
         /* we need a callee-saved reg across our call so save it onto stack */
         push     REG_XBX
-        push     REG_XDI /* alignment doesn't matter: swapping stacks */
         mov      REG_XBX, REG_XAX
-        mov      REG_XDI, REG_XSP
+        /* alignment doesn't matter: swapping stacks */
+        push     IF_X64_ELSE(r12, REG_XDI) /* xdi is used for func param in X64 */
+        mov      IF_X64_ELSE(r12, REG_XDI), REG_XSP
         /* set up for call */
         mov      REG_XDX, [3*ARG_SZ + REG_XAX] /* func */
         mov      REG_XCX, [1*ARG_SZ + REG_XAX] /* dcontext */
@@ -379,11 +380,11 @@ GLOBAL_LABEL(call_switch_stack:)
 #endif
 call_dispatch_alt_stack_no_free:
         CALLC1(REG_XDX, REG_XCX)
-        mov      REG_XSP, REG_XDI
+        mov      REG_XSP, IF_X64_ELSE(r12, REG_XDI)
         mov      REG_XAX, REG_XBX
         cmp      BYTE [5*ARG_SZ + REG_XAX], 0 /* return_on_return */
         je       GLOBAL_REF(unexpected_return)
-        pop      REG_XDI
+        pop      IF_X64_ELSE(r12, REG_XDI)
         pop      REG_XBX
 #ifdef X64
 # ifdef WINDOWS

@@ -421,3 +421,51 @@ safe_read_resume_pc(void)
     return (app_pc) &safe_read_asm_recover;
 }
 
+#if defined(STANDALONE_UNIT_TEST)
+
+# define CONST_BYTE      0x1f
+# define TEST_STACK_SIZE PAGE_SIZE
+byte test_stack[TEST_STACK_SIZE];
+static dcontext_t *static_dc;
+
+static void
+test_func(dcontext_t *dcontext)
+{
+    byte var = *(&var - 0x1); /* avoid uninit warning */
+    EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
+    EXPECT(var , CONST_BYTE);
+    return;
+}
+
+static void
+test_call_switch_stack(dcontext_t *dc)
+{
+    byte* stack_ptr = test_stack + TEST_STACK_SIZE;
+    static_dc = dc;
+    print_file(STDERR, "testing asm call_switch_stack\n");
+    memset(test_stack, CONST_BYTE, sizeof(test_stack));
+    call_switch_stack(dc, stack_ptr, test_func,
+                      false, true /* should return */);
+}
+
+static void
+test_cpuid()
+{
+    int cpuid_res[4] = {0};
+    print_file(STDERR, "testing asm cpuid\n");
+    EXPECT(cpuid_supported(), true);
+    IF_UNIX_ELSE(our_cpuid, __cpuid)(cpuid_res, 0); /* get vendor id */
+    /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
+    EXPECT_NE(cpuid_res[1], 0);
+    EXPECT_NE(cpuid_res[2], 0);
+    EXPECT_NE(cpuid_res[3], 0);
+}
+
+void
+unit_test_asm(dcontext_t *dc)
+{
+    print_file(STDERR, "testing asm\n");
+    test_call_switch_stack(dc);
+    test_cpuid();
+}
+#endif /* STANDALONE_UNIT_TEST */

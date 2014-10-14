@@ -46,11 +46,12 @@ void unit_test_utils(void);
 #ifdef WINDOWS
 void unit_test_drwinapi(void);
 #endif
+void unit_test_asm(dcontext_t *dc);
 
 int
 main(int argc, char **argv, char **envp)
 {
-    standalone_init();
+    dcontext_t *dc = standalone_init();
 
     /* Each test will abort if it fails, so we just call each in turn and return
      * 0 for success.  If we want to be able to call each test independently, it
@@ -67,5 +68,7 @@ main(int argc, char **argv, char **envp)
 #ifdef WINDOWS
     unit_test_drwinapi();
 #endif
+    unit_test_asm(dc);
+    print_file(STDERR, "all done\n");
     return 0;
 }
