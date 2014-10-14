@@ -45,6 +45,15 @@
 # define X64
 #endif
 
+#ifdef ARM
+# ifdef X64
+#  error 64-bit ARM is not supported
+# endif
+# ifdef WINDOWS
+#  error ARM on Windows is not supported
+# endif
+#endif
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -192,97 +201,213 @@ ASSUME fs:_DATA @N@\
 
 /****************************************************/
 /* Macros for writing cross-platform 64-bit + 32-bit code */
+
+/* register set */
+#ifdef ARM
+# define REG_SP   sp /* stack register */
+# define REG_LR   lr /* link register */
+# define REG_PC   pc /* pc */
+# ifdef X64
+#  define REG_X0  x0
+#  define REG_X1  x1
+#  define REG_X2  x2
+#  define REG_X3  x3
+#  define REG_X4  x4
+#  define REG_X5  x5
+#  define REG_X6  x6
+#  define REG_X7  x7
+#  define REG_X8  x8
+#  define REG_X9  x9
+#  define REG_X10 x10
+#  define REG_X11 x11
+#  define REG_X12 x12
+#  define REG_X13 x13
+#  define REG_X14 x14
+#  define REG_X15 x15
+/* skip [x16..x30], only available on AArch64 */
+# else /* 32-bit */
+#  define REG_X0  r0
+#  define REG_X1  r1
+#  define REG_X2  r2
+#  define REG_X3  r3
+#  define REG_X4  r4
+#  define REG_X5  r5
+#  define REG_X6  r6
+#  define REG_X7  r7
+#  define REG_X8  r8
+#  define REG_X9  r9
+#  define REG_X10 r10
+#  define REG_X11 r11
+#  define REG_X12 r12
+/* {r13, r14, r15} are used for {sp, lr, pc} on AArch32 */
+# endif /* 64/32-bit */
+#else /* Intel X86 */
+# ifdef X64
+#  define REG_XAX rax
+#  define REG_XBX rbx
+#  define REG_XCX rcx
+#  define REG_XDX rdx
+#  define REG_XSI rsi
+#  define REG_XDI rdi
+#  define REG_XBP rbp
+#  define REG_XSP rsp
+/* skip [r8..r15], only available on AMD64 */
+#  define SEG_TLS gs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+# else /* 32-bit */
+#  define REG_XAX eax
+#  define REG_XBX ebx
+#  define REG_XCX ecx
+#  define REG_XDX edx
+#  define REG_XSI esi
+#  define REG_XDI edi
+#  define REG_XBP ebp
+#  define REG_XSP esp
+#  define SEG_TLS fs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+# endif /* 64/32-bit */
+#endif /* ARM/X86 */
+
+/* calling convention */
 #ifdef X64
-# define REG_XAX rax
-# define REG_XBX rbx
-# define REG_XCX rcx
-# define REG_XDX rdx
-# define REG_XSI rsi
-# define REG_XDI rdi
-# define REG_XBP rbp
-# define REG_XSP rsp
-# define SEG_TLS gs /* keep in sync w/ {linux,win32}/os_exports.h defines */
-# ifdef WINDOWS
-/* Arguments are passed in: rcx, rdx, r8, r9, then on stack right-to-left, but
- * leaving space on stack for the 1st 4.
+# define ARG_SZ 8
+# define PTRSZ QWORD
+#else /* 32-bit */
+# define ARG_SZ 4
+# define PTRSZ DWORD
+#endif
+
+#ifdef ARM
+/* ARM AArch64 calling convention:
+ * SP:       stack pointer
+ * x30(LR):  link register
+ * x29(FP):  frame pointer
+ * x19..x28: callee-saved registers
+ * x18:      platform register if needed, otherwise, temp register
+ * x17(IP1): the 2nd intra-procedure-call temp reg (for call veneers and PLT code)
+ * x16(IP0): the 1st intra-procedure-call temp reg (for call veneers and PLT code)
+ * x9..x15:  temp registers
+ * x8:       indirect result location register
+ * x0..x7:   parameter/result registers
+ *
+ * ARM AArch32 calling convention:
+ * r15(PC):  program counter
+ * r14(LR):  link register
+ * r13(SP):  stack pointer
+ * r12:      the Intra-Procedure-call scratch register
+ * r4..r11:  callee-saved registers
+ * r0..r3:   parameter/result registers
+ * r0:       indirect result location register
  */
-#  define ARG1 rcx
-#  define ARG2 rdx
-#  define ARG3 r8
-#  define ARG4 r9
-#  define ARG5 QWORD [40 + rsp] /* includes ret addr */
-#  define ARG6 QWORD [48 + rsp]
-#  define ARG7 QWORD [56 + rsp]
-#  define ARG8 QWORD [64 + rsp]
-#  define ARG9 QWORD [72 + rsp]
-#  define ARG10 QWORD [80 + rsp]
-#  define ARG5_NORETADDR QWORD [32 + rsp]
-#  define ARG6_NORETADDR QWORD [40 + rsp]
-#  define ARG7_NORETADDR QWORD [48 + rsp]
-#  define ARG8_NORETADDR QWORD [56 + rsp]
-#  define ARG9_NORETADDR QWORD [64 + rsp]
-#  define ARG10_NORETADDR QWORD [72 + rsp]
-# else
-/* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
- * without leaving any space on stack for the 1st 6.
- */
-#  define ARG1 rdi
-#  define ARG2 rsi
-#  define ARG3 rdx
-#  define ARG4 rcx
-#  define ARG5 r8
-#  define ARG6 r9
-#  define ARG7 QWORD [8 + rsp]
-#  define ARG8 QWORD [16 + rsp]
-#  define ARG9 QWORD [24 + rsp]
-#  define ARG10 QWORD [32 + rsp]
-#  define ARG5_NORETADDR ARG5
-#  define ARG6_NORETADDR ARG6
-#  define ARG7_NORETADDR QWORD [rsp]
-#  define ARG8_NORETADDR QWORD [8 + rsp]
-#  define ARG9_NORETADDR QWORD [16 + rsp]
-#  define ARG10_NORETADDR QWORD [24 + rsp]
-# endif
+# define ARG1 REG_X0
+# define ARG2 REG_X1
+# define ARG3 REG_X2
+# define ARG4 REG_X3
 # define ARG1_NORETADDR ARG1
 # define ARG2_NORETADDR ARG2
 # define ARG3_NORETADDR ARG3
 # define ARG4_NORETADDR ARG4
-# define ARG_SZ 8
-# define PTRSZ QWORD
-#else /* x86 */
-# define REG_XAX eax
-# define REG_XBX ebx
-# define REG_XCX ecx
-# define REG_XDX edx
-# define REG_XSI esi
-# define REG_XDI edi
-# define REG_XBP ebp
-# define REG_XSP esp
-# define SEG_TLS fs /* keep in sync w/ {linux,win32}/os_exports.h defines */
-# define ARG_SZ 4
-# define PTRSZ DWORD
+# ifdef X64
+#  define ARG5 REG_X4
+#  define ARG6 REG_X5
+#  define ARG7 REG_X6
+#  define ARG8 REG_X7
 /* Arguments are passed on stack right-to-left. */
-# define ARG1 DWORD [4 + esp] /* includes ret addr */
-# define ARG2 DWORD [8 + esp]
-# define ARG3 DWORD [12 + esp]
-# define ARG4 DWORD [16 + esp]
-# define ARG5 DWORD [20 + esp]
-# define ARG6 DWORD [24 + esp]
-# define ARG7 DWORD [28 + esp]
-# define ARG8 DWORD [32 + esp]
-# define ARG9 DWORD [36 + esp]
-# define ARG10 DWORD [40 + esp]
-# define ARG1_NORETADDR DWORD [0 + esp]
-# define ARG2_NORETADDR DWORD [4 + esp]
-# define ARG3_NORETADDR DWORD [8 + esp]
-# define ARG4_NORETADDR DWORD [12 + esp]
-# define ARG5_NORETADDR DWORD [16 + esp]
-# define ARG6_NORETADDR DWORD [20 + esp]
-# define ARG7_NORETADDR DWORD [24 + esp]
-# define ARG8_NORETADDR DWORD [28 + esp]
-# define ARG9_NORETADDR DWORD [32 + esp]
-# define ARG10_NORETADDR DWORD [36 + esp]
-#endif
+#  define ARG9  QWORD [1*ARG_SZ + REG_SP] /* includes ret addr */
+#  define ARG10 QWORD [2*ARG_SZ + REG_SP]
+#  define ARG5_NORETADDR  ARG5
+#  define ARG6_NORETADDR  ARG6
+#  define ARG7_NORETADDR  ARG7
+#  define ARG8_NORETADDR  ARG8
+#  define ARG9_NORETADDR  QWORD [0*ARG_SZ + REG_SP]
+#  define ARG10_NORETADDR QWORD [1*ARG_SZ + REG_SP]
+# else /* 32-bit */
+#  define ARG5  DWORD [1*ARG_SZ + REG_SP] /* includes ret addr */
+#  define ARG6  DWORD [2*ARG_SZ + REG_SP]
+#  define ARG7  DWORD [3*ARG_SZ + REG_SP]
+#  define ARG8  DWORD [4*ARG_SZ + REG_SP]
+#  define ARG9  DWORD [5*ARG_SZ + REG_SP]
+#  define ARG10 DWORD [6*ARG_SZ + REG_SP]
+#  define ARG5_NORETADDR  QWORD [0*ARG_SZ + REG_SP]
+#  define ARG6_NORETADDR  QWORD [1*ARG_SZ + REG_SP]
+#  define ARG7_NORETADDR  QWORD [2*ARG_SZ + REG_SP]
+#  define ARG8_NORETADDR  QWORD [3*ARG_SZ + REG_SP]
+#  define ARG9_NORETADDR  QWORD [4*ARG_SZ + REG_SP]
+#  define ARG10_NORETADDR QWORD [5*ARG_SZ + REG_SP]
+# endif /* 64/32-bit */
+#else /* Intel X86 */
+# ifdef X64
+#  ifdef WINDOWS
+/* Arguments are passed in: rcx, rdx, r8, r9, then on stack right-to-left, but
+ * leaving space on stack for the 1st 4.
+ */
+#   define ARG1  rcx
+#   define ARG2  rdx
+#   define ARG3  r8
+#   define ARG4  r9
+#   define ARG5  QWORD [5*ARG_SZ  + REG_XSP] /* includes ret addr */
+#   define ARG6  QWORD [6*ARG_SZ  + REG_XSP]
+#   define ARG7  QWORD [7*ARG_SZ  + REG_XSP]
+#   define ARG8  QWORD [8*ARG_SZ  + REG_XSP]
+#   define ARG9  QWORD [9*ARG_SZ  + REG_XSP]
+#   define ARG10 QWORD [10*ARG_SZ + REG_XSP]
+#   define ARG1_NORETADDR  ARG1
+#   define ARG2_NORETADDR  ARG2
+#   define ARG3_NORETADDR  ARG3
+#   define ARG4_NORETADDR  ARG4
+#   define ARG5_NORETADDR  QWORD [4*ARG_SZ + REG_XSP]
+#   define ARG6_NORETADDR  QWORD [5*ARG_SZ + REG_XSP]
+#   define ARG7_NORETADDR  QWORD [6*ARG_SZ + REG_XSP]
+#   define ARG8_NORETADDR  QWORD [7*ARG_SZ + REG_XSP]
+#   define ARG9_NORETADDR  QWORD [8*ARG_SZ + REG_XSP]
+#   define ARG10_NORETADDR QWORD [9*ARG_SZ + REG_XSP]
+#  else /* UNIX */
+/* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
+ * without leaving any space on stack for the 1st 6.
+ */
+#   define ARG1  rdi
+#   define ARG2  rsi
+#   define ARG3  rdx
+#   define ARG4  rcx
+#   define ARG5  r8
+#   define ARG6  r9
+#   define ARG7  QWORD [1*ARG_SZ + rsp] /* includes ret addr */
+#   define ARG8  QWORD [2*ARG_SZ + rsp]
+#   define ARG9  QWORD [3*ARG_SZ + rsp]
+#   define ARG10 QWORD [4*ARG_SZ + rsp]
+#   define ARG1_NORETADDR  ARG1
+#   define ARG2_NORETADDR  ARG2
+#   define ARG3_NORETADDR  ARG3
+#   define ARG4_NORETADDR  ARG4
+#   define ARG5_NORETADDR  ARG5
+#   define ARG6_NORETADDR  ARG6
+#   define ARG7_NORETADDR  QWORD [0*ARG_SZ + rsp]
+#   define ARG8_NORETADDR  QWORD [1*ARG_SZ + rsp]
+#   define ARG9_NORETADDR  QWORD [2*ARG_SZ + rsp]
+#   define ARG10_NORETADDR QWORD [3*ARG_SZ + rsp]
+#  endif /* WINDOWS/UNIX */
+# else /* 32-bit */
+/* Arguments are passed on stack right-to-left. */
+#  define ARG1  DWORD [ 1*ARG_SZ + esp] /* includes ret addr */
+#  define ARG2  DWORD [ 2*ARG_SZ + esp]
+#  define ARG3  DWORD [ 3*ARG_SZ + esp]
+#  define ARG4  DWORD [ 4*ARG_SZ + esp]
+#  define ARG5  DWORD [ 5*ARG_SZ + esp]
+#  define ARG6  DWORD [ 6*ARG_SZ + esp]
+#  define ARG7  DWORD [ 7*ARG_SZ + esp]
+#  define ARG8  DWORD [ 8*ARG_SZ + esp]
+#  define ARG9  DWORD [ 9*ARG_SZ + esp]
+#  define ARG10 DWORD [10*ARG_SZ + esp]
+#  define ARG1_NORETADDR  DWORD [0*ARG_SZ + esp]
+#  define ARG2_NORETADDR  DWORD [1*ARG_SZ + esp]
+#  define ARG3_NORETADDR  DWORD [2*ARG_SZ + esp]
+#  define ARG4_NORETADDR  DWORD [3*ARG_SZ + esp]
+#  define ARG5_NORETADDR  DWORD [4*ARG_SZ + esp]
+#  define ARG6_NORETADDR  DWORD [5*ARG_SZ + esp]
+#  define ARG7_NORETADDR  DWORD [6*ARG_SZ + esp]
+#  define ARG8_NORETADDR  DWORD [7*ARG_SZ + esp]
+#  define ARG9_NORETADDR  DWORD [8*ARG_SZ + esp]
+#  define ARG10_NORETADDR DWORD [9*ARG_SZ + esp]
+# endif /* 64/32-bit */
+#endif /* ARM/X86 */
 
 /* Keep in sync with arch_exports.h. */
 #define FRAME_ALIGNMENT 16
