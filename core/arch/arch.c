@@ -3144,3 +3144,84 @@ is_ibl_routine_type(dcontext_t *dcontext, cache_pc target, ibl_branch_type_t bra
     return (branch_type == ibl_type.branch_type);
 }
 #endif /* DEBUG */
+
+#ifdef STANDALONE_UNIT_TEST
+
+# ifdef UNIX
+#  include <pthread.h>
+# endif
+
+# define MAX_NUM_THREADS 3
+# define LOOP_COUNT 10000
+volatile static int count1 = 0;
+volatile static int count2 = 0;
+volatile static ptr_int_t count3 = 0;
+
+IF_UNIX_ELSE(void *, DWORD WINAPI)
+test_thread_func(void *arg)
+{
+    int i;
+    /* We first incrment "count" LOOP_COUNT times, then decrement it (LOOP_COUNT-1)
+     * times, so each thread will increment "count" by 1.
+     */
+    for (i = 0; i < LOOP_COUNT; i++)
+        ATOMIC_INC(int, count1);
+    for (i = 0; i < (LOOP_COUNT-1); i++)
+        ATOMIC_DEC(int, count1);
+    for (i = 0; i < LOOP_COUNT; i++)
+        ATOMIC_ADD(int, count2, 1);
+    for (i = 0; i < (LOOP_COUNT-1); i++)
+        ATOMIC_ADD(int, count2, -1);
+
+    return 0;
+}
+
+static void
+do_parallel_updates()
+{
+    int i;
+# ifdef UNIX
+    pthread_t threads[MAX_NUM_THREADS];
+    for (i = 0; i < MAX_NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, test_thread_func, NULL);
+    }
+    for (i = 0; i < MAX_NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+# else /* WINDOWS */
+    HANDLE threads[MAX_NUM_THREADS];
+    for (i = 0; i < MAX_NUM_THREADS; i++) {
+        threads[i] = CreateThread(NULL, /* use default security attributes */
+                                  0,    /* use defautl stack size */
+                                  test_thread_func,
+                                  NULL, /* argument to thread function */
+                                  0,    /* use default creation flags */
+                                  NULL  /* thread id */);
+    }
+    WaitForMultipleObjects(MAX_NUM_THREADS, threads, TRUE, INFINITE);
+# endif /* UNIX/WINDOWS */
+}
+
+/* some tests for inline asm for atomic ops */
+void
+unit_test_atomic_ops(void)
+{
+    int value = -1;
+    print_file(STDERR, "test inline asm atomic ops\n");
+    ATOMIC_4BYTE_WRITE(&count1, value, false);
+    EXPECT(count1, -1);
+    EXPECT(atomic_inc_and_test(&count1), true);  /* result is 0 */
+    EXPECT(atomic_inc_and_test(&count1), false); /* result is 1 */
+    EXPECT(atomic_dec_and_test(&count1), false); /* init value is 1, result is 0 */
+    EXPECT(atomic_dec_and_test(&count1), true);  /* init value is 0, result is -1 */
+    EXPECT(atomic_dec_becomes_zero(&count1), false); /* result is -2 */
+    EXPECT(atomic_compare_exchange_int(&count1, -3, 1), false); /* no exchange */
+    EXPECT(count1, -2);
+    EXPECT(atomic_compare_exchange_int(&count1, -2, 1), true); /* exchange */
+    EXPECT(atomic_dec_becomes_zero(&count1), true); /* result is 0 */
+    do_parallel_updates();
+    EXPECT(count1, MAX_NUM_THREADS);
+    EXPECT(count2, MAX_NUM_THREADS);
+}
+
+#endif /* STANDALONE_UNIT_TEST */

@@ -47,6 +47,7 @@ void unit_test_utils(void);
 void unit_test_drwinapi(void);
 #endif
 void unit_test_asm(dcontext_t *dc);
+void unit_test_atomic_ops(void);
 
 int
 main(int argc, char **argv, char **envp)
@@ -69,6 +70,7 @@ main(int argc, char **argv, char **envp)
     unit_test_drwinapi();
 #endif
     unit_test_asm(dc);
+    unit_test_atomic_ops();
     print_file(STDERR, "all done\n");
     return 0;
 }

@@ -881,7 +881,7 @@ if (BUILD_TESTS)
     # Otherwise, the entry point will point to the start of .text section,
     # which might not be _start.
     append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
-    target_link_libraries(unit_tests c dl m)
+    target_link_libraries(unit_tests c dl m pthread)
     set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntimp_lib

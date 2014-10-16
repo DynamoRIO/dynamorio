@@ -431,7 +431,8 @@ static dcontext_t *static_dc;
 static void
 test_func(dcontext_t *dcontext)
 {
-    byte var = *(&var - 0x1); /* avoid uninit warning */
+    byte var;
+    memcpy(&var, &var-1, 1); /* avoid uninit warning */
     EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
     EXPECT(var , CONST_BYTE);
     return;
