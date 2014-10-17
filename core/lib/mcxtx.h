@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -39,7 +39,86 @@
  */
 /* START INCLUDE */
 
-#ifdef AVOID_API_EXPORT
+#ifdef ARM
+# ifdef AVOID_API_EXPORT
+    /* FIXME: have special comment syntax instead of bogus ifdef to
+     * get genapi to strip out internal-only comments? */
+    /* We want to simplify things by keeping this in register lists order.
+     * We also want registers used by ibl to be placed together to fit on
+     * the same 32-byte cache line, whether on a 32-bit or 64-bit machine,
+     * or a 32-byte or 64-byte cache line.
+     * Any changes in order here must be mirrored in arch/arm.asm offsets.
+     */
+# endif
+    reg_t r0;   /**< The r0 register. */
+    reg_t r1;   /**< The r1 register. */
+    reg_t r2;   /**< The r2 register. */
+    reg_t r3;   /**< The r3 register. */
+    reg_t r4;   /**< The r4 register. */
+    reg_t r5;   /**< The r5 register. */
+    reg_t r6;   /**< The r6 register. */
+    reg_t r7;   /**< The r7 register. */
+    reg_t r8;   /**< The r8 register. */
+    reg_t r9;   /**< The r9 register. */
+    reg_t r10;  /**< The r10 register. */
+    reg_t r11;  /**< The r11 register. */
+    reg_t r12;  /**< The r12 register. */
+# ifdef X64 /* 64-bit */
+    reg_t r13;  /**< The r13 register. */
+    reg_t r14;  /**< The r14 register. */
+    reg_t r15;  /**< The r15 register. */
+    reg_t r16;  /**< The r16 register. \note For 64-bit DR builds only. */
+    reg_t r17;  /**< The r17 register. \note For 64-bit DR builds only. */
+    reg_t r18;  /**< The r18 register. \note For 64-bit DR builds only. */
+    reg_t r19;  /**< The r19 register. \note For 64-bit DR builds only. */
+    reg_t r20;  /**< The r20 register. \note For 64-bit DR builds only. */
+    reg_t r21;  /**< The r21 register. \note For 64-bit DR builds only. */
+    reg_t r22;  /**< The r22 register. \note For 64-bit DR builds only. */
+    reg_t r23;  /**< The r23 register. \note For 64-bit DR builds only. */
+    reg_t r24;  /**< The r24 register. \note For 64-bit DR builds only. */
+    reg_t r25;  /**< The r25 register. \note For 64-bit DR builds only. */
+    reg_t r26;  /**< The r26 register. \note For 64-bit DR builds only. */
+    reg_t r27;  /**< The r27 register. \note For 64-bit DR builds only. */
+    reg_t r28;  /**< The r28 register. \note For 64-bit DR builds only. */
+    reg_t r29;  /**< The r29 register. \note For 64-bit DR builds only. */
+    union {
+        reg_t r30; /**< The r30 register. \note For 64-bit DR builds only. */
+        reg_t lr;  /**< The link register. */
+    }; /**< The anonymous union of alternative names for r30/lr register. */
+    union {
+        reg_t r31; /**< The r31 register. \note For 64-bit DR builds only. */
+        reg_t sp;  /**< The stack pointer register. */
+    }; /**< The anonymous union of alternative names for r31/sp register. */
+    /**
+     * The program counter.
+     * \note This field is not always set or read by all API routines.
+     */
+    reg_t pc;
+# else /* 32-bit */
+    union {
+        reg_t r13;  /**< The r13 register. */
+        reg_t sp;   /**< The stack pointer register.*/
+    }; /**< The anonymous union of alternative names for r13/sp register. */
+    union {
+        reg_t r14;  /**< The r14 register. */
+        reg_t lr;   /**< The link register. */
+    }; /**< The anonymous union of alternative names for r14/lr register. */
+    /**
+     * The anonymous union of alternative names for r15/pc register.
+     * \note This field is not always set or read by all API routines.
+     */
+    union {
+        reg_t r15;  /**< The r15 register. */
+        reg_t pc;   /**< The program counter. */
+    };
+# endif /* 64/32-bit */
+    union {
+        uint32 apsr; /**< The Application program status registers in AArch32. */
+        uint32 cpsr; /**< The Current program status registers in AArch32. */
+    }; /**< The anonymous union of alternative names for apsr/cpsr register. */
+    /* FIXME i#1551: add NEON registers */
+#else /* X86 */
+# ifdef AVOID_API_EXPORT
     /* FIXME: have special comment syntax instead of bogus ifdef to
      * get genapi to strip out internal-only comments? */
     /* Our inlined ibl uses eax-edx, so we place them together to fit
@@ -52,65 +131,75 @@
      * UPDATE: actually we now use TLS for scratch slots.
      * See the list above of places that assume dr_mcxt_t layout.
      */
-#endif
+# endif
     union {
-        reg_t xdi; /**< platform-independent name for full rdi/edi register */
-        reg_t IF_X64_ELSE(rdi, edi); /**< platform-dependent name for rdi/edi register */
-    }; /**< anonymous union of alternative names for rdi/edi register */
+        reg_t xdi; /**< The platform-independent name for full rdi/edi register. */
+        reg_t IF_X64_ELSE(rdi, edi); /**< The platform-dependent name for
+                                          rdi/edi register. */
+    }; /**< The anonymous union of alternative names for rdi/edi register. */
     union {
-        reg_t xsi; /**< platform-independent name for full rsi/esi register */
-        reg_t IF_X64_ELSE(rsi, esi); /**< platform-dependent name for rsi/esi register */
-    }; /**< anonymous union of alternative names for rsi/esi register */
+        reg_t xsi; /**< The platform-independent name for full rsi/esi register. */
+        reg_t IF_X64_ELSE(rsi, esi); /**< The platform-dependent name for
+                                          rsi/esi register. */
+    }; /**< The anonymous union of alternative names for rsi/esi register. */
     union {
-        reg_t xbp; /**< platform-independent name for full rbp/ebp register */
-        reg_t IF_X64_ELSE(rbp, ebp); /**< platform-dependent name for rbp/ebp register */
-    }; /**< anonymous union of alternative names for rbp/ebp register */
+        reg_t xbp; /**< The platform-independent name for full rbp/ebp register. */
+        reg_t IF_X64_ELSE(rbp, ebp); /**< The platform-dependent name for
+                                          rbp/ebp register. */
+    }; /**< The anonymous union of alternative names for rbp/ebp register. */
     union {
-        reg_t xsp; /**< platform-independent name for full rsp/esp register */
-        reg_t IF_X64_ELSE(rsp, esp); /**< platform-dependent name for rsp/esp register */
-    }; /**< anonymous union of alternative names for rsp/esp register */
+        reg_t xsp; /**< The platform-independent name for full rsp/esp register. */
+        reg_t IF_X64_ELSE(rsp, esp); /**< The platform-dependent name for
+                                          rsp/esp register. */
+    }; /**< The anonymous union of alternative names for rsp/esp register. */
     union {
-        reg_t xbx; /**< platform-independent name for full rbx/ebx register */
-        reg_t IF_X64_ELSE(rbx, ebx); /**< platform-dependent name for rbx/ebx register */
-    }; /**< anonymous union of alternative names for rbx/ebx register */
+        reg_t xbx; /**< The platform-independent name for full rbx/ebx register. */
+        reg_t IF_X64_ELSE(rbx, ebx); /**< The platform-dependent name for
+                                          rbx/ebx register. */
+    }; /**< The anonymous union of alternative names for rbx/ebx register. */
     union {
-        reg_t xdx; /**< platform-independent name for full rdx/edx register */
-        reg_t IF_X64_ELSE(rdx, edx); /**< platform-dependent name for rdx/edx register */
-    }; /**< anonymous union of alternative names for rdx/edx register */
+        reg_t xdx; /**< The platform-independent name for full rdx/edx register. */
+        reg_t IF_X64_ELSE(rdx, edx); /**< The platform-dependent name for
+                                          rdx/edx register. */
+    }; /**< The anonymous union of alternative names for rdx/edx register. */
     union {
-        reg_t xcx; /**< platform-independent name for full rcx/ecx register */
-        reg_t IF_X64_ELSE(rcx, ecx); /**< platform-dependent name for rcx/ecx register */
-    }; /**< anonymous union of alternative names for rcx/ecx register */
+        reg_t xcx; /**< The platform-independent name for full rcx/ecx register. */
+        reg_t IF_X64_ELSE(rcx, ecx); /**< The platform-dependent name for
+                                          rcx/ecx register. */
+    }; /**< The anonymous union of alternative names for rcx/ecx register. */
     union {
-        reg_t xax; /**< platform-independent name for full rax/eax register */
-        reg_t IF_X64_ELSE(rax, eax); /**< platform-dependent name for rax/eax register */
-    }; /**< anonymous union of alternative names for rax/eax register */
-#ifdef X64
-    reg_t r8;  /**< r8 register. \note For 64-bit DR builds only. */
-    reg_t r9;  /**< r9 register. \note For 64-bit DR builds only. */
-    reg_t r10; /**< r10 register. \note For 64-bit DR builds only. */
-    reg_t r11; /**< r11 register. \note For 64-bit DR builds only. */
-    reg_t r12; /**< r12 register. \note For 64-bit DR builds only. */
-    reg_t r13; /**< r13 register. \note For 64-bit DR builds only. */
-    reg_t r14; /**< r14 register. \note For 64-bit DR builds only. */
-    reg_t r15; /**< r15 register. \note For 64-bit DR builds only. */
-#endif
+        reg_t xax; /**< The platform-independent name for full rax/eax register. */
+        reg_t IF_X64_ELSE(rax, eax); /**< The platform-dependent name for
+                                          rax/eax register. */
+    }; /**< The anonymous union of alternative names for rax/eax register. */
+# ifdef X64
+    reg_t r8;  /**< The r8 register. \note For 64-bit DR builds only. */
+    reg_t r9;  /**< The r9 register. \note For 64-bit DR builds only. */
+    reg_t r10; /**< The r10 register. \note For 64-bit DR builds only. */
+    reg_t r11; /**< The r11 register. \note For 64-bit DR builds only. */
+    reg_t r12; /**< The r12 register. \note For 64-bit DR builds only. */
+    reg_t r13; /**< The r13 register. \note For 64-bit DR builds only. */
+    reg_t r14; /**< The r14 register. \note For 64-bit DR builds only. */
+    reg_t r15; /**< The r15 register. \note For 64-bit DR builds only. */
+# endif
     union {
-        reg_t xflags; /**< platform-independent name for full rflags/eflags register */
-        reg_t IF_X64_ELSE(rflags, eflags); /**< platform-dependent name for
-                                                rflags/eflags register */
-    }; /**< anonymous union of alternative names for rflags/eflags register */
+        reg_t xflags; /**< The platform-independent name for
+                           full rflags/eflags register. */
+        reg_t IF_X64_ELSE(rflags, eflags); /**< The platform-dependent name for
+                                                rflags/eflags register. */
+    }; /**< The anonymous union of alternative names for rflags/eflags register. */
     /**
      * Anonymous union of alternative names for the program counter /
-     * instruction pointer (eip/rip).  This field is not always set or
+     * instruction pointer (eip/rip). \note This field is not always set or
      * read by all API routines.
      */
     union {
-        byte *xip; /**< platform-independent name for full rip/eip register */
-        byte *pc; /**< platform-independent alt name for full rip/eip register */
-        byte *IF_X64_ELSE(rip, eip); /**< platform-dependent name for rip/eip register */
+        byte *xip; /**< The platform-independent name for full rip/eip register. */
+        byte *pc; /**< The platform-independent alt name for full rip/eip register. */
+        byte *IF_X64_ELSE(rip, eip); /**< The platform-dependent name for
+                                          rip/eip register. */
     };
-    byte padding[PRE_XMM_PADDING]; /**< padding to get ymm field 32-byte aligned */
+    byte padding[PRE_XMM_PADDING]; /**< The padding to get ymm field 32-byte aligned. */
     /**
      * The SSE registers xmm0-xmm5 (-xmm15 on Linux) are volatile
      * (caller-saved) for 64-bit and WOW64, and are actually zeroed out on
@@ -124,7 +213,7 @@
      * contain the full ymm register values; otherwise, the top 128
      * bits of each slot will be undefined.
      */
-#ifdef AVOID_API_EXPORT
+# ifdef AVOID_API_EXPORT
     /* PR 264138: we must preserve xmm0-5 if on a 64-bit Windows kernel,
      * and xmm0-15 if in a 64-bit Linux app (PR 302107).  (Note that
      * mmx0-7 are also caller-saved on linux but we assume they're not
@@ -136,5 +225,6 @@
      * for normal 32-bit.
      * PR 306394: we preserve xmm0-7 for 32-bit linux too.
      */
-#endif
+# endif
     dr_ymm_t ymm[NUM_XMM_SLOTS];
+#endif /* ARM/X86 */
