@@ -2217,46 +2217,47 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 
 
 /****************************************************************************
- * EFLAGS
+ * EFLAGS/CONDITION CODES
  */
+#ifdef X86
 /* we only care about these 11 flags, and mostly only about the first 6
  * we consider an undefined effect on a flag to be a write
  */
-#define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
-#define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
-#define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
-#define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */
-#define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */
-#define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */
-#define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */
-#define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */
-#define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */
-#define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */
-#define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */
-#define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */
-#define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */
-#define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
-#define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */
-#define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */
-#define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */
-#define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */
-#define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */
-#define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */
-#define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */
-#define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
+# define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
+# define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
+# define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+# define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */
+# define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */
+# define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */
+# define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+# define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */
+# define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */
+# define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */
+# define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */
+# define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */
+# define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */
+# define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
+# define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */
+# define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */
+# define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */
+# define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */
+# define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */
+# define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */
+# define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */
+# define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
 
-#define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
-#define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
+# define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
+# define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
 /* 6 most common flags ("arithmetic flags"): CF, PF, AF, ZF, SF, OF */
 /** Reads all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-#define EFLAGS_READ_6    0x0000011f
+# define EFLAGS_READ_6    0x0000011f
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
-#define EFLAGS_WRITE_6   0x0008f800
+# define EFLAGS_WRITE_6   0x0008f800
 
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
-#define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
+# define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
-#define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
+# define EFLAGS_READ_TO_WRITE(x) ((x) << 11)
 
 /**
  * The actual bits in the eflags register that we care about:\n<pre>
@@ -2273,6 +2274,37 @@ enum {
     EFLAGS_OF = 0x00000800, /**< The bit in the eflags register of OF (Overflow Flag). */
 };
 
+#elif defined(ARM)
+# define EFLAGS_READ_N      0x00000001 /**< Reads N (negative flag). */
+# define EFLAGS_READ_Z      0x00000002 /**< Reads Z (zero flag). */
+# define EFLAGS_READ_C      0x00000004 /**< Reads C (carry flag). */
+# define EFLAGS_READ_V      0x00000008 /**< Reads V (overflow flag). */
+# define EFLAGS_READ_Q      0x00000010 /**< Reads Q (saturation flag). */
+# define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
+# define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
+                             EFLAGS_READ_C | EFLAGS_READ_V)
+# define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
+# define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
+# define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
+# define EFLAGS_WRITE_V     0x00000200 /**< Reads V (overflow). */
+# define EFLAGS_WRITE_Q     0x00000400 /**< Reads Q (saturation). */
+# define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
+# define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
+                             EFLAGS_WRITE_C | EFLAGS_WRITE_V)
+/**
+ * The actual bits in the CPSR that we care about:\n<pre>
+ *   31 30 29 28 27 ... 19 18 17 16
+ *    N  Z  C  V  Q       GE[3:0]    </pre>
+ */
+enum {
+    EFLAGS_N =  0x80000000, /**< The bit in the CPSR register of N (negative flag). */
+    EFLAGS_Z =  0x40000000, /**< The bit in the CPSR register of Z (zero flag). */
+    EFLAGS_C =  0x20000000, /**< The bit in the CPSR register of C (carry flag). */
+    EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
+    EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation Flag). */
+    EFLAGS_GE = 0x000f0000, /**< The bit in the CPSR register of GE[3:0]. */
+};
+#endif
 /* DR_API EXPORT END */
 
 /* even on x64, displacements are 32 bits, so we keep the "int" type and 4-byte size */

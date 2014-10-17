@@ -45,7 +45,11 @@
  * only used during decoding.
  */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
-/* FIXME i#1551: update docs for cross-platform or specify when x86-specific */
+/* FIXME i#1551: add two different attributes for ARM as PREFIX_ constants:
+ * 1) Add shift type for shifted source registers: 2-bit enum instead of
+ *    6-entry bitfield, since not composable.
+ * 2) Add predicates: 4-bit enum to save space, since not composable.
+ */
 /* DR_API EXPORT BEGIN */
 
 /****************************************************************************
@@ -63,6 +67,26 @@
 #define PREFIX_JCC_TAKEN     0x04 /**< Branch hint: conditional branch is not taken. */
 #define PREFIX_XACQUIRE      0x08 /**< Transaction hint: start lock elision. */
 #define PREFIX_XRELEASE      0x10 /**< Transaction hint: end lock elision. */
+
+/** ARM condition codes use as instruction predicates. */
+enum {
+    PRED_EQ,  /**< ARM condition: 0000  Equal                   Z == 1            */
+    PRED_NE,  /**< ARM condition: 0001  Not equal               Z == 0            */
+    PRED_CS,  /**< ARM condition: 0010  Carry set               d C == 1          */
+    PRED_CC,  /**< ARM condition: 0011  Carry clear             C == 0            */
+    PRED_MI,  /**< ARM condition: 0100  Minus, negative         N == 1            */
+    PRED_PL,  /**< ARM condition: 0101  Plus, positive or zero  N == 0            */
+    PRED_VS,  /**< ARM condition: 0110  Overflow                V == 1            */
+    PRED_VC,  /**< ARM condition: 0111  No overflow             V == 0            */
+    PRED_HI,  /**< ARM condition: 1000  Unsigned higher         C == 1 and Z == 0 */
+    PRED_LS,  /**< ARM condition: 1001  Unsigned lower or same  C == 0 or Z == 1  */
+    PRED_GE,  /**< ARM condition: 1010  Signed >=               N == V            */
+    PRED_LT,  /**< ARM condition: 1011  Signed less than        N != V            */
+    PRED_GT,  /**< ARM condition: 1100  Signed greater than     Z == 0 and N == V */
+    PRED_LE,  /**< ARM condition: 1101  Signed <=               Z == 1 or N != V  */
+    PRED_AL,  /**< ARM condition: 1110  Always (unconditional)  y                 */
+    PRED_OP,  /**< ARM condition: 1111  Part of opcode          ----              */
+};
 
 /* DR_API EXPORT END */
 
@@ -108,6 +132,7 @@ typedef struct instr_info_t {
      * We have room for 2 dsts and 3 srcs, which covers the vast majority of
      * instrs.  We use additional entries (presence indicated by bits in flags)
      * for instrs with extra operands.
+     * We also use flags that shift which of these are considered dsts vs srcs.
      */
     byte dst1_type;
     opnd_size_t dst1_size;
@@ -159,11 +184,10 @@ typedef struct _decode_info_t decode_info_t;
  */
 
 /* N.B.: if you change the size enum, change the string names for
- * them, kept in encode.c (XXX i#1551: update)
+ * them, kept in decode_shared.c
  */
 
 /* DR_API EXPORT TOFILE dr_ir_opnd.h */
-/* FIXME i#1551: update docs for cross-platform or specify when x86-specific */
 /* DR_API EXPORT BEGIN */
 
 /* Memory operand sizes (with Intel's corresponding size names noted).
@@ -182,16 +206,17 @@ enum {
      */
     OPSZ_NA = DR_REG_INVALID+1, /**< Sentinel value: not a valid size. */ /* = 140 */
     OPSZ_FIRST = OPSZ_NA,
-    OPSZ_0,  /**< Intel 'm': "sizeless": used for both start addresses
-              * (lea, invlpg) and implicit constants (rol, fldl2e, etc.) */
-    OPSZ_1,  /**< Intel 'b': 1 byte */
-    OPSZ_2,  /**< Intel 'w': 2 bytes */
-    OPSZ_4,  /**< Intel 'd','si': 4 bytes */
-    OPSZ_6,  /**< Intel 'p','s': 6 bytes */
-    OPSZ_8,  /**< Intel 'q','pi': 8 bytes */
+    OPSZ_0,  /**< 0 bytes, for "sizeless" operands (for Intel, code
+              * 'm': used for both start addresses (lea, invlpg) and
+              * implicit constants (rol, fldl2e, etc.) */
+    OPSZ_1,  /**< 1 byte (for Intel, code 'b') */
+    OPSZ_2,  /**< 2 bytes (for Intel, code 'w') */
+    OPSZ_4,  /**< 4 bytes (for Intel, code 'd','si') */
+    OPSZ_6,  /**< 6 bytes (for Intel, code 'p','s') */
+    OPSZ_8,  /**< 8 bytes (for Intel, code 'q','pi') */
     OPSZ_10, /**< Intel 's' 64-bit, or double extended precision floating point
               * (latter used by fld, fstp, fbld, fbstp) */
-    OPSZ_16, /**< Intel 'dq','ps','pd','ss','sd', or AMD 'o': 16 bytes */
+    OPSZ_16, /**< 16 bytes (for Intel, code 'dq','ps','pd','ss','sd', or AMD 'o') */
     OPSZ_14, /**< FPU operating environment with short data size (fldenv, fnstenv) */
     OPSZ_28, /**< FPU operating environment with normal data size (fldenv, fnstenv) */
     OPSZ_94,  /**< FPU state with short data size (fnsave, frstor) */
@@ -262,6 +287,17 @@ enum {
     OPSZ_12_rex40_short6, /**< unresolved iret */
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
     OPSZ_15,    /**< All but one byte of an xmm register (used by OP_vpinsrb). */
+
+    /* Needed for ARM */
+    OPSZ_3,    /**< 3 bytes */
+    OPSZ_1b,   /**< 1 bit */
+    OPSZ_2b,   /**< 2 bits */
+    OPSZ_3b,   /**< 3 bits */
+    OPSZ_4b,   /**< 4 bits */
+    OPSZ_5b,   /**< 5 bits */
+    OPSZ_12b,  /**< 12 bits */
+    OPSZ_21b,  /**< 21 bits */
+    OPSZ_VAR_REGLIST,  /**< 1 bit */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
@@ -269,9 +305,13 @@ enum {
 #ifdef X64
 # define OPSZ_PTR OPSZ_8       /**< Operand size for pointer values. */
 # define OPSZ_STACK OPSZ_8     /**< Operand size for stack push/pop operand sizes. */
+# define OPSZ_PTR_DBL OPSZ_16  /**< Double-pointer-sized. */
+# define OPSZ_PTR_HALF OPSZ_4  /**< Half-pointer-sized. */
 #else
 # define OPSZ_PTR OPSZ_4       /**< Operand size for pointer values. */
 # define OPSZ_STACK OPSZ_4     /**< Operand size for stack push/pop operand sizes. */
+# define OPSZ_PTR_DBL OPSZ_8   /**< Double-pointer-sized. */
+# define OPSZ_PTR_HALF OPSZ_2  /**< Half-pointer-sized. */
 #endif
 #define OPSZ_VARSTACK OPSZ_4x8_short2 /**< Operand size for prefix-varying stack
                                        * push/pop operand sizes. */
