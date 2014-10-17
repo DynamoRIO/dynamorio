@@ -687,3 +687,33 @@ drfront_is_graphical_app(const char *exe, OUT bool *is_graphical)
     *is_graphical = res;
     return DRFRONT_SUCCESS;
 }
+
+drfront_status_t
+drfront_dir_exists(const char *path, OUT bool *is_dir)
+{
+    TCHAR wpath[MAX_PATH];
+    DWORD file_attrs = INVALID_FILE_ATTRIBUTES;
+    drfront_status_t status_check = DRFRONT_ERROR;
+
+    if (is_dir == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+
+    status_check = drfront_char_to_tchar(path, wpath, BUFFER_SIZE_ELEMENTS(wpath));
+    if (status_check != DRFRONT_SUCCESS) {
+        *is_dir = false;
+        return status_check;
+    }
+
+    /* check if path is a file or directory */
+    file_attrs = GetFileAttributes(wpath);
+    if (file_attrs == INVALID_FILE_ATTRIBUTES) {
+        *is_dir = false;
+        return DRFRONT_ERROR_INVALID_PATH;
+    } else {
+        if (TEST(file_attrs, FILE_ATTRIBUTE_DIRECTORY))
+            *is_dir = true;
+        else
+            *is_dir = false;
+    }
+    return DRFRONT_SUCCESS;
+}

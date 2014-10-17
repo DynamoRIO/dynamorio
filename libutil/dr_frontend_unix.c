@@ -299,3 +299,23 @@ drfront_get_app_full_path(const char *app, OUT char *buf, size_t buflen/*# eleme
     }
     return DRFRONT_SUCCESS;
 }
+
+drfront_status_t
+drfront_dir_exists(const char *path, OUT bool *is_dir)
+{
+    struct stat st_buf;
+    if (is_dir == NULL)
+        return DRFRONT_ERROR_INVALID_PARAMETER;
+
+    /* check if path is a file or directory */
+    if (stat(path, &st_buf) != 0) {
+        *is_dir = false;
+        return DRFRONT_ERROR_INVALID_PATH;
+    } else {
+        if (S_ISDIR(st_buf.st_mode))
+            *is_dir = true;
+        else
+            *is_dir = false;
+    }
+    return DRFRONT_SUCCESS;
+}
