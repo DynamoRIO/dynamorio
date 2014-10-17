@@ -3219,6 +3219,7 @@ bool
 instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
 {
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_cbr_taken: instr not a cbr");
+#ifdef X86
     if (instr_is_cti_loop(instr)) {
         uint opc = instr_get_opcode(instr);
         switch (opc) {
@@ -3237,6 +3238,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
             return false;
         }
     }
+#endif
     return instr_jcc_taken(instr, mcontext->xflags);
 }
 
@@ -3244,6 +3246,7 @@ instr_cbr_taken(instr_t *instr, priv_mcontext_t *mcontext, bool pre)
 static bool
 opc_jcc_taken(int opc, reg_t eflags)
 {
+#ifdef X86
     switch (opc) {
     case OP_jo: case OP_jo_short:
         return TEST(EFLAGS_OF, eflags);
@@ -3283,6 +3286,10 @@ opc_jcc_taken(int opc, reg_t eflags)
         CLIENT_ASSERT(false, "instr_jcc_taken: unknown opcode");
         return false;
     }
+#else
+    CLIENT_ASSERT(false, "NYI i#1551");
+    return false;
+#endif
 }
 
 /* Given eflags, returns whether or not the conditional branch instr would be taken */

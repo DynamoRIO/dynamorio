@@ -997,8 +997,15 @@ enum {
     JMP_ABS_MEM_IND64_MODRM = 0x25,
 # endif
 };
-#else /* !X86 */
-#  error only X86 supported
+#elif defined(ARM)
+enum {
+    /* FIXME i#1551: this is for A32 for now to get things compiling */
+    JMP_REL32_OPCODE  = 0xec000000,
+    JMP_REL32_SIZE    = 4,
+    CALL_REL32_OPCODE = 0xed000000,
+};
+#else
+#  error only X86 and ARM supported
 #endif /* X86 */
 
 #ifdef WINDOWS
