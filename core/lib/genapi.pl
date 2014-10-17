@@ -256,6 +256,7 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" ||
+            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR");
 }
