@@ -116,23 +116,33 @@ if (WIN32 AND NOT X64)
   set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
-set(ARCH_SRCS
-  arch/arch.c
-  arch/decode_shared.c
-  arch/${ARCH_NAME}/decode.c
-  arch/${ARCH_NAME}/decode_table.c
-  arch/${ARCH_NAME}/decode_fast.c
-  arch/${ARCH_NAME}/encode.c
-  arch/emit_utils.c
+set(DECODER_SRCS
   arch/opnd_shared.c
   arch/instr_shared.c
   arch/instrlist.c
+  arch/decode_shared.c
+  arch/${ARCH_NAME}/decode.c
+  arch/${ARCH_NAME}/encode.c
+  arch/disassemble.c
+  )
+if (X86)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/decode_table.c
+    arch/${ARCH_NAME}/decode_fast.c)
+else ()
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/table_a32.c)
+endif ()
+
+set(ARCH_SRCS
+  arch/arch.c
+  arch/emit_utils.c
+  ${DECODER_SRCS}
   arch/interp.c
   arch/proc.c
   arch/mangle.c
   arch/steal_reg.c
   arch/x86_code.c
-  arch/disassemble.c
   ${arch_core_asm_src}
   arch/optimize.c
   arch/sideline.c
@@ -400,15 +410,7 @@ endif ()
 
 # static decoding library
 add_library(drdecode
-  arch/instrlist.c
-  arch/decode_shared.c
-  arch/${ARCH_NAME}/decode.c
-  arch/${ARCH_NAME}/decode_table.c
-  arch/${ARCH_NAME}/decode_fast.c
-  arch/${ARCH_NAME}/encode.c
-  arch/opnd_shared.c
-  arch/instr_shared.c
-  arch/disassemble.c
+  ${DECODER_SRCS}
   arch/mangle.c
   arch/decodelib.c
   ${arch_noncore_asm_src}
