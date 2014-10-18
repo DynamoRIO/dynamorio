@@ -182,7 +182,6 @@ enum {
     /****************************************************************************/
 #elif defined(ARM)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
-# ifdef X64
     /* 64-bit general purpose */
     DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
     DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
@@ -192,9 +191,11 @@ enum {
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
     DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-    DR_REG_LR  = DR_REG_R30, /**< The link register. */
-    DR_REG_SP  = DR_REG_R31, /**< The stack pointer register. */
+# ifdef X64
+    DR_REG_LR  = DR_REG_X30, /**< The link register. */
+    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
     DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
+# endif
 
     /* 32-bit general purpose */
     DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
@@ -205,9 +206,12 @@ enum {
     DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
     DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
     DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
-    DR_REG_WSP = DR_REG_R31, /**< The bottom half of the stack pointer register. */
+# ifdef X64
+    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
     DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
+# endif
 
+# ifdef X64
     DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
     DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
     DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
@@ -256,12 +260,11 @@ enum {
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-# ifdef X64
+    /* x64-only but simpler code to not ifdef it */
     DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
     DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
     DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
     DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-# endif
     /* 64-bit SIMD registers */
     DR_REG_D0,  DR_REG_D1,   DR_REG_D2,   DR_REG_D3,
     DR_REG_D4,  DR_REG_D5,   DR_REG_D6,   DR_REG_D7,
@@ -315,7 +318,7 @@ enum {
     DR_REG_R13_TH, /**< The top half of the r13 register. */
     DR_REG_R14_TH, /**< The top half of the r14 register. */
     DR_REG_R15_TH, /**< The top half of the r15 register. */
-# ifdef X64
+    /* x64-only but simpler code to not ifdef it */
     DR_REG_R16_TH, /**< The top half of the r16 register. */
     DR_REG_R17_TH, /**< The top half of the r17 register. */
     DR_REG_R18_TH, /**< The top half of the r18 register. */
@@ -332,7 +335,6 @@ enum {
     DR_REG_R29_TH, /**< The top half of the r29 register. */
     DR_REG_R30_TH, /**< The top half of the r30 register. */
     DR_REG_R31_TH, /**< The top half of the r31 register. */
-# endif
 
 # ifndef X64
     DR_REG_R0_BH,  /**< The bottom half of the r0 register. */
@@ -369,7 +371,7 @@ enum {
     DR_REG_R13_BB, /**< The bottom 8 bits of the r13 register. */
     DR_REG_R14_BB, /**< The bottom 8 bits of the r14 register. */
     DR_REG_R15_BB, /**< The bottom 8 bits of the r15 register. */
-# ifdef X64
+    /* x64-only but simpler code to not ifdef it */
     DR_REG_R16_BB, /**< The bottom 8 bits of the r16 register. */
     DR_REG_R17_BB, /**< The bottom 8 bits of the r17 register. */
     DR_REG_R18_BB, /**< The bottom 8 bits of the r18 register. */
@@ -386,7 +388,6 @@ enum {
     DR_REG_R29_BB, /**< The bottom 8 bits of the r29 register. */
     DR_REG_R30_BB, /**< The bottom 8 bits of the r30 register. */
     DR_REG_R31_BB, /**< The bottom 8 bits of the r31 register. */
-# endif
 
 # ifdef AVOID_API_EXPORT
     /* XXX i#1551: do we want to model the any-16-bits-of-Xn target
@@ -402,10 +403,30 @@ enum {
 # endif
     DR_REG_CPSR, DR_REG_SPSR,
 
+    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
+
     DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */
     DR_REG_LAST_ENUM = DR_REG_SPSR, /**< Last value of register enums */
 
-    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
+    DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
+    DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
+# ifdef X64
+    DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
+    DR_REG_START_16  = DR_REG_NULL,/**< Start of 16-bit general register enum values */
+    DR_REG_STOP_16   = DR_REG_NULL,/**< End of 16-bit general register enum values */
+# else
+    DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
+    DR_REG_START_16  = DR_REG_R0_BH, /**< Start of 16-bit general register enum values */
+    DR_REG_STOP_16   = DR_REG_R15_BH,/**< End of 16-bit general register enum values */
+# endif
+    DR_REG_START_8   = DR_REG_R0_BB,  /**< Start of 8-bit general register enum values */
+# ifdef X64
+    DR_REG_STOP_8    = DR_REG_R31_BB, /**< End of 8-bit general register enum values */
+# else
+    DR_REG_STOP_8    = DR_REG_R15_BB, /**< End of 8-bit general register enum values */
+# endif
 #endif
 };
 

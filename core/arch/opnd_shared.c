@@ -1306,9 +1306,11 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
 #endif
     if (reg >= REG_START_8 && reg <= REG_STOP_8) {
         reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
+#ifdef X86
         if (reg >= REG_AH && reg <= REG_BH)
             return ((val & 0x0000ff00) >> 8);
         else /* all others are the lower 8 bits */
+#endif
             return (val & 0x000000ff);
     }
     if (reg >= REG_START_16 && reg <= REG_STOP_16) {
@@ -1341,12 +1343,9 @@ DR_API
 bool
 reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
 {
-    if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
 #ifdef X86
+    if (reg >= DR_REG_START_MMX && reg <= DR_REG_STOP_MMX) {
         get_mmx_val((uint64 *)val, reg - DR_REG_START_MMX);
-#else
-        CLIENT_ASSERT(false, "NYI i#1551");
-#endif
     } else if (reg >= DR_REG_START_XMM && reg <= DR_REG_STOP_XMM) {
         if (!TEST(DR_MC_MULTIMEDIA, mc->flags) || mc->size != sizeof(dr_mcontext_t))
             return false;
@@ -1359,6 +1358,9 @@ reg_get_value_ex(reg_id_t reg, dr_mcontext_t *mc, OUT byte *val)
         reg_t regval = reg_get_value(reg, mc);
         *(reg_t *)val = regval;
     }
+#else
+    CLIENT_ASSERT(false, "NYI i#1551");
+#endif
     return true;
 }
 
@@ -1483,13 +1485,15 @@ reg_32_to_8(reg_id_t reg)
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_16: passed non-32-bit reg");
     r8 = (reg - REG_START_32) + REG_START_8;
+#ifdef X86
     if (r8 >= REG_START_x86_8 && r8 <= REG_STOP_x86_8) {
-#ifdef X64
+# ifdef X64
         r8 += (REG_START_x64_8 - REG_START_x86_8);
-#else
+# else
         r8 = REG_NULL;
-#endif
+# endif
     }
+#endif
     return r8;
 }
 
@@ -1569,6 +1573,7 @@ int
 opnd_get_reg_dcontext_offs(reg_id_t reg)
 {
     switch (reg) {
+#ifdef X86
     case REG_XAX: return XAX_OFFSET;
     case REG_XBX: return XBX_OFFSET;
     case REG_XCX: return XCX_OFFSET;
@@ -1577,7 +1582,7 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_XBP: return XBP_OFFSET;
     case REG_XSI: return XSI_OFFSET;
     case REG_XDI: return XDI_OFFSET;
-#ifdef X64
+# ifdef X64
     case REG_R8:  return  R8_OFFSET;
     case REG_R9:  return  R9_OFFSET;
     case REG_R10: return R10_OFFSET;
@@ -1586,6 +1591,7 @@ opnd_get_reg_dcontext_offs(reg_id_t reg)
     case REG_R13: return R13_OFFSET;
     case REG_R14: return R14_OFFSET;
     case REG_R15: return R15_OFFSET;
+# endif
 #endif
     default: CLIENT_ASSERT(false, "opnd_get_reg_dcontext_offs: invalid reg");
         return -1;
@@ -1603,6 +1609,7 @@ reg_overlap(reg_id_t r1, reg_id_t r2)
 {
     if (r1 == REG_NULL || r2 == REG_NULL)
         return false;
+#ifdef X86
     /* The XH registers do NOT overlap with the XL registers; else, the
      * dr_reg_fixer is the answer.
      */
@@ -1610,6 +1617,7 @@ reg_overlap(reg_id_t r1, reg_id_t r2)
         (r2 >= REG_START_8HL && r2 <= REG_STOP_8HL) &&
         r1 != r2)
         return false;
+#endif
     return (dr_reg_fixer[r1] == dr_reg_fixer[r2]);
 }
 
@@ -1620,18 +1628,19 @@ enum {REG_INVALID_BITS = 0x0}; /* returns a valid register nevertheless */
 byte
 reg_get_bits(reg_id_t reg)
 {
-#ifdef X64
+#ifdef X86
+# ifdef X64
     if (reg >= REG_START_64 && reg <= REG_STOP_64)
         return (byte) ((reg - REG_START_64) % 8);
-#endif
+# endif
     if (reg >= REG_START_32 && reg <= REG_STOP_32)
         return (byte) ((reg - REG_START_32) % 8);
     if (reg >= REG_START_8 && reg <= REG_R15L)
         return (byte) ((reg - REG_START_8) % 8);
-#ifdef X64
+# ifdef X64
     if (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) /* alternates to AH-BH */
         return (byte) ((reg - REG_START_x64_8 + 4) % 8);
-#endif
+# endif
     if (reg >= REG_START_16 && reg <= REG_STOP_16)
         return (byte) ((reg - REG_START_16) % 8);
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
@@ -1646,6 +1655,9 @@ reg_get_bits(reg_id_t reg)
         return (byte) ((reg - REG_START_DR) % 8);
     if (reg >= REG_START_CR && reg <= REG_STOP_CR)
         return (byte) ((reg - REG_START_CR) % 8);
+#else
+    CLIENT_ASSERT(false, "i#1551: NYI");
+#endif
     CLIENT_ASSERT(false, "reg_get_bits: invalid register");
     return REG_INVALID_BITS; /* callers don't expect a failure - return some value */
 }
@@ -1662,12 +1674,13 @@ reg_get_size(reg_id_t reg)
         return OPSZ_4;
     if (reg >= REG_START_8 && reg <= REG_STOP_8)
         return OPSZ_1;
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) /* alternates to AH-BH */
         return OPSZ_1;
 #endif
     if (reg >= REG_START_16 && reg <= REG_STOP_16)
         return OPSZ_2;
+#ifdef X86
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return OPSZ_8;
     if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)
@@ -1683,6 +1696,18 @@ reg_get_size(reg_id_t reg)
     /* i#176 add reg size handling for floating point registers */
     if (reg >= REG_START_FLOAT && reg <= REG_STOP_FLOAT)
         return OPSZ_10;
+#elif defined(ARM)
+    if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+        return OPSZ_16;
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return OPSZ_8;
+    if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return OPSZ_4;
+    if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return OPSZ_2;
+    if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
+        return OPSZ_1;
+#endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;
 }

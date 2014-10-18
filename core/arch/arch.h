@@ -266,7 +266,7 @@ typedef enum {
 #endif
 
 #define NUM_XMM_REGS  NUM_XMM_SAVED
-#define NUM_GP_REGS   (1 + (IF_X64_ELSE(DR_REG_R15, DR_REG_XDI) - DR_REG_XAX))
+#define NUM_GP_REGS   DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
  * The whole struct is set to 0 at init time.

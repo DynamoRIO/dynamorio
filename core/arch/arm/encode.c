@@ -43,7 +43,6 @@
 const char * const reg_names[] = {
     "<NULL>",
     "<invalid>",
-#ifdef X64
     "x0",  "x1",   "x2",   "x3",    "x4",  "x5",   "x6",   "x7",
     "x8",  "x9",   "x10",  "x11",  "x12", "x13",  "x14",  "x15",
     "x16", "x17",  "x18",  "x19",  "x20", "x21",  "x22",  "x23",
@@ -52,16 +51,14 @@ const char * const reg_names[] = {
     "w8",  "w9",   "w10",  "w11",  "w12", "w13",  "w14",  "w15",
     "w16", "w17",  "w18",  "w19",  "w20", "w21",  "w22",  "w23",
     "w24", "w25",  "w26",  "w27",  "w28", "w29",  "w30",  "w31", /* sometimes "wzr" */
-#else
+#ifndef X64
     "r0",  "r1",   "r2",   "r3",    "r4",  "r5",   "r6",   "r7",
     "r8",  "r9",   "r10",  "r11",  "r12",  "sp",   "lr",   "pc",
 #endif
     "q0",  "q1",   "q2",   "q3",    "q4",  "q5",   "q6",   "q7",
     "q8",  "q9",   "q10",  "q11",  "q12", "q13",  "q14",  "q15",
-#ifdef X64
     "q16", "q17",  "q18",  "q19",  "q20", "q21",  "q22",  "q23",
     "q24", "q25",  "q26",  "q27",  "q28", "q29",  "q30",  "q31",
-#endif
     "d0",  "d1",   "d2",   "d3",   "d4",  "d5",   "d6",   "d7",
     "d8",  "d9",   "d10",  "d11",  "d12", "d13",  "d14",  "d15",
     "d16", "d17",  "d18",  "d19",  "d20", "d21",  "d22",  "d23",
@@ -80,20 +77,16 @@ const char * const reg_names[] = {
     "b24", "b25",  "b26",  "b27",  "b28", "b29",  "b30",  "b31",
     "r0_th",  "r1_th",  "r2_th",  "r3_th",   "r4_th",  "r5_th",  "r6_th",  "r7_th",
     "r8_th",  "r9_th",  "r10_th", "r11_th", "r12_th", "r13_th", "r14_th", "r15_th",
-#ifdef X64
     "r16_th", "r17_th", "r18_th", "r19_th", "r20_th", "r21_th", "r22_th", "r23_th",
     "r24_th", "r25_th", "r26_th", "r27_th", "r28_th", "r29_th", "r30_th", "r31_th",
-#endif
 #ifndef X64
     "r0_bh",  "r1_bh",  "r2_bh",  "r3_bh",   "r4_bh",  "r5_bh",  "r6_bh",  "r7_bh",
     "r8_bh",  "r9_bh",  "r10_bh", "r11_bh", "r12_bh", "r13_bh", "r14_bh", "r15_bh",
 #endif
     "r0_bb",  "r1_bb",  "r2_bb",  "r3_bb",   "r4_bb",  "r5_bb",  "r6_bb",  "r7_bb",
     "r8_bb",  "r9_bb",  "r10_bb", "r11_bb", "r12_bb", "r13_bb", "r14_bb", "r15_bb",
-#ifdef X64
     "r16_bb", "r17_bb", "r18_bb", "r19_bb", "r20_bb", "r21_bb", "r22_bb", "r23_bb",
     "r24_bb", "r25_bb", "r26_bb", "r27_bb", "r28_bb", "r29_bb", "r30_bb", "r31_bb",
-#endif
     "cpsr", "spsr",
 };
 
@@ -102,35 +95,37 @@ const char * const reg_names[] = {
 const reg_id_t dr_reg_fixer[] = {
     REG_NULL,
     REG_NULL,
+    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
+    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
+    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
+    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
+    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
+    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
+    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+#ifndef X64
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-#ifdef X64
-    DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
-    DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
-    DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
-    DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
-    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
-    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
-    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
-    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
-    DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
-    DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
-    DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
 #endif
     /* q0-q31 */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-#ifdef X64
     DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
     DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
     DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
     DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#endif
     /* d0-d31 */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
@@ -200,12 +195,10 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-#ifdef X64
     DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
     DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
     DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
     DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
-#endif
 #ifndef X64
     /* bottom half */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
@@ -218,12 +211,10 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-#ifdef X64
     DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
     DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
     DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
     DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
-#endif
     DR_REG_CPSR, DR_REG_SPSR,
 };
 
