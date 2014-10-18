@@ -464,6 +464,11 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     CLIENT_ASSERT(index_reg <= REG_LAST_ENUM, "opnd_create_*base_disp*: invalid index");
     CLIENT_ASSERT_BITFIELD_TRUNCATE(SCALE_SPECIFIER_BITS, scale,
                                     "opnd_create_*base_disp*: invalid scale");
+    /* reg_id_t is now a ushort, but we can only accept low values */
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
+                                    "opnd_create_*base_disp*: invalid base");
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
+                                    "opnd_create_*base_disp*: invalid index");
     opnd.seg.segment = seg;
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
@@ -763,42 +768,6 @@ const reg_id_t regparms[] = {
 #endif
     REG_INVALID
 };
-
-/* Maps sub-registers to their containing register. */
-const reg_id_t dr_reg_fixer[]={
-    REG_NULL,
-    REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,
-    REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
-    REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,
-    REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
-    REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,
-    REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
-    REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,  REG_XAX,  REG_XCX,  REG_XDX,  REG_XBX,
-    REG_R8,   REG_R9,   REG_R10,  REG_R11,  REG_R12,  REG_R13,  REG_R14,  REG_R15,
-    REG_XSP,  REG_XBP,  REG_XSI,  REG_XDI,  /* i#201 */
-    REG_MM0,  REG_MM1,  REG_MM2,  REG_MM3,  REG_MM4,  REG_MM5,  REG_MM6,  REG_MM7,
-    REG_YMM0, REG_YMM1, REG_YMM2, REG_YMM3, REG_YMM4, REG_YMM5, REG_YMM6, REG_YMM7,
-    REG_YMM8, REG_YMM9, REG_YMM10,REG_YMM11,REG_YMM12,REG_YMM13,REG_YMM14,REG_YMM15,
-    REG_ST0,  REG_ST1,  REG_ST2,  REG_ST3,  REG_ST4,  REG_ST5,  REG_ST6,  REG_ST7,
-    SEG_ES,   SEG_CS,   SEG_SS,   SEG_DS,   SEG_FS,   SEG_GS,
-    REG_DR0,  REG_DR1,  REG_DR2,  REG_DR3,  REG_DR4,  REG_DR5,  REG_DR6,  REG_DR7,
-    REG_DR8,  REG_DR9,  REG_DR10, REG_DR11, REG_DR12, REG_DR13, REG_DR14, REG_DR15,
-    REG_CR0,  REG_CR1,  REG_CR2,  REG_CR3,  REG_CR4,  REG_CR5,  REG_CR6,  REG_CR7,
-    REG_CR8,  REG_CR9,  REG_CR10, REG_CR11, REG_CR12, REG_CR13, REG_CR14, REG_CR15,
-    REG_INVALID,
-    REG_YMM0, REG_YMM1, REG_YMM2, REG_YMM3, REG_YMM4, REG_YMM5, REG_YMM6, REG_YMM7,
-    REG_YMM8, REG_YMM9, REG_YMM10,REG_YMM11,REG_YMM12,REG_YMM13,REG_YMM14,REG_YMM15,
-};
-
-#ifdef DEBUG
-void
-reg_check_reg_fixer(void)
-{
-    /* ignore REG_INVALID, so should equal REG_LAST_ENUM */
-    CLIENT_ASSERT(sizeof(dr_reg_fixer)/sizeof(dr_reg_fixer[0]) == REG_LAST_ENUM + 1,
-                  "internal register enum error");
-}
-#endif
 
 /*
    opnd_uses_reg is now changed so that it does consider 8/16 bit

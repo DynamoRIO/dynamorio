@@ -198,13 +198,19 @@ typedef struct _decode_info_t decode_info_t;
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
-    /* register enum values are used for TYPE_*REG but we only use them
+    /* For x86, register enum values are used for TYPE_*REG but we only use them
      * as opnd_size_t when we have the type available, so we can overlap
      * the two enums by adding new registers consecutively to the reg enum.
+     * The reg_id_t type is now wider, but for x86 we ensure our values
+     * all fit via an assert in arch_init().
      * To maintain backward compatibility we keep the OPSZ_ constants
      * starting at the same spot, now midway through the reg enum:
      */
+#ifdef X86
     OPSZ_NA = DR_REG_INVALID+1, /**< Sentinel value: not a valid size. */ /* = 140 */
+#elif defined(ARM)
+    OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
+#endif
     OPSZ_FIRST = OPSZ_NA,
     OPSZ_0,  /**< 0 bytes, for "sizeless" operands (for Intel, code
               * 'm': used for both start addresses (lea, invlpg) and

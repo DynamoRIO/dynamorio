@@ -107,18 +107,20 @@
  * We also assume that the DR_SEG_ constants are invalid as pointers for
  * our use in instr_info_t.code.
  * Also, reg_names array in encode.c corresponds to this enum order.
- * Plus, dr_reg_fixer array in instr_shared.c.
+ * Plus, dr_reg_fixer array in encode.c.
  * Lots of optimizations assume same ordering of registers among
  * 32, 16, and 8  i.e. eax same position (first) in each etc.
  * reg_rm_selectable() assumes the GPR registers, mmx, and xmm are all in a row.
  */
 #endif
+/** Register identifiers. */
 enum {
 #ifdef AVOID_API_EXPORT
     /* compiler gives weird errors for "REG_NONE" */
     /* PR 227381: genapi.pl auto-inserts doxygen comments for lines without any! */
 #endif
     DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
+#ifdef X86
     /* 64-bit general purpose */
     DR_REG_RAX,  DR_REG_RCX,  DR_REG_RDX,  DR_REG_RBX,
     DR_REG_RSP,  DR_REG_RBP,  DR_REG_RSI,  DR_REG_RDI,
@@ -176,31 +178,265 @@ enum {
     DR_REG_YMM4, DR_REG_YMM5, DR_REG_YMM6, DR_REG_YMM7,
     DR_REG_YMM8, DR_REG_YMM9, DR_REG_YMM10,DR_REG_YMM11,
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
+
+    /****************************************************************************/
+#elif defined(ARM)
+    DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+# ifdef X64
+    /* 64-bit general purpose */
+    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
+    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
+    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
+    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+    DR_REG_LR  = DR_REG_R30, /**< The link register. */
+    DR_REG_SP  = DR_REG_R31, /**< The stack pointer register. */
+    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
+
+    /* 32-bit general purpose */
+    DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
+    DR_REG_W4,  DR_REG_W5,   DR_REG_W6,   DR_REG_W7,
+    DR_REG_W8,  DR_REG_W9,   DR_REG_W10,  DR_REG_W11,
+    DR_REG_W12, DR_REG_W13,  DR_REG_W14,  DR_REG_W15,
+    DR_REG_W16, DR_REG_W17,  DR_REG_W18,  DR_REG_W19,
+    DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
+    DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
+    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
+    DR_REG_WSP = DR_REG_R31, /**< The bottom half of the stack pointer register. */
+    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
+
+    DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
+    DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
+    DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
+    DR_REG_R3  = DR_REG_X3,  /**< Alias for the x3 register. */
+    DR_REG_R4  = DR_REG_X4,  /**< Alias for the x4 register. */
+    DR_REG_R5  = DR_REG_X5,  /**< Alias for the x5 register. */
+    DR_REG_R6  = DR_REG_X6,  /**< Alias for the x6 register. */
+    DR_REG_R7  = DR_REG_X7,  /**< Alias for the x7 register. */
+    DR_REG_R8  = DR_REG_X8,  /**< Alias for the x8 register. */
+    DR_REG_R9  = DR_REG_X9,  /**< Alias for the x9 register. */
+    DR_REG_R10 = DR_REG_X10, /**< Alias for the x10 register. */
+    DR_REG_R11 = DR_REG_X11, /**< Alias for the x11 register. */
+    DR_REG_R12 = DR_REG_X12, /**< Alias for the x12 register. */
+    DR_REG_R13 = DR_REG_X13, /**< Alias for the x13 register. */
+    DR_REG_R14 = DR_REG_X14, /**< Alias for the x14 register. */
+    DR_REG_R15 = DR_REG_X15, /**< Alias for the x15 register. */
+    DR_REG_R16 = DR_REG_X16, /**< Alias for the x16 register. */
+    DR_REG_R17 = DR_REG_X17, /**< Alias for the x17 register. */
+    DR_REG_R18 = DR_REG_X18, /**< Alias for the x18 register. */
+    DR_REG_R19 = DR_REG_X19, /**< Alias for the x19 register. */
+    DR_REG_R20 = DR_REG_X20, /**< Alias for the x20 register. */
+    DR_REG_R21 = DR_REG_X21, /**< Alias for the x21 register. */
+    DR_REG_R22 = DR_REG_X22, /**< Alias for the x22 register. */
+    DR_REG_R23 = DR_REG_X23, /**< Alias for the x23 register. */
+    DR_REG_R24 = DR_REG_X24, /**< Alias for the x24 register. */
+    DR_REG_R25 = DR_REG_X25, /**< Alias for the x25 register. */
+    DR_REG_R26 = DR_REG_X26, /**< Alias for the x26 register. */
+    DR_REG_R27 = DR_REG_X27, /**< Alias for the x27 register. */
+    DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
+    DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
+    DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
+    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
+# else
+    /* 32-bit general purpose */
+    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
+    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
+    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
+    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
+# endif
+
+    /* 128-bit SIMD registers */
+    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
+    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
+    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
+    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
+# ifdef X64
+    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
+    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
+    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
+    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
+# endif
+    /* 64-bit SIMD registers */
+    DR_REG_D0,  DR_REG_D1,   DR_REG_D2,   DR_REG_D3,
+    DR_REG_D4,  DR_REG_D5,   DR_REG_D6,   DR_REG_D7,
+    DR_REG_D8,  DR_REG_D9,   DR_REG_D10,  DR_REG_D11,
+    DR_REG_D12, DR_REG_D13,  DR_REG_D14,  DR_REG_D15,
+    DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
+    DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
+    DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
+    DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
+    /* 32-bit SIMD registers */
+    DR_REG_S0,  DR_REG_S1,   DR_REG_S2,   DR_REG_S3,
+    DR_REG_S4,  DR_REG_S5,   DR_REG_S6,   DR_REG_S7,
+    DR_REG_S8,  DR_REG_S9,   DR_REG_S10,  DR_REG_S11,
+    DR_REG_S12, DR_REG_S13,  DR_REG_S14,  DR_REG_S15,
+    DR_REG_S16, DR_REG_S17,  DR_REG_S18,  DR_REG_S19,
+    DR_REG_S20, DR_REG_S21,  DR_REG_S22,  DR_REG_S23,
+    DR_REG_S24, DR_REG_S25,  DR_REG_S26,  DR_REG_S27,
+    DR_REG_S28, DR_REG_S29,  DR_REG_S30,  DR_REG_S31,
+    /* 16-bit SIMD registers */
+    DR_REG_H0,  DR_REG_H1,   DR_REG_H2,   DR_REG_H3,
+    DR_REG_H4,  DR_REG_H5,   DR_REG_H6,   DR_REG_H7,
+    DR_REG_H8,  DR_REG_H9,   DR_REG_H10,  DR_REG_H11,
+    DR_REG_H12, DR_REG_H13,  DR_REG_H14,  DR_REG_H15,
+    DR_REG_H16, DR_REG_H17,  DR_REG_H18,  DR_REG_H19,
+    DR_REG_H20, DR_REG_H21,  DR_REG_H22,  DR_REG_H23,
+    DR_REG_H24, DR_REG_H25,  DR_REG_H26,  DR_REG_H27,
+    DR_REG_H28, DR_REG_H29,  DR_REG_H30,  DR_REG_H31,
+    /* 8-bit SIMD registers */
+    DR_REG_B0,  DR_REG_B1,   DR_REG_B2,   DR_REG_B3,
+    DR_REG_B4,  DR_REG_B5,   DR_REG_B6,   DR_REG_B7,
+    DR_REG_B8,  DR_REG_B9,   DR_REG_B10,  DR_REG_B11,
+    DR_REG_B12, DR_REG_B13,  DR_REG_B14,  DR_REG_B15,
+    DR_REG_B16, DR_REG_B17,  DR_REG_B18,  DR_REG_B19,
+    DR_REG_B20, DR_REG_B21,  DR_REG_B22,  DR_REG_B23,
+    DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
+    DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
+
+    DR_REG_R0_TH,  /**< The top half of the r0 register. */
+    DR_REG_R1_TH,  /**< The top half of the r1 register. */
+    DR_REG_R2_TH,  /**< The top half of the r2 register. */
+    DR_REG_R3_TH,  /**< The top half of the r3 register. */
+    DR_REG_R4_TH,  /**< The top half of the r4 register. */
+    DR_REG_R5_TH,  /**< The top half of the r5 register. */
+    DR_REG_R6_TH,  /**< The top half of the r6 register. */
+    DR_REG_R7_TH,  /**< The top half of the r7 register. */
+    DR_REG_R8_TH,  /**< The top half of the r8 register. */
+    DR_REG_R9_TH,  /**< The top half of the r9 register. */
+    DR_REG_R10_TH, /**< The top half of the r10 register. */
+    DR_REG_R11_TH, /**< The top half of the r11 register. */
+    DR_REG_R12_TH, /**< The top half of the r12 register. */
+    DR_REG_R13_TH, /**< The top half of the r13 register. */
+    DR_REG_R14_TH, /**< The top half of the r14 register. */
+    DR_REG_R15_TH, /**< The top half of the r15 register. */
+# ifdef X64
+    DR_REG_R16_TH, /**< The top half of the r16 register. */
+    DR_REG_R17_TH, /**< The top half of the r17 register. */
+    DR_REG_R18_TH, /**< The top half of the r18 register. */
+    DR_REG_R19_TH, /**< The top half of the r19 register. */
+    DR_REG_R20_TH, /**< The top half of the r20 register. */
+    DR_REG_R21_TH, /**< The top half of the r21 register. */
+    DR_REG_R22_TH, /**< The top half of the r22 register. */
+    DR_REG_R23_TH, /**< The top half of the r23 register. */
+    DR_REG_R24_TH, /**< The top half of the r24 register. */
+    DR_REG_R25_TH, /**< The top half of the r25 register. */
+    DR_REG_R26_TH, /**< The top half of the r26 register. */
+    DR_REG_R27_TH, /**< The top half of the r27 register. */
+    DR_REG_R28_TH, /**< The top half of the r28 register. */
+    DR_REG_R29_TH, /**< The top half of the r29 register. */
+    DR_REG_R30_TH, /**< The top half of the r30 register. */
+    DR_REG_R31_TH, /**< The top half of the r31 register. */
+# endif
+
+# ifndef X64
+    DR_REG_R0_BH,  /**< The bottom half of the r0 register. */
+    DR_REG_R1_BH,  /**< The bottom half of the r1 register. */
+    DR_REG_R2_BH,  /**< The bottom half of the r2 register. */
+    DR_REG_R3_BH,  /**< The bottom half of the r3 register. */
+    DR_REG_R4_BH,  /**< The bottom half of the r4 register. */
+    DR_REG_R5_BH,  /**< The bottom half of the r5 register. */
+    DR_REG_R6_BH,  /**< The bottom half of the r6 register. */
+    DR_REG_R7_BH,  /**< The bottom half of the r7 register. */
+    DR_REG_R8_BH,  /**< The bottom half of the r8 register. */
+    DR_REG_R9_BH,  /**< The bottom half of the r9 register. */
+    DR_REG_R10_BH, /**< The bottom half of the r10 register. */
+    DR_REG_R11_BH, /**< The bottom half of the r11 register. */
+    DR_REG_R12_BH, /**< The bottom half of the r12 register. */
+    DR_REG_R13_BH, /**< The bottom half of the r13 register. */
+    DR_REG_R14_BH, /**< The bottom half of the r14 register. */
+    DR_REG_R15_BH, /**< The bottom half of the r15 register. */
+# endif
+
+    DR_REG_R0_BB,  /**< The bottom 8 bits of the r0 register. */
+    DR_REG_R1_BB,  /**< The bottom 8 bits of the r1 register. */
+    DR_REG_R2_BB,  /**< The bottom 8 bits of the r2 register. */
+    DR_REG_R3_BB,  /**< The bottom 8 bits of the r3 register. */
+    DR_REG_R4_BB,  /**< The bottom 8 bits of the r4 register. */
+    DR_REG_R5_BB,  /**< The bottom 8 bits of the r5 register. */
+    DR_REG_R6_BB,  /**< The bottom 8 bits of the r6 register. */
+    DR_REG_R7_BB,  /**< The bottom 8 bits of the r7 register. */
+    DR_REG_R8_BB,  /**< The bottom 8 bits of the r8 register. */
+    DR_REG_R9_BB,  /**< The bottom 8 bits of the r9 register. */
+    DR_REG_R10_BB, /**< The bottom 8 bits of the r10 register. */
+    DR_REG_R11_BB, /**< The bottom 8 bits of the r11 register. */
+    DR_REG_R12_BB, /**< The bottom 8 bits of the r12 register. */
+    DR_REG_R13_BB, /**< The bottom 8 bits of the r13 register. */
+    DR_REG_R14_BB, /**< The bottom 8 bits of the r14 register. */
+    DR_REG_R15_BB, /**< The bottom 8 bits of the r15 register. */
+# ifdef X64
+    DR_REG_R16_BB, /**< The bottom 8 bits of the r16 register. */
+    DR_REG_R17_BB, /**< The bottom 8 bits of the r17 register. */
+    DR_REG_R18_BB, /**< The bottom 8 bits of the r18 register. */
+    DR_REG_R19_BB, /**< The bottom 8 bits of the r19 register. */
+    DR_REG_R20_BB, /**< The bottom 8 bits of the r20 register. */
+    DR_REG_R21_BB, /**< The bottom 8 bits of the r21 register. */
+    DR_REG_R22_BB, /**< The bottom 8 bits of the r22 register. */
+    DR_REG_R23_BB, /**< The bottom 8 bits of the r23 register. */
+    DR_REG_R24_BB, /**< The bottom 8 bits of the r24 register. */
+    DR_REG_R25_BB, /**< The bottom 8 bits of the r25 register. */
+    DR_REG_R26_BB, /**< The bottom 8 bits of the r26 register. */
+    DR_REG_R27_BB, /**< The bottom 8 bits of the r27 register. */
+    DR_REG_R28_BB, /**< The bottom 8 bits of the r28 register. */
+    DR_REG_R29_BB, /**< The bottom 8 bits of the r29 register. */
+    DR_REG_R30_BB, /**< The bottom 8 bits of the r30 register. */
+    DR_REG_R31_BB, /**< The bottom 8 bits of the r31 register. */
+# endif
+
+# ifdef AVOID_API_EXPORT
+    /* XXX i#1551: do we want to model the any-16-bits-of-Xn target
+     * of OP_movk?
+     */
+# endif
+
+# ifdef AVOID_API_EXPORT
+    /* Though on x86 we don't list eflags for even things like popf that write
+     * other bits beyond aflags, here we do explicitly list cpsr and spsr for
+     * OP_mrs and OP_msr to distinguish them and make things clearer.
+     */
+# endif
+    DR_REG_CPSR, DR_REG_SPSR,
+
+    DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_SPSR, /**< Last value of register enums */
+
+    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
+#endif
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
-typedef byte reg_id_t; /* contains a DR_REG_ enum value */
-typedef byte opnd_size_t; /* contains a DR_REG_ or OPSZ_ enum value */
+typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
+/* For x86 we do store reg_id_t here, but the x86 DR_REG_ enum is small enough
+ * (checked in arch_init().
+ */
+typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 
+#ifdef X86
 /* Platform-independent full-register specifiers */
-#ifdef X64
-# define DR_REG_XAX DR_REG_RAX  /**< Platform-independent way to refer to rax/eax. */
-# define DR_REG_XCX DR_REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
-# define DR_REG_XDX DR_REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
-# define DR_REG_XBX DR_REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define DR_REG_XSP DR_REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
-# define DR_REG_XBP DR_REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define DR_REG_XSI DR_REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
-# define DR_REG_XDI DR_REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
-#else
-# define DR_REG_XAX DR_REG_EAX  /**< Platform-independent way to refer to rax/eax. */
-# define DR_REG_XCX DR_REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
-# define DR_REG_XDX DR_REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
-# define DR_REG_XBX DR_REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define DR_REG_XSP DR_REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
-# define DR_REG_XBP DR_REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
-# define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
+# ifdef X64
+#  define DR_REG_XAX DR_REG_RAX  /**< Platform-independent way to refer to rax/eax. */
+#  define DR_REG_XCX DR_REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
+#  define DR_REG_XDX DR_REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
+#  define DR_REG_XBX DR_REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
+#  define DR_REG_XSP DR_REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
+#  define DR_REG_XBP DR_REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
+#  define DR_REG_XSI DR_REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
+#  define DR_REG_XDI DR_REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
+# else
+#  define DR_REG_XAX DR_REG_EAX  /**< Platform-independent way to refer to rax/eax. */
+#  define DR_REG_XCX DR_REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
+#  define DR_REG_XDX DR_REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
+#  define DR_REG_XBX DR_REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
+#  define DR_REG_XSP DR_REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
+#  define DR_REG_XBP DR_REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
+#  define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
+#  define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
+# endif
 #endif
 
 /* DR_API EXPORT END */
@@ -209,48 +445,50 @@ extern const char * const reg_names[];
 extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
-#define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
-#ifdef X64
-# define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
-#else
-# define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
-#endif
-/**< Number of general registers */
-#define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
-#define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
-#define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
-#define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
-#define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
-#define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
-#define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
-#define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
-#define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
-#define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
-#define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
-#define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
-#define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
-#define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
-#define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
-#define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
-#define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
-#define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
-#define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
-#define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
-#define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
-#define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
-#define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
-#define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
-#define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */
-#define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
-#define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */
-#define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
-#define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */
+#ifdef X86 /* We don't need these for ARM which uses clear numbering */
+# define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
+# ifdef X64
+#  define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
+# else
+#  define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
+# endif
+/** Number of general registers */
+# define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
+# define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
+# define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
+# define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
+# define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
+# define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
+# define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
+# define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
+# define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
+# define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
+# define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
+# define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
+# define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
+# define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
+# define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
+# define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
+# define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
+# define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
+# define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
+# define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
+# define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
+# define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
+# define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
+# define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
+# define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */
+# define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
+# define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */
+# define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
+# define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */
 /**
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
-#define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
-#define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
+# define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
+# define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
+#endif /* X86 */
 /* DR_API EXPORT END */
 #define REG_START_SPILL   DR_REG_XAX
 #define REG_STOP_SPILL    DR_REG_XDI
@@ -477,6 +715,7 @@ extern const reg_id_t dr_reg_fixer[];
 
 #ifdef DR_FAST_IR
 
+/* We assume all addressing regs are in the lower 256 of the DR_REG_ enum. */
 # define REG_SPECIFIER_BITS 8
 # define SCALE_SPECIFIER_BITS 4
 

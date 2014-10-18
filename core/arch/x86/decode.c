@@ -879,9 +879,9 @@ read_instruction(byte *pc, byte *orig_pc,
                 di->repne_prefix = true;
             } else if (REG_START_SEGMENT <= info->code &&
                        info->code <= REG_STOP_SEGMENT) {
-                CLIENT_ASSERT_TRUNCATE(di->seg_override, byte, info->code,
+                CLIENT_ASSERT_TRUNCATE(di->seg_override, ushort, info->code,
                                        "decode error: invalid segment override");
-                di->seg_override = (byte) info->code;
+                di->seg_override = (reg_id_t) info->code;
             } else if (info->code == PREFIX_DATA) {
                 /* see if used as part of opcode before considering prefix */
                 di->data_prefix = true;

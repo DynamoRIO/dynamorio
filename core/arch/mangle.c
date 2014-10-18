@@ -99,7 +99,7 @@ typedef byte slot_kind_t;
  */
 typedef struct _slot_t {
     slot_kind_t kind;
-    byte value;
+    reg_id_t value;
 } slot_t;
 
 /* data structure of clean call callee information. */
@@ -186,7 +186,7 @@ callee_info_create(app_pc start, uint num_args)
 }
 
 static void
-callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, byte value)
+callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
 {
     if (ci->slots_used < BUFFER_SIZE_ELEMENTS(ci->scratch_slots)) {
         if (kind == SLOT_REG)
@@ -203,7 +203,7 @@ callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, byte value)
 }
 
 static opnd_t
-callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, byte value)
+callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
 {
     uint i;
     if (kind == SLOT_REG)

@@ -100,11 +100,11 @@ thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
-/* XXX: reg_id_t is not defined here, use unsigned char instead */
-ushort os_get_app_seg_base_offset(unsigned char seg);
-ushort os_get_app_seg_offset(unsigned char seg);
-void *os_get_dr_seg_base(dcontext_t *dcontext, unsigned char seg);
-void *os_get_app_seg_base(dcontext_t *dcontext, unsigned char seg);
+/* XXX: reg_id_t is not defined here, use ushort instead */
+ushort os_get_app_seg_base_offset(ushort/*reg_id_t*/ seg);
+ushort os_get_app_seg_offset(ushort/*reg_id_t*/ seg);
+void *os_get_dr_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+void *os_get_app_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.

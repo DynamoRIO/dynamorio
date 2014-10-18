@@ -261,7 +261,7 @@ struct _decode_info_t {
      * prefixes can be treated as absolute.
      */
     uint prefixes;
-    byte seg_override; /* REG enum of seg, REG_NULL if none */
+    reg_id_t seg_override; /* REG enum of seg, REG_NULL if none */
     /* modrm info */
     byte modrm;
     byte mod;

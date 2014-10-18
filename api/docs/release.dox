@@ -131,7 +131,11 @@ provides the umbra, drsyscall, and drsymcache Extensions for use by
 clients.
 
 The changes between version \DR_VERSION and 5.0.0 include the
-following:
+following minor compatibility changes:
+
+ - Widened the #reg_id_t type from a byte to a ushort.
+
+Further non-compatibility-affecting changes include:
 
  - Added distinctions between reasons for dr_query_memory_ex() to fail
 
