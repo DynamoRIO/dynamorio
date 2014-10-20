@@ -120,6 +120,7 @@ set(DECODER_SRCS
   arch/opnd_shared.c
   arch/${ARCH_NAME}/opnd.c
   arch/instr_shared.c
+  arch/${ARCH_NAME}/instr.c
   arch/instrlist.c
   arch/decode_shared.c
   arch/${ARCH_NAME}/decode.c

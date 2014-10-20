@@ -632,7 +632,6 @@ instr_length(dcontext_t *dcontext, instr_t *instr);
 
 /* not exported */
 void instr_shift_raw_bits(instr_t *instr, ssize_t offs);
-uint instr_branch_type(instr_t *cti_instr);
 int instr_exit_branch_type(instr_t *instr);
 void instr_exit_branch_set_type(instr_t *instr, uint type);
 
@@ -2172,6 +2171,19 @@ instr_create_raw_8bytes(dcontext_t *dcontext, byte byte1, byte byte2,
                         byte byte3, byte byte4, byte byte5,
                         byte byte6, byte byte7, byte byte8);
 
+/* arch-specific routines */
+int instr_length_arch(dcontext_t *dcontext, instr_t *instr);
+bool opc_is_not_a_real_memory_load(int opc);
+bool instr_compute_address_VSIB(instr_t *instr, priv_mcontext_t *mc, size_t mc_size,
+                                dr_mcontext_flags_t mc_flags, opnd_t curop, uint index,
+                                OUT bool *have_addr, OUT app_pc *addr, OUT bool *write);
+uint instr_branch_type(instr_t *cti_instr);
+bool opcode_is_call(int opc);
+bool opcode_is_cbr(int opc);
+bool opcode_is_mbr(int opc);
+bool opcode_is_ubr(int opc);
+
+/* private routines for spill code */
 instr_t * instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs);
 instr_t * instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs);
 instr_t *
