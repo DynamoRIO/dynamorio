@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * **********************************************************/
 
 /*
@@ -135,7 +135,7 @@ proc_restore_fpstate(byte *buf)
 priv_mcontext_t *
 dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
 {
-    return (priv_mcontext_t*)(&mc->xdi);
+    return (priv_mcontext_t*)(&mc->IF_X86_ELSE(xdi,r0));
 }
 
 /* XXX: duplicated from instrument.c, for convert_to_near_rel_common() */
