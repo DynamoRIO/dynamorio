@@ -37,32 +37,12 @@
 #ifndef _INSTR_CREATE_H_
 #define _INSTR_CREATE_H_ 1
 
+#include "../instr_create_shared.h"
+
 /* DR_API EXPORT TOFILE dr_ir_macros.h */
 /* DR_API EXPORT BEGIN */
-/**
- * @file dr_ir_macros.h
- * @brief Instruction creation convenience macros.
- *
- * All macros assume default data and address sizes.  For the most part these
- * macros do not support building non-default address or data size
- * versions; for that, simply duplicate the macro's body, replacing the
- * SIZE and/or hardcoded registers with smaller versions (the IR does
- * not support cs segments with non-default sizes where the default
- * size requires instruction prefixes).  For shrinking data sizes, see
- * the instr_shrink_to_16_bits() routine.
- */
 
 #include <math.h> /* for floating-point math constants */
-
-#ifdef AVOID_API_EXPORT
-# include "decode.h"
-/* (deliberately not indenting the #includes in API_EXPORT_ONLY for generated file) */
-#endif
-#ifdef API_EXPORT_ONLY
-#include "dr_ir_opnd.h"
-#include "dr_ir_instr.h"
-#include "dr_ir_utils.h"
-#endif
 
 /* instruction modification convenience routines */
 /**
@@ -70,28 +50,8 @@
  * instr_t *lock_inc_instr = LOCK(INSTR_CREATE_inc(....));
  */
 #define LOCK(instr_ptr) instr_set_prefix_flag((instr_ptr), PREFIX_LOCK)
-/**
- * Set the translation field for an instruction. For example:
- * instr_t *pushf_instr = INSTR_XL8(INSTR_CREATE_pushf(drcontext), addr);
- */
-#define INSTR_XL8(instr_ptr, app_addr) instr_set_translation((instr_ptr), (app_addr))
 
-/* operand convenience routines for common cases */
-/** Create a base+disp 8-byte operand. */
-#define OPND_CREATE_MEM64(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_8)
-/** Create a base+disp 4-byte operand. */
-#define OPND_CREATE_MEM32(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_4)
-/** Create a base+disp 2-byte operand. */
-#define OPND_CREATE_MEM16(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_2)
-/** Create a base+disp 1-byte operand. */
-#define OPND_CREATE_MEM8(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_1)
 #ifdef X64
-/** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM64
 /**
  * Create an absolute address operand encoded as pc-relative.
  * Encoding will fail if addr is out of 32-bit-signed-displacement reach.
@@ -99,41 +59,10 @@
 # define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 #else
-/** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM32
 /** Create an absolute address operand. */
 # define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_abs_addr(addr, size)
 #endif
-
-#ifdef X64
-/** Create an 8-byte immediate integer operand. */
-#define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
-/** Create a pointer-sized immediate integer operand. */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT64
-#else
-/** Create a pointer-sized immediate integer operand. */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT32
-#endif
-/** Create a 4-byte immediate integer operand. */
-#define OPND_CREATE_INT32(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_4)
-/** Create a 2-byte immediate integer operand. */
-#define OPND_CREATE_INT16(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_2)
-/** Create a 1-byte immediate integer operand. */
-#define OPND_CREATE_INT8(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_1)
-/**
- * Create a 1-byte immediate interger operand if val will fit, else create a 4-byte
- * immediate integer operand.
- */
-#define OPND_CREATE_INT_32OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
-/**
- * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
- * immediate integer operand.
- */
-#define OPND_CREATE_INT_16OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
-
 
 /* operand convenience routines for specific opcodes with odd sizes */
 /** Create a memory reference operand appropriately sized for OP_lea. */
@@ -255,13 +184,6 @@
 #define INSTR_CREATE_vzeroall(dc) instr_create_0dst_0src((dc), OP_vzeroall)
 #define INSTR_CREATE_xtest(dc) instr_create_0dst_0src((dc), OP_xtest)
 /* @} */ /* end doxygen group */
-/**
- * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
- * jump or call instr_t target, and when emitted it will take no space in the
- * resulting machine code.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- */
-#define INSTR_CREATE_label(dc)    instr_create_0dst_0src((dc), OP_LABEL)
 
 /* no destination, 1 source */
 /**
@@ -3870,4 +3792,3 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)
 #endif
 
 #endif /* _INSTR_CREATE_H_ */
-

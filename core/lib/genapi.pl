@@ -168,6 +168,8 @@ if ($header) {
     }
 }
 
+$arch = defined($defines{"ARM"}) ? "arm" : "x86";
+
 # I used to just do
 #   open(FIND, "find . -name \\*.h |")
 # but there are dependencies between header files, and certain orders
@@ -188,7 +190,8 @@ if ($header) {
      "$core/arch/opnd.h",
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
-     "$core/arch/instr_create.h",
+     "$core/arch/instr_create_shared.h",
+     "$core/arch/$arch/instr_create.h",
      "$core/arch/decode.h",       # OPSZ_ consts, decode routines
      "$core/arch/decode_fast.h",  # decode routines
      "$core/arch/disassemble.h",  # disassemble routines
