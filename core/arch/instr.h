@@ -61,11 +61,21 @@
 /* can't include decode.h, it includes us, just declare struct */
 struct instr_info_t;
 
+/* DR_API EXPORT TOFILE dr_ir_opcodes.h */
+/* DR_API EXPORT BEGIN */
+#ifdef API_EXPORT_ONLY
+#ifdef X86
+# include "dr_ir_opcodes_x86.h"
+#elif defined(ARM)
+# include "dr_ir_opcodes_arm.h"
+#endif
+#endif
+/* DR_API EXPORT END */
+
 /* If INSTR_INLINE is already defined, that means we've been included by
  * instr_shared.c, which wants to use C99 extern inline.  Otherwise, DR_FAST_IR
  * determines whether our instr routines are inlined.
  */
-/* DR_API EXPORT BEGIN */
 /* Inlining macro controls. */
 #ifndef INSTR_INLINE
 # ifdef DR_FAST_IR

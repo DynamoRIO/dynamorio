@@ -48,6 +48,7 @@ include_directories(BEFORE
   ${PROJECT_SOURCE_DIR}/core/lib
   ${PROJECT_SOURCE_DIR}/core/win32
   ${PROJECT_SOURCE_DIR}/core/arch
+  ${PROJECT_SOURCE_DIR}/core/arch/${ARCH_NAME}
   ${PROJECT_BINARY_DIR} # for events.h
   )
 if (WIN32)

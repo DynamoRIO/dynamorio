@@ -532,8 +532,6 @@ DR_API
 const char *
 decode_opcode_name(int opcode);
 
-/* DR_API EXPORT TOFILE dr_ir_opcodes.h */
-
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr[];
 /* for debugging: printing out types and sizes */

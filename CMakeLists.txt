@@ -194,6 +194,16 @@ else ()
   set(X86 1) # This means IA-32 or AMD64
 endif ()
 
+if (X86)
+  set(ARCH_NAME x86)
+else ()
+  if (ARM)
+    set(ARCH_NAME arm)
+  else ()
+    message(FATAL_ERROR "Unknown architecture target")
+  endif ()
+endif ()
+
 # The plan is to use X64 to mean 64-bit generically, whether AMD64 or AARCH64.
 # Whether 64-bit is expected to be selected by user setting up compiler
 # prior to invoking CMake: it has to be that way for Windows, and for

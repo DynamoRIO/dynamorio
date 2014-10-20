@@ -296,6 +296,7 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
 #endif /* !STANDALONE_DECODER */
 /***************************************************************************/
 
+#ifdef X86 /* XXX i#1551: if we split up mangle.c, move to x86/ */
 /* Convert a short-format CTI into an equivalent one using
  * near-rel-format.
  * Remember, the target is kept in the 0th src array position,
@@ -494,6 +495,7 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
 }
+#endif /* X86 */
 
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)

@@ -186,7 +186,8 @@ $arch = defined($defines{"ARM"}) ? "arm" : "x86";
      "$core/os_shared.h",        # before instrument.h
      "$core/module_shared.h",    # before instrument.h
      "$core/lib/instrument.h",
-     "$core/arch/opcode.h",
+     "$core/arch/x86/opcode.h",
+     "$core/arch/arm/opcode.h",
      "$core/arch/opnd.h",
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
