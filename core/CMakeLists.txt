@@ -125,7 +125,8 @@ set(DECODER_SRCS
   arch/decode_shared.c
   arch/${ARCH_NAME}/decode.c
   arch/${ARCH_NAME}/encode.c
-  arch/disassemble.c
+  arch/disassemble_shared.c
+  arch/${ARCH_NAME}/disassemble.c
   )
 if (X86)
   set(DECODER_SRCS ${DECODER_SRCS}

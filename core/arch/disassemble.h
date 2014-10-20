@@ -40,6 +40,8 @@
 #ifndef DISASSEMBLE_H
 #define DISASSEMBLE_H
 
+#include "../globals.h"
+
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
 
 /* for printing to buffers */
@@ -96,6 +98,13 @@ typedef enum {
     DR_DISASM_NO_OPND_SIZE   =  0x8,
 } dr_disasm_flags_t;
 /* DR_API EXPORT END */
+
+static inline const char *
+postop_suffix(void)
+{
+    return (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) ?
+            "" : " ");
+}
 
 void
 disassemble_options_init(void);

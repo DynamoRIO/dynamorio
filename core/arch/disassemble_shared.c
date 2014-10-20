@@ -35,7 +35,7 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
-/* disassemble.c -- printing of x86 instructions
+/* disassemble.c -- printing of instructions
  *
  * Note that when printing out instructions:
  * Uses DR syntax of "srcs -> dsts" including implicit operands, unless
@@ -58,8 +58,6 @@
 #include "instr.h"
 #include "decode.h"
 #include "decode_fast.h"
-/* FIXME i#1551: refactor this file and avoid this x86-specific include in base arch/ */
-#include "x86/decode_private.h"
 #include "disassemble.h"
 #include "../module_shared.h"
 #include <string.h>
@@ -82,6 +80,28 @@
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
+
+/****************************************************************************
+ * Arch-specific routines
+ */
+
+bool
+opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            dcontext_t *dcontext, instr_t *instr,
+                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings);
+
+const char *
+instr_opcode_name_arch(instr_t *instr, const instr_info_t *info);
+
+const char *
+instr_opcode_name_suffix_arch(instr_t *instr);
+
+void
+print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
+                     char *buf, size_t bufsz, size_t *sofar INOUT);
+
+int
+print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT);
 
 /****************************************************************************
  * Printing of instructions
@@ -133,19 +153,13 @@ immed_prefix(void)
     return (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "" : "$");
 }
 
-static inline const char *
-postop_suffix(void)
-{
-    return (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) ?
-            "" : " ");
-}
-
-static void
+void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 reg_id_t reg, const char *prefix, const char *suffix)
 {
     print_to_buffer(buf, bufsz, sofar,
-                    TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "%s%s%s" : "%s%%%s%s",
+                    TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "%s%s%s" :
+                    "%s%%%s%s",
                     prefix, reg_names[reg], suffix);
 }
 
@@ -449,7 +463,7 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
     return printed;
 }
 
-static void
+void
 internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                           dcontext_t *dcontext, opnd_t opnd,
                           bool use_size_sfx)
@@ -801,107 +815,6 @@ disassemble_to_buffer(dcontext_t *dcontext, byte *pc, byte *orig_pc,
     return next;
 }
 
-static bool
-instr_implicit_reg(instr_t *instr)
-{
-    /* instrs that have multiple encodings whose reg opnds are always implicit */
-    switch (instr_get_opcode(instr)) {
-    case OP_ins: case OP_rep_ins:
-    case OP_outs: case OP_rep_outs:
-    case OP_movs: case OP_rep_movs:
-    case OP_stos: case OP_rep_stos:
-    case OP_lods: case OP_rep_lods:
-    case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-    case OP_scas: case OP_rep_scas: case OP_repne_scas:
-        return true;
-    }
-    return false;
-}
-
-static bool
-opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            dcontext_t *dcontext, instr_t *instr,
-                            byte optype, opnd_t opnd, bool prev, bool multiple_encodings)
-{
-    switch (optype) {
-    case TYPE_REG:
-    case TYPE_VAR_REG:
-    case TYPE_VARZ_REG:
-    case TYPE_VAR_XREG:
-    case TYPE_REG_EX:
-    case TYPE_VAR_REG_EX:
-    case TYPE_VAR_XREG_EX:
-    case TYPE_VAR_REGX_EX:
-        /* we do want to print implicit operands for opcode-decides-register
-         * instrs like inc-reg and pop-reg, but not for say lahf, aaa, or cdq.
-         */
-        if (!multiple_encodings || instr_implicit_reg(instr) ||
-            /* if has implicit st0 then don't print it */
-            (opnd_get_reg(opnd) == REG_ST0 && instr_memory_reference_size(instr) > 0))
-            return false;
-        /* else fall through */
-    case TYPE_A:
-    case TYPE_B:
-    case TYPE_C:
-    case TYPE_D:
-    case TYPE_E:
-    case TYPE_INDIR_E:
-    case TYPE_G:
-    case TYPE_H:
-    case TYPE_I:
-    case TYPE_J:
-    case TYPE_L:
-    case TYPE_M:
-    case TYPE_O:
-    case TYPE_P:
-    case TYPE_Q:
-    case TYPE_R:
-    case TYPE_S:
-    case TYPE_V:
-    case TYPE_W:
-    case TYPE_P_MODRM:
-    case TYPE_V_MODRM:
-    case TYPE_FLOATMEM:
-    case TYPE_VSIB:
-    case TYPE_1:
-        if (prev)
-            print_to_buffer(buf, bufsz, sofar, ", ");
-        internal_opnd_disassemble(buf, bufsz, sofar, dcontext, opnd, false);
-        return true;
-    case TYPE_X:
-    case TYPE_XLAT:
-    case TYPE_MASKMOVQ:
-        if (opnd_get_segment(opnd) != SEG_DS) {
-            /* FIXME: really we should put before opcode */
-            if (prev)
-                print_to_buffer(buf, bufsz, sofar, ", ");
-            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), "",
-                            postop_suffix());
-            return true;
-        }
-    case TYPE_Y:
-    case TYPE_FLOATCONST:
-    case TYPE_VAR_ADDR_XREG:
-    case TYPE_INDIR_REG:
-    case TYPE_INDIR_VAR_XREG:
-    case TYPE_INDIR_VAR_REG:
-    case TYPE_INDIR_VAR_XIREG:
-    case TYPE_INDIR_VAR_XREG_OFFS_1:
-    case TYPE_INDIR_VAR_XREG_OFFS_8:
-    case TYPE_INDIR_VAR_XREG_OFFS_N:
-    case TYPE_INDIR_VAR_XIREG_OFFS_1:
-    case TYPE_INDIR_VAR_REG_OFFS_2:
-    case TYPE_INDIR_VAR_XREG_SIZEx8:
-    case TYPE_INDIR_VAR_REG_SIZEx2:
-    case TYPE_INDIR_VAR_REG_SIZEx3x5:
-        /* implicit operand */
-        return false;
-    default:
-        CLIENT_ASSERT(false, "missing decode type"); /* catch any missing types */
-    }
-    return false;
-}
-
 static void
 instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                                    dcontext_t *dcontext, instr_t *instr)
@@ -911,13 +824,13 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
     int i, num;
     byte optype;
     /* avoid duplicate on ALU: only happens w/ 2dst, 3srcs */
-    byte optype_already[3] = {TYPE_NONE, TYPE_NONE, TYPE_NONE};
+    byte optype_already[3] = {0, 0, 0 /*0 == TYPE_NONE*/};
     opnd_t opnd;
     bool prev = false, multiple_encodings = false;
 
     info = instr_get_instr_info(instr);
     if (info != NULL && get_next_instr_info(info) != NULL &&
-        !TESTALL(HAS_EXTRA_OPERANDS | EXTRAS_IN_CODE_FIELD, info->flags))
+        instr_info_extra_opnds(info) == NULL)
         multiple_encodings = true;
 
     info = get_encoding_info(instr);
@@ -972,82 +885,18 @@ instr_disassemble_opnds_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
 static const char *
 instr_opcode_name(instr_t *instr, const instr_info_t *info)
 {
-    if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
-        switch (instr_get_opcode(instr)) {
-        /* remove "l" prefix */
-        case OP_call_far: return "call";
-        case OP_call_far_ind: return "call";
-        case OP_jmp_far: return "jmp";
-        case OP_jmp_far_ind: return "jmp";
-        case OP_ret_far: return "retf";
-        }
-    }
-#ifdef X64
-    if (!instr_get_x86_mode(instr)) {
-        if (instr_get_opcode(instr) == OP_jecxz &&
-            reg_is_pointer_sized(opnd_get_reg(instr_get_src(instr, 1))))
-            return "jrcxz";
-        else if (instr_get_opcode(instr) == OP_pextrd &&
-                 opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR)
-            return "pextrq";
-        else if (instr_get_opcode(instr) == OP_vpextrd &&
-                 opnd_get_size(instr_get_dst(instr, 0)) == OPSZ_PTR)
-            return "vpextrq";
-        else if (instr_get_opcode(instr) == OP_pinsrd &&
-                 opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
-            return "pinsrq";
-        else if (instr_get_opcode(instr) == OP_vpinsrd &&
-                 opnd_get_size(instr_get_src(instr, 0)) == OPSZ_PTR)
-            return "vpinsrq";
-    }
-#endif
+    const char * res = instr_opcode_name_arch(instr, info);
+    if (res != NULL)
+        return res;
     return info->name;
 }
 
 static const char *
 instr_opcode_name_suffix(instr_t *instr)
 {
-    if (TESTANY(DR_DISASM_INTEL|DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask))) {
-        /* add "b" or "d" suffix */
-        switch (instr_get_opcode(instr)) {
-        case OP_pushf: case OP_popf:
-        case OP_xlat:
-        case OP_ins: case OP_rep_ins:
-        case OP_outs: case OP_rep_outs:
-        case OP_movs: case OP_rep_movs:
-        case OP_stos: case OP_rep_stos:
-        case OP_lods: case OP_rep_lods:
-        case OP_cmps: case OP_rep_cmps: case OP_repne_cmps:
-        case OP_scas: case OP_rep_scas: case OP_repne_scas: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 1)
-                    return "b";
-                else if (sz == 2)
-                    return "w";
-                else if (sz == 4)
-                    return "d";
-                else if (sz == 8)
-                    return "q";
-        }
-        case OP_pusha:
-        case OP_popa: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 16)
-                    return "w";
-                else if (sz == 32)
-                    return "d";
-        }
-        case OP_iret: {
-                uint sz = instr_memory_reference_size(instr);
-                if (sz == 6)
-                    return "w";
-                else if (sz == 12)
-                    return "d";
-                else if (sz == 40)
-                    return "q";
-        }
-        }
-    }
+    const char * res = instr_opcode_name_suffix_arch(instr);
+    if (res != NULL)
+        return res;
     if (TEST(DR_DISASM_ATT, DYNAMO_OPTION(disasm_mask)) && instr_operands_valid(instr)) {
         /* XXX: requiring both src and dst.  Ideally we'd wait until we
          * see if there is a register or in some cases an immed operand
@@ -1180,44 +1029,12 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     } else
         name = "<RAW>";
 
-    if (TEST(PREFIX_XACQUIRE, instr->prefixes))
-        print_to_buffer(buf, bufsz, sofar, "xacquire ");
-    if (TEST(PREFIX_XRELEASE, instr->prefixes))
-        print_to_buffer(buf, bufsz, sofar, "xrelease ");
-    if (TEST(PREFIX_LOCK, instr->prefixes))
-        print_to_buffer(buf, bufsz, sofar, "lock ");
-    /* Note that we do not try to figure out data16 or addr16 prefixes
-     * if they are not already set from a recent decode;
-     * we don't want to enforce a valid encoding at this point.
-     *
-     * To walk the operands and find addr16, we'd need to look for
-     * opnd_is_disp_short_addr() as well as push/pop of REG_SP, jecxz/loop* of
-     * REG_CX, or string ops, maskmov*, or xlat of REG_DI or REG_SI.
-     * For data16, we'd look for 16-bit reg or OPSZ_2 immed or base_disp.
-     */
-    if (!TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
-        if (TEST(PREFIX_DATA, instr->prefixes))
-            print_to_buffer(buf, bufsz, sofar, "data16 ");
-        if (TEST(PREFIX_ADDR, instr->prefixes)) {
-            print_to_buffer(buf, bufsz, sofar,
-                            X64_MODE_DC(dcontext) ? "addr32 " : "addr16 ");
-        }
-#if 0 /* disabling for PR 256226 */
-        if (TEST(PREFIX_REX_W, instr->prefixes))
-            print_to_buffer(buf, bufsz, sofar, "rex.w ");
-#endif
-    }
+    print_instr_prefixes(dcontext, instr, buf, bufsz, sofar);
 
     print_to_buffer(buf, bufsz, sofar, "%s%s", name, instr_opcode_name_suffix(instr));
 
-    if (TEST(PREFIX_JCC_TAKEN, instr->prefixes)) {
-        print_to_buffer(buf, bufsz, sofar, ",pt ");
-        name_width -= 3;
-    } else if (TEST(PREFIX_JCC_NOT_TAKEN, instr->prefixes)) {
-        print_to_buffer(buf, bufsz, sofar, ",pn ");
-        name_width -= 3;
-    } else
-        print_to_buffer(buf, bufsz, sofar, " ");
+    name_width -= print_opcode_suffix(instr, buf, bufsz, sofar);
+    print_to_buffer(buf, bufsz, sofar, " ");
 
     IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(strlen(name)),
                          "instr_disassemble: internal truncation error"));
