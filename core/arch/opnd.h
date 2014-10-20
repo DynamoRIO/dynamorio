@@ -2012,4 +2012,8 @@ enum {
 };
 extern const reg_id_t regparms[];
 
+/* arch-specific */
+uint opnd_immed_float_arch(uint opcode);
+
+
 #endif /* _OPND_H_ */

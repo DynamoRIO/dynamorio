@@ -118,6 +118,7 @@ endif (WIN32 AND NOT X64)
 
 set(DECODER_SRCS
   arch/opnd_shared.c
+  arch/${ARCH_NAME}/opnd.c
   arch/instr_shared.c
   arch/instrlist.c
   arch/decode_shared.c
