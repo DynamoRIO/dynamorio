@@ -5750,7 +5750,7 @@ DR_API
  * the particular size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
- * of the x86 mode of the current thread (see get_x86_mode()).
+ * of the ISA mode of the current thread (see dr_get_isa_mode()).
  *
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
@@ -5771,7 +5771,7 @@ DR_API
  * the particular size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
- * of the x86 mode of the current thread (see get_x86_mode()).
+ * of the ISA mode of the current thread (see dr_get_isa_mode()).
  */
 void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,

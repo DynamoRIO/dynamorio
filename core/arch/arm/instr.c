@@ -35,6 +35,32 @@
 
 /* FIXME i#1551: add A64 and Thumb support throughout */
 
+bool
+instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
+{
+#ifdef X64
+    return (mode == DR_ISA_ARM_A64);
+#else
+    if (mode == DR_ISA_ARM_THUMB)
+        instr->flags |= INSTR_THUMB_MODE;
+    else if (mode == DR_ISA_ARM_A32)
+        instr->flags &= ~INSTR_THUMB_MODE;
+    else
+        return false;
+    return true;
+#endif
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+#ifdef X64
+    return DR_ISA_ARM_A64;
+#else
+    return TEST(INSTR_THUMB_MODE, instr->flags) ? DR_ISA_ARM_THUMB : DR_ISA_ARM_A32;
+#endif
+}
+
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

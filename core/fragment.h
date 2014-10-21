@@ -111,9 +111,12 @@
 # define FRAG_HAS_MOV_SEG           0x200000
 #endif
 
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* this fragment contains 32-bit code */
 # define FRAG_32_BIT                0x400000
+#elif defined(ARM) && !defined(X64)
+/* this fragment contains Thumb code */
+# define FRAG_THUMB                 0x400000
 #endif
 
 #define FRAG_MUST_END_TRACE         0x800000
@@ -166,6 +169,39 @@
 /* only used for debugging */
 #define FUTURE_FLAGS_ALLOWED (FUTURE_FLAGS_TRANSFER|FRAG_FAKE|FRAG_IS_FUTURE|\
                               FRAG_WAS_DELETED|FRAG_SHARED|FRAG_TEMP_PRIVATE)
+
+#define FRAG_ISA_MODE(flags)                                                   \
+    IF_X86_ELSE(IF_X64_ELSE((FRAG_IS_32(flags) || FRAG_IS_X86_TO_X64(flags)) ? \
+                            DR_ISA_IA32 : DR_ISA_AMD64, DR_ISA_IA32),          \
+                IF_X64_ELSE(DR_ISA_ARM_A64,                                    \
+                            (TEST(FRAG_THUMB, (flags)) ? DR_ISA_ARM_THUMB :    \
+                             DR_ISA_ARM_A32)))
+
+static inline uint
+frag_flags_from_isa_mode(dr_isa_mode_t mode)
+{
+#ifdef X86
+# ifdef X64
+    if (mode == DR_ISA_IA32)
+        return FRAG_32_BIT;
+    ASSERT(mode == DR_ISA_AMD64);
+    return 0;
+# else
+    ASSERT(mode == DR_ISA_IA32);
+    return 0;
+# endif
+#elif defined(ARM)
+# ifdef X64
+    ASSERT(mode == DR_ISA_ARM_A64);
+    return 0;
+# else
+    if (mode == DR_ISA_ARM_THUMB)
+        return FRAG_THUMB;
+    ASSERT(mode == DR_ISA_ARM_A32);
+    return 0;
+# endif
+#endif
+}
 
 /* to save space size field is a ushort => maximum fragment size */
 enum { MAX_FRAGMENT_SIZE = USHRT_MAX };

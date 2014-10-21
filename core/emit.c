@@ -411,7 +411,8 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     byte      *prev_stub_pc = NULL;
     uint      stub_size = 0;
     bool      no_stub = false;
-    IF_X64(bool x86_mode;)
+    dr_isa_mode_t isa_mode;
+    uint      mode_flags;
 
     KSTART(emit);
     /* we do entire cache b/c links may touch many units
@@ -428,12 +429,13 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
      * -- determine body size and number of exit stubs required;
      * -- if not padding jmps sets offsets as well
      */
-#ifdef X64
     ASSERT(instrlist_first(ilist) != NULL);
-    x86_mode = instr_get_x86_mode(instrlist_first(ilist));
-    if (x86_mode)
-        flags |= FRAG_32_BIT;
-    else if (get_x86_mode(dcontext))
+    isa_mode = instr_get_isa_mode(instrlist_first(ilist));
+    mode_flags = frag_flags_from_isa_mode(isa_mode);
+    if (mode_flags != 0)
+        flags |= mode_flags;
+#if defined(X86) && defined(X64)
+    else if (dr_get_isa_mode(dcontext) == DR_ISA_IA32)
         flags |= FRAG_X86_TO_X64;
 #endif
     for (inst = instrlist_first(ilist); inst; inst = instr_get_next(inst)) {
@@ -441,7 +443,7 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
          * cache, we require that each fragment has a single mode
          * (xref PR 278329)
          */
-        IF_X64(CLIENT_ASSERT(instr_get_x86_mode(inst) == x86_mode,
+        IF_X64(CLIENT_ASSERT(instr_get_isa_mode(inst) == isa_mode,
                              "single fragment cannot mix x86 and x64 modes"));
         if (!PAD_FRAGMENT_JMPS(flags)) {
             /* we're going to skip the 2nd pass, save this instr's offset in

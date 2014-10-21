@@ -65,11 +65,6 @@
 #  include "rct.h"
 #endif
 
-#ifdef X64
-# include "instr.h"
-# include "decode.h" /* get_x86_mode */
-#endif
-
 #ifdef VMX86_SERVER
 # include "vmkuw.h"
 #endif
@@ -475,9 +470,9 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     }
 #endif
 
-    IF_X64(ASSERT((get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)) ||
-                  (get_x86_mode(dcontext) && !FRAG_IS_32(targetf->flags) &&
-                   DYNAMO_OPTION(x86_to_x64))));
+    ASSERT(dr_get_isa_mode(dcontext) == FRAG_ISA_MODE(targetf->flags)
+           IF_X64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
+                      !FRAG_IS_32(targetf->flags) && DYNAMO_OPTION(x86_to_x64))));
     if (TEST(FRAG_SHARED, targetf->flags))
         fcache_enter = get_fcache_enter_shared_routine(dcontext);
     else

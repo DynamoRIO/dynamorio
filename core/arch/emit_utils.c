@@ -6111,8 +6111,8 @@ emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code,
          */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, DYNAMO_OPTION(protect_mask)));
         APP(&ilist, INSTR_CREATE_mov_st
-            (dcontext, OPND_CREATE_MEM8(REG_XCX, (int)offsetof(dcontext_t, x86_mode)),
-             OPND_CREATE_INT8(source_is_x86 ? 0 : 1)));
+            (dcontext, OPND_CREATE_MEM8(REG_XCX, (int)offsetof(dcontext_t, isa_mode)),
+             OPND_CREATE_INT8(source_is_x86 ? DR_ISA_AMD64 : DR_ISA_IA32)));
         APP(&ilist, INSTR_CREATE_xchg
             (dcontext, opnd_create_reg(REG_XBX), opnd_create_reg(REG_XCX)));
         if (ibl_code->x86_to_x64_mode && DYNAMO_OPTION(x86_to_x64_ibl_opt)) {

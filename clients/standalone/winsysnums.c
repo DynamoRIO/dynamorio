@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2003-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -642,9 +642,7 @@ main(int argc, char *argv[])
     char *dll;
     bool forced = false;
 
-#ifdef X64
-    set_x86_mode(dcontext, true/*x86*/);
-#endif
+    set_isa_mode(dcontext, DR_ISA_IA32);
 
     for (res=1; res < argc; res++) {
         if (strcmp(argv[res], "-sysenter") == 0) {
@@ -659,7 +657,7 @@ main(int argc, char *argv[])
         } else if (strcmp(argv[res], "-x64") == 0) {
             expect_x64 = true;
 #ifdef X64
-            set_x86_mode(dcontext, false/*x64*/);
+            set_isa_mode(dcontext, DR_ISA_AMD64);
 #else
             /* For 32-bit builds we hack a fix for -syscalls (see
              * decode_syscall_num()) but -Ki won't work.

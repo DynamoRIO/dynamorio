@@ -42,6 +42,58 @@
 #include "decode_private.h"
 #include "instr_create.h"
 
+#ifdef X64
+/*
+ * Each instruction stores whether it should be interpreted in 32-bit
+ * (x86) or 64-bit (x64) mode.  This routine sets the mode for \p instr.
+ */
+void
+instr_set_x86_mode(instr_t *instr, bool x86)
+{
+    if (x86)
+        instr->flags |= INSTR_X86_MODE;
+    else
+        instr->flags &= ~INSTR_X86_MODE;
+}
+
+/*
+ * Each instruction stores whether it should be interpreted in 32-bit
+ * (x86) or 64-bit (x64) mode.  This routine returns the mode for \p instr.
+ */
+bool
+instr_get_x86_mode(instr_t *instr)
+{
+    return TEST(INSTR_X86_MODE, instr->flags);
+}
+#endif
+
+bool
+instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode)
+{
+#ifdef X64
+    if (mode == DR_ISA_IA32)
+        instr_set_x86_mode(instr, true);
+    else if (mode == DR_ISA_AMD64)
+        instr_set_x86_mode(instr, false);
+    else
+        return false;
+#else
+    if (mode != DR_ISA_IA32)
+        return false;
+#endif
+    return true;
+}
+
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr)
+{
+#ifdef X64
+    return TEST(INSTR_X86_MODE, instr->flags) ? DR_ISA_IA32 : DR_ISA_AMD64;
+#else
+    return DR_ISA_IA32;
+#endif
+}
+
 int
 instr_length_arch(dcontext_t *dcontext, instr_t *instr)
 {

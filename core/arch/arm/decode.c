@@ -44,6 +44,16 @@
 /* FIXME i#1551: add Thumb support: for now just A32 */
 /* FIXME i#1551: add A64 support: for now just A32 */
 
+bool
+is_isa_mode_legal(dr_isa_mode_t mode)
+{
+#ifdef X64
+    return (mode == DR_ISA_ARM_A64);
+#else
+    return (mode == DR_ISA_ARM_THUMB || DR_ISA_ARM_A32);
+#endif
+}
+
 /* We assume little-endian */
 static inline int
 decode_predicate(uint instr_word)

@@ -825,14 +825,12 @@ struct _dcontext_t {
     reg_t          app_xdx;         /* stores orig xdx during sysenter */
 #endif
 
-#ifdef X64
-    /* Is this thread in 32-bit (x86) or 64-bit (x64) mode?
-     * Default is to decode as base platform, but we want runtime ability to
+    /* Holds the ISA mode of the thread.
+     * For x86, default is to decode as base platform, but we want runtime ability to
      * decode/encode 32-bit from 64-bit dynamorio.dll (we don't support the
-     * other way around: PR 236203).
+     * other way around: PR 236203).  For ARM we must support swapping.
      */
-    bool           x86_mode;
-#endif
+    dr_isa_mode_t  isa_mode;
 
     /* to make things more modular these are void*: */
     void *         link_field;

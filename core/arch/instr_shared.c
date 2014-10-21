@@ -91,7 +91,11 @@ instr_create(dcontext_t *dcontext)
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
-    IF_X64(instr_set_x86_mode(instr, !X64_CACHE_MODE_DC(dcontext)));
+#if defined(X86) && defined(X64)
+    instr_set_isa_mode(instr, X64_CACHE_MODE_DC(dcontext) ? DR_ISA_AMD64 : DR_ISA_IA32);
+#elif defined(ARM)
+    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
+#endif
     return instr;
 }
 
@@ -162,7 +166,7 @@ instr_init(dcontext_t *dcontext, instr_t *instr)
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
-    IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
+    instr_set_isa_mode(instr, dr_get_isa_mode(dcontext));
 }
 
 /* Frees all dynamically allocated storage that was allocated by instr */
@@ -254,8 +258,8 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
     uint len = 0;
     bool alloc = false;
     bool mangle = instr_is_app(instr);
+    dr_isa_mode_t isa_mode = instr_get_isa_mode(instr);
 #ifdef X64
-    bool x86_mode = instr_get_x86_mode(instr);
     uint rip_rel_pos = instr_rip_rel_valid(instr) ? instr->rip_rel_pos : 0;
 #endif
     instr_t *next = instr->next;
@@ -284,9 +288,9 @@ instr_reuse(dcontext_t *dcontext, instr_t *instr)
         if (alloc)
             instr->flags |= INSTR_RAW_BITS_ALLOCATED;
     }
-#ifdef X64
     /* preserve across the up-decode */
-    instr_set_x86_mode(instr, x86_mode);
+    instr_set_isa_mode(instr, isa_mode);
+#ifdef X64
     if (rip_rel_pos > 0)
         instr_set_rip_rel_pos(instr, rip_rel_pos);
 #endif
@@ -601,31 +605,6 @@ instr_get_prefixes(instr_t *instr)
     return instr->prefixes;
 }
 
-#ifdef X64
-/*
- * Each instruction stores whether it should be interpreted in 32-bit
- * (x86) or 64-bit (x64) mode.  This routine sets the mode for \p instr.
- */
-void
-instr_set_x86_mode(instr_t *instr, bool x86)
-{
-    if (x86)
-        instr->flags |= INSTR_X86_MODE;
-    else
-        instr->flags &= ~INSTR_X86_MODE;
-}
-
-/*
- * Each instruction stores whether it should be interpreted in 32-bit
- * (x86) or 64-bit (x64) mode.  This routine returns the mode for \p instr.
- */
-bool
-instr_get_x86_mode(instr_t *instr)
-{
-    return TEST(INSTR_X86_MODE, instr->flags);
-}
-#endif
-
 #ifdef UNSUPPORTED_API
 /* Returns true iff instr has been marked as targeting the prefix of its
  * target fragment.
@@ -817,7 +796,7 @@ instr_get_eflags(instr_t *instr)
     if ((instr->flags & INSTR_EFLAGS_VALID) == 0) {
         bool encoded = false;
         dcontext_t *dcontext = get_thread_private_dcontext();
-        IF_X64(bool old_mode;)
+        dr_isa_mode_t old_mode;
         /* we assume we cannot trust the opcode independently of operands */
         if (instr_needs_encoding(instr)) {
             int len;
@@ -829,9 +808,9 @@ instr_get_eflags(instr_t *instr)
                 return 0;
             }
         }
-        IF_X64(old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr)));
+        dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
         decode_eflags_usage(dcontext, instr_get_raw_bits(instr), &instr->eflags);
-        IF_X64(set_x86_mode(dcontext, old_mode));
+        dr_set_isa_mode(dcontext, old_mode, NULL);
         if (encoded) {
             /* if private_instr_encode passed us back whether it's valid
              * to cache (i.e., non-meta instr that can reach) we could skip
@@ -1164,7 +1143,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_t *newinstr, *firstinstr = NULL;
     int remaining_bytes, cur_inst_len;
     byte *curbytes, *newbytes;
-    IF_X64(bool old_mode;)
+    dr_isa_mode_t old_mode;
 
     /* make it easy for iterators: handle NULL
      * assume that if opcode is valid, is at Level 2, so not a bundle
@@ -1178,14 +1157,14 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     DOLOG(5, LOG_ALL, { loginst(dcontext, 4, instr, "instr_expand"); });
 
     /* decode routines use dcontext mode, but we want instr mode */
-    IF_X64(old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr)));
+    dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
 
     /* never have opnds but not opcode */
     CLIENT_ASSERT(!instr_operands_valid(instr), "instr_expand: opnds are already valid");
     CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_expand: raw bits are invalid");
     curbytes = instr->bytes;
     if ((uint)decode_sizeof(dcontext, curbytes, NULL _IF_X64(NULL)) == instr->length) {
-        IF_X64(set_x86_mode(dcontext, old_mode));
+        dr_set_isa_mode(dcontext, old_mode, NULL);
         return instr; /* Level 1 */
     }
 
@@ -1205,7 +1184,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
             if (firstinstr == NULL)
                 firstinstr = instr;
             instr_destroy(dcontext, newinstr);
-            IF_X64(set_x86_mode(dcontext, old_mode));
+            dr_set_isa_mode(dcontext, old_mode, NULL);
             return firstinstr;
         }
         DOLOG(5, LOG_ALL, { loginst(dcontext, 4, newinstr, "\tjust expanded into"); });
@@ -1253,7 +1232,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     instr_destroy(dcontext, instr);
 
     CLIENT_ASSERT(firstinstr != NULL, "instr_expand failure");
-    IF_X64(set_x86_mode(dcontext, old_mode));
+    dr_set_isa_mode(dcontext, old_mode, NULL);
     return firstinstr;
 }
 
@@ -1261,7 +1240,7 @@ bool
 instr_is_level_0(instr_t *instr)
 {
     dcontext_t *dcontext = get_thread_private_dcontext();
-    IF_X64(bool old_mode;)
+    dr_isa_mode_t old_mode;
     /* assume that if opcode is valid, is at Level 2, so not a bundle
      * do not expand meta-instrs -- FIXME: is that the right to do? */
     if (instr == NULL || instr_opcode_valid(instr) || instr_is_meta(instr) ||
@@ -1274,13 +1253,13 @@ instr_is_level_0(instr_t *instr)
                   "instr_is_level_0: opnds are already valid");
     CLIENT_ASSERT(instr_raw_bits_valid(instr),
                   "instr_is_level_0: raw bits are invalid");
-    IF_X64(old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr)));
+    dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
     if ((uint)decode_sizeof(dcontext, instr->bytes, NULL _IF_X64(NULL)) ==
         instr->length) {
-        IF_X64(set_x86_mode(dcontext, old_mode));
+        dr_set_isa_mode(dcontext, old_mode, NULL);
         return false; /* Level 1 */
     }
-    IF_X64(set_x86_mode(dcontext, old_mode));
+    dr_set_isa_mode(dcontext, old_mode, NULL);
     return true;
 }
 
@@ -1350,14 +1329,15 @@ instr_decode_cti(dcontext_t *dcontext, instr_t *instr)
     if (!instr_opcode_valid(instr) ||
         (instr_is_cti(instr) && !instr_operands_valid(instr))) {
         byte *next_pc;
-        /* decode_cti() will use the dcontext mode, but we want the instr mode */
-        IF_X64(bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));)
         DEBUG_EXT_DECLARE(int old_len = instr->length;)
+        /* decode_cti() will use the dcontext mode, but we want the instr mode */
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_cti: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode_cti(dcontext, instr->bytes, instr);
-        IF_X64(set_x86_mode(dcontext, old_mode));
+        dr_set_isa_mode(dcontext, old_mode, NULL);
         /* ok to be invalid, let caller deal with it */
         CLIENT_ASSERT(next_pc == NULL || (next_pc - instr->bytes == old_len),
                       "instr_decode_cti requires a Level 1 or higher instruction");
@@ -1376,18 +1356,19 @@ instr_decode_opcode(dcontext_t *dcontext, instr_t *instr)
 {
     if (!instr_opcode_valid(instr)) {
         byte *next_pc;
+        DEBUG_EXT_DECLARE(int old_len = instr->length;)
 #ifdef X64
         bool rip_rel_valid = instr_rip_rel_valid(instr);
-        /* decode_opcode() will use the dcontext mode, but we want the instr mode */
-        bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));
 #endif
-        DEBUG_EXT_DECLARE(int old_len = instr->length;)
+        /* decode_opcode() will use the dcontext mode, but we want the instr mode */
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
         CLIENT_ASSERT(instr_raw_bits_valid(instr),
                       "instr_decode_opcode: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode_opcode(dcontext, instr->bytes, instr);
+        dr_set_isa_mode(dcontext, old_mode, NULL);
 #ifdef X64
-        set_x86_mode(dcontext, old_mode);
         /* decode_opcode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode of the opcode */
         if (rip_rel_valid)
@@ -1408,12 +1389,13 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
 {
     if (!instr_operands_valid(instr)) {
         byte *next_pc;
+        DEBUG_EXT_DECLARE(int old_len = instr->length;)
 #ifdef X64
         bool rip_rel_valid = instr_rip_rel_valid(instr);
-        /* decode() will use the current dcontext mode, but we want the instr mode */
-        bool old_mode = set_x86_mode(dcontext, instr_get_x86_mode(instr));
 #endif
-        DEBUG_EXT_DECLARE(int old_len = instr->length;)
+        /* decode() will use the current dcontext mode, but we want the instr mode */
+        dr_isa_mode_t old_mode;
+        dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
         CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_decode: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode(dcontext, instr_get_raw_bits(instr), instr);
@@ -1421,8 +1403,8 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
         if (expand_should_set_translation(dcontext))
             instr_set_translation(instr, instr_get_raw_bits(instr));
 #endif
+        dr_set_isa_mode(dcontext, old_mode, NULL);
 #ifdef X64
-        set_x86_mode(dcontext, old_mode);
         /* decode sets raw bits which invalidates rip_rel, but
          * it should still be valid on an up-decode */
         if (rip_rel_valid)
@@ -1753,10 +1735,8 @@ bool instr_same(instr_t *inst1,instr_t *inst2)
         (instr_get_prefixes(inst2) & PREFIX_SIGNIFICANT))
         return false;
 
-#ifdef X64
-    if (instr_get_x86_mode(inst1) != instr_get_x86_mode(inst2))
+    if (instr_get_isa_mode(inst1) != instr_get_isa_mode(inst2))
         return false;
-#endif
 
     return true;
 }

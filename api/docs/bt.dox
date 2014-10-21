@@ -717,19 +717,19 @@ The 64-bit build of DynamoRIO uses 64-bit decoding and encoding by
 default, while the 32-bit build uses 32-bit.  The 64-bit build is also
 capable of decoding and encoding 32-bit instructions.  Each thread has a
 current mode that is used to determine how to interpret instructions while
-decoding, whose default matches the DynamoRIO build.  The set_x86_mode()
-routine changes the current mode, while get_x86_mode() queries the current
+decoding, whose default matches the DynamoRIO build.  The dr_set_isa_mode()
+routine changes the current mode, while dr_get_isa_mode() queries the current
 mode.
 
 Each instruction contains a flag indicating whether it should be encoded in
 32-bit or 64-bit mode.  When an instruction is created or decoded, the
 instruction's flag is set to the thread's current mode.  It can be queried
-with instr_get_x86_mode() and changed with instr_set_x86_mode().
+with instr_get_isa_mode() and changed with instr_set_isa_mode().
 
 For a 64-bit build of DynamoRIO, the instruction creation macros all use
 64-bit-sized registers.  The recommended model when generating 32-bit code
 is to use the macros to create an instruction list and before encoding to
-call instr_set_x86_mode() and instr_shrink_to_32_bits() on each
+call instr_set_isa_mode(DR_ISA_IA32) and instr_shrink_to_32_bits() on each
 instruction.  Naturally any instruction that differs in more than register
 selection must be special-cased.
 

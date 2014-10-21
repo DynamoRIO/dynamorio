@@ -210,9 +210,16 @@ enum {
     INSTR_DO_NOT_EMIT           = 0x10000000,
     /* PR 251479: re-relativization support: is instr->rip_rel_pos valid? */
     INSTR_RIP_REL_VALID         = 0x20000000,
-#ifdef X64
-    /* PR 278329: each instr stores its own x64/x86 mode */
+#ifdef X86
+    /* PR 278329: each instr stores its own mode */
     INSTR_X86_MODE              = 0x40000000,
+#elif defined(ARM)
+    /* We assume we don't need to distinguish A64 from A32 as you cannot swap
+     * between them in user mode.  Thus we only need one flag.
+     * XXX: we might want more power for drdecode, though the global isa_mode
+     * should be sufficient there.
+     */
+    INSTR_THUMB_MODE            = 0x40000000,
 #endif
     /* PR 267260: distinguish our own mangling from client-added instrs */
     INSTR_OUR_MANGLING          = 0x80000000,
@@ -1071,7 +1078,7 @@ uint
 instr_get_prefixes(instr_t *instr);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X86) && defined(X64)
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -1079,6 +1086,8 @@ DR_API
  * (x86) or 64-bit (x64) mode.  This routine sets the mode for \p instr.
  *
  * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by instr_set_isa_mode().
  */
 void
 instr_set_x86_mode(instr_t *instr, bool x86);
@@ -1089,12 +1098,30 @@ DR_API
  * if \p instr is an x64 instruction (64-bit).
  *
  * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by instr_get_isa_mode().
  */
 bool
 instr_get_x86_mode(instr_t *instr);
 /* DR_API EXPORT BEGIN */
 #endif
 /* DR_API EXPORT END */
+
+DR_API
+/**
+ * Each instruction stores the processor mode under which it should be
+ * interpreted.  This routine sets the mode for \p instr.
+ */
+bool
+instr_set_isa_mode(instr_t *instr, dr_isa_mode_t mode);
+
+DR_API
+/**
+ * Each instruction stores the processor mode under which it should be
+ * interpreted.  This routine returns the mode for \p instr.
+ */
+dr_isa_mode_t
+instr_get_isa_mode(instr_t *instr);
 
 /***********************************************************************/
 /* decoding routines */

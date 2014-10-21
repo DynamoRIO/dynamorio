@@ -413,6 +413,9 @@ enum {
 
 #define MODRM_BYTE(mod, reg, rm) ((byte) (((mod) << 6) | ((reg) << 3) | (rm)))
 
+/* for decode_info_t */
+#define X64_MODE(di) IF_X64_ELSE(!(di)->x86_mode, false)
+
 /* in decode.c, not exported to non-x86 files */
 bool optype_is_indir_reg(int optype);
 opnd_size_t resolve_var_reg_size(opnd_size_t sz, bool is_reg);

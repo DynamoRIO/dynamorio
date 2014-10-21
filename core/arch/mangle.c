@@ -4220,7 +4220,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             instrlist_set_translation_target(ilist, xl8);
         }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
         if (DYNAMO_OPTION(x86_to_x64) &&
             IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), false) &&
             instr_get_x86_mode(instr))
@@ -4376,7 +4376,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         instrlist_set_translation_target(ilist, NULL);
     instrlist_set_our_mangling(ilist, false); /* PR 267260 */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_t *in;
         for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {

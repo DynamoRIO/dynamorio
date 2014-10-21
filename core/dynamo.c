@@ -1539,9 +1539,7 @@ initialize_dynamo_context(dcontext_t *dcontext)
     dcontext->native_exec_postsyscall = NULL;
     memset(dcontext->native_retstack, 0, sizeof(dcontext->native_retstack));
     dcontext->native_retstack_cur = 0;
-#ifdef X64
-    dcontext->x86_mode = false;
-#endif
+    dcontext->isa_mode = DEFAULT_ISA_MODE;
     dcontext->sys_num = 0;
 #ifdef WINDOWS
 #ifdef CLIENT_INTERFACE
@@ -1637,9 +1635,7 @@ create_callback_dcontext(dcontext_t *old_dcontext)
     /* now that we have clean stack usage we can share a single stack */
     ASSERT(old_dcontext->dstack != NULL);
     new_dcontext->dstack = old_dcontext->dstack;
-#ifdef X64
-    new_dcontext->x86_mode = old_dcontext->x86_mode;
-#endif
+    new_dcontext->isa_mode = old_dcontext->isa_mode;
     new_dcontext->link_field = old_dcontext->link_field;
     new_dcontext->monitor_field = old_dcontext->monitor_field;
     new_dcontext->fcache_field = old_dcontext->fcache_field;

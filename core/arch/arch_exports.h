@@ -1358,34 +1358,41 @@ set_reached_image_entry(void);
 /* in decode.c, needed here for ref in arch.h */
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+/** Specifies which processor mode to use when decoding or encoding. */
+typedef enum _dr_isa_mode_t {
+    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
+    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T16 and T32). */
+    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
+    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
+} dr_isa_mode_t;
 /* DR_API EXPORT END */
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine sets that flag to the indicated value and returns the old value.  Be
- * sure to restore the old value prior to any further application execution to
- * avoid problems in mis-interpreting application code.
- *
- * \note For 64-bit DR builds only.
- */
-bool
-set_x86_mode(dcontext_t *dcontext, bool x86);
+
+#define DEFAULT_ISA_MODE \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_A32))
 
 DR_API
 /**
  * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine returns the value of that flag.
- *
- * \note For 64-bit DR builds only.
+ * indicates which processor mode to use.  This routine sets that flag to the
+ * indicated value and optionally returns the old value.  Be sure to restore the
+ * old value prior to any further application execution to avoid problems in
+ * mis-interpreting application code.
  */
 bool
-get_x86_mode(dcontext_t *dcontext);
-/* DR_API EXPORT BEGIN */
-#endif
-/* DR_API EXPORT END */
+dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode OUT);
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine returns the value of
+ * that flag.
+ */
+dr_isa_mode_t
+dr_get_isa_mode(dcontext_t *dcontext);
 
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */

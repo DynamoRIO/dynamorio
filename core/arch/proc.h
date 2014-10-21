@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -380,7 +380,7 @@ DR_API
  * to determine the particular size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
- * of the x86 mode of the current thread (see get_x86_mode()).
+ * of the ISA mode of the current thread (see dr_get_isa_mode()).
  *
  * The last floating-point instruction address is left in an
  * untranslated state (i.e., it may point into the code cache).
@@ -405,7 +405,7 @@ DR_API
  * be used to determine the particular size needed.
  *
  * When the FXSR feature is present, the fxsave format matches the bitwidth
- * of the x86 mode of the current thread (see get_x86_mode()).
+ * of the ISA mode of the current thread (see dr_get_isa_mode()).
  */
 void
 proc_restore_fpstate(byte *buf);

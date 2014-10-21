@@ -390,19 +390,19 @@ extern const instr_info_t invalid_instr;
 
 /* exported routines */
 
-/* XXX i#1550: extend "x86_mode" to support multiple modes and move this to
- * x86/decode_private.h or replace completely at that point
- */
-#define DEFAULT_X86_MODE IF_X64_ELSE(false, true)
-/* for decode_info_t */
-#define X64_MODE(di) IF_X64_ELSE(!(di)->x86_mode, false)
+bool is_isa_mode_legal(dr_isa_mode_t mode);
+
+#ifdef X86
 /* for dcontext_t */
-#define X64_MODE_DC(dc) IF_X64_ELSE(!get_x86_mode(dc), false)
+# define X64_MODE_DC(dc) IF_X64_ELSE(!get_x86_mode(dc), false)
 /* Currently we assume that code caches are always 64-bit in x86_to_x64.
  * Later, if needed, we can introduce a new field in dcontext_t (xref i#862).
  */
-#define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
-
+# define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
+#elif defined(ARM)
+# define X64_MODE_DC(dc) IF_X64_ELSE(true, false)
+# define X64_CACHE_MODE_DC(dc) IF_X64_ELSE(true, false)
+#endif
 
 DR_API
 /**
@@ -531,6 +531,40 @@ DR_API
 /** Given an OP_ constant, returns the string name of its opcode. */
 const char *
 decode_opcode_name(int opcode);
+
+/* DR_API EXPORT BEGIN */
+#ifdef X64
+/* DR_API EXPORT END */
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
+ * routine sets that flag to the indicated value and returns the old value.  Be
+ * sure to restore the old value prior to any further application execution to
+ * avoid problems in mis-interpreting application code.
+ *
+ * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by dr_set_isa_mode().
+ */
+bool
+set_x86_mode(dcontext_t *dcontext, bool x86);
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
+ * routine returns the value of that flag.
+ *
+ * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by dr_get_isa_mode().
+ */
+bool
+get_x86_mode(dcontext_t *dcontext);
+/* DR_API EXPORT BEGIN */
+#endif
+/* DR_API EXPORT END */
 
 /* table that translates opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr[];

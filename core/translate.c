@@ -914,8 +914,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         cache_pc cti_pc;
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
-        bool alloc = false;
-        IF_X64(bool old_mode;)
+        bool alloc = false, ok;
+        dr_isa_mode_t old_mode;
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
         dr_mcontext_t xl8_mcontext;
@@ -1015,8 +1015,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 
         /* Recreate in same mode as original fragment */
-        IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags) ||
-                                                  FRAG_IS_X86_TO_X64(f->flags)));
+        ok = dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+        ASSERT(ok);
 
         /* now recreate the state */
 #ifdef CLIENT_INTERFACE
@@ -1041,7 +1041,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                                                 mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
-        IF_X64(set_x86_mode(tdcontext, old_mode));
+        ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
+        ASSERT(ok);
 
 #ifdef STEAL_REGISTER
         /* FIXME: conflicts w/ PR 263407 reg spill tracking */

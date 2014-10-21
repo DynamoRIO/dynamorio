@@ -96,55 +96,30 @@ static const instr_info_t xop_a_instr =
     {XOP_A_EXT,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
 #undef xx
 
+bool
+is_isa_mode_legal(dr_isa_mode_t mode)
+{
 #ifdef X64
-/* PR 302344: used for shared traces -tracedump_origins where we
- * need to change the mode but we have no dcontext
- */
-static bool initexit_x86_mode = DEFAULT_X86_MODE;
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64);
+#else
+    return (mode == DR_ISA_IA32);
+#endif
+}
 
-/*
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine sets that flag to the indicated value and returns the old value.  Be
- * sure to restore the old value prior to any further application execution to
- * avoid problems in mis-interpreting application code.
- */
+#ifdef X64
 bool
 set_x86_mode(dcontext_t *dcontext, bool x86)
 {
-    bool old_mode;
-    /* We would disallow but some early init routines need to use global heap */
-    if (dcontext == GLOBAL_DCONTEXT)
-        dcontext = get_thread_private_dcontext();
-    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
-    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
-        old_mode = initexit_x86_mode;
-        initexit_x86_mode = x86;
-    } else {
-        old_mode = dcontext->x86_mode;
-        dcontext->x86_mode = x86;
-    }
-    return old_mode;
+    dr_isa_mode_t old_mode;
+    if (!dr_set_isa_mode(dcontext, x86 ? DR_ISA_IA32 : DR_ISA_AMD64, &old_mode))
+        return false;
+    return old_mode == DR_ISA_IA32;
 }
 
-/*
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine returns the value of that flag.
- */
 bool
 get_x86_mode(dcontext_t *dcontext)
 {
-    /* We would disallow but some early init routines need to use global heap */
-    if (dcontext == GLOBAL_DCONTEXT)
-        dcontext = get_thread_private_dcontext();
-    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
-    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
-        return initexit_x86_mode;
-    } else
-        return dcontext->x86_mode;
+    return dr_get_isa_mode(dcontext) == DR_ISA_IA32;
 }
 #endif
 

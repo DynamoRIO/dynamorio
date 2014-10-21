@@ -1119,14 +1119,14 @@ drwrap_replace_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 static void
 drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
                                    ptr_int_t pushval, opnd_size_t stacksz
-                                   _IF_X64(bool x86))
+                                   _IF_X86_X64(bool x86))
 {
     if (stacksz == OPSZ_4 IF_X64(&& x86)) {
         instrlist_append
             (bb, INSTR_XL8(INSTR_CREATE_push_imm
                            (drcontext, OPND_CREATE_INT32(pushval)), pc));
     }
-#ifdef X64
+#if defined(X86) && defined(X64)
     else if (!x86 && stacksz == OPSZ_8) {
         /* needs 2 steps */
         instrlist_append
@@ -1146,7 +1146,7 @@ drwrap_replace_native_push_retaddr(void *drcontext, instrlist_t *bb, app_pc pc,
         ptr_int_t val = 0;
         if (stacksz == OPSZ_2)
             val = pushval & (ptr_int_t) 0x0000ffff;
-#ifdef X64
+#if defined(X86) && defined(X64)
         else {
             ASSERT(stacksz == OPSZ_4 && !x86, "illegal stack size for call");
             val = (ptr_int_t)pushval & (ptr_int_t) 0xffffffff;
@@ -1199,7 +1199,7 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
 #ifdef DEBUG
     uint opc = instr_get_opcode(inst);
 #endif
-#ifdef X64
+#if defined(X86) && defined(X64)
     bool x86 = instr_get_x86_mode(inst);
 #endif
     opnd_size_t stacksz = OPSZ_NA;
@@ -1219,7 +1219,7 @@ drwrap_replace_native_bb(void *drcontext, instrlist_t *bb, instr_t *inst,
     if (topush != NULL) {
         ASSERT(opc == OP_call || opc == OP_call_ind, "unsuppored call type");
         drwrap_replace_native_push_retaddr(drcontext, bb, pc, (ptr_int_t) topush,
-                                           stacksz _IF_X64(x86));
+                                           stacksz _IF_X86_X64(x86));
     }
     instrlist_meta_append(bb, INSTR_CREATE_mov_st
                           (drcontext, dr_reg_spill_slot_opnd

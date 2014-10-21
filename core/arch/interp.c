@@ -4900,9 +4900,9 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     fragment_t *f;
     uint flags = 0;
     instrlist_t *ilist;
-    bool alloc = false;
+    bool alloc = false, ok;
     monitor_data_t md = {0,};
-    IF_X64(bool old_mode = true;)
+    dr_isa_mode_t old_mode = DEFAULT_ISA_MODE;
     /* check synchronization, we need to make sure no one flushes the
      * fragment we just looked up while we are recreating it, if it's the
      * caller's dcontext then just need to be couldbelinking, otherwise need
@@ -4938,8 +4938,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
     }
 
     /* Recreate in same mode as original fragment */
-    IF_X64(old_mode = set_x86_mode(dcontext, FRAG_IS_32(f->flags) ||
-                                             FRAG_IS_X86_TO_X64(f->flags)));
+    ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    ASSERT(ok);
 
     if ((f->flags & FRAG_IS_TRACE) == 0) {
         /* easy case: just a bb */
@@ -5115,7 +5115,8 @@ recreate_fragment_ilist(dcontext_t *dcontext, byte *pc,
         *alloc_res = alloc;
     if (f_res == NULL && alloc)
         fragment_free(dcontext, f);
-    IF_X64(set_x86_mode(dcontext, old_mode));
+    ok = dr_set_isa_mode(dcontext, old_mode, NULL);
+    ASSERT(ok);
     return ilist;
 }
 
@@ -5227,7 +5228,7 @@ tracelist_add(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, instr_t 
      * anyway, and we'll re-use any memory allocated here for an encoding
      */
     int size;
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_set_x86_mode(inst, true/*x86*/);
         instr_shrink_to_32_bits(inst);
@@ -5246,7 +5247,7 @@ tracelist_add_after(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where, in
      * anyway, and we'll re-use any memory allocated here for an encoding
      */
     int size;
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_set_x86_mode(inst, true/*x86*/);
         instr_shrink_to_32_bits(inst);
@@ -5897,7 +5898,7 @@ fixup_last_cti(dcontext_t *dcontext, instrlist_t *trace,
         instrlist_set_translation_target(trace, NULL);
     instrlist_set_our_mangling(trace, false); /* PR 267260 */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     DOCHECK(1, {
         if (FRAG_IS_32(trace_flags)) {
             instr_t *in;
@@ -6665,18 +6666,16 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
     instrlist_t intra_ctis;
     coarse_info_t *info = NULL;
     bool coarse_elided_ubrs = false;
-#ifdef X64
-    bool old_mode = get_x86_mode(dcontext);
+    dr_isa_mode_t old_mode;
     /* for decoding and get_ibl routines we need the dcontext mode set */
-    set_x86_mode(dcontext, TEST(FRAG_32_BIT, f->flags));
+    bool ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
     /* i#1494: Decoding a code fragment from code cache, decode_fragment
      * may mess up the 32-bit/64-bit mode in -x86_to_x64 because 32-bit
      * application code is encoded as 64-bit code fragments into the code cache.
      * Thus we currently do not support using decode_fragment with -x86_to_x64,
      * including trace and coarse_units (coarse-grain code cache management)
      */
-    ASSERT(!DYNAMO_OPTION(x86_to_x64));
-#endif
+    IF_X86_X64(ASSERT(!DYNAMO_OPTION(x86_to_x64)));
 
     instrlist_init(&intra_ctis);
 
@@ -7317,9 +7316,8 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
         instrlist_disassemble(dcontext, f->tag, ilist, THREAD);
     });
 
-#ifdef X64
-    set_x86_mode(dcontext, old_mode);
-#endif
+    ok = dr_set_isa_mode(dcontext, old_mode, NULL);
+    ASSERT(ok);
 
     if (dir_exits != NULL)
         *dir_exits = num_dir;

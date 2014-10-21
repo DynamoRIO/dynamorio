@@ -244,6 +244,10 @@ typedef struct
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
  */
+/* FIXME i#1551: do we want separate Thumb vs ARM gencode, or we'll always
+ * transition?  For fcache exit that's reasonable, but for ibl it would
+ * require two mode transitions.
+ */
 typedef enum {
     GENCODE_X64 = 0,
     GENCODE_X86,
@@ -765,7 +769,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
         return shared_code_x86;
     else if (mode == GENCODE_X86_TO_X64)
         return shared_code_x86_to_x64;
-    else if (mode == GENCODE_FROM_DCONTEXT && dcontext->x86_mode)
+    else if (mode == GENCODE_FROM_DCONTEXT && !X64_MODE_DC(dcontext))
         return X64_CACHE_MODE_DC(dcontext) ? shared_code_x86_to_x64 : shared_code_x86;
     else
         return shared_code;
