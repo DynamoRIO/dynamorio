@@ -436,8 +436,8 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     CLIENT_ASSERT(scale <= 8, "opnd_create_*base_disp*: invalid scale");
     CLIENT_ASSERT(index_reg == REG_NULL || scale > 0,
                   "opnd_create_*base_disp*: index requires scale");
-    CLIENT_ASSERT(seg == REG_NULL ||
-                  (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT),
+    CLIENT_ASSERT(seg == REG_NULL
+                  IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                   "opnd_create_*base_disp*: invalid segment");
     CLIENT_ASSERT(base_reg <= REG_LAST_ENUM, "opnd_create_*base_disp*: invalid base");
     CLIENT_ASSERT(index_reg <= REG_LAST_ENUM, "opnd_create_*base_disp*: invalid index");

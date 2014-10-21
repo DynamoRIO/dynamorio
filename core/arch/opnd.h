@@ -516,13 +516,24 @@ extern const reg_id_t dr_reg_fixer[];
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
 
 /* DR_API EXPORT VERBATIM */
+#define REG_NULL            DR_REG_NULL
+#define REG_INVALID         DR_REG_INVALID
+#define REG_START_64        DR_REG_START_64
+#define REG_STOP_64         DR_REG_STOP_64
+#define REG_START_32        DR_REG_START_32
+#define REG_STOP_32         DR_REG_STOP_32
+#define REG_START_16        DR_REG_START_16
+#define REG_STOP_16         DR_REG_STOP_16
+#define REG_START_8         DR_REG_START_8
+#define REG_STOP_8          DR_REG_STOP_8
+#define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
+#define REG_LAST_ENUM       DR_REG_LAST_ENUM
 /* Backward compatibility with REG_ constants (we now use DR_REG_ to avoid
  * conflicts with the REG_ enum in <sys/ucontext.h>: i#34).
  * Clients should set(DynamoRIO_REG_COMPATIBILITY ON) prior to
  * configure_DynamoRIO_client() to set this define.
  */
-#ifdef DR_REG_ENUM_COMPATIBILITY
-# define REG_NULL            DR_REG_NULL
+#if defined(X86) && defined(DR_REG_ENUM_COMPATIBILITY)
 # define REG_RAX             DR_REG_RAX
 # define REG_RCX             DR_REG_RCX
 # define REG_RDX             DR_REG_RDX
@@ -661,7 +672,6 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_CR13            DR_REG_CR13
 # define REG_CR14            DR_REG_CR14
 # define REG_CR15            DR_REG_CR15
-# define REG_INVALID         DR_REG_INVALID
 # define REG_XAX             DR_REG_XAX
 # define REG_XCX             DR_REG_XCX
 # define REG_XDX             DR_REG_XDX
@@ -670,14 +680,6 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_XBP             DR_REG_XBP
 # define REG_XSI             DR_REG_XSI
 # define REG_XDI             DR_REG_XDI
-# define REG_START_64        DR_REG_START_64
-# define REG_STOP_64         DR_REG_STOP_64
-# define REG_START_32        DR_REG_START_32
-# define REG_STOP_32         DR_REG_STOP_32
-# define REG_START_16        DR_REG_START_16
-# define REG_STOP_16         DR_REG_STOP_16
-# define REG_START_8         DR_REG_START_8
-# define REG_STOP_8          DR_REG_STOP_8
 # define REG_START_8HL       DR_REG_START_8HL
 # define REG_STOP_8HL        DR_REG_STOP_8HL
 # define REG_START_x86_8     DR_REG_START_x86_8
@@ -698,8 +700,6 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_STOP_DR         DR_REG_STOP_DR
 # define REG_START_CR        DR_REG_START_CR
 # define REG_STOP_CR         DR_REG_STOP_CR
-# define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
-# define REG_LAST_ENUM       DR_REG_LAST_ENUM
 # define REG_YMM0            DR_REG_YMM0
 # define REG_YMM1            DR_REG_YMM1
 # define REG_YMM2            DR_REG_YMM2
@@ -716,7 +716,7 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_YMM13           DR_REG_YMM13
 # define REG_YMM14           DR_REG_YMM14
 # define REG_YMM15           DR_REG_YMM15
-#endif /* DR_REG_ENUM_COMPATIBILITY */
+#endif /* X86 && DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
 #ifndef INT8_MIN

@@ -350,7 +350,7 @@ sub process_header_line($)
         # Enforce the rename to DR_REG_ and DR_SEG_
         if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
             # We have certain exceptions
-            ($l !~ /^# define [RS]EG_/ &&
+            ($l !~ /^# *define [RS]EG_/ &&
              $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
              $l !~ /REG_SPECIFIER_BITS/ &&
              $l !~ /REG_kind/ &&
