@@ -795,7 +795,11 @@ function (configure_DynamoRIO_client target)
         set(LD_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/ldscript)
         # We do NOT add ${LD_SCRIPT} as an ADDITIONAL_MAKE_CLEAN_FILES since it's
         # configure-time built not make-time built
-        set(LD_FLAGS "-melf_x86_64")
+        if (X86)
+          set(LD_FLAGS "-melf_x86_64")
+        elseif (ARM)
+          set(LD_FLAGS "-marmelf_linux_eabi")
+        endif ()
 
         # In order to just tweak the default linker script we start with exactly that.
         execute_process(COMMAND

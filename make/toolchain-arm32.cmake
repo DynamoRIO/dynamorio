@@ -35,9 +35,13 @@
 #   $ cmake -DCMAKE_TOOLCHAIN_FILE=../dynamorio/make/toolchain-arm32.cmake ../dynamorio
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
+# If using a different target, set -DTARGET_ABI=<abi> on the command line.
+if (NOT DEFINED TARGET_ABI)
+  set(TARGET_ABI "linux-gnueabi")
+endif ()
 # specify the cross compiler
-SET(CMAKE_C_COMPILER   arm-linux-gnueabi-gcc)
-SET(CMAKE_CXX_COMPILER arm-linux-gnueabi-g++)
+SET(CMAKE_C_COMPILER   arm-${TARGET_ABI}-gcc)
+SET(CMAKE_CXX_COMPILER arm-${TARGET_ABI}-g++)
 
 # Assuming the cross compiler is installed to /usr/bin,
 # we do not need to set where the target environment is.
@@ -49,5 +53,7 @@ SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 SET(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 # set additional variables
-SET(CMAKE_OBJCOPY arm-linux-gnueabi-objcopy CACHE FILEPATH "cmake_objcopy")
-SET(CMAKE_STRIP   arm-linux-gnueabi-strip   CACHE FILEPATH "cmake_strip")
+SET(CMAKE_LINKER        arm-${TARGET_ABI}-ld       CACHE FILEPATH "cmake_linker")
+SET(CMAKE_ASM_COMPILER  arm-${TARGET_ABI}-as       CACHE FILEPATH "cmake_asm_compiler")
+SET(CMAKE_OBJCOPY       arm-${TARGET_ABI}-objcopy  CACHE FILEPATH "cmake_objcopy")
+SET(CMAKE_STRIP         arm-${TARGET_ABI}-strip    CACHE FILEPATH "cmake_strip")
