@@ -122,6 +122,7 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
+    /* x64-only but simpler code to not ifdef it */
     DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
     DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
     DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
@@ -195,10 +196,11 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
-    DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
-    DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
-    DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
+    /* x64-only but simpler code to not ifdef it */
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
 #ifndef X64
     /* bottom half */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
@@ -211,10 +213,11 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    DR_REG_R16, DR_REG_R17,  DR_REG_R18,  DR_REG_R19,
-    DR_REG_R20, DR_REG_R21,  DR_REG_R22,  DR_REG_R23,
-    DR_REG_R24, DR_REG_R25,  DR_REG_R26,  DR_REG_R27,
-    DR_REG_R28, DR_REG_R29,  DR_REG_R30,  DR_REG_R31,
+    /* x64-only but simpler code to not ifdef it */
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
     DR_REG_CPSR, DR_REG_SPSR,
 };
 
