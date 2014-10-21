@@ -624,8 +624,11 @@ if (UNIX)
     endif (X64)
   elseif (ARM)
     # i#1551: add necessary flags for ARM build.
-    # We are using aarch64-linux-gnu-gcc/arm-linux-gnueabi-gcc packages for
-    # corss-compilation, so no flags are needed now.
+    if (X64)
+    else (X64)
+      set(BASE_CFLAGS "-march=armv7-a ${BASE_CFLAGS}")
+      set(BASE_CXXFLAGS "-march=armv7-a")
+    endif (X64)
   endif ()
   if (APPLE AND CMAKE_COMPILER_IS_CLANG)
     # Ensure our binaries can run on older OSX
