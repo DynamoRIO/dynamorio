@@ -2165,7 +2165,7 @@ instr_is_cti(instr_t *instr)      /* any control-transfer instruction */
 int
 instr_get_interrupt_number(instr_t *instr)
 {
-    CLIENT_ASSERT(instr_get_opcode(instr) == OP_int,
+    CLIENT_ASSERT(instr_get_opcode(instr) == IF_X86_ELSE(OP_int, OP_svc),
                   "instr_get_interrupt_number: instr not interrupt");
     if (instr_operands_valid(instr)) {
         ptr_int_t val = opnd_get_immed_int(instr_get_src(instr, 0));

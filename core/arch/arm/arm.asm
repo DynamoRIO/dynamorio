@@ -44,7 +44,7 @@ START_FILE
 #define FUNCNAME dr_fpu_exception_init
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        ret
+        mov      pc, lr
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
