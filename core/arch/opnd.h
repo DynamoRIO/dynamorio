@@ -411,11 +411,13 @@ enum {
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
     DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
 # ifdef X64
+    DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
     DR_REG_START_16  = DR_REG_NULL,/**< Start of 16-bit general register enum values */
     DR_REG_STOP_16   = DR_REG_NULL,/**< End of 16-bit general register enum values */
 # else
+    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
     DR_REG_START_16  = DR_REG_R0_BH, /**< Start of 16-bit general register enum values */
@@ -1836,7 +1838,7 @@ opnd_defines_use(opnd_t def, opnd_t use);
 DR_API
 /**
  * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
- * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
+ * On x86, if \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
  * to get a OPSZ_ constant that assumes the entire register is used.
  * Returns the number of bytes the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
@@ -1845,6 +1847,17 @@ DR_API
  */
 uint
 opnd_size_in_bytes(opnd_size_t size);
+
+DR_API
+/**
+ * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
+ * Returns the number of bits the OPSZ_ constant represents.
+ * If OPSZ_ is a variable-sized size, returns the default size,
+ * which may or may not match the actual size decided up on at
+ * encoding time (that final size depends on other operands).
+ */
+uint
+opnd_size_in_bits(opnd_size_t size);
 
 DR_API
 /**

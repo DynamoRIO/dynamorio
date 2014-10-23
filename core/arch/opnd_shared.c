@@ -1190,6 +1190,23 @@ opnd_size_in_bytes(opnd_size_t size)
 }
 
 DR_API
+uint
+opnd_size_in_bits(opnd_size_t size)
+{
+    switch (size) {
+    case OPSZ_1b:  return 1;
+    case OPSZ_2b:  return 2;
+    case OPSZ_3b:  return 3;
+    case OPSZ_4b:  return 4;
+    case OPSZ_5b:  return 5;
+    case OPSZ_12b: return 12;
+    case OPSZ_21b: return 21;
+    default:       return opnd_size_in_bytes(size) * 8;
+    }
+}
+
+
+DR_API
 opnd_size_t
 opnd_size_from_bytes(uint bytes)
 {
