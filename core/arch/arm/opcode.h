@@ -82,6 +82,7 @@ enum {
     OP_bkpt,
     OP_bl,
     OP_blx,
+    OP_blx_ind,
     OP_bx,
     OP_bxj,
     OP_cdp,
