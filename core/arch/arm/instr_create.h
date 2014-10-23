@@ -50,5 +50,23 @@
 #define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 
+/**
+ * This INSTR_CREATE_bkpt macro creates an instr_t with opcode OP_bkpt and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param i The opnd_t explicit first source operand for the instruction, which
+ * must be a 1-byte immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_bkpt(dc, i) \
+    instr_create_0dst_1src((dc), OP_bkpt, (i))
+
+/**
+ * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
+ * for a debug trap instruction, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_bkpt(dc, OPND_CREATE_INT8(1))
+
+/* DR_API EXPORT END */
 
 #endif /* _INSTR_CREATE_H_ */

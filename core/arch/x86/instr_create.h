@@ -3679,6 +3679,13 @@
  */
 #define INSTR_CREATE_popa(dc)   instr_create_popa((dc))
 
+/**
+ * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
+ * for a debug trap instruction, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
+
 /****************************************************************************/
 
 /** @name Nops */

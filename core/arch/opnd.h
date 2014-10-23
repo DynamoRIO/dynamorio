@@ -179,6 +179,9 @@ enum {
     DR_REG_YMM8, DR_REG_YMM9, DR_REG_YMM10,DR_REG_YMM11,
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 
+    /** Platform-independent way to refer to stack pointer. */
+    DR_REG_STACK_PTR = IF_X64_ELSE(DR_REG_RSP, DR_REG_ESP),
+
     /****************************************************************************/
 #elif defined(ARM)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
@@ -429,7 +432,11 @@ enum {
 # else
     DR_REG_STOP_8    = DR_REG_R15_BB, /**< End of 8-bit general register enum values */
 # endif
-#endif
+
+    /** Platform-independent way to refer to stack pointer. */
+    DR_REG_STACK_PTR = DR_REG_SP,
+
+#endif /* X86/ARM */
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
@@ -460,7 +467,8 @@ typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 #  define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
 #  define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
 # endif
-#endif
+#endif /* X86/ARM */
+
 
 /* DR_API EXPORT END */
 /* indexed by enum */

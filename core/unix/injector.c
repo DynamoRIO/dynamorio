@@ -703,14 +703,31 @@ dr_inject_process_exit(void *data, bool terminate)
 enum { MAX_SHELL_CODE = 4096 };
 
 #ifdef X86
+# define USER_REGS_TYPE user_regs_struct
 # define REG_PC_FIELD IF_X64_ELSE(rip, eip)
 # define REG_SP_FIELD IF_X64_ELSE(rsp, esp)
 # define REG_RETVAL_FIELD IF_X64_ELSE(rax, eax)
-#else
-# error "define PC, SP, and return fields of user_regs_struct"
+#elif defined(ARM)
+# ifndef X64
+/* On AArch32, glibc uses user_regs instead of user_regs_struct.
+ * struct user_regs {
+ *   unsigned long int uregs[18];
+ * };
+ * - uregs[0..15] are for [r0..r15],
+ * - uregs[16] is for cpsr,
+ * - uregs[17] is for "orig_r0".
+ */
+#  define USER_REGS_TYPE user_regs
+#  define REG_PC_FIELD uregs[15] /* r15 in user_regs */
+#  define REG_SP_FIELD uregs[13] /* r13 in user_regs */
+/* On ARM, all reg args are also reg retvals. */
+#  define REG_RETVAL_FIELD uregs[0] /* r0 in user_regs */
+# else
+#  error AArch64 is not supported
+# endif
 #endif
 
-enum { REG_PC_OFFSET = offsetof(struct user_regs_struct, REG_PC_FIELD) };
+enum { REG_PC_OFFSET = offsetof(struct USER_REGS_TYPE, REG_PC_FIELD) };
 
 #define APP  instrlist_append
 
@@ -823,7 +840,6 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
     return true;
 }
 
-#ifdef X86
 
 /* Push a pointer to a string to the stack.  We create a fake instruction with
  * raw bytes equal to the string we want to put in the injectee.  The call will
@@ -833,6 +849,7 @@ ptrace_write_memory(pid_t pid, void *dst, void *src, size_t len)
 static void
 gen_push_string(void *dc, instrlist_t *ilist, const char *msg)
 {
+#ifdef X86
     instr_t *after_msg = INSTR_CREATE_label(dc);
     instr_t *msg_instr = instr_build_bits(dc, OP_UNDECODED, strlen(msg) + 1);
     APP(ilist, INSTR_CREATE_call(dc, opnd_create_instr(after_msg)));
@@ -840,12 +857,17 @@ gen_push_string(void *dc, instrlist_t *ilist, const char *msg)
     instr_set_raw_bits_valid(msg_instr, true);
     APP(ilist, msg_instr);
     APP(ilist, after_msg);
+#else
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86 */
 }
 
 static void
 gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds,
             opnd_t *args)
 {
+#ifdef X86
     uint i;
     ASSERT(num_opnds <= MAX_SYSCALL_ARGS);
     APP(ilist, INSTR_CREATE_mov_imm
@@ -865,9 +887,11 @@ gen_syscall(void *dc, instrlist_t *ilist, int sysnum, uint num_opnds,
 # else
     APP(ilist, INSTR_CREATE_int(dc, OPND_CREATE_INT8((char)0x80)));
 # endif
-}
-
+#else
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif /* X86 */
+}
 
 #if 0  /* Useful for debugging gen_syscall and gen_push_string. */
 static void
@@ -928,7 +952,7 @@ continue_until_break(process_id_t pid)
 static ptr_int_t
 injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
 {
-    struct user_regs_struct regs;
+    struct USER_REGS_TYPE regs;
     byte shellcode[MAX_SHELL_CODE];
     byte orig_code[MAX_SHELL_CODE];
     app_pc end_pc;
@@ -949,7 +973,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     pc = (app_pc)ALIGN_BACKWARD(regs.REG_PC_FIELD, PAGE_SIZE);
 
     /* Append an int3 so we can catch the break. */
-    APP(ilist, INSTR_CREATE_int3(dc));
+    APP(ilist, INSTR_CREATE_debug_instr(dc));
     if (verbose) {
         fprintf(stderr, "injecting code:\n");
 #if defined(INTERNAL) || defined(DEBUG) || defined(CLIENT_INTERFACE)
@@ -981,8 +1005,7 @@ injectee_run_get_retval(dr_inject_info_t *info, void *dc, instrlist_t *ilist)
     /* Get return value. */
     ret = failure;
     r = our_ptrace(PTRACE_PEEKUSER, info->pid,
-                   (void *)offsetof(struct user_regs_struct,
-                                    REG_RETVAL_FIELD), &ret);
+                   (void *)offsetof(struct USER_REGS_TYPE, REG_RETVAL_FIELD), &ret);
     if (r < 0)
         return r;
 
@@ -1005,7 +1028,7 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
     gen_push_string(dc, ilist, path);
-    args[num_args++] = OPND_CREATE_MEMPTR(DR_REG_XSP, 0);
+    args[num_args++] = OPND_CREATE_MEMPTR(DR_REG_STACK_PTR, 0);
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);
@@ -1117,7 +1140,7 @@ injectee_prot(byte *addr, size_t size, uint prot/*MEMPROT_*/)
  * struct.
  */
 static void
-user_regs_to_mc(priv_mcontext_t *mc, struct user_regs_struct *regs)
+user_regs_to_mc(priv_mcontext_t *mc, struct USER_REGS_TYPE *regs)
 {
 #ifdef X86
 # ifdef X64
@@ -1149,9 +1172,29 @@ user_regs_to_mc(priv_mcontext_t *mc, struct user_regs_struct *regs)
     mc->esi = regs->esi;
     mc->edi = regs->edi;
 # endif
-#else
-# error "translate mc for non-x86 arch"
-#endif
+#elif defined(ARM)
+# ifdef X64
+#  error AArch64 is not supported
+# else
+    mc->r0  = regs->uregs[0];
+    mc->r1  = regs->uregs[1];
+    mc->r2  = regs->uregs[2];
+    mc->r3  = regs->uregs[3];
+    mc->r4  = regs->uregs[4];
+    mc->r5  = regs->uregs[5];
+    mc->r6  = regs->uregs[6];
+    mc->r7  = regs->uregs[7];
+    mc->r8  = regs->uregs[8];
+    mc->r9  = regs->uregs[9];
+    mc->r10 = regs->uregs[10];
+    mc->r11 = regs->uregs[11];
+    mc->r12 = regs->uregs[12];
+    mc->r13 = regs->uregs[13];
+    mc->r14 = regs->uregs[14];
+    mc->r15 = regs->uregs[15];
+    mc->cpsr = regs->uregs[16];
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 }
 
 /* Detach from the injectee and re-exec ourselves as gdb with --pid.  This is
@@ -1202,7 +1245,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
 {
     long r;
     int dr_fd;
-    struct user_regs_struct regs;
+    struct USER_REGS_TYPE regs;
     ptrace_stack_args_t args;
     app_pc injected_base;
     app_pc injected_dr_start;
@@ -1285,7 +1328,7 @@ inject_ptrace(dr_inject_info_t *info, const char *library_path)
     strncpy(args.home_dir, getenv("HOME"), BUFFER_SIZE_ELEMENTS(args.home_dir));
     NULL_TERMINATE_BUFFER(args.home_dir);
 
-#ifdef X86
+#if defined(X86) || defined(ARM)
     regs.REG_SP_FIELD -= REDZONE_SIZE;  /* Need to preserve x64 red zone. */
     regs.REG_SP_FIELD -= sizeof(args);  /* Allocate space for args. */
     regs.REG_SP_FIELD = ALIGN_BACKWARD(regs.REG_SP_FIELD, REGPARM_END_ALIGN);

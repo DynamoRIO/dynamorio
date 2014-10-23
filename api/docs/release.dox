@@ -143,6 +143,7 @@ Further non-compatibility-affecting changes include:
 
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
+ - Added INSTR_CREATE_debug_instr()
 
 **************************************************
 <hr>
