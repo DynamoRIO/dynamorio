@@ -252,7 +252,7 @@ extern const instr_info_t A32_ext_bit9[][2];
 extern const instr_info_t A32_ext_bit4[][2];
 extern const instr_info_t A32_ext_RDPC[][2];
 extern const instr_info_t A32_ext_imm5[][2];
-extern const instr_info_t extra_operands[];
+extern const instr_info_t A32_extra_operands[];
 
 /* tables that translate opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr_A32[];

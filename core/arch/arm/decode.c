@@ -375,10 +375,11 @@ decode_raw(dcontext_t *dcontext, byte *pc, instr_t *instr)
 const instr_info_t *
 instr_info_extra_opnds(const instr_info_t *info)
 {
+    /* XXX i#1551: pick proper *_extra_operands table */
     if (TEST(DECODE_EXTRA_SHIFT, info->flags))
-        return &extra_operands[0];
+        return &A32_extra_operands[0];
     else if (TEST(DECODE_EXTRA_WRITEBACK, info->flags))
-        return &extra_operands[1];
+        return &A32_extra_operands[1];
     else if (TEST(DECODE_EXTRA_OPERANDS, info->flags))
         return (const instr_info_t *)(info->code);
     else

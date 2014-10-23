@@ -63,7 +63,6 @@
 /* for constructing linked lists of table entries */
 #define NA 0
 #define END_LIST  0
-#define exop (ptr_int_t)&extra_operands
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA
