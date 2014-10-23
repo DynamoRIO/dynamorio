@@ -430,12 +430,25 @@ decode_first_opcode_byte(int opcode)
     return 0;
 }
 
+const instr_info_t *
+opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
+{
+    if (isa_mode == DR_ISA_ARM_A32)
+        return op_instr_A32[opc];
+    CLIENT_ASSERT(false, "NYI i#1551");
+    return &invalid_instr;
+}
+
 DR_API
 const char *
 decode_opcode_name(int opcode)
 {
-    const instr_info_t * info = op_instr[opcode];
-    return info->name;
+    const instr_info_t * info =
+        opcode_to_encoding_info(opcode, dr_get_isa_mode(get_thread_private_dcontext()));
+    if (info != NULL)
+        return info->name;
+    else
+        return "<unknown>";
 }
 
 opnd_size_t

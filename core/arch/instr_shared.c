@@ -341,7 +341,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     if (nxt == NULL) {
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
-            SYSLOG_INTERNAL_WARNING("cannot encode %s\n", op_instr[instr->opcode]->name);
+            SYSLOG_INTERNAL_WARNING("cannot encode %s\n", opcode_to_encoding_info
+                                    (instr->opcode, instr_get_isa_mode(instr))->name);
             heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
             return 0;
         }
@@ -468,13 +469,15 @@ instr_opcode_valid(instr_t *instr)
 const instr_info_t *
 instr_get_instr_info(instr_t *instr)
 {
-    return op_instr[instr_get_opcode(instr)];
+    return opcode_to_encoding_info(instr_get_opcode(instr),
+                                   instr_get_isa_mode(instr));
 }
 
 const instr_info_t *
 get_instr_info(int opcode)
 {
-    return op_instr[opcode];
+    return opcode_to_encoding_info(opcode,
+                                   dr_get_isa_mode(get_thread_private_dcontext()));
 }
 
 #undef instr_get_src

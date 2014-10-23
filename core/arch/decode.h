@@ -386,6 +386,9 @@ byte instr_info_opnd_type(const instr_info_t *info, bool src, int num);
 /* in decode_shared.c */
 extern const instr_info_t invalid_instr;
 
+/* in decode.c */
+const instr_info_t * opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode);
+
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 
 /* exported routines */
@@ -566,8 +569,6 @@ get_x86_mode(dcontext_t *dcontext);
 #endif
 /* DR_API EXPORT END */
 
-/* table that translates opcode enums into pointers into decoding tables */
-extern const instr_info_t * const op_instr[];
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];
 extern const char * const size_names[];

@@ -36,11 +36,7 @@
 #include "decode_private.h"
 #include "table_private.h"
 
-/* FIXME i#1551: add encoding chains for each opcode.
- * XXX: we'll need to have a different array for Thumb and A64 and
- * change all users of op_instr[].
- */
-const instr_info_t * const op_instr[] = {
+const instr_info_t * const op_instr_A32[] = {
 };
 
 /* Addressing mode quick reference:

@@ -2141,6 +2141,12 @@ decode_opcode_name(int opcode)
     return info->name;
 }
 
+const instr_info_t *
+opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
+{
+    return op_instr[opc];
+}
+
 #ifdef DECODE_UNIT_TEST
 # include "instr_create.h"
 
