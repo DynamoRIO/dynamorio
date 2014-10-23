@@ -112,7 +112,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->instr_word = instr_word;
 
     pred = decode_predicate(instr_word);
-    if (pred == PRED_OP) {
+    if (pred == DR_PRED_OP) {
         uint opc8 = decode_opc8(instr_word);
         info = &A32_nopred_opc8[opc8];
     } else {

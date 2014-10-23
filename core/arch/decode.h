@@ -49,6 +49,8 @@
  * 1) Add shift type for shifted source registers: 2-bit enum instead of
  *    6-entry bitfield, since not composable.
  * 2) Add predicates: 4-bit enum to save space, since not composable.
+ *    Also backport to x86 for i#269 and i#1181.
+ *    Add routine instr_is_predicated()?
  */
 /* DR_API EXPORT BEGIN */
 
@@ -68,24 +70,24 @@
 #define PREFIX_XACQUIRE      0x08 /**< Transaction hint: start lock elision. */
 #define PREFIX_XRELEASE      0x10 /**< Transaction hint: end lock elision. */
 
-/** ARM condition codes use as instruction predicates. */
+/** ARM condition codes used as instruction predicates. */
 enum {
-    PRED_EQ,  /**< ARM condition: 0000  Equal                   Z == 1            */
-    PRED_NE,  /**< ARM condition: 0001  Not equal               Z == 0            */
-    PRED_CS,  /**< ARM condition: 0010  Carry set               d C == 1          */
-    PRED_CC,  /**< ARM condition: 0011  Carry clear             C == 0            */
-    PRED_MI,  /**< ARM condition: 0100  Minus, negative         N == 1            */
-    PRED_PL,  /**< ARM condition: 0101  Plus, positive or zero  N == 0            */
-    PRED_VS,  /**< ARM condition: 0110  Overflow                V == 1            */
-    PRED_VC,  /**< ARM condition: 0111  No overflow             V == 0            */
-    PRED_HI,  /**< ARM condition: 1000  Unsigned higher         C == 1 and Z == 0 */
-    PRED_LS,  /**< ARM condition: 1001  Unsigned lower or same  C == 0 or Z == 1  */
-    PRED_GE,  /**< ARM condition: 1010  Signed >=               N == V            */
-    PRED_LT,  /**< ARM condition: 1011  Signed less than        N != V            */
-    PRED_GT,  /**< ARM condition: 1100  Signed greater than     Z == 0 and N == V */
-    PRED_LE,  /**< ARM condition: 1101  Signed <=               Z == 1 or N != V  */
-    PRED_AL,  /**< ARM condition: 1110  Always (unconditional)  y                 */
-    PRED_OP,  /**< ARM condition: 1111  Part of opcode          ----              */
+    DR_PRED_EQ, /**< ARM condition: 0000  Equal                   Z == 1            */
+    DR_PRED_NE, /**< ARM condition: 0001  Not equal               Z == 0            */
+    DR_PRED_CS, /**< ARM condition: 0010  Carry set               d C == 1          */
+    DR_PRED_CC, /**< ARM condition: 0011  Carry clear             C == 0            */
+    DR_PRED_MI, /**< ARM condition: 0100  Minus, negative         N == 1            */
+    DR_PRED_PL, /**< ARM condition: 0101  Plus, positive or zero  N == 0            */
+    DR_PRED_VS, /**< ARM condition: 0110  Overflow                V == 1            */
+    DR_PRED_VC, /**< ARM condition: 0111  No overflow             V == 0            */
+    DR_PRED_HI, /**< ARM condition: 1000  Unsigned higher         C == 1 and Z == 0 */
+    DR_PRED_LS, /**< ARM condition: 1001  Unsigned lower or same  C == 0 or Z == 1  */
+    DR_PRED_GE, /**< ARM condition: 1010  Signed >=               N == V            */
+    DR_PRED_LT, /**< ARM condition: 1011  Signed less than        N != V            */
+    DR_PRED_GT, /**< ARM condition: 1100  Signed greater than     Z == 0 and N == V */
+    DR_PRED_LE, /**< ARM condition: 1101  Signed <=               Z == 1 or N != V  */
+    DR_PRED_AL, /**< ARM condition: 1110  Always (unconditional)  y                 */
+    DR_PRED_OP, /**< ARM condition: 1111  Part of opcode          ----              */
 };
 
 /* DR_API EXPORT END */
@@ -294,7 +296,7 @@ enum {
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
     OPSZ_15,    /**< All but one byte of an xmm register (used by OP_vpinsrb). */
 
-    /* Needed for ARM */
+    /* Needed for ARM.  We share the same namespace for now */
     OPSZ_3,    /**< 3 bytes */
     OPSZ_1b,   /**< 1 bit */
     OPSZ_2b,   /**< 2 bits */
