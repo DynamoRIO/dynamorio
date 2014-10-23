@@ -57,3 +57,4 @@ SET(CMAKE_LINKER        arm-${TARGET_ABI}-ld       CACHE FILEPATH "cmake_linker"
 SET(CMAKE_ASM_COMPILER  arm-${TARGET_ABI}-as       CACHE FILEPATH "cmake_asm_compiler")
 SET(CMAKE_OBJCOPY       arm-${TARGET_ABI}-objcopy  CACHE FILEPATH "cmake_objcopy")
 SET(CMAKE_STRIP         arm-${TARGET_ABI}-strip    CACHE FILEPATH "cmake_strip")
+SET(CMAKE_CPP           arm-${TARGET_ABI}-cpp      CACHE FILEPATH "cmake_cpp")

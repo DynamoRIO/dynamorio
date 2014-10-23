@@ -4196,21 +4196,34 @@ typedef struct {
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
 
 const reg_id_t syscall_regparms[MAX_SYSCALL_ARGS] = {
-#ifdef X64
+#ifdef X86
+# ifdef X64
     DR_REG_RDI,
     DR_REG_RSI,
     DR_REG_RDX,
     DR_REG_R10,  /* RCX goes here in normal x64 calling contention. */
     DR_REG_R8,
     DR_REG_R9
-#else
+# else
     DR_REG_EBX,
     DR_REG_ECX,
     DR_REG_EDX,
     DR_REG_ESI,
     DR_REG_EDI,
     DR_REG_EBP
-#endif
+# endif /* 64/32-bit */
+#elif defined(ARM)
+# ifdef X64
+#  error AArch64 syscall not supported
+# else
+    DR_REG_R0,
+    DR_REG_R1,
+    DR_REG_R2,
+    DR_REG_R3,
+    DR_REG_R4,
+    DR_REG_R5,
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 };
 
 #ifndef NOT_DYNAMORIO_CORE_PROPER

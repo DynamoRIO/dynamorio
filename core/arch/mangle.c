@@ -495,7 +495,18 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
 }
-#endif /* X86 */
+#elif defined (ARM)
+
+byte *
+remangle_short_rewrite(dcontext_t *dcontext,
+                       instr_t *instr, byte *pc, app_pc target)
+{
+    /* FIXME i#1551: refactor the caller and make this routine x86-only. */
+    ASSERT_NOT_REACHED();
+    return NULL;
+}
+
+#endif /* X86/ARM */
 
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)

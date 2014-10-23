@@ -106,6 +106,7 @@ static inline uint
 read_selector(reg_id_t seg)
 {
     uint sel;
+#ifdef X86
     if (seg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
     } else if (seg == SEG_GS) {
@@ -120,6 +121,13 @@ read_selector(reg_id_t seg)
      * is_segment_register_initialized().
      */
     sel &= 0xffff;
+#elif defined(ARM)
+    /* FIXME i#1551: there is no segment in ARM, so we should refactor the caller
+     * and make this routine x86-only.
+     */
+    ASSERT_NOT_REACHED();
+    sel = 0;
+#endif
     return sel;
 }
 

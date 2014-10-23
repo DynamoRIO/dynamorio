@@ -44,8 +44,38 @@ START_FILE
 #define FUNCNAME dr_fpu_exception_init
         DECLARE_FUNC(FUNCNAME)
 GLOBAL_LABEL(FUNCNAME:)
-        mov      pc, lr
+        bx       lr
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
+
+/* we share dynamorio_syscall w/ preload */
+#ifdef UNIX
+# ifdef X64
+#  error AArch64 is not supported
+# else /* !X64 */
+/* To avoid libc wrappers we roll our own syscall here.
+ * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
+ * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
+ * For Linux, the argument max is 6.
+ */
+/* Linux system call on AArch32:
+ * - r7: syscall number
+ * - r0..r6: syscall arguments
+ * so we simply set up all r0..r6 as arguments and ignore the passed in num_args.
+ */
+        DECLARE_FUNC(dynamorio_syscall)
+GLOBAL_LABEL(dynamorio_syscall:)
+        push     {r4-r7}
+        /* shift r7 pointing to the call args */
+        add      r7, sp, #16 /* size for {r4-r7} */
+        mov      r0, r2      /* syscall arg1 */
+        mov      r1, r3      /* syscall arg2 */
+        ldmfd    r7, {r2-r6} /* syscall arg3..arg7 */
+        mov      r7, r0      /* sysnum */
+        svc      #0
+        pop      {r4-r7}
+        bx       lr
+# endif /* !X64 */
+#endif /* UNIX */
 
 END_FILE
