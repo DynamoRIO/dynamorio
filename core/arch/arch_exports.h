@@ -1784,46 +1784,75 @@ void *_dynamorio_runtime_resolve(void);
 
 
 /* Macros to access application function parameters.
- * These assume that mc->rsp points at the return address (i.e., we're
- * at function entry).
+ * These assume that we're at function entry, (i.e., mc->xsp points at the
+ * return address on X86, or mc->sp points at the first on-stack arg on ARM).
  * Compare the SYS_PARAM* macros and REGPARM* enum: some duplication there.
- * Note that if a param is 32 bits we must ignore the top 32 bits of
- * its stack slot (Since passed via "mov dword" instead of "push", top
+ *
+ * Note that, in X64, if a param is 32 bits we must ignore the top 32 bits
+ * of its stack slot (Since passed via "mov dword" instead of "push", top
  * bits are garbage.)
  */
-#ifdef X64
-# ifdef WINDOWS
-#  define APP_PARAM_0(mc) (mc)->xcx
-#  define APP_PARAM_1(mc) (mc)->xdx
-#  define APP_PARAM_2(mc) (mc)->r8
-#  define APP_PARAM_3(mc) (mc)->r9
-#  define APP_PARAM_4(mc) (*(((reg_t *)((mc)->xsp)) + 5))
-#  define APP_PARAM_5(mc) (*(((reg_t *)((mc)->xsp)) + 6))
-#  define APP_PARAM_6(mc) (*(((reg_t *)((mc)->xsp)) + 7))
-#  define APP_PARAM_7(mc) (*(((reg_t *)((mc)->xsp)) + 8))
-#  define APP_PARAM_8(mc) (*(((reg_t *)((mc)->xsp)) + 9))
-#  define APP_PARAM_9(mc) (*(((reg_t *)((mc)->xsp)) + 10))
-#  define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 11))
-# else
-#  define APP_PARAM_0(mc) (mc)->xdi
-#  define APP_PARAM_1(mc) (mc)->xsi
-#  define APP_PARAM_2(mc) (mc)->rdx
-#  define APP_PARAM_3(mc) (mc)->rcx
-#  define APP_PARAM_4(mc) (mc)->r8
-#  define APP_PARAM_5(mc) (mc)->r9
-#  define APP_PARAM_6(mc) (*(((reg_t *)((mc)->xsp)) + 1))
-#  define APP_PARAM_7(mc) (*(((reg_t *)((mc)->xsp)) + 2))
-#  define APP_PARAM_8(mc) (*(((reg_t *)((mc)->xsp)) + 3))
-#  define APP_PARAM_9(mc) (*(((reg_t *)((mc)->xsp)) + 4))
-#  define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 5))
-# endif
+#ifdef X86
+# ifdef X64
+#  ifdef WINDOWS
+#   define APP_PARAM_0(mc)  (mc)->xcx
+#   define APP_PARAM_1(mc)  (mc)->xdx
+#   define APP_PARAM_2(mc)  (mc)->r8
+#   define APP_PARAM_3(mc)  (mc)->r9
+#   define APP_PARAM_4(mc)  (*(((reg_t *)((mc)->xsp)) + 5))
+#   define APP_PARAM_5(mc)  (*(((reg_t *)((mc)->xsp)) + 6))
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 7))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 8))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 9))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 10))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 11))
+#  else
+#   define APP_PARAM_0(mc)  (mc)->xdi
+#   define APP_PARAM_1(mc)  (mc)->xsi
+#   define APP_PARAM_2(mc)  (mc)->rdx
+#   define APP_PARAM_3(mc)  (mc)->rcx
+#   define APP_PARAM_4(mc)  (mc)->r8
+#   define APP_PARAM_5(mc)  (mc)->r9
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 2))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 3))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 4))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 5))
+#  endif /* Win/Unix */
 /* only takes integer literals */
+#  define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
+# else /* 32-bit */
+/* only takes integer literals */
+#  define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
+# endif /* 64/32-bit */
+#elif defined(ARM)
+# ifdef UNIX
+#  define  APP_PARAM_0(mc)  (mc)->r0
+#  define  APP_PARAM_1(mc)  (mc)->r1
+#  define  APP_PARAM_2(mc)  (mc)->r2
+#  define  APP_PARAM_3(mc)  (mc)->r3
+#  ifdef X64
+#   define APP_PARAM_4(mc)  (mc)->r4
+#   define APP_PARAM_5(mc)  (mc)->r5
+#   define APP_PARAM_6(mc)  (mc)->r6
+#   define APP_PARAM_7(mc)  (mc)->r7
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 0))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 2))
+#  else
+#   define APP_PARAM_4(mc)  (*(((reg_t *)((mc)->xsp)) + 0))
+#   define APP_PARAM_5(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 2))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 3))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 4))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 5))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 6))
+#  endif /* 64/32-bit */
+# else /* Windows */
+#  error Windows is not supported
+# endif /* UNIX/Win */
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
-#else
-/* only takes integer literals */
-# define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
-#endif
-
+#endif /* X86/ARM */
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in x86.asm
  */

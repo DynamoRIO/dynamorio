@@ -88,6 +88,7 @@
     union {
         reg_t r31; /**< The r31 register. \note For 64-bit DR builds only. */
         reg_t sp;  /**< The stack pointer register. */
+        reg_t xsp; /**< The platform-independent name for the stack pointer register. */
     }; /**< The anonymous union of alternative names for r31/sp register. */
     /**
      * The program counter.
@@ -96,20 +97,21 @@
     reg_t pc;
 # else /* 32-bit */
     union {
-        reg_t r13;  /**< The r13 register. */
-        reg_t sp;   /**< The stack pointer register.*/
+        reg_t r13; /**< The r13 register. */
+        reg_t sp;  /**< The stack pointer register.*/
+        reg_t xsp; /**< The platform-independent name for the stack pointer register. */
     }; /**< The anonymous union of alternative names for r13/sp register. */
     union {
-        reg_t r14;  /**< The r14 register. */
-        reg_t lr;   /**< The link register. */
+        reg_t r14; /**< The r14 register. */
+        reg_t lr;  /**< The link register. */
     }; /**< The anonymous union of alternative names for r14/lr register. */
     /**
      * The anonymous union of alternative names for r15/pc register.
      * \note This field is not always set or read by all API routines.
      */
     union {
-        reg_t r15;  /**< The r15 register. */
-        reg_t pc;   /**< The program counter. */
+        reg_t r15; /**< The r15 register. */
+        reg_t pc;  /**< The program counter. */
     };
 # endif /* 64/32-bit */
     union {

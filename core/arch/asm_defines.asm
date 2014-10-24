@@ -301,38 +301,32 @@ ASSUME fs:_DATA @N@\
 # define ARG2 REG_X1
 # define ARG3 REG_X2
 # define ARG4 REG_X3
-# define ARG1_NORETADDR ARG1
-# define ARG2_NORETADDR ARG2
-# define ARG3_NORETADDR ARG3
-# define ARG4_NORETADDR ARG4
 # ifdef X64
 #  define ARG5 REG_X4
 #  define ARG6 REG_X5
 #  define ARG7 REG_X6
 #  define ARG8 REG_X7
 /* Arguments are passed on stack right-to-left. */
-#  define ARG9  QWORD [1*ARG_SZ + REG_SP] /* includes ret addr */
-#  define ARG10 QWORD [2*ARG_SZ + REG_SP]
-#  define ARG5_NORETADDR  ARG5
-#  define ARG6_NORETADDR  ARG6
-#  define ARG7_NORETADDR  ARG7
-#  define ARG8_NORETADDR  ARG8
-#  define ARG9_NORETADDR  QWORD [0*ARG_SZ + REG_SP]
-#  define ARG10_NORETADDR QWORD [1*ARG_SZ + REG_SP]
+#  define ARG9  QWORD [0*ARG_SZ + REG_SP] /* no ret addr */
+#  define ARG10 QWORD [1*ARG_SZ + REG_SP]
 # else /* 32-bit */
-#  define ARG5  DWORD [1*ARG_SZ + REG_SP] /* includes ret addr */
-#  define ARG6  DWORD [2*ARG_SZ + REG_SP]
-#  define ARG7  DWORD [3*ARG_SZ + REG_SP]
-#  define ARG8  DWORD [4*ARG_SZ + REG_SP]
-#  define ARG9  DWORD [5*ARG_SZ + REG_SP]
-#  define ARG10 DWORD [6*ARG_SZ + REG_SP]
-#  define ARG5_NORETADDR  QWORD [0*ARG_SZ + REG_SP]
-#  define ARG6_NORETADDR  QWORD [1*ARG_SZ + REG_SP]
-#  define ARG7_NORETADDR  QWORD [2*ARG_SZ + REG_SP]
-#  define ARG8_NORETADDR  QWORD [3*ARG_SZ + REG_SP]
-#  define ARG9_NORETADDR  QWORD [4*ARG_SZ + REG_SP]
-#  define ARG10_NORETADDR QWORD [5*ARG_SZ + REG_SP]
+#  define ARG5  DWORD [0*ARG_SZ + REG_SP] /* no ret addr */
+#  define ARG6  DWORD [1*ARG_SZ + REG_SP]
+#  define ARG7  DWORD [2*ARG_SZ + REG_SP]
+#  define ARG8  DWORD [3*ARG_SZ + REG_SP]
+#  define ARG9  DWORD [4*ARG_SZ + REG_SP]
+#  define ARG10 DWORD [5*ARG_SZ + REG_SP]
 # endif /* 64/32-bit */
+# define ARG1_NORETADDR  ARG1
+# define ARG2_NORETADDR  ARG2
+# define ARG3_NORETADDR  ARG3
+# define ARG4_NORETADDR  ARG4
+# define ARG5_NORETADDR  ARG5
+# define ARG6_NORETADDR  ARG6
+# define ARG7_NORETADDR  ARG7
+# define ARG8_NORETADDR  ARG8
+# define ARG9_NORETADDR  ARG9
+# define ARG10_NORETADDR ARG10
 #else /* Intel X86 */
 # ifdef X64
 #  ifdef WINDOWS
