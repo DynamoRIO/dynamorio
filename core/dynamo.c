@@ -1438,11 +1438,15 @@ create_new_dynamo_context(bool initial, byte *dstack_in)
          global_heap_alloc(alloc HEAPACCT(ACCT_OTHER)));
     dcontext = (dcontext_t*) proc_bump_to_end_of_cache_line((ptr_uint_t)alloc_start);
     ASSERT(proc_is_cache_aligned(dcontext));
+#ifdef X86
     /* 264138: ensure xmm/ymm slots are aligned so we can use vmovdqa */
     ASSERT(ALIGNED(get_mcontext(dcontext)->ymm, YMM_REG_SIZE));
     /* also ensure we don't have extra padding beyond x86.asm defines */
     ASSERT(sizeof(priv_mcontext_t) == IF_X64_ELSE(18,10)*sizeof(reg_t) +
            PRE_XMM_PADDING + XMM_SLOTS_SIZE);
+#elif defined(ARM)
+    /* FIXME i#1551: add arm alignment check if any */
+#endif /* X86/ARM */
 
     /* Put here all one-time dcontext field initialization
      * Make sure to update create_callback_dcontext to shared

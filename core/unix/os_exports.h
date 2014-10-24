@@ -148,10 +148,16 @@ int our_unsetenv(const char *name);
      asm(".section __DATA,"name); \
      asm(".align 12"); /* 2^12 */
 #else
-# define DECLARE_DATA_SECTION(name, wx) \
+# ifdef X86
+#  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
-#endif
+# elif defined(ARM)
+#  define DECLARE_DATA_SECTION(name, wx) \
+     asm(".section "name", \"a"wx"\""); \
+     asm(".align 12"); /* 2^12 */
+# endif /* X86/ARM */
+#endif /* MACOS/UNIX */
 
 /* XXX i#465: It's unclear what section we should switch to after our section
  * declarations.  gcc 4.3 seems to switch back to text at the start of every
@@ -165,10 +171,17 @@ int our_unsetenv(const char *name);
      asm(".align 12"); \
      asm(".text");
 #else
-# define END_DATA_SECTION_DECLARATIONS() \
+# ifdef X86
+#  define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
      asm(".align 0x1000"); \
      asm(".text");
+# elif defined(ARM)
+#  define END_DATA_SECTION_DECLARATIONS() \
+     asm(".section .data"); \
+     asm(".align 12"); \
+     asm(".text");
+# endif /* X86/ARM */
 #endif
 
 /* the VAR_IN_SECTION macro change where each var goes */
