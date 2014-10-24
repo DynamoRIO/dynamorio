@@ -2143,13 +2143,13 @@ instrument_nudge(dcontext_t *dcontext, client_id_t id, uint64 arg)
 #else
     /* support calling dr_get_mcontext() on this thread.  the app
      * context should be intact in the current mcontext except
-     * xip which we set from next_tag.
+     * pc which we set from next_tag.
      */
     CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
                   "internal inconsistency in where mcontext is");
     dcontext->client_data->mcontext_in_dcontext = true;
-    /* officially get_mcontext() doesn't always set xip: we do anyway */
-    get_mcontext(dcontext)->xip = dcontext->next_tag;
+    /* officially get_mcontext() doesn't always set pc: we do anyway */
+    get_mcontext(dcontext)->pc = dcontext->next_tag;
 #endif
 
     call_all(client_libs[i].nudge_callbacks, int (*)(void *, uint64),
@@ -4481,8 +4481,8 @@ dr_suspend_all_other_threads_ex(OUT void ***drcontexts,
                     out_suspended++;
                     CLIENT_ASSERT(!dcontext->client_data->mcontext_in_dcontext,
                                   "internal inconsistency in where mcontext is");
-                    /* officially get_mcontext() doesn't always set xip: we do anyway */
-                    get_mcontext(dcontext)->xip = dcontext->next_tag;
+                    /* officially get_mcontext() doesn't always set pc: we do anyway */
+                    get_mcontext(dcontext)->pc = dcontext->next_tag;
                     dcontext->client_data->mcontext_in_dcontext = true;
                 } else {
                     (*drcontexts)[out_suspended] = (void *) dcontext;

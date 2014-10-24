@@ -103,9 +103,9 @@ dr_signal_action_t event_signal(void *drcontext, dr_siginfo_t *info)
         return DR_SIGNAL_SUPPRESS;
     } else if (info->sig == SIGSEGV) {
         /* Skip the faulting instruction.  This is a sample only! */
-        app_pc pc = decode_next_pc(drcontext, info->mcontext->xip);
+        app_pc pc = decode_next_pc(drcontext, info->mcontext->pc);
         if (pc != NULL)
-            info->mcontext->xip = pc;
+            info->mcontext->pc = pc;
         return DR_SIGNAL_REDIRECT;
     }
 

@@ -2986,7 +2986,7 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
         if (TEST(DR_MC_CONTROL, src->flags)) {
             dst->xsp = src->xsp;
             dst->xflags = src->xflags;
-            dst->xip = src->xip;
+            dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
             memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
@@ -3015,7 +3015,7 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
             dst->xflags = src->xflags;
-            dst->xip = src->xip;
+            dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
             memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));

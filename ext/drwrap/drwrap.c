@@ -680,7 +680,7 @@ drwrap_skip_call(void *wrapcxt_opaque, void *retval, size_t stdcall_args_size)
     if (!drwrap_set_retval(wrapcxt_opaque, retval))
         return false;
     wrapcxt->mc->xsp += stdcall_args_size + sizeof(void*)/*retaddr*/;
-    wrapcxt->mc->xip = wrapcxt->retaddr;
+    wrapcxt->mc->pc = wrapcxt->retaddr;
     /* we can't redirect here b/c we need to release locks */
     pt->skip[pt->wrap_level] = true;
     return true;
@@ -1470,7 +1470,7 @@ drwrap_mark_retaddr_for_instru(void *drcontext, app_pc pc, drwrap_context_t *wra
              */
             /* ensure we have DR_MC_ALL */
             drwrap_get_mcontext_internal((void*)wrapcxt, DR_MC_ALL);
-            wrapcxt->mc->xip = pc;
+            wrapcxt->mc->pc = pc;
             dr_redirect_execution(wrapcxt->mc);
             ASSERT(false, "dr_redirect_execution should not return");
         }
