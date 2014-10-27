@@ -115,8 +115,8 @@
     };
 # endif /* 64/32-bit */
     union {
-        uint32 apsr; /**< The Application program status registers in AArch32. */
-        uint32 cpsr; /**< The Current program status registers in AArch32. */
+        uint apsr; /**< The Application program status registers in AArch32. */
+        uint cpsr; /**< The Current program status registers in AArch32. */
     }; /**< The anonymous union of alternative names for apsr/cpsr register. */
     /* FIXME i#1551: add NEON registers */
 #else /* X86 */

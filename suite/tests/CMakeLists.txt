@@ -338,11 +338,13 @@ endif (UNIX)
 # with changes we want to make, as well.
 
 if (UNIX)
-  if (X64)
-    set(ARCH_CFLAGS "-m64")
-  else (X64)
-    set(ARCH_CFLAGS "-m32")
-  endif (X64)
+  if (X86)
+    if (X64)
+      set(ARCH_CFLAGS "-m64")
+    else (X64)
+      set(ARCH_CFLAGS "-m32")
+    endif (X64)
+  endif ()
   set(ARCH_LDFLAGS "${ARCH_CFLAGS}")
   set(ARCH_DEBUG "${ARCH_CFLAGS}") # somehow not being propagated so we set here
 else (UNIX)
