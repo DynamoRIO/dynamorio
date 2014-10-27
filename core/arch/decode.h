@@ -401,7 +401,8 @@ DR_API
  */
 #endif
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage);
+decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
+                    dr_opnd_query_flags_t flags);
 
 DR_UNS_API
 /**

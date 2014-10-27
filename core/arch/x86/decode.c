@@ -1838,6 +1838,18 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     return false;
 }
 
+static dr_pred_type_t
+decode_predicate_from_instr_info(decode_info_t *di, const instr_info_t *info)
+{
+    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
+        if (TEST(HAS_PRED_CC, info->flags))
+            return DR_PRED_O + instr_cmovcc_to_jcc(di->opcode) - OP_jo;
+        else
+            return DR_PRED_COMPLEX;
+    }
+    return DR_PRED_NONE;
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -1857,7 +1869,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
  * than not!
  */
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
+decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
+                    dr_opnd_query_flags_t flags)
 {
     const instr_info_t *info;
     decode_info_t di;
@@ -1865,7 +1878,10 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
 
     /* don't decode immeds, instead use decode_next_pc, it's faster */
     read_instruction(pc, pc, &info, &di, true /* just opcode */ _IF_DEBUG(true));
-    *usage = info->eflags;
+
+    *usage = instr_eflags_conditionally(info->eflags,
+                                        decode_predicate_from_instr_info(&di, info),
+                                        flags);
     pc = decode_next_pc(dcontext, pc);
     /* failure handled fine -- we'll go ahead and return the NULL */
 
@@ -2051,13 +2067,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
     }
 
-    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
-        if (TEST(HAS_PRED_CC, info->flags)) {
-            instr_set_predicate(instr, instr_cmovcc_to_jcc(di.opcode) - OP_jo +
-                                DR_PRED_O);
-        } else
-            instr_set_predicate(instr, DR_PRED_COMPLEX);
-    }
+    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags))
+        instr_set_predicate(instr, decode_predicate_from_instr_info(&di, info));
 
     /* check for invalid prefixes that depend on operand types */
     if (TEST(PREFIX_LOCK, di.prefixes)) {

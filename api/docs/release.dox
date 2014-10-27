@@ -133,6 +133,17 @@ clients.
 The changes between version \DR_VERSION and 5.0.0 include the
 following minor compatibility changes:
 
+ - To support conditionally executed instructions, added a new parameter of
+   type #dr_opnd_query_flags_t to routines that explicitly query what was
+   read or written by an instruction: instr_get_eflags(),
+   instr_get_arith_flags(), decode_eflags_usage(), instr_writes_to_reg(),
+   instr_reads_from_reg(), and instr_writes_to_exact_reg().  This new
+   parameter determines how to treat conditionally accessed operands.  We
+   decided that breaking compatibility directly was the best solution to
+   ensure that clients performing liveness analysis versus other types of
+   usage analysis are properly updated to handle conditionally executed
+   instructions.  All other API routines include all operands whether
+   conditionally accessed or not.
  - Widened the #reg_id_t type from a byte to a ushort.
  - Deprecated set_x86_mode(), replacing it with dr_set_isa_mode().
  - Deprecated get_x86_mode(), replacing it with dr_get_isa_mode().

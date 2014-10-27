@@ -599,7 +599,7 @@ eflags_analysis(instr_t *instr, int status, uint *eflags_6)
 {
     uint e6 = *eflags_6; /* local copy */
     uint e6_w2r = EFLAGS_WRITE_TO_READ(e6);
-    uint instr_eflags = instr_get_arith_flags(instr);
+    uint instr_eflags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
 
     /* Keep going until result is non-zero, also keep going if
      * result is writes to OF to see if later writes to rest of flags
@@ -6565,7 +6565,8 @@ mangle_trace(dcontext_t *dcontext, instrlist_t *ilist, monitor_data_t *md)
  */
 
 /* Converts instr_t EFLAGS_ flags to corresponding fragment_t FRAG_ flags,
- * assuming that the instr_t flags correspond to the start of the fragment_t
+ * assuming that the instr_t flags correspond to the start of the fragment_t.
+ * Assumes instr_eflags has already accounted for predication.
  */
 uint
 instr_eflags_to_fragment_eflags(uint instr_eflags)
@@ -6607,7 +6608,7 @@ forward_eflags_analysis(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
         DOLOG(4, LOG_INTERP, {
             loginst(dcontext, 4, in, "forward_eflags_analysis");
             LOG(THREAD, LOG_INTERP, 4, "\tinstr %x => %x\n",
-                instr_get_eflags(in), eflags_result);
+                instr_get_eflags(in, DR_QUERY_DEFAULT), eflags_result);
         });
     }
     return eflags_result;

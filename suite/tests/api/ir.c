@@ -1204,6 +1204,86 @@ test_disasm_sizes(void *dc)
 #endif
 }
 
+static void
+test_predication(void *dc)
+{
+    byte *pc;
+    uint usage;
+    instr_t *instr =
+        INSTR_CREATE_vmaskmovps(dc, opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1),
+                                MEMARG(OPSZ_16));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, 0));
+    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, 0));
+    pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    instr_reset(dc, instr);
+    decode(dc, buf, instr);
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(instr_reads_from_reg(instr, REG_XMM1, 0));
+    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, REG_XMM0, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, REG_XMM0, 0));
+
+    instr_reset(dc, instr);
+    instr = INSTR_CREATE_cmovcc(dc, OP_cmovnle, opnd_create_reg(REG_EAX),
+                                opnd_create_reg(REG_ECX));
+    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_reg(instr, REG_ECX, 0));
+    ASSERT(!instr_writes_to_reg(instr, REG_EAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, REG_EAX, 0));
+    pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    instr_reset(dc, instr);
+    decode(dc, buf, instr);
+    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_DEFAULT));
+    ASSERT(instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(!instr_reads_from_reg(instr, REG_ECX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_reads_from_reg(instr, REG_ECX, 0));
+    ASSERT(!instr_writes_to_reg(instr, REG_EAX, DR_QUERY_DEFAULT));
+    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_ALL));
+    ASSERT(instr_writes_to_reg(instr, REG_EAX, DR_QUERY_INCLUDE_COND_DSTS));
+    ASSERT(!instr_writes_to_reg(instr, REG_EAX, 0));
+
+    /* bsf always writes to eflags */
+    instr_reset(dc, instr);
+    instr = INSTR_CREATE_bsf(dc, opnd_create_reg(REG_EAX), opnd_create_reg(REG_ECX));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_DEFAULT)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_DSTS)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, 0)));
+    pc = instr_encode(dc, instr, buf);
+    ASSERT(pc != NULL);
+    ASSERT(decode_eflags_usage(dc, buf, &usage, DR_QUERY_DEFAULT) != NULL &&
+           TESTALL(EFLAGS_WRITE_6, usage));
+    ASSERT(decode_eflags_usage(dc, buf, &usage, DR_QUERY_INCLUDE_ALL) != NULL &&
+           TESTALL(EFLAGS_WRITE_6, usage));
+    ASSERT(decode_eflags_usage(dc, buf, &usage, DR_QUERY_INCLUDE_COND_DSTS) != NULL &&
+           TESTALL(EFLAGS_WRITE_6, usage));
+    ASSERT(decode_eflags_usage(dc, buf, &usage, 0) != NULL &&
+           TESTALL(EFLAGS_WRITE_6, usage));
+    instr_reset(dc, instr);
+    decode(dc, buf, instr);
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_DEFAULT)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_ALL)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, DR_QUERY_INCLUDE_COND_DSTS)));
+    ASSERT(TESTALL(EFLAGS_WRITE_6, instr_get_eflags(instr, 0)));
+
+    instr_destroy(dc, instr);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1262,6 +1342,8 @@ main(int argc, char *argv[])
     test_vsib(dcontext);
 
     test_disasm_sizes(dcontext);
+
+    test_predication(dcontext);
 
     print("all done\n");
     return 0;

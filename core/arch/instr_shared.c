@@ -612,7 +612,7 @@ bool
 instr_is_predicated(instr_t *instr)
 {
     dr_pred_type_t pred = instr_get_predicate(instr);
-    return (pred != DR_PRED_NONE IF_ARM(&& pred != DR_PRED_AL));
+    return instr_predicate_is_cond(pred);
 }
 
 dr_pred_type_t
@@ -819,7 +819,20 @@ instr_exit_stub_code(instr_t *instr)
 #endif
 
 uint
-instr_get_eflags(instr_t *instr)
+instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
+                           dr_opnd_query_flags_t flags)
+{
+    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_predicate_is_cond(pred) &&
+        !instr_predicate_reads_srcs(pred))
+        flags &= ~EFLAGS_READ_ALL;
+    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_predicate_is_cond(pred) &&
+        !instr_predicate_writes_eflags(pred))
+        flags &= ~EFLAGS_WRITE_ALL;
+    return full_eflags;
+}
+
+uint
+instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags)
 {
     if ((instr->flags & INSTR_EFLAGS_VALID) == 0) {
         bool encoded = false;
@@ -837,7 +850,8 @@ instr_get_eflags(instr_t *instr)
             }
         }
         dr_set_isa_mode(dcontext, instr_get_isa_mode(instr), &old_mode);
-        decode_eflags_usage(dcontext, instr_get_raw_bits(instr), &instr->eflags);
+        decode_eflags_usage(dcontext, instr_get_raw_bits(instr), &instr->eflags,
+                            DR_QUERY_INCLUDE_ALL);
         dr_set_isa_mode(dcontext, old_mode, NULL);
         if (encoded) {
             /* if private_instr_encode passed us back whether it's valid
@@ -849,7 +863,7 @@ instr_get_eflags(instr_t *instr)
         /* even if decode fails, set valid to true -- ok?  FIXME */
         instr_set_eflags_valid(instr, true);
     }
-    return instr->eflags;
+    return instr_eflags_conditionally(instr->eflags, instr_get_predicate(instr), flags);
 }
 
 DR_API
@@ -865,13 +879,13 @@ instr_get_opcode_eflags(int opcode)
 }
 
 uint
-instr_get_arith_flags(instr_t *instr)
+instr_get_arith_flags(instr_t *instr, dr_opnd_query_flags_t flags)
 {
     if ((instr->flags & INSTR_EFLAGS_6_VALID) == 0) {
         /* just get info on all the flags */
-        return instr_get_eflags(instr);
+        return instr_get_eflags(instr, flags);
     }
-    return instr->eflags;
+    return instr_eflags_conditionally(instr->eflags, instr_get_predicate(instr), flags);
 }
 
 bool
@@ -1673,13 +1687,20 @@ instr_reg_in_src(instr_t *instr, reg_id_t reg)
 
 /* checks regs in dest base-disp but not dest reg */
 bool
-instr_reads_from_reg(instr_t *instr, reg_id_t reg)
+instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
     int i;
     opnd_t opnd;
 
+    if (!TEST(DR_QUERY_INCLUDE_COND_SRCS, flags) && instr_is_predicated(instr) &&
+        !instr_predicate_reads_srcs(instr_get_predicate(instr)))
+        return false;
+
     if (instr_reg_in_src(instr, reg))
         return true;
+
+    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+        return false;
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
@@ -1690,10 +1711,13 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg)
 }
 
 /* this checks sub-registers */
-bool instr_writes_to_reg(instr_t *instr, reg_id_t reg)
+bool instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
     int i;
     opnd_t opnd;
+
+    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+        return false;
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);
@@ -1704,10 +1728,13 @@ bool instr_writes_to_reg(instr_t *instr, reg_id_t reg)
 }
 
 /* in this func, it must be the exact same register, not a sub reg. ie. eax!=ax */
-bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg)
+bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags)
 {
     int i;
     opnd_t opnd;
+
+    if (!TEST(DR_QUERY_INCLUDE_COND_DSTS, flags) && instr_is_predicated(instr))
+        return false;
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);

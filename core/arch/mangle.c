@@ -3829,7 +3829,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                         if (sz == OPSZ_4)
                             scratch_reg = reg_32_to_64(scratch_reg);
                         /* we checked all opnds: should not read reg */
-                        ASSERT(!instr_reads_from_reg(instr, scratch_reg));
+                        ASSERT(!instr_reads_from_reg(instr, scratch_reg,
+                                                     DR_QUERY_DEFAULT));
                         STATS_INC(rip_rel_unreachable_nospill);
                     }
                 }
@@ -3848,8 +3849,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     ASSERT(scratch_reg <= REG_STOP_64);
                 } while (instr_uses_reg(instr, scratch_reg));
             }
-            ASSERT(!instr_reads_from_reg(instr, scratch_reg));
-            ASSERT(!spill || !instr_writes_to_reg(instr, scratch_reg));
+            ASSERT(!instr_reads_from_reg(instr, scratch_reg, DR_QUERY_DEFAULT));
+            ASSERT(!spill || !instr_writes_to_reg(instr, scratch_reg, DR_QUERY_DEFAULT));
             /* XXX PR 253446: Optimize by looking ahead for dead registers, and
              * sharing single spill across whole bb, or possibly building local code
              * cache to avoid unreachability: all depending on how many rip-rel
@@ -4094,7 +4095,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
         /* if target is 16 or 8 bit sub-register the whole reg is not dead
          * (for 32-bit, top 32 bits are cleared) */
         if (reg_is_gpr(reg) && (reg_is_32bit(reg) || reg_is_64bit(reg)) &&
-            !instr_reads_from_reg(instr, reg) /* mov [%fs:%xax] => %xax */) {
+            /* mov [%fs:%xax] => %xax */
+            !instr_reads_from_reg(instr, reg, DR_QUERY_DEFAULT)) {
             spill = false;
             scratch_reg = reg;
 # ifdef X64
@@ -4688,8 +4690,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
          * get the address pre-write.  None of them touch xbx.
          */
         get_addr_at = instr;
-        ASSERT(!instr_writes_to_reg(instr, REG_XBX) &&
-               !instr_reads_from_reg(instr, REG_XBX));
+        ASSERT(!instr_writes_to_reg(instr, REG_XBX, DR_QUERY_DEFAULT) &&
+               !instr_reads_from_reg(instr, REG_XBX, DR_QUERY_DEFAULT));
     }
 
     PRE(ilist, get_addr_at,
@@ -5633,7 +5635,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
         /* callee update aflags */
         if (!ci->write_aflags) {
-            if (TESTANY(EFLAGS_WRITE_6, instr_get_arith_flags(instr))) {
+            if (TESTANY(EFLAGS_WRITE_6,
+                        instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
                 ci->write_aflags = true;
@@ -5647,7 +5650,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
-        uint flags = instr_get_arith_flags(instr);
+        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTANY(EFLAGS_READ_6, flags)) {
             ci->read_aflags = true;
             break;
@@ -5973,14 +5976,15 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
         uint opc = instr_get_opcode(instr);
         next_instr = instr_get_next(instr);
         /* sanity checks on stack usage */
-        if (instr_writes_to_reg(instr, DR_REG_XBP) && ci->xbp_is_fp) {
+        if (instr_writes_to_reg(instr, DR_REG_XBP, DR_QUERY_INCLUDE_ALL) &&
+            ci->xbp_is_fp) {
             /* xbp must not be changed if xbp is used for frame pointer */
             LOG(THREAD, LOG_CLEANCALL, 1,
                 "CLEANCALL: callee "PFX" cannot be inlined: XBP is updated.\n",
                 ci->start);
             opt_inline = false;
             break;
-        } else if (instr_writes_to_reg(instr, DR_REG_XSP)) {
+        } else if (instr_writes_to_reg(instr, DR_REG_XSP, DR_QUERY_INCLUDE_ALL)) {
             /* stack pointer update, we only allow:
              * lea [xsp, disp] => xsp
              * xsp + imm_int => xsp
@@ -6176,7 +6180,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
      */
     if (INTERNAL_OPTION(opt_cleancall) > 1 && !cci->skip_save_aflags) {
         for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
-            uint flags = instr_get_arith_flags(instr);
+            uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
             if (TESTANY(EFLAGS_READ_6, flags) || instr_is_cti(instr))
                 break;
             if (TESTALL(EFLAGS_WRITE_6, flags)) {

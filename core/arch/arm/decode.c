@@ -188,13 +188,14 @@ read_instruction(byte *pc, byte *orig_pc,
 }
 
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
+decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
+                    dr_opnd_query_flags_t flags)
 {
     const instr_info_t *info;
     decode_info_t di;
     di.isa_mode = dr_get_isa_mode(dcontext);
     pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
-    *usage = info->eflags;
+    *usage = instr_eflags_conditionally(info->eflags, di.predicate, flags);
     /* we're fine returning NULL on failure */
     return pc;
 }

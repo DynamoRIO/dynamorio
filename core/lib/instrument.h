@@ -4499,6 +4499,9 @@ dr_get_itimer(int which);
 
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
+#ifdef API_EXPORT_ONLY
+#include "dr_ir_instr.h"
+#endif
 
 /**************************************************
  * CODE TRANSFORMATION UTILITIES

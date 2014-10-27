@@ -251,7 +251,8 @@ typedef enum _dr_pred_type_t {
      * x86 condition: special opcode-specific condition that depends on the
      * values of the source operands.  Thus, unlike all of the other conditions,
      * the source operands will be accessed even if the condition then fails
-     * and the destinations are not touched.
+     * and the destinations are not touched.  Any written eflags are
+     * unconditionally written, unlike regular destination operands.
      */
     DR_PRED_COMPLEX,
 #elif defined(ARM)
@@ -296,6 +297,36 @@ typedef enum _dr_pred_type_t {
 typedef struct _dr_instr_label_data_t {
     ptr_uint_t data[4]; /**< Generic fields for storing user-controlled data */
 } dr_instr_label_data_t;
+
+/**
+ * Bitmask values passed as flags to routines that ask about whether operands
+ * and condition codes are read or written.  These flags determine how to treat
+ * conditionally executed instructions.
+ */
+typedef enum _dr_opnd_query_flags_t {
+    /**
+     * By default, routines that take in these flags will only consider
+     * destinations that are always written.  Thus, all destinations are skipped
+     * for an instruction that is predicated and executes conditionally (see
+     * instr_is_predicated()).  If this flag is set, a conditionally executed
+     * instruction's destinations are included just like any other
+     * instruction's.
+     */
+    DR_QUERY_INCLUDE_COND_DSTS = 0x01,
+    /**
+     * By default, routines that take in these flags will only consider sources
+     * that are always read.  Thus, all sources are skipped for an instruction
+     * that is predicated and executes conditionally (see
+     * instr_is_predicated()), except for predication conditions that involve
+     * the source operand values.  If this flag is set, a conditionally executed
+     * instruction's sources are included just like any other instruction's.
+     */
+    DR_QUERY_INCLUDE_COND_SRCS = 0x02,
+    /** The default value that typical liveness analysis would want to use. */
+    DR_QUERY_DEFAULT           = DR_QUERY_INCLUDE_COND_SRCS,
+    /** Includes all operands whether conditional or not. */
+    DR_QUERY_INCLUDE_ALL       = (DR_QUERY_INCLUDE_COND_DSTS|DR_QUERY_INCLUDE_COND_SRCS),
+} dr_opnd_query_flags_t;
 
 #ifdef DR_FAST_IR
 /* DR_API EXPORT END */
@@ -907,14 +938,25 @@ instr_eflags_valid(instr_t *instr);
 void
 instr_set_eflags_valid(instr_t *instr, bool valid);
 
-DR_API
-/** Returns \p instr's eflags use as EFLAGS_ constants or'ed together. */
 uint
-instr_get_eflags(instr_t *instr);
+instr_eflags_conditionally(uint full_eflags, dr_pred_type_t pred,
+                           dr_opnd_query_flags_t flags);
 
 DR_API
-/** Returns the eflags usage of instructions with opcode \p opcode,
+/**
+ * Returns \p instr's eflags use as EFLAGS_ constants or'ed together.
+ * Which eflags are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
+ */
+uint
+instr_get_eflags(instr_t *instr, dr_opnd_query_flags_t flags);
+
+DR_API
+/**
+ * Returns the eflags usage of instructions with opcode \p opcode,
  * as EFLAGS_ constants or'ed together.
+ * If \p opcode is predicated (see instr_is_predicated()), the eflags may not
+ * always be accessed or written.
  */
 uint
 instr_get_opcode_eflags(int opcode);
@@ -926,9 +968,11 @@ DR_API
  * If \p instr's eflags behavior has not been calculated yet or is
  * invalid, the entire eflags use is calculated and returned (not
  * just the arithmetic flags).
+ * Which eflags are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
  */
 uint
-instr_get_arith_flags(instr_t *instr);
+instr_get_arith_flags(instr_t *instr, dr_opnd_query_flags_t flags);
 
 /*
  ******************************************************************/
@@ -1153,6 +1197,15 @@ DR_API
  */
 dr_pred_type_t
 instr_get_predicate(instr_t *instr);
+
+bool
+instr_predicate_reads_srcs(dr_pred_type_t pred);
+
+bool
+instr_predicate_writes_eflags(dr_pred_type_t pred);
+
+bool
+instr_predicate_is_cond(dr_pred_type_t pred);
 
 DR_API
 /**
@@ -1437,9 +1490,11 @@ DR_API
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands is
  * a register operand for a register that overlaps \p reg.
+ * Which operands are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
  */
 bool
-instr_writes_to_reg(instr_t *instr, reg_id_t reg);
+instr_writes_to_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
 
 DR_API
 /**
@@ -1449,18 +1504,23 @@ DR_API
  * and addressing registers used in destination operands).
  *
  * Returns false for multi-byte nops with an operand using reg.
+ *
+ * Which operands are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
  */
 bool
-instr_reads_from_reg(instr_t *instr, reg_id_t reg);
+instr_reads_from_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
 
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff at least one of \p instr's destination operands is
  * the same register (not enough to just overlap) as \p reg.
+ * Which operands are considered to be accessed for conditionally executed
+ * instructions are controlled by \p flags.
  */
 bool
-instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg);
+instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg, dr_opnd_query_flags_t flags);
 
 DR_API
 /**
@@ -1487,12 +1547,19 @@ DR_API
  * nops with a memory operand and for the #OP_lea instruction, as they
  * do not really reference the memory.  It does return true for
  * prefetch instructions.
+ *
+ * If \p instr is predicated (see instr_is_predicated()), the memory reference
+ * may not always be accessed.
  */
 bool
 instr_reads_memory(instr_t *instr);
 
 DR_API
-/** Returns true iff any of \p instr's destination operands is a memory reference. */
+/**
+ * Returns true iff any of \p instr's destination operands is a memory
+ * reference.  If \p instr is predicated (see instr_is_predicated()), the
+ * destination may not always be written.
+ */
 bool
 instr_writes_memory(instr_t *instr);
 
@@ -1501,6 +1568,7 @@ DR_API
  * Returns true iff \p instr writes to an xmm register and zeroes the top half
  * of the corresponding ymm register as a result (some instructions preserve
  * the top half while others zero it when writing to the bottom half).
+ * This zeroing will occur even if \p instr is predicated (see instr_is_predicated()).
  */
 bool
 instr_zeroes_ymmh(instr_t *instr);
@@ -2451,6 +2519,7 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
+# define EFLAGS_READ_ALL    EFLAGS_READ_NZCV
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
@@ -2459,6 +2528,7 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
+# define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV
 /**
  * The actual bits in the CPSR that we care about:\n<pre>
  *   31 30 29 28 27 ... 19 18 17 16

@@ -49,6 +49,7 @@ following sections:
  - \ref sec_64bit
  - \ref sec_IR_utils
  - \ref sec_translation
+ - \ref sec_predication
  - \ref sec_pcache
  - \ref bt_examples
  - \ref sec_startstop
@@ -1086,6 +1087,41 @@ field for a meta instruction:
 app_pc xl8 = instr_get_app_pc(inst);
 PREM(bb, inst, INSTR_XL8(INSTR_CREATE_mov_st(drcontext, dst, src), xl8));
 \endcode
+
+***************************************************************************
+\htmlonly
+<table width=100% bgcolor="#000000" cellspacing=0 cellpadding=2 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td><table width=100% bgcolor="#0000C0" cellspacing=0 cellpadding=1 border=0>
+  <tr><td></td></tr></table></td></tr></table></td></tr></table>
+\endhtmlonly
+\section sec_predication Conditionally Executed Instructions
+
+DynamoRIO models conditionally executed, or "predicated", instructions as
+regular instructions with extra predication attributes.  Use
+instr_is_predicated() to determine whether an instruction is conditionally
+executed.  If so, use instr_get_predicate() to determine the type of
+condition.  At execution time, instr_predicate_triggered() can be used to
+query whether an instruction will execute or not.
+
+The degree of conditional execution varies.  In some cases, when an
+instruction is not executed, it will not read any source operands nor write
+any destination operands.  In other cases, the condition on which it depends
+involves the value of a source operand (e.g., OP_bsf or OP_maskmovq).
+However, all conditionally executed instructions share the same property
+that their destination operands are conditionally written.  This does not
+apply to eflags, which are written to unconditionally by some conditional
+instructions.
+
+To aid in analyzing liveness and other properties of application code, all
+API routines that query whether registers or flags are written take a
+parameter of type #dr_opnd_query_flags_t that controls how to treat
+conditionally accessed operands: whether to include them or skip them.
+
+API routines that operate on raw instruction information, such as
+instr_num_dsts(), include all possible operands.  Clients should explicitly
+query instr_is_predicated() when using API routines that do not take in
+#dr_opnd_query_flags_t.
 
 \ifnot vmsafe
 ***************************************************************************

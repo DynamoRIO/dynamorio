@@ -433,6 +433,24 @@ instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
 }
 
 bool
+instr_predicate_reads_srcs(dr_pred_type_t pred)
+{
+    return false;
+}
+
+bool
+instr_predicate_writes_eflags(dr_pred_type_t pred)
+{
+    return false;
+}
+
+bool
+instr_predicate_is_cond(dr_pred_type_t pred)
+{
+    return pred != DR_PRED_NONE && pred != DR_PRED_AL;
+}
+
+bool
 reg_is_gpr(reg_id_t reg)
 {
     return (reg >= DR_REG_X0 && reg < DR_REG_Q0) ||

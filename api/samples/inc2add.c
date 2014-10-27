@@ -173,7 +173,7 @@ replace_inc_with_add(void *drcontext, instr_t *instr, instrlist_t *trace)
 
     /* add/sub writes CF, inc/dec does not, make sure that's ok */
     for (in = instr; in != NULL; in = instr_get_next(in)) {
-        eflags = instr_get_eflags(in);
+        eflags = instr_get_eflags(in, DR_QUERY_DEFAULT);
         if ((eflags & EFLAGS_READ_CF) != 0) {
 #ifdef VERBOSE
             dr_print_instr(drcontext, STDOUT, in,

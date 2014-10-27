@@ -327,7 +327,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
          */
         for (instr = instrlist_first(bb); instr != NULL;
              instr = instr_get_next(instr)) {
-            eflags = instr_get_eflags(instr);
+            eflags = instr_get_eflags(instr, DR_QUERY_DEFAULT);
             /* could be more sophisticated and look beyond exit */
             if (instr_is_exit_cti(instr) || (eflags & EFLAGS_READ_6) != 0)
                 break;

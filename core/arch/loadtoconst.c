@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -858,7 +858,8 @@ instr_t
         if (instr_is_encoding_possible(in)) {
             //cmp switched, so now switch direction of jcc's that care
             for (jcc=instr_get_next(in);
-                 (jcc!=NULL)&&((instr_get_arith_flags(jcc)&EFLAGS_WRITE_6)==0)
+                 (jcc!=NULL)&&
+                     ((instr_get_arith_flags(jcc, DR_QUERY_DEFAULT)&EFLAGS_WRITE_6)==0)
                      ; jcc=instr_get_next(jcc)) {
                 if (instr_is_cbr(jcc)) {
                     loginst(dcontext,3,jcc,"change_cbr_due_to_reversed_cmp called on");
@@ -888,7 +889,8 @@ instr_t
         ASSERT(instr_get_opcode(in)==OP_cmp);
 
         for (jcc=instr_get_next(in);
-             jcc!=NULL&& ((instr_get_arith_flags(jcc)&EFLAGS_WRITE_6)==0);
+             jcc!=NULL&&
+                 ((instr_get_arith_flags(jcc, DR_QUERY_DEFAULT)&EFLAGS_WRITE_6)==0);
              jcc=nextjcc) {
             nextjcc=instr_get_next(jcc);
             loginst(dcontext,3,jcc,"walking to try to remove cmp");
@@ -962,13 +964,13 @@ instr_flag_write_necessary(dcontext_t *dcontext, instr_t *in)
     uint eflags;
 
     //if the instr doesn't write, return false
-    if (!(instr_get_arith_flags(in)&EFLAGS_WRITE_6))
+    if (!(instr_get_arith_flags(in, DR_QUERY_DEFAULT)&EFLAGS_WRITE_6))
         return false;
 
     walker=instr_get_next(in);
     //otherwise, see if the written flags are read
     while (walker) {
-        eflags=instr_get_arith_flags(walker);
+        eflags=instr_get_arith_flags(walker, DR_QUERY_DEFAULT);
         if (eflags&EFLAGS_READ_6)
             return true;
         else if (eflags&EFLAGS_WRITE_6)
@@ -1019,7 +1021,7 @@ safe_to_modify_cmp(dcontext_t *dcontext,instr_t *testinstr, bool transpose)
     LOG(THREAD, LOG_OPTS,3,"in safe_to_modify_cmp: bothopsimmed=%d\n",cmp_both_ops_immed);
 
     for (in=instr_get_next(testinstr);in!=NULL;in=instr_get_next(in)) {
-        eflags=instr_get_arith_flags(in);
+        eflags=instr_get_arith_flags(in, DR_QUERY_DEFAULT);
 
         loginst(dcontext,3,in,"\texamining");
 
@@ -1093,7 +1095,7 @@ pc_reads_flags_before_writes(dcontext_t *dcontext, app_pc target)
 {
     uint eflags;
     do {
-        target = decode_eflags_usage(dcontext, target, &eflags);
+        target = decode_eflags_usage(dcontext, target, &eflags, DR_QUERY_DEFAULT);
         if ((eflags & EFLAGS_READ_6) != 0) {
             loginst(dcontext, 3, &tinst,
                     "reads cmpflags before writing");

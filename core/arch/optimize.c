@@ -858,7 +858,7 @@ unroll_loops(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
         instrlist_disassemble(dcontext, tag, trace, THREAD);
 #endif
     for (inst = instrlist_first(trace); inst != branch; inst = instr_get_next(inst)) {
-        uint eflags = instr_get_arith_flags(inst);
+        uint eflags = instr_get_arith_flags(inst, DR_QUERY_DEFAULT);
         if (eflags != 0) {
             if ((eflags & EFLAGS_READ_6) != 0) {
                 if ((eflags_6 | (eflags & EFLAGS_READ_6)) != eflags_6) {
@@ -1947,7 +1947,7 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
             replace = false;
         }
 
-        eflags_check = instr_get_eflags(inst);
+        eflags_check = instr_get_eflags(inst, DR_QUERY_DEFAULT);
         if (((eflags_invalid & eflags_check) != 0) || ((eflags_valid & eflags_check) != 0)) {
             loginst(state->dcontext, 3, inst, " uses eflags!");
             LOG(THREAD, LOG_OPTS, 3, "forward eflags check failed(3)  "PFX"   "PFX"  "PFX"\n", eflags_valid, eflags_invalid, eflags_check);
@@ -1969,7 +1969,10 @@ do_forward_check_eflags(instr_t *inst, uint eflags, uint eflags_valid, uint efla
 static bool
 forward_check_eflags(instr_t *inst, prop_state_t *state)
 {
-    return do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL), state);
+    return do_forward_check_eflags(inst, 0, 0,
+                                   EFLAGS_WRITE_TO_READ
+                                   (instr_get_eflags(inst, DR_QUERY_DEFAULT) &
+                                    EFLAGS_WRITE_ALL), state);
 }
 
 static instr_t *
@@ -1992,7 +1995,7 @@ make_to_imm_store(instr_t *inst, int value, prop_state_t *state)
             instr_set_prefix_flag(replacement, PREFIX_DATA);
             LOG(THREAD, LOG_OPTS, 3, "carrying data prefix over %d\n", instr_get_prefixes(inst));
         }
-        if (do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(replacement)), state)) {
+        if (do_forward_check_eflags(inst, 0, 0, EFLAGS_WRITE_TO_READ(instr_get_eflags(replacement, DR_QUERY_DEFAULT)), state)) {
             /* check size prefixes, ignore lock and addr prefix */
             replace_inst(dcontext, state->trace, inst, replacement);
             return replacement;
@@ -2133,7 +2136,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 immed3 = immed1 + 1;
                 eflags = calculate_zf_pf_sf(immed3);
                 eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
-                eflags_invalid = instr_get_eflags(inst) & EFLAGS_READ_ALL & (~eflags_valid);
+                eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL & (~eflags_valid);
                 if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid, state))
                     inst = make_to_imm_store(inst, immed3, state);
                 else
@@ -2145,7 +2148,7 @@ prop_simplify(instr_t *inst, prop_state_t *state)
                 immed3 = immed1 - 1;
                 eflags = calculate_zf_pf_sf(immed3);
                 eflags_valid = EFLAGS_READ_ZF | EFLAGS_READ_SF | EFLAGS_READ_PF;
-                eflags_invalid = instr_get_eflags(inst) & EFLAGS_READ_ALL & (~eflags_valid);
+                eflags_invalid = instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL & (~eflags_valid);
                 if (do_forward_check_eflags(inst, eflags, eflags_valid, eflags_invalid, state))
                     inst = make_to_imm_store(inst, immed3, state);
                 else
@@ -2554,7 +2557,8 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
                             /* just in case */
                             for (i = 0; i < 8; i++) {
                                 if (instr_writes_to_reg(inst,
-                                                        REG_START_32 + (reg_id_t)i)) {
+                                                        REG_START_32 + (reg_id_t)i,
+                                                        DR_QUERY_DEFAULT)) {
                                     state->reg_state[i] = 0;
                                 }
                             }
@@ -2607,7 +2611,7 @@ update_prop_state(prop_state_t *state, instr_t *inst, bool intrace)
         // update for regs written to, actually if xh then don't need to
         // invalidate xl and vice versa, but to much work to check for that probably unlikely occurrence
         for (i = 0; i < 8; i++) {
-            if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i)) {
+            if (instr_writes_to_reg(inst, REG_START_32 + (reg_id_t)i, DR_QUERY_DEFAULT)) {
                 state->reg_state[i] = 0;
             }
         }
@@ -2675,7 +2679,7 @@ handle_stack(prop_state_t *state, instr_t *inst)
         LOG(THREAD, LOG_OPTS, 3, "Adjust scope down to %d\n", state->cur_scope);
         return inst;
     }
-    if (instr_writes_to_reg(inst, REG_EBP)) {
+    if (instr_writes_to_reg(inst, REG_EBP, DR_QUERY_DEFAULT)) {
         loginst(dcontext, 2, inst, "Lost stack scope count");
         state->lost_scope_count = true;
         for (i = 0; i< NUM_STACK_SLOTS; i++) {
@@ -3152,7 +3156,7 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
                         }
                     }
                 } else {
-                    if (instr_writes_to_reg(inst, REG_EBP)) {
+                    if (instr_writes_to_reg(inst, REG_EBP, DR_QUERY_DEFAULT)) {
                         LOG(THREAD, LOG_OPTS, 2, "dead code lost count of scope nesting, clearing cache\n");
                         for (i = 0; i < NUM_STACK_SLOTS; i++)
                             stack_state[i] = 0;
@@ -3196,7 +3200,8 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             }
             /* check flags if might still be killable */
             killinst = killinst &&
-                ((EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) & EFLAGS_WRITE_ALL) &
+                ((EFLAGS_WRITE_TO_READ(instr_get_eflags(inst, DR_QUERY_DEFAULT) &
+                                       EFLAGS_WRITE_ALL) &
                   eflags) == 0);
             /* always kill if nop */
             killinst = killinst || is_nop(inst);
@@ -3216,9 +3221,9 @@ remove_dead_code(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
             else {
                 /* can't be killed so add dependencies */
                 /* add flag constraints */
-                eflags &= ~EFLAGS_WRITE_TO_READ(instr_get_eflags(inst) &
+                eflags &= ~EFLAGS_WRITE_TO_READ(instr_get_eflags(inst, DR_QUERY_DEFAULT) &
                                                 EFLAGS_WRITE_ALL);
-                eflags |= instr_get_eflags(inst) & EFLAGS_READ_ALL;
+                eflags |= instr_get_eflags(inst, DR_QUERY_DEFAULT) & EFLAGS_READ_ALL;
                 // mark destinations as free
                 for (i = 0; i < num_dsts; i++) {
                     dst = instr_get_dst(inst, i);
@@ -3486,7 +3491,7 @@ check_eflags_cr(instr_t *inst)
     for (; inst != NULL; inst = instr_get_next(inst)) {
         if (instr_is_cti(inst) || instr_is_interrupt(inst))
             return false;
-        inst_eflags = instr_get_eflags(inst);
+        inst_eflags = instr_get_eflags(inst, DR_QUERY_DEFAULT);
         if ((eflags & inst_eflags) != 0)
             return false;
         eflags &= ~(EFLAGS_WRITE_TO_READ(inst_eflags));
@@ -3907,7 +3912,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
 
     /* add/sub writes CF, inc/dec does not, make sure that's ok */
     for (in = inst; in != NULL; in = instr_get_next(in)) {
-        eflags = instr_get_eflags(in);
+        eflags = instr_get_eflags(in, DR_QUERY_DEFAULT);
         if ((eflags & EFLAGS_READ_CF) != 0) {
             loginst(dcontext, 3, in, "reads CF => cannot replace inc with add");
             return false;
@@ -3940,7 +3945,7 @@ replace_inc_with_add(dcontext_t *dcontext, instr_t *inst, instrlist_t *trace)
                 instr_reset(dcontext, &tinst);
                 target = decode_cti(dcontext, target, &tinst);
                 ASSERT(instr_valid(&tinst));
-                eflags = instr_get_eflags(&tinst);
+                eflags = instr_get_eflags(&tinst, DR_QUERY_DEFAULT);
                 if ((eflags & EFLAGS_READ_CF) != 0) {
                     loginst(dcontext, 3, in,
                             "reads CF => cannot replace inc with add");
@@ -4150,7 +4155,7 @@ remove_redundant_loads(dcontext_t *dcontext, app_pc tag, instrlist_t *trace)
 
             //checks if something overwrites the register
 
-            if (instr_writes_to_reg(reg_write_checker,orig_reg)) {
+            if (instr_writes_to_reg(reg_write_checker,orig_reg, DR_QUERY_DEFAULT)) {
 #ifdef DEBUG
                 opt_stats_t.reg_overwritten++;
 #endif
@@ -4450,7 +4455,7 @@ is_dead_register(reg_id_t reg,instr_t *where)
     while (!instr_is_cti(where)) {
         if (instr_reg_in_src(where,reg))
             return false;
-        else if (instr_writes_to_reg(where,reg))
+        else if (instr_writes_to_reg(where, reg, DR_QUERY_DEFAULT))
             return true;
         //!instr_writes_to_reg(...).  probably writing to mem indirectly through reg
         else if (instr_reg_in_dst(where,reg))
@@ -4523,10 +4528,10 @@ instruction_affects_mem_access(instr_t *instr,opnd_t mem_access)
     reg_id_t base,index;
     ASSERT(instr);
     base=opnd_get_base(mem_access);
-    if (base!=REG_NULL&&instr_writes_to_reg(instr,base))
+    if (base!=REG_NULL&&instr_writes_to_reg(instr, base, DR_QUERY_DEFAULT))
         return true;
     index=opnd_get_index(mem_access);
-    if (index!=REG_NULL&&instr_writes_to_reg(instr,index))
+    if (index!=REG_NULL&&instr_writes_to_reg(instr, index, DR_QUERY_DEFAULT))
         return true;
 
     return false;
@@ -4622,13 +4627,13 @@ static instr_t *
 get_decision_instr(instr_t *jmp)
 {
     instr_t *inst;
-    uint flag_tested = EFLAGS_READ_TO_WRITE(instr_get_eflags(jmp));
+    uint flag_tested = EFLAGS_READ_TO_WRITE(instr_get_eflags(jmp, DR_QUERY_DEFAULT));
     uint eflags;
 
     ASSERT(instr_is_cbr(jmp));
     inst = instr_get_prev(jmp);
     while (inst != NULL) {
-        eflags = instr_get_eflags(inst);
+        eflags = instr_get_eflags(inst, DR_QUERY_DEFAULT);
         if ((eflags & flag_tested) != 0) {
             return inst;
         }
