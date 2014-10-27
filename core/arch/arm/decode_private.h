@@ -89,6 +89,7 @@ struct _decode_info_t {
     uint instr_word;
     dr_isa_mode_t isa_mode;
     uint opcode;
+    uint predicate;
 
     /* For pc-relative references */
     byte *start_pc;

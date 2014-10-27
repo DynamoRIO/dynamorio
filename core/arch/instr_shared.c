@@ -608,6 +608,31 @@ instr_get_prefixes(instr_t *instr)
     return instr->prefixes;
 }
 
+bool
+instr_is_predicated(instr_t *instr)
+{
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    return (pred != DR_PRED_NONE IF_ARM(&& pred != DR_PRED_AL));
+}
+
+dr_pred_type_t
+instr_get_predicate(instr_t *instr)
+{
+    /* Optimization: we assume prefixes are the high bits to avoid an & */
+    return instr->prefixes >> PREFIX_PRED_BITPOS;
+}
+
+bool
+instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
+{
+#ifdef X86
+    return false;
+#elif defined(ARM)
+    instr->prefixes |= ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK);
+    return true;
+#endif
+}
+
 #ifdef UNSUPPORTED_API
 /* Returns true iff instr has been marked as targeting the prefix of its
  * target fragment.

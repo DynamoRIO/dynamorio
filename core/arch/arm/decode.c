@@ -102,7 +102,6 @@ read_instruction(byte *pc, byte *orig_pc,
 {
     uint instr_word;
     const instr_info_t *info;
-    uint pred;
     uint idx;
 
     /* Read instr bytes and initialize di */
@@ -112,8 +111,8 @@ read_instruction(byte *pc, byte *orig_pc,
     pc += sizeof(instr_word);
     di->instr_word = instr_word;
 
-    pred = decode_predicate(instr_word);
-    if (pred == DR_PRED_OP) {
+    di->predicate = decode_predicate(instr_word);
+    if (di->predicate == DR_PRED_OP) {
         uint opc8 = decode_opc8(instr_word);
         info = &A32_nopred_opc8[opc8];
     } else {
@@ -250,7 +249,8 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     /* since we don't use set_src/set_dst we must explicitly say they're valid */
     instr_set_operands_valid(instr, true);
 
-    /* FIXME i#1551: set predicate flags in instr->prefixes, from di I guess */
+    if (di.predicate != DR_PRED_OP)
+        instr_set_predicate(instr, di.predicate + DR_PRED_EQ);
 
     /* operands */
     do {

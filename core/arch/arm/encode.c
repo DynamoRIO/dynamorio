@@ -275,5 +275,6 @@ byte *
 instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
 {
     /* FIXME i#1551: write ARM encoder */
+    /* FIXME: complain if DR_PRED_NONE set but only predicated encodings avail */
     return NULL;
 }

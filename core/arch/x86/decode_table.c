@@ -1596,6 +1596,8 @@ const instr_info_t * const op_instr[] =
 #define rex      REQUIRES_REX
 #define reqL0    REQUIRES_VEX_L_0
 #define reqL1    REQUIRES_VEX_L_1
+#define predcc   HAS_PRED_CC
+#define predcx   HAS_PRED_COMPLEX
 
 /* eflags */
 #define x     0
@@ -2036,7 +2038,7 @@ const instr_info_t second_byte[] = {
    * value, though.  Here we only model the CPL > 0 effects, which conditionally
    * write to ebx + ecx, modeled as read + write (ebx is a real input too) (i#269).
    */
-  {OP_getsec, 0x0f3710, "getsec", eax, ebx, eax, ebx, ecx, xop, x, exop[13]},
+  {OP_getsec, 0x0f3710, "getsec", eax, ebx, eax, ebx, ecx, xop|predcx, x, exop[13]},
   /* 38 */
   {ESCAPE_3BYTE_38, 0x0f3810, "(3byte 38)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2050,23 +2052,23 @@ const instr_info_t second_byte[] = {
   /* cmovcc does not always write dest -- model that as a read of dest
    * FIXME i#269: is that always a good idea?
    */
-  {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, Gv, xx, mrm, fRO, END_LIST},
-  {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, Gv, xx, mrm, fRO, END_LIST},
-  {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, Gv, xx, mrm, fRC, END_LIST},
-  {OP_cmovnb, 0x0f4310, "cmovnb", Gv, xx, Ev, Gv, xx, mrm, fRC, END_LIST},
-  {OP_cmovz,  0x0f4410, "cmovz",  Gv, xx, Ev, Gv, xx, mrm, fRZ, END_LIST},
-  {OP_cmovnz, 0x0f4510, "cmovnz", Gv, xx, Ev, Gv, xx, mrm, fRZ, END_LIST},
-  {OP_cmovbe, 0x0f4610, "cmovbe", Gv, xx, Ev, Gv, xx, mrm, (fRC|fRZ), END_LIST},
-  {OP_cmovnbe,0x0f4710, "cmovnbe",Gv, xx, Ev, Gv, xx, mrm, (fRC|fRZ), END_LIST},
+  {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRO, END_LIST},
+  {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, Gv, xx, mrm|predcc, fRO, END_LIST},
+  {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRC, END_LIST},
+  {OP_cmovnb, 0x0f4310, "cmovnb", Gv, xx, Ev, Gv, xx, mrm|predcc, fRC, END_LIST},
+  {OP_cmovz,  0x0f4410, "cmovz",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRZ, END_LIST},
+  {OP_cmovnz, 0x0f4510, "cmovnz", Gv, xx, Ev, Gv, xx, mrm|predcc, fRZ, END_LIST},
+  {OP_cmovbe, 0x0f4610, "cmovbe", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+  {OP_cmovnbe,0x0f4710, "cmovnbe",Gv, xx, Ev, Gv, xx, mrm|predcc, (fRC|fRZ), END_LIST},
   /* 48 */
-  {OP_cmovs,  0x0f4810, "cmovs",  Gv, xx, Ev, Gv, xx, mrm, fRS, END_LIST},
-  {OP_cmovns, 0x0f4910, "cmovns", Gv, xx, Ev, Gv, xx, mrm, fRS, END_LIST},
-  {OP_cmovp,  0x0f4a10, "cmovp",  Gv, xx, Ev, Gv, xx, mrm, fRP, END_LIST},
-  {OP_cmovnp, 0x0f4b10, "cmovnp", Gv, xx, Ev, Gv, xx, mrm, fRP, END_LIST},
-  {OP_cmovl,  0x0f4c10, "cmovl",  Gv, xx, Ev, Gv, xx, mrm, (fRS|fRO), END_LIST},
-  {OP_cmovnl, 0x0f4d10, "cmovnl", Gv, xx, Ev, Gv, xx, mrm, (fRS|fRO), END_LIST},
-  {OP_cmovle, 0x0f4e10, "cmovle", Gv, xx, Ev, Gv, xx, mrm, (fRS|fRO|fRZ), END_LIST},
-  {OP_cmovnle,0x0f4f10, "cmovnle",Gv, xx, Ev, Gv, xx, mrm, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovs,  0x0f4810, "cmovs",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovns, 0x0f4910, "cmovns", Gv, xx, Ev, Gv, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovp,  0x0f4a10, "cmovp",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRP, END_LIST},
+  {OP_cmovnp, 0x0f4b10, "cmovnp", Gv, xx, Ev, Gv, xx, mrm|predcc, fRP, END_LIST},
+  {OP_cmovl,  0x0f4c10, "cmovl",  Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovnl, 0x0f4d10, "cmovnl", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovle, 0x0f4e10, "cmovle", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovnle,0x0f4f10, "cmovnle",Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
   /* 50 */
   {PREFIX_EXT, 0x0f5010, "(prefix ext 16)", xx, xx, xx, xx, xx, mrm, x, 16},
   {PREFIX_EXT, 0x0f5110, "(prefix ext 17)", xx, xx, xx, xx, xx, mrm, x, 17},
@@ -3716,13 +3718,13 @@ const instr_info_t prefix_extensions[][8] = {
   },
   /* prefix extension 93 */
   {
-    {OP_maskmovq,     0x0ff710, "maskmovq", Bq, xx, Pq, Nq, xx, mrm, x, END_LIST}, /* Intel table says "Ppi, Qpi" */
+    {OP_maskmovq,     0x0ff710, "maskmovq", Bq, xx, Pq, Nq, xx, mrm|predcx, x, END_LIST}, /* Intel table says "Ppi, Qpi" */
     {INVALID,       0xf30ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_maskmovdqu, 0x660ff710, "maskmovdqu", Bdq, xx, Vdq, Udq, xx, mrm, x, END_LIST},
+    {OP_maskmovdqu, 0x660ff710, "maskmovdqu", Bdq, xx, Vdq, Udq, xx, mrm|predcx, x, END_LIST},
     {INVALID,       0xf20ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,         0x0ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
     {INVALID,       0xf30ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
-    {OP_vmaskmovdqu, 0x660ff710, "vmaskmovdqu", Bdq, xx, Vdq, Udq, xx, mrm|vex|reqL0, x, END_LIST},
+    {OP_vmaskmovdqu, 0x660ff710, "vmaskmovdqu", Bdq, xx, Vdq, Udq, xx, mrm|vex|reqL0|predcx, x, END_LIST},
     {INVALID,       0xf20ff710, "(bad)", xx, xx, xx, xx, xx, no, x, END_LIST},
   },
   /* prefix extension 94 */
@@ -4191,7 +4193,7 @@ const instr_info_t prefix_extensions[][8] = {
     {INVALID,      0xf20f7910, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
   },
   { /* prefix extension 136 */
-    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, END_LIST},
     /* XXX: if cpuid doesn't show lzcnt support, this is treated as bsr */
     {OP_lzcnt,     0xf30fbd10, "lzcnt",   Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
     /* This is bsr w/ DATA_PREFIX, which we indicate by omitting 0x66 (i#1118).
@@ -4199,8 +4201,8 @@ const instr_info_t prefix_extensions[][8] = {
      * prefix ext marked invalid are really treated valid" we don't need these,
      * but better to be explicit where we have to so we can easily remove that.
      */
-    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
-    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
+    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, NA},
+    {OP_bsr,         0x0fbd10, "bsr",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, NA},
     {INVALID,        0x0fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf30fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660fbd10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -4244,12 +4246,12 @@ const instr_info_t prefix_extensions[][8] = {
      */
   },
   { /* prefix extension 140 */
-    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, END_LIST},
     /* XXX: if cpuid doesn't show tzcnt support, this is treated as bsf */
     {OP_tzcnt,     0xf30fbc10, "tzcnt",   Gv, xx, Ev, xx, xx, mrm, fW6, END_LIST},
     /* see OP_bsr comments above -- this is the same but for bsf: */
-    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
-    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm, fW6, NA},
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, NA},
+    {OP_bsf,         0x0fbc10, "bsf",     Gv, xx, Ev, xx, xx, mrm|predcx, fW6, NA},
     {INVALID,        0x0fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0xf30fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,      0x660fbc10, "(bad)",   xx, xx, xx, xx, xx, no, x, NA},
@@ -4497,16 +4499,16 @@ const instr_info_t vex_extensions[][2] = {
     {OP_vbroadcastf128, 0x66381a18, "vbroadcastf128", Vqq, xx, Mdq, xx, xx, mrm|vex|reqp|reqL1, x, END_LIST},
   }, { /* vex ext 67 */
     {INVALID,   0x66382c18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmaskmovps, 0x66382c18, "vmaskmovps", Vx, xx, Hx,Mx, xx, mrm|vex|reqp, x, tvex[69][1]},
+    {OP_vmaskmovps, 0x66382c18, "vmaskmovps", Vx, xx, Hx,Mx, xx, mrm|vex|reqp|predcx, x, tvex[69][1]},
   }, { /* vex ext 68 */
     {INVALID,   0x66382d18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmaskmovpd, 0x66382d18, "vmaskmovpd", Vx, xx, Hx,Mx, xx, mrm|vex|reqp, x, tvex[70][1]},
+    {OP_vmaskmovpd, 0x66382d18, "vmaskmovpd", Vx, xx, Hx,Mx, xx, mrm|vex|reqp|predcx, x, tvex[70][1]},
   }, { /* vex ext 69 */
     {INVALID,   0x66382e18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmaskmovps, 0x66382e18, "vmaskmovps", Mx, xx, Hx,Vx, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_vmaskmovps, 0x66382e18, "vmaskmovps", Mx, xx, Hx,Vx, xx, mrm|vex|reqp|predcx, x, END_LIST},
   }, { /* vex ext 70 */
     {INVALID,   0x66382f18, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
-    {OP_vmaskmovpd, 0x66382f18, "vmaskmovpd", Mx, xx, Hx,Vx, xx, mrm|vex|reqp, x, END_LIST},
+    {OP_vmaskmovpd, 0x66382f18, "vmaskmovpd", Mx, xx, Hx,Vx, xx, mrm|vex|reqp|predcx, x, END_LIST},
   }, { /* vex ext 71 */
     {INVALID,   0x663a0418, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vpermilps, 0x663a0418, "vpermilps", Vx, xx, Wx, Ib, xx, mrm|vex|reqp, x, tvex[77][1]},
@@ -4682,7 +4684,7 @@ const instr_info_t rm_extensions[][8] = {
     /* Only if the transaction fails does xend write to eax => src+dest (i#269).
      * XXX i#1314: on failure eip is also written to.
      */
-    {OP_xend,   0xd50f0172, "xend", eax, xx, eax, xx, xx, mrm, x, NA},
+    {OP_xend,   0xd50f0172, "xend", eax, xx, eax, xx, xx, mrm|predcx, x, NA},
     {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -5327,12 +5329,12 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vgatherqps,0x66389318,"vgatherqps",Vvs,Hx,MVd,Hx,xx, mrm|vex|reqp,x,tvexw[69][1]},
     {OP_vgatherqpd,0x66389358,"vgatherqpd",Vvd,Hx,MVq,Hx,xx, mrm|vex|reqp,x,END_LIST},
   }, { /* vex_W_ext 70 */
-    {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp,x,tvexw[71][0]},
-    {OP_vpmaskmovq,0x66388c58,"vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp,x,tvexw[71][1]},
+    {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
+    {OP_vpmaskmovq,0x66388c58,"vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][1]},
   }, { /* vex_W_ext 71 */
     /* Conditional store modeled as both source and dest (xref i#269) */
-    {OP_vpmaskmovd,0x66388e18,"vpmaskmovd",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp,x,END_LIST},
-    {OP_vpmaskmovq,0x66388e58,"vpmaskmovq",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp,x,END_LIST},
+    {OP_vpmaskmovd,0x66388e18,"vpmaskmovd",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp|predcx,x,END_LIST},
+    {OP_vpmaskmovq,0x66388e58,"vpmaskmovq",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp|predcx,x,END_LIST},
   }, { /* vex_W_ext 72 */
     {OP_vpsrlvd,0x66384518,"vpsrlvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vpsrlvq,0x66384558,"vpsrlvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
@@ -5823,38 +5825,38 @@ const instr_info_t float_high_modrm[][64] = {
    },
     { /* da = [2] */
         /* FIXME i#269: should these also have dst as src like cmovcc does? */
-        {OP_fcmovb, 0xdac010, "fcmovb", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x01]}, /* c0 = [0x00] */
-        {OP_fcmovb, 0xdac110, "fcmovb", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x02]},
-        {OP_fcmovb, 0xdac210, "fcmovb", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x03]},
-        {OP_fcmovb, 0xdac310, "fcmovb", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x04]},
-        {OP_fcmovb, 0xdac410, "fcmovb", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x05]},
-        {OP_fcmovb, 0xdac510, "fcmovb", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x06]},
-        {OP_fcmovb, 0xdac610, "fcmovb", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x07]},
-        {OP_fcmovb, 0xdac710, "fcmovb", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmove, 0xdac810, "fcmove", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x09]}, /* c8 = [0x08] */
-        {OP_fcmove, 0xdac910, "fcmove", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0a]},
-        {OP_fcmove, 0xdaca10, "fcmove", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0b]},
-        {OP_fcmove, 0xdacb10, "fcmove", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0c]},
-        {OP_fcmove, 0xdacc10, "fcmove", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0d]},
-        {OP_fcmove, 0xdacd10, "fcmove", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0e]},
-        {OP_fcmove, 0xdace10, "fcmove", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x0f]},
-        {OP_fcmove, 0xdacf10, "fcmove", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovbe, 0xdad010, "fcmovbe", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x11]}, /* d0 = [0x10] */
-        {OP_fcmovbe, 0xdad110, "fcmovbe", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x12]},
-        {OP_fcmovbe, 0xdad210, "fcmovbe", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x13]},
-        {OP_fcmovbe, 0xdad310, "fcmovbe", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x14]},
-        {OP_fcmovbe, 0xdad410, "fcmovbe", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x15]},
-        {OP_fcmovbe, 0xdad510, "fcmovbe", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x16]},
-        {OP_fcmovbe, 0xdad610, "fcmovbe", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x17]},
-        {OP_fcmovbe, 0xdad710, "fcmovbe", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovu, 0xdad810, "fcmovu", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x19]}, /* d8 = [0x18] */
-        {OP_fcmovu, 0xdad910, "fcmovu", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1a]},
-        {OP_fcmovu, 0xdada10, "fcmovu", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1b]},
-        {OP_fcmovu, 0xdadb10, "fcmovu", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1c]},
-        {OP_fcmovu, 0xdadc10, "fcmovu", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1d]},
-        {OP_fcmovu, 0xdadd10, "fcmovu", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1e]},
-        {OP_fcmovu, 0xdade10, "fcmovu", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[2][0x1f]},
-        {OP_fcmovu, 0xdadf10, "fcmovu", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovb, 0xdac010, "fcmovb", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x01]}, /* c0 = [0x00] */
+        {OP_fcmovb, 0xdac110, "fcmovb", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x02]},
+        {OP_fcmovb, 0xdac210, "fcmovb", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x03]},
+        {OP_fcmovb, 0xdac310, "fcmovb", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x04]},
+        {OP_fcmovb, 0xdac410, "fcmovb", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x05]},
+        {OP_fcmovb, 0xdac510, "fcmovb", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x06]},
+        {OP_fcmovb, 0xdac610, "fcmovb", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x07]},
+        {OP_fcmovb, 0xdac710, "fcmovb", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmove, 0xdac810, "fcmove", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x09]}, /* c8 = [0x08] */
+        {OP_fcmove, 0xdac910, "fcmove", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0a]},
+        {OP_fcmove, 0xdaca10, "fcmove", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0b]},
+        {OP_fcmove, 0xdacb10, "fcmove", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0c]},
+        {OP_fcmove, 0xdacc10, "fcmove", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0d]},
+        {OP_fcmove, 0xdacd10, "fcmove", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0e]},
+        {OP_fcmove, 0xdace10, "fcmove", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x0f]},
+        {OP_fcmove, 0xdacf10, "fcmove", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovbe, 0xdad010, "fcmovbe", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x11]}, /* d0 = [0x10] */
+        {OP_fcmovbe, 0xdad110, "fcmovbe", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x12]},
+        {OP_fcmovbe, 0xdad210, "fcmovbe", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x13]},
+        {OP_fcmovbe, 0xdad310, "fcmovbe", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x14]},
+        {OP_fcmovbe, 0xdad410, "fcmovbe", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x15]},
+        {OP_fcmovbe, 0xdad510, "fcmovbe", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x16]},
+        {OP_fcmovbe, 0xdad610, "fcmovbe", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x17]},
+        {OP_fcmovbe, 0xdad710, "fcmovbe", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovu, 0xdad810, "fcmovu", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x19]}, /* d8 = [0x18] */
+        {OP_fcmovu, 0xdad910, "fcmovu", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1a]},
+        {OP_fcmovu, 0xdada10, "fcmovu", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1b]},
+        {OP_fcmovu, 0xdadb10, "fcmovu", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1c]},
+        {OP_fcmovu, 0xdadc10, "fcmovu", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1d]},
+        {OP_fcmovu, 0xdadd10, "fcmovu", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1e]},
+        {OP_fcmovu, 0xdade10, "fcmovu", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x1f]},
+        {OP_fcmovu, 0xdadf10, "fcmovu", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
         {INVALID, 0xdae010, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* e0 = [0x20] */
         {INVALID, 0xdae110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {INVALID, 0xdae210, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -5889,38 +5891,38 @@ const instr_info_t float_high_modrm[][64] = {
         {INVALID, 0xdaff10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
    },
     { /* db = [3] */
-        {OP_fcmovnb, 0xdbc010, "fcmovnb", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x01]}, /* c0 = [0x00] */
-        {OP_fcmovnb, 0xdbc110, "fcmovnb", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x02]},
-        {OP_fcmovnb, 0xdbc210, "fcmovnb", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x03]},
-        {OP_fcmovnb, 0xdbc310, "fcmovnb", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x04]},
-        {OP_fcmovnb, 0xdbc410, "fcmovnb", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x05]},
-        {OP_fcmovnb, 0xdbc510, "fcmovnb", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x06]},
-        {OP_fcmovnb, 0xdbc610, "fcmovnb", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x07]},
-        {OP_fcmovnb, 0xdbc710, "fcmovnb", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovne, 0xdbc810, "fcmovne", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x09]}, /* c8 = [0x08] */
-        {OP_fcmovne, 0xdbc910, "fcmovne", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0a]},
-        {OP_fcmovne, 0xdbca10, "fcmovne", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0b]},
-        {OP_fcmovne, 0xdbcb10, "fcmovne", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0c]},
-        {OP_fcmovne, 0xdbcc10, "fcmovne", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0d]},
-        {OP_fcmovne, 0xdbcd10, "fcmovne", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0e]},
-        {OP_fcmovne, 0xdbce10, "fcmovne", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x0f]},
-        {OP_fcmovne, 0xdbcf10, "fcmovne", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovnbe, 0xdbd010, "fcmovnbe", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x12]}, /* d0 = [0x10] */
-        {OP_fcmovnbe, 0xdbd110, "fcmovnbe", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x12]},
-        {OP_fcmovnbe, 0xdbd210, "fcmovnbe", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x13]},
-        {OP_fcmovnbe, 0xdbd310, "fcmovnbe", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x14]},
-        {OP_fcmovnbe, 0xdbd410, "fcmovnbe", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x15]},
-        {OP_fcmovnbe, 0xdbd510, "fcmovnbe", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x16]},
-        {OP_fcmovnbe, 0xdbd610, "fcmovnbe", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x17]},
-        {OP_fcmovnbe, 0xdbd710, "fcmovnbe", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
-        {OP_fcmovnu, 0xdbd810, "fcmovnu", st0, xx, st0, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x19]}, /* d8 = [0x18] */
-        {OP_fcmovnu, 0xdbd910, "fcmovnu", st0, xx, st1, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1a]},
-        {OP_fcmovnu, 0xdbda10, "fcmovnu", st0, xx, st2, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1b]},
-        {OP_fcmovnu, 0xdbdb10, "fcmovnu", st0, xx, st3, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1c]},
-        {OP_fcmovnu, 0xdbdc10, "fcmovnu", st0, xx, st4, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1d]},
-        {OP_fcmovnu, 0xdbdd10, "fcmovnu", st0, xx, st5, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1e]},
-        {OP_fcmovnu, 0xdbde10, "fcmovnu", st0, xx, st6, xx, xx, mrm, (fRC|fRP|fRZ), tfh[3][0x1f]},
-        {OP_fcmovnu, 0xdbdf10, "fcmovnu", st0, xx, st7, xx, xx, mrm, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovnb, 0xdbc010, "fcmovnb", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x01]}, /* c0 = [0x00] */
+        {OP_fcmovnb, 0xdbc110, "fcmovnb", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x02]},
+        {OP_fcmovnb, 0xdbc210, "fcmovnb", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x03]},
+        {OP_fcmovnb, 0xdbc310, "fcmovnb", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x04]},
+        {OP_fcmovnb, 0xdbc410, "fcmovnb", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x05]},
+        {OP_fcmovnb, 0xdbc510, "fcmovnb", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x06]},
+        {OP_fcmovnb, 0xdbc610, "fcmovnb", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x07]},
+        {OP_fcmovnb, 0xdbc710, "fcmovnb", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovne, 0xdbc810, "fcmovne", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x09]}, /* c8 = [0x08] */
+        {OP_fcmovne, 0xdbc910, "fcmovne", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0a]},
+        {OP_fcmovne, 0xdbca10, "fcmovne", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0b]},
+        {OP_fcmovne, 0xdbcb10, "fcmovne", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0c]},
+        {OP_fcmovne, 0xdbcc10, "fcmovne", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0d]},
+        {OP_fcmovne, 0xdbcd10, "fcmovne", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0e]},
+        {OP_fcmovne, 0xdbce10, "fcmovne", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x0f]},
+        {OP_fcmovne, 0xdbcf10, "fcmovne", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovnbe, 0xdbd010, "fcmovnbe", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x12]}, /* d0 = [0x10] */
+        {OP_fcmovnbe, 0xdbd110, "fcmovnbe", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x12]},
+        {OP_fcmovnbe, 0xdbd210, "fcmovnbe", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x13]},
+        {OP_fcmovnbe, 0xdbd310, "fcmovnbe", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x14]},
+        {OP_fcmovnbe, 0xdbd410, "fcmovnbe", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x15]},
+        {OP_fcmovnbe, 0xdbd510, "fcmovnbe", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x16]},
+        {OP_fcmovnbe, 0xdbd610, "fcmovnbe", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x17]},
+        {OP_fcmovnbe, 0xdbd710, "fcmovnbe", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
+        {OP_fcmovnu, 0xdbd810, "fcmovnu", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x19]}, /* d8 = [0x18] */
+        {OP_fcmovnu, 0xdbd910, "fcmovnu", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1a]},
+        {OP_fcmovnu, 0xdbda10, "fcmovnu", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1b]},
+        {OP_fcmovnu, 0xdbdb10, "fcmovnu", st0, xx, st3, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1c]},
+        {OP_fcmovnu, 0xdbdc10, "fcmovnu", st0, xx, st4, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1d]},
+        {OP_fcmovnu, 0xdbdd10, "fcmovnu", st0, xx, st5, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1e]},
+        {OP_fcmovnu, 0xdbde10, "fcmovnu", st0, xx, st6, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[3][0x1f]},
+        {OP_fcmovnu, 0xdbdf10, "fcmovnu", st0, xx, st7, xx, xx, mrm|predcc, (fRC|fRP|fRZ), END_LIST},
         {INVALID, 0xdbe010, "(bad)", xx, xx, xx, xx, xx, no, x, NA}, /* e0 = [0x20] */
         {INVALID, 0xdbe110, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
         {OP_fnclex, 0xdbe210, "fnclex", xx, xx, xx, xx, xx, mrm, x, END_LIST},/*FIXME: w/ preceding fwait instr, called "fclex"*/

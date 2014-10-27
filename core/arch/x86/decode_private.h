@@ -250,6 +250,10 @@ enum {
  * OPCODE_SUFFIX for REQUIRES_VEX means the same thing for encoding.
  */
 #define REQUIRES_VEX_L_1    0x0200
+/* Predicated via a jcc condition code */
+#define HAS_PRED_CC         0x0400
+/* Predicated via something complex */
+#define HAS_PRED_COMPLEX    0x0800
 
 
 struct _decode_info_t {

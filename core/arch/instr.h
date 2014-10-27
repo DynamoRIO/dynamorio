@@ -227,6 +227,67 @@ enum {
 };
 #endif /* DR_FAST_IR */
 
+/** Triggers used for conditionally executed instructions. */
+typedef enum _dr_pred_type_t {
+    DR_PRED_NONE, /**< No predicate is present. */
+#ifdef X86
+    DR_PRED_O,   /**< x86 condition: overflow (OF=1). */
+    DR_PRED_NO,  /**< x86 condition: no overflow (OF=0). */
+    DR_PRED_B,   /**< x86 condition: below (CF=0). */
+    DR_PRED_NB,  /**< x86 condition: not below (CF=1). */
+    DR_PRED_Z,   /**< x86 condition: zero (ZF=1). */
+    DR_PRED_NZ,  /**< x86 condition: not zero (ZF=0). */
+    DR_PRED_BE,  /**< x86 condition: below or equal (CF=1 or ZF=1). */
+    DR_PRED_NBE, /**< x86 condition: not below or equal (CF=0 and ZF=0). */
+    DR_PRED_S,   /**< x86 condition: sign (SF=1). */
+    DR_PRED_NS,  /**< x86 condition: not sign (SF=0). */
+    DR_PRED_P,   /**< x86 condition: parity (PF=1). */
+    DR_PRED_NP,  /**< x86 condition: not parity (PF=0). */
+    DR_PRED_L,   /**< x86 condition: less (SF != OF). */
+    DR_PRED_NL,  /**< x86 condition: not less (SF=OF). */
+    DR_PRED_LE,  /**< x86 condition: less or equal (ZF=1 or SF != OF). */
+    DR_PRED_NLE, /**< x86 condition: not less or equal (ZF=0 and SF=OF). */
+    /**
+     * x86 condition: special opcode-specific condition that depends on the
+     * values of the source operands.  Thus, unlike all of the other conditions,
+     * the source operands will be accessed even if the condition then fails
+     * and the destinations are not touched.
+     */
+    DR_PRED_COMPLEX,
+#elif defined(ARM)
+    DR_PRED_EQ, /**< ARM condition: 0000 Equal                   (Z == 1)           */
+    DR_PRED_NE, /**< ARM condition: 0001 Not equal               (Z == 0)           */
+    DR_PRED_CS, /**< ARM condition: 0010 Carry set               (C == 1)           */
+    DR_PRED_CC, /**< ARM condition: 0011 Carry clear             (C == 0)           */
+    DR_PRED_MI, /**< ARM condition: 0100 Minus, negative         (N == 1)           */
+    DR_PRED_PL, /**< ARM condition: 0101 Plus, positive or zero  (N == 0)           */
+    DR_PRED_VS, /**< ARM condition: 0110 Overflow                (V == 1)           */
+    DR_PRED_VC, /**< ARM condition: 0111 No overflow             (V == 0)           */
+    DR_PRED_HI, /**< ARM condition: 1000 Unsigned higher         (C == 1 and Z == 0)*/
+    DR_PRED_LS, /**< ARM condition: 1001 Unsigned lower or same  (C == 0 or Z == 1) */
+    DR_PRED_GE, /**< ARM condition: 1010 Signed >=               (N == V)           */
+    DR_PRED_LT, /**< ARM condition: 1011 Signed less than        (N != V)           */
+    DR_PRED_GT, /**< ARM condition: 1100 Signed greater than     (Z == 0 and N == V)*/
+    DR_PRED_LE, /**< ARM condition: 1101 Signed <=               (Z == 1 or N != V) */
+    DR_PRED_AL, /**< ARM condition: 1110 Always (unconditional)                    */
+    DR_PRED_OP, /**< ARM condition: 1111 Part of opcode                            */
+#endif
+} dr_pred_type_t;
+
+/* DR_API EXPORT END */
+/* These aren't composable, so we store them in as few bits as possible.
+ * The top 5 prefix bits hold the value (x86 needs 17 values).
+ * XXX: if we need more space we could compress the x86 values: they're
+ * all pos/neg pairs so we could store the pos/neg bit just once.
+ * XXX: if we want a slightly faster predication check we could take
+ * a dedicated PREFIX_PREDICATED bit.
+ */
+#define PREFIX_PRED_BITS 5
+#define PREFIX_PRED_BITPOS (32 - PREFIX_PRED_BITS)
+#define PREFIX_PRED_MASK \
+    (((1 << PREFIX_PRED_BITS)-1) << PREFIX_PRED_BITPOS) /*0xf8000000 */
+/* DR_API EXPORT BEGIN */
+
 /**
  * Data slots available in a label (instr_create_label()) instruction
  * for storing client-controlled data.  Accessible via
@@ -1076,6 +1137,32 @@ instr_set_prefixes(instr_t *instr, uint prefixes);
  */
 uint
 instr_get_prefixes(instr_t *instr);
+
+DR_API
+/**
+ * Returns whether \p instr is predicated: i.e., whether its operation
+ * is conditional.
+ */
+bool
+instr_is_predicated(instr_t *instr);
+
+DR_API
+/**
+ * Returns the DR_PRED_ constant for \p instr that describes what its
+ * conditional execution is dependent on.
+ */
+dr_pred_type_t
+instr_get_predicate(instr_t *instr);
+
+DR_API
+/**
+ * This routine is only valid when the current ISA mode supports general
+ * instruction predication.
+ * Sets the predication for \p instr to the given DR_PRED_ constant.
+ * Returns whether successful.
+ */
+bool
+instr_set_predicate(instr_t *instr, dr_pred_type_t pred);
 
 /* DR_API EXPORT BEGIN */
 #if defined(X86) && defined(X64)

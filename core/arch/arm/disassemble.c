@@ -53,6 +53,25 @@
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
+static const char * const pred_names[] = {
+    "",    /* DR_PRED_NONE */
+    ".eq", /* DR_PRED_EQ */
+    ".ne", /* DR_PRED_NE */
+    ".cs", /* DR_PRED_CS */
+    ".cc", /* DR_PRED_CC */
+    ".mi", /* DR_PRED_MI */
+    ".pl", /* DR_PRED_PL */
+    ".vs", /* DR_PRED_VS */
+    ".vc", /* DR_PRED_VC */
+    ".hi", /* DR_PRED_HI */
+    ".ls", /* DR_PRED_LS */
+    ".ge", /* DR_PRED_GE */
+    ".lt", /* DR_PRED_LT */
+    ".gt", /* DR_PRED_GT */
+    ".le", /* DR_PRED_LE */
+    "",    /* DR_PRED_AL */
+    "",    /* DR_PRED_OP */
+};
 
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
@@ -90,9 +109,10 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
 int
 print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT)
 {
-    /* FIXME i#1551: NYI: print predicate */
-    CLIENT_ASSERT(false, "NYI");
-    return 0;
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    size_t pre_sofar = *sofar;
+    print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);
+    return *sofar - pre_sofar;
 }
 
 #endif /* INTERNAL || CLIENT_INTERFACE */

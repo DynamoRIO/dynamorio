@@ -45,12 +45,9 @@
  * only used during decoding.
  */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
-/* FIXME i#1551: add two different attributes for ARM as PREFIX_ constants:
- * 1) Add shift type for shifted source registers: 2-bit enum instead of
+/* FIXME i#1551: add another attribute to ARM as PREFIX_ constants:
+ *  + Add shift type for shifted source registers: 2-bit enum instead of
  *    6-entry bitfield, since not composable.
- * 2) Add predicates: 4-bit enum to save space, since not composable.
- *    Also backport to x86 for i#269 and i#1181.
- *    Add routine instr_is_predicated()?
  */
 /* DR_API EXPORT BEGIN */
 
@@ -70,30 +67,10 @@
 #define PREFIX_XACQUIRE      0x08 /**< Transaction hint: start lock elision. */
 #define PREFIX_XRELEASE      0x10 /**< Transaction hint: end lock elision. */
 
-/** ARM condition codes used as instruction predicates. */
-enum {
-    DR_PRED_EQ, /**< ARM condition: 0000  Equal                   Z == 1            */
-    DR_PRED_NE, /**< ARM condition: 0001  Not equal               Z == 0            */
-    DR_PRED_CS, /**< ARM condition: 0010  Carry set               d C == 1          */
-    DR_PRED_CC, /**< ARM condition: 0011  Carry clear             C == 0            */
-    DR_PRED_MI, /**< ARM condition: 0100  Minus, negative         N == 1            */
-    DR_PRED_PL, /**< ARM condition: 0101  Plus, positive or zero  N == 0            */
-    DR_PRED_VS, /**< ARM condition: 0110  Overflow                V == 1            */
-    DR_PRED_VC, /**< ARM condition: 0111  No overflow             V == 0            */
-    DR_PRED_HI, /**< ARM condition: 1000  Unsigned higher         C == 1 and Z == 0 */
-    DR_PRED_LS, /**< ARM condition: 1001  Unsigned lower or same  C == 0 or Z == 1  */
-    DR_PRED_GE, /**< ARM condition: 1010  Signed >=               N == V            */
-    DR_PRED_LT, /**< ARM condition: 1011  Signed less than        N != V            */
-    DR_PRED_GT, /**< ARM condition: 1100  Signed greater than     Z == 0 and N == V */
-    DR_PRED_LE, /**< ARM condition: 1101  Signed <=               Z == 1 or N != V  */
-    DR_PRED_AL, /**< ARM condition: 1110  Always (unconditional)  y                 */
-    DR_PRED_OP, /**< ARM condition: 1111  Part of opcode          ----              */
-};
-
 /* DR_API EXPORT END */
 
 /* We encode some prefixes in the operands themselves, such that we shouldn't
- * consider the whole-instr_t flags when considering equality of Instrs
+ * consider the whole-instr_t flags when considering equality of instr_t
  */
 #define PREFIX_SIGNIFICANT (PREFIX_LOCK|PREFIX_JCC_TAKEN|PREFIX_JCC_TAKEN|\
                             PREFIX_XACQUIRE|PREFIX_XRELEASE)

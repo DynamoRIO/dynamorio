@@ -2051,6 +2051,14 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
     }
 
+    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
+        if (TEST(HAS_PRED_CC, info->flags)) {
+            instr_set_predicate(instr, instr_cmovcc_to_jcc(di.opcode) - OP_jo +
+                                DR_PRED_O);
+        } else
+            instr_set_predicate(instr, DR_PRED_COMPLEX);
+    }
+
     /* check for invalid prefixes that depend on operand types */
     if (TEST(PREFIX_LOCK, di.prefixes)) {
         /* check for invalid opcode, list on p3-397 of IA-32 vol 2 */
