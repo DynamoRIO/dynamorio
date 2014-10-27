@@ -146,6 +146,7 @@ Further non-compatibility-affecting changes include:
  - Added INSTR_CREATE_debug_instr()
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
+ - Added instr_predicate_triggered().
 
 **************************************************
 <hr>

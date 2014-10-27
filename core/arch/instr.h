@@ -1165,6 +1165,38 @@ bool
 instr_set_predicate(instr_t *instr, dr_pred_type_t pred);
 
 /* DR_API EXPORT BEGIN */
+/** This type holds the return values for instr_predicate_triggered(). */
+typedef enum _dr_pred_trigger_t {
+    /** This instruction is not predicated. */
+    DR_PRED_TRIGGER_NOPRED,
+    /** The predicate matches and the instruction will execute. */
+    DR_PRED_TRIGGER_MATCH,
+    /** The predicate does not match and the instruction will not execute. */
+    DR_PRED_TRIGGER_MISMATCH,
+    /** It is unknown whether the predicate matches. */
+    DR_PRED_TRIGGER_UNKNOWN,
+    /** An invalid parameter was passed. */
+    DR_PRED_TRIGGER_INVALID,
+} dr_pred_trigger_t;
+/* DR_API EXPORT END */
+
+DR_API
+/**
+ * Given the machine context \p mc, returns whether or not the predicated
+ * instruction \p instr will execute.
+ * Currently condition-code predicates are supported and OP_bsf and
+ * OP_bsr from #DR_PRED_COMPLEX; other instances of #DR_PRED_COMPLEX
+ * are not supported.
+ * \p mc->flags must include #DR_MC_CONTROL for condition-code predicates,
+ * and additionally #DR_MC_INTEGER for OP_bsf and OP_bsr.
+ *
+ * \note More complex predicates will be added in the future and they may require
+ * additional state in \p mc.
+ */
+dr_pred_trigger_t
+instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc);
+
+/* DR_API EXPORT BEGIN */
 #if defined(X86) && defined(X64)
 /* DR_API EXPORT END */
 DR_API

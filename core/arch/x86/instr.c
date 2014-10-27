@@ -1243,6 +1243,48 @@ instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
     return opc_jcc_taken(jcc_opc, eflags);
 }
 
+DR_API
+dr_pred_trigger_t
+instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
+{
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    if (pred == DR_PRED_NONE)
+        return DR_PRED_TRIGGER_NOPRED;
+    else if (pred == DR_PRED_COMPLEX) {
+#ifndef STANDALONE_DECODER /* no safe_read there */
+        int opc = instr_get_opcode(instr);
+        if (opc == OP_bsf || opc == OP_bsr) {
+            /* The src can't involve a multimedia reg or VSIB */
+            opnd_t src = instr_get_src(instr, 0);
+            CLIENT_ASSERT(instr_num_srcs(instr) == 1, "invalid predicate/instr combo");
+            if (opnd_is_immed_int(src))
+                return (opnd_get_immed_int(src) != 0) ?
+                    DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+            else if (opnd_is_reg(src))
+                return (reg_get_value(opnd_get_reg(src), mc) != 0) ?
+                    DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+            else if (opnd_is_memory_reference(src)) {
+                ptr_int_t val;
+                if (!safe_read(opnd_compute_address(src, mc),
+                               MIN(opnd_get_size(src), sizeof(val)), &val))
+                    return false;
+                return (val != 0) ?
+                    DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+            } else
+                CLIENT_ASSERT(false, "invalid predicate/instr combo");
+        }
+        /* XXX: add other opcodes: OP_getsec, OP_xend, OP_*maskmov* */
+#endif
+        return DR_PRED_TRIGGER_UNKNOWN;
+    } else if (pred >= DR_PRED_O && pred <= DR_PRED_NLE) {
+        /* We rely on DR_PRED_ having the same ordering as the OP_jcc opcodes */
+        int jcc_opc = pred - DR_PRED_O + OP_jo;
+        return opc_jcc_taken(jcc_opc, mc->xflags) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    }
+    return DR_PRED_TRIGGER_INVALID;
+}
+
 bool
 reg_is_gpr(reg_id_t reg)
 {

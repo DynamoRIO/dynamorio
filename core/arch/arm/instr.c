@@ -373,6 +373,65 @@ instr_cmovcc_triggered(instr_t *instr, reg_t eflags)
     return false;
 }
 
+DR_API
+dr_pred_trigger_t
+instr_predicate_triggered(instr_t *instr, dr_mcontext_t *mc)
+{
+    dr_pred_type_t pred = instr_get_predicate(instr);
+    switch (pred) {
+    case DR_PRED_NONE: return DR_PRED_TRIGGER_NOPRED;
+    case DR_PRED_EQ: /* Z == 1 */
+        return (TEST(EFLAGS_Z, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_NE: /* Z == 0 */
+        return (!TEST(EFLAGS_Z, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_CS: /* C == 1 */
+        return (TEST(EFLAGS_C, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_CC: /* C == 0 */
+        return (!TEST(EFLAGS_C, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_MI: /* N == 1 */
+        return (TEST(EFLAGS_N, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_PL: /* N == 0 */
+        return (!TEST(EFLAGS_N, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_VS: /* V == 1 */
+        return (TEST(EFLAGS_V, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_VC: /* V == 0 */
+        return (!TEST(EFLAGS_V, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_HI: /* C == 1 and Z == 0 */
+        return (TEST(EFLAGS_C, mc->apsr) && !TEST(EFLAGS_Z, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_LS: /* C == 0 or Z == 1 */
+        return (!TEST(EFLAGS_C, mc->apsr) || TEST(EFLAGS_Z, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+   case DR_PRED_GE: /* N == V */
+       return (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr)) ?
+           DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_LT: /* N != V */
+        return (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr)) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_GT /* Z == 0 and N == V */:
+        return (!TEST(EFLAGS_Z, mc->apsr) &&
+                (TEST(EFLAGS_N, mc->apsr) == TEST(EFLAGS_V, mc->apsr))) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_LE: /* Z == 1 or N != V */
+        return (TEST(EFLAGS_Z, mc->apsr) ||
+                (TEST(EFLAGS_N, mc->apsr) != TEST(EFLAGS_V, mc->apsr))) ?
+            DR_PRED_TRIGGER_MATCH : DR_PRED_TRIGGER_MISMATCH;
+    case DR_PRED_AL: return DR_PRED_TRIGGER_MATCH;
+    case DR_PRED_OP: return DR_PRED_TRIGGER_NOPRED;
+    default:
+        CLIENT_ASSERT(false, "invalid predicate");
+        return DR_PRED_TRIGGER_INVALID;
+    }
+}
+
 bool
 reg_is_gpr(reg_id_t reg)
 {
