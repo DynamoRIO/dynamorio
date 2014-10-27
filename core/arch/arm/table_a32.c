@@ -36,6 +36,25 @@
 #include "decode_private.h"
 #include "table_private.h"
 
+/* XXX i#1551 unresolved issues:
+ * + Do we want to try and model all of the unpredictable conditions in
+ *   each instruction (typically when pc or lr is used but it varies
+ *   quite a bit)?  For core DR we don't care as much b/c w/ the fixed-width
+ *   we can keep decoding and wait for a fault.
+ */
+
+/* Addressing mode quick reference:
+ *   x x x P U x W x
+ *         0 0   0     str  Rt, [Rn], -Rm            Post-indexed addressing
+ *         0 1   0     str  Rt, [Rn], Rm             Post-indexed addressing
+ *         0 0   1     illegal, or separate opcode
+ *         0 1   1     illegal, or separate opcode
+ *         1 0   0     str  Rt, [Rn - Rm]            Offset addressing
+ *         1 1   0     str  Rt, [Rn + Rm]            Offset addressing
+ *         1 0   1     str  Rt, [Rn - Rm]!           Pre-indexed addressing
+ *         1 1   1     str  Rt, [Rn + Rm]!           Pre-indexed addressing
+ */
+
 const instr_info_t * const op_instr_A32[] = {
     /* OP_INVALID */   NULL,
     /* OP_UNDECODED */ NULL,
@@ -272,18 +291,6 @@ const instr_info_t * const op_instr_A32[] = {
     /* OP_wfi      */    &A32_ext_bits0[0][0x03],
     /* OP_yield    */    &A32_ext_bits0[0][0x01],
 };
-
-/* Addressing mode quick reference:
- *   x x x P U x W x
- *         0 0   0     str  Rt, [Rn], -Rm            Post-indexed addressing
- *         0 1   0     str  Rt, [Rn], Rm             Post-indexed addressing
- *         0 0   1     illegal, or separate opcode
- *         0 1   1     illegal, or separate opcode
- *         1 0   0     str  Rt, [Rn - Rm]            Offset addressing
- *         1 1   0     str  Rt, [Rn + Rm]            Offset addressing
- *         1 0   1     str  Rt, [Rn - Rm]!           Pre-indexed addressing
- *         1 1   1     str  Rt, [Rn + Rm]!           Pre-indexed addressing
- */
 
 /* for constructing linked lists of table entries */
 #define NA 0
@@ -955,7 +962,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9  , 0x01000040, "(ext bit9 1)", xx, xx, xx, xx, xx, no, x, 1},
     {OP_qadd   , 0x01000050, "qadd"  , RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID   , 0x01000060, "(bad)" , xx, xx, xx, xx, xx, no, x, NA},
-    {OP_hlt    , 0x01000070, "hlt"   , i16split, xx, xx, xx, xx, pred, x, END_LIST},
+    {OP_hlt    , 0xe1000070, "hlt"   , i16split, xx, xx, xx, xx, pred, x, END_LIST},
     {OP_smlabb , 0x01000080, "smlabb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
     {INVALID   , 0x01000090, "(bad)" , xx, xx, xx, xx, xx, no, x, NA},
     {OP_smlabt , 0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
@@ -972,7 +979,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9  , 0x01200040, "(ext bit9 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_qsub   , 0x01200050, "qsub"  , RBw, xx, RDw, RAw, xx, pred, x, END_LIST},
     {INVALID   , 0x01200060, "(bad)" , xx, xx, xx, xx, xx, no, x, NA},
-    {OP_bkpt   , 0x01200070, "bkpt"  , i16split, xx, xx, xx, xx, pred, x, END_LIST},
+    {OP_bkpt   , 0xe1200070, "bkpt"  , i16split, xx, xx, xx, xx, pred, x, END_LIST},
     {OP_smlawb , 0x01200080, "smlawb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
     {INVALID   , 0x01200090, "(bad)" , xx, xx, xx, xx, xx, no, x, NA},
     {OP_smulwb , 0x012000a0, "smulwb", RAw, xx, RDw, RCh, xx, pred, x, END_LIST},
