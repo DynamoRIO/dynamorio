@@ -614,21 +614,21 @@ test_size_changes(void *dc)
     instr = INSTR_CREATE_maskmovq(dc, opnd_create_reg(REG_MM0),
                                   opnd_create_reg(REG_MM1));
     test_instr_encode(dc, instr, 3);
-    instr = instr_create_1dst_2src
+    instr = INSTR_PRED(instr_create_1dst_2src
         (dc, OP_maskmovq,
          opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
                                    REG_NULL, 0, 0, OPSZ_8),
-         opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1));
+         opnd_create_reg(REG_MM0), opnd_create_reg(REG_MM1)), DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 4);
 
     instr = INSTR_CREATE_maskmovdqu(dc, opnd_create_reg(REG_XMM0),
                                     opnd_create_reg(REG_XMM1));
     test_instr_encode(dc, instr, 4);
-    instr = instr_create_1dst_2src
+    instr = INSTR_PRED(instr_create_1dst_2src
         (dc, OP_maskmovdqu,
          opnd_create_far_base_disp(SEG_DS, IF_X64_ELSE(REG_EDI, REG_DI),
                                    REG_NULL, 0, 0, OPSZ_16),
-         opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1));
+         opnd_create_reg(REG_XMM0), opnd_create_reg(REG_XMM1)), DR_PRED_COMPLEX);
     test_instr_encode(dc, instr, 5);
 
     /* Test iretw, iretd, iretq (unlike most stack operation iretd (and lretd on AMD)

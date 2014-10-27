@@ -622,15 +622,11 @@ instr_get_predicate(instr_t *instr)
     return instr->prefixes >> PREFIX_PRED_BITPOS;
 }
 
-bool
+instr_t *
 instr_set_predicate(instr_t *instr, dr_pred_type_t pred)
 {
-#ifdef X86
-    return false;
-#elif defined(ARM)
     instr->prefixes |= ((pred << PREFIX_PRED_BITPOS) & PREFIX_PRED_MASK);
-    return true;
-#endif
+    return instr;
 }
 
 #ifdef UNSUPPORTED_API

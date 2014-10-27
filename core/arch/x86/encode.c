@@ -2398,6 +2398,18 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     di.prefixes = instr->prefixes;
     di.vex_vvvv = 0xf; /* 4 1's by default */
 
+    /* We check predication, to help clients who are generating instrs from
+     * having incorrect analysis results on their own gencode.
+     * We assume each opcode has constant predication info.
+     */
+    if (instr_get_predicate(instr) != decode_predicate_from_instr_info(opc, info)) {
+        if (instr_get_predicate(instr) == DR_PRED_NONE)
+            CLIENT_ASSERT(false, "instr is missing a predicate");
+        else
+            CLIENT_ASSERT(false, "instr contains an invalid predicate for its opcode");
+        return NULL;
+    }
+
     /* Used for PR 253327 addr32 rip-relative and instr_t targets, including
      * during encoding_possible().
      */

@@ -1838,12 +1838,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     return false;
 }
 
-static dr_pred_type_t
-decode_predicate_from_instr_info(decode_info_t *di, const instr_info_t *info)
+dr_pred_type_t
+decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
 {
     if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
         if (TEST(HAS_PRED_CC, info->flags))
-            return DR_PRED_O + instr_cmovcc_to_jcc(di->opcode) - OP_jo;
+            return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
         else
             return DR_PRED_COMPLEX;
     }
@@ -1880,7 +1880,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
     read_instruction(pc, pc, &info, &di, true /* just opcode */ _IF_DEBUG(true));
 
     *usage = instr_eflags_conditionally(info->eflags,
-                                        decode_predicate_from_instr_info(&di, info),
+                                        decode_predicate_from_instr_info(di.opcode, info),
                                         flags);
     pc = decode_next_pc(dcontext, pc);
     /* failure handled fine -- we'll go ahead and return the NULL */
@@ -2068,7 +2068,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     }
 
     if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags))
-        instr_set_predicate(instr, decode_predicate_from_instr_info(&di, info));
+        instr_set_predicate(instr, decode_predicate_from_instr_info(di.opcode, info));
 
     /* check for invalid prefixes that depend on operand types */
     if (TEST(PREFIX_LOCK, di.prefixes)) {

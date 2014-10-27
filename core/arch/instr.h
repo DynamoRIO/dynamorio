@@ -1209,12 +1209,10 @@ instr_predicate_is_cond(dr_pred_type_t pred);
 
 DR_API
 /**
- * This routine is only valid when the current ISA mode supports general
- * instruction predication.
  * Sets the predication for \p instr to the given DR_PRED_ constant.
- * Returns whether successful.
+ * Returns \p instr if successful, or NULL if unsuccessful.
  */
-bool
+instr_t *
 instr_set_predicate(instr_t *instr, dr_pred_type_t pred);
 
 /* DR_API EXPORT BEGIN */

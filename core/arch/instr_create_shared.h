@@ -69,6 +69,11 @@
  */
 #define INSTR_XL8(instr_ptr, app_addr) instr_set_translation((instr_ptr), (app_addr))
 
+/**
+ * Set the predication value for an instruction.
+ */
+#define INSTR_PRED(instr_ptr, pred) instr_set_predicate((instr_ptr), (pred))
+
 /* operand convenience routines for common cases */
 /** Create a base+disp 8-byte operand. */
 #define OPND_CREATE_MEM64(base_reg, disp) \

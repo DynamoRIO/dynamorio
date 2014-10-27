@@ -888,9 +888,9 @@
 #define INSTR_CREATE_movsx(dc, d, s) \
   instr_create_1dst_1src((dc), OP_movsx, (d), (s))
 #define INSTR_CREATE_bsf(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_bsf, (d), (s))
+  INSTR_PRED(instr_create_1dst_1src((dc), OP_bsf, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_bsr(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_bsr, (d), (s))
+  INSTR_PRED(instr_create_1dst_1src((dc), OP_bsr, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_pmovmskb(dc, d, s) \
   instr_create_1dst_1src((dc), OP_pmovmskb, (d), (s))
 #define INSTR_CREATE_movups(dc, d, s) \
@@ -1289,8 +1289,8 @@
   instr_create_1dst_1src((dc), OP_xlat, opnd_create_reg(DR_REG_AL), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XBX, DR_REG_AL, 1, 0, OPSZ_xlat))
 #define INSTR_CREATE_xend(dc) \
-  instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
-    opnd_create_reg(DR_REG_EAX))
+  INSTR_PRED(instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_EAX)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_sysexit(dc) \
   instr_create_1dst_1src((dc), OP_sysexit, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XCX))
@@ -1345,7 +1345,8 @@
  * be a floating point register (opnd_create_reg()).
  */
 #define INSTR_CREATE_fcmovcc(dc, op, f) \
-  instr_create_1dst_1src((dc), (op), opnd_create_reg(DR_REG_ST0), (f))
+  INSTR_PRED(instr_create_1dst_1src((dc), (op), opnd_create_reg(DR_REG_ST0), (f)), \
+    DR_PRED_O + instr_cmovcc_to_jcc(op) - OP_jo)
 /** @name Floating point with destination that is memory or fp register */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -1870,9 +1871,11 @@
 #define INSTR_CREATE_vcvtps2ph(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vcvtps2ph, (d), (s1), (s2))
 #define INSTR_CREATE_vmaskmovps(dc, d, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovps, (d), (s1), (s2))
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovps, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_vmaskmovpd(dc, d, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovpd, (d), (s1), (s2))
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovpd, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_vpermilps(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vpermilps, (d), (s1), (s2))
 #define INSTR_CREATE_vpermilpd(dc, d, s1, s2) \
@@ -2315,7 +2318,8 @@
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_cmovcc(dc, op, d, s) \
-  instr_create_1dst_2src((dc), (op), (d), (s), (d))
+  INSTR_PRED(instr_create_1dst_2src((dc), (op), (d), (s), (d)), \
+    DR_PRED_O + (op) - OP_cmovo)
 
 /**
  * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the given
@@ -2418,17 +2422,17 @@
  * \param s2 The opnd_t second source operand for the instruction.
  */
 #define INSTR_CREATE_maskmovq(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_maskmovq, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_maskmovq, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovq), \
-   (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_maskmovdqu(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_maskmovdqu, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_maskmovdqu, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovdqu), \
-    (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_vmaskmovdqu(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovdqu, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovdqu, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovdqu), \
-    (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 /* @} */ /* end doxygen group */
 
 /* floating-point */
@@ -3636,10 +3640,10 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define INSTR_CREATE_getsec(dc) \
-  instr_create_3dst_3src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
+  INSTR_PRED(instr_create_3dst_3src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
     opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX), \
-    opnd_create_reg(DR_REG_ECX))
+    opnd_create_reg(DR_REG_ECX)), DR_PRED_COMPLEX)
 
 /* 3 destinations: 2 implicit, 5 implicit sources */
 /**

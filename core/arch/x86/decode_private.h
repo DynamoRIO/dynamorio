@@ -436,6 +436,7 @@ opnd_size_t resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/);
 opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
 int indir_var_reg_offs_factor(int optype);
 opnd_size_t expand_subreg_size(opnd_size_t sz);
+dr_pred_type_t decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 
 /* exported tables */
 extern const instr_info_t first_byte[];
