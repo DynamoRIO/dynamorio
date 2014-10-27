@@ -1245,7 +1245,7 @@ const instr_info_t * const op_instr[] =
     /* OP_vextracti128  */   &third_byte_3a[58],
     /* OP_vpmaskmovd    */   &vex_W_extensions[70][0],
     /* OP_vpmaskmovq    */   &vex_W_extensions[70][1],
-    /* OP_vperm2i128    */   &vex_W_extensions[69][1],
+    /* OP_vperm2i128    */   &third_byte_3a[62],
     /* OP_vpermd        */   &third_byte_38[112],
     /* OP_vpermps       */   &third_byte_38[111],
     /* OP_vpermq        */   &third_byte_3a[59],
@@ -5004,9 +5004,9 @@ const instr_info_t third_byte_38[] = {
   /* Following Intel and not marking as packed float vs ints: just "qq". */
   {OP_vpermps,0x66381618, "vpermps",Vqq,xx,Hqq,Wqq,xx, mrm|vex|reqp,x,END_LIST}, /*111*/
   {OP_vpermd, 0x66383618, "vpermd", Vqq,xx,Hqq,Wqq,xx, mrm|vex|reqp,x,END_LIST}, /*112*/
-  {VEX_W_EXT, 0x66384518, "(vex_W ext 72)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 71},/*113*/
+  {VEX_W_EXT, 0x66384518, "(vex_W ext 72)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 72},/*113*/
   {OP_vpsravd,0x66384618, "vpsravd", Vx,xx,Hx,Wx,xx, mrm|vex|reqp, x, END_LIST}, /*114*/
-  {VEX_W_EXT, 0x66384718, "(vex_W ext 73)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 71},/*115*/
+  {VEX_W_EXT, 0x66384718, "(vex_W ext 73)", xx,xx,xx,xx,xx, mrm|vex|reqp, x, 73},/*115*/
 };
 
 /* N.B.: every 0x3a instr so far has an immediate.  If a version w/o an immed
@@ -5018,7 +5018,7 @@ const byte third_byte_3a_index[256] = {
      0, 0, 0, 0,  2, 3, 4, 5, 31,32, 0, 0,  0,33, 0, 0,  /* 1 */
     13,14,15, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  /* 2 */
      0, 0, 0, 0,  0, 0, 0, 0, 57,58, 0, 0,  0, 0, 0, 0,  /* 3 */
-    16,17,18, 0, 23, 0, 0, 0, 54,55,25,26, 27, 0, 0, 0,  /* 4 */
+    16,17,18, 0, 23, 0,62, 0, 54,55,25,26, 27, 0, 0, 0,  /* 4 */
      0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 34,35,36,37,  /* 5 */
     19,20,21,22,  0, 0, 0, 0, 38,39,40,41, 42,43,44,45,  /* 6 */
      0, 0, 0, 0,  0, 0, 0, 0, 46,47,48,49, 50,51,52,53,  /* 7 */
@@ -5105,6 +5105,7 @@ const instr_info_t third_byte_3a[] = {
   /* Following Intel and not marking as packed float vs ints: just "qq". */
   {OP_vpermpd,0x663a0118, "vpermpd",Vqq,xx,Wqq,Ib,xx,mrm|vex|reqp,x,END_LIST},/*60*/
   {OP_vpblendd,0x663a0218,"vpblendd",Vx,xx,Hx,Wx,Ib, mrm|vex|reqp,x,END_LIST},/*61*/
+  {OP_vperm2i128,0x663a4618,"vperm2i128",Vqq,xx,Hqq,Wqq,Ib, mrm|vex|reqp,x,END_LIST},/*62*/
 };
 
 /****************************************************************************

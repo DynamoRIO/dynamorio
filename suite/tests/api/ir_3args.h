@@ -399,3 +399,15 @@ OPCODE(vextracti128, vextracti128, vextracti128, 0, MEMARG(OPSZ_16), REGARG(YMM0
        IMMARG(OPSZ_1))
 OPCODE(vpermq, vpermq, vpermq, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
 OPCODE(vpermpd, vpermpd, vpermpd, 0, REGARG(YMM0), MEMARG(OPSZ_32), IMMARG(OPSZ_1))
+OPCODE(vpmaskmovd_ld, vpmaskmovd, vpmaskmovd, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vpmaskmovq_ld, vpmaskmovq, vpmaskmovq, 0, REGARG(XMM0), REGARG(XMM1),
+       MEMARG(OPSZ_16))
+OPCODE(vpmaskmovd_st, vpmaskmovd, vpmaskmovd, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       REGARG(XMM1))
+OPCODE(vpmaskmovq_st, vpmaskmovq, vpmaskmovq, 0, MEMARG(OPSZ_16), REGARG(XMM0),
+       REGARG(XMM1))
+OPCODE(vpsllvd, vpsllvd, vpsllvd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpsllvq, vpsllvq, vpsllvq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpsrlvd, vpsrlvd, vpsrlvd, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))
+OPCODE(vpsrlvq, vpsrlvq, vpsrlvq, 0, REGARG(XMM0), REGARG(XMM1), MEMARG(OPSZ_16))

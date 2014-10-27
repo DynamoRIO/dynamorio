@@ -1944,6 +1944,20 @@
   instr_create_1dst_2src((dc), OP_vpermq, (d), (s1), (s2))
 #define INSTR_CREATE_vpermpd(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vpermpd, (d), (s1), (s2))
+#define INSTR_CREATE_vpmaskmovd(dc, d, s1, s2) \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vpmaskmovd, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
+#define INSTR_CREATE_vpmaskmovq(dc, d, s1, s2) \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vpmaskmovq, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
+#define INSTR_CREATE_vpsllvd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsllvd, (d), (s1), (s2))
+#define INSTR_CREATE_vpsllvq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsllvq, (d), (s1), (s2))
+#define INSTR_CREATE_vpsrlvd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsrlvd, (d), (s1), (s2))
+#define INSTR_CREATE_vpsrlvq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsrlvq, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2687,6 +2701,8 @@
   instr_create_1dst_3src((dc), OP_vinserti128, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vpblendd(dc, d, s1, s2, s3) \
   instr_create_1dst_3src((dc), OP_vpblendd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vperm2i128(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vperm2i128, (d), (s1), (s2), (s3))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
