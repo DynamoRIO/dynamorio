@@ -93,6 +93,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
 /* Disassembles the instruction at pc into the data structures ret_info
  * and di.  Returns a pointer to the pc of the next instruction.
  * Returns NULL on an invalid instruction.
+ * Caller should set di->isa_mode.
  */
 static byte *
 read_instruction(byte *pc, byte *orig_pc,
@@ -192,7 +193,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
 {
     const instr_info_t *info;
     decode_info_t di;
-    /* XXX i#1551: set di.isa_mode here once we have it */
+    di.isa_mode = dr_get_isa_mode(dcontext);
     pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
     *usage = info->eflags;
     /* we're fine returning NULL on failure */
@@ -204,8 +205,9 @@ decode_opcode(dcontext_t *dcontext, byte *pc, instr_t *instr)
 {
     const instr_info_t *info;
     decode_info_t di;
-    /* XXX i#1551: set di.isa_mode here once we have it, and set mode of instr */
+    di.isa_mode = dr_get_isa_mode(dcontext);
     pc = read_instruction(pc, pc, &info, &di _IF_DEBUG(true));
+    instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     if (!instr_valid(instr)) {
         CLIENT_ASSERT(!instr_valid(instr), "decode_opcode: invalid instr");
@@ -232,9 +234,10 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
 
-    /* XXX i#1551: set di.isa_mode here once we have it, and set mode of instr */
+    di.isa_mode = dr_get_isa_mode(dcontext);
     next_pc = read_instruction(pc, orig_pc, &info, &di
                                _IF_DEBUG(!TEST(INSTR_IGNORE_INVALID, instr->flags)));
+    instr_set_isa_mode(instr, di.isa_mode);
     instr_set_opcode(instr, info->type);
     /* failure up to this point handled fine -- we set opcode to OP_INVALID */
     if (next_pc == NULL) {

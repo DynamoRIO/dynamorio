@@ -87,7 +87,7 @@ enum {
 
 struct _decode_info_t {
     uint instr_word;
-
+    dr_isa_mode_t isa_mode;
     uint opcode;
 
     /* For pc-relative references */
