@@ -3818,7 +3818,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 /* If it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
                 if (instr_num_srcs(instr) == 1 && /* src is the rip-rel opnd */
                     instr_num_dsts(instr) == 1 && /* only one dest: a register */
-                    opnd_is_reg(instr_get_dst(instr, 0))) {
+                    opnd_is_reg(instr_get_dst(instr, 0)) &&
+                    !instr_is_predicated(instr)) {
                     opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
                     reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
                     /* if target is 16 or 8 bit sub-register the whole reg is not dead
@@ -4090,7 +4091,8 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (si >= 0 &&
         instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
         instr_num_dsts(instr) == 1 && /* only one dest: a register */
-        opnd_is_reg(instr_get_dst(instr, 0))) {
+        opnd_is_reg(instr_get_dst(instr, 0)) &&
+        !instr_is_predicated(instr)) {
         reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
         /* if target is 16 or 8 bit sub-register the whole reg is not dead
          * (for 32-bit, top 32 bits are cleared) */

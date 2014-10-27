@@ -1289,8 +1289,8 @@
   instr_create_1dst_1src((dc), OP_xlat, opnd_create_reg(DR_REG_AL), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XBX, DR_REG_AL, 1, 0, OPSZ_xlat))
 #define INSTR_CREATE_xend(dc) \
-  INSTR_PRED(instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
-    opnd_create_reg(DR_REG_EAX)), DR_PRED_COMPLEX)
+  INSTR_PRED(instr_create_1dst_0src((dc), OP_xend, opnd_create_reg(DR_REG_EAX)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_sysexit(dc) \
   instr_create_1dst_1src((dc), OP_sysexit, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XCX))
@@ -2318,8 +2318,7 @@
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_cmovcc(dc, op, d, s) \
-  INSTR_PRED(instr_create_1dst_2src((dc), (op), (d), (s), (d)), \
-    DR_PRED_O + (op) - OP_cmovo)
+  INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), DR_PRED_O + (op) - OP_cmovo)
 
 /**
  * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the given
@@ -3640,10 +3639,9 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define INSTR_CREATE_getsec(dc) \
-  INSTR_PRED(instr_create_3dst_3src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
+  INSTR_PRED(instr_create_3dst_2src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
-    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX), \
-    opnd_create_reg(DR_REG_ECX)), DR_PRED_COMPLEX)
+    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX)), DR_PRED_COMPLEX)
 
 /* 3 destinations: 2 implicit, 5 implicit sources */
 /**

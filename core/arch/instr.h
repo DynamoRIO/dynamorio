@@ -2251,6 +2251,18 @@ DR_API
 /**
  * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
+ * (\p dst1, \p dst2, \p dst3) and two sources
+ * (\p src1, \p src2).
+ */
+instr_t *
+instr_create_3dst_2src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2, opnd_t dst3,
+                       opnd_t src1, opnd_t src2);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated
+ * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and three sources
  * (\p src1, \p src2, \p src3).
  */

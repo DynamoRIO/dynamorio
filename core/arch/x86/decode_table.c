@@ -2036,9 +2036,9 @@ const instr_info_t second_byte[] = {
   /* XXX i#1313: various getsec leaf funcs at CPL 0 write to all kinds of
    * processor state including eflags and eip.  Leaf funcs are indicated by eax
    * value, though.  Here we only model the CPL > 0 effects, which conditionally
-   * write to ebx + ecx, modeled as read + write (ebx is a real input too) (i#269).
+   * write to ebx + ecx.
    */
-  {OP_getsec, 0x0f3710, "getsec", eax, ebx, eax, ebx, ecx, xop|predcx, x, exop[13]},
+  {OP_getsec, 0x0f3710, "getsec", eax, ebx, eax, ebx, xx, xop|predcx, x, exop[13]},
   /* 38 */
   {ESCAPE_3BYTE_38, 0x0f3810, "(3byte 38)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3910, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -2049,26 +2049,23 @@ const instr_info_t second_byte[] = {
   {INVALID, 0x0f3e10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   {INVALID, 0x0f3f10, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   /* 40 */
-  /* cmovcc does not always write dest -- model that as a read of dest
-   * FIXME i#269: is that always a good idea?
-   */
-  {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRO, END_LIST},
-  {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, Gv, xx, mrm|predcc, fRO, END_LIST},
-  {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRC, END_LIST},
-  {OP_cmovnb, 0x0f4310, "cmovnb", Gv, xx, Ev, Gv, xx, mrm|predcc, fRC, END_LIST},
-  {OP_cmovz,  0x0f4410, "cmovz",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRZ, END_LIST},
-  {OP_cmovnz, 0x0f4510, "cmovnz", Gv, xx, Ev, Gv, xx, mrm|predcc, fRZ, END_LIST},
-  {OP_cmovbe, 0x0f4610, "cmovbe", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRC|fRZ), END_LIST},
-  {OP_cmovnbe,0x0f4710, "cmovnbe",Gv, xx, Ev, Gv, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+  {OP_cmovo,  0x0f4010, "cmovo",  Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+  {OP_cmovno, 0x0f4110, "cmovno", Gv, xx, Ev, xx, xx, mrm|predcc, fRO, END_LIST},
+  {OP_cmovb,  0x0f4210, "cmovb",  Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+  {OP_cmovnb, 0x0f4310, "cmovnb", Gv, xx, Ev, xx, xx, mrm|predcc, fRC, END_LIST},
+  {OP_cmovz,  0x0f4410, "cmovz",  Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+  {OP_cmovnz, 0x0f4510, "cmovnz", Gv, xx, Ev, xx, xx, mrm|predcc, fRZ, END_LIST},
+  {OP_cmovbe, 0x0f4610, "cmovbe", Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
+  {OP_cmovnbe,0x0f4710, "cmovnbe",Gv, xx, Ev, xx, xx, mrm|predcc, (fRC|fRZ), END_LIST},
   /* 48 */
-  {OP_cmovs,  0x0f4810, "cmovs",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRS, END_LIST},
-  {OP_cmovns, 0x0f4910, "cmovns", Gv, xx, Ev, Gv, xx, mrm|predcc, fRS, END_LIST},
-  {OP_cmovp,  0x0f4a10, "cmovp",  Gv, xx, Ev, Gv, xx, mrm|predcc, fRP, END_LIST},
-  {OP_cmovnp, 0x0f4b10, "cmovnp", Gv, xx, Ev, Gv, xx, mrm|predcc, fRP, END_LIST},
-  {OP_cmovl,  0x0f4c10, "cmovl",  Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO), END_LIST},
-  {OP_cmovnl, 0x0f4d10, "cmovnl", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO), END_LIST},
-  {OP_cmovle, 0x0f4e10, "cmovle", Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
-  {OP_cmovnle,0x0f4f10, "cmovnle",Gv, xx, Ev, Gv, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovs,  0x0f4810, "cmovs",  Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovns, 0x0f4910, "cmovns", Gv, xx, Ev, xx, xx, mrm|predcc, fRS, END_LIST},
+  {OP_cmovp,  0x0f4a10, "cmovp",  Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+  {OP_cmovnp, 0x0f4b10, "cmovnp", Gv, xx, Ev, xx, xx, mrm|predcc, fRP, END_LIST},
+  {OP_cmovl,  0x0f4c10, "cmovl",  Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovnl, 0x0f4d10, "cmovnl", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO), END_LIST},
+  {OP_cmovle, 0x0f4e10, "cmovle", Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
+  {OP_cmovnle,0x0f4f10, "cmovnle",Gv, xx, Ev, xx, xx, mrm|predcc, (fRS|fRO|fRZ), END_LIST},
   /* 50 */
   {PREFIX_EXT, 0x0f5010, "(prefix ext 16)", xx, xx, xx, xx, xx, mrm, x, 16},
   {PREFIX_EXT, 0x0f5110, "(prefix ext 17)", xx, xx, xx, xx, xx, mrm, x, 17},
@@ -4681,10 +4678,10 @@ const instr_info_t rm_extensions[][8] = {
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {OP_vmfunc, 0xd40f0172, "vmfunc", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    /* Only if the transaction fails does xend write to eax => src+dest (i#269).
+    /* Only if the transaction fails does xend write to eax => predcx.
      * XXX i#1314: on failure eip is also written to.
      */
-    {OP_xend,   0xd50f0172, "xend", eax, xx, eax, xx, xx, mrm|predcx, x, NA},
+    {OP_xend,   0xd50f0172, "xend", eax, xx, xx, xx, xx, mrm|predcx, x, NA},
     {OP_xtest,  0xd60f0172, "xtest", xx, xx, xx, xx, xx, mrm, fW6, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
   },
@@ -5332,9 +5329,9 @@ const instr_info_t vex_W_extensions[][2] = {
     {OP_vpmaskmovd,0x66388c18,"vpmaskmovd",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][0]},
     {OP_vpmaskmovq,0x66388c58,"vpmaskmovq",Vx,xx,Hx,Mx,xx, mrm|vex|reqp|predcx,x,tvexw[71][1]},
   }, { /* vex_W_ext 71 */
-    /* Conditional store modeled as both source and dest (xref i#269) */
-    {OP_vpmaskmovd,0x66388e18,"vpmaskmovd",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp|predcx,x,END_LIST},
-    {OP_vpmaskmovq,0x66388e58,"vpmaskmovq",Mx,xx,Vx,Hx,Mx, mrm|vex|reqp|predcx,x,END_LIST},
+    /* Conditional store => predcx */
+    {OP_vpmaskmovd,0x66388e18,"vpmaskmovd",Mx,xx,Vx,Hx,xx, mrm|vex|reqp|predcx,x,END_LIST},
+    {OP_vpmaskmovq,0x66388e58,"vpmaskmovq",Mx,xx,Vx,Hx,xx, mrm|vex|reqp|predcx,x,END_LIST},
   }, { /* vex_W_ext 72 */
     {OP_vpsrlvd,0x66384518,"vpsrlvd",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
     {OP_vpsrlvq,0x66384558,"vpsrlvq",Vx,xx,Hx,Wx,xx, mrm|vex|reqp,x,END_LIST},
@@ -5824,7 +5821,6 @@ const instr_info_t float_high_modrm[][64] = {
         {OP_fcos,   0xd9ff10, "fcos",   st0, xx, st0, xx, xx, mrm, x, END_LIST},
    },
     { /* da = [2] */
-        /* FIXME i#269: should these also have dst as src like cmovcc does? */
         {OP_fcmovb, 0xdac010, "fcmovb", st0, xx, st0, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x01]}, /* c0 = [0x00] */
         {OP_fcmovb, 0xdac110, "fcmovb", st0, xx, st1, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x02]},
         {OP_fcmovb, 0xdac210, "fcmovb", st0, xx, st2, xx, xx, mrm|predcc, (fRC|fRP|fRZ), tfh[2][0x03]},
