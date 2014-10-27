@@ -111,7 +111,7 @@
      */
     union {
         reg_t r15; /**< The r15 register. */
-        reg_t pc;  /**< The program counter. */
+        byte *pc;  /**< The program counter. */
     };
 # endif /* 64/32-bit */
     union {

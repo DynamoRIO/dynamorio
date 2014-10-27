@@ -538,8 +538,9 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
         (llval) = 0;                      \
     } while (0)
 #  define SERIALIZE_INSTRUCTIONS() __asm__ __volatile__("clrex");
+/* FIXME i#1551: frame pointer is r7 in thumb mode */
 #  define GET_FRAME_PTR(var)  \
-     __asm__ __volatile__("str "IF_X64_ELSE("r11", "x29")", %0" : "=m"(var))
+     __asm__ __volatile__("str "IF_X64_ELSE("x29", "r11")", %0" : "=m"(var))
 #  define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
 
 /* assuming flag is unsigned char */
@@ -1853,6 +1854,41 @@ void *_dynamorio_runtime_resolve(void);
 # endif /* UNIX/Win */
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
+
+#define MCXT_SYSNUM_REG(mc)  ((mc)->IF_X86_ELSE(xax, r7))
+
+static inline
+reg_t
+get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
+{
+    reg_t reg;
+    switch (dr_get_isa_mode(dcontext)) {
+#ifdef X86
+    case DR_ISA_IA32:
+    case DR_ISA_AMD64:
+        reg = mc->xbp;
+        break;
+#elif defined(ARM)
+# ifdef X64
+    case DR_ISA_ARM_A64:
+        reg = mc->r29;
+        break;
+# else
+    case DR_ISA_ARM_THUMB:
+        reg = mc->r7;
+        break;
+    case DR_ISA_ARM_A32:
+        reg = mc->r11;
+        break;
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
+    default:
+        ASSERT_NOT_REACHED();
+        reg = 0;
+    }
+    return reg;
+}
+
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in x86.asm
  */

@@ -920,7 +920,12 @@ transfer_coarse_stub(dcontext_t *dcontext, coarse_freeze_info_t *freeze_info,
     memcpy(pc, stub, sz);
     pc += sz;
     ASSERT(pc == entrance_stub_jmp(freeze_info->stubs_cur_pc) + 1/*skip opcode*/);
+#ifdef X86
     ASSERT(*(pc-1) == JMP_OPCODE);
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
     /* if tgt unchanged we still need to re-relativize it */
     ASSERT(dynamo_all_threads_synched); /* thus NOT_HOT_PATCHABLE */
     pc = insert_relative_target(pc, tgt, NOT_HOT_PATCHABLE);

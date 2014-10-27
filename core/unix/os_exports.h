@@ -289,34 +289,41 @@ typedef struct sigcontext sigcontext_t;
 #else
 # define SC_FIELD(name) name
 #endif
-#ifdef X64
-# define SC_XIP SC_FIELD(rip)
-# define SC_XAX SC_FIELD(rax)
-# define SC_XCX SC_FIELD(rcx)
-# define SC_XDX SC_FIELD(rdx)
-# define SC_XBX SC_FIELD(rbx)
-# define SC_XSP SC_FIELD(rsp)
-# define SC_XBP SC_FIELD(rbp)
-# define SC_XSI SC_FIELD(rsi)
-# define SC_XDI SC_FIELD(rdi)
-# ifdef MACOS
-#  define SC_XFLAGS SC_FIELD(rflags)
-# else
+#ifdef X86
+# ifdef X64
+#  define SC_XIP SC_FIELD(rip)
+#  define SC_XAX SC_FIELD(rax)
+#  define SC_XCX SC_FIELD(rcx)
+#  define SC_XDX SC_FIELD(rdx)
+#  define SC_XBX SC_FIELD(rbx)
+#  define SC_XSP SC_FIELD(rsp)
+#  define SC_XBP SC_FIELD(rbp)
+#  define SC_XSI SC_FIELD(rsi)
+#  define SC_XDI SC_FIELD(rdi)
+#  ifdef MACOS
+#   define SC_XFLAGS SC_FIELD(rflags)
+#  else
+#   define SC_XFLAGS SC_FIELD(eflags)
+#  endif
+# else /* 32-bit */
+#  define SC_XIP SC_FIELD(eip)
+#  define SC_XAX SC_FIELD(eax)
+#  define SC_XCX SC_FIELD(ecx)
+#  define SC_XDX SC_FIELD(edx)
+#  define SC_XBX SC_FIELD(ebx)
+#  define SC_XSP SC_FIELD(esp)
+#  define SC_XBP SC_FIELD(ebp)
+#  define SC_XSI SC_FIELD(esi)
+#  define SC_XDI SC_FIELD(edi)
 #  define SC_XFLAGS SC_FIELD(eflags)
-# endif
-#else
-# define SC_XIP SC_FIELD(eip)
-# define SC_XAX SC_FIELD(eax)
-# define SC_XCX SC_FIELD(ecx)
-# define SC_XDX SC_FIELD(edx)
-# define SC_XBX SC_FIELD(ebx)
-# define SC_XSP SC_FIELD(esp)
-# define SC_XBP SC_FIELD(ebp)
-# define SC_XSI SC_FIELD(esi)
-# define SC_XDI SC_FIELD(edi)
-# define SC_XFLAGS SC_FIELD(eflags)
-#endif
-
+# endif /* 64/32-bit */
+#elif defined(ARM)
+# ifdef X64
+#  error 64-bit ARM is not supported
+# else
+#  define SC_XIP SC_FIELD(arm_pc)
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,

@@ -7524,15 +7524,19 @@ check_thread_vm_area(dcontext_t *dcontext, app_pc pc, app_pc tag, void **vmlist,
                                              "unreadable memory");
                     }
                     LOG(GLOBAL, LOG_VMAREAS, 1,
-                        "application tried to execute from %s "PFX" is_allocated_mem=%d prot=0x%x\n",
+                        "application tried to execute from %s "PFX
+                        " is_allocated_mem=%d prot=0x%x\n",
                         is_in_dr ? "dr" : "unreadable", pc, is_allocated_mem, prot);
                     LOG(THREAD, LOG_VMAREAS, 1,
-                        "application tried to execute from %s "PFX" is_allocated_mem=%d prot=0x%x\n",
+                        "application tried to execute from %s "PFX
+                        " is_allocated_mem=%d prot=0x%x\n",
                         is_in_dr ? "dr" : "unreadable", pc, is_allocated_mem, prot);
                     DOLOG(1, LOG_VMAREAS, {
-                        dump_callstack((app_pc)get_mcontext(dcontext)->xsi,
-                                       (app_pc)get_mcontext(dcontext)->xbp,
-                                       THREAD, DUMP_NOT_XML);
+                        dump_callstack
+                            (pc,
+                             (app_pc)get_mcontext_frame_ptr(dcontext,
+                                                            get_mcontext(dcontext)),
+                             THREAD, DUMP_NOT_XML);
                     });
 
                     /* FIXME: what if the app masks it with an exception

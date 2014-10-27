@@ -3650,8 +3650,14 @@ coarse_deref_ibl_prefix(dcontext_t *dcontext, cache_pc target)
     if (info != NULL) {
         if (target >= info->ibl_ret_prefix &&
             target <= info->ibl_jmp_prefix) {
+#ifdef X86
             ASSERT(*target == JMP_OPCODE);
             return (cache_pc) PC_RELATIVE_TARGET(target+1);
+#elif defined(ARM)
+            /* FIXME i#1551: NYI on ARM */
+            ASSERT_NOT_IMPLEMENTED(false);
+            return NULL;
+#endif /* X86/ARM */
         }
     }
     return target;

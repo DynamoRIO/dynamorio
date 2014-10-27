@@ -1669,7 +1669,7 @@ handle_system_call(dcontext_t *dcontext)
 #ifdef CLIENT_INTERFACE
     bool execute_syscall = true;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    int sysnum = os_normalized_sysnum((int)mc->xax, NULL, dcontext);
+    int sysnum = os_normalized_sysnum((int)MCXT_SYSNUM_REG(mc), NULL, dcontext);
 #endif
 #ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
@@ -1724,7 +1724,7 @@ handle_system_call(dcontext_t *dcontext)
          */
         execute_syscall = false;
         LOG(THREAD, LOG_SYSCALLS, 2, "skipping syscall %d on client request\n",
-            mc->xax);
+            MCXT_SYSNUM_REG(mc));
     }
 # ifdef WINDOWS
     /* re-set in case client changed the number */
@@ -1960,11 +1960,17 @@ handle_post_system_call(dcontext_t *dcontext)
 #ifdef UNIX
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
+# ifdef X86
         /* restore app xax */
         LOG(THREAD, LOG_SYSCALLS, 3,
             "post-sigreturn: setting xax to "PFX", asynch_target="PFX"\n",
             dcontext->sys_param1, dcontext->asynch_target);
         mc->xax = dcontext->sys_param1;
+# elif defined(ARM)
+        /* i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+        mc->r7 = dcontext->sys_param1;
+# endif /* X86/ARM */
 # ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
          * We can't just set app_xdx from handle_sigreturn() as the
@@ -2068,7 +2074,7 @@ void
 issue_last_system_call_from_app(dcontext_t *dcontext)
 {
     LOG(THREAD, LOG_SYSCALLS, 2, "issue_last_system_call_from_app("PIFX")\n",
-        get_mcontext(dcontext)->xax);
+        MCXT_SYSNUM_REG(get_mcontext(dcontext)));
 
     /* it's up to the caller to let go of the bb building lock if it was held
      * on this path, since not all paths to here hold it
