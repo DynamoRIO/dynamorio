@@ -44,6 +44,9 @@
 /* FIXME i#1551: add Thumb support: for now just A32 */
 /* FIXME i#1551: add A64 support: for now just A32 */
 
+/* With register lists we can see quite long operand lists */
+#define MAX_OPNDS IF_X64_ELSE(8, 22)
+
 bool
 is_isa_mode_legal(dr_isa_mode_t mode)
 {
@@ -75,16 +78,123 @@ decode_opc4(uint instr_word)
     return (instr_word >> 4) & 0xf;
 }
 
-static bool
-decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
+static reg_id_t
+decode_regA(decode_info_t *di)
 {
+    /* A32 = 19:16 */
+    return DR_REG_START_GPR + ((di->instr_word >> 16) & 0xf);
+}
+
+static reg_id_t
+decode_regB(decode_info_t *di)
+{
+    /* A32 = 15:12 */
+    return DR_REG_START_GPR + ((di->instr_word >> 12) & 0xf);
+}
+
+static reg_id_t
+decode_regC(decode_info_t *di)
+{
+    /* A32 = 11:8 */
+    return DR_REG_START_GPR + ((di->instr_word >> 8) & 0xf);
+}
+
+static reg_id_t
+decode_regD(decode_info_t *di)
+{
+    /* A32 = 3:0 */
+    return DR_REG_START_GPR + (di->instr_word & 0xf);
+}
+
+static ptr_int_t
+decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_signed)
+{
+    ptr_int_t val;
+    uint mask = ((1 << opnd_size_in_bits(opsize)) - 1);
+    if (is_signed)
+        val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask);
+    else
+        val = (ptr_int_t)(ptr_uint_t)((di->instr_word >> start_bit) & mask);
+    return val;
+}
+
+static bool
+decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array,
+               uint *counter INOUT)
+{
+    uint i;
     switch (optype) {
     case TYPE_NONE:
-        *opnd = opnd_create_null();
+        array[(*counter)++] = opnd_create_null();
+        return true;
+
+    /* Registers */
+    case TYPE_R_A:
+        array[(*counter)++] = opnd_create_reg(decode_regA(di));
+        return true;
+    case TYPE_R_B:
+        array[(*counter)++] = opnd_create_reg(decode_regB(di));
+        return true;
+    case TYPE_R_C:
+        array[(*counter)++] = opnd_create_reg(decode_regC(di));
+        return true;
+    case TYPE_R_D:
+        array[(*counter)++] = opnd_create_reg(decode_regD(di));
+        return true;
+    case TYPE_L_16:
+        for (i = 0; i < 16; i++) {
+            if ((di->instr_word & (1 << i)) != 0) {
+                array[(*counter)++] = opnd_create_reg(DR_REG_START_GPR + i);
+                di->reglist_sz += opnd_size_in_bytes(opsize);
+            }
+        }
+        return true;
+
+    /* Immeds */
+    case TYPE_I_b0:
+        array[(*counter)++] =
+            opnd_create_immed_int(decode_immed(di, 0, opsize, false/*unsigned*/), opsize);
+        return true;
+    case TYPE_NI_b0:
+        array[(*counter)++] =
+            opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_I_b7:
+        array[(*counter)++] =
+            opnd_create_immed_int(decode_immed(di, 7, opsize, false/*unsigned*/), opsize);
+        return true;
+    case TYPE_SHIFT_b5:
+        array[(*counter)++] =
+            opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/),
+                                  opsize);
+        return true;
+
+    /* Memory */
+    case TYPE_M:
+        if (opsize == OPSZ_VAR_REGLIST) {
+            opsize = opnd_size_from_bytes(di->reglist_sz);
+        }
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
+        return true;
+    case TYPE_M_POS_I12:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_NEG_I12:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  -decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
+                                  opsize);
         return true;
     /* FIXME i#1551: add decoding of each operand type */
     default:
+        array[(*counter)++] = opnd_create_null();
         /* ok to assert, types coming only from instr_info_t */
+        SYSLOG_INTERNAL_ERROR("unknown operand type %s\n", type_names[optype]);
         CLIENT_ASSERT(false, "decode error: unknown operand type");
     }
     return false;
@@ -110,6 +220,7 @@ read_instruction(byte *pc, byte *orig_pc,
     instr_word = *(uint *)pc;
     pc += sizeof(instr_word);
     di->instr_word = instr_word;
+    di->reglist_sz = 0;
 
     di->predicate = decode_predicate(instr_word);
     if (di->predicate == DR_PRED_OP) {
@@ -233,9 +344,9 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     const instr_info_t *info;
     decode_info_t di;
     byte *next_pc;
-    int instr_num_dsts = 0, instr_num_srcs = 0;
-    opnd_t dsts[8];
-    opnd_t srcs[8];
+    uint num_dsts = 0, num_srcs = 0;
+    opnd_t dsts[MAX_OPNDS];
+    opnd_t srcs[MAX_OPNDS];
 
     CLIENT_ASSERT(instr->opcode == OP_INVALID || instr->opcode == OP_UNDECODED,
                   "decode: instr is already decoded, may need to call instr_reset()");
@@ -262,46 +373,44 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     /* operands */
     do {
         if (info->dst1_type != TYPE_NONE) {
-            if (!decode_operand(&di, info->dst1_type, info->dst1_size,
-                                &(dsts[instr_num_dsts++])))
+            if (!decode_operand(&di, info->dst1_type, info->dst1_size, dsts, &num_dsts))
                 goto decode_invalid;
         }
         if (info->dst2_type != TYPE_NONE) {
             if (!decode_operand(&di, info->dst2_type, info->dst2_size,
-                                TEST(DECODE_4_SRCS, info->flags) ?
-                                &(srcs[instr_num_srcs++]) :
-                                &(dsts[instr_num_dsts++])))
+                                TEST(DECODE_4_SRCS, info->flags) ? srcs : dsts,
+                                TEST(DECODE_4_SRCS, info->flags) ? &num_srcs : &num_dsts))
                 goto decode_invalid;
         }
         if (info->src1_type != TYPE_NONE) {
             if (!decode_operand(&di, info->src1_type, info->src1_size,
-                                TEST(DECODE_3_DSTS, info->flags) ?
-                                &(dsts[instr_num_dsts++]) :
-                                &(srcs[instr_num_srcs++])))
+                                TEST(DECODE_3_DSTS, info->flags) ? dsts : srcs,
+                                TEST(DECODE_3_DSTS, info->flags) ? &num_dsts : &num_srcs))
                 goto decode_invalid;
         }
         if (info->src2_type != TYPE_NONE) {
-            if (!decode_operand(&di, info->src2_type, info->src2_size,
-                                &(srcs[instr_num_srcs++])))
+            if (!decode_operand(&di, info->src2_type, info->src2_size, srcs, &num_srcs))
                 goto decode_invalid;
         }
         if (info->src3_type != TYPE_NONE) {
-            if (!decode_operand(&di, info->src3_type, info->src3_size,
-                                &(srcs[instr_num_srcs++])))
+            if (!decode_operand(&di, info->src3_type, info->src3_size, srcs, &num_srcs))
                 goto decode_invalid;
         }
         info = instr_info_extra_opnds(info);
     } while (info != NULL);
 
+    CLIENT_ASSERT(num_srcs < sizeof(srcs)/sizeof(srcs[0]), "internal decode error");
+    CLIENT_ASSERT(num_dsts < sizeof(dsts)/sizeof(dsts[0]), "internal decode error");
+
     /* now copy operands into their real slots */
-    instr_set_num_opnds(dcontext, instr, instr_num_dsts, instr_num_srcs);
-    if (instr_num_dsts > 0) {
-        memcpy(instr->dsts, dsts, instr_num_dsts*sizeof(opnd_t));
+    instr_set_num_opnds(dcontext, instr, num_dsts, num_srcs);
+    if (num_dsts > 0) {
+        memcpy(instr->dsts, dsts, num_dsts*sizeof(opnd_t));
     }
-    if (instr_num_srcs > 0) {
+    if (num_srcs > 0) {
         instr->src0 = srcs[0];
-        if (instr_num_srcs > 1) {
-            memcpy(instr->srcs, &(srcs[1]), (instr_num_srcs-1)*sizeof(opnd_t));
+        if (num_srcs > 1) {
+            memcpy(instr->srcs, &(srcs[1]), (num_srcs-1)*sizeof(opnd_t));
         }
     }
 

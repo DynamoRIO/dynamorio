@@ -96,6 +96,8 @@ struct _decode_info_t {
     byte *final_pc;
     byte *orig_pc;
 
+    size_t reglist_sz;
+
     /* XXX i#1550: add dr_isa_mode_t isa_mode field to dcontext and
      * instr_t and cache it here for use when decoding.
      */
@@ -145,7 +147,6 @@ enum {
     TYPE_CR_C, /* Control register in C slot */
     TYPE_CR_D, /* Control register in D slot */
 
-    TYPE_APSR, /* Application Program Status Register */
     TYPE_SPSR, /* Saved Program Status Register */
     TYPE_CPSR, /* Current Program Status Register */
     /* XXX: do we need these:
@@ -185,7 +186,7 @@ enum {
     TYPE_I_b16_b8,
 
     TYPE_SHIFT_b5,
-    TYPE_SHIFT_b6, /* value is :0 */
+    TYPE_SHIFT_b6,    /* value is :0 */
     TYPE_SHIFT_LSL,   /* shift logical left */
     TYPE_SHIFT_ASR,   /* shift arithmetic right */
 
@@ -195,7 +196,7 @@ enum {
 
     /* All memory addressing modes use fixed base and index registers:
      * A32: base  = RD 19:16 ("Rn" in manual)
-     *      index = RA  3:0  ("Rm" in manual)
+     *      index = RD  3:0  ("Rm" in manual)
      * T16: base  =
      *      index =
      * T32: base  =
