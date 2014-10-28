@@ -85,6 +85,15 @@
  * Arch-specific routines
  */
 
+int
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                      byte *pc, byte *next_pc, instr_t *instr);
+
+void
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix);
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
@@ -140,8 +149,6 @@ disassemble_set_syntax(dr_disasm_flags_t flags)
     options_restore_readonly();
 #endif
 }
-
-#define BYTES_PER_LINE 7
 
 static void
 internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
@@ -247,7 +254,11 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
 
     if (disp != 0 || (base == REG_NULL && index == REG_NULL) ||
         opnd_is_disp_encode_zero(opnd)) {
-        if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
+        if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))
+            /* Always negating for ARM.  I would do the same for x86 but I don't
+             * want to break any existing scripts.
+             */
+            IF_ARM(|| true)) {
             /* windbg negates if top byte is 0xff
              * for x64 udis86 negates if at all negative
              */
@@ -473,23 +484,32 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         return;
     case IMMED_INTEGER_kind:
         {
-            opnd_size_t sz = opnd_get_size(opnd);
+            int sz = opnd_size_in_bytes(opnd_get_size(opnd));
+            ptr_int_t val = opnd_get_immed_int(opnd);
+            const char *sign = "";
+#ifdef ARM
+            /* On ARM we have no pointer-sized immeds so let's always negate */
+            if (val < 0) {
+                sign = "-";
+                val = -val;
+            }
+#endif
             /* PR 327775: when we don't know other operands we truncate.
              * We rely on instr_disassemble to temporarily change operand
              * size to sign-extend to match the size of adjacent operands.
              */
-            if (sz == OPSZ_1 || sz == OPSZ_0) {
-                print_to_buffer(buf, bufsz, sofar, "%s0x%02x", immed_prefix(),
-                                (uint)((byte)opnd_get_immed_int(opnd)));
-            } else if (sz == OPSZ_2) {
-                print_to_buffer(buf, bufsz, sofar, "%s0x%04x", immed_prefix(),
-                                (uint)((unsigned short)opnd_get_immed_int(opnd)));
-            } else if (sz == OPSZ_4) {
-                print_to_buffer(buf, bufsz, sofar, "%s0x%08x", immed_prefix(),
-                                (uint)opnd_get_immed_int(opnd));
+            if (sz <= 1) {
+                print_to_buffer(buf, bufsz, sofar, "%s%s0x%02x", immed_prefix(),
+                                sign, (uint)((byte)val));
+            } else if (sz <= 2) {
+                print_to_buffer(buf, bufsz, sofar, "%s%s0x%04x", immed_prefix(),
+                                sign, (uint)((unsigned short)val));
+            } else if (sz <= 4) {
+                print_to_buffer(buf, bufsz, sofar, "%s%s0x%08x", immed_prefix(),
+                                sign, (uint)val);
             } else {
-                print_to_buffer(buf, bufsz, sofar, "%s0x"ZHEX64_FORMAT_STRING,
-                                immed_prefix(), opnd_get_immed_int(opnd));
+                print_to_buffer(buf, bufsz, sofar, "%s%s0x"ZHEX64_FORMAT_STRING,
+                                immed_prefix(), sign, val);
             }
         }
         break;
@@ -600,49 +620,12 @@ opnd_disassemble_to_buffer(dcontext_t *dcontext, opnd_t opnd,
 }
 
 static int
-print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                      byte *pc, byte *next_pc, bool valid)
-{
-    int sz = (int) (next_pc - pc);
-    int i, extra_sz;
-    if (sz > BYTES_PER_LINE) {
-        extra_sz = sz - BYTES_PER_LINE;
-        sz = BYTES_PER_LINE;
-    } else
-        extra_sz = 0;
-    for (i = 0; i < sz; i++)
-        print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
-    if (!valid) {
-        print_to_buffer(buf, bufsz, sofar, "...?? ");
-        sz += 2;
-    }
-    for (i = sz; i < BYTES_PER_LINE; i++)
-        print_to_buffer(buf, bufsz, sofar, "   ");
-    print_to_buffer(buf, bufsz, sofar, " ");
-    return extra_sz;
-}
-
-static void
-print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
-                            byte *pc, byte *next_pc, int extra_sz,
-                            const char *extra_bytes_prefix)
-{
-    int i;
-    if (extra_sz > 0) {
-        print_to_buffer(buf, bufsz, sofar, "%s", extra_bytes_prefix);
-        for (i = 0; i < extra_sz; i++)
-            print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + BYTES_PER_LINE + i));
-        print_to_buffer(buf, bufsz, sofar, "\n");
-    }
-}
-
-static int
-print_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, bool valid)
+print_bytes_to_file(file_t outfile, byte *pc, byte *next_pc, instr_t *inst)
 {
     char buf[MAX_PC_DIS_SZ];
     size_t sofar = 0;
     int extra_sz = print_bytes_to_buffer(buf, BUFFER_SIZE_ELEMENTS(buf), &sofar,
-                                         pc, next_pc, valid);
+                                         pc, next_pc, inst);
     CLIENT_ASSERT(sofar < BUFFER_SIZE_ELEMENTS(buf) - 1, "internal buffer too small");
     os_write(outfile, buf, sofar);
     return extra_sz;
@@ -694,8 +677,7 @@ internal_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         print_to_buffer(buf, bufsz, sofar, "  "PFX" ", orig_pc);
 
     if (with_bytes) {
-        extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc,
-                                         instr_valid(&instr));
+        extra_sz = print_bytes_to_buffer(buf, bufsz, sofar, pc, next_pc, &instr);
     }
 
     internal_instr_disassemble(buf, bufsz, sofar, dcontext, &instr);
@@ -1419,7 +1401,7 @@ instrlist_disassemble(dcontext_t *dcontext,
             int extra_sz;
             print_file(outfile, " +%-4d %c%d @"PFX" ",
                        offs, instr_is_app(instr) ? 'L' : 'm', level, instr);
-            extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr_valid(instr));
+            extra_sz = print_bytes_to_file(outfile, addr, addr+len, instr);
             instr_disassemble(dcontext, instr, outfile);
             print_file(outfile, "\n");
             if (extra_sz > 0) {

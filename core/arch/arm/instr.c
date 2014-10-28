@@ -213,17 +213,15 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
 bool
 instr_is_interrupt(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_svc);
 }
 
 bool
 instr_is_syscall(instr_t *instr)
 {
-    /* FIXME i#1551: NYI */
-    CLIENT_ASSERT(false, "NYI");
-    return false;
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_svc);
 }
 
 /* looks for mov_imm and mov_st and xor w/ src==dst,

@@ -68,6 +68,45 @@ reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 reg_id_t reg, const char *prefix, const char *suffix);
 
 
+#define BYTES_PER_LINE 7
+
+int
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                      byte *pc, byte *next_pc, instr_t *instr)
+{
+    int sz = (int) (next_pc - pc);
+    int i, extra_sz;
+    if (sz > BYTES_PER_LINE) {
+        extra_sz = sz - BYTES_PER_LINE;
+        sz = BYTES_PER_LINE;
+    } else
+        extra_sz = 0;
+    for (i = 0; i < sz; i++)
+        print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + i));
+    if (!instr_valid(instr)) {
+        print_to_buffer(buf, bufsz, sofar, "...?? ");
+        sz += 2;
+    }
+    for (i = sz; i < BYTES_PER_LINE; i++)
+        print_to_buffer(buf, bufsz, sofar, "   ");
+    print_to_buffer(buf, bufsz, sofar, " ");
+    return extra_sz;
+}
+
+void
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix)
+{
+    int i;
+    if (extra_sz > 0) {
+        print_to_buffer(buf, bufsz, sofar, "%s", extra_bytes_prefix);
+        for (i = 0; i < extra_sz; i++)
+            print_to_buffer(buf, bufsz, sofar, " %02x", *(pc + BYTES_PER_LINE + i));
+        print_to_buffer(buf, bufsz, sofar, "\n");
+    }
+}
+
 static bool
 instr_implicit_reg(instr_t *instr)
 {

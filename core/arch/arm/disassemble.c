@@ -73,6 +73,33 @@ static const char * const pred_names[] = {
     "",    /* DR_PRED_OP */
 };
 
+int
+print_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                      byte *pc, byte *next_pc, instr_t *instr)
+{
+    /* Follow conventions used elsewhere with split for T32, solid for the rest */
+    if (instr_get_isa_mode(instr) == DR_ISA_ARM_THUMB) {
+        if (next_pc - pc == 2)
+            print_to_buffer(buf, bufsz, sofar, " %04x       ", *((ushort *)pc));
+        else {
+            CLIENT_ASSERT(next_pc - pc == 4, "invalid thumb size");
+            print_to_buffer(buf, bufsz, sofar, " %04x %04x  ",
+                            *((ushort *)pc), *(((ushort *)pc)+1));
+        }
+    } else {
+        print_to_buffer(buf, bufsz, sofar, " %08x   ", *((uint *)pc));
+    }
+    return 0; /* no extra size */
+}
+
+void
+print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
+                            byte *pc, byte *next_pc, int extra_sz,
+                            const char *extra_bytes_prefix)
+{
+    /* There are no "extra" bytes */
+}
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
