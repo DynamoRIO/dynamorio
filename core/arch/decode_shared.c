@@ -55,6 +55,7 @@
 #endif
 
 const char * const size_names[] = {
+#ifdef X86
     "<invalid>"/* was <NULL> */,
     "<invalid>"/* was rax */,  "<invalid>"/* was rcx */,
     "<invalid>"/* was rdx */,  "<invalid>"/* was rbx */,
@@ -126,6 +127,7 @@ const char * const size_names[] = {
     "<invalid>"/* was cr12 */, "<invalid>"/* was cr13 */,
     "<invalid>"/* was cr14 */, "<invalid>"/* was cr15 */,
     "<invalid>"/* was <invalid> */,
+#endif
     "OPSZ_NA",
     "OPSZ_lea",
     "OPSZ_1",
@@ -167,6 +169,24 @@ const char * const size_names[] = {
     "OPSZ_12_rex40_short6",
     "OPSZ_16_vex32",
     "OPSZ_15",
+    "OPSZ_3",
+    "OPSZ_1b",
+    "OPSZ_2b",
+    "OPSZ_3b",
+    "OPSZ_4b",
+    "OPSZ_5b",
+    "OPSZ_12b",
+    "OPSZ_21b",
+    "OPSZ_VAR_REGLIST",
+    "OPSZ_20",
+    "OPSZ_24",
+    "OPSZ_36",
+    "OPSZ_44",
+    "OPSZ_48",
+    "OPSZ_52",
+    "OPSZ_56",
+    "OPSZ_60",
+    "OPSZ_64",
     "OPSZ_2_of_8",
     "OPSZ_4_of_8",
     "OPSZ_1_of_16",

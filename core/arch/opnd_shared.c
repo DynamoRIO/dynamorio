@@ -1108,13 +1108,22 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_1:
     case OPSZ_1_reg4: /* mem size */
     case OPSZ_1_of_16:
+    case OPSZ_1b: /* round up */
+    case OPSZ_2b:
+    case OPSZ_3b:
+    case OPSZ_4b:
+    case OPSZ_5b:
         return 1;
     case OPSZ_2_of_8:
     case OPSZ_2_of_16:
     case OPSZ_2_short1: /* default size */
     case OPSZ_2:
     case OPSZ_2_reg4: /* mem size */
+    case OPSZ_12b: /* round up */
         return 2;
+    case OPSZ_3:
+    case OPSZ_21b: /* round up */
+        return 3;
     case OPSZ_4_of_8:
     case OPSZ_4_of_16:
     case OPSZ_4_rex8_of_16:
@@ -1166,14 +1175,32 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_15_of_16:
     case OPSZ_15:
         return 15;
+    case OPSZ_20:
+        return 20;
+    case OPSZ_24:
+        return 24;
     case OPSZ_28_short14: /* default size */
     case OPSZ_28:
         return 28;
     case OPSZ_32:
     case OPSZ_32_short16: /* default size */
         return 32;
+    case OPSZ_36:
+        return 36;
     case OPSZ_40:
         return 40;
+    case OPSZ_44:
+        return 44;
+    case OPSZ_48:
+        return 48;
+    case OPSZ_52:
+        return 52;
+    case OPSZ_56:
+        return 56;
+    case OPSZ_60:
+        return 60;
+    case OPSZ_64:
+        return 64;
     case OPSZ_94:
         return 94;
     case OPSZ_108_short94: /* default size */
@@ -1214,13 +1241,27 @@ opnd_size_from_bytes(uint bytes)
     case 0: return OPSZ_0;
     case 1: return OPSZ_1;
     case 2: return OPSZ_2;
+    case 3: return OPSZ_3;
     case 4: return OPSZ_4;
     case 6: return OPSZ_6;
     case 8: return OPSZ_8;
     case 10: return OPSZ_10;
-    case 16: return OPSZ_16;
+    case 12: return OPSZ_12;
     case 14: return OPSZ_14;
+    case 15: return OPSZ_15;
+    case 16: return OPSZ_16;
+    case 20: return OPSZ_20;
+    case 24: return OPSZ_24;
     case 28: return OPSZ_28;
+    case 32: return OPSZ_32;
+    case 36: return OPSZ_36;
+    case 40: return OPSZ_40;
+    case 44: return OPSZ_44;
+    case 48: return OPSZ_48;
+    case 52: return OPSZ_52;
+    case 56: return OPSZ_56;
+    case 60: return OPSZ_60;
+    case 64: return OPSZ_64;
     case 94: return OPSZ_94;
     case 108: return OPSZ_108;
     case 512: return OPSZ_512;

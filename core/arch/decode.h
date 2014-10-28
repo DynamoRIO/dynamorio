@@ -283,6 +283,15 @@ enum {
     OPSZ_12b,  /**< 12 bits */
     OPSZ_21b,  /**< 21 bits */
     OPSZ_VAR_REGLIST,  /**< 1 bit */
+    OPSZ_20,  /**< 20 bytes.  Needed for load/store of register lists. */
+    OPSZ_24,  /**< 24 bytes.  Needed for load/store of register lists. */
+    OPSZ_36,  /**< 36 bytes.  Needed for load/store of register lists. */
+    OPSZ_44,  /**< 44 bytes.  Needed for load/store of register lists. */
+    OPSZ_48,  /**< 48 bytes.  Needed for load/store of register lists. */
+    OPSZ_52,  /**< 52 bytes.  Needed for load/store of register lists. */
+    OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
+    OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
+    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
