@@ -406,12 +406,12 @@ const instr_info_t A32_pred_opc8[] = {
     /* 50 */
     {OP_str    , 0x05000000, "str"   , MN12w, xx, RBw, xx, xx, pred, x, tb4[2][0x00]},/*PUW=100*/
     {OP_ldr    , 0x05100000, "ldr"   , RBw, xx, MN12w, xx, xx, pred, x, top8[0x79]},/*PUW=100*/
-    {OP_str    , 0x05200000, "str"   , MN12w, RAw, RBw, RAw, i12, pred, x, tb4[3][0x00]},/*PUW=101*/
-    {OP_ldr    , 0x05300000, "ldr"   , RBw, RAw, MN12w, RAw, i12, pred, x, tb4[4][0x00]},/*PUW=101*/
+    {OP_str    , 0x05200000, "str"   , MN12w, RAw, RBw, RAw, n12, pred, x, tb4[3][0x00]},/*PUW=101*/
+    {OP_ldr    , 0x05300000, "ldr"   , RBw, RAw, MN12w, RAw, n12, pred, x, tb4[4][0x00]},/*PUW=101*/
     {OP_strb   , 0x05400000, "strb"  , MN12b, xx, RBb, xx, xx, pred, x, top4y[13][0x00]},/*PUW=100*/
     {OP_ldrb   , 0x05500000, "ldrb"  , RBw, xx, MN12b, xx, xx, pred, x, tb4[8][0x00]},/*PUW=100*/
-    {OP_strb   , 0x05600000, "strb"  , MN12b, RAw, RBb, RAw, i12, pred, x, tb4[5][0x00]},/*PUW=101*/
-    {OP_ldrb   , 0x05700000, "ldrb"  , RBw, RAw, MN12b, RAw, i12, pred, x, tb4[6][0x00]},/*PUW=101*/
+    {OP_strb   , 0x05600000, "strb"  , MN12b, RAw, RBb, RAw, n12, pred, x, tb4[5][0x00]},/*PUW=101*/
+    {OP_ldrb   , 0x05700000, "ldrb"  , RBw, RAw, MN12b, RAw, n12, pred, x, tb4[6][0x00]},/*PUW=101*/
     /* 58 */
     {OP_str    , 0x05800000, "str"   , MP12w, xx, RBw, xx, xx, pred, x, top8[0x50]},/*PUW=110*/
     {OP_ldr    , 0x05900000, "ldr"   , RBw, xx, MP12w, xx, xx, pred, x, top8[0x51]},/*PUW=110*/
@@ -468,7 +468,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_ldmda_priv,0x08700000,"ldmda", L16w, RAw, MDAl, xx, xx, pred, x, END_LIST},/*PUW=001*/
     /* 88 */
     {OP_stm    , 0x08800000, "stm"   , Ml, xx, L16w, xx, xx, pred, x, top8[0x8a]},/*PUW=010*//* XXX: "stmia" alias (used inconsistently by gdb) */
-    {OP_ldm    , 0x08900000, "ldm"   , L16w, xx, Ml, xx, xx, pred, x, top8[0x8b]},/*PUW=010*//* XXX: "ldmia" alias */
+    {OP_ldm    , 0x08900000, "ldm"   , L16w, xx, Ml, xx, xx, pred, x, top8[0x8b]},/*PUW=010*//* XXX: "ldmia" and "ldmfb" aliases */
     {OP_stm    , 0x08a00000, "stm"   , Ml, RAw, L16w, xx, xx, pred, x, END_LIST},/*PUW=011*/
     {OP_ldm    , 0x08b00000, "ldm"   , L16w, RAw, Ml, xx, xx, pred, x, END_LIST},/*PUW=011*/
     {OP_stm_priv,0x08c00000, "stm"   , Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*/
@@ -485,7 +485,7 @@ const instr_info_t A32_pred_opc8[] = {
     {INVALID   , 0x09600000, "(bad)" , xx, xx, xx, xx, xx, no, x, NA},
     {OP_ldmdb_priv,0x09700000,"ldmdb", L16w, RAw, MDBl, xx, xx, pred, x, END_LIST},/*PUW=101*/
     /* 98 */
-    {OP_stmib  , 0x09800000, "stmib" , MUBl, xx, L16w, xx, xx, pred, x, top8[0x9a]},/*PUW=110*//* XXX: "stmia" alias */
+    {OP_stmib  , 0x09800000, "stmib" , MUBl, xx, L16w, xx, xx, pred, x, top8[0x9a]},/*PUW=110*//* XXX: "stmia" or "stmea" alias */
     {OP_ldmib  , 0x09900000, "ldmib" , L16w, xx, MUBl, xx, xx, pred, x, top8[0x9b]},/*PUW=110*//* XXX: "ldmia" alias */
     {OP_stmib  , 0x09a00000, "stmib" , MUBl, RAw, L16w, xx, xx, pred, x, END_LIST},/*PUW=111*/
     {OP_ldmib  , 0x09b00000, "ldmib" , L16w, RAw, MUBl, xx, xx, pred, x, END_LIST},/*PUW=111*/

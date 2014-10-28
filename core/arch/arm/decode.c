@@ -165,7 +165,13 @@ read_instruction(byte *pc, byte *orig_pc,
     } else if (info->type == EXT_OPC4) {
         idx = decode_opc4(instr_word);
         info = &A32_ext_opc4[info->code][idx];
+        /* Tertiary */
+        if (info->type == EXT_BITS0) {
+            idx = instr_word & 0x7 /*bits 2:0*/;
+            info = &A32_ext_bits0[info->code][idx];
+        }
     }
+    CLIENT_ASSERT(info->type <= OP_LAST, "decoding table error");
 
     /* We should now have either a valid OP_ opcode or an invalid opcode */
     if (info == NULL || info == &invalid_instr ||
