@@ -4289,7 +4289,7 @@ terminate_via_kill_from_anywhere(dcontext_t *dcontext, int sig)
          * (i#1160) so we terminate on the dstack.
          */
         call_switch_stack(dcontext, dcontext->dstack, terminate_via_kill,
-                          false /*!initstack */, false/*no return */);
+                          NULL/*!initstack */, false/*no return */);
     } else {
         terminate_via_kill(dcontext);
     }

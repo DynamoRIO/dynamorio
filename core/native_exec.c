@@ -341,7 +341,7 @@ back_from_native_common(dcontext_t *dcontext, priv_mcontext_t *mc, app_pc target
     });
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

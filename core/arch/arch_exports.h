@@ -877,9 +877,16 @@ bool should_syscall_method_be_sysenter(void);
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void);
 
-/* in x86.asm */
+/* in [x86/arm].asm */
+/* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
+ * currently on the initstack 'mutex_to_free' should be passed so we release the
+ * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
+ * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
+ * return to the caller.  If not set then it's assumed that func wasn't supposed to
+ * return and we go to an error routine unexpected_return() below.
+ */
 void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
-                       bool free_initstack, bool return_on_return);
+                       void *mutex_to_free, bool return_on_return);
 # if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64
 dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);

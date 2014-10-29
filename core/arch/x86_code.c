@@ -106,7 +106,7 @@ dynamo_start(priv_mcontext_t *mc)
 
     /* Swap stacks so dispatch is invoked outside the application. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, true/*return on error*/);
+                      NULL/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
      * goes into an infinite loop.
@@ -208,7 +208,7 @@ auto_setup(ptr_uint_t appstack)
     });
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -282,7 +282,7 @@ new_thread_setup(priv_mcontext_t *mc)
     dcontext->next_tag = next_tag;
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -332,7 +332,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 #  endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 # endif /* MACOS */
@@ -382,7 +382,7 @@ nt_continue_setup(priv_mcontext_t *mc)
 #endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -446,7 +446,7 @@ test_call_switch_stack(dcontext_t *dc)
     print_file(STDERR, "testing asm call_switch_stack\n");
     memset(test_stack, CONST_BYTE, sizeof(test_stack));
     call_switch_stack(dc, stack_ptr, test_func,
-                      false, true /* should return */);
+                      NULL, true /* should return */);
 }
 
 static void

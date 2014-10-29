@@ -204,41 +204,35 @@ ASSUME fs:_DATA @N@\
 
 /* register set */
 #ifdef ARM
-# define REG_SP   sp /* stack register */
-# define REG_LR   lr /* link register */
-# define REG_PC   pc /* pc */
 # ifdef X64
-#  define REG_X0  x0
-#  define REG_X1  x1
-#  define REG_X2  x2
-#  define REG_X3  x3
-#  define REG_X4  x4
-#  define REG_X5  x5
-#  define REG_X6  x6
-#  define REG_X7  x7
-#  define REG_X8  x8
-#  define REG_X9  x9
-#  define REG_X10 x10
-#  define REG_X11 x11
-#  define REG_X12 x12
-#  define REG_X13 x13
-#  define REG_X14 x14
-#  define REG_X15 x15
+#  define REG_R0  x0
+#  define REG_R1  x1
+#  define REG_R2  x2
+#  define REG_R3  x3
+#  define REG_R4  x4
+#  define REG_R5  x5
+#  define REG_R6  x6
+#  define REG_R7  x7
+#  define REG_R8  x8
+#  define REG_R9  x9
+#  define REG_R10 x10
+#  define REG_R11 x11
+#  define REG_R12 x12
 /* skip [x16..x30], only available on AArch64 */
 # else /* 32-bit */
-#  define REG_X0  r0
-#  define REG_X1  r1
-#  define REG_X2  r2
-#  define REG_X3  r3
-#  define REG_X4  r4
-#  define REG_X5  r5
-#  define REG_X6  r6
-#  define REG_X7  r7
-#  define REG_X8  r8
-#  define REG_X9  r9
-#  define REG_X10 r10
-#  define REG_X11 r11
-#  define REG_X12 r12
+#  define REG_R0  r0
+#  define REG_R1  r1
+#  define REG_R2  r2
+#  define REG_R3  r3
+#  define REG_R4  r4
+#  define REG_R5  r5
+#  define REG_R6  r6
+#  define REG_R7  r7
+#  define REG_R8  r8
+#  define REG_R9  r9
+#  define REG_R10 r10
+#  define REG_R11 r11
+#  define REG_R12 r12
 /* {r13, r14, r15} are used for {sp, lr, pc} on AArch32 */
 # endif /* 64/32-bit */
 #else /* Intel X86 */
@@ -297,15 +291,15 @@ ASSUME fs:_DATA @N@\
  * r0..r3:   parameter/result registers
  * r0:       indirect result location register
  */
-# define ARG1 REG_X0
-# define ARG2 REG_X1
-# define ARG3 REG_X2
-# define ARG4 REG_X3
+# define ARG1 REG_R0
+# define ARG2 REG_R1
+# define ARG3 REG_R2
+# define ARG4 REG_R3
 # ifdef X64
-#  define ARG5 REG_X4
-#  define ARG6 REG_X5
-#  define ARG7 REG_X6
-#  define ARG8 REG_X7
+#  define ARG5 REG_R4
+#  define ARG6 REG_R5
+#  define ARG7 REG_R6
+#  define ARG8 REG_R7
 /* Arguments are passed on stack right-to-left. */
 #  define ARG9  QWORD [0*ARG_SZ + REG_SP] /* no ret addr */
 #  define ARG10 QWORD [1*ARG_SZ + REG_SP]
@@ -429,7 +423,7 @@ ASSUME fs:_DATA @N@\
 /* we split these out just to avoid nop lea for x64 linux */
 #  define STACK_PAD_LE4(tot, mod4) STACK_PAD(0/*doesn't matter*/, 0, mod4)
 #  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
-# else
+# else /* UNIX */
 #  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*gt4 + REG_XSP]
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) STACK_PAD(tot, gt4, mod4)
@@ -437,13 +431,13 @@ ASSUME fs:_DATA @N@\
         lea      REG_XSP, [ARG_SZ*gt4 + REG_XSP]
 #  define STACK_PAD_LE4(tot, mod4) /* nothing */
 #  define STACK_UNPAD_LE4(tot, mod4) /* nothing */
-# endif
+# endif /* Win/UNIX */
 /* we split these out just to avoid nop lea for x86 mac */
 # define STACK_PAD_ZERO STACK_PAD_LE4(0, 4)
 # define STACK_UNPAD_ZERO STACK_UNPAD_LE4(0, 4)
 # define SETARG(argoffs, argreg, p) \
         mov      argreg, p
-#else
+#else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
 # ifdef MACOS
@@ -462,7 +456,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else
+# else /* !MACOS */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -477,8 +471,9 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif
-#endif /* !X64 */
+# endif /* !MACOS */
+#endif /* 64/32-bit */
+
 /* CALLC* are for C calling convention callees only.
  * Caller must ensure that if params are passed in regs there are no conflicts.
  * Caller can rely on us storing each parameter in reverse order.
@@ -582,5 +577,10 @@ ASSUME fs:_DATA @N@\
         call     callee
 #endif
 
+#ifdef X86
+# define JUMP     jmp
+#elif defined(ARM)
+# define JUMP     b
+#endif /* X86/ARM */
 
 #endif /* _ASM_DEFINES_ASM_ */

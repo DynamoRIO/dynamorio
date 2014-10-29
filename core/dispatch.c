@@ -2116,7 +2116,8 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
      * what may have been there before, for both new dcontext and reuse dcontext
      * options.
      */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch, using_initstack,
+    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+                      using_initstack ? &initstack_mutex : NULL,
                       false/*do not return on error*/);
     ASSERT_NOT_REACHED();
 }

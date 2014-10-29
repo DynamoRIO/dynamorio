@@ -212,6 +212,9 @@ START_FILE
 
 /****************************************************************************/
 /****************************************************************************/
+
+DECL_EXTERN(unexpected_return)
+
 #ifndef NOT_DYNAMORIO_CORE_PROPER
 
 DECL_EXTERN(get_own_context_integer_control)
@@ -303,12 +306,6 @@ GLOBAL_LABEL(dynamo_auto_start:)
  * a separate routine.  The caller needs to use a plain call
  * with _GLOBAL_OFFSET_TABLE_ on the exact return address instruction.
  */
-        DECLARE_FUNC(get_pic_xax)
-GLOBAL_LABEL(get_pic_xax:)
-        mov      REG_XAX, PTRSZ [REG_XSP]
-        ret
-        END_FUNC(get_pic_xax)
-
         DECLARE_FUNC(get_pic_xdi)
 GLOBAL_LABEL(get_pic_xdi:)
         mov      REG_XDI, PTRSZ [REG_XSP]
@@ -316,18 +313,10 @@ GLOBAL_LABEL(get_pic_xdi:)
         END_FUNC(get_pic_xdi)
 #endif
 
-/*
- * Calls the specified function 'func' after switching to the stack 'stack'.  If we're
- * currently on the initstack 'free_initstack' should be set so we release the
- * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
- * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
- * return to the caller.  If not set then it's assumed that func wasn't supposed to
- * return and we go to an error routine unexpected_return() below.
- *
- * void call_switch_stack(dcontext_t *dcontext,       // 1*ARG_SZ+XAX
+/* void call_switch_stack(dcontext_t *dcontext,       // 1*ARG_SZ+XAX
  *                        byte *stack,                // 2*ARG_SZ+XAX
  *                        void (*func)(dcontext_t *), // 3*ARG_SZ+XAX
- *                        bool free_initstack,        // 4*ARG_SZ+XAX
+ *                        void *mutex_to_free,        // 4*ARG_SZ+XAX
  *                        bool return_on_return)      // 5*ARG_SZ+XAX
  */
         DECLARE_FUNC(call_switch_stack)
@@ -365,19 +354,10 @@ GLOBAL_LABEL(call_switch_stack:)
         mov      REG_XDX, [3*ARG_SZ + REG_XAX] /* func */
         mov      REG_XCX, [1*ARG_SZ + REG_XAX] /* dcontext */
         mov      REG_XSP, [2*ARG_SZ + REG_XAX] /* stack */
-        cmp      BYTE [4*ARG_SZ + REG_XAX], 0 /* free_initstack */
+        cmp      PTRSZ [4*ARG_SZ + REG_XAX], 0 /* mutex_to_free */
         je       call_dispatch_alt_stack_no_free
-#if !defined(X64) && defined(LINUX)
-        /* PR 212290: avoid text relocations: get PIC base into xax
-         * Can't use CALLC0 since it inserts a nop: we need the exact retaddr.
-         */
-        call     get_pic_xax
-        lea      REG_XAX, [_GLOBAL_OFFSET_TABLE_ + REG_XAX]
-        lea      REG_XAX, VAR_VIA_GOT(REG_XAX, GLOBAL_REF(initstack_mutex))
+        mov      REG_XAX, [4*ARG_SZ + REG_XAX]
         mov      DWORD [REG_XAX], 0
-#else
-        mov      DWORD SYMREF(initstack_mutex), 0 /* rip-relative on x64 */
-#endif
 call_dispatch_alt_stack_no_free:
         CALLC1(REG_XDX, REG_XCX)
         mov      REG_XSP, IF_X64_ELSE(r12, REG_XDI)
@@ -1210,21 +1190,6 @@ GLOBAL_LABEL(dynamorio_syscall_wow64_noedx:)
 #endif /* WINDOWS */
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
-
-/*
- * For debugging: report an error if the function called by call_switch_stack()
- * unexpectedly returns.  Also used elsewhere.
- */
-        DECLARE_FUNC(unexpected_return)
-GLOBAL_LABEL(unexpected_return:)
-#if defined(INTERNAL) && !defined(NOT_DYNAMORIO_CORE_PROPER)
-        CALLC3(GLOBAL_REF(internal_error), 0, -99 /* line # */, 0)
-        /* internal_error never returns */
-#endif
-        /* infinite loop is intentional: FIXME: do better in release build!
-         * FIXME - why not an int3? */
-        jmp      GLOBAL_REF(unexpected_return)
-        END_FUNC(unexpected_return)
 
 /* we share dynamorio_syscall w/ preload */
 #ifdef UNIX

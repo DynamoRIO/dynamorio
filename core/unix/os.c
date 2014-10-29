@@ -8182,7 +8182,7 @@ os_thread_take_over(priv_mcontext_t *mc)
 
     /* Start interpreting from the signal context. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 

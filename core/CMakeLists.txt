@@ -49,8 +49,16 @@ set(asm_deps
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
+add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
+  "_core" "" "${asm_deps}")
+set(arch_core_asm_src ${arch_core_asm_src} ${shared_core_asm_src})
+set(arch_core_asm_tgt ${arch_core_asm_tgt} ${shared_core_asm_tgt})
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src arch_noncore_asm_tgt
   "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+add_asm_target(arch/asm_shared.asm shared_noncore_asm_src shared_noncore_asm_tgt
+  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+set(arch_noncore_asm_src ${arch_noncore_asm_src} ${shared_noncore_asm_src})
+set(arch_noncore_asm_tgt ${arch_noncore_asm_tgt} ${shared_noncore_asm_tgt})
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
