@@ -544,12 +544,12 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 #  define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
 
 /* assuming flag is unsigned char */
-/* FIXME i#1551: we need an IT block for predicated mov in AArch64 */
-#  define SET_FLAG(cc, flag)      \
-      __asm__ __volatile__(       \
-        "mov       r2, #0  \n\t"  \
-        "mov"#cc " r2, #1  \n\t"  \
-        "strb r2, %0"             \
+#  define SET_FLAG(cc, flag)         \
+      __asm__ __volatile__(          \
+        "   mov       r2, #1  \n\t"  \
+        "   b"#cc "   1f      \n\t"  \
+        "   mov       r2, #0  \n\t"  \
+        "1: strb r2, %0"             \
         :"=m" (flag) : : "r2")
 #  define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
 #  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
