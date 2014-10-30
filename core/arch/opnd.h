@@ -518,8 +518,17 @@ extern const reg_id_t dr_reg_fixer[];
 # define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
 #endif /* X86 */
 /* DR_API EXPORT END */
-#define REG_START_SPILL   DR_REG_XAX
-#define REG_STOP_SPILL    DR_REG_XDI
+
+#ifdef X86
+# define REG_START_SPILL   DR_REG_XAX
+# define REG_STOP_SPILL    DR_REG_XDI
+#elif defined(ARM)
+/* FIXME i#1551: how many registers do we allow to spill in ARM,
+ * should they be all in TLS?
+ */
+# define REG_START_SPILL   DR_REG_R0
+# define REG_STOP_SPILL    DR_REG_R9
+#endif /* X86/ARM */
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
 
 /* DR_API EXPORT VERBATIM */
