@@ -575,7 +575,7 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
 #endif
 }
 
-#ifdef X64
+#if defined(X64) || defined(ARM)
 opnd_t
 opnd_create_rel_addr(void *addr, opnd_size_t data_size)
 {
@@ -595,14 +595,14 @@ opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     opnd.kind = REL_ADDR_kind;
     CLIENT_ASSERT(data_size < OPSZ_LAST_ENUM, "opnd_create_base_disp: invalid size");
     opnd.size = data_size;
-    CLIENT_ASSERT(seg == REG_NULL ||
-                  (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT),
+    CLIENT_ASSERT(seg == REG_NULL
+                  IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                   "opnd_create_far_rel_addr: invalid segment");
     opnd.seg.segment = seg;
     opnd.value.addr = addr;
     return opnd;
 }
-#endif
+#endif /* X64 || ARM */
 
 void *
 opnd_get_addr(opnd_t opnd)

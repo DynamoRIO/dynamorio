@@ -4648,6 +4648,8 @@ DR_API
  * routine unless it is first saved (and later restored prior to
  * using dr_restore_arith_flags()).
  *
+ * \note X86-only
+ *
  * \deprecated This routine is equivalent to dr_save_reg() followed by
  * dr_save_arith_flags_to_xax().
  */
@@ -4660,6 +4662,8 @@ DR_API
  * Inserts into \p ilist prior to \p where meta-instruction(s) to restore the 6
  * arithmetic flags, assuming they were saved using dr_save_arith_flags() with
  * slot \p slot and that xax holds the same value it did after the save.
+ *
+ * \note X86-only
  *
  * \deprecated This routine is equivalent to dr_restore_arith_flags_from_xax()
  * followed by dr_restore_reg().
@@ -4678,6 +4682,7 @@ DR_API
  * needs to save both the current value of xax and the flags stored to xax by
  * this routine, they must use separate spill slots, or they will overwrite the
  * original xax value in memory.
+ * \note X86-only
  *
  * \warning Clobbers xax; the caller must ensure xax is dead or saved at
  * \p where.
@@ -4692,9 +4697,42 @@ DR_API
  * sahf" code sequence, which is faster and easier than popf.  The caller must
  * ensure that xax contains the arithmetic flags, most likely from
  * dr_save_arith_flags_to_xax().
+ * \note X86-only
  */
 void
 dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist, instr_t *where);
+
+DR_API
+/**
+ * Inserts into \p ilist prior to \p where meta-instruction(s) to save the
+ * arithmetic flags (6 arithmetic flags on X86 or APSR on ARM) into \p reg.
+ * If the caller wishes to use \p reg between saving and restoring these flags,
+ * they must save and restore \p reg, potentially using dr_save_reg()/dr_restore_reg().
+ * If the caller needs to save both the current value of \p reg and the flags stored
+ * to \p reg by this routine, they must use separate spill slots, or they will
+ * overwrite the original \p reg value in memory.
+ *
+ * \note On X86, only DR_REG_XAX should be passed in.
+ *
+ * \warning Clobbers \p reg; the caller must ensure \p reg is dead or saved at
+ * \p where.
+ */
+void
+dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist,
+                           instr_t *where, reg_id_t reg);
+
+DR_API
+/**
+ * Inserts into \p ilist prior to \p where meta-instruction(s) to restore
+ * the arithmetic flags (6 arithmetic flags on X86 or APSR on ARM) from \p reg.
+ * The caller must ensure that \p reg contains the program status flags,
+ * most likely from dr_save_arith_flags_to_reg().
+ *
+ * \note On X86, only DR_REG_XAX should be passed in.
+ */
+void
+dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist,
+                                instr_t *where, reg_id_t reg);
 
 /* FIXME PR 315333: add routine that scans ahead to see if need to save eflags.  See
  * forward_eflags_analysis(). */

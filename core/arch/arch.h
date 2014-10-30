@@ -435,7 +435,7 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT    = TLS_XAX_SLOT,
+    FCACHE_ENTER_TARGET_SLOT    = TLS_SLOT_R0,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -443,23 +443,23 @@ enum {
      * used for sysenter shared syscall mangling, which uses an
      * indirect stub.
      */
-    MANGLE_NEXT_TAG_SLOT        = TLS_XAX_SLOT,
-    DIRECT_STUB_SPILL_SLOT      = TLS_XAX_SLOT,
-    MANGLE_RIPREL_SPILL_SLOT    = TLS_XAX_SLOT,
+    MANGLE_NEXT_TAG_SLOT        = TLS_SLOT_R0,
+    DIRECT_STUB_SPILL_SLOT      = TLS_SLOT_R0,
+    MANGLE_RIPREL_SPILL_SLOT    = TLS_SLOT_R0,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
-    INDIRECT_STUB_SPILL_SLOT    = TLS_XBX_SLOT,
-    MANGLE_FAR_SPILL_SLOT       = TLS_XBX_SLOT,
+    INDIRECT_STUB_SPILL_SLOT    = TLS_SLOT_R1,
+    MANGLE_FAR_SPILL_SLOT       = TLS_SLOT_R1,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
      * assume this slot is not touched on the fcache_return path.
      */
-    FLOAT_PC_STATE_SLOT         = TLS_XBX_SLOT,
-    MANGLE_XCX_SPILL_SLOT       = TLS_XCX_SLOT,
+    FLOAT_PC_STATE_SLOT         = TLS_SLOT_R1,
+    MANGLE_XCX_SPILL_SLOT       = TLS_SLOT_R2,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
-    DCONTEXT_BASE_SPILL_SLOT    = TLS_XDX_SLOT,
-    PREFIX_XAX_SPILL_SLOT       = TLS_XAX_SLOT,
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_SLOT_R3,
+    PREFIX_XAX_SPILL_SLOT       = TLS_SLOT_R0,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif

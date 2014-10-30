@@ -179,9 +179,6 @@ enum {
     DR_REG_YMM8, DR_REG_YMM9, DR_REG_YMM10,DR_REG_YMM11,
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
 
-    /** Platform-independent way to refer to stack pointer. */
-    DR_REG_STACK_PTR = IF_X64_ELSE(DR_REG_RSP, DR_REG_ESP),
-
     /****************************************************************************/
 #elif defined(ARM)
     DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
@@ -434,7 +431,7 @@ enum {
 # endif
 
     /** Platform-independent way to refer to stack pointer. */
-    DR_REG_STACK_PTR = DR_REG_SP,
+    DR_REG_XSP       = DR_REG_SP,
 
 #endif /* X86/ARM */
 };
@@ -467,7 +464,7 @@ typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 #  define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
 #  define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
 # endif
-#endif /* X86/ARM */
+#endif /* X86 */
 
 
 /* DR_API EXPORT END */
@@ -538,6 +535,7 @@ extern const reg_id_t dr_reg_fixer[];
 #define REG_STOP_8          DR_REG_STOP_8
 #define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
 #define REG_LAST_ENUM       DR_REG_LAST_ENUM
+#define REG_XSP             DR_REG_XSP
 /* Backward compatibility with REG_ constants (we now use DR_REG_ to avoid
  * conflicts with the REG_ enum in <sys/ucontext.h>: i#34).
  * Clients should set(DynamoRIO_REG_COMPATIBILITY ON) prior to
@@ -686,7 +684,6 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_XCX             DR_REG_XCX
 # define REG_XDX             DR_REG_XDX
 # define REG_XBX             DR_REG_XBX
-# define REG_XSP             DR_REG_XSP
 # define REG_XBP             DR_REG_XBP
 # define REG_XSI             DR_REG_XSI
 # define REG_XDI             DR_REG_XDI
@@ -847,8 +844,10 @@ enum {
     BASE_DISP_kind, /* optional DR_SEG_ reg + base reg + scaled index reg + disp */
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
+#if defined(X64) || defined(ARM)
+    REL_ADDR_kind,  /* pc-relative address: 64-bit X86 or ARM only */
+#endif
 #ifdef X64
-    REL_ADDR_kind,  /* pc-relative address: x64 only */
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
 #endif
     MEM_INSTR_kind,
@@ -1091,7 +1090,7 @@ opnd_t
 opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -1124,7 +1123,7 @@ DR_API
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
  *
- * \note For 64-bit DR builds only.
+ * \note For ARM or 64-bit X86 DR builds only.
  */
 opnd_t
 opnd_create_rel_addr(void *addr, opnd_size_t data_size);
@@ -1161,12 +1160,12 @@ DR_API
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit X86 DR builds only.
  */
 opnd_t
 opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 /* DR_API EXPORT BEGIN */
-#endif
+#endif /* X64 || ARM */
 /* DR_API EXPORT END */
 
 /* predicate functions */

@@ -4339,7 +4339,11 @@ dr_set_tls_field(void *drcontext, void *value)
 DR_API void *
 dr_get_dr_segment_base(IN reg_id_t seg)
 {
-    return get_segment_base(seg);
+#ifdef ARM
+    /* FIXME i#1551: no segment in ARM, what about TLS? */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
+    return IF_X86_ELSE(get_segment_base(seg), NULL);
 }
 
 DR_API
@@ -4353,7 +4357,11 @@ dr_raw_tls_calloc(OUT reg_id_t *segment_register,
                   "dr_raw_tls_calloc: segment_register cannot be NULL");
     CLIENT_ASSERT(offset != NULL,
                   "dr_raw_tls_calloc: offset cannot be NULL");
-    *segment_register = SEG_TLS;
+#ifdef ARM
+    /* FIXME i#1551: no segment in ARM, what about TLS? */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
+    *segment_register = IF_X86_ELSE(SEG_TLS, REG_NULL);
     return os_tls_calloc(offset, num_slots, alignment);
 }
 
@@ -4989,19 +4997,19 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
      */
     if (SCRATCH_ALWAYS_TLS()) {
         MINSERT(ilist, where, instr_create_save_to_tls
-                (dcontext, REG_XAX, TLS_XAX_SLOT));
-        insert_get_mcontext_base(dcontext, ilist, where, REG_XAX);
+                (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+        insert_get_mcontext_base(dcontext, ilist, where, TLS_REG_R0);
         /* save app xsp, and then bring in dstack to xsp */
         MINSERT(ilist, where, instr_create_save_to_dc_via_reg
-                (dcontext, REG_XAX, REG_XSP, XSP_OFFSET));
+                (dcontext, TLS_REG_R0, REG_XSP, XSP_OFFSET));
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  FIXME - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
-                (dcontext, REG_XAX, REG_XSP, DSTACK_OFFSET));
+                (dcontext, TLS_REG_R0, REG_XSP, DSTACK_OFFSET));
         MINSERT(ilist, where, instr_create_restore_from_tls
-                (dcontext, REG_XAX, TLS_XAX_SLOT));
+                (dcontext, TLS_REG_R0, TLS_SLOT_R0));
     }
     else {
         MINSERT(ilist, where, instr_create_save_to_dcontext
@@ -5032,19 +5040,27 @@ dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
 #define SPILL_SLOT_TLS_MAX 2
 #define NUM_TLS_SPILL_SLOTS (SPILL_SLOT_TLS_MAX + 1)
 #define NUM_SPILL_SLOTS (SPILL_SLOT_MAX + 1)
-/* The three tls slots we make available to clients.  We reserve TLS_XAX_SLOT for our
+/* The three tls slots we make available to clients.  We reserve TLS_SLOT_R0 for our
  * own use in dr convenience routines. Note the +1 is because the max is an array index
  * (so zero based) while array size is number of slots.  We don't need to +1 in
  * SPILL_SLOT_MC_REG because subtracting SPILL_SLOT_TLS_MAX already accounts for it. */
 static const ushort SPILL_SLOT_TLS_OFFS[NUM_TLS_SPILL_SLOTS] =
-    { TLS_XDX_SLOT, TLS_XCX_SLOT, TLS_XBX_SLOT };
+    { TLS_SLOT_R3, TLS_SLOT_R2, TLS_SLOT_R1 };
+static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] = {
+#ifdef X86
 /* The dcontext reg slots we make available to clients.  We reserve XAX and XSP for
  * our own use in dr convenience routines. */
-static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] = {
-#ifdef X64
+# ifdef X64
     REG_R15, REG_R14, REG_R13, REG_R12, REG_R11, REG_R10, REG_R9, REG_R8,
-#endif
-    REG_XDI, REG_XSI, REG_XBP, REG_XDX, REG_XCX, REG_XBX };
+# endif
+    REG_XDI, REG_XSI, REG_XBP, REG_XDX, REG_XCX, REG_XBX
+#elif defined(ARM)
+# ifdef X64
+#  error NYI
+# endif
+    DR_REG_R6, DR_REG_R5, DR_REG_R4, DR_REG_R3, DR_REG_R2, DR_REG_R1
+#endif /* X86/ARM */
+};
 
 DR_API void
 dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
@@ -5063,8 +5079,8 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
-                INSTR_CREATE_mov_st(dcontext, opnd_create_tls_slot(offs),
-                                    opnd_create_reg(reg)));
+                INSTR_CREATE_store(dcontext, opnd_create_tls_slot(offs),
+                                   opnd_create_reg(reg)));
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
         int offs = opnd_get_reg_dcontext_offs(reg_slot);
@@ -5072,13 +5088,10 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
             /* PR 219620: For thread-shared, we need to get the dcontext
              * dynamically rather than use the constant passed in here.
              */
-#ifndef X86
-# error NYI
-#endif
-            reg_id_t tmp = (reg == REG_XAX) ? REG_XBX : REG_XAX;
+            reg_id_t tmp = (reg == TLS_REG_R0) ? TLS_REG_R1 : TLS_REG_R0;
 
             MINSERT(ilist, where, instr_create_save_to_tls
-                    (dcontext, tmp, TLS_XAX_SLOT));
+                    (dcontext, tmp, TLS_SLOT_R0));
 
             insert_get_mcontext_base(dcontext, ilist, where, tmp);
 
@@ -5086,7 +5099,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
                     (dcontext, tmp, reg, offs));
 
             MINSERT(ilist, where, instr_create_restore_from_tls
-                    (dcontext, tmp, TLS_XAX_SLOT));
+                    (dcontext, tmp, TLS_SLOT_R0));
         } else {
             MINSERT(ilist, where, instr_create_save_to_dcontext(dcontext, reg, offs));
         }
@@ -5111,8 +5124,8 @@ dr_restore_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg
     if (slot <= SPILL_SLOT_TLS_MAX) {
         ushort offs = os_tls_offset(SPILL_SLOT_TLS_OFFS[slot]);
         MINSERT(ilist, where,
-                INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg),
-                                    opnd_create_tls_slot(offs)));
+                INSTR_CREATE_load(dcontext, opnd_create_reg(reg),
+                                  opnd_create_tls_slot(offs)));
     } else {
         reg_id_t reg_slot = SPILL_SLOT_MC_REG[slot - NUM_TLS_SPILL_SLOTS];
         int offs = opnd_get_reg_dcontext_offs(reg_slot);
@@ -5250,11 +5263,11 @@ dr_insert_read_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
                 (dcontext, reg, TLS_DCONTEXT_SLOT));
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
                 (dcontext, reg, reg, CLIENT_DATA_OFFSET));
-        MINSERT(ilist, where, INSTR_CREATE_mov_ld
+        MINSERT(ilist, where, INSTR_CREATE_load
                 (dcontext, opnd_create_reg(reg),
                  OPND_CREATE_MEMPTR(reg, offsetof(client_data_t, user_field))));
     } else {
-        MINSERT(ilist, where, INSTR_CREATE_mov_ld
+        MINSERT(ilist, where, INSTR_CREATE_load
                 (dcontext, opnd_create_reg(reg),
                  OPND_CREATE_ABSMEM(&dcontext->client_data->user_field, OPSZ_PTR)));
     }
@@ -5276,26 +5289,22 @@ dr_insert_write_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
     if (SCRATCH_ALWAYS_TLS()) {
-#ifndef X86
-        /* XXX: generalize these registers to cross-platform scratch reg helper */
-#       error NYI
-#endif
-        reg_id_t spill = REG_XAX;
+        reg_id_t spill = TLS_REG_R0;
         if (reg == spill) /* don't need sub-reg test b/c we know it's pointer-sized */
-            spill = REG_XDI;
-        MINSERT(ilist, where, instr_create_save_to_tls(dcontext, spill, TLS_XAX_SLOT));
+            spill = TLS_REG_R1;
+        MINSERT(ilist, where, instr_create_save_to_tls(dcontext, spill, TLS_SLOT_R0));
         MINSERT(ilist, where, instr_create_restore_from_tls
                 (dcontext, spill, TLS_DCONTEXT_SLOT));
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
                 (dcontext, spill, spill, CLIENT_DATA_OFFSET));
-        MINSERT(ilist, where, INSTR_CREATE_mov_st
+        MINSERT(ilist, where, INSTR_CREATE_store
                 (dcontext, OPND_CREATE_MEMPTR(spill,
                                               offsetof(client_data_t, user_field)),
                  opnd_create_reg(reg)));
         MINSERT(ilist, where,
-                instr_create_restore_from_tls(dcontext, spill, TLS_XAX_SLOT));
+                instr_create_restore_from_tls(dcontext, spill, TLS_SLOT_R0));
     } else {
-        MINSERT(ilist, where, INSTR_CREATE_mov_st
+        MINSERT(ilist, where, INSTR_CREATE_store
                 (dcontext, OPND_CREATE_ABSMEM
                  (&dcontext->client_data->user_field, OPSZ_PTR),
                  opnd_create_reg(reg)));
@@ -5306,50 +5315,63 @@ DR_API void
 dr_save_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                     dr_spill_slot_t slot)
 {
-#ifndef X86
-# error NYI
-#endif
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_save_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_save_arith_flags: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_save_arith_flags: invalid spill slot selection");
-
-    dr_save_reg(drcontext, ilist, where, REG_XAX, slot);
-    dr_save_arith_flags_to_xax(drcontext, ilist, where);
+    dr_save_reg(drcontext, ilist, where, reg, slot);
+    dr_save_arith_flags_to_reg(drcontext, ilist, where, reg);
 }
 
 DR_API void
 dr_restore_arith_flags(void *drcontext, instrlist_t *ilist, instr_t *where,
                        dr_spill_slot_t slot)
 {
-#ifndef X86
-# error NYI
-#endif
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
     CLIENT_ASSERT(drcontext != NULL,
                   "dr_restore_arith_flags: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
                   "dr_restore_arith_flags: drcontext is invalid");
     CLIENT_ASSERT(slot <= SPILL_SLOT_MAX,
                   "dr_restore_arith_flags: invalid spill slot selection");
-
-    dr_restore_arith_flags_from_xax(drcontext, ilist, where);
-    dr_restore_reg(drcontext, ilist, where, REG_XAX, slot);
+    dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg);
+    dr_restore_reg(drcontext, ilist, where, reg, slot);
 }
 
 DR_API void
 dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
 {
-#ifndef X86
-# error NYI
-#endif
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
+    dr_save_arith_flags_to_reg(drcontext, ilist, where, reg);
+}
+
+DR_API void
+dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist,
+                                instr_t *where)
+{
+    reg_id_t reg = IF_X86_ELSE(DR_REG_XAX, DR_REG_R0);
+    CLIENT_ASSERT(IF_X86_ELSE(true, false), "X86-only");
+    dr_restore_arith_flags_from_reg(drcontext, ilist, where, reg);
+}
+
+DR_API void
+dr_save_arith_flags_to_reg(void *drcontext, instrlist_t *ilist,
+                           instr_t *where, reg_id_t reg)
+{
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
-                  "dr_save_arith_flags_to_xax: drcontext cannot be NULL");
+                  "dr_save_arith_flags_to_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
-                  "dr_save_arith_flags_to_xax: drcontext is invalid");
-
+                  "dr_save_arith_flags_to_reg: drcontext is invalid");
+#ifdef X86
+    CLIENT_ASSERT(reg == DR_REG_XAX,
+                  "only xax should be used for save arith flags in X86");
     /* flag saving code:
      *   lahf
      *   seto al
@@ -5357,21 +5379,27 @@ dr_save_arith_flags_to_xax(void *drcontext, instrlist_t *ilist, instr_t *where)
     MINSERT(ilist, where, INSTR_CREATE_lahf(dcontext));
     MINSERT(ilist, where,
             INSTR_CREATE_setcc(dcontext, OP_seto, opnd_create_reg(REG_AL)));
+#elif defined(ARM)
+    /* flag saving code: mrs reg, cpsr */
+    MINSERT(ilist, where,
+            INSTR_CREATE_mrs(dcontext,
+                             opnd_create_reg(reg),
+                             opnd_create_reg(DR_REG_CPSR)));
+#endif /* X86/ARM */
 }
 
 DR_API void
-dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist,
-                                instr_t *where)
+dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist,
+                                instr_t *where, reg_id_t reg)
 {
-#ifndef X86
-# error NYI
-#endif
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(drcontext != NULL,
-                  "dr_restore_arith_flags_from_xax: drcontext cannot be NULL");
+                  "dr_restore_arith_flags_from_reg: drcontext cannot be NULL");
     CLIENT_ASSERT(drcontext != GLOBAL_DCONTEXT,
-                  "dr_restore_arith_flags_from_xax: drcontext is invalid");
-
+                  "dr_restore_arith_flags_from_reg: drcontext is invalid");
+#ifdef X86
+    CLIENT_ASSERT(reg == DR_REG_XAX,
+                  "only xax should be used for save arith flags in X86");
     /* flag restoring code:
      *   add 0x7f,%al
      *   sahf
@@ -5382,6 +5410,13 @@ dr_restore_arith_flags_from_xax(void *drcontext, instrlist_t *ilist,
     MINSERT(ilist, where,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
     MINSERT(ilist, where, INSTR_CREATE_sahf(dcontext));
+#elif defined(ARM)
+    /* flag saving code: mrs reg, cpsr */
+    MINSERT(ilist, where,
+            INSTR_CREATE_msr(dcontext,
+                             opnd_create_reg(DR_REG_CPSR),
+                             opnd_create_reg(reg)));
+#endif /* X86/ARM */
 }
 
 /* providing functionality of old -instr_calls and -instr_branches flags
@@ -5442,9 +5477,7 @@ DR_API void
 dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *instr,
                               void *callee, dr_spill_slot_t scratch_slot)
 {
-#ifndef X86
-# error NYI
-#endif
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address = (ptr_uint_t) instr_get_translation(instr);
     opnd_t tls_opnd;
@@ -5478,7 +5511,7 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
     /* Note that since we're using a client exposed slot we know it will be
      * preserved across the clean call. */
     tls_opnd = dr_reg_spill_slot_opnd(drcontext, scratch_slot);
-    newinst = INSTR_CREATE_mov_st(dcontext, tls_opnd, opnd_create_reg(REG_XCX));
+    newinst = INSTR_CREATE_store(dcontext, tls_opnd, opnd_create_reg(REG_XCX));
 
     /* PR 214962: ensure we'll properly translate the de-ref of app
      * memory by marking the spill and de-ref as INSTR_OUR_MANGLING.
@@ -5532,6 +5565,12 @@ dr_insert_mbr_instrumentation(void *drcontext, instrlist_t *ilist, instr_t *inst
                          OPND_CREATE_INTPTR(address),
                          /* indirect target (in tls, xchg-d from ecx) is 2nd param */
                          tls_opnd);
+#elif defined (ARM)
+    /* i#1551: NYI on ARM.
+     * Also, we may want to split these out into arch/{x86,arm}/ files
+     */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 /* NOTE : this routine clobbers TLS_XAX_SLOT and the XSP mcontext slot via
@@ -5545,6 +5584,7 @@ static void
 dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                    void *callee, bool has_fallthrough, opnd_t user_data)
 {
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     ptr_uint_t address, target;
     int opc;
@@ -5719,9 +5759,9 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
             opnd_taken = OPND_CREATE_MEM32
                 (REG_XSP, -2*(int)XSP_SZ-get_clean_call_temp_stack_size());
             MINSERT(ilist, instr_get_next(app_flags_ok),
-                    INSTR_CREATE_mov_ld(dcontext,
-                                        opnd_create_reg(REG_EBX),
-                                        opnd_taken));
+                    INSTR_CREATE_load(dcontext,
+                                      opnd_create_reg(REG_EBX),
+                                      opnd_taken));
         }
     } else {
         /* build a setcc equivalent of instr's jcc operation
@@ -5753,6 +5793,10 @@ dr_insert_cbr_instrumentation_help(void *drcontext, instrlist_t *ilist, instr_t 
                                    opnd_taken));
     }
     /* now branch dir is in ebx and will be passed to clean call */
+#elif defined (ARM)
+    /* i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 DR_API void
@@ -6694,14 +6738,12 @@ bool
 dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                        reg_id_t seg, reg_id_t reg)
 {
-#ifndef X86
-# error NYI
-#endif
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "dr_insert_get_seg_base: reg has wrong size\n");
+#ifdef X86
     CLIENT_ASSERT(reg_is_segment(seg),
                   "dr_insert_get_seg_base: seg is not a segment register");
-#ifdef UNIX
+# ifdef UNIX
     CLIENT_ASSERT(INTERNAL_OPTION(mangle_app_seg),
                   "dr_insert_get_seg_base is supported"
                   "with -mangle_app_seg only");
@@ -6728,14 +6770,14 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
              INSTR_CREATE_mov_imm(drcontext, opnd_create_reg(reg),
                                   OPND_CREATE_INTPTR(0)));
     }
-#else
+# else /* Windows */
     if (seg == SEG_TLS) {
         instrlist_meta_preinsert
             (ilist, instr,
-             INSTR_CREATE_mov_ld(drcontext,
-                                 opnd_create_reg(reg),
-                                 opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
-                                                           0, SELF_TIB_OFFSET, OPSZ_PTR)));
+             INSTR_CREATE_load(drcontext,
+                               opnd_create_reg(reg),
+                               opnd_create_far_base_disp(SEG_TLS, REG_NULL, REG_NULL,
+                                                         0, SELF_TIB_OFFSET, OPSZ_PTR)));
     } else if (seg == SEG_CS || seg == SEG_DS || seg == SEG_ES) {
         /* XXX: we assume flat address space */
         instrlist_meta_preinsert
@@ -6744,7 +6786,11 @@ dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                                   OPND_CREATE_INTPTR(0)));
     } else
         return false;
-#endif /* UNIX */
+# endif /* UNIX/Windows */
+#elif defined (ARM)
+    /* i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
     return true;
 }
 

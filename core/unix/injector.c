@@ -1028,7 +1028,7 @@ injectee_open(dr_inject_info_t *info, const char *path, int flags, mode_t mode)
     opnd_t args[MAX_SYSCALL_ARGS];
     int num_args = 0;
     gen_push_string(dc, ilist, path);
-    args[num_args++] = OPND_CREATE_MEMPTR(DR_REG_STACK_PTR, 0);
+    args[num_args++] = OPND_CREATE_MEMPTR(REG_XSP, 0);
     args[num_args++] = OPND_CREATE_INTPTR(flags);
     args[num_args++] = OPND_CREATE_INTPTR(mode);
     ASSERT(num_args <= MAX_SYSCALL_ARGS);

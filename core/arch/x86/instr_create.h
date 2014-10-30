@@ -132,6 +132,40 @@
  *   d  = opnd_t = destination operand
  */
 
+/* platform-independent INSTR_CREATE_* macros */
+/** @name Platform-independent macros */
+/* @{ */ /* doxygen start group */
+
+/**
+ * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
+ * for a debug trap instruction, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
+
+/**
+ * This platform-independent INSTR_CREATE_load macro creates an instr_t
+ * for a memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define INSTR_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store macro creates an instr_t
+ * for a memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
+
+/* @} */ /* end doxygen group */
+
+/****************************************************************************/
+/* x86-specific INSTR_CREATE_* macros */
+
 /* no-operand instructions */
 /** @name No-operand instructions */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -3696,13 +3730,6 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define INSTR_CREATE_popa(dc)   instr_create_popa((dc))
-
-/**
- * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
- * for a debug trap instruction, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- */
-#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
 
 /****************************************************************************/
 

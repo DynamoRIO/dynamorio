@@ -158,10 +158,12 @@ Further non-compatibility-affecting changes include:
 
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
- - Added INSTR_CREATE_debug_instr()
+ - Added INSTR_CREATE_debug_instr(), INSTR_CREATE_load(), and
+   INSTR_CREATE_store().
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
  - Added instr_predicate_triggered().
+ - Added dr_save_arith_flags_to_reg() and dr_restore_arith_flags_from_reg().
 
 **************************************************
 <hr>

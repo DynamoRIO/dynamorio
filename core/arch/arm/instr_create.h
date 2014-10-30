@@ -50,15 +50,24 @@
 #define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 
-/**
- * This INSTR_CREATE_bkpt macro creates an instr_t with opcode OP_bkpt and the
- * given explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param i The opnd_t explicit first source operand for the instruction, which
- * must be a 1-byte immediate integer (opnd_create_immed_int()).
+/* Macros for building instructions, one for each opcode.
+ * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The macro parameter types, encoded by name, are:
+ *   dc = DR Context*
+ *   op = uint = opcode
+ *   s  = opnd_t = source operand
+ *   i  = opnd_t = source operand that is an immediate
+ *   ri = opnd_t = source operand that can be a register or an immediate
+ *   t  = opnd_t = source operand that is a jump target
+ *   m  = opnd_t = source operand that can only reference memory
+ *   f  = opnd_t = floating point register operand
+ *   d  = opnd_t = destination operand
  */
-#define INSTR_CREATE_bkpt(dc, i) \
-    instr_create_0dst_1src((dc), OP_bkpt, (i))
+
+/* platform-independent INSTR_CREATE_* macros */
+/** @name Platform-independent macros */
+/* @{ */ /* doxygen start group */
 
 /**
  * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
@@ -66,6 +75,72 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_bkpt(dc, OPND_CREATE_INT8(1))
+
+/**
+ * This platform-independent INSTR_CREATE_load macro creates an instr_t
+ * for a memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define INSTR_CREATE_load(dc, r, m)  INSTR_CREATE_ldr(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store macro creates an instr_t
+ * for a memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_str(dc, m, r)
+
+/* @} */ /* end doxygen group */
+
+/****************************************************************************/
+/* ARM-specific INSTR_CREATE_* macros */
+
+/** @name 1 destination, 1 source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/* FIXME i#1551: provide better documentation for INSTR_CREATE_* macros. */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define INSTR_CREATE_ldr(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_ldr, (d), (s))
+#define INSTR_CREATE_str(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_str, (d), (s))
+#define INSTR_CREATE_mrs(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_mrs, (d), (s))
+#define INSTR_CREATE_msr(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_mrs, (d), (s))
+
+/* FIXME i#1551: provide cross-platform INSTR_CREATE_* macros.
+ * The arithmetic operations are different between ARM and X86 in several ways, e.g.,
+ * arith-flag update and destructive source opnd, so we need a way to provide
+ * cross-platform INSTR_CREATE_* macros to avoid confusion.
+ */
+#define INSTR_CREATE_add(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_add, (d), (s), (d))
+#define INSTR_CREATE_sub(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_sub, (d), (s), (d))
+/* @} */ /* end doxygen group */
+
+/** @name no destination, 1 source */
+/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
+/**
+ * This INSTR_CREATE_bkpt macro creates an instr_t with opcode OP_bkpt and the
+ * given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param i  The opnd_t explicit source operand for the instruction, which
+ * must be a 1-byte immediate integer (opnd_create_immed_int()).
+ */
+#define INSTR_CREATE_bkpt(dc, i) \
+    instr_create_0dst_1src((dc), OP_bkpt, (i))
+/* @} */ /* end doxygen group */
 
 /* DR_API EXPORT END */
 
