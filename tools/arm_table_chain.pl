@@ -38,8 +38,6 @@
 # To run on everything:
 #
 #   for i in `egrep '^ *OP_[a-z]' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_a32.c; done
-#
-# Currently requires manual fixup for optimized encoding chains (OP_bl and OP_cdp).
 
 my $verbose = 1;
 
@@ -70,7 +68,23 @@ while (<INFILE>) {
         $minor = 0;
     }
     if (/^\s*{$op[ ,]/) {
+        # Ignore duplicate encodings
+        my $encoding = $_;
+        my $is_new = 1;
+        # Remove up through opcode name (to remove encoding hexes) and comments
+        $encoding =~ s/^[^"]+"/"/;
+        $encoding =~ s/},\s*\/.*$/},/;
+        $encoding =~ s/\s*$//;
+        for (my $i = 0; $i < @entry; $i++) {
+            if ($encoding eq $entry[$i]{'encoding'}) {
+                $is_new = 0;
+                last;
+            }
+        }
+        next if (!$is_new);
+
         $entry[$instance]{'line'} = $_;
+        $entry[$instance]{'encoding'} = $encoding;
         if ($shape =~ /\d/) {
             $entry[$instance]{'addr_short'} =
                 sprintf "$shorthand{$table}\[$major][0x%02x]", $minor;
