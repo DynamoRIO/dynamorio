@@ -106,6 +106,72 @@ decode_regD(decode_info_t *di)
     return DR_REG_START_GPR + (di->instr_word & 0xf);
 }
 
+static inline reg_id_t
+decode_simd_start(opnd_size_t opsize)
+{
+    if (opsize == OPSZ_1)
+        return DR_REG_B0;
+    else if (opsize == OPSZ_2)
+        return DR_REG_H0;
+    else if (opsize == OPSZ_4)
+        return DR_REG_S0;
+    else if (opsize == OPSZ_8)
+        return DR_REG_D0;
+    else if (opsize == OPSZ_16)
+        return DR_REG_Q0;
+    else
+        CLIENT_ASSERT(false, "invalid SIMD reg size");
+    return DR_REG_D0;
+}
+
+static reg_id_t
+decode_vregA(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 7,19:16 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x00000080) >> 4) | ((di->instr_word >> 16) & 0xf));
+}
+
+static reg_id_t
+decode_vregB(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 22,15:12 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x00400000) >> 18) | ((di->instr_word >> 12) & 0xf));
+}
+
+static reg_id_t
+decode_vregC(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 5,3:0 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x00000020) >> 1) | (di->instr_word & 0xf));
+}
+
+static reg_id_t
+decode_wregA(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 19:16,7 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x000f0000) >> 15) | ((di->instr_word >> 19) & 0x1));
+}
+
+static reg_id_t
+decode_wregB(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 15:12,22 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x0000f000) >> 11) | ((di->instr_word >> 22) & 0x1));
+}
+
+static reg_id_t
+decode_wregC(decode_info_t *di, opnd_size_t opsize)
+{
+    /* A32 = 3:0,5 */
+    return decode_simd_start(opsize) +
+        (((di->instr_word & 0x0000000f) << 1) | ((di->instr_word >> 5) & 0x1));
+}
+
 static ptr_int_t
 decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_signed)
 {
@@ -116,6 +182,35 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
     else
         val = (ptr_int_t)(ptr_uint_t)((di->instr_word >> start_bit) & mask);
     return val;
+}
+
+static bool
+decode_float_reglist(decode_info_t *di, size_t opsize, opnd_t *array,
+                     uint *counter INOUT)
+{
+    uint i;
+    uint count = (uint) decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
+    reg_id_t first_reg;
+    if (opsize == OPSZ_8) {
+        /* XXX i#1551: if immed is odd, supposed to be (deprecated) OP_fldmx */
+        count /= 2;
+    } else
+        CLIENT_ASSERT(opsize == OPSZ_4, "invalid opsz for TYPE_L_CONSEC");
+    /* There must be an immediately prior simd reg */
+    CLIENT_ASSERT(*counter > 0 && opnd_is_reg(array[*counter-1]),
+                  "invalid instr template");
+    count--; /* The prior was already added */
+    first_reg = opnd_get_reg(array[*counter-1]);
+    for (i = 0; i < count; i++) {
+        print_file(STDERR, "reglist: first=%s, new=%s\n", reg_names[first_reg],
+                   reg_names[first_reg + i]);
+        if ((opsize == OPSZ_8 && first_reg + i > DR_REG_D31) ||
+            (opsize == OPSZ_4 && first_reg + i > DR_REG_S31))
+            return false; /* invalid */
+        array[(*counter)++] = opnd_create_reg(first_reg + i);
+        di->reglist_sz += opnd_size_in_bytes(opsize);
+    }
+    return true;
 }
 
 static bool
@@ -141,6 +236,30 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_R_D:
         array[(*counter)++] = opnd_create_reg(decode_regD(di));
         return true;
+    case TYPE_V_A:
+        array[(*counter)++] = opnd_create_reg(decode_vregA(di, opsize));
+        return true;
+    case TYPE_V_B:
+        array[(*counter)++] = opnd_create_reg(decode_vregB(di, opsize));
+        return true;
+    case TYPE_V_C:
+        array[(*counter)++] = opnd_create_reg(decode_vregC(di, opsize));
+        return true;
+    case TYPE_W_A:
+        array[(*counter)++] = opnd_create_reg(decode_wregA(di, opsize));
+        return true;
+    case TYPE_W_B:
+        array[(*counter)++] = opnd_create_reg(decode_wregB(di, opsize));
+        return true;
+    case TYPE_W_C:
+        array[(*counter)++] = opnd_create_reg(decode_wregC(di, opsize));
+        return true;
+    case TYPE_CPSR:
+        array[(*counter)++] = opnd_create_reg(DR_REG_CPSR);
+        return true;
+    case TYPE_FPSCR:
+        array[(*counter)++] = opnd_create_reg(DR_REG_FPSCR);
+        return true;
     case TYPE_L_16:
         for (i = 0; i < 16; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
@@ -149,14 +268,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             }
         }
         return true;
-
-    /* XXX: for TYPE_V_* we'll need to split into these based on the size:
-     *   Qn = 128-bit SIMD
-     *   Dn = bottom 64-bit SIMD
-     *   Sn = bottom 32-bit SIMD
-     *   Hn = bottom 16-bit SIMD
-     *   Bn = bottom 8-bit SIMD
-     */
+    case TYPE_L_CONSEC:
+        return decode_float_reglist(di, opsize, array, counter);
 
     /* Immeds */
     case TYPE_I_b0:
@@ -172,6 +285,22 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] =
             opnd_create_immed_int(decode_immed(di, 7, opsize, false/*unsigned*/), opsize);
         return true;
+    case TYPE_I_b0_b16: {
+        ptr_int_t val;
+        opnd_size_t each;
+        uint sz = opnd_size_in_bits(opsize);
+        CLIENT_ASSERT(sz % 2 == 0, "split 0-16 size must be even");
+        if (opsize == OPSZ_2)
+            each = OPSZ_4b;
+        else if (opsize == OPSZ_1)
+            each = OPSZ_1;
+        else
+            CLIENT_ASSERT(false, "unsupported 0-16 split immed size");
+        val = decode_immed(di, 0, each, false/*unsigned*/);
+        val |= (decode_immed(di, 16, each, false/*unsigned*/) << (sz/2));
+        array[(*counter)++] = opnd_create_immed_int(val, opsize);
+        return true;
+    }
     case TYPE_SHIFT_b5:
         array[(*counter)++] =
             opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/),
