@@ -2549,7 +2549,7 @@ enum {
     EFLAGS_Z =  0x40000000, /**< The bit in the CPSR register of Z (zero flag). */
     EFLAGS_C =  0x20000000, /**< The bit in the CPSR register of C (carry flag). */
     EFLAGS_V =  0x10000000, /**< The bit in the CPSR register of V (overflow flag). */
-    EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation Flag). */
+    EFLAGS_Q =  0x08000000, /**< The bit in the CPSR register of Q (saturation flag). */
     EFLAGS_GE = 0x000f0000, /**< The bit in the CPSR register of GE[3:0]. */
 };
 #endif

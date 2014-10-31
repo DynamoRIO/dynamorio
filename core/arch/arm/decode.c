@@ -150,6 +150,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         }
         return true;
 
+    /* XXX: for TYPE_V_* we'll need to split into these based on the size:
+     *   Qn = 128-bit SIMD
+     *   Dn = bottom 64-bit SIMD
+     *   Sn = bottom 32-bit SIMD
+     *   Hn = bottom 16-bit SIMD
+     *   Bn = bottom 8-bit SIMD
+     */
+
     /* Immeds */
     case TYPE_I_b0:
         array[(*counter)++] =

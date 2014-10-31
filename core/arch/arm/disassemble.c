@@ -136,6 +136,9 @@ print_instr_prefixes(dcontext_t *dcontext, instr_t *instr,
 int
 print_opcode_suffix(instr_t *instr, char *buf, size_t bufsz, size_t *sofar INOUT)
 {
+    /* FIXME i#1551: but for SIMD we want cond before <dt>, but <dt> is inside the name.
+     * Should we look for '.'?
+     */
     dr_pred_type_t pred = instr_get_predicate(instr);
     size_t pre_sofar = *sofar;
     print_to_buffer(buf, bufsz, sofar, "%s", pred_names[pred]);

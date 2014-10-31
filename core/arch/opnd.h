@@ -401,7 +401,7 @@ enum {
      * OP_mrs and OP_msr to distinguish them and make things clearer.
      */
 # endif
-    DR_REG_CPSR, DR_REG_SPSR,
+    DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
 
     DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
 

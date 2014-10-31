@@ -145,7 +145,7 @@ opcode_is_cbr(int opc)
 bool
 instr_is_cbr(instr_t *instr)      /* conditional branch */
 {
-    /* FIXME i#1551: NYI: look at predicate */
+    /* FIXME i#1551: NYI: look at predicate for ubr.  Also handle it blocks. */
     CLIENT_ASSERT(false, "NYI");
     return false;
 }

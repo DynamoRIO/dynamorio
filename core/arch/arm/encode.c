@@ -87,7 +87,7 @@ const char * const reg_names[] = {
     "r8_bb",  "r9_bb",  "r10_bb", "r11_bb", "r12_bb", "r13_bb", "r14_bb", "r15_bb",
     "r16_bb", "r17_bb", "r18_bb", "r19_bb", "r20_bb", "r21_bb", "r22_bb", "r23_bb",
     "r24_bb", "r25_bb", "r26_bb", "r27_bb", "r28_bb", "r29_bb", "r30_bb", "r31_bb",
-    "cpsr", "spsr",
+    "cpsr", "spsr", "fpscr",
 };
 
 /* Maps sub-registers to their containing register. */
@@ -218,7 +218,7 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
     DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-    DR_REG_CPSR, DR_REG_SPSR,
+    DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
 };
 
 const char * const type_names[] = {
@@ -240,8 +240,16 @@ const char * const type_names[] = {
     "TYPE_CR_B",
     "TYPE_CR_C",
     "TYPE_CR_D",
+    "TYPE_V_A",
+    "TYPE_V_B",
+    "TYPE_V_C",
+    "TYPE_W_A",
+    "TYPE_W_B",
+    "TYPE_W_C",
+    "TYPE_W_C_PLUS1",
     "TYPE_SPSR",
     "TYPE_CPSR",
+    "TYPE_FPSCR",
     "TYPE_I_b0",
     "TYPE_NI_b0",
     "TYPE_I_b3",
@@ -256,6 +264,10 @@ const char * const type_names[] = {
     "TYPE_I_b0_b16",
     "TYPE_I_b16_b9",
     "TYPE_I_b16_b8",
+    "TYPE_I_b0_b5",
+    "TYPE_I_b21",
+    "TYPE_I_b21_b6",
+    "TYPE_I_b21_b5",
     "TYPE_SHIFT_b5",
     "TYPE_SHIFT_b6",
     "TYPE_SHIFT_LSL",
@@ -263,6 +275,7 @@ const char * const type_names[] = {
     "TYPE_L_8",
     "TYPE_L_13",
     "TYPE_L_16",
+    "TYPE_L_CONSEC",
     "TYPE_M",
     "TYPE_M_POS_REG",
     "TYPE_M_NEG_REG",
