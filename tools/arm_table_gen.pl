@@ -34,6 +34,22 @@
 
 my $verbose = 0;
 my $line = 0;
+my $pred = 1; # Process predicated instrs, or non-pred?
+my $simd = 0; # Assume SIMD?
+
+while ($#ARGV >= 0) {
+    if ($ARGV[0] eq '-nopred') {
+        $pred = 0;
+    } elsif ($ARGV[0] eq '-v') {
+        $verbose++;
+    } elsif ($ARGV[0] eq '-simd') {
+        $simd = 1;
+    } else {
+        die "Unknown argument $ARGV[0]\n";
+    }
+    shift;
+}
+
 while (<>) {
     $line++;
     chomp;
@@ -50,6 +66,9 @@ while (<>) {
             if (/^ARMv/) {
                 $flags .= "|v8" if (/^ARMv8/);
                 last;
+            } elsif (/^[A-Z].*<.*<.*>$/) {
+                # Sometimes the encoding is after the name in the .text version
+                goto at_name;
             }
             goto startover if (/^Encoding /); # some descriptions have Encoding A...
         }
@@ -62,6 +81,7 @@ while (<>) {
             last;
         }
         last if eof();
+      at_name:
         if (/^(\w+)/) {
             $name = $1;
             $asm = $_;
@@ -69,11 +89,16 @@ while (<>) {
             print "unexpected asm on line $line: $_\n";
         }
         print "found $name: $asm\n" if ($verbose);
+        my $last = "";
         while (<>) {
             $line++;
             chomp;
             chomp if (/\r$/); # DOS
-            if (/^cond/) {
+            if (!$pred) {
+                if ($last =~ /^31 30 29/ && /^1 1 1 1/) {
+                    #print "found $name $_\n";
+                }
+            } elsif (/^cond/) {
                 # We encode the "x x x P U {D,R} W S" specifiers either into
                 # our opcodes or we have multiple entries with encoding chains.
                 my $enc = $_;
@@ -84,22 +109,22 @@ while (<>) {
                     # Ignore parens: go w/ value inside.
                     $opc =~ s/\(//g;
                     $opc =~ s/\)//g;
-                    generate_entry($name, $asm, $enc, $opc, $rest, 0);
+                    generate_entry(lc($name), $asm, $enc, $opc, $rest, 0);
                 } else {
                     print "no match for $name: $_\n";
                 }
                 last;
             }
             goto startover if (/^Encoding /);
+            $last = $_;
         }
     }
 }
 
 sub generate_entry($,$,$,$,$,$)
 {
-    my ($name, $asm, $enc, $opc, $rest, $writes_base) = @_;
+    my ($name, $asm, $enc, $opc, $rest, $PUW) = @_;
     my $eflags = "x";
-    my $lcname = lc($name);
     my $other_opc;
     my $negative = 0;
 
@@ -111,41 +136,41 @@ sub generate_entry($,$,$,$,$,$)
             $bits[$i] = 1;
             $other_opc = $opc;
             $other_opc =~ s/S/0/;
-            generate_entry($name, $asm, $enc, $other_opc, $rest, $writes_base);
-            $lcname .= "s";
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
+            $name .= "s";
             $eflags = "fWNZCV";
         } elsif ($bits[$i] eq 'P') {
+            $PUW = 1;
             $other_opc = $opc;
             $other_opc =~ s/P/0/;
-            # For A32, if P==0, add base reg Rn as dst
-            generate_entry($name, $asm, $enc, $other_opc, $rest, 1);
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $opc =~ s/P/1/;
             $bits[$i] = 1;
         } elsif ($bits[$i] eq 'U') {
+            $PUW = 1;
             $other_opc = $opc;
             $other_opc =~ s/U/0/;
-            generate_entry($name, $asm, $enc, $other_opc, $rest, $writes_base);
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $opc =~ s/U/1/;
             $bits[$i] = 1;
             $negative = 1;
         } elsif ($bits[$i] eq 'W') {
+            $PUW = 1;
             $other_opc = $opc;
             $other_opc =~ s/W/0/;
-            generate_entry($name, $asm, $enc, $other_opc, $rest, $writes_base);
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $bits[$i] = 1;
             $opc =~ s/W/1/;
-            # For A32, if W==1, add base reg Rn as dst
-            $writes_base = 1;
         } elsif ($bits[$i] eq 'D') {
             $other_opc = $opc;
             $other_opc =~ s/D/0/;
-            generate_entry($name, $asm, $enc, $other_opc, $rest, $writes_base);
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $bits[$i] = 1;
             $opc =~ s/D/1/;
         } elsif ($bits[$i] eq 'R') {
             $other_opc = $opc;
             $other_opc =~ s/R/0/;
-            generate_entry($name, $asm, $enc, $other_opc, $rest, $writes_base);
+            generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $bits[$i] = 1;
             $opc =~ s/R/1/;
         }
@@ -156,7 +181,20 @@ sub generate_entry($,$,$,$,$,$)
         }
     }
 
-    printf "    {OP_%-7s, 0x%08x, \"%-7s, ", $lcname, $hexopc, $lcname."\"";
+    # Floating-point precision bit: bit 8 == "sz"
+    if ($simd && $enc =~ / sz /) {
+        $other_name = $name . ".F32";
+        $other_enc = $enc;
+        $other_enc =~ s/ sz / sz=0 /;
+        generate_entry($other_name, $asm, $other_enc, $opc, $rest, $PUW);
+        $name .= ".F64";
+        $enc =~ s/ sz / sz=1 /;
+        $hexopc |= 0x100;
+    }
+
+    $opname = $name;
+    $opname =~ s/\./_/g;
+    printf "    {OP_%-7s, 0x%08x, \"%-7s, ", $opname, $hexopc, $name."\"";
 
     # Clean up extra spaces, parens, digits
     $enc =~ s/\s\s+/ /g;
@@ -182,7 +220,9 @@ sub generate_entry($,$,$,$,$,$)
     my @opnds = split(' ', $rest);
     my $opcnt = 0;
     for (my $i = 0; $i <= $#opnds; $i++) {
-        if ($opnds[$i] ne '0' && $opnds[$i] ne '1') {
+        if ($opnds[$i] ne '0' && $opnds[$i] ne '1' &&
+            (!$simd || ($opnds[$i] ne 'sz' && $opnds[$i] ne 'N' &&
+                        $opnds[$i] ne 'M'))) {
             print "$opnds[$i], ";
             $opcnt++;
         }
@@ -190,7 +230,11 @@ sub generate_entry($,$,$,$,$,$)
     for (my $i = $opcnt; $i < 5; $i++) {
         print "xx, ";
     }
-    print "pred, $eflags, END_LIST},";
-    print " /* TODO: +Rn writeback dst */" if ($writes_base);
+    print ($nopred ? "no" : "pred");
+    print ", $eflags, END_LIST},";
+    if ($PUW) {
+        $PUW_str = $bits[3] . $bits[4] . $bits[6];
+        print "/*PUW=$PUW_str*/";
+    }
     print "/* ($asm) */ /* <$enc> */\n";
 }

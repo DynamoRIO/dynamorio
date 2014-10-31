@@ -240,54 +240,65 @@ read_instruction(byte *pc, byte *orig_pc,
     }
 
     /* If an extension, discard the old info and get a new one */
-    if (info->type == EXT_OPC4X) {
-        if ((instr_word & 0x10 /*bit 4*/) == 0)
-            idx = 0;
-        else if ((instr_word & 0x80 /*bit 7*/) == 0)
-            idx = 1;
-        else
-            idx = 2 + ((instr_word >> 5) & 0x3) /*bits 6:5*/;
-        info = &A32_ext_opc4x[info->code][idx];
-    } else if (info->type == EXT_OPC4Y) {
-        if ((instr_word & 0x10 /*bit 4*/) == 0)
-            idx = 0;
-        else
-            idx = 1 + ((instr_word >> 5) & 0x7) /*bits 7:5*/;
-        info = &A32_ext_opc4y[info->code][idx];
-    } else if (info->type == EXT_OPC4) {
-        idx = decode_opc4(instr_word);
-        info = &A32_ext_opc4[info->code][idx];
-    } else if (info->type == EXT_IMM1916) {
-        idx = (((instr_word >> 16) & 0xf) /*bits 19:16*/ == 0) ? 0 : 1;
-        info = &A32_ext_imm1916[info->code][idx];
-    } else if (info->type == EXT_BIT4) {
-        idx = (instr_word >> 4) & 0x1 /*bit 4*/;
-        info = &A32_ext_bit4[info->code][idx];
-    }
-
-    /* Secondary extensions */
-    if (info->type == EXT_BIT9) {
-        idx = (instr_word >> 9) & 0x1 /*bit 9*/;
-        info = &A32_ext_bit9[info->code][idx];
-    } else if (info->type == EXT_BITS8) {
-        idx = (instr_word >> 8) & 0x3 /*bits 9:8*/;
-        info = &A32_ext_bits8[info->code][idx];
-    } else if (info->type == EXT_BITS0) {
-        idx = instr_word & 0x7 /*bits 2:0*/;
-        info = &A32_ext_bits0[info->code][idx];
-    } else if (info->type == EXT_IMM5) {
-        idx = (((instr_word >> 7) & 0x1f) /*bits 11:7*/ == 0) ? 0 : 1;
-        info = &A32_ext_imm5[info->code][idx];
-    } else if (info->type == EXT_RDPC) {
-        idx = ((instr_word & 0xf) /*bits 3:0*/ == 0xf) ? 1 : 0;
-        info = &A32_ext_RDPC[info->code][idx];
-    } else if (info->type == EXT_OPC4) {
-        idx = decode_opc4(instr_word);
-        info = &A32_ext_opc4[info->code][idx];
-        /* Tertiary */
-        if (info->type == EXT_BITS0) {
+    while (info != NULL && info->type > INVALID) {
+        if (info->type == EXT_OPC4X) {
+            if ((instr_word & 0x10 /*bit 4*/) == 0)
+                idx = 0;
+            else if ((instr_word & 0x80 /*bit 7*/) == 0)
+                idx = 1;
+            else
+                idx = 2 + ((instr_word >> 5) & 0x3) /*bits 6:5*/;
+            info = &A32_ext_opc4x[info->code][idx];
+        } else if (info->type == EXT_OPC4Y) {
+            if ((instr_word & 0x10 /*bit 4*/) == 0)
+                idx = 0;
+            else
+                idx = 1 + ((instr_word >> 5) & 0x7) /*bits 7:5*/;
+            info = &A32_ext_opc4y[info->code][idx];
+        } else if (info->type == EXT_OPC4) {
+            idx = decode_opc4(instr_word);
+            info = &A32_ext_opc4[info->code][idx];
+        } else if (info->type == EXT_IMM1916) {
+            idx = (((instr_word >> 16) & 0xf) /*bits 19:16*/ == 0) ? 0 : 1;
+            info = &A32_ext_imm1916[info->code][idx];
+        } else if (info->type == EXT_BIT4) {
+            idx = (instr_word >> 4) & 0x1 /*bit 4*/;
+            info = &A32_ext_bit4[info->code][idx];
+        } else if (info->type == EXT_BIT9) {
+            idx = (instr_word >> 9) & 0x1 /*bit 9*/;
+            info = &A32_ext_bit9[info->code][idx];
+        } else if (info->type == EXT_BITS8) {
+            idx = (instr_word >> 8) & 0x3 /*bits 9:8*/;
+            info = &A32_ext_bits8[info->code][idx];
+        } else if (info->type == EXT_BITS0) {
             idx = instr_word & 0x7 /*bits 2:0*/;
             info = &A32_ext_bits0[info->code][idx];
+        } else if (info->type == EXT_IMM5) {
+            idx = (((instr_word >> 7) & 0x1f) /*bits 11:7*/ == 0) ? 0 : 1;
+            info = &A32_ext_imm5[info->code][idx];
+        } else if (info->type == EXT_FP) {
+            idx = ((instr_word >> 8) & 0xf) /*bits 11:8*/;
+            idx = (idx == 0xa ? 0 : (idx == 0xb ? 1 : 2));
+            info = &A32_ext_fp[info->code][idx];
+        } else if (info->type == EXT_FPA) {
+            idx = ((instr_word >> 4) & 0x7) /*bits 6:4*/;
+            idx = (idx == 0 ? 0 : (idx == 1 ? 1 : (idx == 4 ? 2 : 3)));
+            if (idx == 3)
+                info = &invalid_instr;
+            else
+                info = &A32_ext_opc4fpA[info->code][idx];
+        } else if (info->type == EXT_FPB) {
+            idx = ((instr_word >> 4) & 0x7) /*bits 6:4*/;
+            info = &A32_ext_opc4fpB[info->code][idx];
+        } else if (info->type == EXT_BITS16) {
+            idx = ((instr_word >> 16) & 0xf) /*bits 19:16*/;
+            info = &A32_ext_bits16[info->code][idx];
+        } else if (info->type == EXT_RBPC) {
+            idx = (((instr_word >> 12) & 0xf) /*bits 19:16*/ != 0xf) ? 0 : 1;
+            info = &A32_ext_RBPC[info->code][idx];
+        } else if (info->type == EXT_RDPC) {
+            idx = ((instr_word & 0xf) /*bits 3:0*/ == 0xf) ? 1 : 0;
+            info = &A32_ext_RDPC[info->code][idx];
         }
     }
     CLIENT_ASSERT(info->type <= OP_LAST, "decoding table error");
