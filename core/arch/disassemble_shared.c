@@ -315,12 +315,17 @@ print_known_pc_target(char *buf, size_t bufsz, size_t *sofar INOUT,
         const char *ibl_brtype;
         const char *ibl_name =
             get_ibl_routine_name(dcontext, target, &ibl_brtype);
+# ifdef X86
         if (ibl_name == NULL && in_coarse_stub_prefixes(target) &&
             *target == JMP_OPCODE) {
             ibl_name = get_ibl_routine_name(dcontext,
                                             PC_RELATIVE_TARGET(target+1),
                                             &ibl_brtype);
         }
+# elif defined(ARM)
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+# endif
 # ifdef WINDOWS
         /* must test first, as get_ibl_routine_name will think "bb_ibl_indjmp" */
         if (dcontext != GLOBAL_DCONTEXT) {
@@ -1564,9 +1569,10 @@ dump_callstack_to_buffer(char *buf, size_t bufsz, size_t *sofar,
 void
 dump_mcontext_callstack(dcontext_t *dcontext)
 {
+    priv_mcontext_t *mc = get_mcontext(dcontext);
     LOG(THREAD, LOG_ALL, 1, "Call stack:\n");
-    internal_dump_callstack((app_pc)get_mcontext(dcontext)->pc,
-                            (app_pc)get_mcontext(dcontext)->xbp, THREAD,
+    internal_dump_callstack((app_pc)mc->pc,
+                            (app_pc)get_mcontext_frame_ptr(dcontext, mc), THREAD,
                             DUMP_NOT_XML, false/*!header*/);
 }
 #endif
