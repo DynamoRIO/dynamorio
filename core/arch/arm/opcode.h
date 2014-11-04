@@ -394,6 +394,9 @@ enum {
 #define OP_vpop      OP_vldmia /**< Alternative opcode name for vpop. */
 #define OP_vpush     OP_vstmdb /**< Alternative opcode name for vpush. */
 
+#define OP_load      OP_ldr    /**< Platform-independent opcode name for load. */
+#define OP_store     OP_str    /**< Platform-independent opcode name for store. */
+
 /****************************************************************************/
 /* DR_API EXPORT END */
 

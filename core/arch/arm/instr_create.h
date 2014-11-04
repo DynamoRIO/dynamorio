@@ -94,6 +94,47 @@
  */
 #define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_str(dc, m, r)
 
+/**
+ * This platform-independent INSTR_CREATE_mov macro creates an instr_t
+ * for a register to register move instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d   The destination register opnd.
+ * \param s   The source register opnd.
+ */
+#define INSTR_CREATE_mov(dc, d, s) \
+    instr_create_1dst_1src((dc), OP_mov, (d), (s))
+
+/**
+ * This platform-independent INSTR_CREATE_load_mm macro creates an instr_t
+ * for a multimedia register load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ *
+ * \note Loading to 128-bit registers is not supported on 32-bit ARM.
+ */
+#define INSTR_CREATE_load_mm(dc, r, m) INSTR_CREATE_vldr(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store_mm macro creates an instr_t
+ * for a multimedia register store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ *
+ * \note Storing from 128-bit registers is not supported on 32-bit ARM.
+ */
+#define INSTR_CREATE_store_mm(dc, m, r) INSTR_CREATE_vstr(dc, m, r)
+
+/**
+ * This platform-independent INSTR_CREATE_jmp_ind_mem macro creates an instr_t
+ * for an indirect jump through memory instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The memory opnd holding the target.
+ */
+#define INSTR_CREATE_jmp_ind_mem(dc, m) \
+    INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_PC), m)
+
 /* @} */ /* end doxygen group */
 
 /****************************************************************************/
@@ -117,6 +158,10 @@
   instr_create_1dst_1src((dc), OP_mrs, (d), (s))
 #define INSTR_CREATE_msr(dc, d, s) \
   instr_create_1dst_1src((dc), OP_mrs, (d), (s))
+#define INSTR_CREATE_vldr(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vldr, (d), (s))
+#define INSTR_CREATE_vstr(dc, d, s) \
+  instr_create_1dst_1src((dc), OP_vstr, (d), (s))
 
 /* FIXME i#1551: provide cross-platform INSTR_CREATE_* macros.
  * The arithmetic operations are different between ARM and X86 in several ways, e.g.,

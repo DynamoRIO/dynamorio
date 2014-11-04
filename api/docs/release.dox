@@ -158,8 +158,9 @@ Further non-compatibility-affecting changes include:
 
  - Added distinctions between reasons for dr_query_memory_ex() to fail
  - Added opnd_size_in_bits().
- - Added INSTR_CREATE_debug_instr(), INSTR_CREATE_load(), and
-   INSTR_CREATE_store().
+ - Added INSTR_CREATE_debug_instr(), INSTR_CREATE_load(),
+   INSTR_CREATE_store(), INSTR_CREATE_mov(), INSTR_CREATE_load_mm(),
+   INSTR_CREATE_store_mm(), and INSTR_CREATE_jmp_ind_mem().
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
  - Added instr_predicate_triggered().

@@ -1339,6 +1339,10 @@ enum {
 #endif
 #define OP_wait   OP_fwait /**< Alternative opcode name. */
 #define OP_sal    OP_shl /**< Alternative opcode name. */
+
+#define OP_load   OP_mov_ld    /**< Platform-independent opcode name for load. */
+#define OP_store  OP_mov_st    /**< Platform-independent opcode name for store. */
+
 /* undocumented opcodes */
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc

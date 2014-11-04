@@ -2676,9 +2676,9 @@ instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return INSTR_CREATE_movd(dcontext, opnd_create_reg(reg), memopnd);
+        return INSTR_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
     else
-        return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), memopnd);
+        return INSTR_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
 }
 
 instr_t *
@@ -2689,9 +2689,9 @@ instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
                   "instr_create_save_to_dcontext: invalid dcontext");
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return INSTR_CREATE_movd(dcontext, memopnd, opnd_create_reg(reg));
+        return INSTR_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
     else
-        return INSTR_CREATE_mov_st(dcontext, memopnd, opnd_create_reg(reg));
+        return INSTR_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
 }
 
 /* Use basereg==REG_NULL to get default (xdi, or xsi for upcontext)
@@ -2704,11 +2704,11 @@ instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return INSTR_CREATE_movd(dcontext, opnd_create_reg(reg), memopnd);
+        return INSTR_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
-        return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg), memopnd);
+        return INSTR_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
     }
 }
 
@@ -2722,11 +2722,11 @@ instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return INSTR_CREATE_movd(dcontext, memopnd, opnd_create_reg(reg));
+        return INSTR_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
-        return INSTR_CREATE_mov_st(dcontext, memopnd, opnd_create_reg(reg));
+        return INSTR_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
     }
 }
 
@@ -2736,7 +2736,9 @@ instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs)
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     /* PR 244737: thread-private scratch space needs to fixed for x64 */
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
-    return INSTR_CREATE_mov_st(dcontext, memopnd, OPND_CREATE_INT32(immed));
+    /* there is no immed to mem instr on ARM */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
+    return INSTR_CREATE_store(dcontext, memopnd, OPND_CREATE_INT32(immed));
 }
 
 instr_t *
@@ -2746,15 +2748,17 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
         (dcontext, basereg, offs, sz);
     ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
-    return INSTR_CREATE_mov_st(dcontext, memopnd,
-                               opnd_create_immed_int(immed, sz));
+    /* there is no immed to mem instr on ARM */
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
+    return INSTR_CREATE_store(dcontext, memopnd,
+                              opnd_create_immed_int(immed, sz));
 }
 
 instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
-    return INSTR_CREATE_jmp_ind(dcontext, memopnd);
+    return INSTR_CREATE_jmp_ind_mem(dcontext, memopnd);
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -2764,15 +2768,16 @@ instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 instr_t *
 instr_create_restore_dynamo_stack(dcontext_t *dcontext)
 {
-    return instr_create_restore_from_dcontext(dcontext, REG_ESP, DSTACK_OFFSET);
+    return instr_create_restore_from_dcontext(dcontext, REG_XSP, DSTACK_OFFSET);
 }
 
 /* make sure to keep in sync w/ emit_utils.c's insert_spill_or_restore() */
 bool
 instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
 {
+#ifdef X86
     ASSERT_NOT_IMPLEMENTED(reg != REG_XAX);
-#ifdef X64
+# ifdef X64
     /* match insert_jmp_to_ibl */
     if     (*pc == TLS_SEG_OPCODE &&
             *(pc+1) == (REX_PREFIX_BASE_OPCODE | REX_PREFIX_W_OPFLAG) &&
@@ -2785,7 +2790,7 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
     /* we also check for 32-bit.  we could take in flags and only check for one
      * version, but we're not worried about false positives.
      */
-#endif
+# endif
     /* looking for:   67 64 89 1e e4 0e    addr16 mov    %ebx -> %fs:0xee4   */
     /* ASSUMPTION: when addr16 prefix is used, prefix order is fixed */
     return (*pc == ADDR_PREFIX_OPCODE &&
@@ -2800,6 +2805,11 @@ instr_raw_is_tls_spill(byte *pc, reg_id_t reg, ushort offs)
          /* 0x1e for ebx, 0x0e for ecx, 0x06 for eax */
          *(pc+2) == MODRM_BYTE(0/*mod*/, reg_get_bits(reg), 6/*rm*/) &&
          *((uint*)(pc+4)) == os_tls_offset(offs));
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif /* X86/ARM */
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -2809,22 +2819,24 @@ instr_check_tls_spill_restore(instr_t *instr, bool *spill, reg_id_t *reg, int *o
     opnd_t regop, memop;
     CLIENT_ASSERT(instr != NULL,
                   "internal error: tls spill/restore check: NULL argument");
-    if (instr_get_opcode(instr) == OP_mov_st) {
+    if (instr_get_opcode(instr) == OP_store) {
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = true;
-    } else if (instr_get_opcode(instr) == OP_mov_ld) {
+    } else if (instr_get_opcode(instr) == OP_load) {
         regop = instr_get_dst(instr, 0);
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
+#ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
+#endif
     } else
         return false;
     if (opnd_is_far_base_disp(memop) &&
@@ -2873,12 +2885,18 @@ instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
 bool
 instr_is_tls_xcx_spill(instr_t *instr)
 {
+#ifdef X86
     if (instr_raw_bits_valid(instr)) {
         /* avoid upgrading instr */
         return instr_raw_is_tls_spill(instr_get_raw_bits(instr),
                                       REG_ECX, MANGLE_XCX_SPILL_SLOT);
     } else
         return instr_is_tls_spill(instr, REG_ECX, MANGLE_XCX_SPILL_SLOT);
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif
 }
 
 /* this routine may upgrade a level 1 instr */
@@ -2891,22 +2909,24 @@ instr_check_mcontext_spill_restore(dcontext_t *dcontext, instr_t *instr,
     return false;
 #else
     opnd_t regop, memop;
-    if (instr_get_opcode(instr) == OP_mov_st) {
+    if (instr_get_opcode(instr) == OP_store) {
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = true;
-    } else if (instr_get_opcode(instr) == OP_mov_ld) {
+    } else if (instr_get_opcode(instr) == OP_load) {
         regop = instr_get_dst(instr, 0);
         memop = instr_get_src(instr, 0);
         if (spill != NULL)
             *spill = false;
+# ifdef X86
     } else if (instr_get_opcode(instr) == OP_xchg) {
         /* we use xchg to restore in dr_insert_mbr_instrumentation */
         regop = instr_get_src(instr, 0);
         memop = instr_get_dst(instr, 0);
         if (spill != NULL)
             *spill = false;
+# endif /* X86 */
     } else
         return false;
     if (opnd_is_near_base_disp(memop) &&
@@ -2962,28 +2982,28 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
 instr_t *
 instr_create_save_to_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
 {
-    return INSTR_CREATE_mov_st(dcontext, opnd_create_tls_slot(os_tls_offset(offs)),
-                               opnd_create_reg(reg));
+    return INSTR_CREATE_store(dcontext, opnd_create_tls_slot(os_tls_offset(offs)),
+                              opnd_create_reg(reg));
 }
 
 instr_t *
 instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
 {
-    return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg),
-                               opnd_create_tls_slot(os_tls_offset(offs)));
+    return INSTR_CREATE_load(dcontext, opnd_create_reg(reg),
+                             opnd_create_tls_slot(os_tls_offset(offs)));
 }
 
 /* For -x86_to_x64, we can spill to 64-bit extra registers (xref i#751). */
 instr_t *
 instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
 {
-    return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg2), opnd_create_reg(reg1));
+    return INSTR_CREATE_mov(dcontext, opnd_create_reg(reg2), opnd_create_reg(reg1));
 }
 
 instr_t *
 instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
 {
-    return INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
+    return INSTR_CREATE_mov(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
 #ifdef X64
@@ -3014,6 +3034,7 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end)
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32)
 {
+# ifdef X86
     if (YMM_ENABLED()) {
         /* must preserve ymm registers */
         return (aligned32 ? OP_vmovdqa : OP_vmovdqu);
@@ -3024,6 +3045,10 @@ move_mm_reg_opcode(bool aligned16, bool aligned32)
         CLIENT_ASSERT(proc_has_feature(FEATURE_SSE), "running on unsupported processor");
         return (aligned16 ? OP_movaps : OP_movups);
     }
+# elif defined(ARM)
+    /* FIXME i#1551: which one we should return, OP_vmov, OP_vldr, or OP_vstr? */
+    return OP_vmov;
+# endif /* X86/ARM */
 }
 
 #endif /* !STANDALONE_DECODER */

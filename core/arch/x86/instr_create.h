@@ -161,6 +161,41 @@
  */
 #define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
 
+/**
+ * This platform-independent INSTR_CREATE_mov macro creates an instr_t
+ * for a register to register move instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d   The destination register opnd.
+ * \param s   The source register opnd.
+ */
+#define INSTR_CREATE_mov(dc, d, s)  INSTR_CREATE_mov_ld(dc, d, s)
+
+/**
+ * This platform-independent INSTR_CREATE_load_mm macro creates an instr_t
+ * for a multimedia register load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define INSTR_CREATE_load_mm(dc, r, m) INSTR_CREATE_movd(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store_mm macro creates an instr_t
+ * for a multimedia register store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define INSTR_CREATE_store_mm(dc, m, r) INSTR_CREATE_movd(dc, m, r)
+
+/**
+ * This platform-independent INSTR_CREATE_jmp_ind_mem macro creates an instr_t
+ * for an indirect jump through memory instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The memory opnd holding the target.
+ */
+#define INSTR_CREATE_jmp_ind_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
+
 /* @} */ /* end doxygen group */
 
 /****************************************************************************/
