@@ -102,10 +102,10 @@ int
 reg_spill_tls_offs(reg_id_t reg)
 {
     switch (reg) {
-    case REG_XAX: return TLS_XAX_SLOT;
-    case REG_XBX: return TLS_XBX_SLOT;
-    case REG_XCX: return TLS_XCX_SLOT;
-    case REG_XDX: return TLS_XDX_SLOT;
+    case TLS_REG_R0: return TLS_SLOT_R0;
+    case TLS_REG_R1: return TLS_SLOT_R1;
+    case TLS_REG_R2: return TLS_SLOT_R2;
+    case TLS_REG_R3: return TLS_SLOT_R3;
     }
     /* don't assert if another reg passed: used on random regs looking for spills */
     return -1;
@@ -593,8 +593,8 @@ arch_init(void)
 
     /* Ensure we have no unexpected padding inside structs that include
      * priv_mcontext_t (app_state_at_intercept_t and dcontext_t) */
-    ASSERT(offsetof(priv_mcontext_t, pc) + sizeof(byte*) + PRE_XMM_PADDING ==
-           offsetof(priv_mcontext_t, ymm));
+    IF_X86(ASSERT(offsetof(priv_mcontext_t, pc) + sizeof(byte*) + PRE_XMM_PADDING ==
+                  offsetof(priv_mcontext_t, ymm)));
     ASSERT(offsetof(app_state_at_intercept_t, mc) ==
            offsetof(app_state_at_intercept_t, start_pc) + sizeof(void*));
     /* Try to catch errors in x86.asm offsets for dcontext_t */
@@ -1913,9 +1913,9 @@ get_branch_type_name(ibl_branch_type_t branch_type)
 ibl_branch_type_t
 get_ibl_branch_type(instr_t *instr)
 {
-    ASSERT(instr_is_mbr(instr) ||
-           instr_get_opcode(instr) == OP_jmp_far ||
-           instr_get_opcode(instr) == OP_call_far);
+    ASSERT(instr_is_mbr(instr)
+           IF_X86(|| instr_get_opcode(instr) == OP_jmp_far
+                  || instr_get_opcode(instr) == OP_call_far));
 
     if (instr_is_return(instr))
         return IBL_RETURN;
@@ -2626,6 +2626,7 @@ unhook_vsyscall(void)
 static bool
 hook_vsyscall(dcontext_t *dcontext)
 {
+#ifdef X86
     bool res = true;
     instr_t instr;
     byte *pc;
@@ -2649,7 +2650,7 @@ hook_vsyscall(dcontext_t *dcontext)
            instr_get_opcode(&instr) == OP_int /*ubuntu 11.10: i#647*/);
 
     /* We fail if the pattern looks different */
-#define CHECK(x) do {                                 \
+# define CHECK(x) do {                                \
     if (!(x)) {                                       \
         ASSERT(false && "vsyscall pattern mismatch"); \
         res = false;                                  \
@@ -2721,12 +2722,18 @@ hook_vsyscall(dcontext_t *dcontext)
  hook_vsyscall_return:
     instr_free(dcontext, &instr);
     return res;
-#undef CHECK
+# undef CHECK
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif /* X86/ARM */
 }
 
 bool
 unhook_vsyscall(void)
 {
+#ifdef X86
     uint prot;
     bool res;
     uint len = VSYS_DISPLACED_LEN;
@@ -2749,6 +2756,11 @@ unhook_vsyscall(void)
         ASSERT(res);
     }
     return true;
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+#endif /* X86/ARM */
 }
 #endif /* LINUX */
 
@@ -2756,16 +2768,21 @@ void
 check_syscall_method(dcontext_t *dcontext, instr_t *instr)
 {
     int new_method = SYSCALL_METHOD_UNINITIALIZED;
+#ifdef X86
     if (instr_get_opcode(instr) == OP_int)
         new_method = SYSCALL_METHOD_INT;
     else if (instr_get_opcode(instr) == OP_sysenter)
         new_method = SYSCALL_METHOD_SYSENTER;
     else if (instr_get_opcode(instr) == OP_syscall)
         new_method = SYSCALL_METHOD_SYSCALL;
-#ifdef WINDOWS
+# ifdef WINDOWS
     else if (instr_get_opcode(instr) == OP_call_ind)
         new_method = SYSCALL_METHOD_WOW64;
-#endif
+# endif
+#elif defined(ARM)
+    if (instr_get_opcode(instr) == OP_svc)
+        new_method = SYSCALL_METHOD_SVC;
+#endif /* X86/ARM */
     else
         ASSERT_NOT_REACHED();
 
@@ -2976,12 +2993,17 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
     if (src->size != sizeof(dr_mcontext_t))
         return false;
     if (TESTALL(DR_MC_ALL, src->flags))
-        *dst = *(priv_mcontext_t*)(&src->xdi);
+        *dst = *(priv_mcontext_t*)(&MCXT_FIRST_REG_FIELD(src));
     else {
         if (TEST(DR_MC_INTEGER, src->flags)) {
-            memcpy(&dst->xdi, &src->xdi, offsetof(priv_mcontext_t, xsp));
-            memcpy(&dst->xbx, &src->xbx, offsetof(priv_mcontext_t, xflags) -
-                   offsetof(priv_mcontext_t, xbx));
+            /* xsp is in the middle of the mcxt, so we save dst->xsp here and
+             * restore it later so we can use one memcpy for DR_MC_INTEGER.
+             */
+            reg_t save_xsp = dst->xsp;
+            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                   /* end of the mcxt integer gpr */
+                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, src->flags)) {
             dst->xsp = src->xsp;
@@ -2989,7 +3011,12 @@ dr_mcontext_to_priv_mcontext(priv_mcontext_t *dst, dr_mcontext_t *src)
             dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, src->flags)) {
-            memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+            IF_X86_ELSE({
+                memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+            }, {
+                /* FIXME i#1551: NYI on ARM */
+                ASSERT_NOT_IMPLEMENTED(false);
+            });
         }
     }
     return true;
@@ -3005,12 +3032,17 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
     if (dst->size != sizeof(dr_mcontext_t))
         return false;
     if (TESTALL(DR_MC_ALL, dst->flags))
-        *(priv_mcontext_t*)(&dst->xdi) = *src;
+        *(priv_mcontext_t*)(&MCXT_FIRST_REG_FIELD(dst)) = *src;
     else {
         if (TEST(DR_MC_INTEGER, dst->flags)) {
-            memcpy(&dst->xdi, &src->xdi, offsetof(priv_mcontext_t, xsp));
-            memcpy(&dst->xbx, &src->xbx, offsetof(priv_mcontext_t, xflags) -
-                   offsetof(priv_mcontext_t, xbx));
+            /* xsp is in the middle of the mcxt, so we save dst->xsp here and
+             * restore it later so we can use one memcpy for DR_MC_INTEGER.
+             */
+            reg_t save_xsp = dst->xsp;
+            memcpy(&MCXT_FIRST_REG_FIELD(dst), &MCXT_FIRST_REG_FIELD(src),
+                   /* end of the mcxt integer gpr */
+                   offsetof(priv_mcontext_t, IF_X86_ELSE(xflags, pc)));
+            dst->xsp = save_xsp;
         }
         if (TEST(DR_MC_CONTROL, dst->flags)) {
             dst->xsp = src->xsp;
@@ -3018,7 +3050,12 @@ priv_mcontext_to_dr_mcontext(dr_mcontext_t *dst, priv_mcontext_t *src)
             dst->pc = src->pc;
         }
         if (TEST(DR_MC_MULTIMEDIA, dst->flags)) {
-            memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+            IF_X86_ELSE({
+                memcpy(&dst->ymm, &src->ymm, sizeof(dst->ymm));
+            }, {
+                /* FIXME i#1551: NYI on ARM */
+                ASSERT_NOT_IMPLEMENTED(false);
+            });
         }
     }
     return true;
@@ -3032,7 +3069,7 @@ dr_mcontext_as_priv_mcontext(dr_mcontext_t *mc)
      */
     CLIENT_ASSERT(TESTALL(DR_MC_CONTROL|DR_MC_INTEGER, mc->flags),
                   "dr_mcontext_t.flags must include DR_MC_CONTROL and DR_MC_INTEGER");
-    return (priv_mcontext_t*)(&mc->xdi);
+    return (priv_mcontext_t*)(&MCXT_FIRST_REG_FIELD(mc));
 }
 
 priv_mcontext_t *
@@ -3054,33 +3091,82 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
 {
     print_file(f, dump_xml ?
                "\t<priv_mcontext_t value=\"@"PFX"\""
+#ifdef X86
                "\n\t\txax=\""PFX"\"\n\t\txbx=\""PFX"\""
                "\n\t\txcx=\""PFX"\"\n\t\txdx=\""PFX"\""
                "\n\t\txsi=\""PFX"\"\n\t\txdi=\""PFX"\""
                "\n\t\txbp=\""PFX"\"\n\t\txsp=\""PFX"\""
-#ifdef X64
+# ifdef X64
                "\n\t\tr8=\""PFX"\"\n\t\tr9=\""PFX"\""
                "\n\t\tr10=\""PFX"\"\n\t\tr11=\""PFX"\""
                "\n\t\tr12=\""PFX"\"\n\t\tr13=\""PFX"\""
                "\n\t\tr14=\""PFX"\"\n\t\tr15=\""PFX"\""
-#endif
+# endif /* X64 */
+#elif defined (ARM)
+               "\n\t\tr0=\"" PFX"\"\n\t\tr1=\"" PFX"\""
+               "\n\t\tr2=\"" PFX"\"\n\t\tr3=\"" PFX"\""
+               "\n\t\tr4=\"" PFX"\"\n\t\tr5=\"" PFX"\""
+               "\n\t\tr6=\"" PFX"\"\n\t\tr7=\"" PFX"\""
+               "\n\t\tr8=\"" PFX"\"\n\t\tr9=\"" PFX"\""
+               "\n\t\tr10=\""PFX"\"\n\t\tr11=\""PFX"\""
+               "\n\t\tr12=\""PFX"\"\n\t\tr13=\""PFX"\""
+               "\n\t\tr14=\""PFX"\"\n\t\tr15=\""PFX"\""
+# ifdef X64
+               "\n\t\tr16=\""PFX"\"\n\t\tr17=\""PFX"\""
+               "\n\t\tr18=\""PFX"\"\n\t\tr19=\""PFX"\""
+               "\n\t\tr20=\""PFX"\"\n\t\tr21=\""PFX"\""
+               "\n\t\tr22=\""PFX"\"\n\t\tr23=\""PFX"\""
+               "\n\t\tr24=\""PFX"\"\n\t\tr25=\""PFX"\""
+               "\n\t\tr26=\""PFX"\"\n\t\tr27=\""PFX"\""
+               "\n\t\tr28=\""PFX"\"\n\t\tr29=\""PFX"\""
+               "\n\t\tr30=\""PFX"\"\n\t\tr31=\""PFX"\""
+# endif /* X64 */
+#endif /* X86/ARM */
                :
                "priv_mcontext_t @"PFX"\n"
+#ifdef X86
                "\txax = "PFX"\n\txbx = "PFX"\n\txcx = "PFX"\n\txdx = "PFX"\n"
                "\txsi = "PFX"\n\txdi = "PFX"\n\txbp = "PFX"\n\txsp = "PFX"\n"
-#ifdef X64
+# ifdef X64
                "\tr8  = "PFX"\n\tr9  = "PFX"\n\tr10 = "PFX"\n\tr11 = "PFX"\n"
                "\tr12 = "PFX"\n\tr13 = "PFX"\n\tr14 = "PFX"\n\tr15 = "PFX"\n"
-#endif
+# endif /* X64 */
+#elif defined(ARM)
+               "\tr0  = "PFX"\n\tr1  = "PFX"\n\tr2  = "PFX"\n\tr3  = "PFX"\n"
+               "\tr4  = "PFX"\n\tr5  = "PFX"\n\tr6  = "PFX"\n\tr7  = "PFX"\n"
+               "\tr8  = "PFX"\n\tr9  = "PFX"\n\tr10 = "PFX"\n\tr11 = "PFX"\n"
+               "\tr12 = "PFX"\n\tr13 = "PFX"\n\tr14 = "PFX"\n\tr15 = "PFX"\n"
+# ifdef X64
+               "\tr16 = "PFX"\n\tr17 = "PFX"\n\tr18 = "PFX"\n\tr19 = "PFX"\n"
+               "\tr20 = "PFX"\n\tr21 = "PFX"\n\tr22 = "PFX"\n\tr23 = "PFX"\n"
+               "\tr24 = "PFX"\n\tr25 = "PFX"\n\tr26 = "PFX"\n\tr27 = "PFX"\n"
+               "\tr28 = "PFX"\n\tr29 = "PFX"\n\tr30 = "PFX"\n\tr31 = "PFX"\n"
+# endif /* X64 */
+#endif /* X86/ARM */
                ,
                context,
+#ifdef X86
                context->xax, context->xbx, context->xcx, context->xdx,
                context->xsi, context->xdi, context->xbp, context->xsp
-#ifdef X64
+# ifdef X64
                , context->r8,  context->r9,  context->r10,  context->r11,
                context->r12, context->r13, context->r14,  context->r15
-#endif
+# endif /* X64 */
+#elif defined(ARM)
+               context->r0,  context->r1,  context->r2,  context->r3,
+               context->r4,  context->r5,  context->r6,  context->r7,
+               context->r8,  context->r9,  context->r10, context->r11,
+               context->r12, context->r13, context->r14, context->r15
+# ifdef X64
+               , context->r16, context->r17, context->r18, context->r19,
+               context->r20, context->r21, context->r22, context->r23,
+               context->r24, context->r25, context->r26, context->r27,
+               context->r28, context->r29, context->r30, context->r31
+# endif /* X64 */
+#endif /* X86/ARM */
                );
+
+#ifdef X86
     if (preserve_xmm_caller_saved()) {
         int i, j;
         for (i=0; i<NUM_XMM_SAVED; i++) {
@@ -3108,6 +3194,11 @@ dump_mcontext(priv_mcontext_t *context, file_t f, bool dump_xml)
             }
         });
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
+
     print_file(f, dump_xml ?
                "\n\t\teflags=\""PFX"\"\n\t\tpc=\""PFX"\" />\n"
                :

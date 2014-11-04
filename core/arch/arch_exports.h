@@ -868,7 +868,7 @@ fcache_enter_func_t get_fcache_enter_shared_routine(dcontext_t *dcontext);
 
 /* Method of performing system call.
  * We assume that only one method is in use, except for 32-bit applications
- * on 64-bit linux kernels, which use both sys{enter,call} on the vsyscall
+ * on 64-bit x86 linux kernels, which use both sys{enter,call} on the vsyscall
  * page and inlined int (PR 286922).
  * For these apps, DR itself and global_do_syscall use int, but we
  * have both a do_syscall for the vsyscall and a separate do_int_syscall
@@ -884,6 +884,7 @@ enum {
 #ifdef WINDOWS
     SYSCALL_METHOD_WOW64,
 #endif
+    SYSCALL_METHOD_SVC, /* ARM */
 };
 #ifdef UNIX
 enum { SYSCALL_METHOD_LONGEST_INSTR = 2 }; /* to ensure safe patching */
@@ -1885,7 +1886,8 @@ void *_dynamorio_runtime_resolve(void);
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
 #endif /* X86/ARM */
 
-#define MCXT_SYSNUM_REG(mc)  ((mc)->IF_X86_ELSE(xax, r7))
+#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, r7))
+#define MCXT_FIRST_REG_FIELD(mc)  ((mc)->IF_X86_ELSE(xdi, r0))
 
 static inline
 reg_t
