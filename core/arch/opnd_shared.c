@@ -1762,8 +1762,10 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
      */
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask) &&
         offs < sizeof(unprotected_context_t)) {
+        /* FIXME i#1551: what's the default reg on ARM? */
+        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     ((basereg == REG_NULL) ? REG_XSI : basereg),
+                                     (IF_X86((basereg == REG_NULL) ? REG_XSI :) basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)(absolute ?
                                             dcontext->upcontext.separate_upcontext : 0))
@@ -1771,8 +1773,10 @@ dcontext_opnd_common(dcontext_t *dcontext, bool absolute, reg_id_t basereg,
     } else {
         if (offs >= sizeof(unprotected_context_t))
             offs -= sizeof(unprotected_context_t);
+        /* FIXME i#1551: what's the default reg on ARM? */
+        IF_ARM(ASSERT(absolute || basereg != REG_NULL));
         return opnd_create_base_disp(absolute ? REG_NULL :
-                                     ((basereg == REG_NULL) ? REG_XDI : basereg),
+                                     (IF_X86((basereg == REG_NULL) ? REG_XDI :) basereg),
                                      REG_NULL, 0,
                                      ((int)(ptr_int_t)
                                       (absolute ? dcontext : 0)) + offs, size);
