@@ -6072,6 +6072,13 @@ convert_to_NT_file_path(OUT wchar_t *buf, IN const char *fname,
     for (i = 0; i < size; i++) {
         if (buf[i] == L'/')
             buf[i] = L'\\';
+        /* Eliminate double slashes as we'll get STATUS_OBJECT_NAME_INVALID (i#1559) */
+        if (i > 1 && buf[i] == L'\\' && buf[i-1] == L'\\') {
+            int j;
+            for (j = i; j < size; j++)
+                buf[j] = buf[j+1];
+            ASSERT(buf[j] == L'\0');
+        }
     }
     return true;
 }
