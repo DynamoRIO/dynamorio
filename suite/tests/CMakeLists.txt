@@ -1147,11 +1147,12 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   set(ALREADY_REGEX OFF)
 
   rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${separate_script})
-  get_target_property(exepath ${exe} LOCATION${location_suffix})
-  # support running binaries that are not targets of this build
-  if (NOT exepath)
+  if (TARGET ${exe})
+    get_target_property(exepath ${exe} LOCATION${location_suffix})
+  else ()
+    # support running binaries that are not targets of this build
     set(exepath ${exe})
-  endif (NOT exepath)
+  endif ()
 
   if (DEFINED ${key}_expectbase)
     set(expectbase ${${key}_expectbase})
