@@ -48,6 +48,8 @@
 # Cmake version should be >= 2.6.4 b/c we use parentheses in conditionals.
 cmake_minimum_required(VERSION 2.6.4)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 option(TEST_LONG "run long set of tests")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -1055,6 +1057,8 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
     else (use_drinject)
       get_target_property(drrun_path drrun LOCATION${location_suffix})
     endif (use_drinject)
+    # CMake 3.x seems to put double slashes in there (xref i#1559)
+    string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
     if (DEBUG)
       set(cmd ${cmd} -debug)

@@ -201,6 +201,13 @@
 # should have a "_DR_" prefix.  Public functions and variables should have DynamoRIO
 # in the name.
 
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+  # XXX i#1557: update our code to satisfy the changes in 3.x
+  cmake_policy(PUSH)
+  cmake_policy(SET CMP0026 OLD)
+endif ()
+
 INCLUDEFILE make/utils_exposed.cmake
 
 if (UNIX)
@@ -1021,4 +1028,9 @@ endfunction (use_DynamoRIO_annotations target target_srcs)
 if (NOT DrMemoryFramework_DIR AND EXISTS "${DynamoRIO_DIR}/../drmemory/drmf")
   set(DrMemoryFramework_DIR "${DynamoRIO_DIR}/../drmemory/drmf")
   find_package(DrMemoryFramework)
+endif ()
+
+if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+    "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+  cmake_policy(POP)
 endif ()

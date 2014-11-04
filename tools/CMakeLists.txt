@@ -29,6 +29,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+include(../make/policies.cmake NO_POLICY_SCOPE)
+
 add_executable(run_in_bg run_in_bg.c)
 
 if (UNIX)
