@@ -152,10 +152,12 @@ typedef struct sigframe {
     char *pretcode;
     int sig;
     sigcontext_t sc;
+# ifdef X86
     /* Since 2.6.28, this fpstate has been unused and the real fpstate
      * is at the end of the struct so it can include xstate
      */
     struct _fpstate fpstate;
+# endif /* X86 */
     unsigned long extramask[_NSIG_WORDS-1];
     char retcode[RETCODE_SIZE];
     /* FIXME: this is a field I added, so our frame looks different from
@@ -236,13 +238,13 @@ typedef struct rt_sigframe {
  */
 typedef struct _sigpending_t {
     sigframe_rt_t rt_frame;
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     /* fpstate is no longer kept inside the frame, and is not always present.
      * if we delay we need to ensure we have room for it.
      * we statically keep room for full xstate in case we need it.
      */
     struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
-#endif
+#endif /* LINUX && X86 */
 #ifdef CLIENT_INTERFACE
     /* i#182/PR 449996: we provide the faulting access address for SIGSEGV, etc. */
     byte *access_address;

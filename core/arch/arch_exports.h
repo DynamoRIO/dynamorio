@@ -1380,6 +1380,8 @@ enum {
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
     SYSENTER_LENGTH = 2,
+    SVC_THUMB_LENGTH = 2, /* Thumb syscall instr */
+    SVC_ARM_LENGTH = 4,   /* ARM syscall instr */
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)

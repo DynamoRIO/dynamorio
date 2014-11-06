@@ -552,9 +552,10 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         "create_clone_record: thread "TIDFMT", pc "PFX"\n",
         record->caller_id, record->continuation_pc);
 
-#ifdef MACOS
+#ifdef X86
+# ifdef MACOS
     if (app_thread_xsp != NULL) {
-#endif
+# endif
         /* Set the thread stack to point to the dstack, below the clone record.
          * Note: it's glibc who sets up the arg to the thread start function;
          * the kernel just does a fork + stack swap, so we can get away w/ our
@@ -563,9 +564,13 @@ create_clone_record(dcontext_t *dcontext, reg_t *app_thread_xsp)
         /* i#754: set stack to be XSTATE aligned for saving YMM registers */
         ASSERT(ALIGNED(XSTATE_ALIGNMENT, REGPARM_END_ALIGN));
         *app_thread_xsp = ALIGN_BACKWARD(record, XSTATE_ALIGNMENT);
-#ifdef MACOS
+# ifdef MACOS
     }
-#endif
+# endif
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 
     return (void *) record;
 }
@@ -1746,6 +1751,7 @@ void
 sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
 {
     ASSERT(mc != NULL && sc != NULL);
+#ifdef X86
     mc->xax = sc->SC_XAX;
     mc->xbx = sc->SC_XBX;
     mc->xcx = sc->SC_XCX;
@@ -1756,7 +1762,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
     mc->xsp = sc->SC_XSP;
     mc->xflags = sc->SC_XFLAGS;
     mc->pc = (app_pc) sc->SC_XIP;
-#ifdef X64
+# ifdef X64
     mc->r8  = sc->SC_FIELD(r8);
     mc->r9  = sc->SC_FIELD(r9);
     mc->r10 = sc->SC_FIELD(r10);
@@ -1765,7 +1771,28 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
     mc->r13 = sc->SC_FIELD(r13);
     mc->r14 = sc->SC_FIELD(r14);
     mc->r15 = sc->SC_FIELD(r15);
-#endif
+# endif /* X64 */
+#elif defined (ARM)
+    mc->r0  = sc->SC_FIELD(arm_r0);
+    mc->r1  = sc->SC_FIELD(arm_r1);
+    mc->r2  = sc->SC_FIELD(arm_r2);
+    mc->r3  = sc->SC_FIELD(arm_r3);
+    mc->r4  = sc->SC_FIELD(arm_r4);
+    mc->r5  = sc->SC_FIELD(arm_r5);
+    mc->r6  = sc->SC_FIELD(arm_r6);
+    mc->r7  = sc->SC_FIELD(arm_r7);
+    mc->r8  = sc->SC_FIELD(arm_r8);
+    mc->r9  = sc->SC_FIELD(arm_r9);
+    mc->r10 = sc->SC_FIELD(arm_r10);
+    mc->r11 = sc->SC_FIELD(arm_fp);
+    mc->r12 = sc->SC_FIELD(arm_ip);
+    mc->r13 = sc->SC_FIELD(arm_sp);
+    mc->r14 = sc->SC_FIELD(arm_lr);
+    mc->r15 = sc->SC_FIELD(arm_pc);
+# ifdef X64
+#  error NYI on AArch64
+# endif /* X64 */
+#endif /* X86/ARM */
     sigcontext_to_mcontext_mm(mc, sc);
 }
 
@@ -1778,6 +1805,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
 void
 mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
 {
+#ifdef X86
     sc->SC_XAX = mc->xax;
     sc->SC_XBX = mc->xbx;
     sc->SC_XCX = mc->xcx;
@@ -1788,7 +1816,7 @@ mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
     sc->SC_XSP = mc->xsp;
     sc->SC_XFLAGS = mc->xflags;
     sc->SC_XIP = (ptr_uint_t) mc->pc;
-#ifdef X64
+# ifdef X64
     sc->SC_FIELD(r8)  = mc->r8;
     sc->SC_FIELD(r9)  = mc->r9;
     sc->SC_FIELD(r10) = mc->r10;
@@ -1797,7 +1825,28 @@ mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
     sc->SC_FIELD(r13) = mc->r13;
     sc->SC_FIELD(r14) = mc->r14;
     sc->SC_FIELD(r15) = mc->r15;
-#endif
+# endif /* X64 */
+#elif defined(ARM)
+    sc->SC_FIELD(arm_r0)  = mc->r0;
+    sc->SC_FIELD(arm_r1)  = mc->r1;
+    sc->SC_FIELD(arm_r2)  = mc->r2;
+    sc->SC_FIELD(arm_r3)  = mc->r3;
+    sc->SC_FIELD(arm_r4)  = mc->r4;
+    sc->SC_FIELD(arm_r5)  = mc->r5;
+    sc->SC_FIELD(arm_r6)  = mc->r6;
+    sc->SC_FIELD(arm_r7)  = mc->r7;
+    sc->SC_FIELD(arm_r8)  = mc->r8;
+    sc->SC_FIELD(arm_r9)  = mc->r9;
+    sc->SC_FIELD(arm_r10) = mc->r10;
+    sc->SC_FIELD(arm_fp)  = mc->r11;
+    sc->SC_FIELD(arm_ip)  = mc->r12;
+    sc->SC_FIELD(arm_sp)  = mc->r13;
+    sc->SC_FIELD(arm_lr)  = mc->r14;
+    sc->SC_FIELD(arm_pc)  = mc->r15;
+# ifdef X64
+#  error NYI on AArch64
+# endif /* X64 */
+#endif /* X86/ARM */
     mcontext_to_sigcontext_mm(sc, mc);
 }
 
@@ -1869,6 +1918,7 @@ thread_set_self_context(void *cxt)
 #endif
     memset(&frame, 0, sizeof(frame));
 #ifdef LINUX
+# ifdef X86
     /* We need room for full xstate if nec (this is x86=944, x64=832 bytes).
      * A real signal frame would be var-sized but we don't want to dynamically
      * allocate, and only the kernel looks at this, so no risk of some
@@ -1876,6 +1926,7 @@ thread_set_self_context(void *cxt)
      */
     struct _xstate __attribute__ ((aligned (AVX_ALIGNMENT))) xstate;
     frame.uc.uc_mcontext.fpstate = &xstate.fpstate;
+# endif /* X86 */
     frame.uc.uc_mcontext = *sc;
 #endif
     save_fpstate(dcontext, &frame);
@@ -1890,13 +1941,18 @@ thread_set_self_context(void *cxt)
     LOG(THREAD_GET, LOG_ASYNCH, 2, "thread_set_self_context: pc="PFX"\n", sc->SC_XIP);
     /* set up xsp to point at &frame + sizeof(char*) */
     xsp_for_sigreturn = ((app_pc)&frame) + sizeof(char*);
+#ifdef X86
     asm("mov  %0, %%"ASM_XSP : : "m"(xsp_for_sigreturn));
-#ifdef MACOS
+# ifdef MACOS
     ASSERT_NOT_IMPLEMENTED(false && "need to pass 2 params to SYS_sigreturn");
     asm("jmp _dynamorio_sigreturn");
-#else
+# else
     asm("jmp dynamorio_sigreturn");
-#endif
+# endif /* MACOS/LINUX */
+#elif defined(ARM)
+    asm("ldr  "ASM_XSP", %0" : : "m"(xsp_for_sigreturn));
+    asm("b    dynamorio_sigreturn");
+#endif /* X86/ARM */
     ASSERT_NOT_REACHED();
 }
 
@@ -2054,7 +2110,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
     }
     /* now get frame pointer: need to go down to first field of frame */
     sp -= get_app_frame_size(info, sig);
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     if (frame == NULL) {
         /* XXX i#641: we always include space for full xstate,
          * even if we don't use it all, which does not match what the
@@ -2078,7 +2134,7 @@ get_sigstack_frame_ptr(dcontext_t *dcontext, int sig, sigframe_rt_t *frame)
             });
         }
     }
-#endif
+#endif /* LINUX && X86 */
     /* PR 369907: don't forget the redzone */
     sp -= REDZONE_SIZE;
 
@@ -2097,10 +2153,13 @@ static void
 convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                        sigframe_plain_t *f_new)
 {
+# ifdef X86
     sigcontext_t *sc_old = get_sigcontext_from_rt_frame(f_old);
+# endif /* X86 */
     f_new->pretcode = f_old->pretcode;
     f_new->sig = f_old->sig;
     memcpy(&f_new->sc, get_sigcontext_from_rt_frame(f_old), sizeof(sigcontext_t));
+# ifdef X86
     if (sc_old->fpstate != NULL) {
         /* up to caller to include enough space for fpstate at end */
         byte *new_fpstate = (byte *)
@@ -2108,6 +2167,7 @@ convert_frame_to_nonrt(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
         memcpy(new_fpstate, sc_old->fpstate, XSTATE_DATA_SIZE);
         f_new->sc.fpstate = (struct _fpstate *) new_fpstate;
     }
+# endif /* X86 */
     f_new->sc.oldmask = f_old->uc.uc_sigmask.sig[0];
     memcpy(&f_new->extramask, &f_old->uc.uc_sigmask.sig[1],
            (_NSIG_WORDS-1) * sizeof(uint));
@@ -2122,10 +2182,15 @@ static void
 convert_frame_to_nonrt_partial(dcontext_t *dcontext, int sig, sigframe_rt_t *f_old,
                                sigframe_plain_t *f_new, size_t size)
 {
+# ifdef X86
     char frame_plus_xstate[sizeof(sigframe_plain_t) + AVX_FRAME_EXTRA];
     sigframe_plain_t *f_plain = (sigframe_plain_t *) frame_plus_xstate;
     convert_frame_to_nonrt(dcontext, sig, f_old, f_plain);
     memcpy(f_new, f_plain, size);
+# elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+# endif /* X86/ARM */
 }
 #endif
 
@@ -2183,7 +2248,8 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
     f_new->pinfo = &(f_new->info);
     f_new->puc = &(f_new->uc);
 #endif
-#ifdef LINUX
+#ifdef X86
+# ifdef LINUX
     if (f_old->uc.uc_mcontext.fpstate != NULL) {
         uint frame_size = get_app_frame_size(info, sig);
         byte *frame_end = ((byte *)f_new) + frame_size;
@@ -2215,12 +2281,13 @@ fixup_rtframe_pointers(dcontext_t *dcontext, int sig,
 #  endif
     /* 32-bit kernel copies to aligned buf first */
     IF_X64(ASSERT(ALIGNED(f_new->uc.uc_mcontext.fpstate, 16)));
-#elif defined(MACOS)
+# elif defined(MACOS)
     f_new->puc->uc_mcontext = (IF_X64_ELSE(_STRUCT_MCONTEXT64, _STRUCT_MCONTEXT32) *)
         &f_new->mc;
     LOG(THREAD, LOG_ASYNCH, 3, "\tf_new="PFX", handler="PFX"\n", f_new, &f_new->handler);
     ASSERT(!for_app || ALIGNED(&f_new->handler, 16));
-#endif /* LINUX */
+# endif /* LINUX */
+#endif /* X86 */
 }
 
 static void
@@ -2264,10 +2331,10 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
 #endif
     byte *check_pc;
     uint size = frame_size;
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     sigcontext_t *sc = get_sigcontext_from_rt_frame(frame);
     size += (sc->fpstate == NULL ? 0 : XSTATE_FRAME_EXTRA);
-#endif
+#endif /* LINUX && X86 */
 
     LOG(THREAD, LOG_ASYNCH, 3, "copy_frame_to_stack: rt=%d, src="PFX", sp="PFX"\n",
         rtframe, frame, sp);
@@ -2371,7 +2438,7 @@ copy_frame_to_stack(dcontext_t *dcontext, int sig, sigframe_rt_t *frame, byte *s
          * The inlined fpstate is no longer used on new kernels, and we do that
          * as well on older kernels.
          */
-        ASSERT(f_new->sc.fpstate != &f_new->fpstate);
+        IF_X86(ASSERT(f_new->sc.fpstate != &f_new->fpstate));
         LOG(THREAD, LOG_ASYNCH, 3, "\tretaddr = "PFX"\n", f_new->pretcode);
 #  ifdef RETURN_AFTER_CALL
         info->signal_restorer_retaddr = (app_pc) f_new->pretcode;
@@ -2401,7 +2468,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     sigframe_rt_t *dst = &(info->sigpending[sig]->rt_frame);
     memcpy_rt_frame(frame, (byte *)dst, false/*!already pending*/);
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     /* For lazy fpstate, it's possible there was no fpstate when the kernel
      * sent us the frame, but in between then and now the app executed some
      * fp or xmm/ymm instrs.  Today we always add fpstate just in case.
@@ -2418,7 +2485,7 @@ copy_frame_to_pending(dcontext_t *dcontext, int sig, sigframe_rt_t *frame
     }
     /* we must set the pointer now so that later save_fpstate, etc. work */
     dst->uc.uc_mcontext.fpstate = (struct _fpstate *) &info->sigpending[sig]->xstate;
-#endif
+#endif /* LINUX && X86 */
 
 #ifdef CLIENT_INTERFACE
     info->sigpending[sig]->access_address = access_address;
@@ -2456,12 +2523,12 @@ transfer_from_sig_handler_to_fcache_return(dcontext_t *dcontext, sigcontext_t *s
     /* x64 always uses shared gencode */
     get_local_state_extended()->spill_space.xax = sc->SC_XAX;
 #else
-    get_mcontext(dcontext)->xax = sc->SC_XAX;
+    get_mcontext(dcontext)->IF_X86_ELSE(xax, r0) = sc->IF_X86_ELSE(SC_XAX, SC_R0);
 #endif
-    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->SC_XAX);
+    LOG(THREAD, LOG_ASYNCH, 2, "\tsaved xax "PFX"\n", sc->IF_X86_ELSE(SC_XAX, SC_R0));
 
     dcontext->next_tag = next_pc;
-    sc->SC_XAX = (ptr_uint_t) last_exit;
+    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) last_exit;
     LOG(THREAD, LOG_ASYNCH, 2,
         "\tset next_tag to "PFX", resuming in fcache_return\n", next_pc);
 }
@@ -2610,27 +2677,54 @@ abort_on_fault(dcontext_t *dcontext, uint dumpcore_flag, app_pc pc, sigcontext_t
         "%s %s at PC "PFX"\n"
         "Received SIG%s at%s pc "PFX" in thread "TIDFMT"\n"
         "Base: "PFX"\n"
-        "Registers: eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
+        "Registers:"
+#ifdef X86
+        "eax="PFX" ebx="PFX" ecx="PFX" edx="PFX"\n"
         "\tesi="PFX" edi="PFX" esp="PFX" ebp="PFX"\n"
-#ifdef X64
+# ifdef X64
         "\tr8 ="PFX" r9 ="PFX" r10="PFX" r11="PFX"\n"
         "\tr12="PFX" r13="PFX" r14="PFX" r15="PFX"\n"
-#endif
+# endif /* X64 */
+#elif defined(ARM)
+# ifndef X64
+        "  r0 ="PFX" r1 ="PFX" r2 ="PFX" r3 ="PFX"\n"
+        "\tr4 ="PFX" r5 ="PFX" r6 ="PFX" r7 ="PFX"\n"
+        "\tr8 ="PFX" r9 ="PFX" r10="PFX" r11="PFX"\n"
+        "\tr12="PFX" r13="PFX" r14="PFX" r15="PFX"\n"
+# else
+#  error NYI on AArch64
+# endif
+#endif /* X86/ARM */
         "\teflags="PFX;
 
     report_dynamorio_problem(dcontext, dumpcore_flag,
-                             pc, (app_pc) sc->SC_XBP,
+                             pc, (app_pc) sc->SC_FP,
                              fmt, prefix, CRASH_NAME, pc,
                              signame, where, pc, get_thread_id(),
                              get_dynamorio_dll_start(),
+#ifdef X86
                              sc->SC_XAX, sc->SC_XBX, sc->SC_XCX, sc->SC_XDX,
                              sc->SC_XSI, sc->SC_XDI, sc->SC_XSP, sc->SC_XBP,
-#ifdef X64
+# ifdef X64
                              sc->SC_FIELD(r8), sc->SC_FIELD(r9),
                              sc->SC_FIELD(r10), sc->SC_FIELD(r11),
                              sc->SC_FIELD(r12), sc->SC_FIELD(r13),
                              sc->SC_FIELD(r14), sc->SC_FIELD(r15),
-#endif
+# endif /* X86 */
+#elif defined(ARM)
+# ifndef X64
+                             sc->SC_FIELD(arm_r0),  sc->SC_FIELD(arm_r1),
+                             sc->SC_FIELD(arm_r2),  sc->SC_FIELD(arm_r3),
+                             sc->SC_FIELD(arm_r4),  sc->SC_FIELD(arm_r5),
+                             sc->SC_FIELD(arm_r6),  sc->SC_FIELD(arm_r7),
+                             sc->SC_FIELD(arm_r8),  sc->SC_FIELD(arm_r9),
+                             sc->SC_FIELD(arm_r10), sc->SC_FIELD(arm_fp),
+                             sc->SC_FIELD(arm_ip),  sc->SC_FIELD(arm_sp),
+                             sc->SC_FIELD(arm_lr),  sc->SC_FIELD(arm_pc),
+# else
+#  error NYI on AArch64
+# endif /* X64 */
+#endif /* X86/ARM */
                              sc->SC_XFLAGS);
     os_terminate(dcontext, TERMINATE_PROCESS);
     ASSERT_NOT_REACHED();
@@ -2756,7 +2850,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
     byte *pc = (byte *) sc->SC_XIP;
     instr_t instr;
 
-    if (sc->SC_XAX != -EINTR) {
+    if (sc->IF_X86_ELSE(SC_XAX, SC_R0) != -EINTR) {
         /* The syscall succeeded, so no reason to interrupt.
          * Some syscalls succeed on a signal coming in.
          * E.g., SYS_wait4 on SIGCHLD, or reading from a slow device.
@@ -2797,9 +2891,10 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             });
             instr_reset(dcontext, &instr);
             pc = decode(dcontext, pc, &instr);
-            if (instr_get_opcode(&instr) == OP_mov_imm &&
+            if (instr_get_opcode(&instr) == IF_X86_ELSE(OP_mov_imm, OP_mov) &&
                 opnd_is_reg(instr_get_dst(&instr, 0)) &&
-                opnd_get_reg(instr_get_dst(&instr, 0)) == REG_EAX &&
+                opnd_get_reg(instr_get_dst(&instr, 0)) ==
+                IF_X86_ELSE(REG_EAX /* must be EAX not XAX! */, DR_REG_R7) &&
                 opnd_is_immed_int(instr_get_src(&instr, 0))) {
                 sysnum = (int) opnd_get_immed_int(instr_get_src(&instr, 0));
                 /* don't break: find last one before syscall */
@@ -2811,14 +2906,14 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
         ASSERT(sysnum > -1);
    } else {
         /* do_syscall => eax should be in mcontext */
-        sysnum = (int) get_mcontext(dcontext)->xax;
+        sysnum = (int) MCXT_SYSNUM_REG(get_mcontext(dcontext));
     }
     LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall # is %d\n", __FUNCTION__, sysnum);
     if (sysnum_is_not_restartable(sysnum)) {
         LOG(THREAD, LOG_ASYNCH, 2, "%s: syscall is non-restartable\n", __FUNCTION__);
         return false;
     }
-    sc->SC_XAX = sysnum;
+    sc->SC_SYSNUM_REG = sysnum;
 
     /* Now adjust the pc to point at the syscall instruction instead of after it,
      * so when we resume we'll go back to the syscall.
@@ -2826,6 +2921,7 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
      * XXX: this is a transparency issue: the app might expect a pc after the
      * syscall.  We live with it for now.
      */
+#ifdef X86
     ASSERT(INT_LENGTH == SYSCALL_LENGTH &&
            INT_LENGTH == SYSENTER_LENGTH);
     if (pc == vsyscall_sysenter_return_pc) {
@@ -2852,6 +2948,17 @@ adjust_syscall_for_restart(dcontext_t *dcontext, thread_sig_info_t *info, int si
             ASSERT_NOT_REACHED();
         instr_free(dcontext, &instr);
     }
+#elif defined(ARM)
+    int svc_length = dr_get_isa_mode(dcontext) == DR_ISA_ARM_THUMB ?
+        SVC_THUMB_LENGTH : SVC_ARM_LENGTH;
+    instr_init(dcontext, &instr);
+    pc = decode(dcontext, pc - svc_length, &instr);
+    if (instr_is_syscall(&instr))
+        sc->SC_XIP -= svc_length;
+    else
+        ASSERT_NOT_REACHED();
+    instr_free(dcontext, &instr);
+#endif /* X86/ARM */
     LOG(THREAD, LOG_ASYNCH, 2, "%s: sigreturn pc is now "PFX"\n", __FUNCTION__,
         sc->SC_XIP);
     return true;
@@ -3999,7 +4106,7 @@ execute_handler_from_cache(dcontext_t *dcontext, int sig, sigframe_rt_t *our_fra
     RSTATS_INC(num_signals);
 
     /* now that we know it's not a client-involved fault, dump as app fault */
-    report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_XBP,
+    report_app_problem(dcontext, APPFAULT_FAULT, (byte *)sc->SC_XIP, (byte *)sc->SC_FP,
                        "\nSignal %d delivered to application handler.\n", sig);
 
     LOG(THREAD, LOG_ASYNCH, 3, "\txsp is "PFX"\n", xsp);
@@ -4133,10 +4240,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     /* FIXME: we should clear fpstate for app handler itself as that's
      * how our own handler is executed.
      */
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     ASSERT(sc->fpstate != NULL); /* not doing i#641 yet */
     save_fpstate(dcontext, frame);
-#endif
+#endif /* LINUX && X86 */
 #ifdef DEBUG
     if (stats->loglevel >= 3 && (stats->logmask & LOG_ASYNCH) != 0) {
         LOG(THREAD, LOG_ASYNCH, 3, "new sigcontext "PFX":\n", sc);
@@ -4234,8 +4341,10 @@ execute_handler_from_dispatch(dcontext_t *dcontext, int sig)
     mcontext->xsi = (reg_t) &((sigframe_rt_t *)xsp)->info;
     mcontext->xdx = (reg_t) &((sigframe_rt_t *)xsp)->uc;
 #endif
+#ifdef X86
     /* Clear eflags DF (signal handler should match function entry ABI) */
     mcontext->xflags &= ~EFLAGS_DF;
+#endif
     /* Make sure handler is next thing we execute */
     dcontext->next_tag = (app_pc) SIGACT_PRIMARY_HANDLER(info->app_sigaction[sig]);
 
@@ -4391,7 +4500,7 @@ execute_default_action(dcontext_t *dcontext, int sig, sigframe_rt_t *frame,
         }
         if (default_action[sig] == DEFAULT_TERMINATE ||
             default_action[sig] == DEFAULT_TERMINATE_CORE) {
-            report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_XBP,
+            report_app_problem(dcontext, APPFAULT_CRASH, pc, (byte *)sc->SC_FP,
                                "\nSignal %d delivered to application as default action.\n",
                                sig);
             /* N.B.: we don't have to restore our handler because the
@@ -4747,9 +4856,9 @@ handle_sigreturn(dcontext_t *dcontext, void *ucxt_param, int style)
     sigcontext_to_mcontext(get_mcontext(dcontext), sc);
 #else
     /* HACK to get eax put into mcontext AFTER do_syscall */
-    dcontext->next_tag = (app_pc) sc->SC_XAX;
+    dcontext->next_tag = (app_pc) sc->IF_X86_ELSE(SC_XAX, SC_R0);
     /* use special linkstub so we know why we came out of the cache */
-    sc->SC_XAX = (ptr_uint_t) get_sigreturn_linkstub();
+    sc->IF_X86_ELSE(SC_XAX, SC_R0) = (ptr_uint_t) get_sigreturn_linkstub();
 
     /* set our sigreturn context to point to fcache_return */
     sc->SC_XIP = (ptr_uint_t) fcache_return_routine(dcontext);
@@ -4841,7 +4950,7 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
 #ifdef LINUX
     thread_sig_info_t *info = (thread_sig_info_t *) dcontext->signal_field;
 #endif
-    char frame_plus_xstate[sizeof(sigframe_rt_t) + AVX_FRAME_EXTRA];
+    char frame_plus_xstate[sizeof(sigframe_rt_t)IF_X86( + AVX_FRAME_EXTRA)];
     sigframe_rt_t *frame = (sigframe_rt_t *) frame_plus_xstate;
     int sig;
     where_am_i_t cur_whereami = dcontext->whereami;
@@ -4865,10 +4974,10 @@ os_forge_exception(app_pc target_pc, dr_exception_type_t type)
     frame->pinfo = &frame->info;
     frame->puc = (void *) &frame->uc;
 #endif
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     sc->fpstate = (struct _fpstate *)
         ALIGN_FORWARD(frame_plus_xstate + sizeof(*frame), XSTATE_ALIGNMENT);
-#endif
+#endif /* LINUX && X86 */
     mcontext_to_sigcontext(sc, get_mcontext(dcontext));
     sc->SC_XIP = (reg_t) target_pc;
     /* we'll fill in fpstate at delivery time
@@ -5494,15 +5603,16 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
     ASSERT(ostd != NULL);
 
     if (ostd->terminate) {
+#ifdef X86
          /* PR 297902: exit this thread, without using any stack */
-#ifdef MACOS
+# ifdef MACOS
         /* We need a stack as 32-bit syscalls take args on the stack.
          * We go ahead and use it for x64 too for simpler sysenter return.
          * We don't have a lot of options: we're terminating, so we go ahead
          * and use the app stack.
          */
         byte *app_xsp = (byte *) get_mcontext(dcontext)->xsp;
-#endif
+# endif
         LOG(THREAD, LOG_ASYNCH, 2, "handle_suspend_signal: exiting\n");
         if (ksynch_kernel_support()) {
             /* can't use stack once set terminated to 1 so in asm we do:
@@ -5510,31 +5620,35 @@ handle_suspend_signal(dcontext_t *dcontext, kernel_ucontext_t *ucxt)
              *   futex_wake_all(&ostd->terminated in xax);
              *   semaphore_signal_all(&ostd->terminated in xax);
              */
-#ifdef MACOS
+# ifdef MACOS
             KSYNCH_TYPE *term = &ostd->terminated;
             ASSERT(sizeof(ostd->terminated.sem) == 4);
-#else
+# else
             volatile int *term = &ostd->terminated;
-#endif
+# endif
             asm("mov %0, %%"ASM_XAX : : "m"(term));
-#ifdef MACOS
+# ifdef MACOS
             asm("movl $1,4(%"ASM_XAX")");
             asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
             asm("jmp _dynamorio_semaphore_signal_all");
-#else
+# else
             asm("movl $1,(%"ASM_XAX")");
             asm("jmp dynamorio_futex_wake_and_exit");
-#endif
+# endif
         } else {
             ksynch_set_value(&ostd->terminated, 1);
-#ifdef MACOS
+# ifdef MACOS
             asm("mov %0, %%"ASM_XSP : : "m"(app_xsp));
             asm("jmp _dynamorio_sys_exit");
-#else
+# else
             asm("jmp dynamorio_sys_exit");
-#endif
+# endif
         }
         ASSERT_NOT_REACHED();
+#elif defined(ARM)
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
         return false;
     }
 

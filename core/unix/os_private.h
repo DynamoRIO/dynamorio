@@ -47,17 +47,21 @@
 #include "dr_config.h" /* for dr_platform_t */
 
 /* for inline asm */
-#ifdef X64
-# define ASM_XAX "rax"
-# define ASM_XDX "rdx"
-# define ASM_XBP "rbp"
-# define ASM_XSP "rsp"
-#else
-# define ASM_XAX "eax"
-# define ASM_XDX "edx"
-# define ASM_XBP "ebp"
-# define ASM_XSP "esp"
-#endif
+#ifdef X86
+# ifdef X64
+#  define ASM_XAX "rax"
+#  define ASM_XDX "rdx"
+#  define ASM_XBP "rbp"
+#  define ASM_XSP "rsp"
+# else
+#  define ASM_XAX "eax"
+#  define ASM_XDX "edx"
+#  define ASM_XBP "ebp"
+#  define ASM_XSP "esp"
+# endif
+#elif defined(ARM)
+# define ASM_XSP "sp"
+#endif /* X86/ARM */
 
 /* PR 212090: the signal we use to suspend threads */
 #define SUSPEND_SIGNAL SIGUSR2

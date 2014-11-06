@@ -317,11 +317,19 @@ typedef struct sigcontext sigcontext_t;
 #  define SC_XDI SC_FIELD(edi)
 #  define SC_XFLAGS SC_FIELD(eflags)
 # endif /* 64/32-bit */
+# define SC_FP SC_XBP
+# define SC_SYSNUM_REG SC_XAX
 #elif defined(ARM)
 # ifdef X64
 #  error 64-bit ARM is not supported
 # else
 #  define SC_XIP SC_FIELD(arm_pc)
+#  define SC_XSP SC_FIELD(arm_sp)
+#  define SC_FP  SC_FIELD(arm_fp)
+#  define SC_R0  SC_FIELD(arm_r0)
+#  define SC_R7  SC_FIELD(arm_r7)
+#  define SC_XFLAGS SC_FIELD(arm_cpsr)
+#  define SC_SYSNUM_REG SC_R7
 # endif /* 64/32-bit */
 #endif /* X86/ARM */
 void *
