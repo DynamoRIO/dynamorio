@@ -1114,6 +1114,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_3b:
     case OPSZ_4b:
     case OPSZ_5b:
+    case OPSZ_6b:
         return 1;
     case OPSZ_2_of_8:
     case OPSZ_2_of_16:
@@ -1139,6 +1140,7 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4_rex8:
     case OPSZ_4:
     case OPSZ_4_reg16: /* mem size */
+    case OPSZ_25b: /* round up */
         return 4;
     case OPSZ_6_irex10_short4: /* default size */
     case OPSZ_6:
@@ -1227,8 +1229,10 @@ opnd_size_in_bits(opnd_size_t size)
     case OPSZ_3b:  return 3;
     case OPSZ_4b:  return 4;
     case OPSZ_5b:  return 5;
+    case OPSZ_6b:  return 6;
     case OPSZ_12b: return 12;
     case OPSZ_21b: return 21;
+    case OPSZ_25b: return 25;
     default:       return opnd_size_in_bytes(size) * 8;
     }
 }

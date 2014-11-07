@@ -157,6 +157,8 @@ enum {
     TYPE_V_A,   /* A32-7,19:16  = Vn: some (bottom) part of 128-bit src reg */
     TYPE_V_B,   /* A32-22,15:12 = Vd: some (bottom) part of 128-bit dst reg */
     TYPE_V_C,   /* A32-5,3:0    = Vm: some (bottom) part of 128-bit src reg */
+    TYPE_V_C_3b,/* A32-2:0      = Vm<2:0>: some (bottom) part of 128-bit src reg */
+    TYPE_V_C_4b,/* A32-3:0      = Vm<3:0>: some (bottom) part of 128-bit src reg */
     TYPE_W_A,   /* A32-19:16,7  = Vn VFP non-double: part of 128-bit src reg */
     TYPE_W_B,   /* A32-15:12,22 = Vd VFP non-double: part of 128-bit dst reg */
     TYPE_W_C,   /* A32-3:0,5    = Vm VFP non-double: part of 128-bit src reg */
@@ -166,6 +168,7 @@ enum {
     TYPE_CPSR, /* Current Program Status Register */
     TYPE_FPSCR, /* Floating Point Status and Control Register */
     TYPE_LR, /* Link register */
+    TYPE_SP, /* Stack pointer */
 
     /* FIXME i#1551: some immediates have built-in shifting or scaling: we
      * need to add handling for that.
@@ -177,11 +180,17 @@ enum {
     TYPE_I_b0,
     TYPE_NI_b0, /* negated immed */
     TYPE_I_b3,
+    TYPE_I_b4,
     TYPE_I_b5,
+    TYPE_I_b6,
     TYPE_I_b7,
     TYPE_I_b8,
+    TYPE_I_b9,
     TYPE_I_b10,
     TYPE_I_b16,
+    TYPE_I_b17,
+    TYPE_I_b18,
+    TYPE_I_b19,
     TYPE_I_b20,
     TYPE_I_b0_b8,
     TYPE_NI_b0_b8, /* negated immed */
@@ -189,19 +198,28 @@ enum {
     TYPE_I_b16_b9,
     TYPE_I_b16_b8,
     TYPE_I_b0_b5,  /* OP_cvt: immed is either 32 or 16 minus [3:0,5] */
+    TYPE_I_b0_b24, /* OP_blx imm24:H:0 */
+    TYPE_I_b5_b3,  /* OP_vmla scalar: M:Vm<3> */
     TYPE_I_b21,    /* OP_vmov */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
+    TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
 
     TYPE_SHIFT_b5,
     TYPE_SHIFT_b6,    /* value is :0 */
     TYPE_SHIFT_LSL,   /* shift logical left */
     TYPE_SHIFT_ASR,   /* shift arithmetic right */
 
-    TYPE_L_8,   /* 8-bit register list */
-    TYPE_L_13,  /* 13-bit register list */
-    TYPE_L_16,  /* 16-bit register list */
+    TYPE_L_8b,  /* 8-bit register list */
+    TYPE_L_13b, /* 13-bit register list */
+    TYPE_L_16b, /* 16-bit register list */
     TYPE_L_CONSEC, /* Consecutive multimedia regs: dword count in immed 7:0 */
+    TYPE_L_VBx2,  /* 2 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx3,  /* 3 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx4,  /* 4 consecutive multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx2D, /* 2 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx3D, /* 3 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VBx4D, /* 4 doubly-spaced multimedia regs starting at TYPE_V_B */
 
     /* All memory addressing modes use fixed base and index registers:
      * A32: base  = RD 19:16 ("Rn" in manual)
@@ -246,6 +264,8 @@ enum {
     TYPE_M_UP_OFFS,   /* mem w/ base plus ptr-sized disp */
     TYPE_M_DOWN,      /* mem w/ base pointing at endpoint */
     TYPE_M_DOWN_OFFS, /* mem w/ base minus ptr-sized disp pointing at endpoint */
+
+    TYPE_K,    /* integer constant, size ignored, value stored in size */
 
    /* when adding new types, update type_names[] in encode.c */
 };

@@ -260,7 +260,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_FPSCR:
         array[(*counter)++] = opnd_create_reg(DR_REG_FPSCR);
         return true;
-    case TYPE_L_16:
+    case TYPE_L_16b:
         for (i = 0; i < 16; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
                 array[(*counter)++] = opnd_create_reg(DR_REG_START_GPR + i);
