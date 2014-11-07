@@ -183,11 +183,11 @@ sub generate_entry($,$,$,$,$,$)
 
     # Floating-point precision bit: bit 8 == "sz"
     if ($simd && $enc =~ / sz /) {
-        $other_name = $name . ".F32";
+        $other_name = $name . ".f32";
         $other_enc = $enc;
         $other_enc =~ s/ sz / sz=0 /;
         generate_entry($other_name, $asm, $other_enc, $opc, $rest, $PUW);
-        $name .= ".F64";
+        $name .= ".f64";
         $enc =~ s/ sz / sz=1 /;
         $hexopc |= 0x100;
     }
