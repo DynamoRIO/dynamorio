@@ -340,8 +340,9 @@ enum {
     /* OPSZ_ constants not exposed to the user so ok to be shifted
      * by additions above
      */
-    OPSZ_2_of_8 = OPSZ_LAST,  /* 16 bits, but can be part of an MMX register */
-    OPSZ_SUBREG_START = OPSZ_2_of_8,
+    OPSZ_1_of_8 = OPSZ_LAST,  /* 8 bits, but can be part of an MMX register */
+    OPSZ_SUBREG_START = OPSZ_1_of_8,
+    OPSZ_2_of_8,  /* 16 bits, but can be part of MMX register */
     OPSZ_4_of_8,  /* 32 bits, but can be half of MMX register */
     OPSZ_1_of_16, /* 8 bits, but can be part of XMM register */
     OPSZ_2_of_16, /* 16 bits, but can be part of XMM register */
