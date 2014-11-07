@@ -122,6 +122,21 @@
 # define SYSNUM_EXIT_THREAD SYS_exit
 #endif
 
+/* This is not always sufficient to identify a syscall return value.
+ * For example, MacOS has some 32-bit syscalls that return 64-bit
+ * values in xdx:xax.
+ */
+#define MCXT_SYSCALL_RES(mc) ((mc)->IF_X86_ELSE(xax, r0))
+#ifdef ARM
+# ifdef X64
+#  define ASM_R3 "x3"
+#  define READ_TP_TO_R3  "mrs  "ASM_R3", tpidrro_el0 \n\t" /* read TPIDRRO_EL0 */
+# else
+#  define ASM_R3 "r3"
+#  define READ_TP_TO_R3  "mrc  p15, 0, "ASM_R3", c13, c0, 2 \n\t" /* read TPIDRURW */
+# endif /* 64/32-bit */
+#endif /* ARM */
+
 /* Prototype for all functions in .init_array. */
 typedef int (*init_fn_t)(int argc, char **argv, char **envp);
 
@@ -136,10 +151,8 @@ char **our_environ;
 #undef errno
 /* we define __set_errno below */
 
-#ifdef X86
 /* must be prior to <link.h> => <elf.h> => INT*_{MIN,MAX} */
 # include "instr.h" /* for get_app_segment_base() */
-#endif
 
 #include "decode_fast.h" /* decode_cti: maybe os_handle_mov_seg should be ifdef X86? */
 
@@ -370,6 +383,16 @@ __errno_location(void) {
  * the calculated address is wrong.
  * We first get the errno offset in TLS at init time and
  * calculate correct address by adding the app's tls base.
+ */
+/* __errno_location on ARM:
+ * 0xb6f0b290 <__errno_location>:    ldr r3, [pc, #12]
+ * 0xb6f0b292 <__errno_location+2>:  mrc 15, 0, r0, cr13, cr0, {3}
+ * 0xb6f0b296 <__errno_location+6>:  add r3, pc
+ * 0xb6f0b298 <__errno_location+8>:  ldr r3, [r3, #0]
+ * 0xb6f0b29a <__errno_location+10>: adds r0, r0, r3
+ * 0xb6f0b29c <__errno_location+12>: bx lr
+ * It uses the predefined offset to get errno location in TLS,
+ * and we should be able to reuse the code here.
  */
 static int libc_errno_tls_offs;
 static int *
@@ -1153,18 +1176,19 @@ os_timeout(int time_in_milliseconds)
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
-#define WRITE_TLS_SLOT_IMM(imm, var)                                  \
+#ifdef X86
+# define WRITE_TLS_SLOT_IMM(imm, var)                                 \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                            \
     ASSERT(sizeof(var) == sizeof(void*));                             \
     asm volatile("mov %0, %"ASM_SEG":%c1" : : "r"(var), "i"(imm));
 
-#define READ_TLS_SLOT_IMM(imm, var)                  \
+# define READ_TLS_SLOT_IMM(imm, var)                 \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());           \
     ASSERT(sizeof(var) == sizeof(void*));            \
     asm volatile("mov %"ASM_SEG":%c1, %0" : "=r"(var) : "i"(imm));
 
 /* FIXME: need dedicated-storage var for _TLS_SLOT macros, can't use expr */
-#define WRITE_TLS_SLOT(idx, var)                            \
+# define WRITE_TLS_SLOT(idx, var)                           \
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());                  \
     ASSERT(sizeof(var) == sizeof(void*));                   \
     ASSERT(sizeof(idx) == 2);                               \
@@ -1172,12 +1196,42 @@ os_timeout(int time_in_milliseconds)
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XDX : : "m"((idx)) : ASM_XDX); \
     asm("mov %%"ASM_XAX", %"ASM_SEG":(%%"ASM_XDX")" : : : ASM_XAX, ASM_XDX);
 
-#define READ_TLS_SLOT(idx, var)                                    \
+# define READ_TLS_SLOT(idx, var)                                   \
     ASSERT(sizeof(var) == sizeof(void*));                          \
     ASSERT(sizeof(idx) == 2);                                      \
     asm("movzw"IF_X64_ELSE("q","l")" %0, %%"ASM_XAX : : "m"((idx)) : ASM_XAX); \
     asm("mov %"ASM_SEG":(%%"ASM_XAX"), %%"ASM_XAX : : : ASM_XAX);  \
     asm("mov %%"ASM_XAX", %0" : "=m"((var)) : : ASM_XAX);
+#elif defined(ARM)
+# define WRITE_TLS_SLOT_IMM(imm, var) \
+    __asm__ __volatile__(             \
+      READ_TP_TO_R3                   \
+      "str %0, ["ASM_R3", %1] \n\t"   \
+      : : "r" (var), "i" (imm)        \
+      : "memory", ASM_R3);
+# define READ_TLS_SLOT_IMM(imm, var) \
+    __asm__ __volatile__(            \
+      READ_TP_TO_R3                  \
+      "ldr %0, ["ASM_R3", %1] \n\t"  \
+      : "=r" (var)                   \
+      : "i" (imm)                    \
+      : ASM_R3);
+# define WRITE_TLS_SLOT(idx, var)            \
+    __asm__ __volatile__(                    \
+      READ_TP_TO_R3                          \
+      "add "ASM_R3", "ASM_R3", %1 \n\t"      \
+      "str %0, ["ASM_R3"]   \n\t"            \
+      : : "r" (var), "r" (idx * sizeof(var)) \
+      : "memory", ASM_R3);
+# define READ_TLS_SLOT(idx, var)          \
+    __asm__ __volatile__(                 \
+      READ_TP_TO_R3                       \
+      "add "ASM_R3", "ASM_R3", %1 \n\t"   \
+      "ldr %0, ["ASM_R3"]   \n\t"         \
+      : "=r" (var)                        \
+      : "r"  (idx * sizeof(var))          \
+      : ASM_R3);
+#endif /* X86/ARM */
 
 /* FIXME: assumes that fs/gs is not already in use by app */
 static bool
@@ -1228,13 +1282,17 @@ os_get_dr_seg_base(dcontext_t *dcontext, reg_id_t seg)
     os_thread_data_t *ostd;
 
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
-    ASSERT(seg == SEG_FS || seg == SEG_GS);
+    /* FIXME i#1551: we need a better alias name for FS/GS on X86 and
+     * DR_REG_TPIDRURW/DR_REG_TPIDRURO on ARM.
+     */
+    ASSERT(seg == SEG_TLS || seg == LIB_SEG_TLS);
+
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
     if (dcontext == NULL)
         return NULL;
     ostd = (os_thread_data_t *)dcontext->os_field;
-    if (seg == SEG_FS)
+    if (seg == IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW))
         return ostd->dr_fs_base;
     else
         return ostd->dr_gs_base;
@@ -1269,7 +1327,8 @@ os_get_app_seg_base(dcontext_t *dcontext, reg_id_t seg)
 {
     os_local_state_t *os_tls;
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
-    ASSERT(seg == SEG_FS || seg == SEG_GS);
+    ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
+                       (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
     if (dcontext == NULL)
         dcontext = get_thread_private_dcontext();
     if (dcontext == NULL) {
@@ -1280,23 +1339,25 @@ os_get_app_seg_base(dcontext_t *dcontext, reg_id_t seg)
         return get_segment_base(seg);
     }
     os_tls = get_os_tls_from_dc(dcontext);
-    if (seg == SEG_FS)
+    if (seg == IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW))
         return os_tls->app_fs_base;
     else
         return os_tls->app_gs_base;
-    ASSERT_NOT_REACHED();
     return NULL;
 }
 
 ushort
 os_get_app_seg_base_offset(reg_id_t seg)
 {
+#ifdef X86
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
     if (seg == SEG_FS)
         return TLS_APP_FS_BASE_OFFSET;
     else if (seg == SEG_GS)
         return TLS_APP_GS_BASE_OFFSET;
+#endif
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
     return 0;
 }
@@ -1304,12 +1365,15 @@ os_get_app_seg_base_offset(reg_id_t seg)
 ushort
 os_get_app_seg_offset(reg_id_t seg)
 {
+#ifdef X86
     IF_NOT_HAVE_TLS(ASSERT_NOT_REACHED());
     ASSERT(TLS_LOCAL_STATE_OFFSET == 0);
     if (seg == SEG_FS)
         return TLS_APP_FS_OFFSET;
     else if (seg == SEG_GS)
         return TLS_APP_GS_OFFSET;
+#endif
+    /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_REACHED();
     return 0;
 }
@@ -1329,7 +1393,6 @@ set_tls(ushort tls_offs, void *value)
 }
 
 
-#ifdef X86
 /* Returns POINTER_MAX on failure.
  * Assumes that cs, ss, ds, and es are flat.
  * Should we export this to clients?  For now they can get
@@ -1338,14 +1401,15 @@ set_tls(ushort tls_offs, void *value)
 byte *
 get_segment_base(uint seg)
 {
+#ifdef X86
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
-    else {
-# ifdef HAVE_TLS
-        return tls_get_fs_gs_segment_base(seg);
-# endif /* HAVE_TLS */
-    }
+#endif
+#ifdef HAVE_TLS
+    return tls_get_fs_gs_segment_base(seg);
+#else
     return (byte *) POINTER_MAX;
+#endif /* HAVE_TLS */
 }
 
 /* i#572: handle opnd_compute_address to return the application
@@ -1354,14 +1418,15 @@ get_segment_base(uint seg)
 byte *
 get_app_segment_base(uint seg)
 {
+#ifdef X86
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
+#endif /* X86 */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
         return get_tls(os_get_app_seg_base_offset(seg));
     }
     return get_segment_base(seg);
 }
-#endif
 
 local_state_extended_t *
 get_local_state_extended()
@@ -1389,6 +1454,7 @@ get_local_state()
 void
 os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
 {
+#ifdef X86
     instr_t instr;
     opnd_t opnd;
     reg_id_t seg;
@@ -1438,6 +1504,10 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
     LOG(THREAD_GET, LOG_THREADS, 2,
         "thread "TIDFMT" segment change %s to selector 0x%x => app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), reg_names[seg], sel, os_tls->app_fs_base, os_tls->app_gs_base);
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+#endif /* X86/ARM */
 }
 
 /* initialization for mangle_app_seg, must be called before
@@ -1446,6 +1516,7 @@ os_handle_mov_seg(dcontext_t *dcontext, byte *pc)
 static void
 os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
 {
+#ifdef X86
     int i, index;
     our_modify_ldt_t *desc;
     app_pc app_fs_base, app_gs_base;
@@ -1481,17 +1552,21 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     os_tls->os_seg_info.dr_gs_base = IF_X64_ELSE(segment, NULL);
     /* now allocate the tls segment for client libraries */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false)) {
-#ifdef X64
+# ifdef X64
         os_tls->os_seg_info.dr_fs_base = privload_tls_init(os_tls->app_fs_base);
-#else
+# else
         os_tls->os_seg_info.dr_gs_base = privload_tls_init(os_tls->app_gs_base);
-#endif
+# endif
     }
 
     LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" app fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->app_fs_base, os_tls->app_gs_base);
     LOG(THREAD_GET, LOG_THREADS, 1, "thread "TIDFMT" DR fs: "PFX", gs: "PFX"\n",
         get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 void
@@ -1717,8 +1792,11 @@ os_thread_init(dcontext_t *dcontext)
                sizeof(our_modify_ldt_t) * GDT_NUM_TLS_SLOTS);
     }
 
-    LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n", get_segment_base(SEG_GS));
-    LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n", get_segment_base(SEG_FS));
+    /* FIXME i#1551: we need a better alias for gs/fs on ARM */
+    LOG(THREAD, LOG_THREADS, 1, "cur gs base is "PFX"\n",
+        get_segment_base(IF_X86_ELSE(SEG_GS, DR_REG_TPIDRURO)));
+    LOG(THREAD, LOG_THREADS, 1, "cur fs base is "PFX"\n",
+        get_segment_base(IF_X86_ELSE(SEG_FS, DR_REG_TPIDRURW)));
 
 #ifdef MACOS
     /* XXX: do we need to free/close dcontext->thread_port?  I don't think so. */
@@ -4267,14 +4345,15 @@ sys_param_addr(dcontext_t *dcontext, int num)
      *     0xffffe405  0f 34                sysenter -> %esp
      */
     switch (num) {
-    case 0: return &mc->xbx;
-    case 1: return &mc->xcx;
-    case 2: return &mc->xdx;
-    case 3: return &mc->xsi;
-    case 4: return &mc->xdi;
+    case 0: return &mc->IF_X86_ELSE(xbx, r0);
+    case 1: return &mc->IF_X86_ELSE(xcx, r1);
+    case 2: return &mc->IF_X86_ELSE(xdx, r2);
+    case 3: return &mc->IF_X86_ELSE(xsi, r3);
+    case 4: return &mc->IF_X86_ELSE(xdi, r4);
     /* FIXME: do a safe_read: but what about performance?
      * See the #if 0 below, as well. */
-    case 5: return (dcontext->sys_was_int ? &mc->xbp : ((reg_t*)mc->xsp));
+    case 5: return IF_X86_ELSE((dcontext->sys_was_int ? &mc->xbp : ((reg_t*)mc->xsp)),
+                               &mc->r5);
     default: CLIENT_ASSERT(false, "invalid system call parameter number");
     }
 #endif
@@ -4296,7 +4375,7 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
          * for others that return mach_port_t 0 is failure (I think?).
          * We defer to drsyscall.
          */
-        return ((ptr_int_t)mc->xax >= 0);
+        return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
     } else
         return !TEST(EFLAGS_CF, mc->eflags);
 #else
@@ -4305,8 +4384,8 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
         normalized_sysnum == SYS_mmap2 ||
 # endif
         normalized_sysnum == SYS_mremap)
-        return mmap_syscall_succeeded((byte *)mc->xax);
-    return ((ptr_int_t)mc->xax >= 0);
+        return mmap_syscall_succeeded((byte *)MCXT_SYSCALL_RES(mc));
+    return ((ptr_int_t)MCXT_SYSCALL_RES(mc) >= 0);
 #endif
 }
 
@@ -4326,7 +4405,7 @@ set_success_return_val(dcontext_t *dcontext, reg_t val)
      */
     mc->eflags &= ~(EFLAGS_CF);
 #endif
-    mc->xax = val;
+    MCXT_SYSCALL_RES(mc) = val;
 }
 
 /* Always pass a positive value for errno */
@@ -4337,9 +4416,9 @@ set_failure_return_val(dcontext_t *dcontext, uint errno)
 #ifdef MACOS
     /* On MacOS, success is determined by CF, and errno is positive */
     mc->eflags |= EFLAGS_CF;
-    mc->xax = errno;
+    MCXT_SYSCALL_RES(mc) = errno;
 #else
-    mc->xax = -(int)errno;
+    MCXT_SYSCALL_RES(mc) = -(int)errno;
 #endif
 }
 
@@ -4372,7 +4451,7 @@ dr_syscall_get_result(void *drcontext)
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     CLIENT_ASSERT(dcontext->client_data->in_post_syscall,
                   "dr_syscall_get_param() can only be called from post-syscall event");
-    return get_mcontext(dcontext)->xax;
+    return MCXT_SYSCALL_RES(get_mcontext(dcontext));
 }
 
 DR_API
@@ -4387,24 +4466,24 @@ dr_syscall_get_result_ex(void *drcontext, dr_syscall_result_info_t *info INOUT)
     CLIENT_ASSERT(info->size == sizeof(*info), "invalid dr_syscall_result_info_t size");
     if (info->size != sizeof(*info))
         return false;
-    info->value = mc->xax;
+    info->value = MCXT_SYSCALL_RES(mc);
     info->succeeded = syscall_successful(mc, dcontext->sys_num);
     if (info->use_high) {
         /* MacOS has some 32-bit syscalls that return 64-bit values in
          * xdx:xax, but the other syscalls don't clear xdx, so we can't easily
          * return a 64-bit value all the time.
          */
-        info->high = mc->xdx;
+        IF_X86_ELSE({
+            info->high = mc->xdx;
+        }, {
+            ASSERT_NOT_REACHED();
+        });
     }
     if (info->use_errno) {
         if (info->succeeded)
             info->errno_value = 0;
         else {
-#ifdef LINUX
-            info->errno_value = (uint)-(int)mc->xax;
-#else
-            info->errno_value = (uint)mc->xax;
-#endif
+            info->errno_value = (uint)IF_LINUX(-(int))MCXT_SYSCALL_RES(mc);
         }
     }
     return true;
@@ -4447,13 +4526,17 @@ dr_syscall_set_result_ex(void *drcontext, dr_syscall_result_info_t *info)
             /* use this to set CF, even though it might negate the value */
             set_failure_return_val(dcontext, (uint)info->value);
             /* now set the value, overriding set_failure_return_val() */
-            mc->xax = info->value;
+            MCXT_SYSCALL_RES(mc) = info->value;
         }
         if (info->use_high) {
             /* MacOS has some 32-bit syscalls that return 64-bit values in
              * xdx:xax.
              */
-            mc->xdx = info->high;
+            IF_X86_ELSE({
+                mc->xdx = info->high;
+            }, {
+                ASSERT_NOT_REACHED();
+            });
         }
     }
     return true;
@@ -4468,7 +4551,7 @@ dr_syscall_set_sysnum(void *drcontext, int new_num)
     CLIENT_ASSERT(dcontext->client_data->in_pre_syscall ||
                   dcontext->client_data->in_post_syscall,
                   "dr_syscall_set_sysnum() can only be called from a syscall event");
-    mc->xax = new_num;
+    MCXT_SYSNUM_REG(mc) = new_num;
 }
 
 DR_API
@@ -4480,11 +4563,13 @@ dr_syscall_invoke_another(void *drcontext)
                   "dr_syscall_invoke_another() can only be called from post-syscall event");
     LOG(THREAD, LOG_SYSCALLS, 2, "invoking additional syscall on client request\n");
     dcontext->client_data->invoke_another_syscall = true;
+# ifdef X86
     if (get_syscall_method() == SYSCALL_METHOD_SYSENTER) {
         priv_mcontext_t *mc = get_mcontext(dcontext);
         /* restore xbp to xsp */
         mc->xbp = mc->xsp;
     }
+# endif /* X86 */
     /* for x64 we don't need to copy xcx into r10 b/c we use r10 as our param */
 }
 #endif /* CLIENT_INTERFACE */
@@ -4508,7 +4593,8 @@ bool
 is_thread_create_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_thread_create_syscall_helper(mc->xax, sys_param(dcontext, 0));
+    return is_thread_create_syscall_helper(MCXT_SYSNUM_REG(mc),
+                                           sys_param(dcontext, 0));
 }
 
 bool
@@ -4533,7 +4619,7 @@ bool
 is_sigreturn_syscall(dcontext_t *dcontext)
 {
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    return is_sigreturn_syscall_helper(mc->xax);
+    return is_sigreturn_syscall_helper(MCXT_SYSNUM_REG(mc));
 }
 
 bool
@@ -5126,7 +5212,8 @@ handle_exit(dcontext_t *dcontext)
     if (is_last_app_thread() && !dynamo_exited) {
         LOG(THREAD, LOG_TOP|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in final thread "TIDFMT" of "PIDFMT" => exiting DynamoRIO\n",
-            (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "", mc->xax,
+            (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "",
+            MCXT_SYSNUM_REG(mc),
             get_thread_id(), get_process_id());
         /* we want to clean up even if not automatic startup! */
         automatic_startup = true;
@@ -5135,12 +5222,12 @@ handle_exit(dcontext_t *dcontext)
         LOG(THREAD, LOG_TOP|LOG_THREADS|LOG_SYSCALLS, 1,
             "SYS_exit%s(%d) in thread "TIDFMT" of "PIDFMT" => cleaning up %s\n",
             (dcontext->sys_num == SYSNUM_EXIT_PROCESS) ? "_group" : "",
-            mc->xax, get_thread_id(), get_process_id(),
+            MCXT_SYSNUM_REG(mc), get_thread_id(), get_process_id(),
             exit_process ? "process" : "thread");
     }
     KSTOP(num_exits_dir_syscall);
 
-    cleanup_and_terminate(dcontext, mc->xax, sys_param(dcontext, 0),
+    cleanup_and_terminate(dcontext, MCXT_SYSNUM_REG(mc), sys_param(dcontext, 0),
                           sys_param(dcontext, 1), exit_process,
                           /* SYS_bsdthread_terminate has 2 more args */
                           sys_param(dcontext, 2), sys_param(dcontext, 3));
@@ -5240,13 +5327,15 @@ static bool
 os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
 {
     bool res = false;
+#ifdef X86
     app_pc base;
     os_local_state_t *os_tls = get_os_tls_from_dc(dcontext);
 
     /* we can only update the executing thread's segment (i#920) */
     ASSERT_MESSAGE(CHKLVL_ASSERTS+1/*expensive*/, "can only act on executing thread",
                    dcontext == get_thread_private_dcontext());
-    ASSERT(seg == SEG_FS || seg == SEG_GS);
+    ASSERT(IF_X86_ELSE((seg == SEG_FS || seg == SEG_GS),
+                       (seg == DR_REG_TPIDRURW || DR_REG_TPIDRURO)));
     if (to_app) {
         base = os_get_app_seg_base(dcontext, seg);
     } else {
@@ -5336,6 +5425,10 @@ os_switch_seg_to_context(dcontext_t *dcontext, reg_id_t seg, bool to_app)
         return false;
     }
     ASSERT(BOOLS_MATCH(to_app, os_using_app_state(dcontext)));
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
     return res;
 }
 
@@ -5374,7 +5467,7 @@ pre_system_call(dcontext_t *dcontext)
     /* save key register values for post_system_call (they get clobbered
      * in syscall itself)
      */
-    dcontext->sys_num = os_normalized_sysnum((int)mc->xax, NULL, dcontext);
+    dcontext->sys_num = os_normalized_sysnum((int)MCXT_SYSNUM_REG(mc), NULL, dcontext);
 
     RSTATS_INC(pre_syscall);
     DOSTATS({
@@ -5383,7 +5476,7 @@ pre_system_call(dcontext_t *dcontext)
     });
     LOG(THREAD, LOG_SYSCALLS, 2, "system call %d\n", dcontext->sys_num);
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     /* PR 313715: If we fail to hook the vsyscall page (xref PR 212570, PR 288330)
      * we fall back on int, but we have to tweak syscall param #5 (ebp)
      * Once we have PR 288330 we can remove this.
@@ -6515,7 +6608,7 @@ post_system_call(dcontext_t *dcontext)
      * appear to be failures but are not. They are handled on a
      * case-by-case basis in the switch statement below.
      */
-    ptr_int_t result = (ptr_int_t) mc->xax; /* signed */
+    ptr_int_t result = (ptr_int_t) MCXT_SYSCALL_RES(mc); /* signed */
     bool success = syscall_successful(mc, sysnum);
     app_pc base;
     size_t size;
@@ -6528,7 +6621,7 @@ post_system_call(dcontext_t *dcontext)
     old_whereami = dcontext->whereami;
     dcontext->whereami = WHERE_SYSCALL_HANDLER;
 
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     /* PR 313715: restore xbp since for some vsyscall sequences that use
      * the syscall instruction its value is needed:
      *   0xffffe400 <__kernel_vsyscall+0>:       push   %ebp
@@ -6581,7 +6674,7 @@ post_system_call(dcontext_t *dcontext)
 
     LOG(THREAD, LOG_SYSCALLS, 2,
         "post syscall: sysnum="PFX", result="PFX" (%d)\n",
-        sysnum, mc->xax, (int)mc->xax);
+        sysnum, MCXT_SYSCALL_RES(mc), (int)MCXT_SYSCALL_RES(mc));
 
     switch (sysnum) {
 
@@ -6611,7 +6704,7 @@ post_system_call(dcontext_t *dcontext)
         uint flags;
         DEBUG_DECLARE(const char *map_type;)
         RSTATS_INC(num_app_mmaps);
-        base = (app_pc) mc->xax; /* For mmap, it's NOT arg->addr! */
+        base = (app_pc) MCXT_SYSCALL_RES(mc); /* For mmap, it's NOT arg->addr! */
         /* mmap isn't simply a user-space wrapper for mmap2. It's called
          * directly when dynamically loading an SO, i.e., dlopen(). */
 #ifdef LINUX /* MacOS success is in CF */
@@ -6689,7 +6782,7 @@ post_system_call(dcontext_t *dcontext)
     case SYS_mremap: {
         app_pc old_base = (app_pc) dcontext->sys_param0;
         size_t old_size = (size_t) dcontext->sys_param1;
-        base = (app_pc) mc->xax;
+        base = (app_pc) MCXT_SYSCALL_RES(mc);
         size = (size_t) dcontext->sys_param2;
         /* even if no shift, count as munmap plus mmap */
         RSTATS_INC(num_app_munmaps);
@@ -6805,7 +6898,8 @@ post_system_call(dcontext_t *dcontext)
 #ifdef LINUX
     case SYS_clone: {
         /* in /usr/src/linux/arch/i386/kernel/process.c */
-        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n", mc->xax);
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: clone returned "PFX"\n",
+            MCXT_SYSCALL_RES(mc));
         /* We switch the lib tls segment back to dr's segment.
          * Please refer to comment on os_switch_lib_tls.
          * It is only called in parent thread.
@@ -6828,12 +6922,14 @@ post_system_call(dcontext_t *dcontext)
 #endif
 
     case SYS_fork: {
-        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n", mc->xax);
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: fork returned "PFX"\n",
+            MCXT_SYSCALL_RES(mc));
         break;
     }
 
     case SYS_vfork: {
-        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n", mc->xax);
+        LOG(THREAD, LOG_SYSCALLS, 2, "syscall: vfork returned "PFX"\n",
+            MCXT_SYSCALL_RES(mc));
         IF_LINUX(ASSERT(was_thread_create_syscall(dcontext)));
         /* restore xsp in parent */
         LOG(THREAD, LOG_SYSCALLS, 2,
@@ -6841,7 +6937,7 @@ post_system_call(dcontext_t *dcontext)
             mc->xsp, dcontext->sys_param1);
         mc->xsp = dcontext->sys_param1;
 
-        if (mc->xax != 0) {
+        if (MCXT_SYSCALL_RES(mc) != 0) {
             /* We switch the lib tls segment back to dr's segment.
              * Please refer to comment on os_switch_lib_tls.
              * It is only called in parent thread.
@@ -8388,6 +8484,7 @@ os_check_option_compatibility(void)
 static uint64
 uint64_divmod(uint64 dividend, uint64 divisor64, uint32 *remainder)
 {
+# ifdef X86
     /* Assumes little endian, which x86 is. */
     union {
         uint64 v64;
@@ -8427,6 +8524,10 @@ uint64_divmod(uint64 dividend, uint64 divisor64, uint32 *remainder)
     asm ("divl %2" : "=a" (res.lo), "=d" (*remainder) :
          "rm" (divisor), "0" (res.lo), "1" (upper));
     return res.v64;
+# elif defined(ARM)
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+# endif /* X86/ARM */
 }
 
 /* Match libgcc's prototype. */

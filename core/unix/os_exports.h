@@ -75,17 +75,27 @@
  *
  * PR 205276 covers transparently stealing our segment selector.
  */
-#ifdef X64
-# define SEG_TLS SEG_GS
-# define ASM_SEG "%gs"
-# define LIB_SEG_TLS SEG_FS /* libc+loader tls */
-# define LIB_ASM_SEG "%fs"
-#else
-# define SEG_TLS SEG_FS
-# define ASM_SEG "%fs"
-# define LIB_SEG_TLS SEG_GS /* libc+loader tls */
-# define LIB_ASM_SEG "%gs"
-#endif
+#ifdef X86
+# ifdef X64
+#  define SEG_TLS SEG_GS
+#  define ASM_SEG "%gs"
+#  define LIB_SEG_TLS SEG_FS /* libc+loader tls */
+#  define LIB_ASM_SEG "%fs"
+# else
+#  define SEG_TLS SEG_FS
+#  define ASM_SEG "%fs"
+#  define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+#  define LIB_ASM_SEG "%gs"
+# endif
+#elif defined(ARM)
+# ifdef X64
+#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO */
+#  define LIB_SEG_TLS  DR_REG_TPIDR_EL0   /* DR_REG_TPIDRURW, libc+loader tls */
+# else
+#  define SEG_TLS      DR_REG_TPIDRURW
+#  define LIB_SEG_TLS  DR_REG_TPIDRURO /* libc+loader tls */
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 
 void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);

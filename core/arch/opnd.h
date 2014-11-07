@@ -406,6 +406,18 @@ enum {
 # endif
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
 
+    /* AArch32 Thread Registers */
+    DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
+    DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+    /* AArch64 Thread Registers */
+    /** Thread Pointer/ID Register, EL0. */
+    DR_REG_TPIDR_EL0   = DR_REG_TPIDRURW,
+    /** Thread Pointer/ID Register, Read-Only, EL0. */
+    DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
+    /* ARMv7 Thread Registers */
+    DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
+
     DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
 
     DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */

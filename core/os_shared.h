@@ -176,16 +176,15 @@ struct _local_state_extended_t; /* in arch_exports.h */
 struct _local_state_t *get_local_state(void);
 struct _local_state_extended_t *get_local_state_extended(void);
 
-#ifdef X86
 /* Returns POINTER_MAX on failure.
- * Assumes that cs, ss, ds, and es are flat.
+ * On X86, we assume that cs, ss, ds, and es are flat.
+ * On ARM, there is no segment. We use it to get TLS base instead.
  */
 byte *
 get_segment_base(uint seg);
 
 byte *
 get_app_segment_base(uint seg);
-#endif
 
 #ifdef CLIENT_INTERFACE
 /* Allocates num_slots tls slots aligned with alignment align */

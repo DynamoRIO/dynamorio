@@ -58,7 +58,7 @@
 #  define ASM_XDX "edx"
 #  define ASM_XBP "ebp"
 #  define ASM_XSP "esp"
-# endif
+# endif /* 64/32-bit */
 #elif defined(ARM)
 # define ASM_XSP "sp"
 #endif /* X86/ARM */
