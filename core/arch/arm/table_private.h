@@ -98,6 +98,24 @@
 #define trbpc (ptr_int_t)&A32_ext_RBPC
 #define trdpc (ptr_int_t)&A32_ext_RDPC
 #define ti5   (ptr_int_t)&A32_ext_imm5
+#define top7  (ptr_int_t)&A32_unpred_opc7
+#define tb20  (ptr_int_t)&A32_ext_bits20
+#define ti20  (ptr_int_t)&A32_ext_imm2016
+#define ti18  (ptr_int_t)&A32_ext_imm1816
+#define tb7   (ptr_int_t)&A32_ext_bit7
+#define tb6   (ptr_int_t)&A32_ext_bit6
+#define tb19  (ptr_int_t)&A32_ext_bit19
+#define tb22  (ptr_int_t)&A32_ext_bit22
+#define tsi6  (ptr_int_t)&A32_ext_simd6
+#define tsi5  (ptr_int_t)&A32_ext_simd5
+#define tsi5b (ptr_int_t)&A32_ext_simd5b
+#define tsi8  (ptr_int_t)&A32_ext_simd8
+#define tsi6b (ptr_int_t)&A32_ext_simd6b
+#define tsi6c (ptr_int_t)&A32_ext_simd6c
+#define tsi2  (ptr_int_t)&A32_ext_simd2
+#define tvlA  (ptr_int_t)&A32_ext_vldA
+#define tvlB  (ptr_int_t)&A32_ext_vldB
+#define tvlC  (ptr_int_t)&A32_ext_vldC
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA

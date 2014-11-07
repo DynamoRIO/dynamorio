@@ -37,89 +37,100 @@
 #
 # To run on everything:
 #
-#   for i in `egrep '^ *OP_[a-z]' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_a32.c; done
+#   for i in `egrep '^ *OP_[a-z]' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_*.[ch]; done
 
 my $verbose = 1;
 
-die "Usage: $0 OP_<opcode> <table-file>\n" if ($#ARGV != 1);
+die "Usage: $0 OP_<opcode> <table-files>\n" if ($#ARGV < 1);
 my $op = shift;
-my $infile = shift;
+my @infiles = @ARGV;
 my $table = "";
 my $shape = "";
 my $major = 0;
 my $minor = 0;
 my $instance = 0;
 
-open(INFILE, "< $infile") || die "Couldn't open $file\n";
-while (<INFILE>) {
-    print "xxx $_\n" if ($verbose > 2);
-    if (/^#define (\w+)\s+\(ptr_int_t\)&(\w+)/) {
-        $shorthand{$2} = $1;
-        print "shorthand for $2 = $1\n" if ($verbose > 1);
-    }
-    if (/^const instr_info_t (\w+)([^=]+)=/) {
-        $table = $1;
-        $shape = $2;
-        $major = -1;
-        $minor = 0;
-    }
-    if (/{\s*\/\*\s*(\d+)\s*\*\/\s*$/) {
-        $major++;
-        $minor = 0;
-    }
-    if (/^\s*{$op[ ,]/) {
-        # Ignore duplicate encodings
-        my $encoding = $_;
-        my $is_new = 1;
-        # Remove up through opcode name (to remove encoding hexes) and comments
-        $encoding =~ s/^[^"]+"/"/;
-        $encoding =~ s/},\s*\/.*$/},/;
-        $encoding =~ s/\s*$//;
-        for (my $i = 0; $i < @entry; $i++) {
-            if ($encoding eq $entry[$i]{'encoding'}) {
-                $is_new = 0;
-                last;
-            }
-        }
-        next if (!$is_new);
+# Must process headers first
+@infiles = sort({return -1 if($a =~ /\.h$/);return 1 if($b =~ /\.h$/); return 0;}
+                @infiles);
 
-        $entry[$instance]{'line'} = $_;
-        $entry[$instance]{'encoding'} = $encoding;
-        if ($shape =~ /\d/) {
-            $entry[$instance]{'addr_short'} =
-                sprintf "$shorthand{$table}\[$major][0x%02x]", $minor;
-            $entry[$instance]{'addr_long'} =
-                sprintf "$table\[$major][0x%02x]", $minor;
-        } else {
-            $entry[$instance]{'addr_short'} =
-                sprintf "$shorthand{$table}\[0x%02x]", $minor;
-            $entry[$instance]{'addr_long'} =
-                sprintf "$table\[0x%02x]", $minor;
+foreach $infile (@infiles) {
+    print "Processing $infile\n" if ($verbose > 0);
+    open(INFILE, "< $infile") || die "Couldn't open $file\n";
+    while (<INFILE>) {
+        print "xxx $_\n" if ($verbose > 2);
+        if (/^#define (\w+)\s+\(ptr_int_t\)&(\w+)/) {
+            $shorthand{$2} = $1;
+            print "shorthand for $2 = $1\n" if ($verbose > 1);
         }
-        # Order for sorting:
-        # + Prefer no-shift over shift
-        # + Prefer shift via immed over shift via reg
-        # + Prefer P=1 and U=1
-        my $priority = 0;
-        $priority--   if (/sh2, i/);
-        $priority--   if (/sh2, R/);
-        $priority--   if (/xop_shift/);
-        $priority++   if (/, [in]/);
-        $priority++   if (/, M.\d/);
-        $priority--   if (/, M.S/);
-        $priority+=5  if (/PUW=1../);
-        $priority+=10 if (/PUW=1.0/);
-        $priority++   if (/PUW=.1./);
-        $entry[$instance]{'priority'} = $priority;
-        if ($verbose > 0) {
-            my $tmp = $entry[$instance]{'addr_long'};
-            print "$priority $tmp $_";
+        if (/^const instr_info_t (\w+)([^=]+)=/) {
+            $table = $1;
+            $shape = $2;
+            $major = -1;
+            $minor = 0;
         }
-        $instance++;
+        if (/{\s*\/\*\s*(\d+)\s*\*\/\s*$/) {
+            $major++;
+            $minor = 0;
+        }
+        if (/^\s*{$op[ ,]/) {
+            # Ignore duplicate encodings
+            my $encoding = $_;
+            my $is_new = 1;
+            # Remove up through opcode name (to remove encoding hexes) and comments
+            $encoding =~ s/^[^"]+"/"/;
+            $encoding =~ s/},\s*\/.*$/},/;
+            $encoding =~ s/\s*$//;
+            for (my $i = 0; $i < @entry; $i++) {
+                if ($encoding eq $entry[$i]{'encoding'}) {
+                    $is_new = 0;
+                    last;
+                }
+            }
+            next if (!$is_new);
+
+            $entry[$instance]{'line'} = $_;
+            $entry[$instance]{'encoding'} = $encoding;
+            die "Error: no shorthand for $table\n" if ($shorthand{$table} eq '');
+            if ($shape =~ /\d/) {
+                $entry[$instance]{'addr_short'} =
+                    sprintf "$shorthand{$table}\[$major][0x%02x]", $minor;
+                $entry[$instance]{'addr_long'} =
+                    sprintf "$table\[$major][0x%02x]", $minor;
+            } else {
+                $entry[$instance]{'addr_short'} =
+                    sprintf "$shorthand{$table}\[0x%02x]", $minor;
+                $entry[$instance]{'addr_long'} =
+                    sprintf "$table\[0x%02x]", $minor;
+            }
+            # Order for sorting:
+            # + Prefer no-shift over shift
+            # + Prefer shift via immed over shift via reg
+            # + Prefer P=1 and U=1
+            # + Prefer 8-byte over 16-byte and over 4-byte
+            my $priority = 0;
+            $priority--   if (/sh2, i/);
+            $priority--   if (/sh2, R/);
+            $priority--   if (/xop_shift/);
+            $priority++   if (/, [in]/);
+            $priority++   if (/, M.\d/);
+            $priority--   if (/, M.S/);
+            $priority+=5  if (/PUW=1../);
+            $priority+=10 if (/PUW=1.0/);
+            $priority++   if (/PUW=.1./);
+            $priority++   if (/[VW][ABC]q,/);
+            $priority-=5  if (/[VW][ABC]d,/);
+            $entry[$instance]{'priority'} = $priority;
+            if ($verbose > 0) {
+                my $tmp = $entry[$instance]{'addr_long'};
+                print "$priority $tmp $_";
+            }
+            $instance++;
+        }
+        $minor++ if (/^\s*{[A-Z]/);
     }
-    $minor++ if (/^\s*{[A-Z]/);
+    close(INFILE);
 }
-close(INFILE);
 
 @entry = sort({$b->{'priority'} <=> $a->{'priority'}} @entry);
 
@@ -132,19 +143,21 @@ if ($verbose > 1) {
     }
 }
 
-# Now edit the file in place
+# Now edit the files in place
 $^I = '.bak';
-@ARGV = ($infile);
-while (<>) {
-    if (/^\s+\/\* $op[ ,]/) {
-        my $start = $entry[0]{'addr_long'};
-        s/&.*,/&$start,/;
-    }
-    for (my $i = 0; $i < @entry - 1; $i++) {
-        if ($_ eq $entry[$i]{'line'}) {
-            my $chain = $entry[$i+1]{'addr_short'};
-            s/, [\w\[\]]+},/, $chain},/;
+foreach $infile (@infiles) {
+    @ARGV = ($infile);
+    while (<>) {
+        if (/^\s+\/\* $op[ ,]/) {
+            my $start = $entry[0]{'addr_long'};
+            s/&.*,/&$start,/;
         }
+        for (my $i = 0; $i < @entry - 1; $i++) {
+            if ($_ eq $entry[$i]{'line'}) {
+                my $chain = $entry[$i+1]{'addr_short'};
+                s/, [\w\[\]]+},/, $chain},/;
+            }
+        }
+        print;
     }
-    print;
 }
