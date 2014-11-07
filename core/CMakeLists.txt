@@ -129,7 +129,8 @@ if (X86)
     arch/${ARCH_NAME}/decode_fast.c)
 else ()
   set(DECODER_SRCS ${DECODER_SRCS}
-    arch/${ARCH_NAME}/table_a32.c)
+    arch/${ARCH_NAME}/table_a32_pred.c
+    arch/${ARCH_NAME}/table_a32_encode.c)
 endif ()
 
 set(ARCH_SRCS

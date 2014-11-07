@@ -35,6 +35,18 @@
 #ifndef TABLE_PRIVATE_H
 #define TABLE_PRIVATE_H
 
+/* Addressing mode quick reference:
+ *   x x x P U x W x
+ *         0 0   0     str  Rt, [Rn], -Rm            Post-indexed addressing
+ *         0 1   0     str  Rt, [Rn], Rm             Post-indexed addressing
+ *         0 0   1     illegal, or separate opcode
+ *         0 1   1     illegal, or separate opcode
+ *         1 0   0     str  Rt, [Rn - Rm]            Offset addressing
+ *         1 1   0     str  Rt, [Rn + Rm]            Offset addressing
+ *         1 0   1     str  Rt, [Rn - Rm]!           Pre-indexed addressing
+ *         1 1   1     str  Rt, [Rn + Rm]!           Pre-indexed addressing
+ */
+
 /****************************************************************************
  * Macros to make tables legible
  */
@@ -65,6 +77,23 @@
 /* for constructing linked lists of table entries */
 #define NA 0
 #define END_LIST  0
+#define exop  (ptr_int_t)&A32_extra_operands
+#define top8  (ptr_int_t)&A32_pred_opc8
+#define top4x (ptr_int_t)&A32_ext_opc4x
+#define top4y (ptr_int_t)&A32_ext_opc4y
+#define top4  (ptr_int_t)&A32_ext_opc4
+#define ti19  (ptr_int_t)&A32_ext_imm1916
+#define tb0   (ptr_int_t)&A32_ext_bits0
+#define tb8   (ptr_int_t)&A32_ext_bits8
+#define tb9   (ptr_int_t)&A32_ext_bit9
+#define tb4   (ptr_int_t)&A32_ext_bit4
+#define tfp   (ptr_int_t)&A32_ext_fp
+#define tfpA  (ptr_int_t)&A32_ext_opc4fpA
+#define tfpB  (ptr_int_t)&A32_ext_opc4fpB
+#define t16   (ptr_int_t)&A32_ext_bits16
+#define trbpc (ptr_int_t)&A32_ext_RBPC
+#define trdpc (ptr_int_t)&A32_ext_RDPC
+#define ti5   (ptr_int_t)&A32_ext_imm5
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA
