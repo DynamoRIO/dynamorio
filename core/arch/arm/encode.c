@@ -250,6 +250,7 @@ const char * const type_names[] = {
     "TYPE_SPSR",
     "TYPE_CPSR",
     "TYPE_FPSCR",
+    "TYPE_LR",
     "TYPE_I_b0",
     "TYPE_NI_b0",
     "TYPE_I_b3",

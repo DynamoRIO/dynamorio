@@ -155,6 +155,7 @@
 #define SPSR TYPE_SPSR, OPSZ_PTR
 #define CPSR TYPE_CPSR, OPSZ_PTR
 #define FPSCR TYPE_FPSCR, OPSZ_PTR
+#define LRw TYPE_LR, OPSZ_PTR
 
 #define Mw  TYPE_M, OPSZ_PTR
 #define Mb  TYPE_M, OPSZ_1

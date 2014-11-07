@@ -164,6 +164,7 @@ enum {
     TYPE_SPSR, /* Saved Program Status Register */
     TYPE_CPSR, /* Current Program Status Register */
     TYPE_FPSCR, /* Floating Point Status and Control Register */
+    TYPE_LR, /* Link register */
 
     /* FIXME i#1551: some immediates have built-in shifting or scaling: we
      * need to add handling for that.

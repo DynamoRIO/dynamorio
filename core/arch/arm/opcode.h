@@ -80,6 +80,7 @@ enum {
     OP_bic,
     OP_bics,
     OP_bkpt,
+    OP_b,
     OP_bl,
     OP_blx,
     OP_blx_ind,
@@ -393,6 +394,7 @@ enum {
 #define OP_push      OP_stmdb  /**< Alternative opcode name for push. */
 #define OP_vpop      OP_vldmia /**< Alternative opcode name for vpop. */
 #define OP_vpush     OP_vstmdb /**< Alternative opcode name for vpush. */
+#define OP_jmp       OP_b      /**< Alternative opcode name for b. */
 
 #define OP_load      OP_ldr    /**< Platform-independent opcode name for load. */
 #define OP_store     OP_str    /**< Platform-independent opcode name for store. */

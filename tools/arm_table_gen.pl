@@ -77,7 +77,7 @@ while (<>) {
             chomp;
             chomp if (/\r$/); # DOS
             next if (/^ARMv/);
-            next if ($_ !~ /^[A-Z][A-Z]/);
+            next if ($_ !~ /^[A-Z][A-Z]/ && $_ !~ /^[A-Z]</);
             last;
         }
         last if eof();
