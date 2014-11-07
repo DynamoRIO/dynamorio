@@ -94,16 +94,36 @@ while (<>) {
             $line++;
             chomp;
             chomp if (/\r$/); # DOS
+            my $prefix = '';
             if (!$pred) {
                 if ($last =~ /^31 30 29/ && /^1 1 1 1/) {
-                    #print "found $name $_\n";
+                    $prefix = "1 1 1 1";
                 }
             } elsif (/^cond/) {
+                $prefix = "cond";
+            }
+            if ($prefix ne '') {
                 # We encode the "x x x P U {D,R} W S" specifiers either into
                 # our opcodes or we have multiple entries with encoding chains.
                 my $enc = $_;
-                if (/^cond\s+((\(?[01PUWSRD]\)? ){8})(.*)/) {
+                if (/^$prefix\s+((\(?[01PUWSRDQi]\)? ){8})(.*)/) {
                     my $opc = $1;
+                    my $rest = $3;
+                    print "matched $name $enc\n" if ($verbose);
+                    # Ignore parens: go w/ value inside.
+                    $opc =~ s/\(//g;
+                    $opc =~ s/\)//g;
+                    generate_entry(lc($name), $asm, $enc, $opc, $rest, 0);
+                } elsif (/^$prefix\s+((\(?[01PUWSRDQi]\)? ){6})(.*)/) {
+                    my $opc = $1 . "0 0";
+                    my $rest = $3;
+                    print "matched $name $enc\n" if ($verbose);
+                    # Ignore parens: go w/ value inside.
+                    $opc =~ s/\(//g;
+                    $opc =~ s/\)//g;
+                    generate_entry(lc($name), $asm, $enc, $opc, $rest, 0);
+                } elsif (/^$prefix\s+((\(?[01PUWSRDQi]\)? ){4})(.*)/) {
+                    my $opc = $1 . "0 0 0 0";
                     my $rest = $3;
                     print "matched $name $enc\n" if ($verbose);
                     # Ignore parens: go w/ value inside.
@@ -126,6 +146,8 @@ sub generate_entry($,$,$,$,$,$)
     my ($name, $asm, $enc, $opc, $rest, $PUW) = @_;
     my $eflags = "x";
     my $other_opc;
+    my $other_enc;
+    my $other_rest;
     my $negative = 0;
 
     # Handle "x x x P U {D,R} W S" by expanding the chars
@@ -133,11 +155,11 @@ sub generate_entry($,$,$,$,$,$)
     my $hexopc = 0;
     for (my $i = 0; $i <= $#bits; $i++) {
         if ($bits[$i] eq 'S') {
-            $bits[$i] = 1;
             $other_opc = $opc;
             $other_opc =~ s/S/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $name .= "s";
+            $bits[$i] = '1';
             $eflags = "fWNZCV";
         } elsif ($bits[$i] eq 'P') {
             $PUW = 1;
@@ -145,34 +167,35 @@ sub generate_entry($,$,$,$,$,$)
             $other_opc =~ s/P/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $opc =~ s/P/1/;
-            $bits[$i] = 1;
+            $bits[$i] = '1';
         } elsif ($bits[$i] eq 'U') {
             $PUW = 1;
             $other_opc = $opc;
             $other_opc =~ s/U/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
             $opc =~ s/U/1/;
-            $bits[$i] = 1;
+            $bits[$i] = '1';
             $negative = 1;
         } elsif ($bits[$i] eq 'W') {
             $PUW = 1;
             $other_opc = $opc;
             $other_opc =~ s/W/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
-            $bits[$i] = 1;
+            $bits[$i] = '1';
             $opc =~ s/W/1/;
-        } elsif ($bits[$i] eq 'D') {
+        } elsif ($bits[$i] eq 'D' || $bits[$i] eq 'R' || $bits[$i] eq 'i') {
             $other_opc = $opc;
-            $other_opc =~ s/D/0/;
+            $other_opc =~ s/$bits[$i]/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
-            $bits[$i] = 1;
-            $opc =~ s/D/1/;
-        } elsif ($bits[$i] eq 'R') {
+            $opc =~ s/$bits[$i]/1/;
+            $bits[$i] = '1';
+        } elsif ($bits[$i] eq 'Q') {
             $other_opc = $opc;
-            $other_opc =~ s/R/0/;
+            $other_opc =~ s/Q/0/;
             generate_entry($name, $asm, $enc, $other_opc, $rest, $PUW);
-            $bits[$i] = 1;
-            $opc =~ s/R/1/;
+            $bits[$i] = '1';
+            $opc =~ s/Q/1/;
+            $rest =~ s/ V/ VQ/g;
         }
         if ($bits[$i] eq '1' || $bits[$i] eq '0') {
             $hexopc |= $bits[$i] << (27 - $i);
@@ -191,7 +214,47 @@ sub generate_entry($,$,$,$,$,$)
         $enc =~ s/ sz / sz=1 /;
         $hexopc |= 0x100;
     }
+    # For SIMD, Q bit is down low
+    if ($simd && $rest =~ / Q /) {
+        $other_rest = $rest;
+        $other_rest =~ s/Q //;
+        $other_rest =~ s/Vn/VAq/;
+        $other_rest =~ s/Vd/VBq/;
+        $other_rest =~ s/Vm/VCq/;
+        generate_entry($name, $asm, $enc, $opc, $other_rest, $PUW);
+        $rest =~ s/Q //;
+        $rest =~ s/Vn/VAdq/;
+        $rest =~ s/Vd/VBdq/;
+        $rest =~ s/Vm/VCdq/;
+        $hexopc |= 0x40;
+    }
 
+    # Data type: "<dt>" or "<size>"
+    if ($simd && $enc =~ / size /) {
+        # We bail on the precise hex encoding: we just try to pre-generate
+        # entries that can be manually tweaked
+        my @subtypes;
+        if ($asm =~ /.<dt>/) {
+            if ($enc =~ / U /) {
+                @subtypes = ('s8', 's16', 's32', 'u8', 'u16', 'u32');
+            } else {
+                @subtypes = ('i8', 'i16', 'i32', 'i64');
+            }
+        } else {
+            @subtypes = ('8', '16', '32', '64');
+        }
+        $rest =~ s/size\s*//;
+        foreach my $sub (@subtypes) {
+            $other_name = $name . "." . $sub;
+            $other_enc = $enc;
+            $other_enc =~ s/ size / size=$sub /;
+            generate_entry($other_name, $asm, $other_enc, $opc, $rest, $PUW);
+        }
+    }
+
+    if (!$pred) {
+        $hexopc |= 0xf0000000;
+    }
     $opname = $name;
     $opname =~ s/\./_/g;
     $opname .= ",";
@@ -219,12 +282,16 @@ sub generate_entry($,$,$,$,$,$)
 
     $rest =~ s/Rm/-Rm/ if ($negative);
 
+    # Get the 2nd empty dest in there for SIMD with Q.
+    # XXX: do the same for the others!
+    $rest =~ s/(VA\w+) (VB\w+)/\2 xx \1/;
+
     my @opnds = split(' ', $rest);
     my $opcnt = 0;
     for (my $i = 0; $i <= $#opnds; $i++) {
         if ($opnds[$i] ne '0' && $opnds[$i] ne '1' &&
             (!$simd || ($opnds[$i] ne 'sz' && $opnds[$i] ne 'N' &&
-                        $opnds[$i] ne 'M'))) {
+                        $opnds[$i] ne 'M' && $opnds[$i] ne 'F'))) {
             print "$opnds[$i], ";
             $opcnt++;
         }
@@ -232,7 +299,7 @@ sub generate_entry($,$,$,$,$,$)
     for (my $i = $opcnt; $i < 5; $i++) {
         print "xx, ";
     }
-    print ($nopred ? "no" : "pred");
+    print ($pred ? "pred" : "no");
     print ", $eflags, END_LIST},";
     if ($PUW) {
         $PUW_str = $bits[3] . $bits[4] . $bits[6];

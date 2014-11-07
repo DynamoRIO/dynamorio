@@ -360,16 +360,17 @@ read_instruction(byte *pc, byte *orig_pc,
     di->reglist_sz = 0;
 
     di->predicate = decode_predicate(instr_word);
-    if (di->predicate == DR_PRED_OP) {
-        uint opc8 = decode_opc8(instr_word);
-        info = &A32_nopred_opc8[opc8];
+    if (di->predicate + DR_PRED_EQ == DR_PRED_OP) {
+        uint opc7 = /* remove bit 22 */
+            ((instr_word >> 21) & 0x3e) | ((instr_word >> 20) & 0x3);
+        info = &A32_unpred_opc7[opc7];
     } else {
         uint opc8 = decode_opc8(instr_word);
         info = &A32_pred_opc8[opc8];
     }
 
     /* If an extension, discard the old info and get a new one */
-    while (info != NULL && info->type > INVALID) {
+    while (info->type > INVALID) {
         if (info->type == EXT_OPC4X) {
             if ((instr_word & 0x10 /*bit 4*/) == 0)
                 idx = 0;
@@ -428,13 +429,99 @@ read_instruction(byte *pc, byte *orig_pc,
         } else if (info->type == EXT_RDPC) {
             idx = ((instr_word & 0xf) /*bits 3:0*/ == 0xf) ? 1 : 0;
             info = &A32_ext_RDPC[info->code][idx];
+        } else if (info->type == EXT_BIT6) {
+            idx = ((instr_word >> 6) & 0x1) /*bit 6 */;
+            info = &A32_ext_bit6[info->code][idx];
+        } else if (info->type == EXT_BIT7) {
+            idx = ((instr_word >> 7) & 0x1) /*bit 7 */;
+            info = &A32_ext_bit7[info->code][idx];
+        } else if (info->type == EXT_BIT19) {
+            idx = ((instr_word >> 19) & 0x1) /*bit 19 */;
+            info = &A32_ext_bit19[info->code][idx];
+        } else if (info->type == EXT_BIT22) {
+            idx = ((instr_word >> 22) & 0x1) /*bit 22 */;
+            info = &A32_ext_bit22[info->code][idx];
+        } else if (info->type == EXT_BITS20) {
+            idx = ((instr_word >> 20) & 0xf) /*bits 23:20 */;
+            info = &A32_ext_bits20[info->code][idx];
+        } else if (info->type == EXT_IMM1816) {
+            idx = (((instr_word >> 16) & 0x7) /*bits 18:16*/ == 0) ? 0 : 1;
+            info = &A32_ext_imm1816[info->code][idx];
+        } else if (info->type == EXT_IMM2016) {
+            idx = (((instr_word >> 16) & 0x1f) /*bits 20:16*/ == 0) ? 0 : 1;
+            info = &A32_ext_imm2016[info->code][idx];
+        } else if (info->type == EXT_SIMD6) {
+            idx =  /*6 bits 11:8,6,4 */
+                ((instr_word >> 6) & 0x3c) |
+                ((instr_word >> 5) & 0x2) |
+                ((instr_word >> 4) & 0x1);
+            info = &A32_ext_simd6[info->code][idx];
+        } else if (info->type == EXT_SIMD5) {
+            idx =  /*5 bits 11:8,5 */
+                ((instr_word >> 7) & 0x1e) | ((instr_word >> 5) & 0x1);
+            info = &A32_ext_simd5[info->code][idx];
+        } else if (info->type == EXT_SIMD5B) {
+            idx = /*bits 18:16,8:7 */
+                ((instr_word >> 14) & 0x3c) | ((instr_word >> 7) & 0x3);
+            info = &A32_ext_simd5b[info->code][idx];
+        } else if (info->type == EXT_SIMD8) {
+            /* Odds + 0 == 9 entries each */
+            idx = 9 * ((instr_word >> 8) & 0xf) /*bits 11:8*/;
+            if (((instr_word >> 4) & 0x1) != 0)
+                idx += 1 + ((instr_word >> 5) & 0x7) /*bits 7:5*/;
+            info = &A32_ext_simd8[info->code][idx];
+        } else if (info->type == EXT_SIMD6B) {
+            idx = /*bits 11:8,7:6 */
+                ((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3);
+            info = &A32_ext_simd6b[info->code][idx];
+        } else if (info->type == EXT_SIMD6C) {
+            /* bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
+            if (((instr_word >> 11) & 0x1) != 0)
+                idx = 32 + ((instr_word >> 6) & 0x3);
+            else
+                idx = ((instr_word >> 6) & 0x1c) | ((instr_word >> 6) & 0x3);
+            info = &A32_ext_simd6c[info->code][idx];
+        } else if (info->type == EXT_SIMD2) {
+            idx = /*11,6 */
+                ((instr_word >> 10) & 0x2) | ((instr_word >> 6) & 0x1);
+            info = &A32_ext_simd2[info->code][idx];
+        } else if (info->type == EXT_VLDA) {
+            int reg = (instr_word & 0xf);
+            idx = /*bits (11:8,7:6)*3+X where X based on value of 3:0 */
+                3 * (((instr_word >> 6) & 0x3c) | ((instr_word >> 6) & 0x3));
+            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+            /* this table stops at 0xa in top bits, to save space */
+            if (((instr_word >> 8) & 0xf) > 0xa)
+                info = &invalid_instr;
+            else
+                info = &A32_ext_vldA[info->code][idx];
+        } else if (info->type == EXT_VLDB) {
+            int reg = (instr_word & 0xf);
+            idx = /*bits (11:8,Y)*3+X where X based on value of 3:0 */
+                3 * ((instr_word >> 7) & 0x1e);
+            /* Y is bit 6 if bit 11 is set; else, bit 5 */
+            if (((instr_word >> 11) & 0x1) != 0)
+                idx |= ((instr_word >> 6) & 0x1);
+            else
+                idx |= ((instr_word >> 5) & 0x1);
+            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+            info = &A32_ext_vldB[info->code][idx];
+        } else if (info->type == EXT_VLDC) {
+            int reg = (instr_word & 0xf);
+            idx = /*bits (9:8,7:5)*3+X where X based on value of 3:0 */
+                3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
+            idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
+            info = &A32_ext_vldC[info->code][idx];
         }
     }
-    CLIENT_ASSERT(info->type <= OP_LAST, "decoding table error");
+    CLIENT_ASSERT(info->type <= INVALID, "decoding table error");
+
+    /* All required bits should be set */
+    if ((instr_word & info->opcode) != info->opcode && info->type != INVALID)
+        info = &invalid_instr;
 
     /* We should now have either a valid OP_ opcode or an invalid opcode */
-    if (info == NULL || info == &invalid_instr ||
-        info->type < OP_FIRST || info->type > OP_LAST) {
+    if (info == &invalid_instr || info->type < OP_FIRST || info->type > OP_LAST) {
         DODEBUG({
             /* PR 605161: don't report on DR addresses */
             if (report_invalid && !is_dynamo_address(di->start_pc)) {

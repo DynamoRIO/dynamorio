@@ -130,6 +130,7 @@ if (X86)
 else ()
   set(DECODER_SRCS ${DECODER_SRCS}
     arch/${ARCH_NAME}/table_a32_pred.c
+    arch/${ARCH_NAME}/table_a32_unpred.c
     arch/${ARCH_NAME}/table_a32_encode.c)
 endif ()
 

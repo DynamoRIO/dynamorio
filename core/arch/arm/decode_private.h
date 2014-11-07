@@ -55,6 +55,24 @@ enum {
     EXT_BITS16,  /* Indexed by bits 19:16 */
     EXT_RBPC,    /* Indexed by whether RB != PC */
     EXT_RDPC,    /* Indexed by whether RD != PC */
+    /* A32 unpred only */
+    EXT_BIT6,    /* Indexed by bit 6 */
+    EXT_BIT7,    /* Indexed by bit 7 */
+    EXT_BIT19,   /* Indexed by bit 19 */
+    EXT_BIT22,   /* Indexed by bit 22 */
+    EXT_BITS20,  /* Indexed by bits 23:20 */
+    EXT_IMM1816, /* Indexed by whether imm3 in 18:16 is zero or not */
+    EXT_IMM2016, /* Indexed by whether imm5 in 20:16 is zero or not */
+    EXT_SIMD6,   /* Indexed by 6 bits 11:8,6,4 */
+    EXT_SIMD5,   /* Indexed by bits 11:8,5 */
+    EXT_SIMD5B,  /* Indexed by bits 18:16,8:7 */
+    EXT_SIMD8,   /* Indexed by bits 11:8,7:4, but 7:4 collapsed */
+    EXT_SIMD6B,  /* Indexed by bits 11:8,7:6 */
+    EXT_SIMD6C,  /* Indexed by bits 10:8,7:6 + extra set of 7:6 for bit 11 being set */
+    EXT_SIMD2,   /* Indexed by bits 11,6 */
+    EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
+    EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
+    EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
     /* else, from OP_ enum */
 };
 
@@ -272,7 +290,6 @@ enum {
 
 /* exported tables */
 extern const instr_info_t A32_pred_opc8[];
-extern const instr_info_t A32_nopred_opc8[];
 extern const instr_info_t A32_ext_opc4x[][6];
 extern const instr_info_t A32_ext_opc4y[][9];
 extern const instr_info_t A32_ext_opc4[][16];
@@ -289,6 +306,24 @@ extern const instr_info_t A32_ext_RBPC[][2];
 extern const instr_info_t A32_ext_RDPC[][2];
 extern const instr_info_t A32_ext_imm5[][2];
 extern const instr_info_t A32_extra_operands[];
+extern const instr_info_t A32_unpred_opc7[];
+extern const instr_info_t A32_ext_bits20[][16];
+extern const instr_info_t A32_ext_imm2016[][2];
+extern const instr_info_t A32_ext_imm1816[][2];
+extern const instr_info_t A32_ext_bit7[][2];
+extern const instr_info_t A32_ext_bit6[][2];
+extern const instr_info_t A32_ext_bit19[][2];
+extern const instr_info_t A32_ext_bit22[][2];
+extern const instr_info_t A32_ext_simd6[][64];
+extern const instr_info_t A32_ext_simd5[][32];
+extern const instr_info_t A32_ext_simd5b[][32];
+extern const instr_info_t A32_ext_simd8[][144];
+extern const instr_info_t A32_ext_simd6b[][64];
+extern const instr_info_t A32_ext_simd6c[][36];
+extern const instr_info_t A32_ext_simd2[][4];
+extern const instr_info_t A32_ext_vldA[][132];
+extern const instr_info_t A32_ext_vldB[][96];
+extern const instr_info_t A32_ext_vldC[][96];
 
 /* tables that translate opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr_A32[];
