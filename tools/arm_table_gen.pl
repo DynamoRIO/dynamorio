@@ -194,7 +194,9 @@ sub generate_entry($,$,$,$,$,$)
 
     $opname = $name;
     $opname =~ s/\./_/g;
-    printf "    {OP_%-7s, 0x%08x, \"%-7s, ", $opname, $hexopc, $name."\"";
+    $opname .= ",";
+    $name .= "\",";
+    printf "    {OP_%-8s 0x%08x, \"%-8s ", $opname, $hexopc, $name;
 
     # Clean up extra spaces, parens, digits
     $enc =~ s/\s\s+/ /g;
