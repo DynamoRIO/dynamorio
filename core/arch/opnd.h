@@ -254,6 +254,9 @@ enum {
     DR_REG_LR = DR_REG_R14, /**< The link register. */
     DR_REG_PC = DR_REG_R15, /**< The program counter register. */
 # endif
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
 
     /* 128-bit SIMD registers */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
