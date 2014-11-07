@@ -75,14 +75,15 @@ enum {
     DECODE_EXTRA_OPERANDS     = 0x0001, /* additional opnds in entry at code field */
     DECODE_EXTRA_SHIFT        = 0x0002, /* has 2 additional srcs @exop[0] */
     DECODE_EXTRA_WRITEBACK    = 0x0004, /* has 1 additional src @exop[1] */
-    DECODE_4_SRCS             = 0x0008, /* dst2==src1, src1==src2, etc. */
-    DECODE_3_DSTS             = 0x0010, /* src1==dst3, src2==src1, etc. */
-    DECODE_PREDICATE          = 0x0020, /* takes a predicate */
-    DECODE_PREDICATE_AL_ONLY  = 0x0040, /* takes AL predicate only */
-    DECODE_UNPREDICTABLE      = 0x0080, /* unpredictable according to ISA spec */
+    DECODE_EXTRA_WRITEBACK2   = 0x0008, /* has 2 additional src @exop[2] */
+    DECODE_4_SRCS             = 0x0010, /* dst2==src1, src1==src2, etc. */
+    DECODE_3_DSTS             = 0x0020, /* src1==dst3, src2==src1, etc. */
+    DECODE_PREDICATE          = 0x0040, /* takes a predicate */
+    DECODE_PREDICATE_AL_ONLY  = 0x0080, /* takes AL predicate only */
+    DECODE_UNPREDICTABLE      = 0x0100, /* unpredictable according to ISA spec */
     /* ARM versions we care about */
-    DECODE_ARM_V8             = 0x0100, /* added in v8: not present in v7 */
-    DECODE_ARM_VFP            = 0x0200, /* VFP instruction */
+    DECODE_ARM_V8             = 0x0200, /* added in v8: not present in v7 */
+    DECODE_ARM_VFP            = 0x0400, /* VFP instruction */
 };
 
 /* instr_info_t.code:

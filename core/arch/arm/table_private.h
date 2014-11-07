@@ -46,6 +46,7 @@
 #define xop       DECODE_EXTRA_OPERANDS
 #define xop_shift DECODE_EXTRA_SHIFT
 #define xop_wb    DECODE_EXTRA_WRITEBACK
+#define xop_wb2   DECODE_EXTRA_WRITEBACK2
 #define v8        DECODE_ARM_V8
 #define vfp       DECODE_ARM_VFP
 #define srcX4     DECODE_4_SRCS

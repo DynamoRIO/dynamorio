@@ -647,6 +647,8 @@ instr_info_extra_opnds(const instr_info_t *info)
         return &A32_extra_operands[0];
     else if (TEST(DECODE_EXTRA_WRITEBACK, info->flags))
         return &A32_extra_operands[1];
+    else if (TEST(DECODE_EXTRA_WRITEBACK2, info->flags))
+        return &A32_extra_operands[2];
     else if (TEST(DECODE_EXTRA_OPERANDS, info->flags))
         return (const instr_info_t *)(info->code);
     else
