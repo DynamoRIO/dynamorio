@@ -51,6 +51,7 @@
 void
 get_xmm_vals(priv_mcontext_t *mc)
 {
+#ifdef X86
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
         if (YMM_ENABLED())
@@ -58,6 +59,10 @@ get_xmm_vals(priv_mcontext_t *mc)
         else
             get_xmm_caller_saved(&mc->ymm[0]);
     }
+#elif defined(ARM)
+    /* FIXME i#1551: no xmm but SIMD regs on ARM */
+    ASSERT_NOT_REACHED();
+#endif
 }
 
 /* Just calls dynamo_thread_under_dynamo.  We used to initialize dcontext here,
@@ -262,9 +267,9 @@ new_thread_setup(priv_mcontext_t *mc)
      * to switch back to the real app thread stack before continuing.
      */
     mc->xsp = get_clone_record_app_xsp(crec);
-    /* clear xax (was used to hold clone record) */
-    ASSERT(mc->xax == (reg_t) mc->pc);
-    mc->xax = 0;
+    /* clear xax/r0 (was used to hold clone record) */
+    ASSERT(mc->IF_X86_ELSE(xax, r0) == (reg_t) mc->pc);
+    mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
 

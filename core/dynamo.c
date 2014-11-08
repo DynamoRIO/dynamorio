@@ -928,13 +928,13 @@ dynamo_shared_exit(IF_WINDOWS_(thread_record_t *toexit)
     hardware_perfctr_exit();
 #endif
 #ifdef DEBUG
-#  ifdef INTERNAL
+# if defined(INTERNAL) && defined(X86)
     print_optimization_stats();
-#  endif
+# endif /* INTERNAL && X86 */
     DOLOG(1, LOG_STATS, {
         dump_global_stats(false);
     });
-#endif
+#endif /* DEBUG */
 
     if (SELF_PROTECT_ON_CXT_SWITCH) {
         DELETE_LOCK(protect_info->lock);

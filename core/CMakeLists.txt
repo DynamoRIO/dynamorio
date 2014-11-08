@@ -144,7 +144,7 @@ set(ARCH_SRCS
   arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
-  arch/optimize.c
+  arch/${ARCH_NAME}/optimize.c
   arch/sideline.c
   arch/retcheck.c
   )
