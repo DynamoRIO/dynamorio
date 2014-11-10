@@ -77,17 +77,19 @@ foreach $infile (@infiles) {
             # Ignore duplicate encodings
             my $encoding = $_;
             my $is_new = 1;
-            # Remove up through opcode name (to remove encoding hexes) and comments
+            # Remove up through opcode name (to remove encoding hexes) and
+            # final field and comments
             $encoding =~ s/^[^"]+"/"/;
-            $encoding =~ s/},\s*\/.*$/},/;
+            $encoding =~ s/,[^,]+}.*$//;
             $encoding =~ s/\s*$//;
             for (my $i = 0; $i < @entry; $i++) {
                 if ($encoding eq $entry[$i]{'encoding'}) {
                     $is_new = 0;
+                    $dup{$_} = 1;
                     last;
                 }
             }
-            next if (!$is_new);
+            goto dup_line if (!$is_new);
 
             $entry[$instance]{'line'} = $_;
             $entry[$instance]{'encoding'} = $encoding;
@@ -108,18 +110,18 @@ foreach $infile (@infiles) {
             # + Prefer shift via immed over shift via reg
             # + Prefer P=1 and U=1
             # + Prefer 8-byte over 16-byte and over 4-byte
-            my $priority = 0;
-            $priority--   if (/sh2, i/);
-            $priority--   if (/sh2, R/);
-            $priority--   if (/xop_shift/);
-            $priority++   if (/, [in]/);
-            $priority++   if (/, M.\d/);
-            $priority--   if (/, M.S/);
-            $priority+=5  if (/PUW=1../);
-            $priority+=10 if (/PUW=1.0/);
-            $priority++   if (/PUW=.1./);
-            $priority++   if (/[VW][ABC]q,/);
-            $priority-=5  if (/[VW][ABC]d,/);
+            my $priority = $instance;
+            $priority-=10   if (/sh2, i/);
+            $priority-=10   if (/sh2, R/);
+            $priority-=10   if (/xop_shift/);
+            $priority+=10   if (/, [in]/);
+            $priority+=10   if (/, M.\d/);
+            $priority-=10   if (/, M.S/);
+            $priority+=50   if (/PUW=1../);
+            $priority+=100  if (/PUW=1.0/);
+            $priority+=10   if (/PUW=.1./);
+            $priority+=10   if (/[VW][ABC]q,/);
+            $priority-=50   if (/[VW][ABC]d,/);
             $entry[$instance]{'priority'} = $priority;
             if ($verbose > 0) {
                 my $tmp = $entry[$instance]{'addr_long'};
@@ -127,6 +129,7 @@ foreach $infile (@infiles) {
             }
             $instance++;
         }
+      dup_line:
         $minor++ if (/^\s*{[A-Z]/);
     }
     close(INFILE);
@@ -149,14 +152,23 @@ foreach $infile (@infiles) {
     @ARGV = ($infile);
     while (<>) {
         if (/^\s+\/\* $op[ ,]/) {
-            my $start = $entry[0]{'addr_long'};
-            s/&.*,/&$start,/;
-        }
-        for (my $i = 0; $i < @entry - 1; $i++) {
-            if ($_ eq $entry[$i]{'line'}) {
-                my $chain = $entry[$i+1]{'addr_short'};
-                s/, [\w\[\]]+},/, $chain},/;
+            if (defined($entry[0]{'addr_long'})) {
+                my $start = $entry[0]{'addr_long'};
+                s/&.*,/&$start,/;
             }
+        }
+        for (my $i = 0; $i < @entry; $i++) {
+            if ($_ eq $entry[$i]{'line'}) {
+                if ($i == @entry - 1) {
+                    s/, [\w\[\]]+},/, END_LIST},/;
+                } else {
+                    my $chain = $entry[$i+1]{'addr_short'};
+                    s/, [\w\[\]]+},/, $chain},/;
+                }
+            }
+        }
+        if (defined($dup{$_})) {
+            s/, [\w\[\]]+},/, END_LIST},/;
         }
         print;
     }
