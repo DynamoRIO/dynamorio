@@ -394,6 +394,9 @@ read_instruction(byte *pc, byte *orig_pc,
         } else if (info->type == EXT_BIT4) {
             idx = (instr_word >> 4) & 0x1 /*bit 4*/;
             info = &A32_ext_bit4[info->code][idx];
+        } else if (info->type == EXT_BIT5) {
+            idx = (instr_word >> 5) & 0x1 /*bit 5*/;
+            info = &A32_ext_bit5[info->code][idx];
         } else if (info->type == EXT_BIT9) {
             idx = (instr_word >> 9) & 0x1 /*bit 9*/;
             info = &A32_ext_bit9[info->code][idx];

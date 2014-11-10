@@ -48,6 +48,7 @@ enum {
     EXT_BITS0,   /* Indexed by bits 2:0 */
     EXT_BITS8,   /* Indexed by bits 9:8 */
     EXT_BIT4,    /* Indexed by bit 4 */
+    EXT_BIT5,    /* Indexed by bit 5 */
     EXT_BIT9,    /* Indexed by bit 9 */
     EXT_FP,      /* Indexed by bits 11:8 but collapsed */
     EXT_FPA,     /* Indexed by bits 6:4 but collapsed */
@@ -297,6 +298,7 @@ extern const instr_info_t A32_ext_imm1916[][2];
 extern const instr_info_t A32_ext_bits0[][8];
 extern const instr_info_t A32_ext_bits8[][4];
 extern const instr_info_t A32_ext_bit9[][2];
+extern const instr_info_t A32_ext_bit5[][2];
 extern const instr_info_t A32_ext_bit4[][2];
 extern const instr_info_t A32_ext_fp[][3];
 extern const instr_info_t A32_ext_opc4fpA[][3];

@@ -90,6 +90,7 @@
 #define tb0   (ptr_int_t)&A32_ext_bits0
 #define tb8   (ptr_int_t)&A32_ext_bits8
 #define tb9   (ptr_int_t)&A32_ext_bit9
+#define tb5   (ptr_int_t)&A32_ext_bit5
 #define tb4   (ptr_int_t)&A32_ext_bit4
 #define tfp   (ptr_int_t)&A32_ext_fp
 #define tfpA  (ptr_int_t)&A32_ext_opc4fpA

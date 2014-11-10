@@ -657,9 +657,9 @@ const instr_info_t A32_ext_opc4y[][9] = {
   }, { /* 12 */
     {OP_str,     0x07000000, "str",    MNSw, xx, RBw, xx, xx, pred, x, top8[0x50]},/*PUW=100*/
     {OP_smlad,   0x07000010, "smlad",  RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},/* XXX: "smuad" on PC */
-    {OP_smladx,  0x07000030, "smladx", RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},/* XXX: "smuad" on PC */
+    {OP_smladx,  0x07000030, "smladx", RAw, xx, RDw, RCw, RBw, pred, fWQ, END_LIST},/* XXX: "smuadx" on PC */
     {OP_smlsd,   0x07000050, "smlsd",  RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},/* XXX: "smusd" on PC */
-    {OP_smlsdx,  0x07000070, "smlsdx", RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},/* XXX: "smusd" on PC */
+    {OP_smlsdx,  0x07000070, "smlsdx", RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},/* XXX: "smusdx" on PC */
     {INVALID,    0x07000090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x070000b0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x070000d0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -677,7 +677,7 @@ const instr_info_t A32_ext_opc4y[][9] = {
   }, { /* 14 */
     {OP_ldrb,    0x07500000, "ldrb",   RBw, xx, MNSb, xx, xx, pred, x, top8[0x5f]},/*PUW=100*/
     {OP_smmla,   0x07500010, "smmla",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* XXX: "smmul" if RBw==PC */
-    {OP_smmla,   0x07500030, "smmla",  RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* XXX: "smmul" if RBw==PC */
+    {OP_smmlar,  0x07500030, "smmlar", RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},/* XXX: "smmulr" if RBw==PC */
     {INVALID,    0x07500050, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x07500070, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,    0x07500090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -697,7 +697,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9,   0x01000040, "(ext bit9 1)", xx, xx, xx, xx, xx, no, x, 1},
     {OP_qadd,    0x01000050, "qadd",   RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID,    0x01000060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_hlt,     0xe1000070, "hlt",    i16x0_8, xx, xx, xx, xx, pred, x, END_LIST},
+    {OP_hlt,     0xe1000070, "hlt",    i16x0_8, xx, xx, xx, xx, predAL, x, END_LIST},
     {OP_smlabb,  0x01000080, "smlabb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
     {INVALID,    0x01000090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_smlabt,  0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
@@ -714,7 +714,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9,   0x01200040, "(ext bit9 3)", xx, xx, xx, xx, xx, no, x, 3},
     {OP_qsub,    0x01200050, "qsub",   RBw, xx, RDw, RAw, xx, pred, x, END_LIST},
     {INVALID,    0x01200060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_bkpt,    0xe1200070, "bkpt",   i16x0_8, xx, xx, xx, xx, pred, x, END_LIST},
+    {OP_bkpt,    0xe1200070, "bkpt",   i16x0_8, xx, xx, xx, xx, predAL, x, END_LIST},
     {OP_smlawb,  0x01200080, "smlawb", RAw, xx, RDh, RCh, RBw, pred, x, END_LIST},
     {INVALID,    0x01200090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_smulwb,  0x012000a0, "smulwb", RAw, xx, RDw, RCh, xx, pred, x, END_LIST},
@@ -748,7 +748,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {EXT_BIT9,   0x01600040, "(ext bit9 7)", xx, xx, xx, xx, xx, no, x, 7},
     {OP_qdsub,   0x01600050, "qdsub",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {OP_eret,    0x0160006e, "eret",   xx, xx, xx, xx, xx, pred, x, END_LIST},
-    {INVALID,    0x01600070, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_smc,     0x01600070, "smc",    xx, xx, i4, xx, xx, no, x, END_LIST},
     {OP_smulbb,  0x01600080, "smulbb", RAw, xx, RCh, RDh, xx, pred, x, END_LIST},
     {INVALID,    0x01600090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_smulbt,  0x016000a0, "smulbt", RAw, xx, RCh, RDt, xx, pred, x, END_LIST},
@@ -938,7 +938,7 @@ const instr_info_t A32_ext_bits8[][4] = {
     {OP_ldab,    0x01d00c9f, "ldab",   RBw, xx, Mb, xx, xx, pred, x, END_LIST},
     {INVALID,    0x01d00d90, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_ldaexb,  0x01d00e9f, "ldaexb", RBw, xx, Mb, xx, xx, pred, x, END_LIST},
-    {INVALID,    0x01d00f90, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_ldrexb,  0x01d00f9f, "ldrexb", RBb, xx, Mb, xx, xx, pred, x, END_LIST},
   }, { /* 6 */
     {OP_stlh,    0x01e0fc90, "stlh",   Mh, xx, RDh, xx, xx, pred, x, END_LIST},
     {INVALID,    0x01e00d90, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
@@ -959,26 +959,34 @@ const instr_info_t A32_ext_bit9[][2] = {
     {OP_mrs,     0x01000200, "mrs",    RBw, xx, CPSR, i5x16_9, xx, pred, x, tb9[4][0x00]},
   }, { /* 1 */
     /* XXX: or for crc32 should we model the sz field as some prefix, like the sf for A64? */
-    {OP_crc32,   0x01000040, "crc32b",  RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
-    {OP_crc32c,  0x01000240, "crc32cb", RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
+    {OP_crc32,   0xe1000040, "crc32b",  RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
+    {OP_crc32c,  0xe1000240, "crc32cb", RBw, xx, RAw, RDb, xx, predAL|v8, x, END_LIST},
   }, { /* 2 */
     {OP_msr,     0x0120f000, "msr",    CPSR, xx, i4_16, RAw, xx, pred, x, ti19[0][0x01]},
     {OP_msr,     0x0120f000, "msr",    CPSR, xx, i5x16_8, RAw, xx, pred, x, tb9[2][0x00]},
   }, { /* 3 */
-    {OP_crc32,   0x01200040, "crc32h",  RBw, xx, RAw, RDh, xx, predAL|v8, x, tb9[1][0x00]},
-    {OP_crc32c,  0x01200240, "crc32ch", RBw, xx, RAw, RDh, xx, predAL|v8, x, tb9[1][0x01]},
+    {OP_crc32,   0xe1200040, "crc32h",  RBw, xx, RAw, RDh, xx, predAL|v8, x, tb9[1][0x00]},
+    {OP_crc32c,  0xe1200240, "crc32ch", RBw, xx, RAw, RDh, xx, predAL|v8, x, tb9[1][0x01]},
   }, { /* 4 */
     {OP_mrs,     0x014f0000, "mrs",    RBw, xx, SPSR, xx, xx, pred, x, tb9[0][0x00]},
     {OP_mrs,     0x01400200, "mrs",    RBw, xx, SPSR, i5x16_9, xx, pred, x, tb9[0][0x01]},
   }, { /* 5 */
-    {OP_crc32,   0x01400040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8, x, tb9[3][0x00]},
-    {OP_crc32c,  0x01400240, "crc32cw", RBw, xx, RAw, RDw, xx, predAL|v8, x, tb9[3][0x01]},
+    {OP_crc32,   0xe1400040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8, x, tb9[3][0x00]},
+    {OP_crc32c,  0xe1400240, "crc32cw", RBw, xx, RAw, RDw, xx, predAL|v8, x, tb9[3][0x01]},
   }, { /* 6 */
     {OP_msr,     0x0160f000, "msr",    SPSR, xx, i4_16, RAw, xx, pred, x, tb9[2][0x01]},
     {OP_msr,     0x0160f000, "msr",    SPSR, xx, i5x16_8, RAw, xx, pred, x, tb9[6][0x00]},
   }, { /* 7 */
-    {OP_crc32,   0x01600040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8|unp, x, tb9[5][0x00]},
-    {OP_crc32c,  0x01600240, "crc32cw", RBw, xx, RAw, RDw, xx, predAL|v8|unp, x, tb9[5][0x01]},
+    {OP_crc32,   0xe1600040, "crc32w",  RBw, xx, RAw, RDw, xx, predAL|v8|unp, x, tb9[5][0x00]},
+    {OP_crc32c,  0xe1600240, "crc32cw", RBw, xx, RAw, RDw, xx, predAL|v8|unp, x, tb9[5][0x01]},
+  },
+};
+
+/* Indexed by bit 5 */
+const instr_info_t A32_ext_bit5[][2] = {
+  { /* 0 */
+    {OP_ubfx,    0x07f00050, "ubfx",   RBw, xx, RDw, i5, i5_16, pred, x, END_LIST},
+    {OP_udf,     0xe7f000f0, "udf",    xx, xx, i16x0_8, xx, xx, predAL, x, END_LIST},
   },
 };
 
@@ -1004,7 +1012,7 @@ const instr_info_t A32_ext_bit4[][2] = {
     {OP_ubfx,    0x07e00050, "ubfx",   RBw, xx, RDw, i5, i5_16, pred, x, END_LIST},
   }, { /* 6 */
     {OP_ldrb,    0x07f00000, "ldrb",   RBw, RAw, MPSb, RAw, RDw, xop_shift|pred, x, top8[0x77]},/*PUW=111*/
-    {OP_ubfx,    0x07f00050, "ubfx",   RBw, xx, RDw, i5, i5_16, pred, x, END_LIST},
+    {EXT_BIT5,   0x07f00010, "(ext bit5 0)", xx, xx, xx, xx, xx, no, x, 0},
   }, { /* 7 */
     {INVALID,    0x07c00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {EXT_RDPC,   0x07c00000, "(ext RDPC 0)", xx, xx, xx, xx, xx, no, x, 0},
@@ -1456,8 +1464,8 @@ const instr_info_t A32_ext_bits16[][16] = {
   { /* 0 */
     {OP_vmov_f32,     0x0eb00a40, "vmov.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
     {OP_vneg_f32,     0x0eb10a40, "vneg.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,         0x0eb20a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,         0x0eb30a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtb_f32_f16, 0x0eb20a40, "vcvtb.f32.f16", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
+    {OP_vcvtb_f16_f32, 0x0eb30a40, "vcvtb.f16.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
     {INVALID,         0x0eb40a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0x0eb50a40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrintr_f32,   0x0eb60a40, "vrintr.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
@@ -1473,8 +1481,8 @@ const instr_info_t A32_ext_bits16[][16] = {
   }, { /* 1 */
     {OP_vabs_f32,     0x0eb00ac0, "vabs.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
     {OP_vsqrt_f32,    0x0eb10ac0, "vsqrt.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,         0x0eb20ac0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,         0x0eb30ac0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtt_f32_f16, 0x0eb20ac0, "vcvtt.f32.f16", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
+    {OP_vcvtt_f16_f32, 0x0eb30ac0, "vcvtt.f16.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
     {INVALID,         0x0eb40ac0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcmpe_f32,    0x0eb50ac0, "vcmpe.f32",FPSCR, xx, WBd, WCd, xx, pred|vfp, x, END_LIST},
     {OP_vrintz_f32,   0x0eb60ac0, "vrintz.f32", WBd, xx, WCd, xx, xx, pred|vfp, x, END_LIST},
@@ -1490,8 +1498,8 @@ const instr_info_t A32_ext_bits16[][16] = {
   }, { /* 2 */
     {OP_vmov_f64,     0x0eb00b40, "vmov.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
     {OP_vneg_f64,     0x0eb10b40, "vneg.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,         0x0eb20b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,         0x0eb30b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtb_f64_f16, 0x0eb20b40, "vcvtb.f64.f16", VBq, xx, WCd, xx, xx, pred|vfp|v8, x, END_LIST},
+    {OP_vcvtb_f16_f64, 0x0eb30b40, "vcvtb.f16.f64", WBd, xx, VCq, xx, xx, pred|vfp|v8, x, END_LIST},
     {INVALID,         0x0eb40b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,         0x0eb50b40, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vrintr_f64,   0x0eb60b40, "vrintr.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
@@ -1507,8 +1515,8 @@ const instr_info_t A32_ext_bits16[][16] = {
   }, { /* 3 */
     {OP_vabs_f64,     0x0eb00bc0, "vabs.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
     {OP_vsqrt_f64,    0x0eb10bc0, "vsqrt.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
-    {INVALID,         0x0eb20bc0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {INVALID,         0x0eb30bc0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
+    {OP_vcvtt_f64_f16, 0x0eb20bc0, "vcvtt.f64.f16", VBq, xx, WCd, xx, xx, pred|vfp|v8, x, END_LIST},
+    {OP_vcvtt_f16_f64, 0x0eb30bc0, "vcvtt.f16.f64", WBd, xx, VCq, xx, xx, pred|vfp|v8, x, END_LIST},
     {INVALID,         0x0eb40bc0, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_vcmpe_f64,    0x0eb50bc0, "vcmpe.f64",FPSCR, xx, VBq, VCq, xx, pred|vfp, x, END_LIST},
     {OP_vrintz_f64,   0x0eb60bc0, "vrintz.f64", VBq, xx, VCq, xx, xx, pred|vfp, x, END_LIST},
