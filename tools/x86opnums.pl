@@ -34,10 +34,19 @@
 ### I use this script to add the numbers in comments in the OP_
 ### enum in src/arch/*/opcode.h
 ### Instructions: send the modified enum from decode_table.c
-### as stdin for this script, it sends to standard out the enum
+### or table_a32_encode.c as stdin for this script.  Pass
+### -arm first for ARM.  The script sends to standard out the enum
 ### with the numbers re-calculated.
 
 $num = 0;
+$prefix = "IA-32/AMD64";
+while ($#ARGV >= 0 && $ARGV[0] =~ /^-/) {
+    if ($ARGV[0] eq '-arm') {
+        $prefix = "ARM";
+        shift;
+    }
+}
+
 while (<>) {
     chop;
     # handle DOS end-of-line:
@@ -47,12 +56,12 @@ while (<>) {
         $l =~ /^\s*\/\*\s*OP_([a-zA-Z0-9_]*)(\s*)\*\/\s*(.*)$/;
         $op = $1;
         $space = $2;
-        $table = $3;
+        # decided to no longer keep the encoding chain ($3) as a comment
         $name = $op;
         $name =~ s/xsave32/xsave/;
         $name =~ s/xrstor32/xrstor/;
         $name =~ s/xsaveopt32/xsaveopt/;
-        printf "/* %3d */     OP_$op,$space /* $table */ /**< $name opcode */\n", $num;
+        printf "/* %3d */     OP_$op,$space /**< $prefix $name opcode. */\n", $num;
         $num++;
     } else {
         print "$l\n";
