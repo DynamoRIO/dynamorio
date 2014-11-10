@@ -1124,7 +1124,6 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_12b: /* round up */
         return 2;
     case OPSZ_3:
-    case OPSZ_21b: /* round up */
         return 3;
     case OPSZ_4_of_8:
     case OPSZ_4_of_16:
@@ -1231,7 +1230,6 @@ opnd_size_in_bits(opnd_size_t size)
     case OPSZ_5b:  return 5;
     case OPSZ_6b:  return 6;
     case OPSZ_12b: return 12;
-    case OPSZ_21b: return 21;
     case OPSZ_25b: return 25;
     default:       return opnd_size_in_bytes(size) * 8;
     }

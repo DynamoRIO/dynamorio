@@ -282,7 +282,6 @@ enum {
     OPSZ_5b,   /**< 5 bits */
     OPSZ_6b,   /**< 6 bits */
     OPSZ_12b,  /**< 12 bits */
-    OPSZ_21b,  /**< 21 bits */
     OPSZ_25b,  /**< 25 bits */
     OPSZ_VAR_REGLIST,  /**< 1 bit */
     OPSZ_20,  /**< 20 bytes.  Needed for load/store of register lists. */
