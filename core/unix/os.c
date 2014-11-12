@@ -1141,16 +1141,6 @@ os_timeout(int time_in_milliseconds)
  * transparency becomes more of a problem.
  */
 
-#define WRITE_DR_SEG(val) \
-    ASSERT(sizeof(val) == sizeof(reg_t));                           \
-    asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);
-
-#define WRITE_LIB_SEG(val) \
-    ASSERT(sizeof(val) == sizeof(reg_t));                               \
-    asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
-                 : : "m" ((val)) : ASM_XAX);
-
 #define TLS_LOCAL_STATE_OFFSET (offsetof(os_local_state_t, state))
 
 /* offset from top of page */
@@ -1626,7 +1616,9 @@ void
 os_tls_exit(local_state_t *local_state, bool other_thread)
 {
 #ifdef HAVE_TLS
+# ifdef X86
     static const ptr_uint_t zero = 0;
+# endif /* X86 */
     /* We can't read from fs: as we can be called from other threads */
     /* ASSUMPTION: local_state_t is laid out at same start as local_state_extended_t */
     os_local_state_t *os_tls = (os_local_state_t *)
@@ -1634,12 +1626,14 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     tls_type_t tls_type = os_tls->tls_type;
     int index = os_tls->ldt_index;
 
+# ifdef X86
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
      */
     if (!other_thread && read_selector(SEG_TLS) != 0) {
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
+# endif /* X86 */
     heap_munmap(os_tls->self, PAGE_SIZE);
 
     /* For another thread we can't really make these syscalls so we have to
@@ -1682,11 +1676,13 @@ os_tls_pre_init(int gdt_index)
     if (gdt_index > 0) {
         /* PR 458917: clear gdt slot to avoid leak across exec */
         DEBUG_DECLARE(bool ok;)
+#ifdef X86
         static const ptr_uint_t zero = 0;
         /* Be sure to clear the selector before anything that might
          * call get_thread_private_dcontext()
          */
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
+#endif /* X86 */
         DEBUG_DECLARE(ok = )
             tls_clear_descriptor(gdt_index);
         ASSERT(ok);

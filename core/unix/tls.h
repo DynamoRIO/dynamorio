@@ -92,15 +92,24 @@ typedef struct _our_modify_ldt_t {
 #define GDT_SELECTOR(idx) ((idx) << 3 | ((GDT_NOT_LDT) << 2) | (USER_PRIVILEGE))
 #define SELECTOR_INDEX(sel) ((sel) >> 3)
 
-#define WRITE_DR_SEG(val) \
+#ifdef X86
+# define WRITE_DR_SEG(val) \
     ASSERT(sizeof(val) == sizeof(reg_t));                           \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
 
-#define WRITE_LIB_SEG(val) \
+# define WRITE_LIB_SEG(val) \
     ASSERT(sizeof(val) == sizeof(reg_t));                               \
     asm volatile("mov %0,%%"ASM_XAX"; mov %%"ASM_XAX", %"LIB_ASM_SEG";" \
                  : : "m" ((val)) : ASM_XAX);
+#elif defined(ARM)
+# ifdef X64
+#  error NYI on AArch64
+# else
+#  define WRITE_DR_SEG(val)  ASSERT_NOT_REACHED()
+#  define WRITE_LIB_SEG(val) ASSERT_NOT_REACHED()
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 
 static inline uint
 read_selector(reg_id_t seg)
