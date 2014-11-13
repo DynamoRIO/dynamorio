@@ -94,6 +94,10 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
                             byte *pc, byte *next_pc, int extra_sz,
                             const char *extra_bytes_prefix);
 
+void
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                                 opnd_t opnd);
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
@@ -235,7 +239,6 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     reg_id_t base = opnd_get_base(opnd);
     int disp = opnd_get_disp(opnd);
     reg_id_t index = opnd_get_index(opnd);
-    int scale = opnd_get_scale(opnd);
 
     opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
 
@@ -247,8 +250,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             reg_disassemble(buf, bufsz, sofar, base, "", "");
         if (index != REG_NULL) {
             reg_disassemble(buf, bufsz, sofar, index, base == REG_NULL ? "" : "+", "");
-            if (scale > 1)
-                print_to_buffer(buf, bufsz, sofar, "*%d", scale);
+            opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
         }
     }
 
@@ -284,8 +286,7 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                 reg_disassemble(buf, bufsz, sofar, base, "", "");
             if (index != REG_NULL) {
                 reg_disassemble(buf, bufsz, sofar, index, ",", "");
-                if (scale != 0)
-                    print_to_buffer(buf, bufsz, sofar, ",%d", scale);
+                opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
             }
             print_to_buffer(buf, bufsz, sofar, ")");
         }

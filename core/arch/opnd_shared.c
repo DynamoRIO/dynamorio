@@ -106,10 +106,11 @@ bool opnd_is_abs_addr(opnd_t opnd) {
     return IF_X64(opnd.kind == ABS_ADDR_kind ||) opnd_is_abs_base_disp(opnd);
 }
 bool opnd_is_near_abs_addr(opnd_t opnd) {
-    return opnd_is_abs_addr(opnd) && opnd.seg.segment == REG_NULL;
+    return opnd_is_abs_addr(opnd) IF_X86(&& opnd.seg.segment == REG_NULL);
 }
 bool opnd_is_far_abs_addr(opnd_t opnd) {
-    return opnd_is_abs_addr(opnd) && opnd.seg.segment != REG_NULL;
+    return IF_X86_ELSE(opnd_is_abs_addr(opnd) && opnd.seg.segment != REG_NULL,
+                       false);
 }
 
 bool
@@ -372,7 +373,6 @@ ushort
 opnd_get_segment_selector(opnd_t opnd)
 {
     if (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd)) {
-        /* FIXME: segment selectors are 16-bit values */
         return opnd.seg.far_pc_seg_selector;
     }
     CLIENT_ASSERT(false, "opnd_get_segment_selector called on invalid opnd type");
@@ -433,9 +433,10 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     opnd.kind = BASE_DISP_kind;
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
     opnd.size = size;
-    CLIENT_ASSERT(scale <= 8, "opnd_create_*base_disp*: invalid scale");
-    CLIENT_ASSERT(index_reg == REG_NULL || scale > 0,
-                  "opnd_create_*base_disp*: index requires scale");
+    CLIENT_ASSERT(scale == 0 || scale == 1 || scale == 2 || scale == 4 || scale == 8,
+                  "opnd_create_*base_disp*: invalid scale");
+    IF_X86(CLIENT_ASSERT(index_reg == REG_NULL || scale > 0,
+                         "opnd_create_*base_disp*: index requires scale"));
     CLIENT_ASSERT(seg == REG_NULL
                   IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                   "opnd_create_*base_disp*: invalid segment");
@@ -448,10 +449,25 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                                     "opnd_create_*base_disp*: invalid base");
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
                                     "opnd_create_*base_disp*: invalid index");
-    opnd.seg.segment = seg;
+    IF_X86_ELSE({
+        opnd.seg.segment = seg;
+    }, {
+        opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
+        CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                      "opnd_create_*base_disp*: cannot have both disp and index");
+    });
     opnd.value.base_disp.base_reg = base_reg;
     opnd.value.base_disp.index_reg = index_reg;
-    opnd.value.base_disp.scale = (byte) scale;
+    IF_X86_ELSE({
+        opnd.value.base_disp.scale = (byte) scale;
+    }, {
+        if (scale > 1) {
+            opnd.value.base_disp.shift_type = DR_SHIFT_LSL;
+            opnd.value.base_disp.shift_amount_minus_1 =
+                /* we store the amount minus one */
+                (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
+        }
+    });
     opnd.value.base_disp.disp = disp;
     opnd.value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
     opnd.value.base_disp.force_full_disp = (byte) force_full_disp;
@@ -482,6 +498,63 @@ reg_id_t opnd_get_segment(opnd_t opnd) { return OPND_GET_SEGMENT(opnd); }
 #define opnd_get_index OPND_GET_INDEX
 #define opnd_get_scale OPND_GET_SCALE
 #define opnd_get_segment OPND_GET_SEGMENT
+
+dr_shift_type_t
+opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
+{
+    if (!opnd_is_base_disp(opnd)) {
+        CLIENT_ASSERT(false, "opnd_get_index_shift called on invalid opnd type");
+        return DR_SHIFT_NONE;
+    }
+    if (amount != NULL && opnd.value.base_disp.shift_type != DR_SHIFT_NONE)
+        *amount = opnd.value.base_disp.shift_amount_minus_1 + 1;
+    return opnd.value.base_disp.shift_type;
+}
+
+opnd_t
+opnd_set_index_shift(opnd_t opnd, dr_shift_type_t shift, uint amount)
+{
+    if (!opnd_is_base_disp(opnd)) {
+        CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
+        return opnd_create_null();
+    }
+    switch (shift) {
+    case DR_SHIFT_NONE:
+        if (amount != 0) {
+            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
+            return opnd_create_null();
+        }
+        break;
+    case DR_SHIFT_LSL:
+    case DR_SHIFT_ROR:
+        if (amount < 1 || amount > 31) {
+            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
+            return opnd_create_null();
+        }
+        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        break;
+    case DR_SHIFT_LSR:
+    case DR_SHIFT_ASR:
+        if (amount < 1 || amount > 32) {
+            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
+            return opnd_create_null();
+        }
+        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        break;
+    case DR_SHIFT_RRX:
+        if (amount != 1) {
+            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
+            return opnd_create_null();
+        }
+        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        break;
+    default:
+        CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift type");
+        return opnd_create_null();
+    }
+    opnd.value.base_disp.shift_type = shift;
+    return opnd;
+}
 
 bool
 opnd_is_disp_encode_zero(opnd_t opnd)
@@ -565,10 +638,10 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
         opnd.kind = ABS_ADDR_kind;
         CLIENT_ASSERT(data_size < OPSZ_LAST_ENUM, "opnd_create_base_disp: invalid size");
         opnd.size = data_size;
-        CLIENT_ASSERT(seg == REG_NULL ||
-                      (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT),
+        CLIENT_ASSERT(seg == REG_NULL
+                      IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                       "opnd_create_far_abs_addr: invalid segment");
-        opnd.seg.segment = seg;
+        IF_X86(opnd.seg.segment = seg);
         opnd.value.addr = addr;
         return opnd;
     }
@@ -598,7 +671,7 @@ opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     CLIENT_ASSERT(seg == REG_NULL
                   IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                   "opnd_create_far_rel_addr: invalid segment");
-    opnd.seg.segment = seg;
+    IF_X86(opnd.seg.segment = seg);
     opnd.value.addr = addr;
     return opnd;
 }
@@ -955,10 +1028,15 @@ bool opnd_same(opnd_t op1, opnd_t op2)
     case REG_kind:
         return op1.value.reg == op2.value.reg;
     case BASE_DISP_kind:
-        return (op1.seg.segment == op2.seg.segment &&
+        return (IF_X86(op1.seg.segment == op2.seg.segment &&)
                 op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&
                 op1.value.base_disp.index_reg == op2.value.base_disp.index_reg &&
-                op1.value.base_disp.scale == op2.value.base_disp.scale &&
+                IF_X86_ELSE(op1.value.base_disp.scale ==
+                            op2.value.base_disp.scale &&,
+                            op1.value.base_disp.shift_type ==
+                            op2.value.base_disp.shift_type &&
+                            op1.value.base_disp.shift_amount_minus_1 ==
+                            op2.value.base_disp.shift_amount_minus_1 &&)
                 op1.value.base_disp.disp == op2.value.base_disp.disp &&
                 op1.value.base_disp.encode_zero_disp ==
                 op2.value.base_disp.encode_zero_disp &&
@@ -974,7 +1052,7 @@ bool opnd_same(opnd_t op1, opnd_t op2)
 #ifdef X64
     case REL_ADDR_kind:
     case ABS_ADDR_kind:
-        return (op1.seg.segment == op2.seg.segment &&
+        return (IF_X86(op1.seg.segment == op2.seg.segment &&)
                 op1.value.addr == op2.value.addr);
 #endif
     case MEM_INSTR_kind:

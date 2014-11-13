@@ -100,6 +100,37 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* There are no "extra" bytes */
 }
 
+void
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                                 opnd_t opnd)
+{
+    uint amount;
+    dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
+    switch (shift) {
+    case DR_SHIFT_NONE:
+        break;
+    case DR_SHIFT_RRX:
+        print_to_buffer(buf, bufsz, sofar, ",rrx");
+        break;
+    case DR_SHIFT_LSL:
+        /* XXX i#1551: use #%d for ARM style */
+        print_to_buffer(buf, bufsz, sofar, ",lsl %d", amount);
+        break;
+    case DR_SHIFT_LSR:
+        print_to_buffer(buf, bufsz, sofar, ",lsr %d", amount);
+        break;
+    case DR_SHIFT_ASR:
+        print_to_buffer(buf, bufsz, sofar, ",asr %d", amount);
+        break;
+    case DR_SHIFT_ROR:
+        print_to_buffer(buf, bufsz, sofar, ",ror %d", amount);
+        break;
+    default:
+        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
+        break;
+    }
+}
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,

@@ -214,14 +214,14 @@ enum {
     TYPE_I_b0_b8,
     TYPE_NI_b0_b8, /* negated immed */
     TYPE_I_b0_b16,
-    TYPE_I_b16_b9,
     TYPE_I_b16_b8,
+    TYPE_I_b16_b9,
     TYPE_I_b0_b5,  /* OP_cvt: immed is either 32 or 16 minus [3:0,5] */
     TYPE_I_b0_b24, /* OP_blx imm24:H:0 */
     TYPE_I_b5_b3,  /* OP_vmla scalar: M:Vm<3> */
     TYPE_I_b21,    /* OP_vmov */
-    TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
+    TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
 
     TYPE_SHIFT_b5,
@@ -241,7 +241,7 @@ enum {
     TYPE_L_VBx4D, /* 4 doubly-spaced multimedia regs starting at TYPE_V_B */
 
     /* All memory addressing modes use fixed base and index registers:
-     * A32: base  = RD 19:16 ("Rn" in manual)
+     * A32: base  = RA 19:16 ("Rn" in manual)
      *      index = RD  3:0  ("Rm" in manual)
      * T16: base  =
      *      index =
@@ -287,6 +287,11 @@ enum {
     TYPE_K,    /* integer constant, size ignored, value stored in size */
 
    /* when adding new types, update type_names[] in encode.c */
+
+    DECODE_INDEX_SHIFT_TYPE_BITPOS   = 5,
+    DECODE_INDEX_SHIFT_TYPE_SIZE     = OPSZ_2b,
+    DECODE_INDEX_SHIFT_AMOUNT_BITPOS = 7,
+    DECODE_INDEX_SHIFT_AMOUNT_SIZE   = OPSZ_5b,
 };
 
 /* exported tables */

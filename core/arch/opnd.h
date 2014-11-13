@@ -676,6 +676,26 @@ extern const reg_id_t dr_reg_fixer[];
  */
 /* DR_API EXPORT BEGIN */
 
+/**
+ * These flags describe how the index register in a memory reference is shifted
+ * before being added to or subtracted from the base register.
+ */
+typedef enum _dr_shift_type_t {
+    DR_SHIFT_NONE, /**< No shift. */
+    DR_SHIFT_LSL,  /**< Logical shift left. */
+    DR_SHIFT_LSR,  /**< Logical shift right. */
+    DR_SHIFT_ASR,  /**< Arithmetic shift right. */
+    DR_SHIFT_ROR,  /**< Rotate right. */
+    /**
+     * The register is rotated right by 1 bit, with the carry flag (rather than
+     * bit 0) being shifted in to the most-significant bit.  (For shifts of
+     * general source registers, if the instruction writes the condition codes,
+     * bit 0 is then shifted into the carry flag: but for memory references bit
+     * 0 is simply dropped.)
+     */
+    DR_SHIFT_RRX,
+} dr_shift_type_t;
+
 #ifdef DR_FAST_IR
 
 /* We assume all addressing regs are in the lower 256 of the DR_REG_ enum. */
@@ -733,8 +753,18 @@ struct _opnd_t {
             reg_id_t index_reg : REG_SPECIFIER_BITS;
             /* to get cl to not align to 4 bytes we can't use uint here
              * when we have reg_id_t elsewhere: it won't combine them
-             * (gcc will). alternative is all uint and no reg_id_t. */
-            byte scale : SCALE_SPECIFIER_BITS;
+             * (gcc will). alternative is all uint and no reg_id_t.
+             */
+            /* We would use a union and struct to separate the scale from the 2
+             * shift fields as they are mutually exclusive, but that would
+             * require packing the struct or living with a larger size and perf
+             * hit on copying it.  We also have to use byte and not dr_shift_type_t
+             * to get cl to not align.
+             */
+            byte/*dr_shift_type_t*/ shift_type : 3; /* ARM-only */
+            byte shift_amount_minus_1 : 5; /* ARM-only, 1..31 so we store (val - 1) */
+            byte scale : SCALE_SPECIFIER_BITS; /* x86-only */
+            /* These 3 are all x86-only: */
             byte/*bool*/ encode_zero_disp : 1;
             byte/*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
             byte/*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
@@ -905,7 +935,9 @@ DR_API
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, opnd_set_index_shift() can be used for further manipulation
+ * of the index register.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -1421,7 +1453,10 @@ reg_id_t
 opnd_get_index(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the scale. */
+/**
+ * Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the scale.
+ * \note x86-only.  On ARM use opnd_get_index_shift().
+ */
 int
 opnd_get_scale(opnd_t opnd);
 
@@ -1433,6 +1468,29 @@ DR_API
  */
 reg_id_t
 opnd_get_segment(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes \p opnd is a (near or far) base+disp memory reference.
+ * Returns DR_SHIFT_NONE if the index register is not shifted.
+ * Returns the shift type and \p amount if the index register is shifted (this
+ * shift will occur prior to being added to or subtracted from the base
+ * register).
+ */
+dr_shift_type_t
+opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
+
+DR_API
+/**
+ * Assumes \p opnd is a near base+disp memory reference.
+ * Sets the index register to be shifted by \p amount according to \p shift.
+ * If successful, returns the new, modified operand.
+ * On failure (e.g., the amount is out of allowed ranges), returns opnd_create_null().
+ * \note On non-ARM platforms where shifted index registers do not exist, this
+ * routine will always fail.
+ */
+opnd_t
+opnd_set_index_shift(opnd_t opnd, dr_shift_type_t shift, uint amount);
 
 DR_API
 /**

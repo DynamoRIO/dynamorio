@@ -2529,7 +2529,7 @@ enum {
 # define EFLAGS_READ_GE     0x00000020 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_READ_NZCV   (EFLAGS_READ_N | EFLAGS_READ_Z |\
                              EFLAGS_READ_C | EFLAGS_READ_V)
-# define EFLAGS_READ_ALL    EFLAGS_READ_NZCV
+# define EFLAGS_READ_ALL    EFLAGS_READ_NZCV /**< Reads all flags. */
 # define EFLAGS_WRITE_N     0x00000040 /**< Reads N (negative). */
 # define EFLAGS_WRITE_Z     0x00000080 /**< Reads Z (zero). */
 # define EFLAGS_WRITE_C     0x00000100 /**< Reads C (carry). */
@@ -2538,7 +2538,7 @@ enum {
 # define EFLAGS_WRITE_GE    0x00000800 /**< Reads GE (>= for parallel arithmetic). */
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
-# define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV
+# define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV /**< Writes all flags. */
 /**
  * The actual bits in the CPSR that we care about:\n<pre>
  *   31 30 29 28 27 ... 19 18 17 16

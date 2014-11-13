@@ -75,20 +75,20 @@
 #define PREFIX_SIGNIFICANT (PREFIX_LOCK|PREFIX_JCC_TAKEN|PREFIX_JCC_TAKEN|\
                             PREFIX_XACQUIRE|PREFIX_XRELEASE)
 
-/* XXX i#1551: add predicate prefix flags: store in instr_t.prefixes, but should
- * we name them something else?
- */
 
+#ifdef X86
 /* PREFIX_SEG_* is set by decode or decode_cti and is only a hint
  * to the caller.  Is ignored by encode in favor of the segment
  * reg specified in the applicable opnds.  We rely on it being set during
  * bb building and reference in in interp, and thus it is public.
  */
-#define PREFIX_SEG_FS         0x20
-#define PREFIX_SEG_GS         0x40
+# define PREFIX_SEG_FS         0x20
+# define PREFIX_SEG_GS         0x40
+#endif
 
 /* XXX: when adding prefixes, shift all the private values as they start
- * right after the last number here
+ * right after the last number here.  For private values, leave room for
+ * PREFIX_PRED_BITS at the top.
  */
 
 

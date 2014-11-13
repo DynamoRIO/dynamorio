@@ -107,6 +107,19 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     }
 }
 
+void
+opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
+                                 opnd_t opnd)
+{
+    int scale = opnd_get_scale(opnd);
+    if (scale > 1) {
+        if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)))
+            print_to_buffer(buf, bufsz, sofar, "*%d", scale);
+        else
+            print_to_buffer(buf, bufsz, sofar, ",%d", scale);
+    }
+}
+
 static bool
 instr_implicit_reg(instr_t *instr)
 {

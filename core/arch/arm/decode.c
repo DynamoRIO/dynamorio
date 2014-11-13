@@ -213,6 +213,36 @@ decode_float_reglist(decode_info_t *di, size_t opsize, opnd_t *array,
     return true;
 }
 
+static opnd_t
+decode_index_shift(decode_info_t *di, opnd_t memop)
+{
+    ptr_int_t sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
+                                 DECODE_INDEX_SHIFT_TYPE_SIZE, false);
+    ptr_int_t val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
+                                 DECODE_INDEX_SHIFT_AMOUNT_SIZE, false);
+    dr_shift_type_t type;
+    uint amount;
+    if (sh2 == 0 && val == 0)
+        return memop; /* no shift */
+    else if (sh2 == 0) {
+        type = DR_SHIFT_LSL;
+        amount = val;
+    } else if (sh2 == 1) {
+        type = DR_SHIFT_LSR;
+        amount = (val == 0) ? 32 : val;
+    } else if (sh2 == 2) {
+        type = DR_SHIFT_ASR;
+        amount = (val == 0) ? 32 : val;
+    } else if (sh2 == 3 && val == 0) {
+        type = DR_SHIFT_RRX;
+        amount = 1;
+    } else {
+        type = DR_SHIFT_ROR;
+        amount = val;
+    }
+    return opnd_set_index_shift(memop, type, amount);
+}
+
 static bool
 decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array,
                uint *counter INOUT)
@@ -328,7 +358,23 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                   -decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
                                   opsize);
         return true;
-    /* FIXME i#1551: add decoding of each operand type */
+    case TYPE_M_POS_SHREG:
+        array[*counter] =
+            opnd_create_base_disp(decode_regA(di), decode_regD(di), 0, 0, opsize);
+        array[*counter] =
+            decode_index_shift(di, array[*counter]);
+        (*counter)++;
+        return true;
+    case TYPE_M_NEG_SHREG:
+        array[*counter] =
+            opnd_create_base_disp(decode_regA(di), decode_regD(di), 0, 0, opsize);
+        array[*counter] =
+            decode_index_shift(di, array[*counter]);
+        /* FIXME i#1551: negate the index reg */
+        (*counter)++;
+        return true;
+
+    /* FIXME i#1551: add decoding of the other operand type */
     default:
         array[(*counter)++] = opnd_create_null();
         /* ok to assert, types coming only from instr_info_t */
