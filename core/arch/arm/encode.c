@@ -128,22 +128,51 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
     DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
     /* d0-d31 */
+    /* For AArch64, the smaller SIMD names refer to the lower
+     * bits of the corresponding same-number larger SIMD register.
+     * But for AArch32, the smaller ones are compressed such that
+     * they refer to the top and bottom.  B and H are AArch64-only.
+     */
+#ifdef X64
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
     DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-#ifdef X64
     DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
     DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
     DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
     DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
 #else
-    DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
-    DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
-    DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
-    DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
+    DR_REG_Q0,  DR_REG_Q0,   DR_REG_Q1,   DR_REG_Q1,
+    DR_REG_Q2,  DR_REG_Q2,   DR_REG_Q3,   DR_REG_Q3,
+    DR_REG_Q4,  DR_REG_Q4,   DR_REG_Q5,   DR_REG_Q5,
+    DR_REG_Q6,  DR_REG_Q6,   DR_REG_Q7,   DR_REG_Q7,
+    DR_REG_Q8,  DR_REG_Q8,   DR_REG_Q9,   DR_REG_Q9,
+    DR_REG_Q10, DR_REG_Q10,  DR_REG_Q11,  DR_REG_Q11,
+    DR_REG_Q12, DR_REG_Q12,  DR_REG_Q13,  DR_REG_Q13,
+    DR_REG_Q14, DR_REG_Q14,  DR_REG_Q15,  DR_REG_Q15,
 #endif
     /* s0-s31 */
+#ifdef X64
+    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
+    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
+    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
+    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
+    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
+    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
+    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
+    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
+#else
+    DR_REG_Q0,  DR_REG_Q0,   DR_REG_Q0,   DR_REG_Q0,
+    DR_REG_Q1,  DR_REG_Q1,   DR_REG_Q1,   DR_REG_Q1,
+    DR_REG_Q2,  DR_REG_Q2,   DR_REG_Q2,   DR_REG_Q2,
+    DR_REG_Q3,  DR_REG_Q3,   DR_REG_Q3,   DR_REG_Q3,
+    DR_REG_Q4,  DR_REG_Q4,   DR_REG_Q4,   DR_REG_Q4,
+    DR_REG_Q5,  DR_REG_Q5,   DR_REG_Q5,   DR_REG_Q5,
+    DR_REG_Q6,  DR_REG_Q6,   DR_REG_Q6,   DR_REG_Q6,
+    DR_REG_Q7,  DR_REG_Q7,   DR_REG_Q7,   DR_REG_Q7,
+#endif
+    /* h0-h31: AArch64-only */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
@@ -159,23 +188,7 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
     DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
 #endif
-    /* h0-h31 */
-    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
-    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
-    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
-    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
-#ifdef X64
-    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
-    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
-    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
-    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
-#else
-    DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
-    DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
-    DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
-    DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
-#endif
-    /* b0-b31 */
+    /* b0-b31: AArch64-only */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
     DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
     DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
