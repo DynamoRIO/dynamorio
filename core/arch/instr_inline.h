@@ -206,7 +206,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 
 INSTR_INLINE
 opnd_t
-opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_register_flags_t flags)
+opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags)
 {
     opnd_t opnd = opnd_create_reg_partial(r, subsize);
     opnd.aux.flags = flags;
@@ -231,7 +231,8 @@ opnd_create_pc(app_pc pc)
 #define opnd_get_reg OPND_GET_REG
 
 #define OPND_GET_FLAGS(opnd) \
-    (CLIENT_ASSERT_(opnd_is_reg(opnd), "opnd_get_flags called on non-reg opnd") \
+    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
+     "opnd_get_flags called on non-reg non-base-disp opnd") \
      (opnd).aux.flags)
 #define opnd_get_flags OPND_GET_FLAGS
 

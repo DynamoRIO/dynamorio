@@ -167,6 +167,7 @@ Further non-compatibility-affecting changes include:
  - Added dr_save_arith_flags_to_reg() and dr_restore_arith_flags_from_reg().
  - Added opnd_get_index_shift() and opnd_set_index_shift().
  - Added opnd_create_reg_ex() and opnd_get_flags().
+ - Added opnd_create_base_disp_arm().
 
 **************************************************
 <hr>

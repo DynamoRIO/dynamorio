@@ -697,16 +697,25 @@ typedef enum _dr_shift_type_t {
 } dr_shift_type_t;
 
 /**
- * These flags describe operations performed on the value of a source register
+ * These flags describe operations performed on the value of a source  register
  * before it is combined with other sources as part of the behavior of the
- * containing instruction.
+ * containing instruction, or operations performed on an index register or
+ * displacement before it is added to or subtracted from the base register.
  */
-typedef enum _dr_register_flags_t {
+typedef enum _dr_opnd_flags_t {
     /** This register's value is negated prior to use in the containing instruction. */
-    DR_REGMOD_VALUE_NEGATED  = 0x01,
-    /** This register's value is shifted prior to use in the containing instruction. */
-    DR_REGMOD_VALUE_SHIFTED  = 0x02,
-} dr_register_flags_t;
+    DR_OPND_NEGATED  = 0x01,
+    /**
+     * This register's value is shifted prior to use in the containing instruction.
+     * This flag is for informational purposes only and is not guaranteed to
+     * be consistent with the shift type of an index register or displacement
+     * if the latter are set without using opnd_set_index_shift() or if an
+     * instruction is created without using high-level API routines.
+     * This flag is also ignored for encoding and will not apply a shift
+     * on its own.
+     */
+    DR_OPND_SHIFTED  = 0x02,
+} dr_opnd_flags_t;
 
 #ifdef DR_FAST_IR
 
@@ -741,11 +750,11 @@ struct _opnd_t {
         ushort far_pc_seg_selector; /* FAR_PC_kind and FAR_INSTR_kind */
         /* We could fit segment in value.base_disp but more consistent here */
         reg_id_t segment : REG_SPECIFIER_BITS; /* BASE_DISP_kind, REL_ADDR_kind,
-                                                * and ABS_ADDR_kind */
+                                                * and ABS_ADDR_kind, on x86 */
         ushort disp;           /* MEM_INSTR_kind */
         ushort shift;          /* INSTR_kind */
         /* We have to use byte and not the enum type to get cl to not align */
-        byte/*dr_register_flags_t*/ flags : FLAGS_BITS; /* ARM: REG_kind */
+        byte/*dr_opnd_flags_t*/ flags : FLAGS_BITS; /* ARM: REG_kind + BASE_DISP_kind */
     } aux;
     union {
         /* all are 64 bits or less */
@@ -764,6 +773,7 @@ struct _opnd_t {
         instr_t *instr;         /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
         reg_id_t reg;           /* REG_kind */
         struct {
+            /* For ARM, either disp==0 or index_reg==DR_REG_NULL: can't have both */
             int disp;
             reg_id_t base_reg : REG_SPECIFIER_BITS;
             reg_id_t index_reg : REG_SPECIFIER_BITS;
@@ -870,7 +880,7 @@ INSTR_INLINE
  * partial register in the manner of opnd_create_reg_partial().
  */
 opnd_t
-opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_register_flags_t flags);
+opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags);
 
 DR_API
 /**
@@ -964,6 +974,9 @@ DR_API
  * \p scale must be either 0, 1, 2, 4, or 8.
  * On ARM, opnd_set_index_shift() can be used for further manipulation
  * of the index register.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -979,16 +992,21 @@ DR_API
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
- * Gives control over encoding optimizations:
- * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
- * -# If \p force_full_disp, a small value for disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * On x86, three boolean parameters give control over encoding optimizations
+ * (these are ignored on ARM):
+ * - If \p encode_zero_disp, a zero value for disp will not be omitted;
+ * - If \p force_full_disp, a small value for disp will not occupy only one byte.
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
  *
- * (Both of those are false when using opnd_create_base_disp()).
+ * (The encoding optimization flags are all false when using opnd_create_base_disp()).
  */
 opnd_t
 opnd_create_base_disp_ex(reg_id_t base_reg, reg_id_t index_reg, int scale,
@@ -1007,7 +1025,10 @@ DR_API
  * The operand has data size \p data_size (must be a OPSZ_ constant).
  * \p seg must be a DR_SEG_ constant.
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  */
 opnd_t
 opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, int scale,
@@ -1021,14 +1042,19 @@ DR_API
  * or, in other words,
  * - seg : base_reg + index_reg*scale + disp
  *
- * The operand has data size \p data_size (must be a OPSZ_ constant).
+ * The operand has data size \p size (must be an OPSZ_ constant).
  * \p seg must be a DR_SEG_ constant.
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * scale must be either 1, 2, 4, or 8.
- * Gives control over encoding optimizations:
- * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
- * -# If \p force_full_disp, a small value for disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * On x86, three boolean parameters give control over encoding optimizations
+ * (these are ignored on ARM):
+ * - If \p encode_zero_disp, a zero value for disp will not be omitted;
+ * - If \p force_full_disp, a small value for disp will not occupy only one byte.
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
@@ -1040,6 +1066,30 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                              int scale, int disp, opnd_size_t size,
                              bool encode_zero_disp, bool force_full_disp,
                              bool disp_short_addr);
+
+DR_API
+/**
+ * Returns a memory reference operand that refers to either a base
+ * register plus or minus a constant displacement:
+ * - [base_reg, disp]
+ *
+ * Or a base register plus or minus an optionally shifted index register:
+ * - [base_reg, index_reg, shift_type, shift_amount]
+ *
+ * For an index register, the plus or minus is determined by the presence
+ * or absence of #DR_OPND_NEGATED in \p flags.
+ *
+ * The resulting operand has data size \p size (must be an OPSZ_ constant).
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
+ * A negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ */
+opnd_t
+opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
+                          dr_shift_type_t shift_type, uint shift_amount, int disp,
+                          dr_opnd_flags_t flags, opnd_size_t size);
 
 DR_API
 /**
@@ -1388,10 +1438,11 @@ opnd_get_reg(opnd_t opnd);
 
 DR_API
 /**
- * Assumes \p opnd is a register operand.
- * Returns the flags describing additional properties of the register.
+ * Assumes \p opnd is either a register operand or a base+disp memory reference.
+ * Returns the flags describing additional properties of the register or
+ * the index register or displacement component of the memory reference.
  */
-dr_register_flags_t
+dr_opnd_flags_t
 opnd_get_flags(opnd_t opnd);
 
 DR_API
@@ -1450,6 +1501,9 @@ DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
  * Returns the displacement.
+ * On ARM, the displacement is always a non-negative value, and the
+ * presence or absence of #DR_OPND_NEGATED in opnd_get_flags()
+ * determines whether to add or subtract from the base register.
  */
 int
 opnd_get_disp(opnd_t opnd);
@@ -1518,13 +1572,13 @@ DR_API
 /**
  * Assumes \p opnd is a near base+disp memory reference.
  * Sets the index register to be shifted by \p amount according to \p shift.
- * If successful, returns the new, modified operand.
- * On failure (e.g., the amount is out of allowed ranges), returns opnd_create_null().
+ * Returns whether successful.
+ * If the shift amount is out of allowed ranges, returns false.
  * \note On non-ARM platforms where shifted index registers do not exist, this
  * routine will always fail.
  */
-opnd_t
-opnd_set_index_shift(opnd_t opnd, dr_shift_type_t shift, uint amount);
+bool
+opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount);
 
 DR_API
 /**
@@ -1812,19 +1866,27 @@ bool
 opnd_uses_reg(opnd_t opnd, reg_id_t reg);
 
 DR_API
-/** Set the displacement of a memory reference operand \p opnd to \p disp. */
+/**
+ * Set the displacement of a memory reference operand \p opnd to \p disp.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ */
 void
 opnd_set_disp(opnd_t *opnd, int disp);
 
 DR_API
 /**
- * Set the displacement and encoding controls of a memory reference operand:
+ * Set the displacement and, on x86, the encoding controls of a memory
+ * reference operand (the controls are ignored on ARM):
  * - If \p encode_zero_disp, a zero value for \p disp will not be omitted;
  * - If \p force_full_disp, a small value for \p disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
- *    use the desired short registers for base and/or index).
+ *    use the desired short registers for base and/or index).  This is only
+ *    honored on x86.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
  */
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,

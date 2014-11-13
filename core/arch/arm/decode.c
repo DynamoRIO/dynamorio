@@ -213,34 +213,32 @@ decode_float_reglist(decode_info_t *di, size_t opsize, opnd_t *array,
     return true;
 }
 
-static opnd_t
-decode_index_shift(decode_info_t *di, opnd_t memop)
+static dr_shift_type_t
+decode_index_shift(decode_info_t *di, uint *amount OUT)
 {
     ptr_int_t sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
                                  DECODE_INDEX_SHIFT_TYPE_SIZE, false);
     ptr_int_t val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
                                  DECODE_INDEX_SHIFT_AMOUNT_SIZE, false);
-    dr_shift_type_t type;
-    uint amount;
-    if (sh2 == 0 && val == 0)
-        return memop; /* no shift */
-    else if (sh2 == 0) {
-        type = DR_SHIFT_LSL;
-        amount = val;
+    if (sh2 == 0 && val == 0) {
+        *amount = 0;
+        return DR_SHIFT_NONE;
+    } else if (sh2 == 0) {
+        *amount = val;
+        return DR_SHIFT_LSL;
     } else if (sh2 == 1) {
-        type = DR_SHIFT_LSR;
-        amount = (val == 0) ? 32 : val;
+        *amount = (val == 0) ? 32 : val;
+        return DR_SHIFT_LSR;
     } else if (sh2 == 2) {
-        type = DR_SHIFT_ASR;
-        amount = (val == 0) ? 32 : val;
+        *amount = (val == 0) ? 32 : val;
+        return DR_SHIFT_ASR;
     } else if (sh2 == 3 && val == 0) {
-        type = DR_SHIFT_RRX;
-        amount = 1;
+        *amount = 1;
+        return DR_SHIFT_RRX;
     } else {
-        type = DR_SHIFT_ROR;
-        amount = val;
+        *amount = val;
+        return DR_SHIFT_ROR;
     }
-    return opnd_set_index_shift(memop, type, amount);
 }
 
 static bool
@@ -268,8 +266,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_reg(decode_regD(di));
         return true;
     case TYPE_R_D_NEGATED:
-        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di),
-                                                 DR_REGMOD_VALUE_NEGATED);
+        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di), 0, DR_OPND_NEGATED);
         return true;
     case TYPE_V_A:
         array[(*counter)++] = opnd_create_reg(decode_vregA(di, opsize));
@@ -363,20 +360,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                   opsize);
         return true;
     case TYPE_M_POS_SHREG:
+    case TYPE_M_NEG_SHREG: {
+        uint amount;
+        dr_shift_type_t shift = decode_index_shift(di, &amount);
         array[*counter] =
-            opnd_create_base_disp(decode_regA(di), decode_regD(di), 0, 0, opsize);
-        array[*counter] =
-            decode_index_shift(di, array[*counter]);
+            opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), shift, amount,
+                                      0, optype == TYPE_M_NEG_SHREG ?
+                                      DR_OPND_NEGATED : 0, opsize);
         (*counter)++;
         return true;
-    case TYPE_M_NEG_SHREG:
-        array[*counter] =
-            opnd_create_base_disp(decode_regA(di), decode_regD(di), 0, 0, opsize);
-        array[*counter] =
-            decode_index_shift(di, array[*counter]);
-        /* FIXME i#1551: negate the index reg */
-        (*counter)++;
-        return true;
+    }
 
     /* FIXME i#1551: add decoding of the other operand type */
     default:

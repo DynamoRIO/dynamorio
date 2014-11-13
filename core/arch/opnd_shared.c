@@ -181,7 +181,7 @@ opnd_get_reg(opnd_t opnd)
 #define opnd_get_reg OPND_GET_REG
 
 #undef opnd_get_flags
-dr_register_flags_t
+dr_opnd_flags_t
 opnd_get_flags(opnd_t opnd)
 {
     return OPND_GET_FLAGS(opnd);
@@ -431,6 +431,20 @@ opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp
                                         false, false, false);
 }
 
+static inline void
+opnd_set_disp_helper(opnd_t *opnd, int disp)
+{
+    IF_X86_ELSE({
+        opnd->value.base_disp.disp = disp;
+    }, {
+        if (disp < 0) {
+            opnd->aux.flags |= DR_OPND_SHIFTED;
+            opnd->value.base_disp.disp = -disp;
+        } else
+            opnd->value.base_disp.disp = disp;
+    });
+}
+
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
                              int scale, int disp, opnd_size_t size,
@@ -476,7 +490,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                 (scale == 2 ? 0 : (scale == 4 ? 1 : 2));
         }
     });
-    opnd.value.base_disp.disp = disp;
+    opnd_set_disp_helper(&opnd, disp);
     opnd.value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
     opnd.value.base_disp.force_full_disp = (byte) force_full_disp;
     opnd.value.base_disp.disp_short_addr = (byte) disp_short_addr;
@@ -489,6 +503,37 @@ opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, i
 {
     return opnd_create_far_base_disp_ex(seg, base_reg, index_reg, scale, disp, size,
                                         false, false, false);
+}
+
+opnd_t
+opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
+                          dr_shift_type_t shift_type, uint shift_amount, int disp,
+                          dr_opnd_flags_t flags, opnd_size_t size)
+{
+    opnd_t opnd;
+    opnd.kind = BASE_DISP_kind;
+    CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
+    opnd.size = size;
+    CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
+                  "opnd_create_base_disp_arm: cannot have both disp and index");
+    CLIENT_ASSERT(base_reg <= REG_LAST_ENUM, "opnd_create_base_disp_arm: invalid base");
+    CLIENT_ASSERT(index_reg <= REG_LAST_ENUM, "opnd_create_base_disp_arm: invalid index");
+    /* reg_id_t is now a ushort, but we can only accept low values */
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, base_reg,
+                                    "opnd_create_base_disp_arm: invalid base");
+    CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
+                                    "opnd_create_base_disp_arm: invalid index");
+    opnd.value.base_disp.base_reg = base_reg;
+    opnd.value.base_disp.index_reg = index_reg;
+    opnd_set_disp_helper(&opnd, disp);
+    /* Set the flags before the shift as the shift will change the flags */
+    opnd.aux.flags = flags;
+    if (!opnd_set_index_shift(&opnd, shift_type, shift_amount))
+        CLIENT_ASSERT(false, "opnd_create_base_disp_arm: invalid shift type/amount");
+    opnd.value.base_disp.encode_zero_disp = 0;
+    opnd.value.base_disp.force_full_disp = 0;
+    opnd.value.base_disp.disp_short_addr = 0;
+    return opnd;
 }
 
 #undef opnd_get_base
@@ -519,49 +564,54 @@ opnd_get_index_shift(opnd_t opnd, uint *amount OUT)
     return opnd.value.base_disp.shift_type;
 }
 
-opnd_t
-opnd_set_index_shift(opnd_t opnd, dr_shift_type_t shift, uint amount)
+bool
+opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount)
 {
-    if (!opnd_is_base_disp(opnd)) {
+    if (!opnd_is_base_disp(*opnd)) {
         CLIENT_ASSERT(false, "opnd_set_index_shift called on invalid opnd type");
-        return opnd_create_null();
+        return false;
     }
     switch (shift) {
     case DR_SHIFT_NONE:
         if (amount != 0) {
-            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
-            return opnd_create_null();
+            /* Called from opnd_create_base_disp_arm() so we have a generic msg */
+            CLIENT_ASSERT(false, "opnd index shift: invalid shift amount");
+            return false;
         }
         break;
     case DR_SHIFT_LSL:
     case DR_SHIFT_ROR:
         if (amount < 1 || amount > 31) {
-            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
-            return opnd_create_null();
+            CLIENT_ASSERT(false, "opnd  index shift: invalid shift amount");
+            return false;
         }
-        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        opnd->value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
         break;
     case DR_SHIFT_LSR:
     case DR_SHIFT_ASR:
         if (amount < 1 || amount > 32) {
-            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
-            return opnd_create_null();
+            CLIENT_ASSERT(false, "opnd index shift: invalid shift amount");
+            return false;
         }
-        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        opnd->value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
         break;
     case DR_SHIFT_RRX:
         if (amount != 1) {
-            CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift amount");
-            return opnd_create_null();
+            CLIENT_ASSERT(false, "opnd index shift: invalid shift amount");
+            return false;
         }
-        opnd.value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
+        opnd->value.base_disp.shift_amount_minus_1 = (byte)amount - 1;
         break;
     default:
-        CLIENT_ASSERT(false, "opnd_set_index_shift: invalid shift type");
-        return opnd_create_null();
+        CLIENT_ASSERT(false, "opnd index shift: invalid shift type");
+        return false;
     }
-    opnd.value.base_disp.shift_type = shift;
-    return opnd;
+    if (shift == DR_SHIFT_NONE)
+        opnd->aux.flags &= ~DR_OPND_SHIFTED;
+    else
+        opnd->aux.flags |= DR_OPND_SHIFTED;
+    opnd->value.base_disp.shift_type = shift;
+    return true;
 }
 
 bool
@@ -595,7 +645,7 @@ void
 opnd_set_disp(opnd_t *opnd, int disp)
 {
     if (opnd_is_base_disp(*opnd))
-        opnd->value.base_disp.disp = disp;
+        opnd_set_disp_helper(opnd, disp);
     else
         CLIENT_ASSERT(false, "opnd_set_disp called on invalid opnd type");
 }
@@ -608,7 +658,7 @@ opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_
         opnd->value.base_disp.encode_zero_disp = (byte) encode_zero_disp;
         opnd->value.base_disp.force_full_disp = (byte) force_full_disp;
         opnd->value.base_disp.disp_short_addr = (byte) disp_short_addr;
-        opnd->value.base_disp.disp = disp;
+        opnd_set_disp_helper(opnd, disp);
     } else
         CLIENT_ASSERT(false, "opnd_set_disp_ex called on invalid opnd type");
 }
