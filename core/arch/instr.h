@@ -2500,6 +2500,11 @@ instr_raw_is_rip_rel_lea(byte *pc, byte *read_end);
 /** Writes all 6 arithmetic flags (CF, PF, AF, ZF, SF, OF). */
 # define EFLAGS_WRITE_6   0x0008f800
 
+/** Platform-independent macro for reads all arithmetic flags. */
+# define EFLAGS_READ_ARITH   EFLAGS_READ_6
+/** Platform-independent macor for writes all arithmetic flags. */
+# define EFLAGS_WRITE_ARITH  EFLAGS_WRITE_6
+
 /** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
 # define EFLAGS_WRITE_TO_READ(x) ((x) >> 11)
 /** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
@@ -2539,6 +2544,17 @@ enum {
 # define EFLAGS_WRITE_NZCV  (EFLAGS_WRITE_N | EFLAGS_WRITE_Z |\
                              EFLAGS_WRITE_C | EFLAGS_WRITE_V)
 # define EFLAGS_WRITE_ALL   EFLAGS_WRITE_NZCV /**< Writes all flags. */
+
+/** Platform-independent macro for reads all arithmetic flags. */
+# define EFLAGS_READ_ARITH   EFLAGS_READ_NZCV
+/** Platform-independent macor for writes all arithmetic flags. */
+# define EFLAGS_WRITE_ARITH  EFLAGS_WRITE_NZCV
+
+/** Converts an EFLAGS_WRITE_* value to the corresponding EFLAGS_READ_* value. */
+# define EFLAGS_WRITE_TO_READ(x) ((x) >> 6)
+/** Converts an EFLAGS_READ_* value to the corresponding EFLAGS_WRITE_* value. */
+# define EFLAGS_READ_TO_WRITE(x) ((x) << 6)
+
 /**
  * The actual bits in the CPSR that we care about:\n<pre>
  *   31 30 29 28 27 ... 19 18 17 16

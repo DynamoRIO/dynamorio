@@ -65,6 +65,7 @@
 
 /* this flag indicates fragment writes all 6 flags prior to reading */
 #define FRAG_WRITES_EFLAGS_6        0x000200
+#define FRAG_WRITES_EFLAGS_ARITH    FRAG_WRITES_EFLAGS_6
 /* this flag indicates fragment writes OF before reading it */
 #define FRAG_WRITES_EFLAGS_OF       0x000400
 

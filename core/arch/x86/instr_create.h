@@ -196,6 +196,34 @@
  */
 #define INSTR_CREATE_jmp_ind_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
 
+/**
+ * This platform-independent INSTR_CREATE_load_int macro creates an instr_t
+ * for an immediate integer load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param i   The source immediate integer opnd.
+ */
+#define INSTR_CREATE_load_int(dc, r, i) INSTR_CREATE_mov_imm(dc, r, i)
+
+/**
+ * This platform-independent INSTR_CREATE_return macro creates an instr_t
+ * for a return instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_return(dc) INSTR_CREATE_ret(dc)
+
+/**
+ * This platform-independent INSTR_CREATE_jmp macro creates an instr_t
+ * for a branch instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define INSTR_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
+
 /* @} */ /* end doxygen group */
 
 /****************************************************************************/
@@ -289,8 +317,6 @@
  * \param t The opnd_t target operand for the instruction, which can be either
  * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
  */
-#define INSTR_CREATE_jmp(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmp, (t))
 #define INSTR_CREATE_jmp_short(dc, t) \
   instr_create_0dst_1src((dc), OP_jmp_short, (t))
 #define INSTR_CREATE_xbegin(dc, t) \

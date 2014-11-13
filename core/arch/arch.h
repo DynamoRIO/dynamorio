@@ -82,27 +82,54 @@ mixed_mode_enabled(void)
 #define PROT_OFFS         (sizeof(unprotected_context_t))
 #define MC_OFFS           (offsetof(unprotected_context_t, mcontext))
 
-#define XAX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
-#define XBX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
-#define XCX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
-#define XDX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
-#define XSI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
-#define XDI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdi)))
-#define XBP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbp)))
-#define XSP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
-#define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
-#define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
-#ifdef X64
-# define R8_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
-# define R9_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
-# define R10_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
-# define R11_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
-# define R12_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
-# define R13_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
-# define R14_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
-# define R15_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
-#endif
-#define XMM_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+#ifdef X86
+# define XAX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+# define XBX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+# define XCX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
+# define XDX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
+# define XSI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
+# define XDI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdi)))
+# define XBP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbp)))
+# ifdef X64
+#  define R8_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
+#  define R9_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
+#  define R10_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
+#  define R11_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
+#  define R12_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
+#  define R13_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
+#  define R14_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
+#  define R15_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
+# endif /* X64 */
+# define XMM_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+# define SCRATCH_REG0      DR_REG_XAX
+# define SCRATCH_REG1      DR_REG_XBX
+# define SCRATCH_REG2      DR_REG_XCX
+# define SCRATCH_REG3      DR_REG_XDX
+# define SCRATCH_REG0_OFFS XAX_OFFSET
+# define SCRATCH_REG1_OFFS XBX_OFFSET
+# define SCRATCH_REG2_OFFS XCX_OFFSET
+# define SCRATCH_REG3_OFFS XDX_OFFSET
+#elif defined(ARM)
+# define R0_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
+# define R1_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
+# define R2_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
+# define R3_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
+# define R4_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
+# define R5_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r5)))
+# define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+# define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+# define SCRATCH_REG0      DR_REG_R0
+# define SCRATCH_REG1      DR_REG_R1
+# define SCRATCH_REG2      DR_REG_R2
+# define SCRATCH_REG3      DR_REG_R3
+# define SCRATCH_REG0_OFFS R0_OFFSET
+# define SCRATCH_REG1_OFFS R1_OFFSET
+# define SCRATCH_REG2_OFFS R2_OFFSET
+# define SCRATCH_REG3_OFFS R3_OFFSET
+#endif /* X86/ARM */
+#define XSP_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
+#define XFLAGS_OFFSET      ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+#define PC_OFFSET          ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
