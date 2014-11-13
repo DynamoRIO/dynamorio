@@ -75,18 +75,6 @@ const char * const reg_names[] = {
     "b8",  "b9",   "b10",  "b11",  "b12", "b13",  "b14",  "b15",
     "b16", "b17",  "b18",  "b19",  "b20", "b21",  "b22",  "b23",
     "b24", "b25",  "b26",  "b27",  "b28", "b29",  "b30",  "b31",
-    "r0_th",  "r1_th",  "r2_th",  "r3_th",   "r4_th",  "r5_th",  "r6_th",  "r7_th",
-    "r8_th",  "r9_th",  "r10_th", "r11_th", "r12_th", "r13_th", "r14_th", "r15_th",
-    "r16_th", "r17_th", "r18_th", "r19_th", "r20_th", "r21_th", "r22_th", "r23_th",
-    "r24_th", "r25_th", "r26_th", "r27_th", "r28_th", "r29_th", "r30_th", "r31_th",
-#ifndef X64
-    "r0_bh",  "r1_bh",  "r2_bh",  "r3_bh",   "r4_bh",  "r5_bh",  "r6_bh",  "r7_bh",
-    "r8_bh",  "r9_bh",  "r10_bh", "r11_bh", "r12_bh", "r13_bh", "r14_bh", "r15_bh",
-#endif
-    "r0_bb",  "r1_bb",  "r2_bb",  "r3_bb",   "r4_bb",  "r5_bb",  "r6_bb",  "r7_bb",
-    "r8_bb",  "r9_bb",  "r10_bb", "r11_bb", "r12_bb", "r13_bb", "r14_bb", "r15_bb",
-    "r16_bb", "r17_bb", "r18_bb", "r19_bb", "r20_bb", "r21_bb", "r22_bb", "r23_bb",
-    "r24_bb", "r25_bb", "r26_bb", "r27_bb", "r28_bb", "r29_bb", "r30_bb", "r31_bb",
     "cpsr", "spsr", "fpscr",
 };
 
@@ -204,33 +192,6 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
     DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
 #endif
-    /* top half */
-    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
-    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
-    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
-    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    /* x64-only but simpler code to not ifdef it */
-    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
-    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
-    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-#ifndef X64
-    /* bottom half */
-    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
-    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
-    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
-    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-#endif
-    /* bottom byte */
-    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
-    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
-    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
-    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    /* x64-only but simpler code to not ifdef it */
-    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
-    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
-    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
-    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
 };
 

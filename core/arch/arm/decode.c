@@ -224,6 +224,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
 
     /* Registers */
+    /* FIXME i#1551: need to do partial-reg if size != full reg size */
     case TYPE_R_A:
         array[(*counter)++] = opnd_create_reg(decode_regA(di));
         return true;

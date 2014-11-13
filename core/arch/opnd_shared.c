@@ -1344,19 +1344,19 @@ reg_get_value_priv(reg_id_t reg, priv_mcontext_t *mc)
         return reg_get_value_helper(reg, mc);
     }
 #endif
+#ifdef X86
     if (reg >= REG_START_8 && reg <= REG_STOP_8) {
         reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
-#ifdef X86
         if (reg >= REG_AH && reg <= REG_BH)
             return ((val & 0x0000ff00) >> 8);
         else /* all others are the lower 8 bits */
-#endif
             return (val & 0x000000ff);
     }
     if (reg >= REG_START_16 && reg <= REG_STOP_16) {
         reg_t val = reg_get_value_helper(dr_reg_fixer[reg], mc);
         return (val & 0x0000ffff);
     }
+#endif
     /* mmx and segment cannot be part of address.
      * xmm/ymm can with VSIB, but we'd have to either return a larger type,
      * or take in an offset within the xmm/ymm register -- so we leave this
@@ -1513,19 +1513,24 @@ reg_to_pointer_sized(reg_id_t reg)
 reg_id_t
 reg_32_to_16(reg_id_t reg)
 {
+#ifdef X86
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_16: passed non-32-bit reg");
     return (reg - REG_START_32) + REG_START_16;
+#elif defined(ARM)
+    CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
+    return REG_NULL;
+#endif
 }
 
 reg_id_t
 reg_32_to_8(reg_id_t reg)
 {
+#ifdef X86
     reg_id_t r8;
     CLIENT_ASSERT(reg >= REG_START_32 && reg <= REG_STOP_32,
                   "reg_32_to_16: passed non-32-bit reg");
     r8 = (reg - REG_START_32) + REG_START_8;
-#ifdef X86
     if (r8 >= REG_START_x86_8 && r8 <= REG_STOP_x86_8) {
 # ifdef X64
         r8 += (REG_START_x64_8 - REG_START_x86_8);
@@ -1533,8 +1538,11 @@ reg_32_to_8(reg_id_t reg)
         r8 = REG_NULL;
 # endif
     }
-#endif
     return r8;
+#elif defined(ARM)
+    CLIENT_ASSERT(false, "reg_32_to_8 not supported on ARM");
+    return REG_NULL;
+#endif
 }
 
 #ifdef X64
@@ -1712,15 +1720,17 @@ reg_get_size(reg_id_t reg)
 #endif
     if (reg >= REG_START_32 && reg <= REG_STOP_32)
         return OPSZ_4;
+#ifdef X86
     if (reg >= REG_START_8 && reg <= REG_STOP_8)
         return OPSZ_1;
+#endif
 #if defined(X86) && defined(X64)
     if (reg >= REG_START_x64_8 && reg <= REG_STOP_x64_8) /* alternates to AH-BH */
         return OPSZ_1;
 #endif
+#ifdef X86
     if (reg >= REG_START_16 && reg <= REG_STOP_16)
         return OPSZ_2;
-#ifdef X86
     if (reg >= REG_START_MMX && reg <= REG_STOP_MMX)
         return OPSZ_8;
     if (reg >= REG_START_XMM && reg <= REG_STOP_XMM)

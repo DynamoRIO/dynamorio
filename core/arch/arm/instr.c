@@ -451,8 +451,7 @@ instr_predicate_is_cond(dr_pred_type_t pred)
 bool
 reg_is_gpr(reg_id_t reg)
 {
-    return (reg >= DR_REG_X0 && reg < DR_REG_Q0) ||
-        (reg >= DR_REG_R0_TH && reg <= DR_REG_R31_BB);
+    return (reg >= DR_REG_X0 && reg < DR_REG_Q0);
 }
 
 bool

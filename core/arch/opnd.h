@@ -305,92 +305,13 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
-    DR_REG_R0_TH,  /**< The top half of the r0 register. */
-    DR_REG_R1_TH,  /**< The top half of the r1 register. */
-    DR_REG_R2_TH,  /**< The top half of the r2 register. */
-    DR_REG_R3_TH,  /**< The top half of the r3 register. */
-    DR_REG_R4_TH,  /**< The top half of the r4 register. */
-    DR_REG_R5_TH,  /**< The top half of the r5 register. */
-    DR_REG_R6_TH,  /**< The top half of the r6 register. */
-    DR_REG_R7_TH,  /**< The top half of the r7 register. */
-    DR_REG_R8_TH,  /**< The top half of the r8 register. */
-    DR_REG_R9_TH,  /**< The top half of the r9 register. */
-    DR_REG_R10_TH, /**< The top half of the r10 register. */
-    DR_REG_R11_TH, /**< The top half of the r11 register. */
-    DR_REG_R12_TH, /**< The top half of the r12 register. */
-    DR_REG_R13_TH, /**< The top half of the r13 register. */
-    DR_REG_R14_TH, /**< The top half of the r14 register. */
-    DR_REG_R15_TH, /**< The top half of the r15 register. */
-    /* x64-only but simpler code to not ifdef it */
-    DR_REG_R16_TH, /**< The top half of the r16 register. */
-    DR_REG_R17_TH, /**< The top half of the r17 register. */
-    DR_REG_R18_TH, /**< The top half of the r18 register. */
-    DR_REG_R19_TH, /**< The top half of the r19 register. */
-    DR_REG_R20_TH, /**< The top half of the r20 register. */
-    DR_REG_R21_TH, /**< The top half of the r21 register. */
-    DR_REG_R22_TH, /**< The top half of the r22 register. */
-    DR_REG_R23_TH, /**< The top half of the r23 register. */
-    DR_REG_R24_TH, /**< The top half of the r24 register. */
-    DR_REG_R25_TH, /**< The top half of the r25 register. */
-    DR_REG_R26_TH, /**< The top half of the r26 register. */
-    DR_REG_R27_TH, /**< The top half of the r27 register. */
-    DR_REG_R28_TH, /**< The top half of the r28 register. */
-    DR_REG_R29_TH, /**< The top half of the r29 register. */
-    DR_REG_R30_TH, /**< The top half of the r30 register. */
-    DR_REG_R31_TH, /**< The top half of the r31 register. */
-
-# ifndef X64
-    DR_REG_R0_BH,  /**< The bottom half of the r0 register. */
-    DR_REG_R1_BH,  /**< The bottom half of the r1 register. */
-    DR_REG_R2_BH,  /**< The bottom half of the r2 register. */
-    DR_REG_R3_BH,  /**< The bottom half of the r3 register. */
-    DR_REG_R4_BH,  /**< The bottom half of the r4 register. */
-    DR_REG_R5_BH,  /**< The bottom half of the r5 register. */
-    DR_REG_R6_BH,  /**< The bottom half of the r6 register. */
-    DR_REG_R7_BH,  /**< The bottom half of the r7 register. */
-    DR_REG_R8_BH,  /**< The bottom half of the r8 register. */
-    DR_REG_R9_BH,  /**< The bottom half of the r9 register. */
-    DR_REG_R10_BH, /**< The bottom half of the r10 register. */
-    DR_REG_R11_BH, /**< The bottom half of the r11 register. */
-    DR_REG_R12_BH, /**< The bottom half of the r12 register. */
-    DR_REG_R13_BH, /**< The bottom half of the r13 register. */
-    DR_REG_R14_BH, /**< The bottom half of the r14 register. */
-    DR_REG_R15_BH, /**< The bottom half of the r15 register. */
-# endif
-
-    DR_REG_R0_BB,  /**< The bottom 8 bits of the r0 register. */
-    DR_REG_R1_BB,  /**< The bottom 8 bits of the r1 register. */
-    DR_REG_R2_BB,  /**< The bottom 8 bits of the r2 register. */
-    DR_REG_R3_BB,  /**< The bottom 8 bits of the r3 register. */
-    DR_REG_R4_BB,  /**< The bottom 8 bits of the r4 register. */
-    DR_REG_R5_BB,  /**< The bottom 8 bits of the r5 register. */
-    DR_REG_R6_BB,  /**< The bottom 8 bits of the r6 register. */
-    DR_REG_R7_BB,  /**< The bottom 8 bits of the r7 register. */
-    DR_REG_R8_BB,  /**< The bottom 8 bits of the r8 register. */
-    DR_REG_R9_BB,  /**< The bottom 8 bits of the r9 register. */
-    DR_REG_R10_BB, /**< The bottom 8 bits of the r10 register. */
-    DR_REG_R11_BB, /**< The bottom 8 bits of the r11 register. */
-    DR_REG_R12_BB, /**< The bottom 8 bits of the r12 register. */
-    DR_REG_R13_BB, /**< The bottom 8 bits of the r13 register. */
-    DR_REG_R14_BB, /**< The bottom 8 bits of the r14 register. */
-    DR_REG_R15_BB, /**< The bottom 8 bits of the r15 register. */
-    /* x64-only but simpler code to not ifdef it */
-    DR_REG_R16_BB, /**< The bottom 8 bits of the r16 register. */
-    DR_REG_R17_BB, /**< The bottom 8 bits of the r17 register. */
-    DR_REG_R18_BB, /**< The bottom 8 bits of the r18 register. */
-    DR_REG_R19_BB, /**< The bottom 8 bits of the r19 register. */
-    DR_REG_R20_BB, /**< The bottom 8 bits of the r20 register. */
-    DR_REG_R21_BB, /**< The bottom 8 bits of the r21 register. */
-    DR_REG_R22_BB, /**< The bottom 8 bits of the r22 register. */
-    DR_REG_R23_BB, /**< The bottom 8 bits of the r23 register. */
-    DR_REG_R24_BB, /**< The bottom 8 bits of the r24 register. */
-    DR_REG_R25_BB, /**< The bottom 8 bits of the r25 register. */
-    DR_REG_R26_BB, /**< The bottom 8 bits of the r26 register. */
-    DR_REG_R27_BB, /**< The bottom 8 bits of the r27 register. */
-    DR_REG_R28_BB, /**< The bottom 8 bits of the r28 register. */
-    DR_REG_R29_BB, /**< The bottom 8 bits of the r29 register. */
-    DR_REG_R30_BB, /**< The bottom 8 bits of the r30 register. */
-    DR_REG_R31_BB, /**< The bottom 8 bits of the r31 register. */
+    /* We decided against DR_REG_RN_TH (top half), DR_REG_RN_BH (bottom half
+     * for 32-bit as we have the W versions for 64-bit), and DR_REG_RN_BB
+     * (bottom byte) as they are not available in the ISA and which portion
+     * of a GPR is selected purely by the opcode.  Our decoder will create
+     * a partial register for these to help tools, but it won't specify which
+     * part of the register.
+     */
 
 # ifdef AVOID_API_EXPORT
     /* XXX i#1551: do we want to model the any-16-bits-of-Xn target
@@ -429,20 +350,10 @@ enum {
     DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
     DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
-    DR_REG_START_16  = DR_REG_NULL,/**< Start of 16-bit general register enum values */
-    DR_REG_STOP_16   = DR_REG_NULL,/**< End of 16-bit general register enum values */
 # else
     DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
     DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
     DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
-    DR_REG_START_16  = DR_REG_R0_BH, /**< Start of 16-bit general register enum values */
-    DR_REG_STOP_16   = DR_REG_R15_BH,/**< End of 16-bit general register enum values */
-# endif
-    DR_REG_START_8   = DR_REG_R0_BB,  /**< Start of 8-bit general register enum values */
-# ifdef X64
-    DR_REG_STOP_8    = DR_REG_R31_BB, /**< End of 8-bit general register enum values */
-# else
-    DR_REG_STOP_8    = DR_REG_R15_BB, /**< End of 8-bit general register enum values */
 # endif
 
     /** Platform-independent way to refer to stack pointer. */
@@ -553,10 +464,6 @@ extern const reg_id_t dr_reg_fixer[];
 #define REG_STOP_64         DR_REG_STOP_64
 #define REG_START_32        DR_REG_START_32
 #define REG_STOP_32         DR_REG_STOP_32
-#define REG_START_16        DR_REG_START_16
-#define REG_STOP_16         DR_REG_STOP_16
-#define REG_START_8         DR_REG_START_8
-#define REG_STOP_8          DR_REG_STOP_8
 #define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
 #define REG_LAST_ENUM       DR_REG_LAST_ENUM
 #define REG_XSP             DR_REG_XSP
@@ -566,6 +473,10 @@ extern const reg_id_t dr_reg_fixer[];
  * configure_DynamoRIO_client() to set this define.
  */
 #if defined(X86) && defined(DR_REG_ENUM_COMPATIBILITY)
+# define REG_START_16        DR_REG_START_16
+# define REG_STOP_16         DR_REG_STOP_16
+# define REG_START_8         DR_REG_START_8
+# define REG_STOP_8          DR_REG_STOP_8
 # define REG_RAX             DR_REG_RAX
 # define REG_RCX             DR_REG_RCX
 # define REG_RDX             DR_REG_RDX
@@ -1569,6 +1480,7 @@ DR_API
 /**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 16-bit version of \p reg.
+ * \note x86-only.
  */
 reg_id_t
 reg_32_to_16(reg_id_t reg);
@@ -1580,6 +1492,7 @@ DR_API
  * DR_REG_AL instead of DR_REG_AH if passed DR_REG_EAX, e.g.).  For 32-bit DR
  * builds, returns DR_REG_NULL if passed DR_REG_ESP, DR_REG_EBP, DR_REG_ESI, or
  * DR_REG_EDI.
+ * \note x86-only.
  */
 reg_id_t
 reg_32_to_8(reg_id_t reg);
