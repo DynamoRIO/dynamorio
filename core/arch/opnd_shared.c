@@ -106,10 +106,10 @@ bool opnd_is_abs_addr(opnd_t opnd) {
     return IF_X64(opnd.kind == ABS_ADDR_kind ||) opnd_is_abs_base_disp(opnd);
 }
 bool opnd_is_near_abs_addr(opnd_t opnd) {
-    return opnd_is_abs_addr(opnd) IF_X86(&& opnd.seg.segment == REG_NULL);
+    return opnd_is_abs_addr(opnd) IF_X86(&& opnd.aux.segment == REG_NULL);
 }
 bool opnd_is_far_abs_addr(opnd_t opnd) {
-    return IF_X86_ELSE(opnd_is_abs_addr(opnd) && opnd.seg.segment != REG_NULL,
+    return IF_X86_ELSE(opnd_is_abs_addr(opnd) && opnd.aux.segment != REG_NULL,
                        false);
 }
 
@@ -179,6 +179,14 @@ opnd_get_reg(opnd_t opnd)
     return OPND_GET_REG(opnd);
 }
 #define opnd_get_reg OPND_GET_REG
+
+#undef opnd_get_flags
+dr_register_flags_t
+opnd_get_flags(opnd_t opnd)
+{
+    return OPND_GET_FLAGS(opnd);
+}
+#define opnd_get_flags OPND_GET_FLAGS
 
 opnd_size_t
 opnd_get_size(opnd_t opnd)
@@ -313,7 +321,7 @@ opnd_create_far_pc(ushort seg_selector, app_pc pc)
 {
     opnd_t opnd;
     opnd.kind = FAR_PC_kind;
-    opnd.seg.far_pc_seg_selector = seg_selector;
+    opnd.aux.far_pc_seg_selector = seg_selector;
     opnd.value.pc = pc;
     return opnd;
 }
@@ -324,7 +332,7 @@ opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift)
     opnd_t opnd;
     opnd.kind = INSTR_kind;
     opnd.value.instr = instr;
-    opnd.seg.shift = shift;
+    opnd.aux.shift = shift;
     opnd.size = size;
     return opnd;
 }
@@ -340,7 +348,7 @@ opnd_create_far_instr(ushort seg_selector, instr_t *instr)
 {
     opnd_t opnd;
     opnd.kind = FAR_INSTR_kind;
-    opnd.seg.far_pc_seg_selector = seg_selector;
+    opnd.aux.far_pc_seg_selector = seg_selector;
     opnd.value.instr = instr;
     return opnd;
 }
@@ -352,7 +360,7 @@ opnd_create_mem_instr(instr_t *instr, short disp, opnd_size_t data_size)
     opnd_t opnd;
     opnd.kind = MEM_INSTR_kind;
     opnd.size = data_size;
-    opnd.seg.disp = disp;
+    opnd.aux.disp = disp;
     opnd.value.instr = instr;
     return opnd;
 }
@@ -373,7 +381,7 @@ ushort
 opnd_get_segment_selector(opnd_t opnd)
 {
     if (opnd_is_far_pc(opnd) || opnd_is_far_instr(opnd)) {
-        return opnd.seg.far_pc_seg_selector;
+        return opnd.aux.far_pc_seg_selector;
     }
     CLIENT_ASSERT(false, "opnd_get_segment_selector called on invalid opnd type");
     return REG_INVALID;
@@ -392,7 +400,7 @@ ushort
 opnd_get_shift(opnd_t opnd)
 {
     CLIENT_ASSERT(opnd_is_near_instr(opnd), "opnd_get_shift called on non-near-instr");
-    return opnd.seg.shift;
+    return opnd.aux.shift;
 }
 
 short
@@ -400,7 +408,7 @@ opnd_get_mem_instr_disp(opnd_t opnd)
 {
     CLIENT_ASSERT(opnd_is_mem_instr(opnd),
                   "opnd_get_mem_instr_disp called on non-mem-instr");
-    return opnd.seg.disp;
+    return opnd.aux.disp;
 }
 
 /* Base+displacement+scaled index operands */
@@ -450,7 +458,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
     CLIENT_ASSERT_BITFIELD_TRUNCATE(REG_SPECIFIER_BITS, index_reg,
                                     "opnd_create_*base_disp*: invalid index");
     IF_X86_ELSE({
-        opnd.seg.segment = seg;
+        opnd.aux.segment = seg;
     }, {
         opnd.value.base_disp.shift_type = DR_SHIFT_NONE;
         CLIENT_ASSERT(disp == 0 || index_reg == REG_NULL,
@@ -641,7 +649,7 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
         CLIENT_ASSERT(seg == REG_NULL
                       IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                       "opnd_create_far_abs_addr: invalid segment");
-        IF_X86(opnd.seg.segment = seg);
+        IF_X86(opnd.aux.segment = seg);
         opnd.value.addr = addr;
         return opnd;
     }
@@ -671,7 +679,7 @@ opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     CLIENT_ASSERT(seg == REG_NULL
                   IF_X86(|| (seg >= REG_START_SEGMENT && seg <= REG_STOP_SEGMENT)),
                   "opnd_create_far_rel_addr: invalid segment");
-    IF_X86(opnd.seg.segment = seg);
+    IF_X86(opnd.aux.segment = seg);
     opnd.value.addr = addr;
     return opnd;
 }
@@ -1017,18 +1025,18 @@ bool opnd_same(opnd_t op1, opnd_t op2)
     case PC_kind:
         return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:
-        return (op1.seg.far_pc_seg_selector == op2.seg.far_pc_seg_selector &&
+        return (op1.aux.far_pc_seg_selector == op2.aux.far_pc_seg_selector &&
                 op1.value.pc == op2.value.pc);
     case INSTR_kind:
         return (op1.value.instr == op2.value.instr &&
-                op1.seg.shift == op2.seg.shift &&
+                op1.aux.shift == op2.aux.shift &&
                 op1.size == op2.size);
     case FAR_INSTR_kind:
         return op1.value.instr == op2.value.instr;
     case REG_kind:
         return op1.value.reg == op2.value.reg;
     case BASE_DISP_kind:
-        return (IF_X86(op1.seg.segment == op2.seg.segment &&)
+        return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.base_disp.base_reg == op2.value.base_disp.base_reg &&
                 op1.value.base_disp.index_reg == op2.value.base_disp.index_reg &&
                 IF_X86_ELSE(op1.value.base_disp.scale ==
@@ -1052,12 +1060,12 @@ bool opnd_same(opnd_t op1, opnd_t op2)
 #ifdef X64
     case REL_ADDR_kind:
     case ABS_ADDR_kind:
-        return (IF_X86(op1.seg.segment == op2.seg.segment &&)
+        return (IF_X86(op1.aux.segment == op2.aux.segment &&)
                 op1.value.addr == op2.value.addr);
 #endif
     case MEM_INSTR_kind:
         return (op1.value.instr == op2.value.instr &&
-                op1.seg.disp == op2.seg.disp);
+                op1.aux.disp == op2.aux.disp);
     default:
         CLIENT_ASSERT(false, "opnd_same: invalid opnd type");
         return false;

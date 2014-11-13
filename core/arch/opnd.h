@@ -696,11 +696,25 @@ typedef enum _dr_shift_type_t {
     DR_SHIFT_RRX,
 } dr_shift_type_t;
 
+/**
+ * These flags describe operations performed on the value of a source register
+ * before it is combined with other sources as part of the behavior of the
+ * containing instruction.
+ */
+typedef enum _dr_register_flags_t {
+    /** This register's value is negated prior to use in the containing instruction. */
+    DR_REGMOD_VALUE_NEGATED  = 0x01,
+    /** This register's value is shifted prior to use in the containing instruction. */
+    DR_REGMOD_VALUE_SHIFTED  = 0x02,
+} dr_register_flags_t;
+
 #ifdef DR_FAST_IR
 
 /* We assume all addressing regs are in the lower 256 of the DR_REG_ enum. */
 # define REG_SPECIFIER_BITS 8
 # define SCALE_SPECIFIER_BITS 4
+/* We need to keep opnd_t the same size */
+# define FLAGS_BITS REG_SPECIFIER_BITS
 
 /**
  * opnd_t type exposed for optional "fast IR" access.  Note that DynamoRIO
@@ -730,7 +744,9 @@ struct _opnd_t {
                                                 * and ABS_ADDR_kind */
         ushort disp;           /* MEM_INSTR_kind */
         ushort shift;          /* INSTR_kind */
-    } seg;
+        /* We have to use byte and not the enum type to get cl to not align */
+        byte/*dr_register_flags_t*/ flags : FLAGS_BITS; /* ARM: REG_kind */
+    } aux;
     union {
         /* all are 64 bits or less */
         /* NULL_kind has no value */
@@ -845,6 +861,16 @@ INSTR_INLINE
  */
 opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a register operand with additional properties specified by \p flags.
+ * If \p subsize is 0, creates a full-sized register; otherwise, creates a
+ * partial register in the manner of opnd_create_reg_partial().
+ */
+opnd_t
+opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_register_flags_t flags);
 
 DR_API
 /**
@@ -1359,6 +1385,14 @@ DR_API
  */
 reg_id_t
 opnd_get_reg(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes \p opnd is a register operand.
+ * Returns the flags describing additional properties of the register.
+ */
+dr_register_flags_t
+opnd_get_flags(opnd_t opnd);
 
 DR_API
 /** Assumes opnd is an immediate integer, returns its value. */

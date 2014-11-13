@@ -267,6 +267,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_R_D:
         array[(*counter)++] = opnd_create_reg(decode_regD(di));
         return true;
+    case TYPE_R_D_NEGATED:
+        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di),
+                                                 DR_REGMOD_VALUE_NEGATED);
+        return true;
     case TYPE_V_A:
         array[(*counter)++] = opnd_create_reg(decode_vregA(di, opsize));
         return true;
