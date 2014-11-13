@@ -3229,7 +3229,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
                 break;
             }
 #endif
-#ifdef UNIX
+#if defined(UNIX) && defined(X86)
             if (INTERNAL_OPTION(mangle_app_seg) &&
                 instr_get_prefix_flag(bb->instr, PREFIX_SEG_FS | PREFIX_SEG_GS)) {
                 /* These segment prefix flags are not persistent and are

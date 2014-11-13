@@ -35,9 +35,12 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
-/* file "emit_utils.c"
- * The Pentium processors maintain cache consistency in hardware, so we don't
+/* file "emit_utils_shared.c" */
+/* The Pentium processors maintain cache consistency in hardware, so we don't
  * worry about getting stale cache entries.
+ */
+/* FIXME i#1551: flush code cache after update it on ARM because the hardware
+ * does not maintain cache consistency in hardware.
  */
 
 #include "../globals.h"
@@ -272,9 +275,7 @@ exit_stub_size(dcontext_t *dcontext, cache_pc target, uint flags)
             return 0;
 
         if (TEST(FRAG_COARSE_GRAIN, flags)) {
-#ifdef WINDOWS
-            ASSERT(!is_shared_syscall_routine(dcontext, target));
-#endif
+            IF_WINDOWS(ASSERT(!is_shared_syscall_routine(dcontext, target)));
             /* keep in synch w/ coarse_indirect_stub_size() */
             return (STUB_COARSE_INDIRECT_SIZE(flags));
         }
@@ -2949,19 +2950,6 @@ build_profile_call_buffer()
 
 #endif /* PROFILE_RDTSC */
 
-/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
- * that at the caller site, so we should never see an "absolute" request.
- */
-#define RESTORE_FROM_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
-    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                     \
-                   instr_create_restore_from_dcontext((dc), (reg), (offs))) : \
-     instr_create_restore_from_dc_via_reg((dc), reg_dr, (reg), (offs)))
-/* Note the magic absolute boolean that callers are expected to have declared */
-#define SAVE_TO_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
-    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
-                   instr_create_save_to_dcontext((dc), (reg), (offs))) : \
-     instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
-
 #ifdef WINDOWS
 # ifdef CLIENT_INTERFACE
 
@@ -3134,315 +3122,83 @@ preinsert_swap_peb(dcontext_t *dcontext, instrlist_t *ilist, instr_t *next,
 /*             THREAD-PRIVATE/SHARED ROUTINE GENERATION                    */
 /***************************************************************************/
 
-/* macros shared by fcache_enter and fcache_return
- * in order to generate both thread-private code that uses absolute
- * addressing and thread-shared or dcontext-shared code that uses
- * xdi (and xsi) for addressing.
- * The via_reg macros now auto-magically pick the opnd size from the
- * target register and so work with more than just pointer-sized values.
- */
-/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
- * that at the caller site, so we should never see an "absolute" request.
- */
-#define RESTORE_FROM_DC(dc, reg, offs) \
-    RESTORE_FROM_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
-/* Note the magic absolute boolean that callers are expected to have declared */
-#define SAVE_TO_DC(dc, reg, offs) \
-    SAVE_TO_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
-
-#define OPND_TLS_FIELD(offs) opnd_create_tls_slot(os_tls_offset(offs))
-
-#define OPND_TLS_FIELD_SZ(offs, sz) \
-    opnd_create_sized_tls_slot(os_tls_offset(offs), sz)
-
-#define SAVE_TO_TLS(dc, reg, offs) \
-    instr_create_save_to_tls(dc, reg, offs)
-#define RESTORE_FROM_TLS(dc, reg, offs) \
-    instr_create_restore_from_tls(dc, reg, offs)
-
-#define SAVE_TO_REG(dc, reg, spill) \
-    instr_create_save_to_reg(dc, reg, spill)
-#define RESTORE_FROM_REG(dc, reg, spill) \
-    instr_create_restore_from_reg(dc, reg, spill)
-
-#define OPND_DC_FIELD(absolute, dcontext, sz, offs) \
-    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
-                   opnd_create_dcontext_field_sz(dcontext, (offs), (sz))) : \
-     opnd_create_dcontext_field_via_reg_sz((dcontext), REG_NULL, (offs), (sz)))
-
 /* Export this in instr.h if it becomes useful elsewhere */
-#ifdef X64
-# ifdef WINDOWS
-#  define OPND_ARG1  opnd_create_reg(REG_RCX)
+#ifdef X86
+# ifdef X64
+#  ifdef WINDOWS
+#   define OPND_ARG1  opnd_create_reg(REG_RCX)
+#  else
+#   define OPND_ARG1  opnd_create_reg(REG_RDI)
+#  endif /* Win/Unix */
 # else
-#  define OPND_ARG1  opnd_create_reg(REG_RDI)
-# endif
-#else
-# define OPND_ARG1   OPND_CREATE_MEM32(REG_ESP, 4)
-#endif
+#  define OPND_ARG1   OPND_CREATE_MEM32(REG_ESP, 4)
+# endif /* 64/32-bit */
+#elif defined(ARM)
+# define OPND_ARG1    opnd_create_reg(DR_REG_R0)
+#endif /* X86/ARM */
 
-/* Our context switch to and from the fragment cache are arranged such
- * that there is no persistent state kept on the dstack, allowing us to
- * start with a clean slate on exiting the cache.  This eliminates the
- * need to protect our dstack from inadvertent or malicious writes.
- *
- * We do not bother to save any DynamoRIO state, even the eflags.  We clear
- * them in fcache_return, assuming that a cleared state is always the
- * proper value (df is never set across the cache, etc.)
- *
- * fcache_enter(dcontext_t *dcontext)
- *   Used by dispatch to begin execution in fcache at dcontext->next_tag
+/* register for holding dcontext on fcache enter/return */
+#define REG_DCTXT SCRATCH_REG5
 
-    if (!absolute)
-        mov    ARG1,%xdi # dcontext param
-      if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        RESTORE_FROM_UPCONTEXT PROT_OFFSET,%xsi
-      endif
-    endif
-
-    if (!absolute)
-        # put target somewhere we can be absolute about
-        RESTORE_FROM_UPCONTEXT next_tag_OFFSET,%xax
-      if (shared)
-        mov  %xax,fs:xax_OFFSET
-      endif
-    endif
-
-    if (EXIT_DR_HOOK != NULL && !dcontext->ignore_enterexit)
-      if (!absolute)
-        push    %xdi
-        push    %xsi
-      else
-        # support for skipping the hook
-        RESTORE_FROM_UPCONTEXT ignore_enterexit_OFFSET,%edi
-        cmpl    %edi,0
-        jnz     post_hook
-      endif
-        call    EXIT_DR_HOOK # for x64 windows, reserve 32 bytes stack space for call
-      if (!absolute)
-        pop    %xsi
-        pop    %xdi
-      endif
-    endif
-
-    post_hook:
-
-        # restore the original register state
-        RESTORE_FROM_UPCONTEXT xflags_OFFSET,%xax
-        push    %xax
-        popf            # restore eflags temporarily using dstack
-    if preserve_xmm_caller_saved
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+0*16,%xmm0
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+1*16,%xmm1
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+2*16,%xmm2
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+3*16,%xmm3
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+4*16,%xmm4
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+5*16,%xmm5
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+6*16,%xmm6  # 32-bit Linux
-        RESTORE_FROM_UPCONTEXT xmm_OFFSET+7*16,%xmm7  # 32-bit Linux
-    endif
-    ifdef X64
-        RESTORE_FROM_UPCONTEXT r8_OFFSET,%r8
-        RESTORE_FROM_UPCONTEXT r9_OFFSET,%r9
-        RESTORE_FROM_UPCONTEXT r10_OFFSET,%r10
-        RESTORE_FROM_UPCONTEXT r11_OFFSET,%r11
-        RESTORE_FROM_UPCONTEXT r12_OFFSET,%r12
-        RESTORE_FROM_UPCONTEXT r13_OFFSET,%r13
-        RESTORE_FROM_UPCONTEXT r14_OFFSET,%r14
-        RESTORE_FROM_UPCONTEXT r15_OFFSET,%r15
-    endif
-        RESTORE_FROM_UPCONTEXT xax_OFFSET,%xax
-        RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx
-        RESTORE_FROM_UPCONTEXT xcx_OFFSET,%xcx
-        RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
-    endif
-    if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
-    endif
-        RESTORE_FROM_UPCONTEXT xbp_OFFSET,%xbp
-        RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
-    if (!absolute)
-      if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
-      else
-        RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
-      endif
-    endif
-
-    ifdef X64 and (target is x86 mode)
-        # we can't indirect through a register since we couldn't restore
-        # the high bits (PR 283152)
-        mov gencode-jmp86-value, fs:xbx_OFFSET
-        far jmp to next instr, stored w/ 32-bit cs selector in fs:xbx_OFFSET
-    endif
-
-        # jump indirect through dcontext->next_tag, set by dispatch()
-    if (absolute)
-        JUMP_VIA_DCONTEXT next_tag_OFFSET
-    else
-      if (shared)
-        jmp *fs:xax_OFFSET
-      else
-        JUMP_VIA_DCONTEXT nonswapped_scratch_OFFSET
-      endif
-    endif
-
-        # now executing in fcache
+/* append instructions to setup fcache target
+ *   if (!absolute)
+ *     # put target somewhere we can be absolute about
+ *     RESTORE_FROM_UPCONTEXT next_tag_OFFSET,%xax
+ *     if (shared)
+ *       mov  %xax,fs:xax_OFFSET
+ *     endif
+ *   endif
  */
-static byte *
-emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
-                         bool absolute, bool shared)
+static void
+append_setup_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
+                           bool absolute, bool shared)
 {
-    int len;
-    instrlist_t ilist;
-    patch_list_t patch;
-#ifdef X64
-    byte *jmp86_store_addr = NULL;
-    byte *jmp86_target_addr = NULL;
-#endif
-    instr_t *post_hook = INSTR_CREATE_label(dcontext);
+    if (absolute)
+        return;
 
-    init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
-    instrlist_init(&ilist);
-
-    /* no support for absolute addresses on x64: we always use tls */
-    IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
-
-    if (!absolute) {
-        /* grab gen routine's parameter dcontext and put it into edi */
-        APP(&ilist, INSTR_CREATE_mov_ld(dcontext, opnd_create_reg(REG_XDI), OPND_ARG1));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-            APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSI, PROT_OFFS));
-    }
-
-    if (!absolute) {
-        /* put target into special slot that we can be absolute about */
-        APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XAX, NEXT_TAG_OFFSET));
-        if (shared) {
-            APP(&ilist, SAVE_TO_TLS(dcontext, REG_XAX, FCACHE_ENTER_TARGET_SLOT));
-        } else {
+    /* put target into special slot that we can be absolute about */
+    APP(ilist, RESTORE_FROM_DC(dcontext, SCRATCH_REG0, NEXT_TAG_OFFSET));
+    if (shared) {
+        APP(ilist, SAVE_TO_TLS(dcontext, SCRATCH_REG0, FCACHE_ENTER_TARGET_SLOT));
+    } else {
 #ifdef WINDOWS
-            /* absolute into main dcontext (not one in edi) */
-            APP(&ilist, instr_create_save_to_dcontext(dcontext, REG_XAX,
-                                                     NONSWAPPED_SCRATCH_OFFSET));
+        /* absolute into main dcontext (not one in REG_DCTXT) */
+        APP(ilist, instr_create_save_to_dcontext(dcontext, SCRATCH_REG0,
+                                                 NONSWAPPED_SCRATCH_OFFSET));
 #else
-            /* no special scratch slot! */
-            ASSERT_NOT_IMPLEMENTED(false);
-#endif
-        }
+        /* no special scratch slot! */
+        ASSERT_NOT_IMPLEMENTED(false);
+#endif /* !WINDOWS */
     }
+}
 
-    if (EXIT_DR_HOOK != NULL) {
-        /* if absolute, don't bother to save any regs around the call */
-        if (!absolute) {
-            /* save xdi and xsi around call.
-             * for x64, they're supposed to be callee-saved on windows,
-             * but not linux (though we could move to r12-r15 on linux
-             * instead of pushing them).
-             */
-            APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XDI)));
-            APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XSI)));
-        }
-#ifdef WINDOWS
-        else {
-            /* For thread-private (used for syscalls), don't call if
-             * dcontext->ignore_enterexit.  This is a perf hit to check: could
-             * instead have a space hit via a separate routine.  This is only
-             * needed right now for NtSuspendThread handling (see case 4942).
-             */
-            APP(&ilist, RESTORE_FROM_DC(dcontext, REG_EDI, IGNORE_ENTEREXIT_OFFSET));
-            /* P4 opt guide says to use test to cmp reg with 0: shorter instr */
-            APP(&ilist, INSTR_CREATE_test(dcontext, opnd_create_reg(REG_EDI),
-                                         opnd_create_reg(REG_EDI)));
-            APP(&ilist, INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(post_hook)));
-        }
-#endif
-        /* make sure to use dr_insert_call() rather than a raw OP_call instr,
-         * since x64 windows requires 32 bytes of stack space even w/ no args,
-         * and we don't want anyone clobbering our pushed registers!
-         */
-        dr_insert_call((void *)dcontext, &ilist, NULL/*append*/, (void *)EXIT_DR_HOOK, 0);
-        if (!absolute) {
-            /* save edi and esi around call */
-            APP(&ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XSI)));
-            APP(&ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XDI)));
-        }
-    }
-
-    /* restore the original register state */
-
-    APP(&ilist, post_hook/*label*/);
-#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
-    /* i#249: isolate the PEB */
-    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
-        preinsert_swap_peb(dcontext, &ilist, NULL, absolute, REG_XDI,
-                           REG_XAX/*scratch*/, false/*to app*/);
-    }
-#endif
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XAX, XFLAGS_OFFSET));
-    APP(&ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
-    /* restore eflags temporarily using dstack */
-    APP(&ilist, INSTR_CREATE_RAW_popf(dcontext));
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt
-         * sw.  The xmm field is aligned, so we can use movdqa/movaps,
-         * though movdqu is stated to be as fast as movdqa when aligned:
-         * but if so, why have two versions?  Is it only loads and not stores
-         * for which that is true?  => PR 266305.
-         * It's not clear that movdqa is any faster (and its opcode is longer):
-         * movdqa and movaps are listed as the same latency and throughput in
-         * the AMD optimization guide.  Yet examples of fast memcpy online seem
-         * to use movdqa when sse2 is available.
-         * Note that mov[au]p[sd] and movdq[au] are functionally equivalent.
-         */
-        /* FIXME i#438: once have SandyBridge processor need to measure
-         * cost of vmovdqu and whether worth arranging 32-byte alignment
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
-            APP(&ilist, instr_create_1dst_1src
-                (dcontext, opcode, opnd_create_reg
-                 (REG_SAVED_XMM0 + (reg_id_t)i),
-                 OPND_DC_FIELD(absolute, dcontext,
-                               OPSZ_SAVED_XMM, XMM_OFFSET + i*XMM_SAVED_REG_SIZE)));
-        }
-    }
-#ifdef X64
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R8, R8_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R9, R9_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R10, R10_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R11, R11_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R12, R12_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R13, R13_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R14, R14_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_R15, R15_OFFSET));
-#endif
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XAX, XAX_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XBX, XBX_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XCX, XCX_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XDX, XDX_OFFSET));
-    /* must restore esi last */
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
-    /* must restore edi last */
-    if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XBP, XBP_OFFSET));
-    APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSP, XSP_OFFSET));
-    /* must restore esi last */
-    if (!absolute) {
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-            APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSI, XSI_OFFSET));
-        else
-            APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XDI, XDI_OFFSET));
-    }
-
-#ifdef X64
+/* append instructions to jump to target in code cache
+ *  ifdef X64 and (target is x86 mode)
+ *    # we can't indirect through a register since we couldn't restore
+ *    # the high bits (PR 283152)
+ *    mov gencode-jmp86-value, fs:xbx_OFFSET
+ *    far jmp to next instr, stored w/ 32-bit cs selector in fs:xbx_OFFSET
+ *  endif
+ *
+ *  # jump indirect through dcontext->next_tag, set by dispatch()
+ *  if (absolute)
+ *    JUMP_VIA_DCONTEXT next_tag_OFFSET
+ *  else
+ *    if (shared)
+ *      jmp *fs:xax_OFFSET
+ *    else
+ *      JUMP_VIA_DCONTEXT nonswapped_scratch_OFFSET
+ *    endif
+ *  endif
+ */
+static void
+append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
+                            generated_code_t *code,
+                            bool absolute, bool shared, patch_list_t *patch
+                            _IF_X64(byte **jmp86_store_addr)
+                            _IF_X64(byte **jmp86_target_addr))
+{
+#ifdef X86_64
     if (GENCODE_IS_X86(code->gencode_mode)) {
         instr_t *label = INSTR_CREATE_label(dcontext);
         instr_t *store;
@@ -3454,34 +3210,35 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
         store = INSTR_CREATE_mov_st(dcontext,
                                     OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_4),
                                     OPND_CREATE_INT32(0/*placeholder*/));
-        APP(&ilist, store);
-        APP(&ilist, INSTR_CREATE_mov_st(dcontext,
-                                        OPND_TLS_FIELD_SZ(TLS_XBX_SLOT+4, OPSZ_2),
-                                        OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
-        APP(&ilist, INSTR_CREATE_jmp_far_ind(dcontext,
-                                             OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_6)));
-        APP(&ilist, label);
+        APP(ilist, store);
+        APP(ilist, INSTR_CREATE_mov_st(dcontext,
+                                       OPND_TLS_FIELD_SZ(TLS_XBX_SLOT+4, OPSZ_2),
+                                       OPND_CREATE_INT16((ushort)CS32_SELECTOR)));
+        APP(ilist, INSTR_CREATE_jmp_far_ind(dcontext,
+                                            OPND_TLS_FIELD_SZ(TLS_XBX_SLOT, OPSZ_6)));
+        APP(ilist, label);
         /* We need a patch that involves two instrs, which is not supported,
          * so we get both addresses involved into local vars and do the patch
          * by hand after emitting.
          */
-        add_patch_marker(&patch, store, PATCH_ASSEMBLE_ABSOLUTE,
-                         -4 /* 4 bytes from end */, (ptr_uint_t*)&jmp86_store_addr);
-        add_patch_marker(&patch, label, PATCH_ASSEMBLE_ABSOLUTE,
-                         0 /* start of label */, (ptr_uint_t*)&jmp86_target_addr);
+        add_patch_marker(patch, store, PATCH_ASSEMBLE_ABSOLUTE,
+                         -4 /* 4 bytes from end */, (ptr_uint_t*)jmp86_store_addr);
+        add_patch_marker(patch, label, PATCH_ASSEMBLE_ABSOLUTE,
+                         0 /* start of label */, (ptr_uint_t*)jmp86_target_addr);
     }
-#endif
+#endif /* X64 */
 
     /* Jump indirect through next_tag.  Dispatch set this value with
      * where we want to go next in the fcache_t.
      */
     if (absolute) {
-        APP(&ilist, instr_create_jump_via_dcontext(dcontext, NEXT_TAG_OFFSET));
+        APP(ilist, instr_create_jump_via_dcontext(dcontext, NEXT_TAG_OFFSET));
     } else {
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
-            APP(&ilist, INSTR_CREATE_jmp_ind(dcontext,
-                                             OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
+            APP(ilist,
+                INSTR_CREATE_jmp_ind_mem(dcontext,
+                                         OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
 
         } else {
 #ifdef WINDOWS
@@ -3491,14 +3248,189 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code, byte *pc,
             /* need one absolute ref using main dcontext (not one in edi):
              * it's the final jmp, using the special slot we set up earlier
              */
-            APP(&ilist, instr_create_jump_via_dcontext(dcontext,
+            APP(ilist, instr_create_jump_via_dcontext(dcontext,
                                                       NONSWAPPED_SCRATCH_OFFSET));
-#else
+#else /* !WINDOWS */
             /* no special scratch slot! */
             ASSERT_NOT_IMPLEMENTED(false);
-#endif
+#endif /* !WINDOWS */
         }
     }
+}
+
+/* Our context switch to and from the fragment cache are arranged such
+ * that there is no persistent state kept on the dstack, allowing us to
+ * start with a clean slate on exiting the cache.  This eliminates the
+ * need to protect our dstack from inadvertent or malicious writes.
+ *
+ * We do not bother to save any DynamoRIO state, even the eflags.  We clear
+ * them in fcache_return, assuming that a cleared state is always the
+ * proper value (df is never set across the cache, etc.)
+ *
+ * The code is split into several helper functions.
+ *
+ * # Used by dispatch to begin execution in fcache at dcontext->next_tag
+ * fcache_enter(dcontext_t *dcontext)
+ *
+ *  if (!absolute)
+ *      mov    ARG1, SCRATCH_REG5 # dcontext param
+ *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *      RESTORE_FROM_UPCONTEXT PROT_OFFSET, %xsi
+ *    endif
+ *  endif
+ *
+ *  # append_setup_fcache_target
+ *  if (!absolute)
+ *      # put target somewhere we can be absolute about
+ *      RESTORE_FROM_UPCONTEXT next_tag_OFFSET, SCRATCH_REG0
+ *    if (shared)
+ *      mov  SCRATCH_REG0, fs:xax_OFFSET
+ *    endif
+ *  endif
+ *
+ *  # append_call_exit_dr_hook
+ *  if (EXIT_DR_HOOK != NULL && !dcontext->ignore_enterexit)
+ *    if (!absolute)
+ *      push    %xdi
+ *      push    %xsi
+ *    else
+ *      # support for skipping the hook
+ *      RESTORE_FROM_UPCONTEXT ignore_enterexit_OFFSET,%edi
+ *      cmpl    %edi,0
+ *      jnz     post_hook
+ *    endif
+ *      call    EXIT_DR_HOOK # for x64 windows, reserve 32 bytes stack space for call
+ *    if (!absolute)
+ *      pop    %xsi
+ *      pop    %xdi
+ *    endif
+ *  endif
+ *
+ *  post_hook:
+ *
+ *  # restore the original register state
+ *
+ *  # append_restore_xflags
+ *  RESTORE_FROM_UPCONTEXT xflags_OFFSET,%xax
+ *  push    %xax
+ *  popf            # restore eflags temporarily using dstack
+ *
+ *  # append_restore_simd_reg
+ *  if preserve_xmm_caller_saved
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+0*16,%xmm0
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+1*16,%xmm1
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+2*16,%xmm2
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+3*16,%xmm3
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+4*16,%xmm4
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+5*16,%xmm5
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+6*16,%xmm6  # 32-bit Linux
+ *    RESTORE_FROM_UPCONTEXT xmm_OFFSET+7*16,%xmm7  # 32-bit Linux
+ *  endif
+ *
+ *  # append_restore_gpr
+ *  ifdef X64
+ *    RESTORE_FROM_UPCONTEXT r8_OFFSET,%r8
+ *    RESTORE_FROM_UPCONTEXT r9_OFFSET,%r9
+ *    RESTORE_FROM_UPCONTEXT r10_OFFSET,%r10
+ *    RESTORE_FROM_UPCONTEXT r11_OFFSET,%r11
+ *    RESTORE_FROM_UPCONTEXT r12_OFFSET,%r12
+ *    RESTORE_FROM_UPCONTEXT r13_OFFSET,%r13
+ *    RESTORE_FROM_UPCONTEXT r14_OFFSET,%r14
+ *    RESTORE_FROM_UPCONTEXT r15_OFFSET,%r15
+ *  endif
+ *    RESTORE_FROM_UPCONTEXT xax_OFFSET,%xax
+ *    RESTORE_FROM_UPCONTEXT xbx_OFFSET,%xbx
+ *    RESTORE_FROM_UPCONTEXT xcx_OFFSET,%xcx
+ *    RESTORE_FROM_UPCONTEXT xdx_OFFSET,%xdx
+ *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
+ *  endif
+ *  if (absolute || TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
+ *  endif
+ *    RESTORE_FROM_UPCONTEXT xbp_OFFSET,%xbp
+ *    RESTORE_FROM_UPCONTEXT xsp_OFFSET,%xsp
+ *  if (!absolute)
+ *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *      RESTORE_FROM_UPCONTEXT xsi_OFFSET,%xsi
+ *    else
+ *      RESTORE_FROM_UPCONTEXT xdi_OFFSET,%xdi
+ *    endif
+ *  endif
+ *
+ *  # append_jmp_to_fcache_target
+ *  ifdef X64 and (target is x86 mode)
+ *    # we can't indirect through a register since we couldn't restore
+ *    # the high bits (PR 283152)
+ *    mov gencode-jmp86-value, fs:xbx_OFFSET
+ *    far jmp to next instr, stored w/ 32-bit cs selector in fs:xbx_OFFSET
+ *  endif
+ *
+ *  # jump indirect through dcontext->next_tag, set by dispatch()
+ *  if (absolute)
+ *    JUMP_VIA_DCONTEXT next_tag_OFFSET
+ *  else
+ *    if (shared)
+ *      jmp *fs:xax_OFFSET
+ *    else
+ *      JUMP_VIA_DCONTEXT nonswapped_scratch_OFFSET
+ *    endif
+ *  endif
+ *
+ *  # now executing in fcache
+ */
+static byte *
+emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
+                         byte *pc, bool absolute, bool shared)
+{
+    int len;
+    instrlist_t ilist;
+    patch_list_t patch;
+#ifdef X64
+    byte *jmp86_store_addr = NULL;
+    byte *jmp86_target_addr = NULL;
+#endif /* X64 */
+
+    init_patch_list(&patch, absolute ? PATCH_TYPE_ABSOLUTE : PATCH_TYPE_INDIRECT_XDI);
+    instrlist_init(&ilist);
+
+    /* no support for absolute addresses on x64/ARM: we always use tls */
+    IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
+    IF_ARM(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
+
+    if (!absolute) {
+        /* grab gen routine's parameter dcontext and put it into edi */
+        APP(&ilist,
+            IF_X86_ELSE(INSTR_CREATE_mov_ld, INSTR_CREATE_mov)
+            (dcontext, opnd_create_reg(SCRATCH_REG5), OPND_ARG1));
+        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+            IF_X86_ELSE({
+                APP(&ilist, RESTORE_FROM_DC(dcontext, REG_XSI, PROT_OFFS));
+            }, {
+                /* FIXME i#1551: SELFPROT is not supported on ARM */
+                ASSERT_NOT_REACHED();
+            });
+        }
+    }
+
+    append_setup_fcache_target(dcontext, &ilist, absolute, shared);
+    append_call_exit_dr_hook(dcontext, &ilist, absolute, shared);
+
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
+    /* i#249: isolate the PEB */
+    if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
+        preinsert_swap_peb(dcontext, &ilist, NULL, absolute, REG_XDI,
+                           REG_XAX/*scratch*/, false/*to app*/);
+    }
+#endif
+
+    /* restore the original register state */
+    append_restore_xflags(dcontext, &ilist, absolute);
+    append_restore_simd_reg(dcontext, &ilist, absolute);
+    append_restore_gpr(dcontext, &ilist, absolute);
+    append_jmp_to_fcache_target(dcontext, &ilist, code, absolute, shared, &patch
+                                _IF_X64(&jmp86_store_addr)
+                                _IF_X64(&jmp86_target_addr));
 
     /* now encode the instructions */
     len = encode_with_patch_list(dcontext, &patch, &ilist, pc);
@@ -3582,131 +3514,235 @@ insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
     PRE(ilist, where, RESTORE_FROM_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
 }
 
+
+/*  append instructions to prepare for fcache return:
+ *  i.e., far jump to switch mode, load dcontext, etc.
+ *
+ *  # on X86
+ *  ifdef X64 and (source is x86 mode)
+ *    far direct jmp to next instr w/ 64-bit switch
+ *  endif
+ *
+ *  if (!absolute)
+ *    mov  %xdi,fs:xdx_OFFSET
+ *    mov  fs:dcontext,%xdi
+ *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *      RESTORE_FROM_DCONTEXT PROT_OFFSET,%xdi
+ *      xchg   %xsi,%xdi
+ *      SAVE_TO_UPCONTEXT %xdi,xsi_OFFSET
+ *      mov    fs:dcontext,%xdi
+ *    endif
+ *    # get xax and xdi into their real slots, via xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET
+ *    mov    fs:xax_OFFSET,%xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xax_OFFSET
+ *    mov    fs:xdx_OFFSET,%xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xdi_OFFSET
+ *  endif
+ */
+static void
+append_prepare_fcache_return(dcontext_t *dcontext, instrlist_t *ilist,
+                             bool absolute, bool shared)
+{
+#ifdef X86_64
+    if (GENCODE_IS_X86(code->gencode_mode)) {
+        instr_t *label = INSTR_CREATE_label(dcontext);
+        instr_t *ljmp = INSTR_CREATE_jmp_far
+            (dcontext, opnd_create_far_instr(CS64_SELECTOR, label));
+        instr_set_x86_mode(ljmp, true/*x86*/);
+        APP(ilist, ljmp);
+        APP(ilist, label);
+    }
+#endif /* X86_64 */
+
+    if (absolute)
+        return;
+
+    /* only support non-absolute w/ shared cache */
+    ASSERT_NOT_IMPLEMENTED(shared);
+    /* xax is in 1 scratch slot, so we have to use a 2nd scratch
+     * slot in order to get dcontext into xdi
+     */
+    APP(ilist, SAVE_TO_TLS(dcontext, REG_DCTXT, DCONTEXT_BASE_SPILL_SLOT));
+    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_DCTXT, TLS_DCONTEXT_SLOT));
+    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
+#ifdef X86
+        /* we'd need a 3rd slot in order to nicely get unprot ptr into xsi
+         * we can do it w/ only 2 slots by clobbering dcontext ptr
+         * (we could add base reg info to RESTORE_FROM_DC/SAVE_TO_DC and go
+         * straight through xsi to begin w/ and subtract one instr (xchg)
+         */
+        ASSERT_NOT_TESTED();
+        APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, PROT_OFFS));
+        APP(ilist, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XSI),
+                                     opnd_create_reg(REG_XDI)));
+        APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XSI_OFFSET));
+        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
+#elif defined(ARM)
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_REACHED();
+#endif /* X86/ARM */
+    }
+}
+
+static void
+append_call_dispatch(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
+{
+    /* call central dispatch routine */
+    /* for x64 linux we could optimize and avoid the "mov rdi, rdi" */
+    dr_insert_call((void *)dcontext, ilist, NULL/*append*/,
+                   (void *)dispatch, 1,
+                   absolute ?
+                   OPND_CREATE_INTPTR((ptr_int_t)dcontext) : opnd_create_reg(REG_DCTXT));
+
+    /* dispatch() shouldn't return! */
+    insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
+                         (byte *)unexpected_return, true/*jmp*/, false/*!precise*/,
+                         DR_REG_R11/*scratch*/, NULL);
+}
+
 /*
-# fcache_return: context switch back to DynamoRIO.
-# Invoked via
-#     a) from the fcache via a fragment exit stub,
-#     b) from indirect_branch_lookup().
-# Invokes dispatch() with a clean dstack.
-# Assumptions:
-#     1) app's value in xax already saved in dcontext.
-#     2) xax holds the linkstub ptr
+ * # fcache_return: context switch back to DynamoRIO.
+ * # Invoked via
+ * #     a) from the fcache via a fragment exit stub,
+ * #     b) from indirect_branch_lookup().
+ * # Invokes dispatch() with a clean dstack.
+ * # Assumptions:
+ * #     1) app's value in xax/r0 already saved in dcontext.
+ * #     2) xax/r0 holds the linkstub ptr
+ * #
+ *
+ * fcache_return:
+ *  # append_prepare_fcache_return
+ *  ifdef X64 and (source is x86 mode)
+ *      far direct jmp to next instr w/ 64-bit switch
+ *  endif
+ *
+ *  if (!absolute)
+ *    mov  %xdi,fs:xdx_OFFSET
+ *    mov  fs:dcontext,%xdi
+ *    if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *      RESTORE_FROM_DCONTEXT PROT_OFFSET,%xdi
+ *      xchg   %xsi,%xdi
+ *      SAVE_TO_UPCONTEXT %xdi,xsi_OFFSET
+ *      mov    fs:dcontext,%xdi
+ *    endif
+ *  endif
+ *
+ *  # append_save_gpr
+ *  if (!absolute)
+ *    # get xax and xdi into their real slots, via xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET
+ *    mov    fs:xax_OFFSET,%xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xax_OFFSET
+ *    mov    fs:xdx_OFFSET,%xbx
+ *    SAVE_TO_UPCONTEXT %xbx,xdi_OFFSET
+ *  endif
+ *
+ *  # save the current register state to context->regs
+ *  # xax already in context
+ *
+ *  if (absolute)
+ *    SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET
+ *  endif
+ *    SAVE_TO_UPCONTEXT %xcx,xcx_OFFSET
+ *    SAVE_TO_UPCONTEXT %xdx,xdx_OFFSET
+ *  if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
+ *    SAVE_TO_UPCONTEXT %xsi,xsi_OFFSET
+ *  endif
+ *  if (absolute)
+ *    SAVE_TO_UPCONTEXT %xdi,xdi_OFFSET
+ *  endif
+ *    SAVE_TO_UPCONTEXT %xbp,xbp_OFFSET
+ *    SAVE_TO_UPCONTEXT %xsp,xsp_OFFSET
+ *  ifdef X64
+ *    SAVE_TO_UPCONTEXT %r8,r8_OFFSET
+ *    SAVE_TO_UPCONTEXT %r9,r9_OFFSET
+ *    SAVE_TO_UPCONTEXT %r10,r10_OFFSET
+ *    SAVE_TO_UPCONTEXT %r11,r11_OFFSET
+ *    SAVE_TO_UPCONTEXT %r12,r12_OFFSET
+ *    SAVE_TO_UPCONTEXT %r13,r13_OFFSET
+ *    SAVE_TO_UPCONTEXT %r14,r14_OFFSET
+ *    SAVE_TO_UPCONTEXT %r15,r15_OFFSET
+ *  endif
+ *
+ *  # append_save_simd_reg
+ *  if preserve_xmm_caller_saved
+ *    SAVE_TO_UPCONTEXT %xmm0,xmm_OFFSET+0*16
+ *    SAVE_TO_UPCONTEXT %xmm1,xmm_OFFSET+1*16
+ *    SAVE_TO_UPCONTEXT %xmm2,xmm_OFFSET+2*16
+ *    SAVE_TO_UPCONTEXT %xmm3,xmm_OFFSET+3*16
+ *    SAVE_TO_UPCONTEXT %xmm4,xmm_OFFSET+4*16
+ *    SAVE_TO_UPCONTEXT %xmm5,xmm_OFFSET+5*16
+ *    SAVE_TO_UPCONTEXT %xmm6,xmm_OFFSET+6*16  # 32-bit Linux
+ *    SAVE_TO_UPCONTEXT %xmm7,xmm_OFFSET+7*16  # 32-bit Linux
+ *  endif
+ *
+ *  # switch to clean dstack
+ *  RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
+ *
+ *  # append_save_clear_xflags
+ *  # now save eflags -- too hard to do without a stack!
+ *  pushf           # push eflags on stack
+ *  pop     %xbx    # grab eflags value
+ *  SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
+ *
+ *  # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
+ *  # FIXME: this won't work at CPL0 if we ever run there!
+ *  push  0
+ *  popf
+ *
+ *  # append_call_enter_dr_hook
+ *  if (ENTER_DR_HOOK != NULL && !dcontext->ignore_enterexit)
+ *    # don't bother to save any registers around call except for xax
+ *    # and xcx, which holds next_tag
+ *    push    %xcx
+ *    if (!absolute)
+ *      push    %xdi
+ *      push    %xsi
+ *    endif
+ *      push    %xax
+ *    if (absolute)
+ *      # support for skipping the hook (note: 32-bits even on x64)
+ *      RESTORE_FROM_UPCONTEXT ignore_enterexit_OFFSET,%edi
+ *      cmp     %edi,0
+ *      jnz     post_hook
+ *    endif
+ *    # for x64 windows, reserve 32 bytes stack space for call prior to call
+ *    call    ENTER_DR_HOOK
+ *
+ *   post_hook:
+ *    pop     %xax
+ *    if (!absolute)
+ *      pop     %xsi
+ *      pop     %xdi
+ *    endif
+ *      pop     %xcx
+ *  endif
+ *
+ *  # save last_exit, currently in eax, into dcontext->last_exit
+ *  SAVE_TO_DCONTEXT %xax,last_exit_OFFSET
+ *
+ *  .ifdef WINDOWS && CLIENT_INTERFACE
+ *    swap_peb
+ *  .endif
+ *
+ *  .ifdef SIDELINE
+ *    # clear cur-trace field so we don't think cur trace is still running
+ *    movl    $0, _sideline_trace
+ *  .endif
+ *
+ *  # call central dispatch routine w/ dcontext as an argument
+ *  if (absolute)
+ *    push    <dcontext>
+ *  else
+ *    push     %xdi  # for x64, mov %xdi, ARG1
+ *  endif
+ *  call    dispatch # for x64 windows, reserve 32 bytes stack space for call
+ *  # dispatch() shouldn't return!
+ *  jmp     unexpected_return
+ */
 
-    ifdef X64 and (source is x86 mode)
-        far direct jmp to next instr w/ 64-bit switch
-    endif
-
-    if (!absolute)
-        mov  %xdi,fs:xdx_OFFSET
-        mov  fs:dcontext,%xdi
-      if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        RESTORE_FROM_DCONTEXT PROT_OFFSET,%xdi
-        xchg   %xsi,%xdi
-        SAVE_TO_UPCONTEXT %xdi,xsi_OFFSET
-        mov    fs:dcontext,%xdi
-      endif
-        # get xax and xdi into their real slots, via xbx
-        SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET
-        mov    fs:xax_OFFSET,%xbx
-        SAVE_TO_UPCONTEXT %xbx,xax_OFFSET
-        mov    fs:xdx_OFFSET,%xbx
-        SAVE_TO_UPCONTEXT %xbx,xdi_OFFSET
-    endif
-
-        # save the current register state to context->regs
-        # xax already in context
-
-    if (absolute)
-        SAVE_TO_UPCONTEXT %xbx,xbx_OFFSET
-    endif
-        SAVE_TO_UPCONTEXT %xcx,xcx_OFFSET
-        SAVE_TO_UPCONTEXT %xdx,xdx_OFFSET
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        SAVE_TO_UPCONTEXT %xsi,xsi_OFFSET
-    endif
-    if (absolute)
-        SAVE_TO_UPCONTEXT %xdi,xdi_OFFSET
-    endif
-        SAVE_TO_UPCONTEXT %xbp,xbp_OFFSET
-        SAVE_TO_UPCONTEXT %xsp,xsp_OFFSET
-    ifdef X64
-        SAVE_TO_UPCONTEXT %r8,r8_OFFSET
-        SAVE_TO_UPCONTEXT %r9,r9_OFFSET
-        SAVE_TO_UPCONTEXT %r10,r10_OFFSET
-        SAVE_TO_UPCONTEXT %r11,r11_OFFSET
-        SAVE_TO_UPCONTEXT %r12,r12_OFFSET
-        SAVE_TO_UPCONTEXT %r13,r13_OFFSET
-        SAVE_TO_UPCONTEXT %r14,r14_OFFSET
-        SAVE_TO_UPCONTEXT %r15,r15_OFFSET
-    endif
-    if preserve_xmm_caller_saved
-        SAVE_TO_UPCONTEXT %xmm0,xmm_OFFSET+0*16
-        SAVE_TO_UPCONTEXT %xmm1,xmm_OFFSET+1*16
-        SAVE_TO_UPCONTEXT %xmm2,xmm_OFFSET+2*16
-        SAVE_TO_UPCONTEXT %xmm3,xmm_OFFSET+3*16
-        SAVE_TO_UPCONTEXT %xmm4,xmm_OFFSET+4*16
-        SAVE_TO_UPCONTEXT %xmm5,xmm_OFFSET+5*16
-        SAVE_TO_UPCONTEXT %xmm6,xmm_OFFSET+6*16  # 32-bit Linux
-        SAVE_TO_UPCONTEXT %xmm7,xmm_OFFSET+7*16  # 32-bit Linux
-    endif
-
-        # switch to clean dstack
-        RESTORE_FROM_DCONTEXT dstack_OFFSET,%xsp
-
-        # now save eflags -- too hard to do without a stack!
-        pushf           # push eflags on stack
-        pop     %xbx    # grab eflags value
-        SAVE_TO_UPCONTEXT %xbx,xflags_OFFSET # save eflags value
-
-        # clear eflags now to avoid app's eflags messing up our ENTER_DR_HOOK
-        # FIXME: this won't work at CPL0 if we ever run there!
-        push  0
-        popf
-
-    if (ENTER_DR_HOOK != NULL && !dcontext->ignore_enterexit)
-        # don't bother to save any registers around call except for xax
-        # and xcx, which holds next_tag
-        push    %xcx
-      if (!absolute)
-        push    %xdi
-        push    %xsi
-      endif
-        push    %xax
-      if (absolute)
-        # support for skipping the hook (note: 32-bits even on x64)
-        RESTORE_FROM_UPCONTEXT ignore_enterexit_OFFSET,%edi
-        cmp     %edi,0
-        jnz     post_hook
-      endif
-        # for x64 windows, reserve 32 bytes stack space for call prior to call
-        call    ENTER_DR_HOOK
-    post_hook:
-        pop     %xax
-      if (!absolute)
-        pop     %xsi
-        pop     %xdi
-      endif
-        pop     %xcx
-    endif
-
-        # save last_exit, currently in eax, into dcontext->last_exit
-        SAVE_TO_DCONTEXT %xax,last_exit_OFFSET
-
-    .ifdef SIDELINE
-        # clear cur-trace field so we don't think cur trace is still running
-        movl    $0, _sideline_trace
-    .endif
-
-        # call central dispatch routine w/ dcontext as an argument
-    if (absolute)
-        push    <dcontext>
-    else
-        push     %xdi  # for x64, mov %xdi, ARG1
-    endif
-        call    dispatch # for x64 windows, reserve 32 bytes stack space for call
-        # dispatch() shouldn't return!
-        jmp     unexpected_return
-*/
 /* N.B.: this routine is used to generate both the regular fcache_return
  * and a slightly different copy that is used for the miss/unlinked paths
  * for indirect_branch_lookup for self-protection.
@@ -3728,7 +3764,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
                             bool absolute, bool shared, linkstub_t *linkstub,
                             bool coarse_info)
 {
-    bool instr_targets = false;
+    bool instr_targets;
 
     /* no support for absolute addresses on x64: we always use tls */
     IF_X64(ASSERT_NOT_IMPLEMENTED(!absolute && shared));
@@ -3736,115 +3772,9 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     /* currently linkstub is only used for coarse-grain exits */
     ASSERT(linkstub == NULL || !absolute);
 
-#ifdef X64
-    if (GENCODE_IS_X86(code->gencode_mode)) {
-        instr_t *label = INSTR_CREATE_label(dcontext);
-        instr_t *ljmp = INSTR_CREATE_jmp_far
-            (dcontext, opnd_create_far_instr(CS64_SELECTOR, label));
-        instr_set_x86_mode(ljmp, true/*x86*/);
-        APP(ilist, ljmp);
-        APP(ilist, label);
-        instr_targets = true;
-    }
-#endif
-
-    if (!absolute) {
-        /* only support non-absolute w/ shared cache */
-        ASSERT_NOT_IMPLEMENTED(shared);
-        /* xax is in 1 scratch slot, so we have to use a 2nd scratch
-         * slot in order to get dcontext into xdi
-         */
-        APP(ilist, SAVE_TO_TLS(dcontext, REG_XDI, DCONTEXT_BASE_SPILL_SLOT));
-        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
-        if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
-            /* we'd need a 3rd slot in order to nicely get unprot ptr into xsi
-             * we can do it w/ only 2 slots by clobbering dcontext ptr
-             * (we could add base reg info to RESTORE_FROM_DC/SAVE_TO_DC and go
-             * straight through xsi to begin w/ and subtract one instr (xchg)
-             */
-            ASSERT_NOT_TESTED();
-            APP(ilist, RESTORE_FROM_DC(dcontext, REG_XDI, PROT_OFFS));
-            APP(ilist, INSTR_CREATE_xchg(dcontext, opnd_create_reg(REG_XSI),
-                                         opnd_create_reg(REG_XDI)));
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XSI_OFFSET));
-            APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XDI, TLS_DCONTEXT_SLOT));
-        }
-        /* get xax and xdi into their real slots, via xbx */
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XBX_OFFSET));
-        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, DIRECT_STUB_SPILL_SLOT));
-        if (linkstub != NULL) {
-            /* app xax is still in %xax, src info is in %xcx, while target pc
-             * is now in %xbx
-             */
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XAX, XAX_OFFSET));
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, NEXT_TAG_OFFSET));
-            APP(ilist, INSTR_CREATE_mov_imm(dcontext, opnd_create_reg(REG_XAX),
-                                            OPND_CREATE_INTPTR((ptr_int_t)linkstub)));
-            if (coarse_info) {
-                APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, COARSE_DIR_EXIT_OFFSET));
-#ifdef X64
-                /* XXX: there are a few ways to perhaps make this a little
-                 * cleaner: maybe a restore_indirect_branch_spill() or sthg,
-                 * and IBL_REG to indirect xcx.
-                 */
-                if (GENCODE_IS_X86_TO_X64(code->gencode_mode) &&
-                    DYNAMO_OPTION(x86_to_x64_ibl_opt))
-                    APP(ilist, RESTORE_FROM_REG(dcontext, REG_XCX, REG_R9));
-                else
-#endif
-                    APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XCX, MANGLE_XCX_SPILL_SLOT));
-            }
-        } else {
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XAX_OFFSET));
-        }
-        APP(ilist, RESTORE_FROM_TLS(dcontext, REG_XBX, DCONTEXT_BASE_SPILL_SLOT));
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XDI_OFFSET));
-    }
-
-    /* save the current register state to context->regs
-     * xax already in context
-     */
-    if (!ibl_end) {
-        /* for ibl_end, xbx and xcx are already in their dcontext slots */
-        if (absolute) /* else xbx saved above */
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XBX_OFFSET));
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, XCX_OFFSET));
-    }
-    APP(ilist, SAVE_TO_DC(dcontext, REG_XDX, XDX_OFFSET));
-    if (absolute || !TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask))
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XSI, XSI_OFFSET));
-    if (absolute) /* else xdi saved above */
-        APP(ilist, SAVE_TO_DC(dcontext, REG_XDI, XDI_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_XBP, XBP_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_XSP, XSP_OFFSET));
-#ifdef X64
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R8, R8_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R9, R9_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R10, R10_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R11, R11_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R12, R12_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R13, R13_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R14, R14_OFFSET));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_R15, R15_OFFSET));
-#endif
-    if (preserve_xmm_caller_saved()) {
-        /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
-         * Rather than try and optimize we save/restore on every cxt sw.
-         * The xmm field is aligned, so we can use movdqa/movaps.
-         * See comments in fcache_enter about performance, though here
-         * we have stores instead of loads.
-         */
-        int i;
-        uint opcode = move_mm_reg_opcode(true/*align32*/, true/*align16*/);
-        ASSERT(proc_has_feature(FEATURE_SSE));
-        for (i=0; i<NUM_XMM_SAVED; i++) {
-            APP(ilist, instr_create_1dst_1src
-                (dcontext, opcode,
-                 OPND_DC_FIELD(absolute, dcontext, OPSZ_SAVED_XMM,
-                               XMM_OFFSET + i*XMM_SAVED_REG_SIZE),
-                 opnd_create_reg(REG_SAVED_XMM0 + (reg_id_t)i)));
-        }
-    }
+    append_prepare_fcache_return(dcontext, ilist, absolute, shared);
+    append_save_gpr(dcontext, ilist, ibl_end, absolute, code, linkstub, coarse_info);
+    append_save_simd_reg(dcontext, ilist, absolute);
 
     /* Switch to a clean dstack as part of our scheme to avoid state kept
      * unprotected across cache executions.
@@ -3855,82 +3785,19 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
      */
     APP(ilist, RESTORE_FROM_DC(dcontext, REG_XSP, DSTACK_OFFSET));
 
-    /* now save eflags -- too hard to do without a stack! */
-    APP(ilist, INSTR_CREATE_RAW_pushf(dcontext));
-    APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XBX)));
-    APP(ilist, SAVE_TO_DC(dcontext, REG_XBX, XFLAGS_OFFSET));
+    append_save_clear_xflags(dcontext, ilist, absolute);
+    instr_targets = append_call_enter_dr_hook(dcontext, ilist, ibl_end, absolute);
 
-    /* clear eflags now to avoid app's eflags (namely an app std)
-     * messing up our ENTER_DR_HOOK
-     */
-    /* on x64 a push immed is sign-extended to 64-bit */
-    /* XXX i#1147: can we clear DF and IF only? */
-    APP(ilist, INSTR_CREATE_push_imm(dcontext, OPND_CREATE_INT8(0)));
-    APP(ilist, INSTR_CREATE_RAW_popf(dcontext));
+    /* save last_exit, currently in scratch_reg0 into dcontext->last_exit */
+    APP(ilist, SAVE_TO_DC(dcontext, SCRATCH_REG0, LAST_EXIT_OFFSET));
 
-    if (ENTER_DR_HOOK != NULL) {
-        /* xax is only reg we need to save around the call.
-         * we could move to a callee-saved register instead of pushing.
-         */
-        instr_t *post_hook = INSTR_CREATE_label(dcontext);
-        if (ibl_end) {
-            /* also save xcx, which holds next_tag */
-            APP(ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XCX)));
-        }
-        if (!absolute) {
-            /* save xdi and xsi around call */
-            APP(ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XDI)));
-            APP(ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XSI)));
-        }
-        APP(ilist, INSTR_CREATE_push(dcontext, opnd_create_reg(REG_XAX)));
-#ifdef WINDOWS
-        if (absolute) {
-            /* For thread-private (used for syscalls), don't call if
-             * dcontext->ignore_enterexit.  This is a perf hit to check: could
-             * instead have a space hit via a separate routine.  This is only
-             * needed right now for NtSuspendThread handling (see case 4942).
-             */
-            APP(ilist, RESTORE_FROM_DC(dcontext, REG_EDI, IGNORE_ENTEREXIT_OFFSET));
-            /* P4 opt guide says to use test to cmp reg with 0: shorter instr */
-            APP(ilist, INSTR_CREATE_test(dcontext, opnd_create_reg(REG_EDI),
-                                         opnd_create_reg(REG_EDI)));
-            APP(ilist, INSTR_CREATE_jcc(dcontext, OP_jnz, opnd_create_instr(post_hook)));
-            instr_targets = true;
-        }
-#endif
-        /* make sure to use dr_insert_call() rather than a raw OP_call instr,
-         * since x64 windows requires 32 bytes of stack space even w/ no args,
-         * and we don't want anyone clobbering our pushed registers!
-         */
-        dr_insert_call((void *)dcontext, ilist, NULL/*append*/,
-                       (void *)ENTER_DR_HOOK, 0);
-        APP(ilist, post_hook/*label*/);
-        APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XAX)));
-        if (!absolute) {
-            /* save xdi and xsi around call */
-            APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XSI)));
-            APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XDI)));
-        }
-        if (ibl_end) {
-            APP(ilist, INSTR_CREATE_pop(dcontext, opnd_create_reg(REG_XCX)));
-
-            /* now we can store next tag */
-            APP(ilist, SAVE_TO_DC(dcontext, REG_XCX, NEXT_TAG_OFFSET));
-        }
-    }
-
-    /* save last_exit, currently in xax, into dcontext->last_exit */
-    APP(ilist, SAVE_TO_DC(dcontext, REG_XAX, LAST_EXIT_OFFSET));
-
-#ifdef WINDOWS
-# ifdef CLIENT_INTERFACE
+#if defined(WINDOWS) && defined(CLIENT_INTERFACE)
     /* i#249: isolate the PEB */
     if (INTERNAL_OPTION(private_peb) && should_swap_peb_pointer()) {
         preinsert_swap_peb(dcontext, ilist, NULL, absolute, REG_XDI,
                            REG_XAX/*scratch*/, true/*to priv*/);
     }
-# endif
-#endif
+#endif /* WINDOWS && CLIENT_INTERFACE */
 
 #ifdef SIDELINE
     if (dynamo_options.sideline) {
@@ -3944,18 +3811,7 @@ append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
     }
 #endif
 
-    /* call central dispatch routine */
-    /* for x64 linux we could optimize and avoid the "mov rdi, rdi" */
-    dr_insert_call((void *)dcontext, ilist, NULL/*append*/,
-                   (void *)dispatch, 1,
-                   absolute ?
-                   OPND_CREATE_INTPTR((ptr_int_t)dcontext) : opnd_create_reg(REG_XDI));
-
-    /* dispatch() shouldn't return! */
-    insert_reachable_cti(dcontext, ilist, NULL, vmcode_get_start(),
-                         (byte *)unexpected_return, true/*jmp*/, false/*!precise*/,
-                         DR_REG_R11/*scratch*/, NULL);
-
+    append_call_dispatch(dcontext, ilist, absolute);
     return instr_targets;
 }
 
@@ -8321,7 +8177,7 @@ insert_return_to_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
      */
 }
 
-#ifdef UNIX
+#if defined(UNIX) && defined(X86)
 static void
 insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            reg_id_t reg_dc, reg_id_t reg_scratch)
@@ -8398,4 +8254,4 @@ emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     return emit_special_ibl_xfer(dcontext, pc, code, NATIVE_RET_IBL_IDX,
                                  IBL_RETURN, &ilist, tgt);
 }
-#endif
+#endif /* UNIX && X86 */

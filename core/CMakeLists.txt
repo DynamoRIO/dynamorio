@@ -136,7 +136,8 @@ endif ()
 
 set(ARCH_SRCS
   arch/arch.c
-  arch/emit_utils.c
+  arch/emit_utils_shared.c
+  arch/${ARCH_NAME}/emit_utils.c
   ${DECODER_SRCS}
   arch/interp.c
   arch/proc.c

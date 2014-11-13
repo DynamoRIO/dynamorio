@@ -105,10 +105,14 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG1      DR_REG_XBX
 # define SCRATCH_REG2      DR_REG_XCX
 # define SCRATCH_REG3      DR_REG_XDX
+# define SCRATCH_REG4      DR_REG_XSI
+# define SCRATCH_REG5      DR_REG_XDI
 # define SCRATCH_REG0_OFFS XAX_OFFSET
 # define SCRATCH_REG1_OFFS XBX_OFFSET
 # define SCRATCH_REG2_OFFS XCX_OFFSET
 # define SCRATCH_REG3_OFFS XDX_OFFSET
+# define SCRATCH_REG4_OFFS XSI_OFFSET
+# define SCRATCH_REG5_OFFS XDI_OFFSET
 #elif defined(ARM)
 # define R0_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
 # define R1_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
@@ -122,10 +126,14 @@ mixed_mode_enabled(void)
 # define SCRATCH_REG1      DR_REG_R1
 # define SCRATCH_REG2      DR_REG_R2
 # define SCRATCH_REG3      DR_REG_R3
+# define SCRATCH_REG4      DR_REG_R4
+# define SCRATCH_REG5      DR_REG_R5
 # define SCRATCH_REG0_OFFS R0_OFFSET
 # define SCRATCH_REG1_OFFS R1_OFFSET
 # define SCRATCH_REG2_OFFS R2_OFFSET
 # define SCRATCH_REG3_OFFS R3_OFFSET
+# define SCRATCH_REG4_OFFS R4_OFFSET
+# define SCRATCH_REG5_OFFS R5_OFFSET
 #endif /* X86/ARM */
 #define XSP_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
 #define XFLAGS_OFFSET      ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
@@ -1075,6 +1083,84 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
 #endif
+
+/* in {x86/arm}/emit_utils.c */
+
+/* macros shared by fcache_enter and fcache_return
+ * in order to generate both thread-private code that uses absolute
+ * addressing and thread-shared or dcontext-shared code that uses
+ * scratch_reg5(xdi/r5) (and scratch_reg4(xsi/r4)) for addressing.
+ * The via_reg macros now auto-magically pick the opnd size from the
+ * target register and so work with more than just pointer-sized values.
+ */
+/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
+ * that at the caller site, so we should never see an "absolute" request.
+ */
+#define RESTORE_FROM_DC(dc, reg, offs) \
+    RESTORE_FROM_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
+/* Note the magic absolute boolean that callers are expected to have declared */
+#define SAVE_TO_DC(dc, reg, offs) \
+    SAVE_TO_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
+
+#define OPND_TLS_FIELD(offs) opnd_create_tls_slot(os_tls_offset(offs))
+
+#define OPND_TLS_FIELD_SZ(offs, sz) \
+    opnd_create_sized_tls_slot(os_tls_offset(offs), sz)
+
+#define SAVE_TO_TLS(dc, reg, offs) \
+    instr_create_save_to_tls(dc, reg, offs)
+#define RESTORE_FROM_TLS(dc, reg, offs) \
+    instr_create_restore_from_tls(dc, reg, offs)
+
+#define SAVE_TO_REG(dc, reg, spill) \
+    instr_create_save_to_reg(dc, reg, spill)
+#define RESTORE_FROM_REG(dc, reg, spill) \
+    instr_create_restore_from_reg(dc, reg, spill)
+
+#define OPND_DC_FIELD(absolute, dcontext, sz, offs) \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
+                   opnd_create_dcontext_field_sz(dcontext, (offs), (sz))) : \
+     opnd_create_dcontext_field_via_reg_sz((dcontext), REG_NULL, (offs), (sz)))
+
+/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
+ * that at the caller site, so we should never see an "absolute" request.
+ */
+#define RESTORE_FROM_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                     \
+                   instr_create_restore_from_dcontext((dc), (reg), (offs))) : \
+     instr_create_restore_from_dc_via_reg((dc), reg_dr, (reg), (offs)))
+/* Note the magic absolute boolean that callers are expected to have declared */
+#define SAVE_TO_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
+                   instr_create_save_to_dcontext((dc), (reg), (offs))) : \
+     instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
+
+void
+append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
+                         bool absolute, bool shared);
+
+void
+append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
+                generated_code_t *code, linkstub_t *linkstub, bool coarse_info);
+
+void
+append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+bool
+append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
+                          bool ibl_end, bool absolute);
 
 #endif /* X86_ARCH_H */
 
