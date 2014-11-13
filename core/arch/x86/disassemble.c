@@ -65,7 +65,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                           bool use_size_sfx);
 void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                reg_id_t reg, const char *prefix, const char *suffix);
+                reg_id_t reg, dr_opnd_flags_t flags,
+                const char *prefix, const char *suffix);
 
 
 #define BYTES_PER_LINE 7
@@ -194,7 +195,7 @@ opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
             /* FIXME: really we should put before opcode */
             if (prev)
                 print_to_buffer(buf, bufsz, sofar, ", ");
-            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), "",
+            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "",
                             postop_suffix());
             return true;
         }

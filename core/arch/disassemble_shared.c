@@ -166,12 +166,14 @@ immed_prefix(void)
 
 void
 reg_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
-                reg_id_t reg, const char *prefix, const char *suffix)
+                reg_id_t reg, dr_opnd_flags_t flags,
+                const char *prefix, const char *suffix)
 {
     print_to_buffer(buf, bufsz, sofar,
-                    TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "%s%s%s" :
-                    "%s%%%s%s",
-                    prefix, reg_names[reg], suffix);
+                    TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "%s%s%s%s" :
+                    "%s%s%%%s%s",
+                    prefix, TEST(DR_OPND_NEGATED, flags) ? "-" : "",
+                    reg_names[reg], suffix);
 }
 
 static const char *
@@ -243,13 +245,16 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
 
     if (seg != REG_NULL)
-        reg_disassemble(buf, bufsz, sofar, seg, "", ":");
+        reg_disassemble(buf, bufsz, sofar, seg, 0, "", ":");
 
     if (TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask))) {
         if (base != REG_NULL)
-            reg_disassemble(buf, bufsz, sofar, base, "", "");
+            reg_disassemble(buf, bufsz, sofar, base, 0, "", "");
         if (index != REG_NULL) {
-            reg_disassemble(buf, bufsz, sofar, index, base == REG_NULL ? "" : "+", "");
+            reg_disassemble(buf, bufsz, sofar, index, opnd_get_flags(opnd),
+                            (base != REG_NULL &&
+                             !TEST(DR_OPND_NEGATED, opnd_get_flags(opnd))) ? "+" : "",
+                            "");
             opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
         }
     }
@@ -283,9 +288,9 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         if (base != REG_NULL || index != REG_NULL) {
             print_to_buffer(buf, bufsz, sofar, "(");
             if (base != REG_NULL)
-                reg_disassemble(buf, bufsz, sofar, base, "", "");
+                reg_disassemble(buf, bufsz, sofar, base, 0, "", "");
             if (index != REG_NULL) {
-                reg_disassemble(buf, bufsz, sofar, index, ",", "");
+                reg_disassemble(buf, bufsz, sofar, index, opnd_get_flags(opnd), ",", "");
                 opnd_base_disp_scale_disassemble(buf, bufsz, sofar, opnd);
             }
             print_to_buffer(buf, bufsz, sofar, ")");
@@ -558,7 +563,8 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                         opnd_get_instr(opnd), opnd_get_mem_instr_disp(opnd));
         break;
     case REG_kind:
-        reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd), "", "");
+        reg_disassemble(buf, bufsz, sofar, opnd_get_reg(opnd),
+                        opnd_get_flags(opnd), "", "");
         break;
     case BASE_DISP_kind:
         opnd_base_disp_disassemble(buf, bufsz, sofar, dcontext, opnd);
@@ -570,7 +576,7 @@ internal_opnd_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
     case ABS_ADDR_kind:
         opnd_mem_disassemble_prefix(buf, bufsz, sofar, dcontext, opnd);
         if (opnd_get_segment(opnd) != REG_NULL)
-            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), "", ":");
+            reg_disassemble(buf, bufsz, sofar, opnd_get_segment(opnd), 0, "", ":");
         print_to_buffer(buf, bufsz, sofar, PFX"%s", opnd_get_addr(opnd),
                         TEST(DR_DISASM_INTEL, DYNAMO_OPTION(disasm_mask)) ? "]" : "");
         break;
