@@ -1264,7 +1264,7 @@ encoding_possible_pass(decode_info_t *di, instr_t *in, const instr_info_t * ii)
  * prefixes are required.
  * Assumes caller has set di->x86_mode (i.e., ignores in's mode).
  */
-static bool
+bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
     DEBUG_DECLARE(dcontext_t *dcontext = get_thread_private_dcontext();)
@@ -1303,33 +1303,11 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
     return true;
 }
 
-/* exported, looks at all possible instr_info_t templates
- */
-bool
-instr_is_encoding_possible(instr_t *instr)
+void
+decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
 {
-    const instr_info_t * info = get_encoding_info(instr);
-    return (info != NULL);
-}
-
-/* looks at all possible instr_info_t templates, returns first match
- * returns NULL if no encoding is possible
- */
-const instr_info_t *
-get_encoding_info(instr_t *instr)
-{
-    const instr_info_t * info = instr_get_instr_info(instr);
-    decode_info_t di = {0};
-    IF_X64(di.x86_mode = instr_get_x86_mode(instr));
-
-    while (!encoding_possible(&di, instr, info)) {
-        info = get_next_instr_info(info);
-        /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
-        if (info == NULL || info->opcode == OP_CONTD) {
-            return NULL;
-        }
-    }
-    return info;
+    memset(di, 0, sizeof(*di));
+    IF_X64(di->x86_mode = instr_get_x86_mode(instr));
 }
 
 /* num is 0-based */

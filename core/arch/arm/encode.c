@@ -300,6 +300,126 @@ reg_check_reg_fixer(void)
 }
 #endif
 
+static opnd_size_t
+resolve_size_upward(opnd_size_t size)
+{
+    switch (size) {
+    case OPSZ_1_of_8:
+    case OPSZ_2_of_8:
+    case OPSZ_4_of_8:
+        return OPSZ_8;
+
+    case OPSZ_1_of_16:
+    case OPSZ_2_of_16:
+    case OPSZ_4_of_16:
+    case OPSZ_8_of_16:
+    case OPSZ_12_of_16:
+    case OPSZ_14_of_16:
+    case OPSZ_15_of_16:
+        return OPSZ_16;
+
+    case OPSZ_16_of_32:
+        return OPSZ_32;
+    default:
+        return size;
+    }
+}
+
+static bool
+encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
+               bool is_dst, uint *counter INOUT)
+{
+    uint opnum = (*counter)++;
+    opnd_t opnd;
+    opnd_size_t size_temp_up = resolve_size_upward(size_temp);
+    opnd_size_t size_op, size_op_up;
+    if (optype == TYPE_NONE) {
+        return (is_dst ? (instr_num_dsts(in) < opnum) : (instr_num_srcs(in) < opnum));
+    } else if (is_dst) {
+        if (opnum >= instr_num_dsts(in))
+            return false;
+        opnd = instr_get_dst(in, opnum);
+    } else {
+        if (opnum >= instr_num_srcs(in))
+            return false;
+        opnd = instr_get_src(in, opnum);
+    }
+
+    size_op = opnd_get_size(opnd);
+    size_op_up = resolve_size_upward(size_op);
+
+    switch (optype) {
+    /* For registers, support requesting whole reg when only part is in template */
+    case TYPE_R_A:
+    case TYPE_R_B:
+    case TYPE_R_C:
+    case TYPE_R_D:
+        return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
+                /* FIXME i#1551: ensure not a top-half GPR */
+                (size_op == size_temp || size_op == size_temp_up));
+    case TYPE_V_A:
+    case TYPE_V_B:
+    case TYPE_V_C:
+    case TYPE_W_A:
+    case TYPE_W_B:
+    case TYPE_W_C:
+        return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up));
+    }
+
+    /* FIXME i#1551: add the rest of the types */
+
+    return false;
+}
+
+bool
+encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
+{
+    uint num_dsts = 0, num_srcs = 0;
+
+    if (ii == NULL || in == NULL)
+        return false;
+
+    /* FIXME i#1551: check isa mode vs THUMB_ONLY or ARM_ONLY ii->flags */
+
+    do {
+        if (ii->dst1_type != TYPE_NONE) {
+            if (!encode_opnd_ok(di, ii->dst1_type, ii->dst1_size, in, true, &num_dsts))
+                return false;
+        }
+        if (ii->dst2_type != TYPE_NONE) {
+            if (!encode_opnd_ok(di, ii->dst2_type, ii->dst2_size, in,
+                                !TEST(DECODE_4_SRCS, ii->flags),
+                                TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts))
+                return false;
+        }
+        if (ii->src1_type != TYPE_NONE) {
+            if (!encode_opnd_ok(di, ii->src1_type, ii->src1_size, in,
+                                TEST(DECODE_3_DSTS, ii->flags),
+                                TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs))
+                return false;
+        }
+        if (ii->src2_type != TYPE_NONE) {
+            if (!encode_opnd_ok(di, ii->src2_type, ii->src2_size, in, false, &num_srcs))
+                return false;
+        }
+        if (ii->src3_type != TYPE_NONE) {
+            if (!encode_opnd_ok(di, ii->src3_type, ii->src3_size, in, false, &num_srcs))
+                return false;
+        }
+        ii = instr_info_extra_opnds(ii);
+    } while (ii != NULL);
+
+    return true;
+}
+
+void
+decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
+{
+    memset(di, 0, sizeof(*di));
+    di->isa_mode = instr_get_isa_mode(instr);
+}
+
 byte *
 instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc)
 {
@@ -320,17 +440,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
     /* FIXME i#1551: write ARM encoder */
-    return NULL;
-}
-
-const instr_info_t *
-get_encoding_info(instr_t *instr)
-{
-    /* FIXME i#1551: write ARM encoder */
-    /* Probably we can share this same routine from x86/encode.c, esp
-     * if we make isa_mode generic, and then just have
-     * encoding_possible() be arch-specific.
-     */
     return NULL;
 }
 

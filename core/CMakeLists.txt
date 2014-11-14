@@ -119,6 +119,7 @@ set(DECODER_SRCS
   arch/instrlist.c
   arch/decode_shared.c
   arch/${ARCH_NAME}/decode.c
+  arch/encode_shared.c
   arch/${ARCH_NAME}/encode.c
   arch/disassemble_shared.c
   arch/${ARCH_NAME}/disassemble.c
