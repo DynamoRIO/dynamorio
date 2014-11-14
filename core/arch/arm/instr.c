@@ -496,3 +496,10 @@ instr_is_nop(instr_t *inst)
     int opcode = instr_get_opcode(inst);
     return opcode == OP_nop;
 }
+
+bool
+opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
+{
+    /* We don't have the same varying sizes that x86 has */
+    return (s1 == s2);
+}

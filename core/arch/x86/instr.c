@@ -1350,6 +1350,25 @@ reg_is_fp(reg_id_t reg)
     return (reg>=REG_START_FLOAT && reg<=REG_STOP_FLOAT);
 }
 
+bool
+opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
+{
+    opnd_size_t s1_default, s2_default;
+    decode_info_t di;
+    if (s1 == s2)
+        return true;
+    /* This routine is used for variable sizes in INSTR_CREATE macros so we
+     * check whether the default size matches.  If we need to do more
+     * then we'll have to hook into encode's size resolution to resolve all
+     * operands with each other's constraints at the instr level before coming here.
+     */
+    IF_X86_X64(di.x86_mode = false);
+    di.prefixes = 0;
+    s1_default = resolve_variable_size(&di, s1, is_reg);
+    s2_default = resolve_variable_size(&di, s2, is_reg);
+    return (s1_default == s2_default);
+}
+
 instr_t *
 instr_create_popa(dcontext_t *dcontext)
 {

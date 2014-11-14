@@ -1918,6 +1918,10 @@ DR_API
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
 
+/* Arch-specific */
+bool
+opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg);
+
 DR_API
 /** Returns true iff \p op1 and \p op2 are indistinguishable.
  *  If either uses variable operand sizes, the default size is assumed.
