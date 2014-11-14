@@ -305,6 +305,12 @@ enum {
     DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
     DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
 
+    /* Coprocessor registers */
+    DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
+    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
+    DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
+    DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
+
     /* We decided against DR_REG_RN_TH (top half), DR_REG_RN_BH (bottom half
      * for 32-bit as we have the W versions for 64-bit), and DR_REG_RN_BB
      * (bottom byte) as they are not available in the ISA and which portion
@@ -312,7 +318,6 @@ enum {
      * a partial register for these to help tools, but it won't specify which
      * part of the register.
      */
-
 # ifdef AVOID_API_EXPORT
     /* XXX i#1551: do we want to model the any-16-bits-of-Xn target
      * of OP_movk?
@@ -864,10 +869,12 @@ opnd_create_reg(reg_id_t r);
 DR_API
 INSTR_INLINE
 /**
- * Returns a register operand corresponding to a part of the multimedia
- * register represented by the DR_REG_ constant \p r, which must be
- * an mmx, xmm, or ymm register.  For partial general-purpose registers,
- * use the appropriate sub-register name with opnd_create_reg() instead.
+ * Returns a register operand corresponding to a part of the
+ * register represented by the DR_REG_ constant \p r.
+ *
+ * On x86, \p r must be a multimedia (mmx, xmm, or ymm) register.  For
+ * partial general-purpose registers on x86, use the appropriate
+ * sub-register name with opnd_create_reg() instead.
  */
 opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize);

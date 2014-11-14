@@ -193,10 +193,7 @@ opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
     CLIENT_ASSERT((r >= DR_REG_MM0 && r <= DR_REG_XMM15) ||
                   (r >= DR_REG_YMM0 && r <= DR_REG_YMM15),
                   "opnd_create_reg_partial: non-multimedia register");
-#elif defined(ARM)
-    /* FIXME i#1551: NYI in ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-#endif /* X86/ARM */
+#endif
     opnd.kind = REG_kind;
     opnd.value.reg = r;
     opnd.size = subsize;

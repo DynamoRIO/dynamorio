@@ -75,6 +75,8 @@ const char * const reg_names[] = {
     "b8",  "b9",   "b10",  "b11",  "b12", "b13",  "b14",  "b15",
     "b16", "b17",  "b18",  "b19",  "b20", "b21",  "b22",  "b23",
     "b24", "b25",  "b26",  "b27",  "b28", "b29",  "b30",  "b31",
+    "cr0", "cr1",  "cr2",  "cr3",   "cr4", "cr5",  "cr6",  "cr7",
+    "cr8", "cr9",  "cr10", "cr11", "cr12","cr13", "cr14", "cr15",
     "cpsr", "spsr", "fpscr",
 };
 
@@ -192,6 +194,10 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
     DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
 #endif
+    DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
+    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
+    DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
+    DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
 };
 
@@ -299,7 +305,7 @@ reg_check_reg_fixer(void)
 }
 #endif
 
-static opnd_size_t
+opnd_size_t
 resolve_size_upward(opnd_size_t size)
 {
     switch (size) {
@@ -319,6 +325,34 @@ resolve_size_upward(opnd_size_t size)
 
     case OPSZ_16_of_32:
         return OPSZ_32;
+    default:
+        return size;
+    }
+}
+
+opnd_size_t
+resolve_size_downward(opnd_size_t size)
+{
+    switch (size) {
+    case OPSZ_1_of_8:
+    case OPSZ_1_of_16:
+        return OPSZ_1;
+    case OPSZ_2_of_8:
+    case OPSZ_2_of_16:
+        return OPSZ_2;
+    case OPSZ_4_of_16:
+    case OPSZ_4_of_8:
+        return OPSZ_4;
+    case OPSZ_8_of_16:
+        return OPSZ_8;
+    case OPSZ_12_of_16:
+        return OPSZ_12;
+    case OPSZ_14_of_16:
+        return OPSZ_14;
+    case OPSZ_15_of_16:
+        return OPSZ_15;
+    case OPSZ_16_of_32:
+        return OPSZ_16;
     default:
         return size;
     }

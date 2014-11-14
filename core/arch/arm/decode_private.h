@@ -339,4 +339,11 @@ extern const instr_info_t A32_ext_vldC[][96];
 /* tables that translate opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr_A32[];
 
+opnd_size_t
+resolve_size_upward(opnd_size_t size);
+
+opnd_size_t
+resolve_size_downward(opnd_size_t size);
+
+
 #endif /* DECODE_PRIVATE_H */

@@ -185,17 +185,17 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
 }
 
 static bool
-decode_float_reglist(decode_info_t *di, size_t opsize, opnd_t *array,
-                     uint *counter INOUT)
+decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
+                     opnd_t *array, uint *counter INOUT)
 {
     uint i;
     uint count = (uint) decode_immed(di, 0, OPSZ_1, false/*unsigned*/);
     reg_id_t first_reg;
-    if (opsize == OPSZ_8) {
+    if (upsz == OPSZ_8) {
         /* XXX i#1551: if immed is odd, supposed to be (deprecated) OP_fldmx */
         count /= 2;
     } else
-        CLIENT_ASSERT(opsize == OPSZ_4, "invalid opsz for TYPE_L_CONSEC");
+        CLIENT_ASSERT(upsz == OPSZ_4, "invalid opsz for TYPE_L_CONSEC");
     /* There must be an immediately prior simd reg */
     CLIENT_ASSERT(*counter > 0 && opnd_is_reg(array[*counter-1]),
                   "invalid instr template");
@@ -204,11 +204,11 @@ decode_float_reglist(decode_info_t *di, size_t opsize, opnd_t *array,
     for (i = 0; i < count; i++) {
         print_file(STDERR, "reglist: first=%s, new=%s\n", reg_names[first_reg],
                    reg_names[first_reg + i]);
-        if ((opsize == OPSZ_8 && first_reg + i > DR_REG_D31) ||
-            (opsize == OPSZ_4 && first_reg + i > DR_REG_S31))
+        if ((upsz == OPSZ_8 && first_reg + i > DR_REG_D31) ||
+            (upsz == OPSZ_4 && first_reg + i > DR_REG_S31))
             return false; /* invalid */
-        array[(*counter)++] = opnd_create_reg(first_reg + i);
-        di->reglist_sz += opnd_size_in_bytes(opsize);
+        array[(*counter)++] = opnd_create_reg_ex(first_reg + i, downsz, 0);
+        di->reglist_sz += opnd_size_in_bytes(downsz);
     }
     return true;
 }
@@ -247,62 +247,135 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
 {
     uint i;
     ptr_int_t val;
+    opnd_size_t downsz = resolve_size_downward(opsize);
+    opnd_size_t upsz = resolve_size_upward(opsize);
+
     switch (optype) {
     case TYPE_NONE:
         array[(*counter)++] = opnd_create_null();
         return true;
 
     /* Registers */
-    /* FIXME i#1551: need to do partial-reg if size != full reg size */
     case TYPE_R_A:
-        array[(*counter)++] = opnd_create_reg(decode_regA(di));
+    case TYPE_R_A_TOP: /* we aren't storing whether top in our IR */
+        array[(*counter)++] = opnd_create_reg_ex(decode_regA(di), downsz, 0);
         return true;
     case TYPE_R_B:
-        array[(*counter)++] = opnd_create_reg(decode_regB(di));
+    case TYPE_R_B_TOP: /* we aren't storing whether top in our IR */
+        array[(*counter)++] = opnd_create_reg_ex(decode_regB(di), downsz, 0);
         return true;
     case TYPE_R_C:
-        array[(*counter)++] = opnd_create_reg(decode_regC(di));
+    case TYPE_R_C_TOP: /* we aren't storing whether top in our IR */
+        array[(*counter)++] = opnd_create_reg_ex(decode_regC(di), downsz, 0);
         return true;
     case TYPE_R_D:
-        array[(*counter)++] = opnd_create_reg(decode_regD(di));
+    case TYPE_R_D_TOP: /* we aren't storing whether top in our IR */
+        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di), downsz, 0);
         return true;
     case TYPE_R_D_NEGATED:
-        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di), 0, DR_OPND_NEGATED);
+        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di), downsz,
+                                                 DR_OPND_NEGATED);
+        return true;
+    case TYPE_R_B_EVEN:
+    case TYPE_R_D_EVEN: {
+        reg_id_t reg = (optype == TYPE_R_B_EVEN) ? decode_regB(di) : decode_regD(di);
+        if ((reg - DR_REG_START_GPR) % 2 == 1)
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(reg, downsz, 0);
+        return true;
+    }
+    case TYPE_R_B_PLUS1:
+    case TYPE_R_D_PLUS1: {
+        reg_id_t reg;
+        if (*counter <= 0 || !opnd_is_reg(array[(*counter)-1]))
+            return false;
+        reg = opnd_get_reg(array[(*counter)-1]);
+        if (reg == DR_REG_STOP_32 || reg == DR_REG_STOP_64)
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(reg + 1, downsz, 0);
+        return true;
+    }
+    case TYPE_CR_A:
+        array[(*counter)++] = opnd_create_reg_ex(decode_regA(di) - DR_REG_START_GPR +
+                                                 DR_REG_CR0, downsz, 0);
+        return true;
+    case TYPE_CR_B:
+        array[(*counter)++] = opnd_create_reg_ex(decode_regB(di) - DR_REG_START_GPR +
+                                                 DR_REG_CR0, downsz, 0);
+        return true;
+    case TYPE_CR_C:
+        array[(*counter)++] = opnd_create_reg_ex(decode_regC(di) - DR_REG_START_GPR +
+                                                 DR_REG_CR0, downsz, 0);
+        return true;
+    case TYPE_CR_D:
+        array[(*counter)++] = opnd_create_reg_ex(decode_regD(di) - DR_REG_START_GPR +
+                                                 DR_REG_CR0, downsz, 0);
         return true;
     case TYPE_V_A:
-        array[(*counter)++] = opnd_create_reg(decode_vregA(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_vregA(di, upsz), downsz, 0);
         return true;
     case TYPE_V_B:
-        array[(*counter)++] = opnd_create_reg(decode_vregB(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_vregB(di, upsz), downsz, 0);
         return true;
     case TYPE_V_C:
-        array[(*counter)++] = opnd_create_reg(decode_vregC(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_vregC(di, upsz), downsz, 0);
         return true;
     case TYPE_W_A:
-        array[(*counter)++] = opnd_create_reg(decode_wregA(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_wregA(di, upsz), downsz, 0);
         return true;
     case TYPE_W_B:
-        array[(*counter)++] = opnd_create_reg(decode_wregB(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_wregB(di, upsz), downsz, 0);
         return true;
     case TYPE_W_C:
-        array[(*counter)++] = opnd_create_reg(decode_wregC(di, opsize));
+        array[(*counter)++] = opnd_create_reg_ex(decode_wregC(di, upsz), downsz, 0);
+        return true;
+    case TYPE_V_C_3b: {
+        reg_id_t reg = decode_simd_start(upsz) + (di->instr_word & 0x00000007);
+        array[(*counter)++] = opnd_create_reg_ex(reg, downsz, 0);
+        return true;
+    }
+    case TYPE_V_C_4b: {
+        reg_id_t reg = decode_simd_start(upsz) + (di->instr_word & 0x0000000f);
+        array[(*counter)++] = opnd_create_reg_ex(reg, downsz, 0);
+        return true;
+    }
+    case TYPE_W_C_PLUS1: {
+        reg_id_t reg;
+        if (*counter <= 0 || !opnd_is_reg(array[(*counter)-1]))
+            return false;
+        reg = opnd_get_reg(array[(*counter)-1]);
+        if (reg == DR_REG_S31 || reg == DR_REG_D31)
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(reg + 1, downsz, 0);
+        return true;
+    }
+    case TYPE_SPSR:
+        array[(*counter)++] = opnd_create_reg_ex(DR_REG_SPSR, downsz, 0);
         return true;
     case TYPE_CPSR:
-        array[(*counter)++] = opnd_create_reg(DR_REG_CPSR);
+        array[(*counter)++] = opnd_create_reg_ex(DR_REG_CPSR, downsz, 0);
         return true;
     case TYPE_FPSCR:
-        array[(*counter)++] = opnd_create_reg(DR_REG_FPSCR);
+        array[(*counter)++] = opnd_create_reg_ex(DR_REG_FPSCR, downsz, 0);
         return true;
+    case TYPE_LR:
+        array[(*counter)++] = opnd_create_reg_ex(DR_REG_LR, downsz, 0);
+        return true;
+    case TYPE_SP:
+        array[(*counter)++] = opnd_create_reg_ex(DR_REG_SP, downsz, 0);
+        return true;
+
+    /* Register lists */
     case TYPE_L_16b:
         for (i = 0; i < 16; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
-                array[(*counter)++] = opnd_create_reg(DR_REG_START_GPR + i);
-                di->reglist_sz += opnd_size_in_bytes(opsize);
+                array[(*counter)++] = opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
+                di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
         return true;
     case TYPE_L_CONSEC:
-        return decode_float_reglist(di, opsize, array, counter);
+        return decode_float_reglist(di, downsz, upsz, array, counter);
 
     /* Immeds */
     case TYPE_I_b0:
