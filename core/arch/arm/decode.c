@@ -406,7 +406,7 @@ read_instruction(byte *pc, byte *orig_pc,
     di->predicate = decode_predicate(instr_word);
     if (di->predicate + DR_PRED_EQ == DR_PRED_OP) {
         uint opc7 = /* remove bit 22 */
-            ((instr_word >> 21) & 0x3e) | ((instr_word >> 20) & 0x3);
+            ((instr_word >> 21) & 0x7c) | ((instr_word >> 20) & 0x3);
         info = &A32_unpred_opc7[opc7];
     } else {
         uint opc8 = decode_opc8(instr_word);
@@ -509,7 +509,7 @@ read_instruction(byte *pc, byte *orig_pc,
             info = &A32_ext_simd5[info->code][idx];
         } else if (info->type == EXT_SIMD5B) {
             idx = /*bits 18:16,8:7 */
-                ((instr_word >> 14) & 0x3c) | ((instr_word >> 7) & 0x3);
+                ((instr_word >> 14) & 0x1c) | ((instr_word >> 7) & 0x3);
             info = &A32_ext_simd5b[info->code][idx];
         } else if (info->type == EXT_SIMD8) {
             /* Odds + 0 == 9 entries each */
