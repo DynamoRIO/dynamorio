@@ -211,15 +211,14 @@ enum {
     TYPE_I_b18,
     TYPE_I_b19,
     TYPE_I_b20,
-    TYPE_I_b0_b8,
-    TYPE_NI_b0_b8, /* negated immed */
-    TYPE_I_b0_b16,
-    TYPE_I_b16_b8,
-    TYPE_I_b16_b9,
+    TYPE_I_b21,    /* OP_vmov */
     TYPE_I_b0_b5,  /* OP_cvt: immed is either 32 or 16 minus [3:0,5] */
     TYPE_I_b0_b24, /* OP_blx imm24:H:0 */
     TYPE_I_b5_b3,  /* OP_vmla scalar: M:Vm<3> */
-    TYPE_I_b21,    /* OP_vmov */
+    TYPE_I_b8_b0,
+    TYPE_NI_b8_b0, /* negated immed */
+    TYPE_I_b8_b16,
+    TYPE_I_b16_b0,
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
@@ -292,6 +291,11 @@ enum {
     DECODE_INDEX_SHIFT_TYPE_SIZE     = OPSZ_2b,
     DECODE_INDEX_SHIFT_AMOUNT_BITPOS = 7,
     DECODE_INDEX_SHIFT_AMOUNT_SIZE   = OPSZ_5b,
+
+    SHIFT_ENCODING_LSL = 0,
+    SHIFT_ENCODING_LSR = 1,
+    SHIFT_ENCODING_ASR = 2,
+    SHIFT_ENCODING_RRX = 3,
 };
 
 /* exported tables */
