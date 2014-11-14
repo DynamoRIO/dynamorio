@@ -191,11 +191,6 @@ enum {
     DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
     DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
     DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
-# ifdef X64
-    DR_REG_LR  = DR_REG_X30, /**< The link register. */
-    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
-    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
-# endif
 
     /* 32-bit general purpose */
     DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
@@ -206,57 +201,14 @@ enum {
     DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
     DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
     DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
-# ifdef X64
-    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
-    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
-# endif
 
-# ifdef X64
-    DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
-    DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
-    DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
-    DR_REG_R3  = DR_REG_X3,  /**< Alias for the x3 register. */
-    DR_REG_R4  = DR_REG_X4,  /**< Alias for the x4 register. */
-    DR_REG_R5  = DR_REG_X5,  /**< Alias for the x5 register. */
-    DR_REG_R6  = DR_REG_X6,  /**< Alias for the x6 register. */
-    DR_REG_R7  = DR_REG_X7,  /**< Alias for the x7 register. */
-    DR_REG_R8  = DR_REG_X8,  /**< Alias for the x8 register. */
-    DR_REG_R9  = DR_REG_X9,  /**< Alias for the x9 register. */
-    DR_REG_R10 = DR_REG_X10, /**< Alias for the x10 register. */
-    DR_REG_R11 = DR_REG_X11, /**< Alias for the x11 register. */
-    DR_REG_R12 = DR_REG_X12, /**< Alias for the x12 register. */
-    DR_REG_R13 = DR_REG_X13, /**< Alias for the x13 register. */
-    DR_REG_R14 = DR_REG_X14, /**< Alias for the x14 register. */
-    DR_REG_R15 = DR_REG_X15, /**< Alias for the x15 register. */
-    DR_REG_R16 = DR_REG_X16, /**< Alias for the x16 register. */
-    DR_REG_R17 = DR_REG_X17, /**< Alias for the x17 register. */
-    DR_REG_R18 = DR_REG_X18, /**< Alias for the x18 register. */
-    DR_REG_R19 = DR_REG_X19, /**< Alias for the x19 register. */
-    DR_REG_R20 = DR_REG_X20, /**< Alias for the x20 register. */
-    DR_REG_R21 = DR_REG_X21, /**< Alias for the x21 register. */
-    DR_REG_R22 = DR_REG_X22, /**< Alias for the x22 register. */
-    DR_REG_R23 = DR_REG_X23, /**< Alias for the x23 register. */
-    DR_REG_R24 = DR_REG_X24, /**< Alias for the x24 register. */
-    DR_REG_R25 = DR_REG_X25, /**< Alias for the x25 register. */
-    DR_REG_R26 = DR_REG_X26, /**< Alias for the x26 register. */
-    DR_REG_R27 = DR_REG_X27, /**< Alias for the x27 register. */
-    DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
-    DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
-    DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
-    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
-# else
+# ifndef X64
     /* 32-bit general purpose */
     DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
     DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
     DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
     DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
-    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
-    DR_REG_LR = DR_REG_R14, /**< The link register. */
-    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
 # endif
-    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
-    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
-    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
 
     /* 128-bit SIMD registers */
     DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
@@ -335,6 +287,56 @@ enum {
     /* AArch32 Thread Registers */
     DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
     DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+
+    /* Aliases below here: */
+
+# ifdef X64
+    DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
+    DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
+    DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
+    DR_REG_R3  = DR_REG_X3,  /**< Alias for the x3 register. */
+    DR_REG_R4  = DR_REG_X4,  /**< Alias for the x4 register. */
+    DR_REG_R5  = DR_REG_X5,  /**< Alias for the x5 register. */
+    DR_REG_R6  = DR_REG_X6,  /**< Alias for the x6 register. */
+    DR_REG_R7  = DR_REG_X7,  /**< Alias for the x7 register. */
+    DR_REG_R8  = DR_REG_X8,  /**< Alias for the x8 register. */
+    DR_REG_R9  = DR_REG_X9,  /**< Alias for the x9 register. */
+    DR_REG_R10 = DR_REG_X10, /**< Alias for the x10 register. */
+    DR_REG_R11 = DR_REG_X11, /**< Alias for the x11 register. */
+    DR_REG_R12 = DR_REG_X12, /**< Alias for the x12 register. */
+    DR_REG_R13 = DR_REG_X13, /**< Alias for the x13 register. */
+    DR_REG_R14 = DR_REG_X14, /**< Alias for the x14 register. */
+    DR_REG_R15 = DR_REG_X15, /**< Alias for the x15 register. */
+    DR_REG_R16 = DR_REG_X16, /**< Alias for the x16 register. */
+    DR_REG_R17 = DR_REG_X17, /**< Alias for the x17 register. */
+    DR_REG_R18 = DR_REG_X18, /**< Alias for the x18 register. */
+    DR_REG_R19 = DR_REG_X19, /**< Alias for the x19 register. */
+    DR_REG_R20 = DR_REG_X20, /**< Alias for the x20 register. */
+    DR_REG_R21 = DR_REG_X21, /**< Alias for the x21 register. */
+    DR_REG_R22 = DR_REG_X22, /**< Alias for the x22 register. */
+    DR_REG_R23 = DR_REG_X23, /**< Alias for the x23 register. */
+    DR_REG_R24 = DR_REG_X24, /**< Alias for the x24 register. */
+    DR_REG_R25 = DR_REG_X25, /**< Alias for the x25 register. */
+    DR_REG_R26 = DR_REG_X26, /**< Alias for the x26 register. */
+    DR_REG_R27 = DR_REG_X27, /**< Alias for the x27 register. */
+    DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
+    DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
+    DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
+    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
+    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
+    DR_REG_LR  = DR_REG_X30, /**< The link register. */
+    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
+    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
+    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
+# else
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
+# endif
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+
     /* AArch64 Thread Registers */
     /** Thread Pointer/ID Register, EL0. */
     DR_REG_TPIDR_EL0   = DR_REG_TPIDRURW,
