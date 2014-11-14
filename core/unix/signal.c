@@ -1793,7 +1793,7 @@ sigcontext_to_mcontext(priv_mcontext_t *mc, sigcontext_t *sc)
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    sigcontext_to_mcontext_mm(mc, sc);
+    sigcontext_to_mcontext_simd(mc, sc);
 }
 
 /* Note that unlike mcontext_to_context(), this routine does not fill in
@@ -1847,7 +1847,7 @@ mcontext_to_sigcontext(sigcontext_t *sc, priv_mcontext_t *mc)
 #  error NYI on AArch64
 # endif /* X64 */
 #endif /* X86/ARM */
-    mcontext_to_sigcontext_mm(sc, mc);
+    mcontext_to_sigcontext_simd(sc, mc);
 }
 
 /* Returns whether successful.  If avoid_failure, tries to translate

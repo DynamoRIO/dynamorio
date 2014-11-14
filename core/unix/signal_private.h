@@ -460,10 +460,10 @@ copy_sigset_to_kernel_sigset(sigset_t *uset, kernel_sigset_t *kset)
  */
 
 void
-sigcontext_to_mcontext_mm(priv_mcontext_t *mc, sigcontext_t *sc);
+sigcontext_to_mcontext_simd(priv_mcontext_t *mc, sigcontext_t *sc);
 
 void
-mcontext_to_sigcontext_mm(sigcontext_t *sc, priv_mcontext_t *mc);
+mcontext_to_sigcontext_simd(sigcontext_t *sc, priv_mcontext_t *mc);
 
 void
 save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame);
