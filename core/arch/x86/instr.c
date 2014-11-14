@@ -1320,6 +1320,12 @@ reg_is_segment(reg_id_t reg)
 }
 
 bool
+reg_is_simd(reg_id_t reg)
+{
+    return reg_is_xmm(reg)/*includes ymm*/ || reg_is_mmx(reg);
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     return (reg>=REG_START_YMM && reg<=REG_STOP_YMM);

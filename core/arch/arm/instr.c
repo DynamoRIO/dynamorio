@@ -461,6 +461,12 @@ reg_is_segment(reg_id_t reg)
 }
 
 bool
+reg_is_simd(reg_id_t reg)
+{
+    return (reg >= DR_REG_Q0 && reg <= DR_REG_B31);
+}
+
+bool
 reg_is_ymm(reg_id_t reg)
 {
     return false;

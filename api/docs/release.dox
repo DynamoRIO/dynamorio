@@ -168,6 +168,7 @@ Further non-compatibility-affecting changes include:
  - Added opnd_get_index_shift() and opnd_set_index_shift().
  - Added opnd_create_reg_ex() and opnd_get_flags().
  - Added opnd_create_base_disp_arm().
+ - Added reg_is_simd().
 
 **************************************************
 <hr>

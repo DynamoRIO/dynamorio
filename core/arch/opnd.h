@@ -1736,6 +1736,15 @@ reg_is_segment(reg_id_t reg);
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a multimedia register used for
+ * SIMD instructions.
+ */
+bool
+reg_is_simd(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
  * Returns true iff it refers to an xmm (128-bit SSE/SSE2) register
  * or a ymm (256-bit multimedia) register.
  */
