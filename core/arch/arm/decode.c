@@ -57,6 +57,23 @@ is_isa_mode_legal(dr_isa_mode_t mode)
 #endif
 }
 
+static bool
+reg_is_past_last_simd(reg_id_t reg, uint add)
+{
+    if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+        return reg+add > IF_X64_ELSE(DR_REG_Q31, DR_REG_Q15);
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return reg+add > DR_REG_D31;
+    if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return reg+add > DR_REG_S31;
+    if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return reg+add > DR_REG_H31;
+    if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
+        return reg+add > DR_REG_B31;
+    ASSERT_NOT_REACHED();
+    return true;
+}
+
 /* We assume little-endian */
 static inline int
 decode_predicate(uint instr_word)
@@ -344,7 +361,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         if (*counter <= 0 || !opnd_is_reg(array[(*counter)-1]))
             return false;
         reg = opnd_get_reg(array[(*counter)-1]);
-        if (reg == DR_REG_S31 || reg == DR_REG_D31)
+        if (reg_is_past_last_simd(reg, 1))
             return false;
         array[(*counter)++] = opnd_create_reg_ex(reg + 1, downsz, 0);
         return true;
@@ -366,16 +383,46 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
 
     /* Register lists */
-    case TYPE_L_16b:
-        for (i = 0; i < 16; i++) {
+    case TYPE_L_8b:
+    case TYPE_L_13b:
+    case TYPE_L_16b: {
+        uint num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
+        for (i = 0; i < num; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
                 array[(*counter)++] = opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
         return true;
+    }
     case TYPE_L_CONSEC:
         return decode_float_reglist(di, downsz, upsz, array, counter);
+    case TYPE_L_VBx2:
+    case TYPE_L_VBx3:
+    case TYPE_L_VBx4:
+    case TYPE_L_VBx2D:
+    case TYPE_L_VBx3D:
+    case TYPE_L_VBx4D: {
+        reg_id_t start = decode_vregB(di, upsz);
+        uint inc = 1;
+        if (optype == TYPE_L_VBx2D || optype == TYPE_L_VBx3D || optype == TYPE_L_VBx4D)
+            inc = 2;
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        if (reg_is_past_last_simd(start, inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        if (optype == TYPE_L_VBx2 || optype == TYPE_L_VBx2D)
+            return true;
+        if (reg_is_past_last_simd(start, 2*inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        if (optype == TYPE_L_VBx3 || optype == TYPE_L_VBx3D)
+            return true;
+        if (reg_is_past_last_simd(start, 3*inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        return true;
+    }
 
     /* Immeds */
     case TYPE_I_b0:
