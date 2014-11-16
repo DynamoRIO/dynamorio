@@ -587,6 +587,7 @@ tls_thread_free(tls_type_t tls_type, int index)
 byte *
 tls_get_fs_gs_segment_base(uint seg)
 {
+#ifdef X86
     uint selector = read_selector(seg);
     uint index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
@@ -614,7 +615,7 @@ tls_get_fs_gs_segment_base(uint seg)
     } else {
         our_modify_ldt_t desc;
         int res;
-#ifdef X64
+# ifdef X64
         byte *base;
         res = dynamorio_syscall(SYS_arch_prctl, 2,
                                 (seg == SEG_FS ? ARCH_GET_FS : ARCH_GET_GS), &base);
@@ -624,7 +625,7 @@ tls_get_fs_gs_segment_base(uint seg)
             return base;
         }
         /* else fall back on get_thread_area */
-#endif /* X64 */
+# endif /* X64 */
         if (selector == 0)
             return NULL;
         DOCHECKINT(1, {
@@ -641,6 +642,10 @@ tls_get_fs_gs_segment_base(uint seg)
             return (byte *)(ptr_uint_t) desc.base_addr;
         }
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+#endif /* X86/ARM */
     return (byte *) POINTER_MAX;
 }
 
@@ -655,17 +660,18 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
                            byte *base, our_modify_ldt_t *desc)
 {
     int res = -1;
+#ifdef X86
     if (seg != SEG_FS && seg != SEG_GS)
         return false;
     switch (tls_type) {
-#ifdef X64
+# ifdef X64
     case TLS_TYPE_ARCH_PRCTL: {
         int prctl_code = (seg == SEG_FS ? ARCH_SET_FS : ARCH_SET_GS);
         res = dynamorio_syscall(SYS_arch_prctl, 2, prctl_code, base);
         ASSERT(res >= 0);
         break;
     }
-#endif
+# endif
     case TLS_TYPE_GDT: {
         res = dynamorio_syscall(SYS_set_thread_area, 1, desc);
         ASSERT(res >= 0);
@@ -676,6 +682,10 @@ tls_set_fs_gs_segment_base(tls_type_t tls_type, uint seg,
         return false;
     }
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+#endif /* X86/ARM */
     return (res >= 0);
 }
 

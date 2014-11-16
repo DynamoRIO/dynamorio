@@ -448,7 +448,7 @@ drfront_remove_dir(const char *dir);
  * @param[out] is_dir    Returns whether \p path is a valid directory.
  */
 drfront_status_t
-drfront_dir_exists(const char *path, bool *is_dir);
+drfront_dir_exists(const char *path, OUT bool *is_dir);
 
 /* DR_API EXPORT END */
 

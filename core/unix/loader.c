@@ -1185,7 +1185,13 @@ redirect____tls_get_addr()
     /* XXX: in some version of ___tls_get_addr, ti is passed via xax
      * How can I generalize it?
      */
+#ifdef X86
     asm("mov %%"ASM_XAX", %0" : "=m"((ti)) : : ASM_XAX);
+#elif defined(ARM)
+    /* XXX: assuming ti is passed via r0? */
+    asm("str r0, %0" : "=m"((ti)) : : "r0");
+    ASSERT_NOT_REACHED();
+#endif /* X86/ARM */
     LOG(GLOBAL, LOG_LOADER, 4, "__tls_get_addr: module: %d, offset: %d\n",
         ti->ti_module, ti->ti_offset);
     ASSERT(ti->ti_module < tls_info.num_mods);
@@ -1447,9 +1453,14 @@ privload_early_inject(void **sp)
          * if the app has been mapped correctly without involving DR's code
          * cache.
          */
+#ifdef X86
         asm ("mov %0, %%"ASM_XSP"\n\t"
              "jmp *%1\n\t"
              : : "r"(sp), "r"(entry));
+#elif defined(ARM)
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_REACHED();
+#endif
     }
 
     memset(&mc, 0, sizeof(mc));

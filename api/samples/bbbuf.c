@@ -83,12 +83,14 @@ bb_find_dead_reg(instrlist_t *ilist)
             return DR_REG_NULL;
         for (i = 0; i < DR_NUM_GPR_REGS; i++) {
             if (!reg_is_read[i] &&
-                instr_reads_from_reg(instr, (reg_id_t)(DR_REG_START_GPR + i))) {
+                instr_reads_from_reg(instr, (reg_id_t)(DR_REG_START_GPR + i),
+                                                       DR_QUERY_DEFAULT)) {
                 reg_is_read[i] = true;
             }
             if (!reg_is_read[i] &&
                 instr_writes_to_exact_reg(instr,
-                                          (reg_id_t)(DR_REG_START_GPR + i))) {
+                                          (reg_id_t)(DR_REG_START_GPR + i),
+                                          DR_QUERY_DEFAULT)) {
                 return (reg_id_t)(DR_REG_START_GPR + i);
             }
 #ifdef X64
@@ -96,7 +98,8 @@ bb_find_dead_reg(instrlist_t *ilist)
             if (!reg_is_read[i] &&
                 instr_writes_to_exact_reg(instr,
                                           reg_64_to_32
-                                          ((reg_id_t)(DR_REG_START_GPR + i)))) {
+                                          ((reg_id_t)(DR_REG_START_GPR + i)),
+                                          DR_QUERY_DEFAULT)) {
                 return (reg_id_t)(DR_REG_START_GPR + i);
             }
 #endif
@@ -113,7 +116,7 @@ bb_aflags_are_dead(instrlist_t *ilist, instr_t *where)
     uint flags;
 
     for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
-        flags = instr_get_arith_flags(instr);
+        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTANY(EFLAGS_READ_6, flags))
             return false;
         if (TESTALL(EFLAGS_WRITE_6, flags))

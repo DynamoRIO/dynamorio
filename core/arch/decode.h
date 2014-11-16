@@ -45,7 +45,10 @@
  * only used during decoding.
  */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
-/* FIXME i#1551: update docs for cross-platform or specify when x86-specific */
+/* FIXME i#1551: add another attribute to ARM as PREFIX_ constants:
+ *  + Add shift type for shifted source registers: 2-bit enum instead of
+ *    6-entry bitfield, since not composable.
+ */
 /* DR_API EXPORT BEGIN */
 
 /****************************************************************************
@@ -67,25 +70,25 @@
 /* DR_API EXPORT END */
 
 /* We encode some prefixes in the operands themselves, such that we shouldn't
- * consider the whole-instr_t flags when considering equality of Instrs
+ * consider the whole-instr_t flags when considering equality of instr_t
  */
 #define PREFIX_SIGNIFICANT (PREFIX_LOCK|PREFIX_JCC_TAKEN|PREFIX_JCC_TAKEN|\
                             PREFIX_XACQUIRE|PREFIX_XRELEASE)
 
-/* XXX i#1551: add predicate prefix flags: store in instr_t.prefixes, but should
- * we name them something else?
- */
 
+#ifdef X86
 /* PREFIX_SEG_* is set by decode or decode_cti and is only a hint
  * to the caller.  Is ignored by encode in favor of the segment
  * reg specified in the applicable opnds.  We rely on it being set during
  * bb building and reference in in interp, and thus it is public.
  */
-#define PREFIX_SEG_FS         0x20
-#define PREFIX_SEG_GS         0x40
+# define PREFIX_SEG_FS         0x20
+# define PREFIX_SEG_GS         0x40
+#endif
 
 /* XXX: when adding prefixes, shift all the private values as they start
- * right after the last number here
+ * right after the last number here.  For private values, leave room for
+ * PREFIX_PRED_BITS at the top.
  */
 
 
@@ -108,6 +111,7 @@ typedef struct instr_info_t {
      * We have room for 2 dsts and 3 srcs, which covers the vast majority of
      * instrs.  We use additional entries (presence indicated by bits in flags)
      * for instrs with extra operands.
+     * We also use flags that shift which of these are considered dsts vs srcs.
      */
     byte dst1_type;
     opnd_size_t dst1_size;
@@ -159,11 +163,10 @@ typedef struct _decode_info_t decode_info_t;
  */
 
 /* N.B.: if you change the size enum, change the string names for
- * them, kept in encode.c (XXX i#1551: update)
+ * them, kept in decode_shared.c
  */
 
 /* DR_API EXPORT TOFILE dr_ir_opnd.h */
-/* FIXME i#1551: update docs for cross-platform or specify when x86-specific */
 /* DR_API EXPORT BEGIN */
 
 /* Memory operand sizes (with Intel's corresponding size names noted).
@@ -174,24 +177,31 @@ typedef struct _decode_info_t decode_info_t;
  * byte, so the largest value here needs to be <= 255.
  */
 enum {
-    /* register enum values are used for TYPE_*REG but we only use them
+    /* For x86, register enum values are used for TYPE_*REG but we only use them
      * as opnd_size_t when we have the type available, so we can overlap
      * the two enums by adding new registers consecutively to the reg enum.
+     * The reg_id_t type is now wider, but for x86 we ensure our values
+     * all fit via an assert in arch_init().
      * To maintain backward compatibility we keep the OPSZ_ constants
      * starting at the same spot, now midway through the reg enum:
      */
+#ifdef X86
     OPSZ_NA = DR_REG_INVALID+1, /**< Sentinel value: not a valid size. */ /* = 140 */
+#elif defined(ARM)
+    OPSZ_NA = 0, /**< Sentinel value: not a valid size. */
+#endif
     OPSZ_FIRST = OPSZ_NA,
-    OPSZ_0,  /**< Intel 'm': "sizeless": used for both start addresses
-              * (lea, invlpg) and implicit constants (rol, fldl2e, etc.) */
-    OPSZ_1,  /**< Intel 'b': 1 byte */
-    OPSZ_2,  /**< Intel 'w': 2 bytes */
-    OPSZ_4,  /**< Intel 'd','si': 4 bytes */
-    OPSZ_6,  /**< Intel 'p','s': 6 bytes */
-    OPSZ_8,  /**< Intel 'q','pi': 8 bytes */
+    OPSZ_0,  /**< 0 bytes, for "sizeless" operands (for Intel, code
+              * 'm': used for both start addresses (lea, invlpg) and
+              * implicit constants (rol, fldl2e, etc.) */
+    OPSZ_1,  /**< 1 byte (for Intel, code 'b') */
+    OPSZ_2,  /**< 2 bytes (for Intel, code 'w') */
+    OPSZ_4,  /**< 4 bytes (for Intel, code 'd','si') */
+    OPSZ_6,  /**< 6 bytes (for Intel, code 'p','s') */
+    OPSZ_8,  /**< 8 bytes (for Intel, code 'q','pi') */
     OPSZ_10, /**< Intel 's' 64-bit, or double extended precision floating point
               * (latter used by fld, fstp, fbld, fbstp) */
-    OPSZ_16, /**< Intel 'dq','ps','pd','ss','sd', or AMD 'o': 16 bytes */
+    OPSZ_16, /**< 16 bytes (for Intel, code 'dq','ps','pd','ss','sd', or AMD 'o') */
     OPSZ_14, /**< FPU operating environment with short data size (fldenv, fnstenv) */
     OPSZ_28, /**< FPU operating environment with normal data size (fldenv, fnstenv) */
     OPSZ_94,  /**< FPU state with short data size (fnsave, frstor) */
@@ -262,6 +272,27 @@ enum {
     OPSZ_12_rex40_short6, /**< unresolved iret */
     OPSZ_16_vex32,        /**< 16 or 32 bytes depending on VEX.L (AMD/Intel 'x'). */
     OPSZ_15,    /**< All but one byte of an xmm register (used by OP_vpinsrb). */
+
+    /* Needed for ARM.  We share the same namespace for now */
+    OPSZ_3,    /**< 3 bytes */
+    OPSZ_1b,   /**< 1 bit */
+    OPSZ_2b,   /**< 2 bits */
+    OPSZ_3b,   /**< 3 bits */
+    OPSZ_4b,   /**< 4 bits */
+    OPSZ_5b,   /**< 5 bits */
+    OPSZ_6b,   /**< 6 bits */
+    OPSZ_12b,  /**< 12 bits */
+    OPSZ_25b,  /**< 25 bits */
+    OPSZ_VAR_REGLIST,  /**< 1 bit */
+    OPSZ_20,  /**< 20 bytes.  Needed for load/store of register lists. */
+    OPSZ_24,  /**< 24 bytes.  Needed for load/store of register lists. */
+    OPSZ_36,  /**< 36 bytes.  Needed for load/store of register lists. */
+    OPSZ_44,  /**< 44 bytes.  Needed for load/store of register lists. */
+    OPSZ_48,  /**< 48 bytes.  Needed for load/store of register lists. */
+    OPSZ_52,  /**< 52 bytes.  Needed for load/store of register lists. */
+    OPSZ_56,  /**< 56 bytes.  Needed for load/store of register lists. */
+    OPSZ_60,  /**< 60 bytes.  Needed for load/store of register lists. */
+    OPSZ_64,  /**< 64 bytes.  Needed for load/store of register lists. */
     /* Add new size here.  Also update size_names[] in encode.c. */
     OPSZ_LAST,
 };
@@ -269,9 +300,13 @@ enum {
 #ifdef X64
 # define OPSZ_PTR OPSZ_8       /**< Operand size for pointer values. */
 # define OPSZ_STACK OPSZ_8     /**< Operand size for stack push/pop operand sizes. */
+# define OPSZ_PTR_DBL OPSZ_16  /**< Double-pointer-sized. */
+# define OPSZ_PTR_HALF OPSZ_4  /**< Half-pointer-sized. */
 #else
 # define OPSZ_PTR OPSZ_4       /**< Operand size for pointer values. */
 # define OPSZ_STACK OPSZ_4     /**< Operand size for stack push/pop operand sizes. */
+# define OPSZ_PTR_DBL OPSZ_8   /**< Double-pointer-sized. */
+# define OPSZ_PTR_HALF OPSZ_2  /**< Half-pointer-sized. */
 #endif
 #define OPSZ_VARSTACK OPSZ_4x8_short2 /**< Operand size for prefix-varying stack
                                        * push/pop operand sizes. */
@@ -306,8 +341,9 @@ enum {
     /* OPSZ_ constants not exposed to the user so ok to be shifted
      * by additions above
      */
-    OPSZ_2_of_8 = OPSZ_LAST,  /* 16 bits, but can be part of an MMX register */
-    OPSZ_SUBREG_START = OPSZ_2_of_8,
+    OPSZ_1_of_8 = OPSZ_LAST,  /* 8 bits, but can be part of an MMX register */
+    OPSZ_SUBREG_START = OPSZ_1_of_8,
+    OPSZ_2_of_8,  /* 16 bits, but can be part of MMX register */
     OPSZ_4_of_8,  /* 32 bits, but can be half of MMX register */
     OPSZ_1_of_16, /* 8 bits, but can be part of XMM register */
     OPSZ_2_of_16, /* 16 bits, but can be part of XMM register */
@@ -340,23 +376,26 @@ byte instr_info_opnd_type(const instr_info_t *info, bool src, int num);
 /* in decode_shared.c */
 extern const instr_info_t invalid_instr;
 
+/* in decode.c */
+const instr_info_t * opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode);
+
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 
 /* exported routines */
 
-/* XXX i#1550: extend "x86_mode" to support multiple modes and move this to
- * x86/decode_private.h or replace completely at that point
- */
-#define DEFAULT_X86_MODE IF_X64_ELSE(false, true)
-/* for decode_info_t */
-#define X64_MODE(di) IF_X64_ELSE(!(di)->x86_mode, false)
+bool is_isa_mode_legal(dr_isa_mode_t mode);
+
+#ifdef X86
 /* for dcontext_t */
-#define X64_MODE_DC(dc) IF_X64_ELSE(!get_x86_mode(dc), false)
+# define X64_MODE_DC(dc) IF_X64_ELSE(!get_x86_mode(dc), false)
 /* Currently we assume that code caches are always 64-bit in x86_to_x64.
  * Later, if needed, we can introduce a new field in dcontext_t (xref i#862).
  */
-#define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
-
+# define X64_CACHE_MODE_DC(dc) (X64_MODE_DC(dc) IF_X64(|| DYNAMO_OPTION(x86_to_x64)))
+#elif defined(ARM)
+# define X64_MODE_DC(dc) IF_X64_ELSE(true, false)
+# define X64_CACHE_MODE_DC(dc) IF_X64_ELSE(true, false)
+#endif
 
 DR_API
 /**
@@ -373,7 +412,8 @@ DR_API
  */
 #endif
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage);
+decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
+                    dr_opnd_query_flags_t flags);
 
 DR_UNS_API
 /**
@@ -486,10 +526,40 @@ DR_API
 const char *
 decode_opcode_name(int opcode);
 
-/* DR_API EXPORT TOFILE dr_ir_opcodes.h */
+/* DR_API EXPORT BEGIN */
+#ifdef X64
+/* DR_API EXPORT END */
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
+ * routine sets that flag to the indicated value and returns the old value.  Be
+ * sure to restore the old value prior to any further application execution to
+ * avoid problems in mis-interpreting application code.
+ *
+ * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by dr_set_isa_mode().
+ */
+bool
+set_x86_mode(dcontext_t *dcontext, bool x86);
 
-/* table that translates opcode enums into pointers into decoding tables */
-extern const instr_info_t * const op_instr[];
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
+ * routine returns the value of that flag.
+ *
+ * \note For 64-bit DR builds only.
+ *
+ * \deprecated Replaced by dr_get_isa_mode().
+ */
+bool
+get_x86_mode(dcontext_t *dcontext);
+/* DR_API EXPORT BEGIN */
+#endif
+/* DR_API EXPORT END */
+
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];
 extern const char * const size_names[];

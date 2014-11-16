@@ -82,27 +82,62 @@ mixed_mode_enabled(void)
 #define PROT_OFFS         (sizeof(unprotected_context_t))
 #define MC_OFFS           (offsetof(unprotected_context_t, mcontext))
 
-#define XAX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
-#define XBX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
-#define XCX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
-#define XDX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
-#define XSI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
-#define XDI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdi)))
-#define XBP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbp)))
-#define XSP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
-#define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
-#define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
-#ifdef X64
-# define R8_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
-# define R9_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
-# define R10_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
-# define R11_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
-# define R12_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
-# define R13_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
-# define R14_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
-# define R15_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
-#endif
-#define XMM_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+#ifdef X86
+# define XAX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xax)))
+# define XBX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbx)))
+# define XCX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xcx)))
+# define XDX_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdx)))
+# define XSI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xsi)))
+# define XDI_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xdi)))
+# define XBP_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, xbp)))
+# ifdef X64
+#  define R8_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r8)))
+#  define R9_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, r9)))
+#  define R10_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r10)))
+#  define R11_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r11)))
+#  define R12_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r12)))
+#  define R13_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r13)))
+#  define R14_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r14)))
+#  define R15_OFFSET       ((MC_OFFS) + (offsetof(priv_mcontext_t, r15)))
+# endif /* X64 */
+# define XMM_OFFSET        ((MC_OFFS) + (offsetof(priv_mcontext_t, ymm)))
+# define SCRATCH_REG0      DR_REG_XAX
+# define SCRATCH_REG1      DR_REG_XBX
+# define SCRATCH_REG2      DR_REG_XCX
+# define SCRATCH_REG3      DR_REG_XDX
+# define SCRATCH_REG4      DR_REG_XSI
+# define SCRATCH_REG5      DR_REG_XDI
+# define SCRATCH_REG0_OFFS XAX_OFFSET
+# define SCRATCH_REG1_OFFS XBX_OFFSET
+# define SCRATCH_REG2_OFFS XCX_OFFSET
+# define SCRATCH_REG3_OFFS XDX_OFFSET
+# define SCRATCH_REG4_OFFS XSI_OFFSET
+# define SCRATCH_REG5_OFFS XDI_OFFSET
+#elif defined(ARM)
+# define R0_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r0)))
+# define R1_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r1)))
+# define R2_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r2)))
+# define R3_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r3)))
+# define R4_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r4)))
+# define R5_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, r5)))
+# define XFLAGS_OFFSET     ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+# define PC_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
+# define SCRATCH_REG0      DR_REG_R0
+# define SCRATCH_REG1      DR_REG_R1
+# define SCRATCH_REG2      DR_REG_R2
+# define SCRATCH_REG3      DR_REG_R3
+# define SCRATCH_REG4      DR_REG_R4
+# define SCRATCH_REG5      DR_REG_R5
+# define SCRATCH_REG0_OFFS R0_OFFSET
+# define SCRATCH_REG1_OFFS R1_OFFSET
+# define SCRATCH_REG2_OFFS R2_OFFSET
+# define SCRATCH_REG3_OFFS R3_OFFSET
+# define SCRATCH_REG4_OFFS R4_OFFSET
+# define SCRATCH_REG5_OFFS R5_OFFSET
+#endif /* X86/ARM */
+#define XSP_OFFSET         ((MC_OFFS) + (offsetof(priv_mcontext_t, xsp)))
+#define XFLAGS_OFFSET      ((MC_OFFS) + (offsetof(priv_mcontext_t, xflags)))
+#define PC_OFFSET          ((MC_OFFS) + (offsetof(priv_mcontext_t, pc)))
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
@@ -244,6 +279,10 @@ typedef struct
  * a unique generated_code_t.  Rather than add GLOBAL_DCONTEXT_X86 everywhere,
  * we add mode parameters to a handful of routines that take in GLOBAL_DCONTEXT.
  */
+/* FIXME i#1551: do we want separate Thumb vs ARM gencode, or we'll always
+ * transition?  For fcache exit that's reasonable, but for ibl it would
+ * require two mode transitions.
+ */
 typedef enum {
     GENCODE_X64 = 0,
     GENCODE_X86,
@@ -266,7 +305,7 @@ typedef enum {
 #endif
 
 #define NUM_XMM_REGS  NUM_XMM_SAVED
-#define NUM_GP_REGS   (1 + (IF_X64_ELSE(DR_REG_R15, DR_REG_XDI) - DR_REG_XAX))
+#define NUM_GP_REGS   DR_NUM_GPR_REGS
 
 /* Information about each individual clean call invocation site.
  * The whole struct is set to 0 at init time.
@@ -431,7 +470,7 @@ insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_est
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
     /* ok for this guy to overlap w/ others since he is pre-cache */
-    FCACHE_ENTER_TARGET_SLOT    = TLS_XAX_SLOT,
+    FCACHE_ENTER_TARGET_SLOT    = TLS_SLOT_R0,
     /* FIXME: put register name in each enum name to avoid conflicts
      * when mixed with raw slot names?
      */
@@ -439,23 +478,23 @@ enum {
      * used for sysenter shared syscall mangling, which uses an
      * indirect stub.
      */
-    MANGLE_NEXT_TAG_SLOT        = TLS_XAX_SLOT,
-    DIRECT_STUB_SPILL_SLOT      = TLS_XAX_SLOT,
-    MANGLE_RIPREL_SPILL_SLOT    = TLS_XAX_SLOT,
+    MANGLE_NEXT_TAG_SLOT        = TLS_SLOT_R0,
+    DIRECT_STUB_SPILL_SLOT      = TLS_SLOT_R0,
+    MANGLE_RIPREL_SPILL_SLOT    = TLS_SLOT_R0,
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
-    INDIRECT_STUB_SPILL_SLOT    = TLS_XBX_SLOT,
-    MANGLE_FAR_SPILL_SLOT       = TLS_XBX_SLOT,
+    INDIRECT_STUB_SPILL_SLOT    = TLS_SLOT_R1,
+    MANGLE_FAR_SPILL_SLOT       = TLS_SLOT_R1,
     /* i#698: float_pc handling stores the mem addr of the float state here.  We
      * assume this slot is not touched on the fcache_return path.
      */
-    FLOAT_PC_STATE_SLOT         = TLS_XBX_SLOT,
-    MANGLE_XCX_SPILL_SLOT       = TLS_XCX_SLOT,
+    FLOAT_PC_STATE_SLOT         = TLS_SLOT_R1,
+    MANGLE_XCX_SPILL_SLOT       = TLS_SLOT_R2,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
      * (this is case 5239)
      */
-    DCONTEXT_BASE_SPILL_SLOT    = TLS_XDX_SLOT,
-    PREFIX_XAX_SPILL_SLOT       = TLS_XAX_SLOT,
+    DCONTEXT_BASE_SPILL_SLOT    = TLS_SLOT_R3,
+    PREFIX_XAX_SPILL_SLOT       = TLS_SLOT_R0,
 #ifdef HASHTABLE_STATISTICS
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
@@ -765,7 +804,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
         return shared_code_x86;
     else if (mode == GENCODE_X86_TO_X64)
         return shared_code_x86_to_x64;
-    else if (mode == GENCODE_FROM_DCONTEXT && dcontext->x86_mode)
+    else if (mode == GENCODE_FROM_DCONTEXT && !X64_MODE_DC(dcontext))
         return X64_CACHE_MODE_DC(dcontext) ? shared_code_x86_to_x64 : shared_code_x86;
     else
         return shared_code;
@@ -1044,6 +1083,84 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
 #endif
+
+/* in {x86/arm}/emit_utils.c */
+
+/* macros shared by fcache_enter and fcache_return
+ * in order to generate both thread-private code that uses absolute
+ * addressing and thread-shared or dcontext-shared code that uses
+ * scratch_reg5(xdi/r5) (and scratch_reg4(xsi/r4)) for addressing.
+ * The via_reg macros now auto-magically pick the opnd size from the
+ * target register and so work with more than just pointer-sized values.
+ */
+/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
+ * that at the caller site, so we should never see an "absolute" request.
+ */
+#define RESTORE_FROM_DC(dc, reg, offs) \
+    RESTORE_FROM_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
+/* Note the magic absolute boolean that callers are expected to have declared */
+#define SAVE_TO_DC(dc, reg, offs) \
+    SAVE_TO_DC_VIA_REG(absolute, dc, REG_NULL, reg, offs)
+
+#define OPND_TLS_FIELD(offs) opnd_create_tls_slot(os_tls_offset(offs))
+
+#define OPND_TLS_FIELD_SZ(offs, sz) \
+    opnd_create_sized_tls_slot(os_tls_offset(offs), sz)
+
+#define SAVE_TO_TLS(dc, reg, offs) \
+    instr_create_save_to_tls(dc, reg, offs)
+#define RESTORE_FROM_TLS(dc, reg, offs) \
+    instr_create_restore_from_tls(dc, reg, offs)
+
+#define SAVE_TO_REG(dc, reg, spill) \
+    instr_create_save_to_reg(dc, reg, spill)
+#define RESTORE_FROM_REG(dc, reg, spill) \
+    instr_create_restore_from_reg(dc, reg, spill)
+
+#define OPND_DC_FIELD(absolute, dcontext, sz, offs) \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
+                   opnd_create_dcontext_field_sz(dcontext, (offs), (sz))) : \
+     opnd_create_dcontext_field_via_reg_sz((dcontext), REG_NULL, (offs), (sz)))
+
+/* PR 244737: even thread-private fragments use TLS on x64.  We accomplish
+ * that at the caller site, so we should never see an "absolute" request.
+ */
+#define RESTORE_FROM_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                     \
+                   instr_create_restore_from_dcontext((dc), (reg), (offs))) : \
+     instr_create_restore_from_dc_via_reg((dc), reg_dr, (reg), (offs)))
+/* Note the magic absolute boolean that callers are expected to have declared */
+#define SAVE_TO_DC_VIA_REG(absolute, dc, reg_dr, reg, offs)              \
+    ((absolute) ? (IF_X64_(ASSERT_NOT_IMPLEMENTED(false))                \
+                   instr_create_save_to_dcontext((dc), (reg), (offs))) : \
+     instr_create_save_to_dc_via_reg((dc), reg_dr, (reg), (offs)))
+
+void
+append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
+                         bool absolute, bool shared);
+
+void
+append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
+                generated_code_t *code, linkstub_t *linkstub, bool coarse_info);
+
+void
+append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+void
+append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
+
+bool
+append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
+                          bool ibl_end, bool absolute);
 
 #endif /* X86_ARCH_H */
 

@@ -51,6 +51,7 @@
 void
 get_xmm_vals(priv_mcontext_t *mc)
 {
+#ifdef X86
     if (preserve_xmm_caller_saved()) {
         ASSERT(proc_has_feature(FEATURE_SSE));
         if (YMM_ENABLED())
@@ -58,6 +59,10 @@ get_xmm_vals(priv_mcontext_t *mc)
         else
             get_xmm_caller_saved(&mc->ymm[0]);
     }
+#elif defined(ARM)
+    /* FIXME i#1551: no xmm but SIMD regs on ARM */
+    ASSERT_NOT_REACHED();
+#endif
 }
 
 /* Just calls dynamo_thread_under_dynamo.  We used to initialize dcontext here,
@@ -106,7 +111,7 @@ dynamo_start(priv_mcontext_t *mc)
 
     /* Swap stacks so dispatch is invoked outside the application. */
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, true/*return on error*/);
+                      NULL/*not on initstack*/, true/*return on error*/);
     /* In release builds, this will simply return and continue native
      * execution.  That's better than calling unexpected_return() which
      * goes into an infinite loop.
@@ -208,7 +213,7 @@ auto_setup(ptr_uint_t appstack)
     });
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -262,9 +267,9 @@ new_thread_setup(priv_mcontext_t *mc)
      * to switch back to the real app thread stack before continuing.
      */
     mc->xsp = get_clone_record_app_xsp(crec);
-    /* clear xax (was used to hold clone record) */
-    ASSERT(mc->xax == (reg_t) mc->pc);
-    mc->xax = 0;
+    /* clear xax/r0 (was used to hold clone record) */
+    ASSERT(mc->IF_X86_ELSE(xax, r0) == (reg_t) mc->pc);
+    mc->IF_X86_ELSE(xax, r0) = 0;
     /* clear pc */
     mc->pc = 0;
 
@@ -282,7 +287,7 @@ new_thread_setup(priv_mcontext_t *mc)
     dcontext->next_tag = next_tag;
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -332,7 +337,7 @@ new_bsdthread_setup(priv_mcontext_t *mc)
 #  endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 # endif /* MACOS */
@@ -382,7 +387,7 @@ nt_continue_setup(priv_mcontext_t *mc)
 #endif
 
     call_switch_stack(dcontext, dcontext->dstack, dispatch,
-                      false/*not on initstack*/, false/*shouldn't return*/);
+                      NULL/*not on initstack*/, false/*shouldn't return*/);
     ASSERT_NOT_REACHED();
 }
 
@@ -421,3 +426,52 @@ safe_read_resume_pc(void)
     return (app_pc) &safe_read_asm_recover;
 }
 
+#if defined(STANDALONE_UNIT_TEST)
+
+# define CONST_BYTE      0x1f
+# define TEST_STACK_SIZE PAGE_SIZE
+byte test_stack[TEST_STACK_SIZE];
+static dcontext_t *static_dc;
+
+static void
+test_func(dcontext_t *dcontext)
+{
+    byte var;
+    memcpy(&var, &var-1, 1); /* avoid uninit warning */
+    EXPECT((ptr_uint_t)dcontext, (ptr_uint_t)static_dc);
+    EXPECT(var , CONST_BYTE);
+    return;
+}
+
+static void
+test_call_switch_stack(dcontext_t *dc)
+{
+    byte* stack_ptr = test_stack + TEST_STACK_SIZE;
+    static_dc = dc;
+    print_file(STDERR, "testing asm call_switch_stack\n");
+    memset(test_stack, CONST_BYTE, sizeof(test_stack));
+    call_switch_stack(dc, stack_ptr, test_func,
+                      NULL, true /* should return */);
+}
+
+static void
+test_cpuid()
+{
+    int cpuid_res[4] = {0};
+    print_file(STDERR, "testing asm cpuid\n");
+    EXPECT(cpuid_supported(), true);
+    IF_UNIX_ELSE(our_cpuid, __cpuid)(cpuid_res, 0); /* get vendor id */
+    /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
+    EXPECT_NE(cpuid_res[1], 0);
+    EXPECT_NE(cpuid_res[2], 0);
+    EXPECT_NE(cpuid_res[3], 0);
+}
+
+void
+unit_test_asm(dcontext_t *dc)
+{
+    print_file(STDERR, "testing asm\n");
+    test_call_switch_stack(dc);
+    test_cpuid();
+}
+#endif /* STANDALONE_UNIT_TEST */

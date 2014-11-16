@@ -1890,7 +1890,7 @@ DynamoRIO control!  It is only for standalone programs that wish to use
 DynamoRIO as a library of routines for IA-32 instruction manipulation or
 other purposes.
 
-In standalone mode, the set_x86_mode() routine operates globally rather
+In standalone mode, the dr_set_isa_mode() routine operates globally rather
 than per-thread.
 
 Runtime options are ignored in standalone mode.  Disassembly style can be

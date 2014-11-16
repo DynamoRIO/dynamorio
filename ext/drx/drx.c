@@ -157,7 +157,7 @@ drx_aflags_are_dead(instr_t *where)
         /* we treat syscall/interrupt as aflags read */
         if (instr_is_syscall(instr) || instr_is_interrupt(instr))
             return false;
-        flags = instr_get_arith_flags(instr);
+        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTANY(EFLAGS_READ_6, flags))
             return false;
         if (TESTALL(EFLAGS_WRITE_6, flags))

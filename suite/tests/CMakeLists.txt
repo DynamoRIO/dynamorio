@@ -48,6 +48,8 @@
 # Cmake version should be >= 2.6.4 b/c we use parentheses in conditionals.
 cmake_minimum_required(VERSION 2.6.4)
 
+include(../../make/policies.cmake NO_POLICY_SCOPE)
+
 option(TEST_LONG "run long set of tests")
 # if TEST_SUITE is off, we disable some flaky tests in order to have all
 # tests succeed (i#389).  TEST_SUITE is now a top-level option.
@@ -338,11 +340,13 @@ endif (UNIX)
 # with changes we want to make, as well.
 
 if (UNIX)
-  if (X64)
-    set(ARCH_CFLAGS "-m64")
-  else (X64)
-    set(ARCH_CFLAGS "-m32")
-  endif (X64)
+  if (X86)
+    if (X64)
+      set(ARCH_CFLAGS "-m64")
+    else (X64)
+      set(ARCH_CFLAGS "-m32")
+    endif (X64)
+  endif ()
   set(ARCH_LDFLAGS "${ARCH_CFLAGS}")
   set(ARCH_DEBUG "${ARCH_CFLAGS}") # somehow not being propagated so we set here
 else (UNIX)
@@ -1053,6 +1057,8 @@ function(rundr_cmd outcmd outops native use_drinject dr_ops_aux separate_script)
     else (use_drinject)
       get_target_property(drrun_path drrun LOCATION${location_suffix})
     endif (use_drinject)
+    # CMake 3.x seems to put double slashes in there (xref i#1559)
+    string(REGEX REPLACE "//" "/" drrun_path "${drrun_path}")
     set(cmd "${drrun_path}" -s ${TEST_SECONDS} -quiet)
     if (DEBUG)
       set(cmd ${cmd} -debug)
@@ -1145,11 +1151,12 @@ function(torun test key source native use_drinject dr_ops exe_ops added_out)
   set(ALREADY_REGEX OFF)
 
   rundr_cmd(rundr runops ${native} ${use_drinject} "${dr_ops}" ${separate_script})
-  get_target_property(exepath ${exe} LOCATION${location_suffix})
-  # support running binaries that are not targets of this build
-  if (NOT exepath)
+  if (TARGET ${exe})
+    get_target_property(exepath ${exe} LOCATION${location_suffix})
+  else ()
+    # support running binaries that are not targets of this build
     set(exepath ${exe})
-  endif (NOT exepath)
+  endif ()
 
   if (DEFINED ${key}_expectbase)
     set(expectbase ${${key}_expectbase})

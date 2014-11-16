@@ -96,55 +96,30 @@ static const instr_info_t xop_a_instr =
     {XOP_A_EXT,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
 #undef xx
 
+bool
+is_isa_mode_legal(dr_isa_mode_t mode)
+{
 #ifdef X64
-/* PR 302344: used for shared traces -tracedump_origins where we
- * need to change the mode but we have no dcontext
- */
-static bool initexit_x86_mode = DEFAULT_X86_MODE;
+    return (mode == DR_ISA_IA32 || mode == DR_ISA_AMD64);
+#else
+    return (mode == DR_ISA_IA32);
+#endif
+}
 
-/*
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine sets that flag to the indicated value and returns the old value.  Be
- * sure to restore the old value prior to any further application execution to
- * avoid problems in mis-interpreting application code.
- */
+#ifdef X64
 bool
 set_x86_mode(dcontext_t *dcontext, bool x86)
 {
-    bool old_mode;
-    /* We would disallow but some early init routines need to use global heap */
-    if (dcontext == GLOBAL_DCONTEXT)
-        dcontext = get_thread_private_dcontext();
-    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
-    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
-        old_mode = initexit_x86_mode;
-        initexit_x86_mode = x86;
-    } else {
-        old_mode = dcontext->x86_mode;
-        dcontext->x86_mode = x86;
-    }
-    return old_mode;
+    dr_isa_mode_t old_mode;
+    if (!dr_set_isa_mode(dcontext, x86 ? DR_ISA_IA32 : DR_ISA_AMD64, &old_mode))
+        return false;
+    return old_mode == DR_ISA_IA32;
 }
 
-/*
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine returns the value of that flag.
- */
 bool
 get_x86_mode(dcontext_t *dcontext)
 {
-    /* We would disallow but some early init routines need to use global heap */
-    if (dcontext == GLOBAL_DCONTEXT)
-        dcontext = get_thread_private_dcontext();
-    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
-    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
-        return initexit_x86_mode;
-    } else
-        return dcontext->x86_mode;
+    return dr_get_isa_mode(dcontext) == DR_ISA_IA32;
 }
 #endif
 
@@ -879,9 +854,9 @@ read_instruction(byte *pc, byte *orig_pc,
                 di->repne_prefix = true;
             } else if (REG_START_SEGMENT <= info->code &&
                        info->code <= REG_STOP_SEGMENT) {
-                CLIENT_ASSERT_TRUNCATE(di->seg_override, byte, info->code,
+                CLIENT_ASSERT_TRUNCATE(di->seg_override, ushort, info->code,
                                        "decode error: invalid segment override");
-                di->seg_override = (byte) info->code;
+                di->seg_override = (reg_id_t) info->code;
             } else if (info->code == PREFIX_DATA) {
                 /* see if used as part of opcode before considering prefix */
                 di->data_prefix = true;
@@ -1863,6 +1838,18 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     return false;
 }
 
+dr_pred_type_t
+decode_predicate_from_instr_info(uint opcode, const instr_info_t *info)
+{
+    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags)) {
+        if (TEST(HAS_PRED_CC, info->flags))
+            return DR_PRED_O + instr_cmovcc_to_jcc(opcode) - OP_jo;
+        else
+            return DR_PRED_COMPLEX;
+    }
+    return DR_PRED_NONE;
+}
+
 /****************************************************************************
  * Exported routines
  */
@@ -1882,7 +1869,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
  * than not!
  */
 byte *
-decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
+decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage,
+                    dr_opnd_query_flags_t flags)
 {
     const instr_info_t *info;
     decode_info_t di;
@@ -1890,7 +1878,10 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
 
     /* don't decode immeds, instead use decode_next_pc, it's faster */
     read_instruction(pc, pc, &info, &di, true /* just opcode */ _IF_DEBUG(true));
-    *usage = info->eflags;
+
+    *usage = instr_eflags_conditionally(info->eflags,
+                                        decode_predicate_from_instr_info(di.opcode, info),
+                                        flags);
     pc = decode_next_pc(dcontext, pc);
     /* failure handled fine -- we'll go ahead and return the NULL */
 
@@ -2076,6 +2067,9 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
         }
     }
 
+    if (TESTANY(HAS_PRED_CC | HAS_PRED_COMPLEX, info->flags))
+        instr_set_predicate(instr, decode_predicate_from_instr_info(di.opcode, info));
+
     /* check for invalid prefixes that depend on operand types */
     if (TEST(PREFIX_LOCK, di.prefixes)) {
         /* check for invalid opcode, list on p3-397 of IA-32 vol 2 */
@@ -2164,6 +2158,12 @@ decode_opcode_name(int opcode)
 {
     const instr_info_t * info = op_instr[opcode];
     return info->name;
+}
+
+const instr_info_t *
+opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
+{
+    return op_instr[opc];
 }
 
 #ifdef DECODE_UNIT_TEST

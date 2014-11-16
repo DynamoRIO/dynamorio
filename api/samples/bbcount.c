@@ -130,7 +130,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     /* Our inc can go anywhere, so find a spot where flags are dead. */
     for (instr = first; instr != NULL; instr = instr_get_next_app(instr)) {
-        flags = instr_get_arith_flags(instr);
+        flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         /* OP_inc doesn't write CF but not worth distinguishing */
         if (TESTALL(EFLAGS_WRITE_6, flags) && !TESTANY(EFLAGS_READ_6, flags))
             break;

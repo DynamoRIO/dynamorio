@@ -65,11 +65,6 @@
 #  include "rct.h"
 #endif
 
-#ifdef X64
-# include "instr.h"
-# include "decode.h" /* get_x86_mode */
-#endif
-
 #ifdef VMX86_SERVER
 # include "vmkuw.h"
 #endif
@@ -475,9 +470,9 @@ dispatch_enter_fcache(dcontext_t *dcontext, fragment_t *targetf)
     }
 #endif
 
-    IF_X64(ASSERT((get_x86_mode(dcontext) == TEST(FRAG_32_BIT, targetf->flags)) ||
-                  (get_x86_mode(dcontext) && !FRAG_IS_32(targetf->flags) &&
-                   DYNAMO_OPTION(x86_to_x64))));
+    ASSERT(dr_get_isa_mode(dcontext) == FRAG_ISA_MODE(targetf->flags)
+           IF_X64(|| (dr_get_isa_mode(dcontext) == DR_ISA_IA32 &&
+                      !FRAG_IS_32(targetf->flags) && DYNAMO_OPTION(x86_to_x64))));
     if (TEST(FRAG_SHARED, targetf->flags))
         fcache_enter = get_fcache_enter_shared_routine(dcontext);
     else
@@ -1674,7 +1669,7 @@ handle_system_call(dcontext_t *dcontext)
 #ifdef CLIENT_INTERFACE
     bool execute_syscall = true;
     priv_mcontext_t *mc = get_mcontext(dcontext);
-    int sysnum = os_normalized_sysnum((int)mc->xax, NULL, dcontext);
+    int sysnum = os_normalized_sysnum((int)MCXT_SYSNUM_REG(mc), NULL, dcontext);
 #endif
 #ifdef WINDOWS
     /* make sure to ask about syscall before pre_syscall, which will swap new mc in! */
@@ -1720,7 +1715,7 @@ handle_system_call(dcontext_t *dcontext)
     /* set pc so client can tell where syscall invoked from.
      * note that this is pc _after_ syscall instr.
      */
-    get_mcontext(dcontext)->xip = get_fcache_target(dcontext);
+    get_mcontext(dcontext)->pc = get_fcache_target(dcontext);
     /* i#202: ignore native syscalls in early_inject_init() */
     if (IF_WINDOWS(dynamo_initialized &&)
         !instrument_pre_syscall(dcontext, sysnum)) {
@@ -1729,7 +1724,7 @@ handle_system_call(dcontext_t *dcontext)
          */
         execute_syscall = false;
         LOG(THREAD, LOG_SYSCALLS, 2, "skipping syscall %d on client request\n",
-            mc->xax);
+            MCXT_SYSNUM_REG(mc));
     }
 # ifdef WINDOWS
     /* re-set in case client changed the number */
@@ -1965,11 +1960,17 @@ handle_post_system_call(dcontext_t *dcontext)
 #ifdef UNIX
     /* restore mcontext values prior to invoking instrument_post_syscall() */
     if (was_sigreturn_syscall(dcontext)) {
+# ifdef X86
         /* restore app xax */
         LOG(THREAD, LOG_SYSCALLS, 3,
             "post-sigreturn: setting xax to "PFX", asynch_target="PFX"\n",
             dcontext->sys_param1, dcontext->asynch_target);
         mc->xax = dcontext->sys_param1;
+# elif defined(ARM)
+        /* i#1551: NYI on ARM */
+        ASSERT_NOT_IMPLEMENTED(false);
+        mc->r7 = dcontext->sys_param1;
+# endif /* X86/ARM */
 # ifdef MACOS
         /* We need to skip the use app_xdx, as we've changed the context.
          * We can't just set app_xdx from handle_sigreturn() as the
@@ -2073,7 +2074,7 @@ void
 issue_last_system_call_from_app(dcontext_t *dcontext)
 {
     LOG(THREAD, LOG_SYSCALLS, 2, "issue_last_system_call_from_app("PIFX")\n",
-        get_mcontext(dcontext)->xax);
+        MCXT_SYSNUM_REG(get_mcontext(dcontext)));
 
     /* it's up to the caller to let go of the bb building lock if it was held
      * on this path, since not all paths to here hold it
@@ -2115,7 +2116,8 @@ transfer_to_dispatch(dcontext_t *dcontext, priv_mcontext_t *mc, bool full_DR_sta
      * what may have been there before, for both new dcontext and reuse dcontext
      * options.
      */
-    call_switch_stack(dcontext, dcontext->dstack, dispatch, using_initstack,
+    call_switch_stack(dcontext, dcontext->dstack, dispatch,
+                      using_initstack ? &initstack_mutex : NULL,
                       false/*do not return on error*/);
     ASSERT_NOT_REACHED();
 }

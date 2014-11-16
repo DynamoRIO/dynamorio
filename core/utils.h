@@ -2200,6 +2200,11 @@ void profile_callers_exit(void);
     EXPECT_RELATION_INTERNAL(#expr, value_once, ==, expected);  \
 } while (0)
 
+#define EXPECT_NE(expr, expected) do {                          \
+    ptr_uint_t value_once = (ptr_uint_t) (expr);                \
+    EXPECT_RELATION_INTERNAL(#expr, value_once, !=, expected);  \
+} while (0)
+
 #define EXPECT_RELATION(expr, REL, expected) do {               \
     ptr_uint_t value_once = (ptr_uint_t) (expr);                \
     EXPECT_RELATION_INTERNAL(#expr, value_once, REL, expected); \

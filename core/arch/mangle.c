@@ -99,7 +99,7 @@ typedef byte slot_kind_t;
  */
 typedef struct _slot_t {
     slot_kind_t kind;
-    byte value;
+    reg_id_t value;
 } slot_t;
 
 /* data structure of clean call callee information. */
@@ -186,7 +186,7 @@ callee_info_create(app_pc start, uint num_args)
 }
 
 static void
-callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, byte value)
+callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
 {
     if (ci->slots_used < BUFFER_SIZE_ELEMENTS(ci->scratch_slots)) {
         if (kind == SLOT_REG)
@@ -203,7 +203,7 @@ callee_info_reserve_slot(callee_info_t *ci, slot_kind_t kind, byte value)
 }
 
 static opnd_t
-callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, byte value)
+callee_info_slot_opnd(callee_info_t *ci, slot_kind_t kind, reg_id_t value)
 {
     uint i;
     if (kind == SLOT_REG)
@@ -296,6 +296,7 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
 #endif /* !STANDALONE_DECODER */
 /***************************************************************************/
 
+#ifdef X86 /* XXX i#1551: if we split up mangle.c, move to x86/ */
 /* Convert a short-format CTI into an equivalent one using
  * near-rel-format.
  * Remember, the target is kept in the 0th src array position,
@@ -494,6 +495,18 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
 }
+#elif defined (ARM)
+
+byte *
+remangle_short_rewrite(dcontext_t *dcontext,
+                       instr_t *instr, byte *pc, app_pc target)
+{
+    /* FIXME i#1551: refactor the caller and make this routine x86-only. */
+    ASSERT_NOT_REACHED();
+    return NULL;
+}
+
+#endif /* X86/ARM */
 
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)
@@ -3805,7 +3818,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                 /* If it's a load (OP_mov_ld, or OP_movzx, etc.), use dead reg */
                 if (instr_num_srcs(instr) == 1 && /* src is the rip-rel opnd */
                     instr_num_dsts(instr) == 1 && /* only one dest: a register */
-                    opnd_is_reg(instr_get_dst(instr, 0))) {
+                    opnd_is_reg(instr_get_dst(instr, 0)) &&
+                    !instr_is_predicated(instr)) {
                     opnd_size_t sz = opnd_get_size(instr_get_dst(instr, 0));
                     reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
                     /* if target is 16 or 8 bit sub-register the whole reg is not dead
@@ -3816,7 +3830,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                         if (sz == OPSZ_4)
                             scratch_reg = reg_32_to_64(scratch_reg);
                         /* we checked all opnds: should not read reg */
-                        ASSERT(!instr_reads_from_reg(instr, scratch_reg));
+                        ASSERT(!instr_reads_from_reg(instr, scratch_reg,
+                                                     DR_QUERY_DEFAULT));
                         STATS_INC(rip_rel_unreachable_nospill);
                     }
                 }
@@ -3835,8 +3850,8 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                     ASSERT(scratch_reg <= REG_STOP_64);
                 } while (instr_uses_reg(instr, scratch_reg));
             }
-            ASSERT(!instr_reads_from_reg(instr, scratch_reg));
-            ASSERT(!spill || !instr_writes_to_reg(instr, scratch_reg));
+            ASSERT(!instr_reads_from_reg(instr, scratch_reg, DR_QUERY_DEFAULT));
+            ASSERT(!spill || !instr_writes_to_reg(instr, scratch_reg, DR_QUERY_DEFAULT));
             /* XXX PR 253446: Optimize by looking ahead for dead registers, and
              * sharing single spill across whole bb, or possibly building local code
              * cache to avoid unreachability: all depending on how many rip-rel
@@ -4076,12 +4091,14 @@ mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     if (si >= 0 &&
         instr_num_srcs(instr) == 1 && /* src is the seg ref opnd */
         instr_num_dsts(instr) == 1 && /* only one dest: a register */
-        opnd_is_reg(instr_get_dst(instr, 0))) {
+        opnd_is_reg(instr_get_dst(instr, 0)) &&
+        !instr_is_predicated(instr)) {
         reg_id_t reg = opnd_get_reg(instr_get_dst(instr, 0));
         /* if target is 16 or 8 bit sub-register the whole reg is not dead
          * (for 32-bit, top 32 bits are cleared) */
         if (reg_is_gpr(reg) && (reg_is_32bit(reg) || reg_is_64bit(reg)) &&
-            !instr_reads_from_reg(instr, reg) /* mov [%fs:%xax] => %xax */) {
+            /* mov [%fs:%xax] => %xax */
+            !instr_reads_from_reg(instr, reg, DR_QUERY_DEFAULT)) {
             spill = false;
             scratch_reg = reg;
 # ifdef X64
@@ -4218,7 +4235,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             instrlist_set_translation_target(ilist, xl8);
         }
 
-#ifdef X64
+#if defined(X86) && defined(X64)
         if (DYNAMO_OPTION(x86_to_x64) &&
             IF_WINDOWS_ELSE(is_wow64_process(NT_CURRENT_PROCESS), false) &&
             instr_get_x86_mode(instr))
@@ -4374,7 +4391,7 @@ mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
         instrlist_set_translation_target(ilist, NULL);
     instrlist_set_our_mangling(ilist, false); /* PR 267260 */
 
-#ifdef X64
+#if defined(X86) && defined(X64)
     if (!X64_CACHE_MODE_DC(dcontext)) {
         instr_t *in;
         for (in = instrlist_first(ilist); in != NULL; in = instr_get_next(in)) {
@@ -4675,8 +4692,8 @@ sandbox_write(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr, instr_t 
          * get the address pre-write.  None of them touch xbx.
          */
         get_addr_at = instr;
-        ASSERT(!instr_writes_to_reg(instr, REG_XBX) &&
-               !instr_reads_from_reg(instr, REG_XBX));
+        ASSERT(!instr_writes_to_reg(instr, REG_XBX, DR_QUERY_DEFAULT) &&
+               !instr_reads_from_reg(instr, REG_XBX, DR_QUERY_DEFAULT));
     }
 
     PRE(ilist, get_addr_at,
@@ -5620,7 +5637,8 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
         }
         /* callee update aflags */
         if (!ci->write_aflags) {
-            if (TESTANY(EFLAGS_WRITE_6, instr_get_arith_flags(instr))) {
+            if (TESTANY(EFLAGS_WRITE_6,
+                        instr_get_arith_flags(instr, DR_QUERY_INCLUDE_ALL))) {
                 LOG(THREAD, LOG_CLEANCALL, 2,
                     "CLEANCALL: callee "PFX" updates aflags\n", ci->start);
                 ci->write_aflags = true;
@@ -5634,7 +5652,7 @@ analyze_callee_regs_usage(dcontext_t *dcontext, callee_info_t *ci)
     for (instr  = instrlist_first(ilist);
          instr != NULL;
          instr  = instr_get_next(instr)) {
-        uint flags = instr_get_arith_flags(instr);
+        uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
         if (TESTANY(EFLAGS_READ_6, flags)) {
             ci->read_aflags = true;
             break;
@@ -5960,14 +5978,15 @@ analyze_callee_inline(dcontext_t *dcontext, callee_info_t *ci)
         uint opc = instr_get_opcode(instr);
         next_instr = instr_get_next(instr);
         /* sanity checks on stack usage */
-        if (instr_writes_to_reg(instr, DR_REG_XBP) && ci->xbp_is_fp) {
+        if (instr_writes_to_reg(instr, DR_REG_XBP, DR_QUERY_INCLUDE_ALL) &&
+            ci->xbp_is_fp) {
             /* xbp must not be changed if xbp is used for frame pointer */
             LOG(THREAD, LOG_CLEANCALL, 1,
                 "CLEANCALL: callee "PFX" cannot be inlined: XBP is updated.\n",
                 ci->start);
             opt_inline = false;
             break;
-        } else if (instr_writes_to_reg(instr, DR_REG_XSP)) {
+        } else if (instr_writes_to_reg(instr, DR_REG_XSP, DR_QUERY_INCLUDE_ALL)) {
             /* stack pointer update, we only allow:
              * lea [xsp, disp] => xsp
              * xsp + imm_int => xsp
@@ -6163,7 +6182,7 @@ analyze_clean_call_aflags(dcontext_t *dcontext,
      */
     if (INTERNAL_OPTION(opt_cleancall) > 1 && !cci->skip_save_aflags) {
         for (instr = where; instr != NULL; instr = instr_get_next(instr)) {
-            uint flags = instr_get_arith_flags(instr);
+            uint flags = instr_get_arith_flags(instr, DR_QUERY_DEFAULT);
             if (TESTANY(EFLAGS_READ_6, flags) || instr_is_cti(instr))
                 break;
             if (TESTALL(EFLAGS_WRITE_6, flags)) {

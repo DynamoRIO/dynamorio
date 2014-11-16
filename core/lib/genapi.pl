@@ -168,6 +168,8 @@ if ($header) {
     }
 }
 
+$arch = defined($defines{"ARM"}) ? "arm" : "x86";
+
 # I used to just do
 #   open(FIND, "find . -name \\*.h |")
 # but there are dependencies between header files, and certain orders
@@ -184,11 +186,13 @@ if ($header) {
      "$core/os_shared.h",        # before instrument.h
      "$core/module_shared.h",    # before instrument.h
      "$core/lib/instrument.h",
-     "$core/arch/opcode.h",
+     "$core/arch/x86/opcode.h",
+     "$core/arch/arm/opcode.h",
      "$core/arch/opnd.h",
      "$core/arch/instr.h",
      "$core/arch/instr_inline.h",
-     "$core/arch/instr_create.h",
+     "$core/arch/instr_create_shared.h",
+     "$core/arch/$arch/instr_create.h",
      "$core/arch/decode.h",       # OPSZ_ consts, decode routines
      "$core/arch/decode_fast.h",  # decode routines
      "$core/arch/disassemble.h",  # disassemble routines
@@ -256,6 +260,7 @@ sub keep_define($)
     my ($def) = @_;
     return ($def eq "WINDOWS" || $def eq "LINUX" || $def eq "UNIX" ||
             $def eq "MACOS" || $def eq "X64" ||
+            $def eq "X86" || $def eq "ARM" || $def eq "X86_32" ||
             $def eq "X86_64" || $def eq "USE_VISIBILITY_ATTRIBUTES" ||
             $def eq "DR_FAST_IR");
 }
@@ -345,7 +350,7 @@ sub process_header_line($)
         # Enforce the rename to DR_REG_ and DR_SEG_
         if (($l =~ /[^_]REG_/ || $l =~ /[^_]SEG_/) &&
             # We have certain exceptions
-            ($l !~ /^# define [RS]EG_/ &&
+            ($l !~ /^# *define [RS]EG_/ &&
              $l !~ /DR_REG_ENUM_COMPATIBILITY/ &&
              $l !~ /REG_SPECIFIER_BITS/ &&
              $l !~ /REG_kind/ &&

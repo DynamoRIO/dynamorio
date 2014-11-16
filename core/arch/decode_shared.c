@@ -55,6 +55,7 @@
 #endif
 
 const char * const size_names[] = {
+#ifdef X86
     "<invalid>"/* was <NULL> */,
     "<invalid>"/* was rax */,  "<invalid>"/* was rcx */,
     "<invalid>"/* was rdx */,  "<invalid>"/* was rbx */,
@@ -126,6 +127,7 @@ const char * const size_names[] = {
     "<invalid>"/* was cr12 */, "<invalid>"/* was cr13 */,
     "<invalid>"/* was cr14 */, "<invalid>"/* was cr15 */,
     "<invalid>"/* was <invalid> */,
+#endif
     "OPSZ_NA",
     "OPSZ_lea",
     "OPSZ_1",
@@ -167,6 +169,26 @@ const char * const size_names[] = {
     "OPSZ_12_rex40_short6",
     "OPSZ_16_vex32",
     "OPSZ_15",
+    "OPSZ_3",
+    "OPSZ_1b",
+    "OPSZ_2b",
+    "OPSZ_3b",
+    "OPSZ_4b",
+    "OPSZ_5b",
+    "OPSZ_6b",
+    "OPSZ_12b",
+    "OPSZ_25b",
+    "OPSZ_VAR_REGLIST",
+    "OPSZ_20",
+    "OPSZ_24",
+    "OPSZ_36",
+    "OPSZ_44",
+    "OPSZ_48",
+    "OPSZ_52",
+    "OPSZ_56",
+    "OPSZ_60",
+    "OPSZ_64",
+    "OPSZ_1_of_8",
     "OPSZ_2_of_8",
     "OPSZ_4_of_8",
     "OPSZ_1_of_16",
@@ -189,3 +211,62 @@ const char * const size_names[] = {
 const instr_info_t invalid_instr =
     {OP_INVALID,  0x000000, "(bad)", xx, xx, xx, xx, xx, 0, 0, 0};
 #undef xx
+
+/* PR 302344: used for shared traces -tracedump_origins where we
+ * need to change the mode but we have no dcontext
+ */
+static bool initexit_isa_mode = DEFAULT_ISA_MODE;
+
+/* The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine sets that flag to the
+ * indicated value and optionally returns the old value.  Be sure to restore the
+ * old value prior to any further application execution to avoid problems in
+ * mis-interpreting application code.
+ */
+bool
+dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode_out OUT)
+{
+    dr_isa_mode_t old_mode;
+    /* We would disallow but some early init routines need to use global heap */
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
+#if !defined(STANDALONE_DECODER)
+        CLIENT_ASSERT(!dynamo_initialized || dynamo_exited ||
+                      dcontext == GLOBAL_DCONTEXT, "internal isa mode error");
+#endif
+        old_mode = initexit_isa_mode;
+        if (is_isa_mode_legal(new_mode))
+            initexit_isa_mode = new_mode;
+    } else {
+        old_mode = dcontext->isa_mode;
+        if (is_isa_mode_legal(new_mode))
+            dcontext->isa_mode = new_mode;
+    }
+    if (old_mode_out != NULL)
+        *old_mode_out = old_mode;
+    return is_isa_mode_legal(new_mode);
+}
+
+/* The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine returns the value of
+ * that flag.
+ */
+dr_isa_mode_t
+dr_get_isa_mode(dcontext_t *dcontext)
+{
+    /* We would disallow but some early init routines need to use global heap */
+    if (dcontext == GLOBAL_DCONTEXT)
+        dcontext = get_thread_private_dcontext();
+    /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
+    if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
+#if !defined(STANDALONE_DECODER)
+        CLIENT_ASSERT(!dynamo_initialized || dynamo_exited ||
+                      dcontext == GLOBAL_DCONTEXT, "internal isa mode error");
+#endif
+        return initexit_isa_mode;
+    } else
+        return dcontext->isa_mode;
+}

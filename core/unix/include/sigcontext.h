@@ -22,6 +22,8 @@
 #define _ASMi386_SIGCONTEXT_H 1
 #define _ASM_X86_64_SIGCONTEXT_H 1
 #define _ASM_X86_SIGCONTEXT32_H 1
+/* Avoid <asm/sigcontext.h> from <signal.h> on 32-bit ARM. */
+#define _ASMARM_SIGCONTEXT_H
 
 #include <linux/types.h>
 
@@ -147,7 +149,7 @@ struct sigcontext {
 	unsigned long cr2;
 };
 
-#else /* __i386__ */
+#elif defined(__amd64__)
 
 /* FXSAVE frame */
 /* Note: reserved1/2 may someday contain valuable data. Always save/restore
@@ -176,47 +178,48 @@ struct _fpstate {
  * User-space might still rely on the old definition:
  */
 struct sigcontext {
-	unsigned long r8;
-	unsigned long r9;
-	unsigned long r10;
-	unsigned long r11;
-	unsigned long r12;
-	unsigned long r13;
-	unsigned long r14;
-	unsigned long r15;
-	unsigned long rdi;
-	unsigned long rsi;
-	unsigned long rbp;
-	unsigned long rbx;
-	unsigned long rdx;
-	unsigned long rax;
-	unsigned long rcx;
-	unsigned long rsp;
-	unsigned long rip;
-	unsigned long eflags;		/* RFLAGS */
-	unsigned short cs;
-	unsigned short gs;
-	unsigned short fs;
-	unsigned short __pad0;
-	unsigned long err;
-	unsigned long trapno;
-	unsigned long oldmask;
-	unsigned long cr2;
-	struct _fpstate *fpstate;	/* zero when no FPU context */
-	unsigned long reserved1[8];
+    unsigned long r8;
+    unsigned long r9;
+    unsigned long r10;
+    unsigned long r11;
+    unsigned long r12;
+    unsigned long r13;
+    unsigned long r14;
+    unsigned long r15;
+    unsigned long rdi;
+    unsigned long rsi;
+    unsigned long rbp;
+    unsigned long rbx;
+    unsigned long rdx;
+    unsigned long rax;
+    unsigned long rcx;
+    unsigned long rsp;
+    unsigned long rip;
+    unsigned long eflags;    /* RFLAGS */
+    unsigned short cs;
+    unsigned short gs;
+    unsigned short fs;
+    unsigned short __pad0;
+    unsigned long err;
+    unsigned long trapno;
+    unsigned long oldmask;
+    unsigned long cr2;
+    struct _fpstate *fpstate;    /* zero when no FPU context */
+    unsigned long reserved1[8];
 };
 
 #endif /* !__i386__ */
 
+#if defined(__i386__) || defined(__amd64__)
 struct _xsave_hdr {
-	__u64 xstate_bv;
-	__u64 reserved1[2];
-	__u64 reserved2[5];
+    __u64 xstate_bv;
+    __u64 reserved1[2];
+    __u64 reserved2[5];
 };
 
 struct _ymmh_state {
-	/* 16 * 16 bytes for each YMMH-reg */
-	__u32 ymmh_space[64];
+    /* 16 * 16 bytes for each YMMH-reg */
+    __u32 ymmh_space[64];
 };
 
 /*
@@ -226,10 +229,43 @@ struct _ymmh_state {
  * supported by the processor and OS.
  */
 struct _xstate {
-	struct _fpstate fpstate;
-	struct _xsave_hdr xstate_hdr;
-	struct _ymmh_state ymmh;
-	/* new processor state extensions go here */
+    struct _fpstate fpstate;
+    struct _xsave_hdr xstate_hdr;
+    struct _ymmh_state ymmh;
+    /* new processor state extensions go here */
 };
+#endif /* __i386__ || __amd64__ */
+
+#ifdef __arm__
+/*
+ * Signal context structure - contains all info to do with the state
+ * before the signal handler was invoked.  Note: only add new entries
+ * to the end of the structure.
+ */
+struct sigcontext {
+    unsigned long trap_no;
+    unsigned long error_code;
+    unsigned long oldmask;
+    unsigned long arm_r0;
+    unsigned long arm_r1;
+    unsigned long arm_r2;
+    unsigned long arm_r3;
+    unsigned long arm_r4;
+    unsigned long arm_r5;
+    unsigned long arm_r6;
+    unsigned long arm_r7;
+    unsigned long arm_r8;
+    unsigned long arm_r9;
+    unsigned long arm_r10;
+    unsigned long arm_fp;
+    unsigned long arm_ip;
+    unsigned long arm_sp;
+    unsigned long arm_lr;
+    unsigned long arm_pc;
+    unsigned long arm_cpsr;
+    unsigned long fault_address;
+};
+#endif /* __arm__ */
+
 
 #endif /* _SIGCONTEXT_H_ */

@@ -29,11 +29,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.12" OR
-    "${CMAKE_VERSION}" VERSION_GREATER "2.8.12")
-  # XXX i#1481: update to cmake 2.8.12's better handling of interface imports
-  cmake_policy(SET CMP0022 OLD)
-endif ()
+include(../make/policies.cmake NO_POLICY_SCOPE)
 
 ###########################################################################
 # sources and targets
@@ -44,22 +40,21 @@ set(EXECUTABLE_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 set_per_config_ouput_to_match_single_config()
 
-if (X86)
-  set(ARCH_NAME x86)
-else ()
-  if (ARM)
-    set(ARCH_NAME arm)
-  else ()
-    message(FATAL_ERROR "Unknown architecture target")
-  endif ()
-endif ()
 set(asm_deps
   "${PROJECT_SOURCE_DIR}/core/arch/asm_defines.asm"
   "${PROJECT_BINARY_DIR}/configure.h")
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_core_asm_src arch_core_asm_tgt
   "_core" "" "${asm_deps}")
+add_asm_target(arch/asm_shared.asm shared_core_asm_src shared_core_asm_tgt
+  "_core" "" "${asm_deps}")
+set(arch_core_asm_src ${arch_core_asm_src} ${shared_core_asm_src})
+set(arch_core_asm_tgt ${arch_core_asm_tgt} ${shared_core_asm_tgt})
 add_asm_target(arch/${ARCH_NAME}/${ARCH_NAME}.asm arch_noncore_asm_src arch_noncore_asm_tgt
   "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+add_asm_target(arch/asm_shared.asm shared_noncore_asm_src shared_noncore_asm_tgt
+  "_noncore" "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
+set(arch_noncore_asm_src ${arch_noncore_asm_src} ${shared_noncore_asm_src})
+set(arch_noncore_asm_tgt ${arch_noncore_asm_tgt} ${shared_noncore_asm_tgt})
 add_asm_target(arch/pre_inject_asm.asm preinject_asm_src preinject_asm_tgt ""
   "-DNOT_DYNAMORIO_CORE_PROPER" "${asm_deps}")
 
@@ -116,25 +111,42 @@ if (WIN32 AND NOT X64)
   set_source_files_properties(utils.c COMPILE_FLAGS "/QIfist")
 endif (WIN32 AND NOT X64)
 
-set(ARCH_SRCS
-  arch/arch.c
+set(DECODER_SRCS
+  arch/opnd_shared.c
+  arch/${ARCH_NAME}/opnd.c
+  arch/instr_shared.c
+  arch/${ARCH_NAME}/instr.c
+  arch/instrlist.c
   arch/decode_shared.c
   arch/${ARCH_NAME}/decode.c
-  arch/${ARCH_NAME}/decode_table.c
-  arch/${ARCH_NAME}/decode_fast.c
+  arch/encode_shared.c
   arch/${ARCH_NAME}/encode.c
-  arch/emit_utils.c
-  arch/opnd_shared.c
-  arch/instr_shared.c
-  arch/instrlist.c
+  arch/disassemble_shared.c
+  arch/${ARCH_NAME}/disassemble.c
+  )
+if (X86)
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/decode_table.c
+    arch/${ARCH_NAME}/decode_fast.c)
+else ()
+  set(DECODER_SRCS ${DECODER_SRCS}
+    arch/${ARCH_NAME}/table_a32_pred.c
+    arch/${ARCH_NAME}/table_a32_unpred.c
+    arch/${ARCH_NAME}/table_a32_encode.c)
+endif ()
+
+set(ARCH_SRCS
+  arch/arch.c
+  arch/emit_utils_shared.c
+  arch/${ARCH_NAME}/emit_utils.c
+  ${DECODER_SRCS}
   arch/interp.c
   arch/proc.c
   arch/mangle.c
   arch/steal_reg.c
   arch/x86_code.c
-  arch/disassemble.c
   ${arch_core_asm_src}
-  arch/optimize.c
+  arch/${ARCH_NAME}/optimize.c
   arch/sideline.c
   arch/retcheck.c
   )
@@ -190,7 +202,10 @@ if (UNIX)
     set(OS_SRCS ${OS_SRCS} unix/ksynch_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/tls_linux.c)
     set(OS_SRCS ${OS_SRCS} unix/signal_linux.c)
-    set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
+    set(OS_SRCS ${OS_SRCS} unix/signal_linux_${ARCH_NAME}.c)
+    if (X86)
+      set(OS_SRCS ${OS_SRCS} unix/native_elf.c)
+    endif ()
     # XXX i#1286: should be split into nudge_linux.c and nudge_macos.c
     set(OS_SRCS ${OS_SRCS} unix/nudgesig.c)
   elseif (APPLE)
@@ -400,15 +415,7 @@ endif ()
 
 # static decoding library
 add_library(drdecode
-  arch/instrlist.c
-  arch/decode_shared.c
-  arch/${ARCH_NAME}/decode.c
-  arch/${ARCH_NAME}/decode_table.c
-  arch/${ARCH_NAME}/decode_fast.c
-  arch/${ARCH_NAME}/encode.c
-  arch/opnd_shared.c
-  arch/instr_shared.c
-  arch/disassemble.c
+  ${DECODER_SRCS}
   arch/mangle.c
   arch/decodelib.c
   ${arch_noncore_asm_src}
@@ -881,7 +888,7 @@ if (BUILD_TESTS)
     # Otherwise, the entry point will point to the start of .text section,
     # which might not be _start.
     append_property_string(TARGET unit_tests LINK_FLAGS "-Wl,--entry,_start")
-    target_link_libraries(unit_tests c dl m)
+    target_link_libraries(unit_tests c dl m pthread)
     set_preferred_base_start_and_end(unit_tests)
   else (UNIX)
     # Just like drinjectlib (see above) we need libc before ntimp_lib
@@ -900,6 +907,7 @@ include_directories(BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/lib
   ${CMAKE_CURRENT_SOURCE_DIR}/arch
   ${CMAKE_CURRENT_SOURCE_DIR}/${OSNAME}
+  ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH_NAME}
   )
 
 # Avoid transitive linking for imported target.

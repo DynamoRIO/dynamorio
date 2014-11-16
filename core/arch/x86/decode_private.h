@@ -250,6 +250,10 @@ enum {
  * OPCODE_SUFFIX for REQUIRES_VEX means the same thing for encoding.
  */
 #define REQUIRES_VEX_L_1    0x0200
+/* Predicated via a jcc condition code */
+#define HAS_PRED_CC         0x0400
+/* Predicated via something complex */
+#define HAS_PRED_COMPLEX    0x0800
 
 
 struct _decode_info_t {
@@ -261,7 +265,7 @@ struct _decode_info_t {
      * prefixes can be treated as absolute.
      */
     uint prefixes;
-    byte seg_override; /* REG enum of seg, REG_NULL if none */
+    reg_id_t seg_override; /* REG enum of seg, REG_NULL if none */
     /* modrm info */
     byte modrm;
     byte mod;
@@ -413,6 +417,9 @@ enum {
 
 #define MODRM_BYTE(mod, reg, rm) ((byte) (((mod) << 6) | ((reg) << 3) | (rm)))
 
+/* for decode_info_t */
+#define X64_MODE(di) IF_X64_ELSE(!(di)->x86_mode, false)
+
 /* in decode.c, not exported to non-x86 files */
 bool optype_is_indir_reg(int optype);
 opnd_size_t resolve_var_reg_size(opnd_size_t sz, bool is_reg);
@@ -429,6 +436,7 @@ opnd_size_t resolve_addr_size(decode_info_t *di/*IN: x86_mode, prefixes*/);
 opnd_size_t indir_var_reg_size(decode_info_t *di, int optype);
 int indir_var_reg_offs_factor(int optype);
 opnd_size_t expand_subreg_size(opnd_size_t sz);
+dr_pred_type_t decode_predicate_from_instr_info(uint opcode, const instr_info_t *info);
 
 /* exported tables */
 extern const instr_info_t first_byte[];
@@ -460,5 +468,8 @@ extern const byte xop_9_index[256];
 extern const byte xop_a_index[256];
 extern const instr_info_t xop_prefix_extensions[][2];
 extern const instr_info_t xop_extensions[];
+
+/* table that translates opcode enums into pointers into decoding tables */
+extern const instr_info_t * const op_instr[];
 
 #endif /* DECODE_PRIVATE_H */

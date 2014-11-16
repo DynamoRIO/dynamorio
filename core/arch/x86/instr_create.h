@@ -37,32 +37,12 @@
 #ifndef _INSTR_CREATE_H_
 #define _INSTR_CREATE_H_ 1
 
+#include "../instr_create_shared.h"
+
 /* DR_API EXPORT TOFILE dr_ir_macros.h */
 /* DR_API EXPORT BEGIN */
-/**
- * @file dr_ir_macros.h
- * @brief Instruction creation convenience macros.
- *
- * All macros assume default data and address sizes.  For the most part these
- * macros do not support building non-default address or data size
- * versions; for that, simply duplicate the macro's body, replacing the
- * SIZE and/or hardcoded registers with smaller versions (the IR does
- * not support cs segments with non-default sizes where the default
- * size requires instruction prefixes).  For shrinking data sizes, see
- * the instr_shrink_to_16_bits() routine.
- */
 
 #include <math.h> /* for floating-point math constants */
-
-#ifdef AVOID_API_EXPORT
-# include "decode.h"
-/* (deliberately not indenting the #includes in API_EXPORT_ONLY for generated file) */
-#endif
-#ifdef API_EXPORT_ONLY
-#include "dr_ir_opnd.h"
-#include "dr_ir_instr.h"
-#include "dr_ir_utils.h"
-#endif
 
 /* instruction modification convenience routines */
 /**
@@ -70,28 +50,8 @@
  * instr_t *lock_inc_instr = LOCK(INSTR_CREATE_inc(....));
  */
 #define LOCK(instr_ptr) instr_set_prefix_flag((instr_ptr), PREFIX_LOCK)
-/**
- * Set the translation field for an instruction. For example:
- * instr_t *pushf_instr = INSTR_XL8(INSTR_CREATE_pushf(drcontext), addr);
- */
-#define INSTR_XL8(instr_ptr, app_addr) instr_set_translation((instr_ptr), (app_addr))
 
-/* operand convenience routines for common cases */
-/** Create a base+disp 8-byte operand. */
-#define OPND_CREATE_MEM64(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_8)
-/** Create a base+disp 4-byte operand. */
-#define OPND_CREATE_MEM32(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_4)
-/** Create a base+disp 2-byte operand. */
-#define OPND_CREATE_MEM16(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_2)
-/** Create a base+disp 1-byte operand. */
-#define OPND_CREATE_MEM8(base_reg, disp) \
-  opnd_create_base_disp(base_reg, DR_REG_NULL, 0, disp, OPSZ_1)
 #ifdef X64
-/** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM64
 /**
  * Create an absolute address operand encoded as pc-relative.
  * Encoding will fail if addr is out of 32-bit-signed-displacement reach.
@@ -99,41 +59,10 @@
 # define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 #else
-/** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM32
 /** Create an absolute address operand. */
 # define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_abs_addr(addr, size)
 #endif
-
-#ifdef X64
-/** Create an 8-byte immediate integer operand. */
-#define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
-/** Create a pointer-sized immediate integer operand. */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT64
-#else
-/** Create a pointer-sized immediate integer operand. */
-# define OPND_CREATE_INTPTR OPND_CREATE_INT32
-#endif
-/** Create a 4-byte immediate integer operand. */
-#define OPND_CREATE_INT32(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_4)
-/** Create a 2-byte immediate integer operand. */
-#define OPND_CREATE_INT16(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_2)
-/** Create a 1-byte immediate integer operand. */
-#define OPND_CREATE_INT8(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_1)
-/**
- * Create a 1-byte immediate interger operand if val will fit, else create a 4-byte
- * immediate integer operand.
- */
-#define OPND_CREATE_INT_32OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
-/**
- * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
- * immediate integer operand.
- */
-#define OPND_CREATE_INT_16OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
-    OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
-
 
 /* operand convenience routines for specific opcodes with odd sizes */
 /** Create a memory reference operand appropriately sized for OP_lea. */
@@ -203,6 +132,103 @@
  *   d  = opnd_t = destination operand
  */
 
+/* platform-independent INSTR_CREATE_* macros */
+/** @name Platform-independent macros */
+/* @{ */ /* doxygen start group */
+
+/**
+ * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
+ * for a debug trap instruction, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
+
+/**
+ * This platform-independent INSTR_CREATE_load macro creates an instr_t
+ * for a memory load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define INSTR_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store macro creates an instr_t
+ * for a memory store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
+
+/**
+ * This platform-independent INSTR_CREATE_mov macro creates an instr_t
+ * for a register to register move instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d   The destination register opnd.
+ * \param s   The source register opnd.
+ */
+#define INSTR_CREATE_mov(dc, d, s)  INSTR_CREATE_mov_ld(dc, d, s)
+
+/**
+ * This platform-independent INSTR_CREATE_load_mm macro creates an instr_t
+ * for a multimedia register load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param m   The source memory opnd.
+ */
+#define INSTR_CREATE_load_mm(dc, r, m) INSTR_CREATE_movd(dc, r, m)
+
+/**
+ * This platform-independent INSTR_CREATE_store_mm macro creates an instr_t
+ * for a multimedia register store instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The destination memory opnd.
+ * \param r   The source register opnd.
+ */
+#define INSTR_CREATE_store_mm(dc, m, r) INSTR_CREATE_movd(dc, m, r)
+
+/**
+ * This platform-independent INSTR_CREATE_jmp_ind_mem macro creates an instr_t
+ * for an indirect jump through memory instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param m   The memory opnd holding the target.
+ */
+#define INSTR_CREATE_jmp_ind_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
+
+/**
+ * This platform-independent INSTR_CREATE_load_int macro creates an instr_t
+ * for an immediate integer load instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param r   The destination register opnd.
+ * \param i   The source immediate integer opnd.
+ */
+#define INSTR_CREATE_load_int(dc, r, i) INSTR_CREATE_mov_imm(dc, r, i)
+
+/**
+ * This platform-independent INSTR_CREATE_return macro creates an instr_t
+ * for a return instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ */
+#define INSTR_CREATE_return(dc) INSTR_CREATE_ret(dc)
+
+/**
+ * This platform-independent INSTR_CREATE_jmp macro creates an instr_t
+ * for a branch instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param t   The opnd_t target operand for the instruction, which can be
+ * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
+ * Be sure to ensure that the limited reach of this short branch will reach
+ * the target (a pc operand is not suitable for most uses unless you know
+ * precisely where this instruction will be encoded).
+ */
+#define INSTR_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
+
+/* @} */ /* end doxygen group */
+
+/****************************************************************************/
+/* x86-specific INSTR_CREATE_* macros */
+
 /* no-operand instructions */
 /** @name No-operand instructions */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -255,13 +281,6 @@
 #define INSTR_CREATE_vzeroall(dc) instr_create_0dst_0src((dc), OP_vzeroall)
 #define INSTR_CREATE_xtest(dc) instr_create_0dst_0src((dc), OP_xtest)
 /* @} */ /* end doxygen group */
-/**
- * Creates an instr_t with opcode OP_LABEL.  An OP_LABEL instruction can be used as a
- * jump or call instr_t target, and when emitted it will take no space in the
- * resulting machine code.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- */
-#define INSTR_CREATE_label(dc)    instr_create_0dst_0src((dc), OP_LABEL)
 
 /* no destination, 1 source */
 /**
@@ -298,8 +317,6 @@
  * \param t The opnd_t target operand for the instruction, which can be either
  * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
  */
-#define INSTR_CREATE_jmp(dc, t) \
-  instr_create_0dst_1src((dc), OP_jmp, (t))
 #define INSTR_CREATE_jmp_short(dc, t) \
   instr_create_0dst_1src((dc), OP_jmp_short, (t))
 #define INSTR_CREATE_xbegin(dc, t) \
@@ -966,9 +983,9 @@
 #define INSTR_CREATE_movsx(dc, d, s) \
   instr_create_1dst_1src((dc), OP_movsx, (d), (s))
 #define INSTR_CREATE_bsf(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_bsf, (d), (s))
+  INSTR_PRED(instr_create_1dst_1src((dc), OP_bsf, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_bsr(dc, d, s) \
-  instr_create_1dst_1src((dc), OP_bsr, (d), (s))
+  INSTR_PRED(instr_create_1dst_1src((dc), OP_bsr, (d), (s)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_pmovmskb(dc, d, s) \
   instr_create_1dst_1src((dc), OP_pmovmskb, (d), (s))
 #define INSTR_CREATE_movups(dc, d, s) \
@@ -1367,8 +1384,8 @@
   instr_create_1dst_1src((dc), OP_xlat, opnd_create_reg(DR_REG_AL), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XBX, DR_REG_AL, 1, 0, OPSZ_xlat))
 #define INSTR_CREATE_xend(dc) \
-  instr_create_1dst_1src((dc), OP_xend, opnd_create_reg(DR_REG_EAX), \
-    opnd_create_reg(DR_REG_EAX))
+  INSTR_PRED(instr_create_1dst_0src((dc), OP_xend, opnd_create_reg(DR_REG_EAX)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_sysexit(dc) \
   instr_create_1dst_1src((dc), OP_sysexit, opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XCX))
@@ -1423,7 +1440,8 @@
  * be a floating point register (opnd_create_reg()).
  */
 #define INSTR_CREATE_fcmovcc(dc, op, f) \
-  instr_create_1dst_1src((dc), (op), opnd_create_reg(DR_REG_ST0), (f))
+  INSTR_PRED(instr_create_1dst_1src((dc), (op), opnd_create_reg(DR_REG_ST0), (f)), \
+    DR_PRED_O + instr_cmovcc_to_jcc(op) - OP_jo)
 /** @name Floating point with destination that is memory or fp register */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
@@ -1948,9 +1966,11 @@
 #define INSTR_CREATE_vcvtps2ph(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vcvtps2ph, (d), (s1), (s2))
 #define INSTR_CREATE_vmaskmovps(dc, d, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovps, (d), (s1), (s2))
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovps, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_vmaskmovpd(dc, d, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovpd, (d), (s1), (s2))
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovpd, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
 #define INSTR_CREATE_vpermilps(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vpermilps, (d), (s1), (s2))
 #define INSTR_CREATE_vpermilpd(dc, d, s1, s2) \
@@ -2019,6 +2039,20 @@
   instr_create_1dst_2src((dc), OP_vpermq, (d), (s1), (s2))
 #define INSTR_CREATE_vpermpd(dc, d, s1, s2) \
   instr_create_1dst_2src((dc), OP_vpermpd, (d), (s1), (s2))
+#define INSTR_CREATE_vpmaskmovd(dc, d, s1, s2) \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vpmaskmovd, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
+#define INSTR_CREATE_vpmaskmovq(dc, d, s1, s2) \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vpmaskmovq, (d), (s1), (s2)), \
+    DR_PRED_COMPLEX)
+#define INSTR_CREATE_vpsllvd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsllvd, (d), (s1), (s2))
+#define INSTR_CREATE_vpsllvq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsllvq, (d), (s1), (s2))
+#define INSTR_CREATE_vpsrlvd(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsrlvd, (d), (s1), (s2))
+#define INSTR_CREATE_vpsrlvq(dc, d, s1, s2) \
+  instr_create_1dst_2src((dc), OP_vpsrlvq, (d), (s1), (s2))
 /* @} */ /* end doxygen group */
 
 /* 1 destination, 2 sources: 1 explicit, 1 implicit */
@@ -2393,7 +2427,7 @@
  * \param s The opnd_t explicit source operand for the instruction.
  */
 #define INSTR_CREATE_cmovcc(dc, op, d, s) \
-  instr_create_1dst_2src((dc), (op), (d), (s), (d))
+  INSTR_PRED(instr_create_1dst_1src((dc), (op), (d), (s)), DR_PRED_O + (op) - OP_cmovo)
 
 /**
  * This INSTR_CREATE_xxx_imm macro creates an instr_t with opcode OP_xxx and the given
@@ -2496,17 +2530,17 @@
  * \param s2 The opnd_t second source operand for the instruction.
  */
 #define INSTR_CREATE_maskmovq(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_maskmovq, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_maskmovq, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovq), \
-   (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_maskmovdqu(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_maskmovdqu, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_maskmovdqu, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovdqu), \
-    (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 #define INSTR_CREATE_vmaskmovdqu(dc, s1, s2) \
-  instr_create_1dst_2src((dc), OP_vmaskmovdqu, \
+  INSTR_PRED(instr_create_1dst_2src((dc), OP_vmaskmovdqu, \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XDI, DR_REG_NULL, 0, 0, OPSZ_maskmovdqu), \
-    (s1), (s2))
+    (s1), (s2)), DR_PRED_COMPLEX)
 /* @} */ /* end doxygen group */
 
 /* floating-point */
@@ -2762,6 +2796,8 @@
   instr_create_1dst_3src((dc), OP_vinserti128, (d), (s1), (s2), (s3))
 #define INSTR_CREATE_vpblendd(dc, d, s1, s2, s3) \
   instr_create_1dst_3src((dc), OP_vpblendd, (d), (s1), (s2), (s3))
+#define INSTR_CREATE_vperm2i128(dc, d, s1, s2, s3) \
+  instr_create_1dst_3src((dc), OP_vperm2i128, (d), (s1), (s2), (s3))
 /* @} */ /* end doxygen group */
 
 /** @name 1 destination, 3 sources including one immediate */
@@ -3714,10 +3750,9 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
 #define INSTR_CREATE_getsec(dc) \
-  instr_create_3dst_3src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
+  INSTR_PRED(instr_create_3dst_2src((dc), OP_getsec, opnd_create_reg(DR_REG_EAX), \
     opnd_create_reg(DR_REG_EBX), opnd_create_reg(DR_REG_ECX), \
-    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX), \
-    opnd_create_reg(DR_REG_ECX))
+    opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_EBX)), DR_PRED_COMPLEX)
 
 /* 3 destinations: 2 implicit, 5 implicit sources */
 /**
@@ -3870,4 +3905,3 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)
 #endif
 
 #endif /* _INSTR_CREATE_H_ */
-

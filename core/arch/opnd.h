@@ -107,18 +107,20 @@
  * We also assume that the DR_SEG_ constants are invalid as pointers for
  * our use in instr_info_t.code.
  * Also, reg_names array in encode.c corresponds to this enum order.
- * Plus, dr_reg_fixer array in instr_shared.c.
+ * Plus, dr_reg_fixer array in encode.c.
  * Lots of optimizations assume same ordering of registers among
  * 32, 16, and 8  i.e. eax same position (first) in each etc.
  * reg_rm_selectable() assumes the GPR registers, mmx, and xmm are all in a row.
  */
 #endif
+/** Register identifiers. */
 enum {
 #ifdef AVOID_API_EXPORT
     /* compiler gives weird errors for "REG_NONE" */
     /* PR 227381: genapi.pl auto-inserts doxygen comments for lines without any! */
 #endif
     DR_REG_NULL, /**< Sentinel value indicating no register, for address modes. */
+#ifdef X86
     /* 64-bit general purpose */
     DR_REG_RAX,  DR_REG_RCX,  DR_REG_RDX,  DR_REG_RBX,
     DR_REG_RSP,  DR_REG_RBP,  DR_REG_RSI,  DR_REG_RDI,
@@ -176,32 +178,227 @@ enum {
     DR_REG_YMM4, DR_REG_YMM5, DR_REG_YMM6, DR_REG_YMM7,
     DR_REG_YMM8, DR_REG_YMM9, DR_REG_YMM10,DR_REG_YMM11,
     DR_REG_YMM12,DR_REG_YMM13,DR_REG_YMM14,DR_REG_YMM15,
+
+    /****************************************************************************/
+#elif defined(ARM)
+    DR_REG_INVALID, /**< Sentinel value indicating an invalid register. */
+    /* 64-bit general purpose */
+    DR_REG_X0,  DR_REG_X1,   DR_REG_X2,   DR_REG_X3,
+    DR_REG_X4,  DR_REG_X5,   DR_REG_X6,   DR_REG_X7,
+    DR_REG_X8,  DR_REG_X9,   DR_REG_X10,  DR_REG_X11,
+    DR_REG_X12, DR_REG_X13,  DR_REG_X14,  DR_REG_X15,
+    DR_REG_X16, DR_REG_X17,  DR_REG_X18,  DR_REG_X19,
+    DR_REG_X20, DR_REG_X21,  DR_REG_X22,  DR_REG_X23,
+    DR_REG_X24, DR_REG_X25,  DR_REG_X26,  DR_REG_X27,
+    DR_REG_X28, DR_REG_X29,  DR_REG_X30,  DR_REG_X31,
+
+    /* 32-bit general purpose */
+    DR_REG_W0,  DR_REG_W1,   DR_REG_W2,   DR_REG_W3,
+    DR_REG_W4,  DR_REG_W5,   DR_REG_W6,   DR_REG_W7,
+    DR_REG_W8,  DR_REG_W9,   DR_REG_W10,  DR_REG_W11,
+    DR_REG_W12, DR_REG_W13,  DR_REG_W14,  DR_REG_W15,
+    DR_REG_W16, DR_REG_W17,  DR_REG_W18,  DR_REG_W19,
+    DR_REG_W20, DR_REG_W21,  DR_REG_W22,  DR_REG_W23,
+    DR_REG_W24, DR_REG_W25,  DR_REG_W26,  DR_REG_W27,
+    DR_REG_W28, DR_REG_W29,  DR_REG_W30,  DR_REG_W31,
+
+# ifndef X64
+    /* 32-bit general purpose */
+    DR_REG_R0,  DR_REG_R1,   DR_REG_R2,   DR_REG_R3,
+    DR_REG_R4,  DR_REG_R5,   DR_REG_R6,   DR_REG_R7,
+    DR_REG_R8,  DR_REG_R9,   DR_REG_R10,  DR_REG_R11,
+    DR_REG_R12, DR_REG_R13,  DR_REG_R14,  DR_REG_R15,
+# endif
+
+    /* 128-bit SIMD registers */
+    DR_REG_Q0,  DR_REG_Q1,   DR_REG_Q2,   DR_REG_Q3,
+    DR_REG_Q4,  DR_REG_Q5,   DR_REG_Q6,   DR_REG_Q7,
+    DR_REG_Q8,  DR_REG_Q9,   DR_REG_Q10,  DR_REG_Q11,
+    DR_REG_Q12, DR_REG_Q13,  DR_REG_Q14,  DR_REG_Q15,
+    /* x64-only but simpler code to not ifdef it */
+    DR_REG_Q16, DR_REG_Q17,  DR_REG_Q18,  DR_REG_Q19,
+    DR_REG_Q20, DR_REG_Q21,  DR_REG_Q22,  DR_REG_Q23,
+    DR_REG_Q24, DR_REG_Q25,  DR_REG_Q26,  DR_REG_Q27,
+    DR_REG_Q28, DR_REG_Q29,  DR_REG_Q30,  DR_REG_Q31,
+    /* 64-bit SIMD registers */
+    DR_REG_D0,  DR_REG_D1,   DR_REG_D2,   DR_REG_D3,
+    DR_REG_D4,  DR_REG_D5,   DR_REG_D6,   DR_REG_D7,
+    DR_REG_D8,  DR_REG_D9,   DR_REG_D10,  DR_REG_D11,
+    DR_REG_D12, DR_REG_D13,  DR_REG_D14,  DR_REG_D15,
+    DR_REG_D16, DR_REG_D17,  DR_REG_D18,  DR_REG_D19,
+    DR_REG_D20, DR_REG_D21,  DR_REG_D22,  DR_REG_D23,
+    DR_REG_D24, DR_REG_D25,  DR_REG_D26,  DR_REG_D27,
+    DR_REG_D28, DR_REG_D29,  DR_REG_D30,  DR_REG_D31,
+    /* 32-bit SIMD registers */
+    DR_REG_S0,  DR_REG_S1,   DR_REG_S2,   DR_REG_S3,
+    DR_REG_S4,  DR_REG_S5,   DR_REG_S6,   DR_REG_S7,
+    DR_REG_S8,  DR_REG_S9,   DR_REG_S10,  DR_REG_S11,
+    DR_REG_S12, DR_REG_S13,  DR_REG_S14,  DR_REG_S15,
+    DR_REG_S16, DR_REG_S17,  DR_REG_S18,  DR_REG_S19,
+    DR_REG_S20, DR_REG_S21,  DR_REG_S22,  DR_REG_S23,
+    DR_REG_S24, DR_REG_S25,  DR_REG_S26,  DR_REG_S27,
+    DR_REG_S28, DR_REG_S29,  DR_REG_S30,  DR_REG_S31,
+    /* 16-bit SIMD registers */
+    DR_REG_H0,  DR_REG_H1,   DR_REG_H2,   DR_REG_H3,
+    DR_REG_H4,  DR_REG_H5,   DR_REG_H6,   DR_REG_H7,
+    DR_REG_H8,  DR_REG_H9,   DR_REG_H10,  DR_REG_H11,
+    DR_REG_H12, DR_REG_H13,  DR_REG_H14,  DR_REG_H15,
+    DR_REG_H16, DR_REG_H17,  DR_REG_H18,  DR_REG_H19,
+    DR_REG_H20, DR_REG_H21,  DR_REG_H22,  DR_REG_H23,
+    DR_REG_H24, DR_REG_H25,  DR_REG_H26,  DR_REG_H27,
+    DR_REG_H28, DR_REG_H29,  DR_REG_H30,  DR_REG_H31,
+    /* 8-bit SIMD registers */
+    DR_REG_B0,  DR_REG_B1,   DR_REG_B2,   DR_REG_B3,
+    DR_REG_B4,  DR_REG_B5,   DR_REG_B6,   DR_REG_B7,
+    DR_REG_B8,  DR_REG_B9,   DR_REG_B10,  DR_REG_B11,
+    DR_REG_B12, DR_REG_B13,  DR_REG_B14,  DR_REG_B15,
+    DR_REG_B16, DR_REG_B17,  DR_REG_B18,  DR_REG_B19,
+    DR_REG_B20, DR_REG_B21,  DR_REG_B22,  DR_REG_B23,
+    DR_REG_B24, DR_REG_B25,  DR_REG_B26,  DR_REG_B27,
+    DR_REG_B28, DR_REG_B29,  DR_REG_B30,  DR_REG_B31,
+
+    /* Coprocessor registers */
+    DR_REG_CR0,  DR_REG_CR1,  DR_REG_CR2,  DR_REG_CR3,
+    DR_REG_CR4,  DR_REG_CR5,  DR_REG_CR6,  DR_REG_CR7,
+    DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
+    DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
+
+    /* We decided against DR_REG_RN_TH (top half), DR_REG_RN_BH (bottom half
+     * for 32-bit as we have the W versions for 64-bit), and DR_REG_RN_BB
+     * (bottom byte) as they are not available in the ISA and which portion
+     * of a GPR is selected purely by the opcode.  Our decoder will create
+     * a partial register for these to help tools, but it won't specify which
+     * part of the register.
+     */
+# ifdef AVOID_API_EXPORT
+    /* XXX i#1551: do we want to model the any-16-bits-of-Xn target
+     * of OP_movk?
+     */
+# endif
+
+# ifdef AVOID_API_EXPORT
+    /* Though on x86 we don't list eflags for even things like popf that write
+     * other bits beyond aflags, here we do explicitly list cpsr and spsr for
+     * OP_mrs and OP_msr to distinguish them and make things clearer.
+     */
+# endif
+    DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
+
+    /* AArch32 Thread Registers */
+    DR_REG_TPIDRURW,    /**< User Read/Write Thread ID Register */
+    DR_REG_TPIDRURO,    /**< User Read-Only Thread ID Register */
+
+    /* Aliases below here: */
+
+# ifdef X64
+    DR_REG_R0  = DR_REG_X0,  /**< Alias for the x0 register. */
+    DR_REG_R1  = DR_REG_X1,  /**< Alias for the x1 register. */
+    DR_REG_R2  = DR_REG_X2,  /**< Alias for the x2 register. */
+    DR_REG_R3  = DR_REG_X3,  /**< Alias for the x3 register. */
+    DR_REG_R4  = DR_REG_X4,  /**< Alias for the x4 register. */
+    DR_REG_R5  = DR_REG_X5,  /**< Alias for the x5 register. */
+    DR_REG_R6  = DR_REG_X6,  /**< Alias for the x6 register. */
+    DR_REG_R7  = DR_REG_X7,  /**< Alias for the x7 register. */
+    DR_REG_R8  = DR_REG_X8,  /**< Alias for the x8 register. */
+    DR_REG_R9  = DR_REG_X9,  /**< Alias for the x9 register. */
+    DR_REG_R10 = DR_REG_X10, /**< Alias for the x10 register. */
+    DR_REG_R11 = DR_REG_X11, /**< Alias for the x11 register. */
+    DR_REG_R12 = DR_REG_X12, /**< Alias for the x12 register. */
+    DR_REG_R13 = DR_REG_X13, /**< Alias for the x13 register. */
+    DR_REG_R14 = DR_REG_X14, /**< Alias for the x14 register. */
+    DR_REG_R15 = DR_REG_X15, /**< Alias for the x15 register. */
+    DR_REG_R16 = DR_REG_X16, /**< Alias for the x16 register. */
+    DR_REG_R17 = DR_REG_X17, /**< Alias for the x17 register. */
+    DR_REG_R18 = DR_REG_X18, /**< Alias for the x18 register. */
+    DR_REG_R19 = DR_REG_X19, /**< Alias for the x19 register. */
+    DR_REG_R20 = DR_REG_X20, /**< Alias for the x20 register. */
+    DR_REG_R21 = DR_REG_X21, /**< Alias for the x21 register. */
+    DR_REG_R22 = DR_REG_X22, /**< Alias for the x22 register. */
+    DR_REG_R23 = DR_REG_X23, /**< Alias for the x23 register. */
+    DR_REG_R24 = DR_REG_X24, /**< Alias for the x24 register. */
+    DR_REG_R25 = DR_REG_X25, /**< Alias for the x25 register. */
+    DR_REG_R26 = DR_REG_X26, /**< Alias for the x26 register. */
+    DR_REG_R27 = DR_REG_X27, /**< Alias for the x27 register. */
+    DR_REG_R28 = DR_REG_X28, /**< Alias for the x28 register. */
+    DR_REG_R29 = DR_REG_X29, /**< Alias for the x29 register. */
+    DR_REG_R30 = DR_REG_X30, /**< Alias for the x30 register. */
+    DR_REG_R31 = DR_REG_X31, /**< Alias for the x31 register. */
+    DR_REG_SP  = DR_REG_X31, /**< The stack pointer register. */
+    DR_REG_LR  = DR_REG_X30, /**< The link register. */
+    DR_REG_XZR = DR_REG_X31, /**< The 64-bit zero register. */
+    DR_REG_WSP = DR_REG_W31, /**< The bottom half of the stack pointer register. */
+    DR_REG_WZR = DR_REG_W31, /**< The 32-bit zero register. */
+# else
+    DR_REG_SP = DR_REG_R13, /**< The stack pointer register. */
+    DR_REG_LR = DR_REG_R14, /**< The link register. */
+    DR_REG_PC = DR_REG_R15, /**< The program counter register. */
+# endif
+    DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
+    DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
+    DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+
+    /* AArch64 Thread Registers */
+    /** Thread Pointer/ID Register, EL0. */
+    DR_REG_TPIDR_EL0   = DR_REG_TPIDRURW,
+    /** Thread Pointer/ID Register, Read-Only, EL0. */
+    DR_REG_TPIDRRO_EL0 = DR_REG_TPIDRURO,
+    /* ARMv7 Thread Registers */
+    DR_REG_CP15_C13_2  = DR_REG_TPIDRURW, /**< User Read/Write Thread ID Register */
+    DR_REG_CP15_C13_3  = DR_REG_TPIDRURO, /**< User Read-Olny Thread ID Register */
+
+    DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
+
+    DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_SPSR, /**< Last value of register enums */
+
+    DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
+    DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
+# ifdef X64
+    DR_REG_START_GPR = DR_REG_X0,  /**< Start of general register registers */
+    DR_REG_START_32  = DR_REG_W0,  /**< Start of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_W31, /**< End of 32-bit general register enum values */
+# else
+    DR_REG_START_GPR = DR_REG_R0,  /**< Start of general register registers */
+    DR_REG_START_32  = DR_REG_R0,  /**< Start of 32-bit general register enum values */
+    DR_REG_STOP_32   = DR_REG_R15, /**< End of 32-bit general register enum values */
+# endif
+
+    /** Platform-independent way to refer to stack pointer. */
+    DR_REG_XSP       = DR_REG_SP,
+
+#endif /* X86/ARM */
 };
 
 /* we avoid typedef-ing the enum, as its storage size is compiler-specific */
-typedef byte reg_id_t; /* contains a DR_REG_ enum value */
-typedef byte opnd_size_t; /* contains a DR_REG_ or OPSZ_ enum value */
+typedef ushort reg_id_t; /**< The type of a DR_REG_ enum value. */
+/* For x86 we do store reg_id_t here, but the x86 DR_REG_ enum is small enough
+ * (checked in arch_init().
+ */
+typedef byte opnd_size_t; /**< The type of an OPSZ_ enum value. */
 
+#ifdef X86
 /* Platform-independent full-register specifiers */
-#ifdef X64
-# define DR_REG_XAX DR_REG_RAX  /**< Platform-independent way to refer to rax/eax. */
-# define DR_REG_XCX DR_REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
-# define DR_REG_XDX DR_REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
-# define DR_REG_XBX DR_REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define DR_REG_XSP DR_REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
-# define DR_REG_XBP DR_REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define DR_REG_XSI DR_REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
-# define DR_REG_XDI DR_REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
-#else
-# define DR_REG_XAX DR_REG_EAX  /**< Platform-independent way to refer to rax/eax. */
-# define DR_REG_XCX DR_REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
-# define DR_REG_XDX DR_REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
-# define DR_REG_XBX DR_REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
-# define DR_REG_XSP DR_REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
-# define DR_REG_XBP DR_REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
-# define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
-# define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
-#endif
+# ifdef X64
+#  define DR_REG_XAX DR_REG_RAX  /**< Platform-independent way to refer to rax/eax. */
+#  define DR_REG_XCX DR_REG_RCX  /**< Platform-independent way to refer to rcx/ecx. */
+#  define DR_REG_XDX DR_REG_RDX  /**< Platform-independent way to refer to rdx/edx. */
+#  define DR_REG_XBX DR_REG_RBX  /**< Platform-independent way to refer to rbx/ebx. */
+#  define DR_REG_XSP DR_REG_RSP  /**< Platform-independent way to refer to rsp/esp. */
+#  define DR_REG_XBP DR_REG_RBP  /**< Platform-independent way to refer to rbp/ebp. */
+#  define DR_REG_XSI DR_REG_RSI  /**< Platform-independent way to refer to rsi/esi. */
+#  define DR_REG_XDI DR_REG_RDI  /**< Platform-independent way to refer to rdi/edi. */
+# else
+#  define DR_REG_XAX DR_REG_EAX  /**< Platform-independent way to refer to rax/eax. */
+#  define DR_REG_XCX DR_REG_ECX  /**< Platform-independent way to refer to rcx/ecx. */
+#  define DR_REG_XDX DR_REG_EDX  /**< Platform-independent way to refer to rdx/edx. */
+#  define DR_REG_XBX DR_REG_EBX  /**< Platform-independent way to refer to rbx/ebx. */
+#  define DR_REG_XSP DR_REG_ESP  /**< Platform-independent way to refer to rsp/esp. */
+#  define DR_REG_XBP DR_REG_EBP  /**< Platform-independent way to refer to rbp/ebp. */
+#  define DR_REG_XSI DR_REG_ESI  /**< Platform-independent way to refer to rsi/esi. */
+#  define DR_REG_XDI DR_REG_EDI  /**< Platform-independent way to refer to rdi/edi. */
+# endif
+#endif /* X86 */
+
 
 /* DR_API EXPORT END */
 /* indexed by enum */
@@ -209,61 +406,84 @@ extern const char * const reg_names[];
 extern const reg_id_t dr_reg_fixer[];
 /* DR_API EXPORT BEGIN */
 
-#define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
-#ifdef X64
-# define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
-#else
-# define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
-#endif
-/**< Number of general registers */
-#define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
-#define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
-#define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
-#define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
-#define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
-#define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
-#define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
-#define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
-#define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
-#define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
-#define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
-#define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
-#define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
-#define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
-#define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
-#define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
-#define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
-#define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
-#define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
-#define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
-#define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
-#define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
-#define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
-#define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
-#define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */
-#define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
-#define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */
-#define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
-#define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */
+#ifdef X86 /* We don't need these for ARM which uses clear numbering */
+# define DR_REG_START_GPR DR_REG_XAX /**< Start of general register enum values */
+# ifdef X64
+#  define DR_REG_STOP_GPR DR_REG_R15 /**< End of general register enum values */
+# else
+#  define DR_REG_STOP_GPR DR_REG_XDI /**< End of general register enum values */
+# endif
+/** Number of general registers */
+# define DR_NUM_GPR_REGS (DR_REG_STOP_GPR - DR_REG_START_GPR + 1)
+# define DR_REG_START_64    DR_REG_RAX  /**< Start of 64-bit general register enum values */
+# define DR_REG_STOP_64     DR_REG_R15  /**< End of 64-bit general register enum values */
+# define DR_REG_START_32    DR_REG_EAX  /**< Start of 32-bit general register enum values */
+# define DR_REG_STOP_32     DR_REG_R15D /**< End of 32-bit general register enum values */
+# define DR_REG_START_16    DR_REG_AX   /**< Start of 16-bit general register enum values */
+# define DR_REG_STOP_16     DR_REG_R15W /**< End of 16-bit general register enum values */
+# define DR_REG_START_8     DR_REG_AL   /**< Start of 8-bit general register enum values */
+# define DR_REG_STOP_8      DR_REG_DIL  /**< End of 8-bit general register enum values */
+# define DR_REG_START_8HL   DR_REG_AL   /**< Start of 8-bit high-low register enum values */
+# define DR_REG_STOP_8HL    DR_REG_BH   /**< End of 8-bit high-low register enum values */
+# define DR_REG_START_x86_8 DR_REG_AH   /**< Start of 8-bit x86-only register enum values */
+# define DR_REG_STOP_x86_8  DR_REG_BH   /**< Stop of 8-bit x86-only register enum values */
+# define DR_REG_START_x64_8 DR_REG_SPL  /**< Start of 8-bit x64-only register enum values */
+# define DR_REG_STOP_x64_8  DR_REG_DIL  /**< Stop of 8-bit x64-only register enum values */
+# define DR_REG_START_MMX   DR_REG_MM0  /**< Start of mmx register enum values */
+# define DR_REG_STOP_MMX    DR_REG_MM7  /**< End of mmx register enum values */
+# define DR_REG_START_XMM   DR_REG_XMM0 /**< Start of xmm register enum values */
+# define DR_REG_STOP_XMM    DR_REG_XMM15/**< End of xmm register enum values */
+# define DR_REG_START_YMM   DR_REG_YMM0 /**< Start of ymm register enum values */
+# define DR_REG_STOP_YMM    DR_REG_YMM15/**< End of ymm register enum values */
+# define DR_REG_START_FLOAT DR_REG_ST0  /**< Start of floating-point-register enum values */
+# define DR_REG_STOP_FLOAT  DR_REG_ST7  /**< End of floating-point-register enum values */
+# define DR_REG_START_SEGMENT DR_SEG_ES /**< Start of segment register enum values */
+# define DR_REG_STOP_SEGMENT  DR_SEG_GS /**< End of segment register enum values */
+# define DR_REG_START_DR    DR_REG_DR0  /**< Start of debug register enum values */
+# define DR_REG_STOP_DR     DR_REG_DR15 /**< End of debug register enum values */
+# define DR_REG_START_CR    DR_REG_CR0  /**< Start of control register enum values */
+# define DR_REG_STOP_CR     DR_REG_CR15 /**< End of control register enum values */
 /**
  * Last valid register enum value.  Note: DR_REG_INVALID is now smaller
  * than this value.
  */
-#define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
-#define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
+# define DR_REG_LAST_VALID_ENUM DR_REG_YMM15
+# define DR_REG_LAST_ENUM   DR_REG_YMM15 /**< Last value of register enums */
+#endif /* X86 */
 /* DR_API EXPORT END */
-#define REG_START_SPILL   DR_REG_XAX
-#define REG_STOP_SPILL    DR_REG_XDI
+
+#ifdef X86
+# define REG_START_SPILL   DR_REG_XAX
+# define REG_STOP_SPILL    DR_REG_XDI
+#elif defined(ARM)
+/* FIXME i#1551: how many registers do we allow to spill in ARM,
+ * should they be all in TLS?
+ */
+# define REG_START_SPILL   DR_REG_R0
+# define REG_STOP_SPILL    DR_REG_R9
+#endif /* X86/ARM */
 #define REG_SPILL_NUM     (REG_STOP_SPILL - REG_START_SPILL + 1)
 
 /* DR_API EXPORT VERBATIM */
+#define REG_NULL            DR_REG_NULL
+#define REG_INVALID         DR_REG_INVALID
+#define REG_START_64        DR_REG_START_64
+#define REG_STOP_64         DR_REG_STOP_64
+#define REG_START_32        DR_REG_START_32
+#define REG_STOP_32         DR_REG_STOP_32
+#define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
+#define REG_LAST_ENUM       DR_REG_LAST_ENUM
+#define REG_XSP             DR_REG_XSP
 /* Backward compatibility with REG_ constants (we now use DR_REG_ to avoid
  * conflicts with the REG_ enum in <sys/ucontext.h>: i#34).
  * Clients should set(DynamoRIO_REG_COMPATIBILITY ON) prior to
  * configure_DynamoRIO_client() to set this define.
  */
-#ifdef DR_REG_ENUM_COMPATIBILITY
-# define REG_NULL            DR_REG_NULL
+#if defined(X86) && defined(DR_REG_ENUM_COMPATIBILITY)
+# define REG_START_16        DR_REG_START_16
+# define REG_STOP_16         DR_REG_STOP_16
+# define REG_START_8         DR_REG_START_8
+# define REG_STOP_8          DR_REG_STOP_8
 # define REG_RAX             DR_REG_RAX
 # define REG_RCX             DR_REG_RCX
 # define REG_RDX             DR_REG_RDX
@@ -402,23 +622,13 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_CR13            DR_REG_CR13
 # define REG_CR14            DR_REG_CR14
 # define REG_CR15            DR_REG_CR15
-# define REG_INVALID         DR_REG_INVALID
 # define REG_XAX             DR_REG_XAX
 # define REG_XCX             DR_REG_XCX
 # define REG_XDX             DR_REG_XDX
 # define REG_XBX             DR_REG_XBX
-# define REG_XSP             DR_REG_XSP
 # define REG_XBP             DR_REG_XBP
 # define REG_XSI             DR_REG_XSI
 # define REG_XDI             DR_REG_XDI
-# define REG_START_64        DR_REG_START_64
-# define REG_STOP_64         DR_REG_STOP_64
-# define REG_START_32        DR_REG_START_32
-# define REG_STOP_32         DR_REG_STOP_32
-# define REG_START_16        DR_REG_START_16
-# define REG_STOP_16         DR_REG_STOP_16
-# define REG_START_8         DR_REG_START_8
-# define REG_STOP_8          DR_REG_STOP_8
 # define REG_START_8HL       DR_REG_START_8HL
 # define REG_STOP_8HL        DR_REG_STOP_8HL
 # define REG_START_x86_8     DR_REG_START_x86_8
@@ -439,8 +649,6 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_STOP_DR         DR_REG_STOP_DR
 # define REG_START_CR        DR_REG_START_CR
 # define REG_STOP_CR         DR_REG_STOP_CR
-# define REG_LAST_VALID_ENUM DR_REG_LAST_VALID_ENUM
-# define REG_LAST_ENUM       DR_REG_LAST_ENUM
 # define REG_YMM0            DR_REG_YMM0
 # define REG_YMM1            DR_REG_YMM1
 # define REG_YMM2            DR_REG_YMM2
@@ -457,7 +665,7 @@ extern const reg_id_t dr_reg_fixer[];
 # define REG_YMM13           DR_REG_YMM13
 # define REG_YMM14           DR_REG_YMM14
 # define REG_YMM15           DR_REG_YMM15
-#endif /* DR_REG_ENUM_COMPATIBILITY */
+#endif /* X86 && DR_REG_ENUM_COMPATIBILITY */
 /* DR_API EXPORT END */
 
 #ifndef INT8_MIN
@@ -475,10 +683,54 @@ extern const reg_id_t dr_reg_fixer[];
  */
 /* DR_API EXPORT BEGIN */
 
+/**
+ * These flags describe how the index register in a memory reference is shifted
+ * before being added to or subtracted from the base register.
+ */
+typedef enum _dr_shift_type_t {
+    DR_SHIFT_NONE, /**< No shift. */
+    DR_SHIFT_LSL,  /**< Logical shift left. */
+    DR_SHIFT_LSR,  /**< Logical shift right. */
+    DR_SHIFT_ASR,  /**< Arithmetic shift right. */
+    DR_SHIFT_ROR,  /**< Rotate right. */
+    /**
+     * The register is rotated right by 1 bit, with the carry flag (rather than
+     * bit 0) being shifted in to the most-significant bit.  (For shifts of
+     * general source registers, if the instruction writes the condition codes,
+     * bit 0 is then shifted into the carry flag: but for memory references bit
+     * 0 is simply dropped.)
+     */
+    DR_SHIFT_RRX,
+} dr_shift_type_t;
+
+/**
+ * These flags describe operations performed on the value of a source  register
+ * before it is combined with other sources as part of the behavior of the
+ * containing instruction, or operations performed on an index register or
+ * displacement before it is added to or subtracted from the base register.
+ */
+typedef enum _dr_opnd_flags_t {
+    /** This register's value is negated prior to use in the containing instruction. */
+    DR_OPND_NEGATED  = 0x01,
+    /**
+     * This register's value is shifted prior to use in the containing instruction.
+     * This flag is for informational purposes only and is not guaranteed to
+     * be consistent with the shift type of an index register or displacement
+     * if the latter are set without using opnd_set_index_shift() or if an
+     * instruction is created without using high-level API routines.
+     * This flag is also ignored for encoding and will not apply a shift
+     * on its own.
+     */
+    DR_OPND_SHIFTED  = 0x02,
+} dr_opnd_flags_t;
+
 #ifdef DR_FAST_IR
 
+/* We assume all addressing regs are in the lower 256 of the DR_REG_ enum. */
 # define REG_SPECIFIER_BITS 8
 # define SCALE_SPECIFIER_BITS 4
+/* We need to keep opnd_t the same size */
+# define FLAGS_BITS REG_SPECIFIER_BITS
 
 /**
  * opnd_t type exposed for optional "fast IR" access.  Note that DynamoRIO
@@ -505,10 +757,12 @@ struct _opnd_t {
         ushort far_pc_seg_selector; /* FAR_PC_kind and FAR_INSTR_kind */
         /* We could fit segment in value.base_disp but more consistent here */
         reg_id_t segment : REG_SPECIFIER_BITS; /* BASE_DISP_kind, REL_ADDR_kind,
-                                                * and ABS_ADDR_kind */
+                                                * and ABS_ADDR_kind, on x86 */
         ushort disp;           /* MEM_INSTR_kind */
         ushort shift;          /* INSTR_kind */
-    } seg;
+        /* We have to use byte and not the enum type to get cl to not align */
+        byte/*dr_opnd_flags_t*/ flags : FLAGS_BITS; /* ARM: REG_kind + BASE_DISP_kind */
+    } aux;
     union {
         /* all are 64 bits or less */
         /* NULL_kind has no value */
@@ -526,13 +780,24 @@ struct _opnd_t {
         instr_t *instr;         /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
         reg_id_t reg;           /* REG_kind */
         struct {
+            /* For ARM, either disp==0 or index_reg==DR_REG_NULL: can't have both */
             int disp;
             reg_id_t base_reg : REG_SPECIFIER_BITS;
             reg_id_t index_reg : REG_SPECIFIER_BITS;
             /* to get cl to not align to 4 bytes we can't use uint here
              * when we have reg_id_t elsewhere: it won't combine them
-             * (gcc will). alternative is all uint and no reg_id_t. */
-            byte scale : SCALE_SPECIFIER_BITS;
+             * (gcc will). alternative is all uint and no reg_id_t.
+             */
+            /* We would use a union and struct to separate the scale from the 2
+             * shift fields as they are mutually exclusive, but that would
+             * require packing the struct or living with a larger size and perf
+             * hit on copying it.  We also have to use byte and not dr_shift_type_t
+             * to get cl to not align.
+             */
+            byte/*dr_shift_type_t*/ shift_type : 3; /* ARM-only */
+            byte shift_amount_minus_1 : 5; /* ARM-only, 1..31 so we store (val - 1) */
+            byte scale : SCALE_SPECIFIER_BITS; /* x86-only */
+            /* These 3 are all x86-only: */
             byte/*bool*/ encode_zero_disp : 1;
             byte/*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
             byte/*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
@@ -577,8 +842,10 @@ enum {
     BASE_DISP_kind, /* optional DR_SEG_ reg + base reg + scaled index reg + disp */
     FAR_PC_kind,    /* a segment is specified as a selector value */
     FAR_INSTR_kind, /* a segment is specified as a selector value */
+#if defined(X64) || defined(ARM)
+    REL_ADDR_kind,  /* pc-relative address: 64-bit X86 or ARM only */
+#endif
 #ifdef X64
-    REL_ADDR_kind,  /* pc-relative address: x64 only */
     ABS_ADDR_kind,  /* 64-bit absolute address: x64 only */
 #endif
     MEM_INSTR_kind,
@@ -604,13 +871,25 @@ opnd_create_reg(reg_id_t r);
 DR_API
 INSTR_INLINE
 /**
- * Returns a register operand corresponding to a part of the multimedia
- * register represented by the DR_REG_ constant \p r, which must be
- * an mmx, xmm, or ymm register.  For partial general-purpose registers,
- * use the appropriate sub-register name with opnd_create_reg() instead.
+ * Returns a register operand corresponding to a part of the
+ * register represented by the DR_REG_ constant \p r.
+ *
+ * On x86, \p r must be a multimedia (mmx, xmm, or ymm) register.  For
+ * partial general-purpose registers on x86, use the appropriate
+ * sub-register name with opnd_create_reg() instead.
  */
 opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize);
+
+DR_API
+INSTR_INLINE
+/**
+ * Returns a register operand with additional properties specified by \p flags.
+ * If \p subsize is 0, creates a full-sized register; otherwise, creates a
+ * partial register in the manner of opnd_create_reg_partial().
+ */
+opnd_t
+opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags);
 
 DR_API
 /**
@@ -701,7 +980,12 @@ DR_API
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, opnd_set_index_shift() can be used for further manipulation
+ * of the index register.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  */
 opnd_t
 opnd_create_base_disp(reg_id_t base_reg, reg_id_t index_reg, int scale, int disp,
@@ -717,16 +1001,21 @@ DR_API
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
- * Gives control over encoding optimizations:
- * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
- * -# If \p force_full_disp, a small value for disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * On x86, three boolean parameters give control over encoding optimizations
+ * (these are ignored on ARM):
+ * - If \p encode_zero_disp, a zero value for disp will not be omitted;
+ * - If \p force_full_disp, a small value for disp will not occupy only one byte.
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
  *
- * (Both of those are false when using opnd_create_base_disp()).
+ * (The encoding optimization flags are all false when using opnd_create_base_disp()).
  */
 opnd_t
 opnd_create_base_disp_ex(reg_id_t base_reg, reg_id_t index_reg, int scale,
@@ -745,7 +1034,10 @@ DR_API
  * The operand has data size \p data_size (must be a OPSZ_ constant).
  * \p seg must be a DR_SEG_ constant.
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * \p scale must be either 1, 2, 4, or 8.
+ * \p scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
  */
 opnd_t
 opnd_create_far_base_disp(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg, int scale,
@@ -759,14 +1051,19 @@ DR_API
  * or, in other words,
  * - seg : base_reg + index_reg*scale + disp
  *
- * The operand has data size \p data_size (must be a OPSZ_ constant).
+ * The operand has data size \p size (must be an OPSZ_ constant).
  * \p seg must be a DR_SEG_ constant.
  * Both \p base_reg and \p index_reg must be DR_REG_ constants.
- * scale must be either 1, 2, 4, or 8.
- * Gives control over encoding optimizations:
- * -# If \p encode_zero_disp, a zero value for disp will not be omitted;
- * -# If \p force_full_disp, a small value for disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * scale must be either 0, 1, 2, 4, or 8.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * On ARM, either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ * On x86, three boolean parameters give control over encoding optimizations
+ * (these are ignored on ARM):
+ * - If \p encode_zero_disp, a zero value for disp will not be omitted;
+ * - If \p force_full_disp, a small value for disp will not occupy only one byte.
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
@@ -778,6 +1075,30 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                              int scale, int disp, opnd_size_t size,
                              bool encode_zero_disp, bool force_full_disp,
                              bool disp_short_addr);
+
+DR_API
+/**
+ * Returns a memory reference operand that refers to either a base
+ * register plus or minus a constant displacement:
+ * - [base_reg, disp]
+ *
+ * Or a base register plus or minus an optionally shifted index register:
+ * - [base_reg, index_reg, shift_type, shift_amount]
+ *
+ * For an index register, the plus or minus is determined by the presence
+ * or absence of #DR_OPND_NEGATED in \p flags.
+ *
+ * The resulting operand has data size \p size (must be an OPSZ_ constant).
+ * Both \p base_reg and \p index_reg must be DR_REG_ constants.
+ * A negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ * Either \p index_reg must be #DR_REG_NULL or disp must be 0.
+ *
+ */
+opnd_t
+opnd_create_base_disp_arm(reg_id_t base_reg, reg_id_t index_reg,
+                          dr_shift_type_t shift_type, uint shift_amount, int disp,
+                          dr_opnd_flags_t flags, opnd_size_t size);
 
 DR_API
 /**
@@ -821,7 +1142,7 @@ opnd_t
 opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+#if defined(X64) || defined(ARM)
 /* DR_API EXPORT END */
 DR_API
 /**
@@ -854,7 +1175,7 @@ DR_API
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
  *
- * \note For 64-bit DR builds only.
+ * \note For ARM or 64-bit X86 DR builds only.
  */
 opnd_t
 opnd_create_rel_addr(void *addr, opnd_size_t data_size);
@@ -891,12 +1212,12 @@ DR_API
  * indicates), simply zero out the top 32 bits of the address before
  * passing it to this routine.
  *
- * \note For 64-bit DR builds only.
+ * \note For 64-bit X86 DR builds only.
  */
 opnd_t
 opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
 /* DR_API EXPORT BEGIN */
-#endif
+#endif /* X64 || ARM */
 /* DR_API EXPORT END */
 
 /* predicate functions */
@@ -1125,6 +1446,15 @@ reg_id_t
 opnd_get_reg(opnd_t opnd);
 
 DR_API
+/**
+ * Assumes \p opnd is either a register operand or a base+disp memory reference.
+ * Returns the flags describing additional properties of the register or
+ * the index register or displacement component of the memory reference.
+ */
+dr_opnd_flags_t
+opnd_get_flags(opnd_t opnd);
+
+DR_API
 /** Assumes opnd is an immediate integer, returns its value. */
 ptr_int_t
 opnd_get_immed_int(opnd_t opnd);
@@ -1180,6 +1510,9 @@ DR_API
 /**
  * Assumes \p opnd is a (near or far) base+disp memory reference.
  * Returns the displacement.
+ * On ARM, the displacement is always a non-negative value, and the
+ * presence or absence of #DR_OPND_NEGATED in opnd_get_flags()
+ * determines whether to add or subtract from the base register.
  */
 int
 opnd_get_disp(opnd_t opnd);
@@ -1217,7 +1550,10 @@ reg_id_t
 opnd_get_index(opnd_t opnd);
 
 DR_API
-/** Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the scale. */
+/**
+ * Assumes \p opnd is a (near or far) base+disp memory reference.  Returns the scale.
+ * \note x86-only.  On ARM use opnd_get_index_shift().
+ */
 int
 opnd_get_scale(opnd_t opnd);
 
@@ -1229,6 +1565,29 @@ DR_API
  */
 reg_id_t
 opnd_get_segment(opnd_t opnd);
+
+DR_API
+/**
+ * Assumes \p opnd is a (near or far) base+disp memory reference.
+ * Returns DR_SHIFT_NONE if the index register is not shifted.
+ * Returns the shift type and \p amount if the index register is shifted (this
+ * shift will occur prior to being added to or subtracted from the base
+ * register).
+ */
+dr_shift_type_t
+opnd_get_index_shift(opnd_t opnd, uint *amount OUT);
+
+DR_API
+/**
+ * Assumes \p opnd is a near base+disp memory reference.
+ * Sets the index register to be shifted by \p amount according to \p shift.
+ * Returns whether successful.
+ * If the shift amount is out of allowed ranges, returns false.
+ * \note On non-ARM platforms where shifted index registers do not exist, this
+ * routine will always fail.
+ */
+bool
+opnd_set_index_shift(opnd_t *opnd, dr_shift_type_t shift, uint amount);
 
 DR_API
 /**
@@ -1276,6 +1635,7 @@ DR_API
 /**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.
  * Returns the 16-bit version of \p reg.
+ * \note x86-only.
  */
 reg_id_t
 reg_32_to_16(reg_id_t reg);
@@ -1287,6 +1647,7 @@ DR_API
  * DR_REG_AL instead of DR_REG_AH if passed DR_REG_EAX, e.g.).  For 32-bit DR
  * builds, returns DR_REG_NULL if passed DR_REG_ESP, DR_REG_EBP, DR_REG_ESI, or
  * DR_REG_EDI.
+ * \note x86-only.
  */
 reg_id_t
 reg_32_to_8(reg_id_t reg);
@@ -1380,6 +1741,15 @@ DR_API
  */
 bool
 reg_is_segment(reg_id_t reg);
+
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff it refers to a multimedia register used for
+ * SIMD instructions.
+ */
+bool
+reg_is_simd(reg_id_t reg);
 
 DR_API
 /**
@@ -1514,19 +1884,27 @@ bool
 opnd_uses_reg(opnd_t opnd, reg_id_t reg);
 
 DR_API
-/** Set the displacement of a memory reference operand \p opnd to \p disp. */
+/**
+ * Set the displacement of a memory reference operand \p opnd to \p disp.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
+ */
 void
 opnd_set_disp(opnd_t *opnd, int disp);
 
 DR_API
 /**
- * Set the displacement and encoding controls of a memory reference operand:
+ * Set the displacement and, on x86, the encoding controls of a memory
+ * reference operand (the controls are ignored on ARM):
  * - If \p encode_zero_disp, a zero value for \p disp will not be omitted;
  * - If \p force_full_disp, a small value for \p disp will not occupy only one byte.
- * -# If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
+ * - If \p disp_short_addr, short (16-bit for 32-bit mode, 32-bit for
  *    64-bit mode) addressing will be used (note that this normally only
  *    needs to be specified for an absolute address; otherwise, simply
- *    use the desired short registers for base and/or index).
+ *    use the desired short registers for base and/or index).  This is only
+ *    honored on x86.
+ * On ARM, a negative value for \p disp will be converted into a positive
+ * value with #DR_OPND_NEGATED set in opnd_get_flags().
  */
 void
 opnd_set_disp_ex(opnd_t *opnd, int disp, bool encode_zero_disp, bool force_full_disp,
@@ -1539,6 +1917,10 @@ DR_API
  */
 bool
 opnd_replace_reg(opnd_t *opnd, reg_id_t old_reg, reg_id_t new_reg);
+
+/* Arch-specific */
+bool
+opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg);
 
 DR_API
 /** Returns true iff \p op1 and \p op2 are indistinguishable.
@@ -1576,7 +1958,7 @@ opnd_defines_use(opnd_t def, opnd_t use);
 DR_API
 /**
  * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
- * If \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
+ * On x86, if \p size is a DR_REG_ constant, first calls reg_get_size(\p size)
  * to get a OPSZ_ constant that assumes the entire register is used.
  * Returns the number of bytes the OPSZ_ constant represents.
  * If OPSZ_ is a variable-sized size, returns the default size,
@@ -1585,6 +1967,17 @@ DR_API
  */
 uint
 opnd_size_in_bytes(opnd_size_t size);
+
+DR_API
+/**
+ * Assumes \p size is a OPSZ_ or a DR_REG_ constant.
+ * Returns the number of bits the OPSZ_ constant represents.
+ * If OPSZ_ is a variable-sized size, returns the default size,
+ * which may or may not match the actual size decided up on at
+ * encoding time (that final size depends on other operands).
+ */
+uint
+opnd_size_in_bits(opnd_size_t size);
 
 DR_API
 /**
@@ -1751,5 +2144,9 @@ enum {
 #endif
 };
 extern const reg_id_t regparms[];
+
+/* arch-specific */
+uint opnd_immed_float_arch(uint opcode);
+
 
 #endif /* _OPND_H_ */

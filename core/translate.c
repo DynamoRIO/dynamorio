@@ -116,13 +116,20 @@ instr_is_inline_syscall_jmp(dcontext_t *dcontext, instr_t *inst)
     /* Not bothering to check whether there's a nearby syscall instr:
      * any label-targeting short jump should be fine to ignore.
      */
+# ifdef X86
     return (instr_get_opcode(inst) == OP_jmp_short &&
             opnd_is_instr(instr_get_target(inst)));
+# elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+# endif /* X86/ARM */
 }
 
 static inline bool
 instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
 {
+# ifdef X86
     /* This won't fault but we don't want "unsupported mangle instr" message. */
     if (!instr_is_our_mangling(inst))
         return false;
@@ -139,13 +146,15 @@ instr_is_seg_ref_load(dcontext_t *dcontext, instr_t *inst)
             opnd_get_index(mem) == opnd_get_reg(instr_get_dst(inst, 0)))
             return true;
     }
+# endif /* X86 */
     return false;
 }
-#endif
+#endif /* UNIX */
 
 static void
 translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *walk)
 {
+#ifdef X86
     reg_id_t reg, r;
     bool spill, spill_tls;
 
@@ -300,6 +309,12 @@ translate_walk_track(dcontext_t *tdcontext, instr_t *inst, translate_walk_t *wal
             walk->unsupported_mangle = true;
         }
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM.
+     * Also, we may want to split these out into arch/{x86,arm}/ files.
+     */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif
 }
 
 static bool
@@ -667,6 +682,7 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                     LOG(THREAD_GET, LOG_INTERP, 2,
                         "recreate_app -- found valid state pc "PFX"\n", answer);
                 } else {
+#ifdef X86
                     int op = instr_get_opcode(inst);
                     if (TEST(FRAG_SELFMOD_SANDBOXED, flags) &&
                         (op == OP_rep_ins || op == OP_rep_movs || op == OP_rep_stos)) {
@@ -682,7 +698,9 @@ recreate_app_state_from_ilist(dcontext_t *tdcontext, instrlist_t *ilist,
                         }
                         LOG(THREAD_GET, LOG_INTERP, 2,
                             "recreate_app -- found valid state pc "PFX"\n", answer);
-                    } else {
+                    } else
+#endif /* X86 */
+                    {
                         res = RECREATE_SUCCESS_PC; /* failed on full state, but pc good */
                         /* should only happen for thread synch, not a fault */
                         ASSERT(tdcontext != get_thread_private_dcontext() ||
@@ -914,8 +932,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         cache_pc cti_pc;
         instrlist_t *ilist = NULL;
         fragment_t *f = owning_f;
-        bool alloc = false;
-        IF_X64(bool old_mode;)
+        bool alloc = false, ok;
+        dr_isa_mode_t old_mode;
 #ifdef CLIENT_INTERFACE
         dr_restore_state_info_t client_info;
         dr_mcontext_t xl8_mcontext;
@@ -1015,8 +1033,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
         }
 
         /* Recreate in same mode as original fragment */
-        IF_X64(old_mode = set_x86_mode(tdcontext, FRAG_IS_32(f->flags) ||
-                                                  FRAG_IS_X86_TO_X64(f->flags)));
+        ok = dr_set_isa_mode(tdcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+        ASSERT(ok);
 
         /* now recreate the state */
 #ifdef CLIENT_INTERFACE
@@ -1041,7 +1059,8 @@ recreate_app_state_internal(dcontext_t *tdcontext, priv_mcontext_t *mcontext,
                                                 mcontext, just_pc, f->flags);
             STATS_INC(recreate_via_app_ilist);
         }
-        IF_X64(set_x86_mode(tdcontext, old_mode));
+        ok = dr_set_isa_mode(tdcontext, old_mode, NULL);
+        ASSERT(ok);
 
 #ifdef STEAL_REGISTER
         /* FIXME: conflicts w/ PR 263407 reg spill tracking */
@@ -1492,6 +1511,7 @@ record_translation_info(dcontext_t *dcontext, fragment_t *f, instrlist_t *existi
 void
 stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ilist)
 {
+# ifdef X86
     priv_mcontext_t mc;
     bool res;
     cache_pc cpc;
@@ -1537,6 +1557,7 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
             spill_xcx_outstanding = false;
             /* go ahead and fall through and ensure we succeed w/ 0 xsp adjust */
         }
+
         if (instr_is_our_mangling(in)) {
             if (!inside_mangle_region) {
                 inside_mangle_region = true;
@@ -1585,6 +1606,10 @@ stress_test_recreate_state(dcontext_t *dcontext, fragment_t *f, instrlist_t *ili
     if (TEST(FRAG_IS_TRACE, f->flags)) {
         instrlist_clear_and_destroy(dcontext, ilist);
     }
+# elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+# endif /* X86/ARM */
 }
 #endif /* INTERNAL */
 

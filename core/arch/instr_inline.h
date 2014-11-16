@@ -123,14 +123,15 @@ INSTR_INLINE
 bool
 opnd_is_near_base_disp(opnd_t op)
 {
-    return op.kind == BASE_DISP_kind && op.seg.segment == DR_REG_NULL;
+    return op.kind == BASE_DISP_kind IF_X86(&& op.aux.segment == DR_REG_NULL);
 }
 
 INSTR_INLINE
 bool
 opnd_is_far_base_disp(opnd_t op)
 {
-    return op.kind == BASE_DISP_kind && op.seg.segment != DR_REG_NULL;
+    return IF_X86_ELSE(op.kind == BASE_DISP_kind && op.aux.segment != DR_REG_NULL,
+                       false);
 }
 
 
@@ -142,14 +143,15 @@ INSTR_INLINE
 bool
 opnd_is_near_rel_addr(opnd_t opnd)
 {
-    return opnd.kind == REL_ADDR_kind && opnd.seg.segment == DR_REG_NULL;
+    return opnd.kind == REL_ADDR_kind IF_X86(&& opnd.aux.segment == DR_REG_NULL);
 }
 
 INSTR_INLINE
 bool
 opnd_is_far_rel_addr(opnd_t opnd)
 {
-    return opnd.kind == REL_ADDR_kind && opnd.seg.segment != DR_REG_NULL;
+    return IF_X86_ELSE(opnd.kind == REL_ADDR_kind && opnd.aux.segment != DR_REG_NULL,
+                       false);
 }
 #endif /* X64 */
 
@@ -178,6 +180,7 @@ opnd_create_reg(reg_id_t r)
     opnd.kind = REG_kind;
     opnd.value.reg = r;
     opnd.size = 0; /* indicates full size of reg */
+    opnd.aux.flags = 0;
     return opnd;
 }
 
@@ -186,12 +189,24 @@ opnd_t
 opnd_create_reg_partial(reg_id_t r, opnd_size_t subsize)
 {
     opnd_t opnd DR_IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
+#ifdef X86
     CLIENT_ASSERT((r >= DR_REG_MM0 && r <= DR_REG_XMM15) ||
                   (r >= DR_REG_YMM0 && r <= DR_REG_YMM15),
                   "opnd_create_reg_partial: non-multimedia register");
+#endif
     opnd.kind = REG_kind;
     opnd.value.reg = r;
     opnd.size = subsize;
+    opnd.aux.flags = 0;
+    return opnd;
+}
+
+INSTR_INLINE
+opnd_t
+opnd_create_reg_ex(reg_id_t r, opnd_size_t subsize, dr_opnd_flags_t flags)
+{
+    opnd_t opnd = opnd_create_reg_partial(r, subsize);
+    opnd.aux.flags = flags;
     return opnd;
 }
 
@@ -212,6 +227,12 @@ opnd_create_pc(app_pc pc)
      (opnd).value.reg)
 #define opnd_get_reg OPND_GET_REG
 
+#define OPND_GET_FLAGS(opnd) \
+    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
+     "opnd_get_flags called on non-reg non-base-disp opnd") \
+     (opnd).aux.flags)
+#define opnd_get_flags OPND_GET_FLAGS
+
 #define GET_BASE_DISP(opnd) \
     (CLIENT_ASSERT_(opnd_is_base_disp(opnd), \
                     "opnd_get_base_disp called on invalid opnd type") \
@@ -220,19 +241,28 @@ opnd_create_pc(app_pc pc)
 #define OPND_GET_BASE(opnd)  (GET_BASE_DISP(opnd).base_reg)
 #define OPND_GET_DISP(opnd)  (GET_BASE_DISP(opnd).disp)
 #define OPND_GET_INDEX(opnd) (GET_BASE_DISP(opnd).index_reg)
-#define OPND_GET_SCALE(opnd) (GET_BASE_DISP(opnd).scale)
+#ifdef X86
+# define OPND_GET_SCALE(opnd) (GET_BASE_DISP(opnd).scale)
+#else
+# define OPND_GET_SCALE(opnd) \
+    (CLIENT_ASSERT_(false, "opnd_get_scale not supported on ARM") 0)
+#endif
 
 #define opnd_get_base OPND_GET_BASE
 #define opnd_get_disp OPND_GET_DISP
 #define opnd_get_index OPND_GET_INDEX
 #define opnd_get_scale OPND_GET_SCALE
 
-#define OPND_GET_SEGMENT(opnd) \
+#ifdef X86
+# define OPND_GET_SEGMENT(opnd) \
     (CLIENT_ASSERT_(opnd_is_base_disp(opnd) \
                     IF_X64(|| opnd_is_abs_addr(opnd) || \
                            opnd_is_rel_addr(opnd)), \
                     "opnd_get_segment called on invalid opnd type") \
-     (opnd).seg.segment)
+     (opnd).aux.segment)
+#elif defined(ARM)
+# define OPND_GET_SEGMENT(opnd) DR_REG_NULL
+#endif
 #define opnd_get_segment OPND_GET_SEGMENT
 
 /* instr_t accessors */

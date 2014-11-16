@@ -48,10 +48,12 @@ else () # Qt5 and CMake 2.8.10+
   cmake_minimum_required(VERSION 2.8.10)
   message(STATUS "Found Qt 5: DrGUI will be built")
 
-  if ("${CMAKE_VERSION}" VERSION_EQUAL "2.8.11" OR
-      "${CMAKE_VERSION}" VERSION_GREATER "2.8.11")
-    # XXX i#1418: update to cmake 2.8.12's better handling of interface imports
-    cmake_policy(SET CMP0020 OLD)
+  include(../../make/policies.cmake NO_POLICY_SCOPE)
+
+  if ("${CMAKE_VERSION}" VERSION_EQUAL "3.0" OR
+      "${CMAKE_VERSION}" VERSION_GREATER "3.0")
+    # XXX i#1558: resolve the underlying issue here
+    cmake_policy(SET CMP0043 OLD)
   endif ()
 
   # DR's boundary of 2 causes alignment issues with Qt, so we stick to default.

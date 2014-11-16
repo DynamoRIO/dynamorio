@@ -75,17 +75,27 @@
  *
  * PR 205276 covers transparently stealing our segment selector.
  */
-#ifdef X64
-# define SEG_TLS SEG_GS
-# define ASM_SEG "%gs"
-# define LIB_SEG_TLS SEG_FS /* libc+loader tls */
-# define LIB_ASM_SEG "%fs"
-#else
-# define SEG_TLS SEG_FS
-# define ASM_SEG "%fs"
-# define LIB_SEG_TLS SEG_GS /* libc+loader tls */
-# define LIB_ASM_SEG "%gs"
-#endif
+#ifdef X86
+# ifdef X64
+#  define SEG_TLS SEG_GS
+#  define ASM_SEG "%gs"
+#  define LIB_SEG_TLS SEG_FS /* libc+loader tls */
+#  define LIB_ASM_SEG "%fs"
+# else
+#  define SEG_TLS SEG_FS
+#  define ASM_SEG "%fs"
+#  define LIB_SEG_TLS SEG_GS /* libc+loader tls */
+#  define LIB_ASM_SEG "%gs"
+# endif
+#elif defined(ARM)
+# ifdef X64
+#  define SEG_TLS      DR_REG_TPIDRRO_EL0 /* DR_REG_TPIDRURO */
+#  define LIB_SEG_TLS  DR_REG_TPIDR_EL0   /* DR_REG_TPIDRURW, libc+loader tls */
+# else
+#  define SEG_TLS      DR_REG_TPIDRURW
+#  define LIB_SEG_TLS  DR_REG_TPIDRURO /* libc+loader tls */
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 
 void *get_tls(ushort tls_offs);
 void set_tls(ushort tls_offs, void *value);
@@ -100,11 +110,11 @@ thread_id_t get_sys_thread_id(void);
 bool is_thread_terminated(dcontext_t *dcontext);
 void os_wait_thread_terminated(dcontext_t *dcontext);
 void os_tls_pre_init(int gdt_index);
-/* XXX: reg_id_t is not defined here, use unsigned char instead */
-ushort os_get_app_seg_base_offset(unsigned char seg);
-ushort os_get_app_seg_offset(unsigned char seg);
-void *os_get_dr_seg_base(dcontext_t *dcontext, unsigned char seg);
-void *os_get_app_seg_base(dcontext_t *dcontext, unsigned char seg);
+/* XXX: reg_id_t is not defined here, use ushort instead */
+ushort os_get_app_seg_base_offset(ushort/*reg_id_t*/ seg);
+ushort os_get_app_seg_offset(ushort/*reg_id_t*/ seg);
+void *os_get_dr_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
+void *os_get_app_seg_base(dcontext_t *dcontext, ushort/*reg_id_t*/ seg);
 
 /* We do NOT want our libc routines wrapped by pthreads, so we use
  * our own syscall wrappers.
@@ -148,10 +158,16 @@ int our_unsetenv(const char *name);
      asm(".section __DATA,"name); \
      asm(".align 12"); /* 2^12 */
 #else
-# define DECLARE_DATA_SECTION(name, wx) \
+# ifdef X86
+#  define DECLARE_DATA_SECTION(name, wx) \
      asm(".section "name", \"a"wx"\", @progbits"); \
      asm(".align 0x1000");
-#endif
+# elif defined(ARM)
+#  define DECLARE_DATA_SECTION(name, wx) \
+     asm(".section "name", \"a"wx"\""); \
+     asm(".align 12"); /* 2^12 */
+# endif /* X86/ARM */
+#endif /* MACOS/UNIX */
 
 /* XXX i#465: It's unclear what section we should switch to after our section
  * declarations.  gcc 4.3 seems to switch back to text at the start of every
@@ -165,10 +181,17 @@ int our_unsetenv(const char *name);
      asm(".align 12"); \
      asm(".text");
 #else
-# define END_DATA_SECTION_DECLARATIONS() \
+# ifdef X86
+#  define END_DATA_SECTION_DECLARATIONS() \
      asm(".section .data"); \
      asm(".align 0x1000"); \
      asm(".text");
+# elif defined(ARM)
+#  define END_DATA_SECTION_DECLARATIONS() \
+     asm(".section .data"); \
+     asm(".align 12"); \
+     asm(".text");
+# endif /* X86/ARM */
 #endif
 
 /* the VAR_IN_SECTION macro change where each var goes */
@@ -276,34 +299,49 @@ typedef struct sigcontext sigcontext_t;
 #else
 # define SC_FIELD(name) name
 #endif
-#ifdef X64
-# define SC_XIP SC_FIELD(rip)
-# define SC_XAX SC_FIELD(rax)
-# define SC_XCX SC_FIELD(rcx)
-# define SC_XDX SC_FIELD(rdx)
-# define SC_XBX SC_FIELD(rbx)
-# define SC_XSP SC_FIELD(rsp)
-# define SC_XBP SC_FIELD(rbp)
-# define SC_XSI SC_FIELD(rsi)
-# define SC_XDI SC_FIELD(rdi)
-# ifdef MACOS
-#  define SC_XFLAGS SC_FIELD(rflags)
-# else
+#ifdef X86
+# ifdef X64
+#  define SC_XIP SC_FIELD(rip)
+#  define SC_XAX SC_FIELD(rax)
+#  define SC_XCX SC_FIELD(rcx)
+#  define SC_XDX SC_FIELD(rdx)
+#  define SC_XBX SC_FIELD(rbx)
+#  define SC_XSP SC_FIELD(rsp)
+#  define SC_XBP SC_FIELD(rbp)
+#  define SC_XSI SC_FIELD(rsi)
+#  define SC_XDI SC_FIELD(rdi)
+#  ifdef MACOS
+#   define SC_XFLAGS SC_FIELD(rflags)
+#  else
+#   define SC_XFLAGS SC_FIELD(eflags)
+#  endif
+# else /* 32-bit */
+#  define SC_XIP SC_FIELD(eip)
+#  define SC_XAX SC_FIELD(eax)
+#  define SC_XCX SC_FIELD(ecx)
+#  define SC_XDX SC_FIELD(edx)
+#  define SC_XBX SC_FIELD(ebx)
+#  define SC_XSP SC_FIELD(esp)
+#  define SC_XBP SC_FIELD(ebp)
+#  define SC_XSI SC_FIELD(esi)
+#  define SC_XDI SC_FIELD(edi)
 #  define SC_XFLAGS SC_FIELD(eflags)
-# endif
-#else
-# define SC_XIP SC_FIELD(eip)
-# define SC_XAX SC_FIELD(eax)
-# define SC_XCX SC_FIELD(ecx)
-# define SC_XDX SC_FIELD(edx)
-# define SC_XBX SC_FIELD(ebx)
-# define SC_XSP SC_FIELD(esp)
-# define SC_XBP SC_FIELD(ebp)
-# define SC_XSI SC_FIELD(esi)
-# define SC_XDI SC_FIELD(edi)
-# define SC_XFLAGS SC_FIELD(eflags)
-#endif
-
+# endif /* 64/32-bit */
+# define SC_FP SC_XBP
+# define SC_SYSNUM_REG SC_XAX
+#elif defined(ARM)
+# ifdef X64
+#  error 64-bit ARM is not supported
+# else
+#  define SC_XIP SC_FIELD(arm_pc)
+#  define SC_XSP SC_FIELD(arm_sp)
+#  define SC_FP  SC_FIELD(arm_fp)
+#  define SC_R0  SC_FIELD(arm_r0)
+#  define SC_R7  SC_FIELD(arm_r7)
+#  define SC_XFLAGS SC_FIELD(arm_cpsr)
+#  define SC_SYSNUM_REG SC_R7
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
 void *
 #ifdef MACOS
 create_clone_record(dcontext_t *dcontext, reg_t *app_xsp,

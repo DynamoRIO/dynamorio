@@ -39,6 +39,7 @@
  *
  * References:
  *   "Intel Architecture Software Developer's Manual", 1999.
+ *   "ARM Architecture Manual", 2014.
  */
 
 #ifndef _ARCH_EXPORTS_H_
@@ -47,6 +48,7 @@
 /* stack slot width */
 #define XSP_SZ (sizeof(reg_t))
 
+#ifdef X86
 /* PR 264138: we must preserve xmm0-5 if on a 64-bit kernel.
  * On Linux we must preserve all xmm registers.
  * If AVX is enabled we save ymm.
@@ -54,15 +56,16 @@
  * adding new ones, so code operating on XMM often also operates on YMM,
  * and thus some *XMM* macros also apply to *YMM*.
  */
-#define XMM_REG_SIZE  16
-#define YMM_REG_SIZE  32
-#define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
-#define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
-#define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
+# define XMM_REG_SIZE  16
+# define YMM_REG_SIZE  32
+# define XMM_SAVED_REG_SIZE  YMM_REG_SIZE /* space in priv_mcontext_t for xmm/ymm */
+# define XMM_SLOTS_SIZE  (NUM_XMM_SLOTS*XMM_SAVED_REG_SIZE)
+# define XMM_SAVED_SIZE  (NUM_XMM_SAVED*XMM_SAVED_REG_SIZE)
 /* Indicates OS support, not just processor support (xref i#1278) */
-#define YMM_ENABLED() (proc_avx_enabled())
-#define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
-#define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
+# define YMM_ENABLED() (proc_avx_enabled())
+# define YMMH_REG_SIZE (YMM_REG_SIZE/2) /* upper half */
+# define YMMH_SAVED_SIZE (NUM_XMM_SLOTS*YMMH_REG_SIZE)
+#endif /* X86 */
 
 /* Number of slots for spills from inlined clean calls. */
 #define CLEANCALL_NUM_INLINE_SLOTS 5
@@ -122,13 +125,18 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
+/* FIXME i#1551: implement the spill state for ARM */
 /* All spill slots are grouped in a separate struct because with
  * -no_ibl_table_in_tls, only these slots are mapped to TLS (and the
  * table address/mask pairs are not).
  */
 typedef struct _spill_state_t {
     /* Four registers are used in the indirect branch lookup routines */
+#ifdef X86
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
+#elif defined (ARM)
+    reg_t r0, r1, r2, r3;
+#endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
 } spill_state_t;
@@ -146,10 +154,29 @@ typedef struct _local_state_extended_t {
  * accessible off of fs:.  But, the actual segment offset varies, so
  * os_tls_offset() must be used to obtain an fs: offset from a slot.
  */
-#define TLS_XAX_SLOT             ((ushort)offsetof(spill_state_t, xax))
-#define TLS_XBX_SLOT             ((ushort)offsetof(spill_state_t, xbx))
-#define TLS_XCX_SLOT             ((ushort)offsetof(spill_state_t, xcx))
-#define TLS_XDX_SLOT             ((ushort)offsetof(spill_state_t, xdx))
+#ifdef X86
+# define TLS_XAX_SLOT             ((ushort)offsetof(spill_state_t, xax))
+# define TLS_XBX_SLOT             ((ushort)offsetof(spill_state_t, xbx))
+# define TLS_XCX_SLOT             ((ushort)offsetof(spill_state_t, xcx))
+# define TLS_XDX_SLOT             ((ushort)offsetof(spill_state_t, xdx))
+# define TLS_SLOT_R0              TLS_XAX_SLOT
+# define TLS_SLOT_R1              TLS_XBX_SLOT
+# define TLS_SLOT_R2              TLS_XCX_SLOT
+# define TLS_SLOT_R3              TLS_XDX_SLOT
+# define TLS_REG_R0               DR_REG_XAX
+# define TLS_REG_R1               DR_REG_XBX
+# define TLS_REG_R2               DR_REG_XCX
+# define TLS_REG_R3               DR_REG_XDX
+#elif defined(ARM)
+# define TLS_SLOT_R0              ((ushort)offsetof(spill_state_t, r0))
+# define TLS_SLOT_R1              ((ushort)offsetof(spill_state_t, r1))
+# define TLS_SLOT_R2              ((ushort)offsetof(spill_state_t, r2))
+# define TLS_SLOT_R3              ((ushort)offsetof(spill_state_t, r3))
+# define TLS_REG_R0               DR_REG_R0
+# define TLS_REG_R1               DR_REG_R1
+# define TLS_REG_R2               DR_REG_R2
+# define TLS_REG_R3               DR_REG_R3
+#endif /* X86/ARM */
 #define TLS_DCONTEXT_SLOT        ((ushort)offsetof(spill_state_t, dcontext))
 
 #define TABLE_OFFSET             (offsetof(local_state_extended_t, table_space))
@@ -249,6 +276,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
     ASSERT(sizeof(value) == 4);                                     \
     /* test that we aren't crossing a cache line boundary */        \
     CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);               \
+    /* we use xchgl instead of mov for non-4-byte-aligned writes */ \
     _InterlockedExchange((volatile LONG *)target, (LONG)value);     \
   } while (0)
 # ifdef X64
@@ -258,6 +286,7 @@ emit_detach_callback_final_jmp(dcontext_t *dcontext,
     ASSERT_CURIOSITY(!hot_patch);                                   \
     /* test that we aren't crossing a cache line boundary */        \
     CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
+    /* we use xchgl instead of mov for non-4-byte-aligned writes */ \
     _InterlockedExchange64((volatile __int64 *)target, (__int64)value); \
   } while (0)
 # endif
@@ -344,88 +373,225 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
 # define atomic_add_exchange atomic_add_exchange_int
 
 #else /* UNIX */
-# define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
-    ASSERT(sizeof(value) == 4);                                      \
-    /* test that we aren't crossing a cache line boundary */         \
-    CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);                \
-    __asm__ __volatile__("xchgl (%0), %1" : : "r" (target), "r" (value) : "memory"); \
-  } while (0)
-# ifdef X64
-#  define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
-    ASSERT(sizeof(value) == 8);                                     \
-    /* Not currently used to write code */                          \
-    ASSERT_CURIOSITY(!hot_patch);                                   \
-    /* test that we aren't crossing a cache line boundary */        \
-    CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
-    __asm__ __volatile__("xchgq (%0), %1" : : "r" (target), "r" (value) : "memory"); \
-  } while (0)
-# endif
-# define ATOMIC_INC_suffix(suffix, var) \
-    __asm__ __volatile__("lock inc" suffix " %0" : "=m" (var) : : "memory")
-# define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
-# define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
-# define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
-# define ATOMIC_DEC_suffix(suffix, var) \
-    __asm__ __volatile__("lock dec" suffix " %0" : "=m" (var) : : "memory")
-# define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
-# define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
-# define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
+# ifdef X86
+/* IA-32 vol 3 7.1.4: processor will internally suppress the bus lock
+ * if target is within cache line.
+ */
+#  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 4);                                      \
+     /* test that we aren't crossing a cache line boundary */         \
+     CHECK_JMP_TARGET_ALIGNMENT(target, 4, hot_patch);                \
+     /* we use xchgl instead of mov for non-4-byte-aligned writes */  \
+     __asm__ __volatile__("xchgl (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+   } while (0)
+#  ifdef X64
+#   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {         \
+      ASSERT(sizeof(value) == 8);                                     \
+      /* Not currently used to write code */                          \
+      ASSERT_CURIOSITY(!hot_patch);                                   \
+      /* test that we aren't crossing a cache line boundary */        \
+      CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
+      __asm__ __volatile__("xchgq (%0), %1" : : "r" (target), "r" (value) : "memory"); \
+    } while (0)
+#  endif /* X64 */
+#  define ATOMIC_INC_suffix(suffix, var) \
+     __asm__ __volatile__("lock inc" suffix " %0" : "=m" (var) : : "memory")
+#  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("l", var)
+#  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("q", var)
+#  define ATOMIC_DEC_suffix(suffix, var) \
+     __asm__ __volatile__("lock dec" suffix " %0" : "=m" (var) : : "memory")
+#  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("l", var)
+#  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("q", var)
 /* with just "r" gcc will put $0 from PROBE_WRITE_PC into %eax
  * and then complain that "lock addq" can't take %eax!
  * so we use "ri":
  */
-# define ATOMIC_ADD_suffix(suffix, var, value)                 \
-   __asm__ __volatile__("lock add" suffix " %1, %0"            \
-                        : "=m" (var) : "ri" (value) : "memory")
-# define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
-# define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+#  define ATOMIC_ADD_suffix(suffix, var, value)                 \
+    __asm__ __volatile__("lock add" suffix " %1, %0"            \
+                         : "=m" (var) : "ri" (value) : "memory")
+#  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("l", var, val)
+#  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+/* Not safe for general use, just for atomic_add_exchange(), undefed below */
+#  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result) \
+    __asm__ __volatile__("lock xadd" suffix " %1, %0"            \
+                         : "=m" (*var), "=r" (result) : "1" (value) : "memory")
+#  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
+     ATOMIC_ADD_EXCHANGE_suffix("l", var, val, res)
+#  define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
+     ATOMIC_ADD_EXCHANGE_suffix("q", var, val, res)
+#  define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
+     __asm__ __volatile__ ("lock cmpxchg" suffix " %2,%0"         \
+                           : "=m" (var)                           \
+                           : "a" (compare), "r" (exchange)        \
+                           : "memory")
+#  define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
+     ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange)
+#  define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
+     ATOMIC_COMPARE_EXCHANGE_suffix("q", var, compare, exchange)
+#  define ATOMIC_EXCHANGE(var, newval, result)     \
+     __asm __volatile ("xchgl %0, %1"              \
+                       : "=r" (result), "=m" (var) \
+                       : "0" (newval), "m" (var))
+
+#  define SPINLOCK_PAUSE()   __asm__ __volatile__("pause")
+#  define RDTSC_LL(llval)                        \
+     __asm__ __volatile__                        \
+     ("rdtsc" : "=A" (llval))
+#  define SERIALIZE_INSTRUCTIONS()                                       \
+     __asm__ __volatile__                                                \
+     ("xor %%eax, %%eax; cpuid" : : : "eax", "ebx", "ecx", "edx");
+#  define GET_FRAME_PTR(var) asm("mov %%"IF_X64_ELSE("rbp","ebp")", %0" : "=m"(var))
+#  define GET_STACK_PTR(var) asm("mov %%"IF_X64_ELSE("rsp","esp")", %0" : "=m"(var))
+
+#  define SET_FLAG(cc, flag) __asm__ __volatile__("set"#cc " %0" :"=qm" (flag) )
+#  define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
+#  define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
+# else /* ARM */
+#  define ATOMIC_4BYTE_WRITE(target, value, hot_patch) do {           \
+     ASSERT(sizeof(value) == 4);                                      \
+     /* Load and store instructions are atomic on ARM if aligned. */  \
+     /* FIXME i#1551: we need patch the whole instruction instead. */ \
+     ASSERT(ALIGNED(target, 4));                                      \
+     __asm__ __volatile__("str %0, [%1]"                              \
+                          : : "r"  (value), "r" (target)              \
+                          : "memory");                                \
+   } while (0)
+#  ifdef X64
+#   define ATOMIC_8BYTE_WRITE(target, value, hot_patch) do {          \
+      ASSERT(sizeof(value) == 8);                                     \
+      /* Not currently used to write code */                          \
+      ASSERT_CURIOSITY(!hot_patch);                                   \
+      /* test that we aren't crossing a cache line boundary */        \
+      CHECK_JMP_TARGET_ALIGNMENT(target, 8, hot_patch);               \
+      /* Load and store instructions are atomic on ARM if aligned */  \
+     /* FIXME i#1551: we need patch the whole instruction instead. */ \
+     ASSERT(ALIGNED(target, 4));                                      \
+      __asm__ __volatile__("strd %0, [%1]"                            \
+                           : : "r" (value), "r" (target)              \
+                           : "memory");                               \
+    } while (0)
+#  endif /* X64 */
+/* OP_swp is deprecated and OP_ldrex and OP_strex are introduced in
+ * ARMv6 for ARM synchronization primitives
+ */
+/* The manual says "If SCTLR.A and SCTLR.U are both 0,
+ * a non word-aligned memory address causes UNPREDICTABLE behavior.",
+ * so we require alignment here.
+ */
+/* FIXME i#1551: should we allow the infinit loops for those ATOMIC ops */
+#  define ATOMIC_INC_suffix(suffix, var)                              \
+     __asm__ __volatile__(                                            \
+       "1: ldrex" suffix " r2, %0         \n\t"                       \
+       "   add"   suffix " r2, r2, #1     \n\t"                       \
+       "   strex" suffix " r3, r2, %0     \n\t"                       \
+       "   cmp   r3, #0                   \n\t"                       \
+       "   bne   1b"                                                  \
+       : "=Q" (var) /* no offset for ARM mode */                      \
+       : : "cc", "memory", "r2", "r3");
+#  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
+#  define ATOMIC_INC_int64(var) ATOMIC_INC_suffix("d", var)
+#  define ATOMIC_DEC_suffix(suffix, var)                              \
+     __asm__ __volatile__(                                            \
+       "1: ldrex" suffix " r2, %0         \n\t"                       \
+       "   sub"   suffix " r2, r2, #1     \n\t"                       \
+       "   strex" suffix " r3, r2, %0     \n\t"                       \
+       "   cmp   r3, #0                   \n\t"                       \
+       "   bne   1b"                                                  \
+       : "=Q" (var) /* no offset for ARM mode */                      \
+       : : "cc", "memory", "r2", "r3");
+#  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
+#  define ATOMIC_DEC_int64(var) ATOMIC_DEC_suffix("d", var)
+#  define ATOMIC_ADD_suffix(suffix, var, value)                       \
+     __asm__ __volatile__(                                            \
+       "1: ldrex" suffix " r2, %0         \n\t"                       \
+       "   add"   suffix " r2, r2, %1     \n\t"                       \
+       "   strex" suffix " r3, r2, %0     \n\t"                       \
+       "   cmp   r3, #0                   \n\t"                       \
+       "   bne   1b"                                                  \
+       : "=Q" (var) /* no offset for ARM mode */                      \
+       : "r"  (value)                                                 \
+       : "cc", "memory", "r2", "r3");
+#  define ATOMIC_ADD_int(var, val) ATOMIC_ADD_suffix("", var, val)
+#  define ATOMIC_ADD_int64(var, val) ATOMIC_ADD_suffix("q", var, val)
+/* Not safe for general use, just for atomic_add_exchange(), undefed below */
+#  define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result)      \
+     __asm__ __volatile__(                                            \
+       "1: ldrex" suffix " r2, %0         \n\t"                       \
+       "   add"   suffix " r2, r2, %2     \n\t"                       \
+       "   strex" suffix " r3, r2, %0     \n\t"                       \
+       "   cmp   r3, #0                   \n\t"                       \
+       "   bne   1b                       \n\t"                       \
+       "   str" suffix " r2, %1"                                      \
+       : "=Q" (var), "=m" (result)                                    \
+       : "r"  (value)                                                 \
+       : "cc", "memory", "r2", "r3");
+#  define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
+    ATOMIC_ADD_EXCHANGE_suffix("", var, val, res)
+#  define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
+    ATOMIC_ADD_EXCHANGE_suffix("d", var, val, res)
+#  define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
+     __asm__ __volatile__(                                            \
+       "   ldrex" suffix " r2, %0       \n\t"                         \
+       "   cmp"   suffix " r2, %2       \n\t"                         \
+       "   bne    1f                    \n\t"                         \
+       "   strex" suffix " r3, %2, %0   \n\t"                         \
+       "1: clrex                        \n\t"                         \
+       : "=Q" (var) /* no offset for ARM mode */                      \
+       : "r"  (compare), "r" (exchange)                               \
+       : "cc", "memory", "r2", "r3");
+#  define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
+    ATOMIC_COMPARE_EXCHANGE_suffix("", var, compare, exchange)
+#  define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
+    ATOMIC_COMPARE_EXCHANGE_suffix("d", var, compare, exchange)
+#  define ATOMIC_EXCHANGE(var, newval, result)                        \
+     __asm__ __volatile__(                                            \
+       "1: ldrex r2, %0         \n\t"                                 \
+       "   strex r3, %2, %0     \n\t"                                 \
+       "   cmp   r3, #0         \n\t"                                 \
+       "   bne   1b             \n\t"                                 \
+       "   str   r2, %1"                                              \
+       : "=Q" (var), "=m" (result)                                    \
+       : "r"  (newval)                                                \
+       : "cc", "memory", "r2", "r3");
+
+#  define SPINLOCK_PAUSE()  __asm__ __volatile__("wfi") /* wait for interrupt */
+/* FIXME i#1551: there is no RDTSC on ARM. */
+#  define RDTSC_LL(llval) do {            \
+        ASSERT_NOT_IMPLEMENTED(false);    \
+        (llval) = 0;                      \
+    } while (0)
+#  define SERIALIZE_INSTRUCTIONS() __asm__ __volatile__("clrex");
+/* FIXME i#1551: frame pointer is r7 in thumb mode */
+#  define GET_FRAME_PTR(var)  \
+     __asm__ __volatile__("str "IF_X64_ELSE("x29", "r11")", %0" : "=m"(var))
+#  define GET_STACK_PTR(var) __asm__ __volatile__("str sp, %0" : "=m"(var))
+
+/* assuming flag is unsigned char */
+#  define SET_FLAG(cc, flag)         \
+      __asm__ __volatile__(          \
+        "   mov       r2, #1  \n\t"  \
+        "   b"#cc "   1f      \n\t"  \
+        "   mov       r2, #0  \n\t"  \
+        "1: strb r2, %0"             \
+        :"=m" (flag) : : "r2")
+#  define SET_IF_NOT_ZERO(flag) SET_FLAG(ne, flag)
+#  define SET_IF_NOT_LESS(flag) SET_FLAG(ge, flag)
+# endif /* X86/ARM */
+
+# define ATOMIC_INC(type, var) ATOMIC_INC_##type(var)
+# define ATOMIC_DEC(type, var) ATOMIC_DEC_##type(var)
 # define ATOMIC_ADD(type, var, val) ATOMIC_ADD_##type(var, val)
 # ifdef X64
 #  define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int64(var, val)
 # else
 #  define ATOMIC_ADD_PTR(type, var, val) ATOMIC_ADD_int(var, val)
 # endif
-/* Not safe for general use, just for atomic_add_exchange(), undefed below */
-# define ATOMIC_ADD_EXCHANGE_suffix(suffix, var, value, result) \
-   __asm__ __volatile__("lock xadd" suffix " %1, %0"            \
-                        : "=m" (*var), "=r" (result) : "1" (value) : "memory")
-# define ATOMIC_ADD_EXCHANGE_int(var, val, res) \
-    ATOMIC_ADD_EXCHANGE_suffix("l", var, val, res)
-# define ATOMIC_ADD_EXCHANGE_int64(var, val, res) \
-    ATOMIC_ADD_EXCHANGE_suffix("q", var, val, res)
-# define ATOMIC_COMPARE_EXCHANGE_suffix(suffix, var, compare, exchange) \
-   __asm__ __volatile__ ("lock cmpxchg" suffix " %2,%0"         \
-                         : "=m" (var)                           \
-                         : "a" (compare), "r" (exchange)        \
-                         : "memory")
-# define ATOMIC_COMPARE_EXCHANGE_int(var, compare, exchange) \
-    ATOMIC_COMPARE_EXCHANGE_suffix("l", var, compare, exchange)
-# define ATOMIC_COMPARE_EXCHANGE_int64(var, compare, exchange) \
-    ATOMIC_COMPARE_EXCHANGE_suffix("q", var, compare, exchange)
 # define ATOMIC_COMPARE_EXCHANGE ATOMIC_COMPARE_EXCHANGE_int
 # ifdef X64
 #  define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE_int64
 # else
 #  define ATOMIC_COMPARE_EXCHANGE_PTR ATOMIC_COMPARE_EXCHANGE
 # endif
-# define ATOMIC_EXCHANGE(var, newval, result)     \
-    __asm __volatile ("xchgl %0, %1"              \
-                      : "=r" (result), "=m" (var) \
-                      : "0" (newval), "m" (var))
-
-# define SPINLOCK_PAUSE()   __asm__ __volatile__("pause")
-# define RDTSC_LL(llval)                        \
-    __asm__ __volatile__                        \
-    ("rdtsc" : "=A" (llval))
-# define SERIALIZE_INSTRUCTIONS()                                       \
-    __asm__ __volatile__                                                \
-    ("xor %%eax, %%eax; cpuid" : : : "eax", "ebx", "ecx", "edx");
-# define GET_FRAME_PTR(var) asm("mov %%"IF_X64_ELSE("rbp","ebp")", %0" : "=m"(var))
-# define GET_STACK_PTR(var) asm("mov %%"IF_X64_ELSE("rsp","esp")", %0" : "=m"(var))
-
-# define SET_FLAG(cc, flag) __asm__ __volatile__("set"#cc " %0" :"=qm" (flag) )
-# define SET_IF_NOT_ZERO(flag) SET_FLAG(nz, flag)
-# define SET_IF_NOT_LESS(flag) SET_FLAG(nl, flag)
 
 /* Atomically increments *var by 1
  * Returns true if the resulting value is zero, otherwise returns false
@@ -702,7 +868,7 @@ fcache_enter_func_t get_fcache_enter_shared_routine(dcontext_t *dcontext);
 
 /* Method of performing system call.
  * We assume that only one method is in use, except for 32-bit applications
- * on 64-bit linux kernels, which use both sys{enter,call} on the vsyscall
+ * on 64-bit x86 linux kernels, which use both sys{enter,call} on the vsyscall
  * page and inlined int (PR 286922).
  * For these apps, DR itself and global_do_syscall use int, but we
  * have both a do_syscall for the vsyscall and a separate do_int_syscall
@@ -718,6 +884,7 @@ enum {
 #ifdef WINDOWS
     SYSCALL_METHOD_WOW64,
 #endif
+    SYSCALL_METHOD_SVC, /* ARM */
 };
 #ifdef UNIX
 enum { SYSCALL_METHOD_LONGEST_INSTR = 2 }; /* to ensure safe patching */
@@ -734,9 +901,16 @@ bool should_syscall_method_be_sysenter(void);
  * in win32/os.c that uses this for PRE_SYSCALL_PC, not for general use */
 byte *get_app_sysenter_addr(void);
 
-/* in x86.asm */
+/* in [x86/arm].asm */
+/* Calls the specified function 'func' after switching to the stack 'stack'.  If we're
+ * currently on the initstack 'mutex_to_free' should be passed so we release the
+ * initstack lock.  The supplied 'dcontext' will be passed as an argument to 'func'.
+ * If 'func' returns then 'return_on_return' is checked. If set we swap back stacks and
+ * return to the caller.  If not set then it's assumed that func wasn't supposed to
+ * return and we go to an error routine unexpected_return() below.
+ */
 void call_switch_stack(dcontext_t *dcontext, byte *stack, void (*func) (dcontext_t *),
-                       bool free_initstack, bool return_on_return);
+                       void *mutex_to_free, bool return_on_return);
 # if defined (WINDOWS) && !defined(X64)
 DYNAMORIO_EXPORT int64
 dr_invoke_x64_routine(dr_auxlib64_routine_ptr_t func64, uint num_params, ...);
@@ -1206,6 +1380,8 @@ enum {
     INT_LENGTH = 2,
     SYSCALL_LENGTH = 2,
     SYSENTER_LENGTH = 2,
+    SVC_THUMB_LENGTH = 2, /* Thumb syscall instr */
+    SVC_ARM_LENGTH = 4,   /* ARM syscall instr */
 };
 
 #define REL32_REACHABLE_OFFS(offs) ((offs) <= INT_MAX && (offs) >= INT_MIN)
@@ -1358,34 +1534,41 @@ set_reached_image_entry(void);
 /* in decode.c, needed here for ref in arch.h */
 /* DR_API EXPORT TOFILE dr_ir_utils.h */
 /* DR_API EXPORT BEGIN */
-#ifdef X64
+/** Specifies which processor mode to use when decoding or encoding. */
+typedef enum _dr_isa_mode_t {
+    DR_ISA_IA32,              /**< IA-32 (Intel/AMD 32-bit mode). */
+    DR_ISA_X86 = DR_ISA_IA32, /**< Alis for DR_ISA_IA32. */
+    DR_ISA_AMD64,             /**< AMD64 (Intel/AMD 64-bit mode). */
+    DR_ISA_ARM_THUMB,         /**< Thumb (ARM T16 and T32). */
+    DR_ISA_ARM_A32,           /**< ARM A32 (AArch32 ARM). */
+    DR_ISA_ARM_A64,           /**< ARM A64 (AArch64). */
+} dr_isa_mode_t;
 /* DR_API EXPORT END */
-DR_API
-/**
- * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine sets that flag to the indicated value and returns the old value.  Be
- * sure to restore the old value prior to any further application execution to
- * avoid problems in mis-interpreting application code.
- *
- * \note For 64-bit DR builds only.
- */
-bool
-set_x86_mode(dcontext_t *dcontext, bool x86);
+
+#define DEFAULT_ISA_MODE \
+    IF_X86_ELSE(IF_X64_ELSE(DR_ISA_AMD64, DR_ISA_IA32), \
+                IF_X64_ELSE(DR_ISA_ARM_A64, DR_ISA_ARM_A32))
 
 DR_API
 /**
  * The decode and encode routines use a per-thread persistent flag that
- * indicates whether to treat code as 32-bit (x86) or 64-bit (x64).  This
- * routine returns the value of that flag.
- *
- * \note For 64-bit DR builds only.
+ * indicates which processor mode to use.  This routine sets that flag to the
+ * indicated value and optionally returns the old value.  Be sure to restore the
+ * old value prior to any further application execution to avoid problems in
+ * mis-interpreting application code.
  */
 bool
-get_x86_mode(dcontext_t *dcontext);
-/* DR_API EXPORT BEGIN */
-#endif
-/* DR_API EXPORT END */
+dr_set_isa_mode(dcontext_t *dcontext, dr_isa_mode_t new_mode,
+                dr_isa_mode_t *old_mode OUT);
+
+DR_API
+/**
+ * The decode and encode routines use a per-thread persistent flag that
+ * indicates which processor mode to use.  This routine returns the value of
+ * that flag.
+ */
+dr_isa_mode_t
+dr_get_isa_mode(dcontext_t *dcontext);
 
 /* in encode.c */
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
@@ -1635,45 +1818,110 @@ void *_dynamorio_runtime_resolve(void);
 
 
 /* Macros to access application function parameters.
- * These assume that mc->rsp points at the return address (i.e., we're
- * at function entry).
+ * These assume that we're at function entry, (i.e., mc->xsp points at the
+ * return address on X86, or mc->sp points at the first on-stack arg on ARM).
  * Compare the SYS_PARAM* macros and REGPARM* enum: some duplication there.
- * Note that if a param is 32 bits we must ignore the top 32 bits of
- * its stack slot (Since passed via "mov dword" instead of "push", top
+ *
+ * Note that, in X64, if a param is 32 bits we must ignore the top 32 bits
+ * of its stack slot (Since passed via "mov dword" instead of "push", top
  * bits are garbage.)
  */
-#ifdef X64
-# ifdef WINDOWS
-#  define APP_PARAM_0(mc) (mc)->xcx
-#  define APP_PARAM_1(mc) (mc)->xdx
-#  define APP_PARAM_2(mc) (mc)->r8
-#  define APP_PARAM_3(mc) (mc)->r9
-#  define APP_PARAM_4(mc) (*(((reg_t *)((mc)->xsp)) + 5))
-#  define APP_PARAM_5(mc) (*(((reg_t *)((mc)->xsp)) + 6))
-#  define APP_PARAM_6(mc) (*(((reg_t *)((mc)->xsp)) + 7))
-#  define APP_PARAM_7(mc) (*(((reg_t *)((mc)->xsp)) + 8))
-#  define APP_PARAM_8(mc) (*(((reg_t *)((mc)->xsp)) + 9))
-#  define APP_PARAM_9(mc) (*(((reg_t *)((mc)->xsp)) + 10))
-#  define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 11))
-# else
-#  define APP_PARAM_0(mc) (mc)->xdi
-#  define APP_PARAM_1(mc) (mc)->xsi
-#  define APP_PARAM_2(mc) (mc)->rdx
-#  define APP_PARAM_3(mc) (mc)->rcx
-#  define APP_PARAM_4(mc) (mc)->r8
-#  define APP_PARAM_5(mc) (mc)->r9
-#  define APP_PARAM_6(mc) (*(((reg_t *)((mc)->xsp)) + 1))
-#  define APP_PARAM_7(mc) (*(((reg_t *)((mc)->xsp)) + 2))
-#  define APP_PARAM_8(mc) (*(((reg_t *)((mc)->xsp)) + 3))
-#  define APP_PARAM_9(mc) (*(((reg_t *)((mc)->xsp)) + 4))
-#  define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 5))
-# endif
+#ifdef X86
+# ifdef X64
+#  ifdef WINDOWS
+#   define APP_PARAM_0(mc)  (mc)->xcx
+#   define APP_PARAM_1(mc)  (mc)->xdx
+#   define APP_PARAM_2(mc)  (mc)->r8
+#   define APP_PARAM_3(mc)  (mc)->r9
+#   define APP_PARAM_4(mc)  (*(((reg_t *)((mc)->xsp)) + 5))
+#   define APP_PARAM_5(mc)  (*(((reg_t *)((mc)->xsp)) + 6))
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 7))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 8))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 9))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 10))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 11))
+#  else
+#   define APP_PARAM_0(mc)  (mc)->xdi
+#   define APP_PARAM_1(mc)  (mc)->xsi
+#   define APP_PARAM_2(mc)  (mc)->rdx
+#   define APP_PARAM_3(mc)  (mc)->rcx
+#   define APP_PARAM_4(mc)  (mc)->r8
+#   define APP_PARAM_5(mc)  (mc)->r9
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 2))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 3))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 4))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 5))
+#  endif /* Win/Unix */
 /* only takes integer literals */
+#  define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
+# else /* 32-bit */
+/* only takes integer literals */
+#  define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
+# endif /* 64/32-bit */
+#elif defined(ARM)
+# ifdef UNIX
+#  define  APP_PARAM_0(mc)  (mc)->r0
+#  define  APP_PARAM_1(mc)  (mc)->r1
+#  define  APP_PARAM_2(mc)  (mc)->r2
+#  define  APP_PARAM_3(mc)  (mc)->r3
+#  ifdef X64
+#   define APP_PARAM_4(mc)  (mc)->r4
+#   define APP_PARAM_5(mc)  (mc)->r5
+#   define APP_PARAM_6(mc)  (mc)->r6
+#   define APP_PARAM_7(mc)  (mc)->r7
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 0))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 2))
+#  else
+#   define APP_PARAM_4(mc)  (*(((reg_t *)((mc)->xsp)) + 0))
+#   define APP_PARAM_5(mc)  (*(((reg_t *)((mc)->xsp)) + 1))
+#   define APP_PARAM_6(mc)  (*(((reg_t *)((mc)->xsp)) + 2))
+#   define APP_PARAM_7(mc)  (*(((reg_t *)((mc)->xsp)) + 3))
+#   define APP_PARAM_8(mc)  (*(((reg_t *)((mc)->xsp)) + 4))
+#   define APP_PARAM_9(mc)  (*(((reg_t *)((mc)->xsp)) + 5))
+#   define APP_PARAM_10(mc) (*(((reg_t *)((mc)->xsp)) + 6))
+#  endif /* 64/32-bit */
+# else /* Windows */
+#  error Windows is not supported
+# endif /* UNIX/Win */
 # define APP_PARAM(mc, offs) APP_PARAM_##offs(mc)
-#else
-/* only takes integer literals */
-# define APP_PARAM(mc, offs) (*(((reg_t *)((mc)->xsp)) + (offs) + 1))
-#endif
+#endif /* X86/ARM */
+
+#define MCXT_SYSNUM_REG(mc)       ((mc)->IF_X86_ELSE(xax, r7))
+#define MCXT_FIRST_REG_FIELD(mc)  ((mc)->IF_X86_ELSE(xdi, r0))
+
+static inline
+reg_t
+get_mcontext_frame_ptr(dcontext_t *dcontext, priv_mcontext_t *mc)
+{
+    reg_t reg;
+    switch (dr_get_isa_mode(dcontext)) {
+#ifdef X86
+    case DR_ISA_IA32:
+    case DR_ISA_AMD64:
+        reg = mc->xbp;
+        break;
+#elif defined(ARM)
+# ifdef X64
+    case DR_ISA_ARM_A64:
+        reg = mc->r29;
+        break;
+# else
+    case DR_ISA_ARM_THUMB:
+        reg = mc->r7;
+        break;
+    case DR_ISA_ARM_A32:
+        reg = mc->r11;
+        break;
+# endif /* 64/32-bit */
+#endif /* X86/ARM */
+    default:
+        ASSERT_NOT_REACHED();
+        reg = 0;
+    }
+    return reg;
+}
 
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
  * Keep in synch w/ defines in x86.asm

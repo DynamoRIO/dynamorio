@@ -7126,8 +7126,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
     char buf[MAXIMUM_PATH];
 #endif
     stats_int_t trace_num;
-    bool locked_vmareas = false;
-    IF_X64(bool old_mode;)
+    bool locked_vmareas = false, ok;
+    dr_isa_mode_t old_mode;
     ASSERT(SHOULD_OUTPUT_FRAGMENT(f->flags));
     ASSERT(TEST(FRAG_IS_TRACE, f->flags));
     ASSERT(!TEST(FRAG_SELFMOD_SANDBOXED, f->flags)); /* no support for selfmod */
@@ -7150,7 +7150,8 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 
     LOG(THREAD, LOG_FRAGMENT, 4, "output_trace: F%d("PFX")\n", f->id, f->tag);
     /* Recreate in same mode as original fragment */
-    IF_X64(old_mode = set_x86_mode(dcontext, FRAG_IS_32(f->flags)));
+    ok = dr_set_isa_mode(dcontext, FRAG_ISA_MODE(f->flags), &old_mode);
+    ASSERT(ok);
 
     /* xref 8131/8202 if dynamo_resetting we don't need to grab the tracedump
      * mutex to ensure we're the only writer and grabbing here on reset path
@@ -7341,7 +7342,7 @@ output_trace(dcontext_t *dcontext, per_thread_t *pt, fragment_t *f,
 #endif
 
  output_trace_done:
-    IF_X64(set_x86_mode(dcontext, old_mode));
+    dr_set_isa_mode(dcontext, old_mode, NULL);
     if (TEST(FRAG_SHARED, f->flags) && !dynamo_resetting) {
         ASSERT_OWN_MUTEX(true, &tracedump_mutex);
         mutex_unlock(&tracedump_mutex);

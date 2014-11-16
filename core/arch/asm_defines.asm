@@ -45,6 +45,15 @@
 # define X64
 #endif
 
+#ifdef ARM
+# ifdef X64
+#  error 64-bit ARM is not supported
+# endif
+# ifdef WINDOWS
+#  error ARM on Windows is not supported
+# endif
+#endif
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
@@ -192,97 +201,201 @@ ASSUME fs:_DATA @N@\
 
 /****************************************************/
 /* Macros for writing cross-platform 64-bit + 32-bit code */
+
+/* register set */
+#ifdef ARM
+# ifdef X64
+#  define REG_R0  x0
+#  define REG_R1  x1
+#  define REG_R2  x2
+#  define REG_R3  x3
+#  define REG_R4  x4
+#  define REG_R5  x5
+#  define REG_R6  x6
+#  define REG_R7  x7
+#  define REG_R8  x8
+#  define REG_R9  x9
+#  define REG_R10 x10
+#  define REG_R11 x11
+#  define REG_R12 x12
+/* skip [x16..x30], only available on AArch64 */
+# else /* 32-bit */
+#  define REG_R0  r0
+#  define REG_R1  r1
+#  define REG_R2  r2
+#  define REG_R3  r3
+#  define REG_R4  r4
+#  define REG_R5  r5
+#  define REG_R6  r6
+#  define REG_R7  r7
+#  define REG_R8  r8
+#  define REG_R9  r9
+#  define REG_R10 r10
+#  define REG_R11 r11
+#  define REG_R12 r12
+/* {r13, r14, r15} are used for {sp, lr, pc} on AArch32 */
+# endif /* 64/32-bit */
+#else /* Intel X86 */
+# ifdef X64
+#  define REG_XAX rax
+#  define REG_XBX rbx
+#  define REG_XCX rcx
+#  define REG_XDX rdx
+#  define REG_XSI rsi
+#  define REG_XDI rdi
+#  define REG_XBP rbp
+#  define REG_XSP rsp
+/* skip [r8..r15], only available on AMD64 */
+#  define SEG_TLS gs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+# else /* 32-bit */
+#  define REG_XAX eax
+#  define REG_XBX ebx
+#  define REG_XCX ecx
+#  define REG_XDX edx
+#  define REG_XSI esi
+#  define REG_XDI edi
+#  define REG_XBP ebp
+#  define REG_XSP esp
+#  define SEG_TLS fs /* keep in sync w/ {linux,win32}/os_exports.h defines */
+# endif /* 64/32-bit */
+#endif /* ARM/X86 */
+
+/* calling convention */
 #ifdef X64
-# define REG_XAX rax
-# define REG_XBX rbx
-# define REG_XCX rcx
-# define REG_XDX rdx
-# define REG_XSI rsi
-# define REG_XDI rdi
-# define REG_XBP rbp
-# define REG_XSP rsp
-# define SEG_TLS gs /* keep in sync w/ {linux,win32}/os_exports.h defines */
-# ifdef WINDOWS
+# define ARG_SZ 8
+# define PTRSZ QWORD
+#else /* 32-bit */
+# define ARG_SZ 4
+# define PTRSZ DWORD
+#endif
+
+#ifdef ARM
+/* ARM AArch64 calling convention:
+ * SP:       stack pointer
+ * x30(LR):  link register
+ * x29(FP):  frame pointer
+ * x19..x28: callee-saved registers
+ * x18:      platform register if needed, otherwise, temp register
+ * x17(IP1): the 2nd intra-procedure-call temp reg (for call veneers and PLT code)
+ * x16(IP0): the 1st intra-procedure-call temp reg (for call veneers and PLT code)
+ * x9..x15:  temp registers
+ * x8:       indirect result location register
+ * x0..x7:   parameter/result registers
+ *
+ * ARM AArch32 calling convention:
+ * r15(PC):  program counter
+ * r14(LR):  link register
+ * r13(SP):  stack pointer
+ * r12:      the Intra-Procedure-call scratch register
+ * r4..r11:  callee-saved registers
+ * r0..r3:   parameter/result registers
+ * r0:       indirect result location register
+ */
+# define ARG1 REG_R0
+# define ARG2 REG_R1
+# define ARG3 REG_R2
+# define ARG4 REG_R3
+# ifdef X64
+#  define ARG5 REG_R4
+#  define ARG6 REG_R5
+#  define ARG7 REG_R6
+#  define ARG8 REG_R7
+/* Arguments are passed on stack right-to-left. */
+#  define ARG9  QWORD [0*ARG_SZ + REG_SP] /* no ret addr */
+#  define ARG10 QWORD [1*ARG_SZ + REG_SP]
+# else /* 32-bit */
+#  define ARG5  DWORD [0*ARG_SZ + REG_SP] /* no ret addr */
+#  define ARG6  DWORD [1*ARG_SZ + REG_SP]
+#  define ARG7  DWORD [2*ARG_SZ + REG_SP]
+#  define ARG8  DWORD [3*ARG_SZ + REG_SP]
+#  define ARG9  DWORD [4*ARG_SZ + REG_SP]
+#  define ARG10 DWORD [5*ARG_SZ + REG_SP]
+# endif /* 64/32-bit */
+# define ARG1_NORETADDR  ARG1
+# define ARG2_NORETADDR  ARG2
+# define ARG3_NORETADDR  ARG3
+# define ARG4_NORETADDR  ARG4
+# define ARG5_NORETADDR  ARG5
+# define ARG6_NORETADDR  ARG6
+# define ARG7_NORETADDR  ARG7
+# define ARG8_NORETADDR  ARG8
+# define ARG9_NORETADDR  ARG9
+# define ARG10_NORETADDR ARG10
+#else /* Intel X86 */
+# ifdef X64
+#  ifdef WINDOWS
 /* Arguments are passed in: rcx, rdx, r8, r9, then on stack right-to-left, but
  * leaving space on stack for the 1st 4.
  */
-#  define ARG1 rcx
-#  define ARG2 rdx
-#  define ARG3 r8
-#  define ARG4 r9
-#  define ARG5 QWORD [40 + rsp] /* includes ret addr */
-#  define ARG6 QWORD [48 + rsp]
-#  define ARG7 QWORD [56 + rsp]
-#  define ARG8 QWORD [64 + rsp]
-#  define ARG9 QWORD [72 + rsp]
-#  define ARG10 QWORD [80 + rsp]
-#  define ARG5_NORETADDR QWORD [32 + rsp]
-#  define ARG6_NORETADDR QWORD [40 + rsp]
-#  define ARG7_NORETADDR QWORD [48 + rsp]
-#  define ARG8_NORETADDR QWORD [56 + rsp]
-#  define ARG9_NORETADDR QWORD [64 + rsp]
-#  define ARG10_NORETADDR QWORD [72 + rsp]
-# else
+#   define ARG1  rcx
+#   define ARG2  rdx
+#   define ARG3  r8
+#   define ARG4  r9
+#   define ARG5  QWORD [5*ARG_SZ  + REG_XSP] /* includes ret addr */
+#   define ARG6  QWORD [6*ARG_SZ  + REG_XSP]
+#   define ARG7  QWORD [7*ARG_SZ  + REG_XSP]
+#   define ARG8  QWORD [8*ARG_SZ  + REG_XSP]
+#   define ARG9  QWORD [9*ARG_SZ  + REG_XSP]
+#   define ARG10 QWORD [10*ARG_SZ + REG_XSP]
+#   define ARG1_NORETADDR  ARG1
+#   define ARG2_NORETADDR  ARG2
+#   define ARG3_NORETADDR  ARG3
+#   define ARG4_NORETADDR  ARG4
+#   define ARG5_NORETADDR  QWORD [4*ARG_SZ + REG_XSP]
+#   define ARG6_NORETADDR  QWORD [5*ARG_SZ + REG_XSP]
+#   define ARG7_NORETADDR  QWORD [6*ARG_SZ + REG_XSP]
+#   define ARG8_NORETADDR  QWORD [7*ARG_SZ + REG_XSP]
+#   define ARG9_NORETADDR  QWORD [8*ARG_SZ + REG_XSP]
+#   define ARG10_NORETADDR QWORD [9*ARG_SZ + REG_XSP]
+#  else /* UNIX */
 /* Arguments are passed in: rdi, rsi, rdx, rcx, r8, r9, then on stack right-to-left,
  * without leaving any space on stack for the 1st 6.
  */
-#  define ARG1 rdi
-#  define ARG2 rsi
-#  define ARG3 rdx
-#  define ARG4 rcx
-#  define ARG5 r8
-#  define ARG6 r9
-#  define ARG7 QWORD [8 + rsp]
-#  define ARG8 QWORD [16 + rsp]
-#  define ARG9 QWORD [24 + rsp]
-#  define ARG10 QWORD [32 + rsp]
-#  define ARG5_NORETADDR ARG5
-#  define ARG6_NORETADDR ARG6
-#  define ARG7_NORETADDR QWORD [rsp]
-#  define ARG8_NORETADDR QWORD [8 + rsp]
-#  define ARG9_NORETADDR QWORD [16 + rsp]
-#  define ARG10_NORETADDR QWORD [24 + rsp]
-# endif
-# define ARG1_NORETADDR ARG1
-# define ARG2_NORETADDR ARG2
-# define ARG3_NORETADDR ARG3
-# define ARG4_NORETADDR ARG4
-# define ARG_SZ 8
-# define PTRSZ QWORD
-#else /* x86 */
-# define REG_XAX eax
-# define REG_XBX ebx
-# define REG_XCX ecx
-# define REG_XDX edx
-# define REG_XSI esi
-# define REG_XDI edi
-# define REG_XBP ebp
-# define REG_XSP esp
-# define SEG_TLS fs /* keep in sync w/ {linux,win32}/os_exports.h defines */
-# define ARG_SZ 4
-# define PTRSZ DWORD
+#   define ARG1  rdi
+#   define ARG2  rsi
+#   define ARG3  rdx
+#   define ARG4  rcx
+#   define ARG5  r8
+#   define ARG6  r9
+#   define ARG7  QWORD [1*ARG_SZ + rsp] /* includes ret addr */
+#   define ARG8  QWORD [2*ARG_SZ + rsp]
+#   define ARG9  QWORD [3*ARG_SZ + rsp]
+#   define ARG10 QWORD [4*ARG_SZ + rsp]
+#   define ARG1_NORETADDR  ARG1
+#   define ARG2_NORETADDR  ARG2
+#   define ARG3_NORETADDR  ARG3
+#   define ARG4_NORETADDR  ARG4
+#   define ARG5_NORETADDR  ARG5
+#   define ARG6_NORETADDR  ARG6
+#   define ARG7_NORETADDR  QWORD [0*ARG_SZ + rsp]
+#   define ARG8_NORETADDR  QWORD [1*ARG_SZ + rsp]
+#   define ARG9_NORETADDR  QWORD [2*ARG_SZ + rsp]
+#   define ARG10_NORETADDR QWORD [3*ARG_SZ + rsp]
+#  endif /* WINDOWS/UNIX */
+# else /* 32-bit */
 /* Arguments are passed on stack right-to-left. */
-# define ARG1 DWORD [4 + esp] /* includes ret addr */
-# define ARG2 DWORD [8 + esp]
-# define ARG3 DWORD [12 + esp]
-# define ARG4 DWORD [16 + esp]
-# define ARG5 DWORD [20 + esp]
-# define ARG6 DWORD [24 + esp]
-# define ARG7 DWORD [28 + esp]
-# define ARG8 DWORD [32 + esp]
-# define ARG9 DWORD [36 + esp]
-# define ARG10 DWORD [40 + esp]
-# define ARG1_NORETADDR DWORD [0 + esp]
-# define ARG2_NORETADDR DWORD [4 + esp]
-# define ARG3_NORETADDR DWORD [8 + esp]
-# define ARG4_NORETADDR DWORD [12 + esp]
-# define ARG5_NORETADDR DWORD [16 + esp]
-# define ARG6_NORETADDR DWORD [20 + esp]
-# define ARG7_NORETADDR DWORD [24 + esp]
-# define ARG8_NORETADDR DWORD [28 + esp]
-# define ARG9_NORETADDR DWORD [32 + esp]
-# define ARG10_NORETADDR DWORD [36 + esp]
-#endif
+#  define ARG1  DWORD [ 1*ARG_SZ + esp] /* includes ret addr */
+#  define ARG2  DWORD [ 2*ARG_SZ + esp]
+#  define ARG3  DWORD [ 3*ARG_SZ + esp]
+#  define ARG4  DWORD [ 4*ARG_SZ + esp]
+#  define ARG5  DWORD [ 5*ARG_SZ + esp]
+#  define ARG6  DWORD [ 6*ARG_SZ + esp]
+#  define ARG7  DWORD [ 7*ARG_SZ + esp]
+#  define ARG8  DWORD [ 8*ARG_SZ + esp]
+#  define ARG9  DWORD [ 9*ARG_SZ + esp]
+#  define ARG10 DWORD [10*ARG_SZ + esp]
+#  define ARG1_NORETADDR  DWORD [0*ARG_SZ + esp]
+#  define ARG2_NORETADDR  DWORD [1*ARG_SZ + esp]
+#  define ARG3_NORETADDR  DWORD [2*ARG_SZ + esp]
+#  define ARG4_NORETADDR  DWORD [3*ARG_SZ + esp]
+#  define ARG5_NORETADDR  DWORD [4*ARG_SZ + esp]
+#  define ARG6_NORETADDR  DWORD [5*ARG_SZ + esp]
+#  define ARG7_NORETADDR  DWORD [6*ARG_SZ + esp]
+#  define ARG8_NORETADDR  DWORD [7*ARG_SZ + esp]
+#  define ARG9_NORETADDR  DWORD [8*ARG_SZ + esp]
+#  define ARG10_NORETADDR DWORD [9*ARG_SZ + esp]
+# endif /* 64/32-bit */
+#endif /* ARM/X86 */
 
 /* Keep in sync with arch_exports.h. */
 #define FRAME_ALIGNMENT 16
@@ -310,7 +423,7 @@ ASSUME fs:_DATA @N@\
 /* we split these out just to avoid nop lea for x64 linux */
 #  define STACK_PAD_LE4(tot, mod4) STACK_PAD(0/*doesn't matter*/, 0, mod4)
 #  define STACK_UNPAD_LE4(tot, mod4) STACK_UNPAD(tot, 0, mod4)
-# else
+# else /* UNIX */
 #  define STACK_PAD(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*gt4 + REG_XSP]
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) STACK_PAD(tot, gt4, mod4)
@@ -318,13 +431,13 @@ ASSUME fs:_DATA @N@\
         lea      REG_XSP, [ARG_SZ*gt4 + REG_XSP]
 #  define STACK_PAD_LE4(tot, mod4) /* nothing */
 #  define STACK_UNPAD_LE4(tot, mod4) /* nothing */
-# endif
+# endif /* Win/UNIX */
 /* we split these out just to avoid nop lea for x86 mac */
 # define STACK_PAD_ZERO STACK_PAD_LE4(0, 4)
 # define STACK_UNPAD_ZERO STACK_UNPAD_LE4(0, 4)
 # define SETARG(argoffs, argreg, p) \
         mov      argreg, p
-#else
+#else /* 32-bit */
 # define PUSHF   pushfd
 # define POPF    popfd
 # ifdef MACOS
@@ -343,7 +456,7 @@ ASSUME fs:_DATA @N@\
 /* p cannot be a memory operand, naturally */
 #  define SETARG(argoffs, argreg, p) \
         mov      PTRSZ [ARG_SZ*argoffs + REG_XSP], p
-# else
+# else /* !MACOS */
 #  define STACK_PAD(tot, gt4, mod4) /* nothing */
 #  define STACK_PAD_NOPUSH(tot, gt4, mod4) \
         lea      REG_XSP, [-ARG_SZ*tot + REG_XSP]
@@ -358,8 +471,9 @@ ASSUME fs:_DATA @N@\
  */
 #  define SETARG(argoffs, argreg, p) \
         push     p
-# endif
-#endif /* !X64 */
+# endif /* !MACOS */
+#endif /* 64/32-bit */
+
 /* CALLC* are for C calling convention callees only.
  * Caller must ensure that if params are passed in regs there are no conflicts.
  * Caller can rely on us storing each parameter in reverse order.
@@ -463,5 +577,10 @@ ASSUME fs:_DATA @N@\
         call     callee
 #endif
 
+#ifdef X86
+# define JUMP     jmp
+#elif defined(ARM)
+# define JUMP     b
+#endif /* X86/ARM */
 
 #endif /* _ASM_DEFINES_ASM_ */

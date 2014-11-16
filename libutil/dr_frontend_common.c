@@ -270,30 +270,3 @@ drfront_remove_dir(const char *dir)
     }
     return DRFRONT_SUCCESS;
 }
-
-#ifdef WINDOWS
-# define S_ISDIR(mode) TEST(mode, _S_IFDIR)
-# define stat _stat
-#endif
-
-drfront_status_t
-drfront_dir_exists(const char *path, bool *is_dir)
-{
-    struct stat st_buf;
-    if (is_dir == NULL)
-        return DRFRONT_ERROR_INVALID_PARAMETER;
-    /* FIXME i#1530: we should not use libc on Windows,
-     * which breaks the internationalization support
-     */
-    /* check if path is a file or directory */
-    if (stat(path, &st_buf) != 0) {
-        *is_dir = false;
-        return DRFRONT_ERROR_INVALID_PATH;
-    } else {
-        if (S_ISDIR(st_buf.st_mode))
-            *is_dir = true;
-        else
-            *is_dir = false;
-    }
-    return DRFRONT_SUCCESS;
-}

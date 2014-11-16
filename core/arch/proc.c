@@ -391,7 +391,8 @@ proc_init(void)
     LOG(GLOBAL, LOG_TOP, 1, "Type=0x%x, Family=0x%x, Model=0x%x, Stepping=0x%x\n",
         type, family, model, stepping);
 
-#ifdef X64
+#ifdef X86
+# ifdef X64
     CLIENT_ASSERT(proc_has_feature(FEATURE_LAHF),
                   "Unsupported processor type - processor must support LAHF/SAHF in "
                   "64bit mode.");
@@ -399,9 +400,9 @@ proc_init(void)
         FATAL_USAGE_ERROR(UNSUPPORTED_PROCESSOR_LAHF, 2,
                           get_application_name(), get_application_pid());
     }
-#endif
+# endif
 
-#ifdef DEBUG
+# ifdef DEBUG
     /* FIXME: This is a small subset of processor features.  If we
      * care enough to add more, it would probably be best to loop
      * through a const array of feature names.
@@ -424,7 +425,7 @@ proc_init(void)
         if (proc_has_feature(FEATURE_OSXSAVE))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
-#endif
+# endif
     /* PR 264138: for 32-bit CONTEXT we assume fxsave layout */
     CLIENT_ASSERT((proc_has_feature(FEATURE_FXSR) && proc_has_feature(FEATURE_SSE)) ||
                   (!proc_has_feature(FEATURE_FXSR) && !proc_has_feature(FEATURE_SSE)),
@@ -448,6 +449,7 @@ proc_init(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tOS does NOT support AVX\n");
         }
     }
+#endif /* X86 */
 }
 
 uint
@@ -642,26 +644,32 @@ proc_save_fpstate(byte *buf)
     /* MUST be 16-byte aligned */
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_save_fpstate: buf must be 16-byte aligned");
+#ifdef X86
     if (proc_has_feature(FEATURE_FXSR)) {
         /* Not using inline asm for identical cross-platform code
          * here.  An extra function call won't hurt here.
          */
-#ifdef X64
+# ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))
             dr_fxsave(buf);
         else
             dr_fxsave32(buf);
-#else
+# else
         dr_fxsave(buf);
-#endif
+# endif
     } else {
-#ifdef WINDOWS
+# ifdef WINDOWS
         dr_fnsave(buf);
-#else
+# else
         asm volatile("fnsave %0 ; fwait" : "=m" ((*buf)));
-#endif
+# endif
     }
     return proc_fpstate_save_size();
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return 0;
+#endif /* X86/ARM */
 }
 
 DR_API
@@ -676,25 +684,30 @@ proc_restore_fpstate(byte *buf)
     /* MUST be 16-byte aligned */
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_restore_fpstate: buf must be 16-byte aligned");
+#ifdef X86
     if (proc_has_feature(FEATURE_FXSR)) {
         /* Not using inline asm for identical cross-platform code
          * here.  An extra function call won't hurt here.
          */
-#ifdef X64
+# ifdef X64
         if (X64_MODE_DC(get_thread_private_dcontext()))
             dr_fxrstor(buf);
         else
             dr_fxrstor32(buf);
-#else
+# else
         dr_fxrstor(buf);
-#endif
+# endif
     } else {
-#ifdef WINDOWS
+# ifdef WINDOWS
         dr_frstor(buf);
-#else
+# else
         asm volatile("frstor %0" : : "m" ((*buf)));
-#endif
+# endif
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 /* XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
@@ -704,6 +717,7 @@ void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                        opnd_t buf)
 {
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         /* we want "fxsave, fnclex, finit" */
@@ -724,12 +738,17 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fnsave(dcontext, buf));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fwait(dcontext));
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 void
 dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                           opnd_t buf)
 {
+#ifdef X86
     dcontext_t *dcontext = (dcontext_t *) drcontext;
     if (proc_has_feature(FEATURE_FXSR)) {
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
@@ -744,6 +763,10 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
             opnd_set_size(&buf, OPSZ_108);
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_frstor(dcontext, buf));
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 bool
