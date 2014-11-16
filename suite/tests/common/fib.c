@@ -59,6 +59,9 @@
 int
 fib(int n) {
     if (n <= 1) return 1;
+    /* for drcov test, we add a line that won't be executed */
+    if (n > 100)
+        return 0;
     return fib(n-1) + fib(n-2);
 }
 

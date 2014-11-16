@@ -66,6 +66,7 @@ public:
     int x;
     bool y;
     short z;
+    char a[4]; 
 };
 }
 

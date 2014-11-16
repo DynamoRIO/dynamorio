@@ -1,5 +1,5 @@
 /* *******************************************************************************
- * Copyright (c) 2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2011 Massachusetts Institute of Technology  All rights reserved.
  * *******************************************************************************/
 
@@ -61,6 +61,12 @@
 #define ALIGN_FORWARD(x, alignment) \
         ((((ptr_uint_t)x) + (((ptr_uint_t)alignment)-1)) & \
          (~(((ptr_uint_t)alignment)-1)))
+
+/* Xref i#302 */
+#define POINTER_OVERFLOW_ON_ADD(ptr, add) \
+    (((ptr_uint_t)(ptr)) + (add) < ((ptr_uint_t)(ptr)))
+#define POINTER_UNDERFLOW_ON_SUB(ptr, sub) \
+    (((ptr_uint_t)(ptr)) - (sub) > ((ptr_uint_t)(ptr)))
 
 #define BUFFER_SIZE_BYTES(buf)      sizeof(buf)
 #define BUFFER_SIZE_ELEMENTS(buf)   (BUFFER_SIZE_BYTES(buf) / sizeof(buf[0]))
