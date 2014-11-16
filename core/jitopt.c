@@ -96,7 +96,7 @@ typedef struct _dgc_trace_t {
     struct _dgc_trace_t *next_trace;
 } dgc_trace_t;
 
-/* x86: 16 bytes | x64: 32 bytes */
+/* x86: 20 bytes | x64: 36 bytes */
 typedef struct _dgc_bb_t dgc_bb_t;
 struct _dgc_bb_t {
     app_pc start;
@@ -112,7 +112,7 @@ struct _dgc_bb_t {
     dgc_trace_t *containing_trace_list;
 };
 
-/* x86: 68 bytes | x64 128 bytes */
+/* x86: 80 bytes (20 + bbs) | x64 162 bytes (54 + bbs) */
 typedef struct _dgc_bucket_t {
     ptr_uint_t bucket_id;
     struct _dgc_bucket_t *hashtable_next;
