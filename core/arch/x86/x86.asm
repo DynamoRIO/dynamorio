@@ -1990,7 +1990,8 @@ GLOBAL_LABEL(nt_continue_dynamo_start:)
  * each nested module transition.  This has to have MAX_NATIVE_RETSTACK
  * elements, which we check in native_exec_init().  The size of each entry has
  * to match BACK_FROM_NATIVE_RETSTUB_SIZE in arch_exports.h.  Currently we
- * assume that the assembler uses push imm8 and jmp rel8.  As in
+ * assume that the assembler uses push imm8 and jmp rel8, but to get that
+ * to happen for nasm 0.98.40 we're forced to use raw bytes for the pushes.  As in
  * back_from_native, this code is executed natively by the app, so we assume the
  * app stack is valid and can be clobbered.
  */
@@ -2000,26 +2001,26 @@ GLOBAL_LABEL(back_from_native_retstubs:)
 /* MASM does short jumps for public symbols. */
 # define Lback_from_native GLOBAL_REF(back_from_native)
 #endif
-        push     0
-        jmp      Lback_from_native
-        push     1
-        jmp      Lback_from_native
-        push     2
-        jmp      Lback_from_native
-        push     3
-        jmp      Lback_from_native
-        push     4
-        jmp      Lback_from_native
-        push     5
-        jmp      Lback_from_native
-        push     6
-        jmp      Lback_from_native
-        push     7
-        jmp      Lback_from_native
-        push     8
-        jmp      Lback_from_native
-        push     9
-        jmp      Lback_from_native
+        RAW(6a) RAW(0) /* push 0 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(1) /* push 1 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(2) /* push 2 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(3) /* push 3 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(4) /* push 4 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(5) /* push 5 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(6) /* push 6 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(7) /* push 7 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(8) /* push 8 */
+        jmp      short Lback_from_native
+        RAW(6a) RAW(9) /* push 9 */
+        jmp      short Lback_from_native
 DECLARE_GLOBAL(back_from_native_retstubs_end)
 #ifndef ASSEMBLE_WITH_GAS
 # undef Lback_from_native
