@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -2511,12 +2511,9 @@ coarse_stubs_iterator_start(coarse_info_t *info, coarse_stubs_iterator_t *csi)
     }
 }
 
-static bool inline
-coarse_stubs_iterator_hasnext(coarse_stubs_iterator_t *csi)
-{
-    return (csi->pc < csi->end || special_heap_iterator_hasnext(&csi->shi));
-}
-
+/* If we wanted coarse_stubs_iterator_hasnext() it would look like this:
+ *   return (csi->pc < csi->end || special_heap_iterator_hasnext(&csi->shi))
+ */
 static cache_pc inline
 coarse_stubs_iterator_next(coarse_stubs_iterator_t *csi)
 {

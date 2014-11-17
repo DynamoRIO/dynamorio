@@ -523,8 +523,8 @@ GLOBAL_LABEL(dr_app_start:)
         sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
-                        PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
+        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
+                       PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
         lea     REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */
@@ -568,8 +568,8 @@ GLOBAL_LABEL(dynamorio_app_take_over:)
         sub     REG_XSP, FRAME_ALIGNMENT - ARG_SZ  /* Maintain alignment. */
 
         /* grab exec state and pass as param in a priv_mcontext_t struct */
-        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -
-                        PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
+        PUSH_PRIV_MCXT(PTRSZ [FRAME_ALIGNMENT - ARG_SZ + REG_XSP -\
+                       PUSH_PRIV_MCXT_PRE_PC_SHIFT]) /* return address as pc */
 
         /* do the rest in C */
         lea      REG_XAX, [REG_XSP] /* stack grew down, so priv_mcontext_t at tos */

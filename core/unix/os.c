@@ -69,6 +69,10 @@
 
 #ifdef MACOS
 # include <sys/sysctl.h>         /* for sysctl */
+# ifndef SYS___sysctl
+/* The name was changed on Yosemite */
+#  define SYS___sysctl SYS_sysctl
+# endif
 # include <mach/mach_traps.h>    /* for swtch_pri */
 # include "include/syscall_mach.h"
 #endif
@@ -2231,6 +2235,7 @@ memprot_to_osprot(uint prot)
     return mmap_prot;
 }
 
+#ifndef NOT_DYNAMORIO_CORE_PROPER
 /* translate native flags to platform independent protection bits */
 static inline uint
 osprot_to_memprot(uint prot)
@@ -2244,6 +2249,7 @@ osprot_to_memprot(uint prot)
         mem_prot |= MEMPROT_WRITE;
     return mem_prot;
 }
+#endif
 
 /* returns osprot flags preserving all native protection flags except
  * for RWX, which are replaced according to memprot */
