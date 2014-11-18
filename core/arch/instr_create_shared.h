@@ -57,6 +57,11 @@
 /* (deliberately not indenting the #includes in API_EXPORT_ONLY for generated file) */
 #endif
 #ifdef API_EXPORT_ONLY
+#ifdef X86
+# include "dr_ir_macros_x86.h"
+#elif defined(ARM)
+# include "dr_ir_macros_arm.h"
+#endif
 #include "dr_ir_opnd.h"
 #include "dr_ir_instr.h"
 #include "dr_ir_utils.h"

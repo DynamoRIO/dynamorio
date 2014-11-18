@@ -39,7 +39,7 @@
 
 #include "../instr_create_shared.h"
 
-/* DR_API EXPORT TOFILE dr_ir_macros.h */
+/* DR_API EXPORT TOFILE dr_ir_macros_arm.h */
 /* DR_API EXPORT BEGIN */
 
 /**
