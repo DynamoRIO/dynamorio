@@ -142,7 +142,9 @@ set(ARCH_SRCS
   ${DECODER_SRCS}
   arch/interp.c
   arch/proc.c
-  arch/mangle.c
+  arch/mangle_shared.c
+  arch/${ARCH_NAME}/mangle.c
+  arch/${ARCH_NAME}/clean_call_opt.c
   arch/steal_reg.c
   arch/x86_code.c
   ${arch_core_asm_src}
@@ -416,7 +418,7 @@ endif ()
 # static decoding library
 add_library(drdecode
   ${DECODER_SRCS}
-  arch/mangle.c
+  arch/${ARCH_NAME}/mangle.c
   arch/decodelib.c
   ${arch_noncore_asm_src}
   )

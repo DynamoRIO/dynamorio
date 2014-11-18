@@ -379,24 +379,87 @@ cache_pc trace_head_incr_routine(dcontext_t *dcontext);
 cache_pc trace_head_incr_shared_routine(IF_X64(gencode_mode_t mode));
 #endif
 
-/* in mangle.c but not exported to non-x86 files */
-/* clean call optimization */
+/* in mangle_shared.c */
+/* What prepare_for_clean_call() adds to xsp beyond sizeof(priv_mcontext_t) */
+static inline int
+clean_call_beyond_mcontext(void)
+{
+    return 0; /* no longer adding anything */
+}
+void
+clean_call_info_init(clean_call_info_t *cci, void *callee,
+                     bool save_fpstate, uint num_args);
+void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
+            bool mangle_calls, bool record_translation);
+bool
+parameters_stack_padded(void);
+/* Inserts a complete call to callee with the passed-in arguments */
+bool
+insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                       bool clean_call, byte *encode_pc, void *callee,
+                       uint num_args, opnd_t *args);
 void
 mangle_init(void);
 void
 mangle_exit(void);
-bool
-analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
-                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
 void
-insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
-                         instrlist_t *ilist, instr_t *where, opnd_t *args);
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first OUT, instr_t **second OUT);
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first OUT, instr_t **second OUT);
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
 
+/* in mangle.c arch-specific implementation */
+reg_id_t
+shrink_reg_for_param(reg_id_t regular, opnd_t arg);
+uint
+insert_parameter_preparation(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                             bool clean_call, uint num_args, opnd_t *args);
+void
+insert_mov_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                      ptr_int_t val, opnd_t dst,
+                      instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_immed_arch(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       ptr_int_t val, instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
+void
+mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+               instr_t *instr, instr_t *next_instr);
+void
+mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                 instr_t *next_instr);
+instr_t *
+mangle_direct_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                   instr_t *next_instr, bool mangle_calls, uint flags);
+void
+mangle_indirect_call(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, bool mangle_calls, uint flags);
+void
+mangle_return(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+              instr_t *next_instr, uint flags);
+void
+mangle_indirect_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                     instr_t *next_instr, uint flags);
+#if defined(X64) || defined(ARM)
+bool
+mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                instr_t *next_instr);
+#endif
 void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               instr_t *instr, bool skip
                               _IF_X64(gencode_mode_t mode));
-void
-set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void);
@@ -405,11 +468,9 @@ get_clean_call_switch_stack_size(void);
  */
 int
 get_clean_call_temp_stack_size(void);
-
 void
 insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
                     instrlist_t *ilist, instr_t *instr);
-
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
@@ -418,13 +479,6 @@ void
 insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                          instrlist_t *ilist, instr_t *instr,
                          uint alignment);
-bool
-parameters_stack_padded(void);
-/* Inserts a complete call to callee with the passed-in arguments */
-bool
-insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, byte *encode_pc, void *callee,
-                       uint num_args, opnd_t *args);
 bool
 insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                      byte *encode_pc, byte *target, bool jmp, bool precise,
@@ -446,26 +500,36 @@ bool
 instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
 #endif
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
+
+/* in mangle.c  but not exported to non-x86 files */
+#ifdef X86
+int
+insert_out_of_line_context_switch(dcontext_t *dcontext, instrlist_t *ilist,
+                                  instr_t *instr, bool save);
+/* mangle the instruction that reference memory via segment register */
+void
+mangle_seg_ref(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr);
+/* mangle the instruction OP_mov_seg, i.e. the instruction that
+ * read/update the segment register.
+ */
+void
+mangle_mov_seg(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+               instr_t *next_instr);
+void
+mangle_float_pc(dcontext_t *dcontext, instrlist_t *ilist,
+                instr_t *instr, instr_t *next_instr, uint *flags INOUT);
+void
+mangle_exit_cti_prefixes(dcontext_t *dcontext, instr_t *instr);
+void
+mangle_far_direct_jump(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                       instr_t *next_instr, uint flags);
+void
+set_selfmod_sandbox_offsets(dcontext_t *dcontext);
 bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                             app_pc start_pc, app_pc end_pc, /* end is open */
                             bool record_translation, bool for_cache);
-
-void
-insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
-                       instrlist_t *ilist, instr_t *instr,
-                       instr_t **first OUT, instr_t **second OUT);
-void
-insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
-                        instrlist_t *ilist, instr_t *instr,
-                        instr_t **first OUT, instr_t **second OUT);
-void
-insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
-                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
-                      instr_t **first, instr_t **second);
-void
-insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
-                       instrlist_t *ilist, instr_t *instr,
-                       instr_t **first, instr_t **second);
+#endif /* X86 */
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
@@ -499,9 +563,6 @@ enum {
     HTABLE_STATS_SPILL_SLOT     = TLS_HTABLE_STATS_SLOT,
 #endif
 };
-
-void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
-            bool mangle_calls, bool record_translation);
 
 /* in interp.c but not exported to non-x86 files */
 bool must_not_be_inlined(app_pc pc);
@@ -1069,6 +1130,68 @@ byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
 /* in instr_shared.c */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
+
+/* clean call optimization */
+/* Describes usage of a scratch slot. */
+enum {
+    SLOT_NONE = 0,
+    SLOT_REG,
+    SLOT_LOCAL,
+    SLOT_FLAGS,
+};
+typedef byte slot_kind_t;
+
+/* If kind is:
+ * SLOT_REG: value is a reg_id_t
+ * SLOT_LOCAL: value is meaningless, may change to support multiple locals
+ * SLOT_FLAGS: value is meaningless
+ */
+typedef struct _slot_t {
+    slot_kind_t kind;
+    reg_id_t value;
+} slot_t;
+
+/* data structure of clean call callee information. */
+typedef struct _callee_info_t {
+    bool bailout;             /* if we bail out on function analysis */
+    uint num_args;            /* number of args that will passed in */
+    int num_instrs;           /* total number of instructions of a function */
+    app_pc start;             /* entry point of a function  */
+    app_pc bwd_tgt;           /* earliest backward branch target */
+    app_pc fwd_tgt;           /* last forward branch target */
+    int num_xmms_used;        /* number of xmms used by callee */
+    bool xmm_used[NUM_XMM_REGS];  /* xmm/ymm registers usage */
+    bool reg_used[NUM_GP_REGS];   /* general purpose registers usage */
+    int num_callee_save_regs; /* number of regs callee saved */
+    bool callee_save_regs[NUM_GP_REGS]; /* callee-save registers */
+    bool has_locals;          /* if reference local via stack */
+    bool xbp_is_fp;           /* if xbp is used as frame pointer */
+    bool opt_inline;          /* can be inlined or not */
+    bool write_aflags;        /* if the function changes aflags */
+    bool read_aflags;         /* if the function reads aflags from caller */
+    bool tls_used;            /* application accesses TLS (errno, etc.) */
+    reg_id_t spill_reg;       /* base register for spill slots */
+    uint slots_used;          /* scratch slots needed after analysis */
+    slot_t scratch_slots[CLEANCALL_NUM_INLINE_SLOTS];  /* scratch slot allocation */
+    instrlist_t *ilist;       /* instruction list of function for inline. */
+} callee_info_t;
+extern callee_info_t     default_callee_info;
+extern clean_call_info_t default_clean_call_info;
+
+/* in clean_call_opt.c */
+#ifdef CLIENT_INTERFACE
+void
+clean_call_opt_init(void);
+void
+clean_call_opt_exit(void);
+#endif /* CLIENT_INTERFACE */
+bool
+analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
+                   void *callee, bool save_fpstate, uint num_args, opnd_t *args);
+void
+insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *where, opnd_t *args);
+
 
 /* in mangle.c */
 void
