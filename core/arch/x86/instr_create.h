@@ -132,7 +132,9 @@
  *   d  = opnd_t = destination operand
  */
 
-/* platform-independent INSTR_CREATE_* macros */
+/****************************************************************************
+ * Platform-independent INSTR_CREATE_* macros
+ */
 /** @name Platform-independent macros */
 /* @{ */ /* doxygen start group */
 
@@ -223,8 +225,10 @@
 
 /* @} */ /* end doxygen group */
 
-/****************************************************************************/
-/* x86-specific INSTR_CREATE_* macros */
+
+/****************************************************************************
+ * x86-specific INSTR_CREATE_* macros
+ */
 
 /* no-operand instructions */
 /** @name No-operand instructions */
