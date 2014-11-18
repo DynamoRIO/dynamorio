@@ -1,0 +1,620 @@
+#!/usr/bin/perl
+
+# **********************************************************
+# Copyright (c) 2014 Google, Inc.  All rights reserved.
+# **********************************************************
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of Google, Inc. nor the names of its contributors may be
+#   used to endorse or promote products derived from this software without
+#   specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
+
+# Pass this 1) an OP_ constant and 2) a decoding table file.
+# It will construct the encoding chain and in-place edit the table file.
+# It has assumptions on the precise format of the decoding table
+# and of the op_instr* starting point array.
+#
+# To run on one opcode:
+#
+#   tools/arm_macros_gen.pl -v -o OP_add core/arch/arm/table_*.[ch]
+#
+# To run on everything:
+#
+#   tools/arm_macros_gen.pl core/arch/arm/table_*.[ch]
+#
+# XXX i#1563: should we swap src and dst for stores and for OP_cdp and
+# other instructions to more closely match the assembly order?
+#
+# XXX i#1563: currently we have "Rd" for the dest of a load but asm
+# has it as "Rt".
+
+my $verbose = 0;
+
+die "Usage: $0 [-o OP_<opcode>] <table-files>\n" if ($#ARGV < 1);
+my $single_op = '';
+if ($ARGV[0] eq '-v') {
+    shift;
+    $verbose++;
+}
+if ($ARGV[0] eq '-o') {
+    shift;
+    $single_op = shift;
+}
+my @infiles = @ARGV;
+my $extra_num = 0;
+
+# Must process headers first
+@infiles = sort({return -1 if($a =~ /\.h$/);return 1 if($b =~ /\.h$/); return 0;}
+                @infiles);
+
+foreach $infile (@infiles) {
+    print "Processing $infile\n" if ($verbose > 0);
+    open(INFILE, "< $infile") || die "Couldn't open $file\n";
+    while (<INFILE>) {
+        print "xxx $_\n" if ($verbose > 2);
+        if (/^\s*{(OP_\w+)[ ,]/ && ($single_op eq '' || $single_op eq $1) &&
+            $1 ne 'OP_CONTD') {
+            my $opc = $1;
+            $instance{$opc} = 0 if (!defined($instance{$opc}));
+            my $encoding = $_;
+            my $flags = '';
+            # Get the 5 operands plus the flags and exop chain
+            if ($encoding =~ /exop\[(\w+)\]},/) {
+                $entry{$opc}[$instance{$opc}]{'exop'} = hex($1);
+            }
+            $encoding =~ s|/\*dup\*/||;
+            $encoding =~ s/^[^"]+"\S+",\s*//;
+            $encoding =~ s/,[^,]+,[^,]+}.*$//;
+            $encoding =~ s/\s//g;
+            if ($encoding =~ /,([^,]+)$/) {
+                $flags = $1;
+                if ($flags =~ /(xop_\w+)/) {
+                    $entry{$opc}[$instance{$opc}]{'xop'} = $1;
+                }
+                $encoding =~ s/,[^,]+$//;
+            } else {
+                die "Cannot find flags: $_";
+            }
+
+            my $opstr = collapse_types($encoding);
+
+            my @opnds = split(',', $opstr);
+            my @dsts = ();
+            my @srcs = ();
+            push(@dsts, $opnds[0]) unless ($opnds[0] eq 'xx');
+            if ($flags =~ /srcX4/) {
+                push(@srcs, $opnds[1]) unless ($opnds[1] eq 'xx');
+            } else {
+                push(@dsts, $opnds[1]) unless ($opnds[1] eq 'xx');
+            }
+            if ($flags =~ /dstX3/) {
+                push(@dsts, $opnds[2]) unless ($opnds[2] eq 'xx');
+            } else {
+                push(@srcs, $opnds[2]) unless ($opnds[2] eq 'xx');
+            }
+            push(@srcs, $opnds[3]) unless ($opnds[3] eq 'xx');
+            push(@srcs, $opnds[4]) unless ($opnds[4] eq 'xx');
+
+            $entry{$opc}[$instance{$opc}]{'line'} = $_;
+            $entry{$opc}[$instance{$opc}]{'encoding'} = $encoding;
+            $entry{$opc}[$instance{$opc}]{'opstr'} = $opstr;
+
+            @{$entry{$opc}[$instance{$opc}]{'srcs'}} = @srcs;
+            @{$entry{$opc}[$instance{$opc}]{'dsts'}} = @dsts;
+
+            if ($verbose > 0) {
+                print "$opstr <== $_";
+            }
+            $instance{$opc}++;
+        } elsif (/^\s*{OP_CONTD/) {
+            my $opnds = $_;
+            die "Two extra-op lines not supported: $_" unless ($opnds =~ /END_LIST/);
+            if ($opnds =~ /",(\s*\w+,\s*\w+,\s*\w+,\s*\w+,\s*\w+,)/) {
+                my $encoding = collapse_types($1);
+                my @opnds = split(',', $encoding);
+                my @dsts = ();
+                my @srcs = ();
+                push(@dsts, $opnds[0]) unless ($opnds[0] eq 'xx');
+                push(@dsts, $opnds[1]) unless ($opnds[1] eq 'xx');
+                push(@srcs, $opnds[2]) unless ($opnds[2] eq 'xx');
+                push(@srcs, $opnds[3]) unless ($opnds[3] eq 'xx');
+                push(@srcs, $opnds[4]) unless ($opnds[4] eq 'xx');
+                $extra[$extra_num]{'line'} = $_;
+                @{$extra[$extra_num]{'srcs'}} = @srcs;
+                @{$extra[$extra_num]{'dsts'}} = @dsts;
+            } else {
+                die "Failed to parse extra-op line $_";
+            }
+            $extra_num++;
+        }
+    }
+    close(INFILE);
+}
+
+foreach my $opc (keys %entry) {
+    my %sigs = ();
+    my $check_list = 0;
+    my $shift_variant = '';
+    my $shift_arg_str = '';
+    my $shift_call_str = '';
+    my $arg_str = '';
+
+    for (my $i = 0; $i < @{$entry{$opc}}; $i++) {
+        # Get extra args
+        if (defined($entry{$opc}[$i]{'xop'})) {
+            my $xop = $entry{$opc}[$i]{'xop'};
+            for (my $j = 0; $j < @extra; $j++) {
+                if ($extra[$j]{'line'} =~ /$xop\W/) {
+                    push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra[$j]{'srcs'}});
+                    push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra[$j]{'dsts'}});
+                }
+            }
+        } elsif (defined($entry{$opc}[$i]{'exop'})) {
+            my $exop = $entry{$opc}[$i]{'exop'};
+            push(@{$entry{$opc}[$i]{'srcs'}}, @{$extra[$exop]{'srcs'}});
+            push(@{$entry{$opc}[$i]{'dsts'}}, @{$extra[$exop]{'dsts'}});
+        }
+
+        # Create a single-string signature line
+        my $sig = join " ",@{$entry{$opc}[$i]{'dsts'}};
+        $sig .= "; ";
+        $sig .= join " ",@{$entry{$opc}[$i]{'srcs'}};
+
+        # Combine first and consec into single var-arg list
+        $sig =~ s/WBd LCd/LCd/;
+        $sig =~ s/VBq LCq/LCq/;
+
+        # All types of lists look the same
+        $sig =~ s/LX\w+/LX/;
+        $sig =~ s/LC\w+/LCx/;
+        # We collapse SIMD reg sizes
+        $sig =~ s/([VW][A-Z]+)[a-z]+/\1x/g;
+        # We use V for everything like AArch64 does (XXX i#1563: could be nice
+        # to list the S or D name for asm but we are collapsing sizes...)
+        $sig =~ s/W/V/g;
+        # Special case vmrs
+        $sig =~ s/\bCPSR/RBd/ if ($opc eq 'OP_vmrs');
+        # Collapse spsr and cpsr
+        $sig =~ s/\bCPSR/statreg/;
+        $sig =~ s/\bSPSR/statreg/;
+
+        if (!defined($sigs{$sig})) {
+            $sigs{$sig} = $sig ;
+            $check_list = 1 if ($sig =~ /\bL[XC]/);
+            $shift_variant = $sig if (($sig =~ /\ssh2 i/ || $sig =~ /\ssh2 R/) &&
+                                      $sig !~ /M/);
+        }
+
+        print "Entry #$i: $sig\n" if ($verbose > 0);
+    }
+
+    if ($check_list) {
+        # Avoid a separate instance for singleton vs list of regs
+        my @ksig = keys %sigs;
+        foreach my $sig (@ksig) {
+            # We have to replace in this direction b/c there can be multiple single reg
+            # opnds and we only want the one that lines up w/ the list
+            if ($sig =~ /\bLX/) {
+                my $sig_singleB = $sig;
+                my $sig_singleA = $sig;
+                $sig_singleB =~ s/\bLX\w*/VBx/; # V[AB]x only singleton type so far
+                $sig_singleA =~ s/\bLX\w*/VAx/; # V[AB]x only singleton type so far
+                if (defined($sigs{$sig_singleB})) {
+                    delete $sigs{$sig_singleB};
+                } elsif (defined($sigs{$sig_singleA})) {
+                    delete $sigs{$sig_singleA};
+                }
+            }
+        }
+    }
+
+    my $immed_name = 0;
+    my @ksig = keys %sigs;
+    if ($#ksig == 1) {
+        if (($ksig[0] =~ /\bi/ && $ksig[1] !~ /\bi/) ||
+            ($ksig[1] =~ /\bi/ && $ksig[0] !~ /\bi/)) {
+            $immed_name = 1;
+        }
+    }
+
+    foreach my $sig (sort keys %sigs) {
+        print "Sig: $sig\n" if ($verbose > 0);
+        my $name = $opc;
+        $name =~ s/^OP_//;
+
+        # Friendly names for things we don't care about for macro names
+        $sig =~ s/\bi\w*/imm/g;
+        $sig =~ s/\bM/mem/g;
+        $sig =~ s/\bsh\d/shift/g;
+        $sig =~ s/\bSPw/sp/g;
+        $sig =~ s/\bCR\w+/cpreg/g;
+
+        # Ordinals for dup names
+        $sig =~ s/imm\b(.*)imm\b(.*)imm\b/imm\1imm2\2imm3/;
+        $sig =~ s/imm\b(.*)imm\b/imm\1imm2/;
+        $sig =~ s/cpreg\b(.*)cpreg\b(.*)cpreg\b/cpreg\1cpreg2\2cpreg3/;
+        $sig =~ s/cpreg\b(.*)cpreg\b/cpreg\1cpreg2/;
+
+        # Total arg counts
+        my $sig_src = $sig;
+        $sig_src =~ s/^.*;//;
+        my @count = $sig_src =~ /\w+/g;
+        my $num_tot_srcs = scalar @count;
+        my $sig_dst = $sig;
+        $sig_dst =~ s/;.*$//;
+        @count = $sig_dst =~ /\w+/g;
+        my $num_tot_dsts = scalar @count;
+
+        # String for explicit args
+        my $esig = $sig;
+
+        # Look for writeback => name and implicit args
+        if ($sig =~ /\bmem/ &&
+            ($sig =~ /RAw;.*RAw/ || $sig =~ /sp;.*sp/) &&
+            $num_tot_dsts > 0) {
+            # For us, writeback or post-indexed look the same.  We have
+            # two variants: immed disp or index (possibly shifted) reg.
+            if ($sig =~ /;.*RD/) {
+                $name .= "_wbreg";
+            } elsif ($sig =~ /;.*\bi/) {
+                $name .= "_wbimm";
+            } else {
+                $name .= "_wb";
+            }
+            if ($sig =~ /sp;.*sp/) {
+                $sig =~ s/sp/opnd_get_base(mem)/g;
+                $esig =~ s/\s*sp//g;
+            } else {
+                $sig =~ s/RAw/opnd_get_base(mem)/g;
+                $esig =~ s/\s*RAw//g;
+            }
+        } elsif ($sig =~ /\bshift R/) {
+            $name .= "_shreg";
+        } elsif ($sig =~ /\bshift imm/) {
+            $name .= "_shimm";
+        } elsif ($shift_variant ne '' && $sig =~ /imm/ && $num_tot_srcs == 2) {
+            $name .= "_imm";
+        } elsif ($sig =~ /\bSPSR/) {
+            $name .= "_spsr";
+            $sig =~ s/SPSR/opnd_create_reg(DR_REG_SPSR)/g;
+            $esig =~ s/\s*SPSR//g;
+        } elsif ($sig =~ /\bSPSR/) {
+            $name .= "_spsr";
+            $sig =~ s/SPSR/opnd_create_reg(DR_REG_SPSR)/g;
+            $esig =~ s/\s*SPSR//g;
+        } elsif ($sig =~ /RAw RBw; RAw RBw/) {
+            # OP_smlal{b,t}{b,t}
+            $esig =~ s/; RAw RBw/;/g;
+        } elsif ($sig =~ /VC\d._/) {
+            # Things like OP_vmull, OP_vmls
+            $name .= "_scalar";
+        } elsif (($immed_name && $sig =~ /\bimm/) ||
+                 # When we add a simple reg-reg DR_SHIFT_NONE, and a reg-imm
+                 # exists, suffix the reg-imm.  We rely on having already seen
+                 # the $shift_variant via the sort of keys!
+                 ($shift_variant ne '' && $sig =~ /^R\w+\s*;\s*\bimm$/)) {
+           # Distinguished by immed
+            $name .= "_imm";
+        } elsif ($opc eq 'OP_msr' && $sig =~ /\bimm2$/) {
+            # Distinguished by immed
+            $name .= "_imm";
+        } elsif ($opc =~ /OP_cpsi/ && $sig =~ /\bimm.*\bimm/) {
+            $name .= "_noflags";
+        } elsif ($opc =~ /OP_vmov_32$/) {
+            if ($sig =~ /V.*;/) {
+                $name .= "_g2s";
+            } else {
+                $name .= "_s2g";
+            }
+        } elsif ($opc eq 'OP_vmov') {
+            # Using C++ function overloads would help here.
+            # XXX: could we create a vararg version?  But how know #dsts?
+            # User passes it in and we add instr_create_Ndst_varsrc()?
+            if ($sig =~ /^V\w+;\s*R\w+$/) {
+                $name .= "_g2s";
+            } elsif ($sig =~ /^R\w+;\s*V\w+$/) {
+                $name .= "_s2g";
+            } elsif ($sig =~ /^V\w+;\s*R\w+\s*R/) {
+                $name .= "_gg2s";
+            } elsif ($sig =~ /^V\w+\s*V\w+;\s*R\w+\s*R/) {
+                $name .= "_gg2ss";
+            } else {
+                $name .= "_ss2gg";
+            }
+        }
+
+        # Hardcoded implicit args:
+        # SPw, LSL, and ASR, and the k8, k16, k32 consts are explicit in the asm.
+        # LRw for OP_bl is not.
+        if ($sig =~ /\bLRw/) {
+            $sig =~ s/LRw/opnd_create_reg(DR_REG_LR)/;
+            $esig =~ s/\s*LRw//g;
+        }
+        if ($sig =~ /\bFPSCR/) {
+            $sig =~ s/FPSCR/opnd_create_reg(DR_REG_FPSCR)/;
+            $esig =~ s/\s*FPSCR//g;
+        }
+
+        $sig = rename_regs($sig);
+        $esig = rename_regs($esig);
+
+        # List of total (including implicit) args
+        my $call_str = $sig;
+        $call_str =~ s/;//g;
+        $call_str =~ s/\s*$//;
+        $call_str =~ s/^\s*//;
+        $call_str =~ s/\b(\w+)/, \1/g;
+        $call_str =~ s/\b([\w\(\)]+)\s+/\1/g;
+        $call_str =~ s/\b([A-Za-z0-9]+)\b/(\1)/g;
+        $call_str =~ s/\(, /(/g;
+
+        # List of explicit args
+        $arg_str = $esig;
+        $arg_str =~ s/;//g;
+        $arg_str =~ s/\s*$//g;
+        $arg_str =~ s/^\s*//g;
+        $arg_str =~ s/\b(\w+)/, \1/g;
+        $arg_str =~ s/\b(\w+)\s+/\1/g;
+
+        my $opc_str = $opc;
+        my $func_sfx = '';
+
+        # List => vararg with list at end of course
+        if ($sig =~ /\bL/) {
+            $arg_str =~ s/, L\w+//;
+            $call_str =~ s/, \(L\w+\)//;
+            $arg_str .= ", ...";
+            $call_str .= ", __VA_ARGS__";
+            if ($sig =~ /;.*\bL/) {
+                $func_sfx = '_varsrc';
+                $opc_str .= ", $num_tot_dsts, ".($num_tot_srcs-1);
+            } else {
+                $func_sfx = '_vardst';
+                $opc_str .= ", ".($num_tot_dsts-1).", $num_tot_srcs";
+            }
+            $num_tot_dsts = 'N';
+            $num_tot_srcs = 'M';
+        }
+        die "XXXX Duplicate macro $name\n" if (defined($dupcheck{$name}));
+        $dupcheck{$name} = 1;
+        my $mac = sprintf "#define INSTR_CREATE_%s(dc%s) \\\n".
+            "  instr_create_%sdst_%ssrc%s((dc), %s%s)\n",
+            $name, $arg_str, $num_tot_dsts, $num_tot_srcs, $func_sfx,
+            $opc_str, $call_str;
+        push(@{$macro{$arg_str}}, ($mac));
+
+        if ($shift_variant ne '' && $sig =~ /shift/) {
+            $shift_arg_str = $arg_str;
+            $shift_call_str = $call_str;
+        }
+    }
+
+    if ($shift_variant ne '') {
+        # Add a simple version w/o the shifted reg
+        my $name = $opc;
+        $name =~ s/^OP_//;
+        die "XXXX Duplicate added macro $name\n" if (defined($dupcheck{$name}));
+        $shift_arg_str =~ s/, shift,.*//;
+        $shift_call_str =~ s/\(shift\), .*/DR_SHIFT_NONE, 0/;
+        my $mac = sprintf "#define INSTR_CREATE_%s(dc$shift_arg_str) \\\n".
+            "  INSTR_CREATE_%s_shimm((dc)$shift_call_str)\n",
+            $name, $name;
+        push(@{$macro{$shift_arg_str}}, ($mac));
+    }
+}
+
+foreach my $args (keys %macro) {
+    $order{$args} = order_sig($args);
+}
+
+my @order = sort({$order{$a} <=> $order{$b}} keys %macro);
+
+my %mapping = ('reg' => 'register',
+               'Rd' => 'destination register',
+               'Rd2' => 'second destination register',
+               'Rn' => 'source register',
+               'Rt' => 'source register',
+               'Rt2' => 'second source register',
+               'Rm' => 'second source register',
+               'Ra' => 'third source register',
+               'Rs' => 'third source register',
+               'Vd' => 'destination SIMD register',
+               'Vd2' => 'second destination register',
+               'Vn' => 'source SIMD register',
+               'Vt' => 'source SIMD register',
+               'Vt2' => 'second source SIMD register',
+               'Vm' => 'second source SIMD register',
+               'Vm2' => 'third source SIMD register',
+               'Vs' => 'third source SIMD register',
+               'imm' => 'integer constant',
+               'imm2' => 'second integer constant',
+               'imm3' => 'third integer constant',
+               'mem' => 'memory',
+               'shift' => 'shift type integer constant',
+               '...' => 'register list',
+               'cpreg' => 'coprocessor register',
+               'cpreg2' => 'second coprocessor register',
+               'cpreg3' => 'third coprocessor register',
+               'statreg' => 'status register (usually DR_REG_CPSR)',
+               'sp' => 'stack pointer');
+
+foreach my $args (@order) {
+    print '
+/** @name Signature: ';
+    my $sigline = "($args)";
+    $sigline =~ s/\(, /(/;
+    print $sigline;
+    print ' */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+';
+    $sigline =~ s/\(//;
+    $sigline =~ s/\)//;
+    $sigline =~ s/\s*//g;
+    my @params = split(',', $sigline);
+    my %count;
+    my $saw_n = 0;
+    foreach my $param (@params) {
+        die "XXXX No mapping for $param\n" if (!defined$mapping{$param});
+        $saw_n = 1 if ($param =~ /[VR]n/);
+        my $tomap = $param;
+        # Singleton src => no "second"
+        $tomap =~ s/m/n/ if ($param =~ /[VR]m/ && !$saw_n);
+        my $full = $mapping{$tomap};
+        $count{$param}++;
+        die "XXXX Duplicate name $param\n" unless ($count{$param} == 1);
+        print " * \\param $param The $full opnd_t operand.
+";
+    }
+    print ' */
+';
+    foreach my $mac (sort @{$macro{$args}}) {
+        print $mac;
+    }
+    print '/* @} */ /* end doxygen group */
+';
+}
+
+sub collapse_types($)
+{
+    my ($str) = @_;
+    $str =~ s/\s//g;
+    # Collapse opnds that will look identical to the macro and for which
+    # we don't need to distinguish later
+    $str =~ s/\bM\w+/M/g;
+    $str =~ s/\bn\w+/i/g; # Negative immed == positive
+    $str =~ s/\bi\w+/i/g; # Type of immed doesn't matter
+    $str =~ s/\bro2/i/; # Rotate-by
+    $str =~ s/\bk\w+/i/; # Hardcoded const => immed (all are explicit in asm)
+    $str =~ s/\b(R\w)N(\w)/\1\2/g; # User must negate registers
+    $str =~ s/\bLSL/shift/g;
+    $str =~ s/\bASR/shift/g;
+    return $str;
+}
+
+sub order_sig($)
+{
+    my ($a) = @_;
+    my $ord = 0;
+    $ord += 1000000 if ($a =~ /V/);
+    $ord += 100000 if ($a =~ /cpreg/);
+    $ord += 10000 if ($a =~ /\.\.\./);
+    $ord += 1000 if ($a =~ /mem/);
+    $ord += 100 if ($a =~ /shift/);
+    $ord += 10 if ($a =~ /imm/);
+    @commas = $a =~ /,/g;
+    $ord += @commas;
+}
+
+# Should be called after removing implicit regs (writeback regs)
+sub rename_regs($)
+{
+    my ($str) = @_;
+    # Try to match assembly names
+    # XXX i#1563: currently loads use Rd -- using Rt would add complexity
+    # We also have several other breaks from asm.
+    if ($str =~ /\b[RV]A.*\b[RV]B.*;/) {
+        $str =~ s/\b([RV])A\w+/\1d/g; # g is for things like OP_smlalbb
+        $str =~ s/\b([RV])B\w+/\1d2/g;
+        $str =~ s/\b([RV])C\w+/\1m/;
+        $str =~ s/\bRD\w+/Rn/;
+    } elsif ($str =~ /\bVC.*\bVC2.*/) { # OP_vmov
+        # I'm breaking w/ asm to make things clearer and easier for the
+        # docs mapping for what is a dst and which is 1st vs 2nd src:
+        if ($str =~ /\bVC.*;/) {
+            $str =~ s/\bRA\w+/Rt2/;
+            $str =~ s/\bRB\w+/Rt/;
+            $str =~ s/\bVC[^0-9]/Vd/; # asm has Vm, Vm2
+            $str =~ s/\bVC2\w+/Vd2/;
+        } else {
+            $str =~ s/\bRA\w+/Rd2/; # asm has Rt, Rt2
+            $str =~ s/\bRB\w+/Rd/;
+            $str =~ s/\bVC[^0-9]/Vt/; # asm has Vm, Vm2
+            $str =~ s/\bVC2\w+/Vt2/;
+        }
+    } elsif ($str =~ /\bVC.*;.*\bRB.*\bRA/) { # OP_vmov
+        # I'm breaking w/ asm to make things clearer and easier for the
+        # docs mapping for what is a dst:
+        $str =~ s/\bRA\w+/Rt2/;
+        $str =~ s/\bRB\w+/Rt/;
+        $str =~ s/\bVC\w+/Vd/;
+    } elsif ($str =~ /\b[RV]A.*;/) {
+        if ($str =~ /\bVA.*;/) {
+            $str =~ s/\b([RV])B\w+/\1t/;
+        } else {
+            $str =~ s/\b([RV])B\w+/\1a/;
+        }
+        $str =~ s/\b([RV])A\w+/\1d/;
+        $str =~ s/\b([RV])C\w+/\1m/;
+        $str =~ s/\bRD\w+/Rn/;
+    } elsif ($str =~ /;.*\b[RV]DE.*\b[RV]D2.*/) { # OP_stlexd
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])B\w+/\1d/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\b([RV])DE\w+/\1t/;
+        $str =~ s/\b([RV])D2\w+/\1t2/;
+    } elsif ($str =~ /\b[RV]BE.*\b[RV]B2.*;/) {
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])BE\w+/\1d/;
+        $str =~ s/\b([RV])B2\w+/\1d2/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\bVC\w+/Vm/;
+        $str =~ s/\bRD\w+/Rm/;
+    } elsif ($str =~ /\b[RV]B.*;/) {
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])B\w+/\1d/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\bVC\w+/Vm/;
+        $str =~ s/\bRD\w+/Rm/;
+    } elsif ($str =~ /;.*\b[RV]BE.*\b[RV]B2.*/) {
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])BE\w+/\1t/;
+        $str =~ s/\b([RV])B2\w+/\1t2/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\bVC\w+/Vm/;
+        $str =~ s/\bRD\w+/Rm/;
+    } elsif ($str =~ /;.*\b[RV]B.*/) {
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])B\w+/\1t/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\bVC\w+/Vm/;
+        $str =~ s/\bRD\w+/Rm/;
+    } elsif ($str !~ /\b[RV].*;/ && $str =~ /;.*\b[RV]\w+/) {
+        # Single regs for post-indexing or small # opnds
+        $str =~ s/\b([RV])A\w+/\1n/;
+        $str =~ s/\b([RV])B\w+/\1d/;
+        $str =~ s/\bRC\w+/Rs/;
+        $str =~ s/\bVC\w+/Vm/;
+        $str =~ s/\bRD\w+/Rm/;
+    } elsif ($str =~ /\b[RV]\w+/) {
+        die "XXXX No reg mapping for $str\n";
+    }
+    return $str;
+}
