@@ -319,6 +319,7 @@
 #define ASR TYPE_SHIFT_ASR, OPSZ_0
 
 /* integer constants */
+#define k0  TYPE_K, 0
 #define k8  TYPE_K, 8
 #define k16 TYPE_K, 16
 #define k32 TYPE_K, 32

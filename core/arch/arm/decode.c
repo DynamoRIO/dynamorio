@@ -600,6 +600,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_SHIFT_ASR:
         array[(*counter)++] = opnd_create_immed_int(SHIFT_ENCODING_ASR, opsize);
         return true;
+    case TYPE_K:
+        array[(*counter)++] = opnd_create_immed_int(opsize, OPSZ_0);
+        return true;
 
     /* Memory */
     case TYPE_M:
