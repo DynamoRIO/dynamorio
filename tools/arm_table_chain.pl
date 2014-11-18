@@ -160,7 +160,7 @@ foreach $infile (@infiles) {
         for (my $i = 0; $i < @entry; $i++) {
             if ($_ eq $entry[$i]{'line'}) {
                 if ($i == @entry - 1) {
-                    s/, [\w\[\]]+},/, END_LIST},/;
+                    s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
                 } else {
                     my $chain = $entry[$i+1]{'addr_short'};
                     s/, [\w\[\]]+},/, $chain},/;
@@ -168,7 +168,7 @@ foreach $infile (@infiles) {
             }
         }
         if (defined($dup{$_})) {
-            s/, [\w\[\]]+},/, END_LIST},/;
+            s/, [\w\[\]]+},/, END_LIST},/ unless /exop\[\w+\]},/;
         }
         print;
     }

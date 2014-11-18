@@ -732,13 +732,13 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_qdadd,   0x01400050, "qdadd",  RBw, xx, RAw, RDw, xx, pred, x, END_LIST},
     {INVALID,    0x01400060, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_hvc,     0x01400070, "hvc",    i16x0_8, xx, xx, xx, xx, pred, x, END_LIST},
-    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RCh, pred|xop, x, END_LIST},
+    {OP_smlalbb, 0x01400080, "smlalbb", RAw, RBw, RAw, RBw, RCh, pred|xop, x, exop[0x4]},
     {INVALID,    0x01400090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RCh, pred|xop, x, END_LIST},
+    {OP_smlalbt, 0x014000a0, "smlalbt", RAw, RBw, RAw, RBw, RCh, pred|xop, x, exop[0x5]},
     {OP_strh,    0x014000b0, "strh",   MN44h, xx, RBw, xx, xx, pred, x, top4[0][0x0b]},/*PUW=100*/
-    {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RCt, pred|xop, x, END_LIST},
+    {OP_smlaltb, 0x014000c0, "smlaltb", RAw, RBw, RAw, RBw, RCt, pred|xop, x, exop[0x4]},
     {OP_ldrd,    0x014000d0, "ldrd",   RBEw, RB2w, MN44q, xx, xx, pred, x, top4x[20][0x04]},/*PUW=100*/
-    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RCt, pred|xop, x, END_LIST},
+    {OP_smlaltt, 0x014000e0, "smlaltt", RAw, RBw, RAw, RBw, RCt, pred|xop, x, exop[0x5]},
     {OP_strd,    0x014000f0, "strd",   MN44q, xx, RBEw, RB2w, xx, pred, x, top4[0][0x0f]},/*PUW=100*/
   }, { /* 3 */
     {EXT_BIT9,   0x01600000, "(ext bit9 6)", xx, xx, xx, xx, xx, no, x, 6},
@@ -1020,11 +1020,11 @@ const instr_info_t A32_ext_bit4[][2] = {
     {OP_ldrb,    0x07d00000, "ldrb",   RBw, xx, MPSb, xx, xx, pred, x, top4y[14][0x00]},/*PUW=110*/
     {OP_bfc,     0x07d0001f, "bfc",    RBw, xx, i5_16, i5_7, xx, pred, x, END_LIST},
   }, { /* 9 */
-    {OP_cdp,     0x0e000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*//*no chain nec.*/
-    {OP_mcr,     0x0e000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, pred|xop, x, END_LIST},/*XXX: disasm not in dst-src order*/
+    {OP_cdp,     0x0e000000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*//*no chain nec.*/
+    {OP_mcr,     0x0e000010, "mcr",    CRAw, CRDw, i4_8, i3_21, RBw, pred|xop, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 10*/
-    {OP_cdp,     0x0e100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*/
-    {OP_mrc,     0x0e100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, pred|xop|srcX4, x, END_LIST},/*XXX: disasm not in dst-src order*/
+    {OP_cdp,     0x0e100000, "cdp",    CRBw, i4_8, i4_20, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
+    {OP_mrc,     0x0e100010, "mrc",    RBw, i4_8, i3_21, CRAw, CRDw, pred|xop|srcX4, x, exop[0x3]},/*XXX: disasm not in dst-src order*/
   }, { /* 11 */
     {OP_vbic_i16, 0xf2800140, "vbic.i16",       VBdq, xx, i8x24_16_0, xx, no, x, END_LIST},
     {OP_vorr_i32, 0xf2800150, "vorr.i32",       VBdq, xx, i8x24_16_0, xx, xx, no, x, END_LIST},
