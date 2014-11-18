@@ -336,6 +336,8 @@ enum {
     DR_REG_SL = DR_REG_R10, /**< Alias for the r10 register. */
     DR_REG_FP = DR_REG_R11, /**< Alias for the r11 register. */
     DR_REG_IP = DR_REG_R12, /**< Alias for the r12 register. */
+    /** Alias for cpsr register (thus this is the full cpsr, not just the apsr bits). */
+    DR_REG_APSR = DR_REG_CPSR,
 
     /* AArch64 Thread Registers */
     /** Thread Pointer/ID Register, EL0. */

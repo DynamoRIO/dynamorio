@@ -37,7 +37,7 @@
 #
 # To run on everything:
 #
-#   for i in `egrep '^ *OP_[a-z]' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_*.[ch]; done
+#   for i in `egrep -o 'OP_[a-z0-9_]+,' core/arch/arm/opcode.h | sed 's/,//'`; do echo $i; tools/arm_table_chain.pl $i core/arch/arm/table_*.[ch]; done
 
 my $verbose = 1;
 
