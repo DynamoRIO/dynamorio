@@ -37,7 +37,7 @@
 /* Copyright (c) 2000-2001 Hewlett-Packard Company */
 
 /*
- * tls_linux.c - TLS support via x86 segments
+ * tls_linux_x86.c - TLS support via x86 segments
  */
 
 #include "../globals.h"
