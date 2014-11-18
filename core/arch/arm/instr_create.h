@@ -111,7 +111,7 @@
  *
  * \note Loading to 128-bit registers is not supported on 32-bit ARM.
  */
-#define XINST_CREATE_load_mm(dc, r, m) INSTR_CREATE_vldr(dc, r, m)
+#define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_vldr(dc, r, m)
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -122,7 +122,7 @@
  *
  * \note Storing from 128-bit registers is not supported on 32-bit ARM.
  */
-#define XINST_CREATE_store_mm(dc, m, r) INSTR_CREATE_vstr(dc, m, r)
+#define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_vstr(dc, m, r)
 
 /**
  * This platform-independent macro creates an instr_t for an indirect

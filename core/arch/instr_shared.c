@@ -2676,7 +2676,7 @@ instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return XINST_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load_simd(dcontext, opnd_create_reg(reg), memopnd);
     else
         return XINST_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
 }
@@ -2689,7 +2689,7 @@ instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
                   "instr_create_save_to_dcontext: invalid dcontext");
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return XINST_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store_simd(dcontext, memopnd, opnd_create_reg(reg));
     else
         return XINST_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
 }
@@ -2704,7 +2704,7 @@ instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return XINST_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load_simd(dcontext, opnd_create_reg(reg), memopnd);
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
@@ -2722,7 +2722,7 @@ instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return XINST_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store_simd(dcontext, memopnd, opnd_create_reg(reg));
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
