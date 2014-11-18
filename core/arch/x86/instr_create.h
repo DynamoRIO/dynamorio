@@ -137,84 +137,81 @@
 /* @{ */ /* doxygen start group */
 
 /**
- * This platform-independent INSTR_CREATE_debug_instr macro creates an instr_t
- * for a debug trap instruction, automatically supplying any implicit operands.
+ * This platform-independent macro creates an instr_t for a debug trap
+ * instruction, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define INSTR_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
+#define XINST_CREATE_debug_instr(dc) INSTR_CREATE_int3(dc)
 
 /**
- * This platform-independent INSTR_CREATE_load macro creates an instr_t
- * for a memory load instruction.
+ * This platform-independent creates an instr_t for a memory load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define INSTR_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
+#define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_mov_ld(dc, r, m)
 
 /**
- * This platform-independent INSTR_CREATE_store macro creates an instr_t
- * for a memory store instruction.
+ * This platform-independent macro creates an instr_t for a memory store instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define INSTR_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
+#define XINST_CREATE_store(dc, m, r)  INSTR_CREATE_mov_st(dc, m, r)
 
 /**
- * This platform-independent INSTR_CREATE_mov macro creates an instr_t
- * for a register to register move instruction.
+ * This platform-independent macro creates an instr_t for a register
+ * to register move instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define INSTR_CREATE_mov(dc, d, s)  INSTR_CREATE_mov_ld(dc, d, s)
+#define XINST_CREATE_move(dc, d, s)  INSTR_CREATE_mov_ld(dc, d, s)
 
 /**
- * This platform-independent INSTR_CREATE_load_mm macro creates an instr_t
- * for a multimedia register load instruction.
+ * This platform-independent macro creates an instr_t for a multimedia
+ * register load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define INSTR_CREATE_load_mm(dc, r, m) INSTR_CREATE_movd(dc, r, m)
+#define XINST_CREATE_load_mm(dc, r, m) INSTR_CREATE_movd(dc, r, m)
 
 /**
- * This platform-independent INSTR_CREATE_store_mm macro creates an instr_t
- * for a multimedia register store instruction.
+ * This platform-independent macro creates an instr_t for a multimedia
+ * register store instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define INSTR_CREATE_store_mm(dc, m, r) INSTR_CREATE_movd(dc, m, r)
+#define XINST_CREATE_store_mm(dc, m, r) INSTR_CREATE_movd(dc, m, r)
 
 /**
- * This platform-independent INSTR_CREATE_jmp_ind_mem macro creates an instr_t
- * for an indirect jump through memory instruction.
+ * This platform-independent macro creates an instr_t for an indirect
+ * jump through memory instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The memory opnd holding the target.
  */
-#define INSTR_CREATE_jmp_ind_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
+#define XINST_CREATE_jmp_ind_mem(dc, m) INSTR_CREATE_jmp_ind(dc, m)
 
 /**
- * This platform-independent INSTR_CREATE_load_int macro creates an instr_t
- * for an immediate integer load instruction.
+ * This platform-independent macro creates an instr_t for an immediate
+ * integer load instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define INSTR_CREATE_load_int(dc, r, i) INSTR_CREATE_mov_imm(dc, r, i)
+#define XINST_CREATE_load_int(dc, r, i) INSTR_CREATE_mov_imm(dc, r, i)
 
 /**
- * This platform-independent INSTR_CREATE_return macro creates an instr_t
- * for a return instruction.
+ * This platform-independent macro creates an instr_t for a return instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  */
-#define INSTR_CREATE_return(dc) INSTR_CREATE_ret(dc)
+#define XINST_CREATE_return(dc) INSTR_CREATE_ret(dc)
 
 /**
- * This platform-independent INSTR_CREATE_jmp macro creates an instr_t
- * for a branch instruction.
+ * This platform-independent macro creates an instr_t for an unconditional
+ * branch instruction.
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param t   The opnd_t target operand for the instruction, which can be
  * either a pc (opnd_create_pc)()) or an instr_t (opnd_create_instr()).
@@ -222,7 +219,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define INSTR_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
+#define XINST_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
 
 /* @} */ /* end doxygen group */
 
@@ -317,6 +314,8 @@
  * \param t The opnd_t target operand for the instruction, which can be either
  * a pc (opnd_create_pc()) or an instr_t (opnd_create_instr()).
  */
+#define INSTR_CREATE_jmp(dc, t) \
+  instr_create_0dst_1src((dc), OP_jmp, (t))
 #define INSTR_CREATE_jmp_short(dc, t) \
   instr_create_0dst_1src((dc), OP_jmp_short, (t))
 #define INSTR_CREATE_xbegin(dc, t) \

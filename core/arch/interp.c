@@ -564,11 +564,11 @@ check_for_stopping_point(dcontext_t *dcontext, build_bb_t *bb)
          */
         /* move 0 into xax/r0 -- our functions return 0 to indicate success */
         instrlist_append(bb->ilist,
-                         INSTR_CREATE_load_int(dcontext,
+                         XINST_CREATE_load_int(dcontext,
                                                opnd_create_reg(reg),
                                                OPND_CREATE_INT32(0)));
         /* insert a ret instruction */
-        instrlist_append(bb->ilist, INSTR_CREATE_return(dcontext));
+        instrlist_append(bb->ilist, XINST_CREATE_return(dcontext));
         /* should this be treated as a real return? */
         bb->exit_type |= LINK_INDIRECT | LINK_RETURN;
         bb->exit_target = get_ibl_routine(dcontext, IBL_LINKED, DEFAULT_IBL_BB(), IBL_RETURN);
@@ -3947,7 +3947,7 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (bb->mangle_ilist &&
         (bb->instr == NULL || !instr_opcode_valid(bb->instr) ||
          !instr_is_near_ubr(bb->instr) || instr_is_meta(bb->instr))) {
-        instr_t *exit_instr = INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
+        instr_t *exit_instr = XINST_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
         if (bb->record_translation) {
             app_pc translation = NULL;
             if (bb->instr == NULL || !instr_opcode_valid(bb->instr)) {
@@ -4418,8 +4418,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     /* this is the jump to native code */
     instrlist_append(bb->ilist,
                      opnd_is_pc(jmp_tgt) ?
-                     INSTR_CREATE_jmp(dcontext, jmp_tgt) :
-                     INSTR_CREATE_jmp_ind_mem(dcontext, jmp_tgt));
+                     XINST_CREATE_jmp(dcontext, jmp_tgt) :
+                     XINST_CREATE_jmp_ind_mem(dcontext, jmp_tgt));
 
     /* mark all as do-not-mangle, so selfmod, etc. will leave alone (in absence
      * of selfmod only really needed for the jmp to native code)
@@ -4428,7 +4428,7 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         instr_set_meta(in);
 
     /* this is a jump for a dummy exit cti */
-    instrlist_append(bb->ilist, INSTR_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
+    instrlist_append(bb->ilist, XINST_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
 
     if (DYNAMO_OPTION(shared_bbs) && !TEST(FRAG_TEMP_PRIVATE, bb->flags))
         bb->flags |= FRAG_SHARED;
@@ -5325,7 +5325,7 @@ insert_increment_stat_counter(dcontext_t *dcontext, instrlist_t *trace, instr_t 
     /*>>>    movl    %ecx, counter */
     /* x64: the counter is still 32 bits */
     added_size += tracelist_add(dcontext, trace, next,
-                                INSTR_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG2),
+                                XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG2),
                                                   private_branchtype_counter));
     added_size += tracelist_add(dcontext, trace, next,
 #ifdef X86
@@ -5340,7 +5340,7 @@ insert_increment_stat_counter(dcontext_t *dcontext, instrlist_t *trace, instr_t 
 #endif /* X86/ARM */
                                 );
     added_size += tracelist_add(dcontext, trace, next,
-                                INSTR_CREATE_store(dcontext,
+                                XINST_CREATE_store(dcontext,
                                                    private_branchtype_counter,
                                                    opnd_create_reg(SCRATCH_REG2)));
     return added_size;
@@ -5368,7 +5368,7 @@ insert_restore_spilled_xcx(dcontext_t *dcontext, instrlist_t *trace, instr_t *ne
 #endif
         {
             added_size += tracelist_add(dcontext, trace, next,
-                INSTR_CREATE_load(dcontext,
+                XINST_CREATE_load(dcontext,
                                   opnd_create_reg(SCRATCH_REG2),
                                   opnd_create_tls_slot
                                   (os_tls_offset(MANGLE_XCX_SPILL_SLOT))));
@@ -6033,7 +6033,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
             added_size +=
                 tracelist_add(dcontext, trace, where,
-                              INSTR_CREATE_store(dcontext,
+                              XINST_CREATE_store(dcontext,
                                                  opnd_create_tls_slot(tls_stat_scratch_slot),
                                                  opnd_create_reg(SCRATCH_REG2)));
             added_size +=
@@ -6043,7 +6043,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
                                               ->ib_trace_last_ibl_exit);
             added_size +=
                 tracelist_add(dcontext, trace, where,
-                              INSTR_CREATE_load(dcontext,
+                              XINST_CREATE_load(dcontext,
                                                 opnd_create_reg(SCRATCH_REG2),
                                                 opnd_create_tls_slot(tls_stat_scratch_slot)));
         }
@@ -6088,7 +6088,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
             /* restore XCX to app IB target*/
             added_size +=
                 tracelist_add(dcontext, trace, next,
-                              INSTR_CREATE_load(dcontext,
+                              XINST_CREATE_load(dcontext,
                                                 opnd_create_reg(reg),
                                                 opnd_create_tls_slot(tls_stat_scratch_slot)));
         }
@@ -6132,7 +6132,7 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
     /* add a new direct exit stub */
     added_size += tracelist_add(dcontext, trace, next,
-                                INSTR_CREATE_jmp(dcontext, opnd_create_pc(speculate_next_tag)));
+                                XINST_CREATE_jmp(dcontext, opnd_create_pc(speculate_next_tag)));
     LOG(THREAD, LOG_INTERP, 3,
         "append_trace_speculate_last_ibl: added cmp vs. "PFX" for ind br\n",
         speculate_next_tag);
@@ -6178,7 +6178,7 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
 
     ASSERT(ok);
     added_size += tracelist_add(dcontext, trace, where,
-                                INSTR_CREATE_store(dcontext,
+                                XINST_CREATE_store(dcontext,
                                                    opnd_create_tls_slot(tls_stat_scratch_slot),
                                                     opnd_create_reg(reg)));
     added_size +=
@@ -6186,7 +6186,7 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
                                       &get_ibl_per_type_statistics(dcontext, ibl_type.branch_type)
                                       ->ib_trace_last_ibl_exit);
     added_size += tracelist_add(dcontext, trace, where,
-                                INSTR_CREATE_load(dcontext,
+                                XINST_CREATE_load(dcontext,
                                                   opnd_create_reg(reg),
                                                   opnd_create_tls_slot(tls_stat_scratch_slot)));
 
@@ -6217,13 +6217,13 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
                                           ->ib_trace_last_ibl_speculate_success);
         /* restore ECX */
         added_size += tracelist_add(dcontext, trace, next,
-                                INSTR_CREATE_load(dcontext,
+                                XINST_CREATE_load(dcontext,
                                                   opnd_create_reg(reg),
                                                   opnd_create_tls_slot(tls_stat_scratch_slot)));
         /* jmp where */
         added_size += tracelist_add(dcontext, trace, next,
                                     IF_X86_ELSE(INSTR_CREATE_jmp_short,
-                                                INSTR_CREATE_jmp)
+                                                XINST_CREATE_jmp)
                                     (dcontext, opnd_create_instr(where)));
     }
 
@@ -6346,7 +6346,7 @@ static instr_t *
 create_exit_jmp(dcontext_t *dcontext, app_pc target, app_pc translation,
                 uint branch_type)
 {
-    instr_t *jmp = INSTR_CREATE_jmp(dcontext, opnd_create_pc(target));
+    instr_t *jmp = XINST_CREATE_jmp(dcontext, opnd_create_pc(target));
     instr_set_translation(jmp, translation);
     if (branch_type == 0)
         instr_exit_branch_set_type(jmp, instr_branch_type(jmp));
@@ -6905,7 +6905,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     if (stop) {
                         /* Add the ubr ourselves */
                         ASSERT(cti == NULL);
-                        cti = INSTR_CREATE_jmp(dcontext, opnd_create_pc(pc));
+                        cti = XINST_CREATE_jmp(dcontext, opnd_create_pc(pc));
                         /* It's up to the caller to decide whether to mark this
                          * as do-not-emit or not */
                         /* Process as an exit cti */

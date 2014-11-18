@@ -3237,7 +3237,7 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
             APP(ilist,
-                INSTR_CREATE_jmp_ind_mem(dcontext,
+                XINST_CREATE_jmp_ind_mem(dcontext,
                                          OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
 
         } else {
@@ -3401,7 +3401,7 @@ emit_fcache_enter_common(dcontext_t *dcontext, generated_code_t *code,
     if (!absolute) {
         /* grab gen routine's parameter dcontext and put it into edi */
         APP(&ilist,
-            IF_X86_ELSE(INSTR_CREATE_mov_ld, INSTR_CREATE_mov)
+            IF_X86_ELSE(INSTR_CREATE_mov_ld, XINST_CREATE_move)
             (dcontext, opnd_create_reg(SCRATCH_REG5), OPND_ARG1));
         if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
             IF_X86_ELSE({

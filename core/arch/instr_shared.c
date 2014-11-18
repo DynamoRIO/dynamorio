@@ -2676,9 +2676,9 @@ instr_create_restore_from_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return INSTR_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
     else
-        return INSTR_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
 }
 
 instr_t *
@@ -2689,9 +2689,9 @@ instr_create_save_to_dcontext(dcontext_t *dcontext, reg_id_t reg, int offs)
                   "instr_create_save_to_dcontext: invalid dcontext");
     /* use movd for xmm/mmx */
     if (reg_is_xmm(reg) || reg_is_mmx(reg))
-        return INSTR_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
     else
-        return INSTR_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
 }
 
 /* Use basereg==REG_NULL to get default (xdi, or xsi for upcontext)
@@ -2704,11 +2704,11 @@ instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return INSTR_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load_mm(dcontext, opnd_create_reg(reg), memopnd);
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
-        return INSTR_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
+        return XINST_CREATE_load(dcontext, opnd_create_reg(reg), memopnd);
     }
 }
 
@@ -2722,11 +2722,11 @@ instr_create_save_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     /* use movd for xmm/mmx, and OPSZ_PTR */
     if (reg_is_xmm(reg) || reg_is_mmx(reg)) {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg(dcontext, basereg, offs);
-        return INSTR_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store_mm(dcontext, memopnd, opnd_create_reg(reg));
     } else {
         opnd_t memopnd = opnd_create_dcontext_field_via_reg_sz
             (dcontext, basereg, offs, reg_get_size(reg));
-        return INSTR_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
+        return XINST_CREATE_store(dcontext, memopnd, opnd_create_reg(reg));
     }
 }
 
@@ -2738,7 +2738,7 @@ instr_create_save_immed_to_dcontext(dcontext_t *dcontext, int immed, int offs)
     IF_X64(ASSERT_NOT_IMPLEMENTED(false));
     /* there is no immed to mem instr on ARM */
     IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return INSTR_CREATE_store(dcontext, memopnd, OPND_CREATE_INT32(immed));
+    return XINST_CREATE_store(dcontext, memopnd, OPND_CREATE_INT32(immed));
 }
 
 instr_t *
@@ -2750,7 +2750,7 @@ instr_create_save_immed_to_dc_via_reg(dcontext_t *dcontext, reg_id_t basereg,
     ASSERT(sz == OPSZ_1 || sz == OPSZ_2 || sz == OPSZ_4);
     /* there is no immed to mem instr on ARM */
     IF_ARM(ASSERT_NOT_IMPLEMENTED(false));
-    return INSTR_CREATE_store(dcontext, memopnd,
+    return XINST_CREATE_store(dcontext, memopnd,
                               opnd_create_immed_int(immed, sz));
 }
 
@@ -2758,7 +2758,7 @@ instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
-    return INSTR_CREATE_jmp_ind_mem(dcontext, memopnd);
+    return XINST_CREATE_jmp_ind_mem(dcontext, memopnd);
 }
 
 /* there is no corresponding save routine since we no longer support
@@ -2982,14 +2982,14 @@ instr_is_reg_spill_or_restore(dcontext_t *dcontext, instr_t *instr,
 instr_t *
 instr_create_save_to_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
 {
-    return INSTR_CREATE_store(dcontext, opnd_create_tls_slot(os_tls_offset(offs)),
+    return XINST_CREATE_store(dcontext, opnd_create_tls_slot(os_tls_offset(offs)),
                               opnd_create_reg(reg));
 }
 
 instr_t *
 instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
 {
-    return INSTR_CREATE_load(dcontext, opnd_create_reg(reg),
+    return XINST_CREATE_load(dcontext, opnd_create_reg(reg),
                              opnd_create_tls_slot(os_tls_offset(offs)));
 }
 
@@ -2997,13 +2997,13 @@ instr_create_restore_from_tls(dcontext_t *dcontext, reg_id_t reg, ushort offs)
 instr_t *
 instr_create_save_to_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
 {
-    return INSTR_CREATE_mov(dcontext, opnd_create_reg(reg2), opnd_create_reg(reg1));
+    return XINST_CREATE_move(dcontext, opnd_create_reg(reg2), opnd_create_reg(reg1));
 }
 
 instr_t *
 instr_create_restore_from_reg(dcontext_t *dcontext, reg_id_t reg1, reg_id_t reg2)
 {
-    return INSTR_CREATE_mov(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
+    return XINST_CREATE_move(dcontext, opnd_create_reg(reg1), opnd_create_reg(reg2));
 }
 
 #ifdef X64

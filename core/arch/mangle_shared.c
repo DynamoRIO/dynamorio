@@ -106,7 +106,7 @@ insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist,
     /* An extra level of indirection with SELFPROT_DCONTEXT */
     if (TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask)) {
         ASSERT_NOT_TESTED();
-        PRE(ilist, where, INSTR_CREATE_load
+        PRE(ilist, where, XINST_CREATE_load
             (dcontext, opnd_create_reg(reg),
              OPND_CREATE_MEMPTR(reg, offsetof(dcontext_t, upcontext))));
     }
