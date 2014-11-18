@@ -195,39 +195,39 @@ const instr_info_t A32_pred_opc8[] = {
     /* 80 */
     {OP_stmda,   0x08000000, "stmda",  MDAl, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=000*/
     {OP_ldmda,   0x08100000, "ldmda",  L16w, xx, MDAl, xx, xx, pred, x, END_LIST},/*PUW=000*/
-    {OP_stmda,   0x08200000, "stmda",  MDAl, RAw, L16w, xx, xx, pred, x, top8[0x80]},/*PUW=001*/
-    {OP_ldmda,   0x08300000, "ldmda",  L16w, RAw, MDAl, xx, xx, pred, x, top8[0x81]},/*PUW=001*/
+    {OP_stmda,   0x08200000, "stmda",  MDAl, RAw, L16w, RAw, xx, pred, x, top8[0x80]},/*PUW=001*/
+    {OP_ldmda,   0x08300000, "ldmda",  L16w, RAw, MDAl, RAw, xx, pred, x, top8[0x81]},/*PUW=001*/
     {OP_stmda_priv,0x08400000,"stmda", MDAl, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=000*/
     {OP_ldmda_priv,0x08500000,"ldmda", L16w, xx, MDAl, xx, xx, pred, x, END_LIST},/*PUW=000*/
     {INVALID,    0x08600000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldmda_priv,0x08700000,"ldmda", L16w, RAw, MDAl, xx, xx, pred, x, top8[0x85]},/*PUW=001*/
+    {OP_ldmda_priv,0x08700000,"ldmda", L16w, RAw, MDAl, RAw, xx, pred, x, top8[0x85]},/*PUW=001*/
     /* 88 */
     {OP_stm,     0x08800000, "stm",    Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*//* XXX: "stmia" alias (used inconsistently by gdb) */
     {OP_ldm,     0x08900000, "ldm",    L16w, xx, Ml, xx, xx, pred, x, END_LIST},/*PUW=010*//* XXX: "ldmia" and "ldmfb" aliases */
-    {OP_stm,     0x08a00000, "stm",    Ml, RAw, L16w, xx, xx, pred, x, top8[0x88]},/*PUW=011*/
-    {OP_ldm,     0x08b00000, "ldm",    L16w, RAw, Ml, xx, xx, pred, x, top8[0x89]},/*PUW=011*/
+    {OP_stm,     0x08a00000, "stm",    Ml, RAw, L16w, RAw, xx, pred, x, top8[0x88]},/*PUW=011*/
+    {OP_ldm,     0x08b00000, "ldm",    L16w, RAw, Ml, RAw, xx, pred, x, top8[0x89]},/*PUW=011*/
     {OP_stm_priv,0x08c00000, "stm",    Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {OP_ldm_priv,0x08d00000, "ldm",    L16w, xx, Ml, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {INVALID,    0x08e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldmia_priv,0x08f00000,"ldmia", L16w, RAw, Ml, xx, xx, pred, x, END_LIST},/*PUW=011*/
+    {OP_ldmia_priv,0x08f00000,"ldmia", L16w, RAw, Ml, RAw, xx, pred, x, END_LIST},/*PUW=011*/
     /* 90 */
     {OP_stmdb,   0x09000000, "stmdb",  MDBl, xx, L16w, xx, xx, pred, x, top8[0x92]},/*PUW=100*/
     {OP_ldmdb,   0x09100000, "ldmdb",  L16w, xx, MDBl, xx, xx, pred, x, top8[0x93]},/*PUW=100*/
-    {OP_stmdb,   0x09200000, "stmdb",  MDBl, RAw, L16w, xx, xx, pred, x, END_LIST},/*PUW=101*//* XXX: if RA=SP, then "push" */
-    {OP_ldmdb,   0x09300000, "ldmdb",  L16w, RAw, MDBl, xx, xx, pred, x, END_LIST},/*PUW=101*/
+    {OP_stmdb,   0x09200000, "stmdb",  MDBl, RAw, L16w, RAw, xx, pred, x, END_LIST},/*PUW=101*//* XXX: if RA=SP, then "push" */
+    {OP_ldmdb,   0x09300000, "ldmdb",  L16w, RAw, MDBl, RAw, xx, pred, x, END_LIST},/*PUW=101*/
     {OP_stmdb_priv,0x09400000,"stmdb", MDBl, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=100*/
     {OP_ldmdb_priv,0x09500000,"ldmdb", L16w, xx, MDBl, xx, xx, pred, x, top8[0x97]},/*PUW=100*/
     {INVALID,    0x09600000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldmdb_priv,0x09700000,"ldmdb", L16w, RAw, MDBl, xx, xx, pred, x, END_LIST},/*PUW=101*/
+    {OP_ldmdb_priv,0x09700000,"ldmdb", L16w, RAw, MDBl, RAw, xx, pred, x, END_LIST},/*PUW=101*/
     /* 98 */
     {OP_stmib,   0x09800000, "stmib",  MUBl, xx, L16w, xx, xx, pred, x, top8[0x9a]},/*PUW=110*//* XXX: "stmia" or "stmea" alias */
     {OP_ldmib,   0x09900000, "ldmib",  L16w, xx, MUBl, xx, xx, pred, x, top8[0x9b]},/*PUW=110*//* XXX: "ldmia" alias */
-    {OP_stmib,   0x09a00000, "stmib",  MUBl, RAw, L16w, xx, xx, pred, x, END_LIST},/*PUW=111*/
-    {OP_ldmib,   0x09b00000, "ldmib",  L16w, RAw, MUBl, xx, xx, pred, x, END_LIST},/*PUW=111*/
+    {OP_stmib,   0x09a00000, "stmib",  MUBl, RAw, L16w, RAw, xx, pred, x, END_LIST},/*PUW=111*/
+    {OP_ldmib,   0x09b00000, "ldmib",  L16w, RAw, MUBl, RAw, xx, pred, x, END_LIST},/*PUW=111*/
     {OP_stm,     0x09c00000, "stm",    MUBl, xx, L16w, xx, xx, pred, x, top8[0x8a]},/*PUW=110*/
     {OP_ldm,     0x09d00000, "ldm",    L16w, xx, MUBl, xx, xx, pred, x, top8[0x9f]},/*PUW=110*/
     {INVALID,    0x09e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_ldm,     0x09f00000, "ldm",    L16w, RAw, MUBl, xx, xx, pred, x, top8[0x8b]},/*PUW=111*/
+    {OP_ldm,     0x09f00000, "ldm",    L16w, RAw, MUBl, RAw, xx, pred, x, top8[0x8b]},/*PUW=111*/
     /* a0 */
     {OP_b,       0x0a000000, "b",      xx, xx, i24, xx, xx, no, x, END_LIST},/*no chain nec.*/
     {OP_b,       0x0a100000, "b",      xx, xx, i24, xx, xx, no, x, END_LIST},
@@ -361,21 +361,21 @@ const instr_info_t A32_ext_opc4x[][6] = {
   }, { /* 2 */
     {OP_eor,     0x00200000, "eor",    RBw, RAw, RDw, sh2, i5, pred|srcX4, x, top4x[2][0x01]},
     {OP_eor,     0x00200010, "eor",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
-    {OP_mla,     0x00200090, "mla",    RAw, xx, RBw, RCw, RDw, pred, x, END_LIST},
+    {OP_mla,     0x00200090, "mla",    RAw, xx, RDw, RCw, RBw, pred, x, END_LIST},
     {OP_strht,   0x002000b0, "strht",  Mh, RAw, RBh, RAw, RDNw, pred, x, END_LIST},/*PUW=001*/
     {OP_ldrd,    0x002000d0, "ldrd",   RBEw, RB2w, RAw, Mq, RDNw, xop_wb|pred|dstX3|unp, x, top4x[0][0x04]},/*PUW=001*/
     {OP_strd,    0x002000f0, "strd",   Mq, RAw, RBEw, RB2w, RDNw, xop_wb|pred|unp, x, top4x[0][0x05]},/*PUW=001*/
   }, { /* 3 */
     {OP_eors,    0x00300000, "eors",   RBw, RAw, RDw, sh2, i5, pred|srcX4, fWNZCV, top4x[3][0x01]},
     {OP_eors,    0x00300010, "eors",   RBw, RAw, RDw, sh2, RCb, pred|srcX4, fWNZCV, END_LIST},
-    {OP_mlas,    0x00300090, "mlas",   RAw, xx, RBw, RCw, RDw, pred, fWNZCV, END_LIST},
+    {OP_mlas,    0x00300090, "mlas",   RAw, xx, RDw, RCw, RBw, pred, fWNZCV, END_LIST},
     {OP_ldrh,    0x003000b0, "ldrht",  RBw, RAw, Mh, RAw, RDNw, pred, x, top4x[1][0x03]},/*PUW=001*/
     {OP_ldrsbt,  0x003000d0, "ldrsbt", RBw, RAw, Mb, RAw, RDNw, pred, x, END_LIST},/*PUW=001*/
     {OP_ldrsht,  0x003000f0, "ldrsht", RBw, RAw, Mh, RAw, RDNw, pred, x, END_LIST},/*PUW=001*/
   }, { /* 4 */
     {OP_sub,     0x00400000, "sub",    RBw, RAw, RDw, sh2, i5, pred|srcX4, x, top4x[4][0x01]},
     {OP_sub,     0x00400010, "sub",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
-    {OP_umaal,   0x00400090, "umaal",  RAw, xx, RBw, RCw, RDw, pred, x, END_LIST},
+    {OP_umaal,   0x00400090, "umaal",  RAw, RBw, RDw, RCw, xx, pred, x, END_LIST},
     {OP_strh,    0x004000b0, "strh",   Mh, RAw, RBh, RAw, n8x0_8, pred, x, top4x[0][0x03]},/*PUW=000*/
     {OP_ldrd,    0x004000d0, "ldrd",   RBEw, RB2w, RAw, Mq, n8x0_8, xop_wb|pred|dstX3, x, top4x[2][0x04]},/*PUW=000*/
     {OP_strd,    0x004000f0, "strd",   Mq, RAw, RBEw, RB2w, n8x0_8, xop_wb|pred, x, top4x[2][0x05]},/*PUW=000*/
@@ -489,8 +489,8 @@ const instr_info_t A32_ext_opc4x[][6] = {
     {OP_orr,     0x01800010, "orr",    RBw, RAw, RDw, sh2, RCb, pred|srcX4, x, END_LIST},
     {EXT_BITS8,  0x01800090, "(ext bits8 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_strh,    0x018000b0, "strh",   MPRh, xx, RBh, xx, xx, pred, x, top4[2][0x0b]},/*PUW=110*/
-    {OP_ldrd,    0x018000d0, "ldrd",   RBEw, RB2w, MPRq, xx, xx, xop_wb|pred, x, top4[0][0x0d]},/*PUW=110*/
-    {OP_strd,    0x018000f0, "strd",   MPRq, xx, RBEw, RB2w, xx, xop_wb|pred, x, top4[2][0x0f]},/*PUW=110*/
+    {OP_ldrd,    0x018000d0, "ldrd",   RBEw, RB2w, MPRq, xx, xx, pred, x, top4[0][0x0d]},/*PUW=110*/
+    {OP_strd,    0x018000f0, "strd",   MPRq, xx, RBEw, RB2w, xx, pred, x, top4[2][0x0f]},/*PUW=110*/
   }, { /* 21 */
     {OP_orrs,    0x01900000, "orrs",   RBw, RAw, RDw, sh2, i5, pred|srcX4, fWNZCV, top4x[21][0x01]},
     {OP_orrs,    0x01900010, "orrs",   RBw, RAw, RDw, sh2, RCb, pred|srcX4, fWNZCV, END_LIST},
@@ -703,7 +703,7 @@ const instr_info_t A32_ext_opc4[][16] = {
     {OP_smlabt,  0x010000a0, "smlabt", RAw, xx, RDh, RCt, RBw, pred, x, END_LIST},
     {OP_strh,    0x010000b0, "strh",   MNRh, xx, RBh, xx, xx, pred, x, top4x[24][0x03]},/*PUW=100*/
     {OP_smlatb,  0x010000c0, "smlatb", RAw, xx, RDt, RCh, RBw, pred, x, END_LIST},
-    {OP_ldrd,    0x010000d0, "ldrd",   MNRq, xx, RBEw, RB2w, xx, pred, x, top4x[24][0x04]},/*PUW=100*/
+    {OP_ldrd,    0x010000d0, "ldrd",   RBEw, RB2w, MNRq, xx, xx, pred, x, top4x[24][0x04]},/*PUW=100*/
     {OP_smlatt,  0x010000e0, "smlatt", RAw, xx, RDt, RCt, RBw, pred, x, END_LIST},
     {OP_strd,    0x010000f0, "strd",   MNRq, xx, RBEw, RB2w, xx, pred, x, top4x[24][0x05]},/*PUW=100*/
   }, { /* 1 */
@@ -1684,7 +1684,7 @@ const instr_info_t A32_extra_operands[] =
     /* 0x00 */
     {OP_CONTD, 0x00000000, "shifted index reg", xx, xx, sh2, i5, xx, no, x, END_LIST},/*xop_shift*/
     {OP_CONTD, 0x00000000, "writeback base src", xx, xx, RAw, xx, xx, no, x, END_LIST},/*xop_wb*/
-    {OP_CONTD, 0x00000000, "writeback base + index", xx, xx, RCw, RAw, xx, no, x, END_LIST},/*xop_wb2*/
+    {OP_CONTD, 0x00000000, "writeback base + index", xx, xx, RDw, RAw, xx, no, x, END_LIST},/*xop_wb2*/
     {OP_CONTD, 0x00000000, "<cdp/mcr/mrc cont'd>", xx, xx, i3_5, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxb cont'd>",  xx, xx, RDh, xx, xx, no, x, END_LIST},
     {OP_CONTD, 0x00000000, "<smlalxt cont'd>",  xx, xx, RDt, xx, xx, no, x, END_LIST},
