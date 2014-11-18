@@ -162,6 +162,46 @@
  */
 #define XINST_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_b, (t))
 
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_add(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_add, (d), (s), (d))
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_add_s(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_adds, (d), (s), (d))
+
+/**
+ * This platform-independent macro creates an instr_t for a subtraction
+ * instruction that does not affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_sub(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_sub, (d), (s), (d))
+
+/**
+ * This platform-independent macro creates an instr_t for a subtraction
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_sub_s(dc, d, s) \
+  instr_create_1dst_2src((dc), OP_subs, (d), (s), (d))
+
 /* @} */ /* end doxygen group */
 
 
@@ -181,27 +221,6 @@
   instr_create_2dst_2src((dc), OP_pop, (d), opnd_create_reg(DR_REG_XSP), \
     opnd_create_reg(DR_REG_XSP),                                         \
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK))
-/* @} */ /* end doxygen group */
-
-/* FIXME i#1551: provide cross-platform INSTR_CREATE_* macros.
- * The arithmetic operations are different between ARM and X86 in several ways, e.g.,
- * arith-flag update and destructive source opnd, so we need a way to provide
- * cross-platform INSTR_CREATE_* macros to avoid confusion.
- */
-/** @name 1 destination, 1 source */
-/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
- * explicit operands, automatically supplying any implicit operands.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
- * \param s  The opnd_t explicit source operand for the instruction.
- */
-#define INSTR_CREATE_add(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_add, (d), (s), (d))
-#define INSTR_CREATE_add_noflags(dc, d, s) INSTR_CREATE_add(dc, d, s)
-#define INSTR_CREATE_sub(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_sub, (d), (s), (d))
 /* @} */ /* end doxygen group */
 
 

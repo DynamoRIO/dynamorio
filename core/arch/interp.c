@@ -5328,17 +5328,9 @@ insert_increment_stat_counter(dcontext_t *dcontext, instrlist_t *trace, instr_t 
                                 XINST_CREATE_load(dcontext, opnd_create_reg(SCRATCH_REG2),
                                                   private_branchtype_counter));
     added_size += tracelist_add(dcontext, trace, next,
-#ifdef X86
-                                INSTR_CREATE_lea(dcontext, opnd_create_reg(SCRATCH_REG2),
-                                                 opnd_create_base_disp(SCRATCH_REG2,
-                                                                       REG_NULL, 0, 1,
-                                                                       OPSZ_lea))
-#elif defined(ARM)
-                                INSTR_CREATE_add_noflags(dcontext,
-                                                         opnd_create_reg(SCRATCH_REG2),
-                                                         OPND_CREATE_INT8(1))
-#endif /* X86/ARM */
-                                );
+                                XINST_CREATE_add(dcontext,
+                                                 opnd_create_reg(SCRATCH_REG2),
+                                                 OPND_CREATE_INT8(1)));
     added_size += tracelist_add(dcontext, trace, next,
                                 XINST_CREATE_store(dcontext,
                                                    private_branchtype_counter,

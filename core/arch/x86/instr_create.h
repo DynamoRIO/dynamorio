@@ -223,6 +223,49 @@
  */
 #define XINST_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_jmp, (t))
 
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does not affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.  This
+ * can be either a register or a 32-bit immediate integer on x86.
+ */
+#define XINST_CREATE_add(dc, d, s) \
+  INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(d), \
+    opnd_is_reg(s) ? opnd_get_reg(s) : DR_REG_NULL, 1, \
+    opnd_is_reg(s) ? 0 : (int)opnd_get_immed_int(s)))
+
+/**
+ * This platform-independent macro creates an instr_t for an addition
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_add((dc), (d), (s))
+
+/**
+ * This platform-independent macro creates an instr_t for a subtraction
+ * instruction that does not affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ * The source must be an immediate integer on x86.
+ */
+#define XINST_CREATE_sub(dc, d, s) \
+  INSTR_CREATE_lea((dc), (d), OPND_CREATE_MEM_lea(opnd_get_reg(d), \
+    DR_REG_NULL, 0, -(int)opnd_get_immed_int(s)))
+
+/**
+ * This platform-independent macro creates an instr_t for a subtraction
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), OP_subs, (d), (s))
+
 /* @} */ /* end doxygen group */
 
 

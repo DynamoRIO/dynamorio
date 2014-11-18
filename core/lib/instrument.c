@@ -4766,7 +4766,7 @@ cleanup_after_call_ex(dcontext_t *dcontext, clean_call_info_t *cci,
                       "cleanup_after_call_ex: sizeof_param_area must be <= 127");
         /* mark it meta down below */
         instrlist_preinsert(ilist, where,
-            INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
+            XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                              OPND_CREATE_INT8(sizeof_param_area)));
     }
     cleanup_after_clean_call(dcontext, cci, ilist, where);
@@ -4886,7 +4886,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         pad = ALIGN_FORWARD_UINT(dstack_offs, 16) - dstack_offs;
         IF_X64(CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_int(buf_sz + pad),
                              "dr_insert_clean_call: internal truncation error"));
-        MINSERT(ilist, where, INSTR_CREATE_sub(dcontext, opnd_create_reg(REG_XSP),
+        MINSERT(ilist, where, XINST_CREATE_sub(dcontext, opnd_create_reg(REG_XSP),
                                                OPND_CREATE_INT32((int)(buf_sz + pad))));
         dr_insert_save_fpstate(drcontext, ilist, where,
                                opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0,
@@ -4913,7 +4913,7 @@ dr_insert_clean_call_ex_varg(void *drcontext, instrlist_t *ilist, instr_t *where
         dr_insert_restore_fpstate(drcontext, ilist, where,
                                   opnd_create_base_disp(REG_XSP, REG_NULL, 0, 0,
                                                         OPSZ_512));
-        MINSERT(ilist, where, INSTR_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
+        MINSERT(ilist, where, XINST_CREATE_add(dcontext, opnd_create_reg(REG_XSP),
                                                OPND_CREATE_INT32(buf_sz + pad)));
     }
     cleanup_after_call_ex(dcontext, &cci, ilist, where, 0);
