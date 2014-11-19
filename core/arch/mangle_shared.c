@@ -158,12 +158,12 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
-            (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
 
-        insert_get_mcontext_base(dcontext, ilist, instr, TLS_REG_R0);
+        insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 
         PRE(ilist, instr, instr_create_save_to_dc_via_reg
-            (dcontext, TLS_REG_R0, REG_XSP, XSP_OFFSET));
+            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
 
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  FIXME - the dcontext accessing routines are a mess of shared
@@ -185,11 +185,11 @@ prepare_for_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
         }
 #endif
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
-            (dcontext, TLS_REG_R0, REG_XSP, DSTACK_OFFSET));
+            (dcontext, SCRATCH_REG0, REG_XSP, DSTACK_OFFSET));
 
         /* restore xax before pushing the context on the dstack */
         PRE(ilist, instr, instr_create_restore_from_tls
-            (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
     }
     else {
         PRE(ilist, instr, instr_create_save_to_dcontext(dcontext, REG_XSP, XSP_OFFSET));
@@ -306,9 +306,9 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
      */
     if (SCRATCH_ALWAYS_TLS()) {
         PRE(ilist, instr, instr_create_save_to_tls
-            (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
 
-        insert_get_mcontext_base(dcontext, ilist, instr, TLS_REG_R0);
+        insert_get_mcontext_base(dcontext, ilist, instr, SCRATCH_REG0);
 
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)
         /* i#249: swap PEB pointers while we have dcxt in reg.  We risk "silent
@@ -323,10 +323,10 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 #endif
 
         PRE(ilist, instr, instr_create_restore_from_dc_via_reg
-            (dcontext, TLS_REG_R0, REG_XSP, XSP_OFFSET));
+            (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
 
         PRE(ilist, instr, instr_create_restore_from_tls
-            (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+            (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
     }
     else {
 #if defined(WINDOWS) && defined(CLIENT_INTERFACE)

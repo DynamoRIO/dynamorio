@@ -102,10 +102,10 @@ int
 reg_spill_tls_offs(reg_id_t reg)
 {
     switch (reg) {
-    case TLS_REG_R0: return TLS_SLOT_R0;
-    case TLS_REG_R1: return TLS_SLOT_R1;
-    case TLS_REG_R2: return TLS_SLOT_R2;
-    case TLS_REG_R3: return TLS_SLOT_R3;
+    case SCRATCH_REG0: return TLS_SLOT_REG0;
+    case SCRATCH_REG1: return TLS_SLOT_REG1;
+    case SCRATCH_REG2: return TLS_SLOT_REG2;
+    case SCRATCH_REG3: return TLS_SLOT_REG3;
     }
     /* don't assert if another reg passed: used on random regs looking for spills */
     return -1;

@@ -4997,19 +4997,19 @@ dr_swap_to_clean_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
      */
     if (SCRATCH_ALWAYS_TLS()) {
         MINSERT(ilist, where, instr_create_save_to_tls
-                (dcontext, TLS_REG_R0, TLS_SLOT_R0));
-        insert_get_mcontext_base(dcontext, ilist, where, TLS_REG_R0);
+                (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
+        insert_get_mcontext_base(dcontext, ilist, where, SCRATCH_REG0);
         /* save app xsp, and then bring in dstack to xsp */
         MINSERT(ilist, where, instr_create_save_to_dc_via_reg
-                (dcontext, TLS_REG_R0, REG_XSP, XSP_OFFSET));
+                (dcontext, SCRATCH_REG0, REG_XSP, XSP_OFFSET));
         /* DSTACK_OFFSET isn't within the upcontext so if it's separate this won't
          * work right.  FIXME - the dcontext accessing routines are a mess of shared
          * vs. no shared support, separate context vs. no separate context support etc. */
         ASSERT_NOT_IMPLEMENTED(!TEST(SELFPROT_DCONTEXT, dynamo_options.protect_mask));
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
-                (dcontext, TLS_REG_R0, REG_XSP, DSTACK_OFFSET));
+                (dcontext, SCRATCH_REG0, REG_XSP, DSTACK_OFFSET));
         MINSERT(ilist, where, instr_create_restore_from_tls
-                (dcontext, TLS_REG_R0, TLS_SLOT_R0));
+                (dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
     }
     else {
         MINSERT(ilist, where, instr_create_save_to_dcontext
@@ -5040,12 +5040,12 @@ dr_restore_app_stack(void *drcontext, instrlist_t *ilist, instr_t *where)
 #define SPILL_SLOT_TLS_MAX 2
 #define NUM_TLS_SPILL_SLOTS (SPILL_SLOT_TLS_MAX + 1)
 #define NUM_SPILL_SLOTS (SPILL_SLOT_MAX + 1)
-/* The three tls slots we make available to clients.  We reserve TLS_SLOT_R0 for our
+/* The three tls slots we make available to clients.  We reserve TLS_SLOT_REG0 for our
  * own use in dr convenience routines. Note the +1 is because the max is an array index
  * (so zero based) while array size is number of slots.  We don't need to +1 in
  * SPILL_SLOT_MC_REG because subtracting SPILL_SLOT_TLS_MAX already accounts for it. */
 static const ushort SPILL_SLOT_TLS_OFFS[NUM_TLS_SPILL_SLOTS] =
-    { TLS_SLOT_R3, TLS_SLOT_R2, TLS_SLOT_R1 };
+    { TLS_SLOT_REG3, TLS_SLOT_REG2, TLS_SLOT_REG1 };
 static const reg_id_t SPILL_SLOT_MC_REG[NUM_SPILL_SLOTS - NUM_TLS_SPILL_SLOTS] = {
 #ifdef X86
 /* The dcontext reg slots we make available to clients.  We reserve XAX and XSP for
@@ -5088,10 +5088,10 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
             /* PR 219620: For thread-shared, we need to get the dcontext
              * dynamically rather than use the constant passed in here.
              */
-            reg_id_t tmp = (reg == TLS_REG_R0) ? TLS_REG_R1 : TLS_REG_R0;
+            reg_id_t tmp = (reg == SCRATCH_REG0) ? SCRATCH_REG1 : SCRATCH_REG0;
 
             MINSERT(ilist, where, instr_create_save_to_tls
-                    (dcontext, tmp, TLS_SLOT_R0));
+                    (dcontext, tmp, TLS_SLOT_REG0));
 
             insert_get_mcontext_base(dcontext, ilist, where, tmp);
 
@@ -5099,7 +5099,7 @@ dr_save_reg(void *drcontext, instrlist_t *ilist, instr_t *where, reg_id_t reg,
                     (dcontext, tmp, reg, offs));
 
             MINSERT(ilist, where, instr_create_restore_from_tls
-                    (dcontext, tmp, TLS_SLOT_R0));
+                    (dcontext, tmp, TLS_SLOT_REG0));
         } else {
             MINSERT(ilist, where, instr_create_save_to_dcontext(dcontext, reg, offs));
         }
@@ -5289,10 +5289,10 @@ dr_insert_write_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
     CLIENT_ASSERT(reg_is_pointer_sized(reg),
                   "must use a pointer-sized general-purpose register");
     if (SCRATCH_ALWAYS_TLS()) {
-        reg_id_t spill = TLS_REG_R0;
+        reg_id_t spill = SCRATCH_REG0;
         if (reg == spill) /* don't need sub-reg test b/c we know it's pointer-sized */
-            spill = TLS_REG_R1;
-        MINSERT(ilist, where, instr_create_save_to_tls(dcontext, spill, TLS_SLOT_R0));
+            spill = SCRATCH_REG1;
+        MINSERT(ilist, where, instr_create_save_to_tls(dcontext, spill, TLS_SLOT_REG0));
         MINSERT(ilist, where, instr_create_restore_from_tls
                 (dcontext, spill, TLS_DCONTEXT_SLOT));
         MINSERT(ilist, where, instr_create_restore_from_dc_via_reg
@@ -5302,7 +5302,7 @@ dr_insert_write_tls_field(void *drcontext, instrlist_t *ilist, instr_t *where,
                                               offsetof(client_data_t, user_field)),
                  opnd_create_reg(reg)));
         MINSERT(ilist, where,
-                instr_create_restore_from_tls(dcontext, spill, TLS_SLOT_R0));
+                instr_create_restore_from_tls(dcontext, spill, TLS_SLOT_REG0));
     } else {
         MINSERT(ilist, where, XINST_CREATE_store
                 (dcontext, OPND_CREATE_ABSMEM
