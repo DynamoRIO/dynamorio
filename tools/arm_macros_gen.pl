@@ -203,6 +203,7 @@ foreach my $opc (keys %entry) {
             $sigs{$sig} = $sig ;
             $check_list = 1 if ($sig =~ /\bL[XC]/);
             $shift_variant = $sig if (($sig =~ /\ssh2 i/ || $sig =~ /\ssh2 R/) &&
+                                      # only arith srcs, not shifts in mem opnds
                                       $sig !~ /M/);
         }
 
@@ -234,7 +235,53 @@ foreach my $opc (keys %entry) {
     if ($#ksig == 1) {
         if (($ksig[0] =~ /\bi/ && $ksig[1] !~ /\bi/) ||
             ($ksig[1] =~ /\bi/ && $ksig[0] !~ /\bi/)) {
-            $immed_name = 1;
+            # See if have same # args and thus candidate for "Rm_or_immed"
+            my @sp0 = $ksig[0] =~ / /g;
+            my @sp1 = $ksig[1] =~ / /g;
+            if ($#sp0 == $#sp1) {
+                # Distinguished by immed but let's make the macros more versatile
+                # by combining into a variable-type "Rm_or_immed" arg rather than
+                # naming $name_imm.
+                my $newsig;
+                $newsig = ($ksig[0] =~ /\bi/) ? $ksig[1] : $ksig[0];
+                $newsig =~ s/\s*$/_or_imm/;
+                delete $sigs{$ksig[0]};
+                delete $sigs{$ksig[1]};
+                $sigs{$newsig} = $newsig;
+            } else {
+                $immed_name = 1;
+            }
+        }
+    }
+
+    if ($shift_variant ne '') {
+        # Add a simple version w/o the shifted reg
+        my $replaced = 0;
+        foreach my $sig (keys %sigs) {
+            # When we add a simple reg-reg DR_SHIFT_NONE, and a reg-imm
+            # exists, combine them into a variable-type "Rm_or_immed" arg
+            # rather than forcing the reg-imm to be $name_imm.
+            if ($sig =~ /^R\w+;\s*\bi$/ || $sig =~ /^;\s*R\w+\s*\bi$/ ||
+                $sig =~ /^R\w+;\s*R\w+\s*\bi$/) {
+                my $newsig = $sig;
+                my $with_reg = $shift_variant;
+                $with_reg =~ s/\s*sh2\s*\w+$//;
+                my $check = $with_reg;
+                $check =~ s/R\w+\s*$//;
+                $newsig =~ s/\bi\s*$//;
+                die "Unknown shift variant $shift_variant\n" unless ($check eq $newsig);
+                $newsig = $with_reg . "_or_imm_specialshift";
+                delete $sigs{$sig};
+                $sigs{$newsig} = $newsig;
+                $replaced = 1;
+                last;
+            }
+        }
+        if (!$replaced) {
+            my $newsig = $shift_variant;
+            $sigs{$newsig} = $newsig;
+            $newsig =~ s/\s*sh2\s*\w+$/_specialshift/;
+            $sigs{$newsig} = $newsig;
         }
     }
 
@@ -293,7 +340,7 @@ foreach my $opc (keys %entry) {
             $name .= "_shreg";
         } elsif ($sig =~ /\bshift imm/) {
             $name .= "_shimm";
-        } elsif ($shift_variant ne '' && $sig =~ /imm/ && $num_tot_srcs == 2) {
+        } elsif ($immed_name && $sig =~ /\bimm/) {
             $name .= "_imm";
         } elsif ($sig =~ /\bSPSR/) {
             $name .= "_spsr";
@@ -309,13 +356,6 @@ foreach my $opc (keys %entry) {
         } elsif ($sig =~ /VC\d._/) {
             # Things like OP_vmull, OP_vmls
             $name .= "_scalar";
-        } elsif (($immed_name && $sig =~ /\bimm/) ||
-                 # When we add a simple reg-reg DR_SHIFT_NONE, and a reg-imm
-                 # exists, suffix the reg-imm.  We rely on having already seen
-                 # the $shift_variant via the sort of keys!
-                 ($shift_variant ne '' && $sig =~ /^R\w+\s*;\s*\bimm$/)) {
-           # Distinguished by immed
-            $name .= "_imm";
         } elsif ($opc eq 'OP_msr' && $sig =~ /\bimm2$/) {
             # Distinguished by immed
             $name .= "_imm";
@@ -366,8 +406,10 @@ foreach my $opc (keys %entry) {
         $call_str =~ s/^\s*//;
         $call_str =~ s/\b(\w+)/, \1/g;
         $call_str =~ s/\b([\w\(\)]+)\s+/\1/g;
-        $call_str =~ s/\b([A-Za-z0-9]+)\b/(\1)/g;
+        $call_str =~ s/\b([A-Za-z0-9_]+)\b/(\1)/g;
+        $call_str =~ s/\((opnd_\w+)\)/\1/g;
         $call_str =~ s/\(, /(/g;
+        $call_str =~ s/\(\((\w+)\)\)/(\1)/g;
 
         # List of explicit args
         $arg_str = $esig;
@@ -398,29 +440,34 @@ foreach my $opc (keys %entry) {
         }
         die "XXXX Duplicate macro $name\n" if (defined($dupcheck{$name}));
         $dupcheck{$name} = 1;
-        my $mac = sprintf "#define INSTR_CREATE_%s(dc%s) \\\n".
-            "  instr_create_%sdst_%ssrc%s((dc), %s%s)\n",
-            $name, $arg_str, $num_tot_dsts, $num_tot_srcs, $func_sfx,
-            $opc_str, $call_str;
-        push(@{$macro{$arg_str}}, ($mac));
 
-        if ($shift_variant ne '' && $sig =~ /shift/) {
-            $shift_arg_str = $arg_str;
-            $shift_call_str = $call_str;
+        if ($sig =~ /_specialshift/ && $sig !~ /_imm_specialshift/) {
+            print "XXX ZZZ Here we are: $opc|$sig|$arg_str|$call_str|\n";
+            $sig =~ s/_specialshift//;
+            $arg_str =~ s/_specialshift//;
+            $call_str =~ s/_specialshift/, DR_SHIFT_NONE, 0/;
         }
-    }
-
-    if ($shift_variant ne '') {
-        # Add a simple version w/o the shifted reg
-        my $name = $opc;
-        $name =~ s/^OP_//;
-        die "XXXX Duplicate added macro $name\n" if (defined($dupcheck{$name}));
-        $shift_arg_str =~ s/, shift,.*//;
-        $shift_call_str =~ s/\(shift\), .*/DR_SHIFT_NONE, 0/;
-        my $mac = sprintf "#define INSTR_CREATE_%s(dc$shift_arg_str) \\\n".
-            "  INSTR_CREATE_%s_shimm((dc)$shift_call_str)\n",
-            $name, $name;
-        push(@{$macro{$shift_arg_str}}, ($mac));
+        if ($sig =~ /_or_imm_specialshift/) {
+            print "XXX YYY Here we are: $opc|$sig|$arg_str|$call_str|\n";
+            $sig =~ s/_specialshift//;
+            $arg_str =~ s/_specialshift//;
+            $call_str =~ s/_specialshift//;
+            $arg_str =~ /\s+(\S+)$/;
+            $last_arg = $1;
+            my $mac = sprintf "#define INSTR_CREATE_%s(dc%s) \\\n".
+                "  (opnd_is_reg(%s) ? \\\n".
+                "   INSTR_CREATE_%s_shimm((dc)%s, DR_SHIFT_NONE, 0) : \\\n".
+                "   instr_create_%sdst_%ssrc%s((dc), %s%s))\n",
+                $name, $arg_str, $last_arg, $name, $call_str, $num_tot_dsts,
+                $num_tot_srcs, $func_sfx, $opc_str, $call_str;
+            push(@{$macro{$arg_str}}, ($mac));
+        } else {
+            my $mac = sprintf "#define INSTR_CREATE_%s(dc%s) \\\n".
+                "  instr_create_%sdst_%ssrc%s((dc), %s%s)\n",
+                $name, $arg_str, $num_tot_dsts, $num_tot_srcs, $func_sfx,
+                $opc_str, $call_str;
+            push(@{$macro{$arg_str}}, ($mac));
+        }
     }
 }
 
@@ -434,9 +481,11 @@ my %mapping = ('reg' => 'register',
                'Rd' => 'destination register',
                'Rd2' => 'second destination register',
                'Rn' => 'source register',
+               'Rn_or_imm' => 'source register, or integer constant,',
                'Rt' => 'source register',
                'Rt2' => 'second source register',
                'Rm' => 'second source register',
+               'Rm_or_imm' => 'second source register, or integer constant,',
                'Ra' => 'third source register',
                'Rs' => 'third source register',
                'Vd' => 'destination SIMD register',
@@ -446,6 +495,8 @@ my %mapping = ('reg' => 'register',
                'Vt2' => 'second source SIMD register',
                'Vm' => 'second source SIMD register',
                'Vm2' => 'third source SIMD register',
+               'Vm_or_imm' => 'source SIMD register, or integer constant,',
+               'Vn_or_imm' => 'source SIMD register, or integer constant,',
                'Vs' => 'third source SIMD register',
                'imm' => 'integer constant',
                'imm2' => 'second integer constant',
@@ -482,11 +533,11 @@ foreach my $args (@order) {
     my %count;
     my $saw_n = 0;
     foreach my $param (@params) {
-        die "XXXX No mapping for $param\n" if (!defined$mapping{$param});
         $saw_n = 1 if ($param =~ /[VR]n/);
         my $tomap = $param;
         # Singleton src => no "second"
         $tomap =~ s/m/n/ if ($param =~ /[VR]m/ && !$saw_n);
+        die "XXXX No mapping for $param\n" if (!defined$mapping{$tomap});
         my $full = $mapping{$tomap};
         $count{$param}++;
         die "XXXX Duplicate name $param\n" unless ($count{$param} == 1);
@@ -523,97 +574,106 @@ sub order_sig($)
 {
     my ($a) = @_;
     my $ord = 0;
-    $ord += 1000000 if ($a =~ /V/);
-    $ord += 100000 if ($a =~ /cpreg/);
-    $ord += 10000 if ($a =~ /\.\.\./);
-    $ord += 1000 if ($a =~ /mem/);
-    $ord += 100 if ($a =~ /shift/);
-    $ord += 10 if ($a =~ /imm/);
+    $ord += 100000000 if ($a =~ /V/);
+    $ord += 10000000 if ($a =~ /cpreg/);
+    $ord += 1000000 if ($a =~ /\.\.\./);
+    $ord += 100000 if ($a =~ /mem/);
+    $ord += 10000 if ($a =~ /shift/);
+    $ord += 1000 if ($a =~ /imm/);
     @commas = $a =~ /,/g;
-    $ord += @commas;
+    $ord += 100*@commas;
+    for (my $i = 0; $i < length($a); $i++) {
+        $ord += ord(substr($a, $i, 1))/5;
+    }
+    return $ord;
 }
 
 # Should be called after removing implicit regs (writeback regs)
 sub rename_regs($)
 {
     my ($str) = @_;
+    $str =~ s/\b([RV]\w[^E2])\w+/\1/; # Remove subreg modifiers (can't remove earlier)
     # Try to match assembly names
     # XXX i#1563: currently loads use Rd -- using Rt would add complexity
     # We also have several other breaks from asm.
     if ($str =~ /\b[RV]A.*\b[RV]B.*;/) {
-        $str =~ s/\b([RV])A\w+/\1d/g; # g is for things like OP_smlalbb
-        $str =~ s/\b([RV])B\w+/\1d2/g;
-        $str =~ s/\b([RV])C\w+/\1m/;
-        $str =~ s/\bRD\w+/Rn/;
+        $str =~ s/\b([RV])A\w/\1d/g; # g is for things like OP_smlalbb
+        $str =~ s/\b([RV])B\w/\1d2/g;
+        $str =~ s/\b([RV])C\w/\1m/;
+        $str =~ s/\bRD\w/Rn/;
     } elsif ($str =~ /\bVC.*\bVC2.*/) { # OP_vmov
         # I'm breaking w/ asm to make things clearer and easier for the
         # docs mapping for what is a dst and which is 1st vs 2nd src:
         if ($str =~ /\bVC.*;/) {
-            $str =~ s/\bRA\w+/Rt2/;
-            $str =~ s/\bRB\w+/Rt/;
+            $str =~ s/\bRA\w/Rt2/;
+            $str =~ s/\bRB\w/Rt/;
             $str =~ s/\bVC[^0-9]/Vd/; # asm has Vm, Vm2
-            $str =~ s/\bVC2\w+/Vd2/;
+            $str =~ s/\bVC2\w/Vd2/;
         } else {
-            $str =~ s/\bRA\w+/Rd2/; # asm has Rt, Rt2
-            $str =~ s/\bRB\w+/Rd/;
+            $str =~ s/\bRA\w/Rd2/; # asm has Rt, Rt2
+            $str =~ s/\bRB\w/Rd/;
             $str =~ s/\bVC[^0-9]/Vt/; # asm has Vm, Vm2
-            $str =~ s/\bVC2\w+/Vt2/;
+            $str =~ s/\bVC2\w/Vt2/;
         }
     } elsif ($str =~ /\bVC.*;.*\bRB.*\bRA/) { # OP_vmov
         # I'm breaking w/ asm to make things clearer and easier for the
         # docs mapping for what is a dst:
-        $str =~ s/\bRA\w+/Rt2/;
-        $str =~ s/\bRB\w+/Rt/;
-        $str =~ s/\bVC\w+/Vd/;
+        $str =~ s/\bRA\w/Rt2/;
+        $str =~ s/\bRB\w/Rt/;
+        $str =~ s/\bVC\w/Vd/;
     } elsif ($str =~ /\b[RV]A.*;/) {
         if ($str =~ /\bVA.*;/) {
-            $str =~ s/\b([RV])B\w+/\1t/;
+            $str =~ s/\b([RV])B\w/\1t/;
         } else {
-            $str =~ s/\b([RV])B\w+/\1a/;
+            $str =~ s/\b([RV])B\w/\1a/;
         }
-        $str =~ s/\b([RV])A\w+/\1d/;
-        $str =~ s/\b([RV])C\w+/\1m/;
-        $str =~ s/\bRD\w+/Rn/;
+        $str =~ s/\b([RV])A\w/\1d/;
+        $str =~ s/\b([RV])C\w/\1m/;
+        $str =~ s/\bRD\w/Rn/;
     } elsif ($str =~ /;.*\b[RV]DE.*\b[RV]D2.*/) { # OP_stlexd
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])B\w+/\1d/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\b([RV])DE\w+/\1t/;
-        $str =~ s/\b([RV])D2\w+/\1t2/;
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])B\w/\1d/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\b([RV])DE\w/\1t/;
+        $str =~ s/\b([RV])D2\w/\1t2/;
     } elsif ($str =~ /\b[RV]BE.*\b[RV]B2.*;/) {
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])BE\w+/\1d/;
-        $str =~ s/\b([RV])B2\w+/\1d2/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\bVC\w+/Vm/;
-        $str =~ s/\bRD\w+/Rm/;
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])BE\w/\1d/;
+        $str =~ s/\b([RV])B2\w/\1d2/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
+    } elsif ($str =~ /\bRB\w; RD\w RC\w+$/) { # OP_lsl
+        $str =~ s/\bRB\w/Rd/;
+        $str =~ s/\bRC\w/Rm/;
+        $str =~ s/\bRD\w/Rn/;
     } elsif ($str =~ /\b[RV]B.*;/) {
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])B\w+/\1d/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\bVC\w+/Vm/;
-        $str =~ s/\bRD\w+/Rm/;
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])B\w/\1d/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
     } elsif ($str =~ /;.*\b[RV]BE.*\b[RV]B2.*/) {
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])BE\w+/\1t/;
-        $str =~ s/\b([RV])B2\w+/\1t2/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\bVC\w+/Vm/;
-        $str =~ s/\bRD\w+/Rm/;
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])BE\w/\1t/;
+        $str =~ s/\b([RV])B2\w/\1t2/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
     } elsif ($str =~ /;.*\b[RV]B.*/) {
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])B\w+/\1t/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\bVC\w+/Vm/;
-        $str =~ s/\bRD\w+/Rm/;
-    } elsif ($str !~ /\b[RV].*;/ && $str =~ /;.*\b[RV]\w+/) {
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])B\w/\1t/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
+    } elsif ($str !~ /\b[RV].*;/ && $str =~ /;.*\b[RV]\w/) {
         # Single regs for post-indexing or small # opnds
-        $str =~ s/\b([RV])A\w+/\1n/;
-        $str =~ s/\b([RV])B\w+/\1d/;
-        $str =~ s/\bRC\w+/Rs/;
-        $str =~ s/\bVC\w+/Vm/;
-        $str =~ s/\bRD\w+/Rm/;
-    } elsif ($str =~ /\b[RV]\w+/) {
+        $str =~ s/\b([RV])A\w/\1n/;
+        $str =~ s/\b([RV])B\w/\1d/;
+        $str =~ s/\bRC\w/Rs/;
+        $str =~ s/\bVC\w/Vm/;
+        $str =~ s/\bRD\w/Rm/;
+    } elsif ($str =~ /\b[RV]\w/) {
         die "XXXX No reg mapping for $str\n";
     }
     return $str;
