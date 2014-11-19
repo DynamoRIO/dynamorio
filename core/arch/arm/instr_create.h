@@ -236,6 +236,7 @@
     opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK))
 /* @} */ /* end doxygen group */
 
+
 /****************************************************************************
  * Automatically-generated ARM-specific INSTR_CREATE_* macros.
  * These were generated from tools/arm_macros_gen.pl.
@@ -332,14 +333,6 @@
  */
 #define INSTR_CREATE_clz(dc, Rd, Rm) \
   instr_create_1dst_1src((dc), OP_clz, (Rd), (Rm))
-#define INSTR_CREATE_mov(dc, Rd, Rm) \
-  instr_create_1dst_1src((dc), OP_mov, (Rd), (Rm))
-#define INSTR_CREATE_movs(dc, Rd, Rm) \
-  instr_create_1dst_1src((dc), OP_movs, (Rd), (Rm))
-#define INSTR_CREATE_mvn(dc, Rd, Rm) \
-  instr_create_1dst_1src((dc), OP_mvn, (Rd), (Rm))
-#define INSTR_CREATE_mvns(dc, Rd, Rm) \
-  instr_create_1dst_1src((dc), OP_mvns, (Rd), (Rm))
 #define INSTR_CREATE_rbit(dc, Rd, Rm) \
   instr_create_1dst_1src((dc), OP_rbit, (Rd), (Rm))
 #define INSTR_CREATE_rev(dc, Rd, Rm) \
@@ -352,42 +345,6 @@
   instr_create_1dst_1src((dc), OP_rrx, (Rd), (Rm))
 #define INSTR_CREATE_rrxs(dc, Rd, Rm) \
   instr_create_1dst_1src((dc), OP_rrxs, (Rd), (Rm))
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (Rd, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rn The source register opnd_t operand.
- */
-#define INSTR_CREATE_cmn(dc, Rd, Rn) \
-  instr_create_1dst_1src((dc), OP_cmn, (Rd), (Rn))
-#define INSTR_CREATE_cmp(dc, Rd, Rn) \
-  instr_create_1dst_1src((dc), OP_cmp, (Rd), (Rn))
-#define INSTR_CREATE_tst(dc, Rd, Rn) \
-  instr_create_1dst_1src((dc), OP_tst, (Rd), (Rn))
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (Rn, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rn The source register opnd_t operand.
- * \param Rm The second source register opnd_t operand.
- */
-#define INSTR_CREATE_teq(dc, Rn, Rm) \
-  instr_create_0dst_2src((dc), OP_teq, (Rn), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, statreg) */
@@ -419,10 +376,6 @@
  * \param Rm The source register opnd_t operand.
  * \param Rn The source register opnd_t operand.
  */
-#define INSTR_CREATE_asr(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_asr, (Rd), (Rm), (Rn))
-#define INSTR_CREATE_asrs(dc, Rd, Rm, Rn) \
-  instr_create_1dst_2src((dc), OP_asrs, (Rd), (Rm), (Rn))
 #define INSTR_CREATE_qsub(dc, Rd, Rm, Rn) \
   instr_create_1dst_2src((dc), OP_qsub, (Rd), (Rm), (Rn))
 #define INSTR_CREATE_smulbb(dc, Rd, Rm, Rn) \
@@ -448,22 +401,6 @@
  * \param Rn The source register opnd_t operand.
  * \param Rm The second source register opnd_t operand.
  */
-#define INSTR_CREATE_adc(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_adcs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_add(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_add, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_adds(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_adds, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_and(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_and, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_ands(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_ands, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_bic(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_bic, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_bics(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_bics, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_crc32b(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_crc32b, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_crc32cb(dc, Rd, Rn, Rm) \
@@ -476,26 +413,10 @@
   instr_create_1dst_2src((dc), OP_crc32h, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_crc32w(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_crc32w, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_eor(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_eor, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_eors(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_eors, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_lsl(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_lsl, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_lsls(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_lsls, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_lsr(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_lsr, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_lsrs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_lsrs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_mul(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_mul, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_muls(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_muls, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_orr(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_orr, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_orrs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_orrs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_qadd(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_qadd, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_qadd16(dc, Rd, Rn, Rm) \
@@ -514,28 +435,12 @@
   instr_create_1dst_2src((dc), OP_qsub16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_qsub8(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_qsub8, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_ror(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_ror, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_rors(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_rors, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_rsb(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_rsb, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_rsbs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_rsbs, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_rsc(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_rsc, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_rscs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_rscs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_sadd16(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_sadd16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_sadd8(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_sadd8, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_sasx(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_sasx, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_sbc(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_sbc, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_sbcs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_sbcs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_sdiv(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_sdiv, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_sel(dc, Rd, Rn, Rm) \
@@ -562,10 +467,6 @@
   instr_create_1dst_2src((dc), OP_ssub16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_ssub8(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_ssub8, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_sub(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_sub, (Rd), (Rn), (Rm))
-#define INSTR_CREATE_subs(dc, Rd, Rn, Rm) \
-  instr_create_1dst_2src((dc), OP_subs, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_uadd16(dc, Rd, Rn, Rm) \
   instr_create_1dst_2src((dc), OP_uadd16, (Rd), (Rn), (Rm))
 #define INSTR_CREATE_uadd8(dc, Rd, Rn, Rm) \
@@ -807,6 +708,82 @@
   instr_create_0dst_2src((dc), OP_cpsie, (imm), (imm2))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (Rd, Rm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_mov(dc, Rd, Rm_or_imm) \
+  instr_create_1dst_1src((dc), OP_mov, (Rd), (Rm_or_imm))
+#define INSTR_CREATE_movs(dc, Rd, Rm_or_imm) \
+  instr_create_1dst_1src((dc), OP_movs, (Rd), (Rm_or_imm))
+#define INSTR_CREATE_mvn(dc, Rd, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_mvn_shimm((dc), (Rd), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_1src((dc), OP_mvn, (Rd), (Rm_or_imm)))
+#define INSTR_CREATE_mvns(dc, Rd, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_mvns_shimm((dc), (Rd), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_1src((dc), OP_mvns, (Rd), (Rm_or_imm)))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rd, Rn_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rn_or_imm The source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_cmn(dc, Rd, Rn_or_imm) \
+  (opnd_is_reg(Rn_or_imm) ? \
+   INSTR_CREATE_cmn_shimm((dc), (Rd), (Rn_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_1src((dc), OP_cmn, (Rd), (Rn_or_imm)))
+#define INSTR_CREATE_cmp(dc, Rd, Rn_or_imm) \
+  (opnd_is_reg(Rn_or_imm) ? \
+   INSTR_CREATE_cmp_shimm((dc), (Rd), (Rn_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_1src((dc), OP_cmp, (Rd), (Rn_or_imm)))
+#define INSTR_CREATE_tst(dc, Rd, Rn_or_imm) \
+  (opnd_is_reg(Rn_or_imm) ? \
+   INSTR_CREATE_tst_shimm((dc), (Rd), (Rn_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_1src((dc), OP_tst, (Rd), (Rn_or_imm)))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rn, Rm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rn The source register opnd_t operand.
+ * \param Rm_or_imm The second source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_teq(dc, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_teq_shimm((dc), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_0dst_2src((dc), OP_teq, (Rn), (Rm_or_imm)))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, imm, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -841,6 +818,152 @@
  */
 #define INSTR_CREATE_bfc(dc, Rd, imm, imm2) \
   instr_create_1dst_2src((dc), OP_bfc, (Rd), (imm), (imm2))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rd, Rm, Rn_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rm The source register opnd_t operand.
+ * \param Rn_or_imm The source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_asr(dc, Rd, Rm, Rn_or_imm) \
+  instr_create_1dst_2src((dc), OP_asr, (Rd), (Rm), (Rn_or_imm))
+#define INSTR_CREATE_asrs(dc, Rd, Rm, Rn_or_imm) \
+  instr_create_1dst_2src((dc), OP_asrs, (Rd), (Rm), (Rn_or_imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rd, Rn, Rm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rn The source register opnd_t operand.
+ * \param Rm_or_imm The second source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_adc(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_adc_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_adc, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_adcs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_adcs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_adcs, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_add(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_add_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_add, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_adds(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_adds_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_adds, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_and(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_and_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_and, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_ands(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_ands_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_ands, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_bic(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_bic_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_bic, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_bics(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_bics_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_bics, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_eor(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_eor_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_eor, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_eors(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_eors_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_eors, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_lsl(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_lsl, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_lsls(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_lsls, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_lsr(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_lsr, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_lsrs(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_lsrs, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_orr(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_orr_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_orr, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_orrs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_orrs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_orrs, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_ror(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_ror, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_rors(dc, Rd, Rn, Rm_or_imm) \
+  instr_create_1dst_2src((dc), OP_rors, (Rd), (Rn), (Rm_or_imm))
+#define INSTR_CREATE_rsb(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_rsb_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_rsb, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_rsbs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_rsbs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_rsbs, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_rsc(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_rsc_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_rsc, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_rscs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_rscs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_rscs, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_sbc(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_sbc_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_sbc, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_sbcs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_sbcs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_sbcs, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_sub(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_sub_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_sub, (Rd), (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_subs(dc, Rd, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_subs_shimm((dc), (Rd), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_1dst_2src((dc), OP_subs, (Rd), (Rn), (Rm_or_imm)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, statreg, imm) */
@@ -894,6 +1017,23 @@
   instr_create_1dst_2src((dc), OP_msr, (statreg), (imm), (imm2))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (statreg, imm_msr, Rn) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
+ * \param imm_msr The integer constant (typically from OPND_CREATE_INT_MSR*) opnd_t operand.
+ * \param Rn The source register opnd_t operand.
+ */
+#define INSTR_CREATE_msr(dc, statreg, imm_msr, Rn) \
+  instr_create_1dst_2src((dc), OP_msr, (statreg), (imm_msr), (Rn))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, Rn, Rm, imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -942,23 +1082,6 @@
   instr_create_1dst_3src((dc), OP_sbfx, (Rd), (Rm), (imm), (imm2))
 #define INSTR_CREATE_ubfx(dc, Rd, Rm, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ubfx, (Rd), (Rm), (imm), (imm2))
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (statreg, imm_msr, Rn) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param statreg The status register (usually DR_REG_CPSR) opnd_t operand.
- * \param imm_msr The integer constant (typically from OPND_CREATE_INT_MSR*) opnd_t operand.
- * \param Rn The source register opnd_t operand.
- */
-#define INSTR_CREATE_msr(dc, statreg, imm_msr, Rn) \
-  instr_create_1dst_2src((dc), OP_msr, (statreg), (imm_msr), (Rn))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, shift, Rm) */
@@ -1353,6 +1476,27 @@
   instr_create_1dst_1src((dc), OP_strh, (mem), (Rt))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (Rd, Rd2, mem) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rd2 The second destination register opnd_t operand.
+ * \param mem The memory opnd_t operand.
+ */
+#define INSTR_CREATE_ldaexd(dc, Rd, Rd2, mem) \
+  instr_create_2dst_1src((dc), OP_ldaexd, (Rd), (Rd2), (mem))
+#define INSTR_CREATE_ldrd(dc, Rd, Rd2, mem) \
+  instr_create_2dst_1src((dc), OP_ldrd, (Rd), (Rd2), (mem))
+#define INSTR_CREATE_ldrexd(dc, Rd, Rd2, mem) \
+  instr_create_2dst_1src((dc), OP_ldrexd, (Rd), (Rd2), (mem))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, mem, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -1368,16 +1512,10 @@
  */
 #define INSTR_CREATE_ldrh_wbreg(dc, Rd, mem, Rm) \
   instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
-#define INSTR_CREATE_ldrht_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
 #define INSTR_CREATE_ldrsb_wbreg(dc, Rd, mem, Rm) \
   instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
-#define INSTR_CREATE_ldrsbt_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
 #define INSTR_CREATE_ldrsh_wbreg(dc, Rd, mem, Rm) \
   instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
-#define INSTR_CREATE_ldrsht_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rm) */
@@ -1422,29 +1560,6 @@
  */
 #define INSTR_CREATE_strh_wbreg(dc, mem, Rt, Rm) \
   instr_create_2dst_3src((dc), OP_strh, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm))
-#define INSTR_CREATE_strht_wbreg(dc, mem, Rt, Rm) \
-  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm))
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (Rd, Rd2, mem) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rd2 The second destination register opnd_t operand.
- * \param mem The memory opnd_t operand.
- */
-#define INSTR_CREATE_ldaexd(dc, Rd, Rd2, mem) \
-  instr_create_2dst_1src((dc), OP_ldaexd, (Rd), (Rd2), (mem))
-#define INSTR_CREATE_ldrd(dc, Rd, Rd2, mem) \
-  instr_create_2dst_1src((dc), OP_ldrd, (Rd), (Rd2), (mem))
-#define INSTR_CREATE_ldrexd(dc, Rd, Rd2, mem) \
-  instr_create_2dst_1src((dc), OP_ldrexd, (Rd), (Rd2), (mem))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2) */
@@ -1572,6 +1687,44 @@
   instr_create_2dst_3src((dc), OP_strh, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
 #define INSTR_CREATE_strt_wbimm(dc, mem, Rt, imm) \
   instr_create_2dst_3src((dc), OP_strt, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Rd, mem, Rm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param mem The memory opnd_t operand.
+ * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_ldrht_wbreg(dc, Rd, mem, Rm_or_imm) \
+  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+#define INSTR_CREATE_ldrsbt_wbreg(dc, Rd, mem, Rm_or_imm) \
+  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+#define INSTR_CREATE_ldrsht_wbreg(dc, Rd, mem, Rm_or_imm) \
+  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (mem, Rt, Rm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param mem The memory opnd_t operand.
+ * \param Rt The source register opnd_t operand.
+ * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_strht_wbreg(dc, mem, Rt, Rm_or_imm) \
+  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem, imm) */
@@ -2204,6 +2357,25 @@
   instr_create_2dst_3src((dc), OP_mrrc2, (Ra), (Rd), (imm), (imm2), (cpreg))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (Rd, imm, imm2, cpreg, cpreg2) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ * \param imm2 The second integer constant opnd_t operand.
+ * \param cpreg The coprocessor register opnd_t operand.
+ * \param cpreg2 The second coprocessor register opnd_t operand.
+ */
+#define INSTR_CREATE_mrc2(dc, Rd, imm, imm2, cpreg, cpreg2) \
+  instr_create_1dst_4src((dc), OP_mrc2, (Rd), (imm), (imm2), (cpreg), (cpreg2))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (cpreg, Rn, Rt, imm, imm2) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -2223,25 +2395,6 @@
   instr_create_1dst_4src((dc), OP_mcrr, (cpreg), (Rn), (Rt), (imm), (imm2))
 #define INSTR_CREATE_mcrr2(dc, cpreg, Rn, Rt, imm, imm2) \
   instr_create_1dst_4src((dc), OP_mcrr2, (cpreg), (Rn), (Rt), (imm), (imm2))
-/* @} */ /* end doxygen group */
-
-/** @name Signature: (Rd, imm, imm2, cpreg, cpreg2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- * \param imm2 The second integer constant opnd_t operand.
- * \param cpreg The coprocessor register opnd_t operand.
- * \param cpreg2 The second coprocessor register opnd_t operand.
- */
-#define INSTR_CREATE_mrc2(dc, Rd, imm, imm2, cpreg, cpreg2) \
-  instr_create_1dst_4src((dc), OP_mrc2, (Rd), (imm), (imm2), (cpreg), (cpreg2))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, cpreg2, imm, imm2, Rt) */
@@ -2540,10 +2693,6 @@
   instr_create_1dst_1src((dc), OP_vcvtt_f32_f16, (Vd), (Vm))
 #define INSTR_CREATE_vcvtt_f64_f16(dc, Vd, Vm) \
   instr_create_1dst_1src((dc), OP_vcvtt_f64_f16, (Vd), (Vm))
-#define INSTR_CREATE_vmov_f32(dc, Vd, Vm) \
-  instr_create_1dst_1src((dc), OP_vmov_f32, (Vd), (Vm))
-#define INSTR_CREATE_vmov_f64(dc, Vd, Vm) \
-  instr_create_1dst_1src((dc), OP_vmov_f64, (Vd), (Vm))
 #define INSTR_CREATE_vmovl_s16(dc, Vd, Vm) \
   instr_create_1dst_1src((dc), OP_vmovl_s16, (Vd), (Vm))
 #define INSTR_CREATE_vmovl_s32(dc, Vd, Vm) \
@@ -2885,36 +3034,12 @@
   instr_create_1dst_2src((dc), OP_vbit, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vbsl(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vbsl, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vceq_f32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vceq_f32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vceq_i16(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vceq_i16, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vceq_i32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vceq_i32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vceq_i8(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vceq_i8, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcge_f32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcge_f32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcge_s16(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcge_s16, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcge_s32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcge_s32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcge_s8(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcge_s8, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vcge_u16(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vcge_u16, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vcge_u32(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vcge_u32, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vcge_u8(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vcge_u8, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcgt_f32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcgt_f32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcgt_s16(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcgt_s16, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcgt_s32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcgt_s32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vcgt_s8(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vcgt_s8, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vcgt_u16(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vcgt_u16, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vcgt_u32(dc, Vd, Vn, Vm) \
@@ -3193,22 +3318,6 @@
   instr_create_1dst_2src((dc), OP_vqrshl_u64, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vqrshl_u8(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vqrshl_u8, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_s16(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_s16, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_s32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_s32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_s64(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_s64, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_s8(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_s8, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_u16(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_u16, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_u32(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_u32, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_u64(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_u64, (Vd), (Vn), (Vm))
-#define INSTR_CREATE_vqshl_u8(dc, Vd, Vn, Vm) \
-  instr_create_1dst_2src((dc), OP_vqshl_u8, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vqsub_s16(dc, Vd, Vn, Vm) \
   instr_create_1dst_2src((dc), OP_vqsub_s16, (Vd), (Vn), (Vm))
 #define INSTR_CREATE_vqsub_s32(dc, Vd, Vn, Vm) \
@@ -3352,24 +3461,6 @@
   instr_create_1dst_2src((dc), OP_vmov, (Vd), (Rt), (Rt2))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Vd, Vd2, Rt, Rt2) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Vd The destination SIMD register opnd_t operand.
- * \param Vd2 The second destination register opnd_t operand.
- * \param Rt The source register opnd_t operand.
- * \param Rt2 The second source register opnd_t operand.
- */
-#define INSTR_CREATE_vmov_gg2ss(dc, Vd, Vd2, Rt, Rt2) \
-  instr_create_2dst_2src((dc), OP_vmov, (Vd), (Vd2), (Rt), (Rt2))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rd, Rd2, Vt, Vt2) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -3386,6 +3477,24 @@
  */
 #define INSTR_CREATE_vmov_ss2gg(dc, Rd, Rd2, Vt, Vt2) \
   instr_create_2dst_2src((dc), OP_vmov, (Rd), (Rd2), (Vt), (Vt2))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Vd, Vd2, Rt, Rt2) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Vd The destination SIMD register opnd_t operand.
+ * \param Vd2 The second destination register opnd_t operand.
+ * \param Rt The source register opnd_t operand.
+ * \param Rt2 The second source register opnd_t operand.
+ */
+#define INSTR_CREATE_vmov_gg2ss(dc, Vd, Vd2, Rt, Rt2) \
+  instr_create_2dst_2src((dc), OP_vmov, (Vd), (Vd2), (Rt), (Rt2))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, imm) */
@@ -3420,6 +3529,24 @@
   instr_create_1dst_1src((dc), OP_vorr_i16, (Vd), (imm))
 #define INSTR_CREATE_vorr_i32(dc, Vd, imm) \
   instr_create_1dst_1src((dc), OP_vorr_i32, (Vd), (imm))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (Vd, Vm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Vd The destination SIMD register opnd_t operand.
+ * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_vmov_f32(dc, Vd, Vm_or_imm) \
+  instr_create_1dst_1src((dc), OP_vmov_f32, (Vd), (Vm_or_imm))
+#define INSTR_CREATE_vmov_f64(dc, Vd, Vm_or_imm) \
+  instr_create_1dst_1src((dc), OP_vmov_f64, (Vd), (Vm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn, imm) */
@@ -3699,6 +3826,61 @@
   instr_create_1dst_2src((dc), OP_vmov_8, (Vd), (Rt), (imm))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (Vd, Vn, Vm_or_imm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Vd The destination SIMD register opnd_t operand.
+ * \param Vn The source SIMD register opnd_t operand.
+ * \param Vm_or_imm The source SIMD register, or integer constant, opnd_t operand.
+ */
+#define INSTR_CREATE_vceq_f32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vceq_f32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vceq_i16(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vceq_i16, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vceq_i32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vceq_i32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vceq_i8(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vceq_i8, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcge_f32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcge_f32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcge_s16(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcge_s16, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcge_s32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcge_s32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcge_s8(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcge_s8, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcgt_f32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcgt_f32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcgt_s16(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcgt_s16, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcgt_s32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcgt_s32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vcgt_s8(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vcgt_s8, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_s16(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_s16, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_s32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_s32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_s64(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_s64, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_s8(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_s8, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_u16(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_u16, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_u32(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_u32, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_u64(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_u64, (Vd), (Vn), (Vm_or_imm))
+#define INSTR_CREATE_vqshl_u8(dc, Vd, Vn, Vm_or_imm) \
+  instr_create_1dst_2src((dc), OP_vqshl_u8, (Vd), (Vn), (Vm_or_imm))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Vd, Vn, Vm, imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -3899,24 +4081,6 @@
   instr_create_2dst_4src((dc), OP_vld1_lane_8, (Vd), opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, Vt, imm, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param mem The memory opnd_t operand.
- * \param Vt The source SIMD register opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- * \param Rm The source register opnd_t operand.
- */
-#define INSTR_CREATE_vst1_lane_8_wbreg(dc, mem, Vt, imm, Rm) \
-  instr_create_2dst_4src((dc), OP_vst1_lane_8, (mem), opnd_get_base(mem), (Vt), (imm), (Rm), opnd_get_base(mem))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Vd, mem, imm, imm2) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -3939,6 +4103,24 @@
   instr_create_1dst_3src((dc), OP_vld1_lane_32, (Vd), (mem), (imm), (imm2))
 #define INSTR_CREATE_vld1_lane_32_wbimm(dc, Vd, mem, imm, imm2) \
   instr_create_2dst_4src((dc), OP_vld1_lane_32, (Vd), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+/* @} */ /* end doxygen group */
+
+/** @name Signature: (mem, Vt, imm, Rm) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param mem The memory opnd_t operand.
+ * \param Vt The source SIMD register opnd_t operand.
+ * \param imm The integer constant opnd_t operand.
+ * \param Rm The source register opnd_t operand.
+ */
+#define INSTR_CREATE_vst1_lane_8_wbreg(dc, mem, Vt, imm, Rm) \
+  instr_create_2dst_4src((dc), OP_vst1_lane_8, (mem), opnd_get_base(mem), (Vt), (imm), (Rm), opnd_get_base(mem))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, imm2) */

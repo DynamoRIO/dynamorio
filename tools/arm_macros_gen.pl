@@ -448,13 +448,11 @@ foreach my $opc (keys %entry) {
         $dupcheck{$name} = 1;
 
         if ($sig =~ /_specialshift/ && $sig !~ /_imm_specialshift/) {
-            print "XXX ZZZ Here we are: $opc|$sig|$arg_str|$call_str|\n";
             $sig =~ s/_specialshift//;
             $arg_str =~ s/_specialshift//;
             $call_str =~ s/_specialshift/, DR_SHIFT_NONE, 0/;
         }
         if ($sig =~ /_or_imm_specialshift/) {
-            print "XXX YYY Here we are: $opc|$sig|$arg_str|$call_str|\n";
             $sig =~ s/_specialshift//;
             $arg_str =~ s/_specialshift//;
             $call_str =~ s/_specialshift//;
@@ -462,7 +460,8 @@ foreach my $opc (keys %entry) {
             $last_arg = $1;
             my $mac = sprintf "#define INSTR_CREATE_%s(dc%s) \\\n".
                 "  (opnd_is_reg(%s) ? \\\n".
-                "   INSTR_CREATE_%s_shimm((dc)%s, DR_SHIFT_NONE, 0) : \\\n".
+                "   INSTR_CREATE_%s_shimm((dc)%s, \\\n".
+                "     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \\\n".
                 "   instr_create_%sdst_%ssrc%s((dc), %s%s))\n",
                 $name, $arg_str, $last_arg, $name, $call_str, $num_tot_dsts,
                 $num_tot_srcs, $func_sfx, $opc_str, $call_str;
@@ -590,7 +589,7 @@ sub order_sig($)
     @commas = $a =~ /,/g;
     $ord += 100*@commas;
     for (my $i = 0; $i < length($a); $i++) {
-        $ord += ord(substr($a, $i, 1))/5;
+        $ord += ord(substr($a, $i, 1))/(($i+1));
     }
     return $ord;
 }
@@ -599,7 +598,10 @@ sub order_sig($)
 sub rename_regs($)
 {
     my ($str) = @_;
-    $str =~ s/\b([RV]\w[^E2])\w+/\1/; # Remove subreg modifiers (can't remove earlier)
+    if ($str !~ /_or_imm/) {
+        # Remove subreg modifiers (can't remove earlier)
+        $str =~ s/\b([RV]\w[^E2])\w+/\1/;
+    }
     # Try to match assembly names
     # XXX i#1563: currently loads use Rd -- using Rt would add complexity
     # We also have several other breaks from asm.
