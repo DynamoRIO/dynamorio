@@ -734,35 +734,6 @@
    instr_create_1dst_1src((dc), OP_mvns, (Rd), (Rm_or_imm)))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, Rn_or_imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rn_or_imm The source register, or integer constant, opnd_t operand.
- */
-#define INSTR_CREATE_cmn(dc, Rd, Rn_or_imm) \
-  (opnd_is_reg(Rn_or_imm) ? \
-   INSTR_CREATE_cmn_shimm((dc), (Rd), (Rn_or_imm), \
-     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
-   instr_create_1dst_1src((dc), OP_cmn, (Rd), (Rn_or_imm)))
-#define INSTR_CREATE_cmp(dc, Rd, Rn_or_imm) \
-  (opnd_is_reg(Rn_or_imm) ? \
-   INSTR_CREATE_cmp_shimm((dc), (Rd), (Rn_or_imm), \
-     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
-   instr_create_1dst_1src((dc), OP_cmp, (Rd), (Rn_or_imm)))
-#define INSTR_CREATE_tst(dc, Rd, Rn_or_imm) \
-  (opnd_is_reg(Rn_or_imm) ? \
-   INSTR_CREATE_tst_shimm((dc), (Rd), (Rn_or_imm), \
-     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
-   instr_create_1dst_1src((dc), OP_tst, (Rd), (Rn_or_imm)))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rn, Rm_or_imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -775,11 +746,26 @@
  * \param Rn The source register opnd_t operand.
  * \param Rm_or_imm The second source register, or integer constant, opnd_t operand.
  */
+#define INSTR_CREATE_cmn(dc, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_cmn_shimm((dc), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_0dst_2src((dc), OP_cmn, (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_cmp(dc, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_cmp_shimm((dc), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_0dst_2src((dc), OP_cmp, (Rn), (Rm_or_imm)))
 #define INSTR_CREATE_teq(dc, Rn, Rm_or_imm) \
   (opnd_is_reg(Rm_or_imm) ? \
    INSTR_CREATE_teq_shimm((dc), (Rn), (Rm_or_imm), \
      OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
    instr_create_0dst_2src((dc), OP_teq, (Rn), (Rm_or_imm)))
+#define INSTR_CREATE_tst(dc, Rn, Rm_or_imm) \
+  (opnd_is_reg(Rm_or_imm) ? \
+   INSTR_CREATE_tst_shimm((dc), (Rn), (Rm_or_imm), \
+     OPND_CREATE_INT8(DR_SHIFT_NONE), OPND_CREATE_INT8(0)) : \
+   instr_create_0dst_2src((dc), OP_tst, (Rn), (Rm_or_imm)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, imm, Rm) */
@@ -1082,28 +1068,6 @@
   instr_create_1dst_3src((dc), OP_ubfx, (Rd), (Rm), (imm), (imm2))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, Rn, shift, Rm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rn The source register opnd_t operand.
- * \param shift The shift type integer constant opnd_t operand.
- * \param Rm The second source register opnd_t operand.
- */
-#define INSTR_CREATE_cmn_shreg(dc, Rd, Rn, shift, Rm) \
-  instr_create_1dst_3src((dc), OP_cmn, (Rd), (Rn), (shift), (Rm))
-#define INSTR_CREATE_cmp_shreg(dc, Rd, Rn, shift, Rm) \
-  instr_create_1dst_3src((dc), OP_cmp, (Rd), (Rn), (shift), (Rm))
-#define INSTR_CREATE_tst_shreg(dc, Rd, Rn, shift, Rm) \
-  instr_create_1dst_3src((dc), OP_tst, (Rd), (Rn), (shift), (Rm))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rd, Rm, shift, Rs) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -1138,8 +1102,14 @@
  * \param shift The shift type integer constant opnd_t operand.
  * \param Rs The third source register opnd_t operand.
  */
+#define INSTR_CREATE_cmn_shreg(dc, Rn, Rm, shift, Rs) \
+  instr_create_0dst_4src((dc), OP_cmn, (Rn), (Rm), (shift), (Rs))
+#define INSTR_CREATE_cmp_shreg(dc, Rn, Rm, shift, Rs) \
+  instr_create_0dst_4src((dc), OP_cmp, (Rn), (Rm), (shift), (Rs))
 #define INSTR_CREATE_teq_shreg(dc, Rn, Rm, shift, Rs) \
   instr_create_0dst_4src((dc), OP_teq, (Rn), (Rm), (shift), (Rs))
+#define INSTR_CREATE_tst_shreg(dc, Rn, Rm, shift, Rs) \
+  instr_create_0dst_4src((dc), OP_tst, (Rn), (Rm), (shift), (Rs))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, shift, Rs) */
@@ -1219,28 +1189,6 @@
   instr_create_1dst_3src((dc), OP_mvns, (Rd), (Rm), (shift), (imm))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, Rn, shift, imm) */
-/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
-/**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
- * the given explicit operands, automatically supplying any implicit operands.
- * The operands should be listed with destinations first, followed by sources.
- * The ordering within these two groups should follow the conventional
- * assembly ordering.
- * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param Rd The destination register opnd_t operand.
- * \param Rn The source register opnd_t operand.
- * \param shift The shift type integer constant opnd_t operand.
- * \param imm The integer constant opnd_t operand.
- */
-#define INSTR_CREATE_cmn_shimm(dc, Rd, Rn, shift, imm) \
-  instr_create_1dst_3src((dc), OP_cmn, (Rd), (Rn), (shift), (imm))
-#define INSTR_CREATE_cmp_shimm(dc, Rd, Rn, shift, imm) \
-  instr_create_1dst_3src((dc), OP_cmp, (Rd), (Rn), (shift), (imm))
-#define INSTR_CREATE_tst_shimm(dc, Rd, Rn, shift, imm) \
-  instr_create_1dst_3src((dc), OP_tst, (Rd), (Rn), (shift), (imm))
-/* @} */ /* end doxygen group */
-
 /** @name Signature: (Rn, Rm, shift, imm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -1255,8 +1203,14 @@
  * \param shift The shift type integer constant opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  */
+#define INSTR_CREATE_cmn_shimm(dc, Rn, Rm, shift, imm) \
+  instr_create_0dst_4src((dc), OP_cmn, (Rn), (Rm), (shift), (imm))
+#define INSTR_CREATE_cmp_shimm(dc, Rn, Rm, shift, imm) \
+  instr_create_0dst_4src((dc), OP_cmp, (Rn), (Rm), (shift), (imm))
 #define INSTR_CREATE_teq_shimm(dc, Rn, Rm, shift, imm) \
   instr_create_0dst_4src((dc), OP_teq, (Rn), (Rm), (shift), (imm))
+#define INSTR_CREATE_tst_shimm(dc, Rn, Rm, shift, imm) \
+  instr_create_0dst_4src((dc), OP_tst, (Rn), (Rm), (shift), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rn, Rm, shift, imm) */
