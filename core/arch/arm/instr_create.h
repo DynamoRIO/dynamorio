@@ -50,6 +50,9 @@
 #define OPND_CREATE_ABSMEM(addr, size) \
   opnd_create_rel_addr(addr, size)
 
+/** Create a negated register operand. */
+#define OPND_CREATE_NEG_REG(reg) opnd_create_reg_ex(reg, 0, DR_OPND_NEGATED)
+
 /* Macros for building instructions, one for each opcode.
  * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
  * the given explicit operands, automatically supplying any implicit operands.
