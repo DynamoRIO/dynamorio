@@ -4110,6 +4110,7 @@ expand_should_set_translation(dcontext_t *dcontext)
 static bool
 mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
 {
+#ifdef X86
     if (TEST(FRAG_SELFMOD_SANDBOXED, bb->flags)) {
         byte *selfmod_start, *selfmod_end;
         /* sandbox requires that bb have no direct cti followings!
@@ -4155,6 +4156,7 @@ mangle_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
         }
         STATS_INC(num_sandboxed_fragments);
     }
+#endif /* X86 */
 
     DOLOG(4, LOG_INTERP, {
         LOG(THREAD, LOG_INTERP, 4, "bb ilist before mangling:\n");

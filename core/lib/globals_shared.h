@@ -616,6 +616,13 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x) , x
 # define IF_NOT_X86(x)
 # define _IF_NOT_X86(x)
+# ifdef X64
+#  define IF_X86_32(x)
+#  define IF_X86_64(x) x
+# else
+#  define IF_X86_32(x) x
+#  define IF_X86_64(x)
+# endif
 #else
 # define IF_X86(x)
 # define IF_X86_ELSE(x, y) y
@@ -623,6 +630,8 @@ typedef struct _instr_t instr_t;
 # define _IF_X86(x)
 # define IF_NOT_X86(x) x
 # define _IF_NOT_X86(x) , x
+# define IF_X86_32(x)
+# define IF_X86_64(x)
 #endif
 
 #ifdef ARM

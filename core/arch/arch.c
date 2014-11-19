@@ -1001,6 +1001,7 @@ arch_thread_init(dcontext_t *dcontext)
     generated_code_t *code;
     ibl_branch_type_t branch_type;
 
+#ifdef X86
     /* Simplest to have a real dcontext for emitting the selfmod code
      * and finding the patch offsets so we do it on 1st thread init */
     static bool selfmod_init = false;
@@ -1009,6 +1010,7 @@ arch_thread_init(dcontext_t *dcontext)
         selfmod_init = true;
         set_selfmod_sandbox_offsets(dcontext);
     }
+#endif
 
     ASSERT_CURIOSITY(proc_is_cache_aligned(get_local_state())
                      IF_WINDOWS(|| DYNAMO_OPTION(tls_align != 0)));

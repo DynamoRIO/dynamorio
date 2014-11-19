@@ -47,10 +47,6 @@
 #include <link.h>  /* for struct link_map */
 #include <stddef.h> /* offsetof */
 
-#ifndef X86
-# error X86-only!
-#endif
-
 #define APP  instrlist_meta_append
 
 /* According to the SysV amd64 psABI docs[1], there are three reserved entries
@@ -84,7 +80,7 @@ enum { DL_RUNTIME_RESOLVE_IDX = 2 };
 
 /* The loader's _dl_fixup.  For ia32 it uses regparms. */
 typedef void *(*fixup_fn_t)(struct link_map *l_map, uint dynamic_index)
-    IF_NOT_X64(__attribute__((regparm (3), stdcall, unused)));
+    IF_X86_32(__attribute__((regparm (3), stdcall, unused)));
 
 app_pc app_dl_runtime_resolve;
 fixup_fn_t app_dl_fixup;
@@ -127,6 +123,7 @@ static generic_table_t *native_mbr_table;
 static app_pc
 find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
 {
+#ifdef X86
     instr_t instr;
     int max_decodes = 30;
     int i = 0;
@@ -153,6 +150,11 @@ find_dl_fixup(dcontext_t *dcontext, app_pc resolver)
     }
     instr_free(dcontext, &instr);
     return fixup;
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
+#endif /* X86/ARM */
 }
 
 /* Creates a template stub copied repeatedly for each stub we need to create.
@@ -172,14 +174,19 @@ initialize_plt_stub_template(void)
      * it doesn't want to break special calling conventions, so we follow suit
      * and push onto the stack.
      */
-#ifdef X64
-    instrlist_append(ilist, INSTR_CREATE_mov_imm
-                     (dc, opnd_create_reg(DR_REG_R11), OPND_CREATE_INTPTR(0)));
-    instrlist_append(ilist, INSTR_CREATE_jmp_ind
-                     (dc, opnd_create_rel_addr(0, OPSZ_PTR)));
-#else
-    instrlist_append(ilist, INSTR_CREATE_push_imm(dc, OPND_CREATE_INTPTR(0)));
-    instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
+#ifdef X86
+    IF_X64_ELSE({
+        instrlist_append(ilist, INSTR_CREATE_mov_imm
+                         (dc, opnd_create_reg(DR_REG_R11), OPND_CREATE_INTPTR(0)));
+        instrlist_append(ilist, INSTR_CREATE_jmp_ind
+                         (dc, opnd_create_rel_addr(0, OPSZ_PTR)));
+    }, {
+        instrlist_append(ilist, INSTR_CREATE_push_imm(dc, OPND_CREATE_INTPTR(0)));
+        instrlist_append(ilist, INSTR_CREATE_jmp(dc, opnd_create_pc(0)));
+    });
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
 #endif
     next_pc = instrlist_encode_to_copy(dc, ilist, plt_stub_template, NULL,
                                        code_end, false);
@@ -276,17 +283,17 @@ create_opt_plt_stub(app_pc plt_tgt, app_pc stub_pc)
                    && "kstat is not compatible with ");
 
     /* mov plt_tgt => XAX */
-    instr = INSTR_CREATE_mov_imm(dcontext,
-                                 opnd_create_reg(REG_XAX),
-                                 OPND_CREATE_INTPTR(plt_tgt));
+    instr = XINST_CREATE_load_int(dcontext,
+                                  opnd_create_reg(IF_X86_ELSE(REG_XAX, DR_REG_R0)),
+                                  OPND_CREATE_INTPTR(plt_tgt));
     pc = instr_encode(dcontext, instr, stub_pc);
     instr_destroy(dcontext, instr);
     if (pc == NULL)
         return false;
     /* jmp native_plt_call */
-    instr = INSTR_CREATE_jmp(dcontext,
-                             opnd_create_pc
-                             (get_native_plt_ibl_xfer_entry(dcontext)));
+    instr = XINST_CREATE_jump(dcontext,
+                              opnd_create_pc
+                              (get_native_plt_ibl_xfer_entry(dcontext)));
     pc = instr_encode(dcontext, instr, pc);
     instr_destroy(dcontext, instr);
     if (pc == NULL)
@@ -727,16 +734,16 @@ special_ret_stub_create(dcontext_t *dcontext, app_pc tgt)
     /* we need to steal xax register, xax restore is in the ibl_xfer code from
      * emit_native_ret_ibl_xfer.
      */
-    APP(&ilist, instr_create_save_to_tls(dcontext, REG_XAX, TLS_XAX_SLOT));
+    APP(&ilist, instr_create_save_to_tls(dcontext, SCRATCH_REG0, TLS_SLOT_REG0));
     /* the rest is similar to opt_plt_stub */
     /* mov tgt => XAX */
-    APP(&ilist, INSTR_CREATE_mov_imm(dcontext,
-                                     opnd_create_reg(REG_XAX),
-                                     OPND_CREATE_INTPTR(tgt)));
+    APP(&ilist, XINST_CREATE_load_int(dcontext,
+                                      opnd_create_reg(SCRATCH_REG0),
+                                      OPND_CREATE_INTPTR(tgt)));
     /* jmp native_ret_ibl */
-    APP(&ilist, INSTR_CREATE_jmp(dcontext,
-                                 opnd_create_pc
-                                 (get_native_ret_ibl_xfer_entry(dcontext))));
+    APP(&ilist, XINST_CREATE_jump(dcontext,
+                                  opnd_create_pc
+                                  (get_native_ret_ibl_xfer_entry(dcontext))));
     pc = instrlist_encode(dcontext, &ilist, stub_pc, false);
     instrlist_clear(dcontext, &ilist);
 
@@ -824,9 +831,6 @@ is_special_ret_stub(app_pc pc)
     return found;
 }
 
-#ifndef X86
-# error X86-only!
-#endif
 /* i#1276: dcontext->next_tag could be special stub pc from special_ret_stub
  * for DR maintaining the control in hybrid execution, this routine is called
  * in dispatch to adjust the target if necessary.
@@ -834,11 +838,11 @@ is_special_ret_stub(app_pc pc)
 bool
 native_exec_replace_next_tag(dcontext_t *dcontext)
 {
-    instr_t instr;
-    app_pc  pc;
-
     ASSERT (DYNAMO_OPTION(native_exec) && DYNAMO_OPTION(native_exec_opt));
     if (is_special_ret_stub(dcontext->next_tag)) {
+#ifdef X86
+        instr_t instr;
+        app_pc  pc;
         /* we assume the ret stub is
          *   save %xax
          *   mov tgt => %xax
@@ -857,6 +861,10 @@ native_exec_replace_next_tag(dcontext_t *dcontext)
         dcontext->next_tag = (app_pc) opnd_get_immed_int(instr_get_src(&instr, 0));
         instr_free(dcontext, &instr);
         return true;
+#elif defined(ARM)
+        /* FIXME i#1551: NYI on ARM */
+        ASSERT_NOT_REACHED();
+#endif
     }
     return false;
 }
