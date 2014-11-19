@@ -3947,7 +3947,8 @@ build_bb_ilist(dcontext_t *dcontext, build_bb_t *bb)
     if (bb->mangle_ilist &&
         (bb->instr == NULL || !instr_opcode_valid(bb->instr) ||
          !instr_is_near_ubr(bb->instr) || instr_is_meta(bb->instr))) {
-        instr_t *exit_instr = XINST_CREATE_jmp(dcontext, opnd_create_pc(bb->exit_target));
+        instr_t *exit_instr = XINST_CREATE_jump(dcontext,
+                                                opnd_create_pc(bb->exit_target));
         if (bb->record_translation) {
             app_pc translation = NULL;
             if (bb->instr == NULL || !instr_opcode_valid(bb->instr)) {
@@ -4418,8 +4419,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
     /* this is the jump to native code */
     instrlist_append(bb->ilist,
                      opnd_is_pc(jmp_tgt) ?
-                     XINST_CREATE_jmp(dcontext, jmp_tgt) :
-                     XINST_CREATE_jmp_ind_mem(dcontext, jmp_tgt));
+                     XINST_CREATE_jump(dcontext, jmp_tgt) :
+                     XINST_CREATE_jump_mem(dcontext, jmp_tgt));
 
     /* mark all as do-not-mangle, so selfmod, etc. will leave alone (in absence
      * of selfmod only really needed for the jmp to native code)
@@ -4428,7 +4429,8 @@ build_native_exec_bb(dcontext_t *dcontext, build_bb_t *bb)
         instr_set_meta(in);
 
     /* this is a jump for a dummy exit cti */
-    instrlist_append(bb->ilist, XINST_CREATE_jmp(dcontext, opnd_create_pc(bb->start_pc)));
+    instrlist_append(bb->ilist, XINST_CREATE_jump(dcontext,
+                                                  opnd_create_pc(bb->start_pc)));
 
     if (DYNAMO_OPTION(shared_bbs) && !TEST(FRAG_TEMP_PRIVATE, bb->flags))
         bb->flags |= FRAG_SHARED;
@@ -6124,7 +6126,8 @@ append_trace_speculate_last_ibl(dcontext_t *dcontext, instrlist_t *trace,
 
     /* add a new direct exit stub */
     added_size += tracelist_add(dcontext, trace, next,
-                                XINST_CREATE_jmp(dcontext, opnd_create_pc(speculate_next_tag)));
+                                XINST_CREATE_jump(dcontext,
+                                                  opnd_create_pc(speculate_next_tag)));
     LOG(THREAD, LOG_INTERP, 3,
         "append_trace_speculate_last_ibl: added cmp vs. "PFX" for ind br\n",
         speculate_next_tag);
@@ -6215,7 +6218,7 @@ append_ib_trace_last_ibl_exit_stat(dcontext_t *dcontext, instrlist_t *trace,
         /* jmp where */
         added_size += tracelist_add(dcontext, trace, next,
                                     IF_X86_ELSE(INSTR_CREATE_jmp_short,
-                                                XINST_CREATE_jmp)
+                                                XINST_CREATE_jump)
                                     (dcontext, opnd_create_instr(where)));
     }
 
@@ -6338,7 +6341,7 @@ static instr_t *
 create_exit_jmp(dcontext_t *dcontext, app_pc target, app_pc translation,
                 uint branch_type)
 {
-    instr_t *jmp = XINST_CREATE_jmp(dcontext, opnd_create_pc(target));
+    instr_t *jmp = XINST_CREATE_jump(dcontext, opnd_create_pc(target));
     instr_set_translation(jmp, translation);
     if (branch_type == 0)
         instr_exit_branch_set_type(jmp, instr_branch_type(jmp));
@@ -6897,7 +6900,7 @@ decode_fragment(dcontext_t *dcontext, fragment_t *f, byte *buf, /*IN/OUT*/uint *
                     if (stop) {
                         /* Add the ubr ourselves */
                         ASSERT(cti == NULL);
-                        cti = XINST_CREATE_jmp(dcontext, opnd_create_pc(pc));
+                        cti = XINST_CREATE_jump(dcontext, opnd_create_pc(pc));
                         /* It's up to the caller to decide whether to mark this
                          * as do-not-emit or not */
                         /* Process as an exit cti */

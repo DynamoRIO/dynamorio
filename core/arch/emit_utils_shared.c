@@ -3237,8 +3237,8 @@ append_jmp_to_fcache_target(dcontext_t *dcontext, instrlist_t *ilist,
         if (shared) {
             /* next_tag placed into tls slot earlier in this routine */
             APP(ilist,
-                XINST_CREATE_jmp_ind_mem(dcontext,
-                                         OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
+                XINST_CREATE_jump_mem(dcontext,
+                                      OPND_TLS_FIELD(FCACHE_ENTER_TARGET_SLOT)));
 
         } else {
 #ifdef WINDOWS

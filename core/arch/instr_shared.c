@@ -2758,7 +2758,7 @@ instr_t *
 instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs)
 {
     opnd_t memopnd = opnd_create_dcontext_field(dcontext, offs);
-    return XINST_CREATE_jmp_ind_mem(dcontext, memopnd);
+    return XINST_CREATE_jump_mem(dcontext, memopnd);
 }
 
 /* there is no corresponding save routine since we no longer support

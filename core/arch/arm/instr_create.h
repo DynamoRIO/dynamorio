@@ -132,7 +132,7 @@
  * \param dc  The void * dcontext used to allocate memory for the instr_t.
  * \param m   The memory opnd holding the target.
  */
-#define XINST_CREATE_jmp_ind_mem(dc, m) \
+#define XINST_CREATE_jump_mem(dc, m) \
     INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_PC), m)
 
 /**
@@ -160,7 +160,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jmp(dc, t) instr_create_0dst_1src((dc), OP_b, (t))
+#define XINST_CREATE_jump(dc, t) instr_create_0dst_1src((dc), OP_b, (t))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
