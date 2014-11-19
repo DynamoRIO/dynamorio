@@ -5411,10 +5411,10 @@ dr_restore_arith_flags_from_reg(void *drcontext, instrlist_t *ilist,
             INSTR_CREATE_add(dcontext, opnd_create_reg(REG_AL), OPND_CREATE_INT8(0x7f)));
     MINSERT(ilist, where, INSTR_CREATE_sahf(dcontext));
 #elif defined(ARM)
-    /* flag saving code: mrs reg, cpsr */
+    /* flag restoring code: mrs reg, apsr_nzcvqg */
     MINSERT(ilist, where,
-            INSTR_CREATE_msr(dcontext,
-                             opnd_create_reg(DR_REG_CPSR),
+            INSTR_CREATE_msr(dcontext, opnd_create_reg(DR_REG_CPSR),
+                             OPND_CREATE_INT_MSR_NZCVQG(),
                              opnd_create_reg(reg)));
 #endif /* X86/ARM */
 }

@@ -396,6 +396,12 @@ foreach my $opc (keys %entry) {
             $esig =~ s/\s*FPSCR//g;
         }
 
+        # Special docs
+        if ($opc eq 'OP_msr' && $sig !~ /imm2/) {
+            $sig =~ s/imm/imm_msr/;
+            $esig =~ s/imm/imm_msr/;
+        }
+
         $sig = rename_regs($sig);
         $esig = rename_regs($esig);
 
@@ -499,6 +505,7 @@ my %mapping = ('reg' => 'register',
                'Vn_or_imm' => 'source SIMD register, or integer constant,',
                'Vs' => 'third source SIMD register',
                'imm' => 'integer constant',
+               'imm_msr' => 'integer constant (typically from OPND_CREATE_INT_MSR*)',
                'imm2' => 'second integer constant',
                'imm3' => 'third integer constant',
                'mem' => 'memory',
