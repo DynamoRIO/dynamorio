@@ -106,7 +106,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_movw,    0x03000000, "movw",   RBw, xx, i16x0_16, xx, xx, pred, x, END_LIST},
     {OP_tst,     0x03100000, "tst",    RAw, xx, i12, xx, xx, pred, fWNZC, top4x[16][0x00]},
     {EXT_IMM1916,0x03200000, "(ext imm1916 0)", xx, xx, xx, xx, xx, no, x, 0},
-    {OP_teq,     0x03300000, "teq",    RAw, xx, i12, xx, xx, pred, fWNZC, top4x[17][0x00]},
+    {OP_teq,     0x03300000, "teq",    xx, xx, RAw, i12, xx, pred, fWNZC, top4x[17][0x00]},
     {OP_movt,    0x03400000, "movt",   RBt, xx, i16x0_16, xx, xx, pred, x, END_LIST},
     {OP_cmp,     0x03500000, "cmp",    RAw, xx, i12, xx, xx, pred, fWNZCV, top4x[18][0x00]},
     {OP_msr,     0x03600000, "msr",    SPSR, xx, i4_16, i12, xx, pred, x, END_LIST},
@@ -464,8 +464,8 @@ const instr_info_t A32_ext_opc4x[][6] = {
     {OP_ldrsb,   0x011000d0, "ldrsb",  RBw, xx, MNRb, xx, xx, pred, x, top4x[25][0x04]},/*PUW=100*/
     {OP_ldrsh,   0x011000f0, "ldrsh",  RBw, xx, MNRh, xx, xx, pred, x, top4x[25][0x05]},/*PUW=100*/
   }, { /* 17 */
-    {OP_teq,     0x01300000, "teq",    RAw, xx, RDw, sh2, i5, pred, fWNZC, top4x[17][0x01]},
-    {OP_teq,     0x01300010, "teq",    RAw, xx, RDw, sh2, RCb, pred, fWNZC, END_LIST},
+    {OP_teq,     0x01300000, "teq",    xx, RAw, RDw, sh2, i5, pred|srcX4, fWNZC, top4x[17][0x01]},
+    {OP_teq,     0x01300010, "teq",    xx, RAw, RDw, sh2, RCb, pred|srcX4, fWNZC, END_LIST},
     {INVALID,    0x01300090, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
     {OP_ldrh,    0x013000b0, "ldrh",   RBw, RAw, MNRw, RAw, RDNw, pred, x, top4x[13][0x03]},/*PUW=101*/
     {OP_ldrsb,   0x013000d0, "ldrsb",  RBw, RAw, MNRb, RAw, RDNw, pred, x, top4x[13][0x04]},/*PUW=101*/
