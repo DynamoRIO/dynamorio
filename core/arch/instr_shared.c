@@ -2373,6 +2373,19 @@ instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
+instr_create_1dst_4src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+{
+    instr_t *in = instr_build(dcontext, opcode, 1, 4);
+    instr_set_dst(in, 0, dst);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    return in;
+}
+
+instr_t *
 instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
                        opnd_t dst, opnd_t src1, opnd_t src2, opnd_t src3,
                        opnd_t src4, opnd_t src5)

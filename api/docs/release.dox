@@ -173,6 +173,7 @@ Further non-compatibility-affecting changes include:
  - Added opnd_create_reg_ex() and opnd_get_flags().
  - Added opnd_create_base_disp_arm().
  - Added reg_is_simd().
+ - Added instr_create_1dst_4src().
 
 **************************************************
 <hr>

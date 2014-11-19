@@ -89,7 +89,7 @@
  * instruction, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define XINST_CREATE_debug_instr(dc) INSTR_CREATE_bkpt(dc, OPND_CREATE_INT8(1))
+#define XINST_CREATE_debug_instr(dc) INSTR_CREATE_bkpt((dc), OPND_CREATE_INT8(1))
 
 /**
  * This platform-independent creates an instr_t for a memory load instruction.
@@ -97,7 +97,7 @@
  * \param r   The destination register opnd.
  * \param m   The source memory opnd.
  */
-#define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_ldr(dc, r, m)
+#define XINST_CREATE_load(dc, r, m)  INSTR_CREATE_ldr((dc), (r), (m))
 
 /**
  * This platform-independent macro creates an instr_t for a memory store instruction.
@@ -105,7 +105,7 @@
  * \param m   The destination memory opnd.
  * \param r   The source register opnd.
  */
-#define XINST_CREATE_store(dc, m, r)  INSTR_CREATE_str(dc, m, r)
+#define XINST_CREATE_store(dc, m, r)  INSTR_CREATE_str((dc), (m), (r))
 
 /**
  * This platform-independent macro creates an instr_t for a register
@@ -114,8 +114,7 @@
  * \param d   The destination register opnd.
  * \param s   The source register opnd.
  */
-#define XINST_CREATE_move(dc, d, s) \
-    instr_create_1dst_1src((dc), OP_mov, (d), (s))
+#define XINST_CREATE_move(dc, d, s) INSTR_CREATE_mov((dc), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -126,7 +125,7 @@
  *
  * \note Loading to 128-bit registers is not supported on 32-bit ARM.
  */
-#define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_vldr(dc, r, m)
+#define XINST_CREATE_load_simd(dc, r, m) INSTR_CREATE_vldr((dc), (r), (m))
 
 /**
  * This platform-independent macro creates an instr_t for a multimedia
@@ -137,7 +136,7 @@
  *
  * \note Storing from 128-bit registers is not supported on 32-bit ARM.
  */
-#define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_vstr(dc, m, r)
+#define XINST_CREATE_store_simd(dc, m, r) INSTR_CREATE_vstr((dc), (m), (r))
 
 /**
  * This platform-independent macro creates an instr_t for an indirect
@@ -146,7 +145,7 @@
  * \param m   The memory opnd holding the target.
  */
 #define XINST_CREATE_jump_mem(dc, m) \
-    INSTR_CREATE_ldr(dc, opnd_create_reg(DR_REG_PC), m)
+    INSTR_CREATE_ldr((dc), opnd_create_reg(DR_REG_PC), (m))
 
 /**
  * This platform-independent macro creates an instr_t for an immediate
@@ -155,7 +154,10 @@
  * \param r   The destination register opnd.
  * \param i   The source immediate integer opnd.
  */
-#define XINST_CREATE_load_int(dc, r, i) XINST_CREATE_move(dc, r, i)
+#define XINST_CREATE_load_int(dc, r, i) \
+  (opnd_get_immed_int(i) < 0 ? \
+   INSTR_CREATE_mvn((dc), (r), OPND_CREATE_INTPTR(-opnd_get_immed_int(i))) : \
+   INSTR_CREATE_movw((dc), (r), (i)))
 
 /**
  * This platform-independent macro creates an instr_t for a return instruction.
@@ -173,7 +175,7 @@
  * the target (a pc operand is not suitable for most uses unless you know
  * precisely where this instruction will be encoded).
  */
-#define XINST_CREATE_jump(dc, t) instr_create_0dst_1src((dc), OP_b, (t))
+#define XINST_CREATE_jump(dc, t) INSTR_CREATE_b((dc), (t))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -182,8 +184,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_add, (d), (s), (d))
+#define XINST_CREATE_add(dc, d, s) INSTR_CREATE_add((dc), (d), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for an addition
@@ -192,8 +193,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_add_s(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_adds, (d), (s), (d))
+#define XINST_CREATE_add_s(dc, d, s) INSTR_CREATE_adds((dc), (d), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -202,8 +202,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_sub, (d), (s), (d))
+#define XINST_CREATE_sub(dc, d, s) INSTR_CREATE_sub((dc), (d), (d), (s))
 
 /**
  * This platform-independent macro creates an instr_t for a subtraction
@@ -212,8 +211,7 @@
  * \param d  The opnd_t explicit destination operand for the instruction.
  * \param s  The opnd_t explicit source operand for the instruction.
  */
-#define XINST_CREATE_sub_s(dc, d, s) \
-  instr_create_1dst_2src((dc), OP_subs, (d), (s), (d))
+#define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_subs((dc), (d), (d), (s))
 
 /* @} */ /* end doxygen group */
 
