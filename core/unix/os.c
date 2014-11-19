@@ -1398,12 +1398,16 @@ get_segment_base(uint seg)
 #ifdef X86
     if (seg == SEG_CS || seg == SEG_SS || seg == SEG_DS || seg == SEG_ES)
         return NULL;
-#endif
-#ifdef HAVE_TLS
+# ifdef HAVE_TLS
     return tls_get_fs_gs_segment_base(seg);
-#else
+# else
     return (byte *) POINTER_MAX;
-#endif /* HAVE_TLS */
+ #endif /* HAVE_TLS */
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+    return (byte *) POINTER_MAX;
+#endif
 }
 
 /* i#572: handle opnd_compute_address to return the application
@@ -1599,8 +1603,13 @@ os_tls_init(void)
 
     tls_thread_init(os_tls, segment);
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
+# ifdef X86
     /* store type in global var for convenience: should be same for all threads */
     tls_global_type = os_tls->tls_type;
+# elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+# endif
     /* FIXME: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
      * Should have create_ldt_entry() return failure instead of asserting, then.
      */
@@ -1676,21 +1685,24 @@ os_tls_get_gdt_index(dcontext_t *dcontext)
 void
 os_tls_pre_init(int gdt_index)
 {
+#ifdef X86
     /* Only set to above 0 for tls_type == TLS_TYPE_GDT */
     if (gdt_index > 0) {
         /* PR 458917: clear gdt slot to avoid leak across exec */
         DEBUG_DECLARE(bool ok;)
-#ifdef X86
         static const ptr_uint_t zero = 0;
         /* Be sure to clear the selector before anything that might
          * call get_thread_private_dcontext()
          */
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
-#endif /* X86 */
         DEBUG_DECLARE(ok = )
             tls_clear_descriptor(gdt_index);
         ASSERT(ok);
     }
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
 }
 
 #ifdef CLIENT_INTERFACE
@@ -2974,7 +2986,7 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
         os_switch_lib_tls(dcontext, true/*to app*/);
-# ifndef X64
+# if defined(X86) && !defined(X64)
     /* For the TCB we simply share the parent's.  On Linux we could just inherit
      * the same selector but not for VMX86_SERVER so we specify for both for
      * 32-bit.  Most of the fields are pthreads-specific and we assume the ones
@@ -2992,7 +3004,8 @@ dr_create_client_thread(void (*func)(void *param), void *arg)
 # endif
     LOG(THREAD, LOG_ALL, 1, "dr_create_client_thread xsp="PFX" dstack="PFX"\n",
         xsp, get_clone_record_dstack(crec));
-    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL, IF_X64_ELSE(NULL, &desc),
+    thread_id_t newpid = dynamorio_clone(flags, xsp, NULL,
+                                         IF_ARM_ELSE(NULL, IF_X64_ELSE(NULL, &desc)),
                                          NULL, client_thread_run);
     /* i#501 switch to app's tls before creating client thread */
     if (IF_CLIENT_INTERFACE_ELSE(INTERNAL_OPTION(private_loader), false))
@@ -5239,6 +5252,7 @@ handle_exit(dcontext_t *dcontext)
 static bool
 os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 {
+#ifdef X86
     int i;
     os_thread_data_t *ostd = dcontext->os_field;
     our_modify_ldt_t *desc = (our_modify_ldt_t *)ostd->app_thread_areas;
@@ -5290,12 +5304,17 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         GDT_SELECTOR(user_desc->entry_number) != read_selector(SEG_TLS) &&
         GDT_SELECTOR(user_desc->entry_number) != read_selector(LIB_SEG_TLS))
         return false;
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
     return true;
 }
 
 static bool
 os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 {
+#ifdef X86
     os_thread_data_t *ostd = (os_thread_data_t *)dcontext->os_field;
     our_modify_ldt_t *desc = (our_modify_ldt_t *)ostd->app_thread_areas;
     int i = user_desc->entry_number - tls_min_index();
@@ -5303,6 +5322,10 @@ os_get_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         return false;
     if (desc[i].seg_not_present == 1)
         return false;
+#elif defined(ARM)
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+#endif /* X86/ARM */
     return true;
 }
 #endif

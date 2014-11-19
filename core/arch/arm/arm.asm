@@ -48,10 +48,14 @@ GLOBAL_LABEL(FUNCNAME:)
 #undef FUNCNAME
 
 /* we share dynamorio_syscall w/ preload */
-#ifdef UNIX
-# ifdef X64
+#ifndef UNIX
+# error Non-Unix is not supported
+#endif
+
+#ifdef X64
 #  error AArch64 is not supported
-# else /* !X64 */
+#endif
+
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
  * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
@@ -108,7 +112,131 @@ call_dispatch_alt_stack_no_free:
         pop     {REG_R4, pc}
         END_FUNC(call_switch_stack)
 
-# endif /* !X64 */
-#endif /* UNIX */
+
+/* FIXME i#1551: NYI on ARM */
+/*
+ * dr_app_start - Causes application to run under Dynamo control
+ */
+#ifdef DR_APP_EXPORTS
+        DECLARE_EXPORTED_FUNC(dr_app_start)
+GLOBAL_LABEL(dr_app_start:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_app_start)
+
+/*
+ * dr_app_take_over - For the client interface, we'll export 'dr_app_take_over'
+ * for consistency with the dr_ naming convention of all exported functions.
+ * We'll keep 'dynamorio_app_take_over' for compatibility with the preinjector.
+ */
+        DECLARE_EXPORTED_FUNC(dr_app_take_over)
+GLOBAL_LABEL(dr_app_take_over:  )
+        b        GLOBAL_REF(dynamorio_app_take_over)
+        END_FUNC(dr_app_take_over)
+
+/* dr_app_running_under_dynamorio - Indicates whether the current thread
+ * is running within the DynamoRIO code cache.
+ * Returns false (not under dynamorio) by default.
+ * The function is mangled by dynamorio to return true instead when
+ * it is brought into the code cache.
+ */
+        DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
+GLOBAL_LABEL(dr_app_running_under_dynamorio: )
+        mov      r0, #0
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_app_running_under_dynamorio)
+#endif /* DR_APP_EXPORTS */
+
+/*
+ * dynamorio_app_take_over - Causes application to run under Dynamo
+ * control.  Dynamo never releases control.
+ */
+        DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
+GLOBAL_LABEL(dynamorio_app_take_over:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_app_take_over)
+
+        DECLARE_FUNC(cleanup_and_terminate)
+GLOBAL_LABEL(cleanup_and_terminate:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(cleanup_and_terminate)
+
+        DECLARE_FUNC(global_do_syscall_int)
+GLOBAL_LABEL(global_do_syscall_int:)
+        svc      #0
+        END_FUNC(global_do_syscall_int)
+
+        DECLARE_FUNC(safe_read_asm)
+GLOBAL_LABEL(safe_read_asm:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(safe_read_asm)
+
+#ifdef CLIENT_INTERFACE
+/* int cdecl dr_setjmp(dr_jmp_buf *buf);
+ */
+        DECLARE_FUNC(dr_setjmp)
+GLOBAL_LABEL(dr_setjmp:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_set_jmp)
+
+/* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
+ */
+        DECLARE_FUNC(dr_longjmp)
+GLOBAL_LABEL(dr_longjmp:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dr_longjmp)
+
+/* uint atomic_swap(uint *addr, uint value)
+ * return current contents of addr and replace contents with value.
+ * on win32 could use InterlockedExchange intrinsic instead.
+ */
+        DECLARE_FUNC(atomic_swap)
+GLOBAL_LABEL(atomic_swap:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(atomic_swap)
+
+        DECLARE_FUNC(cpuid_supported)
+GLOBAL_LABEL(cpuid_supported:)
+        mov      r0, #0
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(cpuid_supported)
+
+        DECLARE_FUNC(our_cpuid)
+GLOBAL_LABEL(our_cpuid:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(our_cpuid)
+
+#endif /* CLIENT_INTERFACE */
+
+#ifdef LINUX
+        DECLARE_FUNC(dynamorio_clone)
+GLOBAL_LABEL(dynamorio_clone:)
+        mov      r0, #0
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_clone)
+
+        DECLARE_FUNC(dynamorio_sigreturn)
+GLOBAL_LABEL(dynamorio_sigreturn:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_sigreturn)
+
+        DECLARE_FUNC(dynamorio_nonrt_sigreturn)
+GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(dynamorio_nonrt_sigreturn)
+
+        DECLARE_FUNC(master_signal_handler)
+GLOBAL_LABEL(master_signal_handler:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(master_signal_handler)
+
+#endif /* LINUX */
+/* void hashlookup_null_handler(void)
+ * PR 305731: if the app targets NULL, it ends up here, which indirects
+ * through hashlookup_null_target to end up in an ibl miss routine.
+ */
+        DECLARE_FUNC(hashlookup_null_handler)
+GLOBAL_LABEL(hashlookup_null_handler:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(hashlookup_null_handler)
 
 END_FILE

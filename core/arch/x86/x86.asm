@@ -1750,7 +1750,7 @@ GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
         /* should not return.  if we somehow do,infinite loop is intentional.
          * FIXME: do better in release build! FIXME - why not an int3? */
         jmp      GLOBAL_REF(unexpected_return)
-        END_FUNC(dynamorio_sigreturn)
+        END_FUNC(dynamorio_nonrt_sigreturn)
 #endif
 
 #ifdef HAVE_SIGALTSTACK
