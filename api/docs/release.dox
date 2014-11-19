@@ -164,7 +164,9 @@ Further non-compatibility-affecting changes include:
    XINST_CREATE_jump_mem(), XINST_CREATE_load_int(),
    XINST_CREATE_return(), XINST_CREATE_jump(),
    XINST_CREATE_add(), XINST_CREATE_add_s(),
-   XINST_CREATE_sub(), and XINST_CREATE_sub_s(),
+   XINST_CREATE_sub(), XINST_CREATE_sub_s(),
+   XINST_CREATE_and_s(), XINST_CREATE_cmp(),
+   and XINST_CREATE_interrupt().
  - Added instr_is_predicated(), instr_get_predicate(), and
    instr_set_predicate().
  - Added instr_predicate_triggered().

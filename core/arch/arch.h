@@ -48,6 +48,7 @@
 #include "instr.h" /* for reg_id_t */
 #include "decode.h" /* for X64_CACHE_MODE_DC */
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
+#include "../fragment.h" /* IS_IBL_TARGET */
 
 #ifdef X64
 static inline bool
@@ -1207,8 +1208,119 @@ void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
 #endif
 
-/* in {x86/arm}/emit_utils.c */
+/****************************************************************************
+ * Platform-independent emit_utils_shared.c
+ */
+/* add an instruction to patch list and address of location for future updates */
+/* Use the type checked wrappers add_patch_entry or add_patch_marker */
+void
+add_patch_entry_internal(patch_list_t *patch, instr_t *instr, ushort patch_flags,
+                         short instruction_offset,
+                         ptr_uint_t value_location_offset);
+cache_pc
+get_direct_exit_target(dcontext_t *dcontext, uint flags);
+void
+link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
+                        linkstub_t *l, bool hot_patch,
+                        app_pc target_tag);
+cache_pc
+exit_cti_disp_pc(cache_pc branch_pc);
+void
+append_ibl_found(dcontext_t *dcontext, instrlist_t *ilist,
+                 ibl_code_t *ibl_code, patch_list_t *patch,
+                 uint start_pc_offset,
+                 bool collision,
+                 bool only_spill_state_in_tls, /* if true, no table info in TLS;
+                                                * indirection off of XDI is used */
+                 bool restore_eflags,
+                 instr_t **fragment_found);
+#ifdef HASHTABLE_STATISTICS
+# define HASHLOOKUP_STAT_OFFS(event) (offsetof(hashtable_statistics_t, event##_stat))
+void
+append_increment_counter(dcontext_t *dcontext, instrlist_t *ilist,
+                         ibl_code_t *ibl_code, patch_list_t *patch,
+                         reg_id_t entry_register, /* register indirect (XCX) or NULL */
+                         /* adjusted to unprot_ht_statistics_t if no entry_register */
+                         uint counter_offset,
+                         reg_id_t scratch_register);
+#endif
+/* we are sharing bbs w/o ibs -- we assume that a bb
+ * w/ a direct branch cannot have an ib and thus is shared
+ */
+#ifdef TRACE_HEAD_CACHE_INCR
+/* incr routine can't tell whether coming from shared bb
+ * or non-shared fragment (such as a trace) so must always
+ * use shared stubs
+ */
+#  define FRAG_DB_SHARED(flags) true
+#else
+#  define FRAG_DB_SHARED(flags) (TEST(FRAG_SHARED, (flags)))
+#endif
 
+/* fragment_t fields */
+#define FRAGMENT_TAG_OFFS        (offsetof(fragment_t, tag))
+
+enum {PREFIX_SIZE_RESTORE_OF = 2, /* add $0x7f, %al  */
+      PREFIX_SIZE_FIVE_EFLAGS = 1,    /* SAHF */
+};
+
+/* PR 244737: x64 always uses tls even if all-private */
+#define IBL_EFLAGS_IN_TLS() (IF_X64_ELSE(true, SHARED_IB_TARGETS()))
+
+/* use indirect branch target prefix? */
+static inline bool
+use_ibt_prefix(uint flags)
+{
+    /* when no traces, all bbs use IBT prefix */
+    /* FIXME: currently to allow bb2bb we simply have a prefix on all BB's
+     * should experiment with a shorter prefix for targetting BBs
+     * by restoring the flags in the IBL routine,
+     * or even jump through memory to avoid having the register restore prefix
+     * Alternatively, we can reemit a fragment only once it is known to be an IBL target,
+     * assuming the majority will be reached with an IB when they are first built.
+     * (Simplest counterexample is of a return from a function with no arguments
+     * called within a conditional, but the cache compaction of not having
+     * prefixes on all bb's may offset this double emit).
+     * All of these are covered by case 147.
+     */
+    return (IS_IBL_TARGET(flags) &&
+            /* coarse bbs (and fine in presence of coarse) do not support prefixes */
+            !(DYNAMO_OPTION(coarse_units) &&
+              !TEST(FRAG_IS_TRACE, flags) &&
+              DYNAMO_OPTION(bb_ibl_targets)));
+}
+
+static inline bool
+ibl_use_target_prefix(ibl_code_t *ibl_code)
+{
+   return !(DYNAMO_OPTION(coarse_units) &&
+            /* If coarse units are enabled we need to have no prefix
+             * for both fine and coarse bbs
+             */
+            ((ibl_code->source_fragment_type == IBL_COARSE_SHARED &&
+              DYNAMO_OPTION(bb_ibl_targets)) ||
+             (IS_IBL_BB(ibl_code->source_fragment_type) &&
+              /* FIXME case 147/9636: if -coarse_units -bb_ibl_targets
+               * but traces are enabled, we won't put prefixes on regular
+               * bbs but will assume we have them here!  We don't support
+               * that combination yet.  When we do this routine should return
+               * another bit of info: whether to do two separate lookups.
+               */
+              DYNAMO_OPTION(disable_traces) && DYNAMO_OPTION(bb_ibl_targets))));
+}
+
+/* add an instruction to patch list and address of location for future updates */
+static inline void
+add_patch_entry(patch_list_t *patch, instr_t *instr, ushort patch_flags,
+                ptr_uint_t value_location_offset)
+{
+    add_patch_entry_internal(patch, instr, patch_flags, -4 /* offset of imm32 argument */,
+                             value_location_offset);
+}
+
+/****************************************************************************
+ * Platform-specific {x86/arm}/emit_utils.c
+ */
 /* macros shared by fcache_enter and fcache_return
  * in order to generate both thread-private code that uses absolute
  * addressing and thread-shared or dcontext-shared code that uses
@@ -1261,29 +1373,38 @@ translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **i
 void
 append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
                          bool absolute, bool shared);
-
 void
 append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_restore_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_restore_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_save_gpr(dcontext_t *dcontext, instrlist_t *ilist, bool ibl_end, bool absolute,
                 generated_code_t *code, linkstub_t *linkstub, bool coarse_info);
-
 void
 append_save_simd_reg(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 void
 append_save_clear_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute);
-
 bool
 append_call_enter_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
                           bool ibl_end, bool absolute);
+bool
+append_fcache_return_common(dcontext_t *dcontext, generated_code_t *code,
+                            instrlist_t *ilist, bool ibl_end,
+                            bool absolute, bool shared, linkstub_t *linkstub,
+                            bool coarse_info);
+void
+append_ibl_head(dcontext_t *dcontext, instrlist_t *ilist,
+                ibl_code_t *ibl_code, patch_list_t *patch,
+                instr_t **fragment_found, instr_t **compare_tag_inst,
+                instr_t **post_eflags_save,
+                opnd_t miss_tgt, bool miss_8bit,
+                bool target_trace_table,
+                bool inline_ibl_head);
+#ifdef X64
+void
+instrlist_convert_to_x86(instrlist_t *ilist);
+#endif
 
 #endif /* X86_ARCH_H */
-

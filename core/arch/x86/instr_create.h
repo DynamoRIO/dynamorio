@@ -266,6 +266,32 @@
  */
 #define XINST_CREATE_sub_s(dc, d, s) INSTR_CREATE_sub((dc), OP_subs, (d), (s))
 
+/**
+ * This platform-independent macro creates an instr_t for a bitwise and
+ * instruction that does affect the status flags.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param s  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_and_s(dc, d, s) INSTR_CREATE_and((dc), (d), (s))
+
+/**
+ * This platform-independent macro creates an instr_t for a comparison
+ * instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param s1  The opnd_t explicit destination operand for the instruction.
+ * \param s2  The opnd_t explicit source operand for the instruction.
+ */
+#define XINST_CREATE_cmp(dc, s1, s2) \
+  instr_create_0dst_2src((dc), OP_cmp, (s1), (s2))
+
+/**
+ * This platform-independent macro creates an instr_t for a software
+ * interrupt instruction.
+ * \param dc  The void * dcontext used to allocate memory for the instr_t.
+ * \param i   The source integer constant opnd_t operand.
+ */
+#define XINST_CREATE_interrupt(dc, i) INSTR_CREATE_int(dc, i)
 /* @} */ /* end doxygen group */
 
 
