@@ -3677,6 +3677,7 @@ fragment_prepare_for_removal(dcontext_t *dcontext, fragment_t *f)
     return prepared;
 }
 
+#ifdef DEBUG
 /* FIXME: hashtable_fragment_reset() needs to walk the tables to get these
  * stats, but then we'd need to subtract 1 from all smaller counts -
  * e.g. if an entry is found in 3 tables we can add (1,-1,0) then
@@ -3705,6 +3706,7 @@ fragment_ibl_stat_account(uint flags, uint ibls_targeted)
         }
     }
 }
+#endif
 
 /* Removes f from any IBT tables it is in.
  * If f is in a shared table, only removes if from_shared is true, in

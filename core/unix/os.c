@@ -700,6 +700,10 @@ get_uname(void)
     if (strncmp(uinfo.machine, "x86_64", sizeof("x86_64")) == 0)
         kernel_64bit = true;
 #ifdef MACOS
+    /* XXX: I would skip these checks for standalone so we don't have to set env
+     * vars for frontends to see the options but I'm still afraid of some syscall
+     * crash with no output: I'd rather have two messages than silent crashing.
+     */
     if (DYNAMO_OPTION(max_supported_os_version) != 0) { /* 0 disables */
         /* We only support OSX 10.7.5 - 10.9.1.  That means kernels 11.x-13.x. */
 # define MIN_DARWIN_VERSION_SUPPORTED 11
@@ -707,8 +711,9 @@ get_uname(void)
         if (sscanf(uinfo.release, "%d", &kernel_major) != 1 ||
             kernel_major > DYNAMO_OPTION(max_supported_os_version) ||
             kernel_major < MIN_DARWIN_VERSION_SUPPORTED) {
-            FATAL_USAGE_ERROR(UNSUPPORTED_OS_VERSION, 4, get_application_name(),
-                              get_application_pid(), uinfo.release);
+            /* We make this non-fatal as it's likely DR will work */
+            SYSLOG(SYSLOG_WARNING, UNSUPPORTED_OS_VERSION, 3, get_application_name(),
+                   get_application_pid(), uinfo.release);
         }
     }
 #endif
