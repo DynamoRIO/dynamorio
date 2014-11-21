@@ -1088,7 +1088,7 @@ DynamoRIO header files.  The appropriate library must then be linked
 with.  The define choices are:
 
 -# \p WINDOWS, \p LINUX, or (coming soon) \p MACOS
--# \p X86_32 or \p X86_64
+-# \p X86_32, \p X86_64, or (coming soon) \p ARM_32 or \p ARM_64
 
 Currently we provide a private loader for both Windows and Linux.
 With private loading, clients use a separate copy of each library

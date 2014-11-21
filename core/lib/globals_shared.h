@@ -69,18 +69,22 @@
 #endif
 
 #ifdef API_EXPORT_ONLY
-#if (!defined(X86_64) && !defined(X86_32)) || (defined(X86_64) && defined(X86_32))
-# error Target architecture unspecified: must define either X86_64 xor X86_32
-#endif
-#endif
-
-#ifdef API_EXPORT_ONLY
 #if defined(X86_32) || defined(X86_64)
 # define X86
+# if (defined(X86_64) && defined(X86_32)) || defined(ARM_32) || defined(ARM_64)
+#  error Target architecture over-specified: must define only one
+# endif
+#elif defined(ARM_32) || defined(ARM_64)
+# define ARM
+# if defined(X86_32) || defined(X86_64) || (defined(ARM_64) && defined(ARM_32))
+#  error Target architecture over-specified: must define only one
+# endif
+#else
+# error Target architecture unknown: must define X86_32, X86_64, ARM_32, or ARM_64
 #endif
 #endif
 
-#if defined(X86_64) && !defined(X64)
+#if (defined(X86_64) || defined(ARM_64)) && !defined(X64)
 # define X64
 #endif
 
