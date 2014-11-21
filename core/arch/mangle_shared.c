@@ -51,6 +51,9 @@
 #define POST instrlist_meta_postinsert
 #define PRE  instrlist_meta_preinsert
 
+clean_call_info_t default_clean_call_info;
+callee_info_t default_callee_info;
+
 /* the stack size of a full context switch for clean call */
 int
 get_clean_call_switch_stack_size(void)

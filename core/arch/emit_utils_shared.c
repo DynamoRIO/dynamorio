@@ -5852,7 +5852,7 @@ insert_return_to_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where
      */
 }
 
-#if defined(UNIX) && defined(X86)
+#if defined(UNIX)
 static void
 insert_entering_non_native(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
                            reg_id_t reg_dc, reg_id_t reg_scratch)
@@ -5929,4 +5929,4 @@ emit_native_ret_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code)
     return emit_special_ibl_xfer(dcontext, pc, code, NATIVE_RET_IBL_IDX,
                                  IBL_RETURN, &ilist, tgt);
 }
-#endif /* UNIX && X86 */
+#endif /* UNIX */

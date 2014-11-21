@@ -48,6 +48,13 @@
 
 /**** floating point support ********************************************/
 
+void
+save_fpstate(dcontext_t *dcontext, sigframe_rt_t *frame)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+}
+
 
 #ifdef DEBUG
 void

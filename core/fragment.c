@@ -3955,10 +3955,12 @@ fragment_shift_fcache_pointers(dcontext_t *dcontext, fragment_t *f, ssize_t shif
         disassemble_fragment(dcontext, f, stats->loglevel < 3);
     });
 
+#ifdef X86
     if (TEST(FRAG_SELFMOD_SANDBOXED, f->flags)) {
         /* just re-finalize to update */
         finalize_selfmod_sandbox(dcontext, f);
     }
+#endif
 
     /* inter-cache links must be redone, but all fragment entry pcs must be
      * fixed up first, so that's done separately

@@ -95,6 +95,14 @@ insert_exit_stub_other_flags(dcontext_t *dcontext, fragment_t *f,
     return 0;
 }
 
+cache_pc
+exit_cti_disp_pc(cache_pc branch_pc)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
+}
+
 void
 link_indirect_exit_arch(dcontext_t *dcontext, fragment_t *f,
                         linkstub_t *l, bool hot_patch,
@@ -189,6 +197,13 @@ append_call_exit_dr_hook(dcontext_t *dcontext, instrlist_t *ilist,
 {
     /* i#1551: DR_HOOK is not supported on ARM */
     ASSERT_NOT_IMPLEMENTED(EXIT_DR_HOOK == NULL);
+}
+
+void
+append_restore_xflags(dcontext_t *dcontext, instrlist_t *ilist, bool absolute)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
 }
 
 void

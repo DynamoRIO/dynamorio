@@ -494,7 +494,7 @@ bool
 instr_is_nop(instr_t *inst)
 {
     int opcode = instr_get_opcode(inst);
-    return opcode == OP_nop;
+    return (opcode == OP_nop);
 }
 
 bool
@@ -502,4 +502,12 @@ opnd_same_sizes_ok(opnd_size_t s1, opnd_size_t s2, bool is_reg)
 {
     /* We don't have the same varying sizes that x86 has */
     return (s1 == s2);
+}
+
+instr_t *
+instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return NULL;
 }

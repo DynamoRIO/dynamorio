@@ -57,8 +57,6 @@
  * clean call callee info table for i#42 and i#43
  */
 
-callee_info_t default_callee_info;
-
 #ifdef CLIENT_INTERFACE
 /* hashtable for storing analyzed callee info */
 static generic_table_t  *callee_info_table;

@@ -55,6 +55,24 @@ GLOBAL_LABEL(FUNCNAME:)
 #  error AArch64 is not supported
 #endif
 
+/****************************************************************************/
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+/****************************************************************************/
+
+#ifdef UNIX
+# if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
+        DECLARE_FUNC(_start)
+GLOBAL_LABEL(_start:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(_start)
+# endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
+#endif /* UNIX */
+
+/****************************************************************************/
+#endif /* !NOT_DYNAMORIO_CORE_PROPER */
+/****************************************************************************/
+
 /* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
@@ -120,6 +138,7 @@ call_dispatch_alt_stack_no_free:
 #ifdef DR_APP_EXPORTS
         DECLARE_EXPORTED_FUNC(dr_app_start)
 GLOBAL_LABEL(dr_app_start:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dr_app_start)
 
@@ -129,7 +148,8 @@ GLOBAL_LABEL(dr_app_start:)
  * We'll keep 'dynamorio_app_take_over' for compatibility with the preinjector.
  */
         DECLARE_EXPORTED_FUNC(dr_app_take_over)
-GLOBAL_LABEL(dr_app_take_over:  )
+GLOBAL_LABEL(dr_app_take_over:)
+        /* FIXME i#1551: NYI on ARM */
         b        GLOBAL_REF(dynamorio_app_take_over)
         END_FUNC(dr_app_take_over)
 
@@ -140,7 +160,8 @@ GLOBAL_LABEL(dr_app_take_over:  )
  * it is brought into the code cache.
  */
         DECLARE_EXPORTED_FUNC(dr_app_running_under_dynamorio)
-GLOBAL_LABEL(dr_app_running_under_dynamorio: )
+GLOBAL_LABEL(dr_app_running_under_dynamorio:)
+        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dr_app_running_under_dynamorio)
@@ -152,21 +173,28 @@ GLOBAL_LABEL(dr_app_running_under_dynamorio: )
  */
         DECLARE_EXPORTED_FUNC(dynamorio_app_take_over)
 GLOBAL_LABEL(dynamorio_app_take_over:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_app_take_over)
 
         DECLARE_FUNC(cleanup_and_terminate)
 GLOBAL_LABEL(cleanup_and_terminate:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(cleanup_and_terminate)
 
         DECLARE_FUNC(global_do_syscall_int)
 GLOBAL_LABEL(global_do_syscall_int:)
+        /* FIXME i#1551: NYI on ARM */
         svc      #0
         END_FUNC(global_do_syscall_int)
 
+DECLARE_GLOBAL(safe_read_asm_recover)
+
         DECLARE_FUNC(safe_read_asm)
 GLOBAL_LABEL(safe_read_asm:)
+        /* FIXME i#1551: NYI on ARM */
+ADDRTAKEN_LABEL(safe_read_asm_recover:)
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(safe_read_asm)
 
@@ -175,6 +203,7 @@ GLOBAL_LABEL(safe_read_asm:)
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dr_set_jmp)
 
@@ -182,6 +211,7 @@ GLOBAL_LABEL(dr_setjmp:)
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dr_longjmp)
 
@@ -191,41 +221,71 @@ GLOBAL_LABEL(dr_longjmp:)
  */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(atomic_swap)
 
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)
+        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(cpuid_supported)
 
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(our_cpuid)
 
 #endif /* CLIENT_INTERFACE */
 
+#ifdef UNIX
+        DECLARE_FUNC(client_int_syscall)
+GLOBAL_LABEL(client_int_syscall:)
+        /* FIXME i#1551: NYI on ARM */
+        svc      #0
+        blx      lr
+        END_FUNC(client_int_syscall)
+
+        DECLARE_FUNC(native_plt_call)
+GLOBAL_LABEL(native_plt_call:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(native_plt_call)
+
+        DECLARE_FUNC(_dynamorio_runtime_resolve)
+GLOBAL_LABEL(_dynamorio_runtime_resolve:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(_dynamorio_runtime_resolve)
+
+#endif /* UNIX */
+
 #ifdef LINUX
+
         DECLARE_FUNC(dynamorio_clone)
 GLOBAL_LABEL(dynamorio_clone:)
+        /* FIXME i#1551: NYI on ARM */
         mov      r0, #0
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_clone)
 
         DECLARE_FUNC(dynamorio_sigreturn)
 GLOBAL_LABEL(dynamorio_sigreturn:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_sigreturn)
 
         DECLARE_FUNC(dynamorio_nonrt_sigreturn)
 GLOBAL_LABEL(dynamorio_nonrt_sigreturn:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(dynamorio_nonrt_sigreturn)
 
         DECLARE_FUNC(master_signal_handler)
 GLOBAL_LABEL(master_signal_handler:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(master_signal_handler)
 
@@ -236,7 +296,22 @@ GLOBAL_LABEL(master_signal_handler:)
  */
         DECLARE_FUNC(hashlookup_null_handler)
 GLOBAL_LABEL(hashlookup_null_handler:)
+        /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(hashlookup_null_handler)
+
+        DECLARE_FUNC(back_from_native_retstubs)
+GLOBAL_LABEL(back_from_native_retstubs:)
+        /* FIXME i#1551: NYI on ARM */
+DECLARE_GLOBAL(back_from_native_retstubs_end)
+ADDRTAKEN_LABEL(back_from_native_retstubs_end:)
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(back_from_native_retstubs)
+
+        DECLARE_FUNC(back_from_native)
+GLOBAL_LABEL(back_from_native:)
+        /* FIXME i#1551: NYI on ARM */
+        bl       GLOBAL_REF(unexpected_return)
+        END_FUNC(back_from_native)
 
 END_FILE

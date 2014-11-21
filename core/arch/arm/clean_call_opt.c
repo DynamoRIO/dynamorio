@@ -41,11 +41,24 @@
 
 #ifdef CLIENT_INTERFACE
 
+static void
+callee_info_init(callee_info_t *ci)
+{
+    memset(ci, 0, sizeof(*ci));
+    ci->bailout = true;
+    /* to be conservative */
+    ci->has_locals   = true;
+    ci->write_aflags = true;
+    ci->read_aflags  = true;
+    ci->tls_used     = true;
+}
+
 void
 clean_call_opt_init(void)
 {
     /* FIXME i#1551: NYI on ARM */
     ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
+    callee_info_init(&default_callee_info);
 }
 
 void
@@ -55,4 +68,20 @@ clean_call_opt_exit(void)
     ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
 }
 
+bool
+analyze_clean_call(dcontext_t *dcontext, clean_call_info_t *cci, instr_t *where,
+                   void *callee, bool save_fpstate, uint num_args, opnd_t *args)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(INTERNAL_OPTION(opt_cleancall) == 0);
+    return false;
+}
+
+void
+insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
+                         instrlist_t *ilist, instr_t *where, opnd_t *args)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+}
 #endif /* CLIENT_INTERFACE */

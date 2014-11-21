@@ -44,6 +44,12 @@ remangle_short_rewrite(dcontext_t *dcontext,
     return NULL;
 }
 
+void
+convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+}
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)
 
@@ -154,6 +160,31 @@ mangle_syscall(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
     ASSERT_NOT_IMPLEMENTED(false);
 }
 
+#ifdef UNIX
+void
+mangle_clone_code(dcontext_t *dcontext, byte *pc, bool skip)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+}
+
+bool
+mangle_syscall_code(dcontext_t *dcontext, fragment_t *f, byte *pc, bool skip)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return false;
+}
+
+void
+mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
+                         bool skip _IF_X64(gencode_mode_t mode))
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+}
+#endif /* UNIX */
+
 void
 mangle_interrupt(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
                  instr_t *next_instr)
@@ -204,6 +235,20 @@ mangle_rel_addr(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
     return false;
 }
 
+void
+float_pc_update(dcontext_t *dcontext)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_REACHED();
+}
+
+int
+find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
+{
+    /* FIXME i#1551: NYI on ARM */
+    ASSERT_NOT_IMPLEMENTED(false);
+    return -1;
+}
 /* END OF CONTROL-FLOW MANGLING ROUTINES
  *###########################################################################
  *###########################################################################

@@ -893,10 +893,11 @@ emit_fragment_common(dcontext_t *dcontext, app_pc tag,
     } else {
         /* bb-only finalization */
     }
+#ifdef X86
     if ((flags & FRAG_SELFMOD_SANDBOXED) != 0) {
         finalize_selfmod_sandbox(dcontext, f);
     }
-
+#endif
     /* add fragment to vm area lists */
     vm_area_add_fragment(dcontext, f, vmlist);
 
