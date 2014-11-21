@@ -131,7 +131,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_ldrbt,   0x04700000, "ldrbt",  RBw, RAw, Mb, RAw, n12, pred, x, top4y[11][0x00]},/*PUW=001*/
     /* 48 */
     {OP_str,     0x04800000, "str",    Mw, RAw, RBw, RAw, i12, pred, x, top8[0x40]},/*PUW=010*/
-    {OP_ldr,     0x04900000, "ldr",    RBw, RAw, Mw, RAw, i12, pred, x, top8[0x41]},/*PUW=010*//* XXX: RA=SP + imm12=8, then "pop RBw" */
+    {OP_ldr,     0x04900000, "ldr",    RBw, RAw, Mw, RAw, i12, pred, x, top8[0x41]},/*PUW=010*//* XXX: RA=SP + imm12=4, then "pop RBw" */
     {OP_strt,    0x04a00000, "strt",   Mw, RAw, RBw, RAw, i12, pred, x, top8[0x42]},/*PUW=011*/
     {OP_ldrt,    0x04b00000, "ldrt",   RBw, RAw, Mw, RAw, i12, pred, x, top8[0x43]},/*PUW=011*/
     {OP_strb,    0x04c00000, "strb",   Mb, RAw, RBb, RAw, i12, pred, x, top8[0x44]},/*PUW=010*/
@@ -141,7 +141,7 @@ const instr_info_t A32_pred_opc8[] = {
     /* 50 */
     {OP_str,     0x05000000, "str",    MN12w, xx, RBw, xx, xx, pred, x, top8[0x5a]},/*PUW=100*/
     {OP_ldr,     0x05100000, "ldr",    RBw, xx, MN12w, xx, xx, pred, x, top8[0x79]},/*PUW=100*/
-    {OP_str,     0x05200000, "str",    MN12w, RAw, RBw, RAw, n12, pred, x, tb4[3][0x00]},/*PUW=101*/
+    {OP_str,     0x05200000, "str",    MN12w, RAw, RBw, RAw, n12, pred, x, tb4[3][0x00]},/*PUW=101*//* XXX: RA=SP + imm12=4, then "push RBw" */
     {OP_ldr,     0x05300000, "ldr",    RBw, RAw, MN12w, RAw, n12, pred, x, tb4[4][0x00]},/*PUW=101*/
     {OP_strb,    0x05400000, "strb",   MN12b, xx, RBb, xx, xx, pred, x, top8[0x5e]},/*PUW=100*/
     {OP_ldrb,    0x05500000, "ldrb",   RBw, xx, MN12b, xx, xx, pred, x, tb4[8][0x00]},/*PUW=100*/
@@ -205,7 +205,7 @@ const instr_info_t A32_pred_opc8[] = {
     {OP_stm,     0x08800000, "stm",    Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*//* XXX: "stmia" alias (used inconsistently by gdb) */
     {OP_ldm,     0x08900000, "ldm",    L16w, xx, Ml, xx, xx, pred, x, END_LIST},/*PUW=010*//* XXX: "ldmia" and "ldmfb" aliases */
     {OP_stm,     0x08a00000, "stm",    Ml, RAw, L16w, RAw, xx, pred, x, top8[0x88]},/*PUW=011*/
-    {OP_ldm,     0x08b00000, "ldm",    L16w, RAw, Ml, RAw, xx, pred, x, top8[0x89]},/*PUW=011*/
+    {OP_ldm,     0x08b00000, "ldm",    L16w, RAw, Ml, RAw, xx, pred, x, top8[0x89]},/*PUW=011*//* XXX: RA=SP, then "pop <list>" */
     {OP_stm_priv,0x08c00000, "stm",    Ml, xx, L16w, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {OP_ldm_priv,0x08d00000, "ldm",    L16w, xx, Ml, xx, xx, pred, x, END_LIST},/*PUW=010*/
     {INVALID,    0x08e00000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},

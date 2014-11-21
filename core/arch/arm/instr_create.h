@@ -247,19 +247,57 @@
  * Manually-added ARM-specific INSTR_CREATE_* macros
  */
 
-/** @name Alias with 1 destination, 0 sources */
-/* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
 /**
- * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
- * explicit operands, automatically supplying any implicit operands.
+ * This macro creates an instr_t for a pop instruction into a single
+ * register, automatically supplying any implicit operands.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
- * \param d  The opnd_t explicit destination operand for the instruction.
+ * \param Rd The destination register opnd_t operand.
  */
-#define INSTR_CREATE_pop(dc, d) \
-  instr_create_2dst_2src((dc), OP_pop, (d), opnd_create_reg(DR_REG_XSP), \
-    opnd_create_reg(DR_REG_XSP),                                         \
-    opnd_create_base_disp(DR_REG_XSP, DR_REG_NULL, 0, 0, OPSZ_VARSTACK))
-/* @} */ /* end doxygen group */
+#define INSTR_CREATE_pop(dc, Rd) \
+  INSTR_CREATE_ldr_wbimm((dc), (Rd), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), \
+    OPND_CREATE_INT16(sizeof(void*)))
+
+/**
+ * This macro creates an instr_t for a pop instruction into a list of
+ * registers, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
+ */
+#define INSTR_CREATE_pop_list(dc, list_len, ...) \
+  INSTR_CREATE_ldm_wb((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), list_len, __VA_ARGS__)
+
+/**
+ * This macro creates an instr_t for a push instruction of a single
+ * register, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ */
+#define INSTR_CREATE_push(dc, Rt) \
+  INSTR_CREATE_str_wbimm((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), (Rt), \
+    OPND_CREATE_INT16(sizeof(void*)))
+
+/**
+ * This macro creates an instr_t for a push instruction of a list of
+ * registers, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
+ */
+#define INSTR_CREATE_push_list(dc, list_len, ...) \
+  INSTR_CREATE_stmdb_wb((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), list_len, __VA_ARGS__)
+
+/**
+ * This macro creates an instr_t for a negate instruction,
+ automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param Rd The destination register opnd_t operand.
+ * \param Rn The source register opnd_t operand.
+ */
+#define INSTR_CREATE_neg(dc, Rd, Rn) \
+  INSTR_CREATE_rsb((dc), (Rd), (Rn), OPND_CREATE_INT16(0))
+
+/* XXX i#1551: add macros for the other opcode aliases */
 
 
 /****************************************************************************
