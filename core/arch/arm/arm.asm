@@ -47,7 +47,6 @@ GLOBAL_LABEL(FUNCNAME:)
         END_FUNC(FUNCNAME)
 #undef FUNCNAME
 
-/* we share dynamorio_syscall w/ preload */
 #ifndef UNIX
 # error Non-Unix is not supported
 #endif
@@ -56,6 +55,7 @@ GLOBAL_LABEL(FUNCNAME:)
 #  error AArch64 is not supported
 #endif
 
+/* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
  * signature: dynamorio_syscall(sys_num, num_args, arg1, arg2, ...)
@@ -68,15 +68,15 @@ GLOBAL_LABEL(FUNCNAME:)
  */
         DECLARE_FUNC(dynamorio_syscall)
 GLOBAL_LABEL(dynamorio_syscall:)
-        push     {REG_R4-REG_R7}
+        push     {REG_R4-REG_R8}
         /* shift r7 pointing to the call args */
-        add      REG_R7, sp, #16         /* size for {r4-r7} */
-        mov      REG_R0, REG_R2          /* syscall arg1 */
-        mov      REG_R1, REG_R3          /* syscall arg2 */
-        ldmfd    REG_R7, {REG_R2-REG_R6} /* syscall arg3..arg7 */
-        mov      REG_R7, REG_R0          /* sysnum */
+        add      REG_R8, sp, #20         /* size for {r4-r8} */
+        mov      REG_R7, ARG1            /* sysnum */
+        mov      REG_R0, ARG3            /* syscall arg1 */
+        mov      REG_R1, ARG4            /* syscall arg2 */
+        ldmfd    REG_R8, {REG_R2-REG_R6} /* syscall arg3..arg7 */
         svc      #0
-        pop      {REG_R4-REG_R7}
+        pop      {REG_R4-REG_R8}
         bx       lr
 
 /* void call_switch_stack(dcontext_t *dcontext,       // REG_R0
