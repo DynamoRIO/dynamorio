@@ -1602,6 +1602,7 @@ dynamorio_sys_exit_next:
         mov      ARG2, REG_XAX /* kernel port, which we just acquired */
         mov      ARG1, 0 /* join semaphore: SEMAPHORE_NULL */
         mov      eax, SYS_bsdthread_terminate
+        or       eax, HEX(2000000) /* 2<<24 for BSD syscall */
         mov      r10, rcx
         syscall
 # else
