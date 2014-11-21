@@ -301,6 +301,9 @@ option(SET_PREFERRED_BASE "set a preferred library base address")
 if (WIN32 AND DEBUG)
   # apparently no numeric type so we use STRING
   set(preferred_base "0x15000000" CACHE STRING "Preferred library base address")
+elseif (ARM AND NOT X64)
+  # 32-bit Linux ARM reserves some space upper for kernel
+  set(preferred_base "0xb0000000" CACHE STRING "Preferred library base address")
 elseif (UNIX AND NOT X64)
   # put dynamorio at top of address space, little chance of conflict
   set(preferred_base "0xf7000000" CACHE STRING "Preferred library base address")
