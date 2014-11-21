@@ -2332,6 +2332,18 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
+instr_create_0dst_4src(dcontext_t *dcontext, int opcode,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4)
+{
+    instr_t *in = instr_build(dcontext, opcode, 0, 4);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    return in;
+}
+
+instr_t *
 instr_create_1dst_0src(dcontext_t *dcontext, int opcode, opnd_t dst)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 0);
@@ -2462,6 +2474,22 @@ instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
 }
 
 instr_t *
+instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5)
+{
+    instr_t *in = instr_build(dcontext, opcode, 2, 5);
+    instr_set_dst(in, 0, dst1);
+    instr_set_dst(in, 1, dst2);
+    instr_set_src(in, 0, src1);
+    instr_set_src(in, 1, src2);
+    instr_set_src(in, 2, src3);
+    instr_set_src(in, 3, src4);
+    instr_set_src(in, 4, src5);
+    return in;
+}
+
+instr_t *
 instr_create_3dst_0src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2, opnd_t dst3)
 {
@@ -2563,6 +2591,42 @@ instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
     instr_set_src(in, 1, src2);
     instr_set_src(in, 2, src3);
     instr_set_src(in, 3, src4);
+    return in;
+}
+
+instr_t *
+instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_srcs, ...)
+{
+    va_list ap;
+    instr_t *in = instr_build(dcontext, opcode, fixed_dsts, fixed_srcs + var_srcs);
+    uint i;
+    va_start(ap, var_srcs);
+    for (i = 0; i < fixed_dsts; i++)
+        instr_set_dst(in, i, va_arg(ap, opnd_t));
+    for (i = 0; i < fixed_srcs; i++)
+        instr_set_src(in, i, va_arg(ap, opnd_t));
+    for (i = 0; i < var_srcs; i++)
+        instr_set_src(in, fixed_srcs + i, va_arg(ap, opnd_t));
+    va_end(ap);
+    return in;
+}
+
+instr_t *
+instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_dsts, ...)
+{
+    va_list ap;
+    instr_t *in = instr_build(dcontext, opcode, fixed_dsts + var_dsts, fixed_srcs);
+    uint i;
+    va_start(ap, var_dsts);
+    for (i = 0; i < fixed_dsts; i++)
+        instr_set_dst(in, i, va_arg(ap, opnd_t));
+    for (i = 0; i < fixed_srcs; i++)
+        instr_set_src(in, i, va_arg(ap, opnd_t));
+    for (i = 0; i < var_dsts; i++)
+        instr_set_dst(in, fixed_dsts + i, va_arg(ap, opnd_t));
+    va_end(ap);
     return in;
 }
 

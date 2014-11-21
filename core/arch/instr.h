@@ -2137,6 +2137,16 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
+ * Convenience routine that returns an initialized instr_t allocated
+ * on the thread-local heap with opcode \p opcode and four sources
+ * (\p src1, \p src2, \p src3, \p src4).
+ */
+instr_t *
+instr_create_0dst_4src(dcontext_t *dcontext, int opcode,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+
+DR_API
+/**
  * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and one destination (\p dst).
  */
@@ -2249,6 +2259,17 @@ instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
+ * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
+ */
+instr_t *
+instr_create_2dst_5src(dcontext_t *dcontext, int opcode,
+                       opnd_t dst1, opnd_t dst2,
+                       opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4, opnd_t src5);
+
+DR_API
+/**
  * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and no sources.
@@ -2328,6 +2349,30 @@ instr_t *
 instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
                        opnd_t dst1, opnd_t dst2, opnd_t dst3, opnd_t dst4,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, \p fixed_dsts destination operands,
+ * and \p fixed_srcs plus \p var_srcs source operands.  The variable arguments
+ * must start with the (fixed) destinations, followed by the fixed sources,
+ * followed by the variable sources.
+ */
+instr_t *
+instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_srcs, ...);
+
+DR_API
+/**
+ * Convenience routine that returns an initialized instr_t allocated on the
+ * thread-local heap with opcode \p opcode, \p fixed_dsts plus \p var_dsts
+ * destination operands, and \p fixed_srcs source operands.  The variable
+ * arguments must start with the fixed destinations, followed by the (fixed)
+ * sources, followed by the variable destinations.
+ */
+instr_t *
+instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
+                              uint fixed_srcs, uint var_dsts, ...);
 
 DR_API
 /** Convenience routine that returns an initialized instr_t for OP_popa. */

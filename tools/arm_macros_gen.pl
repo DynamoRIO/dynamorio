@@ -330,10 +330,10 @@ foreach my $opc (keys %entry) {
                 $name .= "_wb";
             }
             if ($sig =~ /sp;.*sp/) {
-                $sig =~ s/sp/opnd_get_base(mem)/g;
+                $sig =~ s/sp/opnd_create_reg(opnd_get_base(mem))/g;
                 $esig =~ s/\s*sp//g;
             } else {
-                $sig =~ s/RAw/opnd_get_base(mem)/g;
+                $sig =~ s/RAw/opnd_create_reg(opnd_get_base(mem))/g;
                 $esig =~ s/\s*RAw//g;
             }
         } elsif ($sig =~ /\bshift R/) {
@@ -432,7 +432,7 @@ foreach my $opc (keys %entry) {
         if ($sig =~ /\bL/) {
             $arg_str =~ s/, L\w+//;
             $call_str =~ s/, \(L\w+\)//;
-            $arg_str .= ", ...";
+            $arg_str .= ", list_len, ...";
             $call_str .= ", __VA_ARGS__";
             if ($sig =~ /;.*\bL/) {
                 $func_sfx = '_varsrc';
@@ -441,6 +441,7 @@ foreach my $opc (keys %entry) {
                 $func_sfx = '_vardst';
                 $opc_str .= ", ".($num_tot_dsts-1).", $num_tot_srcs";
             }
+            $opc_str .= ", list_len";
             $num_tot_dsts = 'N';
             $num_tot_srcs = 'M';
         }
@@ -509,7 +510,6 @@ my %mapping = ('reg' => 'register',
                'imm3' => 'third integer constant',
                'mem' => 'memory',
                'shift' => 'shift type integer constant',
-               '...' => 'register list',
                'cpreg' => 'coprocessor register',
                'cpreg2' => 'second coprocessor register',
                'cpreg3' => 'third coprocessor register',
@@ -543,15 +543,19 @@ foreach my $args (@order) {
         my $tomap = $param;
         # Singleton src => no "second"
         $tomap =~ s/m/n/ if ($param =~ /[VR]m/ && !$saw_n);
-        die "XXXX No mapping for $param\n" if (!defined$mapping{$tomap});
-        my $full = $mapping{$tomap};
-        $count{$param}++;
-        die "XXXX Duplicate name $param\n" unless ($count{$param} == 1);
-        print " * \\param $param The $full opnd_t operand.
-";
+        if ($tomap eq 'list_len') {
+            print " * \\param $param The number of registers in the register list.\n";
+        } elsif ($tomap eq '...') {
+            print " * \\param $param The register list as separate opnd_t arguments.\n";
+        } else {
+            die "XXXX No mapping for $param\n" if (!defined$mapping{$tomap});
+            my $full = $mapping{$tomap};
+            $count{$param}++;
+            die "XXXX Duplicate name $param\n" unless ($count{$param} == 1);
+            print " * \\param $param The $full opnd_t operand.\n";
+        }
     }
-    print ' */
-';
+    print " */\n";
     foreach my $mac (sort @{$macro{$args}}) {
         print $mac;
     }

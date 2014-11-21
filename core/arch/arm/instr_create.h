@@ -265,6 +265,8 @@
 /****************************************************************************
  * Automatically-generated ARM-specific INSTR_CREATE_* macros.
  * These were generated from tools/arm_macros_gen.pl.
+ * DO NOT EDIT THESE MANUALLY so we can continue using the script for easy
+ * updates on table changes.
  */
 
 /** @name Signature: () */
@@ -1342,35 +1344,35 @@
 #define INSTR_CREATE_rfeda(dc, mem) \
   instr_create_0dst_1src((dc), OP_rfeda, (mem))
 #define INSTR_CREATE_rfeda_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeda, opnd_get_base(mem), (mem), opnd_get_base(mem))
+  instr_create_1dst_2src((dc), OP_rfeda, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_rfedb(dc, mem) \
   instr_create_0dst_1src((dc), OP_rfedb, (mem))
 #define INSTR_CREATE_rfedb_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfedb, opnd_get_base(mem), (mem), opnd_get_base(mem))
+  instr_create_1dst_2src((dc), OP_rfedb, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_rfeia(dc, mem) \
   instr_create_0dst_1src((dc), OP_rfeia, (mem))
 #define INSTR_CREATE_rfeia_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeia, opnd_get_base(mem), (mem), opnd_get_base(mem))
+  instr_create_1dst_2src((dc), OP_rfeia, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_rfeib(dc, mem) \
   instr_create_0dst_1src((dc), OP_rfeib, (mem))
 #define INSTR_CREATE_rfeib_wb(dc, mem) \
-  instr_create_1dst_2src((dc), OP_rfeib, opnd_get_base(mem), (mem), opnd_get_base(mem))
+  instr_create_1dst_2src((dc), OP_rfeib, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_srsda(dc, mem) \
   instr_create_1dst_0src((dc), OP_srsda, (mem))
 #define INSTR_CREATE_srsda_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsda, (mem), opnd_get_base(mem), opnd_get_base(mem))
+  instr_create_2dst_1src((dc), OP_srsda, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_srsdb(dc, mem) \
   instr_create_1dst_0src((dc), OP_srsdb, (mem))
 #define INSTR_CREATE_srsdb_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsdb, (mem), opnd_get_base(mem), opnd_get_base(mem))
+  instr_create_2dst_1src((dc), OP_srsdb, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_srsia(dc, mem) \
   instr_create_1dst_0src((dc), OP_srsia, (mem))
 #define INSTR_CREATE_srsia_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsia, (mem), opnd_get_base(mem), opnd_get_base(mem))
+  instr_create_2dst_1src((dc), OP_srsia, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_srsib(dc, mem) \
   instr_create_1dst_0src((dc), OP_srsib, (mem))
 #define INSTR_CREATE_srsib_wb(dc, mem) \
-  instr_create_2dst_1src((dc), OP_srsib, (mem), opnd_get_base(mem), opnd_get_base(mem))
+  instr_create_2dst_1src((dc), OP_srsib, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem) */
@@ -1490,11 +1492,11 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_ldrh_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
+  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm))
 #define INSTR_CREATE_ldrsb_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
+  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm))
 #define INSTR_CREATE_ldrsh_wbreg(dc, Rd, mem, Rm) \
-  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm))
+  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rm) */
@@ -1538,7 +1540,7 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_strh_wbreg(dc, mem, Rt, Rm) \
-  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm))
+  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2) */
@@ -1573,7 +1575,7 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_ldrd_wbreg(dc, Rd, Rd2, mem, Rm) \
-  instr_create_3dst_3src((dc), OP_ldrd, (Rd), (Rd2), opnd_get_base(mem), (mem), (Rm), opnd_get_base(mem))
+  instr_create_3dst_3src((dc), OP_ldrd, (Rd), (Rd2), opnd_create_reg(opnd_get_base(mem)), (mem), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rd, Rt, Rt2) */
@@ -1611,7 +1613,7 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_strd_wbreg(dc, mem, Rt, Rt2, Rm) \
-  instr_create_2dst_4src((dc), OP_strd, (mem), opnd_get_base(mem), (Rt), (Rt2), (Rm), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_strd, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (Rt2), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, imm) */
@@ -1628,19 +1630,19 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_ldr_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrb_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrb, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrbt_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrbt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrh_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrsb_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrsh_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrsh, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_ldrt_wbimm(dc, Rd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_ldrt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, imm) */
@@ -1657,15 +1659,15 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_str_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_str, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_strb_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strb, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_strbt_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strbt, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_strh_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_strh, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
 #define INSTR_CREATE_strt_wbimm(dc, mem, Rt, imm) \
-  instr_create_2dst_3src((dc), OP_strt, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (imm))
+  instr_create_2dst_3src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, Rm_or_imm) */
@@ -1682,11 +1684,11 @@
  * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
  */
 #define INSTR_CREATE_ldrht_wbreg(dc, Rd, mem, Rm_or_imm) \
-  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+  instr_create_2dst_3src((dc), OP_ldrht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm_or_imm))
 #define INSTR_CREATE_ldrsbt_wbreg(dc, Rd, mem, Rm_or_imm) \
-  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+  instr_create_2dst_3src((dc), OP_ldrsbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm_or_imm))
 #define INSTR_CREATE_ldrsht_wbreg(dc, Rd, mem, Rm_or_imm) \
-  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm_or_imm))
+  instr_create_2dst_3src((dc), OP_ldrsht, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rm_or_imm) */
@@ -1703,7 +1705,7 @@
  * \param Rm_or_imm The source register, or integer constant, opnd_t operand.
  */
 #define INSTR_CREATE_strht_wbreg(dc, mem, Rt, Rm_or_imm) \
-  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm_or_imm))
+  instr_create_2dst_3src((dc), OP_strht, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm_or_imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Rd2, mem, imm) */
@@ -1721,7 +1723,7 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_ldrd_wbimm(dc, Rd, Rd2, mem, imm) \
-  instr_create_3dst_3src((dc), OP_ldrd, (Rd), (Rd2), opnd_get_base(mem), (mem), (imm), opnd_get_base(mem))
+  instr_create_3dst_3src((dc), OP_ldrd, (Rd), (Rd2), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rt2, imm) */
@@ -1739,7 +1741,7 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_strd_wbimm(dc, mem, Rt, Rt2, imm) \
-  instr_create_2dst_4src((dc), OP_strd, (mem), opnd_get_base(mem), (Rt), (Rt2), (imm), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_strd, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), (Rt2), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, mem, Rm, shift, imm) */
@@ -1758,13 +1760,13 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_ldr_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldr, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_ldr, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_ldrb_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrb, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_ldrb, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_ldrbt_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrbt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_ldrbt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_ldrt_wbreg(dc, Rd, mem, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_ldrt, (Rd), opnd_get_base(mem), (mem), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_ldrt, (Rd), opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Rt, Rm, shift, imm) */
@@ -1783,16 +1785,16 @@
  * \param imm The integer constant opnd_t operand.
  */
 #define INSTR_CREATE_str_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_str, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_str, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_strb_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strb, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_strb, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_strbt_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strbt, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_strbt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 #define INSTR_CREATE_strt_wbreg(dc, mem, Rt, Rm, shift, imm) \
-  instr_create_2dst_5src((dc), OP_strt, (mem), opnd_get_base(mem), (Rt), opnd_get_base(mem), (Rm), (shift), (imm))
+  instr_create_2dst_5src((dc), OP_strt, (mem), opnd_create_reg(opnd_get_base(mem)), (Rt), opnd_create_reg(opnd_get_base(mem)), (Rm), (shift), (imm))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, ...) */
+/** @name Signature: (mem, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1802,81 +1804,82 @@
  * assembly ordering.
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param mem The memory opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_ldm(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldm_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldm_priv, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldm_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmda(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmda_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda_priv, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmda_priv_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda_priv, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmda_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmdb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmdb_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb_priv, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmdb_priv_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb_priv, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmdb_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmia_priv_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmia_priv, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmib(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_ldmib_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_stm(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stm, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stm_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stm_priv, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stm_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stm, 2, 1, (mem), opnd_get_base(mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_stmda(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stmda_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda_priv, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stmda_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda, 2, 1, (mem), opnd_get_base(mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_stmdb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stmdb_priv(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb_priv, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stmdb_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb, 2, 1, (mem), opnd_get_base(mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_stmib(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 1, 0, (mem), __VA_ARGS__)
-#define INSTR_CREATE_stmib_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 2, 1, (mem), opnd_get_base(mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_8(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_8_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_8(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_8_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_8(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_8_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_8(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_8_wb(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 2, opnd_get_base(mem), (mem), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vldmia(dc, mem, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 0, 1, (mem), __VA_ARGS__)
-#define INSTR_CREATE_vstmia(dc, mem, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 1, 0, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldm(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldm_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldm_priv, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldm_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldm, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmda(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmda_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda_priv, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmda_priv_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda_priv, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmda_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmda, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmdb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmdb_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb_priv, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmdb_priv_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb_priv, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmdb_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmdb, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmia_priv_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmia_priv, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_ldmib(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_ldmib_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_ldmib, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_stm(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stm, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stm_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stm_priv, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stm_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stm, 2, 1, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_stmda(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmda_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda_priv, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmda_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmda, 2, 1, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_stmdb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmdb_priv(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb_priv, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmdb_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmdb, 2, 1, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_stmib(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 1, 0, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_stmib_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_stmib, 2, 1, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_8(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_8_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_8(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_8_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_8(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_8_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_8(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_8_wb(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 2, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vldmia(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 0, 1, list_len, (mem), __VA_ARGS__)
+#define INSTR_CREATE_vstmia(dc, mem, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 1, 0, list_len, (mem), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, Rm, ...) */
+/** @name Signature: (mem, Rm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1887,19 +1890,20 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param mem The memory opnd_t operand.
  * \param Rm The source register opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vld1_dup_8_wbreg(dc, mem, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 1, 3, opnd_get_base(mem), (mem), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_8_wbreg(dc, mem, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 1, 3, opnd_get_base(mem), (mem), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_8_wbreg(dc, mem, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 1, 3, opnd_get_base(mem), (mem), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_8_wbreg(dc, mem, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 3, opnd_get_base(mem), (mem), (Rm), opnd_get_base(mem), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_8_wbreg(dc, mem, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_8_wbreg(dc, mem, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_8_wbreg(dc, mem, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_8_wbreg(dc, mem, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, imm, ...) */
+/** @name Signature: (mem, imm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -1910,171 +1914,172 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vld1_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_64(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_64_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 0, 2, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 1, 3, opnd_get_base(mem), (mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst1_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst1_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_64(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst1_64_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst1_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst2_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst2_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst2_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst3_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst3_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst3_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_16(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst4_16_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_32(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst4_32_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst4_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_8(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 1, 1, (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_8_wbimm(dc, mem, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 2, 2, (mem), opnd_get_base(mem), (imm), opnd_get_base(mem), __VA_ARGS__)
+#define INSTR_CREATE_vld1_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_64(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_64_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 0, 2, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 1, 3, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst1_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst1_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_64(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst1_64_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst1_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst2_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst2_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst2_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst3_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst3_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst3_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_16(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst4_16_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_32(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst4_32_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst4_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_8(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 1, 1, list_len, (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_8_wbimm(dc, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 2, 2, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Rd, mem, imm, ...) */
+/** @name Signature: (Rd, mem, imm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2086,15 +2091,16 @@
  * \param Rd The destination register opnd_t operand.
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vldmdb(dc, Rd, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmdb, 1, 2, (Rd), (mem), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vldmia_imm(dc, Rd, mem, imm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 1, 2, (Rd), (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vldmdb(dc, Rd, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldmdb, 1, 2, list_len, (Rd), (mem), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vldmia_imm(dc, Rd, mem, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vldmia, 1, 2, list_len, (Rd), (mem), (imm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, Rd, imm, ...) */
+/** @name Signature: (mem, Rd, imm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2106,15 +2112,16 @@
  * \param mem The memory opnd_t operand.
  * \param Rd The destination register opnd_t operand.
  * \param imm The integer constant opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vstmdb(dc, mem, Rd, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, (mem), (Rd), (imm), __VA_ARGS__)
-#define INSTR_CREATE_vstmia_imm(dc, mem, Rd, imm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 2, 1, (mem), (Rd), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vstmdb(dc, mem, Rd, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmdb, 2, 1, list_len, (mem), (Rd), (imm), __VA_ARGS__)
+#define INSTR_CREATE_vstmia_imm(dc, mem, Rd, imm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vstmia, 2, 1, list_len, (mem), (Rd), (imm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, imm, Rm, ...) */
+/** @name Signature: (mem, imm, Rm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2126,91 +2133,92 @@
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vld1_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_64_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld1_dup_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_dup_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_dup_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_dup_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 1, 4, opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_64_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst1_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_16_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_32_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_8_wbreg(dc, mem, imm, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 2, 3, (mem), opnd_get_base(mem), (imm), (Rm), opnd_get_base(mem), __VA_ARGS__)
+#define INSTR_CREATE_vld1_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_64_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_64, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld1_dup_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld1_dup_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_dup_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_dup_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_dup_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_dup_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_dup_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_dup_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_8, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_64_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_64, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst1_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst1_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_16_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_32_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_8_wbreg(dc, mem, imm, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_8, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, imm, imm2, ...) */
+/** @name Signature: (mem, imm, imm2, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2222,59 +2230,60 @@
  * \param mem The memory opnd_t operand.
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vld2_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 0, 3, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 1, 4, opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_16(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_16_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_32(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 1, 2, (mem), (imm), (imm2), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_32_wbimm(dc, mem, imm, imm2, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 2, 3, (mem), opnd_get_base(mem), (imm), (imm2), opnd_get_base(mem), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 0, 3, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 1, 4, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_16(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_16_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_32(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 1, 2, list_len, (mem), (imm), (imm2), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_32_wbimm(dc, mem, imm, imm2, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 2, 3, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (mem, imm, imm2, Rm, ...) */
+/** @name Signature: (mem, imm, imm2, Rm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -2287,32 +2296,33 @@
  * \param imm The integer constant opnd_t operand.
  * \param imm2 The second integer constant opnd_t operand.
  * \param Rm The source register opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vld2_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld2_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld3_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vld4_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 1, 5, opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst2_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst3_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_16_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
-#define INSTR_CREATE_vst4_lane_32_wbreg(dc, mem, imm, imm2, Rm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 2, 4, (mem), opnd_get_base(mem), (imm), (imm2), (Rm), opnd_get_base(mem), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_16, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld2_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld2_lane_32, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_16, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld3_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld3_lane_32, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_16, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vld4_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_vardst((dc), OP_vld4_lane_32, 1, 5, list_len, opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_16, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst2_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst2_lane_32, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_16, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst3_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst3_lane_32, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_16_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_16, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
+#define INSTR_CREATE_vst4_lane_32_wbreg(dc, mem, imm, imm2, Rm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vst4_lane_32, 2, 4, list_len, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)), __VA_ARGS__)
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Ra, Rd, imm, imm2, cpreg) */
@@ -2493,17 +2503,17 @@
 #define INSTR_CREATE_stc2(dc, mem, imm, cpreg, imm2) \
   instr_create_1dst_3src((dc), OP_stc2, (mem), (imm), (cpreg), (imm2))
 #define INSTR_CREATE_stc2_wbimm(dc, mem, imm, cpreg, imm2) \
-  instr_create_2dst_4src((dc), OP_stc2, (mem), opnd_get_base(mem), (imm), (cpreg), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_stc2, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (cpreg), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_stc2l(dc, mem, imm, cpreg, imm2) \
   instr_create_1dst_3src((dc), OP_stc2l, (mem), (imm), (cpreg), (imm2))
 #define INSTR_CREATE_stc2l_wbimm(dc, mem, imm, cpreg, imm2) \
-  instr_create_2dst_4src((dc), OP_stc2l, (mem), opnd_get_base(mem), (imm), (cpreg), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_stc2l, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (cpreg), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_stc_wbimm(dc, mem, imm, cpreg, imm2) \
-  instr_create_2dst_4src((dc), OP_stc, (mem), opnd_get_base(mem), (imm), (cpreg), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_stc, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (cpreg), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_stcl(dc, mem, imm, cpreg, imm2) \
   instr_create_1dst_3src((dc), OP_stcl, (mem), (imm), (cpreg), (imm2))
 #define INSTR_CREATE_stcl_wbimm(dc, mem, imm, cpreg, imm2) \
-  instr_create_2dst_4src((dc), OP_stcl, (mem), opnd_get_base(mem), (imm), (cpreg), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_stcl, (mem), opnd_create_reg(opnd_get_base(mem)), (imm), (cpreg), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (cpreg, mem, imm, imm2) */
@@ -2525,17 +2535,17 @@
 #define INSTR_CREATE_ldc2(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldc2, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2_wbimm(dc, cpreg, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_ldc2, (cpreg), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_ldc2, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldc2l(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldc2l, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldc2l_wbimm(dc, cpreg, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_ldc2l, (cpreg), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_ldc2l, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldc_wbimm(dc, cpreg, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_ldc, (cpreg), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_ldc, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_ldcl(dc, cpreg, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_ldcl, (cpreg), (mem), (imm), (imm2))
 #define INSTR_CREATE_ldcl_wbimm(dc, cpreg, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_ldcl, (cpreg), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_ldcl, (cpreg), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Rd, Vn) */
@@ -4020,7 +4030,7 @@
 #define INSTR_CREATE_vld1_lane_8(dc, Vd, mem, imm) \
   instr_create_1dst_2src((dc), OP_vld1_lane_8, (Vd), (mem), (imm))
 #define INSTR_CREATE_vld1_lane_8_wbimm(dc, Vd, mem, imm) \
-  instr_create_2dst_3src((dc), OP_vld1_lane_8, (Vd), opnd_get_base(mem), (mem), (imm), opnd_get_base(mem))
+  instr_create_2dst_3src((dc), OP_vld1_lane_8, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm) */
@@ -4039,7 +4049,7 @@
 #define INSTR_CREATE_vst1_lane_8(dc, mem, Vt, imm) \
   instr_create_1dst_2src((dc), OP_vst1_lane_8, (mem), (Vt), (imm))
 #define INSTR_CREATE_vst1_lane_8_wbimm(dc, mem, Vt, imm) \
-  instr_create_2dst_3src((dc), OP_vst1_lane_8, (mem), opnd_get_base(mem), (Vt), (imm), opnd_get_base(mem))
+  instr_create_2dst_3src((dc), OP_vst1_lane_8, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, Rm) */
@@ -4057,7 +4067,7 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_vld1_lane_8_wbreg(dc, Vd, mem, imm, Rm) \
-  instr_create_2dst_4src((dc), OP_vld1_lane_8, (Vd), opnd_get_base(mem), (mem), (imm), (Rm), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vld1_lane_8, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, imm2) */
@@ -4077,11 +4087,11 @@
 #define INSTR_CREATE_vld1_lane_16(dc, Vd, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_vld1_lane_16, (Vd), (mem), (imm), (imm2))
 #define INSTR_CREATE_vld1_lane_16_wbimm(dc, Vd, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_vld1_lane_16, (Vd), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vld1_lane_16, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_vld1_lane_32(dc, Vd, mem, imm, imm2) \
   instr_create_1dst_3src((dc), OP_vld1_lane_32, (Vd), (mem), (imm), (imm2))
 #define INSTR_CREATE_vld1_lane_32_wbimm(dc, Vd, mem, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_vld1_lane_32, (Vd), opnd_get_base(mem), (mem), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vld1_lane_32, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, Rm) */
@@ -4099,7 +4109,7 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_vst1_lane_8_wbreg(dc, mem, Vt, imm, Rm) \
-  instr_create_2dst_4src((dc), OP_vst1_lane_8, (mem), opnd_get_base(mem), (Vt), (imm), (Rm), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vst1_lane_8, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, imm2) */
@@ -4119,11 +4129,11 @@
 #define INSTR_CREATE_vst1_lane_16(dc, mem, Vt, imm, imm2) \
   instr_create_1dst_3src((dc), OP_vst1_lane_16, (mem), (Vt), (imm), (imm2))
 #define INSTR_CREATE_vst1_lane_16_wbimm(dc, mem, Vt, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_vst1_lane_16, (mem), opnd_get_base(mem), (Vt), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vst1_lane_16, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_vst1_lane_32(dc, mem, Vt, imm, imm2) \
   instr_create_1dst_3src((dc), OP_vst1_lane_32, (mem), (Vt), (imm), (imm2))
 #define INSTR_CREATE_vst1_lane_32_wbimm(dc, mem, Vt, imm, imm2) \
-  instr_create_2dst_4src((dc), OP_vst1_lane_32, (mem), opnd_get_base(mem), (Vt), (imm), (imm2), opnd_get_base(mem))
+  instr_create_2dst_4src((dc), OP_vst1_lane_32, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (Vd, mem, imm, imm2, Rm) */
@@ -4142,9 +4152,9 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_vld1_lane_16_wbreg(dc, Vd, mem, imm, imm2, Rm) \
-  instr_create_2dst_5src((dc), OP_vld1_lane_16, (Vd), opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem))
+  instr_create_2dst_5src((dc), OP_vld1_lane_16, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_vld1_lane_32_wbreg(dc, Vd, mem, imm, imm2, Rm) \
-  instr_create_2dst_5src((dc), OP_vld1_lane_32, (Vd), opnd_get_base(mem), (mem), (imm), (imm2), (Rm), opnd_get_base(mem))
+  instr_create_2dst_5src((dc), OP_vld1_lane_32, (Vd), opnd_create_reg(opnd_get_base(mem)), (mem), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
 /** @name Signature: (mem, Vt, imm, imm2, Rm) */
@@ -4163,12 +4173,12 @@
  * \param Rm The source register opnd_t operand.
  */
 #define INSTR_CREATE_vst1_lane_16_wbreg(dc, mem, Vt, imm, imm2, Rm) \
-  instr_create_2dst_5src((dc), OP_vst1_lane_16, (mem), opnd_get_base(mem), (Vt), (imm), (imm2), (Rm), opnd_get_base(mem))
+  instr_create_2dst_5src((dc), OP_vst1_lane_16, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)))
 #define INSTR_CREATE_vst1_lane_32_wbreg(dc, mem, Vt, imm, imm2, Rm) \
-  instr_create_2dst_5src((dc), OP_vst1_lane_32, (mem), opnd_get_base(mem), (Vt), (imm), (imm2), (Rm), opnd_get_base(mem))
+  instr_create_2dst_5src((dc), OP_vst1_lane_32, (mem), opnd_create_reg(opnd_get_base(mem)), (Vt), (imm), (imm2), (Rm), opnd_create_reg(opnd_get_base(mem)))
 /* @} */ /* end doxygen group */
 
-/** @name Signature: (Vd, Vm, ...) */
+/** @name Signature: (Vd, Vm, list_len, ...) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
  * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -4179,13 +4189,15 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param Vd The destination SIMD register opnd_t operand.
  * \param Vm The source SIMD register opnd_t operand.
- * \param ... The register list opnd_t operand.
+ * \param list_len The number of registers in the register list.
+ * \param ... The register list as separate opnd_t arguments.
  */
-#define INSTR_CREATE_vtbl_8(dc, Vd, Vm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vtbl_8, 1, 1, (Vd), (Vm), __VA_ARGS__)
-#define INSTR_CREATE_vtbx_8(dc, Vd, Vm, ...) \
-  instr_create_Ndst_Msrc_varsrc((dc), OP_vtbx_8, 1, 1, (Vd), (Vm), __VA_ARGS__)
+#define INSTR_CREATE_vtbl_8(dc, Vd, Vm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vtbl_8, 1, 1, list_len, (Vd), (Vm), __VA_ARGS__)
+#define INSTR_CREATE_vtbx_8(dc, Vd, Vm, list_len, ...) \
+  instr_create_Ndst_Msrc_varsrc((dc), OP_vtbx_8, 1, 1, list_len, (Vd), (Vm), __VA_ARGS__)
 /* @} */ /* end doxygen group */
+
 
 /* DR_API EXPORT END */
 
