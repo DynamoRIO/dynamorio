@@ -126,7 +126,8 @@ struct _decode_info_t {
     /* For decoding reglists.  Max 1 reglist per template (we check this in
      * decode_debug_checks_arch()).
      */
-    size_t reglist_sz;
+    int reglist_sz;
+    opnd_t *mem_needs_reglist_sz;
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;

@@ -218,6 +218,7 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
                   "invalid instr template");
     count--; /* The prior was already added */
     first_reg = opnd_get_reg(array[*counter-1]);
+    di->reglist_sz = 0;
     for (i = 0; i < count; i++) {
         print_file(STDERR, "reglist: first=%s, new=%s\n", reg_names[first_reg],
                    reg_names[first_reg + i]);
@@ -227,6 +228,8 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
         array[(*counter)++] = opnd_create_reg_ex(first_reg + i, downsz, 0);
         di->reglist_sz += opnd_size_in_bytes(downsz);
     }
+    if (di->mem_needs_reglist_sz != NULL)
+        opnd_set_size(di->mem_needs_reglist_sz, opnd_size_from_bytes(di->reglist_sz));
     return true;
 }
 
@@ -387,12 +390,15 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_L_13b:
     case TYPE_L_16b: {
         uint num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
+        di->reglist_sz = 0;
         for (i = 0; i < num; i++) {
             if ((di->instr_word & (1 << i)) != 0) {
                 array[(*counter)++] = opnd_create_reg_ex(DR_REG_START_GPR + i, downsz, 0);
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
+        if (di->mem_needs_reglist_sz != NULL)
+            opnd_set_size(di->mem_needs_reglist_sz, opnd_size_from_bytes(di->reglist_sz));
         return true;
     }
     case TYPE_L_CONSEC:
@@ -630,7 +636,12 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     /* Memory */
     case TYPE_M:
         if (opsize == OPSZ_VAR_REGLIST) {
-            opsize = opnd_size_from_bytes(di->reglist_sz);
+            if (di->reglist_sz == -1) {
+                /* Have not yet seen the reglist opnd yet */
+                di->mem_needs_reglist_sz = &array[*counter];
+                opsize = OPSZ_0;
+            } else
+                opsize = opnd_size_from_bytes(di->reglist_sz);
         }
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
@@ -689,7 +700,8 @@ read_instruction(byte *pc, byte *orig_pc,
     instr_word = *(uint *)pc;
     pc += sizeof(instr_word);
     di->instr_word = instr_word;
-    di->reglist_sz = 0;
+    di->mem_needs_reglist_sz = NULL;
+    di->reglist_sz = -1;
 
     di->predicate = decode_predicate(instr_word) + DR_PRED_EQ;
     if (di->predicate == DR_PRED_OP) {
