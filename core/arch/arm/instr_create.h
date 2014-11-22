@@ -62,6 +62,9 @@
 /** The immediate opnd_t for use with OP_msr to write the apsr_nzcvqg status flags. */
 #define OPND_CREATE_INT_MSR_NZCVQG() opnd_create_immed_int(0xc, OPSZ_4b)
 
+/** A memory opnd_t that auto-sizes at encode time to match a register list. */
+#define OPND_CREATE_MEMLIST(base) \
+  opnd_create_base_disp(base, DR_REG_NULL, 0, 0, OPSZ_VAR_REGLIST)
 
 /* Macros for building instructions, one for each opcode.
  * Each INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
@@ -285,7 +288,7 @@
  * \param ... The register list as separate opnd_t arguments.
  */
 #define INSTR_CREATE_push_list(dc, list_len, ...) \
-  INSTR_CREATE_stmdb_wb((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), list_len, __VA_ARGS__)
+  INSTR_CREATE_stmdb_wb((dc), OPND_CREATE_MEMLIST(DR_REG_XSP), list_len, __VA_ARGS__)
 
 /**
  * This macro creates an instr_t for a negate instruction,

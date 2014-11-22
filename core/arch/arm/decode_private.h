@@ -126,6 +126,9 @@ struct _decode_info_t {
      * decode_debug_checks_arch()).
      */
     size_t reglist_sz;
+    /* For encoding reglists */
+    uint reglist_start;
+    uint reglist_stop;
 
     /* For instr_t* target encoding */
     ptr_int_t cur_note;

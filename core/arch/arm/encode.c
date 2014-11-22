@@ -411,7 +411,19 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     size_op = opnd_get_size(opnd);
     size_op_up = resolve_size_upward(size_op);
 
+    /* Roll back greedy reglist if necessary */
+    if (optype_is_reg(optype) && !opnd_is_reg(opnd) && di->reglist_start > 0 &&
+        di->reglist_stop - 1 > di->reglist_start && di->reglist_stop == opnum) {
+        CLIENT_ASSERT(*counter > 1, "non-empty reglist plus inc here -> >= 2");
+        di->reglist_stop--;
+        (*counter)--;
+        opnum--;
+        opnd = (is_dst) ? instr_get_dst(in, opnum) : instr_get_src(in, opnum);
+    }
+
     switch (optype) {
+
+    /* Register types */
     /* For registers, we support requesting whole reg when only part is in template */
     case TYPE_R_A:
     case TYPE_R_B:
@@ -486,9 +498,48 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_LR);
     case TYPE_SP:
         return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_SP);
+
+    /* Register lists */
+    case TYPE_L_8b:
+    case TYPE_L_13b:
+    case TYPE_L_16b: {
+        /* Strategy: first, we disallow any template with a reglist followed by more
+         * than one plain register type (checked in decode_debug_checks_arch()).
+         * Then, we greedily eat all regs here.  On a subsequent reg type, we remove
+         * one entry from the list if necessary.  This is simpler than trying to look
+         * ahead, or to disallow any reg after a reglist (that would lead to
+         * wrong-order-vs-asm for OP_vtbl and others).
+         */
+        uint max_num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
+        uint i;
+        /* We also rule out more than one reglist per template */
+        di->reglist_start = *counter;
+        for (i = 0; i < max_num; i++) {
+            uint opnum = *counter;
+            if (is_dst) {
+                if (opnum >= instr_num_dsts(in))
+                    break;
+                opnd = instr_get_dst(in, opnum);
+            } else {
+                if (opnum >= instr_num_srcs(in))
+                    break;
+                opnd = instr_get_src(in, opnum);
+            }
+            if (!(opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
+                  (size_op == size_temp || size_op == size_temp_up)))
+                break;
+            (*counter)++;
+        }
+        di->reglist_stop = *counter;
+        /* We refuse to encode as an empty list ("unpredictable", and harder to ensure
+         * encoding templates are distinguishable)
+         */
+        return (di->reglist_stop > di->reglist_start);
     }
 
     /* FIXME i#1551: add the rest of the types */
+
+    }
 
     return false;
 }
@@ -624,6 +675,7 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     }
 
     switch (optype) {
+    /* Registers */
     case TYPE_R_A:
     case TYPE_R_A_TOP:
         encode_regA(di, opnd_get_reg(opnd));
@@ -712,6 +764,17 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         break;
     }
 
+    /* Register lists */
+    case TYPE_L_8b:
+    case TYPE_L_13b:
+    case TYPE_L_16b: {
+        uint i;
+        for (i = di->reglist_start; i < di->reglist_stop; i++) {
+            opnd = is_dst ? instr_get_dst(in, i) : instr_get_src(in, i);
+            di->instr_word |= 1 << (opnd_get_reg(opnd) - DR_REG_START_GPR);
+        }
+    }
+
     case TYPE_NONE:
     case TYPE_R_D_PLUS1:
     case TYPE_R_B_PLUS1:
@@ -762,11 +825,11 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     const instr_info_t * info;
     decode_info_t di;
 
-    /* first handle the already-encoded instructions */
+    /* First, handle the already-encoded instructions */
     if (instr_raw_bits_valid(instr)) {
         CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
                       "bits and ignore reachability");
-        /* copy raw bits, possibly re-relativizing */
+        /* Copy raw bits, possibly re-relativizing */
         if (has_instr_opnds != NULL)
             *has_instr_opnds = false;
         return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
@@ -805,6 +868,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 LOG(THREAD, LOG_EMIT, 1, di.errmsg, di.errmsg_param);
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
+            print_file(STDOUT, di.errmsg, di.errmsg_param);
             CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
             return NULL;
         }

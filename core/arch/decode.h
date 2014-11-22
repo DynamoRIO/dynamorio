@@ -283,7 +283,11 @@ enum {
     OPSZ_6b,   /**< 6 bits */
     OPSZ_12b,  /**< 12 bits */
     OPSZ_25b,  /**< 25 bits */
-    OPSZ_VAR_REGLIST,  /**< 1 bit */
+    /**
+     * At encode or decode time, the size will match the size of the
+     * register list operand in the containing instruction's operands.
+     */
+    OPSZ_VAR_REGLIST,
     OPSZ_20,  /**< 20 bytes.  Needed for load/store of register lists. */
     OPSZ_24,  /**< 24 bytes.  Needed for load/store of register lists. */
     OPSZ_36,  /**< 36 bytes.  Needed for load/store of register lists. */
