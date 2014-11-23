@@ -74,6 +74,7 @@ enum {
     EXT_VLDA,    /* Indexed by bits (11:8,7:6)*3+X where X based on value of 3:0 */
     EXT_VLDB,    /* Indexed by bits (11:8,Y)*3+X (see table descr) */
     EXT_VLDC,    /* Indexed by bits (9:8,7:5)*3+X where X based on value of 3:0 */
+    EXT_VTB,     /* Indexed by 11:10 and 9:8,6 in a special way */
     /* else, from OP_ enum */
 };
 
@@ -347,6 +348,7 @@ extern const instr_info_t A32_ext_simd2[][4];
 extern const instr_info_t A32_ext_vldA[][132];
 extern const instr_info_t A32_ext_vldB[][96];
 extern const instr_info_t A32_ext_vldC[][96];
+extern const instr_info_t A32_ext_vtb[][9];
 
 /* tables that translate opcode enums into pointers into decoding tables */
 extern const instr_info_t * const op_instr_A32[];

@@ -847,6 +847,16 @@ read_instruction(byte *pc, byte *orig_pc,
                 3 * (((instr_word >> 5) & 0x18) | ((instr_word >> 5) & 0x7));
             idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
             info = &A32_ext_vldC[info->code][idx];
+        } else if (info->type == EXT_VTB) {
+            idx = ((instr_word >> 10) & 0x3) /*bits 11:10 */;
+            if (idx != 2)
+                idx = 0;
+            else {
+                idx = 1 +   /*3 bits 9:8,6 */
+                    (((instr_word >> 7) & 0x6) |
+                     ((instr_word >> 6) & 0x1));
+            }
+            info = &A32_ext_vtb[info->code][idx];
         }
     }
     CLIENT_ASSERT(info->type <= INVALID, "decoding table error");

@@ -117,6 +117,7 @@
 #define tvlA  (ptr_int_t)&A32_ext_vldA
 #define tvlB  (ptr_int_t)&A32_ext_vldB
 #define tvlC  (ptr_int_t)&A32_ext_vldC
+#define tvtb  (ptr_int_t)&A32_ext_vtb
 
 /* operands */
 #define xx  TYPE_NONE, OPSZ_NA
