@@ -244,6 +244,9 @@ enum {
     TYPE_L_VBx2D, /* 2 doubly-spaced multimedia regs starting at TYPE_V_B */
     TYPE_L_VBx3D, /* 3 doubly-spaced multimedia regs starting at TYPE_V_B */
     TYPE_L_VBx4D, /* 4 doubly-spaced multimedia regs starting at TYPE_V_B */
+    TYPE_L_VAx2,  /* 2 consecutive multimedia regs starting at TYPE_V_A */
+    TYPE_L_VAx3,  /* 3 consecutive multimedia regs starting at TYPE_V_A */
+    TYPE_L_VAx4,  /* 4 consecutive multimedia regs starting at TYPE_V_A */
 
     /* All memory addressing modes use fixed base and index registers:
      * A32: base  = RA 19:16 ("Rn" in manual)

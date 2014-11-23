@@ -252,6 +252,9 @@
 #define LX2Dd_q TYPE_L_VBx2D, OPSZ_4_of_8
 #define LX3Dd_q TYPE_L_VBx3D, OPSZ_4_of_8
 #define LX4Dd_q TYPE_L_VBx4D, OPSZ_4_of_8
+#define LXA2q TYPE_L_VAx2, OPSZ_8
+#define LXA3q TYPE_L_VAx3, OPSZ_8
+#define LXA4q TYPE_L_VAx4, OPSZ_8
 
 #define CRAw TYPE_CR_A, OPSZ_PTR
 #define CRBw TYPE_CR_B, OPSZ_PTR

@@ -423,6 +423,27 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
         return true;
     }
+    case TYPE_L_VAx2:
+    case TYPE_L_VAx3:
+    case TYPE_L_VAx4: {
+        reg_id_t start = decode_vregA(di, upsz);
+        uint inc = 1;
+        array[(*counter)++] = opnd_create_reg_ex(start, downsz, 0);
+        if (reg_is_past_last_simd(start, inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + inc, downsz, 0);
+        if (optype == TYPE_L_VBx2)
+            return true;
+        if (reg_is_past_last_simd(start, 2*inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + 2*inc, downsz, 0);
+        if (optype == TYPE_L_VBx3)
+            return true;
+        if (reg_is_past_last_simd(start, 3*inc))
+            return false;
+        array[(*counter)++] = opnd_create_reg_ex(start + 3*inc, downsz, 0);
+        return true;
+    }
 
     /* Immeds */
     case TYPE_I_b0:
@@ -1192,6 +1213,9 @@ optype_is_reglist(int optype)
     case TYPE_L_VBx2D:
     case TYPE_L_VBx3D:
     case TYPE_L_VBx4D:
+    case TYPE_L_VAx2:
+    case TYPE_L_VAx3:
+    case TYPE_L_VAx4:
         return true;
     }
     return false;
