@@ -446,7 +446,7 @@ tls_thread_init(os_local_state_t *os_tls, byte *segment)
                 LOG(GLOBAL, LOG_THREADS, 1,
                     "os_tls_init: arch_prctl successful for base "PFX"\n", segment);
                 /* Kernel should have written %gs for us if using GDT */
-                if (!dynamo_initialized && read_selector(SEG_TLS) == 0) {
+                if (!dynamo_initialized && read_thread_register(SEG_TLS) == 0) {
                     LOG(GLOBAL, LOG_THREADS, 1, "os_tls_init: using MSR\n");
                     tls_using_msr = true;
                 }
@@ -588,7 +588,7 @@ byte *
 tls_get_fs_gs_segment_base(uint seg)
 {
 #ifdef X86
-    uint selector = read_selector(seg);
+    uint selector = read_thread_register(seg);
     uint index = SELECTOR_INDEX(selector);
     LOG(THREAD_GET, LOG_THREADS, 4, "%s selector %x index %d ldt %d\n",
         __func__, selector, index, TEST(SELECTOR_IS_LDT, selector));
@@ -796,7 +796,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
             os_thread_data_t *ostd;
             our_modify_ldt_t *desc;
             /* update new value set by app */
-            os_tls->app_fs = read_selector(SEG_FS);
+            os_tls->app_fs = read_thread_register(SEG_FS);
             os_tls->app_fs_base = (void *) base;
             /* update the app_thread_areas */
             ostd = (os_thread_data_t *)dcontext->os_field;
@@ -817,7 +817,7 @@ tls_handle_post_arch_prctl(dcontext_t *dcontext, int code, reg_t base)
         os_thread_data_t *ostd;
         our_modify_ldt_t *desc;
         /* update new value set by app */
-        os_tls->app_gs = read_selector(SEG_GS);
+        os_tls->app_gs = read_thread_register(SEG_GS);
         os_tls->app_gs_base = (void *) base;
         /* update the app_thread_areas */
         ostd = (os_thread_data_t *)dcontext->os_field;

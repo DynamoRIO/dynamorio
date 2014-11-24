@@ -1171,7 +1171,7 @@ os_timeout(int time_in_milliseconds)
  * http://gcc.gnu.org/onlinedocs/gccint/Output-Template.html#Output-Template
  * Also, var needs to match the pointer size, or else we'll get stack corruption.
  * XXX: This is marked volatile prevent gcc from speculating this code before
- * checks for is_segment_register_initialized(), but if we could find a more
+ * checks for is_thread_register_initialized(), but if we could find a more
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
@@ -1232,11 +1232,11 @@ os_timeout(int time_in_milliseconds)
       : ASM_R3);
 #endif /* X86/ARM */
 
-/* FIXME: assumes that fs/gs is not already in use by app */
+/* FIXME: assumes that DR's thread register is not already in use by app */
 static bool
-is_segment_register_initialized(void)
+is_thread_register_initialized(void)
 {
-    if (read_selector(SEG_TLS) != 0)
+    if (read_thread_register(SEG_TLS) != 0)
         return true;
 #ifdef X64
     if (tls_dr_using_msr()) {
@@ -1302,7 +1302,7 @@ os_local_state_t *
 get_os_tls(void)
 {
     os_local_state_t *os_tls;
-    ASSERT(is_segment_register_initialized());
+    ASSERT(is_thread_register_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return os_tls;
 }
@@ -1435,7 +1435,7 @@ local_state_extended_t *
 get_local_state_extended()
 {
     os_local_state_t *os_tls;
-    ASSERT(is_segment_register_initialized());
+    ASSERT(is_thread_register_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return &(os_tls->state);
 }
@@ -1524,8 +1524,8 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
     our_modify_ldt_t *desc;
     app_pc app_fs_base, app_gs_base;
 
-    os_tls->app_fs = read_selector(SEG_FS);
-    os_tls->app_gs = read_selector(SEG_GS);
+    os_tls->app_fs = read_thread_register(SEG_FS);
+    os_tls->app_gs = read_thread_register(SEG_GS);
     app_fs_base = get_segment_base(SEG_FS);
     app_gs_base = get_segment_base(SEG_GS);
     /* If we're a non-initial thread, fs/gs will be set to the parent's value */
@@ -1623,7 +1623,7 @@ os_tls_init(void)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
 #endif
-    ASSERT(is_segment_register_initialized());
+    ASSERT(is_thread_register_initialized());
 }
 
 /* Frees local_state.  If the calling thread is exiting (i.e.,
@@ -1648,7 +1648,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
     /* If the MSR is in use, writing to the reg faults.  We rely on it being 0
      * to indicate that.
      */
-    if (!other_thread && read_selector(SEG_TLS) != 0) {
+    if (!other_thread && read_thread_register(SEG_TLS) != 0) {
         WRITE_DR_SEG(zero); /* macro needs lvalue! */
     }
 # endif /* X86 */
@@ -1664,7 +1664,7 @@ os_tls_exit(local_state_t *local_state, bool other_thread)
 # ifdef X64
         if (tls_type == TLS_TYPE_ARCH_PRCTL) {
             /* syscall re-sets gs register so re-clear it */
-            if (read_selector(SEG_TLS) != 0) {
+            if (read_thread_register(SEG_TLS) != 0) {
                 WRITE_DR_SEG(zero); /* macro needs lvalue! */
             }
         }
@@ -2071,7 +2071,7 @@ thread_id_t
 get_tls_thread_id(void)
 {
     ptr_int_t tid; /* can't use thread_id_t since it's 32-bits */
-    if (!is_segment_register_initialized())
+    if (!is_thread_register_initialized())
         return INVALID_THREAD_ID;
     READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, tid);
     /* it reads 8-bytes into the memory, which includes app_gs and app_fs.
@@ -2092,7 +2092,7 @@ get_thread_private_dcontext(void)
      * to os_tls_init, as well as after os_tls_exit, and early in a new
      * thread's initialization (see comments below on that).
      */
-    if (!is_segment_register_initialized())
+    if (!is_thread_register_initialized())
         return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
     /* We used to check tid and return NULL to distinguish parent from child, but
      * that was affecting performance (xref PR 207366: but I'm leaving the assert in
@@ -2152,7 +2152,7 @@ void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
 #ifdef HAVE_TLS
-    ASSERT(is_segment_register_initialized());
+    ASSERT(is_thread_register_initialized());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
 #else
     thread_id_t tid = get_thread_id();
@@ -2199,7 +2199,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
     ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
-    ASSERT(is_segment_register_initialized());
+    ASSERT(is_thread_register_initialized());
     DOCHECK(1, {
         ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
         READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);
@@ -5281,7 +5281,7 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
         if (user_desc->entry_number == -1 && return_stolen_lib_tls_gdt) {
             mutex_lock(&set_thread_area_lock);
             if (return_stolen_lib_tls_gdt) {
-                uint selector = read_selector(LIB_SEG_TLS);
+                uint selector = read_thread_register(LIB_SEG_TLS);
                 uint index = SELECTOR_INDEX(selector);
                 SELF_UNPROTECT_DATASEC(DATASEC_RARELY_PROT);
                 return_stolen_lib_tls_gdt = false;
@@ -5306,8 +5306,8 @@ os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
     }
     /* if not conflict with dr's tls, perform the syscall */
     if (IF_CLIENT_INTERFACE_ELSE(!INTERNAL_OPTION(private_loader), true) &&
-        GDT_SELECTOR(user_desc->entry_number) != read_selector(SEG_TLS) &&
-        GDT_SELECTOR(user_desc->entry_number) != read_selector(LIB_SEG_TLS))
+        GDT_SELECTOR(user_desc->entry_number) != read_thread_register(SEG_TLS) &&
+        GDT_SELECTOR(user_desc->entry_number) != read_thread_register(LIB_SEG_TLS))
         return false;
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */

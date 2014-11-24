@@ -112,13 +112,13 @@ typedef struct _our_modify_ldt_t {
 #endif /* X86/ARM */
 
 static inline uint
-read_selector(reg_id_t seg)
+read_thread_register(reg_id_t reg)
 {
     uint sel;
 #ifdef X86
-    if (seg == SEG_FS) {
+    if (reg == SEG_FS) {
         asm volatile("movl %%fs, %0" : "=r"(sel));
-    } else if (seg == SEG_GS) {
+    } else if (reg == SEG_GS) {
         asm volatile("movl %%gs, %0" : "=r"(sel));
     } else {
         ASSERT_NOT_REACHED();
@@ -131,11 +131,28 @@ read_selector(reg_id_t seg)
      */
     sel &= 0xffff;
 #elif defined(ARM)
-    /* FIXME i#1551: there is no segment in ARM, so we should refactor the caller
-     * and make this routine x86-only.
-     */
-    ASSERT_NOT_REACHED();
-    sel = 0;
+    if (reg == DR_REG_TPIDRURO) {
+        IF_X64_ELSE({
+            asm volatile("mrs %0, tpidrro_el0" : "=r"(sel));
+        }, {
+            /* read thread register from CP15 (coprocessor 15)
+             * c13 (software thread ID registers) with opcode 3 (user RO)
+             */
+            asm volatile("mrc  p15, 0, %0, c13, c0, 3" : "=r"(sel));
+        });
+    } else if (reg == DR_REG_TPIDRURW) {
+        IF_X64_ELSE({
+            asm volatile("mrs %0, tpidr_el0" : "=r"(sel));
+        }, {
+            /* read thread register from CP15 (coprocessor 15)
+             * c13 (software thread ID registers) with opcode 2 (user RW)
+             */
+            asm volatile("mrc  p15, 0, %0, c13, c0, 2" : "=r"(sel));
+        });
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
 #endif
     return sel;
 }
