@@ -1871,6 +1871,8 @@ reg_get_size(reg_id_t reg)
         return OPSZ_2;
     if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
         return OPSZ_1;
+    if (reg >= DR_REG_CR0 && reg <= DR_REG_CR15)
+        return OPSZ_PTR;
 #endif
     CLIENT_ASSERT(false, "reg_get_size: invalid register");
     return OPSZ_NA;

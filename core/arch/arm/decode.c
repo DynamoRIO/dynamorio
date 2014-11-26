@@ -146,7 +146,7 @@ decode_vregA(decode_info_t *di, opnd_size_t opsize)
 {
     /* A32 = 7,19:16 */
     return decode_simd_start(opsize) +
-        (((di->instr_word & 0x00000080) >> 4) | ((di->instr_word >> 16) & 0xf));
+        (((di->instr_word & 0x00000080) >> 3) | ((di->instr_word >> 16) & 0xf));
 }
 
 static reg_id_t
@@ -263,7 +263,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                uint *counter INOUT)
 {
     uint i;
-    ptr_int_t val;
+    ptr_int_t val = 0;
     opnd_size_t downsz = resolve_size_downward(opsize);
     opnd_size_t upsz = resolve_size_upward(opsize);
 
@@ -513,8 +513,10 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             each = OPSZ_1;
         else if (opsize == OPSZ_1)
             each = OPSZ_4b;
-        else
+        else {
             CLIENT_ASSERT(false, "unsupported 0-16 split immed size");
+            each = OPSZ_0;
+        }
         val = decode_immed(di, 0, each, false/*unsigned*/);
         val |= (decode_immed(di, 16, each, false/*unsigned*/) << (sz/2));
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
@@ -668,8 +670,8 @@ read_instruction(byte *pc, byte *orig_pc,
     di->instr_word = instr_word;
     di->reglist_sz = 0;
 
-    di->predicate = decode_predicate(instr_word);
-    if (di->predicate + DR_PRED_EQ == DR_PRED_OP) {
+    di->predicate = decode_predicate(instr_word) + DR_PRED_EQ;
+    if (di->predicate == DR_PRED_OP) {
         uint opc7 = /* remove bit 22 */
             ((instr_word >> 21) & 0x7c) | ((instr_word >> 20) & 0x3);
         info = &A32_unpred_opc7[opc7];
@@ -914,8 +916,10 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     /* since we don't use set_src/set_dst we must explicitly say they're valid */
     instr_set_operands_valid(instr, true);
 
-    if (di.predicate != DR_PRED_OP)
-        instr_set_predicate(instr, di.predicate + DR_PRED_EQ);
+    if (di.predicate != DR_PRED_OP) {
+        /* XXX: not bothering to mark invalid for DECODE_PREDICATE_AL */
+        instr_set_predicate(instr, di.predicate);
+    }
 
     /* operands */
     do {
