@@ -63,6 +63,11 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii);
 void
 decode_info_init_for_instr(decode_info_t *di, instr_t *instr);
 
+byte *
+instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
+                  bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
+                  _IF_DEBUG(bool assert_reachable));
+
 /* exported, looks at all possible instr_info_t templates
  */
 bool
@@ -92,3 +97,32 @@ get_encoding_info(instr_t *instr)
     return info;
 }
 
+
+/* completely ignores reachability failures */
+byte *
+instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
+{
+    return instr_encode_arch(dcontext, instr, pc, pc, false, NULL _IF_DEBUG(false));
+}
+
+/* just like instr_encode but doesn't assert on reachability failures */
+byte *
+instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
+                                bool *has_instr_opnds/*OUT OPTIONAL*/)
+{
+    return instr_encode_arch(dcontext, instr, pc, pc, true, has_instr_opnds
+                             _IF_DEBUG(false));
+}
+
+byte *
+instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
+{
+    return instr_encode_arch(dcontext, instr, copy_pc, final_pc, true, NULL
+                             _IF_DEBUG(true));
+}
+
+byte *
+instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
+{
+    return instr_encode_to_copy(dcontext, instr, pc, pc);
+}

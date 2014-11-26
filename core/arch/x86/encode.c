@@ -2301,23 +2301,23 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
     return orig_dst_pc + instr->length;
 }
 
-/* Encodes instrustion instr.  The parameter copy_pc points
+/* Encodes instruction instr.  The parameter copy_pc points
  * to the address of this instruction in the fragment cache.
  * Checks for and fixes pc-relative instructions.
  * N.B: if instr is a jump with an instr_t target, the caller MUST set the note
  * field in the target instr_t prior to calling instr_encode on the jump instr.
  *
  * Returns the pc after the encoded instr, or NULL if the instruction cannot be encoded.
- * Note that if instr_is_label(instr) will encoded as a 0-byte instruction.
+ * Note that if instr_is_label(instr) it will be  encoded as a 0-byte instruction.
  * If a pc-relative operand cannot reach its target:
  *   If reachable == NULL, we assert and encoding fails (returning NULL);
  *   Else, encoding continues, and *reachable is set to false.
  * Else, if reachable != NULL, *reachable is set to true.
  */
-static byte *
-instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
-                    bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
-                    _IF_DEBUG(bool assert_reachable))
+byte *
+instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
+                  bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
+                  _IF_DEBUG(bool assert_reachable))
 {
     const instr_info_t * info;
     decode_info_t di;
@@ -2399,7 +2399,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             info->opcode);
         info = get_next_instr_info(info);
         /* stop when hit end of list or when hit extra operand tables (OP_CONTD) */
-        if (info == NULL || info->opcode == OP_CONTD) {
+        if (info == NULL || info->type == OP_CONTD) {
             DOLOG(1, LOG_EMIT, {
                 LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
                 instr_disassemble(dcontext, instr, THREAD);
@@ -2722,33 +2722,4 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     if (has_instr_opnds != NULL)
         *has_instr_opnds = di.has_instr_opnds;
     return field_ptr;
-}
-
-/* completely ignores reachability failures */
-byte *
-instr_encode_ignore_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc)
-{
-    return instr_encode_common(dcontext, instr, pc, pc, false, NULL _IF_DEBUG(false));
-}
-
-/* just like instr_encode but doesn't assert on reachability failures */
-byte *
-instr_encode_check_reachability(dcontext_t *dcontext, instr_t *instr, byte *pc,
-                                bool *has_instr_opnds/*OUT OPTIONAL*/)
-{
-    return instr_encode_common(dcontext, instr, pc, pc, true, has_instr_opnds
-                               _IF_DEBUG(false));
-}
-
-byte *
-instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
-{
-    return instr_encode_common(dcontext, instr, copy_pc, final_pc, true, NULL
-                               _IF_DEBUG(true));
-}
-
-byte *
-instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
-{
-    return instr_encode_to_copy(dcontext, instr, pc, pc);
 }

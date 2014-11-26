@@ -124,13 +124,13 @@ struct _decode_info_t {
 
     size_t reglist_sz;
 
-    /* XXX i#1550: add dr_isa_mode_t isa_mode field to dcontext and
-     * instr_t and cache it here for use when decoding.
-     */
-
     /* For instr_t* target encoding */
     ptr_int_t cur_note;
     bool has_instr_opnds;
+
+    /* For encoding error messages */
+    const char *errmsg; /* can contain one integer format parameter */
+    int errmsg_param;
 };
 
 

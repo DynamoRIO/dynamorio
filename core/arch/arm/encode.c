@@ -30,7 +30,7 @@
  * DAMAGE.
  */
 
-/* FIXME i#1551: write ARM encoder */
+/* ARM encoder */
 
 #include "../globals.h"
 #include "arch.h"
@@ -38,6 +38,9 @@
 #include "decode.h"
 #include "disassemble.h"
 #include "decode_private.h"
+
+/* Extra logging for encoding */
+#define ENC_LEVEL 6
 
 /* Order corresponds to DR_REG_ enum. */
 const char * const reg_names[] = {
@@ -359,6 +362,29 @@ resolve_size_downward(opnd_size_t size)
 }
 
 static bool
+reg_is_cpreg(reg_id_t reg)
+{
+    return (reg >= DR_REG_CR0 && reg <= DR_REG_CR15);
+}
+
+static reg_id_t
+reg_simd_start(reg_id_t reg)
+{
+    if (reg >= DR_REG_B0 && reg <= DR_REG_B31)
+        return DR_REG_B0;
+    if (reg >= DR_REG_H0 && reg <= DR_REG_H31)
+        return DR_REG_H0;
+    if (reg >= DR_REG_S0 && reg <= DR_REG_S31)
+        return DR_REG_S0;
+    if (reg >= DR_REG_D0 && reg <= DR_REG_D31)
+        return DR_REG_D0;
+    if (reg >= DR_REG_Q0 && reg <= DR_REG_Q31)
+        return DR_REG_Q0;
+    CLIENT_ASSERT(false, "internal encoder error: not a simd reg");
+    return DR_REG_NULL;
+}
+
+static bool
 encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
                bool is_dst, uint *counter INOUT)
 {
@@ -382,13 +408,41 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     size_op_up = resolve_size_upward(size_op);
 
     switch (optype) {
-    /* For registers, support requesting whole reg when only part is in template */
+    /* For registers, we support requesting whole reg when only part is in template */
     case TYPE_R_A:
     case TYPE_R_B:
     case TYPE_R_C:
     case TYPE_R_D:
+    case TYPE_R_A_TOP:
+    case TYPE_R_B_TOP:
+    case TYPE_R_C_TOP:
+    case TYPE_R_D_TOP:
+    case TYPE_R_D_NEGATED:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                /* FIXME i#1551: ensure not a top-half GPR */
+                (size_op == size_temp || size_op == size_temp_up));
+    case TYPE_R_B_EVEN:
+    case TYPE_R_D_EVEN:
+        return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up) &&
+                ((dr_reg_fixer[opnd_get_reg(opnd)] - DR_REG_START_GPR) % 2 == 0));
+    case TYPE_R_B_PLUS1:
+    case TYPE_R_D_PLUS1: {
+        opnd_t prior;
+        if (opnum ==  0)
+            return false;
+        if (is_dst)
+            prior = instr_get_dst(in, opnum - 1);
+        else
+            prior = instr_get_src(in, opnum - 1);
+        return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up) &&
+                opnd_is_reg(prior) && opnd_get_reg(prior) + 1 == opnd_get_reg(opnd));
+    }
+    case TYPE_CR_A:
+    case TYPE_CR_B:
+    case TYPE_CR_C:
+    case TYPE_CR_D:
+        return (opnd_is_reg(opnd) && reg_is_cpreg(opnd_get_reg(opnd)) &&
                 (size_op == size_temp || size_op == size_temp_up));
     case TYPE_V_A:
     case TYPE_V_B:
@@ -398,6 +452,36 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_W_C:
         return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
                 (size_op == size_temp || size_op == size_temp_up));
+    case TYPE_V_C_3b:
+        return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up) &&
+                (opnd_get_reg(opnd) - reg_simd_start(opnd_get_reg(opnd)) < 8));
+    case TYPE_V_C_4b:
+        return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up) &&
+                (opnd_get_reg(opnd) - reg_simd_start(opnd_get_reg(opnd)) < 16));
+    case TYPE_W_C_PLUS1: {
+        opnd_t prior;
+        if (opnum ==  0)
+            return false;
+        if (is_dst)
+            prior = instr_get_dst(in, opnum - 1);
+        else
+            prior = instr_get_src(in, opnum - 1);
+        return (opnd_is_reg(opnd) && reg_is_simd(opnd_get_reg(opnd)) &&
+                (size_op == size_temp || size_op == size_temp_up) &&
+                opnd_is_reg(prior) && opnd_get_reg(prior) + 1 == opnd_get_reg(opnd));
+    }
+    case TYPE_SPSR:
+        return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_SPSR);
+    case TYPE_CPSR:
+        return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_CPSR);
+    case TYPE_FPSCR:
+        return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_FPSCR);
+    case TYPE_LR:
+        return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_LR);
+    case TYPE_SP:
+        return (opnd_is_reg(opnd) && opnd_get_reg(opnd) == DR_REG_SP);
     }
 
     /* FIXME i#1551: add the rest of the types */
@@ -409,36 +493,77 @@ bool
 encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 {
     uint num_dsts = 0, num_srcs = 0;
+    dr_pred_type_t pred = instr_get_predicate(in);
 
     if (ii == NULL || in == NULL)
         return false;
 
     /* FIXME i#1551: check isa mode vs THUMB_ONLY or ARM_ONLY ii->flags */
 
+    /* Check predicate.  We're fine with DR_PRED_NONE == DR_PRED_AL. */
+    if (pred == DR_PRED_OP) {
+        di->errmsg = "DR_PRED_OP is an illegal predicate request";
+        return false;
+    } else if (TEST(DECODE_PREDICATE_AL_ONLY, ii->flags) && pred != DR_PRED_AL &&
+               pred != DR_PRED_NONE) {
+        di->errmsg = "DR_PRED_AL is the only valid predicate";
+        return false;
+    }
+    else if (!TEST(DECODE_PREDICATE, ii->flags) && pred != DR_PRED_NONE) {
+        di->errmsg = "No predicate is supported";
+        return false;
+    }
+
+    /* Check each operand */
     do {
         if (ii->dst1_type != TYPE_NONE) {
-            if (!encode_opnd_ok(di, ii->dst1_type, ii->dst1_size, in, true, &num_dsts))
+            if (!encode_opnd_ok(di, ii->dst1_type, ii->dst1_size, in, true, &num_dsts)) {
+                di->errmsg = "Destination operand #%d has wrong type/size";
+                di->errmsg_param = num_dsts - 1;
                 return false;
+            }
         }
         if (ii->dst2_type != TYPE_NONE) {
             if (!encode_opnd_ok(di, ii->dst2_type, ii->dst2_size, in,
                                 !TEST(DECODE_4_SRCS, ii->flags),
-                                TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts))
+                                TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts)) {
+                if (TEST(DECODE_4_SRCS, ii->flags)) {
+                    di->errmsg = "Source operand #%d has wrong type/size";
+                    di->errmsg_param = num_srcs - 1;
+                } else {
+                    di->errmsg = "Destination operand #%d has wrong type/size";
+                    di->errmsg_param = num_dsts - 1;
+                }
                 return false;
+            }
         }
         if (ii->src1_type != TYPE_NONE) {
             if (!encode_opnd_ok(di, ii->src1_type, ii->src1_size, in,
                                 TEST(DECODE_3_DSTS, ii->flags),
-                                TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs))
+                                TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs)) {
+                if (TEST(DECODE_3_DSTS, ii->flags)) {
+                    di->errmsg = "Destination operand #%d has wrong type/size";
+                    di->errmsg_param = num_dsts - 1;
+                } else {
+                    di->errmsg = "Source operand #%d has wrong type/size";
+                    di->errmsg_param = num_srcs - 1;
+                }
                 return false;
+            }
         }
         if (ii->src2_type != TYPE_NONE) {
-            if (!encode_opnd_ok(di, ii->src2_type, ii->src2_size, in, false, &num_srcs))
+            if (!encode_opnd_ok(di, ii->src2_type, ii->src2_size, in, false, &num_srcs)) {
+                di->errmsg = "Source operand #%d has wrong type/size";
+                di->errmsg_param = num_srcs - 1;
                 return false;
+            }
         }
         if (ii->src3_type != TYPE_NONE) {
-            if (!encode_opnd_ok(di, ii->src3_type, ii->src3_size, in, false, &num_srcs))
+            if (!encode_opnd_ok(di, ii->src3_type, ii->src3_size, in, false, &num_srcs)) {
+                di->errmsg = "Source operand #%d has wrong type/size";
+                di->errmsg_param = num_srcs - 1;
                 return false;
+            }
         }
         ii = instr_info_extra_opnds(ii);
     } while (ii != NULL);
@@ -453,40 +578,255 @@ decode_info_init_for_instr(decode_info_t *di, instr_t *instr)
     di->isa_mode = instr_get_isa_mode(instr);
 }
 
-byte *
-instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc)
+static void
+encode_regA(decode_info_t *di, reg_id_t reg)
 {
-    /* FIXME i#1551: write ARM encoder */
-    return NULL;
+    /* A32 = 19:16 */
+    di->instr_word |= (reg - DR_REG_START_GPR) << 16;
+}
+
+static void
+encode_regB(decode_info_t *di, reg_id_t reg)
+{
+    /* A32 = 15:12 */
+    di->instr_word |= (reg - DR_REG_START_GPR) << 12;
+}
+
+static void
+encode_regC(decode_info_t *di, reg_id_t reg)
+{
+    /* A32 = 11:8 */
+    di->instr_word |= (reg - DR_REG_START_GPR) << 8;
+}
+
+static void
+encode_regD(decode_info_t *di, reg_id_t reg)
+{
+    /* A32 = 3:0 */
+    di->instr_word |= (reg - DR_REG_START_GPR);
+}
+
+static bool
+encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
+               bool is_dst, uint *counter INOUT)
+{
+    uint opnum = (*counter)++;
+    opnd_t opnd;
+    if (optype != TYPE_NONE) {
+        if (is_dst)
+            opnd = instr_get_dst(in, opnum);
+        else
+            opnd = instr_get_src(in, opnum);
+    }
+
+    switch (optype) {
+    case TYPE_R_A:
+    case TYPE_R_A_TOP:
+        encode_regA(di, opnd_get_reg(opnd));
+        break;
+    case TYPE_R_B:
+    case TYPE_R_B_TOP:
+    case TYPE_R_B_EVEN:
+        encode_regB(di, opnd_get_reg(opnd));
+        break;
+    case TYPE_R_C:
+    case TYPE_R_C_TOP:
+        encode_regC(di, opnd_get_reg(opnd));
+        break;
+    case TYPE_R_D:
+    case TYPE_R_D_TOP:
+    case TYPE_R_D_NEGATED:
+    case TYPE_R_D_EVEN:
+        encode_regD(di, opnd_get_reg(opnd));
+        break;
+    case TYPE_CR_A:
+        encode_regA(di, opnd_get_reg(opnd) - DR_REG_CR0 + DR_REG_START_GPR);
+        break;
+    case TYPE_CR_B:
+        encode_regB(di, opnd_get_reg(opnd) - DR_REG_CR0 + DR_REG_START_GPR);
+        break;
+    case TYPE_CR_C:
+        encode_regC(di, opnd_get_reg(opnd) - DR_REG_CR0 + DR_REG_START_GPR);
+        break;
+    case TYPE_CR_D:
+        encode_regD(di, opnd_get_reg(opnd) - DR_REG_CR0 + DR_REG_START_GPR);
+        break;
+    case TYPE_V_A: {
+        /* A32 = 7,19:16 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x10) << 3) | ((val & 0xf) << 16);
+        break;
+    }
+    case TYPE_V_B: {
+        /* A32 = 22,15:12 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x10) << 18) | ((val & 0xf) << 12);
+        break;
+    }
+    case TYPE_V_C: {
+        /* A32 = 5,3:0 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x10) << 1) | (val & 0xf);
+        break;
+    }
+    case TYPE_W_A: {
+        /* A32 = 19:16,7 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x1e) << 15) | ((val & 0x1) << 7);
+        break;
+    }
+    case TYPE_W_B: {
+        /* A32 = 15:12,22 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x1e) << 11) | ((val & 0x1) << 22);
+        break;
+    }
+    case TYPE_W_C: {
+        /* A32 = 3:0,5 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |= ((val & 0x1e) >> 1) | ((val & 0xf) << 5);
+        break;
+    }
+    case TYPE_V_C_3b: {
+        /* A32 = 2:0 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |=  (val & 0x7);
+        break;
+    }
+    case TYPE_V_C_4b: {
+        /* A32 = 3:0 */
+        reg_id_t reg = opnd_get_reg(opnd);
+        uint val = reg - reg_simd_start(reg);
+        di->instr_word |=  (val & 0xf);
+        break;
+    }
+
+    case TYPE_NONE:
+    case TYPE_R_D_PLUS1:
+    case TYPE_R_B_PLUS1:
+    case TYPE_W_C_PLUS1:
+    case TYPE_SPSR:
+    case TYPE_CPSR:
+    case TYPE_FPSCR:
+    case TYPE_LR:
+    case TYPE_SP:
+        break; /* implicit or empty */
+   }
+
+    /* FIXME i#1551: add the rest of the types */
+
+    return false;
+}
+
+static void
+encode_operands(decode_info_t *di, instr_t *in, const instr_info_t * ii)
+{
+    uint num_dsts = 0, num_srcs = 0;
+    do {
+        if (ii->dst1_type != TYPE_NONE)
+            encode_operand(di, ii->dst1_type, ii->dst1_size, in, true, &num_dsts);
+        if (ii->dst2_type != TYPE_NONE) {
+            encode_operand(di, ii->dst2_type, ii->dst2_size, in,
+                           !TEST(DECODE_4_SRCS, ii->flags),
+                           TEST(DECODE_4_SRCS, ii->flags) ? &num_srcs : &num_dsts);
+        }
+        if (ii->src1_type != TYPE_NONE) {
+            encode_operand(di, ii->src1_type, ii->src1_size, in,
+                           TEST(DECODE_3_DSTS, ii->flags),
+                           TEST(DECODE_3_DSTS, ii->flags) ? &num_dsts : &num_srcs);
+        }
+        if (ii->src2_type != TYPE_NONE)
+            encode_operand(di, ii->src2_type, ii->src2_size, in, false, &num_srcs);
+        if (ii->src3_type != TYPE_NONE)
+            encode_operand(di, ii->src3_type, ii->src3_size, in, false, &num_srcs);
+        ii = instr_info_extra_opnds(ii);
+    } while (ii != NULL);
 }
 
 byte *
-instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc,
-                                bool *has_instr_opnds/*OUT OPTIONAL*/)
+instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc,
+                  bool check_reachable, bool *has_instr_opnds/*OUT OPTIONAL*/
+                  _IF_DEBUG(bool assert_reachable))
 {
-    /* FIXME i#1551: write ARM encoder */
-    return NULL;
+    const instr_info_t * info;
+    decode_info_t di;
+
+    /* first handle the already-encoded instructions */
+    if (instr_raw_bits_valid(instr)) {
+        CLIENT_ASSERT(check_reachable, "internal encode error: cannot encode raw "
+                      "bits and ignore reachability");
+        /* copy raw bits, possibly re-relativizing */
+        if (has_instr_opnds != NULL)
+            *has_instr_opnds = false;
+        return copy_and_re_relativize_raw_instr(dcontext, instr, copy_pc, final_pc);
+    }
+    if (instr_is_label(instr)) {
+        if (has_instr_opnds != NULL)
+            *has_instr_opnds = false;
+        return copy_pc;
+    }
+    CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
+
+    decode_info_init_for_instr(&di, instr);
+    di.opcode = instr_get_opcode(instr);
+    di.start_pc = copy_pc;
+    di.final_pc = final_pc;
+    di.cur_note = (ptr_int_t) instr->note;
+
+    info = instr_get_instr_info(instr);
+    if (info == NULL) {
+        if (has_instr_opnds != NULL)
+            *has_instr_opnds = false;
+        return NULL;
+    }
+
+    while (!encoding_possible(&di, instr, info)) {
+        LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\tencoding for 0x%x no good...\n",
+            info->opcode);
+        info = get_next_instr_info(info);
+        if (info == NULL || info->type == OP_CONTD) {
+            /* Use the errmgs to try and give a more helpful message */
+            SYSLOG_INTERNAL_ERROR(di.errmsg, di.errmsg_param);
+            DOLOG(1, LOG_EMIT, {
+                LOG(THREAD, LOG_EMIT, 1, "ERROR: Could not find encoding for: ");
+                instr_disassemble(dcontext, instr, THREAD);
+                LOG(THREAD, LOG_EMIT, 1, "\nReason: ");
+                LOG(THREAD, LOG_EMIT, 1, di.errmsg, di.errmsg_param);
+                LOG(THREAD, LOG_EMIT, 1, "\n");
+            });
+            CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
+            return NULL;
+        }
+    }
+
+    /* Encode into di.instr_word */
+    di.instr_word = info->opcode;
+    if (TEST(DECODE_PREDICATE, info->flags)) {
+        dr_pred_type_t pred = instr_get_predicate(instr);
+        if (pred == DR_PRED_NONE)
+            pred = DR_PRED_AL;
+        di.instr_word |= (pred - DR_PRED_EQ) << 28;
+    }
+    encode_operands(&di, instr, info);
+
+    *((uint *)copy_pc) = di.instr_word;
+    if (has_instr_opnds != NULL)
+        *has_instr_opnds = di.has_instr_opnds;
+    return copy_pc + 4;
 }
 
 byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
-    /* FIXME i#1551: write ARM encoder */
-    return NULL;
-}
-
-byte *
-instr_encode_to_copy(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *final_pc)
-{
-    /* FIXME i#1551: write ARM encoder */
-    return NULL;
-}
-
-byte *
-instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
-{
-    /* FIXME i#1551: write ARM encoder */
-    /* FIXME: complain if DR_PRED_NONE set but only predicated encodings avail */
+    /* FIXME i#1551: NYI */
+    ASSERT_NOT_REACHED();
     return NULL;
 }
