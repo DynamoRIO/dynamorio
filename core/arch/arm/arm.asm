@@ -73,6 +73,13 @@ GLOBAL_LABEL(_start:)
 #endif /* !NOT_DYNAMORIO_CORE_PROPER */
 /****************************************************************************/
 
+/* all of the CPUID registers are only accessible in privileged modes */
+        DECLARE_FUNC(cpuid_supported)
+GLOBAL_LABEL(cpuid_supported:)
+        mov      r0, #0
+        bx       lr
+        END_FUNC(cpuid_supported)
+
 /* we share dynamorio_syscall w/ preload */
 /* To avoid libc wrappers we roll our own syscall here.
  * Hardcoded to use svc/swi for 32-bit -- FIXME: use something like do_syscall
@@ -224,13 +231,6 @@ GLOBAL_LABEL(atomic_swap:)
         /* FIXME i#1551: NYI on ARM */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(atomic_swap)
-
-        DECLARE_FUNC(cpuid_supported)
-GLOBAL_LABEL(cpuid_supported:)
-        /* FIXME i#1551: NYI on ARM */
-        mov      r0, #0
-        bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(cpuid_supported)
 
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)

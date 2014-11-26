@@ -141,7 +141,8 @@ set(ARCH_SRCS
   arch/${ARCH_NAME}/emit_utils.c
   ${DECODER_SRCS}
   arch/interp.c
-  arch/proc.c
+  arch/proc_shared.c
+  arch/${ARCH_NAME}/proc.c
   arch/mangle_shared.c
   arch/${ARCH_NAME}/mangle.c
   arch/${ARCH_NAME}/clean_call_opt.c

@@ -64,6 +64,7 @@
 enum {
     VENDOR_INTEL,   /**< proc_get_vendor() processor identification: Intel */
     VENDOR_AMD,     /**< proc_get_vendor() processor identification: AMD */
+    VENDOR_ARM,     /**< proc_get_vendor() processor identification: ARM */
     VENDOR_UNKNOWN, /**< proc_get_vendor() processor identification: unknown */
 };
 
@@ -256,7 +257,41 @@ enum {
     XCR0_FP  = 1,
 };
 
+/* information about a processor */
+typedef struct _cpu_info_t {
+    /* FIXME i#1551: x86 and arm use different description of cpu models
+     * - x86: vendor, family, type, model, steeping,
+     * - arm: implementer, architecture, variant, part, revision, model name, hardware.
+     */
+    uint vendor;
+    uint family;
+    uint type;
+    uint model;
+    uint stepping;
+    uint L1_icache_size;
+    uint L1_dcache_size;
+    uint L2_cache_size;
+    /* Feature bits in 4 32-bit values:
+     * on X86:
+     * - features in edx,
+     * - features in ecx,
+     * - extended features in edx, and
+     * - extended features in ecx
+     */
+    features_t features;
+    /* The brand string is a 48-character, null terminated string.
+     * Declare as a 12-element uint so the compiler won't complain
+     * when we store GPRs to it.  Initialization is "unknown" .
+     */
+    uint brand_string[12];
+} cpu_info_t;
+extern cpu_info_t cpu_info;
+
 void proc_init(void);
+
+void proc_init_arch(void);
+
+void set_cache_size(uint val, uint *dst);
 
 DR_API
 /** Returns the cache line size in bytes of the processor. */
