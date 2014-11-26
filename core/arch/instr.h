@@ -2356,11 +2356,14 @@ DR_API
  * thread-local heap with opcode \p opcode, \p fixed_dsts destination operands,
  * and \p fixed_srcs plus \p var_srcs source operands.  The variable arguments
  * must start with the (fixed) destinations, followed by the fixed sources,
- * followed by the variable sources.
+ * followed by the variable sources.  The \p var_ord parameter specifies the
+ * (0-based) ordinal position within the resulting instruction's source array
+ * at which the variable sources should be placed, allowing them to be inserted
+ * in the middle of the fixed sources.
  */
 instr_t *
 instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
-                              uint fixed_srcs, uint var_srcs, ...);
+                              uint fixed_srcs, uint var_srcs, uint var_ord, ...);
 
 DR_API
 /**
@@ -2368,11 +2371,14 @@ DR_API
  * thread-local heap with opcode \p opcode, \p fixed_dsts plus \p var_dsts
  * destination operands, and \p fixed_srcs source operands.  The variable
  * arguments must start with the fixed destinations, followed by the (fixed)
- * sources, followed by the variable destinations.
+ * sources, followed by the variable destinations.  The \p var_ord parameter
+ * specifies the (0-based) ordinal position within the resulting instruction's
+ * destination array at which the variable destinations should be placed,
+ * allowing them to be inserted in the middle of the fixed destinations.
  */
 instr_t *
 instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
-                              uint fixed_srcs, uint var_dsts, ...);
+                              uint fixed_srcs, uint var_dsts, uint var_ord, ...);
 
 DR_API
 /** Convenience routine that returns an initialized instr_t for OP_popa. */

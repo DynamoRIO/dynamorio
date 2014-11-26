@@ -430,6 +430,14 @@ foreach my $opc (keys %entry) {
 
         # List => vararg with list at end of course
         if ($sig =~ /\bL/) {
+            #  Figure out at which index in src/dst list the vararg should be inserted
+            my $idx = 0;
+            my @ops = split(' ', $sig);
+            for (my $i = 0; $i <= $#ops; $i++) {
+                last if ($ops[$i] =~ /^L/);
+                $idx++;
+                $idx = 0 if ($ops[$i] =~ /;$/);
+            }
             $arg_str =~ s/, L\w+//;
             $call_str =~ s/, \(L\w+\)//;
             $arg_str .= ", list_len, ...";
@@ -441,7 +449,7 @@ foreach my $opc (keys %entry) {
                 $func_sfx = '_vardst';
                 $opc_str .= ", ".($num_tot_dsts-1).", $num_tot_srcs";
             }
-            $opc_str .= ", list_len";
+            $opc_str .= ", list_len, $idx";
             $num_tot_dsts = 'N';
             $num_tot_srcs = 'M';
         }

@@ -2596,36 +2596,40 @@ instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
 
 instr_t *
 instr_create_Ndst_Msrc_varsrc(dcontext_t *dcontext, int opcode, uint fixed_dsts,
-                              uint fixed_srcs, uint var_srcs, ...)
+                              uint fixed_srcs, uint var_srcs, uint var_ord, ...)
 {
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts, fixed_srcs + var_srcs);
     uint i;
-    va_start(ap, var_srcs);
+    va_start(ap, var_ord);
     for (i = 0; i < fixed_dsts; i++)
         instr_set_dst(in, i, va_arg(ap, opnd_t));
-    for (i = 0; i < fixed_srcs; i++)
+    for (i = 0; i < MIN(var_ord, fixed_srcs); i++)
         instr_set_src(in, i, va_arg(ap, opnd_t));
+    for (i = var_ord; i < fixed_srcs; i++)
+        instr_set_src(in, var_srcs + i, va_arg(ap, opnd_t));
     for (i = 0; i < var_srcs; i++)
-        instr_set_src(in, fixed_srcs + i, va_arg(ap, opnd_t));
+        instr_set_src(in, var_ord + i, va_arg(ap, opnd_t));
     va_end(ap);
     return in;
 }
 
 instr_t *
 instr_create_Ndst_Msrc_vardst(dcontext_t *dcontext, int opcode, uint fixed_dsts,
-                              uint fixed_srcs, uint var_dsts, ...)
+                              uint fixed_srcs, uint var_dsts, uint var_ord, ...)
 {
     va_list ap;
     instr_t *in = instr_build(dcontext, opcode, fixed_dsts + var_dsts, fixed_srcs);
     uint i;
-    va_start(ap, var_dsts);
-    for (i = 0; i < fixed_dsts; i++)
+    va_start(ap, var_ord);
+    for (i = 0; i < MIN(var_ord, fixed_dsts); i++)
         instr_set_dst(in, i, va_arg(ap, opnd_t));
+    for (i = var_ord; i < fixed_dsts; i++)
+        instr_set_dst(in, var_dsts + i, va_arg(ap, opnd_t));
     for (i = 0; i < fixed_srcs; i++)
         instr_set_src(in, i, va_arg(ap, opnd_t));
     for (i = 0; i < var_dsts; i++)
-        instr_set_dst(in, fixed_dsts + i, va_arg(ap, opnd_t));
+        instr_set_dst(in, var_ord + i, va_arg(ap, opnd_t));
     va_end(ap);
     return in;
 }
