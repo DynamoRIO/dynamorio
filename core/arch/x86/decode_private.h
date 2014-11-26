@@ -413,6 +413,7 @@ enum {
                                   * 3 * regular size for 32-bit, 5 * regular
                                   * size for 64-bit */
     /* when adding new types, update type_names[] in encode.c */
+    TYPE_BEYOND_LAST_ENUM,
 };
 
 #define MODRM_BYTE(mod, reg, rm) ((byte) (((mod) << 6) | ((reg) << 3) | (rm)))

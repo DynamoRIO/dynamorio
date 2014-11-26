@@ -1136,6 +1136,135 @@ optype_is_indir_reg(int optype)
     return false;
 }
 
+bool
+optype_is_reg(int optype)
+{
+    switch (optype) {
+    case TYPE_R_A:
+    case TYPE_R_B:
+    case TYPE_R_C:
+    case TYPE_R_D:
+    case TYPE_R_A_TOP:
+    case TYPE_R_B_TOP:
+    case TYPE_R_C_TOP:
+    case TYPE_R_D_TOP:
+    case TYPE_R_D_NEGATED:
+    case TYPE_R_B_EVEN:
+    case TYPE_R_B_PLUS1:
+    case TYPE_R_D_EVEN:
+    case TYPE_R_D_PLUS1:
+    case TYPE_CR_A:
+    case TYPE_CR_B:
+    case TYPE_CR_C:
+    case TYPE_CR_D:
+    case TYPE_V_A:
+    case TYPE_V_B:
+    case TYPE_V_C:
+    case TYPE_V_C_3b:
+    case TYPE_V_C_4b:
+    case TYPE_W_A:
+    case TYPE_W_B:
+    case TYPE_W_C:
+    case TYPE_W_C_PLUS1:
+    case TYPE_SPSR:
+    case TYPE_CPSR:
+    case TYPE_FPSCR:
+    case TYPE_LR:
+    case TYPE_SP:
+        return true;
+    }
+    return false;
+}
+
+#ifdef DEBUG
+# ifndef STANDALONE_DECODER
+static bool
+optype_is_reglist(int optype)
+{
+    switch (optype) {
+    case TYPE_L_8b:
+    case TYPE_L_13b:
+    case TYPE_L_16b:
+    case TYPE_L_CONSEC:
+    case TYPE_L_VBx2:
+    case TYPE_L_VBx3:
+    case TYPE_L_VBx4:
+    case TYPE_L_VBx2D:
+    case TYPE_L_VBx3D:
+    case TYPE_L_VBx4D:
+        return true;
+    }
+    return false;
+}
+
+static void
+decode_check_opnds(int optype[], uint num_types)
+{
+    /* Ensure at most 1 reglist, and at most 1 reg after a reglist */
+    uint i, num_reglist = 0, reglist_idx;
+    bool post_reglist = false;
+    for (i = 0; i < num_types; i++) {
+        if (optype_is_reglist(optype[i])) {
+            num_reglist++;
+            reglist_idx = i;
+            post_reglist = true;
+        } else if (post_reglist) {
+            if (optype_is_reg(optype[i]))
+                ASSERT(reglist_idx == i - 1);
+            else
+                post_reglist = false;
+        }
+    }
+    ASSERT(num_reglist <= 1);
+}
+# endif /* STANDALONE_DECODER */
+
+void
+decode_debug_checks_arch(void)
+{
+#   define MAX_TYPES 8
+    DOCHECK(2, {
+        uint opc;
+        for (opc = OP_FIRST; opc < OP_AFTER_LAST; opc++) {
+            const instr_info_t *info = opcode_to_encoding_info(opc, DR_ISA_ARM_A32);
+            while (info != NULL && info != &invalid_instr && info->type != OP_CONTD) {
+                const instr_info_t *ops = info;
+                uint num_srcs = 0;
+                uint num_dsts = 0;
+                /* XXX: perhaps we should make an iterator and use it everywhere.
+                 * For now, for simplicity here we use two passes.
+                 */
+                int src_type[MAX_TYPES];
+                int dst_type[MAX_TYPES];
+                while (ops != NULL) {
+                    dst_type[num_dsts++] = ops->dst1_type;
+                    if (TEST(DECODE_4_SRCS, ops->flags))
+                        src_type[num_srcs++] = ops->dst2_type;
+                    else
+                        dst_type[num_dsts++] = ops->dst2_type;
+                    if (TEST(DECODE_3_DSTS, ops->flags))
+                        dst_type[num_dsts++] = ops->src1_type;
+                    else
+                        src_type[num_srcs++] = ops->src1_type;
+                    src_type[num_srcs++] = ops->src2_type;
+                    src_type[num_srcs++] = ops->src3_type;
+                    ops = instr_info_extra_opnds(ops);
+                }
+                ASSERT(num_dsts <= MAX_TYPES);
+                ASSERT(num_srcs <= MAX_TYPES);
+
+                /* Sanity-check encoding chain */
+                ASSERT(info->type == opc);
+
+                decode_check_opnds(dst_type, num_dsts);
+                decode_check_opnds(src_type, num_srcs);
+
+                info = get_next_instr_info(info);
+            }
+        }
+    });
+}
+#endif
 
 #ifdef DECODE_UNIT_TEST
 /* FIXME i#1551: add unit tests here.  How divide vs suite/tests/api/ tests? */

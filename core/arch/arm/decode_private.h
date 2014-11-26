@@ -122,6 +122,9 @@ struct _decode_info_t {
     byte *final_pc;
     byte *orig_pc;
 
+    /* For decoding reglists.  Max 1 reglist per template (we check this in
+     * decode_debug_checks_arch()).
+     */
     size_t reglist_sz;
 
     /* For instr_t* target encoding */
@@ -285,8 +288,11 @@ enum {
 
     TYPE_K,    /* integer constant, size ignored, value stored in size */
 
-   /* when adding new types, update type_names[] in encode.c */
+    /* when adding new types, update type_names[] in encode.c */
+    TYPE_BEYOND_LAST_ENUM,
 
+
+    /* Non-incremental-enum valus */
     DECODE_INDEX_SHIFT_TYPE_BITPOS   = 5,
     DECODE_INDEX_SHIFT_TYPE_SIZE     = OPSZ_2b,
     DECODE_INDEX_SHIFT_AMOUNT_BITPOS = 7,
@@ -345,5 +351,7 @@ resolve_size_upward(opnd_size_t size);
 opnd_size_t
 resolve_size_downward(opnd_size_t size);
 
+bool
+optype_is_reg(int optype);
 
 #endif /* DECODE_PRIVATE_H */

@@ -2166,6 +2166,14 @@ opcode_to_encoding_info(uint opc, dr_isa_mode_t isa_mode)
     return op_instr[opc];
 }
 
+#ifdef DEBUG
+void
+decode_debug_checks_arch(void)
+{
+    /* empty */
+}
+#endif
+
 #ifdef DECODE_UNIT_TEST
 # include "instr_create.h"
 

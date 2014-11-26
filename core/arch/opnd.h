@@ -1620,11 +1620,6 @@ opnd_get_reg_used(opnd_t opnd, int index);
 
 /* utility functions */
 
-#ifdef DEBUG
-void
-reg_check_reg_fixer(void);
-#endif
-
 DR_API
 /**
  * Assumes that \p reg is a DR_REG_ 32-bit register constant.

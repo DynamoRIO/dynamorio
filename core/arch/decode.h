@@ -560,6 +560,11 @@ get_x86_mode(dcontext_t *dcontext);
 #endif
 /* DR_API EXPORT END */
 
+#ifdef DEBUG
+void
+decode_debug_checks(void);
+#endif
+
 /* for debugging: printing out types and sizes */
 extern const char * const type_names[];
 extern const char * const size_names[];

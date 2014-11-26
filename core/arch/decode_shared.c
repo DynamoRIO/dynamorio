@@ -54,6 +54,12 @@
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
 
+/* Arch-specific routines */
+#ifdef DEBUG
+void encode_debug_checks(void);
+void decode_debug_checks_arch(void);
+#endif
+
 const char * const size_names[] = {
 #ifdef X86
     "<invalid>"/* was <NULL> */,
@@ -270,3 +276,14 @@ dr_get_isa_mode(dcontext_t *dcontext)
     } else
         return dcontext->isa_mode;
 }
+
+#ifdef DEBUG
+void
+decode_debug_checks(void)
+{
+    CLIENT_ASSERT(sizeof(size_names)/sizeof(size_names[0]) == OPSZ_LAST_ENUM,
+                  "size_names missing an entry");
+    encode_debug_checks();
+    decode_debug_checks_arch();
+}
+#endif
