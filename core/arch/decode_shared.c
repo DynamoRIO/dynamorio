@@ -182,6 +182,8 @@ const char * const size_names[] = {
     "OPSZ_4b",
     "OPSZ_5b",
     "OPSZ_6b",
+    "OPSZ_7b",
+    "OPSZ_9b",
     "OPSZ_12b",
     "OPSZ_25b",
     "OPSZ_VAR_REGLIST",

@@ -195,7 +195,7 @@ opnd_size_suffix_dr(opnd_t opnd)
     case 24: return "24byte";
     case 28: return "28byte";
     case 32: return "32byte";
-    case 36: return "32byte";
+    case 36: return "36byte";
     case 40: return "40byte";
     case 44: return "44byte";
     case 48: return "48byte";
@@ -281,8 +281,12 @@ opnd_base_disp_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
             if (IF_X64_ELSE(disp < 0, (disp & 0xff000000) == 0xff000000)) {
                 disp = -disp;
                 print_to_buffer(buf, bufsz, sofar, "-");
-            } else if (base != REG_NULL || index != REG_NULL)
-                print_to_buffer(buf, bufsz, sofar, "+");
+            } else if (base != REG_NULL || index != REG_NULL) {
+                if (TEST(DR_OPND_NEGATED, opnd_get_flags(opnd)))
+                    print_to_buffer(buf, bufsz, sofar, "-");
+                else
+                    print_to_buffer(buf, bufsz, sofar, "+");
+            }
         }
         if (disp >= INT8_MIN && disp <= INT8_MAX &&
             !opnd_is_disp_force_full(opnd))

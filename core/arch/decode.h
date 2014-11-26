@@ -281,6 +281,8 @@ enum {
     OPSZ_4b,   /**< 4 bits */
     OPSZ_5b,   /**< 5 bits */
     OPSZ_6b,   /**< 6 bits */
+    OPSZ_7b,   /**< 7 bits */
+    OPSZ_9b,   /**< 9 bits */
     OPSZ_12b,  /**< 12 bits */
     OPSZ_25b,  /**< 25 bits */
     /**

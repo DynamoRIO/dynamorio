@@ -438,7 +438,7 @@ opnd_set_disp_helper(opnd_t *opnd, int disp)
         opnd->value.base_disp.disp = disp;
     }, {
         if (disp < 0) {
-            opnd->aux.flags |= DR_OPND_SHIFTED;
+            opnd->aux.flags |= DR_OPND_NEGATED;
             opnd->value.base_disp.disp = -disp;
         } else
             opnd->value.base_disp.disp = disp;
@@ -1229,13 +1229,15 @@ opnd_size_in_bytes(opnd_size_t size)
     case OPSZ_4b:
     case OPSZ_5b:
     case OPSZ_6b:
+    case OPSZ_7b:
         return 1;
     case OPSZ_2_of_8:
     case OPSZ_2_of_16:
     case OPSZ_2_short1: /* default size */
     case OPSZ_2:
     case OPSZ_2_reg4: /* mem size */
-    case OPSZ_12b: /* round up */
+    case OPSZ_9b: /* round up */
+    case OPSZ_12b:
         return 2;
     case OPSZ_3:
         return 3;
@@ -1345,6 +1347,8 @@ opnd_size_in_bits(opnd_size_t size)
     case OPSZ_4b:  return 4;
     case OPSZ_5b:  return 5;
     case OPSZ_6b:  return 6;
+    case OPSZ_7b:  return 7;
+    case OPSZ_9b:  return 9;
     case OPSZ_12b: return 12;
     case OPSZ_25b: return 25;
     default:       return opnd_size_in_bytes(size) * 8;

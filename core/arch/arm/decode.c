@@ -261,6 +261,34 @@ decode_index_shift(decode_info_t *di, uint *amount OUT)
     }
 }
 
+static void
+decode_update_mem_for_reglist(decode_info_t *di)
+{
+    if (di->mem_needs_reglist_sz != NULL) {
+        opnd_set_size(di->mem_needs_reglist_sz, opnd_size_from_bytes(di->reglist_sz));
+        if (di->mem_adjust_disp_for_reglist) {
+            opnd_set_disp(di->mem_needs_reglist_sz,
+                          opnd_get_disp(*di->mem_needs_reglist_sz) - di->reglist_sz);
+        }
+    }
+}
+
+static opnd_size_t
+decode_mem_reglist_size(decode_info_t *di, opnd_t *memop,
+                        opnd_size_t opsize, bool adjust_disp)
+{
+    if (opsize == OPSZ_VAR_REGLIST) {
+        if (di->reglist_sz == -1) {
+            /* Have not yet seen the reglist opnd yet */
+            di->mem_needs_reglist_sz = memop;
+            di->mem_adjust_disp_for_reglist = adjust_disp;
+            return OPSZ_0;
+        } else
+            return opnd_size_from_bytes(di->reglist_sz);
+    }
+    return opsize;
+}
+
 static bool
 decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array,
                uint *counter INOUT)
@@ -397,8 +425,8 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                 di->reglist_sz += opnd_size_in_bytes(downsz);
             }
         }
-        if (di->mem_needs_reglist_sz != NULL)
-            opnd_set_size(di->mem_needs_reglist_sz, opnd_size_from_bytes(di->reglist_sz));
+        /* These 3 var-size reg lists need to update a corresponding mem opnd */
+        decode_update_mem_for_reglist(di);
         return true;
     }
     case TYPE_L_CONSEC:
@@ -634,15 +662,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
 
     /* Memory */
+    /* Only some types are ever used with register lists. */
     case TYPE_M:
-        if (opsize == OPSZ_VAR_REGLIST) {
-            if (di->reglist_sz == -1) {
-                /* Have not yet seen the reglist opnd yet */
-                di->mem_needs_reglist_sz = &array[*counter];
-                opsize = OPSZ_0;
-            } else
-                opsize = opnd_size_from_bytes(di->reglist_sz);
-        }
+        opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
         array[(*counter)++] =
             opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
         return true;
@@ -658,19 +680,86 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
                                   -decode_immed(di, 0, OPSZ_12b, false/*unsigned*/),
                                   opsize);
         return true;
+    case TYPE_M_POS_REG:
+    case TYPE_M_NEG_REG:
+        array[(*counter)++] =
+            opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), DR_SHIFT_NONE, 0,
+                                      0, optype == TYPE_M_NEG_REG ?
+                                      DR_OPND_NEGATED : 0, opsize);
+        return true;
     case TYPE_M_POS_SHREG:
     case TYPE_M_NEG_SHREG: {
         uint amount;
         dr_shift_type_t shift = decode_index_shift(di, &amount);
-        array[*counter] =
+        array[(*counter)++] =
             opnd_create_base_disp_arm(decode_regA(di), decode_regD(di), shift, amount,
                                       0, optype == TYPE_M_NEG_SHREG ?
                                       DR_OPND_NEGATED : 0, opsize);
-        (*counter)++;
         return true;
     }
+    case TYPE_M_SI9:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  /* 9-bit signed immed @ 20:12 */
+                                  decode_immed(di, 12, OPSZ_9b, true/*signed*/),
+                                  opsize);
+        return true;
+    case TYPE_M_SI7:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  decode_immed(di, 0, OPSZ_7b, true/*signed*/),
+                                  opsize);
+        return true;
+    case TYPE_M_POS_I8:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_NEG_I8:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  -4*decode_immed(di, 0, OPSZ_1, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_POS_I4_4: {
+        ptr_int_t val =
+            (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4) |
+            decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, val, opsize);
+        return true;
+    }
+    case TYPE_M_NEG_I4_4: {
+        ptr_int_t val =
+            (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4) |
+            decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -val, opsize);
+        return true;
+    }
+    case TYPE_M_POS_I5:
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0,
+                                  decode_immed(di, 0, OPSZ_5b, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_M_UP_OFFS:
+        opsize = decode_mem_reglist_size(di, &array[*counter], opsize, false/*just sz*/);
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, sizeof(void*), opsize);
+        return true;
+    case TYPE_M_DOWN:
+        opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, 0, opsize);
+        return true;
+    case TYPE_M_DOWN_OFFS:
+        opsize = decode_mem_reglist_size(di, &array[*counter], opsize, true/*disp*/);
+        array[(*counter)++] =
+            opnd_create_base_disp(decode_regA(di), REG_NULL, 0, -sizeof(void*), opsize);
+        return true;
 
-    /* FIXME i#1551: add decoding of the other operand type */
     default:
         array[(*counter)++] = opnd_create_null();
         /* ok to assert, types coming only from instr_info_t */

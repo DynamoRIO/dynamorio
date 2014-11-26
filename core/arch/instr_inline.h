@@ -227,10 +227,17 @@ opnd_create_pc(app_pc pc)
      (opnd).value.reg)
 #define opnd_get_reg OPND_GET_REG
 
-#define OPND_GET_FLAGS(opnd) \
+#ifdef X86
+# define OPND_GET_FLAGS(opnd) \
+    (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
+     "opnd_get_flags called on non-reg non-base-disp opnd") \
+     0)
+#elif defined(ARM)
+# define OPND_GET_FLAGS(opnd) \
     (CLIENT_ASSERT_(opnd_is_reg(opnd) || opnd_is_base_disp(opnd), \
      "opnd_get_flags called on non-reg non-base-disp opnd") \
      (opnd).aux.flags)
+#endif
 #define opnd_get_flags OPND_GET_FLAGS
 
 #define GET_BASE_DISP(opnd) \

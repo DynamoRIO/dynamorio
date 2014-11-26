@@ -128,6 +128,7 @@ struct _decode_info_t {
      */
     int reglist_sz;
     opnd_t *mem_needs_reglist_sz;
+    bool mem_adjust_disp_for_reglist;
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;
