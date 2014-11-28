@@ -1,0 +1,5 @@
+i#<number> <issue-brief>: <commit-brief>
+
+<commit-details>
+
+Fixes #<number>
