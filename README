@@ -95,7 +95,7 @@ Instructions for building:
 If you are building from source, please see the DynamoRIO wiki for
 information on the required tools on both Windows and Linux:
 
-http://code.google.com/p/dynamorio/wiki/HowToBuild
+https://github.com/DynamoRIO/dynamorio/wiki/How-To-Build
 
 ************************************************************
 Getting help and reporting bugs:
@@ -106,6 +106,6 @@ Query the DynamoRIO users group mailing list/discussion forum:
 
 Use the Issue Tracker:
 
-  http://code.google.com/p/dynamorio/issues/list
+  http://dynamorio.org/issues
 
 ************************************************************
