@@ -1734,9 +1734,9 @@ href="http://groups.google.com/group/dynamorio-users/">DynamoRIO Users
 group</a>.
 
 For bug reports, use the <a
-href="http://code.google.com/p/dynamorio/issues/list">Issue Tracker</a>.
+href="https://github.com/DynamoRIO/dynamorio/issues">Issue Tracker</a>.
 Please include <a
-href="http://code.google.com/p/dynamorio/wiki/BugReporting">a detailed
+href="https://github.com/DynamoRIO/dynamorio/wiki/Bug-Reporting">a detailed
 description</a> of the problem (is it an application crash?  a DynamoRIO
 crash?  a hang?  a debug build assert?) and how to reproduce it.
 
@@ -1828,7 +1828,7 @@ the debugger get copied into the code cache.  This includes internal
 debugger breakpoints automatically placed in the loader, as well as
 user-defined breakpoints.  For example, gdb puts a breakpoint on
 __nptl_create_event, which is called by pthread_create and related
-calls.  See http://code.google.com/p/dynamorio/issues/detail?id=490.
+calls.  See https://github.com/DynamoRIO/dynamorio/issues/490.
 The debugger will handle these traps, but the user must tell it to
 continue, which is an annoyance.  For user breakpoints, consider using
 read watchpoints on the code in question instead.
@@ -1837,7 +1837,7 @@ On Windows, if an application invokes OutputDebugString() while under a
 debugger, DynamoRIO can end up losing control of the application.
 
 For additional tips, check the DynamoRIO wiki page on debugging:
-https://code.google.com/p/dynamorio/wiki/Debugging
+https://github.com/DynamoRIO/dynamorio/wiki/Debugging
 
 \endif
 

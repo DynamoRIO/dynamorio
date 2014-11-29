@@ -10111,7 +10111,7 @@ vm_area_coarse_region_freeze(dcontext_t *dcontext, coarse_info_t *info,
                 }
                 /* for !in_place we free premerge after persisting, so clients don't
                  * get deletion events that remove data from hashtables too early
-                 * (xref http://code.google.com/p/drmemory/issues/detail?id=869)
+                 * (xref https://github.com/DynamoRIO/drmemory/issues/869)
                  */
                 if (in_place) {
                     coarse_unit_reset_free(dcontext, frozen_info, false/*no locks*/,
