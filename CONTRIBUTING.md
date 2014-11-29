@@ -61,6 +61,22 @@ appropriately)?
 Please provide any additional information below.
 ```
 
+### Including code in issues
+
+The text in an issue is interpreted as Markdown.  To include any kind of
+raw output or code that contains Markdown symbols, place it between lines
+that consist solely of three backtics:
+<pre>
+```
+put code here
+```
+</pre>
+
+### Attaching images or files to issues
+
+Place the attachment on Google Drive or some other location and include a
+link to it in the issue text.
+
 ## Filing feature requests
 
 Before filing a feature request, check the documentation to ensure it is
