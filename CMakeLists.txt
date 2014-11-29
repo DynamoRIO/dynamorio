@@ -376,11 +376,12 @@ endforeach ()
 ##################################################
 # resources when packaging
 
-# i#83: use svn revision of last commit as patchlevel ver# to distinguish
+# We use a monotonically increasing integer that's larger than any bugfix
+# release version as the patchlevel ver# to distinguish
 # mid-release builds.
-# XXX: if we later switch to a non-linear version control system we'll
-# want to switch to a date or something, but be aware of timezone issues
-# so we may want a cron job that updates an official date in the sources.
+# We used to use the svn revision (i#83) and we leave that code in place
+# (for now at least) for anyone building an old checkout.
+# For git, we follow i#1565 and use a date.
 set(VERSION_NUMBER_PATCHLEVEL 0)
 # for now using a hack of running svn or git to get the ver#,
 # rather than having it stored in the sources and auto-updated
@@ -415,18 +416,24 @@ else (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
   if (EXISTS "${PROJECT_SOURCE_DIR}/.git")
     find_program(GIT git DOC "git client")
     if (GIT)
-      execute_process(COMMAND ${GIT} log
+      # We want the committer date (not author date) (xref i#1565).  We request UNIX
+      # timestamp format and then divide down to days to get a small enough number
+      # for the Windows resource limits.
+      #
+      # XXX i#1565: to support building when not in a git repo (e.g., from a source
+      # tarball) we should add support for a local file holding the version.
+      execute_process(COMMAND ${GIT} log -n 1 --format=%ct
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         RESULT_VARIABLE git_result
         ERROR_VARIABLE git_err
         OUTPUT_VARIABLE git_out)
       if (git_result OR git_err)
-        message(FATAL_ERROR "*** ${GIT} show failed: ***\n${git_err}")
+        message(FATAL_ERROR "*** ${GIT} log failed: ***\n${git_err}")
       endif (git_result OR git_err)
-      # look for first commit with git-svn-id
-      string(REGEX MATCH "git-svn-id: http[^@]*@[0-9]+" git_out "${git_out}")
-      string(REGEX REPLACE "git-svn-id: http[^@]*@" "" git_out "${git_out}")
-      set(VERSION_NUMBER_PATCHLEVEL "${git_out}")
+      math(EXPR daycount "${git_out} / (60*60*24)")
+      if (daycount)
+        set(VERSION_NUMBER_PATCHLEVEL "${daycount}")
+      endif ()
     endif (GIT)
   endif (EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif (EXISTS "${PROJECT_SOURCE_DIR}/.svn")
