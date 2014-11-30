@@ -1073,6 +1073,7 @@ int tolower(int c);
 #endif
 
 #if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+#  undef printf
 #  define printf   printf_forbidden_function
 #  undef sprintf /* defined on macos */
 #  define sprintf  sprintf_forbidden_function
