@@ -192,7 +192,7 @@ if (arg_nightly)
   # We assume a manual check out was done, and that CTest can just do "update".
   # If we want a fresh checkout we can set CTEST_BACKUP_AND_RESTORE
   # and CTEST_CHECKOUT_COMMAND but the update should be fine.
-  find_program(CTEST_UPDATE_COMMAND svn DOC "source code update command")
+  find_program(CTEST_UPDATE_COMMAND git DOC "source code update command")
 
   set(SUITE_TYPE Nightly)
   set(DO_UPDATE ON)
