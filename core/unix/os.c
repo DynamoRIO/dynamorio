@@ -560,7 +560,7 @@ our_unsetenv(const char *name)
 /* i#46: Private getenv.
  */
 char *
-getenv(const char *name)
+our_getenv(const char *name)
 {
     char **ep = our_environ;
     size_t i;

@@ -138,7 +138,11 @@ void set_libc_errno(int val);
 /* i#46: Our env manipulation routines. */
 extern char **our_environ;
 void dynamorio_set_envp(char **envp);
-char *getenv(const char *name);
+#if !defined(NOT_DYNAMORIO_CORE_PROPER) && !defined(NOT_DYNAMORIO_CORE)
+/* drinjectlib wants the libc version while the core wants the private version */
+# define getenv our_getenv
+#endif
+char *our_getenv(const char *name);
 
 /* to avoid unsetenv problems we have our own unsetenv */
 #define unsetenv our_unsetenv
