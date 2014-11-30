@@ -8508,13 +8508,13 @@ os_check_option_compatibility(void)
 }
 
 #ifndef X64
+# ifdef X86
 /* Emulate uint64 modulo and division by uint32 on ia32.
  * XXX: Does *not* handle 64-bit divisors!
  */
 static uint64
 uint64_divmod(uint64 dividend, uint64 divisor64, uint32 *remainder)
 {
-# ifdef X86
     /* Assumes little endian, which x86 is. */
     union {
         uint64 v64;
@@ -8554,10 +8554,6 @@ uint64_divmod(uint64 dividend, uint64 divisor64, uint32 *remainder)
     asm ("divl %2" : "=a" (res.lo), "=d" (*remainder) :
          "rm" (divisor), "0" (res.lo), "1" (upper));
     return res.v64;
-# elif defined(ARM)
-    ASSERT_NOT_IMPLEMENTED(false);
-    return 0;
-# endif /* X86/ARM */
 }
 
 /* Match libgcc's prototype. */
@@ -8576,6 +8572,12 @@ __umoddi3(uint64 dividend, uint64 divisor)
     uint64_divmod(dividend, divisor, &remainder);
     return (uint64) remainder;
 }
+# elif defined (ARM)
+/* FIXME i#1566: there is no div instruction on most ARM arch including ARMv7a.
+ * Also, if we want to avoid libgcc_s dependency, we may also need implement
+ * routines like __aeabi_uldivmod, __aeabi_ldiv0, etc..
+ */
+# endif /* X86 */
 #endif /* !X64 */
 
 #endif /* !NOT_DYNAMORIO_CORE_PROPER: around most of file, to exclude preload */
@@ -8585,7 +8587,7 @@ __umoddi3(uint64 dividend, uint64 divisor)
 void
 test_uint64_divmod(void)
 {
-#ifndef X64
+#ifdef X86_32
     uint64 quotient;
     uint32 remainder;
 
@@ -8619,7 +8621,7 @@ test_uint64_divmod(void)
     quotient = (45ULL << 32) + 13;
     remainder = quotient % 15;
     EXPECT(remainder == 13, true);
-#endif /* !X64 */
+#endif /* X86_32 */
 }
 
 void
