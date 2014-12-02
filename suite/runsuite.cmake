@@ -97,15 +97,24 @@ else ()
       if (git_result OR git_err)
         if (git_err MATCHES "unknown revision")
           # It may be a cloned branch
-          execute_process(COMMAND ${GIT} diff remotes/origin/master
+          execute_process(COMMAND ${GIT} remote -v
             WORKING_DIRECTORY "${CTEST_SOURCE_DIRECTORY}"
             RESULT_VARIABLE git_result
             ERROR_VARIABLE git_err
-            OUTPUT_VARIABLE diff_contents)
+            OUTPUT_VARIABLE git_out)
         endif ()
         if (git_result OR git_err)
-          message(FATAL_ERROR "*** ${GIT} diff failed: ***\n${git_err}")
+          message(FATAL_ERROR "*** ${GIT} remote -v failed: ***\n${git_err}")
         endif (git_result OR git_err)
+        if (NOT git_out)
+          # No remotes set up: we assume this is a custom git setup that
+          # is only likely to get used on our buildbots, so we skip
+          # the diff checks.
+          message("No remotes set up so cannot diff and must skip content checks.  Assuming this is a buildbot.")
+          set(diff_contents "")
+        else ()
+          message(FATAL_ERROR "*** Unable to retrieve diff for content checks: do you have a custom remote setup?")
+        endif ()
       endif (git_result OR git_err)
     endif (GIT)
   endif (EXISTS "${CTEST_SOURCE_DIRECTORY}/.git")
