@@ -47,6 +47,7 @@ git config alias.newbranch "!sh -c \"git checkout --track -b \$1 origin/master\"
 # For symmetry with Dr. Memory even though we have no submodules:
 git config alias.pullall "pull --rebase"
 git config alias.dcommit "push origin HEAD:master"
+git config alias.split "!sh -c \"git checkout -b \$1 \$2 && git branch --set-upstream-to=origin/master \$1\""
 
 # Commit template
 git config commit.template make/git/commit-template.txt
