@@ -391,6 +391,75 @@ reg_simd_start(reg_id_t reg)
     return DR_REG_NULL;
 }
 
+/* 0 stride means no stride */
+static bool
+encode_reglist_ok(decode_info_t *di, opnd_size_t size_temp, instr_t *in,
+                  bool is_dst, uint *counter INOUT, uint max_num,
+                  bool is_simd, uint stride, uint prior)
+{
+    opnd_size_t size_temp_up = resolve_size_upward(size_temp);
+    uint i;
+    opnd_t opnd;
+    opnd_size_t size_op;
+    reg_id_t reg, last_reg = DR_REG_NULL;
+    /* Undo what encode_opnd_ok already did */
+    (*counter)--;
+    /* We rule out more than one reglist per template in decode_debug_checks_arch() */
+    di->reglist_start = *counter;
+    for (i = 0; i < max_num; i++) {
+        uint opnum = *counter;
+        if (is_dst) {
+            if (opnum >= instr_num_dsts(in))
+                break;
+            opnd = instr_get_dst(in, opnum);
+        } else {
+            if (opnum >= instr_num_srcs(in))
+                break;
+            opnd = instr_get_src(in, opnum);
+        }
+        size_op = opnd_get_size(opnd);
+        if (!opnd_is_reg(opnd))
+            break;
+        reg = opnd_get_reg(opnd);
+        if (i > 0 && stride > 0 && reg != last_reg + stride)
+            break;
+        if (is_simd ? !reg_is_simd(reg) : !reg_is_gpr(reg))
+            break;
+        if (!(size_op == size_temp || size_op == size_temp_up))
+            break;
+        last_reg = reg;
+        (*counter)++;
+    }
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist_stop: %d\n", *counter);
+    di->reglist_stop = *counter;
+    /* Due to possible rollback of greedy reglists we can't compare to the
+     * memory size here so we check later.
+     */
+    di->reglist_sz = (prior + di->reglist_stop - di->reglist_start) *
+        /* Be sure to use the sub-reg size from the template */
+        opnd_size_in_bytes(size_temp);
+    return true;
+}
+
+static bool
+check_reglist_size(decode_info_t *di)
+{
+    /* Rollback of greedy reglists means we can't check reglist sizes until the end */
+    if (di->memop_sz == OPSZ_VAR_REGLIST && di->reglist_sz == 0) {
+        di->errmsg = "No register list found to match memory operand size";
+        return false;
+    } else if (di->reglist_sz > 0 && di->memop_sz != OPSZ_NA &&
+        di->reglist_sz != opnd_size_in_bytes(di->memop_sz) &&
+        di->memop_sz != OPSZ_VAR_REGLIST) {
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  check reglist=%d memop=%s(%d)\n",
+            di->reglist_sz, size_names[di->memop_sz], opnd_size_in_bytes(di->memop_sz));
+        di->errmsg = "Register list size %d bytes does not match memory operand size";
+        di->errmsg_param = di->reglist_sz;
+        return false;
+    }
+    return true;
+}
+
 static bool
 encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
                bool is_dst, uint *counter INOUT)
@@ -399,6 +468,23 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     opnd_t opnd;
     opnd_size_t size_temp_up = resolve_size_upward(size_temp);
     opnd_size_t size_op, size_op_up;
+
+    /* Roll back greedy reglist if necessary */
+    if (di->reglist_stop > 0 && optype_is_reg(optype) &&
+        di->reglist_stop - 1 > di->reglist_start && di->reglist_stop == opnum) {
+        if ((is_dst &&
+             (opnum >= instr_num_dsts(in) || !opnd_is_reg(instr_get_dst(in, opnum)))) ||
+            (!is_dst &&
+             (opnum >= instr_num_srcs(in) || !opnd_is_reg(instr_get_src(in, opnum))))) {
+            LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  reglist rollback from %d-%d\n",
+                di->reglist_start, di->reglist_stop);
+            CLIENT_ASSERT(*counter > 1, "non-empty reglist plus inc here -> >= 2");
+            di->reglist_stop--;
+            (*counter)--;
+            opnum--;
+        }
+    }
+
     if (optype == TYPE_NONE) {
         return (is_dst ? (instr_num_dsts(in) < opnum) : (instr_num_srcs(in) < opnum));
     } else if (is_dst) {
@@ -411,18 +497,15 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         opnd = instr_get_src(in, opnum);
     }
 
+    DOLOG(1, LOG_EMIT, {
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  %s_ok %s %d %-15s ", __FUNCTION__,
+            is_dst ? "dst" : "src", *counter - 1, type_names[optype]);
+        opnd_disassemble(GLOBAL_DCONTEXT, opnd, THREAD_GET);
+        LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "\n");
+    });
+
     size_op = opnd_get_size(opnd);
     size_op_up = resolve_size_upward(size_op);
-
-    /* Roll back greedy reglist if necessary */
-    if (optype_is_reg(optype) && !opnd_is_reg(opnd) && di->reglist_start > 0 &&
-        di->reglist_stop - 1 > di->reglist_start && di->reglist_stop == opnum) {
-        CLIENT_ASSERT(*counter > 1, "non-empty reglist plus inc here -> >= 2");
-        di->reglist_stop--;
-        (*counter)--;
-        opnum--;
-        opnd = (is_dst) ? instr_get_dst(in, opnum) : instr_get_src(in, opnum);
-    }
 
     switch (optype) {
 
@@ -514,31 +597,77 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
          * wrong-order-vs-asm for OP_vtbl and others).
          */
         uint max_num = (optype == TYPE_L_8b ? 8 : (optype == TYPE_L_13b ? 13 : 16));
-        uint i;
-        /* We also rule out more than one reglist per template */
-        di->reglist_start = *counter;
-        for (i = 0; i < max_num; i++) {
-            uint opnum = *counter;
-            if (is_dst) {
-                if (opnum >= instr_num_dsts(in))
-                    break;
-                opnd = instr_get_dst(in, opnum);
-            } else {
-                if (opnum >= instr_num_srcs(in))
-                    break;
-                opnd = instr_get_src(in, opnum);
-            }
-            if (!(opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
-                  (size_op == size_temp || size_op == size_temp_up)))
-                break;
-            (*counter)++;
-        }
-        di->reglist_stop = *counter;
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, false/*gpr*/,
+                               0/*no restrictions*/, 0))
+            return false;
         /* We refuse to encode as an empty list ("unpredictable", and harder to ensure
          * encoding templates are distinguishable)
          */
         return (di->reglist_stop > di->reglist_start);
     }
+    case TYPE_L_CONSEC: {
+        uint max_num = 32; /* # of simd regs */
+        opnd_t prior;
+        if (opnum == 0)
+            return false;
+        if (is_dst)
+            prior = instr_get_dst(in, opnum - 1);
+        else
+            prior = instr_get_src(in, opnum - 1);
+        if (!opnd_is_reg(prior) || !reg_is_simd(opnd_get_reg(prior)))
+            return false;
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, max_num, true/*simd*/,
+                               1/*consec*/, 0))
+            return false;
+        /* We have to allow an empty list b/c the template has the 1st entry */
+        return true;
+    }
+    case TYPE_L_VAx2:
+    case TYPE_L_VBx2:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
+                               1/*consec*/, 1/*prior entry*/))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+    case TYPE_L_VAx3:
+    case TYPE_L_VBx3:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
+                               1/*consec*/, 0))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+    case TYPE_L_VAx4:
+    case TYPE_L_VBx4:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
+                               1/*consec*/, 0))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+
+    case TYPE_L_VBx2D:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 2, true/*simd*/,
+                               2/*doubly-spaced*/, 0))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+    case TYPE_L_VBx3D:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 3, true/*simd*/,
+                               2/*doubly-spaced*/, 0))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+    case TYPE_L_VBx4D:
+        if (!encode_reglist_ok(di, size_temp, in, is_dst, counter, 4, true/*simd*/,
+                               2/*doubly-spaced*/, 0))
+            return false;
+        return (di->reglist_stop > di->reglist_start);
+
+    /* Memory */
+    /* Only some types are ever used with register lists. */
+    case TYPE_M:
+        di->memop_sz = size_op;
+        return (opnd_is_base_disp(opnd) &&
+                opnd_get_base(opnd) != REG_NULL &&
+                opnd_get_index(opnd) == REG_NULL &&
+                opnd_get_index_shift(opnd, NULL) == DR_SHIFT_NONE &&
+                opnd_get_disp(opnd) == 0 &&
+                /* We check for OPSZ_VAR_REGLIST but no reglist in check_reglist_size() */
+                (size_op == size_temp || size_op == OPSZ_VAR_REGLIST));
 
     /* FIXME i#1551: add the rest of the types */
 
@@ -555,6 +684,8 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
 
     if (ii == NULL || in == NULL)
         return false;
+
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "%s 0x%08x\n", __FUNCTION__, ii->opcode);
 
     /* FIXME i#1551: check isa mode vs THUMB_ONLY or ARM_ONLY ii->flags */
 
@@ -626,7 +757,12 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
         ii = instr_info_extra_opnds(ii);
     } while (ii != NULL);
 
-    return true;
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  checking %d vs %d, %d vs %d\n",
+        num_dsts, instr_num_dsts(in), num_srcs, instr_num_srcs(in));
+    if (num_dsts < instr_num_dsts(in) || num_srcs < instr_num_srcs(in))
+        return false;
+
+    return check_reglist_size(di);
 }
 
 void
@@ -664,11 +800,12 @@ encode_regD(decode_info_t *di, reg_id_t reg)
     di->instr_word |= (reg - DR_REG_START_GPR);
 }
 
-static bool
+static void
 encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *in,
                bool is_dst, uint *counter INOUT)
 {
     uint opnum = (*counter)++;
+    opnd_size_t size_temp_up = resolve_size_upward(size_temp);
     opnd_t opnd;
     if (optype != TYPE_NONE) {
         if (is_dst)
@@ -710,18 +847,31 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_CR_D:
         encode_regD(di, opnd_get_reg(opnd) - DR_REG_CR0 + DR_REG_START_GPR);
         break;
-    case TYPE_V_A: {
+    case TYPE_V_A:
+    case TYPE_L_VAx2:
+    case TYPE_L_VAx3:
+    case TYPE_L_VAx4: {
         /* A32 = 7,19:16 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
         di->instr_word |= ((val & 0x10) << 3) | ((val & 0xf) << 16);
+        if (di->reglist_stop > 0)
+            (*counter) += (di->reglist_stop - 1 - di->reglist_start);
         break;
     }
-    case TYPE_V_B: {
+    case TYPE_V_B:
+    case TYPE_L_VBx2:
+    case TYPE_L_VBx3:
+    case TYPE_L_VBx4:
+    case TYPE_L_VBx2D:
+    case TYPE_L_VBx3D:
+    case TYPE_L_VBx4D: {
         /* A32 = 22,15:12 */
         reg_id_t reg = opnd_get_reg(opnd);
         uint val = reg - reg_simd_start(reg);
         di->instr_word |= ((val & 0x10) << 18) | ((val & 0xf) << 12);
+        if (di->reglist_stop > 0)
+            (*counter) += (di->reglist_stop - 1 - di->reglist_start);
         break;
     }
     case TYPE_V_C: {
@@ -772,10 +922,26 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_L_13b:
     case TYPE_L_16b: {
         uint i;
+        CLIENT_ASSERT(di->reglist_start == *counter - 1, "internal reglist encode error");
         for (i = di->reglist_start; i < di->reglist_stop; i++) {
             opnd = is_dst ? instr_get_dst(in, i) : instr_get_src(in, i);
             di->instr_word |= 1 << (opnd_get_reg(opnd) - DR_REG_START_GPR);
         }
+        /* already incremented once */
+        (*counter) += (di->reglist_stop - 1 - di->reglist_start);
+        break;
+    }
+    case TYPE_L_CONSEC: {
+        /* Consecutive multimedia regs: dword count in immed 7:0 */
+        uint dwords = 1/*in template*/ + di->reglist_stop - di->reglist_start;
+        if (size_temp_up == OPSZ_8)
+            dwords *= 2;
+        else
+            CLIENT_ASSERT(size_temp_up == OPSZ_4, "invalid LC size");
+        di->instr_word |= dwords;
+        if (di->reglist_stop > di->reglist_start)
+            (*counter) += (di->reglist_stop - 1 - di->reglist_start);
+        break;
     }
 
     case TYPE_NONE:
@@ -788,11 +954,12 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_LR:
     case TYPE_SP:
         break; /* implicit or empty */
-   }
 
     /* FIXME i#1551: add the rest of the types */
+    }
 
-    return false;
+    LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "encode opnd %d => 0x%08x\n",
+        *counter - 1, di->instr_word);
 }
 
 static void
@@ -849,6 +1016,7 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
     di.start_pc = copy_pc;
     di.final_pc = final_pc;
     di.cur_note = (ptr_int_t) instr->note;
+    /* di.memop_sz is OPSZ_NA == 0 from memset */
 
     info = instr_get_instr_info(instr);
     if (info == NULL) {
@@ -871,7 +1039,6 @@ instr_encode_arch(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *fin
                 LOG(THREAD, LOG_EMIT, 1, di.errmsg, di.errmsg_param);
                 LOG(THREAD, LOG_EMIT, 1, "\n");
             });
-            print_file(STDOUT, di.errmsg, di.errmsg_param);
             CLIENT_ASSERT(false, "instr_encode error: no encoding found (see log)");
             return NULL;
         }

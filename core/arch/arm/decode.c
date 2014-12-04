@@ -934,12 +934,13 @@ read_instruction(byte *pc, byte *orig_pc,
         } else if (info->type == EXT_VLDB) {
             int reg = (instr_word & 0xf);
             idx = /*bits (11:8,Y)*3+X where X based on value of 3:0 */
-                3 * ((instr_word >> 7) & 0x1e);
+                ((instr_word >> 7) & 0x1e);
             /* Y is bit 6 if bit 11 is set; else, bit 5 */
             if (((instr_word >> 11) & 0x1) != 0)
                 idx |= ((instr_word >> 6) & 0x1);
             else
                 idx |= ((instr_word >> 5) & 0x1);
+            idx *= 3;
             idx += (reg == 0xd ? 0 : (reg == 0xf ? 1 : 2));
             info = &A32_ext_vldB[info->code][idx];
         } else if (info->type == EXT_VLDC) {

@@ -132,6 +132,7 @@ struct _decode_info_t {
     /* For encoding reglists */
     uint reglist_start;
     uint reglist_stop;
+    int memop_sz;
 
     /* For instr_t* target encoding */
     ptr_int_t cur_note;
@@ -240,7 +241,9 @@ enum {
     TYPE_L_8b,  /* 8-bit register list */
     TYPE_L_13b, /* 13-bit register list */
     TYPE_L_16b, /* 16-bit register list */
-    TYPE_L_CONSEC, /* Consecutive multimedia regs: dword count in immed 7:0 */
+    TYPE_L_CONSEC, /* Consecutive multimedia regs starting at prior opnd, w/ dword
+                    * count in immed 7:0
+                    */
     TYPE_L_VBx2,  /* 2 consecutive multimedia regs starting at TYPE_V_B */
     TYPE_L_VBx3,  /* 3 consecutive multimedia regs starting at TYPE_V_B */
     TYPE_L_VBx4,  /* 4 consecutive multimedia regs starting at TYPE_V_B */

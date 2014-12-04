@@ -268,7 +268,7 @@
  * \param ... The register list as separate opnd_t arguments.
  */
 #define INSTR_CREATE_pop_list(dc, list_len, ...) \
-  INSTR_CREATE_ldm_wb((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), list_len, __VA_ARGS__)
+  INSTR_CREATE_ldm_wb((dc), OPND_CREATE_MEMLIST(DR_REG_XSP), list_len, __VA_ARGS__)
 
 /**
  * This macro creates an instr_t for a push instruction of a single
