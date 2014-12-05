@@ -123,6 +123,17 @@ struct _decode_info_t {
     byte *final_pc;
     byte *orig_pc;
 
+    /* For instr_t* target encoding */
+    ptr_int_t cur_note;
+    bool has_instr_opnds;
+
+    /* For encoding error messages */
+    const char *errmsg; /* can contain one integer format parameter */
+    int errmsg_param;
+
+    /***************************************************
+     * The rest of the fields are zeroed when encoding each template
+     */
     /* For decoding reglists.  Max 1 reglist per template (we check this in
      * decode_debug_checks_arch()).
      */
@@ -133,14 +144,19 @@ struct _decode_info_t {
     uint reglist_start;
     uint reglist_stop;
     int memop_sz;
-
-    /* For instr_t* target encoding */
-    ptr_int_t cur_note;
-    bool has_instr_opnds;
-
-    /* For encoding error messages */
-    const char *errmsg; /* can contain one integer format parameter */
-    int errmsg_param;
+    /* Our IR and decode templates store the disp/index/shifted-index inside
+     * the memory operand, but also have the same elements separate for writeback
+     * or post-indexed addressing.  We need to make sure they match.
+     * We assume that the writeback/postindex args are sources that are later
+     * in the src array than memop, if memop is a source.
+     */
+    reg_id_t check_wb_base;
+    reg_id_t check_wb_index;
+    opnd_size_t check_wb_disp_sz;
+    int check_wb_disp;
+    bool check_wb_shift;
+    uint check_wb_shift_type; /* raw encoded value */
+    uint check_wb_shift_amount;
 };
 
 

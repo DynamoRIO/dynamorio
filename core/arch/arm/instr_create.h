@@ -277,8 +277,8 @@
  * \param Rd The destination register opnd_t operand.
  */
 #define INSTR_CREATE_push(dc, Rt) \
-  INSTR_CREATE_str_wbimm((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, 0), (Rt), \
-    OPND_CREATE_INT16(sizeof(void*)))
+  INSTR_CREATE_str_wbimm((dc), OPND_CREATE_MEMPTR(DR_REG_XSP, -sizeof(void*)), (Rt), \
+    OPND_CREATE_INT16(-sizeof(void*)))
 
 /**
  * This macro creates an instr_t for a push instruction of a list of
