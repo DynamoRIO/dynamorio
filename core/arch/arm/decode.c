@@ -554,7 +554,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
             val |= (decode_immed(di, 8, OPSZ_4b, false/*unsigned*/) << 4);
         } else
-            CLIENT_ASSERT(false, "unsupported 0-8 split immed size");
+            CLIENT_ASSERT(false, "unsupported 8-0 split immed size");
         if (optype == TYPE_NI_b8_b0)
             val = -val;
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
@@ -563,13 +563,13 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_I_b16_b0: {
         opnd_size_t each;
         uint sz = opnd_size_in_bits(opsize);
-        CLIENT_ASSERT(sz % 2 == 0, "split 0-16 size must be even");
+        CLIENT_ASSERT(sz % 2 == 0, "split 16-0 size must be even");
         if (opsize == OPSZ_2)
             each = OPSZ_1;
         else if (opsize == OPSZ_1)
             each = OPSZ_4b;
         else {
-            CLIENT_ASSERT(false, "unsupported 0-16 split immed size");
+            CLIENT_ASSERT(false, "unsupported 16-0 split immed size");
             each = OPSZ_0;
         }
         val = decode_immed(di, 0, each, false/*unsigned*/);
@@ -582,7 +582,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 5, OPSZ_1b, false/*unsigned*/);
             val |= (decode_immed(di, 0, OPSZ_4b, false/*unsigned*/) << 1);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 0-5 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -591,7 +591,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 1;
             val |= (decode_immed(di, 0, OPSZ_3, false/*unsigned*/) << 2);
         } else
-            CLIENT_ASSERT(false, "unsupported 24-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -600,7 +600,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 3, OPSZ_1b, false/*unsigned*/);
             val |= (decode_immed(di, 5, OPSZ_1b, false/*unsigned*/) << 1);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 5-3 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -609,7 +609,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 16, OPSZ_4b, false/*unsigned*/);
             val |= (decode_immed(di, 8, OPSZ_1b, false/*unsigned*/) << 4);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 8-16 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -618,7 +618,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 5, OPSZ_2b, false/*unsigned*/);
             val |= (decode_immed(di, 21, OPSZ_1b, false/*unsigned*/) << 2);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 21-5 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -627,7 +627,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val = decode_immed(di, 6, OPSZ_1b, false/*unsigned*/);
             val |= (decode_immed(di, 21, OPSZ_1b, false/*unsigned*/) << 1);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 21-6 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
@@ -637,7 +637,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
             val |= (decode_immed(di, 16, OPSZ_3b, false/*unsigned*/) << 4);
             val |= (decode_immed(di, 24, OPSZ_1b, false/*unsigned*/) << 7);
         } else
-            CLIENT_ASSERT(false, "unsupported 5-0 split immed size");
+            CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }
