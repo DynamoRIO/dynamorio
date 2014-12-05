@@ -1353,6 +1353,8 @@ map_api_set_dll(const char *name, privmod_t *dependent)
     else if (str_case_prefix(name, "API-MS-Win-Core-ProcessTopology-L1-2") ||
              str_case_prefix(name, "API-MS-Win-Core-XState-L2-1"))
         return "kernelbase.dll";
+    else if (str_case_prefix(name, "API-MS-WIN-SECURITY-LSAPOLICY-L1"))
+        return "advapi32.dll";
     else {
         SYSLOG_INTERNAL_WARNING("unknown API-MS-Win pseudo-dll %s", name);
         /* good guess */
