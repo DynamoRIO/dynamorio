@@ -145,7 +145,6 @@
 #define i4_8     TYPE_I_b8, OPSZ_4b
 #define i4_16    TYPE_I_b16, OPSZ_4b
 #define i4_20    TYPE_I_b20, OPSZ_4b
-#define i5       TYPE_I_b7, OPSZ_5b
 #define i5_7     TYPE_I_b7, OPSZ_5b
 #define i5_16    TYPE_I_b16, OPSZ_5b
 #define i5x5_0   TYPE_I_b0_b5, OPSZ_5b

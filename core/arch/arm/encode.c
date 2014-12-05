@@ -395,34 +395,36 @@ reg_simd_start(reg_id_t reg)
     return DR_REG_NULL;
 }
 
-static void
-encode_index_shift_values(opnd_t memop, ptr_int_t *sh2 OUT, ptr_int_t *val OUT)
+static bool
+encode_shift_values(dr_shift_type_t shift, uint amount,
+                    ptr_int_t *sh2 OUT, ptr_int_t *val OUT)
 {
-    uint amount;
-    dr_shift_type_t shift = opnd_get_index_shift(memop, &amount);
     if (shift == DR_SHIFT_NONE) {
-        CLIENT_ASSERT(amount == 0, "invalid shift amount");
         *sh2 = 0;
         *val = 0;
+        return (amount == 0);
     } else if (shift == DR_SHIFT_LSL) {
         *sh2 = SHIFT_ENCODING_LSL;
         *val = amount;
+        return (amount >= 1 && amount <= 31);
     } else if (shift == DR_SHIFT_LSR) {
         *sh2 = SHIFT_ENCODING_LSR;
         *val = (amount == 32) ? 0 : amount;
+        return (amount >= 1 && amount <= 32);
     } else if (shift == DR_SHIFT_ASR) {
         *sh2 = SHIFT_ENCODING_ASR;
         *val = (amount == 32) ? 0 : amount;
+        return (amount >= 1 && amount <= 32);
     } else if (shift == DR_SHIFT_RRX) {
-        CLIENT_ASSERT(amount == 1, "invalid shift amount");
         *sh2 = SHIFT_ENCODING_RRX;
         *val = 0;
-    } else {
-        CLIENT_ASSERT(shift == DR_SHIFT_ROR, "invalid shift type");
-        CLIENT_ASSERT(amount > 0, "invalid shift amount");
+        return (amount == 1);
+    } else if (shift == DR_SHIFT_ROR) {
         *sh2 = SHIFT_ENCODING_RRX;
         *val = amount;
+        return (amount >= 1 && amount <= 31);
     }
+    return false;
 }
 
 /* 0 stride means no stride */
@@ -660,7 +662,6 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_R_B_TOP:
     case TYPE_R_C_TOP:
     case TYPE_R_D_TOP:
-    case TYPE_R_D_NEGATED:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
                 (size_op == size_temp || size_op == size_temp_up));
     case TYPE_R_A:
@@ -670,6 +671,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
                 (di->check_wb_base == DR_REG_NULL ||
                  di->check_wb_base == opnd_get_reg(opnd)));
     case TYPE_R_D:
+    case TYPE_R_D_NEGATED:
         return (opnd_is_reg(opnd) && reg_is_gpr(opnd_get_reg(opnd)) &&
                 (size_op == size_temp || size_op == size_temp_up) &&
                 /* Ensure writeback index matches memop index */
@@ -815,7 +817,7 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b3:
     case TYPE_I_b4:
     case TYPE_I_b6:
-    case TYPE_I_b7:
+    case TYPE_I_b5:
     case TYPE_I_b8:
     case TYPE_I_b9:
     case TYPE_I_b10:
@@ -843,20 +845,57 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         return (opnd_is_immed_int(opnd) &&
                 encode_immed_ok(di, size_temp, -opnd_get_immed_int(opnd),
                                 false/*unsigned*/, true/*negated*/));
-    case TYPE_I_b5:
-        return (encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
-                                             false/*pos*/, false/*abs*/) &&
-                /* Ensure writeback shift matches memop shift */
-                (opnd_is_instr(opnd) || !di->check_wb_shift ||
-                 di->check_wb_shift_amount == opnd_get_immed_int(opnd)));
+    case TYPE_I_b7:
+        if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1)
+            di->shift_uses_immed = true;
+        /* Allow one bit larger for shifts of 32, and check actual values in
+         * encode_shift_values()
+         */
+        if (encode_immed_int_or_instr_ok(di, di->shift_uses_immed ? OPSZ_6b : size_temp,
+                                         1, opnd, false/*unsigned*/,
+                                         false/*pos*/, false/*abs*/)) {
+            /* Ensure abstracted shift values, and writeback, are ok */
+            if (di->shift_uses_immed) {
+                /* Best to compare raw values in case one side is not abstracted */
+                ptr_int_t sh2, val;
+                if (opnd_is_instr(opnd))
+                    return false; /* not supported */
+                LOG(THREAD_GET, LOG_EMIT, ENC_LEVEL, "  checking shift: %d %d\n",
+                    di->shift_type, opnd_get_immed_int(opnd));
+                if (!encode_shift_values(di->shift_type, opnd_get_immed_int(opnd),
+                                         &sh2, &val))
+                    return false;
+                if (di->check_wb_shift) {
+                    /* Ensure writeback shift matches memop shift */
+                    return (sh2 == di->check_wb_shift_type &&
+                            val == di->check_wb_shift_amount);
+                }
+            }
+            return true;
+        }
+        return false;
     case TYPE_SHIFT_b5:
     case TYPE_SHIFT_b6:
-        return (opnd_is_immed_int(opnd) &&
-                encode_immed_ok(di, size_temp, opnd_get_immed_int(opnd),
-                                false/*unsigned*/, false/*pos*/) &&
-                /* Ensure writeback shift matches memop shift */
-                (!di->check_wb_shift ||
-                 di->check_wb_shift_type == opnd_get_immed_int(opnd)));
+        if (opnd_is_immed_int(opnd) &&
+            /* For OPSZ_1b, allow full DR_SHIFT_* values.  Allow the extras we've
+             * added: simpler to just require OPSZ_3b here and check further below.
+             */
+            encode_immed_ok(di, OPSZ_3b, opnd_get_immed_int(opnd),
+                            false/*unsigned*/, false/*pos*/)) {
+            ptr_int_t val = opnd_get_immed_int(opnd);
+            if (val > DR_SHIFT_NONE)
+                return false;
+            if (optype == TYPE_SHIFT_b6) {
+                di->shift_b6 = true;
+                if (opnd_get_immed_int(opnd) % 2 != 0)
+                    return false;
+            }
+            di->shift_type_idx = opnum;
+            /* Store the shift type for TYPE_I_b7, here and in real encode */
+            di->shift_type = opnd_get_immed_int(opnd);
+            return true;
+        }
+        return false;
     case TYPE_I_b0_b24: /* OP_blx imm24:H:0 */
         return encode_immed_int_or_instr_ok(di, size_temp, 2, opnd, false/*unsigned*/,
                                             false/*pos*/, true/*rel*/);
@@ -928,7 +967,10 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             opnd_get_disp(opnd) == 0 &&
             size_op == size_temp) {
             ptr_int_t sh2, val;
-            encode_index_shift_values(opnd, &sh2, &val);
+            uint amount;
+            dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
+            if (!encode_shift_values(shift, amount, &sh2, &val))
+                return false;
             di->check_wb_base = opnd_get_base(opnd);
             di->check_wb_index = opnd_get_index(opnd);
             di->check_wb_shift = true;
@@ -1162,7 +1204,9 @@ static void
 encode_index_shift(decode_info_t *di, opnd_t opnd)
 {
     ptr_int_t sh2, val;
-    encode_index_shift_values(opnd, &sh2, &val);
+    uint amount;
+    dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
+    encode_shift_values(shift, amount, &sh2, &val);
     encode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
                  DECODE_INDEX_SHIFT_TYPE_SIZE, sh2, false);
     encode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
@@ -1333,7 +1377,20 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         encode_immed(di, 6, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);
         break;
     case TYPE_I_b7:
-        encode_immed(di, 7, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);
+        if (size_temp == OPSZ_5b && di->shift_type_idx == opnum - 1 &&
+            di->shift_uses_immed) {
+            /* Convert to raw values */
+            ptr_int_t sh2, val;
+            encode_shift_values(di->shift_type, opnd_get_immed_int(opnd), &sh2, &val);
+            if (di->shift_b6)
+                encode_immed(di, 6, OPSZ_1b, sh2 >> 1, false/*unsigned*/);
+            else
+                encode_immed(di, 5, OPSZ_2b, sh2, false/*unsigned*/);
+            encode_immed(di, 7, size_temp, val, false/*unsigned*/);
+        } else {
+            encode_immed(di, 7, size_temp, get_immed_val_abs(di, opnd),
+                         false/*unsigned*/);
+        }
         break;
     case TYPE_I_b8:
         encode_immed(di, 8, size_temp, get_immed_val_abs(di, opnd), false/*unsigned*/);
@@ -1454,10 +1511,14 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
         break;
     }
     case TYPE_SHIFT_b5:
-        encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd), false/*unsigned*/);
+        if (!di->shift_uses_immed) /* encoded in TYPE_I_b7 */
+            encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd), false/*unsigned*/);
         break;
     case TYPE_SHIFT_b6:
-        encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd) << 1, false/*unsigned*/);
+        if (!di->shift_uses_immed) { /* encoded in TYPE_I_b7 */
+            encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd) << 1,
+                         false/*unsigned*/);
+        }
         break;
     case TYPE_I_x4_b0:
         encode_immed(di, 0, size_temp, get_immed_val_rel(di, opnd) >> 2, true/*signed*/);

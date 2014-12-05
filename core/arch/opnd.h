@@ -687,10 +687,11 @@ extern const reg_id_t dr_reg_fixer[];
 
 /**
  * These flags describe how the index register in a memory reference is shifted
- * before being added to or subtracted from the base register.
+ * before being added to or subtracted from the base register.  They also describe
+ * how a general source register is shifted before being used in its containing
+ * instruction.
  */
 typedef enum _dr_shift_type_t {
-    DR_SHIFT_NONE, /**< No shift. */
     DR_SHIFT_LSL,  /**< Logical shift left. */
     DR_SHIFT_LSR,  /**< Logical shift right. */
     DR_SHIFT_ASR,  /**< Arithmetic shift right. */
@@ -701,8 +702,14 @@ typedef enum _dr_shift_type_t {
      * general source registers, if the instruction writes the condition codes,
      * bit 0 is then shifted into the carry flag: but for memory references bit
      * 0 is simply dropped.)
+     * Only valid for shifts whose amount is stored in an immediate, not a register.
      */
     DR_SHIFT_RRX,
+    /**
+     * No shift.
+     * Only valid for shifts whose amount is stored in an immediate, not a register.
+     */
+    DR_SHIFT_NONE,
 } dr_shift_type_t;
 
 /**

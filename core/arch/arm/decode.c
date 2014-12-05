@@ -234,12 +234,8 @@ decode_float_reglist(decode_info_t *di, opnd_size_t downsz, opnd_size_t upsz,
 }
 
 static dr_shift_type_t
-decode_index_shift(decode_info_t *di, uint *amount OUT)
+decode_index_shift_values(ptr_int_t sh2, ptr_int_t val, uint *amount OUT)
 {
-    ptr_int_t sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
-                                 DECODE_INDEX_SHIFT_TYPE_SIZE, false);
-    ptr_int_t val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
-                                 DECODE_INDEX_SHIFT_AMOUNT_SIZE, false);
     if (sh2 == 0 && val == 0) {
         *amount = 0;
         return DR_SHIFT_NONE;
@@ -258,6 +254,44 @@ decode_index_shift(decode_info_t *di, uint *amount OUT)
     } else {
         *amount = val;
         return DR_SHIFT_ROR;
+    }
+}
+
+static dr_shift_type_t
+decode_index_shift(decode_info_t *di, uint *amount OUT)
+{
+    ptr_int_t sh2 = decode_immed(di, DECODE_INDEX_SHIFT_TYPE_BITPOS,
+                                 DECODE_INDEX_SHIFT_TYPE_SIZE, false);
+    ptr_int_t val = decode_immed(di, DECODE_INDEX_SHIFT_AMOUNT_BITPOS,
+                                 DECODE_INDEX_SHIFT_AMOUNT_SIZE, false);
+    return decode_index_shift_values(sh2, val, amount);
+}
+
+static void
+decode_register_shift(decode_info_t *di, opnd_t *array, uint *counter IN)
+{
+    if (di->shift_type_idx == *counter - 2 &&
+        /* We only need to do this for shifts whose amount is an immed.
+         * When the amount is in a reg, only the low 4 DR_SHIFT_* are valid,
+         * and they match the encoded values.
+         */
+        opnd_is_immed_int(array[*counter - 1])) {
+        /* Mark the register as shifted and move the two immediates to a
+         * higher abstraction layer.  Note that b/c we map the lower 4
+         * DR_SHIFT_* values to the encoded values, we can handle either
+         * raw or higher-layer values at encode time.
+         */
+        ptr_int_t sh2 = opnd_get_immed_int(array[*counter - 2]);
+        ptr_int_t val = opnd_get_immed_int(array[*counter - 1]);
+        uint amount;
+        dr_shift_type_t type = decode_index_shift_values(sh2, val, &amount);
+        array[*counter - 2] = opnd_create_immed_int(type, OPSZ_2b);
+        array[*counter - 1] = opnd_create_immed_int(amount, OPSZ_5b);
+        CLIENT_ASSERT(*counter >= 3 && opnd_is_reg(array[*counter - 3]),
+                      "invalid shift sequence");
+        array[*counter - 3] = opnd_create_reg_ex(opnd_get_reg(array[*counter - 3]),
+                                                 opnd_get_size(array[*counter - 3]),
+                                                 DR_OPND_SHIFTED);
     }
 }
 
@@ -513,6 +547,9 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_I_b7:
         array[(*counter)++] =
             opnd_create_immed_int(decode_immed(di, 7, opsize, false/*unsigned*/), opsize);
+        if (opsize == OPSZ_5b) {
+            decode_register_shift(di, array, counter);
+        }
         return true;
     case TYPE_I_b8:
         array[(*counter)++] =
@@ -642,14 +679,16 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
     }
     case TYPE_SHIFT_b5:
+        di->shift_type_idx = *counter;
         array[(*counter)++] =
             opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/),
                                   opsize);
         return true;
     case TYPE_SHIFT_b6: /* value is :0 */
+        di->shift_type_idx = *counter;
         array[(*counter)++] =
             opnd_create_immed_int(decode_immed(di, 5, opsize, false/*unsigned*/) << 1,
-                                  opsize);
+                                  OPSZ_2b);
         return true;
     case TYPE_SHIFT_LSL:
         array[(*counter)++] = opnd_create_immed_int(SHIFT_ENCODING_LSL, opsize);

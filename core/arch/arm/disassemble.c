@@ -100,35 +100,75 @@ print_extra_bytes_to_buffer(char *buf, size_t bufsz, size_t *sofar INOUT,
     /* There are no "extra" bytes */
 }
 
+static void
+disassemble_shift(char *buf, size_t bufsz, size_t *sofar INOUT, const char *prefix,
+                  const char *suffix,
+                  dr_shift_type_t shift, bool immed_amount, uint amount)
+{
+    switch (shift) {
+    case DR_SHIFT_NONE:
+        break;
+    case DR_SHIFT_RRX:
+        print_to_buffer(buf, bufsz, sofar, "%srrx", prefix);
+        /* XXX i#1551: do not print amount for ARM style */
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_LSL:
+        /* XXX i#1551: use #%d for ARM style */
+        print_to_buffer(buf, bufsz, sofar, "%slsl", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_LSR:
+        print_to_buffer(buf, bufsz, sofar, "%slsr", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_ASR:
+        print_to_buffer(buf, bufsz, sofar, "%sasr", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    case DR_SHIFT_ROR:
+        print_to_buffer(buf, bufsz, sofar, "%sror", prefix);
+        if (immed_amount)
+            print_to_buffer(buf, bufsz, sofar, " %d", amount);
+        break;
+    default:
+        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
+        break;
+    }
+    print_to_buffer(buf, bufsz, sofar, "%s", suffix);
+}
+
 void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd)
 {
     uint amount;
     dr_shift_type_t shift = opnd_get_index_shift(opnd, &amount);
-    switch (shift) {
-    case DR_SHIFT_NONE:
-        break;
-    case DR_SHIFT_RRX:
-        print_to_buffer(buf, bufsz, sofar, ",rrx");
-        break;
-    case DR_SHIFT_LSL:
-        /* XXX i#1551: use #%d for ARM style */
-        print_to_buffer(buf, bufsz, sofar, ",lsl %d", amount);
-        break;
-    case DR_SHIFT_LSR:
-        print_to_buffer(buf, bufsz, sofar, ",lsr %d", amount);
-        break;
-    case DR_SHIFT_ASR:
-        print_to_buffer(buf, bufsz, sofar, ",asr %d", amount);
-        break;
-    case DR_SHIFT_ROR:
-        print_to_buffer(buf, bufsz, sofar, ",ror %d", amount);
-        break;
-    default:
-        print_to_buffer(buf, bufsz, sofar, ",UNKNOWN SHIFT");
-        break;
+    disassemble_shift(buf, bufsz, sofar, ",", "", shift, true, amount);
+}
+
+int
+opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          instr_t *instr, int idx)
+{
+    opnd_t src = instr_get_src(instr, idx);
+    if (opnd_is_reg(src) && TEST(DR_OPND_SHIFTED, opnd_get_flags(src)) &&
+        idx + 2 < instr_num_srcs(instr)) {
+        opnd_t nxt = instr_get_src(instr, idx + 1);
+        if (opnd_is_immed_int(nxt)) {
+            dr_shift_type_t shift = (dr_shift_type_t) opnd_get_immed_int(nxt);
+            opnd_t nxt2 = instr_get_src(instr, idx + 2);
+            bool immed_amount = opnd_is_immed_int(nxt2);
+            disassemble_shift(buf, bufsz, sofar, "", " ", shift, immed_amount,
+                              immed_amount ? opnd_get_immed_int(nxt2) : 0);
+            return (immed_amount ? idx + 2 : idx + 1);
+        }
     }
+    return idx;
 }
 
 bool

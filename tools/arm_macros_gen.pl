@@ -336,10 +336,13 @@ foreach my $opc (keys %entry) {
                 $sig =~ s/RAw/opnd_create_reg(opnd_get_base(mem))/g;
                 $esig =~ s/\s*RAw//g;
             }
+            $sig =~ s/RDw/opnd_create_reg_ex(opnd_get_reg(Rm) 0 DR_OPND_SHIFTED)/;
         } elsif ($sig =~ /\bshift R/) {
             $name .= "_shreg";
+            $sig =~ s/RDw/opnd_create_reg_ex(opnd_get_reg(Rm) 0 DR_OPND_SHIFTED)/;
         } elsif ($sig =~ /\bshift imm/) {
             $name .= "_shimm";
+            $sig =~ s/RDw/opnd_create_reg_ex(opnd_get_reg(Rm) 0 DR_OPND_SHIFTED)/;
         } elsif ($immed_name && $sig =~ /\bimm/) {
             $name .= "_imm";
         } elsif ($sig =~ /\bSPSR/) {
@@ -414,6 +417,8 @@ foreach my $opc (keys %entry) {
         $call_str =~ s/\b([\w\(\)]+)\s+/\1/g;
         $call_str =~ s/\b([A-Za-z0-9_]+)\b/(\1)/g;
         $call_str =~ s/\((opnd_\w+)\)/\1/g;
+        $call_str =~ s/\((\d+)\)/\1/g;
+        $call_str =~ s/\((DR_[A-Z_]+)\)/\1/g;
         $call_str =~ s/\(, /(/g;
         $call_str =~ s/\(\((\w+)\)\)/(\1)/g;
 
@@ -517,7 +522,7 @@ my %mapping = ('reg' => 'register',
                'imm2' => 'second integer constant',
                'imm3' => 'third integer constant',
                'mem' => 'memory',
-               'shift' => 'shift type integer constant',
+               'shift' => 'dr_shift_type_t integer constant',
                'cpreg' => 'coprocessor register',
                'cpreg2' => 'second coprocessor register',
                'cpreg3' => 'third coprocessor register',

@@ -98,6 +98,10 @@ void
 opnd_base_disp_scale_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
                                  opnd_t opnd);
 
+int
+opnd_disassemble_src_arch(char *buf, size_t bufsz, size_t *sofar INOUT,
+                          instr_t *instr, int idx);
+
 bool
 opnd_disassemble_noimplicit(char *buf, size_t bufsz, size_t *sofar INOUT,
                             dcontext_t *dcontext, instr_t *instr,
@@ -1075,6 +1079,7 @@ internal_instr_disassemble(char *buf, size_t bufsz, size_t *sofar INOUT,
         opnd_t src = instr_get_src(instr, i);
         sign_extend_immed(instr, i, &src);
         internal_opnd_disassemble(buf, bufsz, sofar, dcontext, src, use_size_sfx);
+        i = opnd_disassemble_src_arch(buf, bufsz, sofar, instr, i);
     }
     if (instr_num_dsts(instr) > 0) {
         print_to_buffer(buf, bufsz, sofar, "-> ");

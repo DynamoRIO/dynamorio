@@ -144,6 +144,13 @@ struct _decode_info_t {
     uint reglist_start;
     uint reglist_stop;
     int memop_sz;
+    /* For decoding and encoding shift types.  We need to coordinate across two
+     * adjacent immediates.  This is set to point at the first one.
+     */
+    uint shift_type_idx;
+    bool shift_uses_immed;
+    dr_shift_type_t shift_type;
+    bool shift_b6; /* 1 bit in b6; else, 2 bits in b5 */
     /* Our IR and decode templates store the disp/index/shifted-index inside
      * the memory operand, but also have the same elements separate for writeback
      * or post-indexed addressing.  We need to make sure they match.
@@ -156,7 +163,7 @@ struct _decode_info_t {
     int check_wb_disp;
     bool check_wb_shift;
     uint check_wb_shift_type; /* raw encoded value */
-    uint check_wb_shift_amount;
+    uint check_wb_shift_amount; /* raw encoded value */
 };
 
 
@@ -330,6 +337,7 @@ enum {
     SHIFT_ENCODING_LSL = 0,
     SHIFT_ENCODING_LSR = 1,
     SHIFT_ENCODING_ASR = 2,
+    SHIFT_ENCODING_ROR = 3,
     SHIFT_ENCODING_RRX = 3,
 };
 
