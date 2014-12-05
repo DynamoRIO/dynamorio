@@ -67,3 +67,10 @@ opnd_immed_float_arch(uint opcode)
        return FLOAT_ZERO;
     }
 }
+
+DR_API
+bool
+reg_is_stolen(reg_id_t reg)
+{
+    return false;
+}

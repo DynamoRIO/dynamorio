@@ -179,6 +179,9 @@ Further non-compatibility-affecting changes include:
    instr_create_2dst_5src(), instr_create_Ndst_Msrc_vardst(),
    and instr_create_Ndst_Msrc_varsrc().
  - Added OPND_CREATE_MEMLIST().
+ - Added dr_get_stolen_reg(), dr_insert_get_stolen_reg_value(),
+   and reg_is_stolen().
+
 
 **************************************************
 <hr>

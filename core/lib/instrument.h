@@ -5830,6 +5830,28 @@ bool
 dr_insert_get_seg_base(void *drcontext, instrlist_t *ilist, instr_t *instr,
                        reg_id_t seg, reg_id_t reg);
 
+DR_API
+/**
+ * Returns the register that is stolen and used by DynamoRIO.
+ * Reference \ref sec_reg_stolen for more information.
+ */
+reg_id_t
+dr_get_stolen_reg(void);
+
+DR_API
+/**
+ * Insert code to get the application value of the register stolen by DynamoRIO
+ * into register \p reg.
+ * Reference \ref sec_reg_stolen for more information.
+ *
+ * \return whether successful.
+ *
+ * \note ARM-only
+ */
+bool
+dr_insert_get_stolen_reg_value(void *drcontext, instrlist_t *ilist,
+                               instr_t *instr, reg_id_t reg);
+
 /* DR_API EXPORT TOFILE dr_events.h */
 /* DR_API EXPORT BEGIN */
 

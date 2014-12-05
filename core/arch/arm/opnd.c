@@ -33,10 +33,21 @@
 #include "../globals.h"
 #include "instr.h"
 
+reg_id_t dr_reg_stolen = DR_REG_NULL;
+
 uint
 opnd_immed_float_arch(uint opcode)
 {
     /* FIXME i#1551: NYI */
     CLIENT_ASSERT(false, "NYI");
     return 0;
+}
+
+DR_API
+bool
+reg_is_stolen(reg_id_t reg)
+{
+    if (dr_reg_fixer[reg] == dr_reg_stolen && dr_reg_fixer[reg] != DR_REG_NULL)
+        return true;
+    return false;
 }

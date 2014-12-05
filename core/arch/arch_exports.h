@@ -125,7 +125,6 @@ typedef struct _table_stat_state_t {
 #endif
 } table_stat_state_t;
 
-/* FIXME i#1551: implement the spill state for ARM */
 /* All spill slots are grouped in a separate struct because with
  * -no_ibl_table_in_tls, only these slots are mapped to TLS (and the
  * table address/mask pairs are not).
@@ -136,6 +135,7 @@ typedef struct _spill_state_t {
     reg_t xax, xbx, xcx, xdx;    /* general-purpose registers */
 #elif defined (ARM)
     reg_t r0, r1, r2, r3;
+    reg_t reg_stolen;            /* slot for the stolen register */
 #endif
     /* FIXME: move this below the tables to fit more on cache line */
     dcontext_t *dcontext;
@@ -172,6 +172,7 @@ typedef struct _local_state_extended_t {
 # define TLS_SLOT_REG1            ((ushort)offsetof(spill_state_t, r1))
 # define TLS_SLOT_REG2            ((ushort)offsetof(spill_state_t, r2))
 # define TLS_SLOT_REG3            ((ushort)offsetof(spill_state_t, r3))
+# define TLS_SLOT_REG_STOLEN      ((ushort)offsetof(spill_state_t, reg_stolen))
 # define SCRATCH_REG0             DR_REG_R0
 # define SCRATCH_REG1             DR_REG_R1
 # define SCRATCH_REG2             DR_REG_R2

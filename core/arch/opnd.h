@@ -2071,6 +2071,19 @@ DR_API
 app_pc
 opnd_compute_address(opnd_t opnd, dr_mcontext_t *mc);
 
+DR_API
+/**
+ * Assumes that \p reg is a DR_REG_ constant.
+ * Returns true iff \p reg is stolen by DynamoRIO for internal use.
+ *
+ * \note The register stolen by DynamoRIO may not be used by the client
+ * for instrumentation. Use dr_insert_get_stolen_reg() to get the
+ * application value of the stolen register in the instrumentation.
+ * Reference \ref sec_reg_stolen for more information.
+ */
+bool
+reg_is_stolen(reg_id_t reg);
+
 /* internal version */
 app_pc
 opnd_compute_address_priv(opnd_t opnd, priv_mcontext_t *mc);
@@ -2145,5 +2158,9 @@ extern const reg_id_t regparms[];
 /* arch-specific */
 uint opnd_immed_float_arch(uint opcode);
 
+#ifdef ARM
+/* DR's stolen register for TLS access */
+extern reg_id_t dr_reg_stolen;
+#endif
 
 #endif /* _OPND_H_ */

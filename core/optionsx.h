@@ -549,6 +549,11 @@
                    "Optimize ibl code with extra 64-bit registers in x86_to_x64 mode.")
 #endif
 
+#ifdef ARM
+    OPTION_DEFAULT_INTERNAL(uint, steal_reg, 10/*r10*/,
+                            "the register stolen/used by DynamoRIO")
+#endif
+
 #ifdef WINDOWS_PC_SAMPLE
      OPTION_DEFAULT(uint, prof_pcs_DR, 2, "PC profile dynamorio.dll, value is bit shift to use, < 2 or > 32 disables, requires -prof_pcs")
      OPTION_DEFAULT(uint, prof_pcs_gencode, 2, "PC profile generated code, value is bit shift to use, < 2 or > 32 disables, requires -prof_pcs")
