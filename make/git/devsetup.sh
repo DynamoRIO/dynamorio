@@ -46,7 +46,9 @@ git config branch.autosetuprebase always
 git config alias.newbranch "!sh -c \"git checkout --track -b \$1 origin/master\""
 # For symmetry with Dr. Memory even though we have no submodules:
 git config alias.pullall "pull --rebase"
-git config alias.dcommit "push origin HEAD:master"
+# Shell aliases always run from the root dir.  Use "$@" to preserve quoting.
+git config alias.review "!myf() { make/git/git_review.sh -u \"\$@\"; }; myf"
+git config alias.dcommit "!myf() { git push origin HEAD:master && make/git/git_review.sh -c \"\$@\"; }; myf"
 git config alias.split "!sh -c \"git checkout -b \$1 \$2 && git branch --set-upstream-to=origin/master \$1\""
 
 # Commit template
