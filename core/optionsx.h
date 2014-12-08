@@ -339,7 +339,9 @@
      * regular loader list
      */
     /* XXX i#1285: MacOS private loader is NYI */
-    OPTION_DEFAULT_INTERNAL(bool, private_loader, IF_MACOS_ELSE(false, true),
+    OPTION_DEFAULT_INTERNAL(bool, private_loader,
+                            IF_X86_ELSE(IF_MACOS_ELSE(false, true),
+                                        false /* i#1551 NYI on ARM */),
                             "use private loader for clients and dependents")
 # ifdef UNIX
     /* We cannot know the total tls size when allocating tls in os_tls_init,
@@ -531,7 +533,9 @@
      * mangle the app's segment usage.
      * It cannot be used with DGC_DIAGNOSTICS.
      */
-    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg, IF_WINDOWS_ELSE(false, true),
+    OPTION_DEFAULT_INTERNAL(bool, mangle_app_seg,
+                            IF_X86_ELSE(IF_WINDOWS_ELSE(false, true),
+                                        false /* FIXME i#1551: NYI on ARM for private loader */),
                             "mangle application's segment usage.")
 
 #ifdef X64

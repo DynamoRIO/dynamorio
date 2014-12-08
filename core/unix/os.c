@@ -134,10 +134,12 @@
 #ifdef ARM
 # ifdef X64
 #  define ASM_R3 "x3"
-#  define READ_TP_TO_R3  "mrs  "ASM_R3", tpidrro_el0 \n\t" /* read TPIDRRO_EL0 */
+#  define READ_TP_TO_R3  "NYI on ARM" /* FIXME i#1551: NYI on ARM */
 # else
 #  define ASM_R3 "r3"
-#  define READ_TP_TO_R3  "mrc  p15, 0, "ASM_R3", c13, c0, 2 \n\t" /* read TPIDRURW */
+#  define READ_TP_TO_R3 \
+      "mrc  p15, 0, "ASM_R3", c13, c0, 3 \n\t" /* read TPIDRURO */ \
+      "ldr "ASM_R3", ["ASM_R3", #"STRINGIFY(TLS_SWAP_SLOT_OFFSET)"] \n\t"
 # endif /* 64/32-bit */
 #endif /* ARM */
 
@@ -206,6 +208,8 @@ char **our_environ;
 /* Guards data written by os_set_app_thread_area(). */
 DECLARE_CXTSWPROT_VAR(static mutex_t set_thread_area_lock,
                       INIT_LOCK_FREE(set_thread_area_lock));
+
+tls_type_t tls_global_type;
 
 #ifndef HAVE_TLS
 /* We use a table lookup to find a thread's dcontext */
@@ -1164,6 +1168,7 @@ os_timeout(int time_in_milliseconds)
 #define TLS_APP_FS_BASE_OFFSET (offsetof(os_local_state_t, app_fs_base))
 #define TLS_APP_GS_OFFSET (offsetof(os_local_state_t, app_gs))
 #define TLS_APP_FS_OFFSET (offsetof(os_local_state_t, app_fs))
+#define TLS_APP_TLS_SWAP_SLOT (offsetof(os_local_state_t, app_tls_swap_slot)
 
 /* N.B.: imm and idx are ushorts!
  * We use %c[0-9] to get gcc to emit an integer constant without a leading $ for
@@ -1171,7 +1176,7 @@ os_timeout(int time_in_milliseconds)
  * http://gcc.gnu.org/onlinedocs/gccint/Output-Template.html#Output-Template
  * Also, var needs to match the pointer size, or else we'll get stack corruption.
  * XXX: This is marked volatile prevent gcc from speculating this code before
- * checks for is_thread_register_initialized(), but if we could find a more
+ * checks for is_thread_tls_initialized(), but if we could find a more
  * precise constraint, then the compiler would be able to optimize better.  See
  * glibc comments on THREAD_SELF.
  */
@@ -1232,13 +1237,14 @@ os_timeout(int time_in_milliseconds)
       : ASM_R3);
 #endif /* X86/ARM */
 
-/* FIXME: assumes that DR's thread register is not already in use by app */
+/* FIXME: on X86, we assume that DR's thread register is not already in use by app */
 static bool
-is_thread_register_initialized(void)
+is_thread_tls_initialized(void)
 {
+#ifdef X86
     if (read_thread_register(SEG_TLS) != 0)
         return true;
-#ifdef X64
+# ifdef X64
     if (tls_dr_using_msr()) {
         /* When the MSR is used, the selector in the register remains 0.
          * We can't clear the MSR early in a new thread and then look for
@@ -1258,8 +1264,18 @@ is_thread_register_initialized(void)
                     get_parent_id());
         }
     }
-#endif
+# endif
     return false;
+#elif defined(ARM)
+    byte **tls_swap_slot;
+    if (tls_global_type == TLS_TYPE_NONE)
+        return false;
+    tls_swap_slot = (byte **)get_app_tls_swap_slot_addr();
+    if (tls_swap_slot == NULL)
+        return false;
+    ASSERT(is_dynamo_address(*tls_swap_slot));
+    return true;
+#endif
 }
 
 /* converts a local_state_t offset to a segment offset */
@@ -1302,7 +1318,7 @@ os_local_state_t *
 get_os_tls(void)
 {
     os_local_state_t *os_tls;
-    ASSERT(is_thread_register_initialized());
+    ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return os_tls;
 }
@@ -1435,7 +1451,7 @@ local_state_extended_t *
 get_local_state_extended()
 {
     os_local_state_t *os_tls;
-    ASSERT(is_thread_register_initialized());
+    ASSERT(is_thread_tls_initialized());
     READ_TLS_SLOT_IMM(TLS_SELF_OFFSET, os_tls);
     return &(os_tls->state);
 }
@@ -1568,7 +1584,7 @@ os_tls_app_seg_init(os_local_state_t *os_tls, void *segment)
         get_thread_id(), os_tls->os_seg_info.dr_fs_base, os_tls->os_seg_info.dr_gs_base);
 #elif defined(ARM)
     /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    ASSERT_NOT_REACHED();
 #endif /* X86/ARM */
 }
 
@@ -1608,13 +1624,9 @@ os_tls_init(void)
 
     tls_thread_init(os_tls, segment);
     ASSERT(os_tls->tls_type != TLS_TYPE_NONE);
-# ifdef X86
     /* store type in global var for convenience: should be same for all threads */
     tls_global_type = os_tls->tls_type;
-# elif defined(ARM)
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
-# endif
+
     /* FIXME: this should be a SYSLOG fatal error?  Should fall back on !HAVE_TLS?
      * Should have create_ldt_entry() return failure instead of asserting, then.
      */
@@ -1623,7 +1635,7 @@ os_tls_init(void)
         global_heap_alloc(MAX_THREADS*sizeof(tls_slot_t) HEAPACCT(ACCT_OTHER));
     memset(tls_table, 0, MAX_THREADS*sizeof(tls_slot_t));
 #endif
-    ASSERT(is_thread_register_initialized());
+    ASSERT(is_thread_tls_initialized());
 }
 
 /* Frees local_state.  If the calling thread is exiting (i.e.,
@@ -2071,7 +2083,7 @@ thread_id_t
 get_tls_thread_id(void)
 {
     ptr_int_t tid; /* can't use thread_id_t since it's 32-bits */
-    if (!is_thread_register_initialized())
+    if (!is_thread_tls_initialized())
         return INVALID_THREAD_ID;
     READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, tid);
     /* it reads 8-bytes into the memory, which includes app_gs and app_fs.
@@ -2092,7 +2104,7 @@ get_thread_private_dcontext(void)
      * to os_tls_init, as well as after os_tls_exit, and early in a new
      * thread's initialization (see comments below on that).
      */
-    if (!is_thread_register_initialized())
+    if (!is_thread_tls_initialized())
         return (IF_CLIENT_INTERFACE(standalone_library ? GLOBAL_DCONTEXT :) NULL);
     /* We used to check tid and return NULL to distinguish parent from child, but
      * that was affecting performance (xref PR 207366: but I'm leaving the assert in
@@ -2152,7 +2164,7 @@ void
 set_thread_private_dcontext(dcontext_t *dcontext)
 {
 #ifdef HAVE_TLS
-    ASSERT(is_thread_register_initialized());
+    ASSERT(is_thread_tls_initialized());
     WRITE_TLS_SLOT_IMM(TLS_DCONTEXT_OFFSET, dcontext);
 #else
     thread_id_t tid = get_thread_id();
@@ -2199,7 +2211,7 @@ replace_thread_id(thread_id_t old, thread_id_t new)
 {
 #ifdef HAVE_TLS
     ptr_int_t new_tid = new; /* can't use thread_id_t since it's 32-bits */
-    ASSERT(is_thread_register_initialized());
+    ASSERT(is_thread_tls_initialized());
     DOCHECK(1, {
         ptr_int_t old_tid; /* can't use thread_id_t since it's 32-bits */
         READ_TLS_SLOT_IMM(TLS_THREAD_ID_OFFSET, old_tid);

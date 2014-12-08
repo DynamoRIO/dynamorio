@@ -45,16 +45,40 @@
 # error ARM-only
 #endif
 
+byte **
+get_app_tls_swap_slot_addr(void)
+{
+    byte *app_tls_base = (byte *)read_thread_register(LIB_SEG_TLS);
+    if (app_tls_base == NULL) {
+        /* FIXME i#1551: NYI if app TLS is not initialized */
+        ASSERT_NOT_IMPLEMENTED(false);
+        return NULL;
+    }
+    return (byte **)(app_tls_base + TLS_SWAP_SLOT_OFFSET);
+}
+
 void
 tls_thread_init(os_local_state_t *os_tls, byte *segment)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte **tls_swap_slot;
+
+    ASSERT((byte *)(os_tls->self) == segment);
+    tls_swap_slot = get_app_tls_swap_slot_addr();
+    /* we assume the swap slot is initialized as 0 */
+    ASSERT_NOT_IMPLEMENTED(*tls_swap_slot == NULL);
+    os_tls->app_tls_swap_slot_value = *tls_swap_slot;
+    *tls_swap_slot = segment;
+    os_tls->tls_type = TLS_TYPE_SWAP;
 }
 
 void
 tls_thread_free(tls_type_t tls_type, int index)
 {
-    /* FIXME i#1551: NYI on ARM */
-    ASSERT_NOT_IMPLEMENTED(false);
+    byte **tls_swap_slot;
+
+    ASSERT(tls_type == TLS_TYPE_SWAP);
+    tls_swap_slot  = get_app_tls_swap_slot_addr();
+    /* swap back for the case of detach */
+    *tls_swap_slot = os_tls->app_tls_swap_slot_value;
+    return;
 }

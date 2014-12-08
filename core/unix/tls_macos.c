@@ -48,8 +48,6 @@
 # error Mac-only
 #endif
 
-tls_type_t tls_global_type;
-
 /* From the (short) machdep syscall table */
 #define SYS_thread_set_user_ldt 4
 #define SYS_i386_set_ldt 5

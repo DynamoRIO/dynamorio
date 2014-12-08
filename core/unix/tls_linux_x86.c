@@ -97,8 +97,6 @@ static int lib_tls_gdt_index = -1;
 static bool tls_using_msr;
 #endif
 
-tls_type_t tls_global_type;
-
 /* Indicates that on the next request for a GDT entry, we should return the GDT
  * entry we stole for private library TLS.  The entry index is in
  * lib_tls_gdt_index.
