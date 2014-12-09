@@ -387,6 +387,25 @@
   instr_create_1dst_1src((dc), OP_vmsr, opnd_create_reg(DR_REG_FPSCR), (Rt))
 /* @} */ /* end doxygen group */
 
+/** @name Signature: (pc) */
+/* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * The operands should be listed with destinations first, followed by sources.
+ * The ordering within these two groups should follow the conventional
+ * assembly ordering.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param pc The program counter constant opnd_t operand.
+ */
+#define INSTR_CREATE_b(dc, pc) \
+  instr_create_0dst_1src((dc), OP_b, (pc))
+#define INSTR_CREATE_bl(dc, pc) \
+  instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (pc))
+#define INSTR_CREATE_blx(dc, pc) \
+  instr_create_0dst_1src((dc), OP_blx, (pc))
+/* @} */ /* end doxygen group */
+
 /** @name Signature: (Rd, Rm) */
 /* @{ */ /* start doxygen group (via DISTRIBUTE_GROUP_DOC=YES). */
 /**
@@ -704,14 +723,8 @@
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  * \param imm The integer constant opnd_t operand.
  */
-#define INSTR_CREATE_b(dc, imm) \
-  instr_create_0dst_1src((dc), OP_b, (imm))
 #define INSTR_CREATE_bkpt(dc, imm) \
   instr_create_1dst_0src((dc), OP_bkpt, (imm))
-#define INSTR_CREATE_bl(dc, imm) \
-  instr_create_1dst_1src((dc), OP_bl, opnd_create_reg(DR_REG_LR), (imm))
-#define INSTR_CREATE_blx(dc, imm) \
-  instr_create_0dst_1src((dc), OP_blx, (imm))
 #define INSTR_CREATE_cps(dc, imm) \
   instr_create_0dst_1src((dc), OP_cps, (imm))
 #define INSTR_CREATE_cpsid(dc, imm) \

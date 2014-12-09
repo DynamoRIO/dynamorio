@@ -231,7 +231,6 @@ enum {
      */
     TYPE_I_b0,
     TYPE_NI_b0, /* negated immed */
-    TYPE_I_x4_b0, /* signed immed is stored as value/4 */
     TYPE_I_b3,
     TYPE_I_b4,
     TYPE_I_b5,
@@ -247,7 +246,6 @@ enum {
     TYPE_I_b20,
     TYPE_I_b21,    /* OP_vmov */
     TYPE_I_b0_b5,  /* OP_cvt: immed is either 32 or 16 minus [3:0,5] */
-    TYPE_I_b0_b24, /* OP_blx imm24:H:0 */
     TYPE_I_b5_b3,  /* OP_vmla scalar: M:Vm<3> */
     TYPE_I_b8_b0,
     TYPE_NI_b8_b0, /* negated immed */
@@ -256,6 +254,10 @@ enum {
     TYPE_I_b21_b5, /* OP_vmov: 21,6:5 */
     TYPE_I_b21_b6, /* OP_vmov: 21,6 */
     TYPE_I_b24_b16_b0, /* OP_vbic, OP_vmov: 24,18:16,3:0 */
+
+    /* PC-relative jump targets */
+    TYPE_J_x4_b0,  /* OP_b, OP_bl: signed immed is stored as value/4 */
+    TYPE_J_b0_b24, /* OP_blx imm24:H:0 */
 
     TYPE_SHIFT_b5,
     TYPE_SHIFT_b6,    /* value is :0 */

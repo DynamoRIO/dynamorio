@@ -242,7 +242,6 @@ const char * const type_names[] = {
     "TYPE_SP",
     "TYPE_I_b0",
     "TYPE_NI_b0",
-    "TYPE_I_x4_b0",
     "TYPE_I_b3",
     "TYPE_I_b4",
     "TYPE_I_b5",
@@ -258,7 +257,6 @@ const char * const type_names[] = {
     "TYPE_I_b20",
     "TYPE_I_b21",
     "TYPE_I_b0_b5",
-    "TYPE_I_b0_b24",
     "TYPE_I_b5_b3",
     "TYPE_I_b8_b0",
     "TYPE_NI_b8_b0",
@@ -267,6 +265,8 @@ const char * const type_names[] = {
     "TYPE_I_b21_b5",
     "TYPE_I_b21_b6",
     "TYPE_I_b24_b16_b0",
+    "TYPE_J_x4_b0",
+    "TYPE_J_b0_b24",
     "TYPE_SHIFT_b5",
     "TYPE_SHIFT_b6",
     "TYPE_SHIFT_LSL",
@@ -511,6 +511,13 @@ get_immed_val_shared(decode_info_t *di, opnd_t opnd, bool relative, bool selecte
             return (ptr_int_t)opnd_get_instr(opnd)->note - (di->cur_note) +
                 (ptr_int_t)di->final_pc;
         }
+    } else if (opnd_is_near_pc(opnd)) {
+        if (relative) {
+            /* For A32, "cur PC" is really "PC + 8" */
+            return (ptr_int_t)(opnd_get_pc(opnd) - (di->final_pc + 8));
+        } else {
+            return (ptr_int_t)opnd_get_pc(opnd);
+        }
     }
     CLIENT_ASSERT(false, "invalid immed opnd type");
     return 0;
@@ -555,7 +562,8 @@ static bool
 encode_immed_int_or_instr_ok(decode_info_t *di, opnd_size_t size_temp, int multiply,
                              opnd_t opnd, bool is_signed, bool negated, bool relative)
 {
-    if (opnd_is_immed_int(opnd) || opnd_is_near_instr(opnd)) {
+    /* We'll take a pc for any immediate */
+    if (opnd_is_immed_int(opnd) || opnd_is_near_instr(opnd) || opnd_is_near_pc(opnd)) {
         ptr_int_t val = get_immed_val_shared(di, opnd, relative, false/*just checking*/);
         return (encode_immed_ok(di, size_temp, val / multiply, is_signed, negated) &&
                 val % multiply == 0);
@@ -837,9 +845,6 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b24_b16_b0:
         return encode_immed_int_or_instr_ok(di, size_temp, 1, opnd, false/*unsigned*/,
                                             false/*pos*/, false/*abs*/);
-    case TYPE_I_x4_b0:
-        return encode_immed_int_or_instr_ok(di, size_temp, 4, opnd, true/*signed*/,
-                                            false/*pos*/, true/*rel*/);
     case TYPE_NI_b0:
     case TYPE_NI_b8_b0:
         return (opnd_is_immed_int(opnd) &&
@@ -896,7 +901,10 @@ encode_opnd_ok(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             return true;
         }
         return false;
-    case TYPE_I_b0_b24: /* OP_blx imm24:H:0 */
+    case TYPE_J_x4_b0: /* OP_b, OP_bl */
+        return encode_immed_int_or_instr_ok(di, size_temp, 4, opnd, true/*signed*/,
+                                            false/*pos*/, true/*rel*/);
+    case TYPE_J_b0_b24: /* OP_blx imm24:H:0 */
         return encode_immed_int_or_instr_ok(di, size_temp, 2, opnd, false/*unsigned*/,
                                             false/*pos*/, true/*rel*/);
     case TYPE_SHIFT_LSL:
@@ -1428,15 +1436,6 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             CLIENT_ASSERT(false, "unsupported 0-5 split immed size");
         break;
     }
-    case TYPE_I_b0_b24: { /* OP_blx imm24:H:0 */
-        ptr_int_t val = get_immed_val_rel(di, opnd);
-        if (size_temp == OPSZ_25b) {
-            encode_immed(di, 24, OPSZ_1b, val >> 1, false/*unsigned*/);
-            encode_immed(di, 0, OPSZ_3, val >> 2, false/*unsigned*/);
-        } else
-            CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
-        break;
-    }
     case TYPE_I_b5_b3: {
         ptr_int_t val = get_immed_val_abs(di, opnd);
         if (size_temp == OPSZ_2b) {
@@ -1510,6 +1509,18 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             CLIENT_ASSERT(false, "unsupported 24-16-0 split immed size");
         break;
     }
+    case TYPE_J_x4_b0:
+        encode_immed(di, 0, size_temp, get_immed_val_rel(di, opnd) >> 2, true/*signed*/);
+        break;
+    case TYPE_J_b0_b24: { /* OP_blx imm24:H:0 */
+        ptr_int_t val = get_immed_val_rel(di, opnd);
+        if (size_temp == OPSZ_25b) {
+            encode_immed(di, 24, OPSZ_1b, val >> 1, false/*unsigned*/);
+            encode_immed(di, 0, OPSZ_3, val >> 2, false/*unsigned*/);
+        } else
+            CLIENT_ASSERT(false, "unsupported 0-24 split immed size");
+        break;
+    }
     case TYPE_SHIFT_b5:
         if (!di->shift_uses_immed) /* encoded in TYPE_I_b7 */
             encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd), false/*unsigned*/);
@@ -1519,9 +1530,6 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
             encode_immed(di, 5, size_temp, opnd_get_immed_int(opnd) << 1,
                          false/*unsigned*/);
         }
-        break;
-    case TYPE_I_x4_b0:
-        encode_immed(di, 0, size_temp, get_immed_val_rel(di, opnd) >> 2, true/*signed*/);
         break;
 
     /* Memory */
@@ -1716,7 +1724,8 @@ byte *
 copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
-    /* FIXME i#1551: NYI */
-    ASSERT_NOT_REACHED();
-    return NULL;
+    /* FIXME i#1551: re-relativizing is NYI */
+    ASSERT(instr_raw_bits_valid(instr));
+    memcpy(dst_pc, instr->bytes, instr->length);
+    return dst_pc + instr->length;
 }

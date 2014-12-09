@@ -292,6 +292,7 @@ foreach my $opc (keys %entry) {
 
         # Friendly names for things we don't care about for macro names
         $sig =~ s/\bi\w*/imm/g;
+        $sig =~ s/\bj\w*/pc/g;
         $sig =~ s/\bM/mem/g;
         $sig =~ s/\bsh\d/shift/g;
         $sig =~ s/\bSPw/sp/g;
@@ -521,6 +522,7 @@ my %mapping = ('reg' => 'register',
                'imm_msr' => 'integer constant (typically from OPND_CREATE_INT_MSR*)',
                'imm2' => 'second integer constant',
                'imm3' => 'third integer constant',
+               'pc' => 'program counter constant',
                'mem' => 'memory',
                'shift' => 'dr_shift_type_t integer constant',
                'cpreg' => 'coprocessor register',

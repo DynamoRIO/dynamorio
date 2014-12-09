@@ -67,7 +67,7 @@ instr_length_arch(dcontext_t *dcontext, instr_t *instr)
     if (instr_get_opcode(instr) == OP_LABEL)
         return 0;
     /* FIXME i#1551: add Thumb support */
-    return 2;
+    return 4;
 }
 
 bool
