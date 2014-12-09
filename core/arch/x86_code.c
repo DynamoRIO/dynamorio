@@ -461,7 +461,9 @@ test_call_switch_stack(dcontext_t *dc)
 static void
 test_cpuid()
 {
+#ifdef X86
     int cpuid_res[4] = {0};
+#endif
     print_file(STDERR, "testing asm cpuid\n");
     EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
 #ifdef X86

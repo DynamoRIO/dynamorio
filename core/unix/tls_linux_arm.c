@@ -75,9 +75,12 @@ void
 tls_thread_free(tls_type_t tls_type, int index)
 {
     byte **tls_swap_slot;
+    os_local_state_t *os_tls;
 
     ASSERT(tls_type == TLS_TYPE_SWAP);
     tls_swap_slot  = get_app_tls_swap_slot_addr();
+    os_tls = (os_local_state_t *)*tls_swap_slot;
+    ASSERT(os_tls->self == os_tls);
     /* swap back for the case of detach */
     *tls_swap_slot = os_tls->app_tls_swap_slot_value;
     return;
