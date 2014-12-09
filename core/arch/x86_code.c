@@ -463,12 +463,14 @@ test_cpuid()
 {
     int cpuid_res[4] = {0};
     print_file(STDERR, "testing asm cpuid\n");
-    EXPECT(cpuid_supported(), true);
+    EXPECT(cpuid_supported(), IF_X86_ELSE(true, false));
+#ifdef X86
     IF_UNIX_ELSE(our_cpuid, __cpuid)(cpuid_res, 0); /* get vendor id */
     /* cpuid_res[1..3] stores vendor info like "GenuineIntel" or "AuthenticAMD" for X86 */
     EXPECT_NE(cpuid_res[1], 0);
     EXPECT_NE(cpuid_res[2], 0);
     EXPECT_NE(cpuid_res[3], 0);
+#endif
 }
 
 void

@@ -486,7 +486,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   add"   suffix " r2, r2, #1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_INC_int(var) ATOMIC_INC_suffix("", var)
@@ -497,7 +498,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   sub"   suffix " r2, r2, #1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : : "cc", "memory", "r2", "r3");
 #  define ATOMIC_DEC_int(var) ATOMIC_DEC_suffix("", var)
@@ -508,7 +510,8 @@ static inline int64 atomic_add_exchange_int64(volatile int64 *var, int64 value) 
        "   add"   suffix " r2, r2, %1     \n\t"                       \
        "   strex" suffix " r3, r2, %0     \n\t"                       \
        "   cmp   r3, #0                   \n\t"                       \
-       "   bne   1b"                                                  \
+       "   bne   1b                       \n\t"                       \
+       "   cmp   r2, #0" /* for possible SET_FLAG use */              \
        : "=Q" (var) /* no offset for ARM mode */                      \
        : "r"  (value)                                                 \
        : "cc", "memory", "r2", "r3");
