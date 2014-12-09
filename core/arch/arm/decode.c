@@ -194,9 +194,9 @@ decode_immed(decode_info_t *di, uint start_bit, opnd_size_t opsize, bool is_sign
 {
     ptr_int_t val;
     uint mask = ((1 << opnd_size_in_bits(opsize)) - 1);
-    if (is_signed)
-        val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask);
-    else
+    if (is_signed) {
+        val = (ptr_int_t)(int)((di->instr_word >> start_bit) & mask) | (~mask);
+    } else
         val = (ptr_int_t)(ptr_uint_t)((di->instr_word >> start_bit) & mask);
     return val;
 }
@@ -487,6 +487,11 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
     case TYPE_NI_b0:
         array[(*counter)++] =
             opnd_create_immed_int(-decode_immed(di, 0, opsize, false/*unsigned*/),
+                                  opsize);
+        return true;
+    case TYPE_I_x4_b0:
+        array[(*counter)++] =
+            opnd_create_immed_int(decode_immed(di, 0, opsize, true/*signed*/) << 2,
                                   opsize);
         return true;
     case TYPE_I_b3:
