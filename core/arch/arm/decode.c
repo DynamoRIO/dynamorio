@@ -566,19 +566,14 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *array
         return true;
     }
     case TYPE_I_b16_b0: {
-        opnd_size_t each;
-        uint sz = opnd_size_in_bits(opsize);
-        CLIENT_ASSERT(sz % 2 == 0, "split 16-0 size must be even");
-        if (opsize == OPSZ_2)
-            each = OPSZ_1;
-        else if (opsize == OPSZ_1)
-            each = OPSZ_4b;
-        else {
+        if (opsize == OPSZ_2) {
+            val = decode_immed(di, 0, OPSZ_12b, false/*unsigned*/);
+            val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 12);
+        } else if (opsize == OPSZ_1) {
+            val = decode_immed(di, 0, OPSZ_4b, false/*unsigned*/);
+            val |= (decode_immed(di, 16, OPSZ_4b, false/*unsigned*/) << 4);
+        } else
             CLIENT_ASSERT(false, "unsupported 16-0 split immed size");
-            each = OPSZ_0;
-        }
-        val = decode_immed(di, 0, each, false/*unsigned*/);
-        val |= (decode_immed(di, 16, each, false/*unsigned*/) << (sz/2));
         array[(*counter)++] = opnd_create_immed_int(val, opsize);
         return true;
     }

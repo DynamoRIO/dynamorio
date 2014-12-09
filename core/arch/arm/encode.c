@@ -1416,8 +1416,8 @@ encode_operand(decode_info_t *di, byte optype, opnd_size_t size_temp, instr_t *i
     case TYPE_I_b16_b0: {
         ptr_int_t val = get_immed_val_abs(di, opnd);
         if (size_temp == OPSZ_2) {
-            encode_immed(di, 0, OPSZ_1, val, false/*unsigned*/);
-            encode_immed(di, 16, OPSZ_1, val >> 8, false/*unsigned*/);
+            encode_immed(di, 0, OPSZ_12b, val, false/*unsigned*/);
+            encode_immed(di, 16, OPSZ_4b, val >> 12, false/*unsigned*/);
         } else if (size_temp == OPSZ_1) {
             encode_immed(di, 0, OPSZ_4b, val, false/*unsigned*/);
             encode_immed(di, 16, OPSZ_4b, val >> 4, false/*unsigned*/);
