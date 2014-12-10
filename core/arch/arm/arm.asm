@@ -230,16 +230,27 @@ ADDRTAKEN_LABEL(safe_read_asm_recover:)
  */
         DECLARE_FUNC(dr_setjmp)
 GLOBAL_LABEL(dr_setjmp:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
-        END_FUNC(dr_set_jmp)
+#ifdef X64
+# error NYI on AArch64
+#endif
+        /* we do not have to save r0 (return value) or r15 (pc) */
+        /* optimization: can we trust callee-saved regs r0-r3 and not save them? */
+        stm ARG1, {REG_R1-REG_R12, sp, lr}
+        mov REG_R0, #0
+        bx  lr
+        END_FUNC(dr_setjmp)
 
 /* int cdecl dr_longjmp(dr_jmp_buf *buf, int retval);
  */
         DECLARE_FUNC(dr_longjmp)
 GLOBAL_LABEL(dr_longjmp:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+#ifdef X64
+# error NYI on AArch64
+#endif
+        mov REG_R2, ARG1
+        mov REG_R0, ARG2
+        ldm REG_R2, {REG_R1-REG_R12, sp, lr}
+        bx  lr
         END_FUNC(dr_longjmp)
 
 /* uint atomic_swap(uint *addr, uint value)

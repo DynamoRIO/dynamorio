@@ -1764,6 +1764,7 @@ convert_data_to_function(void *data_ptr)
  * As longjmp is implemented as return from setjmp, eax & edx need not be saved.
  */
 typedef struct dr_jmp_buf_t {
+#ifdef X86 /* for x86.asm */
     reg_t xbx;
     reg_t xcx;
     reg_t xdi;
@@ -1771,10 +1772,13 @@ typedef struct dr_jmp_buf_t {
     reg_t xbp;
     reg_t xsp;
     reg_t xip;
-#ifdef X64
+# ifdef X64
     /* optimization: can we trust callee-saved regs r8,r9,r10,r11 and not save them? */
     reg_t r8, r9, r10, r11, r12, r13, r14, r15;
-#endif
+# endif
+#elif defined(ARM) /* for arm.asm */
+    reg_t regs[IF_X64_ELSE(32, 16)/*DR_NUM_GPR_REGS*/];
+#endif /* X86/ARM */
 #if defined(UNIX) && defined(DEBUG)
     /* i#226/PR 492568: we avoid the cost of storing this by using the
      * mask in the fault's signal frame, but we do record it in debug
@@ -1783,7 +1787,6 @@ typedef struct dr_jmp_buf_t {
     kernel_sigset_t sigmask;
 #endif
 } dr_jmp_buf_t;
-/* in x86.asm */
 int
 dr_longjmp(dr_jmp_buf_t *buf, int val);
 int
