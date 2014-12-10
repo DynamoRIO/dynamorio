@@ -81,6 +81,8 @@ const char * const reg_names[] = {
     "cr0", "cr1",  "cr2",  "cr3",   "cr4", "cr5",  "cr6",  "cr7",
     "cr8", "cr9",  "cr10", "cr11", "cr12","cr13", "cr14", "cr15",
     "cpsr", "spsr", "fpscr",
+    IF_X64_ELSE("tpidr_el0",   "tpidrurw"),
+    IF_X64_ELSE("tpidrro_el0", "tpidruro"),
 };
 
 /* Maps sub-registers to their containing register. */
@@ -202,6 +204,7 @@ const reg_id_t dr_reg_fixer[] = {
     DR_REG_CR8,  DR_REG_CR9,  DR_REG_CR10, DR_REG_CR11,
     DR_REG_CR12, DR_REG_CR13, DR_REG_CR14, DR_REG_CR15,
     DR_REG_CPSR, DR_REG_SPSR, DR_REG_FPSCR,
+    DR_REG_TPIDRURW, DR_REG_TPIDRURO,
 };
 
 const char * const type_names[] = {

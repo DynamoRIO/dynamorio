@@ -350,8 +350,8 @@ enum {
 
     DR_NUM_GPR_REGS = IF_X64_ELSE(32, 16),
 
-    DR_REG_LAST_VALID_ENUM = DR_REG_SPSR, /**< Last valid register enum */
-    DR_REG_LAST_ENUM = DR_REG_SPSR, /**< Last value of register enums */
+    DR_REG_LAST_VALID_ENUM = DR_REG_TPIDRURO, /**< Last valid register enum */
+    DR_REG_LAST_ENUM = DR_REG_TPIDRURO, /**< Last value of register enums */
 
     DR_REG_START_64  = DR_REG_X0,  /**< Start of 64-bit general register enum values */
     DR_REG_STOP_64   = DR_REG_X31, /**< End of 64-bit general register enum values */
