@@ -198,11 +198,31 @@ GLOBAL_LABEL(global_do_syscall_int:)
 
 DECLARE_GLOBAL(safe_read_asm_recover)
 
+/* i#350: We implement safe_read in assembly and save the PCs that can fault.
+ * If these PCs fault, we return from the signal handler to the epilog, which
+ * can recover.  We return the source pointer from ARG2, and the caller uses this
+ * to determine how many bytes were copied and whether it matches size.
+ *
+ * XXX: Do we care about differentiating whether the read or write faulted?
+ * Currently this is just "safe_memcpy", and we recover regardless of whether
+ * the read or write faulted.
+ *
+ * void *
+ * safe_read_asm(void *dst, const void *src, size_t n);
+ */
         DECLARE_FUNC(safe_read_asm)
 GLOBAL_LABEL(safe_read_asm:)
-        /* FIXME i#1551: NYI on ARM */
+        cmp     ARG3,   #0
+1:      beq     safe_read_asm_recover
+        ldr     REG_R3, [ARG2]
+        str     REG_R3, [ARG1]
+        subs    ARG3, ARG3, #1
+        add     ARG2, ARG2, #1
+        add     ARG1, ARG1, #1
+        b       1b
 ADDRTAKEN_LABEL(safe_read_asm_recover:)
-        bl       GLOBAL_REF(unexpected_return)
+        mov     REG_R0, ARG2
+        bx      lr
         END_FUNC(safe_read_asm)
 
 #ifdef CLIENT_INTERFACE
@@ -224,12 +244,15 @@ GLOBAL_LABEL(dr_longjmp:)
 
 /* uint atomic_swap(uint *addr, uint value)
  * return current contents of addr and replace contents with value.
- * on win32 could use InterlockedExchange intrinsic instead.
  */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-        /* FIXME i#1551: NYI on ARM */
-        bl       GLOBAL_REF(unexpected_return)
+1:      ldrex    REG_R2, [ARG1]
+        strex    REG_R3, ARG2, [ARG1]
+        cmp      REG_R3, #0
+        bne      1b
+        mov      REG_R0, REG_R2
+        bx       lr
         END_FUNC(atomic_swap)
 
         DECLARE_FUNC(our_cpuid)
