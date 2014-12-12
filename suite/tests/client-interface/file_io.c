@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2014 Google, Inc.  All rights reserved.
  * Copyright (c) 2007 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -32,7 +32,16 @@
  */
 
 #ifdef UNIX
+# define _GNU_SOURCE
 # include <unistd.h>
+# include <sys/time.h>
+# include <sys/resource.h>
+# include <stdio.h>
+# include <sys/syscall.h>
+struct compat_rlimit {
+    unsigned int rlim_cur;
+    unsigned int rlim_max;
+};
 #else
 # include <float.h>
 #endif
@@ -42,10 +51,39 @@ int main()
 #ifdef UNIX
     /* test i#357 by trying to close the client's file */
     int i;
-    for (i = 0; i < 2048; i++) {
+    for (i = 3; i < 2048; i++) {
         dup2(0, i);
         close(i);
     }
+
+    /* further tests of i#357 -steal_fds */
+    struct rlimit rlimit;
+    if (getrlimit(RLIMIT_NOFILE, &rlimit) != 0) {
+        perror("getrlimit failed");
+        return 1;
+    }
+    /* DR should have taken -steal_fds == 96.  To avoid hardcoding the 4096
+     * typical max we assume it's just a power of 2.
+     */
+    if ((rlimit.rlim_max & (rlimit.rlim_max - 1)) == 0) {
+        fprintf(stderr, "RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
+                rlimit.rlim_max);
+        return 1;
+    }
+
+# ifndef X64
+    /* Same test but w/ compat struct */
+    struct compat_rlimit crlimit;
+    if (syscall(SYS_getrlimit, RLIMIT_NOFILE, &crlimit) != 0) {
+        perror("getrlimit failed");
+        return 1;
+    }
+    if ((crlimit.rlim_max & (crlimit.rlim_max - 1)) == 0) {
+        fprintf(stderr, "RLIMIT_NOFILE max is %d but shouldn't be power of 2 under DR\n",
+                crlimit.rlim_max);
+        return 1;
+    }
+# endif
 #endif
     /* Now test any floating-point printing at exit time in DR or a
      * client by unmasking div-by-zero, which our_vsnprintf_float()

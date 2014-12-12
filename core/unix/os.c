@@ -92,6 +92,12 @@
 /* for getrlimit */
 #include <sys/time.h>
 #include <sys/resource.h>
+#ifndef X64
+struct compat_rlimit {
+    uint rlim_cur;
+    uint rlim_max;
+};
+#endif
 
 #ifdef LINUX
 /* For clone and its flags, the manpage says to include sched.h with _GNU_SOURCE
@@ -803,13 +809,15 @@ os_file_init(void)
      * SYS_fcntl(F_DUPFD*) from creating a file explicitly in our space.  We do
      * not try to stop incremental file opening from extending into our space:
      * if the app really is running out of fds, we'll give it some of ours:
-     * after all we probably don't need all -steal_fds, and if we realy need fds
+     * after all we probably don't need all -steal_fds, and if we really need fds
      * we typically open them at startup.  We also don't bother watching all
      * syscalls that take in fds from affecting our fds.
      */
     if (DYNAMO_OPTION(steal_fds) > 0) {
         struct rlimit rlimit_nofile;
-        if (dynamorio_syscall(SYS_getrlimit, 2, RLIMIT_NOFILE, &rlimit_nofile) != 0) {
+        /* SYS_getrlimit uses an old 32-bit-field struct so we want SYS_ugetrlimit */
+        if (dynamorio_syscall(IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit),
+                              2, RLIMIT_NOFILE, &rlimit_nofile) != 0) {
             /* linux default is 1024 */
             SYSLOG_INTERNAL_WARNING("getrlimit RLIMIT_NOFILE failed"); /* can't LOG yet */
             rlimit_nofile.rlim_cur = 1024;
@@ -4260,7 +4268,12 @@ ignorable_system_call_normalized(int num)
     case SYS_fcntl_nocancel:
 #endif
     case SYS_fcntl:
+#if defined(X64) || defined(X86)
     case SYS_getrlimit:
+#endif
+#ifndef X64
+    case SYS_ugetrlimit:
+#endif
     case SYS_setrlimit:
 #ifdef LINUX
     /* i#784: app may have behavior relying on SIGALRM */
@@ -6240,12 +6253,16 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
-    case SYS_getrlimit: {
+#if defined(X64) || defined(X86)
+    case SYS_getrlimit:
+#endif
+#ifndef X64
+    case SYS_ugetrlimit:
+#endif
         /* save for post */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
-    }
 
     case SYS_setrlimit: {
         int resource = (int) sys_param(dcontext, 0);
@@ -7100,7 +7117,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
     }
 
-    case SYS_getrlimit: {
+    case IF_X64_ELSE(SYS_getrlimit, SYS_ugetrlimit): {
         int resource = dcontext->sys_param0;
         if (success && resource == RLIMIT_NOFILE) {
             /* we stole some space: hide it from app */
@@ -7112,6 +7129,20 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
+#if defined(X86) && !defined(X64)
+    /* Old struct w/ smaller fields */
+    case SYS_getrlimit: {
+        int resource = dcontext->sys_param0;
+        if (success && resource == RLIMIT_NOFILE) {
+            struct compat_rlimit *rlim = (struct compat_rlimit *) dcontext->sys_param1;
+            safe_write_ex(&rlim->rlim_cur, sizeof(rlim->rlim_cur),
+                          &app_rlimit_nofile.rlim_cur, NULL);
+            safe_write_ex(&rlim->rlim_max, sizeof(rlim->rlim_max),
+                          &app_rlimit_nofile.rlim_max, NULL);
+        }
+        break;
+    }
+#endif
 
 #ifdef VMX86_SERVER
     default:
