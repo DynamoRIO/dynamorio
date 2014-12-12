@@ -1034,7 +1034,14 @@ query_time_seconds(void)
         return 0;
     return (uint)val + UTC_TO_EPOCH_SECONDS;
 #else
-    return (uint) dynamorio_syscall(SYS_time, 1, NULL) + UTC_TO_EPOCH_SECONDS;
+    /* SYS_time is considered obsolete, and is unsupported on ARM */
+    struct timeval current_time;
+    if (dynamorio_syscall(SYS_gettimeofday, 2, &current_time, NULL) >= 0) {
+        return current_time.tv_sec + UTC_TO_EPOCH_SECONDS;
+    } else {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
 #endif
 }
 
@@ -4204,7 +4211,9 @@ ignorable_system_call_normalized(int num)
 #ifdef LINUX
     case SYS_brk:
 #endif
+#if defined(X64) || !defined(ARM)
     case SYS_mmap:
+#endif
 #if !defined(X64) && !defined(MACOS)
     case SYS_mmap2:
 #endif
@@ -4228,7 +4237,7 @@ ignorable_system_call_normalized(int num)
 #if defined(SYS_tgkill)
     case SYS_tgkill:
 #endif
-#if defined(LINUX) && !defined(X64)
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
     case SYS_signal:
 #endif
 #if !defined(X64) || defined(MACOS)
@@ -4250,7 +4259,7 @@ ignorable_system_call_normalized(int num)
     case SYS_signalfd4:
 #endif
     case SYS_sigaltstack:
-#if defined(LINUX) && !defined(X64)
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
     case SYS_sgetmask:
     case SYS_ssetmask:
 #endif
@@ -4268,14 +4277,14 @@ ignorable_system_call_normalized(int num)
     case SYS_fcntl_nocancel:
 #endif
     case SYS_fcntl:
-#if defined(X64) || defined(X86)
+#if defined(X64) || !defined(ARM)
     case SYS_getrlimit:
 #endif
 #ifndef X64
     case SYS_ugetrlimit:
 #endif
     case SYS_setrlimit:
-#ifdef LINUX
+#if defined(LINUX) && !defined(ARM)
     /* i#784: app may have behavior relying on SIGALRM */
     case SYS_alarm:
 #endif
@@ -4285,7 +4294,7 @@ ignorable_system_call_normalized(int num)
 #if defined(LINUX) && defined(X64)
     case SYS_arch_prctl:
 #endif
-#ifdef LINUX
+#if defined(LINUX) && defined(X86)
     case SYS_set_thread_area:
     case SYS_get_thread_area:
     /* FIXME: we might add SYS_modify_ldt later. */
@@ -4424,9 +4433,9 @@ syscall_successful(priv_mcontext_t *mc, int normalized_sysnum)
     } else
         return !TEST(EFLAGS_CF, mc->eflags);
 #else
-    if (normalized_sysnum == SYS_mmap ||
-# ifndef X64
-        normalized_sysnum == SYS_mmap2 ||
+    if (normalized_sysnum == IF_X64_ELSE(SYS_mmap, SYS_mmap2) ||
+# if !defined(ARM) && !defined(X64)
+        normalized_sysnum == SYS_mmap ||
 # endif
         normalized_sysnum == SYS_mremap)
         return mmap_syscall_succeeded((byte *)MCXT_SYSCALL_RES(mc));
@@ -5278,7 +5287,7 @@ handle_exit(dcontext_t *dcontext)
                           sys_param(dcontext, 2), sys_param(dcontext, 3));
 }
 
-#ifdef LINUX /* XXX i#58: just until we have Mac support */
+#if defined(LINUX) && defined(X86) /* XXX i#58: just until we have Mac support */
 static bool
 os_set_app_thread_area(dcontext_t *dcontext, our_modify_ldt_t *user_desc)
 {
@@ -5570,7 +5579,7 @@ pre_system_call(dcontext_t *dcontext)
     /****************************************************************************/
     /* MEMORY REGIONS */
 
-#if defined(LINUX) && !defined(X64)
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
     case SYS_mmap: {
         /* in /usr/src/linux/arch/i386/kernel/sys_i386.c:
            asmlinkage int old_mmap(struct mmap_arg_struct_t *arg)
@@ -6134,7 +6143,7 @@ pre_system_call(dcontext_t *dcontext)
         dcontext->sys_param0 = sys_param(dcontext, 0);
         dcontext->sys_param1 = sys_param(dcontext, 1);
         break;
-#ifdef LINUX
+#if defined(LINUX) && !defined(ARM)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         dcontext->sys_param0 = sys_param(dcontext, 0);
         handle_pre_alarm(dcontext, (unsigned int) dcontext->sys_param0);
@@ -6175,7 +6184,9 @@ pre_system_call(dcontext_t *dcontext)
 #else
     /* until we've implemented them, keep down here to get warning: */
 # if defined(LINUX) && !defined(X64)
+#  ifndef ARM
     case SYS_signal:
+#  endif
     case SYS_sigaction:
     case SYS_sigsuspend:
     case SYS_sigprocmask:
@@ -6184,8 +6195,10 @@ pre_system_call(dcontext_t *dcontext)
 
 #if defined(LINUX) && !defined(X64)
     case SYS_sigpending:      /* 73 */
+# ifndef ARM
     case SYS_sgetmask:        /* 68 */
     case SYS_ssetmask:        /* 69 */
+# endif
 #endif
 #ifdef LINUX
     case SYS_rt_sigtimedwait: /* 177 */
@@ -6253,7 +6266,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 
-#if defined(X64) || defined(X86)
+#if defined(X64) || !defined(ARM)
     case SYS_getrlimit:
 #endif
 #ifndef X64
@@ -6285,6 +6298,7 @@ pre_system_call(dcontext_t *dcontext)
         break;
     }
 # endif
+# ifdef X86
     case SYS_set_thread_area: {
         our_modify_ldt_t desc;
         if (INTERNAL_OPTION(mangle_app_seg) &&
@@ -6315,6 +6329,7 @@ pre_system_call(dcontext_t *dcontext)
         }
         break;
     }
+# endif /* X86 */
 #elif defined(MACOS)
     /* FIXME i#58: handle i386_{get,set}_ldt and thread_fast_set_cthread_self64 */
 #endif
@@ -6756,10 +6771,10 @@ post_system_call(dcontext_t *dcontext)
     }
 #endif
 
-#if defined(LINUX) && !defined(X64)
-    case SYS_mmap2:
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
+    case SYS_mmap:
 #endif
-    case SYS_mmap: {
+    case IF_X64_ELSE(SYS_mmap, SYS_mmap2): {
         uint flags;
         DEBUG_DECLARE(const char *map_type;)
         RSTATS_INC(num_app_mmaps);
@@ -6780,7 +6795,7 @@ post_system_call(dcontext_t *dcontext)
 #endif
         if (!success)
             goto exit_post_system_call;
-#if defined(LINUX) && !defined(X64)
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
         if (sysnum == SYS_mmap) {
             /* The syscall succeeded so the read of 'arg' should be
              * safe. */
@@ -6796,7 +6811,7 @@ post_system_call(dcontext_t *dcontext)
             prot = (uint) dcontext->sys_param2;
             flags = (uint) dcontext->sys_param3;
             DEBUG_DECLARE(map_type = IF_X64_ELSE("mmap2","mmap");)
-#if defined(LINUX) && !defined(X64)
+#if defined(LINUX) && !defined(X64) && !defined(ARM)
         }
 #endif
         process_mmap(dcontext, base, size, prot, flags _IF_DEBUG(map_type));
@@ -7075,7 +7090,7 @@ post_system_call(dcontext_t *dcontext)
         handle_post_getitimer(dcontext, success, (int) dcontext->sys_param0,
                               (struct itimerval *) dcontext->sys_param1);
         break;
-#ifdef LINUX
+#if defined(LINUX) && !defined(ARM)
     case SYS_alarm: /* 27 on x86 and 37 on x64 */
         handle_post_alarm(dcontext, success, (unsigned int) dcontext->sys_param0);
         break;
@@ -7129,7 +7144,7 @@ post_system_call(dcontext_t *dcontext)
         }
         break;
     }
-#if defined(X86) && !defined(X64)
+#if !defined(ARM) && !defined(X64)
     /* Old struct w/ smaller fields */
     case SYS_getrlimit: {
         int resource = dcontext->sys_param0;

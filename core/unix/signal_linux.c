@@ -227,7 +227,8 @@ sysnum_is_not_restartable(int sysnum)
             IF_X64(sysnum == SYS_epoll_wait_old ||)
             sysnum == SYS_epoll_wait || sysnum == SYS_epoll_pwait ||
             sysnum == SYS_poll || sysnum == SYS_ppoll ||
-            sysnum == SYS_select || sysnum == SYS_pselect6 ||
+            IF_NOT_ARM(sysnum == SYS_select ||)
+            sysnum == SYS_pselect6 ||
 #ifdef X64
             sysnum == SYS_msgrcv || sysnum == SYS_msgsnd || sysnum == SYS_semop ||
             sysnum == SYS_semtimedop ||
@@ -236,7 +237,7 @@ sysnum_is_not_restartable(int sysnum)
             sysnum == SYS_recvfrom || sysnum == SYS_recvmsg || sysnum == SYS_recvmmsg ||
             sysnum == SYS_connect || sysnum == SYS_sendto ||
             sysnum == SYS_sendmmsg || sysnum == SYS_sendfile ||
-#else
+#elif !defined(ARM)
             /* XXX: some should be restarted if there's no timeout */
             sysnum == SYS_ipc ||
 #endif
