@@ -63,7 +63,10 @@ GLOBAL_LABEL(FUNCNAME:)
 # if !defined(STANDALONE_UNIT_TEST) && !defined(STATIC_LIBRARY)
         DECLARE_FUNC(_start)
 GLOBAL_LABEL(_start:)
-        /* FIXME i#1551: NYI on ARM */
+        eor      r11, r11  /* clear frame ptr for stack trace bottom */
+        mov      r0, sp    /* arg to privload_early_inject */
+        bl       GLOBAL_REF(privload_early_inject)
+        /* shouldn't return */
         bl       GLOBAL_REF(unexpected_return)
         END_FUNC(_start)
 # endif /* !STANDALONE_UNIT_TEST && !STATIC_LIBRARY */
