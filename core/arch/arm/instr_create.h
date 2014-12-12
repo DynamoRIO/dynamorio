@@ -53,6 +53,12 @@
 /** Create a negated register operand. */
 #define OPND_CREATE_NEG_REG(reg) opnd_create_reg_ex(reg, 0, DR_OPND_NEGATED)
 
+/**
+ * Create an immediate integer operand.  For ARM, the size of an immediate
+ * is ignored when encoding, so there is no need to specify the final size.
+ */
+#define OPND_CREATE_INT(val) OPND_CREATE_INTPTR(val)
+
 /** The immediate opnd_t for use with OP_msr to write the nzcvq status flags. */
 #define OPND_CREATE_INT_MSR_NZCVQ() opnd_create_immed_int(0x8, OPSZ_4b)
 

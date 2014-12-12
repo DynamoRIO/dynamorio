@@ -101,29 +101,57 @@
 #endif
 
 #ifdef X64
-/** Create an 8-byte immediate integer operand. */
+/**
+ * Create an 8-byte immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 #define OPND_CREATE_INT64(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_8)
-/** Create a pointer-sized immediate integer operand. */
+/**
+ * Create a pointer-sized immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 # define OPND_CREATE_INTPTR OPND_CREATE_INT64
 #else
-/** Create a pointer-sized immediate integer operand. */
+/**
+ * Create a pointer-sized immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 # define OPND_CREATE_INTPTR OPND_CREATE_INT32
 #endif
-/** Create a 4-byte immediate integer operand. */
+/**
+ * Create a 4-byte immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 #define OPND_CREATE_INT32(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_4)
-/** Create a 2-byte immediate integer operand. */
+/**
+ * Create a 2-byte immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 #define OPND_CREATE_INT16(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_2)
-/** Create a 1-byte immediate integer operand. */
+/**
+ * Create a 1-byte immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
+ */
 #define OPND_CREATE_INT8(val) opnd_create_immed_int((ptr_int_t)(val), OPSZ_1)
 /**
- * Create a 1-byte immediate interger operand if val will fit, else create a 4-byte
+ * Create a 1-byte immediate integer operand if val will fit, else create a 4-byte
  * immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
  */
 #define OPND_CREATE_INT_32OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
     OPND_CREATE_INT8(val) : OPND_CREATE_INT32(val))
 /**
  * Create a 1-byte immediate interger operand if val will fit, else create a 2-byte
  * immediate integer operand.
+ * \note This is only relevant for x86: for ARM where immediate sizes are
+ * ignored, simply use OPND_CREATE_INT().
  */
 #define OPND_CREATE_INT_16OR8(val) ((val) <= INT8_MAX && (ptr_int_t)(val) >= INT8_MIN ? \
     OPND_CREATE_INT8(val) : OPND_CREATE_INT16(val))
