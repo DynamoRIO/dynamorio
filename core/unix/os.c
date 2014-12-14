@@ -531,39 +531,28 @@ get_libc_errno(void)
 int
 our_unsetenv(const char *name)
 {
-    size_t len;
-    char **ep;
-
-    if (name == NULL || *name == '\0' || strchr (name, '=') != NULL) {
+    /* FIXME: really we should have some kind of synchronization */
+    size_t name_len;
+    char **env = our_environ;
+    if (name == NULL || *name == '\0' || strchr(name, '=') != NULL) {
         return -1;
     }
     ASSERT(our_environ != NULL);
     if (our_environ == NULL)
         return -1;
-
-    len = strlen (name);
-
-    /* FIXME: glibc code grabs a lock here, we don't have access to that lock
-     * LOCK;
-     */
-
-    ep = our_environ;
-    while (*ep != NULL)
-        if (!strncmp (*ep, name, len) && (*ep)[len] == '=') {
-            /* Found it.  Remove this pointer by moving later ones back.  */
-            char **dp = ep;
-
-            do {
-                dp[0] = dp[1];
-            } while (*dp++);
-            /* Continue the loop in case NAME appears again.  */
-        } else
-            ++ep;
-
-    /* FIXME: glibc code unlocks here, we don't have access to that lock
-     * UNLOCK;
-     */
-
+    name_len = strlen(name);
+    while (*env != NULL) {
+        if (strncmp(*env, name, name_len) == 0 && (*env)[name_len] == '=') {
+            /* We have a match.  Shift the subsequent entries.  Keep going to
+             * handle later matches.
+             */
+            char **e;
+            for (e = env; *e != NULL; e++)
+                *e = *(e + 1);
+        } else {
+            env++;
+        }
+    }
     return 0;
 }
 
@@ -572,7 +561,7 @@ our_unsetenv(const char *name)
 char *
 our_getenv(const char *name)
 {
-    char **ep = our_environ;
+    char **env = our_environ;
     size_t i;
     size_t name_len;
     if (name == NULL || name[0] == '\0' || strchr(name, '=') != NULL) {
@@ -583,9 +572,9 @@ our_getenv(const char *name)
     if (our_environ == NULL)
         return NULL;
     name_len = strlen(name);
-    for (i = 0; ep[i] != NULL; i++) {
-        if (strncmp(ep[i], name, name_len) == 0 && ep[i][name_len] == '=') {
-            return ep[i] + name_len + 1;
+    for (i = 0; env[i] != NULL; i++) {
+        if (strncmp(env[i], name, name_len) == 0 && env[i][name_len] == '=') {
+            return env[i] + name_len + 1;
         }
     }
     return NULL;
